@@ -177,9 +177,7 @@ export async function extractGraph(options: ExtractOptions): Promise<Graph> {
   return (await extractGraphWithSidecar(options)).graph;
 }
 
-export async function extractGraphWithSidecar(
-  options: ExtractOptions,
-): Promise<GraphExtraction> {
+export async function extractGraphWithSidecar(options: ExtractOptions): Promise<GraphExtraction> {
   const projectRoot = options.projectRoot;
   const degradedReasons: string[] = [];
 
@@ -207,7 +205,8 @@ export async function extractGraphWithSidecar(
     degradedReasons.push('chunk-index missing — file and chunk nodes unavailable');
   }
 
-  const { entries: healthEntries, available: healthAvailable } = await loadModuleHealth(projectRoot);
+  const { entries: healthEntries, available: healthAvailable } =
+    await loadModuleHealth(projectRoot);
   if (!healthAvailable) {
     degradedReasons.push('module health ledger missing — health overlay disabled');
   }

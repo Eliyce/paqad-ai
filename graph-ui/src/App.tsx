@@ -89,10 +89,18 @@ export function App() {
         </div>
       )}
       {graph && graph.nodes.length === 0 && !loading && (
-        <div className="absolute inset-0 grid place-items-center text-sm" style={{ color: 'var(--color-muted)' }}>
-          <div className="rounded-lg border p-6" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+        <div
+          className="absolute inset-0 grid place-items-center text-sm"
+          style={{ color: 'var(--color-muted)' }}
+        >
+          <div
+            className="rounded-lg border p-6"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          >
             <div className="text-base font-medium">No nodes to display</div>
-            <div className="mt-1">Run <code>paqad-ai onboard</code> to populate this project's graph.</div>
+            <div className="mt-1">
+              Run <code>paqad-ai onboard</code> to populate this project's graph.
+            </div>
           </div>
         </div>
       )}

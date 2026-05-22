@@ -98,10 +98,8 @@ export const useAppStore = create<AppState>((set) => ({
   setSearchMatches: (matches) =>
     set((s) => ({ search: { ...s.search, matches, index: matches.length > 0 ? 0 : 0 } })),
   setSearchIndex: (index) => set((s) => ({ search: { ...s.search, index } })),
-  setSimilarityThreshold: (t) =>
-    set((s) => ({ similarity: { ...s.similarity, threshold: t } })),
-  setSimilarityLoading: (loading) =>
-    set((s) => ({ similarity: { ...s.similarity, loading } })),
+  setSimilarityThreshold: (t) => set((s) => ({ similarity: { ...s.similarity, threshold: t } })),
+  setSimilarityLoading: (loading) => set((s) => ({ similarity: { ...s.similarity, loading } })),
   setSimilarityResult: (edges, capped) =>
     set((s) => ({ similarity: { ...s.similarity, edges, capped, loading: false, error: null } })),
   setSimilarityError: (error) =>

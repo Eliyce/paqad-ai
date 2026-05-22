@@ -140,7 +140,8 @@ function serveStatic(
     'cache-control': 'no-cache',
   };
   const shouldGzip =
-    clientAcceptsGzip(req) && /^(application\/javascript|text\/|application\/json|image\/svg)/.test(contentType);
+    clientAcceptsGzip(req) &&
+    /^(application\/javascript|text\/|application\/json|image\/svg)/.test(contentType);
   if (shouldGzip) {
     headers['content-encoding'] = 'gzip';
     res.writeHead(200, headers);

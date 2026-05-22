@@ -32,7 +32,11 @@ export function Sidebar() {
   const overlay = useAppStore((s) => s.overlay);
   const setOverlay = useAppStore((s) => s.setOverlay);
   const overlaysAvailable = graph?.meta.overlays_available;
-  const OVERLAY_OPTIONS: { key: OverlayKind; label: string; availableKey?: keyof NonNullable<typeof overlaysAvailable> }[] = [
+  const OVERLAY_OPTIONS: {
+    key: OverlayKind;
+    label: string;
+    availableKey?: keyof NonNullable<typeof overlaysAvailable>;
+  }[] = [
     { key: 'none', label: 'none' },
     { key: 'health', label: 'health', availableKey: 'health' },
     { key: 'defects', label: 'defect density', availableKey: 'defects' },
@@ -74,7 +78,10 @@ export function Sidebar() {
 
       {graph && (
         <>
-          <section className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs" style={{ color: 'var(--color-muted)' }}>
+          <section
+            className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs"
+            style={{ color: 'var(--color-muted)' }}
+          >
             <div>modules</div>
             <div className="text-right">{graph.meta.counts.modules}</div>
             <div>files</div>
@@ -88,7 +95,10 @@ export function Sidebar() {
           </section>
 
           <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-            <h2 className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+            <h2
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: 'var(--color-muted)' }}
+            >
               Layers
             </h2>
             <ul className="mt-1 space-y-1">
@@ -107,7 +117,10 @@ export function Sidebar() {
           </section>
 
           <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-            <h2 className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+            <h2
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: 'var(--color-muted)' }}
+            >
               Overlay
             </h2>
             <select
@@ -132,7 +145,10 @@ export function Sidebar() {
           </section>
 
           <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-            <h2 className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+            <h2
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: 'var(--color-muted)' }}
+            >
               Similarity
             </h2>
             <div className="mt-1 flex items-center gap-2">
@@ -152,7 +168,10 @@ export function Sidebar() {
                 }}
                 className="flex-1"
               />
-              <span className="w-10 text-right text-xs tabular-nums" style={{ color: 'var(--color-muted)' }}>
+              <span
+                className="w-10 text-right text-xs tabular-nums"
+                style={{ color: 'var(--color-muted)' }}
+              >
                 {pending.toFixed(2)}
               </span>
             </div>
@@ -169,10 +188,16 @@ export function Sidebar() {
 
           {graph.meta.degraded_reasons.length > 0 && (
             <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-              <h2 className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+              <h2
+                className="text-xs font-medium uppercase tracking-wide"
+                style={{ color: 'var(--color-muted)' }}
+              >
                 Notes
               </h2>
-              <ul className="mt-1 list-disc space-y-1 pl-4 text-xs" style={{ color: 'var(--color-muted)' }}>
+              <ul
+                className="mt-1 list-disc space-y-1 pl-4 text-xs"
+                style={{ color: 'var(--color-muted)' }}
+              >
                 {graph.meta.degraded_reasons.map((r) => (
                   <li key={r}>{r}</li>
                 ))}
@@ -181,7 +206,6 @@ export function Sidebar() {
           )}
         </>
       )}
-
     </aside>
   );
 }
