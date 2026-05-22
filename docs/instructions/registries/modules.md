@@ -11,53 +11,53 @@ paqad-ai's modules live in three layers:
 
 ## Layer 1 — CLI Commands (non-AI surface)
 
-| Slug                | Name                                         | Features |
-| ------------------- | -------------------------------------------- | -------- |
-| cli-lifecycle       | Project Lifecycle Commands                   | install, onboard, refresh, update |
-| cli-health          | Health & Diagnostics Commands                | doctor, module-health |
-| cli-rag             | RAG Index Commands                           | init, rebuild, status, clear, eval |
-| cli-graph           | Project Graph Command                        | graph server, graph-ui SPA, similarity overlay |
-| cli-packs           | Pack Management Commands                     | list, install, remove, validate, create |
-| cli-capabilities    | Capability Toggle Commands                   | list, add, remove |
-| cli-patterns        | Pattern Library Commands                     | list, prune, export |
-| cli-compliance      | Spec Compliance Commands                     | extract, check, review, skeleton, doctor, boundary, patterns |
-| cli-plan            | Resumable Plan Command                       | plan resume |
-| adapter-onboarding  | Adapter Onboarding (LLM platform entry files)| claude-code, codex-cli, antigravity, gemini-cli, junie, cursor, github-copilot, windsurf, continue, aider |
+| Slug                | Name                                         | Docs | Features |
+| ------------------- | -------------------------------------------- | ---- | -------- |
+| cli-lifecycle       | Project Lifecycle Commands                   | [↗](../../modules/cli-lifecycle/index/summary.md) | install, onboard, refresh, update |
+| cli-health          | Health & Diagnostics Commands                | [↗](../../modules/cli-health/index/summary.md) | doctor, module-health |
+| cli-rag             | RAG Index Commands                           | [↗](../../modules/cli-rag/index/summary.md) | init, rebuild, status, clear, eval |
+| cli-graph           | Project Graph Command                        | [↗](../../modules/cli-graph/index/summary.md) | graph server, graph-ui SPA, similarity overlay |
+| cli-packs           | Pack Management Commands                     | [↗](../../modules/cli-packs/index/summary.md) | list, install, remove, validate, create |
+| cli-capabilities    | Capability Toggle Commands                   | [↗](../../modules/cli-capabilities/index/summary.md) | list, add, remove |
+| cli-patterns        | Pattern Library Commands                     | [↗](../../modules/cli-patterns/index/summary.md) | list, prune, export |
+| cli-compliance      | Spec Compliance Commands                     | [↗](../../modules/cli-compliance/index/summary.md) | extract, check, review, skeleton, doctor, boundary, patterns |
+| cli-plan            | Resumable Plan Command                       | [↗](../../modules/cli-plan/index/summary.md) | plan resume |
+| adapter-onboarding  | Adapter Onboarding (LLM platform entry files)| [↗](../../modules/adapter-onboarding/index/summary.md) | claude-code, codex-cli, antigravity, gemini-cli, junie, cursor, github-copilot, windsurf, continue, aider |
 
 ## Layer 2 — Agent Workflows (LLM-facing surface)
 
-| Slug                            | Name                                  | Trigger phrase / source |
-| ------------------------------- | ------------------------------------- | ------------------------ |
-| documentation-workflow          | Documentation Workflow                | "create documentation" / "create module documentation" |
-| pentest-workflow                | Security Pentest Workflow             | "run pentest" / "retest pentest" |
-| feature-development-workflow    | Feature Development Workflow          | `docs/instructions/workflows/feature-development.yaml` |
-| root-cause-analysis-workflow    | Root Cause Analysis Workflow          | RCA-triggered |
-| agent-routing                   | Agent Routing & Capability Lanes      | router agent + capabilities |
+| Slug                            | Name                                  | Docs | Trigger phrase / source |
+| ------------------------------- | ------------------------------------- | ---- | ------------------------ |
+| documentation-workflow          | Documentation Workflow                | [↗](../../modules/documentation-workflow/index/summary.md) | "create documentation" / "create module documentation" |
+| pentest-workflow                | Security Pentest Workflow             | [↗](../../modules/pentest-workflow/index/summary.md) | "run pentest" / "retest pentest" |
+| feature-development-workflow    | Feature Development Workflow          | [↗](../../modules/feature-development-workflow/index/summary.md) | `docs/instructions/workflows/feature-development.yaml` |
+| root-cause-analysis-workflow    | Root Cause Analysis Workflow          | [↗](../../modules/root-cause-analysis-workflow/index/summary.md) | RCA-triggered |
+| agent-routing                   | Agent Routing & Capability Lanes      | [↗](../../modules/agent-routing/index/summary.md) | router agent + capabilities |
 
 ## Layer 3 — Framework Internals (contributor-facing)
 
-| Slug                       | Name                                   |
-| -------------------------- | -------------------------------------- |
-| stack-detection-engine     | Stack Detection Engine                 |
-| pack-system                | Pack System (22 built-in packs)        |
-| capability-model           | Capability Model (content / coding / security) |
-| workflow-engine            | Workflow Engine                        |
-| skill-runtime              | Skill Runtime                          |
-| agent-runtime              | Built-in Agent Roles (20)              |
-| rules-runtime              | Rules Bundle                           |
-| template-engine            | Template Engine                        |
-| context-intelligence       | Context Intelligence                   |
-| hybrid-rag                 | Hybrid RAG Runtime                     |
-| mcp-config                 | MCP Configuration                      |
-| module-map-engine          | Module Map Engine                      |
-| module-health-ledger       | Module Health Ledger                   |
-| session-handoff            | Session Handoff & Predictive Cache     |
-| decision-pause-contract    | Decision Pause Contract                |
-| pattern-library            | Cross-Project Pattern Library          |
-| compliance-engine          | Spec Compliance Engine                 |
-| pentest-engine             | Pentest Engine (12 Skills)             |
-| project-profile-schema     | Project Profile & Onboarding Manifest  |
-| repository-resolver        | Repository Resolver                    |
+| Slug                       | Name                                   | Docs |
+| -------------------------- | -------------------------------------- | ---- |
+| stack-detection-engine     | Stack Detection Engine                 | [↗](../../modules/stack-detection-engine/index/summary.md) |
+| pack-system                | Pack System (22 built-in packs)        | [↗](../../modules/pack-system/index/summary.md) |
+| capability-model           | Capability Model (content / coding / security) | [↗](../../modules/capability-model/index/summary.md) |
+| workflow-engine            | Workflow Engine                        | [↗](../../modules/workflow-engine/index/summary.md) |
+| skill-runtime              | Skill Runtime                          | [↗](../../modules/skill-runtime/index/summary.md) |
+| agent-runtime              | Built-in Agent Roles (20)              | [↗](../../modules/agent-runtime/index/summary.md) |
+| rules-runtime              | Rules Bundle                           | [↗](../../modules/rules-runtime/index/summary.md) |
+| template-engine            | Template Engine                        | [↗](../../modules/template-engine/index/summary.md) |
+| context-intelligence       | Context Intelligence                   | [↗](../../modules/context-intelligence/index/summary.md) |
+| hybrid-rag                 | Hybrid RAG Runtime                     | [↗](../../modules/hybrid-rag/index/summary.md) |
+| mcp-config                 | MCP Configuration                      | [↗](../../modules/mcp-config/index/summary.md) |
+| module-map-engine          | Module Map Engine                      | [↗](../../modules/module-map-engine/index/summary.md) |
+| module-health-ledger       | Module Health Ledger                   | [↗](../../modules/module-health-ledger/index/summary.md) |
+| session-handoff            | Session Handoff & Predictive Cache     | [↗](../../modules/session-handoff/index/summary.md) |
+| decision-pause-contract    | Decision Pause Contract                | [↗](../../modules/decision-pause-contract/index/summary.md) |
+| pattern-library            | Cross-Project Pattern Library          | [↗](../../modules/pattern-library/index/summary.md) |
+| compliance-engine          | Spec Compliance Engine                 | [↗](../../modules/compliance-engine/index/summary.md) |
+| pentest-engine             | Pentest Engine (12 Skills)             | [↗](../../modules/pentest-engine/index/summary.md) |
+| project-profile-schema     | Project Profile & Onboarding Manifest  | [↗](../../modules/project-profile-schema/index/summary.md) |
+| repository-resolver        | Repository Resolver                    | [↗](../../modules/repository-resolver/index/summary.md) |
 
 ## Confidence
 

@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updatedAt": "2026-05-22T00:00:00Z",
-  "stage": "foundation",
-  "moduleDocStage": "pending_map_review",
+  "stage": "module-docs",
+  "moduleDocStage": "complete",
   "completed": [
     "stack/overview.md",
     "stack/versions.md",
@@ -12,7 +12,42 @@
     "registries/commands.md",
     "benchmarks/overview.md",
     "tech-debt/overview.md",
-    "rules/module-map.yml"
+    "rules/module-map.yml",
+    "modules/cli-lifecycle",
+    "modules/cli-health",
+    "modules/cli-rag",
+    "modules/cli-graph",
+    "modules/cli-packs",
+    "modules/cli-capabilities",
+    "modules/cli-patterns",
+    "modules/cli-compliance",
+    "modules/cli-plan",
+    "modules/adapter-onboarding",
+    "modules/documentation-workflow",
+    "modules/pentest-workflow",
+    "modules/feature-development-workflow",
+    "modules/root-cause-analysis-workflow",
+    "modules/agent-routing",
+    "modules/stack-detection-engine",
+    "modules/pack-system",
+    "modules/capability-model",
+    "modules/workflow-engine",
+    "modules/skill-runtime",
+    "modules/agent-runtime",
+    "modules/rules-runtime",
+    "modules/template-engine",
+    "modules/context-intelligence",
+    "modules/hybrid-rag",
+    "modules/mcp-config",
+    "modules/module-map-engine",
+    "modules/module-health-ledger",
+    "modules/session-handoff",
+    "modules/decision-pause-contract",
+    "modules/pattern-library",
+    "modules/compliance-engine",
+    "modules/pentest-engine",
+    "modules/project-profile-schema",
+    "modules/repository-resolver"
   ],
   "blocked": [],
   "lowConfidenceModules": [
@@ -23,5 +58,10 @@
     "repository-resolver"
   ],
   "moduleMapVersion": 2,
-  "moduleMapLayers": ["cli-commands", "agent-workflows", "framework-internals"]
+  "moduleMapLayers": ["cli-commands", "agent-workflows", "framework-internals"],
+  "moduleDocStats": {
+    "modules": 35,
+    "features": 73,
+    "filesWritten": 181
+  }
 }
