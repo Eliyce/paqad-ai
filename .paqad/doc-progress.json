@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-22T00:00:00Z",
+  "stage": "foundation",
+  "moduleDocStage": "pending_map_review",
+  "completed": [
+    "stack/overview.md",
+    "stack/versions.md",
+    "architecture/overview.md",
+    "design-system/overview.md",
+    "registries/modules.md",
+    "registries/commands.md",
+    "benchmarks/overview.md",
+    "tech-debt/overview.md",
+    "rules/module-map.yml"
+  ],
+  "blocked": [],
+  "lowConfidenceModules": [
+    "root-cause-analysis-workflow",
+    "agent-routing",
+    "feature-development-workflow",
+    "pattern-library",
+    "repository-resolver"
+  ],
+  "moduleMapVersion": 2,
+  "moduleMapLayers": ["cli-commands", "agent-workflows", "framework-internals"]
+}

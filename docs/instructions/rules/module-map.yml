@@ -1,0 +1,666 @@
+version: 2
+generatedAt: 2026-05-22
+confidence: high
+notes: |
+  paqad-ai is a documentation-first npm package that helps LLM coding agents
+  (Claude Code, Codex, Cursor, Copilot, etc.) work effectively in any project.
+  It ships two product surfaces:
+
+    1. cli-commands       — what a human runs in the terminal. No LLM in loop.
+                            Scaffolds project metadata, docs, rules, adapter
+                            entry files, RAG indexes, graphs, etc.
+    2. agent-workflows    — what an LLM does when it loads the adapter entry
+                            file (CLAUDE.md / AGENTS.md / .cursor/rules/…) and
+                            follows the runtime rules, skills, and agent roles
+                            shipped inside this package.
+
+  Plus a third grouping:
+    3. framework-internals — engines and runtime assets that power both
+                             surfaces (workflow engine, skill runtime, RAG,
+                             context intelligence, agent roles, packs, etc.).
+                             These docs are written for paqad-ai contributors,
+                             not end users.
+
+  Every module's `layer:` field marks which group it belongs to. Stage 2
+  (`create module documentation`) will use this file as the sole authority
+  for slugs, feature names, and source paths.
+
+modules:
+
+  # ────────────────────────────────────────────────────────────────────
+  # LAYER 1 — cli-commands (non-AI surface, user runs these directly)
+  # ────────────────────────────────────────────────────────────────────
+
+  - slug: cli-lifecycle
+    name: Project Lifecycle Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      The day-one and day-N commands that bootstrap, refresh, and upgrade
+      a project's framework footprint without re-running full onboarding.
+    sources:
+      - src/cli/commands/install.ts
+      - src/cli/commands/onboard.ts
+      - src/cli/commands/refresh.ts
+      - src/cli/commands/update.ts
+    features:
+      - slug: install
+        name: paqad-ai install
+        sources: [src/cli/commands/install.ts, src/install]
+      - slug: onboard
+        name: paqad-ai onboard
+        sources: [src/cli/commands/onboard.ts, src/onboarding]
+      - slug: refresh
+        name: paqad-ai refresh
+        sources: [src/cli/commands/refresh.ts]
+      - slug: update
+        name: paqad-ai update
+        sources: [src/cli/commands/update.ts, src/update]
+
+  - slug: cli-health
+    name: Health & Diagnostics Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Validate that the framework's generated artifacts, copied instructions,
+      MCP config, docs, and module ledger are intact and current.
+    sources:
+      - src/cli/commands/doctor.ts
+      - src/cli/commands/module-health.ts
+    features:
+      - slug: doctor
+        name: paqad-ai doctor
+        sources: [src/cli/commands/doctor.ts]
+      - slug: module-health
+        name: paqad-ai module-health
+        sources: [src/cli/commands/module-health.ts, src/module-health]
+
+  - slug: cli-rag
+    name: RAG Index Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Build, inspect, clear, and benchmark the optional hybrid RAG vector
+      index that augments agent retrieval.
+    sources:
+      - src/cli/commands/rag.ts
+    features:
+      - slug: rag-init
+        name: rag init
+        sources: [src/cli/commands/rag.ts]
+      - slug: rag-rebuild
+        name: rag rebuild
+      - slug: rag-status
+        name: rag status
+      - slug: rag-clear
+        name: rag clear
+      - slug: rag-eval
+        name: rag eval
+
+  - slug: cli-graph
+    name: Project Graph Command
+    layer: cli-commands
+    confidence: high
+    summary: |
+      One-command WebGL map of modules, files, chunks, symbols, imports, and
+      similarity neighbours. Server, frontend, and layout worker all ship
+      inside the package.
+    sources:
+      - src/cli/commands/graph.ts
+      - src/graph
+      - graph-ui
+    features:
+      - slug: graph-server
+        name: Graph Server
+        sources: [src/cli/commands/graph.ts, src/graph]
+      - slug: graph-ui
+        name: Graph UI (React 19 + Vite SPA)
+        sources: [graph-ui]
+      - slug: similarity-overlay
+        name: Similarity & Intelligence Overlays
+        sources: [src/graph]
+
+  - slug: cli-packs
+    name: Pack Management Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Install, remove, validate, scaffold, and inspect stack packs (built-in,
+      global, or project-scoped overrides).
+    sources:
+      - src/cli/commands/packs.ts
+    features:
+      - slug: packs-list
+        name: packs list
+      - slug: packs-install
+        name: packs install
+      - slug: packs-remove
+        name: packs remove
+      - slug: packs-validate
+        name: packs validate
+      - slug: packs-create
+        name: packs create
+
+  - slug: cli-capabilities
+    name: Capability Toggle Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      List and toggle the content / coding / security capability layers with
+      dependency rules enforced (e.g. removing coding also removes security).
+    sources:
+      - src/cli/commands/capabilities.ts
+    features:
+      - slug: capabilities-list
+        name: capabilities list / available
+      - slug: capabilities-add
+        name: capabilities add
+      - slug: capabilities-remove
+        name: capabilities remove
+
+  - slug: cli-patterns
+    name: Pattern Library Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Query, prune, and export the cross-project pattern library stored at
+      `~/.paqad/patterns/`.
+    sources:
+      - src/cli/commands/patterns.ts
+    features:
+      - slug: patterns-list
+        name: patterns list
+      - slug: patterns-prune
+        name: patterns prune
+      - slug: patterns-export
+        name: patterns export
+
+  - slug: cli-compliance
+    name: Spec Compliance Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Extract obligations from structured Markdown specs, check tests for
+      explicit evidence, generate failing Vitest skeletons, and validate
+      compliance indexes.
+    sources:
+      - src/cli/commands/compliance.ts
+      - src/compliance
+    features:
+      - slug: compliance-extract
+        name: compliance extract
+      - slug: compliance-check
+        name: compliance check
+      - slug: compliance-review
+        name: compliance review
+      - slug: compliance-skeleton
+        name: compliance skeleton
+      - slug: compliance-doctor
+        name: compliance doctor
+      - slug: compliance-boundary
+        name: compliance boundary
+      - slug: compliance-patterns
+        name: compliance patterns
+
+  - slug: cli-plan
+    name: Resumable Plan Command
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Resume a structured planning manifest at the last incomplete slice.
+    sources:
+      - src/cli/commands/plan.ts
+      - src/cli/plan-resume.ts
+      - src/planning
+    features:
+      - slug: plan-resume
+        name: plan resume <slug>
+
+  - slug: adapter-onboarding
+    name: Adapter Onboarding (LLM platform entry files)
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Generates the thin entry file each external LLM agent platform reads on
+      startup. All entry files point back to the same shared instruction
+      bundles under `docs/instructions/` and the framework runtime, so one
+      onboarding configures every supported platform.
+    sources:
+      - src/adapters
+      - src/onboarding/file-writer.ts
+    features:
+      - slug: claude-code
+        name: Claude Code (CLAUDE.md)
+        outputs: [CLAUDE.md, .mcp.json]
+      - slug: codex-cli
+        name: Codex CLI (AGENTS.md)
+        outputs: [AGENTS.md]
+      - slug: antigravity
+        name: Google Antigravity (ANTIGRAVITY.md)
+        outputs: [ANTIGRAVITY.md]
+      - slug: gemini-cli
+        name: Gemini CLI (GEMINI.md)
+        outputs: [GEMINI.md]
+      - slug: junie
+        name: JetBrains Junie
+        outputs: [.junie/AGENTS.md, .junie/mcp/mcp.json]
+      - slug: cursor
+        name: Cursor
+        outputs: [.cursor/rules/paqad.mdc]
+      - slug: github-copilot
+        name: GitHub Copilot
+        outputs: [.github/copilot-instructions.md, .vscode/mcp.json]
+      - slug: windsurf
+        name: Windsurf
+        outputs: [.windsurfrules]
+      - slug: continue
+        name: Continue
+        outputs: [.continue/rules/paqad.md]
+      - slug: aider
+        name: Aider (config-only)
+        outputs: [CONVENTIONS.md]
+
+  # ────────────────────────────────────────────────────────────────────
+  # LAYER 2 — agent-workflows (LLM-facing surface)
+  # Invoked by the agent when the human types a short Paqad phrase like
+  # "create documentation" inside Claude Code / Codex / Cursor.
+  # ────────────────────────────────────────────────────────────────────
+
+  - slug: documentation-workflow
+    name: Documentation Workflow
+    layer: agent-workflows
+    confidence: high
+    summary: |
+      The two-stage flow triggered by "create documentation" (Stage 1 —
+      foundation docs + module map) and "create module documentation"
+      (Stage 2 — per-module business + technical docs). Re-reads live
+      manifests, syncs the stored stack profile, then writes
+      `docs/instructions/**` and `docs/modules/**`.
+    sources:
+      - runtime/base/skills/documentation-workflow
+      - src/stack-docs
+      - src/document
+    features:
+      - slug: foundation-stage
+        name: Stage 1 — Foundation Docs
+      - slug: module-stage
+        name: Stage 2 — Module Docs
+      - slug: module-map-discovery
+        name: Module Map Discovery
+        sources: [src/module-map, src/introspection]
+      - slug: differential-refresh
+        name: Differential Refresh
+
+  - slug: pentest-workflow
+    name: Security Pentest Workflow
+    layer: agent-workflows
+    confidence: high
+    summary: |
+      Resumable 5-step "break locally first" workflow with OWASP Top 10 2025
+      and OWASP API Security 2023 coverage. Generates local-only curl attack
+      playbooks; never auto-executes. Has an incremental retest mode keyed
+      off stable PT-XXXX finding IDs.
+    sources:
+      - src/workflows/pentest.ts
+      - src/workflows/pentest-retest.ts
+      - src/pentest
+    features:
+      - slug: pentest-run
+        name: Run Pentest
+      - slug: pentest-retest
+        name: Retest
+        sources: [src/workflows/pentest-retest.ts]
+      - slug: finding-normalizer
+        name: Finding Normalizer (PT-XXXX IDs)
+      - slug: local-attack-playbook
+        name: Local Attack Playbook
+
+  - slug: feature-development-workflow
+    name: Feature Development Workflow
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      Generic feature-delivery pipeline assembled from YAML in
+      `docs/instructions/workflows/`. Routes through requirement analysis,
+      story design, parallel implementation + tests, adversarial review,
+      and verification. Conditional and parallel steps supported.
+    sources:
+      - docs/instructions/workflows/feature-development.yaml
+      - src/workflows
+    features:
+      - slug: routing
+        name: Lane & Complexity Routing
+      - slug: parallel-execution
+        name: Parallel Step Execution
+        sources: [src/workflows/parallel-executor.ts]
+      - slug: conditional-steps
+        name: Conditional / Failure Handling
+      - slug: resumable-runs
+        name: Resumable Runs
+
+  - slug: root-cause-analysis-workflow
+    name: Root Cause Analysis Workflow
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      Structured RCA workflow used by agents when a bug or incident needs
+      a postmortem-style write-up.
+    sources:
+      - src/workflows/root-cause-analysis.ts
+
+  - slug: agent-routing
+    name: Agent Routing & Capability Lanes
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      How the router agent picks the right downstream specialist, how
+      capabilities (content / coding / security) gate which agents are
+      callable, and how strictness flags promote tasks to the full lane
+      (requires adversarial review, blocks on stale docs, etc.).
+    sources:
+      - runtime/base/agents/router.md
+      - src/core/capabilities.ts
+
+  # ────────────────────────────────────────────────────────────────────
+  # LAYER 3 — framework-internals (engine + runtime; for paqad-ai contributors)
+  # ────────────────────────────────────────────────────────────────────
+
+  - slug: stack-detection-engine
+    name: Stack Detection Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Lockfile-first detection of frameworks, traits, and archetypes across
+      9 ecosystems. Drives onboarding, refresh, docs, MCP config, and
+      security workflows from a single resolved stack profile.
+    sources:
+      - src/detection
+      - src/core/stack-profile.ts
+    features:
+      - slug: manifest-scanner
+        name: Manifest & Lockfile Scanner
+      - slug: archetype-resolution
+        name: Archetype Resolution
+      - slug: drift-tracking
+        name: Drift Tracking
+        sources: [.paqad/stack-snapshot.json, .paqad/stack-drift.json]
+
+  - slug: pack-system
+    name: Pack System
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Declarative `pack.yaml` packs that bind a stack to its detection
+      signals, docs, MCP config, and security mappings. Ships 19 framework
+      packs + 3 archetype packs and supports global + project-scoped
+      overrides with deterministic precedence.
+    sources:
+      - src/packs
+    features:
+      - slug: pack-schema
+        name: Pack Schema (pack.yaml)
+      - slug: built-in-packs
+        name: 22 Built-in Packs
+      - slug: pack-overrides
+        name: Override Precedence
+      - slug: pack-authoring
+        name: Custom Pack Authoring
+
+  - slug: capability-model
+    name: Capability Model
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Three capabilities — `content`, `coding`, `security` — that gate which
+      rules, skills, and agents activate. Content is always on; coding
+      activates on a pack match; security follows coding.
+    sources:
+      - src/core/capabilities.ts
+
+  - slug: workflow-engine
+    name: Workflow Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Loads YAML workflow definitions, validates them, and runs steps with
+      sequential, parallel, conditional, and resumable semantics. Handlebars
+      templates render step inputs.
+    sources:
+      - src/workflows/engine.ts
+      - src/workflows/step-executor.ts
+      - src/workflows/parallel-executor.ts
+      - src/workflows/template-loader.ts
+      - src/workflows/template-validator.ts
+
+  - slug: skill-runtime
+    name: Skill Runtime
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Discovers and invokes the 27+ skills shipped under
+      `runtime/base/skills/**`. Skills are the smallest reusable unit of
+      agent behaviour (scope-check, spec-diff, adversarial-review, etc.).
+    sources:
+      - src/skills
+      - runtime/base/skills
+
+  - slug: agent-runtime
+    name: Built-in Agent Roles
+    layer: framework-internals
+    confidence: high
+    summary: |
+      20 built-in specialist agent roles shipped in `runtime/base/agents`
+      and capability sub-trees: 11 base workflow agents (router, verifier,
+      story-designer, test-planner, product-owner, …), 8 coding specialists
+      (solution-architect, database-expert, devops-engineer, doc-maintainer,
+      …), and 1 security specialist (security-auditor).
+    sources:
+      - runtime/base/agents
+      - runtime/capabilities
+
+  - slug: rules-runtime
+    name: Rules Bundle
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Canonical rules loaded by every agent invocation. Shipped under
+      `runtime/base/rules` and copied / linked into `docs/instructions/rules`
+      during onboarding.
+    sources:
+      - runtime/base/rules
+      - docs/instructions/rules
+
+  - slug: template-engine
+    name: Template Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Handlebars templates for spec documents, user flows, registry pages,
+      sequence plans, phase handoffs, adversarial review reports, and
+      design-system docs.
+    sources:
+      - src/templates
+      - runtime/templates
+      - src/design-tokens
+
+  - slug: context-intelligence
+    name: Context Intelligence
+    layer: framework-internals
+    confidence: high
+    summary: |
+      AST-aware semantic loader, 4-tier budget optimizer, deduplication,
+      pure-regex turn summarizer, and per-tier stream truncator. Makes
+      every token count regardless of whether RAG is on.
+    sources:
+      - src/context
+      - src/token-efficiency
+    features:
+      - slug: semantic-loader
+        name: Semantic Loader
+      - slug: budget-optimizer
+        name: Budget Optimizer (green→yellow→amber→red)
+      - slug: deduplication
+        name: Artifact Deduplication
+      - slug: turn-summarizer
+        name: Turn Summarizer
+      - slug: stream-truncator
+        name: Stream Truncator
+
+  - slug: hybrid-rag
+    name: Hybrid RAG Runtime
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Optional vector index under `.paqad/vectors/`, hybrid scoring (vector
+      + keyword + symbol + path), adaptive depth (none/standard/deep),
+      metadata filters, reranking (passthrough / local cross-encoder /
+      Cohere), and eval gates. Plugs into the semantic loader, not off
+      to the side.
+    sources:
+      - src/rag
+      - src/project-knowledge
+    features:
+      - slug: vector-index
+        name: Vector Index
+      - slug: embedding-providers
+        name: Embedding Providers (local / openai / voyageai)
+      - slug: hybrid-scoring
+        name: Hybrid Scoring
+      - slug: reranking
+        name: Reranking
+      - slug: pattern-vectors
+        name: Pattern Vectors
+      - slug: eval-gates
+        name: Eval Gates (hit@5, success, correction turns)
+
+  - slug: mcp-config
+    name: MCP Configuration
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Generates per-adapter MCP server configuration (global defaults,
+      project overrides, stack-scoped servers) from the resolved pack set.
+    sources:
+      - src/mcp
+
+  - slug: module-map-engine
+    name: Module Map Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Builds the business-language module map from codebase signals using
+      the documented precedence: user-provided → locked entries →
+      codebase-native containers → deterministic inference → LLM fallback.
+      Powers Stage 1 of the documentation workflow.
+    sources:
+      - src/module-map
+      - src/introspection
+
+  - slug: module-health-ledger
+    name: Module Health Ledger
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Per-module health, defect density, risk floor, and complexity scores
+      stored under `.paqad/module-health/`. Sync ingests pending provider
+      evidence; record writes normalized entries directly. Drives the
+      graph's intelligence overlays.
+    sources:
+      - src/module-health
+      - .paqad/module-health
+
+  - slug: session-handoff
+    name: Session Handoff & Predictive Cache
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Structured v2 handoff (active task, decisions, files, blockers, next
+      steps) — 70–85% smaller than raw dumps, in JSON and Markdown. Plus
+      a predictive skill cache that pre-warms when P(next | current) ≥ 0.7
+      (disabled by default; transition data accumulates passively).
+    sources:
+      - src/session
+      - src/cache
+
+  - slug: decision-pause-contract
+    name: Decision Pause Contract
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Agent-side contract enforced by `CLAUDE.md` / `AGENTS.md`: before any
+      flagged choice the agent writes a Decision Packet to
+      `.paqad/decisions/pending/D-{N}.json` and stops until the resolved
+      packet exists. Routed through the interactive question UI when
+      available.
+    sources:
+      - .paqad/decisions
+
+  - slug: pattern-library
+    name: Cross-Project Pattern Library
+    layer: framework-internals
+    confidence: medium
+    summary: |
+      Verified solutions stored globally under `~/.paqad/patterns/`. Scored
+      by framework overlap + keyword match with a staleness penalty after
+      180 days.
+    sources:
+      - src/patterns
+
+  - slug: compliance-engine
+    name: Spec Compliance Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Parses structured Markdown specs into deterministic obligation
+      indexes, scans tests for explicit `@obligation` evidence, generates
+      failing Vitest skeletons, and validates index schema + duplicate IDs.
+    sources:
+      - src/compliance
+
+  - slug: pentest-engine
+    name: Pentest Engine (12 Skills)
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The 12 security skills (input-validation, auth-mechanism, crypto,
+      BOLA, business-logic, runtime-surface, STRIDE, dependency-advisory,
+      logging-monitoring, rate-limiting, finding-normalizer, retest-
+      verification), validators, and verification helpers that back the
+      pentest workflow.
+    sources:
+      - src/pentest
+      - src/validators
+      - src/verification
+
+  - slug: project-profile-schema
+    name: Project Profile & Onboarding Manifest
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The shape, defaults, and writers for `.paqad/project-profile.yaml`,
+      `.paqad/onboarding-manifest.json`, and the resolved
+      `project-intelligence` context that every other module reads.
+    sources:
+      - src/core/project-profile.ts
+      - src/core/project-intelligence.ts
+      - src/core/runtime-paths.ts
+      - src/onboarding/manifest-writer.ts
+
+  - slug: repository-resolver
+    name: Repository Resolver
+    layer: framework-internals
+    confidence: medium
+    summary: |
+      Detects the repository root, sub-projects (e.g. `graph-ui/` inside
+      this repo), and ecosystem markers. Used by detection, onboarding,
+      and the module-map engine.
+    sources:
+      - src/repository
+      - src/resolver
+
+lowConfidenceModules:
+  - root-cause-analysis-workflow
+  - agent-routing
+  - feature-development-workflow
+  - pattern-library
+  - repository-resolver

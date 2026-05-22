@@ -64,6 +64,7 @@ stages:
   checks:
     instructions:
       - Run the project command checks after implementation and before finalizing the feature.
+      - Verify test coverage is 100%
     required_inputs:
       - working tree diff
     strictness:
