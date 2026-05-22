@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # npm dependencies - grouped to keep PR count manageable.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    groups:
+      dev-dependencies-minor-patch:
+        dependency-type: development
+        update-types: [minor, patch]
+      prod-dependencies-patch:
+        dependency-type: production
+        update-types: [patch]
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # GitHub Actions used in workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: chore
+      include: scope
