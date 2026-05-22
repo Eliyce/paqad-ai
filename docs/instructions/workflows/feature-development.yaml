@@ -1,0 +1,97 @@
+# Feature Development Stage Policy
+# This file customizes how the built-in feature-development workflow behaves in this project.
+# The framework still owns routing, phase order, and mandatory safety stages.
+schema_version: "1"
+merge_mode: append
+
+stages:
+  planning:
+    # Extra context to load before planning starts.
+    read:
+      - docs/modules/**
+      - docs/instructions/**
+    instructions:
+      - Review the canonical module and instruction docs before planning the change.
+      - Keep planning scoped to the requested feature and the current repository state.
+    required_inputs:
+      - active request
+      - canonical docs
+    strictness:
+      require_docs_context: true
+    escalation:
+      missing_docs_context: warn
+    artifacts:
+      - implementation sequence
+
+  specification:
+    instructions:
+      - Write or refine the feature specification before implementation when the lane includes specification.
+    required_inputs:
+      - approved spec boundary
+    strictness:
+      require_spec: true
+    escalation:
+      missing_spec: stop
+    artifacts:
+      - specification
+
+  development:
+    instructions:
+      - Implement only the requested feature behavior and avoid unrelated refactors.
+    required_inputs:
+      - approved spec
+      - implementation sequence
+    strictness:
+      avoid_unrelated_refactors: true
+    escalation:
+      scope_expansion: ask
+    artifacts:
+      - code changes
+
+  review:
+    instructions:
+      - Review the change against correctness, regressions, and rollback risk before treating it as complete.
+    required_inputs:
+      - code diff
+      - verification summary
+    strictness:
+      require_review: true
+    escalation:
+      review_findings: stop
+    artifacts:
+      - review summary
+
+  checks:
+    instructions:
+      - Run the project command checks after implementation and before finalizing the feature.
+    required_inputs:
+      - working tree diff
+    strictness:
+      block_on_failure: true
+    escalation:
+      missing_command_mapping: stop
+    artifacts:
+      - verification summary
+    checks:
+      use_project_profile_commands: true
+      commands:
+        - format
+        - test
+        - build
+      shell_commands: []
+      block_on_failure: true
+      # Add project-specific commands here when needed.
+      # shell_commands:
+      #   - pnpm typecheck
+
+  documentation_sync:
+    instructions:
+      - Sync canonical docs affected by the feature diff after verification passes.
+    required_inputs:
+      - changed files
+    strictness:
+      require_canonical_sync: true
+    escalation:
+      stale_docs: stop
+    artifacts:
+      - stale doc targets

@@ -1,0 +1,758 @@
+{
+  "generated_at": "2026-05-22T11:38:00.164Z",
+  "source_hashes": {
+    "graph-ui/package.json": "sha256:a98677c6d4360ee9214797c076d058e69b4f722e2d91bfa51f8deccab379c0d8",
+    "graph-ui/pnpm-lock.yaml": "sha256:25a49c3d60aa103845eeb726ca30fa2b06126f1ccd2b433b2f95bd9e1a0a4046",
+    "package.json": "sha256:ef911e8bf928c3370cc0017abc0be8491740984508d1fc68ddf196bf3dbd5852",
+    "pnpm-lock.yaml": "sha256:de8cdab20a95a7ba486f18f09cd40fb59be0affc2e517cf38b54f0c181f4c6d4"
+  },
+  "toolchains": [
+    {
+      "ecosystem": "node",
+      "package_manager": "pnpm",
+      "lockfile": "pnpm-lock.yaml"
+    },
+    {
+      "ecosystem": "node",
+      "package_manager": "npm",
+      "lockfile": "package-lock.json"
+    },
+    {
+      "ecosystem": "node",
+      "package_manager": "pnpm",
+      "lockfile": "graph-ui/pnpm-lock.yaml"
+    },
+    {
+      "ecosystem": "node",
+      "package_manager": "npm",
+      "lockfile": "graph-ui/package-lock.json"
+    }
+  ],
+  "packages": [
+    {
+      "name": "@changesets/cli",
+      "version_constraint": "^2.29.7",
+      "locked_version": "^2.29.7",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@eslint/js",
+      "version_constraint": "^9.36.0",
+      "locked_version": "^9.36.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@inquirer/prompts",
+      "version_constraint": "^7.3.3",
+      "locked_version": "^7.3.3",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "@types/node",
+      "version_constraint": "^24.5.2",
+      "locked_version": "^24.5.2",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@vitest/coverage-v8",
+      "version_constraint": "^3.2.4",
+      "locked_version": "^3.2.4",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@xenova/transformers",
+      "version_constraint": "^2.17.2",
+      "locked_version": "^2.17.2",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "ajv",
+      "version_constraint": "^8.17.1",
+      "locked_version": "^8.17.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "chalk",
+      "version_constraint": "^5.4.1",
+      "locked_version": "^5.4.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "commander",
+      "version_constraint": "^14.0.1",
+      "locked_version": "^14.0.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "eslint",
+      "version_constraint": "^9.36.0",
+      "locked_version": "^9.36.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "execa",
+      "version_constraint": "^9.6.0",
+      "locked_version": "^9.6.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "fast-glob",
+      "version_constraint": "^3.3.3",
+      "locked_version": "^3.3.3",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "globals",
+      "version_constraint": "^16.4.0",
+      "locked_version": "^16.4.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "handlebars",
+      "version_constraint": "^4.7.8",
+      "locked_version": "^4.7.8",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "markdownlint-cli2",
+      "version_constraint": "^0.18.1",
+      "locked_version": "^0.18.1",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "openai",
+      "version_constraint": "^6.33.0",
+      "locked_version": "^6.33.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "ora",
+      "version_constraint": "^8.2.0",
+      "locked_version": "^8.2.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "pathe",
+      "version_constraint": "^2.0.3",
+      "locked_version": "^2.0.3",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "prettier",
+      "version_constraint": "^3.6.2",
+      "locked_version": "^3.6.2",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "tsup",
+      "version_constraint": "^8.5.0",
+      "locked_version": "^8.5.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "typescript",
+      "version_constraint": "^5.9.2",
+      "locked_version": "^5.9.2",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "typescript-eslint",
+      "version_constraint": "^8.44.1",
+      "locked_version": "^8.44.1",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "vitest",
+      "version_constraint": "^3.2.4",
+      "locked_version": "^3.2.4",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "voyageai",
+      "version_constraint": "^0.2.1",
+      "locked_version": "^0.2.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "yaml",
+      "version_constraint": "^2.8.1",
+      "locked_version": "^2.8.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "@changesets/cli",
+      "version_constraint": "^2.29.7",
+      "locked_version": "^2.29.7",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@eslint/js",
+      "version_constraint": "^9.36.0",
+      "locked_version": "^9.36.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@inquirer/prompts",
+      "version_constraint": "^7.3.3",
+      "locked_version": "^7.3.3",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "@types/node",
+      "version_constraint": "^24.5.2",
+      "locked_version": "^24.5.2",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@vitest/coverage-v8",
+      "version_constraint": "^3.2.4",
+      "locked_version": "^3.2.4",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "@xenova/transformers",
+      "version_constraint": "^2.17.2",
+      "locked_version": "^2.17.2",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "ajv",
+      "version_constraint": "^8.17.1",
+      "locked_version": "^8.17.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "chalk",
+      "version_constraint": "^5.4.1",
+      "locked_version": "^5.4.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "commander",
+      "version_constraint": "^14.0.1",
+      "locked_version": "^14.0.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "eslint",
+      "version_constraint": "^9.36.0",
+      "locked_version": "^9.36.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "execa",
+      "version_constraint": "^9.6.0",
+      "locked_version": "^9.6.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "fast-glob",
+      "version_constraint": "^3.3.3",
+      "locked_version": "^3.3.3",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "globals",
+      "version_constraint": "^16.4.0",
+      "locked_version": "^16.4.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "handlebars",
+      "version_constraint": "^4.7.8",
+      "locked_version": "^4.7.8",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "markdownlint-cli2",
+      "version_constraint": "^0.18.1",
+      "locked_version": "^0.18.1",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "openai",
+      "version_constraint": "^6.33.0",
+      "locked_version": "^6.33.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "ora",
+      "version_constraint": "^8.2.0",
+      "locked_version": "^8.2.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "pathe",
+      "version_constraint": "^2.0.3",
+      "locked_version": "^2.0.3",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "prettier",
+      "version_constraint": "^3.6.2",
+      "locked_version": "^3.6.2",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "tsup",
+      "version_constraint": "^8.5.0",
+      "locked_version": "^8.5.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "typescript",
+      "version_constraint": "^5.9.2",
+      "locked_version": "^5.9.2",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "typescript-eslint",
+      "version_constraint": "^8.44.1",
+      "locked_version": "^8.44.1",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "vitest",
+      "version_constraint": "^3.2.4",
+      "locked_version": "^3.2.4",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
+      "name": "voyageai",
+      "version_constraint": "^0.2.1",
+      "locked_version": "^0.2.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "yaml",
+      "version_constraint": "^2.8.1",
+      "locked_version": "^2.8.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "."
+    },
+    {
+      "name": "@tailwindcss/vite",
+      "version_constraint": "^4.0.0",
+      "locked_version": "^4.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "@types/react",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "@types/react-dom",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "version_constraint": "^4.3.0",
+      "locked_version": "^4.3.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "graphology",
+      "version_constraint": "^0.25.4",
+      "locked_version": "^0.25.4",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "graphology-layout-forceatlas2",
+      "version_constraint": "^0.10.1",
+      "locked_version": "^0.10.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "react",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "react-dom",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "sigma",
+      "version_constraint": "^3.0.0",
+      "locked_version": "^3.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "tailwindcss",
+      "version_constraint": "^4.0.0",
+      "locked_version": "^4.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "typescript",
+      "version_constraint": "^5.9.0",
+      "locked_version": "^5.9.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "vite",
+      "version_constraint": "^6.0.0",
+      "locked_version": "^6.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "zustand",
+      "version_constraint": "^5.0.0",
+      "locked_version": "^5.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "@tailwindcss/vite",
+      "version_constraint": "^4.0.0",
+      "locked_version": "^4.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "@types/react",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "@types/react-dom",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "version_constraint": "^4.3.0",
+      "locked_version": "^4.3.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "graphology",
+      "version_constraint": "^0.25.4",
+      "locked_version": "^0.25.4",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "graphology-layout-forceatlas2",
+      "version_constraint": "^0.10.1",
+      "locked_version": "^0.10.1",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "react",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "react-dom",
+      "version_constraint": "^19.0.0",
+      "locked_version": "^19.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "sigma",
+      "version_constraint": "^3.0.0",
+      "locked_version": "^3.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    },
+    {
+      "name": "tailwindcss",
+      "version_constraint": "^4.0.0",
+      "locked_version": "^4.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "typescript",
+      "version_constraint": "^5.9.0",
+      "locked_version": "^5.9.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "vite",
+      "version_constraint": "^6.0.0",
+      "locked_version": "^6.0.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "graph-ui"
+    },
+    {
+      "name": "zustand",
+      "version_constraint": "^5.0.0",
+      "locked_version": "^5.0.0",
+      "ecosystem": "node",
+      "is_dev": false,
+      "root": "graph-ui"
+    }
+  ],
+  "profile": {
+    "frameworks": [
+      "react"
+    ],
+    "traits": [
+      "tailwind",
+      "vite-spa",
+      "vitest"
+    ],
+    "toolchains": [
+      {
+        "ecosystem": "node",
+        "package_manager": "pnpm",
+        "lockfile": "pnpm-lock.yaml"
+      },
+      {
+        "ecosystem": "node",
+        "package_manager": "npm",
+        "lockfile": "package-lock.json"
+      },
+      {
+        "ecosystem": "node",
+        "package_manager": "pnpm",
+        "lockfile": "graph-ui/pnpm-lock.yaml"
+      },
+      {
+        "ecosystem": "node",
+        "package_manager": "npm",
+        "lockfile": "graph-ui/package-lock.json"
+      }
+    ],
+    "version_bands": [
+      {
+        "name": "react:^19",
+        "package_name": "react",
+        "range": "^19",
+        "locked_version": "^19.0.0",
+        "source": "manifest"
+      },
+      {
+        "name": "tailwindcss:^4",
+        "package_name": "tailwindcss",
+        "range": "^4",
+        "locked_version": "^4.0.0",
+        "source": "manifest"
+      }
+    ],
+    "sources": [
+      {
+        "file": "graph-ui/package.json",
+        "kind": "manifest",
+        "detail": "Used for stack detection and version resolution"
+      },
+      {
+        "file": "graph-ui/pnpm-lock.yaml",
+        "kind": "lockfile",
+        "detail": "Used for stack detection and version resolution"
+      },
+      {
+        "file": "package.json",
+        "kind": "manifest",
+        "detail": "Used for stack detection and version resolution"
+      },
+      {
+        "file": "pnpm-lock.yaml",
+        "kind": "lockfile",
+        "detail": "Used for stack detection and version resolution"
+      }
+    ]
+  },
+  "repository": {
+    "selected_root": "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm",
+    "scan_max_depth": 5,
+    "ignored_paths": [
+      ".git",
+      "coverage",
+      "graph-ui/node_modules",
+      "node_modules",
+      "tests/unit/adapters/fixtures",
+      "tests/unit/templates/fixtures"
+    ],
+    "projects": [
+      {
+        "root": ".",
+        "role": "standalone",
+        "parent_root": null,
+        "markers": [
+          "package.json"
+        ],
+        "ecosystems": [
+          "node"
+        ]
+      },
+      {
+        "root": "graph-ui",
+        "role": "standalone",
+        "parent_root": null,
+        "markers": [
+          "package.json"
+        ],
+        "ecosystems": [
+          "node"
+        ]
+      }
+    ],
+    "applications": [
+      {
+        "root": ".",
+        "component_roots": []
+      },
+      {
+        "root": "graph-ui",
+        "component_roots": []
+      }
+    ],
+    "primary_project_root": "."
+  }
+}

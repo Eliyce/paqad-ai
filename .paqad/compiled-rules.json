@@ -1,0 +1,404 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-22T11:41:29.676Z",
+  "source_hash": "sha256:eae8fcf2fba47dfbf928586556f1db21bc2ef02b526217465b898e0732a9a3c2",
+  "rules": [
+    {
+      "rule_id": "RULE-1",
+      "title": "Canonical Docs",
+      "source_path": "docs/instructions/rules/_shared/canonical-docs.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Describe the framework-managed documentation set.",
+      "raw_text": "# Canonical Docs\n\n## Purpose\n\nDescribe the framework-managed documentation set.\n\n## Rules\n\n- Treat canonical docs as authoritative for current system behavior.\n- Keep module docs scoped and complete.\n- Use registry updates to maintain discovery efficiency.\n"
+    },
+    {
+      "rule_id": "RULE-2",
+      "title": "Constitution",
+      "source_path": "docs/instructions/rules/_shared/constitution.md",
+      "trigger_patterns": [
+        "docs/modules/",
+        "create documentation",
+        ".paqad/"
+      ],
+      "severity": "must",
+      "summary": "Define the non-negotiable operating rules for the framework.",
+      "raw_text": "# Constitution\n\n## Purpose\n\nDefine the non-negotiable operating rules for the framework.\n\n## Rules\n\n- Work docs-first before writing code.\n- If `docs/modules/` is absent, run `create documentation` before any feature work begins. Do not skip this even if the user requests a feature directly.\n- Prefer deterministic scripts and MCP over file scanning.\n- Preserve user-owned project files unless explicitly updating them.\n- Never read files outside the active project-profile module list unless the user or canonical docs require it.\n- Never start implementation work before a spec artifact exists in `.paqad/` for that change.\n- Prefer MCP tool results over file scanning when both are available and trustworthy.\n- If classification confidence is below 80%, escalate instead of guessing.\n"
+    },
+    {
+      "rule_id": "RULE-3",
+      "title": "Design System",
+      "source_path": "docs/instructions/rules/_shared/design-system.md",
+      "trigger_patterns": [
+        "docs/instructions/design-system/",
+        "tokens.md",
+        "components.md",
+        "patterns.md",
+        "paqad refresh --design-system"
+      ],
+      "severity": "must",
+      "summary": "Ensure all UI changes are consistent with the project's established design tokens and patterns.",
+      "raw_text": "# Design System\n\n## Purpose\n\nEnsure all UI changes are consistent with the project's established design tokens and patterns.\n\n## Rules\n\n- Before proposing any UI change (component, screen, style, layout), check whether `docs/instructions/design-system/` exists in the project.\n- If that directory exists, read `tokens.md`, `components.md`, and `patterns.md` before writing any code. All colours, spacing, typography, motion, and component behaviour must align with those specifications.\n- Do not introduce new design tokens, component variants, or style values that contradict the documented design system. Extend it by adding to the token file first, then implement.\n- If `docs/instructions/design-system/` does not exist, follow general good-practice UI conventions and suggest the team runs `paqad refresh --design-system` to seed the design system from their token file.\n- `docs/instructions/design-system/` is the single source of truth for UI design decisions; it takes precedence over ad-hoc inline styles or undocumented conventions.\n"
+    },
+    {
+      "rule_id": "RULE-4",
+      "title": "Documentation",
+      "source_path": "docs/instructions/rules/_shared/documentation.md",
+      "trigger_patterns": [
+        "composer.json",
+        "package.json",
+        ".paqad/doc-progress.json"
+      ],
+      "severity": "could",
+      "summary": "Maintain canonical documentation as current system truth.",
+      "raw_text": "# Documentation\n\n## Purpose\n\nMaintain canonical documentation as current system truth.\n\n## Rules\n\n- Documentation creation is a workflow, not a standalone framework CLI command.\n- Run documentation creation only after onboarding has established framework metadata.\n- Validate the current application state from `composer.json`, `package.json`, and stack manifests before writing docs.\n- If the real stack differs from stored onboarding state, update the effective stack context first.\n- Create docs in ordered steps and persist progress to `.paqad/doc-progress.json`.\n- Update specs, flows, API docs, integration docs, and error catalogs together.\n- Refresh registries after relevant file changes.\n- Keep glossary terms aligned with new business language.\n"
+    },
+    {
+      "rule_id": "RULE-5",
+      "title": "Observability",
+      "source_path": "docs/instructions/rules/_shared/observability.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Require traceable verification and runtime visibility.",
+      "raw_text": "# Observability\n\n## Purpose\n\nRequire traceable verification and runtime visibility.\n\n## Rules\n\n- Capture verification outcomes in structured artifacts.\n- Preserve handoff state between phases.\n- Treat context hit rate and cache usage as optimization signals.\n"
+    },
+    {
+      "rule_id": "RULE-6",
+      "title": "Performance",
+      "source_path": "docs/instructions/rules/_shared/performance.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "must",
+      "summary": "Bias the framework toward efficient, deterministic execution.",
+      "raw_text": "# Performance\n\n## Purpose\n\nBias the framework toward efficient, deterministic execution.\n\n## Rules\n\n- Load only the context required for the current phase.\n- Prefer differential refresh over full rebuilds.\n- Reuse cacheable skill results when inputs are unchanged.\n"
+    },
+    {
+      "rule_id": "RULE-7",
+      "title": "Pipeline",
+      "source_path": "docs/instructions/rules/_shared/pipeline.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Define the canonical phase progression.",
+      "raw_text": "# Pipeline\n\n## Purpose\n\nDefine the canonical phase progression.\n\n## Rules\n\n- Move phases in order and stop on blocking failures.\n- Keep handoff artifacts current after each phase.\n- Route work through fast, graduated, or full lanes deterministically.\n"
+    },
+    {
+      "rule_id": "RULE-8",
+      "title": "Security",
+      "source_path": "docs/instructions/rules/_shared/security.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Set baseline security expectations for every task.",
+      "raw_text": "# Security\n\n## Purpose\n\nSet baseline security expectations for every task.\n\n## Rules\n\n- Block destructive commands unless explicitly authorized.\n- Avoid leaking secrets into docs, specs, or handoff artifacts.\n- Prefer least-privilege integrations and stable local paths.\n"
+    },
+    {
+      "rule_id": "RULE-9",
+      "title": "Testing",
+      "source_path": "docs/instructions/rules/_shared/testing.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Keep implementation changes coupled with verification.",
+      "raw_text": "# Testing\n\n## Purpose\n\nKeep implementation changes coupled with verification.\n\n## Rules\n\n- Add or update tests for every behavior change.\n- Keep coverage above the configured threshold.\n- Run the smallest relevant suite first, then the broader gates.\n"
+    },
+    {
+      "rule_id": "RULE-10",
+      "title": "Code Quality",
+      "source_path": "docs/instructions/rules/coding/code-quality.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Define the baseline coding standard for implementation work.",
+      "raw_text": "# Code Quality\n\n## Purpose\n\nDefine the baseline coding standard for implementation work.\n\n## Rules\n\n- Keep changes deterministic and test-backed.\n- Match repository conventions and naming.\n- Avoid speculative abstractions outside the current scope.\n"
+    },
+    {
+      "rule_id": "RULE-11",
+      "title": "Code Review",
+      "source_path": "docs/instructions/rules/coding/code-review.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Drive adversarial, risk-based review.",
+      "raw_text": "# Code Review\n\n## Purpose\n\nDrive adversarial, risk-based review.\n\n## Rules\n\n- Prioritize correctness, regressions, and verification gaps.\n- Call out rollback and data-integrity risk explicitly.\n- Treat missing tests as first-class findings.\n"
+    },
+    {
+      "rule_id": "RULE-12",
+      "title": "Pentest Workflow",
+      "source_path": "docs/instructions/rules/security/pentest.md",
+      "trigger_patterns": [
+        ".paqad/pentest/runs/<run_id>/progress.json",
+        "completed",
+        "docs/modules/",
+        "tests/",
+        "docs-summary.json",
+        "tests-summary.json",
+        ".paqad/pentest/runs/<run_id>/artifacts/",
+        "stride-threat-model",
+        "stride-threats.json",
+        "permission-boundary-review",
+        "business-logic-abuse-review",
+        "input-validation-review",
+        "auth-mechanism-review",
+        "cryptographic-review",
+        "logging-monitoring-review",
+        "rate-limiting-review",
+        "scripts/",
+        "pentest-audit-dependencies.sh",
+        "pentest-scan-secrets.sh",
+        "pentest-enumerate-surface.sh",
+        "/swagger",
+        "/api-docs",
+        "/openapi.json",
+        "/graphql",
+        "pentest-db-readonly.sh",
+        "pentest-scan-git-history.sh",
+        "dependency-advisory-triage",
+        "docs/pentest/<timestamp>-local-playbook.md",
+        "localhost",
+        "bash\n# IDOR — swap user ID in path\n# Expected: 403 Forbidden. If 200 with another user's data → confirmed IDOR (WSTG-AUTHZ-04).\ncurl -s -H \"Authorization: Bearer $LOW_PRIV_TOKEN\" \\\n  \"http://localhost:8000/api/users/2/profile\"\n\n# Race condition — concurrent requests (use HTTP/2 single-packet for reliable timing)\n# Expected: only 1 success. Multiple 200s → race condition confirmed (WSTG-BUSL-09).\nfor i in {1..20}; do\n  curl -s -X POST -H \"Authorization: Bearer $TOKEN\" \\\n    \"http://localhost:8000/api/vouchers/PROMO10/redeem\" &\ndone; wait\n# For tighter timing: use Burp Turbo Intruder or send all requests in one TCP packet (HTTP/2).\n\n# Mass assignment — inject privileged fields\n# Expected: extra fields ignored or 400. If role/is_admin changes → confirmed (WSTG-INPV-06).\ncurl -s -X PATCH -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -d '{\"name\":\"test\",\"is_admin\":true,\"role\":\"admin\",\"balance\":99999}' \\\n  \"http://localhost:8000/api/profile\"\n\n# SSRF — AWS metadata probe\n# Expected: blocked or error. If metadata returned → SSRF confirmed (WSTG-INPV-17).\ncurl -s -X POST -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"http://169.254.169.254/latest/meta-data/\"}' \\\n  \"http://localhost:8000/api/preview\"\n\n# JWT alg:none bypass\n# 1. Split your valid JWT: header.payload.signature\n# 2. Re-encode header with \"alg\":\"none\" (base64url, no padding)\n# 3. Send: <new_header>.<original_payload>. (empty signature — note trailing dot)\n# Expected: 401. If 200 → alg:none not rejected (WSTG-SESS-10).\ncurl -s -H \"Authorization: Bearer <forged_alg_none_token>\" \\\n  \"http://localhost:8000/api/me\"\n\n# GraphQL introspection\n# Expected: disabled in production config. If full schema returned → information disclosure.\ncurl -s -X POST -H \"Content-Type: application/json\" \\\n  -d '{\"query\":\"{ __schema { types { name fields { name } } } }\"}' \\\n  \"http://localhost:8000/graphql\"\n\n# Open redirect\n# Expected: only relative paths or trusted domains accepted. If external redirect → confirmed.\ncurl -sI \"http://localhost:8000/auth/callback?redirect=https://evil.com\"\n\n# Security headers check\n# Expected: all security headers present.\ncurl -sI \"http://localhost:8000/\" | grep -iE \"strict-transport|x-frame|content-security|x-content-type\"",
+        "**Important:** This playbook is **generated only — never auto-executed.** All commands are templates; substitute",
+        ",",
+        ", and endpoint paths with values from the target project. Never run these against a production system.\n\n### Step 3 — live-validation\n\n- If a target URL is available (from the request text,",
+        "APP_URL, or",
+        "), run",
+        "against it.\n- The runtime checks script must cover:\n  - Base reachability (HTTP 200 on home/health)\n  - Security header audit (HSTS, X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy)\n  - CORS header probe on at least one authenticated endpoint\n  - Error disclosure probe (trigger a 404 and a malformed request; check for stack traces in response)\n  - Open redirect probe on known redirect/callback parameters\n  - Sensitive file exposure (",
+        ")\n  - GraphQL introspection probe (",
+        ")\n  - Rate limit probe on login endpoint (10 rapid requests; check for 429 response)\n- If no URL is found, record the check as blocked and continue.\n- Skills:",
+        "### Step 4 — synthesize-findings\n\nNormalise all evidence from steps 1–3 into structured findings:\n\n- **Dependency findings**: from lockfile audit and OSV results\n- **Module findings**: from doc and test coverage gaps (all 8 skill categories)\n- **Secret findings**: from secret scan and git history scan output\n- **Runtime findings**: from live-validation results (if available)\n\nAssign stable",
+        "IDs. Write a",
+        "to",
+        ".\n\n- Skills:",
+        "### Step 5 — write-report\n\n- Write a Markdown report to",
+        "- Write a JSON sidecar to",
+        "- Include:\n  - Stack summary and capability profile\n  - **OWASP WSTG Coverage Matrix** (see template below)\n  - Ordered findings (critical → high → medium → low)\n  - Blocked checks with explanation\n  - Remediation priorities\n  - Methodology notes\n  - Link to the local attack playbook generated in Step 2.5\n\n#### OWASP WSTG Coverage Matrix Template\n\n| WSTG Category     | Test ID          | Description                       | Status            |\n| ----------------- | ---------------- | --------------------------------- | ----------------- |\n| WSTG-AUTHZ-04     | IDOR             | Insecure Direct Object Reference  | covered / blocked |\n| WSTG-INPV-17      | SSRF             | Server-Side Request Forgery       | covered / blocked |\n| WSTG-INPV-06      | Mass Assignment  | Broken Object Property Level Auth | covered / blocked |\n| WSTG-SESS-10      | JWT              | JSON Web Token Security           | covered / blocked |\n| WSTG-SESS-03      | Session Fixation | Session Fixation Attack           | covered / blocked |\n| WSTG-ATHN-03      | Brute Force      | Testing for Account Lockout       | covered / blocked |\n| WSTG-BUSL-01..12  | Business Logic   | Workflow abuse, race conditions   | covered / blocked |\n| WSTG-CRYP-01..03  | Cryptography     | Weak encryption / hashing         | covered / blocked |\n| WSTG-INPV-13      | Rate Limiting    | Resource exhaustion / DoS         | covered / blocked |\n| WSTG-AUTHZ-01..11 | Authorization    | Privilege escalation suite        | covered / blocked |\n| WSTG-ERRH-02      | Logging          | Security logging failures         | covered / blocked |\n\n## Rules\n\n- Never skip steps. If a script is unavailable, record it in",
+        "and proceed.\n- Do not run destructive operations (no writes to the live database, no mutations via the API).\n- Always write both the",
+        "report and the",
+        "sidecar; downstream retest workflows depend on the sidecar.\n- The local attack playbook (Step 2.5) is **generated only** — never execute it automatically.\n- For a retest of an existing report, use the"
+      ],
+      "severity": "must",
+      "summary": "Define the exact steps to follow when a pentest is requested so the AI executes the full structured workflow rather than ad-hoc checks.",
+      "raw_text": "# Pentest Workflow\n\n## Purpose\n\nDefine the exact steps to follow when a pentest is requested so the AI executes the full structured workflow rather than ad-hoc checks.\n\n## Trigger\n\nRun this workflow whenever the user says anything equivalent to:\n\n- \"run pentest\", \"run a penetration test\", \"pentest the app\", \"security audit\", \"run security scan\"\n\nDo **not** improvise a pentest. Always follow the steps below in order.\n\n## Workflow Steps\n\nProgress is tracked in `.paqad/pentest/runs/<run_id>/progress.json`. The workflow is resumable: if a step is already marked `completed` with the same input hash, skip it.\n\n### Step 1 — collect-context\n\n- Load all module documentation from `docs/modules/` for the relevant modules.\n- Load test files from `tests/` for the relevant modules.\n- Write a `docs-summary.json` and `tests-summary.json` artefact to `.paqad/pentest/runs/<run_id>/artifacts/`.\n- Skills (run **in this order** — STRIDE must run first so all other skills can reference the threat inventory):\n  1. `stride-threat-model` — enumerate threats per STRIDE category across all modules; write `stride-threats.json`\n  2. `permission-boundary-review` — BOLA, function-level auth, mass assignment, resource consumption\n  3. `business-logic-abuse-review` — race conditions, workflow abuse, financial manipulation, GraphQL abuse\n  4. `input-validation-review` — SSRF, IDOR, mass assignment, injection, file upload, prototype pollution, ReDoS\n  5. `auth-mechanism-review` — JWT, session, OAuth/OIDC, brute-force, password storage\n  6. `cryptographic-review` — encryption at rest/transit, key management, hashing, PRNG\n  7. `logging-monitoring-review` — audit trail, log injection, sensitive data in logs, alerting\n  8. `rate-limiting-review` — missing rate limits on auth, bulk, and expensive endpoints\n\n### Step 2 — run-project-scripts\n\nRun the following five scripts in parallel (they live in `scripts/` after onboarding):\n\n1. `pentest-audit-dependencies.sh` — scan lockfile for known vulnerabilities via native audit + OSV; check for typosquatting indicators, dependency confusion, and abandoned packages\n2. `pentest-scan-secrets.sh` — scan source **and** git history for leaked credentials or secrets (including deleted files and squashed commits)\n3. `pentest-enumerate-surface.sh` — enumerate routes, controllers, exposed endpoints; include `/swagger`, `/api-docs`, `/openapi.json`, `/graphql` (introspection query), and WebSocket endpoints\n4. `pentest-db-readonly.sh` — verify database interactions are read-only where expected\n5. `pentest-scan-git-history.sh` — scan the git object database for secrets in all commits (not just the working tree), covering deleted branches, squashed commits, and amended history\n\nWrite all artefacts to `.paqad/pentest/runs/<run_id>/artifacts/`.\n\n- Skills: `dependency-advisory-triage`\n\n### Step 2.5 — generate-local-attack-playbook\n\nFor each suspected finding category identified in Steps 1–2, generate `docs/pentest/<timestamp>-local-playbook.md` with a concrete local test command per category. This is the **\"break locally first\"** step — every finding gets a curl command or script template the developer can run against `localhost` to confirm or refute it.\n\nExample playbook entries:\n\n```bash\n# IDOR — swap user ID in path\n# Expected: 403 Forbidden. If 200 with another user's data → confirmed IDOR (WSTG-AUTHZ-04).\ncurl -s -H \"Authorization: Bearer $LOW_PRIV_TOKEN\" \\\n  \"http://localhost:8000/api/users/2/profile\"\n\n# Race condition — concurrent requests (use HTTP/2 single-packet for reliable timing)\n# Expected: only 1 success. Multiple 200s → race condition confirmed (WSTG-BUSL-09).\nfor i in {1..20}; do\n  curl -s -X POST -H \"Authorization: Bearer $TOKEN\" \\\n    \"http://localhost:8000/api/vouchers/PROMO10/redeem\" &\ndone; wait\n# For tighter timing: use Burp Turbo Intruder or send all requests in one TCP packet (HTTP/2).\n\n# Mass assignment — inject privileged fields\n# Expected: extra fields ignored or 400. If role/is_admin changes → confirmed (WSTG-INPV-06).\ncurl -s -X PATCH -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -d '{\"name\":\"test\",\"is_admin\":true,\"role\":\"admin\",\"balance\":99999}' \\\n  \"http://localhost:8000/api/profile\"\n\n# SSRF — AWS metadata probe\n# Expected: blocked or error. If metadata returned → SSRF confirmed (WSTG-INPV-17).\ncurl -s -X POST -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"http://169.254.169.254/latest/meta-data/\"}' \\\n  \"http://localhost:8000/api/preview\"\n\n# JWT alg:none bypass\n# 1. Split your valid JWT: header.payload.signature\n# 2. Re-encode header with \"alg\":\"none\" (base64url, no padding)\n# 3. Send: <new_header>.<original_payload>. (empty signature — note trailing dot)\n# Expected: 401. If 200 → alg:none not rejected (WSTG-SESS-10).\ncurl -s -H \"Authorization: Bearer <forged_alg_none_token>\" \\\n  \"http://localhost:8000/api/me\"\n\n# GraphQL introspection\n# Expected: disabled in production config. If full schema returned → information disclosure.\ncurl -s -X POST -H \"Content-Type: application/json\" \\\n  -d '{\"query\":\"{ __schema { types { name fields { name } } } }\"}' \\\n  \"http://localhost:8000/graphql\"\n\n# Open redirect\n# Expected: only relative paths or trusted domains accepted. If external redirect → confirmed.\ncurl -sI \"http://localhost:8000/auth/callback?redirect=https://evil.com\"\n\n# Security headers check\n# Expected: all security headers present.\ncurl -sI \"http://localhost:8000/\" | grep -iE \"strict-transport|x-frame|content-security|x-content-type\"\n```\n\n**Important:** This playbook is **generated only — never auto-executed.** All commands are templates; substitute `$TOKEN`, `$LOW_PRIV_TOKEN`, and endpoint paths with values from the target project. Never run these against a production system.\n\n### Step 3 — live-validation\n\n- If a target URL is available (from the request text, `.env` APP_URL, or `project-profile.yaml`), run `pentest-runtime-checks.sh` against it.\n- The runtime checks script must cover:\n  - Base reachability (HTTP 200 on home/health)\n  - Security header audit (HSTS, X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy)\n  - CORS header probe on at least one authenticated endpoint\n  - Error disclosure probe (trigger a 404 and a malformed request; check for stack traces in response)\n  - Open redirect probe on known redirect/callback parameters\n  - Sensitive file exposure (`/.env`, `/.git/config`, `/phpinfo.php`)\n  - GraphQL introspection probe (`{ __schema { types { name } } }`)\n  - Rate limit probe on login endpoint (10 rapid requests; check for 429 response)\n- If no URL is found, record the check as blocked and continue.\n- Skills: `runtime-surface-probing`\n\n### Step 4 — synthesize-findings\n\nNormalise all evidence from steps 1–3 into structured findings:\n\n- **Dependency findings**: from lockfile audit and OSV results\n- **Module findings**: from doc and test coverage gaps (all 8 skill categories)\n- **Secret findings**: from secret scan and git history scan output\n- **Runtime findings**: from live-validation results (if available)\n\nAssign stable `PT-XXXX` IDs. Write a `finding-index.json` to `.paqad/pentest/runs/<run_id>/`.\n\n- Skills: `finding-normalizer`\n\n### Step 5 — write-report\n\n- Write a Markdown report to `docs/pentest/<timestamp>.md`\n- Write a JSON sidecar to `docs/pentest/<timestamp>.json`\n- Include:\n  - Stack summary and capability profile\n  - **OWASP WSTG Coverage Matrix** (see template below)\n  - Ordered findings (critical → high → medium → low)\n  - Blocked checks with explanation\n  - Remediation priorities\n  - Methodology notes\n  - Link to the local attack playbook generated in Step 2.5\n\n#### OWASP WSTG Coverage Matrix Template\n\n| WSTG Category     | Test ID          | Description                       | Status            |\n| ----------------- | ---------------- | --------------------------------- | ----------------- |\n| WSTG-AUTHZ-04     | IDOR             | Insecure Direct Object Reference  | covered / blocked |\n| WSTG-INPV-17      | SSRF             | Server-Side Request Forgery       | covered / blocked |\n| WSTG-INPV-06      | Mass Assignment  | Broken Object Property Level Auth | covered / blocked |\n| WSTG-SESS-10      | JWT              | JSON Web Token Security           | covered / blocked |\n| WSTG-SESS-03      | Session Fixation | Session Fixation Attack           | covered / blocked |\n| WSTG-ATHN-03      | Brute Force      | Testing for Account Lockout       | covered / blocked |\n| WSTG-BUSL-01..12  | Business Logic   | Workflow abuse, race conditions   | covered / blocked |\n| WSTG-CRYP-01..03  | Cryptography     | Weak encryption / hashing         | covered / blocked |\n| WSTG-INPV-13      | Rate Limiting    | Resource exhaustion / DoS         | covered / blocked |\n| WSTG-AUTHZ-01..11 | Authorization    | Privilege escalation suite        | covered / blocked |\n| WSTG-ERRH-02      | Logging          | Security logging failures         | covered / blocked |\n\n## Rules\n\n- Never skip steps. If a script is unavailable, record it in `blocked_checks` and proceed.\n- Do not run destructive operations (no writes to the live database, no mutations via the API).\n- Always write both the `.md` report and the `.json` sidecar; downstream retest workflows depend on the sidecar.\n- The local attack playbook (Step 2.5) is **generated only** — never execute it automatically.\n- For a retest of an existing report, use the `pentest-retest` workflow instead, referencing the original sidecar path to preserve finding IDs.\n"
+    },
+    {
+      "rule_id": "RULE-13",
+      "title": "Content Attribution",
+      "source_path": "docs/instructions/rules/content/attribution.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Attribute externally-derived facts, metrics, and claims whenever the source is known.",
+      "raw_text": "# Content Attribution\n\n- Attribute externally-derived facts, metrics, and claims whenever the source is known.\n- Distinguish observed facts from recommendations and inference.\n- Do not present guessed numbers or unsupported product claims as verified.\n"
+    },
+    {
+      "rule_id": "RULE-14",
+      "title": "Content Code Snippets",
+      "source_path": "docs/instructions/rules/content/code-snippets.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Include code only when it helps explain the content.",
+      "raw_text": "# Content Code Snippets\n\n- Include code only when it helps explain the content.\n- Keep snippets short and anchored to the reader task.\n- Prefer paraphrase plus a focused snippet over long pasted code blocks.\n- When coding context is active, align code examples with the detected stack and conventions.\n"
+    },
+    {
+      "rule_id": "RULE-15",
+      "title": "Content Markdown",
+      "source_path": "docs/instructions/rules/content/markdown.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Use headings that reflect the reader task.",
+      "raw_text": "# Content Markdown\n\n- Use headings that reflect the reader task.\n- Keep paragraphs short and lists flat.\n- Use tables only when they improve comparison clarity.\n- Avoid filler introductions and repetitive recap sections.\n"
+    },
+    {
+      "rule_id": "RULE-16",
+      "title": "Content Writing",
+      "source_path": "docs/instructions/rules/content/writing.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Use the content capability for writing, editing, planning, research synthesis, and script work.",
+      "raw_text": "# Content Writing\n\nUse the content capability for writing, editing, planning, research synthesis, and script work.\n\n- Lead with the user outcome, not internal process notes.\n- Prefer short sections, scannable headings, and explicit next actions.\n- Keep tone consistent with the project or provided style guide.\n- Convert vague asks into a concrete structure before drafting.\n- If the project also has coding active, pull technical context from the stack and keep it accurate.\n"
+    },
+    {
+      "rule_id": "RULE-17",
+      "title": "API Design",
+      "source_path": "docs/instructions/rules/coding/stacks/_shared/api-design.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Define stable service and endpoint contracts.",
+      "raw_text": "# API Design\n\n## Purpose\n\nDefine stable service and endpoint contracts.\n\n## Rules\n\n- Prefer additive changes.\n- Document request, response, and error expectations together.\n"
+    },
+    {
+      "rule_id": "RULE-18",
+      "title": "CI CD",
+      "source_path": "docs/instructions/rules/coding/stacks/_shared/ci-cd.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "must",
+      "summary": "Keep automated verification aligned with the local workflow.",
+      "raw_text": "# CI CD\n\n## Purpose\n\nKeep automated verification aligned with the local workflow.\n\n## Rules\n\n- CI must run the same verification gates that block local delivery.\n- Keep package build and tests green at every logical step.\n"
+    },
+    {
+      "rule_id": "RULE-19",
+      "title": "Git",
+      "source_path": "docs/instructions/rules/coding/stacks/_shared/git.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "Keep source control changes scoped and reviewable.",
+      "raw_text": "# Git\n\n## Purpose\n\nKeep source control changes scoped and reviewable.\n\n## Rules\n\n- Commit one coherent phase or sub-phase at a time.\n- Avoid destructive history edits without explicit instruction.\n"
+    },
+    {
+      "rule_id": "RULE-20",
+      "title": "React Architecture",
+      "source_path": "docs/instructions/rules/coding/stacks/react/architecture.md",
+      "trigger_patterns": [
+        "docs/modules/<module>/"
+      ],
+      "severity": "could",
+      "summary": "- Keep feature ownership aligned with `docs/modules/<module>/` and avoid scattering one flow across unrelated folders.",
+      "raw_text": "# React Architecture\n\n- Keep feature ownership aligned with `docs/modules/<module>/` and avoid scattering one flow across unrelated folders.\n- Screens or routes coordinate composition; business logic belongs in hooks, services, and state layers.\n- Do not mix transport parsing, schema validation, rendering, and side effects in one file when the behavior is non-trivial.\n- Centralize route builders, API clients, and shared UI primitives instead of duplicating them per feature.\n- Reflect changed route, component, and state behavior in the matching canonical docs.\n"
+    },
+    {
+      "rule_id": "RULE-21",
+      "title": "React Conventions",
+      "source_path": "docs/instructions/rules/coding/stacks/react/conventions.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Match the project's React, TypeScript, and folder-layout conventions.",
+      "raw_text": "# React Conventions\n\n- Match the project's React, TypeScript, and folder-layout conventions.\n- Keep routes, components, hooks, and docs synchronized.\n"
+    },
+    {
+      "rule_id": "RULE-22",
+      "title": "React Documentation",
+      "source_path": "docs/instructions/rules/coding/stacks/react/documentation.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Keep route, component, state, and integration docs aligned with the codebase.",
+      "raw_text": "# React Documentation\n\n- Keep route, component, state, and integration docs aligned with the codebase.\n- Use generated inventories or deterministic scans before writing free-form summaries.\n"
+    },
+    {
+      "rule_id": "RULE-23",
+      "title": "React Environment",
+      "source_path": "docs/instructions/rules/coding/stacks/react/environment.md",
+      "trigger_patterns": [
+        "process.env",
+        "import.meta.env"
+      ],
+      "severity": "must",
+      "summary": "- Resolve environment values through typed config wrappers, not ad hoc `process.env` or `import.meta.env` calls across the app.",
+      "raw_text": "# React Environment\n\n- Resolve environment values through typed config wrappers, not ad hoc `process.env` or `import.meta.env` calls across the app.\n- Keep public and server-only environment keys separated explicitly.\n- Drive API endpoints, feature flags, and analytics settings from config modules, not literals.\n- Fail fast when required configuration for the selected deploy target is missing.\n- Update project tool references when environment loading behavior changes.\n"
+    },
+    {
+      "rule_id": "RULE-24",
+      "title": "React Foundation",
+      "source_path": "docs/instructions/rules/coding/stacks/react/foundation.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Prefer framework and ecosystem primitives before custom scaffolding.",
+      "raw_text": "# React Foundation\n\n- Prefer framework and ecosystem primitives before custom scaffolding.\n- Keep component composition explicit and shared abstractions intentional.\n"
+    },
+    {
+      "rule_id": "RULE-25",
+      "title": "React Localization",
+      "source_path": "docs/instructions/rules/coding/stacks/react/localization.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Do not hard-code user-facing strings in routes, components, hooks, or state handlers.",
+      "raw_text": "# React Localization\n\n- Do not hard-code user-facing strings in routes, components, hooks, or state handlers.\n- Keep translation keys stable across route-level and component-level rendering.\n- Prefer assertions on keys, state, or semantics instead of translated literals in tests.\n- Centralize enum-to-label and status-to-copy mapping instead of duplicating it per component.\n- If localization setup changes, update testing and UI docs in the same change.\n"
+    },
+    {
+      "rule_id": "RULE-26",
+      "title": "React Module Boundaries",
+      "source_path": "docs/instructions/rules/coding/stacks/react/modules.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Keep route, feature, and shared UI ownership aligned with the canonical module docs.",
+      "raw_text": "# React Module Boundaries\n\n- Keep route, feature, and shared UI ownership aligned with the canonical module docs.\n- Reuse existing module and package boundaries before introducing new folders or abstractions.\n- Treat cross-module imports as explicit contracts; avoid reaching into another feature's private internals.\n- Keep route, UI, integration, and error docs updated in the owning module when behavior changes.\n- Record module-level assumptions, dependencies, and side effects in the affected docs.\n"
+    },
+    {
+      "rule_id": "RULE-27",
+      "title": "React Performance",
+      "source_path": "docs/instructions/rules/coding/stacks/react/performance.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Watch unnecessary rerenders, oversized client bundles, hydration costs, and route-level waterfalls.",
+      "raw_text": "# React Performance\n\n- Watch unnecessary rerenders, oversized client bundles, hydration costs, and route-level waterfalls.\n- Prefer fixes backed by route or component measurements rather than speculative optimization.\n"
+    },
+    {
+      "rule_id": "RULE-28",
+      "title": "React Security",
+      "source_path": "docs/instructions/rules/coding/stacks/react/security.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Validate auth boundaries, route protection, input handling, and secret usage explicitly.",
+      "raw_text": "# React Security\n\n- Validate auth boundaries, route protection, input handling, and secret usage explicitly.\n- Keep server-only logic and sensitive configuration out of client bundles.\n"
+    },
+    {
+      "rule_id": "RULE-29",
+      "title": "React Testing",
+      "source_path": "docs/instructions/rules/coding/stacks/react/testing.md",
+      "trigger_patterns": [
+        "**"
+      ],
+      "severity": "could",
+      "summary": "- Verify changed behavior with focused component, route, integration, and browser tests as needed.",
+      "raw_text": "# React Testing\n\n- Verify changed behavior with focused component, route, integration, and browser tests as needed.\n- Keep regression coverage close to the changed component or route boundary.\n"
+    },
+    {
+      "rule_id": "RULE-30",
+      "title": "React UI Safety",
+      "source_path": "docs/instructions/rules/coding/stacks/react/ui-safety.md",
+      "trigger_patterns": [
+        "docs/tools/react/playwright.md"
+      ],
+      "severity": "must",
+      "summary": "- Every user-facing flow must handle loading, empty, success, and failure states explicitly.",
+      "raw_text": "# React UI Safety\n\n- Every user-facing flow must handle loading, empty, success, and failure states explicitly.\n- Destructive actions require visible confirmation and must prevent duplicate submits while pending.\n- Route changes must preserve valid back paths, guards, and error boundaries.\n- Validate browser-visible auth and route behavior with `docs/tools/react/playwright.md` when appropriate.\n- Keep module UI docs in sync with changed screen, state, and error behavior.\n"
+    },
+    {
+      "rule_id": "RULE-31",
+      "title": "React Vite SPA",
+      "source_path": "docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md",
+      "trigger_patterns": [
+        "import.meta.env"
+      ],
+      "severity": "could",
+      "summary": "- Keep client-side route ownership, bootstrapping, and app providers explicit in the main entry path.",
+      "raw_text": "# React Vite SPA\n\n- Keep client-side route ownership, bootstrapping, and app providers explicit in the main entry path.\n- Centralize environment access, API client setup, and build-time configuration instead of scattering `import.meta.env` usage.\n- Watch bundle growth, code-splitting, and lazy-route behavior when adding new screens or heavy dependencies.\n- Prefer typed route, state, and API boundaries over implicit prop drilling across the SPA shell.\n- Validate production build assumptions when changing Vite plugins, aliases, or asset handling.\n"
+    }
+  ]
+}

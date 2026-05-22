@@ -1,0 +1,167 @@
+{
+  "detected_domain": "coding",
+  "detected_stack": "node-cli",
+  "detected_capabilities": [
+    "tailwind",
+    "vite-spa"
+  ],
+  "matched_packs": [
+    "node-cli",
+    "node-library",
+    "react"
+  ],
+  "detected_traits": [
+    "eslint",
+    "tailwind",
+    "typescript",
+    "vite-spa",
+    "vitest"
+  ],
+  "recommended_capabilities": [
+    "content",
+    "coding",
+    "security"
+  ],
+  "detection_phase": "archetype",
+  "confidence": "medium",
+  "signals": [
+    {
+      "signal": "node-cli detected from package.json manifest fields",
+      "file": "package.json",
+      "implies": "node-cli",
+      "confidence": "medium"
+    },
+    {
+      "signal": "node-cli detected from package.json package metadata",
+      "file": "package.json",
+      "implies": "node-cli",
+      "confidence": "high"
+    },
+    {
+      "signal": "node-cli detected from package.json package metadata",
+      "file": "package.json",
+      "implies": "node-cli",
+      "confidence": "high"
+    },
+    {
+      "signal": "node-cli detected from src/cli",
+      "file": "src/cli",
+      "implies": "node-cli",
+      "confidence": "medium"
+    },
+    {
+      "signal": "typescript detected from tsconfig.json",
+      "file": "tsconfig.json",
+      "implies": "typescript",
+      "confidence": "medium"
+    },
+    {
+      "signal": "vitest detected from package metadata",
+      "file": "package metadata",
+      "implies": "vitest",
+      "confidence": "medium"
+    },
+    {
+      "signal": "eslint detected from package metadata",
+      "file": "package metadata",
+      "implies": "eslint",
+      "confidence": "medium"
+    },
+    {
+      "signal": "node-library detected from package.json package metadata",
+      "file": "package.json",
+      "implies": "node-library",
+      "confidence": "high"
+    },
+    {
+      "signal": "node-library detected from src/index.ts",
+      "file": "src/index.ts",
+      "implies": "node-library",
+      "confidence": "medium"
+    },
+    {
+      "signal": "typescript detected from tsconfig.json",
+      "file": "tsconfig.json",
+      "implies": "typescript",
+      "confidence": "medium"
+    },
+    {
+      "signal": "vitest detected from package metadata",
+      "file": "package metadata",
+      "implies": "vitest",
+      "confidence": "medium"
+    },
+    {
+      "signal": "eslint detected from package metadata",
+      "file": "package metadata",
+      "implies": "eslint",
+      "confidence": "medium"
+    },
+    {
+      "signal": "react detected from package.json package metadata",
+      "file": "graph-ui/package.json",
+      "implies": "react",
+      "confidence": "high"
+    },
+    {
+      "signal": "vite-spa detected from package metadata",
+      "file": "package metadata",
+      "implies": "vite-spa",
+      "confidence": "medium"
+    },
+    {
+      "signal": "tailwind detected from package metadata",
+      "file": "package metadata",
+      "implies": "tailwind",
+      "confidence": "medium"
+    }
+  ],
+  "timestamp": "2026-05-22T11:38:00.206Z",
+  "repository": {
+    "selected_root": ".",
+    "scan_max_depth": 5,
+    "ignored_paths": [
+      ".git",
+      "coverage",
+      "graph-ui/node_modules",
+      "node_modules",
+      "tests/unit/adapters/fixtures",
+      "tests/unit/templates/fixtures"
+    ],
+    "projects": [
+      {
+        "root": ".",
+        "role": "standalone",
+        "parent_root": null,
+        "markers": [
+          "package.json"
+        ],
+        "ecosystems": [
+          "node"
+        ]
+      },
+      {
+        "root": "graph-ui",
+        "role": "standalone",
+        "parent_root": null,
+        "markers": [
+          "package.json"
+        ],
+        "ecosystems": [
+          "node"
+        ]
+      }
+    ],
+    "applications": [
+      {
+        "root": ".",
+        "component_roots": []
+      },
+      {
+        "root": "graph-ui",
+        "component_roots": []
+      }
+    ],
+    "primary_project_root": "."
+  }
+}
