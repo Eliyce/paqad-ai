@@ -1,0 +1,6 @@
+Trigger             condition that demands rollback
+Time-to-rollback    target latency from trigger to recovery
+Steps               numbered, idempotent, verifiable, on-call-runnable
+Verification        post-rollback check (metric/query/probe + expected value)
+Forward-only        when applicable: irreversibly lost data, required reconciliation
+Drill               when and how to dry-run this procedure

@@ -1,0 +1,7 @@
+weak-cipher              WSTG-CRYP-01
+padding-oracle           WSTG-CRYP-02
+sensitive-data-in-transit WSTG-CRYP-03
+weak-tls                 WSTG-CRYP-01
+weak-prng                WSTG-CRYP-04
+hardcoded-secret         WSTG-CRYP-04
+weak-password-hash       WSTG-ATHN-07

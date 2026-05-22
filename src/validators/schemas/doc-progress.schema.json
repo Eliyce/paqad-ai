@@ -1,0 +1,81 @@
+{
+  "$id": "doc-progress",
+  "type": "object",
+  "required": ["schema_version", "generated_by", "framework_version", "modules", "global"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "generated_by": { "const": "paqad-ai" },
+    "framework_version": { "type": "string" },
+    "modules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "$ref": "#/$defs/entry" }
+      }
+    },
+    "global": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "$ref": "#/$defs/entry" }
+      }
+    },
+    "moduleDocStage": {
+      "enum": ["pending_map_review", "complete"]
+    }
+  },
+  "$defs": {
+    "state": {
+      "enum": ["not_started", "generating", "done", "failed"]
+    },
+    "entry": {
+      "type": "object",
+      "required": [
+        "output_path",
+        "state",
+        "started_at",
+        "completed_at",
+        "source_files",
+        "source_hash",
+        "tokens_used",
+        "error"
+      ],
+      "properties": {
+        "output_path": { "type": "string" },
+        "state": { "$ref": "#/$defs/state" },
+        "started_at": { "type": ["string", "null"] },
+        "completed_at": { "type": ["string", "null"] },
+        "source_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "source_hash": { "type": ["string", "null"] },
+        "tokens_used": { "type": ["number", "null"] },
+        "error": { "type": ["string", "null"] },
+        "design_tokens": {
+          "type": "object",
+          "required": [
+            "extraction_state",
+            "total_tokens_found",
+            "placeholder_count",
+            "populated_count",
+            "placeholder_keys"
+          ],
+          "properties": {
+            "extraction_state": { "$ref": "#/$defs/state" },
+            "total_tokens_found": { "type": "number" },
+            "placeholder_count": { "type": "number" },
+            "populated_count": { "type": "number" },
+            "placeholder_keys": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

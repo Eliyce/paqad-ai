@@ -1,0 +1,3 @@
+interface:
+  display_name: Permission Boundary Review
+  short_description: Review authorization, role, and tenant boundaries for pentest findings.

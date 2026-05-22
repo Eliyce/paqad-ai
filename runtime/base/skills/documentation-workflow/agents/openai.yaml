@@ -1,0 +1,4 @@
+interface:
+  display_name: Documentation Workflow
+  short_description: Run the post-onboarding documentation creation workflow using
+    the canonical tracker and the current application manifests.

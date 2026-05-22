@@ -1,0 +1,26 @@
+{
+  "$id": "api-endpoint-doc",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "method",
+    "route",
+    "auth",
+    "description",
+    "request_schema_ref",
+    "response_schema_ref"
+  ],
+  "properties": {
+    "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+    "route": { "type": "string", "pattern": "^/" },
+    "auth": { "type": "string", "enum": ["required", "public"] },
+    "permissions": { "type": "array", "items": { "type": "string" } },
+    "rate_limit": { "type": "string" },
+    "description": { "type": "string", "minLength": 1 },
+    "request_schema_ref": { "type": "string" },
+    "response_schema_ref": { "type": "string" },
+    "error_codes_ref": { "type": "string" },
+    "added_in": { "type": "string" },
+    "last_updated": { "type": "string" }
+  }
+}

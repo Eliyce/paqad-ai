@@ -1,0 +1,2 @@
+Module map written to docs/instructions/rules/module-map.yml.
+Review and verify the module and feature names first. After the map is correct, prompt me with: create module documentation.

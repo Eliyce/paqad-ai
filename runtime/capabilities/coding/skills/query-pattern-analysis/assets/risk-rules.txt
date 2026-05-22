@@ -1,0 +1,8 @@
+orm-find-inside-loop      replace with batch query (whereIn / IN list / preloading)
+await-inside-map          parallelize with Promise.all when ops are independent
+over-fetching-select-star prefer column projection; reduces serialization cost
+unbounded-pagination      cap page size; reject limit:0; require keyset for hot lists
+non-deterministic-order   add a stable secondary key (id) to ORDER BY when paginating
+leading-wildcard-like     LIKE '%foo%' cannot use btree; consider trigram/full-text or invert pattern
+flagged-n-plus-one        confirm with a join or eager load before merging
+group-having              validate index allows index-scan for group key

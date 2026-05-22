@@ -1,0 +1,3 @@
+interface:
+  display_name: Database Design Review
+  short_description: Review schema and migration changes for integrity and safety.

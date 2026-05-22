@@ -1,0 +1,3 @@
+interface:
+  display_name: Regression Test Gen
+  short_description: Suggest regression coverage for changed stack behavior.

@@ -1,0 +1,3 @@
+interface:
+  display_name: Request Classifier
+  short_description: Classify incoming requests into the framework routing model.

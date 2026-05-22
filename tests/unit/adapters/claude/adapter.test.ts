@@ -1,0 +1,43 @@
+import { ClaudeCodeAdapter } from '@/adapters';
+
+import { fixtureArtifact, fixtureProfile, fixtureSkillBundleArtifacts } from '../shared.fixture';
+
+describe('ClaudeCodeAdapter', () => {
+  const adapter = new ClaudeCodeAdapter();
+
+  it('generates CLAUDE.md under 80 lines', async () => {
+    const files = await adapter.generateConfig({
+      frameworkPath: '.paqad/framework-path.txt',
+      rulesPath: 'docs/instructions/rules',
+      projectRoot: '/tmp/project',
+    });
+    expect(files[0]?.path).toBe('CLAUDE.md');
+    expect(files[0]?.content.split('\n').length).toBeLessThan(80);
+    expect(files[0]?.content).toContain('docs/instructions/stack');
+    expect(files[0]?.content).toContain('docs/instructions/rules');
+    expect(files[0]?.content).toContain('create documentation');
+    expect(files[0]?.content).toContain('Do not ask the user to choose a document type');
+  });
+
+  it('places skills in the Claude directory', async () => {
+    const files = await adapter.generateSkills(fixtureSkillBundleArtifacts());
+    expect(files.map((file) => file.path)).toEqual([
+      '.claude/skills/sample-skill/SKILL.md',
+      '.claude/skills/sample-skill/agents/openai.yaml',
+      '.claude/skills/sample-skill/references/checklist.md',
+    ]);
+  });
+
+  it('writes Laravel Boost mcp config', async () => {
+    const files = await adapter.installMcp(
+      [fixtureArtifact('sample-skill.md')],
+      fixtureProfile('laravel'),
+    );
+    expect(files[0]?.content).toContain('laravel-boost');
+  });
+
+  it('writes hook registration output', async () => {
+    const files = await adapter.installHooks([fixtureArtifact('sample-agent.md')]);
+    expect(files[0]?.path).toBe('.claude/settings.hooks.json');
+  });
+});

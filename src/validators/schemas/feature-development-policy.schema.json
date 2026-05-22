@@ -1,0 +1,85 @@
+{
+  "$id": "feature-development-policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stages"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "merge_mode": { "type": "string", "enum": ["append"] },
+    "stages": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "planning": { "$ref": "#/$defs/stagePolicy" },
+        "specification": { "$ref": "#/$defs/stagePolicy" },
+        "development": { "$ref": "#/$defs/stagePolicy" },
+        "review": { "$ref": "#/$defs/stagePolicy" },
+        "checks": { "$ref": "#/$defs/stagePolicy" },
+        "documentation_sync": { "$ref": "#/$defs/stagePolicy" }
+      }
+    }
+  },
+  "$defs": {
+    "stagePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "read": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "instructions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_inputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "strictness": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        },
+        "escalation": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["warn", "ask", "stop"]
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "use_project_profile_commands": { "type": "boolean" },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "install",
+                  "dev",
+                  "test",
+                  "test_single",
+                  "lint",
+                  "format",
+                  "migrate",
+                  "build"
+                ]
+              }
+            },
+            "shell_commands": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "block_on_failure": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

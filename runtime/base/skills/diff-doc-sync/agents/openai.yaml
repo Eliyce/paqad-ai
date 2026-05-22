@@ -1,0 +1,3 @@
+interface:
+  display_name: Diff Doc Sync
+  short_description: Return only the canonical docs made stale by the current diff.

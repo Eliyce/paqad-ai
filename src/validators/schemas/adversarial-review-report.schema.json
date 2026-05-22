@@ -1,0 +1,40 @@
+{
+  "$id": "adversarial-review-report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "point",
+    "tier",
+    "mode",
+    "verdict",
+    "summary",
+    "findings",
+    "dimensions_passed_clean",
+    "dimensions_deferred"
+  ],
+  "properties": {
+    "point": { "type": "string", "enum": ["after-spec", "after-implementation"] },
+    "tier": { "type": "string", "enum": ["full", "standard", "spot-check"] },
+    "mode": { "type": "string", "enum": ["fresh", "diff"] },
+    "verdict": { "type": "string", "enum": ["pass", "fail"] },
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "dimension", "severity", "finding", "impact", "required_action"],
+        "properties": {
+          "id": { "type": "string" },
+          "dimension": { "type": "string" },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "finding": { "type": "string" },
+          "impact": { "type": "string" },
+          "required_action": { "type": "string" }
+        }
+      }
+    },
+    "dimensions_passed_clean": { "type": "array", "items": { "type": "string" } },
+    "dimensions_deferred": { "type": "array", "items": { "type": "string" } }
+  }
+}

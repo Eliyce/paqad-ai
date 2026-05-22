@@ -1,0 +1,3 @@
+covered     existing spec already authorizes the requested behavior
+extension   request expands beyond spec but does not contradict it
+conflict    request contradicts an accepted AC; product decision needed

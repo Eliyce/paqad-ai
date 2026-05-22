@@ -1,0 +1,49 @@
+name: svelte
+display_name: Svelte
+ecosystem: node
+version: 1.0.0
+description: Built-in Svelte coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: package.json
+      packages: [svelte]
+traits:
+  - name: tailwind
+    display_name: Tailwind
+    detect_package: tailwindcss
+    description: Svelte app uses Tailwind CSS
+toolchains:
+  - ecosystem: node
+    package_managers: [pnpm, npm]
+    lockfiles: [pnpm-lock.yaml, package-lock.json]
+mcp_defaults:
+  - name: figma
+    when: always
+pentest:
+  file_check_map:
+    - glob: src/routes/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: src/lib/**
+      checks: [runtime-surface-probing]
+    - glob: pnpm-lock.yaml
+      checks: [dependency-advisory-triage]
+  audit_commands:
+    - command: pnpm audit --json
+      parser: node
+ast:
+  language: svelte
+  tree_sitter_grammar: tree-sitter-svelte
+  file_extensions: ['.svelte', '.ts', '.js']
+testing:
+  frameworks:
+    - name: vitest
+      detect_package: vitest
+      run_command: pnpm test
+test_runners:
+  - runner_id: vitest
+    structured_format: tap
+    structured_flags: --reporter=tap
+    default_command: pnpm test
+docs:
+  conventions_template: rules/conventions.md

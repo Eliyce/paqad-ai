@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "{{routing.stack}}" in
+  laravel)
+    php artisan model:show --json 2>/dev/null || echo '{"error": "artisan not available"}'
+    ;;
+  dotnet)
+    find . -name "*.cs" -print0 | xargs -0 grep -nE 'DbSet<|:\s*DbContext|public\s+(class|record)\s+' 2>/dev/null || true
+    ;;
+  nextjs)
+    find . \( -name "schema.prisma" -o -path "*/models/*" -o -path "*/lib/db/*" \) -type f 2>/dev/null || true
+    ;;
+  flask)
+    find . -name "*.py" -print0 | xargs -0 grep -nE 'db\.Model|SQLAlchemy\(|declarative_base\(' 2>/dev/null || true
+    ;;
+  nestjs)
+    find ./src -name "*.ts" -print0 2>/dev/null | xargs -0 grep -nE '@Entity\(|model\s+[A-Z]|class\s+.*(Dto|Entity)' 2>/dev/null || true
+    ;;
+  kotlin-android)
+    grep -RInE '@Entity|data class |RoomDatabase' ./app/src 2>/dev/null || true
+    ;;
+  *)
+    echo '{"error": "model extraction not configured for this stack"}'
+    ;;
+esac

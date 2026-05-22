@@ -1,0 +1,3 @@
+interface:
+  display_name: Session Resume
+  short_description: Reconstruct compact session context from the canonical handoff and project profile.

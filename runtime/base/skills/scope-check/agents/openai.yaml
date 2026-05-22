@@ -1,0 +1,3 @@
+interface:
+  display_name: Scope Check
+  short_description: Validate implementation requests against the active spec boundary.

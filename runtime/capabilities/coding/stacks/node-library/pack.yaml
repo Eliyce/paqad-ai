@@ -1,0 +1,116 @@
+name: node-library
+display_name: Node.js Library
+ecosystem: node
+version: 1.0.0
+tier: archetype
+description: Built-in archetype pack for Node.js packages that publish a library (not a CLI, not a framework app)
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: package.json
+      fields:
+        - name: main
+          presence: required
+        - name: bin
+          presence: absent
+    - file: package.json
+      fields:
+        - name: exports
+          presence: required
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: [tsup]
+      fields:
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: [rollup]
+      fields:
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: [unbuild]
+      fields:
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: ['@changesets/cli']
+    - file: package.json
+      packages: [semantic-release]
+  heuristics:
+    - file: src/index.ts
+    - file: src/index.js
+traits:
+  - name: typescript
+    display_name: TypeScript
+    detect_file: tsconfig.json
+    description: Project uses TypeScript
+  - name: vitest
+    display_name: Vitest
+    detect_package: vitest
+    description: Project uses Vitest for testing
+  - name: jest
+    display_name: Jest
+    detect_package: jest
+    description: Project uses Jest for testing
+  - name: eslint
+    display_name: ESLint
+    detect_package: eslint
+    description: Project uses ESLint for linting
+  - name: publishable
+    display_name: Publishable
+    detect_file: .npmrc
+    description: Package is configured for publishing to a registry
+  - name: monorepo
+    display_name: Monorepo
+    detect_file: pnpm-workspace.yaml
+    description: Project is a monorepo root
+toolchains:
+  - ecosystem: node
+    package_managers: [pnpm, npm]
+    lockfiles: [pnpm-lock.yaml, package-lock.json]
+pentest:
+  file_check_map:
+    - glob: src/**/*.ts
+      checks: [input-validation, business-logic-abuse-review]
+    - glob: package.json
+      checks: [dependency-advisory-triage]
+    - glob: pnpm-lock.yaml
+      checks: [dependency-advisory-triage]
+    - glob: package-lock.json
+      checks: [dependency-advisory-triage]
+    - glob: yarn.lock
+      checks: [dependency-advisory-triage]
+    - glob: .env*
+      checks: [runtime-surface-probing]
+    - glob: src/index.ts
+      checks: [permission-boundary-review]
+    - glob: src/index.js
+      checks: [permission-boundary-review]
+  audit_commands:
+    - command: pnpm audit --json
+      parser: node
+ast:
+  language: typescript
+  tree_sitter_grammar: tree-sitter-typescript
+  file_extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
+testing:
+  frameworks:
+    - name: vitest
+      detect_package: vitest
+      run_command: pnpm test
+    - name: jest
+      detect_package: jest
+      run_command: pnpm test
+test_runners:
+  - runner_id: vitest
+    structured_format: tap
+    structured_flags: --reporter=tap
+    default_command: pnpm test
+  - runner_id: jest
+    structured_format: jest-json
+    structured_flags: --json
+    default_command: pnpm test
+docs:
+  conventions_template: rules/conventions.md

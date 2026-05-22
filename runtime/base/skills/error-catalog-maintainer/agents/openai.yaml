@@ -1,0 +1,3 @@
+interface:
+  display_name: Error Catalog Maintainer
+  short_description: Maintains per-module error catalogs

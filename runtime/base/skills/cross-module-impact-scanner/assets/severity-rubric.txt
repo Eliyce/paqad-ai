@@ -1,0 +1,4 @@
+breaking       consumer must change to keep working; no deprecation window or window not feasible
+silent-shift   consumer keeps compiling but observable behavior changes (default to this when in doubt over additive)
+additive       consumer ignores the change by default; documentation declares the new behavior
+internal-only  no consumer outside the module is affected

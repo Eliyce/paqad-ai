@@ -1,0 +1,3 @@
+interface:
+  display_name: Spec Diff
+  short_description: Compare new requests against the active spec to classify coverage or conflict.

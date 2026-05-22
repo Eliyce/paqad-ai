@@ -1,0 +1,62 @@
+name: nextjs
+display_name: Next.js
+ecosystem: node
+version: 1.0.0
+description: Next.js React framework with file-based routing and server rendering
+maintainer: paqad-ai
+detection:
+  priority: 200
+  excludes: [react]
+  manifests:
+    - file: package.json
+      packages: [next]
+  heuristics:
+    - file: next.config.js
+    - file: next.config.mjs
+    - file: next.config.ts
+traits:
+  - name: app-router
+    display_name: App Router
+    detect_directory: app
+    description: Project uses the App Router convention
+  - name: pages-router
+    display_name: Pages Router
+    detect_directory: pages
+    description: Project uses the Pages Router convention
+  - name: tailwind
+    display_name: Tailwind
+    detect_package: tailwindcss
+    description: Project uses Tailwind CSS
+  - name: prisma
+    display_name: Prisma
+    detect_package: '@prisma/client'
+    description: Project uses Prisma
+  - name: trpc
+    display_name: tRPC
+    detect_package: '@trpc/server'
+    description: Project uses tRPC
+  - name: next-auth
+    display_name: NextAuth
+    detect_package: next-auth
+    description: Project uses NextAuth
+toolchains:
+  - ecosystem: node
+    package_managers: [pnpm, npm]
+    lockfiles: [pnpm-lock.yaml, package-lock.json]
+mcp_defaults:
+  - name: figma
+    when: always
+  - name: tailwind-mcp
+    when: when_trait
+    trait: tailwind
+  - name: database-inspector
+    when: when_trait
+    trait: prisma
+ast:
+  language: typescript
+  tree_sitter_grammar: tree-sitter-typescript
+  file_extensions: ['.ts', '.tsx', '.js', '.jsx', '.mdx', '.css', '.mjs']
+docs:
+  conventions_template: rules/conventions.md
+rag:
+  exclude_directories: ['.next', '.vercel', 'out', '.turbo', '.swc']

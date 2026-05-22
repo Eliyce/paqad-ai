@@ -1,0 +1,3 @@
+interface:
+  display_name: Documentation Sync Engine
+  short_description: Canonical entry point that dispatches to the per-domain doc-sync skills based on what the change actually made stale.

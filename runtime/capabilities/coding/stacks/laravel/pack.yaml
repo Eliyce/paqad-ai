@@ -1,0 +1,120 @@
+name: laravel
+display_name: Laravel
+ecosystem: php
+version: 1.0.0
+description: Built-in Laravel coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: composer.json
+      packages:
+        - laravel/framework
+  heuristics:
+    - file: artisan
+traits:
+  - name: inertia
+    display_name: Inertia
+    detect_package: inertiajs/inertia-laravel
+    description: Laravel application uses Inertia.js
+  - name: boost
+    display_name: Boost
+    detect_package: laravel/boost
+    description: Laravel application uses Laravel Boost
+  - name: sail
+    display_name: Sail
+    detect_package: laravel/sail
+    description: Laravel application uses Laravel Sail
+  - name: pest
+    display_name: Pest
+    detect_package: pestphp/pest
+    description: Laravel application uses Pest
+  - name: phpunit
+    display_name: PHPUnit
+    detect_package: phpunit/phpunit
+    description: Laravel application uses PHPUnit
+  - name: react
+    display_name: React
+    detect_package: react
+    description: Laravel application includes a React frontend
+  - name: vue
+    display_name: Vue
+    detect_package: vue
+    description: Laravel application includes a Vue frontend
+  - name: tailwind
+    display_name: Tailwind
+    detect_package: tailwindcss
+    description: Laravel application uses Tailwind CSS
+toolchains:
+  - ecosystem: php
+    package_managers:
+      - composer
+    lockfiles:
+      - composer.lock
+mcp_defaults:
+  - name: laravel-boost
+    when: when_trait
+    trait: boost
+  - name: tailwind-mcp
+    when: when_trait
+    trait: tailwind
+pentest:
+  file_check_map:
+    - glob: routes/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: app/Http/Controllers/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: app/Http/Middleware/**
+      checks: [permission-boundary-review, runtime-surface-probing]
+    - glob: composer.lock
+      checks: [dependency-advisory-triage]
+    - glob: config/**
+      checks: [runtime-surface-probing]
+    - glob: .env*
+      checks: [runtime-surface-probing, cryptographic-review]
+    - glob: database/migrations/**
+      checks: [business-logic-abuse-review]
+    - glob: app/Models/**
+      checks: [input-validation-review]
+    - glob: config/auth.php
+      checks: [auth-mechanism-review]
+    - glob: config/sanctum.php
+      checks: [auth-mechanism-review]
+    - glob: config/logging.php
+      checks: [logging-monitoring-review]
+    - glob: config/app.php
+      checks: [cryptographic-review]
+    - glob: app/Http/Controllers/Auth/**
+      checks: [auth-mechanism-review]
+    - glob: routes/api.php
+      checks: [input-validation-review, auth-mechanism-review]
+  audit_commands:
+    - command: composer audit --format=json
+      parser: composer
+ast:
+  language: php
+  tree_sitter_grammar: tree-sitter-php
+  file_extensions: ['.php']
+testing:
+  frameworks:
+    - name: pest
+      detect_package: pestphp/pest
+      run_command: php artisan test
+    - name: phpunit
+      detect_package: phpunit/phpunit
+      run_command: php artisan test
+test_runners:
+  - runner_id: pest
+    structured_format: junit-xml
+    structured_flags: --log-junit .paqad/test-results/pest.xml
+    default_command: php artisan test
+    output_source: file
+    output_path_pattern: .paqad/test-results/pest.xml
+  - runner_id: phpunit
+    structured_format: junit-xml
+    structured_flags: --log-junit .paqad/test-results/phpunit.xml
+    default_command: php artisan test
+    output_source: file
+    output_path_pattern: .paqad/test-results/phpunit.xml
+docs:
+  overview_template: rules/foundation/guide.md
+  conventions_template: rules/conventions/guide.md

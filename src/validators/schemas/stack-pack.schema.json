@@ -1,0 +1,233 @@
+{
+  "$id": "stack-pack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "display_name",
+    "ecosystem",
+    "version",
+    "description",
+    "maintainer",
+    "detection"
+  ],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "ecosystem": { "type": "string", "minLength": 1 },
+    "tier": { "type": "string", "enum": ["framework", "archetype"] },
+    "version": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "maintainer": { "type": "string", "minLength": 1 },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "manifests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/detectionRule" }
+        },
+        "lockfiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/detectionRule" }
+        },
+        "heuristics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/detectionRule" }
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "excludes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "anyOf": [
+        { "required": ["manifests"] },
+        { "required": ["lockfiles"] },
+        { "required": ["heuristics"] }
+      ]
+    },
+    "traits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "display_name", "description"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "display_name": { "type": "string" },
+          "detect_package": { "type": "string" },
+          "detect_file": { "type": "string" },
+          "detect_directory": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "toolchains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ecosystem", "package_managers", "lockfiles"],
+        "properties": {
+          "ecosystem": { "type": "string" },
+          "package_managers": { "type": "array", "items": { "type": "string" } },
+          "lockfiles": { "type": "array", "items": { "type": "string" } },
+          "audit_command": { "type": "string" }
+        }
+      }
+    },
+    "mcp_defaults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "when"],
+        "properties": {
+          "name": { "type": "string" },
+          "when": { "type": "string", "enum": ["always", "when_trait"] },
+          "trait": { "type": "string" }
+        }
+      }
+    },
+    "pentest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file_check_map": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["glob", "checks"],
+            "properties": {
+              "glob": { "type": "string" },
+              "checks": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "audit_commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "parser"],
+            "properties": {
+              "command": { "type": "string" },
+              "parser": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "ast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "tree_sitter_grammar", "file_extensions"],
+      "properties": {
+        "language": { "type": "string" },
+        "tree_sitter_grammar": { "type": "string" },
+        "file_extensions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "testing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "frameworks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "detect_package": { "type": "string" },
+              "detect_file": { "type": "string" },
+              "run_command": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "test_runners": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["runner_id", "structured_format"],
+        "properties": {
+          "runner_id": { "type": "string", "minLength": 1 },
+          "structured_format": {
+            "type": "string",
+            "enum": [
+              "jest-json",
+              "junit-xml",
+              "pytest-json",
+              "go-json",
+              "rspec-json",
+              "tap",
+              "none"
+            ]
+          },
+          "structured_flags": { "type": "string" },
+          "default_command": { "type": "string" },
+          "output_source": { "type": "string", "enum": ["stdout", "file"] },
+          "output_path_pattern": { "type": "string" }
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "overview_template": { "type": "string" },
+        "conventions_template": { "type": "string" }
+      }
+    },
+    "rag": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exclude_directories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "basename_includes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "detectionRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string" },
+        "packages": { "type": "array", "items": { "type": "string" } },
+        "patterns": { "type": "array", "items": { "type": "string" } },
+        "directory": { "type": "string" },
+        "content_match": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "presence": { "type": "string", "enum": ["required", "absent"] },
+              "value": {}
+            }
+          }
+        },
+        "field_absent": { "type": "array", "items": { "type": "string" } }
+      },
+      "anyOf": [{ "required": ["file"] }, { "required": ["directory"] }]
+    }
+  }
+}

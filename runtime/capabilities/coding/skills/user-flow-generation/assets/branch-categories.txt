@@ -1,0 +1,6 @@
+Empty        nothing yet exists for the actor to interact with
+Loading      data fetch / async work in progress
+Error        backend/network error response
+Permission   actor is signed in but lacks the required role
+Retry        transient failure that the user can recover from
+Blocked      action requires another actor or external dependency

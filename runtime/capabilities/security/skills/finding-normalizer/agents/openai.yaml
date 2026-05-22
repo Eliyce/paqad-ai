@@ -1,0 +1,3 @@
+interface:
+  display_name: Finding Normalizer
+  short_description: Normalize security evidence into stable pentest findings.

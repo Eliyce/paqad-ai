@@ -1,0 +1,3 @@
+interface:
+  display_name: Retest Verification
+  short_description: Re-evaluate prior pentest findings against fresh evidence.

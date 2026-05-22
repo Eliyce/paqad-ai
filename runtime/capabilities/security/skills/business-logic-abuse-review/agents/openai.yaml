@@ -1,0 +1,3 @@
+interface:
+  display_name: Business Logic Abuse Review
+  short_description: Turn module docs into project-specific abuse-case findings.

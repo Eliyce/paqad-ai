@@ -1,0 +1,470 @@
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
+
+import { PATHS } from '@/core/constants/paths.js';
+
+import {
+  appendDecisionAuditEvent,
+  ensureDecisionAuditLog,
+  type DecisionAuditEventType,
+} from './decision-audit.js';
+import { scoreDecisionOptionOverlap } from './decision-fingerprint.js';
+import {
+  isDecisionPacket,
+  validateDecisionPacket,
+  type DecisionHumanResponse,
+  type DecisionPacket,
+  type DecisionStatus,
+} from './decision-packet.js';
+import { lintDecisionCopy } from './decision-copy.js';
+
+interface DecisionIndexEntry {
+  decision_id: string;
+  fingerprint: string;
+  category: string;
+  chosen_option_key: string | null;
+  responded_at: string;
+  status: DecisionStatus;
+  option_keys: string[];
+}
+
+export interface DecisionIndexFile {
+  fingerprints: Record<string, string>;
+  decisions: Record<string, DecisionIndexEntry>;
+}
+
+export interface ResolveDecisionInput {
+  decisionId: string;
+  humanResponse: DecisionHumanResponse;
+  respondedByProvider?: string;
+}
+
+export interface ResolveExistingDecisionInput {
+  packet: DecisionPacket;
+  humanResponse: DecisionHumanResponse;
+  event: DecisionAuditEventType;
+  respondedByProvider?: string;
+}
+
+export interface ReadPendingResult {
+  packet: DecisionPacket | null;
+  error?: string;
+}
+
+export interface DeferUndeclaredDecisionInput {
+  packet: DecisionPacket;
+  provider?: string;
+}
+
+export class DecisionStore {
+  constructor(private readonly projectRoot: string) {}
+
+  initialize(): void {
+    for (const relativePath of [
+      PATHS.DECISIONS_PENDING_DIR,
+      PATHS.DECISIONS_RESOLVED_DIR,
+      PATHS.DECISIONS_EXPIRED_DIR,
+    ]) {
+      const dir = join(this.projectRoot, relativePath);
+      mkdirSync(dir, { recursive: true });
+      const keepFile = join(dir, '.gitkeep');
+      if (!existsSync(keepFile)) {
+        writeFileSync(keepFile, '');
+      }
+    }
+    ensureDecisionAuditLog(this.projectRoot);
+    if (!existsSync(this.indexPath())) {
+      this.writeIndex({ fingerprints: {}, decisions: {} });
+    }
+  }
+
+  nextDecisionId(): string {
+    this.acquireDecisionLock();
+    try {
+      const ids = [
+        ...this.listDirectoryIds(PATHS.DECISIONS_PENDING_DIR),
+        ...this.listDirectoryIds(PATHS.DECISIONS_RESOLVED_DIR),
+        ...this.listDirectoryIds(PATHS.DECISIONS_EXPIRED_DIR),
+      ];
+      const next = ids
+        .map((value) => Number(value.replace(/^D-/, '')))
+        .filter((value) => Number.isFinite(value))
+        .reduce((max, value) => Math.max(max, value), 0);
+      return `D-${next + 1}`;
+    } finally {
+      this.releaseDecisionLock();
+    }
+  }
+
+  private acquireDecisionLock(): void {
+    const lockPath = join(this.projectRoot, PATHS.DECISIONS_LOCK);
+    mkdirSync(dirname(lockPath), { recursive: true });
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      try {
+        const fd = openSync(lockPath, 'wx');
+        closeSync(fd);
+        return;
+        /* v8 ignore next 4 -- lock contention path; only reachable under cross-process test contention */
+      } catch {
+        // lock held by another process; spin
+      }
+    }
+    /* v8 ignore next 2 -- stale lock recovery only reachable after 2s cross-process contention */
+    // Stale lock recovery: force-acquire after timeout
+    writeFileSync(lockPath, String(process.pid));
+  }
+
+  private releaseDecisionLock(): void {
+    try {
+      unlinkSync(join(this.projectRoot, PATHS.DECISIONS_LOCK));
+      /* v8 ignore next 3 -- defensive: lock file already removed before unlock attempt */
+    } catch {
+      // ignore if already released
+    }
+  }
+
+  writePending(packet: DecisionPacket): string {
+    this.initialize();
+    const existingTaskPending = this.findPendingDecisionForTask(packet.task_session_id);
+    if (existingTaskPending && existingTaskPending !== packet.decision_id) {
+      throw new Error(
+        `Task ${packet.task_session_id} already has a pending decision (${existingTaskPending}).`,
+      );
+    }
+    this.assertWritablePacket(packet);
+    const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, packet.decision_id);
+    atomicWriteJson(path, packet);
+    this.appendAudit('decision-pending-written', packet);
+    return path;
+  }
+
+  resolve(input: ResolveDecisionInput): string {
+    const pending = this.readPending(input.decisionId);
+    if (!pending) {
+      throw new Error(`Pending decision ${input.decisionId} not found.`);
+    }
+
+    const resolved = this.writeResolvedPacket({
+      packet: pending,
+      humanResponse: input.humanResponse,
+      event:
+        input.humanResponse.intent === 'delegated'
+          ? 'decision-delegated'
+          : 'decision-resolved-by-human',
+      respondedByProvider: input.respondedByProvider,
+    });
+    unlinkSync(this.packetPath(PATHS.DECISIONS_PENDING_DIR, input.decisionId));
+
+    return this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, resolved.decision_id);
+  }
+
+  resolveExisting(input: ResolveExistingDecisionInput): string {
+    const resolved = this.writeResolvedPacket(input);
+    return this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, resolved.decision_id);
+  }
+
+  deferUndeclaredDecision(input: DeferUndeclaredDecisionInput): string {
+    const path = this.writePending(input.packet);
+    this.appendAudit('undeclared-decision-flagged', input.packet, input.provider);
+    return path;
+  }
+
+  findReusableDecision(
+    packet: Pick<DecisionPacket, 'fingerprint' | 'category' | 'options'>,
+  ): string | null {
+    const index = this.readIndex();
+    const exactDecisionId = index.fingerprints[packet.fingerprint];
+    if (exactDecisionId) {
+      const exactMatch = this.readReusableDecision(exactDecisionId);
+      if (exactMatch) {
+        this.appendAudit('decision-reused', exactMatch);
+        return exactDecisionId;
+      }
+      delete index.fingerprints[packet.fingerprint];
+      this.writeIndex(index);
+    }
+
+    const packetOptionKeys = packet.options.map((option) => option.option_key);
+    let bestMatch: { id: string; score: number } | null = null;
+    for (const entry of Object.values(index.decisions)) {
+      if (entry.category !== packet.category || entry.chosen_option_key === null) {
+        continue;
+      }
+      if (!packetOptionKeys.includes(entry.chosen_option_key)) {
+        continue;
+      }
+      const resolved = this.readReusableDecision(entry.decision_id);
+      if (!resolved) {
+        continue;
+      }
+      const score = scoreDecisionOptionOverlap(packetOptionKeys, entry.option_keys);
+      if (score >= 0.8 && (bestMatch === null || score > bestMatch.score)) {
+        bestMatch = { id: entry.decision_id, score };
+      }
+    }
+
+    if (bestMatch) {
+      const resolved = this.readResolved(bestMatch.id);
+      if (resolved) {
+        this.appendAudit('decision-reused', resolved);
+      }
+    }
+    return bestMatch?.id ?? null;
+  }
+
+  readPending(decisionId: string): DecisionPacket | null {
+    return this.readPacket(this.packetPath(PATHS.DECISIONS_PENDING_DIR, decisionId));
+  }
+
+  readPendingResult(decisionId: string): ReadPendingResult {
+    const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, decisionId);
+    if (!existsSync(path)) {
+      return { packet: null };
+    }
+    try {
+      return { packet: this.readPacket(path) };
+    } catch (error) {
+      return {
+        packet: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  readResolved(decisionId: string): DecisionPacket | null {
+    return this.readPacket(this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, decisionId));
+  }
+
+  deletePending(decisionId: string): void {
+    const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, decisionId);
+    if (existsSync(path)) {
+      unlinkSync(path);
+    }
+  }
+
+  listPendingDecisionIds(): string[] {
+    return this.listDirectoryIds(PATHS.DECISIONS_PENDING_DIR).sort((left, right) =>
+      left.localeCompare(right, undefined, { numeric: true }),
+    );
+  }
+
+  findPendingDecisionForTask(taskSessionId: string): string | null {
+    const ids = this.listPendingDecisionIds();
+    let malformedFallback: string | null = null;
+    for (const decisionId of ids) {
+      const result = this.readPendingResult(decisionId);
+      if (result.packet?.task_session_id === taskSessionId) {
+        return decisionId;
+      }
+      if (!result.packet && result.error && ids.length === 1) {
+        malformedFallback = decisionId;
+      }
+    }
+    return malformedFallback;
+  }
+
+  expireResolvedDecision(decisionId: string): string {
+    const source = this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, decisionId);
+    const target = this.packetPath(PATHS.DECISIONS_EXPIRED_DIR, decisionId);
+    const packet = this.readResolved(decisionId);
+    if (!packet) {
+      throw new Error(`Resolved decision ${decisionId} not found.`);
+    }
+    const expired: DecisionPacket = { ...packet, status: 'expired' };
+    atomicWriteJson(target, expired);
+    unlinkSync(source);
+    const index = this.readIndex();
+    if (index.fingerprints[packet.fingerprint] === decisionId) {
+      delete index.fingerprints[packet.fingerprint];
+    }
+    if (index.decisions[decisionId]) {
+      index.decisions[decisionId] = { ...index.decisions[decisionId], status: 'expired' };
+    }
+    this.writeIndex(index);
+    this.appendAudit('decision-expired', expired);
+    return target;
+  }
+
+  hasInvalidation(packet: DecisionPacket): boolean {
+    if (!packet.human_response?.responded_at) {
+      return false;
+    }
+    const respondedAt = new Date(packet.human_response.responded_at).getTime();
+    return packet.invalidation_watch.some((path) => {
+      const absolute = join(this.projectRoot, path);
+      return existsSync(absolute) && statSync(absolute).mtimeMs > respondedAt;
+    });
+  }
+
+  private readPacket(path: string): DecisionPacket | null {
+    if (!existsSync(path)) {
+      return null;
+    }
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+    if (!isDecisionPacket(parsed)) {
+      const reasons = validateDecisionPacket(parsed).join('; ');
+      throw new Error(`Decision packet at ${path} is invalid. ${reasons}`);
+    }
+    return parsed;
+  }
+
+  private readReusableDecision(decisionId: string): DecisionPacket | null {
+    const packet = this.readResolved(decisionId);
+    if (!packet) {
+      return null;
+    }
+    if (packet.status !== 'resolved' && packet.status !== 'delegated') {
+      return null;
+    }
+    if (packet.human_response?.chosen_option_key === null) {
+      return null;
+    }
+    if (isExpired(packet)) {
+      this.expireResolvedDecision(decisionId);
+      return null;
+    }
+    if (this.hasInvalidation(packet)) {
+      this.expireResolvedDecision(decisionId);
+      return null;
+    }
+    return packet;
+  }
+
+  private assertWritablePacket(packet: DecisionPacket): void {
+    const validationErrors = validateDecisionPacket(packet);
+    if (validationErrors.length > 0) {
+      throw new Error(
+        `Decision packet ${packet.decision_id} is invalid: ${validationErrors.join('; ')}`,
+      );
+    }
+    const copyIssues = lintDecisionCopy(packet);
+    if (copyIssues.length > 0) {
+      throw new Error(
+        `Decision packet ${packet.decision_id} failed copy lint: ${copyIssues
+          .map((issue) => `${issue.field} ${issue.message}`)
+          .join('; ')}`,
+      );
+    }
+  }
+
+  private appendAudit(
+    event: DecisionAuditEventType,
+    packet: DecisionPacket,
+    provider = packet.requested_by,
+  ): void {
+    appendDecisionAuditEvent(this.projectRoot, {
+      event,
+      decision_id: packet.decision_id,
+      fingerprint: packet.fingerprint,
+      task_session_id: packet.task_session_id,
+      provider,
+      timestamp: new Date().toISOString(),
+      category: packet.category,
+      responded_by: packet.human_response?.responded_by,
+      chosen_option_key: packet.human_response?.chosen_option_key ?? null,
+      intent: packet.human_response?.intent,
+    });
+  }
+
+  private readIndex(): DecisionIndexFile {
+    this.initialize();
+    return JSON.parse(readFileSync(this.indexPath(), 'utf8')) as DecisionIndexFile;
+  }
+
+  private writeIndex(index: DecisionIndexFile): void {
+    atomicWriteJson(this.indexPath(), index);
+  }
+
+  private indexPath(): string {
+    return join(this.projectRoot, PATHS.DECISIONS_INDEX);
+  }
+
+  private packetPath(root: string, decisionId: string): string {
+    return join(this.projectRoot, root, `${decisionId}.json`);
+  }
+
+  private listDirectoryIds(relativeDir: string): string[] {
+    const absoluteDir = join(this.projectRoot, relativeDir);
+    if (!existsSync(absoluteDir)) {
+      return [];
+    }
+    return readdirSync(absoluteDir)
+      .filter((file) => /^D-\d+\.json$/.test(file))
+      .map((file) => file.replace(/\.json$/, ''));
+  }
+
+  private writeResolvedPacket(input: ResolveExistingDecisionInput): DecisionPacket {
+    const resolved: DecisionPacket = {
+      ...input.packet,
+      status: input.humanResponse.intent === 'delegated' ? 'delegated' : 'resolved',
+      human_response: input.humanResponse,
+    };
+    const resolvedPath = this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, resolved.decision_id);
+    this.supersedeConflictingDecision(resolved);
+    atomicWriteJson(resolvedPath, resolved);
+
+    const index = this.readIndex();
+    index.fingerprints[resolved.fingerprint] = resolved.decision_id;
+    index.decisions[resolved.decision_id] = {
+      decision_id: resolved.decision_id,
+      fingerprint: resolved.fingerprint,
+      category: resolved.category,
+      chosen_option_key: resolved.human_response?.chosen_option_key ?? null,
+      responded_at: resolved.human_response?.responded_at ?? resolved.created_at,
+      status: resolved.status,
+      option_keys: resolved.options.map((option) => option.option_key).sort(),
+    };
+    this.writeIndex(index);
+    this.appendAudit(input.event, resolved, input.respondedByProvider);
+    return resolved;
+  }
+
+  private supersedeConflictingDecision(packet: DecisionPacket): void {
+    const index = this.readIndex();
+    const existingDecisionId = index.fingerprints[packet.fingerprint];
+    if (!existingDecisionId || existingDecisionId === packet.decision_id) {
+      return;
+    }
+
+    const existing = this.readResolved(existingDecisionId);
+    if (!existing) {
+      return;
+    }
+
+    if (existing.human_response?.chosen_option_key === packet.human_response?.chosen_option_key) {
+      return;
+    }
+
+    const superseded: DecisionPacket = { ...existing, status: 'superseded' };
+    atomicWriteJson(this.packetPath(PATHS.DECISIONS_RESOLVED_DIR, existingDecisionId), superseded);
+    index.decisions[existingDecisionId] = {
+      ...index.decisions[existingDecisionId],
+      status: 'superseded',
+    };
+    this.writeIndex(index);
+    this.appendAudit('decision-superseded', superseded);
+  }
+}
+
+function atomicWriteJson(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true });
+  const tempPath = `${path}.tmp`;
+  writeFileSync(tempPath, JSON.stringify(value, null, 2) + '\n');
+  renameSync(tempPath, path);
+}
+
+function isExpired(packet: DecisionPacket): boolean {
+  return Date.parse(packet.ttl_until) <= Date.now();
+}

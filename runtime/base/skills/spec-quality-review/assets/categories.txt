@@ -1,0 +1,7 @@
+vague-quantifier   "some / many / reasonable / appropriate / sufficient / fast enough / low latency"
+missing-actor      "the system" sentences without a named actor
+unbounded-modal    "may / might / could / should usually" without a hard rule
+tbd-leak           TODO / FIXME / placeholder text not caught by Open Questions
+dangling-ref       cross-reference whose target doesn't exist
+goal-collision     adjacent goals that contradict ("however", "but also")
+missing-negative   FR has a happy AC but no negative or permission AC

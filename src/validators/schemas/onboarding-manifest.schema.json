@@ -1,0 +1,55 @@
+{
+  "$id": "onboarding-manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "framework_version",
+    "adapter",
+    "project_root",
+    "profile",
+    "detected",
+    "repository",
+    "generated_at",
+    "generated_artifacts"
+  ],
+  "properties": {
+    "framework_version": { "type": "string" },
+    "adapter": {
+      "type": "string",
+      "enum": ["claude-code", "codex-cli", "antigravity", "gemini-cli", "junie"]
+    },
+    "project_root": { "type": "string" },
+    "profile": { "$ref": "project-profile" },
+    "detected": { "anyOf": [{ "$ref": "detection-report" }, { "type": "null" }] },
+    "repository": {
+      "anyOf": [{ "$ref": "detection-report#/properties/repository" }, { "type": "null" }]
+    },
+    "generated_at": { "type": "string" },
+    "generated_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "auto_update"],
+        "properties": {
+          "path": { "type": "string" },
+          "auto_update": { "type": "boolean" },
+          "executable": { "type": "boolean" }
+        }
+      }
+    },
+    "planning_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compiled_rules_path", "module_health_initialized"],
+      "properties": {
+        "compiled_rules_path": { "type": "string" },
+        "classifier_config_path": { "type": "string" },
+        "module_health_initialized": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

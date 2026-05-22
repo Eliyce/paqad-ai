@@ -1,0 +1,8 @@
+add-column-nullable        safe; backfill in a follow-up
+add-column-not-null        unsafe; require explicit DEFAULT or 2-step backfill story
+drop-column                unsafe; require deprecation window first
+rename-column-or-table     unsafe; require shim/dual-write window
+add-unique-index           unsafe without prior dedup verification
+type-change                unsafe; route via column-add + dual-write + drop
+truncate / delete-from     unsafe; require Decision Packet
+explicit-table-lock        unsafe in hot tables; verify maintenance window

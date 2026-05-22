@@ -1,0 +1,49 @@
+name: rails
+display_name: Rails
+ecosystem: ruby
+version: 1.0.0
+description: Built-in Rails coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: Gemfile
+      packages: [rails]
+traits:
+  - name: rspec
+    display_name: RSpec
+    detect_package: rspec-rails
+    description: Rails app uses RSpec
+toolchains:
+  - ecosystem: ruby
+    package_managers: [bundler]
+    lockfiles: [Gemfile.lock]
+mcp_defaults:
+  - name: database-inspector
+    when: always
+pentest:
+  file_check_map:
+    - glob: app/controllers/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: config/**
+      checks: [runtime-surface-probing]
+    - glob: Gemfile.lock
+      checks: [dependency-advisory-triage]
+  audit_commands:
+    - command: bundle audit check --format json
+      parser: ruby
+ast:
+  language: ruby
+  tree_sitter_grammar: tree-sitter-ruby
+  file_extensions: ['.rb']
+testing:
+  frameworks:
+    - name: rspec
+      detect_package: rspec-rails
+      run_command: bundle exec rspec
+test_runners:
+  - runner_id: rspec
+    structured_format: rspec-json
+    structured_flags: --format json
+    default_command: bundle exec rspec
+docs:
+  conventions_template: rules/conventions.md

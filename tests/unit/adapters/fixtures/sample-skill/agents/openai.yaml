@@ -1,0 +1,3 @@
+interface:
+  display_name: 'Sample Skill'
+  short_description: 'Fixture bundle for adapter tests'

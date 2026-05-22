@@ -1,0 +1,19 @@
+# Continue Entry Framework
+
+Use this file as the repository entrypoint for Continue.
+
+Before handling repository work:
+1. Open `{{frameworkPath}}`.
+2. Resolve the reference inside that file and load the framework entry it points to.
+3. Load `{{rulesPath}}`, `docs/instructions/stack`, and `docs/instructions/design-system`.
+4. Treat those sources as the canonical project contract for workflow routing, documentation, and implementation behavior.
+
+Workflow handling:
+- Interpret short Paqad workflow prompts such as `create documentation` as workflow invocations.
+- Do not ask the user to choose a document type when a Paqad workflow already matches the request.
+- Generate or update the canonical project documentation and registries defined by Paqad instead of defaulting to generic templates.
+
+{{{decisionPauseContract}}}
+
+Adapter:
+{{adapter}}

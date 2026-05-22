@@ -1,0 +1,3 @@
+interface:
+  display_name: Ux State Machine
+  short_description: Define interface states and transitions for UI-heavy work.

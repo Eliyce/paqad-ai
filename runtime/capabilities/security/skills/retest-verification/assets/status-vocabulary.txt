@@ -1,0 +1,3 @@
+fixed                       current evidence no longer supports the finding (e.g. vulnerable code removed, advisory upgraded)
+still-open                  current evidence still demonstrates the finding
+needs-manual-verification   runtime/live-target check required and could not be performed in this run

@@ -1,0 +1,8 @@
+.paqad/indexes/registry-status.json
+docs/instructions/rules/module-map.yml
+docs/instructions/registries
+docs/maintainers
+docs/modules/*/index/summary.md
+docs/modules/*/api
+docs/modules/*/integration
+docs/business

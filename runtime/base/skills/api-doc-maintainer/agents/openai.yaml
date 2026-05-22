@@ -1,0 +1,3 @@
+interface:
+  display_name: Api Doc Maintainer
+  short_description: Maintains per-module API documentation after endpoint changes

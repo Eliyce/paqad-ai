@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>paqad-ai — Make your AI agent stop guessing</title>
+    <meta
+      name="description"
+      content="Paqad reads your project, learns your stack, and gives every AI coding tool the context it needs so it stops guessing and starts building. Free forever."
+    />
+    <meta property="og:title" content="paqad-ai — Make your AI agent stop guessing" />
+    <meta
+      property="og:description"
+      content="One command. Free forever. Paqad gives AI coding tools project-specific context, reduces token waste, and helps them stop breaking things."
+    />
+    <meta property="og:url" content="https://paqad.ai/" />
+    <meta property="og:image" content="https://paqad.ai/assets/og-card.png" />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230a0a0f'/%3E%3Ctext x='10' y='40' font-size='28' fill='%23f0b429' font-family='monospace'%3E%26%239654;%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260411-website-refresh" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="rain-layer" id="rain-layer" aria-hidden="true"></div>
+
+    <header class="site-header" id="top">
+      <nav class="site-nav" aria-label="Primary">
+        <a class="nav-brand" href="#hero" aria-label="Paqad home">PAQAD</a>
+        <button
+          class="nav-toggle"
+          id="nav-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="mobile-nav"
+          aria-label="Open navigation menu"
+        >
+          ≡
+        </button>
+        <div class="nav-links" id="desktop-nav">
+          <a href="#difference">Why</a>
+          <a href="#how">How</a>
+          <a href="#graph">Graph</a>
+          <a href="#stacks">Stacks</a>
+          <a href="./docs.html">Docs</a>
+        </div>
+        <div class="nav-actions">
+          <a class="nav-install" href="#install">Install</a>
+        </div>
+      </nav>
+    </header>
+    <div class="mobile-nav" id="mobile-nav" hidden>
+      <div class="mobile-nav-panel" aria-label="Mobile navigation">
+        <button
+          class="mobile-nav-close"
+          id="mobile-nav-close"
+          type="button"
+          aria-label="Close navigation menu"
+        >
+          ×
+        </button>
+        <a class="mobile-nav-brand" href="#hero">PAQAD</a>
+        <div class="mobile-nav-links">
+          <a href="#difference">Why</a>
+          <a href="#how">How</a>
+          <a href="#graph">Graph</a>
+          <a href="#stacks">Stacks</a>
+          <a href="./docs.html">Docs</a>
+          <a href="#install">Install</a>
+        </div>
+      </div>
+    </div>
+
+    <main id="main-content">
+      <section class="hero section reveal-section" id="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="hero-shell">
+          <div class="hero-copy-block reveal-group" style="--reveal-delay: 40ms">
+            <div class="hero-badge">OPEN SOURCE · FREE FOREVER</div>
+            <h1>
+              Your AI agent keeps<br />
+              forgetting your <span>project</span>
+            </h1>
+            <p class="hero-subheadline">
+              Paqad reads your codebase, learns your stack, and gives every AI agent the context it
+              needs — so it stops guessing and starts building. <span class="hero-free">Free</span>.
+              Open source. Zero config.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#demo">See it in action ↓</a>
+              <a class="button button-secondary" href="#install">Install now</a>
+            </div>
+          </div>
+          <div class="hero-branding reveal-group" style="--reveal-delay: 120ms">
+            <pre
+              class="hero-logo hero-logo-desktop"
+              id="hero-logo-desktop"
+              aria-hidden="true"
+            ></pre>
+            <pre class="hero-logo hero-logo-mobile" id="hero-logo-mobile" aria-hidden="true"></pre>
+            <p class="hero-logo-caption">
+              One onboarding command gives Claude Code, Codex, Cursor, Gemini, Copilot, and Windsurf
+              the same project-specific context.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal-section" id="difference">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">THE DIFFERENCE</span>
+          <h2>Same request. Two completely different outcomes.</h2>
+        </div>
+        <div class="comparison-grid" id="comparison-grid"></div>
+      </section>
+
+      <section class="section reveal-section" id="demo">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">ONE COMMAND</span>
+          <h2>This is all you do.</h2>
+          <p>
+            Run one command. Paqad reads your lockfiles and manifests, detects everything, and sets
+            up your AI agents automatically. Free — no account, no API key, no subscription.
+          </p>
+        </div>
+        <div class="terminal-window reveal-group" id="terminal-demo"></div>
+      </section>
+
+      <section class="section reveal-section" id="how">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">HOW IT WORKS</span>
+          <h2>Three moments. That's it.</h2>
+        </div>
+        <div class="how-grid" id="how-grid"></div>
+        <p class="section-link reveal-group">
+          <a href="./docs.html#how-it-works">Want the full technical breakdown? →</a>
+        </p>
+      </section>
+
+      <section class="section reveal-section" id="problems">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">PROBLEMS SOLVED</span>
+          <h2>The things that waste your time and tokens today.</h2>
+        </div>
+        <div class="problem-list" id="problem-list"></div>
+      </section>
+
+      <section class="section reveal-section" id="rag">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">RAG CONTEXT</span>
+          <h2>Your AI does not need your whole repo. It needs the right files.</h2>
+          <p>
+            Paqad uses retrieval-augmented context loading to pull in the components, routes, docs,
+            and rules that matter for the current task instead of burning tokens on full-repo dumps.
+          </p>
+        </div>
+        <div class="rag-grid" id="rag-grid"></div>
+      </section>
+
+      <section class="section reveal-section" id="graph">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">PROJECT GRAPH</span>
+          <h2>See what your AI sees.</h2>
+          <p>
+            One command opens an interactive WebGL map of your project — every module, file,
+            chunk, symbol, import, and semantic neighbour. Validate Paqad's mental model in
+            seconds, audit RAG retrieval, and spot architectural drift before it ships.
+          </p>
+        </div>
+        <div class="terminal-window reveal-group">
+          <pre><code>paqad-ai graph</code></pre>
+        </div>
+        <div class="how-grid reveal-group">
+          <div class="how-card">
+            <div class="how-kicker">Live by default</div>
+            <h3>Watches `.paqad/`</h3>
+            <p>
+              Re-onboard, re-index, or tweak module health — the graph refreshes in place while
+              keeping your zoom and selection. No reloads.
+            </p>
+          </div>
+          <div class="how-card">
+            <div class="how-kicker">RAG-aware</div>
+            <h3>Similarity on demand</h3>
+            <p>
+              Move one slider to plot semantic neighbourhoods from your vector store. Works with
+              local, OpenAI, and Voyage embeddings.
+            </p>
+          </div>
+          <div class="how-card">
+            <div class="how-kicker">Health overlays</div>
+            <h3>Recolour by reality</h3>
+            <p>
+              Toggle module health, defect density, risk floor, or complexity correction.
+              Hotspots show up as colour, not as a buried JSON field.
+            </p>
+          </div>
+          <div class="how-card">
+            <div class="how-kicker">Zero install</div>
+            <h3>Ships with the CLI</h3>
+            <p>
+              Server, frontend, layout worker — all bundled in `paqad-ai`. Loopback only by
+              default. No telemetry, no remote calls, no extra dependencies in your project.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal-section" id="proof">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">SEE THE OUTPUT</span>
+          <h2>This is what your AI reads.</h2>
+          <p>
+            Not vague instructions. Structured, stack-specific knowledge generated from your actual
+            project.
+          </p>
+        </div>
+        <div class="proof-grid" id="proof-grid"></div>
+      </section>
+
+      <section class="section reveal-section" id="stacks">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">WORKS WITH YOUR STACK</span>
+          <h2>22 stack packs. Auto-detected.</h2>
+        </div>
+        <div class="pill-grid pill-grid-stacks reveal-group" id="stack-pills"></div>
+        <p class="section-note reveal-group">
+          Reads 26+ manifest and lockfile formats across 9 ecosystems. Don't see your stack? Author
+          your own pack.
+        </p>
+      </section>
+
+      <section class="section reveal-section adapters-section" id="adapters">
+        <div class="section-intro reveal-group">
+          <h2>Works with every AI coding tool.</h2>
+          <p>
+            One onboard command generates instructions for all of them. Switch tools without losing
+            anything.
+          </p>
+        </div>
+        <div class="pill-grid pill-grid-adapters reveal-group" id="adapter-pills"></div>
+      </section>
+
+      <section class="section final-cta reveal-section" id="install">
+        <div class="final-cta-glow" aria-hidden="true"></div>
+        <div class="final-cta-shell reveal-group">
+          <h2>Make your AI agent actually useful.</h2>
+          <p>
+            One command. No config files. No account required. Free forever. Works with your
+            existing project in under 5 seconds.
+          </p>
+          <p class="final-cta-note">
+            Maintained with a strict 100% lines, statements, functions, and branches coverage bar.
+          </p>
+          <button
+            class="copy-command"
+            type="button"
+            data-copy="npm install -g paqad-ai"
+            aria-label="Copy install command"
+          >
+            <span class="copy-command-label">$ npm install -g paqad-ai</span>
+            <span class="copy-command-hint">click to copy</span>
+          </button>
+          <p class="final-cta-note">then run: <code>paqad-ai onboard</code></p>
+          <p class="section-link final-cta-link">
+            <a href="#demo">See it in action →</a>
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        <a href="https://www.npmjs.com/package/paqad-ai" target="_blank" rel="noreferrer">npm</a>
+        · <a href="./docs.html">Docs</a> ·
+        <a href="https://eliyce.com" target="_blank" rel="noreferrer">Eliyce</a>
+      </p>
+      <p>MIT License · Free forever · Built by Eliyce</p>
+    </footer>
+
+    <script type="module" src="./main.js?v=20260411-website-refresh"></script>
+  </body>
+</html>

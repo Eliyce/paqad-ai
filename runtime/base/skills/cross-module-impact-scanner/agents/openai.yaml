@@ -1,0 +1,3 @@
+interface:
+  display_name: Cross-Module Impact Scanner
+  short_description: Detect API, event, schema, and configuration changes whose blast radius reaches consuming modules before code is written.

@@ -1,0 +1,19 @@
+{
+  "$id": "error-catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "user_message", "trigger", "recovery_path", "retry_safe"],
+  "properties": {
+    "code": { "type": "string", "pattern": "^[A-Z]{2,5}-[0-9]{3}$" },
+    "http_status": { "type": "integer", "minimum": 400, "maximum": 599 },
+    "user_message": { "type": "string", "minLength": 1 },
+    "internal_message": { "type": "string" },
+    "trigger": { "type": "string", "minLength": 1 },
+    "recovery_path": { "type": "string", "minLength": 1 },
+    "retry_safe": { "type": "boolean" },
+    "logged": { "type": "boolean" },
+    "alerted": { "type": "boolean" },
+    "added_in": { "type": "string" },
+    "last_updated": { "type": "string" }
+  }
+}

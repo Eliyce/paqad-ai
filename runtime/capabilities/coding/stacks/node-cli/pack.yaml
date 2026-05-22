@@ -1,0 +1,131 @@
+name: node-cli
+display_name: Node.js CLI Tool
+ecosystem: node
+version: 1.0.0
+tier: archetype
+description: Built-in archetype pack for Node.js CLI tools that ship a binary via the bin field
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: package.json
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [commander]
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [yargs]
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [clipanion]
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [cac]
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [citty]
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [meow]
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [tsup]
+      fields:
+        - name: bin
+          presence: required
+    - file: package.json
+      packages: [esbuild]
+      fields:
+        - name: bin
+          presence: required
+  heuristics:
+    - directory: src/cli
+    - directory: bin
+traits:
+  - name: typescript
+    display_name: TypeScript
+    detect_file: tsconfig.json
+    description: Project uses TypeScript
+  - name: vitest
+    display_name: Vitest
+    detect_package: vitest
+    description: Project uses Vitest for testing
+  - name: jest
+    display_name: Jest
+    detect_package: jest
+    description: Project uses Jest for testing
+  - name: eslint
+    display_name: ESLint
+    detect_package: eslint
+    description: Project uses ESLint for linting
+  - name: docker
+    display_name: Docker
+    detect_file: Dockerfile
+    description: Project includes a Dockerfile
+  - name: monorepo
+    display_name: Monorepo
+    detect_file: pnpm-workspace.yaml
+    description: Project is a monorepo root
+toolchains:
+  - ecosystem: node
+    package_managers: [pnpm, npm]
+    lockfiles: [pnpm-lock.yaml, package-lock.json]
+pentest:
+  file_check_map:
+    - glob: src/cli/**
+      checks: [input-validation, business-logic-abuse-review]
+    - glob: src/**/*.ts
+      checks: [business-logic-abuse-review]
+    - glob: package.json
+      checks: [dependency-advisory-triage]
+    - glob: pnpm-lock.yaml
+      checks: [dependency-advisory-triage]
+    - glob: package-lock.json
+      checks: [dependency-advisory-triage]
+    - glob: yarn.lock
+      checks: [dependency-advisory-triage]
+    - glob: .env*
+      checks: [runtime-surface-probing]
+    - glob: scripts/**
+      checks: [input-validation, runtime-surface-probing]
+    - glob: '**/config*'
+      checks: [runtime-surface-probing]
+  audit_commands:
+    - command: pnpm audit --json
+      parser: node
+ast:
+  language: typescript
+  tree_sitter_grammar: tree-sitter-typescript
+  file_extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
+testing:
+  frameworks:
+    - name: vitest
+      detect_package: vitest
+      run_command: pnpm test
+    - name: jest
+      detect_package: jest
+      run_command: pnpm test
+test_runners:
+  - runner_id: vitest
+    structured_format: tap
+    structured_flags: --reporter=tap
+    default_command: pnpm test
+  - runner_id: jest
+    structured_format: jest-json
+    structured_flags: --json
+    default_command: pnpm test
+docs:
+  conventions_template: rules/conventions.md

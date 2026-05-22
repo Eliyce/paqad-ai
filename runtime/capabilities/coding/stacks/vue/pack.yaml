@@ -1,0 +1,93 @@
+name: vue
+display_name: Vue
+ecosystem: node
+version: 1.0.0
+description: Built-in Vue coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: package.json
+      packages:
+        - vue
+traits:
+  - name: nuxt
+    display_name: Nuxt
+    detect_package: nuxt
+    description: Vue application uses Nuxt
+  - name: vite-spa
+    display_name: Vite SPA
+    detect_package: '@vitejs/plugin-vue'
+    description: Vue application uses Vite SPA tooling
+  - name: quasar
+    display_name: Quasar
+    detect_package: '@quasar/app-vite'
+    description: Vue application uses Quasar
+  - name: tailwind
+    display_name: Tailwind
+    detect_package: tailwindcss
+    description: Vue application uses Tailwind CSS
+toolchains:
+  - ecosystem: node
+    package_managers:
+      - pnpm
+      - npm
+    lockfiles:
+      - pnpm-lock.yaml
+      - package-lock.json
+mcp_defaults:
+  - name: vite-inspector
+    when: always
+  - name: vue-router-mcp
+    when: always
+  - name: tailwind-mcp
+    when: when_trait
+    trait: tailwind
+pentest:
+  file_check_map:
+    - glob: src/pages/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: src/api/**
+      checks: [permission-boundary-review, runtime-surface-probing, input-validation-review]
+    - glob: src/middleware/**
+      checks: [permission-boundary-review, runtime-surface-probing]
+    - glob: package-lock.json
+      checks: [dependency-advisory-triage]
+    - glob: pnpm-lock.yaml
+      checks: [dependency-advisory-triage]
+    - glob: yarn.lock
+      checks: [dependency-advisory-triage]
+    - glob: .env*
+      checks: [runtime-surface-probing, cryptographic-review]
+    - glob: src/auth/**
+      checks: [auth-mechanism-review]
+    - glob: src/graphql/**
+      checks: [input-validation-review, permission-boundary-review]
+  audit_commands:
+    - command: pnpm audit --json
+      parser: node
+ast:
+  language: vue
+  tree_sitter_grammar: tree-sitter-vue
+  file_extensions: ['.vue', '.ts', '.tsx', '.js', '.jsx']
+testing:
+  frameworks:
+    - name: vitest
+      detect_package: vitest
+      run_command: pnpm test
+    - name: playwright
+      detect_package: '@playwright/test'
+      run_command: pnpm playwright test
+test_runners:
+  - runner_id: vitest
+    structured_format: tap
+    structured_flags: --reporter=tap
+    default_command: pnpm test
+  - runner_id: playwright
+    structured_format: junit-xml
+    structured_flags: --reporter=junit --outputFile=.paqad/test-results/playwright.xml
+    default_command: pnpm playwright test
+    output_source: file
+    output_path_pattern: .paqad/test-results/playwright.xml
+docs:
+  overview_template: rules/foundation/guide.md
+  conventions_template: rules/conventions/guide.md

@@ -1,0 +1,3 @@
+interface:
+  display_name: Auth Mechanism Review
+  short_description: Identify authentication weaknesses across JWT, sessions, OAuth/OIDC, and brute-force surfaces.

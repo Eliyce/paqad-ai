@@ -1,0 +1,368 @@
+{
+  "$id": "project-profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project",
+    "active_capabilities",
+    "commands",
+    "strictness",
+    "compliance_packs",
+    "features",
+    "mcp",
+    "model_routing",
+    "research",
+    "intelligence",
+    "efficiency",
+    "escalation",
+    "custom"
+  ],
+  "properties": {
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "id", "description"],
+      "properties": {
+        "name": { "type": "string" },
+        "id": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "active_capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "enum": ["content", "coding", "security"] }
+    },
+    "stack_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameworks", "traits", "toolchains", "version_bands", "sources"],
+      "properties": {
+        "frameworks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "laravel",
+              "flutter",
+              "react",
+              "vue",
+              "django",
+              "fastapi",
+              "rails",
+              "spring-boot",
+              "express",
+              "angular",
+              "svelte",
+              "astro",
+              "go-web",
+              "rust-web",
+              "dotnet",
+              "nextjs",
+              "flask",
+              "nestjs",
+              "kotlin-android",
+              "node-cli",
+              "node-library",
+              "node-service"
+            ]
+          }
+        },
+        "traits": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "toolchains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ecosystem", "package_manager", "lockfile"],
+            "properties": {
+              "ecosystem": {
+                "type": "string",
+                "enum": ["node", "php", "python", "ruby", "jvm", "go", "rust", "dart", "dotnet"]
+              },
+              "package_manager": { "type": "string" },
+              "lockfile": { "type": "string" }
+            }
+          }
+        },
+        "version_bands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "package_name", "range", "locked_version", "source"],
+            "properties": {
+              "name": { "type": "string" },
+              "package_name": { "type": "string" },
+              "range": { "type": "string" },
+              "locked_version": { "type": "string" },
+              "source": { "type": "string", "enum": ["lockfile", "manifest"] }
+            }
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "kind", "detail"],
+            "properties": {
+              "file": { "type": "string" },
+              "kind": {
+                "type": "string",
+                "enum": ["manifest", "lockfile", "config", "heuristic", "fallback"]
+              },
+              "detail": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["install", "dev", "test", "test_single", "lint", "format", "migrate", "build"],
+      "properties": {
+        "install": { "type": "string" },
+        "dev": { "type": "string" },
+        "test": { "type": "string" },
+        "test_single": { "type": "string" },
+        "lint": { "type": "string" },
+        "format": { "type": "string" },
+        "migrate": { "type": "string" },
+        "build": { "type": "string" }
+      }
+    },
+    "strictness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "full_lane_default",
+        "require_adversarial_review",
+        "block_on_stale_docs",
+        "require_db_review_for_migrations"
+      ],
+      "properties": {
+        "full_lane_default": { "type": "boolean" },
+        "require_adversarial_review": { "type": "boolean" },
+        "block_on_stale_docs": { "type": "boolean" },
+        "require_db_review_for_migrations": { "type": "boolean" }
+      }
+    },
+    "compliance_packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "enabled"],
+        "properties": {
+          "name": { "type": "string" },
+          "enabled": { "type": "boolean" }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_only_mode",
+        "market_research",
+        "design_research",
+        "team_agents",
+        "supply_chain_governance",
+        "ai_governance"
+      ],
+      "properties": {
+        "spec_only_mode": { "type": "boolean" },
+        "market_research": { "type": "boolean" },
+        "design_research": { "type": "boolean" },
+        "team_agents": { "type": "boolean" },
+        "supply_chain_governance": { "type": "boolean" },
+        "ai_governance": { "type": "boolean" }
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["servers"],
+      "properties": {
+        "servers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "enabled"],
+            "properties": {
+              "name": { "type": "string" },
+              "enabled": { "type": "boolean" },
+              "config": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "model_routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_model", "reasoning_model", "fast_model"],
+      "properties": {
+        "default_model": { "type": "string" },
+        "reasoning_model": { "type": "string" },
+        "fast_model": { "type": "string" }
+      }
+    },
+    "research": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depth"],
+      "properties": {
+        "depth": { "type": "string", "enum": ["cutting-edge", "standard", "conservative"] }
+      }
+    },
+    "intelligence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rag_enabled", "rag_similarity_threshold", "rag_top_n"],
+      "properties": {
+        "rag_enabled": { "type": "boolean" },
+        "embedding_provider": {
+          "type": "string",
+          "enum": ["local", "openai", "voyageai"]
+        },
+        "embedding_model": { "type": "string" },
+        "rag_similarity_threshold": { "type": "number" },
+        "rag_top_n": { "type": "integer", "minimum": 1 },
+        "rag_max_file_size": { "type": "integer", "minimum": 1 },
+        "benchmark_gates": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hit_at_5_improvement_pct": { "type": "number" },
+            "task_success_rate_improvement_pct": { "type": "number" },
+            "correction_turn_reduction_pct": { "type": "number" },
+            "prompt_token_increase_limit_pct": { "type": "number" },
+            "prompt_token_override_success_improvement_pct": { "type": "number" }
+          }
+        },
+        "benchmark_eval": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "model_graded": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "adaptive_retrieval": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "thresholds": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "min_useful_chunks": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        },
+        "reranking": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "backend": { "type": "string", "enum": ["local", "cohere", "passthrough"] },
+            "model": { "type": "string" },
+            "candidate_pool_size": { "type": "integer", "minimum": 1 },
+            "api_key": { "type": "string" }
+          }
+        },
+        "metadata_filters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        },
+        "action_routing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "efficiency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context_hit_rate_target": { "type": "number" },
+        "skill_caching": { "type": "boolean" },
+        "differential_refresh": { "type": "boolean" },
+        "mcp_first": { "type": "boolean" },
+        "skip_version_check": { "type": "boolean" },
+        "version_check_interval_hours": { "type": "number" }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "destructive_operations",
+        "risky_migrations",
+        "security_findings",
+        "db_row_threshold"
+      ],
+      "properties": {
+        "destructive_operations": {
+          "type": "string",
+          "enum": ["block", "require_approval", "warn"]
+        },
+        "risky_migrations": { "type": "string", "enum": ["block", "require_approval", "warn"] },
+        "security_findings": { "type": "string", "enum": ["block", "require_approval", "warn"] },
+        "db_row_threshold": { "type": "integer" }
+      }
+    },
+    "custom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification_dimensions", "verification_plugins", "escalation_rules"],
+      "properties": {
+        "classification_dimensions": { "type": "array", "items": { "type": "object" } },
+        "verification_plugins": { "type": "array", "items": { "type": "object" } },
+        "escalation_rules": { "type": "array", "items": { "type": "object" } },
+        "decisions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ask_threshold": {
+              "type": "string",
+              "enum": ["strict", "balanced", "permissive"]
+            },
+            "max_screens_per_task": { "type": "integer", "minimum": 1 },
+            "idle_timeout_minutes": { "type": "integer", "minimum": 1 },
+            "ttl_overrides_days": {
+              "type": "object",
+              "additionalProperties": { "type": "number", "minimum": 1 }
+            },
+            "preferred_option_keys": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

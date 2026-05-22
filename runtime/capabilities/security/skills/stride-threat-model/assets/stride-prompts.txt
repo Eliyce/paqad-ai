@@ -1,0 +1,6 @@
+spoofing                  can the caller's identity or a data source be impersonated? (session hijack, token forge, OAuth redirect manipulation, webhook source spoofing)
+tampering                 can data in transit or at rest be modified without detection? (unsigned payloads, mutable client-side state, unprotected webhooks, request replay)
+repudiation               are high-value actions audited with sufficient actor context? (financial transactions, permission changes, data deletions, admin operations)
+information-disclosure    can sensitive data be extracted via enumeration, error messages, timing attacks, or side-channels? (verbose errors, user enumeration, introspection)
+denial-of-service         are there resource-exhaustion paths? (unbounded queries, large uploads, tight loops, regex DoS, GraphQL depth bombs, missing rate limits)
+elevation-of-privilege    can a low-privilege actor reach higher-privilege actions? (mass assignment, JWT confusion, path traversal to admin endpoints, IDOR)

@@ -1,0 +1,6 @@
+equality-filter      btree on the filtered column; consider partial index for selective constants
+in-or-like-filter    leading-column index; LIKE 'foo%' uses btree, '%foo%' does not
+order-by             index ordering must match ORDER BY direction or include a covering subset
+join-on              index on the joined column on at least one side; FK columns are not auto-indexed in MySQL
+group-by             index that allows index-scan over the group key
+uniqueness-rule      add UNIQUE index only after dedup verification; allow CONCURRENT build on busy tables

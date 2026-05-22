@@ -1,0 +1,26 @@
+{
+  "$id": "integration-doc",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_class", "published_by", "subscribers", "async"],
+  "properties": {
+    "event_class": { "type": "string", "minLength": 1 },
+    "published_by": { "type": "string", "minLength": 1 },
+    "payload_fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "subscribers": { "type": "array", "items": { "type": "string" } },
+    "async": { "type": "boolean" },
+    "added_in": { "type": "string" }
+  }
+}

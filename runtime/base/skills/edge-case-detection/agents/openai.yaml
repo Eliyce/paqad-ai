@@ -1,0 +1,3 @@
+interface:
+  display_name: Edge Case Detection
+  short_description: Identify failure modes and uncommon but relevant paths.

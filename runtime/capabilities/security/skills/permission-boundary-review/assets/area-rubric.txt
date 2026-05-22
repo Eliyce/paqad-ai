@@ -1,0 +1,6 @@
+idor                  resource lookup by user-supplied id without authz between resolution and return
+privilege-escalation  ability to act outside the actor's role/scope
+tenant-isolation      cross-tenant data leakage; missing tenant_id filter
+hidden-admin          /admin /debug /internal route exposed without auth or with weak auth
+impersonation         loginAs / sudo path with insufficient guardrails
+broad-export          exports allow downloading more than the actor's scope

@@ -1,0 +1,3 @@
+interface:
+  display_name: Acceptance Criteria Gen
+  short_description: Generate acceptance criteria tied to observable outcomes.

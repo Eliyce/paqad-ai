@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CHANGED_FILES=".paqad/session/changed-files.json"
+
+if [ ! -f "$CHANGED_FILES" ]; then
+  echo "No changed files log found. Running full refresh."
+  exec "$(dirname "$0")/refresh-registry.sh"
+fi
+
+echo "Diff refresh for {{projectName}}"

@@ -1,0 +1,48 @@
+name: rust-web
+display_name: Rust Web
+ecosystem: rust
+version: 1.0.0
+description: Built-in Rust web coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: Cargo.toml
+      packages: [axum]
+traits:
+  - name: axum
+    display_name: Axum
+    detect_package: axum
+    description: Rust web app uses Axum
+toolchains:
+  - ecosystem: rust
+    package_managers: [cargo]
+    lockfiles: [Cargo.lock]
+mcp_defaults:
+  - name: database-inspector
+    when: always
+pentest:
+  file_check_map:
+    - glob: src/routes/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: src/config/**
+      checks: [runtime-surface-probing]
+    - glob: Cargo.lock
+      checks: [dependency-advisory-triage]
+  audit_commands:
+    - command: cargo audit --json
+      parser: rust
+ast:
+  language: rust
+  tree_sitter_grammar: tree-sitter-rust
+  file_extensions: ['.rs']
+testing:
+  frameworks:
+    - name: cargo-test
+      detect_file: Cargo.toml
+      run_command: cargo test
+test_runners:
+  - runner_id: cargo-test
+    structured_format: none
+    default_command: cargo test
+docs:
+  conventions_template: rules/conventions.md

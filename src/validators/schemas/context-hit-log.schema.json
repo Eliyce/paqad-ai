@@ -1,0 +1,24 @@
+{
+  "$id": "context-hit-log",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session_id",
+    "phase",
+    "files_loaded",
+    "files_referenced",
+    "hit_rate",
+    "unreferenced_files",
+    "timestamp"
+  ],
+  "properties": {
+    "session_id": { "type": "string" },
+    "phase": { "type": "string" },
+    "story": { "type": "string" },
+    "files_loaded": { "type": "integer", "minimum": 0 },
+    "files_referenced": { "type": "integer", "minimum": 0 },
+    "hit_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "unreferenced_files": { "type": "array", "items": { "type": "string" } },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

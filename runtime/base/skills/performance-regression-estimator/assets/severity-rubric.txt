@@ -1,0 +1,3 @@
+high    hazard sits on a documented hot path (request handler with latency budget, real-time consumer)
+medium  hazard sits on a cold path (scheduled job, admin tool) but data volume is unbounded
+low     hazard sits on a cold path AND data volume is bounded and small

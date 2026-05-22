@@ -1,0 +1,62 @@
+name: nestjs
+display_name: NestJS
+ecosystem: node
+version: 1.0.0
+description: NestJS services and APIs
+maintainer: paqad-ai
+detection:
+  priority: 150
+  excludes: [express]
+  manifests:
+    - file: package.json
+      packages: ['@nestjs/core']
+traits:
+  - name: prisma
+    display_name: Prisma
+    detect_package: '@prisma/client'
+    description: Project uses Prisma
+  - name: typeorm
+    display_name: TypeORM
+    detect_package: typeorm
+    description: Project uses TypeORM
+  - name: graphql
+    display_name: GraphQL
+    detect_package: '@nestjs/graphql'
+    description: Project uses GraphQL
+  - name: microservices
+    display_name: Microservices
+    detect_package: '@nestjs/microservices'
+    description: Project uses NestJS microservices
+  - name: swagger
+    display_name: Swagger
+    detect_package: '@nestjs/swagger'
+    description: Project publishes OpenAPI docs
+  - name: passport
+    display_name: Passport
+    detect_package: '@nestjs/passport'
+    description: Project uses Passport auth integrations
+  - name: fastify
+    display_name: Fastify
+    detect_package: '@nestjs/platform-fastify'
+    description: Project uses the Fastify platform adapter
+toolchains:
+  - ecosystem: node
+    package_managers: [pnpm, npm]
+    lockfiles: [pnpm-lock.yaml, package-lock.json]
+mcp_defaults:
+  - name: database-inspector
+    when: when_trait
+    trait: prisma
+  - name: database-inspector
+    when: when_trait
+    trait: typeorm
+  - name: figma
+    when: always
+ast:
+  language: typescript
+  tree_sitter_grammar: tree-sitter-typescript
+  file_extensions: ['.ts', '.js']
+docs:
+  conventions_template: rules/conventions.md
+rag:
+  exclude_directories: ['dist', 'coverage', 'node_modules']

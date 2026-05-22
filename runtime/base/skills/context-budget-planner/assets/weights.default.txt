@@ -1,0 +1,7 @@
+# Default per-line token weights (override per project via references/budget-heuristics.md).
+# Format: <category> <weight>
+spec        3.0
+test-plan   2.0
+module-doc  2.5
+source      4.0
+prose       1.5

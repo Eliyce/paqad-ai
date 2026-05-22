@@ -1,0 +1,3 @@
+interface:
+  display_name: Ui Doc Maintainer
+  short_description: Maintain UI screens, components, and state docs after UI changes.

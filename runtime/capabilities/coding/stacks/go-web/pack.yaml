@@ -1,0 +1,49 @@
+name: go-web
+display_name: Go Web
+ecosystem: go
+version: 1.0.0
+description: Built-in Go web coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: go.mod
+      packages: [github.com/gin-gonic/gin]
+traits:
+  - name: gin
+    display_name: Gin
+    detect_package: github.com/gin-gonic/gin
+    description: Go web app uses Gin
+toolchains:
+  - ecosystem: go
+    package_managers: [go]
+    lockfiles: [go.sum]
+mcp_defaults:
+  - name: database-inspector
+    when: always
+pentest:
+  file_check_map:
+    - glob: cmd/**
+      checks: [runtime-surface-probing]
+    - glob: internal/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: go.sum
+      checks: [dependency-advisory-triage]
+  audit_commands:
+    - command: govulncheck ./...
+      parser: go
+ast:
+  language: go
+  tree_sitter_grammar: tree-sitter-go
+  file_extensions: ['.go']
+testing:
+  frameworks:
+    - name: go-test
+      detect_file: go.mod
+      run_command: go test ./...
+test_runners:
+  - runner_id: go-test
+    structured_format: go-json
+    structured_flags: -json
+    default_command: go test ./...
+docs:
+  conventions_template: rules/conventions.md

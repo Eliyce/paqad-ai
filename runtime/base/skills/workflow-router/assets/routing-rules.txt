@@ -1,0 +1,61 @@
+# priority<TAB>workflow<TAB>pattern  (case-insensitive substring match)
+# Highest priority wins; ties broken by longest pattern.
+250	pentest-retest	pentest retest
+250	pentest-retest	pentest-retest
+250	pentest-retest	retest pentest
+250	pentest-retest	retest security findings
+240	pentest	run a pentest
+240	pentest	run pentest
+240	pentest	penetration test
+240	pentest	security review
+240	pentest	security test
+230	root-cause-analysis	root cause analysis
+230	root-cause-analysis	root-cause-analysis
+230	root-cause-analysis	postmortem
+230	root-cause-analysis	post mortem
+230	root-cause-analysis	incident analysis
+225	module-documentation	create module documentation
+225	module-documentation	generate module docs
+225	module-documentation	create per-module docs
+225	module-documentation	now create the module documentation
+225	module-documentation	generate module documentation
+225	module-documentation	create module docs
+220	documentation-update	create documentation
+220	documentation-update	created documentation
+220	documentation-update	create documenation
+220	documentation-update	created documenation
+220	documentation-update	generate documentation
+220	documentation-update	update documentation
+220	documentation-update	refresh documentation
+220	documentation-update	build documentation
+210	project-question	how does
+210	project-question	what is
+210	project-question	why does
+210	project-question	where is
+210	project-question	explain
+210	project-question	walk me through
+180	cleanup	cleanup
+175	refactor	refactor
+170	migration	data migration
+170	migration	schema migration
+170	migration	migration
+165	bug-fix	fix
+165	bug-fix	bug
+165	bug-fix	repair
+160	research	research
+155	planning	plan
+155	planning	brief
+155	planning	outline
+155	planning	strategy
+150	editing	rewrite
+150	editing	revise
+150	editing	polish
+150	editing	edit
+145	writing	write
+145	writing	content
+145	writing	copy
+145	writing	article
+140	feature-development	implement
+140	feature-development	build
+140	feature-development	add
+140	feature-development	feature

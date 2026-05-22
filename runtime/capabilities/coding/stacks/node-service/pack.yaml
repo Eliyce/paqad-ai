@@ -1,0 +1,127 @@
+name: node-service
+display_name: Node.js Service
+ecosystem: node
+version: 1.0.0
+tier: archetype
+description: Built-in archetype pack for Node.js long-running services without a recognised framework (raw HTTP servers, queue workers, cron services)
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: package.json
+      fields:
+        - name: scripts.start
+          presence: required
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: [dotenv]
+      fields:
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: [nodemon]
+      fields:
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: [tsx]
+      fields:
+        - name: bin
+          presence: absent
+    - file: package.json
+      packages: ['ts-node-dev']
+      fields:
+        - name: bin
+          presence: absent
+  heuristics:
+    - file: src/server.ts
+    - file: src/server.js
+    - file: src/app.ts
+    - file: src/app.js
+    - file: src/worker.ts
+    - file: src/worker.js
+    - file: Dockerfile
+traits:
+  - name: typescript
+    display_name: TypeScript
+    detect_file: tsconfig.json
+    description: Project uses TypeScript
+  - name: vitest
+    display_name: Vitest
+    detect_package: vitest
+    description: Project uses Vitest for testing
+  - name: jest
+    display_name: Jest
+    detect_package: jest
+    description: Project uses Jest for testing
+  - name: eslint
+    display_name: ESLint
+    detect_package: eslint
+    description: Project uses ESLint for linting
+  - name: docker
+    display_name: Docker
+    detect_file: Dockerfile
+    description: Project includes a Dockerfile
+  - name: compose
+    display_name: Docker Compose
+    detect_file: docker-compose.yml
+    description: Project includes a Docker Compose file
+toolchains:
+  - ecosystem: node
+    package_managers: [pnpm, npm]
+    lockfiles: [pnpm-lock.yaml, package-lock.json]
+mcp_defaults:
+  - name: database-inspector
+    when: always
+pentest:
+  file_check_map:
+    - glob: src/**/*.ts
+      checks: [business-logic-abuse-review, input-validation]
+    - glob: src/server.*
+      checks: [permission-boundary-review, runtime-surface-probing]
+    - glob: src/app.*
+      checks: [permission-boundary-review, runtime-surface-probing]
+    - glob: src/middleware/**
+      checks: [permission-boundary-review]
+    - glob: package.json
+      checks: [dependency-advisory-triage]
+    - glob: pnpm-lock.yaml
+      checks: [dependency-advisory-triage]
+    - glob: package-lock.json
+      checks: [dependency-advisory-triage]
+    - glob: yarn.lock
+      checks: [dependency-advisory-triage]
+    - glob: .env*
+      checks: [runtime-surface-probing]
+    - glob: config/**
+      checks: [runtime-surface-probing]
+    - glob: Dockerfile
+      checks: [runtime-surface-probing]
+    - glob: docker-compose.yml
+      checks: [runtime-surface-probing]
+  audit_commands:
+    - command: pnpm audit --json
+      parser: node
+ast:
+  language: typescript
+  tree_sitter_grammar: tree-sitter-typescript
+  file_extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
+testing:
+  frameworks:
+    - name: vitest
+      detect_package: vitest
+      run_command: pnpm test
+    - name: jest
+      detect_package: jest
+      run_command: pnpm test
+test_runners:
+  - runner_id: vitest
+    structured_format: tap
+    structured_flags: --reporter=tap
+    default_command: pnpm test
+  - runner_id: jest
+    structured_format: jest-json
+    structured_flags: --json
+    default_command: pnpm test
+docs:
+  conventions_template: rules/conventions.md

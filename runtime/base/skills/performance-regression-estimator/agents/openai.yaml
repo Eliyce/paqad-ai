@@ -1,0 +1,3 @@
+interface:
+  display_name: Performance Regression Estimator
+  short_description: Catch N+1, sync-in-async, missing pagination, and suspicious caching in a proposed solution before load testing reveals them in production.

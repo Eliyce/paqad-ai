@@ -1,0 +1,10 @@
+ssrf                  WSTG-INPV-17
+idor                  WSTG-AUTHZ-04
+mass-assignment       WSTG-INPV-06
+sqli                  WSTG-INPV-05
+shell-injection       WSTG-INPV-12
+template-injection    WSTG-INPV-18
+deserialization       WSTG-INPV-13
+file-upload           WSTG-BUSL-09
+prototype-pollution   WSTG-INPV-19
+redos                 WSTG-INPV-19

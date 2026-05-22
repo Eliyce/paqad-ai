@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Scan for error code patterns in the codebase
+grep -rhoP '[A-Z]{2,5}-[0-9]{3}' {{#if_eq routing.stack "laravel"}}app/{{/if_eq}} 2>/dev/null \
+  | sort -u

@@ -1,0 +1,11 @@
+visibility-of-status         system keeps user informed of state via timely feedback
+match-real-world             language matches user's vocabulary and mental model
+user-control                 clear escape hatches; undo / redo / cancel
+consistency                  same word / element means the same thing across the product
+error-prevention             eliminate error-prone conditions before they happen
+recognition-over-recall      minimize memory load; show options
+flexibility                  shortcuts for experts; defaults for novices
+aesthetic-minimalism         every extra element competes with the relevant ones
+error-recovery               errors expressed in plain language with constructive next step
+help-and-docs                help is searchable and task-focused
+accessibility                keyboard, screen-reader, contrast, motion preferences honored

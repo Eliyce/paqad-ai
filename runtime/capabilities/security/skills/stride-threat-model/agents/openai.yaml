@@ -1,0 +1,3 @@
+interface:
+  display_name: STRIDE Threat Model
+  short_description: Enumerate threats systematically per STRIDE category across all module surfaces.

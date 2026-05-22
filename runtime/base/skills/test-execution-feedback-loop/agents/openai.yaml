@@ -1,0 +1,3 @@
+interface:
+  display_name: Test Execution Feedback Loop
+  short_description: Propose a minimal evidence-anchored fix for each failing test using the verification evidence file plus the active acceptance criteria.

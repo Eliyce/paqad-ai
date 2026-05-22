@@ -1,0 +1,3 @@
+interface:
+  display_name: Root Cause Analysis
+  short_description: Generate a canonical RCA artifact for an incident or failure.

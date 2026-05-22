@@ -1,0 +1,48 @@
+name: angular
+display_name: Angular
+ecosystem: node
+version: 1.0.0
+description: Built-in Angular coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: package.json
+      packages: ['@angular/core']
+traits:
+  - name: tailwind
+    display_name: Tailwind
+    detect_package: tailwindcss
+    description: Angular app uses Tailwind CSS
+toolchains:
+  - ecosystem: node
+    package_managers: [pnpm, npm]
+    lockfiles: [pnpm-lock.yaml, package-lock.json]
+mcp_defaults:
+  - name: figma
+    when: always
+pentest:
+  file_check_map:
+    - glob: src/app/**
+      checks: [permission-boundary-review, business-logic-abuse-review]
+    - glob: src/environments/**
+      checks: [runtime-surface-probing]
+    - glob: pnpm-lock.yaml
+      checks: [dependency-advisory-triage]
+  audit_commands:
+    - command: pnpm audit --json
+      parser: node
+ast:
+  language: typescript
+  tree_sitter_grammar: tree-sitter-typescript
+  file_extensions: ['.ts', '.html']
+testing:
+  frameworks:
+    - name: angular-test
+      detect_package: '@angular/core'
+      run_command: ng test
+test_runners:
+  - runner_id: angular-test
+    structured_format: none
+    default_command: ng test
+docs:
+  conventions_template: rules/conventions.md

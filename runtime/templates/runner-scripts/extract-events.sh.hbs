@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Scan for Event classes and their listeners
+grep -rl "class.*extends.*Event" {{#if_eq routing.stack "laravel"}}app/Events/{{/if_eq}} 2>/dev/null \
+  | while read -r file; do
+    echo "$(basename "$file" .php)"
+  done

@@ -1,0 +1,9 @@
+[
+  {
+    "module": "{{module-slug}}",
+    "asset": "{{specific asset / route / data store / token}}",
+    "stride_category": "spoofing|tampering|repudiation|information-disclosure|denial-of-service|elevation-of-privilege",
+    "threat_description": "{{concrete attack path naming the specific asset — never generic STRIDE prose}}",
+    "severity_hint": "critical|high|medium|low"
+  }
+]

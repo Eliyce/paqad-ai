@@ -1,0 +1,4 @@
+interface: skill/v1
+model_family: openai
+instructions: |
+  Review the specification for internal coherence. Prefer deterministic structural findings over speculative product commentary.

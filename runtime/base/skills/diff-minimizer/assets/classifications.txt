@@ -1,0 +1,4 @@
+ac-satisfying    AC's behavior cannot be observed without this step
+necessary-setup  another step depends on it; cite the dependent step number
+scaffolding      defensive/abstract code beyond the spec
+over-build       feature/optimization no AC requested

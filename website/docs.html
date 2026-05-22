@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>paqad-ai Docs — Full technical breakdown</title>
+    <meta
+      name="description"
+      content="Official paqad-ai documentation. Learn how onboarding works, what gets generated, and how paqad-ai gives AI coding tools reliable project context."
+    />
+    <meta property="og:title" content="paqad-ai Docs — Full technical breakdown" />
+    <meta
+      property="og:description"
+      content="Official paqad-ai documentation for installation, onboarding, planning manifests, stack detection, and context-efficient AI workflows."
+    />
+    <meta property="og:url" content="https://paqad.ai/docs.html" />
+    <meta property="og:image" content="https://paqad.ai/assets/og-card.png" />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230a0a0f'/%3E%3Ctext x='10' y='40' font-size='28' fill='%23f0b429' font-family='monospace'%3E%26%239654;%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260411-website-refresh" />
+    <link rel="stylesheet" href="./docs.css?v=20260411-docs-refresh" />
+  </head>
+  <body>
+    <a class="skip-link" href="#docs-main">Skip to content</a>
+    <div class="rain-layer" id="rain-layer" aria-hidden="true"></div>
+
+    <header class="site-header" id="top">
+      <nav class="site-nav" aria-label="Primary">
+        <a class="nav-brand" href="./" aria-label="Paqad home">PAQAD</a>
+        <button
+          class="nav-toggle"
+          id="nav-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="mobile-nav"
+          aria-label="Open navigation menu"
+        >
+          ≡
+        </button>
+        <div class="nav-links" id="desktop-nav">
+          <a href="./#difference">Why</a>
+          <a href="./#how">How</a>
+          <a href="./#stacks">Stacks</a>
+          <a href="./docs.html" class="is-active" aria-current="page">Docs</a>
+        </div>
+        <div class="nav-actions">
+          <a class="nav-install" href="./#install">Install</a>
+        </div>
+      </nav>
+    </header>
+    <div class="mobile-nav" id="mobile-nav" hidden>
+      <div class="mobile-nav-panel" aria-label="Mobile navigation">
+        <button
+          class="mobile-nav-close"
+          id="mobile-nav-close"
+          type="button"
+          aria-label="Close navigation menu"
+        >
+          ×
+        </button>
+        <a class="mobile-nav-brand" href="./">PAQAD</a>
+        <div class="mobile-nav-links">
+          <a href="./#difference">Why</a>
+          <a href="./#how">How</a>
+          <a href="./#stacks">Stacks</a>
+          <a href="./docs.html" class="is-active">Docs</a>
+          <a href="./#install">Install</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="docs-layout" id="docs-layout">
+      <aside class="docs-sidebar" id="docs-sidebar" aria-label="Documentation navigation">
+        <div class="docs-search-wrap">
+          <input
+            type="search"
+            id="docs-search"
+            class="docs-search-input"
+            placeholder="Search docs... [/]"
+            aria-label="Search documentation"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <div
+            class="docs-search-results"
+            id="docs-search-results"
+            role="listbox"
+            aria-label="Search results"
+            hidden
+          ></div>
+        </div>
+        <nav class="docs-nav" id="docs-nav" aria-label="Documentation sections"></nav>
+      </aside>
+
+      <div class="docs-sidebar-backdrop" id="docs-sidebar-backdrop" aria-hidden="true"></div>
+
+      <main class="docs-content" id="docs-main" tabindex="-1">
+        <div class="docs-mobile-toolbar">
+          <button
+            class="docs-sidebar-toggle"
+            id="docs-sidebar-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="docs-sidebar"
+            aria-label="Open documentation menu"
+          >
+            [≡] menu
+          </button>
+          <div
+            id="docs-breadcrumbs-mobile"
+            class="docs-breadcrumbs docs-breadcrumbs-mobile"
+            aria-label="Breadcrumb"
+          ></div>
+        </div>
+
+        <div id="docs-breadcrumbs" class="docs-breadcrumbs" aria-label="Breadcrumb"></div>
+        <article id="docs-article" class="docs-article"></article>
+        <nav id="docs-page-nav" class="docs-page-nav" aria-label="Page navigation"></nav>
+      </main>
+
+      <aside class="docs-toc" id="docs-toc" aria-label="On this page">
+        <div class="docs-toc-label">on this page</div>
+        <div class="docs-toc-rule" aria-hidden="true">────────────────────</div>
+        <nav id="docs-toc-nav" class="docs-toc-nav" aria-label="Page sections"></nav>
+      </aside>
+    </div>
+
+    <footer class="site-footer docs-footer">
+      <p>
+        <a href="https://www.npmjs.com/package/paqad-ai" target="_blank" rel="noreferrer">npm</a>
+        · <a href="./">paqad.ai</a> ·
+        <a href="https://eliyce.com" target="_blank" rel="noreferrer">Eliyce</a>
+      </p>
+      <p>MIT License · Free forever · Built by Eliyce</p>
+    </footer>
+
+    <script type="module" src="./docs.js?v=20260328-docs"></script>
+  </body>
+</html>

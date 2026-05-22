@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "{{routing.stack}}" in
+  dotnet)
+    find . \( -path "*/Controllers/*.cs" -o -path "*/Endpoints/*.cs" -o -name "Program.cs" \) -type f -print0 \
+      | xargs -0 grep -nE '\[(Route|HttpGet|HttpPost|HttpPut|HttpDelete|HttpPatch)|\.(MapGet|MapPost|MapPut|MapDelete|MapPatch)\(' 2>/dev/null || true
+    ;;
+  nextjs)
+    find . \( -path "*/app/**/page.tsx" -o -path "*/app/**/page.ts" -o -path "*/app/**/route.ts" -o -path "*/pages/**/*.tsx" -o -path "*/pages/**/*.ts" -o -path "*/pages/**/*.jsx" -o -path "*/pages/**/*.js" \) -type f 2>/dev/null || true
+    ;;
+  flask)
+    find . -name "*.py" -print0 | xargs -0 grep -nE '@[A-Za-z_][A-Za-z0-9_]*\.route\(|@app\.route\(' 2>/dev/null || true
+    ;;
+  nestjs)
+    find ./src -name "*.controller.ts" -print0 2>/dev/null | xargs -0 grep -nE '@Controller\(|@(Get|Post|Put|Delete|Patch|All|Head|Options)\(' 2>/dev/null || true
+    ;;
+  kotlin-android)
+    grep -RInE 'android:name=|NavHost|composable\(' ./app/src/main 2>/dev/null || true
+    ;;
+  *)
+    php artisan route:list --json 2>/dev/null || echo '{"error": "artisan not available"}'
+    ;;
+esac

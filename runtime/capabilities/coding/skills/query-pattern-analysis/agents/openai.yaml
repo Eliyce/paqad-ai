@@ -1,0 +1,3 @@
+interface:
+  display_name: Query Pattern Analysis
+  short_description: Analyze query behavior for correctness and performance risk.

@@ -1,0 +1,3 @@
+interface:
+  display_name: Canonical Doc Sync
+  short_description: Synchronize implementation changes back into canonical documentation.

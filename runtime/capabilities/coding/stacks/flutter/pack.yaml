@@ -1,0 +1,55 @@
+name: flutter
+display_name: Flutter
+ecosystem: dart
+version: 1.0.0
+description: Built-in Flutter coding stack pack
+maintainer: paqad-ai
+detection:
+  priority: 95
+  manifests:
+    - file: pubspec.yaml
+      packages:
+        - flutter
+traits: []
+toolchains:
+  - ecosystem: dart
+    package_managers:
+      - pub
+    lockfiles:
+      - pubspec.lock
+mcp_defaults:
+  - name: dart-mcp
+    when: always
+pentest:
+  file_check_map:
+    - glob: lib/**
+      checks: [permission-boundary-review, business-logic-abuse-review, input-validation-review]
+    - glob: pubspec.lock
+      checks: [dependency-advisory-triage]
+    - glob: android/**
+      checks: [runtime-surface-probing]
+    - glob: ios/**
+      checks: [runtime-surface-probing]
+    - glob: lib/services/auth*
+      checks: [auth-mechanism-review]
+    - glob: lib/models/**
+      checks: [input-validation-review]
+  audit_commands:
+    - command: dart pub outdated --json
+      parser: dart
+ast:
+  language: dart
+  tree_sitter_grammar: tree-sitter-dart
+  file_extensions: ['.dart']
+testing:
+  frameworks:
+    - name: flutter-test
+      detect_file: test
+      run_command: flutter test
+test_runners:
+  - runner_id: flutter-test
+    structured_format: none
+    default_command: flutter test
+docs:
+  overview_template: rules/foundation/guide.md
+  conventions_template: rules/conventions/guide.md

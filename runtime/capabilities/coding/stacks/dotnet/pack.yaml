@@ -1,0 +1,73 @@
+name: dotnet
+display_name: ASP.NET Core
+ecosystem: dotnet
+version: 1.0.0
+description: ASP.NET Core web applications and APIs
+maintainer: paqad-ai
+detection:
+  priority: 100
+  manifests:
+    - file: Program.cs
+      content_match: WebApplication.CreateBuilder
+  heuristics:
+    - directory: Controllers
+  excludes: []
+traits:
+  - name: blazor
+    display_name: Blazor
+    detect_file: App.razor
+    description: Project uses Blazor components
+  - name: ef-core
+    display_name: Entity Framework Core
+    detect_file: appsettings.json
+    description: Project likely uses EF Core-backed application data
+  - name: minimal-api
+    display_name: Minimal APIs
+    detect_file: Program.cs
+    description: Project exposes endpoints from Program.cs
+  - name: mvc
+    display_name: MVC
+    detect_directory: Controllers
+    description: Project contains MVC controllers
+  - name: razor-pages
+    display_name: Razor Pages
+    detect_directory: Pages
+    description: Project contains Razor Pages
+  - name: signalr
+    display_name: SignalR
+    detect_directory: Hubs
+    description: Project contains SignalR hubs
+  - name: identity
+    display_name: Identity
+    detect_directory: Areas/Identity
+    description: Project contains ASP.NET Identity assets
+  - name: azure
+    display_name: Azure
+    detect_file: azure-pipelines.yml
+    description: Project includes Azure delivery configuration
+toolchains:
+  - ecosystem: dotnet
+    package_managers: [nuget]
+    lockfiles: [packages.lock.json]
+mcp_defaults:
+  - name: database-inspector
+    when: when_trait
+    trait: ef-core
+  - name: figma
+    when: always
+pentest:
+  file_check_map:
+    - glob: Controllers/**
+      checks: [permission-boundary-review, input-validation]
+    - glob: Program.cs
+      checks: [runtime-surface-probing]
+    - glob: appsettings*.json
+      checks: [runtime-surface-probing]
+ast:
+  language: csharp
+  tree_sitter_grammar: tree-sitter-c-sharp
+  file_extensions: ['.cs', '.cshtml', '.razor', '.csproj', '.sln']
+docs:
+  conventions_template: rules/conventions.md
+rag:
+  exclude_directories: ['bin', 'obj', '.vs', 'packages', 'TestResults', 'publish', 'artifacts']

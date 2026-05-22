@@ -1,0 +1,52 @@
+name: fastapi
+display_name: FastAPI
+ecosystem: python
+version: 1.0.0
+description: Built-in FastAPI coding stack pack
+maintainer: paqad-ai
+detection:
+  priority: 120
+  manifests:
+    - file: requirements.txt
+      packages: [fastapi]
+traits:
+  - name: pydantic
+    display_name: Pydantic
+    detect_package: pydantic
+    description: FastAPI app uses Pydantic models
+toolchains:
+  - ecosystem: python
+    package_managers: [pip]
+    lockfiles: [requirements.txt]
+mcp_defaults:
+  - name: database-inspector
+    when: always
+pentest:
+  file_check_map:
+    - glob: '**/routers/**'
+      checks: [permission-boundary-review, runtime-surface-probing]
+    - glob: '**/main.py'
+      checks: [runtime-surface-probing]
+    - glob: requirements.txt
+      checks: [dependency-advisory-triage]
+  audit_commands:
+    - command: pip-audit -r requirements.txt -f json
+      parser: python
+ast:
+  language: python
+  tree_sitter_grammar: tree-sitter-python
+  file_extensions: ['.py']
+testing:
+  frameworks:
+    - name: pytest
+      detect_package: pytest
+      run_command: pytest
+test_runners:
+  - runner_id: pytest
+    structured_format: pytest-json
+    structured_flags: --json-report --json-report-file=.paqad/test-results/pytest.json
+    default_command: pytest
+    output_source: file
+    output_path_pattern: .paqad/test-results/pytest.json
+docs:
+  conventions_template: rules/conventions.md

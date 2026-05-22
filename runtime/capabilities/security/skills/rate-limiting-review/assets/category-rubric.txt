@@ -1,0 +1,6 @@
+auth                login/register/reset-password/verify-otp — must rate-limit per-IP and per-account
+bulk                export/bulk/download/import/batch — must enforce per-user quota and record-count cap
+expensive           PDF/email/ML/search — must queue or concurrency-cap
+websocket           per-connection message rate limit required
+unauth-expensive    unauthenticated endpoint that triggers expensive backend work — highest DoS risk
+pagination          list endpoints must cap per_page / page_size

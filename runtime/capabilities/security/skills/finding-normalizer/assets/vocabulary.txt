@@ -1,0 +1,20 @@
+# severity
+critical
+high
+medium
+low
+info
+
+# effort
+trivial
+small
+medium
+large
+
+# status
+open
+fixed
+wont-fix
+blocked
+retest-pass
+retest-fail

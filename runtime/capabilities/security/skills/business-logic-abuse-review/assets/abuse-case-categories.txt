@@ -1,0 +1,7 @@
+replay              re-submitting a previously valid request to repeat an effect
+double-submit       two near-simultaneous requests both apply
+invalid-transition  state moves to a value the workflow does not allow
+bypass-approval     action completes without the required approval step
+race                concurrent ops produce inconsistent state
+rollback-skip       compensating step is missing on partial failure
+overspend           constraint enforced client-side or per-request only

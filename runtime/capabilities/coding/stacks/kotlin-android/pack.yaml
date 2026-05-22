@@ -1,0 +1,63 @@
+name: kotlin-android
+display_name: Kotlin Android
+ecosystem: jvm
+version: 1.0.0
+description: Native Android applications built with Kotlin
+maintainer: paqad-ai
+detection:
+  priority: 90
+  manifests:
+    - file: build.gradle
+      content_match: com.android.application
+    - file: build.gradle.kts
+      content_match: com.android.application
+  heuristics:
+    - file: app/src/main/AndroidManifest.xml
+  excludes: []
+traits:
+  - name: jetpack-compose
+    display_name: Jetpack Compose
+    detect_package: androidx.compose.ui:ui
+    description: Project uses Jetpack Compose
+  - name: room
+    display_name: Room
+    detect_package: androidx.room:room-runtime
+    description: Project uses Room
+  - name: hilt
+    display_name: Hilt
+    detect_package: androidx.hilt:hilt-navigation-compose
+    description: Project uses Hilt
+  - name: retrofit
+    display_name: Retrofit
+    detect_package: com.squareup.retrofit2:retrofit
+    description: Project uses Retrofit
+  - name: coroutines
+    display_name: Coroutines
+    detect_package: org.jetbrains.kotlinx:kotlinx-coroutines-core
+    description: Project uses Coroutines
+  - name: navigation
+    display_name: Navigation
+    detect_package: androidx.navigation:navigation-compose
+    description: Project uses Android navigation components
+  - name: datastore
+    display_name: DataStore
+    detect_package: androidx.datastore:datastore
+    description: Project uses DataStore
+toolchains:
+  - ecosystem: jvm
+    package_managers: [gradle]
+    lockfiles: [gradle.lockfile]
+mcp_defaults:
+  - name: database-inspector
+    when: when_trait
+    trait: room
+  - name: figma
+    when: always
+ast:
+  language: kotlin
+  tree_sitter_grammar: tree-sitter-kotlin
+  file_extensions: ['.kt', '.kts', '.xml', '.gradle', '.gradle.kts']
+docs:
+  conventions_template: rules/conventions.md
+rag:
+  exclude_directories: ['.gradle', 'build', 'app/build', '.idea', 'captures']

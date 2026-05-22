@@ -1,0 +1,7 @@
+1  schema migrations land before any code that depends on the new shape
+2  contracts (events, APIs) land before consumers
+3  generated/registry docs update with the change that introduced them
+4  feature flags created before code paths that reference them
+5  data backfills are independent stories with explicit verification
+6  UI lands after the API/contract it depends on
+7  irreversible steps come last per workstream so earlier stories can be reverted independently

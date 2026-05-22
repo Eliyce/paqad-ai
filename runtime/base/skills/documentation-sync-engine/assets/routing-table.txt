@@ -1,0 +1,5 @@
+api          api-doc-maintainer        endpoints.md, schemas.md, error-codes.md inside */api/
+integration  integration-doc-maintainer events.md, contracts.md, integration*.md
+error        error-catalog-maintainer   per-module error-codes.md (when not under */api/)
+glossary     glossary-maintainer        .paqad/glossary.md or *glossary*
+canonical    canonical-doc-sync         everything else (module README, business docs, registries)

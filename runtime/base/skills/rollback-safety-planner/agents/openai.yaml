@@ -1,0 +1,3 @@
+interface:
+  display_name: Rollback Safety Planner
+  short_description: Document an executable rollback path for high-reversibility-cost stories before they are marked ready.

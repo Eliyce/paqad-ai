@@ -1,0 +1,10 @@
+empty           empty/null/zero-length input or collection
+stale           cached / outdated state read after the source changed
+loading         partially-loaded UI or partial response
+retry           idempotency, dedup, exponential backoff
+permission      role/scope mismatch, IDOR, mass assignment
+concurrency     two writers, lost update, race
+rollback        compensating action on partial failure
+integration     dependency timeout / 5xx / contract drift
+overflow        bounds, big payloads, pagination
+state-skip      transition from unexpected state

@@ -1,0 +1,3 @@
+interface:
+  display_name: Rate Limiting Review
+  short_description: Identify missing rate limiting and denial-of-service surfaces across auth, bulk, and expensive endpoints.

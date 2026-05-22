@@ -1,0 +1,14 @@
+[
+  {
+    "id": "PT-{{stable-id}}",
+    "title": "{{short title}}",
+    "severity": "critical|high|medium|low|info",
+    "effort": "trivial|small|medium|large",
+    "impact_area": "{{module / surface}}",
+    "evidence": "{{file:line | tool output excerpt | log id}}",
+    "reproduction": "{{numbered concrete steps}}",
+    "status": "open|fixed|wont-fix|blocked|retest-pass|retest-fail",
+    "wstg_id": "WSTG-XXX-NN",
+    "owasp_2025": "Axx — Category"
+  }
+]

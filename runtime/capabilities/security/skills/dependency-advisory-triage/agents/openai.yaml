@@ -1,0 +1,3 @@
+interface:
+  display_name: Dependency Advisory Triage
+  short_description: Normalize native audits and OSV findings into one dependency risk set.

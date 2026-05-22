@@ -1,0 +1,9 @@
+idle      ready for user action
+loading   async work in progress
+success   confirmation visible
+empty     nothing to display yet
+error     async/operation failed
+disabled  action not currently allowed
+stale     cached data older than freshness threshold
+permission action requires elevated role
+retry     recoverable failure with available retry

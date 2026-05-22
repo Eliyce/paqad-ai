@@ -1,0 +1,3 @@
+interface:
+  display_name: Existing Doc Checker
+  short_description: Inspect canonical docs and registries before new artifacts are written.

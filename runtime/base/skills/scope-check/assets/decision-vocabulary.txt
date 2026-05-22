@@ -1,0 +1,3 @@
+within-scope       requested change is already authorized by the cited spec
+extension-needed   change is adjacent to spec scope; spec extension required before implementation
+blocked-no-spec    no active spec artifact authorizes any implementation work

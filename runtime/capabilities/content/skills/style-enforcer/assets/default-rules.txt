@@ -1,0 +1,8 @@
+# Bundled fallback rules — used only when docs/instructions/rules/writing-style.md is missing.
+# Format: "<directive>\t<regex pattern>"
+# Directives: forbid | warn
+forbid	\b(literally|basically|simply|just)\b
+forbid	\b(robust|seamless|world-class|cutting-edge)\b
+warn	\b[Ii]n order to\b
+warn	\b[Pp]lease note\b
+warn	\butili[sz]e\b

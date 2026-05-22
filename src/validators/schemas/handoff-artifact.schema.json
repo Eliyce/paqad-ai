@@ -1,0 +1,87 @@
+{
+  "$id": "handoff-artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "framework_version",
+    "workflow",
+    "current_phase",
+    "current_story",
+    "completed_stories",
+    "key_decisions",
+    "verification_results",
+    "changed_files",
+    "context_hit_rate",
+    "warnings",
+    "unresolved_items",
+    "closure_summary",
+    "references"
+  ],
+  "properties": {
+    "framework_version": { "type": "string" },
+    "workflow": { "type": "string" },
+    "current_phase": { "type": "string" },
+    "current_story": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "title"],
+          "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+        }
+      ]
+    },
+    "completed_stories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "verification_status"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "verification_status": { "type": "string", "enum": ["passed", "failed", "partial"] }
+        }
+      }
+    },
+    "key_decisions": { "type": "array", "items": { "type": "string" } },
+    "verification_results": { "type": "array", "items": { "$ref": "gate-result" } },
+    "changed_files": { "type": "array", "items": { "type": "string" } },
+    "context_hit_rate": { "type": "number" },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "unresolved_items": { "type": "array", "items": { "type": "string" } },
+    "closure_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code_changed",
+        "test_evidence_changed",
+        "canonical_docs_changed",
+        "blocked",
+        "primary_blocking_reason",
+        "summary"
+      ],
+      "properties": {
+        "code_changed": { "type": "boolean" },
+        "test_evidence_changed": { "type": "boolean" },
+        "canonical_docs_changed": { "type": "boolean" },
+        "blocked": { "type": "boolean" },
+        "primary_blocking_reason": {
+          "anyOf": [{ "type": "null" }, { "type": "string" }]
+        },
+        "summary": { "type": "string" }
+      }
+    },
+    "references": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spec", "flow", "review_report"],
+      "properties": {
+        "spec": { "type": "string" },
+        "flow": { "type": "string" },
+        "review_report": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+interface:
+  display_name: Test Per Ac Planner
+  short_description: Map acceptance criteria to specific verification actions.

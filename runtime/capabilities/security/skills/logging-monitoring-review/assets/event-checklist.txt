@@ -1,0 +1,7 @@
+authentication      success/failure with IP, timestamp, username (no password); password change; MFA changes; session invalidation
+authorization       403 / access-denial with requested resource + caller identity; privilege-escalation attempts
+data-mod-audit      C/U/D on users/payments/permissions/audit records; actor identity; append-only for financial
+log-integrity       app cannot delete own logs; logs stored separately
+log-injection       user-supplied fields sanitized of \n, ANSI, JSON delimiters before logging
+sensitive-data      no passwords/tokens/cards/SSN/session-ids in logs
+alerting            repeated auth failures by IP; admin ops off-hours; unusual export volumes; security-config changes

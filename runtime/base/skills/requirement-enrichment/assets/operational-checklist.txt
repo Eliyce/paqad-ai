@@ -1,0 +1,9 @@
+permissions       who can do this; which roles/scopes; IDOR risk
+auditability      what events are logged; retention; access pattern
+rollback          can the change be safely rolled back; what is irreversible
+data-retention    what data is stored; how long; deletion policy
+i18n              user-facing copy needs translation
+accessibility     a11y considerations for UI work
+observability     metrics / traces / dashboards required
+docs              which canonical docs must update on land
+feature-flags     gating; default-on/off

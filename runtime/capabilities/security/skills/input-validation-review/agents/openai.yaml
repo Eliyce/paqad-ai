@@ -1,0 +1,3 @@
+interface:
+  display_name: Input Validation Review
+  short_description: Detect SSRF, IDOR, mass assignment, injection, and file upload abuse from code and docs.

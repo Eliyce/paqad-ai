@@ -1,0 +1,3 @@
+interface:
+  display_name: Logging and Monitoring Review
+  short_description: Assess security logging gaps, log injection risks, and sensitive data exposure in logs.

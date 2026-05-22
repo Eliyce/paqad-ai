@@ -1,0 +1,6 @@
+tests
+coverage
+.codex-tracker
+docs
+*.log
+.DS_Store

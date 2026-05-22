@@ -1,0 +1,6 @@
+jwt              WSTG-SESS-10
+session-fixation WSTG-SESS-03
+brute-force      WSTG-ATHN-03
+password-policy  WSTG-ATHN-07
+oauth            WSTG-ATHZ-04
+token-storage    WSTG-SESS-09

@@ -1,0 +1,3 @@
+interface:
+  display_name: Context Budget Planner
+  short_description: Estimate the implementation phase's token footprint and recommend compaction before starvation occurs.

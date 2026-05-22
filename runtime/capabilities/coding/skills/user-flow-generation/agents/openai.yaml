@@ -1,0 +1,3 @@
+interface:
+  display_name: User Flow Generation
+  short_description: Generate or update user flows for UI-facing features.

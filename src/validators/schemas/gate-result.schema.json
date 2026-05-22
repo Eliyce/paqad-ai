@@ -1,0 +1,12 @@
+{
+  "$id": "gate-result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["gate", "passed", "detail"],
+  "properties": {
+    "gate": { "type": "string" },
+    "passed": { "type": "boolean" },
+    "detail": { "type": "string" },
+    "remediation": { "type": "string" }
+  }
+}

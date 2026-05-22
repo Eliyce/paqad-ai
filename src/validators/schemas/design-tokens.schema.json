@@ -1,0 +1,29 @@
+{
+  "$id": "design-tokens",
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/$defs/node"
+  },
+  "$defs": {
+    "leaf": {
+      "type": "object",
+      "required": ["$value", "$type"],
+      "properties": {
+        "$value": {},
+        "$type": { "type": "string" },
+        "$description": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "group": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "node": {
+      "anyOf": [{ "$ref": "#/$defs/leaf" }, { "$ref": "#/$defs/group" }]
+    }
+  }
+}

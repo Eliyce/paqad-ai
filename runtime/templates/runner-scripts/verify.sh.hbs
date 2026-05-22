@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FAILURES=0
+FAILED_GATES=""
+
+echo "=== Running verification gates for {{projectName}} ==="
+
+echo "--- [1/3] Tests ---"
+if {{{commands.test}}}; then
+  echo "  Tests: PASSED"
+else
+  echo "  Tests: FAILED"
+  FAILURES=$((FAILURES + 1))
+  FAILED_GATES="${FAILED_GATES} tests"
+fi
+
+echo "--- [2/3] Lint ---"
+if {{{commands.lint}}}; then
+  echo "  Lint: PASSED"
+else
+  echo "  Lint: FAILED"
+  FAILURES=$((FAILURES + 1))
+  FAILED_GATES="${FAILED_GATES} lint"
+fi
+
+echo "--- [3/3] Format ---"
+if {{{commands.format}}}; then
+  echo "  Format: PASSED"
+else
+  echo "  Format: FAILED"
+  FAILURES=$((FAILURES + 1))
+  FAILED_GATES="${FAILED_GATES} format"
+fi
+
+echo ""
+if [ "$FAILURES" -eq 0 ]; then
+  echo "=== All gates passed ==="
+else
+  echo "=== ${FAILURES} gate(s) failed:${FAILED_GATES} ==="
+  exit 1
+fi

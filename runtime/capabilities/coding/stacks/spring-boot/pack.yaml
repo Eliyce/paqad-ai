@@ -1,0 +1,50 @@
+name: spring-boot
+display_name: Spring Boot
+ecosystem: jvm
+version: 1.0.0
+description: Built-in Spring Boot coding stack pack
+maintainer: paqad-ai
+detection:
+  manifests:
+    - file: pom.xml
+      packages: ['org.springframework.boot:spring-boot-starter-web']
+traits:
+  - name: junit
+    display_name: JUnit
+    detect_package: 'org.junit.jupiter:junit-jupiter'
+    description: Spring Boot app uses JUnit
+toolchains:
+  - ecosystem: jvm
+    package_managers: [maven, gradle]
+    lockfiles: [pom.xml, gradle.lockfile]
+mcp_defaults:
+  - name: database-inspector
+    when: always
+pentest:
+  file_check_map:
+    - glob: src/main/java/**/controller/**
+      checks: [permission-boundary-review, runtime-surface-probing]
+    - glob: src/main/resources/**
+      checks: [runtime-surface-probing]
+    - glob: gradle.lockfile
+      checks: [dependency-advisory-triage]
+  audit_commands:
+    - command: ./gradlew dependencyCheckAnalyze
+      parser: jvm
+ast:
+  language: jvm
+  tree_sitter_grammar: tree-sitter-java
+  file_extensions: ['.java', '.kt']
+testing:
+  frameworks:
+    - name: junit
+      detect_package: 'org.junit.jupiter:junit-jupiter'
+      run_command: ./gradlew test
+test_runners:
+  - runner_id: junit
+    structured_format: junit-xml
+    default_command: ./gradlew test
+    output_source: file
+    output_path_pattern: '{build/test-results/test/*.xml,target/surefire-reports/*.xml}'
+docs:
+  conventions_template: rules/conventions.md

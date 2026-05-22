@@ -1,0 +1,3 @@
+interface:
+  display_name: Workflow Router
+  short_description: Match raw prompts to canonical framework workflows before pipeline execution.

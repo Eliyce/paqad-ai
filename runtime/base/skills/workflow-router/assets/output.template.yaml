@@ -1,0 +1,7 @@
+workflow: { { canonical-workflow-name } }
+reason: matched rule at priority {{N}}
+matched_rule: '{{exact pattern that matched}}'
+
+# When nothing matches, emit instead:
+# workflow: none
+# reason: no routing rule matched

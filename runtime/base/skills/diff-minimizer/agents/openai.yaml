@@ -1,0 +1,3 @@
+interface:
+  display_name: Diff Minimizer
+  short_description: Tag each proposed implementation step as AC-satisfying or scaffolding before code is written.

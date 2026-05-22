@@ -1,0 +1,150 @@
+{
+  "$id": "test-output-result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "summary", "failures", "warnings", "parse_metadata", "errors"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "passed",
+        "failed",
+        "skipped",
+        "errored",
+        "duration_ms",
+        "timestamp",
+        "runner_id"
+      ],
+      "properties": {
+        "total": { "type": "number" },
+        "passed": { "type": "number" },
+        "failed": { "type": "number" },
+        "skipped": { "type": "number" },
+        "errored": { "type": "number" },
+        "duration_ms": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "runner_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/testIssue" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "message", "source_test_id"],
+        "properties": {
+          "type": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 },
+          "source_test_id": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "parse_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_byte_size",
+        "structured_byte_size",
+        "compression_ratio",
+        "original_size",
+        "compact_size",
+        "reduction_ratio",
+        "delta_mode_used",
+        "escalation_occurred",
+        "escalation_reason",
+        "delta_summary",
+        "parse_strategy",
+        "parse_warnings"
+      ],
+      "properties": {
+        "raw_byte_size": { "type": "number" },
+        "structured_byte_size": { "type": "number" },
+        "compression_ratio": { "type": "number" },
+        "original_size": { "type": "number" },
+        "compact_size": { "type": "number" },
+        "reduction_ratio": { "type": "number" },
+        "delta_mode_used": { "type": "boolean" },
+        "escalation_occurred": { "type": "boolean" },
+        "escalation_reason": {
+          "type": ["string", "null"],
+          "enum": [
+            "structured-parse-failed-or-degraded",
+            "summary-confidence-low",
+            "compact-signals-contradict",
+            "diagnosis-unresolved-after-compact-pass",
+            null
+          ]
+        },
+        "delta_summary": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "newly_failing_tests",
+                "newly_passing_tests",
+                "newly_errored_tests",
+                "changed_failure_messages"
+              ],
+              "properties": {
+                "newly_failing_tests": { "type": "number" },
+                "newly_passing_tests": { "type": "number" },
+                "newly_errored_tests": { "type": "number" },
+                "changed_failure_messages": { "type": "number" }
+              }
+            }
+          ]
+        },
+        "parse_strategy": {
+          "type": "string",
+          "enum": ["structured", "plain-text-fallback", "degraded"]
+        },
+        "parse_warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/testIssue" }
+    }
+  },
+  "$defs": {
+    "testIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_id",
+        "suite",
+        "message",
+        "stack_trace",
+        "file_path",
+        "line_number",
+        "category",
+        "duration_ms"
+      ],
+      "properties": {
+        "test_id": { "type": "string", "minLength": 1 },
+        "suite": { "type": ["string", "null"] },
+        "message": { "type": "string", "minLength": 1 },
+        "stack_trace": { "type": ["string", "null"] },
+        "file_path": { "type": ["string", "null"] },
+        "line_number": { "type": ["integer", "null"] },
+        "category": {
+          "type": "string",
+          "enum": ["assertion", "error", "timeout", "unknown"]
+        },
+        "duration_ms": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

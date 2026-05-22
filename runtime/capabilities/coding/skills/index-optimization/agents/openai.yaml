@@ -1,0 +1,3 @@
+interface:
+  display_name: Index Optimization
+  short_description: Review and improve indexing strategy for changed data paths.

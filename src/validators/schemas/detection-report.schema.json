@@ -1,0 +1,184 @@
+{
+  "$id": "detection-report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "detected_domain",
+    "detected_stack",
+    "detected_capabilities",
+    "confidence",
+    "signals",
+    "timestamp"
+  ],
+  "properties": {
+    "detected_domain": { "type": ["string", "null"], "enum": ["coding", "content", null] },
+    "detected_stack": {
+      "type": ["string", "null"],
+      "enum": [
+        "laravel",
+        "flutter",
+        "react",
+        "vue",
+        "django",
+        "fastapi",
+        "rails",
+        "spring-boot",
+        "express",
+        "angular",
+        "svelte",
+        "astro",
+        "go-web",
+        "rust-web",
+        "dotnet",
+        "nextjs",
+        "flask",
+        "nestjs",
+        "kotlin-android",
+        "short-video",
+        null
+      ]
+    },
+    "detected_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "inertia",
+          "vue",
+          "react",
+          "tailwind",
+          "boost",
+          "pest",
+          "phpunit",
+          "docker",
+          "compose",
+          "sail",
+          "next",
+          "remix",
+          "vite-spa",
+          "gatsby",
+          "nuxt",
+          "quasar",
+          "blazor",
+          "ef-core",
+          "minimal-api",
+          "mvc",
+          "razor-pages",
+          "signalr",
+          "azure",
+          "identity",
+          "app-router",
+          "pages-router",
+          "prisma",
+          "trpc",
+          "next-auth",
+          "sqlalchemy",
+          "celery",
+          "blueprints",
+          "flask-login",
+          "flask-restx",
+          "gunicorn",
+          "typeorm",
+          "graphql",
+          "microservices",
+          "swagger",
+          "passport",
+          "fastify",
+          "jetpack-compose",
+          "room",
+          "hilt",
+          "retrofit",
+          "coroutines",
+          "navigation",
+          "datastore"
+        ]
+      }
+    },
+    "matched_packs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "detected_traits": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "recommended_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["content", "coding", "security"]
+      }
+    },
+    "detection_phase": {
+      "type": "string",
+      "enum": ["framework", "archetype", "none"]
+    },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["signal", "file", "implies", "confidence"],
+        "properties": {
+          "signal": { "type": "string" },
+          "file": { "type": "string" },
+          "implies": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "timestamp": { "type": "string" },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected_root",
+        "scan_max_depth",
+        "ignored_paths",
+        "projects",
+        "applications",
+        "primary_project_root"
+      ],
+      "properties": {
+        "selected_root": { "type": "string" },
+        "scan_max_depth": { "type": "integer" },
+        "ignored_paths": { "type": "array", "items": { "type": "string" } },
+        "primary_project_root": { "type": ["string", "null"] },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["root", "role", "parent_root", "markers", "ecosystems"],
+            "properties": {
+              "root": { "type": "string" },
+              "role": { "type": "string", "enum": ["standalone", "component"] },
+              "parent_root": { "type": ["string", "null"] },
+              "markers": { "type": "array", "items": { "type": "string" } },
+              "ecosystems": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["node", "php", "python", "ruby", "jvm", "go", "rust", "dart", "dotnet"]
+                }
+              }
+            }
+          }
+        },
+        "applications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["root", "component_roots"],
+            "properties": {
+              "root": { "type": "string" },
+              "component_roots": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

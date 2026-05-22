@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HIT_LOG=".paqad/session/context-hit-log.json"
+
+if [ ! -f "$HIT_LOG" ]; then
+  echo "No context hit log found at ${HIT_LOG}."
+  exit 0
+fi
+
+echo "=== Context Hit Rate Analysis for {{projectName}} ==="
+node -e "
+const fs=require('fs');
+const data=JSON.parse(fs.readFileSync('${HIT_LOG}','utf8'));
+const entries=Array.isArray(data)?data:[data];
+if(entries.length===0){console.log('No entries to analyze.');process.exit(0);}
+const totalLoaded=entries.reduce((s,e)=>s+(e.files_loaded||0),0);
+const totalReferenced=entries.reduce((s,e)=>s+(e.files_referenced||0),0);
+const avgRate=totalLoaded===0?0:totalReferenced/totalLoaded;
+console.log('Sessions analyzed: '+entries.length);
+console.log('Total files loaded: '+totalLoaded);
+console.log('Total files referenced: '+totalReferenced);
+console.log('Average hit rate: '+(avgRate*100).toFixed(1)+'%');
+const unreferenced={};
+for(const e of entries){for(const f of(e.unreferenced_files||[])){unreferenced[f]=(unreferenced[f]||0)+1;}}
+const sorted=Object.entries(unreferenced).sort((a,b)=>b[1]-a[1]).slice(0,10);
+if(sorted.length>0){console.log('');console.log('Top unreferenced files (candidates for removal):');for(const[f,c]of sorted){console.log('  '+c+'x  '+f);}}
+if(avgRate<0.5){console.log('');console.log('Recommendation: hit rate below 50%. Consider pruning context budget.');}
+"

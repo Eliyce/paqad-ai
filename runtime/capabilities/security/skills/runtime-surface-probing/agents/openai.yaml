@@ -1,0 +1,3 @@
+interface:
+  display_name: Runtime Surface Probing
+  short_description: Interpret safe runtime probe results for exposed surfaces.

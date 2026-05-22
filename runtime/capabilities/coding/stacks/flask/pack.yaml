@@ -1,0 +1,56 @@
+name: flask
+display_name: Flask
+ecosystem: python
+version: 1.0.0
+description: Flask services and applications
+maintainer: paqad-ai
+detection:
+  priority: 110
+  manifests:
+    - file: requirements.txt
+      packages: [flask]
+  heuristics:
+    - file: app.py
+      content_match: Flask(
+    - file: wsgi.py
+      content_match: Flask(
+traits:
+  - name: sqlalchemy
+    display_name: SQLAlchemy
+    detect_package: sqlalchemy
+    description: Project uses SQLAlchemy
+  - name: celery
+    display_name: Celery
+    detect_package: celery
+    description: Project uses Celery workers
+  - name: blueprints
+    display_name: Blueprints
+    detect_directory: blueprints
+    description: Project is organized around Flask blueprints
+  - name: flask-login
+    display_name: Flask-Login
+    detect_package: flask_login
+    description: Project uses Flask-Login
+  - name: flask-restx
+    display_name: Flask-RESTX
+    detect_package: flask-restx
+    description: Project uses Flask-RESTX
+  - name: gunicorn
+    display_name: Gunicorn
+    detect_package: gunicorn
+    description: Project uses Gunicorn
+toolchains:
+  - ecosystem: python
+    package_managers: [pip]
+    lockfiles: [requirements.txt]
+mcp_defaults:
+  - name: figma
+    when: always
+ast:
+  language: python
+  tree_sitter_grammar: tree-sitter-python
+  file_extensions: ['.py', '.jinja', '.j2', '.html']
+docs:
+  conventions_template: rules/conventions.md
+rag:
+  exclude_directories: ['__pycache__', '.pytest_cache', '.mypy_cache', '.venv', 'venv', 'instance']
