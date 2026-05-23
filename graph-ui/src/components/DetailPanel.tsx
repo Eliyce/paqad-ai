@@ -43,7 +43,10 @@ export function DetailPanel() {
       style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
     >
       <header>
-        <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="text-[10px] uppercase tracking-wide"
+          style={{ color: 'var(--color-muted)' }}
+        >
           {selected.type}
         </div>
         <div className="font-medium break-words">{selected.label}</div>
@@ -91,7 +94,10 @@ function ModuleDetail({ detail }: { detail: NodeDetail }) {
         <Row k="files" v={detail.children.length} />
       </section>
       <section>
-        <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="text-[10px] uppercase tracking-wide"
+          style={{ color: 'var(--color-muted)' }}
+        >
           Files
         </div>
         <ul className="mt-1 max-h-48 overflow-auto text-xs">
@@ -136,7 +142,10 @@ function ImportsSection({
   if (entries.length === 0) {
     return (
       <section>
-        <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="text-[10px] uppercase tracking-wide"
+          style={{ color: 'var(--color-muted)' }}
+        >
           {title}
         </div>
         <div className="text-xs" style={{ color: 'var(--color-muted)' }}>
@@ -155,7 +164,10 @@ function ImportsSection({
           <li key={e.file_id} className="truncate">
             {e.file_id.replace(/^file:/, '')}
             {e.module_id && (
-              <span style={{ color: 'var(--color-muted)' }}> · {e.module_id.replace(/^module:/, '')}</span>
+              <span style={{ color: 'var(--color-muted)' }}>
+                {' '}
+                · {e.module_id.replace(/^module:/, '')}
+              </span>
             )}
           </li>
         ))}
@@ -181,7 +193,10 @@ function ChunkDetail({ detail }: { detail: NodeDetail }) {
         <Row k="hash" v={(detail.node.attributes.content_hash ?? '').slice(0, 12)} />
       </section>
       <section>
-        <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="text-[10px] uppercase tracking-wide"
+          style={{ color: 'var(--color-muted)' }}
+        >
           Content {truncated && !full && '(first 500 chars)'}
         </div>
         <pre

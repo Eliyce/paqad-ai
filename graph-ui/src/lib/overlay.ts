@@ -22,7 +22,11 @@ const RAMP_END = {
 // Tailwind purple 600 = #9333ea
 const PURPLE_600 = { r: 0x93, g: 0x33, b: 0xea };
 
-function lerp(a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number): string {
+function lerp(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+  t: number,
+): string {
   const v = (k: 'r' | 'g' | 'b') => Math.round(a[k] + (b[k] - a[k]) * Math.max(0, Math.min(1, t)));
   const c = (v('r') << 16) | (v('g') << 8) | v('b');
   return '#' + c.toString(16).padStart(6, '0');
@@ -86,14 +90,17 @@ export function computeOverlayMetrics(graph: Graph): OverlayMetrics {
     const colors = new Map<string, string>();
     for (const n of graph.nodes) {
       if (n.type !== 'module') continue;
-      colors.set(n.id, moduleOverlayColor(n, overlay, {
-        defectDensities,
-        riskValues,
-        complexityDeltas,
-        maxDefectDensityLog,
-        maxRisk,
-        maxComplexityDelta,
-      }));
+      colors.set(
+        n.id,
+        moduleOverlayColor(n, overlay, {
+          defectDensities,
+          riskValues,
+          complexityDeltas,
+          maxDefectDensityLog,
+          maxRisk,
+          maxComplexityDelta,
+        }),
+      );
     }
     moduleColors.set(overlay, colors);
   }
@@ -168,7 +175,10 @@ export interface LegendStop {
   color: string;
 }
 
-export function legendForOverlay(overlay: OverlayKind, metrics: OverlayMetrics): {
+export function legendForOverlay(
+  overlay: OverlayKind,
+  metrics: OverlayMetrics,
+): {
   title: string;
   stops: LegendStop[];
 } | null {
@@ -200,7 +210,10 @@ export function legendForOverlay(overlay: OverlayKind, metrics: OverlayMetrics):
       title: 'Risk floor',
       stops: [
         { label: '0.00', color: lerp(RAMP_GRAY_50, RAMP_END.risk, 0) },
-        { label: (Math.max(metrics.maxRisk, 0) / 2).toFixed(2), color: lerp(RAMP_GRAY_50, RAMP_END.risk, 0.5) },
+        {
+          label: (Math.max(metrics.maxRisk, 0) / 2).toFixed(2),
+          color: lerp(RAMP_GRAY_50, RAMP_END.risk, 0.5),
+        },
         { label: cap, color: lerp(RAMP_GRAY_50, RAMP_END.risk, 1) },
       ],
     };
@@ -211,7 +224,10 @@ export function legendForOverlay(overlay: OverlayKind, metrics: OverlayMetrics):
       title: '|complexity − 1|',
       stops: [
         { label: '0.00', color: lerp(RAMP_GRAY_50, PURPLE_600, 0) },
-        { label: (metrics.maxComplexityDelta / 2).toFixed(2), color: lerp(RAMP_GRAY_50, PURPLE_600, 0.5) },
+        {
+          label: (metrics.maxComplexityDelta / 2).toFixed(2),
+          color: lerp(RAMP_GRAY_50, PURPLE_600, 0.5),
+        },
         { label: cap, color: lerp(RAMP_GRAY_50, PURPLE_600, 1) },
       ],
     };

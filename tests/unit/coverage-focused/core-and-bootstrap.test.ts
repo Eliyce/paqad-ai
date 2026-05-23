@@ -70,7 +70,7 @@ describe('coverage core helpers', () => {
 
   it('returns package, runtime, and template roots', () => {
     const packageRoot = getPackageRoot();
-    expect(packageRoot).toContain('/eliyce-ai-npm');
+    expect(packageRoot).toContain('paqad-ai');
     expect(getRuntimeRoot()).toBe(`${packageRoot}/runtime`);
     expect(getRuntimeTemplatesRoot()).toBe(`${packageRoot}/runtime/templates`);
   });

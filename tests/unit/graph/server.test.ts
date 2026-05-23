@@ -97,7 +97,9 @@ describe('startGraphServer', () => {
       port: 0,
       staticDir,
     });
-    const detailRes = await fetch(`${server.url}/api/node/${encodeURIComponent('file:src/x/a.ts')}`);
+    const detailRes = await fetch(
+      `${server.url}/api/node/${encodeURIComponent('file:src/x/a.ts')}`,
+    );
     expect(detailRes.status).toBe(200);
     const detail = (await detailRes.json()) as { node: { id: string } };
     expect(detail.node.id).toBe('file:src/x/a.ts');
@@ -133,8 +135,26 @@ describe('startGraphServer', () => {
             source_file_hash: 'h',
             modified_at: new Date().toISOString(),
             chunks: [
-              { id: 'v1', source_file: join(root, 'src/m/a.ts'), ast_node_type: 'function', ast_node_path: 'f', exported_symbols: [], content: '', char_count: 0, content_hash: 'h1' },
-              { id: 'v2', source_file: join(root, 'src/m/a.ts'), ast_node_type: 'function', ast_node_path: 'g', exported_symbols: [], content: '', char_count: 0, content_hash: 'h2' },
+              {
+                id: 'v1',
+                source_file: join(root, 'src/m/a.ts'),
+                ast_node_type: 'function',
+                ast_node_path: 'f',
+                exported_symbols: [],
+                content: '',
+                char_count: 0,
+                content_hash: 'h1',
+              },
+              {
+                id: 'v2',
+                source_file: join(root, 'src/m/a.ts'),
+                ast_node_type: 'function',
+                ast_node_path: 'g',
+                exported_symbols: [],
+                content: '',
+                char_count: 0,
+                content_hash: 'h2',
+              },
             ],
           },
         ],
@@ -142,7 +162,14 @@ describe('startGraphServer', () => {
     );
     writeFileSync(
       join(root, '.paqad/vectors/meta.json'),
-      JSON.stringify({ version: 1, provider: 'local', model: 't', built_at: '', chunk_count: 2, embedding_dimensions: 3 }),
+      JSON.stringify({
+        version: 1,
+        provider: 'local',
+        model: 't',
+        built_at: '',
+        chunk_count: 2,
+        embedding_dimensions: 3,
+      }),
     );
     writeFileSync(
       join(root, '.paqad/vectors/index.json'),

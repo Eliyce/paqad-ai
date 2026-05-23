@@ -41,13 +41,17 @@ describe('scanImports', () => {
   });
 
   it('resolves relative + alias paths and ignores bare and unresolved specifiers', async () => {
-    write(root, 'src/a.ts', `
+    write(
+      root,
+      'src/a.ts',
+      `
       import './b.js';
       import './sub';
       import '@/util/c.js';
       import 'left-pad';
       import 'node:fs';
-    `);
+    `,
+    );
     write(root, 'src/b.ts', 'export const b = 1;');
     write(root, 'src/sub/index.ts', 'export const s = 1;');
     write(root, 'src/util/c.ts', 'export const c = 1;');
@@ -58,15 +62,22 @@ describe('scanImports', () => {
       aliases: { '@/': 'src/' },
     });
 
-    const targets = edges.filter((e) => e.from === 'src/a.ts').map((e) => e.to).sort();
+    const targets = edges
+      .filter((e) => e.from === 'src/a.ts')
+      .map((e) => e.to)
+      .sort();
     expect(targets).toEqual(['src/b.ts', 'src/sub/index.ts', 'src/util/c.ts']);
   });
 
   it('deduplicates and skips self-edges', async () => {
-    write(root, 'src/a.ts', `
+    write(
+      root,
+      'src/a.ts',
+      `
       import './b.js';
       import './b';
-    `);
+    `,
+    );
     write(root, 'src/b.ts', '');
     const edges = await scanImports({
       projectRoot: root,

@@ -3,7 +3,11 @@ import Graph from 'graphology';
 import Sigma from 'sigma';
 import type { Graph as GraphData, GraphNode } from '../lib/types';
 import { useAppStore, type LayerVisibility } from '../lib/store';
-import { colorForNodeWithOverlay, computeOverlayMetrics, type OverlayMetrics } from '../lib/overlay';
+import {
+  colorForNodeWithOverlay,
+  computeOverlayMetrics,
+  type OverlayMetrics,
+} from '../lib/overlay';
 import type { LayoutRequest, LayoutResponse } from '../lib/layout.worker';
 
 function sizeForNode(type: GraphNode['type']): number {
@@ -83,7 +87,9 @@ export function GraphCanvas({ data }: { data: GraphData }) {
   const overlay = useAppStore((s) => s.overlay);
   const metrics = useMemo<OverlayMetrics>(() => computeOverlayMetrics(data), [data]);
   const lastCameraKey = useRef<string>('');
-  const preservedCameraRef = useRef<{ x: number; y: number; ratio: number; angle: number } | null>(null);
+  const preservedCameraRef = useRef<{ x: number; y: number; ratio: number; angle: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -147,7 +153,9 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     sigma.on('clickStage', () => selectNode(null));
 
     // Kick off layout in worker.
-    const worker = new Worker(new URL('../lib/layout.worker.ts', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('../lib/layout.worker.ts', import.meta.url), {
+      type: 'module',
+    });
     const seedNodes = data.nodes.map((n) => ({ id: n.id, ...seedPosition(n.id) }));
     const layoutEdges = data.edges.map((e) => ({ source: e.source, target: e.target }));
     worker.onmessage = (event: MessageEvent<LayoutResponse>) => {
@@ -173,7 +181,10 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     const request: LayoutRequest = {
       nodes: seedNodes,
       edges: layoutEdges,
-      iterations: Math.min(300, Math.max(50, Math.round(20000 / Math.max(1, data.nodes.length / 100)))),
+      iterations: Math.min(
+        300,
+        Math.max(50, Math.round(20000 / Math.max(1, data.nodes.length / 100))),
+      ),
     };
     worker.postMessage(request);
 

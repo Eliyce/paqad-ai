@@ -1,0 +1,16 @@
+# Code owners for paqad-ai.
+#
+# Owners listed here are automatically requested for review when a PR
+# touches matching files. See:
+# https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+
+# Catch-all: any change requires a maintainer review.
+*                                @HLasani
+
+# Release automation - extra caution.
+/.github/workflows/release.yml   @HLasani
+/.changeset/                     @HLasani
+/package.json                    @HLasani
+
+# Security policy.
+/SECURITY.md                     @HLasani

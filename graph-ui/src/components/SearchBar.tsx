@@ -77,9 +77,7 @@ export function SearchBar() {
       {search.query && (
         <>
           <span className="text-[11px]" style={{ color: 'var(--color-muted)' }}>
-            {matches.length === 0
-              ? 'no matches'
-              : `${search.index + 1} / ${matches.length}`}
+            {matches.length === 0 ? 'no matches' : `${search.index + 1} / ${matches.length}`}
           </span>
           <button
             type="button"

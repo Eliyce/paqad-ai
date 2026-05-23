@@ -4,6 +4,38 @@
   "description": "Spec-driven development framework — AI agents that think before they type",
   "type": "module",
   "license": "MIT",
+  "author": "Haider Lasani <haider@eliyce.com>",
+  "homepage": "https://github.com/Eliyce/paqad-ai#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Eliyce/paqad-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Eliyce/paqad-ai/issues"
+  },
+  "keywords": [
+    "ai",
+    "ai-agents",
+    "ai-coding",
+    "claude-code",
+    "cursor",
+    "codex",
+    "gemini-cli",
+    "junie",
+    "antigravity",
+    "github-copilot",
+    "mcp",
+    "rag",
+    "code-generation",
+    "cli",
+    "agent-framework",
+    "spec-driven-development",
+    "developer-tools"
+  ],
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/HLasani"
+  },
   "bin": {
     "paqad-ai": "./dist/cli/index.js"
   },
@@ -22,8 +54,14 @@
   "files": [
     "dist",
     "runtime",
-    "scripts"
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=22.0.0"
   },
@@ -34,14 +72,17 @@
     "graph-ui:install": "cd graph-ui && pnpm install",
     "graph-ui:dev": "cd graph-ui && pnpm dev",
     "graph-ui:build": "cd graph-ui && pnpm build",
-    "test": "node scripts/run-vitest-with-summary.mjs run",
+    "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "node scripts/run-vitest-with-summary.mjs run --coverage",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "ci": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run build",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm run build && changeset publish",
     "prepublishOnly": "pnpm run ci"
   },
   "dependencies": {
@@ -60,6 +101,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.29.7",
     "@eslint/js": "^9.36.0",
     "@types/node": "^24.5.2",

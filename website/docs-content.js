@@ -996,7 +996,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'graph' },
       {
         type: 'p',
-        text: "The `graph` command opens an interactive WebGL visualization of your project in the browser. One command, no extra install — the server, frontend, and layout engine all ship inside `paqad-ai`. It reads everything paqad-ai already knows about your project from `.paqad/` — modules, files, imports, RAG chunks, symbols, health, defects — and renders it as a live, explorable map.",
+        text: 'The `graph` command opens an interactive WebGL visualization of your project in the browser. One command, no extra install — the server, frontend, and layout engine all ship inside `paqad-ai`. It reads everything paqad-ai already knows about your project from `.paqad/` — modules, files, imports, RAG chunks, symbols, health, defects — and renders it as a live, explorable map.',
       },
       { type: 'h2', id: 'synopsis', text: 'Synopsis' },
       { type: 'terminal', lang: 'bash', copyable: true, code: 'paqad-ai graph [options]' },
@@ -1009,17 +1009,23 @@ export const DOCS_PAGES = {
       },
       {
         type: 'p',
-        text: "Browser opens at `http://127.0.0.1:5371` showing the full project graph. Edit anything under `.paqad/` and the view live-reloads while preserving your zoom and selection.",
+        text: 'Browser opens at `http://127.0.0.1:5371` showing the full project graph. Edit anything under `.paqad/` and the view live-reloads while preserving your zoom and selection.',
       },
       { type: 'h2', id: 'options', text: 'Options' },
       {
         type: 'table',
         headers: ['Flag', 'Description'],
         rows: [
-          ['--port <n>', 'Server port. Auto-increments to the next free port if taken. Default `5371`.'],
+          [
+            '--port <n>',
+            'Server port. Auto-increments to the next free port if taken. Default `5371`.',
+          ],
           ['--host <h>', 'Bind address. Default `127.0.0.1` (loopback only — no remote exposure).'],
           ['--no-open', 'Print the URL and skip auto-opening the browser. Useful in SSH or CI.'],
-          ['--threshold <n>', 'Initial similarity threshold (0..1). Adjustable from the UI. Default `0.75`.'],
+          [
+            '--threshold <n>',
+            'Initial similarity threshold (0..1). Adjustable from the UI. Default `0.75`.',
+          ],
           ['--no-watch', 'Disable live reload on `.paqad/` changes.'],
           ['--quiet', 'Suppress non-essential stdout. The URL is still printed.'],
           ['--project-root <path>', 'Run against a project root other than the current directory.'],
@@ -1052,7 +1058,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'rag-requirements', text: 'RAG and similarity' },
       {
         type: 'p',
-        text: "Similarity edges and chunk nodes need a vector store. They work with any embedding provider — `local`, `openai`, or `voyageai`. If RAG is disabled, the graph still renders fully: modules, files, imports, symbols, overlays, search, and detail panel all work normally. The similarity slider is disabled with a clear banner, and chunk nodes are hidden until you run `paqad-ai rag init`.",
+        text: 'Similarity edges and chunk nodes need a vector store. They work with any embedding provider — `local`, `openai`, or `voyageai`. If RAG is disabled, the graph still renders fully: modules, files, imports, symbols, overlays, search, and detail panel all work normally. The similarity slider is disabled with a clear banner, and chunk nodes are hidden until you run `paqad-ai rag init`.',
       },
       {
         type: 'callout',

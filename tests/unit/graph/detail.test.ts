@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { buildNodeDetail } from '@/graph/detail';
 import type { Graph } from '@/graph/types';
 
-function makeGraph(): { graph: Graph; chunkContents: Map<string, { chunkId: string; fileRelPath: string; fileId: string; chunkIndex: number; content: string }> } {
+function makeGraph(): {
+  graph: Graph;
+  chunkContents: Map<
+    string,
+    { chunkId: string; fileRelPath: string; fileId: string; chunkIndex: number; content: string }
+  >;
+} {
   const graph: Graph = {
     meta: {
       project_root: '/tmp/x',
@@ -11,22 +17,86 @@ function makeGraph(): { graph: Graph; chunkContents: Map<string, { chunkId: stri
       paqad_version: '0.0',
       counts: { modules: 1, files: 2, chunks: 1, symbols: 1, imports: 1 },
       similarity_edges_available: false,
-      overlays_available: { health: false, defects: false, risk_floor: false, complexity_correction: false },
+      overlays_available: {
+        health: false,
+        defects: false,
+        risk_floor: false,
+        complexity_correction: false,
+      },
       degraded_reasons: [],
     },
     nodes: [
       { id: 'module:cli', type: 'module', label: 'cli', parent_id: null, attributes: {} },
-      { id: 'file:src/cli/a.ts', type: 'file', label: 'src/cli/a.ts', parent_id: 'module:cli', attributes: {} },
-      { id: 'file:src/cli/b.ts', type: 'file', label: 'src/cli/b.ts', parent_id: 'module:cli', attributes: {} },
-      { id: 'chunk:src/cli/a.ts#0', type: 'chunk', label: 'src/cli/a.ts#0', parent_id: 'file:src/cli/a.ts', attributes: {} },
-      { id: 'symbol:src/cli/a.ts#run', type: 'symbol', label: 'run', parent_id: 'file:src/cli/a.ts', attributes: { exported: true } },
+      {
+        id: 'file:src/cli/a.ts',
+        type: 'file',
+        label: 'src/cli/a.ts',
+        parent_id: 'module:cli',
+        attributes: {},
+      },
+      {
+        id: 'file:src/cli/b.ts',
+        type: 'file',
+        label: 'src/cli/b.ts',
+        parent_id: 'module:cli',
+        attributes: {},
+      },
+      {
+        id: 'chunk:src/cli/a.ts#0',
+        type: 'chunk',
+        label: 'src/cli/a.ts#0',
+        parent_id: 'file:src/cli/a.ts',
+        attributes: {},
+      },
+      {
+        id: 'symbol:src/cli/a.ts#run',
+        type: 'symbol',
+        label: 'run',
+        parent_id: 'file:src/cli/a.ts',
+        attributes: { exported: true },
+      },
     ],
     edges: [
-      { id: 'e1', type: 'contains', source: 'module:cli', target: 'file:src/cli/a.ts', weight: null, attributes: {} },
-      { id: 'e2', type: 'contains', source: 'module:cli', target: 'file:src/cli/b.ts', weight: null, attributes: {} },
-      { id: 'e3', type: 'contains', source: 'file:src/cli/a.ts', target: 'chunk:src/cli/a.ts#0', weight: null, attributes: {} },
-      { id: 'e4', type: 'defines', source: 'file:src/cli/a.ts', target: 'symbol:src/cli/a.ts#run', weight: null, attributes: {} },
-      { id: 'e5', type: 'imports', source: 'file:src/cli/a.ts', target: 'file:src/cli/b.ts', weight: null, attributes: {} },
+      {
+        id: 'e1',
+        type: 'contains',
+        source: 'module:cli',
+        target: 'file:src/cli/a.ts',
+        weight: null,
+        attributes: {},
+      },
+      {
+        id: 'e2',
+        type: 'contains',
+        source: 'module:cli',
+        target: 'file:src/cli/b.ts',
+        weight: null,
+        attributes: {},
+      },
+      {
+        id: 'e3',
+        type: 'contains',
+        source: 'file:src/cli/a.ts',
+        target: 'chunk:src/cli/a.ts#0',
+        weight: null,
+        attributes: {},
+      },
+      {
+        id: 'e4',
+        type: 'defines',
+        source: 'file:src/cli/a.ts',
+        target: 'symbol:src/cli/a.ts#run',
+        weight: null,
+        attributes: {},
+      },
+      {
+        id: 'e5',
+        type: 'imports',
+        source: 'file:src/cli/a.ts',
+        target: 'file:src/cli/b.ts',
+        weight: null,
+        attributes: {},
+      },
     ],
   };
   const chunkContents = new Map([
