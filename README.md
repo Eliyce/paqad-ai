@@ -9,7 +9,14 @@
 
 **AI agents that think before they type.** paqad-ai reads your codebase, detects your stack, builds optional hybrid RAG context, and generates the docs, rules, MCP configs, security checks, and workflows your coding agents need to operate with real project context.
 
-[![npm version](https://img.shields.io/npm/v/paqad-ai)](https://npmjs.com/package/paqad-ai) [![license](https://img.shields.io/npm/l/paqad-ai)](./LICENSE) [![website](https://img.shields.io/badge/website-paqad.ai-0A7A5C)](https://paqad.ai) [![docs](https://img.shields.io/badge/docs-paqad.ai-1f6feb)](https://paqad.ai)
+[![npm version](https://img.shields.io/npm/v/paqad-ai.svg?style=flat-square)](https://www.npmjs.com/package/paqad-ai)
+[![npm downloads](https://img.shields.io/npm/dm/paqad-ai.svg?style=flat-square)](https://www.npmjs.com/package/paqad-ai)
+[![CI](https://img.shields.io/github/actions/workflow/status/Eliyce/paqad-ai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Eliyce/paqad-ai/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/npm/l/paqad-ai.svg?style=flat-square)](./LICENSE)
+[![Node](https://img.shields.io/node/v/paqad-ai.svg?style=flat-square)](https://nodejs.org)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](./CONTRIBUTING.md)
+[![website](https://img.shields.io/badge/website-paqad.ai-0A7A5C?style=flat-square)](https://paqad.ai)
+[![docs](https://img.shields.io/badge/docs-paqad.ai-1f6feb?style=flat-square)](https://paqad.ai)
 
 ---
 

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions and discussion
+    url: https://github.com/Eliyce/paqad-ai/discussions
+    about: Ask questions, share ideas, request help. Please use Discussions instead of opening an issue for non-bug, non-feature topics.
+  - name: 📚 Documentation
+    url: https://docs.paqad.ai
+    about: Read the docs before opening an issue.
+  - name: 📦 npm package
+    url: https://www.npmjs.com/package/paqad-ai
+    about: Install and version information.
