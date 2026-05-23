@@ -1,6 +1,12 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+// Use posix.join so test paths use forward slashes on every platform —
+// matches what fast-glob (used by RagFileFilter) returns. Node's fs APIs
+// accept mixed separators on Windows, so setup calls (writeFileSync, mkdirSync)
+// still work. See https://github.com/Eliyce/paqad-ai/issues/17.
+import { posix } from 'node:path';
+
+const { join } = posix;
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

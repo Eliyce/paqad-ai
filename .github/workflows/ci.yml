@@ -25,6 +25,15 @@ jobs:
         include:
           - os: macos-latest
             node: 22
+          # Validation leg for #17: not in branch-protection required contexts
+          # yet. Re-add to required checks once consistently green.
+          - os: windows-latest
+            node: 22
+            experimental: true
+        # Don't fail the whole matrix if windows-latest fails — it's still
+        # being stabilized. Once green for ~10 PR runs, remove this and add
+        # back to branch protection.
+    continue-on-error: ${{ matrix.experimental == true }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
