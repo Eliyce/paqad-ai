@@ -43,5 +43,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install graph-ui dependencies
+        run: pnpm --dir graph-ui install --frozen-lockfile
+
+      - name: Pre-build (so e2e tests skip their own build step)
+        run: pnpm run build
+
       - name: Run full CI script
         run: pnpm run ci

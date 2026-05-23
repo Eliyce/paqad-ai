@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install graph-ui dependencies
+        run: pnpm --dir graph-ui install --frozen-lockfile
+
       - name: Build
         run: pnpm run build
 
