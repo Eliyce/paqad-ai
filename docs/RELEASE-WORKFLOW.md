@@ -225,7 +225,7 @@ when something needs to change.
 | Release workflow fails: `Cannot publish over existing version` | Version in `package.json` already on npm | Add a new changeset and merge a new release PR with a higher bump |
 | Release workflow runs but no release PR opens | No pending changesets | Expected when no `.changeset/*.md` files exist |
 | Release PR (`chore(release): version packages`) opens but has **no CI checks** | The default `GITHUB_TOKEN` was used instead of `GH_RELEASE_TOKEN` | Confirm `GH_RELEASE_TOKEN` secret exists and `release.yml` references it as `GITHUB_TOKEN` for the changesets step |
-| Release PR CI fails on `expected '1.0.X' to be '1.0.Y'` | Hardcoded `VERSION` in `src/index.ts` not bumped | Bump by hand on the `changeset-release/main` branch — tracked for a permanent fix in [#18](https://github.com/Eliyce/paqad-ai/issues/18) |
+| Release PR CI fails on `expected '1.0.X' to be '1.0.Y'` | The build-time `__PKG_VERSION__` injection is broken or missing | Confirm `tsup.config.ts` and `vitest.config.ts` both `define: { __PKG_VERSION__: JSON.stringify(pkg.version) }`. `src/index.ts` reads only this constant — there should be no hardcoded version string anywhere |
 | Provenance error in workflow log | Missing `id-token: write` permission | Confirm the `permissions` block in `release.yml` includes `id-token: write` |
 | Need to undo a published version (≤ 72 h) | npm policy allows brief unpublish | `npm unpublish paqad-ai@x.y.z --force` then ship a higher version |
 | Need to undo a published version (> 72 h) | Cannot unpublish | `npm deprecate paqad-ai@x.y.z "Use x.y.z+1 instead — this version has <bug>"` then ship a fix |
