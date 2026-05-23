@@ -1,10 +1,8 @@
-import { readFileSync } from 'node:fs';
-
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
-  version: string;
-};
-
-export const VERSION = pkg.version;
+// __PKG_VERSION__ is injected at build time by tsup (see tsup.config.ts) and
+// at test time by vitest (see vitest.config.ts). Both read package.json so the
+// shipped VERSION never drifts from the published version.
+declare const __PKG_VERSION__: string;
+export const VERSION: string = __PKG_VERSION__;
 
 export function getFrameworkName(): string {
   return 'paqad-ai';
