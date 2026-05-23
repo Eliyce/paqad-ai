@@ -8,3 +8,7 @@ docs
 runtime/templates
 AGENTS.md
 CLAUDE.md
+
+# pnpm manages its own lockfile format — don't fight it.
+pnpm-lock.yaml
+graph-ui/pnpm-lock.yaml
