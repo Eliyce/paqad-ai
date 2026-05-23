@@ -33,8 +33,8 @@ importers:
         specifier: ^4.7.8
         version: 4.7.8
       openai:
-        specifier: ^6.33.0
-        version: 6.33.0
+        specifier: ^6.39.0
+        version: 6.39.0
       ora:
         specifier: ^8.2.0
         version: 8.2.0
@@ -1840,8 +1840,8 @@ packages:
   onnxruntime-web@1.14.0:
     resolution: {integrity: sha512-Kcqf43UMfW8mCydVGcX9OMXI2VN17c0p6XvR7IPSZzBf/6lteBzXHvcEVWDPmCKuGombl997HgLqj91F11DzXw==}
 
-  openai@6.33.0:
-    resolution: {integrity: sha512-xAYN1W3YsDXJWA5F277135YfkEk6H7D3D6vWwRhJ3OEkzRgcyK8z/P5P9Gyi/wB4N8kK9kM5ZjprfvyHagKmpw==}
+  openai@6.39.0:
+    resolution: {integrity: sha512-O61LIsimY3acVabwvomwFhwrnN36yvHY2quIfy9keEcFytGgWeV35yLHQ6NVMLSBxRpHmcg2yuhCnlu2HT4pLQ==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -4325,7 +4325,7 @@ snapshots:
       onnxruntime-common: 1.14.0
       platform: 1.3.6
 
-  openai@6.33.0: {}
+  openai@6.39.0: {}
 
   optionator@0.9.4:
     dependencies:
