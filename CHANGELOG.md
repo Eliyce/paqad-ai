@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.0.4
+
+### Patch Changes
+
+- [#21](https://github.com/Eliyce/paqad-ai/pull/21) [`8bc2642`](https://github.com/Eliyce/paqad-ai/commit/8bc2642c3af5f0af5dfc569507544c092b891503) Thanks [@HLasani](https://github.com/HLasani)! - Read `VERSION` constant dynamically from `package.json` at module load instead of hardcoding it. Future releases no longer need a manual `src/index.ts` edit to keep the exported constant in sync with the published version. Closes [#18](https://github.com/Eliyce/paqad-ai/issues/18).
+
 ## 1.0.3
 
 ### Patch Changes
