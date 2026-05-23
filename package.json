@@ -98,7 +98,7 @@
     "ora": "^8.2.0",
     "pathe": "^2.0.3",
     "voyageai": "^0.2.1",
-    "yaml": "^2.8.1"
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",
