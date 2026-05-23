@@ -153,7 +153,8 @@ describe('cross-module-impact-scanner', () => {
           '| --- | --- | --- | --- | --- |',
           `| \`x\` | T | c | ${sev} | go |`,
         ].join('\n');
-        expect(runScript(path, [], { input: block }).status, `sev ${sev}`).toBe(0);
+        const r = runScript(path, [], { input: block });
+        expect(r.status, `sev ${sev} stderr=${r.stderr}`).toBe(0);
       }
     });
   });

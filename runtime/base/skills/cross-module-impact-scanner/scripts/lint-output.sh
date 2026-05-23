@@ -25,8 +25,15 @@ printf '%s' "$body" | grep -qE '^\| Surface \| Type \| Consumer \| Severity \| C
   || say 'missing canonical Impact Map table header'
 
 # Severity tokens must come from the rubric.
+# Use POSIX-portable pipeline (avoids BSD-vs-GNU awk quirks on macOS).
+# Also strip CR so CRLF inputs don't poison the case match.
 severities=$(printf '%s\n' "$body" \
-  | awk -F'|' '/^\|/ && $5 != "" && $5 !~ /Severity/ && $5 !~ /---/ {gsub(/[[:space:]]/,"",$5); print $5}')
+  | tr -d '\r' \
+  | grep '^|' \
+  | grep -v 'Severity' \
+  | grep -v -- '---' \
+  | cut -d'|' -f5 \
+  | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 while IFS= read -r s; do
   [ -z "$s" ] && continue
   case "$s" in
