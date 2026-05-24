@@ -13,6 +13,25 @@ export default defineConfig({
     globals: true,
     root: '.',
     include: ['tests/**/*.test.ts'],
+    // Windows runners are noticeably slower than Linux/macOS — bump the
+    // default 5s test timeout and 10s hook timeout so e2e cases that build
+    // the CLI or chunk a small corpus don't fail spuriously.
+    testTimeout: process.platform === 'win32' ? 30_000 : 10_000,
+    hookTimeout: process.platform === 'win32' ? 60_000 : 30_000,
+    // On Windows, exclude test suites that depend on a POSIX bash on PATH.
+    // These exercise the runtime/**/scripts/*.sh helpers; the shipped product
+    // never invokes them on Windows. Tracked for proper Windows bash support
+    // (e.g. detecting Git Bash) in a follow-up.
+    exclude:
+      process.platform === 'win32'
+        ? [
+            '**/node_modules/**',
+            '**/dist/**',
+            'tests/unit/skills/**',
+            'tests/unit/scripts/**',
+            'tests/unit/hooks/silent-update.test.ts',
+          ]
+        : ['**/node_modules/**', '**/dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json-summary'],

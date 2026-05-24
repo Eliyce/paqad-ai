@@ -9,7 +9,9 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { posix } from 'node:path';
+
+const { join } = posix;
 
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { getRuntimeRoot } from '@/core/runtime-paths';

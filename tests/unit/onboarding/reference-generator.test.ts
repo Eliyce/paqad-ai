@@ -1,6 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { posix } from 'node:path';
+
+const { join } = posix;
 
 import { generateReferenceGuides } from '@/onboarding/reference-generator.js';
 

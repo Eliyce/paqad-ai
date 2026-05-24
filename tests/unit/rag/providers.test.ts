@@ -1,6 +1,8 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { posix } from 'node:path';
+
+const { join } = posix;
 
 import type { IntelligenceConfig } from '@/core/types/project-profile.js';
 import {
