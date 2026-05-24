@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
+import { toPosixPath } from '@/core/path-utils.js';
 
 export interface FileWriteResult {
   written: string[];
@@ -13,10 +14,13 @@ export function writeGeneratedFiles(projectRoot: string, files: GeneratedFile[])
   const skipped: string[] = [];
 
   for (const file of files) {
+    // Always emit forward-slash paths in the result lists — these are
+    // user-facing (manifest JSON, console summaries, return value to callers).
+    const reportedPath = toPosixPath(file.path);
     const target = join(projectRoot, file.path);
 
     if (!file.autoUpdate && existsSync(target)) {
-      skipped.push(file.path);
+      skipped.push(reportedPath);
       continue;
     }
 
@@ -25,7 +29,7 @@ export function writeGeneratedFiles(projectRoot: string, files: GeneratedFile[])
     if (file.executable === true) {
       chmodSync(target, 0o755);
     }
-    written.push(file.path);
+    written.push(reportedPath);
   }
 
   return { written, skipped };

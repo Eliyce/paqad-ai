@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { writeProjectProfile as writeCanonicalProjectProfile } from '@/core/project-profile.js';
 import type { DetectionReport } from '@/core/types/health.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
@@ -41,7 +42,7 @@ export function writeOnboardingManifest(projectRoot: string, manifest: Onboardin
 }
 
 export function resolveFrameworkInstallPath(): string {
-  return process.env.PAQAD_FRAMEWORK_HOME ?? join(homedir(), '.paqad-ai/current');
+  return process.env.PAQAD_FRAMEWORK_HOME ?? toPosixPath(join(homedir(), '.paqad-ai/current'));
 }
 
 function resolveFrameworkInstallReference(): string {

@@ -5,6 +5,7 @@ import { dirname, join, relative } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { VERSION } from '@/index.js';
@@ -49,13 +50,17 @@ export class FrameworkUpdater {
     const newScripts: string[] = [];
 
     for (const candidate of candidates) {
+      // Normalize the reported path for user-facing fields (regenerated,
+      // skipped, new_scripts). Use native `candidate.path` for filesystem
+      // ops since Node accepts mixed separators on Windows.
+      const reportedPath = toPosixPath(candidate.path);
       const target = join(projectRoot, candidate.path);
       const existed = existsSync(target);
       const autoUpdate = artifactPolicy.get(candidate.path) ?? candidate.autoUpdate;
 
       if (existed && autoUpdate === false) {
         skipped.push({
-          path: candidate.path,
+          path: reportedPath,
           before: readFileSync(target, 'utf8'),
           after: candidate.content,
         });
@@ -68,9 +73,9 @@ export class FrameworkUpdater {
         chmodSync(target, 0o755);
       }
 
-      regenerated.push(candidate.path);
-      if (!existed && candidate.path.startsWith('scripts/')) {
-        newScripts.push(candidate.path);
+      regenerated.push(reportedPath);
+      if (!existed && reportedPath.startsWith('scripts/')) {
+        newScripts.push(reportedPath);
       }
     }
 
