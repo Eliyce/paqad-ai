@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { lstat, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { isAbsolute, join, matchesGlob, relative, sep } from 'node:path';
+import { isAbsolute, join, matchesGlob, relative } from 'node:path';
+
+import { toPosixPath } from '@/core/path-utils.js';
 
 import Ajv from 'ajv';
 import fg from 'fast-glob';
@@ -720,10 +722,6 @@ function toProjectRelativePath(projectRoot: string, absolutePath: string): strin
 
 function normalizeAbsolutePath(path: string): string {
   return isAbsolute(path) ? path : join(process.cwd(), path);
-}
-
-function toPosixPath(path: string): string {
-  return path.split(sep).join('/');
 }
 
 function trimSlashes(value: string): string {

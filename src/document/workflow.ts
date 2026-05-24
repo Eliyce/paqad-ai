@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import type { ClassificationResult } from '@/core/types/classification.js';
 import type { DocProgressEntry } from '@/core/types/document-generation.js';
@@ -743,7 +744,7 @@ async function findOrphanedModuleDirs(
     const slugSet = new Set(reviewedSlugs);
     return entries
       .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !slugSet.has(e.name))
-      .map((e) => join(PATHS.MODULES_DIR, e.name));
+      .map((e) => toPosixPath(join(PATHS.MODULES_DIR, e.name)));
   } catch {
     return [];
   }
