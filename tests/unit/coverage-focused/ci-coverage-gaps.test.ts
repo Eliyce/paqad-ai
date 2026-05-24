@@ -1,6 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, posix } from 'node:path';
+
+const { join } = posix;
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import YAML from 'yaml';

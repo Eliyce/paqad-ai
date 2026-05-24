@@ -1,6 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { posix } from 'node:path';
+
+const { join } = posix;
 
 import type { Pattern } from '@/patterns/index.js';
 import type { EmbeddingProvider } from '@/rag/types.js';

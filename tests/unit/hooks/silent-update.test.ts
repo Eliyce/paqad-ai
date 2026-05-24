@@ -146,7 +146,9 @@ describe('silent-update.sh', () => {
     }
   }, 15000);
 
-  it('script file exists and is executable', () => {
+  it.skipIf(process.platform === 'win32')('script file exists and is executable', () => {
+    // Windows doesn't expose the POSIX +x bit via stat.mode. The hook is
+    // only invoked on POSIX platforms anyway.
     expect(existsSync(SCRIPT)).toBe(true);
     const stat = statSync(SCRIPT);
     expect(stat.mode & 0o100).toBe(0o100);

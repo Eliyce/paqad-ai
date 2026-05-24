@@ -1,6 +1,8 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { posix } from 'node:path';
+
+const { join } = posix;
 
 import fg from 'fast-glob';
 import { describe, expect, it, vi } from 'vitest';

@@ -1,7 +1,9 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { posix } from 'node:path';
+
+const { join } = posix;
 
 import { SemanticLoader } from '@/context/semantic-loader.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';

@@ -51,14 +51,16 @@ describe('bootstrap', () => {
   });
 
   it('converts argv entries into file URLs when present', () => {
-    expect(argvToEntrypoint('/tmp/paqad-ai.js')).toBe('file:///tmp/paqad-ai.js');
+    // Use pathToFileURL to compute the expected value so the test works
+    // cross-platform (on Windows `/tmp/foo` resolves to `D:/tmp/foo`).
+    const argv = '/tmp/paqad-ai.js';
+    expect(argvToEntrypoint(argv)).toBe(pathToFileURL(argv).href);
     expect(argvToEntrypoint(undefined)).toBeUndefined();
   });
 
   it('falls back to the raw path when argv realpath resolution fails', () => {
-    expect(argvToEntrypoint('/tmp/does-not-exist/paqad-ai.js')).toBe(
-      'file:///tmp/does-not-exist/paqad-ai.js',
-    );
+    const argv = '/tmp/does-not-exist/paqad-ai.js';
+    expect(argvToEntrypoint(argv)).toBe(pathToFileURL(argv).href);
   });
 
   it('resolves symlinked argv entries to the real command path', () => {
@@ -73,8 +75,12 @@ describe('bootstrap', () => {
   });
 
   it('detects direct command-line execution deterministically', () => {
-    expect(shouldRunFromCommandLine('file:///tmp/paqad-ai.js', '/tmp/paqad-ai.js')).toBe(true);
-    expect(shouldRunFromCommandLine('file:///tmp/paqad-ai.js', undefined)).toBe(false);
-    expect(shouldRunFromCommandLine('file:///tmp/other.js', '/tmp/paqad-ai.js')).toBe(false);
+    // Use pathToFileURL to construct file:// URLs cross-platform.
+    const argv = '/tmp/paqad-ai.js';
+    const argvUrl = pathToFileURL(argv).href;
+    const otherUrl = pathToFileURL('/tmp/other.js').href;
+    expect(shouldRunFromCommandLine(argvUrl, argv)).toBe(true);
+    expect(shouldRunFromCommandLine(argvUrl, undefined)).toBe(false);
+    expect(shouldRunFromCommandLine(otherUrl, argv)).toBe(false);
   });
 });
