@@ -11,17 +11,38 @@ export function detectDeliveryHost(remoteUrl: string | null | undefined): Delive
   if (!remoteUrl) {
     return 'unknown';
   }
-  const lower = remoteUrl.toLowerCase();
-  if (lower.includes('github.com')) {
+  const host = extractHost(remoteUrl);
+  if (host === null) {
+    return 'unknown';
+  }
+  if (host === 'github.com' || host.endsWith('.github.com')) {
     return 'github';
   }
-  if (lower.includes('gitlab.com') || lower.includes('gitlab.')) {
+  if (host === 'gitlab.com' || host.startsWith('gitlab.')) {
     return 'gitlab';
   }
-  if (lower.includes('bitbucket.org') || lower.includes('bitbucket.')) {
+  if (host === 'bitbucket.org' || host.startsWith('bitbucket.')) {
     return 'bitbucket';
   }
   return 'unknown';
+}
+
+/**
+ * Extracts the hostname from an ssh-style or https-style git remote URL.
+ * Returns null when no recognisable host can be parsed — callers fall through
+ * to the unknown-host path.
+ */
+function extractHost(remoteUrl: string): string | null {
+  const trimmed = remoteUrl.trim();
+  const ssh = /^[^@]+@([^:]+):/.exec(trimmed);
+  if (ssh) {
+    return ssh[1].toLowerCase();
+  }
+  try {
+    return new URL(trimmed).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
 /**

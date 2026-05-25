@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
@@ -56,11 +56,18 @@ If the interactive UI is not available (non-interactive run, hook context, etc.)
  * filesystem) when nothing meaningful changed.
  */
 export function writeMarkdownIfChanged(path: string, content: string): boolean {
-  if (existsSync(path)) {
-    const existing = readFileSync(path, 'utf8');
-    if (existing === content) {
-      return false;
+  // Single read, catch ENOENT — avoids the existsSync/readFileSync TOCTOU
+  // race that CodeQL's "Potential file system race condition" check flags.
+  let existing: string | null = null;
+  try {
+    existing = readFileSync(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
     }
+  }
+  if (existing === content) {
+    return false;
   }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content);
