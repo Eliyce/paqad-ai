@@ -111,7 +111,7 @@
     "markdownlint-cli2": "^0.22.1",
     "prettier": "^3.8.3",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4",
     "vitest": "^3.2.4"
   },
