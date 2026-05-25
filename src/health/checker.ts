@@ -683,7 +683,7 @@ export class HealthChecker {
   private async buildEfficiencySummary(projectRoot: string): Promise<HealthEfficiencySummary> {
     const path = join(projectRoot, PATHS.CONTEXT_HIT_LOG);
     let contextHitRate = 0;
-    let skillCacheHitRate = 0;
+    let skillCacheHitRate: number;
 
     if (existsSync(path)) {
       try {

@@ -979,7 +979,7 @@ export class SliceExecutor {
       /* v8 ignore next 4 -- error re-throw wrapper; writePending succeeds in all unit test paths */
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Decision pause failed: ${message}`);
+      throw new Error(`Decision pause failed: ${message}`, { cause: error });
     }
   }
 

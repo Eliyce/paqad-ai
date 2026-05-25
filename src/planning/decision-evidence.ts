@@ -127,7 +127,7 @@ function readCompiledRulesSync(projectRoot: string): { rules: CompiledRuleLike[]
 
 function walkTextFiles(projectRoot: string, currentDir = ''): string[] {
   const absoluteDir = join(projectRoot, currentDir);
-  let entries: string[] = [];
+  let entries: string[];
   /* v8 ignore start */
   try {
     entries = readdirSync(absoluteDir);

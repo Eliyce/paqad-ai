@@ -39,7 +39,7 @@ export const pnpmParser: EcosystemParser = {
     };
   },
   parseLockfile(content: string): ParsedLockfile {
-    let parsed: PnpmLockLike | null = null;
+    let parsed: PnpmLockLike | null;
     try {
       parsed = YAML.parse(content) as PnpmLockLike;
     } catch {
