@@ -317,6 +317,21 @@ describe('refresh command', () => {
     expect(drift.current_packs).toEqual([]);
   });
 
+  it('self-heals a missing design-tokens.json by seeding defaults before writeDocs', async () => {
+    const seedSpy = vi.spyOn(DesignTokenService.prototype, 'seed').mockResolvedValue();
+
+    const command = createRefreshCommand();
+    await command.parseAsync(
+      ['node', 'refresh', '--project-root', projectRoot, '--design-system'],
+      { from: 'node' },
+    );
+
+    expect(seedSpy).toHaveBeenCalledWith(projectRoot);
+    expect(seedSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(DesignTokenService.prototype.writeDocs).mock.invocationCallOrder[0],
+    );
+  });
+
   it('skips profile and drift writes when the canonical profile is absent', async () => {
     unlinkSync(join(projectRoot, '.paqad/project-profile.yaml'));
 

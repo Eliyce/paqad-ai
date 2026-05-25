@@ -37,6 +37,11 @@ export function createRefreshCommand(): Command {
         if (shouldRefreshDesignSystem) {
           const designTokens = new DesignTokenService();
           const stack = resolveRefreshStack(profile?.stack_profile?.frameworks?.[0]);
+          // Self-heal: seed default tokens if the file is missing. `seed` is
+          // idempotent (flag 'wx', swallows EEXIST), so this is safe on every
+          // refresh and unblocks projects whose tokens file was never seeded
+          // or got deleted.
+          await designTokens.seed(options.projectRoot);
           await designTokens.writeDocs(options.projectRoot);
           await designTokens.writeThemeExports(options.projectRoot, stack);
         }

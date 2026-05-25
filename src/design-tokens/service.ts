@@ -13,6 +13,15 @@ import { SchemaValidator } from '@/validators/validator.js';
 
 import { DEFAULT_DESIGN_TOKENS } from './defaults.js';
 
+export class DesignTokensMissingError extends Error {
+  constructor(public readonly path: string) {
+    super(
+      `Design tokens file not found at ${path}. Run \`paqad-ai onboard\` to seed default tokens, or create the file manually.`,
+    );
+    this.name = 'DesignTokensMissingError';
+  }
+}
+
 interface FlattenedToken {
   key: string;
   type: string;
@@ -38,7 +47,15 @@ export class DesignTokenService {
 
   async load(projectRoot: string): Promise<DesignTokensDocument> {
     const target = join(projectRoot, PATHS.DESIGN_TOKENS_FILE);
-    const raw = await readFile(target, 'utf8');
+    let raw: string;
+    try {
+      raw = await readFile(target, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new DesignTokensMissingError(target);
+      }
+      throw error;
+    }
     const parsed = JSON.parse(raw) as DesignTokensDocument;
     const validation = this.validator.validate('design-tokens', parsed);
 
