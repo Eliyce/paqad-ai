@@ -221,7 +221,7 @@ async function extractModulesFromSignals(
     const slug = toSlug(rawName);
     if (!slug) return;
     if (!nameMap.has(slug)) nameMap.set(slug, []);
-    nameMap.get(slug)!.push(sourcePath);
+    nameMap.get(slug)!.push(toPosixPath(sourcePath));
   }
 
   // PHP Controllers (Laravel, Symfony-style): BillingController.php → Billing
