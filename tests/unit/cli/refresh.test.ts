@@ -332,6 +332,42 @@ describe('refresh command', () => {
     );
   });
 
+  it('writes the canonical decision-pause-contract doc when --providers is passed', async () => {
+    const command = createRefreshCommand();
+    await command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--providers'], {
+      from: 'node',
+    });
+
+    const doc = readFileSync(
+      join(projectRoot, '.paqad/decision-pause-contract.md'),
+      'utf8',
+    );
+    expect(doc).toContain('## Resolution flow');
+    expect(doc).toContain('## Fallback');
+    // --providers should not trigger stack/design refresh
+    expect(writeStackArtifacts).not.toHaveBeenCalled();
+    expect(DesignTokenService.prototype.writeDocs).not.toHaveBeenCalled();
+  });
+
+  it('re-renders only adapter entry files that already exist when --providers is passed', async () => {
+    // Pre-seed CLAUDE.md to simulate a project that previously onboarded the
+    // claude-code adapter. AGENTS.md is intentionally absent.
+    writeFileSync(join(projectRoot, 'CLAUDE.md'), '# stale CLAUDE.md\n');
+
+    const command = createRefreshCommand();
+    await command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--providers'], {
+      from: 'node',
+    });
+
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(claudeMd).toContain('## Decision Pause Contract');
+    expect(claudeMd).toContain('.paqad/decision-pause-contract.md');
+    expect(claudeMd).toContain('AskUserQuestion');
+    // The previously-absent AGENTS.md should still be absent: refresh must not
+    // silently onboard new providers.
+    expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);
+  });
+
   it('skips profile and drift writes when the canonical profile is absent', async () => {
     unlinkSync(join(projectRoot, '.paqad/project-profile.yaml'));
 
