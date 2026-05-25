@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { DesignTokenService } from '@/design-tokens';
+import { DesignTokenService, DesignTokensMissingError } from '@/design-tokens';
 
 describe('DesignTokenService', () => {
   let root: string;
@@ -33,5 +33,10 @@ describe('DesignTokenService', () => {
     expect(tailwindTheme).not.toContain('spacing-xs');
     expect(tailwindTheme).not.toContain('typography-fontFamily-body');
     expect(tailwindTheme).not.toContain('motion-duration-fast');
+  });
+
+  it('throws DesignTokensMissingError when the tokens file is absent', async () => {
+    const service = new DesignTokenService();
+    await expect(service.load(root)).rejects.toBeInstanceOf(DesignTokensMissingError);
   });
 });

@@ -54,8 +54,12 @@ describe('adapter stack matrix', () => {
           files.push(...(await adapter.configureMemory(profile)));
         }
 
+        // Claude Code also emits .claude/settings.json for the agent-entry
+        // gate alongside CLAUDE.md.
+        const extraConfigFiles = adapterType === 'claude-code' ? 1 : 0;
         const expectedLength =
           1 +
+          extraConfigFiles +
           (adapter.capabilities.skills ? skillArtifacts.length : 0) +
           Number(adapter.capabilities.agents) +
           Number(adapter.capabilities.hooks) +

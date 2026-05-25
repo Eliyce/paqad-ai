@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 
@@ -21,7 +21,8 @@ export function writeProjectProfile(projectRoot: string, profile: ProjectProfile
 export function writeDetectionReport(projectRoot: string, report: DetectionReport): string {
   const path = join(projectRoot, PATHS.DETECTION_REPORT);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(sanitizeDetectionReport(projectRoot, report), null, 2));
+  const sanitized = sanitizeDetectionReport(projectRoot, report);
+  writeJsonPreservingTimestamp(path, sanitized, 'timestamp');
   return path;
 }
 
@@ -29,16 +30,83 @@ export function writeFrameworkMetadata(projectRoot: string, version: string): vo
   mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), {
     recursive: true,
   });
-  const content = `version=${version}\nupdated_at=${new Date().toISOString()}\n`;
-  writeFileSync(join(projectRoot, PATHS.FRAMEWORK_VERSION), content);
+  writeFrameworkVersionPreservingTimestamp(
+    join(projectRoot, PATHS.FRAMEWORK_VERSION),
+    version,
+    new Date().toISOString(),
+  );
   writeFileSync(join(projectRoot, PATHS.FRAMEWORK_PATH), `${resolveFrameworkInstallReference()}\n`);
 }
 
 export function writeOnboardingManifest(projectRoot: string, manifest: OnboardingManifest): string {
   const path = join(projectRoot, PATHS.ONBOARDING_MANIFEST);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(sanitizeOnboardingManifest(projectRoot, manifest), null, 2));
+  const sanitized = sanitizeOnboardingManifest(projectRoot, manifest);
+  writeJsonPreservingTimestamp(path, sanitized, 'generated_at');
   return path;
+}
+
+/**
+ * Writes a JSON document but, if the destination already exists and the
+ * payload is byte-equal except for the timestamp field, preserves the existing
+ * timestamp. Makes re-runs idempotent when nothing meaningful changed.
+ */
+export function writeJsonPreservingTimestamp<T extends object>(
+  path: string,
+  value: T,
+  timestampField: keyof T & string,
+): void {
+  const previousTimestamp = readPreviousJsonTimestamp(path, timestampField);
+  if (previousTimestamp !== null) {
+    const candidate = { ...value, [timestampField]: previousTimestamp };
+    const candidateJson = JSON.stringify(candidate, null, 2);
+    const existing = readFileSync(path, 'utf8');
+    if (candidateJson === existing) {
+      // No real change → keep the file (and its timestamp) byte-identical.
+      return;
+    }
+  }
+  writeFileSync(path, JSON.stringify(value, null, 2));
+}
+
+export function writeFrameworkVersionPreservingTimestamp(
+  path: string,
+  version: string,
+  now: string,
+): void {
+  const previous = readPreviousFrameworkVersion(path);
+  const timestamp = previous && previous.version === version ? previous.updatedAt : now;
+  writeFileSync(path, `version=${version}\nupdated_at=${timestamp}\n`);
+}
+
+function readPreviousJsonTimestamp(path: string, timestampField: string): string | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    const value = parsed[timestampField];
+    return typeof value === 'string' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function readPreviousFrameworkVersion(path: string): { version: string; updatedAt: string } | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    const content = readFileSync(path, 'utf8');
+    const versionMatch = content.match(/^version=(.*)$/m);
+    const updatedMatch = content.match(/^updated_at=(.*)$/m);
+    if (!versionMatch || !updatedMatch) {
+      return null;
+    }
+    return { version: versionMatch[1].trim(), updatedAt: updatedMatch[1].trim() };
+  } catch {
+    return null;
+  }
 }
 
 export function resolveFrameworkInstallPath(): string {
