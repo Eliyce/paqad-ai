@@ -338,10 +338,7 @@ describe('refresh command', () => {
       from: 'node',
     });
 
-    const doc = readFileSync(
-      join(projectRoot, '.paqad/decision-pause-contract.md'),
-      'utf8',
-    );
+    const doc = readFileSync(join(projectRoot, '.paqad/decision-pause-contract.md'), 'utf8');
     expect(doc).toContain('## Resolution flow');
     expect(doc).toContain('## Fallback');
     // --providers should not trigger stack/design refresh

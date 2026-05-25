@@ -7,7 +7,8 @@ import type { AdapterType } from '@/core/types/adapter.js';
  * provider-agnostic and lives in the managed `.paqad/decision-pause-contract.md`.
  */
 export const DECISION_PAUSE_UI_NOTES: Record<AdapterType, string> = {
-  'claude-code': 'In Claude Code, surface the packet via `AskUserQuestion` and wait for the answer.',
+  'claude-code':
+    'In Claude Code, surface the packet via `AskUserQuestion` and wait for the answer.',
   'codex-cli': 'In Codex CLI, prompt the user inline before continuing.',
   antigravity: 'In Antigravity, prompt the user and wait for a reply before continuing.',
   'gemini-cli': 'In Gemini CLI, prompt the user and wait for a reply before continuing.',

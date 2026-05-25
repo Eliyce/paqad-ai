@@ -7,7 +7,10 @@ import type { RenderedDelivery } from './templates.js';
  * touching a real git remote.
  */
 export interface DeliveryShell {
-  run(command: string, args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  run(
+    command: string,
+    args: string[],
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
 }
 
 export interface DeliveryRunInputs {

@@ -73,7 +73,10 @@ export function applyBatchedAnswer(
   if (answer.outcome === 'accepted') {
     return { chosen_option_key: resolution.chosen_option_key, intent: 'safer-default' };
   }
-  if (typeof answer.overridden_option_key !== 'string' || answer.overridden_option_key.length === 0) {
+  if (
+    typeof answer.overridden_option_key !== 'string' ||
+    answer.overridden_option_key.length === 0
+  ) {
     throw new Error(
       `Batched confirm override for ${resolution.decision_id} must include overridden_option_key.`,
     );

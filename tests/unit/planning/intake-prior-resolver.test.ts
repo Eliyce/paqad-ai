@@ -2,10 +2,7 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  buildRepoStateForIntake,
-  findIntakePriorMatch,
-} from '@/planning/intake-prior-resolver.js';
+import { buildRepoStateForIntake, findIntakePriorMatch } from '@/planning/intake-prior-resolver.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import { computeDecisionFingerprint } from '@/planning/decision-fingerprint.js';
 import type { DecisionOption, DecisionPacket } from '@/planning/decision-packet.js';

@@ -1,8 +1,9 @@
 import { runDelivery, type DeliveryShell } from '@/delivery/runner.js';
 
-function makeShell(
-  responses: Array<{ exitCode: number; stdout?: string; stderr?: string }>,
-): { shell: DeliveryShell; calls: Array<{ command: string; args: string[] }> } {
+function makeShell(responses: Array<{ exitCode: number; stdout?: string; stderr?: string }>): {
+  shell: DeliveryShell;
+  calls: Array<{ command: string; args: string[] }>;
+} {
   const calls: Array<{ command: string; args: string[] }> = [];
   let index = 0;
   return {
