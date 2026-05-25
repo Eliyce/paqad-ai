@@ -1,6 +1,7 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { toPosixPath } from '@/core/path-utils.js';
 import type { ObligationIndex } from './types.js';
 import { DEFAULT_OBLIGATION_INDEX_PATH } from './constants.js';
 
@@ -35,7 +36,7 @@ export async function saveObligationIndex(options: SaveObligationIndexOptions): 
   const indexPath = resolveIndexPath(options.project_root, options.index_path);
   await mkdir(path.dirname(indexPath), { recursive: true });
   await writeFile(indexPath, JSON.stringify(options.index, null, 2) + '\n', 'utf8');
-  return indexPath;
+  return toPosixPath(indexPath);
 }
 
 function resolveIndexPath(projectRoot: string, indexPath?: string): string {

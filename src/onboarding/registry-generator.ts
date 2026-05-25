@@ -1,5 +1,7 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
+
+import { toPosixPath } from '@/core/path-utils.js';
 
 import YAML from 'yaml';
 
@@ -416,7 +418,7 @@ export async function discoverBusinessModules(
         entries.push(lockedModules.get(slug)!);
         continue;
       }
-      const sourcePath = dir.replace(projectRoot + '/', '') + '/' + name;
+      const sourcePath = toPosixPath(join(relative(projectRoot, dir), name));
       entries.push(
         buildEntry(name, slug, 'codebase_native', 'high', [sourcePath], lockedFeatures.get(slug)),
       );
@@ -439,7 +441,7 @@ export async function discoverBusinessModules(
         entries.push(lockedModules.get(slug)!);
         continue;
       }
-      const sourcePath = dir.replace(projectRoot + '/', '') + '/' + name;
+      const sourcePath = toPosixPath(join(relative(projectRoot, dir), name));
       entries.push(
         buildEntry(name, slug, 'codebase_native', 'medium', [sourcePath], lockedFeatures.get(slug)),
       );
@@ -462,7 +464,7 @@ export async function discoverBusinessModules(
         entries.push(lockedModules.get(slug)!);
         continue;
       }
-      const sourcePath = dir.replace(projectRoot + '/', '') + '/' + name;
+      const sourcePath = toPosixPath(join(relative(projectRoot, dir), name));
       entries.push(
         buildEntry(name, slug, 'inferred', 'medium', [sourcePath], lockedFeatures.get(slug)),
       );
