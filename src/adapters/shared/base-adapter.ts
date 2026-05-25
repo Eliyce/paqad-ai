@@ -56,7 +56,7 @@ export abstract class BaseAdapter implements AdapterInterface {
             adapter: this.type,
             frameworkPath: context.frameworkPath,
             rulesPath: context.rulesPath,
-            decisionPauseContract: buildDecisionPauseContractSection(),
+            decisionPauseContract: buildDecisionPauseContractSection(this.type),
           },
         ),
         autoUpdate: true,

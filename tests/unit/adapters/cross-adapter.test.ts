@@ -1,6 +1,7 @@
 import { AdapterFactory } from '@/adapters';
 import {
   buildDecisionPauseContractSection,
+  decisionPauseContractPointerBody,
   extractDecisionPauseContractSection,
   normalizeProviderEntryContract,
 } from '@/adapters/shared/provider-entry-contract.js';
@@ -52,8 +53,8 @@ describe('cross-adapter consistency', () => {
     }
   });
 
-  it('keeps the decision pause contract deterministic across adapters', async () => {
-    const adapters = [
+  it('shares an identical pointer body across adapters while keeping per-adapter UI notes', async () => {
+    const types = [
       'claude-code',
       'codex-cli',
       'antigravity',
@@ -64,9 +65,10 @@ describe('cross-adapter consistency', () => {
       'windsurf',
       'continue',
       'aider',
-    ].map((type) => AdapterFactory.create(type as 'claude-code' | 'junie'));
+    ] as const;
+    const adapters = types.map((type) => AdapterFactory.create(type));
+    const pointerBody = decisionPauseContractPointerBody();
 
-    const expected = normalizeProviderEntryContract(buildDecisionPauseContractSection());
     const sections = await Promise.all(
       adapters.map(async (adapter) => {
         const [file] = await adapter.generateConfig({
@@ -78,6 +80,16 @@ describe('cross-adapter consistency', () => {
       }),
     );
 
-    expect(sections).toEqual(Array.from({ length: adapters.length }, () => expected));
+    // Each section must:
+    //   1. be present,
+    //   2. contain the shared pointer body verbatim,
+    //   3. match its adapter-specific rendering (UI note differs per adapter).
+    for (const [index, section] of sections.entries()) {
+      expect(section).not.toBeNull();
+      expect(section!).toContain(pointerBody);
+      expect(normalizeProviderEntryContract(section!)).toBe(
+        normalizeProviderEntryContract(buildDecisionPauseContractSection(types[index])),
+      );
+    }
   });
 });
