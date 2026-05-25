@@ -92,9 +92,7 @@ function readPreviousJsonTimestamp(path: string, timestampField: string): string
   }
 }
 
-function readPreviousFrameworkVersion(
-  path: string,
-): { version: string; updatedAt: string } | null {
+function readPreviousFrameworkVersion(path: string): { version: string; updatedAt: string } | null {
   if (!existsSync(path)) {
     return null;
   }

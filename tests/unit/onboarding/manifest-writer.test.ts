@@ -22,7 +22,11 @@ describe('writeJsonPreservingTimestamp', () => {
 
   it('writes fresh content when the file does not exist', () => {
     const path = join(dir, 'a.json');
-    writeJsonPreservingTimestamp(path, { name: 'x', timestamp: '2025-01-01T00:00:00.000Z' }, 'timestamp');
+    writeJsonPreservingTimestamp(
+      path,
+      { name: 'x', timestamp: '2025-01-01T00:00:00.000Z' },
+      'timestamp',
+    );
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({
       name: 'x',
       timestamp: '2025-01-01T00:00:00.000Z',
@@ -31,8 +35,16 @@ describe('writeJsonPreservingTimestamp', () => {
 
   it('preserves the existing timestamp when other fields are unchanged', () => {
     const path = join(dir, 'a.json');
-    writeJsonPreservingTimestamp(path, { name: 'x', timestamp: '2025-01-01T00:00:00.000Z' }, 'timestamp');
-    writeJsonPreservingTimestamp(path, { name: 'x', timestamp: '2030-12-31T00:00:00.000Z' }, 'timestamp');
+    writeJsonPreservingTimestamp(
+      path,
+      { name: 'x', timestamp: '2025-01-01T00:00:00.000Z' },
+      'timestamp',
+    );
+    writeJsonPreservingTimestamp(
+      path,
+      { name: 'x', timestamp: '2030-12-31T00:00:00.000Z' },
+      'timestamp',
+    );
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({
       name: 'x',
       timestamp: '2025-01-01T00:00:00.000Z',
@@ -41,8 +53,16 @@ describe('writeJsonPreservingTimestamp', () => {
 
   it('writes a fresh timestamp when any other field changes', () => {
     const path = join(dir, 'a.json');
-    writeJsonPreservingTimestamp(path, { name: 'x', timestamp: '2025-01-01T00:00:00.000Z' }, 'timestamp');
-    writeJsonPreservingTimestamp(path, { name: 'y', timestamp: '2030-12-31T00:00:00.000Z' }, 'timestamp');
+    writeJsonPreservingTimestamp(
+      path,
+      { name: 'x', timestamp: '2025-01-01T00:00:00.000Z' },
+      'timestamp',
+    );
+    writeJsonPreservingTimestamp(
+      path,
+      { name: 'y', timestamp: '2030-12-31T00:00:00.000Z' },
+      'timestamp',
+    );
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({
       name: 'y',
       timestamp: '2030-12-31T00:00:00.000Z',
@@ -52,7 +72,11 @@ describe('writeJsonPreservingTimestamp', () => {
   it('writes a fresh timestamp when existing content is unparseable', () => {
     const path = join(dir, 'a.json');
     writeFileSync(path, 'not json');
-    writeJsonPreservingTimestamp(path, { name: 'x', timestamp: '2030-12-31T00:00:00.000Z' }, 'timestamp');
+    writeJsonPreservingTimestamp(
+      path,
+      { name: 'x', timestamp: '2030-12-31T00:00:00.000Z' },
+      'timestamp',
+    );
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({
       name: 'x',
       timestamp: '2030-12-31T00:00:00.000Z',

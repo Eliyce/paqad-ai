@@ -34,9 +34,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     };
     expect(parsed.hooks.PreToolUse[0].matcher).toBe('Edit|Write|NotebookEdit');
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain('agent-entry-gate.sh');
-    expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain(
-      'agent-entry-session-start.sh',
-    );
+    expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain('agent-entry-session-start.sh');
   });
 
   it('preserves existing settings.json keys and existing hook entries when merging', async () => {

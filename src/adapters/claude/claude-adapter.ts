@@ -5,8 +5,7 @@ import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
 
 const AGENT_ENTRY_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-gate.sh';
-const AGENT_ENTRY_SESSION_START_SCRIPT =
-  '~/.paqad-ai/current/hooks/agent-entry-session-start.sh';
+const AGENT_ENTRY_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-session-start.sh';
 
 export class ClaudeCodeAdapter extends BaseAdapter {
   readonly type = 'claude-code' as const;
