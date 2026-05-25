@@ -1,5 +1,13 @@
 # paqad-ai
 
+## 1.0.6
+
+### Patch Changes
+
+- [#38](https://github.com/Eliyce/paqad-ai/pull/38) [`c7aac12`](https://github.com/Eliyce/paqad-ai/commit/c7aac120bc503cf5122a8205c28c54506c96730f) Thanks [@HLasani](https://github.com/HLasani)! - Internal code-quality cleanup: remove 13 dead-store assignments flagged by `@eslint/js` v10's `no-useless-assignment` rule, and attach the original error as `cause` when wrapping decision-pause write failures so callers can inspect the underlying I/O error via `error.cause`.
+
+- [#39](https://github.com/Eliyce/paqad-ai/pull/39) [`26bde79`](https://github.com/Eliyce/paqad-ai/commit/26bde79c651b7809de65469a5ac8fb23c9e20675) Thanks [@HLasani](https://github.com/HLasani)! - Upgrade TypeScript from 5.9.x to 6.0.x. Adds `ignoreDeprecations: "6.0"` to `tsconfig.json` to silence the `baseUrl`-deprecation warning emitted by `tsup`'s internal dts build pipeline (TS 7.0 will remove `baseUrl` entirely; tsup needs to drop its internal use before then).
+
 ## 1.0.5
 
 ### Patch Changes
