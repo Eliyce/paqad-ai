@@ -1,0 +1,13 @@
+name: 'paqad-ai CodeQL config'
+
+# Tests intentionally create files under os.tmpdir() for hermetic fixtures.
+# Their data flow trips js/insecure-temporary-file when traced through
+# production helpers; that's a test-time pattern, not a real vulnerability
+# in shipped code. Exclude tests and fixtures from analysis.
+paths-ignore:
+  - tests/**
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/fixtures/**'
+  - dist/**
+  - runtime/graph-ui/**
