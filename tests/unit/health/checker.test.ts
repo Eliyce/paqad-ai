@@ -253,8 +253,8 @@ describe('HealthChecker', () => {
     writeFileSync(
       join(projectRoot, 'CLAUDE.md'),
       readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8').replace(
-        'Picking a shared piece that affects multiple files',
-        'Picking a shared piece that affects one file',
+        '## Decision Pause Contract',
+        '## Decision Pause Contract\n\nUNEXPECTED EXTRA LINE',
       ),
     );
 
