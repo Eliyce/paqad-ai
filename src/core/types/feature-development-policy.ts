@@ -1,12 +1,14 @@
 import type { ProjectProfile } from './project-profile.js';
 
 export const FEATURE_DEVELOPMENT_STAGE_NAMES = [
+  'ticket_intake',
   'planning',
   'specification',
   'development',
   'review',
   'checks',
   'documentation_sync',
+  'delivery',
 ] as const;
 
 export type FeatureDevelopmentStageName = (typeof FEATURE_DEVELOPMENT_STAGE_NAMES)[number];
