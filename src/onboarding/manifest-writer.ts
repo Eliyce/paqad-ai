@@ -124,14 +124,37 @@ function sanitizePersistedPath(projectRoot: string, value: string): string {
     return value;
   }
 
+  // Normalize separators up front so windows/posix comparisons work uniformly.
+  const normalizedValue = toPosixPath(value);
+  const normalizedRoot = toPosixPath(projectRoot);
+
+  if (normalizedValue === normalizedRoot) {
+    return '.';
+  }
+
+  // Strip projectRoot prefix when the value lives under it.
+  const prefix = normalizedRoot.endsWith('/') ? normalizedRoot : `${normalizedRoot}/`;
+  if (normalizedValue.startsWith(prefix)) {
+    return normalizedValue.slice(prefix.length);
+  }
+
+  // For values that are already relative (no drive letter / leading slash), return them
+  // as-is rather than resolving against process.cwd() — node:path.relative is unsafe
+  // for relative inputs because both sides get resolved against cwd first.
+  const isAbsoluteWindows = /^[a-zA-Z]:\//.test(normalizedValue);
+  const isAbsolutePosix = normalizedValue.startsWith('/');
+  if (!isAbsoluteWindows && !isAbsolutePosix) {
+    return normalizedValue;
+  }
+
+  // Absolute path outside projectRoot (sibling or above) — fall back to path.relative,
+  // which only behaves predictably when BOTH inputs are absolute (the case here).
   const relativePath = relative(projectRoot, value);
   if (relativePath === '') {
     return '.';
   }
-
-  if (relativePath !== '..' && !relativePath.startsWith(`..${sep}`) && relativePath !== '') {
-    return relativePath.replaceAll('\\', '/');
+  if (relativePath !== '..' && !relativePath.startsWith(`..${sep}`)) {
+    return toPosixPath(relativePath);
   }
-
-  return value;
+  return normalizedValue;
 }

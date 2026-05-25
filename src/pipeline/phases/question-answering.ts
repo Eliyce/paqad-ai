@@ -6,6 +6,7 @@ import type { PipelineRunContext } from '@/core/types/pipeline.js';
 
 import { createPassResult } from './shared.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { ProjectKnowledgeAnswerer } from '@/project-knowledge/index.js';
 
 export class ProjectQuestionPhase implements PhaseExecutor {
@@ -24,7 +25,7 @@ export class ProjectQuestionPhase implements PhaseExecutor {
     });
 
     const answerArtifactPath = PATHS.PROJECT_QUESTION_ANSWER;
-    const target = join(context.project_root, answerArtifactPath);
+    const target = toPosixPath(join(context.project_root, answerArtifactPath));
     await mkdir(dirname(target), { recursive: true });
     const tmp = `${target}.tmp`;
     await writeFile(tmp, `${JSON.stringify(answer, null, 2)}\n`, 'utf8');

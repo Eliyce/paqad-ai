@@ -8,7 +8,7 @@ export const DEFAULT_OBLIGATION_INDEX_PATH = '.paqad/compliance/obligation-index
  * subdirectory name (e.g. `docs/my-spec.md` → `my-spec`).
  */
 export function slugifySpec(specFile: string): string {
-  const segments = specFile.replace(/\.[^.]+$/, '').split('/');
+  const segments = specFile.replace(/\.[^.]+$/, '').split(/[\\/]/);
   const base = segments[segments.length - 1]!;
   return base
     .toLowerCase()
