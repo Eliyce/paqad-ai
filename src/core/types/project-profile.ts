@@ -46,10 +46,67 @@ export interface ProjectFeatureFlags {
   ai_governance: boolean;
 }
 
+export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;
+export type TicketProviderKind = (typeof TICKET_PROVIDER_KINDS)[number];
+
 export interface ProjectMcpServer {
   name: string;
   enabled: boolean;
+  /**
+   * Optional discriminator used by ticket_intake / delivery to pick the right
+   * server. Existing servers without `kind` continue to validate.
+   */
+  kind?: TicketProviderKind;
   config?: Record<string, unknown>;
+}
+
+export type AutoResolveConfirmation = 'always' | 'batched' | 'never';
+export type TicketWriteBackMode = 'never' | 'ask' | 'always';
+
+export interface ConventionsTicket {
+  provider?: TicketProviderKind;
+  server?: string;
+  require_ticket?: boolean;
+  write_back?: TicketWriteBackMode;
+}
+
+export interface ConventionsIntakeDecisions {
+  auto_resolve_from_priors?: boolean;
+  auto_resolve_from_rules?: boolean;
+  confirm_auto_resolutions?: AutoResolveConfirmation;
+  max_options_per_packet?: number;
+  fingerprint_scope?: string[];
+}
+
+export interface ConventionsBranch {
+  template?: string;
+  type_map?: Record<string, string>;
+  slug_max_length?: number;
+  base?: string;
+}
+
+export interface ConventionsCommit {
+  template?: string;
+  sign_off?: boolean;
+}
+
+export interface ConventionsPullRequest {
+  title_template?: string;
+  body_template_path?: string;
+  base?: string;
+  draft?: boolean;
+  reviewers?: string[];
+  labels?: string[];
+  link_ticket?: boolean;
+  transition_on_open?: string;
+}
+
+export interface ConventionsBlock {
+  ticket?: ConventionsTicket;
+  intake_decisions?: ConventionsIntakeDecisions;
+  branch?: ConventionsBranch;
+  commit?: ConventionsCommit;
+  pr?: ConventionsPullRequest;
 }
 
 export interface ModelRoutingConfig {
@@ -177,6 +234,7 @@ export interface ProjectProfile {
   mcp: {
     servers: ProjectMcpServer[];
   };
+  conventions?: ConventionsBlock;
   model_routing: ModelRoutingConfig;
   research: {
     depth: ResearchDepth;
