@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.0.5
+
+### Patch Changes
+
+- [#35](https://github.com/Eliyce/paqad-ai/pull/35) [`c8f7f03`](https://github.com/Eliyce/paqad-ai/commit/c8f7f03c60f4149579b4f3fb1c3c89be21c77811) Thanks [@HLasani](https://github.com/HLasani)! - Normalize generated path strings to forward slashes at more production output boundaries for cross-platform consistency ([#30](https://github.com/Eliyce/paqad-ai/issues/30), [#33](https://github.com/Eliyce/paqad-ai/issues/33)). Retry `runScript` once on transient bash-subprocess failures ([#25](https://github.com/Eliyce/paqad-ai/issues/25)). Skip Windows-incompatible tests in CI excludes and align timeouts ([#28](https://github.com/Eliyce/paqad-ai/issues/28)).
+
 ## 1.0.4
 
 ### Patch Changes
