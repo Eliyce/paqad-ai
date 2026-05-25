@@ -2,13 +2,14 @@ import { join } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { buildModuleScaffoldContext } from '@/templates/index.js';
 import { TemplateEngine } from '@/templates/engine.js';
 
 const FEATURE_TEMPLATE_TARGETS = [
-  ['business.md.hbs', join(PATHS.MODULE_FEATURES_DIR, 'core', 'business.md')],
-  ['technical.md.hbs', join(PATHS.MODULE_FEATURES_DIR, 'core', 'technical.md')],
+  ['business.md.hbs', toPosixPath(join(PATHS.MODULE_FEATURES_DIR, 'core', 'business.md'))],
+  ['technical.md.hbs', toPosixPath(join(PATHS.MODULE_FEATURES_DIR, 'core', 'technical.md'))],
 ] as const;
 
 const MODULE_TEMPLATE_TARGETS = [
@@ -47,7 +48,7 @@ export async function generateModuleScaffold(moduleName: string): Promise<Genera
 
   for (const [templateName, relativeTarget] of FEATURE_TEMPLATE_TARGETS) {
     files.push({
-      path: join(PATHS.MODULES_DIR, moduleName, relativeTarget),
+      path: toPosixPath(join(PATHS.MODULES_DIR, moduleName, relativeTarget)),
       content: await engine.render(
         join(getRuntimeTemplatesRoot(), 'module-scaffold', templateName),
         context,
@@ -58,7 +59,7 @@ export async function generateModuleScaffold(moduleName: string): Promise<Genera
 
   for (const [templateName, relativeTarget] of MODULE_TEMPLATE_TARGETS) {
     files.push({
-      path: join(PATHS.MODULES_DIR, moduleName, relativeTarget),
+      path: toPosixPath(join(PATHS.MODULES_DIR, moduleName, relativeTarget)),
       content: await engine.render(
         join(getRuntimeTemplatesRoot(), 'module-scaffold', templateName),
         context,
