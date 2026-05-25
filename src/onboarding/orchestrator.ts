@@ -29,6 +29,7 @@ import {
 
 import { bootstrapFramework } from '@/install/bootstrap.js';
 
+import { writeDecisionPauseContractDocument } from './decision-pause-contract-writer.js';
 import { writeGeneratedFiles } from './file-writer.js';
 import { writeGitignore } from './gitignore-writer.js';
 import {
@@ -173,6 +174,16 @@ export class OnboardingOrchestrator {
     writeFrameworkMetadata(options.projectRoot, VERSION);
     bootstrapFramework(options.projectRoot);
     new DecisionStore(options.projectRoot).initialize();
+    try {
+      const wrote = writeDecisionPauseContractDocument(options.projectRoot);
+      if (wrote) {
+        writeResult.written.push(PATHS.DECISION_PAUSE_CONTRACT);
+      }
+    } catch (error) {
+      onboardingWarnings.push(
+        `Decision Pause Contract doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
+      );
+    }
     let compiledRulesPath = join(options.projectRoot, PATHS.COMPILED_RULES);
     let initializedModules: string[] = [];
     try {

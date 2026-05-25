@@ -77,16 +77,16 @@ describe('Generated agent entry files', () => {
     }
   });
 
-  it('includes the canonical decision pause contract in every generated provider entry file', async () => {
-    const expected = normalizeProviderEntryContract(buildDecisionPauseContractSection());
-
+  it('includes the canonical decision pause contract pointer in every generated provider entry file', async () => {
     for (const adapterType of ADAPTER_TYPES) {
       const adapter = AdapterFactory.create(adapterType);
       const [file] = await adapter.generateConfig(CONFIG_CONTEXT);
       const section = extractDecisionPauseContractSection(file?.content ?? '');
 
       expect(section).not.toBeNull();
-      expect(normalizeProviderEntryContract(section!)).toBe(expected);
+      expect(normalizeProviderEntryContract(section!)).toBe(
+        normalizeProviderEntryContract(buildDecisionPauseContractSection(adapterType)),
+      );
     }
   });
 

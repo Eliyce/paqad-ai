@@ -7,6 +7,10 @@ export const DECISION_CATEGORIES = [
   'ux-pattern',
   'architecture-path',
   'workflow-or-tool',
+  'intake.requirement',
+  'intake.confirm_auto_resolution',
+  'intake.write_back',
+  'delivery.open_pr',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -93,6 +97,12 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'ux-pattern': { create_new: false, reversibility: 'easy', ttl_days: 30 },
   'architecture-path': { create_new: false, reversibility: 'hard', ttl_days: 90 },
   'workflow-or-tool': { create_new: false, reversibility: 'easy', ttl_days: 7 },
+  // ticket_intake / delivery bookend categories — choices a refined ticket
+  // implies and the open-PR gate. All reversible (the agent can re-ask).
+  'intake.requirement': { create_new: true, reversibility: 'easy', ttl_days: 14 },
+  'intake.confirm_auto_resolution': { create_new: false, reversibility: 'easy', ttl_days: 7 },
+  'intake.write_back': { create_new: false, reversibility: 'easy', ttl_days: 1 },
+  'delivery.open_pr': { create_new: false, reversibility: 'easy', ttl_days: 1 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

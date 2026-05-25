@@ -10,12 +10,14 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "ticket_intake": { "$ref": "#/$defs/stagePolicy" },
         "planning": { "$ref": "#/$defs/stagePolicy" },
         "specification": { "$ref": "#/$defs/stagePolicy" },
         "development": { "$ref": "#/$defs/stagePolicy" },
         "review": { "$ref": "#/$defs/stagePolicy" },
         "checks": { "$ref": "#/$defs/stagePolicy" },
-        "documentation_sync": { "$ref": "#/$defs/stagePolicy" }
+        "documentation_sync": { "$ref": "#/$defs/stagePolicy" },
+        "delivery": { "$ref": "#/$defs/stagePolicy" }
       }
     }
   },

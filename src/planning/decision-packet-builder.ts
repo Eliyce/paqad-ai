@@ -101,6 +101,14 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'Which path should we take?';
     case 'workflow-or-tool':
       return 'Which workflow fits best?';
+    case 'intake.requirement':
+      return 'How should we pin this open question from the refined ticket?';
+    case 'intake.confirm_auto_resolution':
+      return 'We resolved these decisions from priors and rules — accept or override?';
+    case 'intake.write_back':
+      return 'Update the source ticket with the refined description and acceptance criteria?';
+    case 'delivery.open_pr':
+      return 'Open a pull request now (yes / draft / no)?';
   }
 }
 
@@ -237,6 +245,16 @@ export function decisionOptionsForCategory(
           }),
         ],
       };
+    // The intake/delivery bookend categories produce their packets directly
+    // from the ticket_intake / delivery stages with explicit options — they
+    // do not flow through file-evidence-driven option construction. Return
+    // an empty option list so callers that mistakenly route here fail loudly
+    // at validation time (decision packets require >=2 options).
+    case 'intake.requirement':
+    case 'intake.confirm_auto_resolution':
+    case 'intake.write_back':
+    case 'delivery.open_pr':
+      return { options: [] };
   }
 }
 

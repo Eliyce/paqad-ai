@@ -2,14 +2,18 @@ import { Command } from 'commander';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { AdapterFactory } from '@/adapters/factory.js';
 import { DifferentialRefresh } from '@/context/differential-refresh.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { STACKS, type Stack } from '@/core/types/domain.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { DesignTokenService } from '@/design-tokens/service.js';
 import { Detector } from '@/detection/detector.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
+import { writeDecisionPauseContractDocument } from '@/onboarding/decision-pause-contract-writer.js';
+import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
 import { RagService } from '@/rag/service.js';
 import { writeStackArtifacts } from '@/stack-docs/generator.js';
 
@@ -20,19 +24,32 @@ export function createRefreshCommand(): Command {
     .option('--design-system', 'Refresh design-system markdown from design tokens')
     .option('--stack', 'Refresh the cached stack snapshot')
     .option('--context', 'Refresh chunk and vector context indexes')
+    .option(
+      '--providers',
+      'Re-render provider entry files and the canonical Decision Pause Contract doc',
+    )
     .action(
       async (options: {
         projectRoot: string;
         designSystem?: boolean;
         stack?: boolean;
         context?: boolean;
+        providers?: boolean;
       }) => {
         const hasExplicitTarget =
-          options.designSystem === true || options.stack === true || options.context === true;
+          options.designSystem === true ||
+          options.stack === true ||
+          options.context === true ||
+          options.providers === true;
         const shouldRefreshDesignSystem = hasExplicitTarget ? options.designSystem === true : true;
         const shouldRefreshStack = hasExplicitTarget ? options.stack === true : true;
         const shouldRefreshContext = options.context === true;
+        const shouldRefreshProviders = options.providers === true;
         const profile = readProjectProfile(options.projectRoot);
+
+        if (shouldRefreshProviders) {
+          await refreshProviderEntries(options.projectRoot);
+        }
 
         if (shouldRefreshDesignSystem) {
           const designTokens = new DesignTokenService();
@@ -93,6 +110,27 @@ export function createRefreshCommand(): Command {
         }
       },
     );
+}
+
+async function refreshProviderEntries(projectRoot: string): Promise<void> {
+  writeDecisionPauseContractDocument(projectRoot);
+
+  // Re-render entry files for every adapter that already has its config file
+  // present. Untouched adapters stay untouched — refresh should not silently
+  // onboard new providers.
+  for (const type of ADAPTER_TYPES) {
+    const adapter = AdapterFactory.create(type);
+    const configPath = join(projectRoot, adapter.getConfigPath());
+    if (!existsSync(configPath)) {
+      continue;
+    }
+    const files = await adapter.generateConfig({
+      frameworkPath: PATHS.FRAMEWORK_PATH,
+      rulesPath: 'docs/instructions/rules',
+      projectRoot,
+    });
+    writeGeneratedFiles(projectRoot, files);
+  }
 }
 
 function resolveRefreshStack(value: string | undefined): Stack | null {

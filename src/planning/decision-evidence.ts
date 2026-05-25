@@ -101,6 +101,14 @@ export function defaultSimilarityFor(
       return Number((0.74 + callerBoost).toFixed(2));
     case 'workflow-or-tool':
       return Number((0.7 + callerBoost).toFixed(2));
+    // Intake and delivery bookend categories don't derive similarity from
+    // file evidence — they're produced by the ticket_intake / delivery stages
+    // with explicit options. Return a neutral default if reached.
+    case 'intake.requirement':
+    case 'intake.confirm_auto_resolution':
+    case 'intake.write_back':
+    case 'delivery.open_pr':
+      return 0.5;
   }
 }
 

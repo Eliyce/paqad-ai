@@ -22,6 +22,48 @@ describe('feature development policy', () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it('defines ticket_intake as the first stage and delivery as the last stage', () => {
+    const policy = defaultFeatureDevelopmentPolicy();
+    const stageNames = Object.keys(policy.stages);
+    expect(stageNames[0]).toBe('ticket_intake');
+    expect(stageNames[stageNames.length - 1]).toBe('delivery');
+    expect(policy.stages.ticket_intake.artifacts).toEqual(
+      expect.arrayContaining(['refined ticket', 'resolved decision packets']),
+    );
+    expect(policy.stages.delivery.artifacts).toEqual(
+      expect.arrayContaining(['branch', 'commit', 'pull request']),
+    );
+    expect(policy.stages.delivery.escalation.remote_failure).toBe('stop');
+  });
+
+  it('merges project overrides into the new ticket_intake and delivery stages', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
+    mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
+      YAML.stringify({
+        schema_version: '1',
+        stages: {
+          ticket_intake: {
+            instructions: ['Always pull the ticket via the Linear MCP.'],
+          },
+          delivery: {
+            instructions: ['Require a draft PR for changes touching migrations.'],
+          },
+        },
+      }),
+    );
+
+    const result = loadFeatureDevelopmentPolicy(root);
+
+    expect(result.policy.stages.ticket_intake.instructions).toEqual(
+      expect.arrayContaining(['Always pull the ticket via the Linear MCP.']),
+    );
+    expect(result.policy.stages.delivery.instructions).toEqual(
+      expect.arrayContaining(['Require a draft PR for changes touching migrations.']),
+    );
+  });
+
   it('merges project reads and checks with framework defaults', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
     mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });

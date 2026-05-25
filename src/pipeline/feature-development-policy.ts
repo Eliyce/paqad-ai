@@ -23,12 +23,14 @@ type RawFeatureDevelopmentPolicy = {
 };
 
 const STAGE_ORDER: FeatureDevelopmentStageName[] = [
+  'ticket_intake',
   'planning',
   'specification',
   'development',
   'review',
   'checks',
   'documentation_sync',
+  'delivery',
 ];
 
 const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Record<string, true>>> =
@@ -48,6 +50,22 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
     schema_version: '1',
     merge_mode: 'append',
     stages: {
+      ticket_intake: {
+        read: ['docs/instructions/**', '.paqad/decisions/resolved/**'],
+        instructions: [
+          'When a ticket provider MCP is configured and the request references a ticket, fetch it and ground the refinement in repo rules, stack, design-system, and prior resolved decisions.',
+          'Detect implicit choices the ticket leaves open and resolve them priors-first (matching index.json fingerprints), then rules-second (rules/stack/design-system), then ask the user.',
+          'Auto-resolved decisions must be surfaced for confirmation per conventions.intake_decisions.confirm_auto_resolutions; never bypass the user silently.',
+        ],
+        required_inputs: ['ticket ref or natural-language request'],
+        strictness: {},
+        escalation: {
+          missing_ticket: 'warn',
+          unresolved_decisions: 'stop',
+        },
+        artifacts: ['refined ticket', 'resolved decision packets'],
+        checks: null,
+      },
       planning: {
         read: ['docs/modules/**', 'docs/instructions/**'],
         instructions: [
@@ -142,6 +160,21 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
           stale_docs: 'stop',
         },
         artifacts: ['stale doc targets'],
+        checks: null,
+      },
+      delivery: {
+        read: [],
+        instructions: [
+          'After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet.',
+          'On yes/draft, render branch / commit / PR text from the conventions: block templates, infer the host from the git remote, and link back to the ticket if one is present.',
+          'MCP / git / remote failures stop with actionable remediation — never silently fall back to a local-only commit.',
+        ],
+        required_inputs: ['merged change', 'conventions block'],
+        strictness: {},
+        escalation: {
+          remote_failure: 'stop',
+        },
+        artifacts: ['branch', 'commit', 'pull request'],
         checks: null,
       },
     },
@@ -348,6 +381,23 @@ schema_version: "1"
 merge_mode: append
 
 stages:
+  ticket_intake:
+    read:
+      - docs/instructions/**
+      - .paqad/decisions/resolved/**
+    instructions:
+      - When a ticket provider MCP is configured and the request references a ticket, fetch it and ground the refinement in repo rules, stack, design-system, and prior resolved decisions.
+      - Detect implicit choices the ticket leaves open and resolve them priors-first (matching index.json fingerprints), then rules-second (rules/stack/design-system), then ask the user.
+      - Auto-resolved decisions must be surfaced for confirmation per conventions.intake_decisions.confirm_auto_resolutions; never bypass the user silently.
+    required_inputs:
+      - ticket ref or natural-language request
+    escalation:
+      missing_ticket: warn
+      unresolved_decisions: stop
+    artifacts:
+      - refined ticket
+      - resolved decision packets
+
   planning:
     # Extra context to load before planning starts.
     read:
@@ -438,6 +488,21 @@ stages:
       stale_docs: stop
     artifacts:
       - stale doc targets
+
+  delivery:
+    instructions:
+      - After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet.
+      - On yes/draft, render branch / commit / PR text from the conventions: block templates, infer the host from the git remote, and link back to the ticket if one is present.
+      - MCP / git / remote failures stop with actionable remediation — never silently fall back to a local-only commit.
+    required_inputs:
+      - merged change
+      - conventions block
+    escalation:
+      remote_failure: stop
+    artifacts:
+      - branch
+      - commit
+      - pull request
 `;
 }
 
