@@ -345,10 +345,10 @@ export class DocumentationWorkflow {
     await this.tracker.save(options.projectRoot, progress);
 
     return {
-      generated,
-      skipped,
+      generated: generated.map(toPosixPath),
+      skipped: skipped.map(toPosixPath),
       progress_path: PATHS.DOC_PROGRESS,
-      handover_path: join('.paqad/handover', 'product-summary.md'),
+      handover_path: toPosixPath(join('.paqad/handover', 'product-summary.md')),
       module_map_path: PATHS.MODULE_MAP,
       module_docs_pending_map_review: false,
       module_map_low_confidence_modules: [],
@@ -624,10 +624,10 @@ export class DocumentationWorkflow {
     await this.tracker.save(options.projectRoot, progress);
 
     return {
-      generated,
-      skipped,
+      generated: generated.map(toPosixPath),
+      skipped: skipped.map(toPosixPath),
       progress_path: PATHS.DOC_PROGRESS,
-      handover_path: join('.paqad/handover', 'product-summary.md'),
+      handover_path: toPosixPath(join('.paqad/handover', 'product-summary.md')),
       module_map_path: PATHS.MODULE_MAP,
       module_docs_pending_map_review: true,
       module_map_low_confidence_modules: lowConfidenceModules,

@@ -1,0 +1,18 @@
+{
+  "id": "D-1",
+  "title": "PR scope and sequencing for #17 round 3",
+  "spec": ".paqad/specs/S-17-windows-ci-full-restoration.md",
+  "category": "scope",
+  "created_at": "2026-05-25T11:00:00Z",
+  "context": "User asked to fix #17 fully. 15 Windows test failures remain on main: ~13 are path-normalization (same pattern as #30 and #33), 2 are non-path bugs (patterns.test.ts Map ordering, lane-runner.test.ts custom-workflow return value). Need to choose how to split the work into PR(s).",
+  "options": [
+    { "id": "A", "label": "One PR: all path fixes + both non-path bugs together" },
+    { "id": "B", "label": "Two PRs: paths first, then 2 bugs" },
+    { "id": "C", "label": "Three PRs: path sweep, patterns bug, lane-runner bug" },
+    { "id": "D", "label": "Paths only; file separate issues for the bugs" }
+  ],
+  "recommendation": "B",
+  "chosen": "A",
+  "rationale": "User prefers single PR for full #17 closure.",
+  "resolved_at": "2026-05-25T11:01:00Z"
+}

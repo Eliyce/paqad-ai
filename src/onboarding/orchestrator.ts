@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import type { ActiveCapability, Capability, Stack } from '@/core/types/domain.js';
@@ -243,18 +244,18 @@ export class OnboardingOrchestrator {
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
       framework_version: VERSION,
       adapter: adapters[0],
-      project_root: options.projectRoot,
+      project_root: toPosixPath(options.projectRoot),
       profile,
       detected: detection,
       repository: detection.repository,
       generated_at: new Date().toISOString(),
       generated_artifacts: generatedFiles.map((file) => ({
-        path: file.path,
+        path: toPosixPath(file.path),
         auto_update: file.autoUpdate,
         executable: file.executable,
       })),
       planning_artifacts: {
-        compiled_rules_path: compiledRulesPath,
+        compiled_rules_path: toPosixPath(compiledRulesPath),
         module_health_initialized: initializedModules,
         classifier_config_path: '.paqad/classifier-config.json',
       },
@@ -263,10 +264,10 @@ export class OnboardingOrchestrator {
     return {
       adapter: adapters[0],
       decision_pause_supported_adapters: adapters,
-      generated_files: writeResult.written,
+      generated_files: writeResult.written.map(toPosixPath),
       detected_modules: modules,
-      runtime_root: runtimeRoot,
-      manifest_path: manifestPath,
+      runtime_root: toPosixPath(runtimeRoot),
+      manifest_path: toPosixPath(manifestPath),
       warnings: [...writeResult.skipped, ...drift.review_targets, ...onboardingWarnings],
     };
   }
