@@ -9,6 +9,7 @@ import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { VERSION } from '@/index.js';
+import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
@@ -80,9 +81,10 @@ export class FrameworkUpdater {
     }
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
-    writeFileSync(
+    writeFrameworkVersionPreservingTimestamp(
       join(projectRoot, PATHS.FRAMEWORK_VERSION),
-      `version=${VERSION}\nupdated_at=${new Date().toISOString()}\n`,
+      VERSION,
+      new Date().toISOString(),
     );
 
     return {
