@@ -24,6 +24,7 @@ export const PATHS = {
   DECISIONS_INDEX: '.paqad/decisions/index.json',
   DECISIONS_AUDIT_LOG: '.paqad/decisions/audit.jsonl',
   DECISIONS_LOCK: '.paqad/decisions/.lock',
+  DECISION_PAUSE_CONTRACT: '.paqad/decision-pause-contract.md',
   // Feature 1 - Semantic Context Loader
   CHUNK_INDEX: '.paqad/context/chunk-index.json',
   LOAD_STATS: '.paqad/context/load-stats.json',
