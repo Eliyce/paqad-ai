@@ -527,7 +527,7 @@ export async function generateModuleMapYaml(
 ): Promise<string> {
   // Read the raw file first so we can do an in-place Document update that preserves
   // user-owned content (comments, synonyms, glossary edits, unknown keys).
-  let existingRaw: string | null = null;
+  let existingRaw: string | null;
   try {
     existingRaw = await readFile(join(projectRoot, PATHS.MODULE_MAP), 'utf8');
   } catch {

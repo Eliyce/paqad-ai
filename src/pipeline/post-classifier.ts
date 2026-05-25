@@ -188,7 +188,7 @@ export class PostClassifier {
     }
 
     const filePath = join(this.projectRoot, PATHS.AGENCY_CACHE_DIR, 'classification-history.json');
-    let entries: Array<{ timestamp: string; high_override_rate: boolean }> = [];
+    let entries: Array<{ timestamp: string; high_override_rate: boolean }>;
     try {
       entries = JSON.parse(await readFile(filePath, 'utf8')) as Array<{
         timestamp: string;

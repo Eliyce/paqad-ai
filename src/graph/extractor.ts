@@ -125,7 +125,7 @@ async function loadModuleHealth(
   if (!existsSync(dir)) {
     return { entries: [], available: false };
   }
-  let files: string[] = [];
+  let files: string[];
   try {
     files = (await readdir(dir)).filter((f) => f.endsWith('.json'));
   } catch {
@@ -155,7 +155,7 @@ async function loadDefectCounts(
   if (!existsSync(dir)) {
     return { counts, available: false };
   }
-  let files: string[] = [];
+  let files: string[];
   try {
     files = (await readdir(dir)).filter((f) => f.endsWith('.json'));
   } catch {
@@ -256,7 +256,7 @@ export async function extractGraphWithSidecar(options: ExtractOptions): Promise<
       const moduleName = moduleNameForFile(relPath, moduleNames);
       const moduleId = moduleName ? `module:${moduleName}` : null;
       const exportedCount = countExportedSymbols(fileEntry);
-      let sizeBytes: number | null = null;
+      let sizeBytes: number | null;
       try {
         const s = await stat(fileEntry.source_file);
         sizeBytes = s.size;
