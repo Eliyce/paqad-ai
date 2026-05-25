@@ -5,6 +5,7 @@ import { join, relative } from 'node:path';
 import fg from 'fast-glob';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { getPrimaryStack } from '@/core/stack-profile.js';
 import type { Domain, Stack } from '@/core/types/domain.js';
@@ -58,10 +59,10 @@ function toProjectReferencePath(stack: string, relativePath: string): string {
   const normalized = relativePath.replaceAll('\\', '/');
 
   if (normalized === 'tools-catalog.md') {
-    return join(PATHS.TOOLS_DIR, stack, 'README.md');
+    return toPosixPath(join(PATHS.TOOLS_DIR, stack, 'README.md'));
   }
 
-  return join(PATHS.TOOLS_DIR, stack, normalized.replace(/^tools\//, ''));
+  return toPosixPath(join(PATHS.TOOLS_DIR, stack, normalized.replace(/^tools\//, '')));
 }
 
 function buildFallbackReferenceGuide(stack: Stack): GeneratedFile {
@@ -71,7 +72,7 @@ function buildFallbackReferenceGuide(stack: Stack): GeneratedFile {
     .join(' ');
 
   return {
-    path: join(PATHS.TOOLS_DIR, stack, 'README.md'),
+    path: toPosixPath(join(PATHS.TOOLS_DIR, stack, 'README.md')),
     autoUpdate: false,
     content: [
       `# ${title} Tool References`,

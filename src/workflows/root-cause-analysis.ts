@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type { ClassificationResult } from '@/core/types/classification.js';
 
 export interface RootCauseAnalysisWorkflowOptions {
@@ -40,7 +41,9 @@ export class RootCauseAnalysisWorkflow {
     await writeFile(outputPath, buildRcaDocument(title, options.classification));
 
     return {
-      output_path: relativePath,
+      // POSIX-normalize the user-facing output_path; on Windows path.join
+      // would produce backslashes.
+      output_path: toPosixPath(relativePath),
       title,
     };
   }
