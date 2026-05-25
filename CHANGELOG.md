@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.0.7
+
+### Patch Changes
+
+- [#55](https://github.com/Eliyce/paqad-ai/pull/55) [`d47cf96`](https://github.com/Eliyce/paqad-ai/commit/d47cf964d0c661c8369e7f69c374df02ef84a8c9) Thanks [@HLasani](https://github.com/HLasani)! - Cross-platform output consistency: normalize path strings to forward slashes at more production output boundaries — DocumentationWorkflow generated/skipped arrays and handover_path, onboarding orchestrator manifest writes and return values, `saveObligationIndex` return, registry-generator source_paths (both native-module and signal-extracted), and the project-question phase write target. Fix `slugifySpec` to split on both `/` and `\\` so spec-indexed compliance paths derive correctly on Windows. Rewrite `sanitizePersistedPath` to avoid relying on `process.cwd()` for relative inputs. Drops the Windows CI failure count from 15 → 11 test files ([#41](https://github.com/Eliyce/paqad-ai/issues/41)).
+
 ## 1.0.6
 
 ### Patch Changes
