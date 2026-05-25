@@ -1,5 +1,25 @@
 # paqad-ai
 
+## 1.1.0
+
+### Minor Changes
+
+- [#58](https://github.com/Eliyce/paqad-ai/pull/58) [`195ae7d`](https://github.com/Eliyce/paqad-ai/commit/195ae7dbca635305e8a3aaff9fb08f0af72e9cbc) Thanks [@HLasani](https://github.com/HLasani)! - Add a harness-enforced agent-entry gate so onboarded Claude Code projects can't silently bypass `CLAUDE.md` ([#34](https://github.com/Eliyce/paqad-ai/issues/34)). Onboarding now writes `.claude/settings.json` with two hooks:
+  - `PreToolUse` on `Edit|Write|NotebookEdit` runs `runtime/hooks/agent-entry-gate.sh`, which blocks the call with exit code 2 unless `.paqad/.agent-entry-loaded` exists and is newer than `CLAUDE.md`, `.paqad/framework-path.txt`, and everything under `docs/instructions/`.
+  - `SessionStart` runs `runtime/hooks/agent-entry-session-start.sh`, which deletes the sentinel so every new session starts ungated.
+
+  The CLAUDE.md template now instructs the agent to write the sentinel after loading the framework entry, and to re-load when the gate invalidates it. Existing settings.json keys and pre-existing hook entries are preserved on merge, and re-running onboarding is idempotent (no duplicate gate entries). Read-only tools (Read, Grep, Glob, status-only Bash) remain available pre-gate so the agent can satisfy it. AGENTS.md and other providers can re-use the same scripts in follow-ups via `PAQAD_ENTRY_FILE`.
+
+### Patch Changes
+
+- [#58](https://github.com/Eliyce/paqad-ai/pull/58) [`195ae7d`](https://github.com/Eliyce/paqad-ai/commit/195ae7dbca635305e8a3aaff9fb08f0af72e9cbc) Thanks [@HLasani](https://github.com/HLasani)! - Make onboarding re-runs idempotent ([#27](https://github.com/Eliyce/paqad-ai/issues/27)): when `.paqad/detection-report.json`, `.paqad/onboarding-manifest.json`, and `.paqad/framework-version.txt` would otherwise be byte-identical apart from their embedded timestamp, the writer now reuses the existing timestamp instead of stamping a fresh one. A no-op re-run produces zero diff; any real change still bumps the timestamp. Fixes the Windows-CI `is idempotent across repeated onboarding runs` failure (timing luck was hiding the same bug on macOS/Linux).
+
+- [#58](https://github.com/Eliyce/paqad-ai/pull/58) [`195ae7d`](https://github.com/Eliyce/paqad-ai/commit/195ae7dbca635305e8a3aaff9fb08f0af72e9cbc) Thanks [@HLasani](https://github.com/HLasani)! - `paqad-ai refresh` now self-heals when `docs/instructions/architecture/design-tokens.json` is missing ([#56](https://github.com/Eliyce/paqad-ai/issues/56)). The design-system step seeds default tokens via the existing idempotent `DesignTokenService.seed()` before generating docs and theme exports, so `--stack` and `--context` sub-refreshes no longer get aborted by an unhandled `ENOENT`. `DesignTokenService.load()` now translates a missing file into a typed `DesignTokensMissingError` with an actionable message; invalid (but present) files still surface the existing validation error.
+
+- [#58](https://github.com/Eliyce/paqad-ai/pull/58) [`195ae7d`](https://github.com/Eliyce/paqad-ai/commit/195ae7dbca635305e8a3aaff9fb08f0af72e9cbc) Thanks [@HLasani](https://github.com/HLasani)! - Stop emitting the hardcoded `Categories:` block in provider entry files ([#54](https://github.com/Eliyce/paqad-ai/issues/54)). `buildDecisionPauseContractSection()` now renders just the Decision Pause Contract paragraph — no `Categories:` heading, no fixed five-item bullet list. `extractDecisionPauseContractSection` still parses entry files that previously contained the block (back-compat), and the existing drift health check flags the legacy block so re-running onboarding / refresh strips it from already-onboarded projects.
+
+- [#58](https://github.com/Eliyce/paqad-ai/pull/58) [`195ae7d`](https://github.com/Eliyce/paqad-ai/commit/195ae7dbca635305e8a3aaff9fb08f0af72e9cbc) Thanks [@HLasani](https://github.com/HLasani)! - Cross-platform output consistency: normalize path strings to forward slashes at more production output boundaries — DocumentationWorkflow generated/skipped arrays and handover_path, onboarding orchestrator manifest writes and return values, `saveObligationIndex` return, registry-generator source_paths (both native-module and signal-extracted), and the project-question phase write target. Fix `slugifySpec` to split on both `/` and `\\` so spec-indexed compliance paths derive correctly on Windows. Rewrite `sanitizePersistedPath` to avoid relying on `process.cwd()` for relative inputs. Drops the Windows CI failure count from 15 → 11 test files ([#41](https://github.com/Eliyce/paqad-ai/issues/41)).
+
 ## 1.0.7
 
 ### Patch Changes
