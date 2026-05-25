@@ -132,7 +132,7 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
     }
 
     const info = await stat(indexPath);
-    let meta: RagIndexMeta | null = null;
+    let meta: RagIndexMeta | null;
     try {
       meta = await this.loadMeta(projectRoot);
     } catch (error) {

@@ -566,7 +566,7 @@ function deriveContractStability(
 
 async function resolveKnownModules(projectRoot: string): Promise<string[]> {
   const fromProfiles = (await readAllModuleHealth(projectRoot)).map((profile) => profile.module);
-  let fromDocs: string[] = [];
+  let fromDocs: string[];
   try {
     fromDocs = (await readdir(join(projectRoot, PATHS.MODULES_DIR), { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())

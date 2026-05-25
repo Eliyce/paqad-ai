@@ -18,7 +18,7 @@ export const dartParser: EcosystemParser = {
   manifestFiles: ['pubspec.yaml'],
   lockfileFiles: ['pubspec.lock'],
   parseManifest(content: string): ParsedManifest {
-    let parsed: PubspecLike | null = null;
+    let parsed: PubspecLike | null;
     try {
       parsed = YAML.parse(content) as PubspecLike;
     } catch {
@@ -42,7 +42,7 @@ export const dartParser: EcosystemParser = {
     };
   },
   parseLockfile(content: string): ParsedLockfile {
-    let parsed: PubspecLockLike | null = null;
+    let parsed: PubspecLockLike | null;
     try {
       parsed = YAML.parse(content) as PubspecLockLike;
     } catch {
