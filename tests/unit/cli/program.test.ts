@@ -18,6 +18,7 @@ describe('createProgram', () => {
       'capabilities',
       'packs',
       'compliance',
+      'dashboard',
       'doctor',
       'graph',
       'module-health',
@@ -27,6 +28,7 @@ describe('createProgram', () => {
       'update',
       'patterns',
       'plan',
+      'status',
     ]);
   });
 

@@ -4,6 +4,7 @@ import { VERSION } from '@/index.js';
 
 import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createComplianceCommand } from './commands/compliance.js';
+import { createDashboardCommand } from './commands/dashboard.js';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
@@ -30,6 +31,7 @@ export function createProgram(): Command {
   program.addCommand(createCapabilitiesCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
+  program.addCommand(createDashboardCommand());
   program.addCommand(createDoctorCommand());
   program.addCommand(createGraphCommand());
   program.addCommand(createModuleHealthCommand());
