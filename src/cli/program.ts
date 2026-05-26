@@ -14,6 +14,7 @@ import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRefreshCommand } from './commands/refresh.js';
+import { createStatusCommand } from './commands/status.js';
 import { createUpdateCommand } from './commands/update.js';
 
 export function createProgram(): Command {
@@ -38,6 +39,7 @@ export function createProgram(): Command {
   program.addCommand(createUpdateCommand());
   program.addCommand(createPatternsCommand());
   program.addCommand(createPlanCommand());
+  program.addCommand(createStatusCommand());
 
   return program;
 }
