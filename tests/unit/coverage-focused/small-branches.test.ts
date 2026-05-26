@@ -13,7 +13,24 @@ import { ProjectQuestionPhase } from '@/pipeline/phases/question-answering.js';
 import { RootCauseAnalysisPhase } from '@/pipeline/phases/root-cause-analysis.js';
 
 const { mockOnboardingRun, mockPrintBanner, mockPrintNextSteps } = vi.hoisted(() => ({
-  mockOnboardingRun: vi.fn(),
+  // The CLI now hands phase-1 completion back via `onPhase1Complete` so the banner
+  // (and any user-facing next-steps work) runs only after the orchestrator has
+  // durably written every core `.paqad/**` artifact. The mock honors that contract
+  // by invoking the callback once before resolving, and writes a stub next-steps.md
+  // so tests can assert the on-disk side-effect that the real orchestrator now owns.
+  // See #62 for the structural fix this mirrors.
+  mockOnboardingRun: vi.fn(
+    async (options: { projectRoot: string; onPhase1Complete?: () => void }) => {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      fs.mkdirSync(path.join(options.projectRoot, '.paqad'), { recursive: true });
+      fs.writeFileSync(
+        path.join(options.projectRoot, '.paqad', 'next-steps.md'),
+        '## Required: Create Documentation Foundation\n\ncreate documentation\n',
+      );
+      options.onPhase1Complete?.();
+    },
+  ),
   mockPrintBanner: vi.fn(),
   mockPrintNextSteps: vi.fn(),
 }));
@@ -60,10 +77,13 @@ describe('coverage small branches', () => {
 
       await command.parseAsync(['node', 'onboard', '--project-root', root], { from: 'node' });
 
-      expect(mockOnboardingRun).toHaveBeenCalledWith({
-        projectRoot: root,
-        selections: undefined,
-      });
+      expect(mockOnboardingRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectRoot: root,
+          selections: undefined,
+          onPhase1Complete: expect.any(Function),
+        }),
+      );
       expect(mockPrintBanner).toHaveBeenCalledOnce();
       expect(mockPrintNextSteps).toHaveBeenCalledOnce();
       expect(readFileSync(join(root, '.paqad', 'next-steps.md'), 'utf8')).toContain(
@@ -94,14 +114,17 @@ describe('coverage small branches', () => {
         { from: 'node' },
       );
 
-      expect(mockOnboardingRun).toHaveBeenLastCalledWith({
-        projectRoot: root,
-        selections: {
-          stack: 'laravel',
-          capabilities: ['boost'],
-          providers: ['codex-cli', 'claude-code'],
-        },
-      });
+      expect(mockOnboardingRun).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          projectRoot: root,
+          selections: {
+            stack: 'laravel',
+            capabilities: ['boost'],
+            providers: ['codex-cli', 'claude-code'],
+          },
+          onPhase1Complete: expect.any(Function),
+        }),
+      );
 
       rmSync(root, { recursive: true, force: true });
     });

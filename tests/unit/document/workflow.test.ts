@@ -1312,18 +1312,18 @@ describe('generateModuleMapYaml: per-module unknown keys and comments are preser
 
 describe('onboarding next-steps.md', () => {
   it('contains two-stage prompt instructions and does not claim create documentation generates docs/modules/**', () => {
-    (() => {
-      // Re-implement inline to avoid CLI side-effects — check the actual file instead
-      return { writeNextStepsFile: null };
-    })();
+    // The next-steps fixture moved from the CLI command into the orchestrator
+    // in #62 (two-phase onboarding) so that phase-1 file writes always include
+    // .paqad/next-steps.md, independent of the CLI banner-print step.
+    const orchestratorSource = readFileSync(
+      join(process.cwd(), 'src/onboarding/orchestrator.ts'),
+      'utf8',
+    );
 
-    // Read the fixture from the CLI source
-    const cliSource = readFileSync(join(process.cwd(), 'src/cli/commands/onboard.ts'), 'utf8');
-
-    expect(cliSource).toContain('create module documentation');
-    expect(cliSource).toContain('module-map.yml');
-    expect(cliSource).not.toContain("'- `docs/modules/`'");
-    expect(cliSource).not.toContain("'This generates:'\\n'- `docs/modules/`'");
+    expect(orchestratorSource).toContain('create module documentation');
+    expect(orchestratorSource).toContain('module-map.yml');
+    expect(orchestratorSource).not.toContain("'- `docs/modules/`'");
+    expect(orchestratorSource).not.toContain("'This generates:'\\n'- `docs/modules/`'");
   });
 });
 

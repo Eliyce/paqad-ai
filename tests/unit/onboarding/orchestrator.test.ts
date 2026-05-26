@@ -1116,6 +1116,93 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, 'ANTIGRAVITY.md'))).toBe(false);
     expect(existsSync(join(projectRoot, '.continue/rules/paqad.md'))).toBe(false);
   });
+
+  // Regression guard for #62: the RAG opt-in must never gate core onboarding writes.
+  // Phase 1 (every .paqad/** core artifact) must be on disk before any RAG-related code runs,
+  // and must remain intact even if RAG fails. Earlier the orchestrator interleaved the RAG
+  // prompt with file writes, so a parked inquirer handle on "No, skip" silently truncated
+  // onboarding. The invariants below pin the architecture so that class of bug cannot return.
+  describe('phase 1 / phase 2 invariants (regression guard for #62)', () => {
+    const CORE_PHASE1_ARTIFACTS = [
+      '.paqad/project-profile.yaml',
+      '.paqad/detection-report.json',
+      '.paqad/framework-version.txt',
+      '.paqad/framework-path.txt',
+      '.paqad/onboarding-manifest.json',
+      '.paqad/classifier-config.json',
+      '.paqad/compiled-rules.json',
+      '.paqad/decision-pause-contract.md',
+      '.paqad/next-steps.md',
+      'CLAUDE.md',
+    ];
+
+    it('writes every core artifact before onPhase1Complete fires', async () => {
+      const presentAtCallback: Record<string, boolean> = {};
+
+      await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+        onPhase1Complete: () => {
+          for (const artifact of CORE_PHASE1_ARTIFACTS) {
+            presentAtCallback[artifact] = existsSync(join(projectRoot, artifact));
+          }
+        },
+      });
+
+      for (const artifact of CORE_PHASE1_ARTIFACTS) {
+        expect(presentAtCallback[artifact]).toBe(true);
+      }
+    });
+
+    it('keeps every core artifact on disk even when the RAG phase throws', async () => {
+      vi.spyOn(RagService.prototype, 'configureAndBuild').mockRejectedValue(
+        new Error('synthetic RAG failure'),
+      );
+      vi.spyOn(RagService.prototype, 'hasApiKey').mockReturnValue(true);
+
+      const output = await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections: {
+          domain: 'coding',
+          stack: 'laravel',
+          capabilities: [],
+          rag: { enabled: true, provider: 'local' },
+        },
+      });
+
+      for (const artifact of CORE_PHASE1_ARTIFACTS) {
+        expect(existsSync(join(projectRoot, artifact))).toBe(true);
+      }
+      expect(output.warnings.some((w) => w.includes('synthetic RAG failure'))).toBe(true);
+    });
+
+    it('finishes phase 1 even when the RAG resolver itself rejects', async () => {
+      const ragModule = await import('@/onboarding/rag-onboarding.js');
+      vi.spyOn(ragModule, 'resolveRagSelection').mockRejectedValue(
+        new Error('synthetic RAG prompt failure'),
+      );
+
+      let phase1Reached = false;
+      let phase1Output: { generated_files: string[] } | undefined;
+
+      await new OnboardingOrchestrator()
+        .run({
+          projectRoot,
+          selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+          onPhase1Complete: (output) => {
+            phase1Reached = true;
+            phase1Output = output;
+          },
+        })
+        .catch(() => undefined);
+
+      expect(phase1Reached).toBe(true);
+      expect(phase1Output?.generated_files).toContain('CLAUDE.md');
+      for (const artifact of CORE_PHASE1_ARTIFACTS) {
+        expect(existsSync(join(projectRoot, artifact))).toBe(true);
+      }
+    });
+  });
 });
 
 function assertNoProjectLocalSkillsOrAgents(projectRoot: string): void {
