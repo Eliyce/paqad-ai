@@ -38,6 +38,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # `expect` is required by the onboarding interactive PTY E2E
+      # (tests/e2e/onboarding-interactive.e2e.test.ts) — a regression guard
+      # for #62. macOS runners ship with it; ubuntu needs an explicit install;
+      # the test skips itself on platforms where `expect` is absent.
+      - name: Install expect (ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y expect
+
       - name: Enable Corepack
         run: corepack enable
 

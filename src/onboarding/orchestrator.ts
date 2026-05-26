@@ -67,10 +67,44 @@ export interface OnboardingOptions {
     capabilities?: Capability[];
     rag?: RagSelection;
   };
+  /**
+   * Invoked after the project is fully written to disk and before the optional RAG phase runs.
+   * Lets the CLI print the success banner while RAG (which may prompt or hang) executes after.
+   * Invariant: by the time this fires, every core `.paqad/**` artifact already exists. See #62.
+   */
+  onPhase1Complete?: (result: OnboardingOutput) => void;
 }
 
+const NEXT_STEPS_MD = [
+  '## Required: Create Documentation Foundation',
+  '',
+  'Before starting feature work, prompt your AI agent with:',
+  '',
+  '```text',
+  'create documentation',
+  '```',
+  '',
+  'This generates:',
+  '- `docs/instructions/**`',
+  '- `docs/instructions/rules/module-map.yml`',
+  '',
+  'Review `docs/instructions/rules/module-map.yml` first. Confirm that module and feature names use business language, then prompt your AI agent with:',
+  '',
+  '```text',
+  'create module documentation',
+  '```',
+  '',
+  'That second prompt generates `docs/modules/**` from the reviewed module map.',
+].join('\n');
+
 export class OnboardingOrchestrator {
+  /**
+   * Two-phase onboarding. Phase 1 generates and writes every core artifact deterministically,
+   * with no inquirer prompts. Phase 2 is the optional RAG opt-in: it can prompt, fail, or hang
+   * and the project is still fully onboarded. See issue #62 for the regression this protects.
+   */
   async run(options: OnboardingOptions): Promise<OnboardingOutput> {
+    // ---------- Phase 1: deterministic file writes (no RAG prompt) ----------
     const detector = new Detector();
     const detection = await detector.detect(options.projectRoot);
     const introspector = new StackIntrospector();
@@ -87,8 +121,8 @@ export class OnboardingOrchestrator {
       options.profileOverrides,
       options.projectRoot,
     );
-    const ragSelection = await resolveRagSelection(selections.domain, options.selections?.rag);
-    profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
+    // Intelligence starts with defaults (rag_enabled: false). Phase 2 may update it.
+    profile.intelligence = applyRagSelection(profile.intelligence, undefined);
     const validator = new SchemaValidator();
     const validation = validator.validate('project-profile', profile);
     const modules = await discoverModules(options.projectRoot);
@@ -135,7 +169,6 @@ export class OnboardingOrchestrator {
       })),
     );
 
-    // Copy the silent-update hook into the project's .paqad/hooks/ directory
     const silentUpdateSrc = join(runtimeRoot, 'hooks', 'silent-update.sh');
     try {
       const hookContent = readFileSync(silentUpdateSrc, 'utf8');
@@ -159,17 +192,6 @@ export class OnboardingOrchestrator {
     const onboardingWarnings: string[] = [];
     writeProjectProfile(options.projectRoot, profile);
     writeGitignore(options.projectRoot);
-    if (ragSelection?.enabled && ragSelection.provider) {
-      try {
-        await enableRagDuringOnboarding(options.projectRoot, ragSelection);
-      } catch (error) {
-        profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
-        writeProjectProfile(options.projectRoot, profile);
-        onboardingWarnings.push(
-          `RAG setup failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}. Onboarding completed with RAG disabled.`,
-        );
-      }
-    }
     writeDetectionReport(options.projectRoot, detection);
     writeFrameworkMetadata(options.projectRoot, VERSION);
     bootstrapFramework(options.projectRoot);
@@ -252,6 +274,15 @@ export class OnboardingOrchestrator {
         `Classifier config initialization failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
+    try {
+      const nextStepsPath = join(options.projectRoot, '.paqad', 'next-steps.md');
+      writeFileSync(nextStepsPath, NEXT_STEPS_MD);
+      writeResult.written.push('.paqad/next-steps.md');
+    } catch (error) {
+      onboardingWarnings.push(
+        `Next-steps doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
+      );
+    }
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
       framework_version: VERSION,
       adapter: adapters[0],
@@ -272,13 +303,41 @@ export class OnboardingOrchestrator {
       },
     });
 
-    return {
+    const phase1Output: OnboardingOutput = {
       adapter: adapters[0],
       decision_pause_supported_adapters: adapters,
       generated_files: writeResult.written.map(toPosixPath),
       detected_modules: modules,
       runtime_root: toPosixPath(runtimeRoot),
       manifest_path: toPosixPath(manifestPath),
+      warnings: [...writeResult.skipped, ...drift.review_targets, ...onboardingWarnings],
+    };
+
+    // Phase 1 is complete and durable on disk. Signal success before the optional RAG phase
+    // so the CLI banner prints even if the RAG prompt or build hangs.
+    options.onPhase1Complete?.(phase1Output);
+
+    // ---------- Phase 2: optional RAG opt-in (may prompt; cannot drop phase 1 state) ----------
+    const ragSelection = await resolveRagSelection(selections.domain, options.selections?.rag);
+    if (ragSelection) {
+      profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
+      writeProjectProfile(options.projectRoot, profile);
+    }
+
+    if (ragSelection?.enabled && ragSelection.provider) {
+      try {
+        await enableRagDuringOnboarding(options.projectRoot, ragSelection);
+      } catch (error) {
+        profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
+        writeProjectProfile(options.projectRoot, profile);
+        onboardingWarnings.push(
+          `RAG setup failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}. Onboarding completed with RAG disabled.`,
+        );
+      }
+    }
+
+    return {
+      ...phase1Output,
       warnings: [...writeResult.skipped, ...drift.review_targets, ...onboardingWarnings],
     };
   }

@@ -1,6 +1,3 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { Command } from 'commander';
 
 import type { AdapterType } from '@/core/types/adapter.js';
@@ -39,40 +36,13 @@ export function createOnboardCommand(): Command {
                   providers: options.providers,
                 }
               : undefined,
+          // Print the success banner as soon as the project is fully written to disk.
+          // The optional RAG phase runs after this and cannot drop core onboarding state
+          // even if it prompts, hangs, or fails. See #62.
+          onPhase1Complete: () => {
+            printNextSteps();
+          },
         });
-
-        printNextSteps();
-        writeNextStepsFile(options.projectRoot);
       },
     );
-}
-
-function writeNextStepsFile(projectRoot: string): void {
-  const paqadDir = join(projectRoot, '.paqad');
-  mkdirSync(paqadDir, { recursive: true });
-  writeFileSync(
-    join(paqadDir, 'next-steps.md'),
-    [
-      '## Required: Create Documentation Foundation',
-      '',
-      'Before starting feature work, prompt your AI agent with:',
-      '',
-      '```text',
-      'create documentation',
-      '```',
-      '',
-      'This generates:',
-      '- `docs/instructions/**`',
-      '- `docs/instructions/rules/module-map.yml`',
-      '',
-      'Review `docs/instructions/rules/module-map.yml` first. Confirm that module and feature names use business language, then prompt your AI agent with:',
-      '',
-      '```text',
-      'create module documentation',
-      '```',
-      '',
-      'That second prompt generates `docs/modules/**` from the reviewed module map.',
-    ].join('\n'),
-    'utf8',
-  );
 }
