@@ -631,24 +631,24 @@ Entry files stay thin. Knowledge lives in shared instruction bundles that extern
 
 ## Workflow overview
 
-| Workflow             | How to trigger                         | What happens                                              |
-| -------------------- | -------------------------------------- | --------------------------------------------------------- |
-| **Onboarding**       | `paqad-ai onboard`                     | Detect stack → confirm → generate everything              |
-| **Health check**     | `paqad-ai doctor`                      | Validate artifacts, config, docs                          |
-| **Spec compliance**  | `paqad-ai compliance ...`              | Extract obligations, check evidence, generate skeletons   |
-| **Refresh**          | `paqad-ai refresh`                     | Re-detect stack, update derived docs                      |
-| **Update**           | `paqad-ai update`                      | Regenerate framework files after version bump             |
-| **RAG**              | `paqad-ai rag ...`                     | Build, inspect, clear, and benchmark hybrid retrieval     |
-| **Project graph**    | `paqad-ai graph`                       | Interactive browser view of modules, files, chunks, deps  |
-| **Project dashboard**| `paqad-ai dashboard`                   | Living single-pane health overview, per-section scoring   |
-| **Project status**   | `paqad-ai status [--format json]`      | One-shot LLM-friendly snapshot of the dashboard           |
-| **Documentation**    | Ask agent: _"create documentation"_    | Stack → architecture → design system → modules            |
-| **Pentest**          | Ask agent: _"run pentest"_             | 5-step scan → findings → report                           |
-| **Retest**           | Ask agent: _"retest pentest"_          | Replay findings → fixed / still-open / needs-verification |
-| **Capabilities**     | `paqad-ai capabilities add/remove`     | Toggle content / coding / security                        |
-| **Pack management**  | `paqad-ai packs install/remove`        | Install, validate, scaffold stack packs                   |
-| **Pattern library**  | `paqad-ai patterns ...`                | Query, prune, and export reusable solutions               |
-| **Custom workflows** | YAML at `docs/instructions/workflows/` | Your own resumable skill sequences                        |
+| Workflow              | How to trigger                         | What happens                                              |
+| --------------------- | -------------------------------------- | --------------------------------------------------------- |
+| **Onboarding**        | `paqad-ai onboard`                     | Detect stack → confirm → generate everything              |
+| **Health check**      | `paqad-ai doctor`                      | Validate artifacts, config, docs                          |
+| **Spec compliance**   | `paqad-ai compliance ...`              | Extract obligations, check evidence, generate skeletons   |
+| **Refresh**           | `paqad-ai refresh`                     | Re-detect stack, update derived docs                      |
+| **Update**            | `paqad-ai update`                      | Regenerate framework files after version bump             |
+| **RAG**               | `paqad-ai rag ...`                     | Build, inspect, clear, and benchmark hybrid retrieval     |
+| **Project graph**     | `paqad-ai graph`                       | Interactive browser view of modules, files, chunks, deps  |
+| **Project dashboard** | `paqad-ai dashboard`                   | Living single-pane health overview, per-section scoring   |
+| **Project status**    | `paqad-ai status [--format json]`      | One-shot LLM-friendly snapshot of the dashboard           |
+| **Documentation**     | Ask agent: _"create documentation"_    | Stack → architecture → design system → modules            |
+| **Pentest**           | Ask agent: _"run pentest"_             | 5-step scan → findings → report                           |
+| **Retest**            | Ask agent: _"retest pentest"_          | Replay findings → fixed / still-open / needs-verification |
+| **Capabilities**      | `paqad-ai capabilities add/remove`     | Toggle content / coding / security                        |
+| **Pack management**   | `paqad-ai packs install/remove`        | Install, validate, scaffold stack packs                   |
+| **Pattern library**   | `paqad-ai patterns ...`                | Query, prune, and export reusable solutions               |
+| **Custom workflows**  | YAML at `docs/instructions/workflows/` | Your own resumable skill sequences                        |
 
 ---
 

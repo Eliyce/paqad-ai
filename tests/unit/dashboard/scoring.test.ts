@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { bandForScore, scoreFreshness, scoreFreshnessAverage, scorePresence } from '@/dashboard/scoring';
+import {
+  bandForScore,
+  scoreFreshness,
+  scoreFreshnessAverage,
+  scorePresence,
+} from '@/dashboard/scoring';
 import { ageInDays } from '@/dashboard/scoring/freshness';
 
 const MS_PER_DAY = 86_400_000;

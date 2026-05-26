@@ -5,7 +5,8 @@ import { collectDocsArea } from './docs-area.js';
 
 const HELPER = {
   what: 'docs/instructions/rules/** holds the canonical rules loaded by every agent invocation: constitution, security, performance, testing, etc.',
-  goodLooksLike: 'All rule files in place for the project\'s stack, regenerated when capabilities change, refreshed in the last 30 days.',
+  goodLooksLike:
+    "All rule files in place for the project's stack, regenerated when capabilities change, refreshed in the last 30 days.",
 } as const;
 
 /**

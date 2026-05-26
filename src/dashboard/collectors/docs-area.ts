@@ -1,7 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ageInDays, bandForScore, scoreFreshness, scoreFreshnessAverage } from '../scoring/index.js';
+import {
+  ageInDays,
+  bandForScore,
+  scoreFreshness,
+  scoreFreshnessAverage,
+} from '../scoring/index.js';
 import type { DashboardSectionId, SectionData } from '../types.js';
 import { scanDirectory, type ScannedEntry } from './fs-helpers.js';
 

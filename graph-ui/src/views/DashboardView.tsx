@@ -23,33 +23,32 @@ export function DashboardView() {
   const { navigate } = useHashRoute();
 
   const loadReport = useMemo(
-    () =>
-      (): void => {
-        fetchDashboard()
-          .then((next) => {
-            const prev = prevReportRef.current;
-            if (prev) {
-              const changed = new Set<string>();
-              const prevById = new Map(prev.sections.map((s) => [s.id, s]));
-              for (const section of next.sections) {
-                const before = prevById.get(section.id);
-                if (!before || before.score !== section.score || before.summary !== section.summary) {
-                  changed.add(section.id);
-                }
-              }
-              setPulsing(changed);
-              if (changed.size > 0) {
-                setTimeout(() => setPulsing(new Set()), 250);
+    () => (): void => {
+      fetchDashboard()
+        .then((next) => {
+          const prev = prevReportRef.current;
+          if (prev) {
+            const changed = new Set<string>();
+            const prevById = new Map(prev.sections.map((s) => [s.id, s]));
+            for (const section of next.sections) {
+              const before = prevById.get(section.id);
+              if (!before || before.score !== section.score || before.summary !== section.summary) {
+                changed.add(section.id);
               }
             }
-            prevReportRef.current = next;
-            setReport(next);
-            setError(null);
-          })
-          .catch((err: unknown) => {
-            setError(err instanceof Error ? err.message : String(err));
-          });
-      },
+            setPulsing(changed);
+            if (changed.size > 0) {
+              setTimeout(() => setPulsing(new Set()), 250);
+            }
+          }
+          prevReportRef.current = next;
+          setReport(next);
+          setError(null);
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : String(err));
+        });
+    },
     [],
   );
 
@@ -74,7 +73,10 @@ export function DashboardView() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-auto" style={{ background: 'var(--color-canvas)' }}>
+    <div
+      className="flex h-full w-full flex-col overflow-auto"
+      style={{ background: 'var(--color-canvas)' }}
+    >
       <DashboardChrome
         projectName={report?.projectName ?? null}
         frameworkVersion={report?.frameworkVersion ?? null}
@@ -121,7 +123,10 @@ export function DashboardView() {
         </div>
       )}
       {!report && !error && (
-        <div className="grid flex-1 place-items-center text-sm" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="grid flex-1 place-items-center text-sm"
+          style={{ color: 'var(--color-muted)' }}
+        >
           Loading…
         </div>
       )}

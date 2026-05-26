@@ -38,7 +38,9 @@ describe('createDashboardCommand', () => {
 
   it('errors on invalid --port values', async () => {
     const cmd = createDashboardCommand();
-    await cmd.parseAsync(['--port', 'banana', '--project-root', root, '--no-open'], { from: 'user' });
+    await cmd.parseAsync(['--port', 'banana', '--project-root', root, '--no-open'], {
+      from: 'user',
+    });
     expect(process.exitCode).toBe(2);
   });
 });

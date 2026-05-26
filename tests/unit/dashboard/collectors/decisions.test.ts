@@ -8,7 +8,13 @@ import { collectDecisions } from '@/dashboard/collectors/decisions';
 
 const NOW = Date.UTC(2026, 4, 26);
 
-function writePacket(root: string, bucket: string, id: string, createdAt: string | null, title = id): void {
+function writePacket(
+  root: string,
+  bucket: string,
+  id: string,
+  createdAt: string | null,
+  title = id,
+): void {
   const dir = join(root, '.paqad/decisions', bucket);
   mkdirSync(dir, { recursive: true });
   const body: Record<string, unknown> = { id, title, category: 'scope' };

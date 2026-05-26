@@ -38,14 +38,22 @@ describe('collectArchitecture', () => {
   });
 
   it('scores green when the chunk index is non-empty and fresh', () => {
-    writeIndex(root, JSON.stringify({ version: 1, entries: Array.from({ length: 10 }, () => ({ id: 'x' })) }), 1);
+    writeIndex(
+      root,
+      JSON.stringify({ version: 1, entries: Array.from({ length: 10 }, () => ({ id: 'x' })) }),
+      1,
+    );
     const section = collectArchitecture(root, NOW);
     expect(section.score).toBe(100);
     expect(section.band).toBe('green');
   });
 
   it('decays to amber as the index ages', () => {
-    writeIndex(root, JSON.stringify({ version: 1, entries: Array.from({ length: 10 }, () => ({ id: 'x' })) }), 200);
+    writeIndex(
+      root,
+      JSON.stringify({ version: 1, entries: Array.from({ length: 10 }, () => ({ id: 'x' })) }),
+      200,
+    );
     const section = collectArchitecture(root, NOW);
     // Presence 50 + freshness 0 = 50.
     expect(section.score).toBe(50);

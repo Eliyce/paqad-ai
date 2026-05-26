@@ -9,7 +9,8 @@ import { fileMtime } from './fs-helpers.js';
 
 const HELPER = {
   what: '.paqad/session/handoff.{md,json} captures the structured v2 handoff (active task, decisions, blockers) written when an agent finishes a session.',
-  goodLooksLike: 'A handoff file written in the last 7 days, ready for the next session to pick up from.',
+  goodLooksLike:
+    'A handoff file written in the last 7 days, ready for the next session to pick up from.',
 } as const;
 
 export function collectSession(projectRoot: string, now: number = Date.now()): SectionData {

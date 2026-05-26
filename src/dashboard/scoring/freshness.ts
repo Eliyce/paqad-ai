@@ -65,7 +65,10 @@ export function scoreFreshnessAverage(
 }
 
 /** Days since `mtimeMs`. Useful for compact metrics like "stale 42d". */
-export function ageInDays(mtimeMs: number | null | undefined, now: number = Date.now()): number | null {
+export function ageInDays(
+  mtimeMs: number | null | undefined,
+  now: number = Date.now(),
+): number | null {
   if (mtimeMs === null || mtimeMs === undefined || !Number.isFinite(mtimeMs)) return null;
   return Math.max(0, Math.floor((now - mtimeMs) / MS_PER_DAY));
 }

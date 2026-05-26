@@ -19,7 +19,8 @@ interface ProfileSubset {
 
 const HELPER = {
   what: 'Hybrid RAG combines vector embeddings with keyword/symbol/path scoring to retrieve relevant context. Configured via project-profile.yaml and indexed under .paqad/vectors/.',
-  goodLooksLike: 'rag_enabled: true, an embedding_provider set, and a vector index refreshed in the last 30 days.',
+  goodLooksLike:
+    'rag_enabled: true, an embedding_provider set, and a vector index refreshed in the last 30 days.',
 } as const;
 
 export function collectRagStatus(projectRoot: string, now: number = Date.now()): SectionData {

@@ -16,7 +16,8 @@ interface HealthEntry {
 
 const HELPER = {
   what: 'Per-module health, defect density, risk floor, and complexity scores stored under .paqad/module-health/. Drives the graph intelligence overlays.',
-  goodLooksLike: 'Every module classified, no fragile modules, and all entries refreshed in the last 30 days.',
+  goodLooksLike:
+    'Every module classified, no fragile modules, and all entries refreshed in the last 30 days.',
 } as const;
 
 interface DistributionEntry {
@@ -37,7 +38,10 @@ export interface ModuleHealthResult {
   attention: AttentionItem[];
 }
 
-export function collectModuleHealth(projectRoot: string, now: number = Date.now()): ModuleHealthResult {
+export function collectModuleHealth(
+  projectRoot: string,
+  now: number = Date.now(),
+): ModuleHealthResult {
   const dir = join(projectRoot, PATHS.PLANNING_MODULE_HEALTH_DIR);
   if (!existsSync(dir)) {
     return {
@@ -56,14 +60,17 @@ export function collectModuleHealth(projectRoot: string, now: number = Date.now(
 
   const entries: DistributionEntry[] = [];
   for (const entry of scanDirectory(dir, { maxDepth: 1, fileFilter: (n) => n.endsWith('.json') })) {
-    let parsed: HealthEntry | null = null;
+    let parsed: HealthEntry;
     try {
       parsed = JSON.parse(readFileSync(entry.absPath, 'utf8')) as HealthEntry;
     } catch {
       continue;
     }
     const tier: HealthTier =
-      parsed.tier === 'stable' || parsed.tier === 'moderate' || parsed.tier === 'fragile' || parsed.tier === 'unknown'
+      parsed.tier === 'stable' ||
+      parsed.tier === 'moderate' ||
+      parsed.tier === 'fragile' ||
+      parsed.tier === 'unknown'
         ? parsed.tier
         : 'unknown';
     const refMs = parsed.updated_at !== undefined ? Date.parse(parsed.updated_at) : NaN;
@@ -90,7 +97,12 @@ export function collectModuleHealth(projectRoot: string, now: number = Date.now(
     };
   }
 
-  const distribution: Record<HealthTier, number> = { stable: 0, moderate: 0, fragile: 0, unknown: 0 };
+  const distribution: Record<HealthTier, number> = {
+    stable: 0,
+    moderate: 0,
+    fragile: 0,
+    unknown: 0,
+  };
   for (const e of entries) distribution[e.tier] += 1;
 
   const tierScore =

@@ -31,8 +31,8 @@ export function collectArchitecture(projectRoot: string, now: number = Date.now(
     };
   }
 
-  let mtimeMs: number | null = null;
-  let sizeBytes = 0;
+  let mtimeMs: number | null;
+  let sizeBytes: number;
   try {
     const st = statSync(indexPath);
     mtimeMs = st.mtimeMs;

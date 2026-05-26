@@ -10,7 +10,8 @@ import { fileMtime } from './fs-helpers.js';
 
 const HELPER = {
   what: 'Stack drift compares the locked stack-snapshot.json to the live lockfiles. Material changes (added/removed frameworks, version-band shifts) get listed here.',
-  goodLooksLike: 'status: no-drift, regenerated after every dependency change with `paqad-ai refresh`.',
+  goodLooksLike:
+    'status: no-drift, regenerated after every dependency change with `paqad-ai refresh`.',
 } as const;
 
 function readDrift(path: string): StackDriftReport | null {

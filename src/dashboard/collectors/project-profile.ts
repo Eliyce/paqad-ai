@@ -52,8 +52,9 @@ const REQUIRED_FIELDS: ReadonlyArray<{ label: string; check: (p: ProfileSubset) 
 ];
 
 const HELPER = {
-  what: 'The project-profile.yaml file is the framework\'s declaration of your project: name, ID, commands, RAG, and MCP servers.',
-  goodLooksLike: 'All required fields filled in by onboarding, commands updated to match the real toolchain, and RAG configured if you want vector retrieval.',
+  what: "The project-profile.yaml file is the framework's declaration of your project: name, ID, commands, RAG, and MCP servers.",
+  goodLooksLike:
+    'All required fields filled in by onboarding, commands updated to match the real toolchain, and RAG configured if you want vector retrieval.',
 } as const;
 
 export interface ProjectProfileSection {
@@ -93,9 +94,7 @@ export function collectProjectProfile(projectRoot: string): ProjectProfileSectio
         band: 'red',
         score: 0,
         summary: 'project-profile.yaml is present but failed to parse.',
-        metrics: [
-          { label: 'parse', value: 'failed' },
-        ],
+        metrics: [{ label: 'parse', value: 'failed' }],
         helper: HELPER,
       },
       projectName: null,
@@ -105,7 +104,9 @@ export function collectProjectProfile(projectRoot: string): ProjectProfileSectio
   const presentFields = REQUIRED_FIELDS.filter((f) => f.check(profile)).length;
   const score = scorePresence({ expected: REQUIRED_FIELDS.length, present: presentFields });
   const ragEnabled = profile.intelligence?.rag_enabled === true;
-  const mcpServers = Array.isArray(profile.mcp?.servers) ? (profile.mcp.servers as unknown[]).length : 0;
+  const mcpServers = Array.isArray(profile.mcp?.servers)
+    ? (profile.mcp.servers as unknown[]).length
+    : 0;
   const mtime = fileMtime(profilePath);
   const name = typeof profile.project?.name === 'string' ? (profile.project.name as string) : null;
 

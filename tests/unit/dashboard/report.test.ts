@@ -75,7 +75,11 @@ describe('buildReport', () => {
     for (let i = 0; i < 4; i++) {
       writeFileSync(
         join(mhDir, `m${i}.json`),
-        JSON.stringify({ module: `m${i}`, tier: 'fragile', updated_at: new Date(NOW).toISOString() }),
+        JSON.stringify({
+          module: `m${i}`,
+          tier: 'fragile',
+          updated_at: new Date(NOW).toISOString(),
+        }),
       );
     }
     const decDir = join(root, '.paqad/decisions/pending');

@@ -53,7 +53,10 @@ function computeOverall(sections: SectionData[]): { score: number | null; band: 
  * same payload regardless of consumer — the HTTP server, the
  * `paqad-ai status` printer, and any future consumer all key off this.
  */
-export function buildReport(projectRoot: string, options: BuildReportOptions = {}): DashboardReport {
+export function buildReport(
+  projectRoot: string,
+  options: BuildReportOptions = {},
+): DashboardReport {
   const now = options.now ?? Date.now();
   const root = resolve(projectRoot);
   const generatedAt = new Date(now).toISOString();
@@ -85,7 +88,10 @@ export function buildReport(projectRoot: string, options: BuildReportOptions = {
     root,
     now,
   );
-  const { section: stackDriftSection, attention: stackDriftAttention } = collectStackDrift(root, now);
+  const { section: stackDriftSection, attention: stackDriftAttention } = collectStackDrift(
+    root,
+    now,
+  );
   const rulesSection = collectRules(root, now);
   const workflowsSection = collectWorkflows(root, now);
   const moduleDocsSection = collectModuleDocs(root, now);

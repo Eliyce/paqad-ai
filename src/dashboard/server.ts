@@ -69,7 +69,12 @@ function writeJson(res: ServerResponse, req: IncomingMessage, body: unknown, sta
   res.end(json);
 }
 
-function writeText(res: ServerResponse, body: string, status = 200, contentType = 'text/plain; charset=utf-8'): void {
+function writeText(
+  res: ServerResponse,
+  body: string,
+  status = 200,
+  contentType = 'text/plain; charset=utf-8',
+): void {
   res.writeHead(status, {
     'content-type': contentType,
     'content-length': String(Buffer.byteLength(body)),
