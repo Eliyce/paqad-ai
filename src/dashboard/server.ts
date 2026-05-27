@@ -212,8 +212,8 @@ export async function startDashboardServer(
     try {
       handleRequest(req, res);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      writeJson(res, req, { error: message }, 500);
+      console.error('Unhandled dashboard server error', err);
+      writeJson(res, req, { error: 'Internal server error' }, 500);
     }
   });
 
