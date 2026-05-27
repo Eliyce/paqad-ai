@@ -5,8 +5,10 @@ import { join } from 'node:path';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
 import {
+  sanitizeStackSnapshotRepository,
   writeFrameworkVersionPreservingTimestamp,
   writeJsonPreservingTimestamp,
+  writeOnboardingManifest,
 } from '@/onboarding/manifest-writer.js';
 
 describe('writeJsonPreservingTimestamp', () => {
@@ -113,5 +115,63 @@ describe('writeFrameworkVersionPreservingTimestamp', () => {
     writeFrameworkVersionPreservingTimestamp(path, '1.0.0', '2025-01-01T00:00:00.000Z');
     writeFrameworkVersionPreservingTimestamp(path, '1.0.1', '2030-12-31T00:00:00.000Z');
     expect(readFileSync(path, 'utf8')).toBe('version=1.0.1\nupdated_at=2030-12-31T00:00:00.000Z\n');
+  });
+});
+
+describe('portability sanitization (issue #69)', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'paqad-portability-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('strips absolute compiled_rules_path from the onboarding manifest', () => {
+    writeOnboardingManifest(dir, {
+      framework_version: '1.0.0',
+      adapter: 'claude-code',
+      project_root: dir,
+      profile: {} as never,
+      detected: null,
+      generated_at: '2026-01-01T00:00:00.000Z',
+      generated_artifacts: [],
+      planning_artifacts: {
+        compiled_rules_path: join(dir, '.paqad/compiled-rules.json'),
+        module_health_initialized: [],
+        classifier_config_path: '.paqad/classifier-config.json',
+      },
+    });
+    const written = readFileSync(join(dir, '.paqad/onboarding-manifest.json'), 'utf8');
+    expect(written).not.toContain(dir);
+    expect(written).toContain('"compiled_rules_path": ".paqad/compiled-rules.json"');
+    expect(written).toContain('"project_root": "."');
+  });
+
+  it('strips absolute selected_root from the stack snapshot repository context', () => {
+    const sanitized = sanitizeStackSnapshotRepository(dir, {
+      foo: 'bar',
+      repository: {
+        selected_root: dir,
+        scan_max_depth: 5,
+        ignored_paths: [join(dir, 'node_modules')],
+        projects: [
+          { root: dir, role: 'standalone', parent_root: null, markers: [], ecosystems: ['node'] },
+        ],
+        applications: [{ root: dir, component_roots: [join(dir, 'pkg-a')] }],
+        primary_project_root: dir,
+      },
+    });
+    const json = JSON.stringify(sanitized);
+    expect(json).not.toContain(dir);
+    expect(sanitized.repository?.selected_root).toBe('.');
+    expect(sanitized.repository?.primary_project_root).toBe('.');
+  });
+
+  it('is a noop for stack snapshots without a repository field', () => {
+    const input = { profile: { frameworks: [] } };
+    expect(sanitizeStackSnapshotRepository(dir, input)).toBe(input);
   });
 });

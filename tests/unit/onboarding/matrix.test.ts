@@ -88,18 +88,27 @@ const ABSOLUTE_PATH_PATTERNS = [
 
 function collectAbsolutePathLeaks(projectRoot: string): string[] {
   const violations: string[] = [];
+  const projectRootForwardSlash = projectRoot.replace(/\\/g, '/');
   for (const dir of PORTABILITY_SCAN_DIRS) {
     const root = join(projectRoot, dir);
     if (!existsSync(root)) continue;
     walkFiles(root, (filePath) => {
       if (!/\.(json|ya?ml|md|txt)$/.test(filePath)) return;
       const content = readFileSync(filePath, 'utf8');
+      const relPath = filePath.slice(projectRoot.length + 1);
+
+      // Generic check: the test's own tmp projectRoot must never be embedded in
+      // committed config. Catches anything the hard-coded patterns miss
+      // (e.g. /var/folders/... on macOS tmp, /tmp/... on Linux tmp).
+      if (content.includes(projectRoot) || content.includes(projectRootForwardSlash)) {
+        violations.push(`${relPath}: contains absolute projectRoot`);
+        return;
+      }
+
       for (const pattern of ABSOLUTE_PATH_PATTERNS) {
         const match = content.match(pattern);
         if (match) {
-          violations.push(
-            `${filePath.slice(projectRoot.length + 1)}: matches ${pattern} → ${match[0]}`,
-          );
+          violations.push(`${relPath}: matches ${pattern} → ${match[0]}`);
           break;
         }
       }

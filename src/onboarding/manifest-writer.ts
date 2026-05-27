@@ -140,7 +140,24 @@ function sanitizeOnboardingManifest(
     repository: manifest.repository
       ? sanitizeRepositoryContext(projectRoot, manifest.repository)
       : undefined,
+    planning_artifacts: manifest.planning_artifacts
+      ? {
+          ...manifest.planning_artifacts,
+          compiled_rules_path: sanitizePersistedPath(
+            projectRoot,
+            manifest.planning_artifacts.compiled_rules_path,
+          ),
+        }
+      : manifest.planning_artifacts,
   };
+}
+
+export function sanitizeStackSnapshotRepository<T extends { repository?: RepositoryContext }>(
+  projectRoot: string,
+  snapshot: T,
+): T {
+  if (!snapshot.repository) return snapshot;
+  return { ...snapshot, repository: sanitizeRepositoryContext(projectRoot, snapshot.repository) };
 }
 
 function sanitizeRepositoryContext(

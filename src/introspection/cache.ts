@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { StackSnapshot } from '@/core/types/introspection.js';
+import { sanitizeStackSnapshotRepository } from '@/onboarding/manifest-writer.js';
 
 export class StackSnapshotCache {
   async read(projectRoot: string): Promise<StackSnapshot | null> {
@@ -18,7 +19,8 @@ export class StackSnapshotCache {
   async write(projectRoot: string, snapshot: StackSnapshot): Promise<void> {
     const target = join(projectRoot, PATHS.STACK_SNAPSHOT);
     await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, `${JSON.stringify(snapshot, null, 2)}\n`);
+    const sanitized = sanitizeStackSnapshotRepository(projectRoot, snapshot);
+    await writeFile(target, `${JSON.stringify(sanitized, null, 2)}\n`);
   }
 
   async hashFiles(projectRoot: string, relativePaths: string[]): Promise<Record<string, string>> {

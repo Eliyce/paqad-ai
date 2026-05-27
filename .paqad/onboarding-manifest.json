@@ -594,7 +594,7 @@
     }
   ],
   "planning_artifacts": {
-    "compiled_rules_path": "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/.paqad/compiled-rules.json",
+    "compiled_rules_path": ".paqad/compiled-rules.json",
     "module_health_initialized": [
       "adapters",
       "cache",
