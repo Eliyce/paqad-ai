@@ -1,74 +1,56 @@
 [
   {
-    "source": "hooks/block-destructive.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/block-destructive.sh"
+    "source": "hooks/block-destructive.sh"
   },
   {
-    "source": "hooks/context-budget-check.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/context-budget-check.sh"
+    "source": "hooks/context-budget-check.sh"
   },
   {
-    "source": "hooks/context-hit-tracker.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/context-hit-tracker.sh"
+    "source": "hooks/context-hit-tracker.sh"
   },
   {
-    "source": "hooks/conversation-summarize.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/conversation-summarize.sh"
+    "source": "hooks/conversation-summarize.sh"
   },
   {
-    "source": "hooks/module-health-sync.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/module-health-sync.sh"
+    "source": "hooks/module-health-sync.sh"
   },
   {
-    "source": "hooks/post-destructive-approved.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/post-destructive-approved.sh"
+    "source": "hooks/post-destructive-approved.sh"
   },
   {
-    "source": "hooks/pre-commit-check.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/pre-commit-check.sh"
+    "source": "hooks/pre-commit-check.sh"
   },
   {
-    "source": "hooks/pre-compact-preserve.mjs",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/pre-compact-preserve.mjs"
+    "source": "hooks/pre-compact-preserve.mjs"
   },
   {
-    "source": "hooks/pre-compact-preserve.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/pre-compact-preserve.sh"
+    "source": "hooks/pre-compact-preserve.sh"
   },
   {
-    "source": "hooks/pre-migrate-check.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/pre-migrate-check.sh"
+    "source": "hooks/pre-migrate-check.sh"
   },
   {
-    "source": "hooks/pre-write-check-spec.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/pre-write-check-spec.sh"
+    "source": "hooks/pre-write-check-spec.sh"
   },
   {
-    "source": "hooks/reset-doc-progress.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/reset-doc-progress.sh"
+    "source": "hooks/reset-doc-progress.sh"
   },
   {
-    "source": "hooks/silent-update.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/silent-update.sh"
+    "source": "hooks/silent-update.sh"
   },
   {
-    "source": "hooks/skill-cache-check.mjs",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/skill-cache-check.mjs"
+    "source": "hooks/skill-cache-check.mjs"
   },
   {
-    "source": "hooks/skill-cache-check.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/skill-cache-check.sh"
+    "source": "hooks/skill-cache-check.sh"
   },
   {
-    "source": "hooks/skill-index-gen.mjs",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/skill-index-gen.mjs"
+    "source": "hooks/skill-index-gen.mjs"
   },
   {
-    "source": "hooks/stale-doc-detector.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/stale-doc-detector.sh"
+    "source": "hooks/stale-doc-detector.sh"
   },
   {
-    "source": "hooks/track-file-changes.sh",
-    "path": "/opt/homebrew/lib/node_modules/paqad-ai/runtime/hooks/track-file-changes.sh"
+    "source": "hooks/track-file-changes.sh"
   }
 ]

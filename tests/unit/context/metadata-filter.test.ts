@@ -50,9 +50,9 @@ describe('applyMetadataFilters — module_path_prefix', () => {
 
   it('matches absolute source_file paths using a repo-relative prefix', () => {
     const absoluteChunks = [
-      makeChunk('auth-abs', '/Users/haider/project/src/auth/service.ts'),
-      makeChunk('billing-abs', '/Users/haider/project/src/billing/invoice.ts'),
-      makeChunk('session-abs', '/Users/haider/project/src/auth/session.ts'),
+      makeChunk('auth-abs', '/Users/test-user/project/src/auth/service.ts'),
+      makeChunk('billing-abs', '/Users/test-user/project/src/billing/invoice.ts'),
+      makeChunk('session-abs', '/Users/test-user/project/src/auth/session.ts'),
     ];
     const result = applyMetadataFilters(
       absoluteChunks,
