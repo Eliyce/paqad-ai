@@ -46,7 +46,6 @@ export function scoreFreshness(
   if (ageDays <= freshWindowDays) return 100;
   if (ageDays >= staleCliffDays) return 0;
   const range = staleCliffDays - freshWindowDays;
-  if (range <= 0) return 0;
   const remaining = staleCliffDays - ageDays;
   return Math.max(0, Math.min(100, Math.round((remaining / range) * 100)));
 }
