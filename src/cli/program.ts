@@ -4,6 +4,7 @@ import { VERSION } from '@/index.js';
 
 import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createComplianceCommand } from './commands/compliance.js';
+import { createDashboardCommand } from './commands/dashboard.js';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
@@ -14,6 +15,7 @@ import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRefreshCommand } from './commands/refresh.js';
+import { createStatusCommand } from './commands/status.js';
 import { createUpdateCommand } from './commands/update.js';
 
 export function createProgram(): Command {
@@ -29,6 +31,7 @@ export function createProgram(): Command {
   program.addCommand(createCapabilitiesCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
+  program.addCommand(createDashboardCommand());
   program.addCommand(createDoctorCommand());
   program.addCommand(createGraphCommand());
   program.addCommand(createModuleHealthCommand());
@@ -38,6 +41,7 @@ export function createProgram(): Command {
   program.addCommand(createUpdateCommand());
   program.addCommand(createPatternsCommand());
   program.addCommand(createPlanCommand());
+  program.addCommand(createStatusCommand());
 
   return program;
 }

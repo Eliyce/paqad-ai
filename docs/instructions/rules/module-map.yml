@@ -120,6 +120,47 @@ modules:
         name: Similarity & Intelligence Overlays
         sources: [src/graph]
 
+  - slug: cli-dashboard
+    name: Project Dashboard & Status Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Living single-pane "where am I on this project?" view (paqad-ai
+      dashboard) plus the one-shot LLM-friendly snapshot of the same data
+      (paqad-ai status). Score is existence + freshness only — no
+      content-quality heuristics in phase 1. Shares the graph-ui bundle
+      via a hash router so the graph view becomes one section inside the
+      dashboard.
+    sources:
+      - src/cli/commands/dashboard.ts
+      - src/cli/commands/status.ts
+      - src/dashboard
+      - graph-ui/src/views/DashboardView.tsx
+      - graph-ui/src/components/SectionCard.tsx
+      - graph-ui/src/components/ScoreBadge.tsx
+      - graph-ui/src/components/SummaryBand.tsx
+      - graph-ui/src/components/DashboardChrome.tsx
+      - graph-ui/src/components/HelperPopover.tsx
+    features:
+      - slug: dashboard-server
+        name: Dashboard HTTP + SSE Server
+        sources: [src/dashboard/server.ts]
+      - slug: status-printer
+        name: Status (JSON / Markdown) Printer
+        sources: [src/cli/commands/status.ts, src/dashboard/markdown.ts]
+      - slug: dashboard-collectors
+        name: Section Collectors (13 sections)
+        sources: [src/dashboard/collectors]
+      - slug: dashboard-scoring
+        name: Scoring Primitives (freshness, presence, band)
+        sources: [src/dashboard/scoring]
+      - slug: dashboard-report
+        name: Report Builder (single source of truth)
+        sources: [src/dashboard/report.ts, src/dashboard/types.ts]
+      - slug: dashboard-ui
+        name: Dashboard View + Section Components
+        sources: [graph-ui/src/views/DashboardView.tsx, graph-ui/src/components]
+
   - slug: cli-packs
     name: Pack Management Commands
     layer: cli-commands

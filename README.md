@@ -512,6 +512,39 @@ paqad-ai graph --no-watch               # Disable live reload on .paqad/ changes
 
 **Pre-conditions:** the current directory must contain a `.paqad/` from a previous `paqad-ai onboard`. RAG is optional — without it the graph still renders fully, with similarity and chunk nodes disabled behind a clear banner.
 
+### `paqad-ai dashboard`
+
+The single-pane "where am I on this project?" view. Same bundle as `paqad-ai graph` — the graph view is now one section inside the dashboard, opened by the architecture card.
+
+```bash
+paqad-ai dashboard                       # Opens http://127.0.0.1:5372/#/dashboard
+paqad-ai dashboard --no-open             # Print the URL and skip auto-open
+paqad-ai dashboard --port 8080           # Custom port (auto-increments if busy)
+paqad-ai dashboard --no-watch            # Disable live reload on .paqad/ changes
+```
+
+**What you get:**
+
+- Overall completeness score (existence + freshness, no content-quality heuristics)
+- A card per section: project profile, rules, workflows, decisions (living), module health (living), module docs, architecture, design system / stack / registries / tools / tech-debt, stack drift, framework version, RAG status, and — when present — pentest and session continuity
+- Per-card score badge using the same `mod-green` / `mod-amber` / `mod-red` / `mod-unknown` tokens as the graph view
+- Helper text behind a `?` affordance on every card (what this means + what good looks like)
+- Summary band with up to five "Needs your attention" items, ordered critical-first
+- Live reload — same SSE pattern as the graph view, the card border pulses when its section changes
+- `paqad-ai graph` and `paqad-ai dashboard` share the bundle; switching between routes is a hash-router nav
+
+### `paqad-ai status`
+
+One-shot LLM-friendly snapshot of the same report — no server, no long-running process. Use this from an agent prompt.
+
+```bash
+paqad-ai status                          # Markdown (default) to stdout
+paqad-ai status --format json            # Full DashboardReport contract
+paqad-ai status --project-root <path>    # Snapshot a different project
+```
+
+The JSON shape is stable (`schemaVersion: 1`) and identical to the payload served by `GET /api/dashboard` on the dashboard server.
+
 ### Security workflows
 
 Security and retest flows are part of the framework runtime and agent workflows in this package version. They are not exposed as standalone top-level CLI commands in `paqad-ai` today.
@@ -598,22 +631,24 @@ Entry files stay thin. Knowledge lives in shared instruction bundles that extern
 
 ## Workflow overview
 
-| Workflow             | How to trigger                         | What happens                                              |
-| -------------------- | -------------------------------------- | --------------------------------------------------------- |
-| **Onboarding**       | `paqad-ai onboard`                     | Detect stack → confirm → generate everything              |
-| **Health check**     | `paqad-ai doctor`                      | Validate artifacts, config, docs                          |
-| **Spec compliance**  | `paqad-ai compliance ...`              | Extract obligations, check evidence, generate skeletons   |
-| **Refresh**          | `paqad-ai refresh`                     | Re-detect stack, update derived docs                      |
-| **Update**           | `paqad-ai update`                      | Regenerate framework files after version bump             |
-| **RAG**              | `paqad-ai rag ...`                     | Build, inspect, clear, and benchmark hybrid retrieval     |
-| **Project graph**    | `paqad-ai graph`                       | Interactive browser view of modules, files, chunks, deps  |
-| **Documentation**    | Ask agent: _"create documentation"_    | Stack → architecture → design system → modules            |
-| **Pentest**          | Ask agent: _"run pentest"_             | 5-step scan → findings → report                           |
-| **Retest**           | Ask agent: _"retest pentest"_          | Replay findings → fixed / still-open / needs-verification |
-| **Capabilities**     | `paqad-ai capabilities add/remove`     | Toggle content / coding / security                        |
-| **Pack management**  | `paqad-ai packs install/remove`        | Install, validate, scaffold stack packs                   |
-| **Pattern library**  | `paqad-ai patterns ...`                | Query, prune, and export reusable solutions               |
-| **Custom workflows** | YAML at `docs/instructions/workflows/` | Your own resumable skill sequences                        |
+| Workflow              | How to trigger                         | What happens                                              |
+| --------------------- | -------------------------------------- | --------------------------------------------------------- |
+| **Onboarding**        | `paqad-ai onboard`                     | Detect stack → confirm → generate everything              |
+| **Health check**      | `paqad-ai doctor`                      | Validate artifacts, config, docs                          |
+| **Spec compliance**   | `paqad-ai compliance ...`              | Extract obligations, check evidence, generate skeletons   |
+| **Refresh**           | `paqad-ai refresh`                     | Re-detect stack, update derived docs                      |
+| **Update**            | `paqad-ai update`                      | Regenerate framework files after version bump             |
+| **RAG**               | `paqad-ai rag ...`                     | Build, inspect, clear, and benchmark hybrid retrieval     |
+| **Project graph**     | `paqad-ai graph`                       | Interactive browser view of modules, files, chunks, deps  |
+| **Project dashboard** | `paqad-ai dashboard`                   | Living single-pane health overview, per-section scoring   |
+| **Project status**    | `paqad-ai status [--format json]`      | One-shot LLM-friendly snapshot of the dashboard           |
+| **Documentation**     | Ask agent: _"create documentation"_    | Stack → architecture → design system → modules            |
+| **Pentest**           | Ask agent: _"run pentest"_             | 5-step scan → findings → report                           |
+| **Retest**            | Ask agent: _"retest pentest"_          | Replay findings → fixed / still-open / needs-verification |
+| **Capabilities**      | `paqad-ai capabilities add/remove`     | Toggle content / coding / security                        |
+| **Pack management**   | `paqad-ai packs install/remove`        | Install, validate, scaffold stack packs                   |
+| **Pattern library**   | `paqad-ai patterns ...`                | Query, prune, and export reusable solutions               |
+| **Custom workflows**  | YAML at `docs/instructions/workflows/` | Your own resumable skill sequences                        |
 
 ---
 

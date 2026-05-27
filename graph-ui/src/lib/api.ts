@@ -1,4 +1,11 @@
+import type { DashboardReport } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
+
+export async function fetchDashboard(): Promise<DashboardReport> {
+  const res = await fetch('/api/dashboard');
+  if (!res.ok) throw new Error('Failed to fetch /api/dashboard: ' + res.status);
+  return (await res.json()) as DashboardReport;
+}
 
 export async function fetchGraph(): Promise<Graph> {
   const res = await fetch('/api/graph');

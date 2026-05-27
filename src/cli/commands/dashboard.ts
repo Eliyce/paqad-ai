@@ -5,31 +5,30 @@ import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { startDashboardServer } from '@/dashboard/server.js';
 import { openBrowser } from '@/graph/opener.js';
-import { startGraphServer } from '@/graph/server.js';
 
-interface GraphCommandOptions {
+interface DashboardCommandOptions {
   port: string;
   host: string;
   open: boolean;
-  threshold: string;
   watch: boolean;
   quiet: boolean;
   projectRoot: string;
   staticDir?: string;
 }
 
-const DEFAULT_PORT = 5371;
+const DEFAULT_PORT = 5372;
 
 function resolveStaticDir(override: string | undefined): string {
   if (override) {
     return isAbsolute(override) ? override : resolve(process.cwd(), override);
   }
   const here = dirname(fileURLToPath(import.meta.url));
+  // Same bundled assets as `paqad-ai graph` — the SPA contains both
+  // routes (#/graph and #/dashboard).
   const candidates = [
-    // Built CLI lives at dist/cli/index.js → ../../runtime/graph-ui
     resolve(here, '../../runtime/graph-ui'),
-    // src/cli/commands/graph.ts → ../../../runtime/graph-ui (dev / test)
     resolve(here, '../../../runtime/graph-ui'),
   ];
   for (const c of candidates) {
@@ -38,18 +37,17 @@ function resolveStaticDir(override: string | undefined): string {
   return candidates[0]!;
 }
 
-export function createGraphCommand(): Command {
-  return new Command('graph')
-    .description('Open a local web view of the paqad-ai project graph')
+export function createDashboardCommand(): Command {
+  return new Command('dashboard')
+    .description('Open the paqad-ai project dashboard in a local web view')
     .option('--port <n>', 'Server port (auto-increments if occupied)', String(DEFAULT_PORT))
     .option('--host <host>', 'Bind address', '127.0.0.1')
     .option('--no-open', 'Do not open the browser automatically')
-    .option('--threshold <n>', 'Initial similarity threshold (0..1)', '0.75')
     .option('--no-watch', 'Disable live reload on .paqad/ changes')
     .option('--quiet', 'Suppress non-essential stdout', false)
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--static-dir <path>', 'Override the bundled frontend directory')
-    .action(async (options: GraphCommandOptions) => {
+    .action(async (options: DashboardCommandOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const paqadDir = join(projectRoot, PATHS.AGENCY_DIR);
       if (!existsSync(paqadDir)) {
@@ -73,15 +71,9 @@ export function createGraphCommand(): Command {
         process.exitCode = 2;
         return;
       }
-      const threshold = Number.parseFloat(options.threshold);
-      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
-        process.stderr.write(`error: invalid --threshold value '${options.threshold}'\n`);
-        process.exitCode = 2;
-        return;
-      }
 
       const staticDir = resolveStaticDir(options.staticDir);
-      const server = await startGraphServer({
+      const server = await startDashboardServer({
         projectRoot,
         host: options.host,
         port,
@@ -89,17 +81,14 @@ export function createGraphCommand(): Command {
         watch: options.watch,
       });
 
-      // Once the SPA carries a hash router, the graph view is at
-      // `/#/graph`. Older bundles without the router serve the same
-      // single-page graph at the root, so the URL still works.
-      const graphUrl = `${server.url}/#/graph`;
+      const dashboardUrl = `${server.url}/#/dashboard`;
       if (!options.quiet) {
-        process.stdout.write(`paqad-ai graph listening at ${graphUrl}\n`);
+        process.stdout.write(`paqad-ai dashboard listening at ${dashboardUrl}\n`);
       } else {
-        process.stdout.write(`${graphUrl}\n`);
+        process.stdout.write(`${dashboardUrl}\n`);
       }
 
-      const opened = openBrowser({ url: graphUrl, skip: !options.open });
+      const opened = openBrowser({ url: dashboardUrl, skip: !options.open });
       if (!opened.opened && !options.quiet && opened.reason) {
         process.stdout.write(`(browser not opened: ${opened.reason})\n`);
       }
