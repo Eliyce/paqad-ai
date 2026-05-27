@@ -1,5 +1,23 @@
 # paqad-ai
 
+## 1.3.0
+
+### Minor Changes
+
+- [#67](https://github.com/Eliyce/paqad-ai/pull/67) [`c4312aa`](https://github.com/Eliyce/paqad-ai/commit/c4312aab1366c6c25138e6de38cff935c862ccb1) Thanks [@HLasani](https://github.com/HLasani)! - Add `paqad-ai dashboard` and `paqad-ai status` — the living single-pane health overview for an onboarded paqad project.
+
+  `paqad-ai dashboard` starts a local web server (port 5372, auto-incrementing) on the same bundle as `paqad-ai graph`. The graph view is now one section inside the dashboard, opened via the architecture card; the existing `paqad-ai graph` command is unchanged and is still a direct shortcut to the graph route. Sections rendered in Phase 1: project profile, rules, workflows, decisions (living), module health (living), module docs, architecture, design system, stack, registries, tools, tech-debt, stack drift, framework version, RAG status, and — when present — pentest and session continuity. Each card shows a score badge, a one-line state-derived summary, a `?` helper popover, and up to three compact metrics. Score is existence + freshness only (file present + last-modified ≤ 30d = 100%, decays linearly to 0 at the 180d cliff); no content-quality heuristics in Phase 1. The summary band surfaces up to five "Needs your attention" items, critical-first. The card border pulses (200ms accent) when SSE re-fetch updates a section — the one allowed animation.
+
+  `paqad-ai status` is the same `buildReport()` pipeline, but one-shot — no server, no long-running process. Defaults to a deterministic Markdown rendering for humans / PR descriptions; `--format json` emits the stable `schemaVersion: 1` contract for agent prompts.
+
+  Zero install footprint: the bundle ships inside the package (mirroring the existing `runtime/graph-ui/` pattern), no new files are written into the user's project, scoring is computed on the fly, and no new MCP server or background process is introduced. Reuses every `--color-mod-*` design token already present in `graph-ui/src/index.css` — no new design tokens.
+
+  Closes [#64](https://github.com/Eliyce/paqad-ai/issues/64).
+
+### Patch Changes
+
+- [#71](https://github.com/Eliyce/paqad-ai/pull/71) [`c530fa3`](https://github.com/Eliyce/paqad-ai/commit/c530fa34d032f7f454f49386bc66987e32cb726a) Thanks [@HLasani](https://github.com/HLasani)! - Stop leaking absolute install paths into committed onboarding artifacts ([#69](https://github.com/Eliyce/paqad-ai/issues/69)). The hooks manifest (`.claude/settings.hooks.json`, `.codex/hooks.json`, `.gemini/hooks.json`, etc.) now stores only the package-relative `source` and resolves the hook script at runtime, instead of baking in `/opt/homebrew/lib/node_modules/paqad-ai/...` or `~/.npm/_npx/<hash>/...` from the onboarding user's machine. A teammate cloning the repo (different OS user, different package manager, Mac vs. Windows) can now run Paqad without every hook 404'ing, and usernames/machine layout no longer end up in source control. Adds a portability test that scans all generated config across every adapter × fixture combination for leaked absolute paths.
+
 ## 1.2.1
 
 ### Patch Changes
