@@ -19,9 +19,11 @@ scripts/__pycache__/
 .paqad/cache/
 .paqad/session/
 .paqad/context/
+.paqad/vectors/
 .paqad/workflows/
 .paqad/indexes/
 .paqad/pentest/
 .paqad/theme/
+.paqad/secrets.env
 docs/tracker/
 .test-plan-log.json

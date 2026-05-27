@@ -709,7 +709,7 @@
     ]
   },
   "repository": {
-    "selected_root": "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm",
+    "selected_root": ".",
     "scan_max_depth": 5,
     "ignored_paths": [
       ".git",

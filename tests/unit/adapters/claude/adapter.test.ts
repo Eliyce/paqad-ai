@@ -40,4 +40,12 @@ describe('ClaudeCodeAdapter', () => {
     const files = await adapter.installHooks([fixtureArtifact('sample-agent.md')]);
     expect(files[0]?.path).toBe('.claude/settings.hooks.json');
   });
+
+  it('does not leak absolute paths into the hooks manifest', async () => {
+    const files = await adapter.installHooks([fixtureArtifact('sample-agent.md')]);
+    const content = files[0]?.content ?? '';
+    const parsed = JSON.parse(content);
+    expect(parsed).toEqual([{ source: 'sample-agent.md' }]);
+    expect(content).not.toMatch(/\/Users\/|\/home\/|\/opt\/|_npx\/|[A-Z]:\\\\/);
+  });
 });

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { compareStackProfiles, summarizeStack } from '@/core/stack-profile.js';
 import type { StackDriftReport, StackSnapshot } from '@/core/types/introspection.js';
+import { sanitizeStackSnapshotRepository } from '@/onboarding/manifest-writer.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
 
 export interface WriteStackArtifactsOptions {
@@ -20,9 +21,10 @@ export async function writeStackArtifacts(
   const computedDrift = compareStackProfiles(previousSnapshot?.profile ?? null, snapshot.profile);
   const drift =
     computedDrift.status === 'no-drift' && existingDrift !== null ? existingDrift : computedDrift;
+  const sanitizedSnapshot = sanitizeStackSnapshotRepository(projectRoot, snapshot);
   await writeFile(
     join(projectRoot, PATHS.STACK_SNAPSHOT),
-    `${JSON.stringify(snapshot, null, 2)}\n`,
+    `${JSON.stringify(sanitizedSnapshot, null, 2)}\n`,
   );
   await writeFile(join(projectRoot, PATHS.STACK_DRIFT), `${JSON.stringify(drift, null, 2)}\n`);
 
