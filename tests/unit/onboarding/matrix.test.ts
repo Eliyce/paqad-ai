@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -59,6 +59,63 @@ const PROJECT_AGENT_DIRS = [
   '.github/agents',
   '.aider/agents',
 ];
+
+const PORTABILITY_SCAN_DIRS = [
+  '.paqad',
+  '.claude',
+  '.codex',
+  '.gemini',
+  '.junie',
+  '.cursor',
+  '.windsurf',
+  '.continue',
+  '.aider',
+  '.antigravity',
+  '.github',
+  '.vscode',
+];
+
+// Strings that, if committed into project config, would break Paqad for any
+// other developer who clones the repo (different OS user, different package
+// manager prefix, different npx cache). See issue #69.
+const ABSOLUTE_PATH_PATTERNS = [
+  /\/Users\//,
+  /\/home\//,
+  /\/opt\/homebrew\//,
+  /_npx\//,
+  /[A-Z]:\\\\/,
+];
+
+function collectAbsolutePathLeaks(projectRoot: string): string[] {
+  const violations: string[] = [];
+  for (const dir of PORTABILITY_SCAN_DIRS) {
+    const root = join(projectRoot, dir);
+    if (!existsSync(root)) continue;
+    walkFiles(root, (filePath) => {
+      if (!/\.(json|ya?ml|md|txt)$/.test(filePath)) return;
+      const content = readFileSync(filePath, 'utf8');
+      for (const pattern of ABSOLUTE_PATH_PATTERNS) {
+        const match = content.match(pattern);
+        if (match) {
+          violations.push(
+            `${filePath.slice(projectRoot.length + 1)}: matches ${pattern} → ${match[0]}`,
+          );
+          break;
+        }
+      }
+    });
+  }
+  return violations;
+}
+
+function walkFiles(dir: string, visit: (path: string) => void): void {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const stat = statSync(full);
+    if (stat.isDirectory()) walkFiles(full, visit);
+    else if (stat.isFile()) visit(full);
+  }
+}
 
 describe('onboarding adapter matrix', () => {
   let root: string;
@@ -145,6 +202,9 @@ describe('onboarding adapter matrix', () => {
         for (const relativePath of [...PROJECT_SKILL_DIRS, ...PROJECT_AGENT_DIRS]) {
           expect(existsSync(join(projectRoot, relativePath))).toBe(false);
         }
+
+        const portabilityViolations = collectAbsolutePathLeaks(projectRoot);
+        expect(portabilityViolations, portabilityViolations.join('\n')).toEqual([]);
 
         if (fixture === 'existing-with-docs') {
           expect(

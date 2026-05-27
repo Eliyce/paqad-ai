@@ -89,7 +89,7 @@ export abstract class BaseAdapter implements AdapterInterface {
       {
         path: this.hooksOutputPath(),
         content: JSON.stringify(
-          hooks.map((hook) => ({ source: hook.source, path: hook.path })),
+          hooks.map((hook) => ({ source: hook.source })),
           null,
           2,
         ),
