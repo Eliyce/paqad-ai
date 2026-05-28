@@ -75,6 +75,19 @@ The packet's selected option drives the state transition. Only an explicit `Acce
 - Stop if the same slug appears in two different patterns with conflicting display names — ask which name to use.
 - Refuse to write any MD-XXXX file if the project has no `.paqad/` directory (project is not onboarded).
 
+## Scripts
+
+Deterministic plumbing — do **not** re-derive these in the LLM layer.
+
+- `scripts/extract.sh <prompt-file> [project-root]` — invoke the extractor; prints the JSON report.
+- `scripts/needs-decision.sh [report.json|-]` — exit 0 if a Decision Pause packet is needed, exit 1 otherwise (with `extractor: no-decision-needed` on stderr).
+- `scripts/filter-by-kind.sh <exact-match|near-collision|unknown> [report.json|-]` — filter `candidates` by kind; prints a JSON array.
+
+## Assets
+
+- `assets/templates/packet-unknown.md` — Decision Pause packet template for an `unknown` candidate.
+- `assets/templates/packet-collision.md` — Decision Pause packet template for a `near-collision` candidate.
+
 ## Resources
 
 - `runtime/base/skills/module-attribution-extractor/references/pattern-set.md` — bundled pattern reference.

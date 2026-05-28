@@ -82,6 +82,18 @@ Only an explicit `Extend` selection promotes a draft to `proposed → accepted`;
 - Refuse to run if `module-map.yml` is missing — the inferencer needs the map to form hypotheses. Surface a one-line message: `Inferencer requires module-map.yml; run "create documentation" first.`
 - Do **not** write `module-map.yml` from this skill. All map mutations go through `src/module-decisions/apply.ts`.
 
+## Scripts
+
+Deterministic plumbing — do **not** re-derive these in the LLM layer.
+
+- `scripts/infer.sh <prompt-file> [project-root] [max-choices]` — invoke the inferencer; prints the JSON report.
+- `scripts/is-confident.sh [report.json|-]` — exit 0 if `confident === true`, exit 1 otherwise. Use to decide whether to lead the packet question with the `No existing module clearly matches — pick one of:` prefix.
+- `scripts/require-module-map.sh [project-root]` — stop-condition gate: exit 1 with the literal `Inferencer requires module-map.yml; run "create documentation" first.` if the map is missing.
+
+## Assets
+
+- `assets/templates/packet-inferencer.md` — Decision Pause packet template (single packet covering all choices).
+
 ## Resources
 
 - `runtime/base/skills/module-attribution-inferencer/references/scoring.md` — bundled scoring reference.

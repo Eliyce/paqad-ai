@@ -88,6 +88,20 @@ Findings are written to `.paqad/module-map/drift.json` and consumed by:
 - Stop if any `MM-RENAME` is ambiguous (multiple candidates within Levenshtein bound) — collect the user's choice.
 - Do **not** write `module-map.yml` from this skill. All map mutations go through `src/module-decisions/apply.ts`.
 
+## Scripts
+
+Deterministic plumbing — do **not** re-derive these in the LLM layer.
+
+- `scripts/reconcile.sh [project-root]` — invoke the reconciler; writes `.paqad/module-map/drift.json` and prints a JSON summary.
+- `scripts/has-findings.sh [project-root]` — exit 0 if findings exist, 1 if clean, 2 if blocked (`source_roots_unknown`), 3 if drift.json is missing. Prints the count.
+- `scripts/is-blocked.sh [project-root]` — exit 1 with the blocked reason on stdout when the reconciler is blocked.
+- `scripts/count-by-code.sh [project-root]` — sorted `MM-CODE: N` lines for use in the `## Reconciliation Findings` block.
+- `scripts/filter-by-code.sh <MM-CODE> [project-root]` — JSON array of findings for a specific code.
+
+## Assets
+
+- `assets/templates/findings-summary.md` — markdown template for the `## Reconciliation Findings` + `## Pending User Decisions` output blocks.
+
 ## Resources
 
 - `runtime/base/skills/module-map-reconciler/references/source-roots-contract.md` — the source_roots requirement.

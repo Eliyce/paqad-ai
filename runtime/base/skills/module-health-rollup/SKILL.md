@@ -82,6 +82,19 @@ Hard rule: no metric is fabricated or zeroed. When a signal cannot be computed t
 - Stop and route to the module-map reconciler when `unattributed_files` is non-empty — coverage for an undeclared module is a `MM-ADD` candidate.
 - Do **not** invent `contract_stability` when the pack has no `public_api_extractor`. Record `contract_stability:no_public_api_extractor` in `blocked_metrics` and continue.
 
+## Scripts
+
+Deterministic plumbing — do **not** re-derive these in the LLM layer.
+
+- `scripts/rollup.sh [project-root] [--from-report <path>]` — invoke the rollup; writes `.paqad/module-health/<slug>.json` per declared module and prints the rollup report JSON.
+- `scripts/is-blocked.sh [report.json|-]` — exit 1 with the blocked reason on stdout when the whole rollup is blocked (typically `module_health_unknown`).
+- `scripts/list-blocked-metrics.sh [report.json|-]` — sorted `<slug>: <reason>, <reason>` lines for the informational warnings the skill surfaces.
+- `scripts/list-unattributed.sh [report.json|-]` — sorted file paths for the `## Unattributed Coverage Files` block; these are `MM-ADD` candidates for the module-map reconciler.
+
+## Assets
+
+- `assets/templates/rollup-summary.md` — markdown template for the `## Module Health Rollup` + `## Unattributed Coverage Files` blocks.
+
 ## Resources
 
 - `runtime/base/skills/module-health-rollup/references/coverage-formats.md` — supported formats + the no-fabricated-metrics contract.
