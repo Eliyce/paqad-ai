@@ -3,17 +3,31 @@
 // extending it is a framework PR (spec AC #28).
 //
 // Each parser is a tiny `parseReport(content)` function in a sibling file.
-// Parsers that do not exist yet throw at lookup time so the rollup engine can
-// surface a clean `blocked_metrics` reason instead of misreporting zero.
 
+import { parseReport as cobertura } from './cobertura.js';
+import { parseReport as coveragePyXml } from './coverage-py-xml.js';
+import { parseReport as gocover } from './gocover.js';
+import { parseReport as goJson } from './go-json.js';
+import { parseReport as jacoco } from './jacoco.js';
+import { parseReport as junitXml } from './junit-xml.js';
 import { parseReport as lcov } from './lcov.js';
+import { parseReport as opencover } from './opencover.js';
+import { parseReport as vitestJson } from './vitest-json.js';
 
 import type { CoverageFormat, Parser } from './types.js';
 
 export type { CoverageFormat, Parser, ParsedReport, CoverageRow, TestRow } from './types.js';
 
-const REGISTRY: Partial<Record<CoverageFormat, Parser>> = {
+const REGISTRY: Record<CoverageFormat, Parser> = {
   lcov,
+  cobertura,
+  'coverage-py-xml': coveragePyXml,
+  gocover,
+  'junit-xml': junitXml,
+  'go-json': goJson,
+  jacoco,
+  opencover,
+  'vitest-json': vitestJson,
 };
 
 export function getParser(format: CoverageFormat): Parser | null {
