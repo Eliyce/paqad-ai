@@ -39,11 +39,11 @@ Applies the framework-owned pattern set (`Module:` / `Component:` / `Area:` / `S
 ## Procedure
 
 1. Resolve the project root (default `cwd`).
-2. Invoke the TS engine via CLI:
+2. Invoke the TS engine via the bundled wrapper:
    ```
-   paqad-ai module-decisions extract --project-root <root> --prompt-file <tmp>
+   bash scripts/extract.sh <prompt-file> [project-root]
    ```
-   Prefer `--prompt-file` over `--prompt` so multiline ticket text survives the shell.
+   The wrapper shells out to `paqad-ai module-decisions extract --project-root <root> --prompt-file <tmp>`. Prefer `--prompt-file` (the wrapper always uses it) so multiline ticket text survives the shell.
 3. Parse the emitted JSON. Each entry in `candidates` has: `slug`, `display_name`, `kind`, `collision_with`, `pattern`, `excerpt`.
 4. If `needs_decision` is empty, the extractor either found nothing or every hit was an `exact-match` — exit with the literal status `extractor: no-decision-needed` so the caller can fall through to the inferencer (the empty case) or continue planning (the exact-match case).
 5. Otherwise, for each candidate in `needs_decision`, surface a Decision Pause packet via `AskUserQuestion` (or the active adapter's Decision Pause Contract entry point).

@@ -61,11 +61,11 @@ Hard rule: no metric is fabricated or zeroed. When a signal cannot be computed t
 ## Procedure
 
 1. Resolve the active stack pack and read its `module_health` block. If the block is absent, hard-fail with `blocked: module_health_unknown` and surface a Decision Pause packet asking the user to add it to the pack.
-2. Invoke the TS engine via the CLI:
+2. Invoke the TS engine via the bundled wrapper:
    ```
-   paqad-ai module-health sync --from-report <path>
+   bash scripts/rollup.sh [project-root] [--from-report <path>]
    ```
-   or, when running off the declared report paths, call the engine without `--from-report`.
+   The wrapper shells out to `paqad-ai module-health rollup --project-root <root> [--from-report <path>]`. Omit `--from-report` to run off the declared report paths in the pack.
 3. Parse the resulting `RollupReport`. Group findings by module.
 4. For each module, surface any `blocked_metrics` entries to the user as informational warnings (not Decision Pause packets — these are config gaps, not choices).
 5. For `unattributed_files`, route the user to the module-map reconciler (`MM-ADD` candidates).

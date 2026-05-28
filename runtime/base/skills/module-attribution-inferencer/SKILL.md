@@ -45,10 +45,11 @@ Do **not** run this when the extractor already produced candidates — that path
 ## Procedure
 
 1. Resolve the project root (default `cwd`).
-2. Invoke the TS engine via CLI:
+2. Invoke the TS engine via the bundled wrapper:
    ```
-   paqad-ai module-decisions infer --project-root <root> --prompt-file <tmp> [--max-choices N]
+   bash scripts/infer.sh <prompt-file> [project-root] [max-choices]
    ```
+   The wrapper shells out to `paqad-ai module-decisions infer --project-root <root> --prompt-file <tmp> [--max-choices N]`.
 3. Parse the emitted JSON. Fields: `choices[]` (sorted by `score` desc, with fallbacks last), `prompt_tokens`, `confident`.
 4. Surface a single Decision Pause packet to the user (one packet for the inferencer, not one-per-choice).
 

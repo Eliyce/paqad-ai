@@ -59,11 +59,11 @@ Findings are written to `.paqad/module-map/drift.json` and consumed by:
 ## Procedure
 
 1. Resolve `source_roots` from the active stack pack. If absent, surface a single Decision Pause packet asking the user to add `module_health.source_roots` to their pack — do **not** guess.
-2. Invoke the TS engine via CLI:
+2. Invoke the TS engine via the bundled wrapper:
    ```
-   paqad-ai module-map reconcile --project-root <root>
+   bash scripts/reconcile.sh [project-root]
    ```
-   This produces `.paqad/module-map/drift.json` and prints a JSON summary.
+   The wrapper shells out to `paqad-ai module-map reconcile --project-root <root>`, producing `.paqad/module-map/drift.json` and a JSON summary on stdout.
 3. Parse findings. Group by code and module for presentation.
 4. For each finding, surface a Decision Pause packet:
    - `MM-ADD` → "New module under `<dir>`. Declare? (extract → inferencer → apply)" — pipes through the Attribution Gate.
