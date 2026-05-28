@@ -117,7 +117,7 @@ function createPacket(
       responded_by: 'haider',
       carry_over_scope: carryOverScope,
     },
-    ttl_until: overrides.ttl_until ?? '2026-05-27T12:00:00Z',
+    ttl_until: overrides.ttl_until ?? '2099-12-31T12:00:00Z',
     invalidation_watch: overrides.invalidation_watch ?? ['src/example.ts'],
   };
 }

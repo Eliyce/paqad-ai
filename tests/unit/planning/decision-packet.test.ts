@@ -71,7 +71,7 @@ describe('decision packet helpers', () => {
         responded_by: 'haider',
         carry_over_scope: 'session',
       },
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: ['src/components/Button.tsx'],
     };
 
@@ -111,7 +111,7 @@ describe('decision packet helpers', () => {
       task_session_id: 's',
       created_at: '2026-04-27T12:00:00Z',
       status: 'pending',
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: [],
     } as DecisionPacket;
 
@@ -154,7 +154,7 @@ describe('decision packet helpers', () => {
       task_session_id: 's',
       created_at: '2026-04-27T12:00:00Z',
       status: 'pending',
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: [],
     } as DecisionPacket;
 
@@ -233,7 +233,7 @@ describe('decision packet helpers', () => {
       task_session_id: 'session-1',
       created_at: '2026-04-27T12:00:00Z',
       status: 'pending',
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: ['src/workflow.ts'],
     };
 
@@ -287,7 +287,7 @@ describe('decision packet helpers', () => {
       task_session_id: 'session-2',
       created_at: '2026-04-27T12:00:00Z',
       status: 'pending',
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: [],
     };
 
@@ -417,7 +417,7 @@ describe('decision packet helpers', () => {
       task_session_id: 'perf-session',
       created_at: '2026-04-27T12:00:00Z',
       status: 'pending',
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: ['src/components/Button.tsx'],
     };
 
@@ -483,7 +483,7 @@ describe('decision packet helpers', () => {
         responded_by: 'haider',
         carry_over_scope: 'none',
       },
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: [],
     };
 
