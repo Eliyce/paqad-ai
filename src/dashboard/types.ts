@@ -18,6 +18,7 @@ export const DASHBOARD_SECTION_IDS = [
   'rag-status',
   'decisions',
   'module-health',
+  'module-map-drift',
   'stack-drift',
   'rules',
   'workflows',

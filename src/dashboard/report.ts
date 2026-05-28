@@ -9,6 +9,7 @@ import { collectFrameworkVersion } from './collectors/framework-version.js';
 import { collectInstructionsAreas } from './collectors/instructions-areas.js';
 import { collectModuleDocs } from './collectors/module-docs.js';
 import { collectModuleHealth } from './collectors/module-health.js';
+import { collectModuleMapDrift } from './collectors/module-map-drift.js';
 import { collectPentest } from './collectors/pentest.js';
 import { collectProjectProfile } from './collectors/project-profile.js';
 import { collectRagStatus } from './collectors/rag-status.js';
@@ -92,6 +93,8 @@ export function buildReport(
     root,
     now,
   );
+  const { section: moduleMapDriftSection, attention: moduleMapDriftAttention } =
+    collectModuleMapDrift(root);
   const rulesSection = collectRules(root, now);
   const workflowsSection = collectWorkflows(root, now);
   const moduleDocsSection = collectModuleDocs(root, now);
@@ -108,6 +111,7 @@ export function buildReport(
     decisionsSection,
     moduleHealthSection,
     moduleDocsSection,
+    moduleMapDriftSection,
     architectureSection,
     ...areaSections,
     stackDriftSection,
@@ -120,6 +124,7 @@ export function buildReport(
   const allAttention: AttentionItem[] = [
     ...decisionsAttention,
     ...moduleHealthAttention,
+    ...moduleMapDriftAttention,
     ...stackDriftAttention,
     ...pentestAttention,
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

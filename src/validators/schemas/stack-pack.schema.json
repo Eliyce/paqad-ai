@@ -200,6 +200,48 @@
           "items": { "type": "string" }
         }
       }
+    },
+    "module_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_roots"],
+      "properties": {
+        "source_roots": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "source_globs": { "type": "array", "items": { "type": "string" } },
+        "public_api_extractor": { "type": ["string", "null"] },
+        "test_command": { "type": "string" },
+        "coverage_format": {
+          "type": "string",
+          "enum": [
+            "lcov",
+            "cobertura",
+            "coverage-py-xml",
+            "gocover",
+            "junit-xml",
+            "go-json",
+            "jacoco",
+            "opencover",
+            "vitest-json"
+          ]
+        },
+        "coverage_path": { "type": "string" },
+        "test_report_format": {
+          "type": "string",
+          "enum": [
+            "lcov",
+            "cobertura",
+            "coverage-py-xml",
+            "gocover",
+            "junit-xml",
+            "go-json",
+            "jacoco",
+            "opencover",
+            "vitest-json"
+          ]
+        },
+        "test_report_path": { "type": "string" },
+        "git_window_days": { "type": "integer", "minimum": 1, "maximum": 365 }
+      }
     }
   },
   "$defs": {

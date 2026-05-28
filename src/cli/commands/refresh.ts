@@ -15,6 +15,8 @@ import { StackIntrospector } from '@/introspection/stack-introspector.js';
 import { writeDecisionPauseContractDocument } from '@/onboarding/decision-pause-contract-writer.js';
 import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
 import { RagService } from '@/rag/service.js';
+import { reconcileModuleMap } from '@/module-map/reconciler.js';
+import { discoverSourceRoots } from '@/module-map/source-roots.js';
 import { writeStackArtifacts } from '@/stack-docs/generator.js';
 
 export function createRefreshCommand(): Command {
@@ -28,6 +30,10 @@ export function createRefreshCommand(): Command {
       '--providers',
       'Re-render provider entry files and the canonical Decision Pause Contract doc',
     )
+    .option(
+      '--reconcile-module-map',
+      'Run the module-map reconciler and exit non-zero on drift (issue #80 Phase 2)',
+    )
     .action(
       async (options: {
         projectRoot: string;
@@ -35,16 +41,21 @@ export function createRefreshCommand(): Command {
         stack?: boolean;
         context?: boolean;
         providers?: boolean;
+        reconcileModuleMap?: boolean;
       }) => {
         const hasExplicitTarget =
           options.designSystem === true ||
           options.stack === true ||
           options.context === true ||
-          options.providers === true;
+          options.providers === true ||
+          options.reconcileModuleMap === true;
         const shouldRefreshDesignSystem = hasExplicitTarget ? options.designSystem === true : true;
         const shouldRefreshStack = hasExplicitTarget ? options.stack === true : true;
         const shouldRefreshContext = options.context === true;
         const shouldRefreshProviders = options.providers === true;
+        const shouldReconcileModuleMap = hasExplicitTarget
+          ? options.reconcileModuleMap === true
+          : true;
         const profile = readProjectProfile(options.projectRoot);
 
         if (shouldRefreshProviders) {
@@ -96,6 +107,30 @@ export function createRefreshCommand(): Command {
             ...syncResult.added_files,
             ...syncResult.deleted_files,
           ];
+        }
+
+        if (shouldReconcileModuleMap) {
+          const discovered = discoverSourceRoots(options.projectRoot);
+          if (discovered.source_roots === null) {
+            // Phase 2: packs do not yet declare module_health.source_roots.
+            // Gracefully degrade — print a warning, do not break refresh.
+            // Phase 3 populates every shipped pack and this branch becomes
+            // unreachable for projects on a supported stack.
+            console.error(
+              'paqad-ai refresh: skipping module-map reconciliation — no stack pack declares module_health.source_roots.',
+            );
+          } else {
+            const report = await reconcileModuleMap({
+              projectRoot: options.projectRoot,
+              sourceRoots: discovered.source_roots,
+            });
+            if (report.findings.length > 0) {
+              console.error(
+                `paqad-ai refresh: module-map drift detected (${report.findings.length} finding(s) — see .paqad/module-map/drift.json).`,
+              );
+              process.exitCode = 1;
+            }
+          }
         }
 
         if (profile?.efficiency.differential_refresh) {
