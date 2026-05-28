@@ -8,6 +8,7 @@ import { createDashboardCommand } from './commands/dashboard.js';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
+import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
 import { createOnboardCommand } from './commands/onboard.js';
 import { createPlanCommand } from './commands/plan.js';
@@ -34,6 +35,7 @@ export function createProgram(): Command {
   program.addCommand(createDashboardCommand());
   program.addCommand(createDoctorCommand());
   program.addCommand(createGraphCommand());
+  program.addCommand(createModuleDecisionsCommand());
   program.addCommand(createModuleHealthCommand());
   program.addCommand(createOnboardCommand());
   program.addCommand(createRefreshCommand());
