@@ -54,3 +54,14 @@ docs:
   conventions_template: rules/conventions.md
 rag:
   exclude_directories: ['__pycache__', '.pytest_cache', '.mypy_cache', '.venv', 'venv', 'instance']
+module_health:
+  source_roots:
+    - app
+  source_globs: []
+  public_api_extractor: null
+  test_command: pytest
+  coverage_format: cobertura
+  coverage_path: coverage.xml
+  test_report_format: junit-xml
+  test_report_path: junit.xml
+  git_window_days: 14

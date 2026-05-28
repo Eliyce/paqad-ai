@@ -125,3 +125,14 @@ test_runners:
     default_command: pnpm test
 docs:
   conventions_template: rules/conventions.md
+module_health:
+  source_roots:
+    - src
+  source_globs: []
+  public_api_extractor: null
+  test_command: pnpm test
+  coverage_format: lcov
+  coverage_path: coverage/lcov.info
+  test_report_format: vitest-json
+  test_report_path: coverage/vitest-results.json
+  git_window_days: 14

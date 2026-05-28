@@ -60,3 +60,14 @@ docs:
   conventions_template: rules/conventions.md
 rag:
   exclude_directories: ['dist', 'coverage', 'node_modules']
+module_health:
+  source_roots:
+    - src
+  source_globs: []
+  public_api_extractor: null
+  test_command: pnpm test
+  coverage_format: lcov
+  coverage_path: coverage/lcov.info
+  test_report_format: junit-xml
+  test_report_path: coverage/junit.xml
+  git_window_days: 14

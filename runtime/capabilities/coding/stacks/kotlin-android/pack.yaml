@@ -61,3 +61,15 @@ docs:
   conventions_template: rules/conventions.md
 rag:
   exclude_directories: ['.gradle', 'build', 'app/build', '.idea', 'captures']
+module_health:
+  source_roots:
+    - app/src/main/kotlin
+    - app/src/main/java
+  source_globs: []
+  public_api_extractor: null
+  test_command: ./gradlew test
+  coverage_format: jacoco
+  coverage_path: app/build/reports/jacoco/test/jacocoTestReport.xml
+  test_report_format: junit-xml
+  test_report_path: app/build/test-results/test
+  git_window_days: 14
