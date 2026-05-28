@@ -93,6 +93,18 @@
             },
             "block_on_failure": { "type": "boolean" }
           }
+        },
+        "module_health_rollup": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "command": { "type": "string" },
+            "escalation": {
+              "type": "string",
+              "enum": ["warn", "ask", "stop"]
+            }
+          }
         }
       }
     }

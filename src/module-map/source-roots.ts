@@ -73,3 +73,40 @@ export function discoverSourceRoots(projectRoot: string): DiscoveredSourceRoots 
 
   return { source_roots: null, reason: 'unknown', pack_name: null };
 }
+
+// Phase 3 — return the entire module_health manifest from the active pack,
+// not just source_roots. The rollup engine reads coverage_format /
+// coverage_path / test_report_format / test_report_path / git_window_days
+// off this block; callers treat a null return as `blocked:
+// module_health_unknown` (spec, no silent fallback).
+export interface DiscoveredModuleHealth {
+  module_health: NonNullable<StackPackManifest['module_health']> | null;
+  pack_name: string | null;
+}
+
+export function discoverModuleHealth(projectRoot: string): DiscoveredModuleHealth {
+  const profile = readProjectProfile(projectRoot);
+  const requested = profile?.stack_profile?.frameworks ?? [];
+
+  const loader = new StackPackLoader();
+  const registry = loader.load({
+    runtimeRoot: resolveRuntimeRoot(),
+    projectRoot,
+  });
+
+  const orderedNames =
+    requested.length > 0
+      ? [...requested, ...Array.from(registry.packs.keys()).filter((n) => !requested.includes(n))]
+      : Array.from(registry.packs.keys());
+
+  for (const name of orderedNames) {
+    const pack = registry.packs.get(name);
+    if (pack === undefined) continue;
+    const mh = packModuleHealth(pack);
+    if (mh !== undefined && Array.isArray(mh.source_roots) && mh.source_roots.length > 0) {
+      return { module_health: mh, pack_name: name };
+    }
+  }
+
+  return { module_health: null, pack_name: null };
+}

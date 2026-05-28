@@ -81,6 +81,7 @@ stages:
     instructions:
       - Run the project command checks after implementation and before finalizing the feature.
       - Verify test coverage is 100%
+      - "Module-health rollup (issue #80, Phase 3): after format / test / build pass, invoke `paqad-ai module-health rollup` (or `module-health sync --from-report <path>` when CI has already produced a report). The rollup parses the active stack pack's coverage + test reports, attributes rows to module slugs via module-map.yml, and writes .paqad/module-health/<slug>.json with blocked_metrics populated. Surface any rollup-blocked metrics to the user as informational warnings — they're configuration gaps, not decision packets."
     required_inputs:
       - working tree diff
     strictness:
@@ -89,6 +90,7 @@ stages:
       missing_command_mapping: stop
     artifacts:
       - verification summary
+      - module-health rollup report
     checks:
       use_project_profile_commands: true
       commands:
@@ -100,6 +102,16 @@ stages:
       # Add project-specific commands here when needed.
       # shell_commands:
       #   - pnpm typecheck
+    module_health_rollup:
+      # Issue #80 Phase 3 — runs after format/test/build. Best-effort: when
+      # the active pack has no module_health block the rollup hard-fails
+      # with `blocked: module_health_unknown`; the workflow surfaces that as
+      # a warning (not a stop) because Phase 3 ships every shipped pack with
+      # a block, so a missing block means the project is on a custom pack
+      # without the new shape.
+      enabled: true
+      command: paqad-ai module-health rollup --project-root . --silent
+      escalation: warn
 
   documentation_sync:
     instructions:
