@@ -23,6 +23,7 @@ describe('createProgram', () => {
       'graph',
       'module-decisions',
       'module-health',
+      'module-map',
       'onboard',
       'refresh',
       'rag',

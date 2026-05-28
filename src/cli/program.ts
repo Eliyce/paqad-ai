@@ -10,6 +10,7 @@ import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
+import { createModuleMapCommand } from './commands/module-map.js';
 import { createOnboardCommand } from './commands/onboard.js';
 import { createPlanCommand } from './commands/plan.js';
 import { createPatternsCommand } from './commands/patterns.js';
@@ -37,6 +38,7 @@ export function createProgram(): Command {
   program.addCommand(createGraphCommand());
   program.addCommand(createModuleDecisionsCommand());
   program.addCommand(createModuleHealthCommand());
+  program.addCommand(createModuleMapCommand());
   program.addCommand(createOnboardCommand());
   program.addCommand(createRefreshCommand());
   program.addCommand(createRagCommand());
