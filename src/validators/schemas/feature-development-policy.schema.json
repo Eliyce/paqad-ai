@@ -53,6 +53,19 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "attribution_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pipeline": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
         "checks": {
           "type": "object",
           "additionalProperties": false,

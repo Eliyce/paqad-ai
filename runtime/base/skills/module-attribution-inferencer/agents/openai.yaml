@@ -1,0 +1,5 @@
+interface:
+  display_name: Module Attribution Inferencer
+  short_description: Hypothesis former that runs only when the deterministic
+    extractor returns nothing. Scores existing modules against the prompt and
+    surfaces a ranked multi-choice Decision Pause packet.

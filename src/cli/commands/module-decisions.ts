@@ -1,10 +1,23 @@
+import { readFileSync } from 'node:fs';
+
 import { Command } from 'commander';
 
+import { candidatesNeedingDecision, extractCandidates } from '@/module-decisions/extractor.js';
+import { inferAttribution } from '@/module-decisions/inferencer.js';
 import {
   expireStaleDecisions,
   listDecisions,
   readDecision,
 } from '@/module-decisions/store.js';
+import { loadModuleMap } from '@/onboarding/registry-generator.js';
+
+function readPromptArg(opts: { prompt?: string; promptFile?: string }): string {
+  if (typeof opts.promptFile === 'string' && opts.promptFile.length > 0) {
+    return readFileSync(opts.promptFile, 'utf8');
+  }
+  if (typeof opts.prompt === 'string') return opts.prompt;
+  throw new Error('Must provide --prompt <text> or --prompt-file <path>');
+}
 
 export function createModuleDecisionsCommand(): Command {
   const command = new Command('module-decisions').description(
@@ -70,6 +83,59 @@ export function createModuleDecisionsCommand(): Command {
       console.log(`Expired ${moved.length} decision(s):`);
       for (const id of moved) console.log(`  ${id}`);
     });
+
+  command
+    .command('extract')
+    .description('Run the module-attribution extractor against a prompt; emit JSON candidates')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--prompt <text>', 'Prompt text to analyse')
+    .option('--prompt-file <path>', 'Read prompt text from a file')
+    .action(async (options: { projectRoot: string; prompt?: string; promptFile?: string }) => {
+      const prompt = readPromptArg(options);
+      const map = await loadModuleMap(options.projectRoot);
+      const existingSlugs = map?.modules.map((m) => m.slug) ?? [];
+      const candidates = extractCandidates({ prompt, existingSlugs });
+      const needsDecision = candidatesNeedingDecision(candidates);
+      console.log(
+        JSON.stringify(
+          {
+            prompt_length: prompt.length,
+            existing_slugs: existingSlugs,
+            candidates,
+            needs_decision: needsDecision,
+          },
+          null,
+          2,
+        ),
+      );
+    });
+
+  command
+    .command('infer')
+    .description(
+      'Run the module-attribution inferencer against a prompt (use when extractor is empty); emit JSON hypotheses',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--prompt <text>', 'Prompt text to analyse')
+    .option('--prompt-file <path>', 'Read prompt text from a file')
+    .option('--max-choices <n>', 'Cap on existing-module choices', '3')
+    .action(
+      async (options: {
+        projectRoot: string;
+        prompt?: string;
+        promptFile?: string;
+        maxChoices: string;
+      }) => {
+        const prompt = readPromptArg(options);
+        const moduleMap = await loadModuleMap(options.projectRoot);
+        const result = inferAttribution({
+          prompt,
+          moduleMap,
+          maxChoices: Number.parseInt(options.maxChoices, 10),
+        });
+        console.log(JSON.stringify(result, null, 2));
+      },
+    );
 
   return command;
 }

@@ -13,15 +13,31 @@ stages:
     instructions:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.
+      - "Attribution Gate (issue #80): before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. Surface every needs-decision packet via the Decision Pause Contract and await an explicit user response — no silent acceptance. Accepted decisions are applied to module-map.yml via src/module-decisions/apply.ts (the only writer of the map). Only after the gate resolves may planning continue."
     required_inputs:
       - active request
       - canonical docs
     strictness:
       require_docs_context: true
+      require_attribution_gate: true
     escalation:
       missing_docs_context: warn
+      attribution_pending: stop
     artifacts:
       - implementation sequence
+      - module attribution decisions
+    attribution_gate:
+      # Ordered pipeline; each step short-circuits the next when it produces a
+      # needs-decision packet. See runtime/base/skills/module-attribution-{extractor,inferencer}.
+      pipeline:
+        - skill: module-attribution-extractor
+          on_no_decision: continue
+        - skill: module-attribution-inferencer
+          when: extractor_returned_empty
+          on_confident: continue
+          on_not_confident: ask
+        - apply: src/module-decisions/apply.ts
+          when: decision_accepted
 
   specification:
     instructions:

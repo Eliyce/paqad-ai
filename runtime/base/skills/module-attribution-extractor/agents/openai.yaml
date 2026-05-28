@@ -1,0 +1,6 @@
+interface:
+  display_name: Module Attribution Extractor
+  short_description: Deterministic first-pass module-attribution extractor for the
+    Attribution Gate (issue #80, Phase 1). Applies a finite, framework-owned
+    pattern set to a prompt and surfaces MD-XXXX drafts via the Decision Pause
+    Contract.
