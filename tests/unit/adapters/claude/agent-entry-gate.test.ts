@@ -29,11 +29,15 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     const parsed = JSON.parse(settings!.content) as {
       hooks: {
         PreToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }>;
+        UserPromptSubmit: Array<{ hooks: Array<{ command: string }> }>;
         SessionStart: Array<{ hooks: Array<{ command: string }> }>;
       };
     };
     expect(parsed.hooks.PreToolUse[0].matcher).toBe('Edit|Write|NotebookEdit');
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain('agent-entry-gate.sh');
+    expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
+      'agent-entry-prompt-gate.sh',
+    );
     expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain('agent-entry-session-start.sh');
   });
 
@@ -65,6 +69,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
       permissions: { allow: string[] };
       hooks: {
         PreToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }>;
+        UserPromptSubmit: Array<{ hooks: Array<{ command: string }> }>;
         SessionStart: Array<{ hooks: Array<{ command: string }> }>;
       };
     };
@@ -73,6 +78,10 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(parsed.hooks.PreToolUse).toHaveLength(2);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
     expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.sh');
+    expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
+    expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
+      'agent-entry-prompt-gate.sh',
+    );
     expect(parsed.hooks.SessionStart).toHaveLength(1);
   });
 
@@ -96,8 +105,15 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     });
     const parsed = JSON.parse(
       second.find((file) => file.path === '.claude/settings.json')!.content,
-    ) as { hooks: { PreToolUse: unknown[]; SessionStart: unknown[] } };
+    ) as {
+      hooks: {
+        PreToolUse: unknown[];
+        UserPromptSubmit: unknown[];
+        SessionStart: unknown[];
+      };
+    };
     expect(parsed.hooks.PreToolUse).toHaveLength(1);
+    expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     expect(parsed.hooks.SessionStart).toHaveLength(1);
   });
 });
