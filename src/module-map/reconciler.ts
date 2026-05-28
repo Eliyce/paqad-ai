@@ -22,6 +22,7 @@ import fg from 'fast-glob';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { appendModuleMapEvent } from '@/module-decisions/events.js';
 import { listDecisions } from '@/module-decisions/store.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
@@ -247,7 +248,14 @@ export async function reconcileModuleMap(
       blocked: 'source_roots_unknown',
       counts,
     };
-    if (opts.writeReport !== false) writeDriftReport(opts.projectRoot, report);
+    if (opts.writeReport !== false) {
+      writeDriftReport(opts.projectRoot, report);
+      appendModuleMapEvent(opts.projectRoot, {
+        ts: now,
+        type: 'module.reconciled',
+        payload: { blocked: 'source_roots_unknown' },
+      });
+    }
     return report;
   }
 
@@ -403,7 +411,21 @@ export async function reconcileModuleMap(
     counts,
   };
 
-  if (opts.writeReport !== false) writeDriftReport(opts.projectRoot, report);
+  if (opts.writeReport !== false) {
+    writeDriftReport(opts.projectRoot, report);
+    // AC #36: append a reconciliation audit record once the drift report
+    // has landed. Skipped on writeReport:false (in-memory test paths) so
+    // unit tests don't accidentally inflate the log.
+    appendModuleMapEvent(opts.projectRoot, {
+      ts: now,
+      type: 'module.reconciled',
+      payload: {
+        finding_counts: counts,
+        total_findings: findings.length,
+        source_roots: opts.sourceRoots,
+      },
+    });
+  }
 
   return report;
 }

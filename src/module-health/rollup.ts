@@ -15,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
+import { appendModuleMapEvent } from '@/module-decisions/events.js';
 import {
   _matchesAnyGlob,
   readRawModuleMap,
@@ -336,6 +337,18 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
     for (const r of rollups) {
       await writeModuleHealthProfile(opts.projectRoot, r.profile);
     }
+    // AC #36: append a rollup audit record once persisted profiles have
+    // landed. Skipped on writeProfiles:false (test/dry-run paths) so unit
+    // tests don't accidentally inflate the log.
+    appendModuleMapEvent(opts.projectRoot, {
+      ts: now,
+      type: 'module.health.rolled-up',
+      via: source,
+      payload: {
+        modules: rollups.map((r) => r.slug),
+        unattributed_count: unattributed.size,
+      },
+    });
   }
 
   return {

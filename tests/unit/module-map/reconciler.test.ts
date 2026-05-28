@@ -227,4 +227,17 @@ describe('module-map/reconciler', () => {
     const driftPath = join(root, PATHS.MODULE_MAP_DRIFT);
     expect((await import('node:fs')).existsSync(driftPath)).toBe(true);
   });
+
+  it('appends a module.reconciled event to events.jsonl when writeReport is true (AC #36)', async () => {
+    writeMap('modules: []\n');
+    writeFile('src/foo/bar.ts');
+    await reconcileModuleMap({
+      projectRoot: root,
+      sourceRoots: ['src'],
+      fileExtensions: ['.ts'],
+    });
+    const { readModuleMapEvents } = await import('@/module-decisions/events.js');
+    const events = readModuleMapEvents(root);
+    expect(events.some((e) => e.type === 'module.reconciled')).toBe(true);
+  });
 });

@@ -81,6 +81,12 @@ describe('module-health/rollup', () => {
     expect(report.blocked).toBeNull();
     expect(report.modules.map((m) => m.slug).sort()).toEqual(['cli-refresh', 'module-map-engine']);
 
+    // AC #36 — when writeProfiles is true (default), the engine appends a
+    // module.health.rolled-up event to .paqad/module-map/events.jsonl.
+    const { readModuleMapEvents } = await import('@/module-decisions/events.js');
+    const events = readModuleMapEvents(root);
+    expect(events.some((e) => e.type === 'module.health.rolled-up')).toBe(true);
+
     const refresh = report.modules.find((m) => m.slug === 'cli-refresh');
     expect(refresh?.profile.metrics.coverage_pct).toBe(80);
     expect(refresh?.profile.blocked_metrics).toContain('contract_stability:no_public_api_extractor');

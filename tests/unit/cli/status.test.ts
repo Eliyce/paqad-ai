@@ -4,7 +4,13 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createStatusCommand } from '@/cli/commands/status';
+import {
+  collectDriftSignals,
+  createStatusCommand,
+  driftSignalsTrip,
+} from '@/cli/commands/status';
+import { writeDecision } from '@/module-decisions/store';
+import { formatDecisionId, ttlExpiresAt } from '@/module-decisions/schema';
 
 describe('createStatusCommand', () => {
   let root: string;
@@ -71,5 +77,112 @@ describe('createStatusCommand', () => {
     const parsed = JSON.parse(out) as { schemaVersion: number; notOnboarded: boolean };
     expect(parsed.schemaVersion).toBe(1);
     expect(parsed.notOnboarded).toBe(false);
+  });
+
+  it('--fail-on-drift exits 0 on clean state', async () => {
+    bootstrap();
+    const cmd = createStatusCommand();
+    await cmd.parseAsync(['--fail-on-drift', '--project-root', root], { from: 'user' });
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('--fail-on-drift exits 3 when an expired MD-XXXX decision is on disk', async () => {
+    bootstrap();
+    writeDecision(root, {
+      id: formatDecisionId(1),
+      state: 'proposed',
+      proposed_slug: 'gone',
+      proposed_name: 'Gone',
+      proposed_layer: 'cli-commands',
+      proposed_features: [],
+      source_of_decision: {
+        type: 'inferred-from-prompt',
+        prompt_excerpt: '',
+        detected_at: '2026-04-01T00:00:00Z',
+      },
+      confidence: 'medium',
+      reasoning: '',
+      disposition: { collision_with: null, alternatives_offered: [] },
+      created_at: '2026-04-01T00:00:00Z',
+      updated_at: '2026-04-01T00:00:00Z',
+      expires_at: ttlExpiresAt(new Date('2026-04-01T00:00:00Z')),
+      approved_by: null,
+      applied_to_map_at: null,
+      applied_to_map_commit: null,
+      events_log_ref: null,
+    });
+    const cmd = createStatusCommand();
+    await cmd.parseAsync(['--fail-on-drift', '--project-root', root], { from: 'user' });
+    expect(process.exitCode).toBe(3);
+    expect(errors.join('')).toMatch(/expired decision/);
+  });
+
+  it('--fail-on-drift exits 3 when drift.json reports MM-DOC-MISSING', async () => {
+    bootstrap();
+    mkdirSync(join(root, '.paqad/module-map'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/module-map/drift.json'),
+      JSON.stringify({
+        generated_at: '2026-05-28T00:00:00Z',
+        source_roots: ['src'],
+        findings: [
+          {
+            code: 'MM-DOC-MISSING',
+            module_slug: 'lonely',
+            feature_slug: null,
+            paths: ['docs/modules/lonely/'],
+            detail: 'no docs',
+          },
+        ],
+        blocked: null,
+        counts: {
+          'MM-ADD': 0,
+          'MM-FEAT-ADD': 0,
+          'MM-REMOVE': 0,
+          'MM-RENAME': 0,
+          'MM-FEAT-STALE': 0,
+          'MM-DOC-ORPHAN': 0,
+          'MM-DOC-MISSING': 1,
+          'MM-MISMATCH': 0,
+        },
+      }),
+    );
+    const cmd = createStatusCommand();
+    await cmd.parseAsync(['--fail-on-drift', '--project-root', root], { from: 'user' });
+    expect(process.exitCode).toBe(3);
+    expect(errors.join('')).toMatch(/MM-DOC-MISSING|MM-\*/);
+  });
+
+  it('driftSignalsTrip composes the four signals correctly', () => {
+    expect(
+      driftSignalsTrip({
+        mmFindings: 0,
+        staleModules: [],
+        expiredDecisions: [],
+        mmDocMissing: 0,
+        blocked: null,
+      }),
+    ).toBe(false);
+    expect(
+      driftSignalsTrip({
+        mmFindings: 0,
+        staleModules: ['x'],
+        expiredDecisions: [],
+        mmDocMissing: 0,
+        blocked: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('collectDriftSignals returns a clean payload on an empty project', () => {
+    bootstrap();
+    const signals = collectDriftSignals(root);
+    expect(signals).toEqual({
+      mmFindings: 0,
+      staleModules: [],
+      expiredDecisions: [],
+      mmDocMissing: 0,
+      blocked: null,
+    });
   });
 });
