@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.5.0
+
+### Minor Changes
+
+- [#82](https://github.com/Eliyce/paqad-ai/pull/82) [`f330595`](https://github.com/Eliyce/paqad-ai/commit/f330595d38c5e66afc54443daefe9e4f97a7ea68) Thanks [@HLasani](https://github.com/HLasani)! - Living module lifecycle: prospective decisions, retrospective reconciliation, test-driven health, dashboard drift checks (closes [#80](https://github.com/Eliyce/paqad-ai/issues/80))
+
 ## 1.4.0
 
 ### Minor Changes
