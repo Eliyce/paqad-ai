@@ -1,0 +1,3 @@
+interface:
+  display_name: Design-System Coverage
+  short_description: Grade the design-system contract for completeness and gate the design-test workflow.

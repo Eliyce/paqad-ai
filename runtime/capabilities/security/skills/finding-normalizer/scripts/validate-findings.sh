@@ -19,9 +19,9 @@ try { arr = JSON.parse(txt); } catch (e) { console.error("invalid JSON: " + e.me
 if (!Array.isArray(arr)) { console.error("expected JSON array"); process.exit(1); }
 
 const REQ = ["id","title","severity","effort","impact_area","evidence","reproduction","status"];
-const SEV = new Set(["critical","high","medium","low","info"]);
+const SEV = new Set(["critical","blocker","high","medium","low","nit","info"]);
 const EFF = new Set(["trivial","small","medium","large"]);
-const STA = new Set(["open","fixed","wont-fix","blocked","retest-pass","retest-fail"]);
+const STA = new Set(["open","fixed","wont-fix","blocked","accepted","waived","retest-pass","retest-fail","still-open","needs-manual-verification"]);
 
 const ids = new Set();
 let issues = 0;

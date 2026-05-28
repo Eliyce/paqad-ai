@@ -1,8 +1,10 @@
 # severity
 critical
+blocker
 high
 medium
 low
+nit
 info
 
 # effort
@@ -16,12 +18,30 @@ open
 fixed
 wont-fix
 blocked
+accepted
+waived
 retest-pass
 retest-fail
+still-open
+needs-manual-verification
 
 # code-prefix
 # Finding-id prefixes the normalizer recognises. Each prefix scopes which
 # downstream workflow consumes the finding. Extending this set is a framework
 # PR — no project-side codes.
 PEN-      # pentest findings (security workflow)
+DT-       # design-test findings (design-system audit; issue #76)
 MD-       # prospective module decisions (issue #80, Phase 1; .paqad/decisions/module-decisions/)
+
+# design-test category
+# Categories used by DT-* findings. Each maps to one of the design-test skills
+# or the documentation-drift cross-cut. See runtime/capabilities/coding/rules/design-test.md.
+token
+component
+state
+a11y
+responsive
+motion
+copy
+performance
+documentation-drift

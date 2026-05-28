@@ -1,0 +1,3 @@
+interface:
+  display_name: Design-System Sync
+  short_description: Keep docs/instructions/design-system/* in step with source-of-truth token/component changes.

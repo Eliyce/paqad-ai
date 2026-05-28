@@ -1,0 +1,3 @@
+interface:
+  display_name: Token Conformance Review
+  short_description: Catch hard-coded design values (hex, raw px/rem, ad-hoc font stacks) that should reference a declared token.

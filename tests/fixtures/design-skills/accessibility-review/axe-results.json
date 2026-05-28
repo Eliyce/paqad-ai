@@ -1,0 +1,37 @@
+{
+  "target_url": "http://localhost:3000",
+  "reachable": true,
+  "routes": [
+    {
+      "path": "/",
+      "breakpoints": [
+        {
+          "name": "lg",
+          "axe_violations": [
+            {
+              "id": "color-contrast",
+              "impact": "serious",
+              "help": "Elements must meet minimum color contrast ratio thresholds",
+              "nodes": [{ "target": ["main > p.muted"] }, { "target": ["nav > a"] }]
+            },
+            {
+              "id": "button-name",
+              "impact": "critical",
+              "help": "Buttons must have discernible text",
+              "nodes": [{ "target": ["button.icon-only"] }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/pricing",
+      "breakpoints": [
+        {
+          "name": "lg",
+          "axe_violations": []
+        }
+      ]
+    }
+  ]
+}

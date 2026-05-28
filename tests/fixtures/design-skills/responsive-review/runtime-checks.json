@@ -1,0 +1,44 @@
+{
+  "target_url": "http://localhost:3000",
+  "reachable": true,
+  "routes": [
+    {
+      "path": "/",
+      "breakpoints": [
+        {
+          "name": "sm",
+          "width": 640,
+          "scrollWidth": 720,
+          "viewportWidth": 640,
+          "horizontalScroll": true
+        },
+        {
+          "name": "lg",
+          "width": 1024,
+          "scrollWidth": 1024,
+          "viewportWidth": 1024,
+          "horizontalScroll": false
+        }
+      ]
+    },
+    {
+      "path": "/pricing",
+      "breakpoints": [
+        {
+          "name": "sm",
+          "width": 640,
+          "scrollWidth": 640,
+          "viewportWidth": 640,
+          "horizontalScroll": false
+        },
+        {
+          "name": "lg",
+          "width": 1024,
+          "scrollWidth": 1200,
+          "viewportWidth": 1024,
+          "horizontalScroll": true
+        }
+      ]
+    }
+  ]
+}
