@@ -1,0 +1,25 @@
+diff --git a/src/design-tokens/colors.ts b/src/design-tokens/colors.ts
+index 0123456..789abcd 100644
+--- a/src/design-tokens/colors.ts
++++ b/src/design-tokens/colors.ts
+@@ -3,6 +3,8 @@ export const colors = {
+     500: '#1a73e8',
+     600: '#1557b0',
+   },
++  brand: '#abcdef',
++  surfaceDeep: '#0f172a',
+   text: {
+     primary: '#111827',
+   },
+diff --git a/tailwind.config.ts b/tailwind.config.ts
+index 9999999..aaaaaaa 100644
+--- a/tailwind.config.ts
++++ b/tailwind.config.ts
+@@ -10,5 +10,7 @@ export default {
+     extend: {
+       spacing: {
+         '13': '52px',
++        '14': '56px',
+       },
+     },
+   },

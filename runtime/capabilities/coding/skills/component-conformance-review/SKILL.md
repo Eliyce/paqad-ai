@@ -38,13 +38,17 @@ Use this for every design-test run, after `token-conformance-review`. The two to
 
 ## Procedure
 
-1. Run `scripts/scan-overrides.sh` (shipped under `runtime/scripts/design/`) to enumerate override hits — `!important`, inline `style=`, arbitrary Tailwind brackets, undocumented utility combos.
-2. Derive the AST component inventory from `src/components/**` (filenames, default exports, props types).
-3. For each component in the inventory:
-   - Is it declared in `components.md`? If not → `documentation-drift` finding.
-   - Are all its declared variants implemented? Missing variant → `component` finding.
-   - Does it wrap a primitive (e.g. shadcn `Button`) without applying the spec? → `component` finding.
-4. For each override hit, decide whether it represents a missing variant in `components.md` or genuine code smell.
+The set difference between source and contract is deterministic — drive it
+with the scripts. Reserve LLM judgment for severity and the "is this primitive
+correctly wrapped" question.
+
+1. Run `scripts/derive-inventory.sh [components-dir]` → `<name>\t<source-file>` TSV. The script already excludes tests, stories, type decls, barrels, and lower-case helpers.
+2. Run `scripts/parse-components-md.sh <components.md>` → `<name>\t<variants-csv>\t<states-csv>` TSV. Empty CSV slots are `-`.
+3. Run `scripts/diff-inventories.sh --source <derived> --declared <parsed>`. Each row is a deterministic gap:
+   - `in-source-not-declared\tName\t<file>` → `documentation-drift` finding, **medium**.
+   - `declared-not-in-source\tName\t-` → `documentation-drift` finding (contract references a non-existent component), **medium** to **high** depending on whether the contract is what the team intends to build.
+4. Run `runtime/scripts/design/scan-overrides.sh` to enumerate `!important`, inline `style=`, arbitrary Tailwind brackets, undocumented utility combos. The LLM decides whether each hit is a missing prop on a declared component or genuine code smell.
+5. For each declared component, verify its declared variants are implemented in the source file. Missing variant → `component` finding, **high**.
 
 ## Output Contract
 
@@ -60,6 +64,9 @@ Use this for every design-test run, after `token-conformance-review`. The two to
 ## Resources
 
 - `references/component-conformance-checklist.md`
+- `scripts/derive-inventory.sh` — AST-ish inventory of `src/components/**`.
+- `scripts/parse-components-md.sh` — declared inventory + variants/states from `components.md`.
+- `scripts/diff-inventories.sh` — set difference between source and declared.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

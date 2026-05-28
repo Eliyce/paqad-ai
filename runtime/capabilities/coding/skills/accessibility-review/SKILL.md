@@ -43,17 +43,14 @@ Use this for every design-test run. Driven by the live phase's axe-core output w
 
 ## Procedure
 
-1. Static scan for likely violations:
-   - `<img>` without `alt`
-   - `<button>` with no accessible name (no text, no `aria-label`, no `aria-labelledby`)
-   - `<a href>` with no accessible name
-   - form controls without `<label>` or `aria-labelledby`
-   - missing landmark roles on top-level routes (`<main>`, `<nav>`, `<header>`, `<footer>`)
-   - `tabindex` ≥ 1 (positive tabindex breaks keyboard order)
-   - `outline: none` / `outline: 0` without a replacement focus ring
-2. Consume axe-core violations from `runtime-checks.ts` output. Each axe rule id maps to one or more WCAG criteria (see `references/wcag-mapping.md`).
-3. Verify each rule declared in `accessibility.md`: contrast ratio met, focus ring visible, target size ≥ declared minimum, reduced-motion respected, keyboard order matches reading order.
-4. Cross-reference with `tokens.md` — contrast violations point at the token pair that's failing (e.g. `color.text.muted` on `color.surface.base` = 3.8:1, below 4.5:1).
+Detection and mapping are deterministic — the LLM picks severity and writes
+findings; the scripts do the spotting.
+
+1. Static scan: run `scripts/static-a11y-scan.sh [search-root]` → TSV of `<category>\t<file>:<line>\t<excerpt>`. Categories: `img-no-alt | button-no-name | anchor-no-name | input-no-label | outline-zero | positive-tabindex | missing-lang`.
+2. Live axe results: when the Step 3 runtime walk produced an axe JSON, run `scripts/parse-axe-violations.sh <axe-results.json>` → TSV of `<route>\t<rule-id>\t<impact>\t<target>\t<help>`. Accepts either a full runtime-checks payload or a bare violations array.
+3. For each axe rule emitted, run `scripts/map-axe-to-wcag.sh <rule-id>` to get its primary WCAG 2.2 success criterion id. Unmapped rules return `WCAG-UNKNOWN`; map those manually using the published axe docs.
+4. Verify each rule declared in `accessibility.md`: contrast ratio met, focus ring visible, target size ≥ declared minimum, reduced-motion respected, keyboard order matches reading order.
+5. Cross-reference with `tokens.md` — contrast violations point at the token pair that's failing (e.g. `color.text.muted` on `color.surface.base` = 3.8:1, below 4.5:1).
 
 ## Output Contract
 
@@ -69,6 +66,9 @@ Use this for every design-test run. Driven by the live phase's axe-core output w
 ## Resources
 
 - `references/wcag-mapping.md`
+- `scripts/static-a11y-scan.sh` — static-only a11y violation candidates (img/button/anchor/input/tabindex/outline/lang).
+- `scripts/parse-axe-violations.sh` — flatten axe-core JSON into `(route, rule, impact, target)` rows.
+- `scripts/map-axe-to-wcag.sh` — table lookup from axe rule id to WCAG 2.2 success criterion.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

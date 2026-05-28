@@ -42,13 +42,14 @@ Use for every design-test run. Driven by the surface walk's screenshot manifest 
 
 ## Procedure
 
-1. Enumerate declared breakpoints from `responsive.md` (e.g. `sm: 640`, `md: 768`, `lg: 1024`, `xl: 1280`).
-2. For each route × breakpoint screenshot, check:
-   - Document scroll width ≤ viewport width (no horizontal scroll).
-   - Touch targets ≥ declared minimum (typically 24×24 or 44×44 CSS pixels).
-   - Content max-width respected.
-3. If `responsive.md` declares RTL support: cross-walk each route with `dir="rtl"`; flag layout breaks.
-4. If a declared breakpoint has zero routes exercising it (e.g. `xl` but the walk only goes to `lg`) → `documentation-drift` finding.
+Enumeration and gap detection are deterministic — drive them with the scripts.
+The LLM picks severity and writes findings.
+
+1. Run `scripts/extract-breakpoints.sh <responsive.md>` → `<name>\t<width-px>` TSV. This is the declared truth.
+2. Run `scripts/find-horizontal-scroll.sh <runtime-checks.json>` → one row per `(route, breakpoint)` pair where `horizontalScroll=true`. Each row is a finding candidate.
+3. Run `scripts/find-touch-target-violations.sh [--min <px>] [search-root]` → rows for icon-only / tap targets below the declared minimum (default 24px; pass `--min 44` for mobile-first).
+4. If `responsive.md` declares RTL support: cross-walk each route with `dir="rtl"`; flag layout breaks (no scripted detector — visual inspection of the RTL screenshot manifest).
+5. If a declared breakpoint has zero routes exercising it in the surface walk → `documentation-drift` finding.
 
 ## Output Contract
 
@@ -64,6 +65,9 @@ Use for every design-test run. Driven by the surface walk's screenshot manifest 
 ## Resources
 
 - `references/responsive-checklist.md`
+- `scripts/extract-breakpoints.sh` — declared breakpoints from `responsive.md`.
+- `scripts/find-horizontal-scroll.sh` — horizontal-scroll picks from a runtime-checks payload.
+- `scripts/find-touch-target-violations.sh` — sub-minimum tap-target candidates (CSS px + Tailwind `w-N`/`h-N`).
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

@@ -38,13 +38,13 @@ Use for every design-test run after `responsive-review`.
 
 ## Procedure
 
-1. Static scan for `transition:`, `animation:`, `@keyframes`, framer-motion props, GSAP timelines. Each duration / easing literal is a candidate.
-2. For each duration literal:
-   - Does it map to a `motion.duration.*` token? If not → `motion` finding.
-   - Is it above the declared duration ceiling (typically 400ms for UI motion)? → `motion` finding.
-3. For each easing literal: must be one of the declared `motion.easing.*` curves.
-4. Reduced-motion check: every animation must be wrapped in a `@media (prefers-reduced-motion: reduce)` guard, OR use a framer-motion `useReducedMotion` hook, OR the animation must be sub-150ms.
-5. Cross-check with live phase: did the reduced-motion walk produce identical screenshots to the static walk for animated components?
+Scan and budget parsing are deterministic — drive them with the scripts.
+
+1. Run `scripts/parse-motion-budget.sh <motion.md>` → key/value rows: `duration-ceiling`, `easing`, `reduced-motion`. This is the declared budget.
+2. Run `scripts/scan-animations.sh [search-root]` → `<file>:<line>\t<duration-ms>\t<excerpt>` rows. Every duration is normalized to milliseconds (`300ms`, `0.5s` → `500ms`, framer-motion `duration: 0.3` → `300ms`).
+3. Compare each emitted ms value to the declared duration ceiling. Over budget → `motion` finding, **medium** by default.
+4. Run `scripts/find-reduced-motion-violations.sh [search-root]` → one row per file that animates without `prefers-reduced-motion` or `useReducedMotion()`. Each row is a **high** severity finding (a11y blocker).
+5. Cross-check with the live phase: did the reduced-motion walk produce identical screenshots to the static walk for animated components?
 
 ## Output Contract
 
@@ -59,6 +59,9 @@ Use for every design-test run after `responsive-review`.
 ## Resources
 
 - `references/motion-checklist.md`
+- `scripts/parse-motion-budget.sh` — declared budget from `motion.md`.
+- `scripts/scan-animations.sh` — every animation declaration in source, duration normalized to ms.
+- `scripts/find-reduced-motion-violations.sh` — files that animate without a reduced-motion guard.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

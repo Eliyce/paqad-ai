@@ -44,12 +44,15 @@ Also runs during `design-test` Step 5 when a finding's resolution implies the co
 
 ## Procedure
 
-1. For each changed file in the diff:
-   - Token source (`src/design-tokens/**`, `tailwind.config.*` theme): diff against `tokens.md`; propose appended entries for new tokens, removed entries for deleted tokens.
-   - New component file under `src/components/**`: propose an entry in `components.md` with default variants/states.
-   - Removed component file: propose removing the entry from `components.md`.
-2. Emit a unified-diff style proposal block per file change.
-3. Never auto-apply; this skill writes the proposal, the workflow's `documentation_sync` stage applies it after user confirmation (Decision Pause Contract).
+Proposal generation is deterministic — the scripts produce unified-diff hunks
+ready for the Decision Pause Contract. The LLM never hand-writes the diff.
+
+1. Capture the current diff: `git diff HEAD > /tmp/sync.diff` (or read from the workflow's staged diff).
+2. Run `scripts/detect-token-additions.sh /tmp/sync.diff` → `<key>\t<value>` rows for every added token-shaped entry (accepts identifier and quoted-numeric keys; only token-shaped values: hex/px/rem/em).
+3. Pipe those rows into `scripts/propose-tokens-diff.sh` → a unified-diff hunk targeting `docs/instructions/design-system/tokens.md`. Surface this hunk to the user via the Decision Pause Contract.
+4. Run `scripts/detect-component-additions.sh /tmp/sync.diff` → `<Component>\t<source-file>` rows for every newly-added component file (uppercase-named, under `src/components/`, not a test/spec/story/barrel/type decl).
+5. Pipe those rows into `scripts/propose-components-diff.sh` → a unified-diff hunk for `components.md` with the default skeleton (variants: TBD, states: default/hover/focus/disabled, composition: TBD).
+6. Never auto-apply. Surface every proposal via the Decision Pause Contract; the user accepts, modifies, or rejects each.
 
 ## Output Contract
 
@@ -64,5 +67,10 @@ Also runs during `design-test` Step 5 when a finding's resolution implies the co
 ## Resources
 
 - `references/sync-rules.md`
+- `scripts/detect-token-additions.sh` — extract added token-shaped `<key>: '<value>'` entries from a unified diff.
+- `scripts/detect-component-additions.sh` — extract newly-added component files from a unified diff.
+- `scripts/propose-tokens-diff.sh` — render a unified-diff hunk appending tokens to `tokens.md`.
+- `scripts/propose-components-diff.sh` — render a unified-diff hunk appending components (with default skeleton) to `components.md`.
+- `scripts/lint-findings.sh` — used when sync emits a `documentation-drift` finding inside the design-test workflow.
 - `assets/output.template.md`
 - `agents/openai.yaml`

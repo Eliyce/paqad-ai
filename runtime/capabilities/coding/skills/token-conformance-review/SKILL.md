@@ -41,12 +41,17 @@ Use this for every design-test run. It is one of the two primary "is the contrac
 
 ## Procedure
 
-1. Run `scripts/scan-tokens.sh` to grep the source roots for hard-coded value patterns. Each hit is an investigation candidate.
-2. For each hit, decide:
-   - Does a token exist in `tokens.md` (or Tailwind theme) that this literal _should_ resolve to? → `token` finding, **high** severity.
-   - Is this a category not yet declared in `tokens.md`? → `documentation-drift` finding pointing at the gap in the contract.
-   - Is this in a test fixture, story, or known exemption path? → skip (the scanner excludes `**/*.test.*`, `**/*.stories.*`, `**/__tests__/**`).
-3. For each finding, emit `Required action:` with the _concrete fix_: which file, which line, which token to use. Example: `replace #1a73e8 at Button.tsx:42 with color.primary.500 from tokens.md`.
+The mechanics are deterministic — drive them with the scripts in `scripts/`
+rather than re-deriving them on every finding. Reserve LLM reasoning for the
+"is this leak resolvable to which token" judgment, not for parsing files.
+
+1. Run `scripts/parse-tokens.sh <tokens.md>` once and persist the TSV (`<name>\t<value>\t<namespace>`). This is the declared truth.
+2. Run `scripts/scan-tokens.sh` to grep the source roots for hard-coded value patterns. Each hit is an investigation candidate.
+3. For each leak hit, run `scripts/match-leak-to-token.sh --leak <value> --tokens <parsed.tsv> [--namespace <ns>]`. It uses `scripts/normalize-color.sh` internally so `#1A73E8`, `#1a73e8`, and `rgb(26,115,232)` all resolve to the same canonical form. The output is one of:
+   - `match\t<token-name>` → emit a `token` finding, **high** severity. `Required action:` writes itself: replace `<leak>` at `<file>:<line>` with `<token-name>` from `tokens.md`.
+   - `ambiguous\t<n1>,<n2>...` → still a finding; pick the more specific token (most dotted segments) and explain the alternatives in the finding body.
+   - `no-match` → emit a parallel `documentation-drift` finding pointing at the gap in the contract; the token leak finding becomes `medium` until the gap is filled.
+4. If the hit lands inside a known exemption path (`**/*.test.*`, `**/*.stories.*`, `**/__tests__/**`, `src/design-tokens/**`, `tailwind.config.*`) the scanner already drops it — never re-check those manually.
 
 ## Categories of Hard-Coded Values
 
@@ -75,6 +80,9 @@ Use this for every design-test run. It is one of the two primary "is the contrac
 
 - `references/token-leak-checklist.md`
 - `scripts/scan-tokens.sh` — pre-investigation grep over the codebase
+- `scripts/parse-tokens.sh` — turn `tokens.md` into a `<name>\t<value>\t<namespace>` TSV.
+- `scripts/normalize-color.sh` — canonicalize colors so hex/rgb/uppercase variants compare cleanly.
+- `scripts/match-leak-to-token.sh` — deterministic leak-to-token resolver (`match | ambiguous | no-match`).
 - `scripts/lint-findings.sh` — enforces `contract_ref` + `Evidence: file:line` per finding
 - `assets/output.template.md`
 - `agents/openai.yaml`

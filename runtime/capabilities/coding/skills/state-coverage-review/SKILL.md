@@ -40,10 +40,17 @@ Use this for every design-test run after `component-conformance-review`. It depe
 
 ## Procedure
 
-1. For each component in the AST inventory, enumerate declared states from `components.md` (default to `default / hover / focus / disabled / loading / error / empty` if unspecified).
-2. Static check: does the source implement each state? (Look for the prop/branch, the `data-state` attribute, the `:hover` / `:focus-visible` / `:disabled` selector, the conditional render for loading/error/empty.)
-3. Test check: does at least one Playwright test drive each state on each component? Use `runtime/scripts/design/coverage.sh` output to answer this.
-4. Each missing state-implementation pair is a `state` finding. Each tested-but-not-implemented pair is a `documentation-drift` finding (the test asserts something the component can't reach).
+The set arithmetic across declared / implemented / tested is deterministic — drive
+it with the scripts. LLM picks severity per missing state (focus and error are
+elevated to **high** per the checklist).
+
+1. For each component, run `scripts/extract-source-states.sh <component-file>` → TSV of `<state>\t<signal>` (signals: `:hover`, Tailwind `hover:` utility, `disabled` prop, `aria-disabled`, framer-motion hooks, etc.). `default` is always emitted.
+2. Run `scripts/extract-tested-states.sh --component <Name> --tests <dir>` → TSV of `<state>\t<test-file>`. The tests directory should contain Playwright specs only (the script greps for component name + state driver pattern; mixing the component's source with the tests dir would self-pollute the result).
+3. Take the declared states from `components.md` (the CSV from `parse-components-md.sh` works directly).
+4. Run `scripts/cross-reference-states.sh --declared <csv> --implemented <impl.tsv> --tested <tested.tsv>`. Each row is a deterministic gap:
+   - `declared-not-implemented\t<state>` → `state` finding.
+   - `implemented-not-tested\t<state>` → `state` finding (regression risk).
+   - `tested-not-implemented\t<state>` → `documentation-drift` finding (test asserts something the component can't reach).
 
 ## Output Contract
 
@@ -59,6 +66,9 @@ Use this for every design-test run after `component-conformance-review`. It depe
 ## Resources
 
 - `references/state-coverage-checklist.md`
+- `scripts/extract-source-states.sh` — implemented-states detector for one component file.
+- `scripts/extract-tested-states.sh` — tested-states detector across a Playwright tests dir.
+- `scripts/cross-reference-states.sh` — declared/implemented/tested set-difference gap emitter.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`

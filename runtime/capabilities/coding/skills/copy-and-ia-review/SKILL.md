@@ -37,13 +37,13 @@ Use for every design-test run. Runs last in the skill sequence — its findings 
 
 ## Procedure
 
-1. Extract user-facing strings from source: JSX text nodes, `aria-label`, `placeholder`, `title`, i18n message catalogs.
-2. For each string, check:
-   - Capitalization style (sentence case vs title case) matches `patterns.md`.
-   - Terminology matches the declared glossary (e.g. `User` vs `Member` — pick one).
-   - Error messages match the declared format (e.g. "What happened. What to do.").
-   - Button labels match declared action verbs.
-3. IA check: navigation labels and route names form a consistent hierarchy (no two routes labeled "Dashboard"; no label that contradicts its destination).
+Extraction and rule-checking are deterministic — drive them with the scripts.
+The LLM picks severity and writes findings.
+
+1. Run `scripts/extract-user-strings.sh [search-root]` → `<category>\t<file>:<line>\t<string>` rows. Categories: `aria-label | placeholder | title | jsx-text`. This is the inventory of every user-facing string.
+2. Run `scripts/check-action-verbs.sh --verbs <a,b,c> --root <dir>` to flag button labels outside the declared action-verb set. The match is case-insensitive; the offending label is reported as-typed.
+3. Run `scripts/check-terminology.sh --preferred <Word> --avoid <a,b,c> --root <dir>` once per glossary entry. Each match is a `copy` finding citing the preferred term.
+4. IA check: navigation labels and route names form a consistent hierarchy (no two routes labeled "Dashboard"; no label that contradicts its destination). No scripted detector — the LLM compares the route inventory from `runtime/scripts/design/enumerate-surface.sh` against the strings extractor's output.
 
 ## Output Contract
 
@@ -58,6 +58,9 @@ Use for every design-test run. Runs last in the skill sequence — its findings 
 ## Resources
 
 - `references/copy-checklist.md`
+- `scripts/extract-user-strings.sh` — user-facing strings (`aria-label`, `placeholder`, `title`, JSX text).
+- `scripts/check-action-verbs.sh` — button labels outside the declared verb set.
+- `scripts/check-terminology.sh` — usages of disallowed terms given a `preferred -> avoid` map.
 - `scripts/lint-findings.sh`
 - `assets/output.template.md`
 - `agents/openai.yaml`
