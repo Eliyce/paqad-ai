@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -67,6 +68,62 @@ describe('collectModuleHealth', () => {
     writeHealth(root, 'b', 'stable', 60); // 30d penalty cap is 20 → score 80
     const { section } = collectModuleHealth(root, NOW);
     expect(section.score).toBe(80);
+  });
+
+  it('flags modules whose health updated_at predates a recent source commit', () => {
+    // Stand up a real git repo so lastCommitTouchingSources() can resolve.
+    const git = (args: string[]): void => {
+      execFileSync('git', args, {
+        cwd: root,
+        stdio: ['ignore', 'ignore', 'ignore'],
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: 'test',
+          GIT_AUTHOR_EMAIL: 'test@example.com',
+          GIT_COMMITTER_NAME: 'test',
+          GIT_COMMITTER_EMAIL: 'test@example.com',
+        },
+      });
+    };
+    git(['init', '-q']);
+    mkdirSync(join(root, 'src/payments'), { recursive: true });
+    writeFileSync(join(root, 'src/payments/index.ts'), 'export {}');
+    // module-map.yml declares the payments module so the collector can look
+    // its sources up.
+    mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
+    writeFileSync(
+      join(root, 'docs/instructions/rules/module-map.yml'),
+      [
+        'modules:',
+        '  - slug: payments',
+        '    name: Payments',
+        '    sources:',
+        '      - src/payments/**',
+        '    features: []',
+        '',
+      ].join('\n'),
+    );
+    git(['add', '.']);
+    git(['commit', '-q', '-m', 'init payments']);
+
+    // Stale module-health entry — updated long before the commit above.
+    const dir = join(root, '.paqad/module-health');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'payments.json'),
+      JSON.stringify({
+        module: 'payments',
+        tier: 'stable',
+        updated_at: '2020-01-01T00:00:00Z',
+      }),
+    );
+
+    const { staleModules, attention, section } = collectModuleHealth(root, Date.now());
+    expect(staleModules).toEqual(['payments']);
+    expect(attention.some((a) => a.message.includes('payments'))).toBe(true);
+    // 100 tier - 20 freshness cliff (updated_at far past 30d) - 5 stale
+    // signal penalty = 75. Both penalties are exercised here.
+    expect(section.score).toBe(75);
   });
 
   it('ignores entries with unrecognised tier values', () => {
