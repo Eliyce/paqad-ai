@@ -39,14 +39,29 @@ interface PatternDef {
 // span wins. Ordering matters when patterns overlap — header patterns are
 // listed first so "Module: foo" wins over "in the foo module".
 const PATTERNS: PatternDef[] = [
-  { label: 'ticket-header-module', re: /(?:^|\n)\s*Module:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g },
-  { label: 'ticket-header-component', re: /(?:^|\n)\s*Component:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g },
-  { label: 'ticket-header-area', re: /(?:^|\n)\s*Area:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g },
-  { label: 'ticket-header-subsystem', re: /(?:^|\n)\s*Subsystem:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g },
+  {
+    label: 'ticket-header-module',
+    re: /(?:^|\n)\s*Module:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g,
+  },
+  {
+    label: 'ticket-header-component',
+    re: /(?:^|\n)\s*Component:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g,
+  },
+  {
+    label: 'ticket-header-area',
+    re: /(?:^|\n)\s*Area:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g,
+  },
+  {
+    label: 'ticket-header-subsystem',
+    re: /(?:^|\n)\s*Subsystem:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g,
+  },
   { label: 'inline-module-slug', re: /\bmodule:\s*([a-z0-9][a-z0-9-]{0,40})\b/g },
   // Title-case sequence: stops at the first lowercase/non-letter word, which
   // is how "new module Stripe Connect for payouts" yields "Stripe Connect".
-  { label: 'new-module-name', re: /\bnew module\s+([A-Z][A-Za-z0-9_-]*(?:\s+[A-Z][A-Za-z0-9_-]*){0,4})\b/g },
+  {
+    label: 'new-module-name',
+    re: /\bnew module\s+([A-Z][A-Za-z0-9_-]*(?:\s+[A-Z][A-Za-z0-9_-]*){0,4})\b/g,
+  },
   { label: 'in-the-module', re: /\bin the\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,30}?)\s+module\b/g },
 ];
 
@@ -63,11 +78,7 @@ function deriveDisplayName(slug: string, raw: string): string {
     .join(' ');
 }
 
-function findNearCollision(
-  slug: string,
-  existing: string[],
-  bound: number,
-): string | null {
+function findNearCollision(slug: string, existing: string[], bound: number): string | null {
   let bestSlug: string | null = null;
   let bestDist = bound + 1;
   for (const cand of existing) {
@@ -131,8 +142,6 @@ export function extractCandidates(opts: ExtractorOptions): ExtractedCandidate[] 
 
 // Convenience: filter to only the candidates that need a Decision Pause
 // packet. Exact matches don't (already known); near-collision and unknown do.
-export function candidatesNeedingDecision(
-  candidates: ExtractedCandidate[],
-): ExtractedCandidate[] {
+export function candidatesNeedingDecision(candidates: ExtractedCandidate[]): ExtractedCandidate[] {
   return candidates.filter((c) => c.kind !== 'exact-match');
 }

@@ -5,10 +5,7 @@
 
 import { Command } from 'commander';
 
-import {
-  driftReportHasFindings,
-  reconcileModuleMap,
-} from '@/module-map/reconciler.js';
+import { driftReportHasFindings, reconcileModuleMap } from '@/module-map/reconciler.js';
 
 export function createModuleMapCommand(): Command {
   const command = new Command('module-map').description(
@@ -43,7 +40,10 @@ export function createModuleMapCommand(): Command {
       }) => {
         const sourceRoots =
           options.sourceRoots !== undefined
-            ? options.sourceRoots.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+            ? options.sourceRoots
+                .split(',')
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0)
             : null;
         const fileExtensions =
           options.fileExtensions !== undefined

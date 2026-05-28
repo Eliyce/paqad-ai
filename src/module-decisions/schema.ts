@@ -88,9 +88,7 @@ export function parseDecisionId(id: string): number {
 export function normaliseSlug(input: string): string | null {
   const trimmed = input.trim().toLowerCase();
   if (trimmed.length === 0) return null;
-  const slug = trimmed
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  const slug = trimmed.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   if (slug.length === 0) return null;
   return isValidSlug(slug) ? slug : null;
 }

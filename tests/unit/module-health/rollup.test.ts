@@ -89,7 +89,9 @@ describe('module-health/rollup', () => {
 
     const refresh = report.modules.find((m) => m.slug === 'cli-refresh');
     expect(refresh?.profile.metrics.coverage_pct).toBe(80);
-    expect(refresh?.profile.blocked_metrics).toContain('contract_stability:no_public_api_extractor');
+    expect(refresh?.profile.blocked_metrics).toContain(
+      'contract_stability:no_public_api_extractor',
+    );
     expect(refresh?.profile.blocked_metrics).toContain('tests:not_configured');
 
     const mapEng = report.modules.find((m) => m.slug === 'module-map-engine');

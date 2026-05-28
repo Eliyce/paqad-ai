@@ -32,14 +32,14 @@ input_schema:
 
 Runs the test-driven module-health rollup defined by issue #80, Phase 3. For every module declared in `module-map.yml`, the rollup computes:
 
-| Metric              | Source                                                           |
-| ------------------- | ---------------------------------------------------------------- |
-| `coverage_pct`      | Coverage report parsed via the pack's `coverage_format` parser.  |
-| `tests_passing`     | Test report parsed via the pack's `test_report_format` parser.   |
-| `tests_failing`     | Same.                                                            |
-| `tests_total`       | Same.                                                            |
-| `change_velocity`   | `git log -- <sources>` over `git_window_days` (default 14).      |
-| `contract_stability`| `public_api_extractor` output. Blocked when extractor absent.    |
+| Metric               | Source                                                          |
+| -------------------- | --------------------------------------------------------------- |
+| `coverage_pct`       | Coverage report parsed via the pack's `coverage_format` parser. |
+| `tests_passing`      | Test report parsed via the pack's `test_report_format` parser.  |
+| `tests_failing`      | Same.                                                           |
+| `tests_total`        | Same.                                                           |
+| `change_velocity`    | `git log -- <sources>` over `git_window_days` (default 14).     |
+| `contract_stability` | `public_api_extractor` output. Blocked when extractor absent.   |
 
 Coverage and test rows are attributed to module slugs by matching each file against `module-map.yml`'s `sources:` globs. Files that match no module land in the report's `unattributed_files` list (surfaced to the user as a `MM-ADD` candidate for the reconciler).
 

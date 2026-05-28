@@ -10,13 +10,7 @@
 // The rename in step 2 is the atomic point. If steps 3-4 fail after the
 // rename, the snapshot in step 1 lets the user (or the reconciler) roll back.
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';

@@ -16,14 +16,8 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 import { appendModuleMapEvent } from '@/module-decisions/events.js';
-import {
-  _matchesAnyGlob,
-  readRawModuleMap,
-} from '@/module-map/reconciler.js';
-import type {
-  ModuleHealthMetrics,
-  ModuleHealthProfile,
-} from '@/core/types/planning.js';
+import { _matchesAnyGlob, readRawModuleMap } from '@/module-map/reconciler.js';
+import type { ModuleHealthMetrics, ModuleHealthProfile } from '@/core/types/planning.js';
 import type { StackPackModuleHealthManifest } from '@/core/types/pack.js';
 import { deriveHealthTier, writeModuleHealthProfile } from '@/planning/module-health.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -164,16 +158,10 @@ function rollupTests(
     total += row.total;
     touched = true;
   }
-  return touched
-    ? { passing, failing, total }
-    : { passing: null, failing: null, total: null };
+  return touched ? { passing, failing, total } : { passing: null, failing: null, total: null };
 }
 
-function changeVelocity(
-  projectRoot: string,
-  sources: string[],
-  windowDays: number,
-): number | null {
+function changeVelocity(projectRoot: string, sources: string[], windowDays: number): number | null {
   if (sources.length === 0) return null;
   try {
     const since = `--since=${windowDays}.days.ago`;
@@ -183,10 +171,7 @@ function changeVelocity(
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    return out
-      .split(/\r?\n/)
-      .filter((line) => line.trim().length > 0)
-      .length;
+    return out.split(/\r?\n/).filter((line) => line.trim().length > 0).length;
   } catch {
     return null;
   }
@@ -281,9 +266,7 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
     const t = rollupTests(attributedTests, mod.slug);
     if (t.total === null) {
       blocked.push(
-        testReportPath && testReportFormat
-          ? 'tests:no_matching_files'
-          : 'tests:not_configured',
+        testReportPath && testReportFormat ? 'tests:no_matching_files' : 'tests:not_configured',
       );
     }
 
@@ -363,4 +346,3 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
     },
   };
 }
-

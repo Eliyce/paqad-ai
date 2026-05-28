@@ -4,11 +4,7 @@ import { Command } from 'commander';
 
 import { candidatesNeedingDecision, extractCandidates } from '@/module-decisions/extractor.js';
 import { inferAttribution } from '@/module-decisions/inferencer.js';
-import {
-  expireStaleDecisions,
-  listDecisions,
-  readDecision,
-} from '@/module-decisions/store.js';
+import { expireStaleDecisions, listDecisions, readDecision } from '@/module-decisions/store.js';
 import { loadModuleMap } from '@/onboarding/registry-generator.js';
 
 function readPromptArg(opts: { prompt?: string; promptFile?: string }): string {
@@ -28,11 +24,15 @@ export function createModuleDecisionsCommand(): Command {
     .command('list')
     .description('List all MD-XXXX decisions on disk')
     .option('--project-root <path>', 'Project root', process.cwd())
-    .option('--state <state>', 'Filter by state (proposed | accepted | rejected | expired | superseded | draft)')
+    .option(
+      '--state <state>',
+      'Filter by state (proposed | accepted | rejected | expired | superseded | draft)',
+    )
     .option('--json', 'Emit JSON instead of human-readable output', false)
     .action((options: { projectRoot: string; state?: string; json: boolean }) => {
       const all = listDecisions(options.projectRoot);
-      const filtered = options.state !== undefined ? all.filter((d) => d.state === options.state) : all;
+      const filtered =
+        options.state !== undefined ? all.filter((d) => d.state === options.state) : all;
 
       if (options.json) {
         console.log(JSON.stringify(filtered, null, 2));

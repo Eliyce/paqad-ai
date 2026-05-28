@@ -80,7 +80,9 @@ export function createModuleHealthCommand(): Command {
   // module_health.{coverage,test_report}_{format,path}.
   command
     .command('rollup')
-    .description("Run the test-driven module-health rollup using the active pack's module_health block")
+    .description(
+      "Run the test-driven module-health rollup using the active pack's module_health block",
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--from-report <path>', 'Override coverage report path')
     .option('--from-test-report <path>', 'Override test report path')

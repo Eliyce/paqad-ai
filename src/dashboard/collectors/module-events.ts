@@ -32,9 +32,7 @@ function groupByType(events: ModuleMapEvent[]): Record<string, number> {
   return out;
 }
 
-function lastEventByType(
-  events: ModuleMapEvent[],
-): Partial<Record<ModuleMapEventType, string>> {
+function lastEventByType(events: ModuleMapEvent[]): Partial<Record<ModuleMapEventType, string>> {
   // events.jsonl is append-only chronological; walk from the end so the first
   // hit per type is the latest.
   const out: Partial<Record<ModuleMapEventType, string>> = {};

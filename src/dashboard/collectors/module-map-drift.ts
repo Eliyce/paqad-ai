@@ -9,10 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
-import type {
-  MMFindingCode,
-  ModuleMapDriftReport,
-} from '@/module-map/reconciler.js';
+import type { MMFindingCode, ModuleMapDriftReport } from '@/module-map/reconciler.js';
 
 import { bandForScore } from '../scoring/index.js';
 import type { AttentionItem, SectionData } from '../types.js';

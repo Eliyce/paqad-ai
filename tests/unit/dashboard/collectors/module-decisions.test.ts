@@ -71,9 +71,18 @@ describe('collectModuleDecisions', () => {
   });
 
   it('counts pending separately from expired and produces an attention item per expired entry', () => {
-    writeDecision(root, makeDecision(1, 'proposed', { createdAt: new Date('2026-05-27T00:00:00Z') }));
-    writeDecision(root, makeDecision(2, 'proposed', { createdAt: new Date('2026-05-01T00:00:00Z') }));
-    writeDecision(root, makeDecision(3, 'accepted', { createdAt: new Date('2026-05-15T00:00:00Z') }));
+    writeDecision(
+      root,
+      makeDecision(1, 'proposed', { createdAt: new Date('2026-05-27T00:00:00Z') }),
+    );
+    writeDecision(
+      root,
+      makeDecision(2, 'proposed', { createdAt: new Date('2026-05-01T00:00:00Z') }),
+    );
+    writeDecision(
+      root,
+      makeDecision(3, 'accepted', { createdAt: new Date('2026-05-15T00:00:00Z') }),
+    );
 
     const result = collectModuleDecisions(root, Date.parse('2026-05-28T00:00:00Z'));
     expect(result.section.metrics).toEqual([

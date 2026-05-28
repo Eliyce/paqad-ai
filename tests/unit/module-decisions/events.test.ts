@@ -34,8 +34,16 @@ describe('module-decisions/events', () => {
   });
 
   it('round-trips multiple events', () => {
-    appendModuleMapEvent(root, { ts: '2026-05-28T00:00:00.000Z', type: 'module.declared', slug: 'a' });
-    appendModuleMapEvent(root, { ts: '2026-05-28T01:00:00.000Z', type: 'module.reconciled', slug: 'b' });
+    appendModuleMapEvent(root, {
+      ts: '2026-05-28T00:00:00.000Z',
+      type: 'module.declared',
+      slug: 'a',
+    });
+    appendModuleMapEvent(root, {
+      ts: '2026-05-28T01:00:00.000Z',
+      type: 'module.reconciled',
+      slug: 'b',
+    });
     const events = readModuleMapEvents(root);
     expect(events).toHaveLength(2);
     expect(events[0]?.slug).toBe('a');
@@ -58,15 +66,31 @@ describe('module-decisions/events', () => {
   });
 
   it('readModuleMapEventsSince filters by timestamp', () => {
-    appendModuleMapEvent(root, { ts: '2026-05-28T00:00:00.000Z', type: 'module.declared', slug: 'a' });
-    appendModuleMapEvent(root, { ts: '2026-05-30T00:00:00.000Z', type: 'module.declared', slug: 'b' });
+    appendModuleMapEvent(root, {
+      ts: '2026-05-28T00:00:00.000Z',
+      type: 'module.declared',
+      slug: 'a',
+    });
+    appendModuleMapEvent(root, {
+      ts: '2026-05-30T00:00:00.000Z',
+      type: 'module.declared',
+      slug: 'b',
+    });
     expect(readModuleMapEventsSince(root, '2026-05-29T00:00:00.000Z')).toHaveLength(1);
     expect(readModuleMapEventsSince(root, '2026-05-29T00:00:00.000Z')[0]?.slug).toBe('b');
   });
 
   it('readModuleMapEventsForSlug filters by slug', () => {
-    appendModuleMapEvent(root, { ts: '2026-05-28T00:00:00.000Z', type: 'module.declared', slug: 'a' });
-    appendModuleMapEvent(root, { ts: '2026-05-28T00:01:00.000Z', type: 'module.declared', slug: 'b' });
+    appendModuleMapEvent(root, {
+      ts: '2026-05-28T00:00:00.000Z',
+      type: 'module.declared',
+      slug: 'a',
+    });
+    appendModuleMapEvent(root, {
+      ts: '2026-05-28T00:01:00.000Z',
+      type: 'module.declared',
+      slug: 'b',
+    });
     expect(readModuleMapEventsForSlug(root, 'a')).toHaveLength(1);
     expect(readModuleMapEventsForSlug(root, 'a')[0]?.slug).toBe('a');
   });

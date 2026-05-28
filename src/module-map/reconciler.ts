@@ -9,13 +9,7 @@
 // Hard-fails with `blocked: source_roots_unknown` when the stack pack does
 // not declare module_health.source_roots. No silent fallback (spec AC #17).
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import fg from 'fast-glob';
@@ -233,9 +227,7 @@ function writeDriftReport(projectRoot: string, report: ModuleMapDriftReport): vo
   writeFileSync(path, JSON.stringify(report, null, 2) + '\n', 'utf8');
 }
 
-export async function reconcileModuleMap(
-  opts: ReconcilerOptions,
-): Promise<ModuleMapDriftReport> {
+export async function reconcileModuleMap(opts: ReconcilerOptions): Promise<ModuleMapDriftReport> {
   const now = new Date().toISOString();
   const counts = emptyCounts();
   const findings: MMFinding[] = [];

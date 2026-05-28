@@ -38,7 +38,16 @@ describe('module-decisions/inferencer', () => {
         slug: 'payments',
         name: 'Payments',
         source_paths: ['src/payments/**', 'src/stripe/**'],
-        features: [{ name: 'Stripe Webhooks', slug: 'stripe-webhooks', auto_update_feature_name: false, derivation: 'user', confidence: 'high', source_paths: [] }],
+        features: [
+          {
+            name: 'Stripe Webhooks',
+            slug: 'stripe-webhooks',
+            auto_update_feature_name: false,
+            derivation: 'user',
+            confidence: 'high',
+            source_paths: [],
+          },
+        ],
       }),
       mod({
         slug: 'auth',
@@ -87,7 +96,9 @@ describe('module-decisions/inferencer', () => {
   });
 
   it('always includes both fallback choices in stable order', () => {
-    const m = map([mod({ slug: 'payments', name: 'Payments', source_paths: ['src/payments/stripe.ts'] })]);
+    const m = map([
+      mod({ slug: 'payments', name: 'Payments', source_paths: ['src/payments/stripe.ts'] }),
+    ]);
     const result = inferAttribution({ prompt: 'stripe', moduleMap: m });
     const last2 = result.choices.slice(-2).map((c) => c.kind);
     expect(last2).toEqual(['new-module-fallback', 'no-attribution']);

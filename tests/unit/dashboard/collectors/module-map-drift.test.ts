@@ -33,7 +33,16 @@ describe('collectModuleMapDrift', () => {
       source_roots: [],
       findings: [],
       blocked: 'source_roots_unknown',
-      counts: { 'MM-ADD': 0, 'MM-FEAT-ADD': 0, 'MM-REMOVE': 0, 'MM-RENAME': 0, 'MM-FEAT-STALE': 0, 'MM-DOC-ORPHAN': 0, 'MM-DOC-MISSING': 0, 'MM-MISMATCH': 0 },
+      counts: {
+        'MM-ADD': 0,
+        'MM-FEAT-ADD': 0,
+        'MM-REMOVE': 0,
+        'MM-RENAME': 0,
+        'MM-FEAT-STALE': 0,
+        'MM-DOC-ORPHAN': 0,
+        'MM-DOC-MISSING': 0,
+        'MM-MISMATCH': 0,
+      },
     });
     const result = collectModuleMapDrift(root);
     expect(result.section.band).toBe('unknown');
@@ -47,7 +56,16 @@ describe('collectModuleMapDrift', () => {
       source_roots: ['src'],
       findings: [],
       blocked: null,
-      counts: { 'MM-ADD': 0, 'MM-FEAT-ADD': 0, 'MM-REMOVE': 0, 'MM-RENAME': 0, 'MM-FEAT-STALE': 0, 'MM-DOC-ORPHAN': 0, 'MM-DOC-MISSING': 0, 'MM-MISMATCH': 0 },
+      counts: {
+        'MM-ADD': 0,
+        'MM-FEAT-ADD': 0,
+        'MM-REMOVE': 0,
+        'MM-RENAME': 0,
+        'MM-FEAT-STALE': 0,
+        'MM-DOC-ORPHAN': 0,
+        'MM-DOC-MISSING': 0,
+        'MM-MISMATCH': 0,
+      },
     });
     const result = collectModuleMapDrift(root);
     expect(result.section.score).toBe(100);
@@ -59,13 +77,46 @@ describe('collectModuleMapDrift', () => {
       generated_at: '2026-05-28T00:00:00Z',
       source_roots: ['src'],
       findings: [
-        { code: 'MM-ADD', module_slug: null, feature_slug: null, paths: ['src/a/x.ts'], detail: 'a' },
-        { code: 'MM-ADD', module_slug: null, feature_slug: null, paths: ['src/b/x.ts'], detail: 'b' },
-        { code: 'MM-ADD', module_slug: null, feature_slug: null, paths: ['src/c/x.ts'], detail: 'c' },
-        { code: 'MM-DOC-MISSING', module_slug: 'foo', feature_slug: null, paths: ['docs/modules/foo/'], detail: 'missing' },
+        {
+          code: 'MM-ADD',
+          module_slug: null,
+          feature_slug: null,
+          paths: ['src/a/x.ts'],
+          detail: 'a',
+        },
+        {
+          code: 'MM-ADD',
+          module_slug: null,
+          feature_slug: null,
+          paths: ['src/b/x.ts'],
+          detail: 'b',
+        },
+        {
+          code: 'MM-ADD',
+          module_slug: null,
+          feature_slug: null,
+          paths: ['src/c/x.ts'],
+          detail: 'c',
+        },
+        {
+          code: 'MM-DOC-MISSING',
+          module_slug: 'foo',
+          feature_slug: null,
+          paths: ['docs/modules/foo/'],
+          detail: 'missing',
+        },
       ],
       blocked: null,
-      counts: { 'MM-ADD': 3, 'MM-FEAT-ADD': 0, 'MM-REMOVE': 0, 'MM-RENAME': 0, 'MM-FEAT-STALE': 0, 'MM-DOC-ORPHAN': 0, 'MM-DOC-MISSING': 1, 'MM-MISMATCH': 0 },
+      counts: {
+        'MM-ADD': 3,
+        'MM-FEAT-ADD': 0,
+        'MM-REMOVE': 0,
+        'MM-RENAME': 0,
+        'MM-FEAT-STALE': 0,
+        'MM-DOC-ORPHAN': 0,
+        'MM-DOC-MISSING': 1,
+        'MM-MISMATCH': 0,
+      },
     });
     const result = collectModuleMapDrift(root);
     expect(result.section.score).toBe(68); // 100 - 4*8

@@ -23,13 +23,14 @@ module_health:
     - src
     - lib
   source_globs:
-    - "**/*.ts"
-    - "**/*.tsx"
-  public_api_extractor: null      # optional; enables MM-RENAME
+    - '**/*.ts'
+    - '**/*.tsx'
+  public_api_extractor: null # optional; enables MM-RENAME
   test_command: pnpm test
-  coverage_format: lcov           # one of: lcov, cobertura, coverage-py-xml,
-                                  # gocover, junit-xml, go-json, jacoco,
-                                  # opencover, vitest-json
+  coverage_format:
+    lcov # one of: lcov, cobertura, coverage-py-xml,
+    # gocover, junit-xml, go-json, jacoco,
+    # opencover, vitest-json
   coverage_path: coverage/lcov.info
   test_report_format: junit-xml
   test_report_path: coverage/junit.xml

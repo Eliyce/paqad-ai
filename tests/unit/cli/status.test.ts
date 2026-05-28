@@ -4,11 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  collectDriftSignals,
-  createStatusCommand,
-  driftSignalsTrip,
-} from '@/cli/commands/status';
+import { collectDriftSignals, createStatusCommand, driftSignalsTrip } from '@/cli/commands/status';
 import { writeDecision } from '@/module-decisions/store';
 import { formatDecisionId, ttlExpiresAt } from '@/module-decisions/schema';
 

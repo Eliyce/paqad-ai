@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  candidatesNeedingDecision,
-  extractCandidates,
-} from '@/module-decisions/extractor.js';
+import { candidatesNeedingDecision, extractCandidates } from '@/module-decisions/extractor.js';
 
 describe('module-decisions/extractor', () => {
   const existing = ['cli-lifecycle', 'auth', 'payments'];

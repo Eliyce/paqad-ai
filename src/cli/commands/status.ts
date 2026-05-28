@@ -27,9 +27,8 @@ export interface DriftSignals {
 // the matrix directly.
 export function collectDriftSignals(projectRoot: string): DriftSignals {
   const drift = readDriftReport(projectRoot);
-  const docMissing =
-    drift?.findings.filter((f) => f.code === 'MM-DOC-MISSING').length ?? 0;
-  const mmFindings = driftReportHasFindings(drift) ? drift?.findings.length ?? 0 : 0;
+  const docMissing = drift?.findings.filter((f) => f.code === 'MM-DOC-MISSING').length ?? 0;
+  const mmFindings = driftReportHasFindings(drift) ? (drift?.findings.length ?? 0) : 0;
   const { staleModules } = collectModuleHealth(projectRoot);
   const { expiredIds } = collectModuleDecisions(projectRoot);
   return {

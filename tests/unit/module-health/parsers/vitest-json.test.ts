@@ -29,9 +29,7 @@ describe('module-health/parsers/vitest-json', () => {
 
   it('falls back to num{Passing,Failing}Tests when assertionResults missing', () => {
     const report = JSON.stringify({
-      testResults: [
-        { name: '/x.test.ts', numPassingTests: 4, numFailingTests: 1 },
-      ],
+      testResults: [{ name: '/x.test.ts', numPassingTests: 4, numFailingTests: 1 }],
     });
     expect(parseReport(report).tests).toEqual([
       { file: '/x.test.ts', passing: 4, failing: 1, total: 5 },

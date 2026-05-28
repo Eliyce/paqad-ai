@@ -33,14 +33,7 @@ function lastCommitTouchingSources(
   try {
     const out = execFileSync(
       'git',
-      [
-        'log',
-        '-1',
-        '--format=%cI',
-        `--since=${windowDays}.days.ago`,
-        '--',
-        ...sources,
-      ],
+      ['log', '-1', '--format=%cI', `--since=${windowDays}.days.ago`, '--', ...sources],
       {
         cwd: projectRoot,
         encoding: 'utf8',
@@ -158,11 +151,7 @@ export function collectModuleHealth(
   for (const e of entries) {
     const sources = sourcesBySlug.get(e.module);
     if (sources === undefined || sources.length === 0) continue;
-    const lastCommitIso = lastCommitTouchingSources(
-      projectRoot,
-      sources,
-      STALE_FLAG_WINDOW_DAYS,
-    );
+    const lastCommitIso = lastCommitTouchingSources(projectRoot, sources, STALE_FLAG_WINDOW_DAYS);
     if (lastCommitIso === null) continue;
     const updatedMs = e.updatedAtIso !== null ? Date.parse(e.updatedAtIso) : NaN;
     const commitMs = Date.parse(lastCommitIso);
