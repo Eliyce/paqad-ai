@@ -1,0 +1,7 @@
+interface:
+  display_name: Module Health Rollup
+  short_description: Test-driven module-health rollup. Reads the active stack
+    pack's module_health block, parses coverage / test reports, attributes
+    rows to module slugs via module-map.yml's source globs, and writes
+    .paqad/module-health/<slug>.json with blocked_metrics populated for any
+    signal that could not be computed.
