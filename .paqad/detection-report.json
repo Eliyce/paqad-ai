@@ -116,13 +116,14 @@
       "confidence": "medium"
     }
   ],
-  "timestamp": "2026-05-22T11:38:00.206Z",
+  "timestamp": "2026-05-28T08:30:24.842Z",
   "repository": {
     "selected_root": ".",
     "scan_max_depth": 5,
     "ignored_paths": [
       ".git",
       "coverage",
+      "dist",
       "graph-ui/node_modules",
       "node_modules",
       "tests/unit/adapters/fixtures",

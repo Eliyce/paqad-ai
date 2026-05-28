@@ -15,7 +15,9 @@ Workflow handling:
 
 ## Decision Pause Contract
 
-Before implementing any choice that falls into one of these categories, write a Decision Packet to `.paqad/decisions/pending/D-{N}.json` and stop work. Do not continue until `.paqad/decisions/resolved/D-{N}.json` exists.
+See `.paqad/decision-pause-contract.md` for the full rule, categories, resolution flow, and fallback.
+
+In Codex CLI, prompt the user inline before continuing.
 
 Adapter:
 codex-cli
