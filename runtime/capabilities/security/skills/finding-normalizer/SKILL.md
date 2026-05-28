@@ -23,6 +23,7 @@ Normalizes evidence from docs, tests, runtime checks, and advisory feeds into st
 Finding-id prefixes recognised by the normalizer are listed under `# code-prefix` in `assets/vocabulary.txt`:
 
 - `PEN-*` — pentest findings (security workflow).
+- `DT-*` — design-test findings (design-system audit workflow; issue #76). Categories: `token | component | state | a11y | responsive | motion | copy | performance | documentation-drift`. `token` findings default to **high** severity to surface hard-coded design values (hex literals, raw px/rem, ad-hoc font stacks where a token exists).
 - `MD-*` — prospective module decisions (issue #80, Phase 1). Stored under `.paqad/decisions/module-decisions/<id>.yml`; the consumer is the Attribution Gate, not the pentest workflow. Treat severity/effort/status as advisory only for `MD-*` — the binding state machine lives in `src/module-decisions/schema.ts`.
 
 ## Use This When

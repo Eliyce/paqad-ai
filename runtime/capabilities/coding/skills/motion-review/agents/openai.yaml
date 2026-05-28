@@ -1,0 +1,3 @@
+interface:
+  display_name: Motion Review
+  short_description: Verify animations match motion.md budgets and prefers-reduced-motion is respected.

@@ -1,0 +1,49 @@
+{
+  "tier": "missing | bare | adequate | strong",
+  "files": [
+    {
+      "path": "docs/instructions/design-system/tokens.md",
+      "present": true,
+      "empty": false,
+      "clause_count": 0
+    },
+    {
+      "path": "docs/instructions/design-system/components.md",
+      "present": false,
+      "empty": true,
+      "clause_count": 0
+    },
+    {
+      "path": "docs/instructions/design-system/accessibility.md",
+      "present": false,
+      "empty": true,
+      "clause_count": 0
+    },
+    {
+      "path": "docs/instructions/design-system/responsive.md",
+      "present": false,
+      "empty": true,
+      "clause_count": 0
+    },
+    {
+      "path": "docs/instructions/design-system/motion.md",
+      "present": false,
+      "empty": true,
+      "clause_count": 0
+    },
+    {
+      "path": "docs/instructions/design-system/patterns.md",
+      "present": false,
+      "empty": true,
+      "clause_count": 0
+    }
+  ],
+  "clauses": {
+    "tokens": [],
+    "components": [],
+    "accessibility": [],
+    "responsive": [],
+    "motion": [],
+    "patterns": []
+  }
+}

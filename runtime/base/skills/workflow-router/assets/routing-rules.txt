@@ -4,11 +4,26 @@
 250	pentest-retest	pentest-retest
 250	pentest-retest	retest pentest
 250	pentest-retest	retest security findings
+245	design-retest	design retest
+245	design-retest	design-retest
+245	design-retest	retest design findings
+245	design-retest	retest design
 240	pentest	run a pentest
 240	pentest	run pentest
 240	pentest	penetration test
 240	pentest	security review
 240	pentest	security test
+235	design-test	run design test
+235	design-test	run a design test
+235	design-test	run design check
+235	design-test	design check
+235	design-test	design audit
+235	design-test	ui audit
+235	design-test	design-system audit
+235	design-test	check design system
+235	design-test	validate the ui
+235	design-test	validate design
+235	design-test	design test
 230	root-cause-analysis	root cause analysis
 230	root-cause-analysis	root-cause-analysis
 230	root-cause-analysis	postmortem

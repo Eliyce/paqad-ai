@@ -1,0 +1,3 @@
+interface:
+  display_name: Accessibility Review
+  short_description: WCAG 2.2 A/AA audit driven by axe-core and static checks; every finding cites a WCAG id.

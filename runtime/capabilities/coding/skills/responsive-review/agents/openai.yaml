@@ -1,0 +1,3 @@
+interface:
+  display_name: Responsive Review
+  short_description: Verify declared breakpoints, no horizontal scroll, touch-target minima, and RTL parity when declared.

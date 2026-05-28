@@ -10,10 +10,12 @@ stages:
     read:
       - docs/modules/**
       - docs/instructions/**
+      - docs/instructions/design-system/**
     instructions:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.
       - "Attribution Gate (issue #80): before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. Surface every needs-decision packet via the Decision Pause Contract and await an explicit user response — no silent acceptance. Accepted decisions are applied to module-map.yml via src/module-decisions/apply.ts (the only writer of the map). Only after the gate resolves may planning continue."
+      - "Design-system (issue #76): if the change touches UI, plan against the design system. Identify tokens, components, and states involved. Flag additions that require extending docs/instructions/design-system/* before extending the code. Missing design-system contract degrades planning to bare-minimum mode (warn, not stop)."
     required_inputs:
       - active request
       - canonical docs
@@ -23,6 +25,7 @@ stages:
     escalation:
       missing_docs_context: warn
       attribution_pending: stop
+      missing_design_system: warn
     artifacts:
       - implementation sequence
       - module attribution decisions
@@ -42,6 +45,7 @@ stages:
   specification:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
+      - "Design-system (issue #76): if the feature includes new or changed UI, the spec must declare component states, breakpoints exercised, and the a11y contract (WCAG criteria the change must satisfy). This extends the spec-quality-review rubric — incomplete UI contracts surface as findings during review."
     required_inputs:
       - approved spec boundary
     strictness:
@@ -54,6 +58,7 @@ stages:
   development:
     instructions:
       - Implement only the requested feature behavior and avoid unrelated refactors.
+      - "Design-system (issue #76): when the diff touches UI source, run token-conformance-review and component-conformance-review as pre-review lint (non-blocking at this stage). Hard-coded design values (hex, raw px/rem, ad-hoc font stacks) where a token exists surface as developer-visible DT findings before review."
     required_inputs:
       - approved spec
       - implementation sequence
@@ -67,6 +72,7 @@ stages:
   review:
     instructions:
       - Review the change against correctness, regressions, and rollback risk before treating it as complete.
+      - "Design-system (issue #76): on UI diffs, run ux-heuristic-evaluation and design-system-coverage against the changed surfaces. DT-blocker findings are review-blocking."
     required_inputs:
       - code diff
       - verification summary
@@ -82,6 +88,7 @@ stages:
       - Run the project command checks after implementation and before finalizing the feature.
       - Verify test coverage is 100%
       - "Module-health rollup (issue #80, Phase 3): after format / test / build pass, invoke `paqad-ai module-health rollup` (or `module-health sync --from-report <path>` when CI has already produced a report). The rollup parses the active stack pack's coverage + test reports, attributes rows to module slugs via module-map.yml, and writes .paqad/module-health/<slug>.json with blocked_metrics populated. Surface any rollup-blocked metrics to the user as informational warnings — they're configuration gaps, not decision packets."
+      - "Design-test (issue #76): invoke the design-test runner diff-scoped — only UI files in the diff + routes whose components changed (1-level transitive closure). If contract files (docs/instructions/design-system/*) changed, escalate to whole-app. Block on DT-blocker findings; non-blockers surface as warnings. Strict mode (design_test.strict in paqad.config.{json,yaml}) is explicit opt-in only — never auto-engaged at Strong tier."
     required_inputs:
       - working tree diff
     strictness:
@@ -91,6 +98,7 @@ stages:
     artifacts:
       - verification summary
       - module-health rollup report
+      - design-test report
     checks:
       use_project_profile_commands: true
       commands:
@@ -116,6 +124,7 @@ stages:
   documentation_sync:
     instructions:
       - Sync canonical docs affected by the feature diff after verification passes.
+      - "Design-system (issue #76): when the diff adds a token, component, or breakpoint to source, invoke design-system-sync to propose contract updates to docs/instructions/design-system/*. Proposals are surfaced via the Decision Pause Contract — never auto-applied."
     required_inputs:
       - changed files
     strictness:
