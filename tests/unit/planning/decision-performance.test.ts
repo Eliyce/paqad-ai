@@ -56,7 +56,7 @@ describe('decision performance helpers', () => {
       linked_slice_id: 'SL-1',
       created_at: '2026-04-27T12:00:00Z',
       status: 'pending',
-      ttl_until: '2026-05-27T12:00:00Z',
+      ttl_until: '2099-12-31T12:00:00Z',
       invalidation_watch: ['src/existing.ts', 'docs/instructions/design-system'],
     };
 

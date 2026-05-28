@@ -1,5 +1,11 @@
 [
   {
+    "source": "hooks/agent-entry-gate.sh"
+  },
+  {
+    "source": "hooks/agent-entry-session-start.sh"
+  },
+  {
     "source": "hooks/block-destructive.sh"
   },
   {

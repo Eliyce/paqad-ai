@@ -1,5 +1,5 @@
 {
-  "framework_version": "1.0.2",
+  "framework_version": "1.3.0",
   "adapter": "codex-cli",
   "project_root": ".",
   "profile": {
@@ -120,9 +120,7 @@
       "depth": "standard"
     },
     "intelligence": {
-      "rag_enabled": true,
-      "embedding_provider": "local",
-      "embedding_model": "Xenova/all-MiniLM-L6-v2",
+      "rag_enabled": false,
       "rag_similarity_threshold": 0.75,
       "rag_top_n": 20,
       "rag_max_file_size": 153600,
@@ -297,13 +295,14 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-05-22T11:38:00.206Z",
+    "timestamp": "2026-05-28T08:30:24.842Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
       "ignored_paths": [
         ".git",
         "coverage",
+        "dist",
         "graph-ui/node_modules",
         "node_modules",
         "tests/unit/adapters/fixtures",
@@ -352,6 +351,7 @@
     "ignored_paths": [
       ".git",
       "coverage",
+      "dist",
       "graph-ui/node_modules",
       "node_modules",
       "tests/unit/adapters/fixtures",
@@ -393,7 +393,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-05-22T11:41:29.682Z",
+  "generated_at": "2026-05-28T08:30:36.372Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -417,6 +417,10 @@
     },
     {
       "path": "CLAUDE.md",
+      "auto_update": true
+    },
+    {
+      "path": ".claude/settings.json",
       "auto_update": true
     },
     {
@@ -596,42 +600,42 @@
   "planning_artifacts": {
     "compiled_rules_path": ".paqad/compiled-rules.json",
     "module_health_initialized": [
-      "adapters",
-      "cache",
-      "cli",
-      "compliance",
-      "context",
-      "core",
-      "design-tokens",
-      "detection",
-      "document",
-      "graph",
-      "health",
-      "install",
-      "introspection",
-      "mcp",
-      "module-map",
-      "onboarding",
-      "packs",
-      "patterns",
-      "pentest",
-      "pipeline",
-      "planning",
-      "project-knowledge",
-      "rag",
-      "repository",
-      "resolver",
-      "scripts",
-      "session",
-      "skills",
-      "stack-docs",
-      "templates",
-      "test-output",
-      "token-efficiency",
-      "update",
-      "validators",
-      "verification",
-      "workflows"
+      "cli-lifecycle",
+      "cli-health",
+      "cli-rag",
+      "cli-graph",
+      "cli-dashboard",
+      "cli-packs",
+      "cli-capabilities",
+      "cli-patterns",
+      "cli-compliance",
+      "cli-plan",
+      "adapter-onboarding",
+      "documentation-workflow",
+      "pentest-workflow",
+      "feature-development-workflow",
+      "root-cause-analysis-workflow",
+      "agent-routing",
+      "stack-detection-engine",
+      "pack-system",
+      "capability-model",
+      "workflow-engine",
+      "skill-runtime",
+      "agent-runtime",
+      "rules-runtime",
+      "template-engine",
+      "context-intelligence",
+      "hybrid-rag",
+      "mcp-config",
+      "module-map-engine",
+      "module-health-ledger",
+      "session-handoff",
+      "decision-pause-contract",
+      "pattern-library",
+      "compliance-engine",
+      "pentest-engine",
+      "project-profile-schema",
+      "repository-resolver"
     ],
     "classifier_config_path": ".paqad/classifier-config.json"
   }

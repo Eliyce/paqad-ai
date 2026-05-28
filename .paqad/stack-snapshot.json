@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-22T11:38:00.164Z",
+  "generated_at": "2026-05-28T08:30:24.800Z",
   "source_hashes": {
     "graph-ui/package.json": "sha256:a98677c6d4360ee9214797c076d058e69b4f722e2d91bfa51f8deccab379c0d8",
-    "graph-ui/pnpm-lock.yaml": "sha256:25a49c3d60aa103845eeb726ca30fa2b06126f1ccd2b433b2f95bd9e1a0a4046",
-    "package.json": "sha256:ef911e8bf928c3370cc0017abc0be8491740984508d1fc68ddf196bf3dbd5852",
-    "pnpm-lock.yaml": "sha256:de8cdab20a95a7ba486f18f09cd40fb59be0affc2e517cf38b54f0c181f4c6d4"
+    "graph-ui/pnpm-lock.yaml": "sha256:1a5ef75116c9a3ee61a3481375831c7d0f4c3747b36c3ffb1c4593e7fc826d3f",
+    "package.json": "sha256:dc3fc1efd6fac083abb9058726a9fe511eb173356bced485b892ec310c3d964b",
+    "pnpm-lock.yaml": "sha256:7b888be264fe3c7bf4cd17ce56ff1a1d6080773b370bfe755facc6c22dd2274e"
   },
   "toolchains": [
     {
@@ -30,33 +30,41 @@
   ],
   "packages": [
     {
+      "name": "@changesets/changelog-github",
+      "version_constraint": "^0.7.0",
+      "locked_version": "^0.7.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
       "name": "@changesets/cli",
-      "version_constraint": "^2.29.7",
-      "locked_version": "^2.29.7",
+      "version_constraint": "^2.31.0",
+      "locked_version": "^2.31.0",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "@eslint/js",
-      "version_constraint": "^9.36.0",
-      "locked_version": "^9.36.0",
+      "version_constraint": "^10.0.1",
+      "locked_version": "^10.0.1",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "@inquirer/prompts",
-      "version_constraint": "^7.3.3",
-      "locked_version": "^7.3.3",
+      "version_constraint": "^8.4.3",
+      "locked_version": "^8.4.3",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
     },
     {
       "name": "@types/node",
-      "version_constraint": "^24.5.2",
-      "locked_version": "^24.5.2",
+      "version_constraint": "^25.9.1",
+      "locked_version": "^25.9.1",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -79,8 +87,8 @@
     },
     {
       "name": "ajv",
-      "version_constraint": "^8.17.1",
-      "locked_version": "^8.17.1",
+      "version_constraint": "^8.20.0",
+      "locked_version": "^8.20.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
@@ -103,8 +111,8 @@
     },
     {
       "name": "eslint",
-      "version_constraint": "^9.36.0",
-      "locked_version": "^9.36.0",
+      "version_constraint": "^10.4.0",
+      "locked_version": "^10.4.0",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -127,40 +135,40 @@
     },
     {
       "name": "globals",
-      "version_constraint": "^16.4.0",
-      "locked_version": "^16.4.0",
+      "version_constraint": "^17.6.0",
+      "locked_version": "^17.6.0",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "handlebars",
-      "version_constraint": "^4.7.8",
-      "locked_version": "^4.7.8",
+      "version_constraint": "^4.7.9",
+      "locked_version": "^4.7.9",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
     },
     {
       "name": "markdownlint-cli2",
-      "version_constraint": "^0.18.1",
-      "locked_version": "^0.18.1",
+      "version_constraint": "^0.22.1",
+      "locked_version": "^0.22.1",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "openai",
-      "version_constraint": "^6.33.0",
-      "locked_version": "^6.33.0",
+      "version_constraint": "^6.39.0",
+      "locked_version": "^6.39.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
     },
     {
       "name": "ora",
-      "version_constraint": "^8.2.0",
-      "locked_version": "^8.2.0",
+      "version_constraint": "^9.4.0",
+      "locked_version": "^9.4.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
@@ -175,8 +183,8 @@
     },
     {
       "name": "prettier",
-      "version_constraint": "^3.6.2",
-      "locked_version": "^3.6.2",
+      "version_constraint": "^3.8.3",
+      "locked_version": "^3.8.3",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -191,16 +199,16 @@
     },
     {
       "name": "typescript",
-      "version_constraint": "^5.9.2",
-      "locked_version": "^5.9.2",
+      "version_constraint": "^6.0.3",
+      "locked_version": "^6.0.3",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "typescript-eslint",
-      "version_constraint": "^8.44.1",
-      "locked_version": "^8.44.1",
+      "version_constraint": "^8.59.4",
+      "locked_version": "^8.59.4",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -223,40 +231,48 @@
     },
     {
       "name": "yaml",
-      "version_constraint": "^2.8.1",
-      "locked_version": "^2.8.1",
+      "version_constraint": "^2.9.0",
+      "locked_version": "^2.9.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
     },
     {
+      "name": "@changesets/changelog-github",
+      "version_constraint": "^0.7.0",
+      "locked_version": "^0.7.0",
+      "ecosystem": "node",
+      "is_dev": true,
+      "root": "."
+    },
+    {
       "name": "@changesets/cli",
-      "version_constraint": "^2.29.7",
-      "locked_version": "^2.29.7",
+      "version_constraint": "^2.31.0",
+      "locked_version": "^2.31.0",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "@eslint/js",
-      "version_constraint": "^9.36.0",
-      "locked_version": "^9.36.0",
+      "version_constraint": "^10.0.1",
+      "locked_version": "^10.0.1",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "@inquirer/prompts",
-      "version_constraint": "^7.3.3",
-      "locked_version": "^7.3.3",
+      "version_constraint": "^8.4.3",
+      "locked_version": "^8.4.3",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
     },
     {
       "name": "@types/node",
-      "version_constraint": "^24.5.2",
-      "locked_version": "^24.5.2",
+      "version_constraint": "^25.9.1",
+      "locked_version": "^25.9.1",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -279,8 +295,8 @@
     },
     {
       "name": "ajv",
-      "version_constraint": "^8.17.1",
-      "locked_version": "^8.17.1",
+      "version_constraint": "^8.20.0",
+      "locked_version": "^8.20.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
@@ -303,8 +319,8 @@
     },
     {
       "name": "eslint",
-      "version_constraint": "^9.36.0",
-      "locked_version": "^9.36.0",
+      "version_constraint": "^10.4.0",
+      "locked_version": "^10.4.0",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -327,40 +343,40 @@
     },
     {
       "name": "globals",
-      "version_constraint": "^16.4.0",
-      "locked_version": "^16.4.0",
+      "version_constraint": "^17.6.0",
+      "locked_version": "^17.6.0",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "handlebars",
-      "version_constraint": "^4.7.8",
-      "locked_version": "^4.7.8",
+      "version_constraint": "^4.7.9",
+      "locked_version": "^4.7.9",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
     },
     {
       "name": "markdownlint-cli2",
-      "version_constraint": "^0.18.1",
-      "locked_version": "^0.18.1",
+      "version_constraint": "^0.22.1",
+      "locked_version": "^0.22.1",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "openai",
-      "version_constraint": "^6.33.0",
-      "locked_version": "^6.33.0",
+      "version_constraint": "^6.39.0",
+      "locked_version": "^6.39.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
     },
     {
       "name": "ora",
-      "version_constraint": "^8.2.0",
-      "locked_version": "^8.2.0",
+      "version_constraint": "^9.4.0",
+      "locked_version": "^9.4.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
@@ -375,8 +391,8 @@
     },
     {
       "name": "prettier",
-      "version_constraint": "^3.6.2",
-      "locked_version": "^3.6.2",
+      "version_constraint": "^3.8.3",
+      "locked_version": "^3.8.3",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -391,16 +407,16 @@
     },
     {
       "name": "typescript",
-      "version_constraint": "^5.9.2",
-      "locked_version": "^5.9.2",
+      "version_constraint": "^6.0.3",
+      "locked_version": "^6.0.3",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
     },
     {
       "name": "typescript-eslint",
-      "version_constraint": "^8.44.1",
-      "locked_version": "^8.44.1",
+      "version_constraint": "^8.59.4",
+      "locked_version": "^8.59.4",
       "ecosystem": "node",
       "is_dev": true,
       "root": "."
@@ -423,8 +439,8 @@
     },
     {
       "name": "yaml",
-      "version_constraint": "^2.8.1",
-      "locked_version": "^2.8.1",
+      "version_constraint": "^2.9.0",
+      "locked_version": "^2.9.0",
       "ecosystem": "node",
       "is_dev": false,
       "root": "."
@@ -714,6 +730,7 @@
     "ignored_paths": [
       ".git",
       "coverage",
+      "dist",
       "graph-ui/node_modules",
       "node_modules",
       "tests/unit/adapters/fixtures",

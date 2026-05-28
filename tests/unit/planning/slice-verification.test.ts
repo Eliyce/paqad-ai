@@ -479,7 +479,7 @@ describe('slice verification helpers', () => {
             responded_by: 'haider',
             carry_over_scope: 'none' as const,
           },
-          ttl_until: '2026-05-27T12:00:00Z',
+          ttl_until: '2099-12-31T12:00:00Z',
           invalidation_watch: [],
         },
       ];

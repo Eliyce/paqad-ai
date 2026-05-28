@@ -5,6 +5,7 @@ import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
 
 const AGENT_ENTRY_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-gate.sh';
+const AGENT_ENTRY_PROMPT_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-prompt-gate.sh';
 const AGENT_ENTRY_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-session-start.sh';
 
 export class ClaudeCodeAdapter extends BaseAdapter {
@@ -83,6 +84,11 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
       {
         matcher: 'Edit|Write|NotebookEdit',
         hooks: [{ type: 'command', command: AGENT_ENTRY_GATE_SCRIPT }],
+      },
+    ]),
+    UserPromptSubmit: mergeHookList(hooks.UserPromptSubmit, [
+      {
+        hooks: [{ type: 'command', command: AGENT_ENTRY_PROMPT_GATE_SCRIPT }],
       },
     ]),
     SessionStart: mergeHookList(hooks.SessionStart, [

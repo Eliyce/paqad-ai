@@ -25,5 +25,6 @@ scripts/__pycache__/
 .paqad/pentest/
 .paqad/theme/
 .paqad/secrets.env
+.paqad/.agent-entry-loaded
 docs/tracker/
 .test-plan-log.json
