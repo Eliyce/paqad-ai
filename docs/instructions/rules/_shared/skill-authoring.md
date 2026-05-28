@@ -58,6 +58,7 @@ Every script in `scripts/` follows this contract. The agentskills.io guidance is
 - **awk's `match()` is case-sensitive even when grep used `-i`.** If you matched case-insensitively in grep, you must lowercase both sides in awk before calling `match()`, then map `RSTART`/`RLENGTH` back onto the original casing for reporting.
 - **`read` drops the last line when there's no trailing newline.** Always write `while IFS= ... read -r x || [ -n "${x:-}" ]; do ...; done` so a one-line input doesn't get silently skipped.
 - **`set -euo pipefail`** at the top of every script. Pair with `|| true` on any subshell whose non-zero exit is non-fatal (e.g. `grep` that finds nothing).
+- **`[A-Z]` / `[a-z]` ranges are locale-dependent.** On some POSIX locales (seen on GitHub's macOS runner) `[A-Z]` collates as `aBcDeF...` and matches lowercase too. When the filter is meant to be "uppercase only" or "lowercase only", use an explicit byte set (`[ABCDEFGHIJKLMNOPQRSTUVWXYZ]`). `[A-Za-z]` is safe because it already covers both cases. This applies to **both bash `case` patterns and awk regexes**.
 - **Don't shell out for what `awk` already does.** Each subprocess is a real cost when the agent runs the script across hundreds of files.
 - **Inline comments document each workaround.** If a future contributor sees `[^class]?foo` and thinks "that's wrong, it should be `(^|[^class])foo`", they will revert the fix and break CI. The comment is load-bearing.
 

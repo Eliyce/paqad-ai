@@ -45,8 +45,10 @@ printf '%s\n' "$body" | awk '
     if (base == "index.ts" || base == "index.tsx" || base == "index.js" || base == "index.jsx") next
     name = base
     sub(/\.[^.]+$/, "", name)
+    # `[A-Z]` is locale-dependent in awk on some POSIX locales (collates as
+    # `aBcDeF...` and matches lowercase too). Use an explicit byte set.
     first = substr(name, 1, 1)
-    if (first ~ /[A-Z]/) {
+    if (first ~ /[ABCDEFGHIJKLMNOPQRSTUVWXYZ]/) {
       printf "%s\t%s\n", name, path
     }
   }

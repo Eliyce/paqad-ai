@@ -48,7 +48,9 @@ awk '
     name = ""; variants = ""; states = ""
   }
   # H2 heading marks a new component. Format: `## Name`.
-  /^##[[:space:]]+[A-Z][A-Za-z0-9_-]*[[:space:]]*$/ {
+  # `[A-Z]` is locale-dependent in awk; use an explicit byte set so a `## foo`
+  # heading never accidentally registers as a component on POSIX runners.
+  /^##[[:space:]]+[ABCDEFGHIJKLMNOPQRSTUVWXYZ][A-Za-z0-9_-]*[[:space:]]*$/ {
     flush()
     name = $0
     sub(/^##[[:space:]]+/, "", name)

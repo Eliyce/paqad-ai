@@ -46,9 +46,12 @@ find "$root" -type f \( \
       base=$(basename "$f")
       name="${base%.*}"
       # Component names start with uppercase. Reject lower-case helpers.
+      # NOTE: `[A-Z]` is locale-dependent — on some POSIX locales it collates
+      # as `aBcDeF...` and matches lowercase too. Use an explicit byte set so
+      # the filter is identical on every CI runner.
       first="${name:0:1}"
       case "$first" in
-        [A-Z]) printf '%s\t%s\n' "$name" "$f" ;;
+        [ABCDEFGHIJKLMNOPQRSTUVWXYZ]) printf '%s\t%s\n' "$name" "$f" ;;
         *) printf 'note: skipping non-component file: %s\n' "$f" >&2 ;;
       esac
     done
