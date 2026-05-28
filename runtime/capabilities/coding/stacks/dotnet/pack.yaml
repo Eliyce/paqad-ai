@@ -71,3 +71,14 @@ docs:
   conventions_template: rules/conventions.md
 rag:
   exclude_directories: ['bin', 'obj', '.vs', 'packages', 'TestResults', 'publish', 'artifacts']
+module_health:
+  source_roots:
+    - src
+  source_globs: []
+  public_api_extractor: null
+  test_command: dotnet test
+  coverage_format: opencover
+  coverage_path: coverage.opencover.xml
+  test_report_format: junit-xml
+  test_report_path: TestResults/junit.xml
+  git_window_days: 14

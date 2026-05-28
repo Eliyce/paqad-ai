@@ -48,3 +48,15 @@ test_runners:
     output_path_pattern: '{build/test-results/test/*.xml,target/surefire-reports/*.xml}'
 docs:
   conventions_template: rules/conventions.md
+module_health:
+  source_roots:
+    - src/main/java
+    - src/main/kotlin
+  source_globs: []
+  public_api_extractor: null
+  test_command: mvn test
+  coverage_format: jacoco
+  coverage_path: target/site/jacoco/jacoco.xml
+  test_report_format: junit-xml
+  test_report_path: target/surefire-reports
+  git_window_days: 14

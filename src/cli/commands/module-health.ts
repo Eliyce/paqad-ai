@@ -1,5 +1,7 @@
 import { Command } from 'commander';
 
+import { discoverModuleHealth } from '@/module-map/source-roots.js';
+import { rollupModuleHealth } from '@/module-health/rollup.js';
 import {
   createEvidence,
   persistEvidence,
@@ -19,6 +21,14 @@ export function createModuleHealthCommand(): Command {
     .option('--source <source>', 'Evidence source', 'provider-hook')
     .option('--silent', 'Suppress normal output', false)
     .option('--preflight', 'Run as a bounded classification preflight', false)
+    .option(
+      '--from-report <path>',
+      'Run the test-driven rollup using <path> as the coverage report instead of replaying evidence.',
+    )
+    .option(
+      '--from-test-report <path>',
+      'Run the test-driven rollup using <path> as the test report (junit-xml / go-json / vitest-json).',
+    )
     .action(
       async (options: {
         projectRoot: string;
@@ -27,7 +37,29 @@ export function createModuleHealthCommand(): Command {
         source: ModuleHealthEvidence['source'];
         silent: boolean;
         preflight: boolean;
+        fromReport?: string;
+        fromTestReport?: string;
       }) => {
+        // Issue #80 Phase 3 (spec AC #25): --from-report routes through the
+        // test-driven rollup engine instead of the session-evidence pipeline.
+        // The two paths are deliberately separate — session evidence carries
+        // diff context, rollup carries report context; mixing them would
+        // collapse two distinct signals onto one profile.
+        if (options.fromReport || options.fromTestReport) {
+          const discovered = discoverModuleHealth(options.projectRoot);
+          const report = await rollupModuleHealth({
+            projectRoot: options.projectRoot,
+            moduleHealth: discovered.module_health,
+            coverageReportPath: options.fromReport,
+            testReportPath: options.fromTestReport,
+          });
+          if (!options.silent) {
+            console.log(JSON.stringify(report, null, 2));
+          }
+          process.exitCode = report.blocked === null ? 0 : 1;
+          return;
+        }
+
         const result = await syncModuleHealth({
           projectRoot: options.projectRoot,
           provider: options.provider,
@@ -40,6 +72,39 @@ export function createModuleHealthCommand(): Command {
           console.log(JSON.stringify(result, null, 2));
         }
         process.exitCode = 0;
+      },
+    );
+
+  // Issue #80 Phase 3 (spec AC #22-#26) — paqad-ai module-health rollup runs
+  // the test-driven rollup engine using the active stack pack's
+  // module_health.{coverage,test_report}_{format,path}.
+  command
+    .command('rollup')
+    .description(
+      "Run the test-driven module-health rollup using the active pack's module_health block",
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--from-report <path>', 'Override coverage report path')
+    .option('--from-test-report <path>', 'Override test report path')
+    .option('--silent', 'Suppress normal output', false)
+    .action(
+      async (options: {
+        projectRoot: string;
+        fromReport?: string;
+        fromTestReport?: string;
+        silent: boolean;
+      }) => {
+        const discovered = discoverModuleHealth(options.projectRoot);
+        const report = await rollupModuleHealth({
+          projectRoot: options.projectRoot,
+          moduleHealth: discovered.module_health,
+          coverageReportPath: options.fromReport,
+          testReportPath: options.fromTestReport,
+        });
+        if (!options.silent) {
+          console.log(JSON.stringify(report, null, 2));
+        }
+        process.exitCode = report.blocked === null ? 0 : 1;
       },
     );
 

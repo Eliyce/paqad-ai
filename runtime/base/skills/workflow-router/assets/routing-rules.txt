@@ -14,6 +14,11 @@
 230	root-cause-analysis	postmortem
 230	root-cause-analysis	post mortem
 230	root-cause-analysis	incident analysis
+225	module-map-reconcile	reconcile module map
+225	module-map-reconcile	refresh module map
+225	module-map-reconcile	update module map
+225	module-map-reconcile	check module map
+225	module-map-reconcile	module map drift
 225	module-documentation	create module documentation
 225	module-documentation	generate module docs
 225	module-documentation	create per-module docs

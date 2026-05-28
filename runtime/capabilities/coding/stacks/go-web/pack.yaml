@@ -47,3 +47,14 @@ test_runners:
     default_command: go test ./...
 docs:
   conventions_template: rules/conventions.md
+module_health:
+  source_roots:
+    - .
+  source_globs: []
+  public_api_extractor: null
+  test_command: go test ./...
+  coverage_format: gocover
+  coverage_path: coverage.out
+  test_report_format: go-json
+  test_report_path: test-output.json
+  git_window_days: 14

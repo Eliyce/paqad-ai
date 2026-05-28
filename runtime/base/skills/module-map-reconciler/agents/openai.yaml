@@ -1,0 +1,5 @@
+interface:
+  display_name: Module Map Reconciler
+  short_description: Retrospective reconciler that scans the source tree against
+    module-map.yml + docs/modules/, emits MM-* findings, and surfaces
+    user-approvable deltas via the Decision Pause Contract.

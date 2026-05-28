@@ -348,6 +348,13 @@ export interface ModuleHealthMetrics {
   defect_frequency?: number | null;
   contract_stability?: number | null;
   change_velocity?: number | null;
+  // Issue #80, Phase 3 — test-driven rollup adds raw counts alongside the
+  // existing coverage / stability fields. Null when the rollup ran but the
+  // parser produced no signal for the module; populated in `blocked_metrics`
+  // with a reason when the rollup was unable to compute the value at all.
+  tests_passing?: number | null;
+  tests_failing?: number | null;
+  tests_total?: number | null;
 }
 
 export interface ModuleHealthProfile {
@@ -355,6 +362,12 @@ export interface ModuleHealthProfile {
   module: string;
   tier: HealthTier;
   metrics: ModuleHealthMetrics;
+  // Issue #80, Phase 3 — populated by the rollup runner. Each entry names a
+  // metric that could not be computed plus the reason (e.g.
+  // `contract_stability: no_public_api_extractor`). No metric is fabricated
+  // or zeroed when a signal is missing; it is set to null and the reason
+  // recorded here.
+  blocked_metrics?: string[];
   evidence?: {
     last_event_id?: string;
     last_provider?: string;
@@ -362,6 +375,18 @@ export interface ModuleHealthProfile {
     last_verification_status?: 'pass' | 'fail' | 'partial' | 'unknown';
     last_changed_files?: string[];
     processed_event_ids?: string[];
+    // Phase 3 rollup adds a structured snapshot of the inputs that produced
+    // the current metrics. Optional so existing planning-evidence consumers
+    // keep working unchanged.
+    rollup?: {
+      coverage_format?: string;
+      coverage_path?: string;
+      test_report_format?: string;
+      test_report_path?: string;
+      git_window_days?: number;
+      ran_at?: string;
+      source?: 'rollup' | 'from-report';
+    };
   };
   history?: {
     lookback_days?: number;

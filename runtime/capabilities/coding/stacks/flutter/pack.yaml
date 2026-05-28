@@ -53,3 +53,14 @@ test_runners:
 docs:
   overview_template: rules/foundation/guide.md
   conventions_template: rules/conventions/guide.md
+module_health:
+  source_roots:
+    - lib
+  source_globs: []
+  public_api_extractor: null
+  test_command: flutter test
+  coverage_format: lcov
+  coverage_path: coverage/lcov.info
+  test_report_format: junit-xml
+  test_report_path: test-results.xml
+  git_window_days: 14

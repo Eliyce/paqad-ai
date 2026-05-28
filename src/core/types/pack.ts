@@ -94,6 +94,22 @@ export interface StackPackRagManifest {
   basename_includes?: string[];
 }
 
+// Issue #80, Phase 2/3. Reconciler reads source_roots; rollup reads the rest.
+// Every shipped pack should declare this in Phase 3. When absent, the
+// reconciler hard-fails with `blocked: source_roots_unknown` (spec AC #17).
+export interface StackPackModuleHealthManifest {
+  source_roots: string[];
+  source_globs?: string[];
+  public_api_extractor?: string | null;
+  test_command?: string;
+  coverage_format?: string;
+  coverage_path?: string;
+  test_report_format?: string;
+  test_report_path?: string;
+  // Optional override for the 14-day git activity window.
+  git_window_days?: number;
+}
+
 export interface StackPackManifest {
   name: string;
   display_name: string;
@@ -123,6 +139,7 @@ export interface StackPackManifest {
   test_runners?: StackPackTestRunner[];
   docs?: StackPackDocsManifest;
   rag?: StackPackRagManifest;
+  module_health?: StackPackModuleHealthManifest;
 }
 
 export interface PackValidationIssue {

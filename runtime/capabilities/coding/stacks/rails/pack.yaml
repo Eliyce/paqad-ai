@@ -47,3 +47,15 @@ test_runners:
     default_command: bundle exec rspec
 docs:
   conventions_template: rules/conventions.md
+module_health:
+  source_roots:
+    - app
+    - lib
+  source_globs: []
+  public_api_extractor: null
+  test_command: bundle exec rspec
+  coverage_format: lcov
+  coverage_path: coverage/lcov.info
+  test_report_format: junit-xml
+  test_report_path: tmp/test-results/junit.xml
+  git_window_days: 14

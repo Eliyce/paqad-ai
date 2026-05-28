@@ -7,8 +7,11 @@ import { collectArchitecture } from './collectors/architecture.js';
 import { collectDecisions } from './collectors/decisions.js';
 import { collectFrameworkVersion } from './collectors/framework-version.js';
 import { collectInstructionsAreas } from './collectors/instructions-areas.js';
+import { collectModuleDecisions } from './collectors/module-decisions.js';
 import { collectModuleDocs } from './collectors/module-docs.js';
+import { collectModuleEvents } from './collectors/module-events.js';
 import { collectModuleHealth } from './collectors/module-health.js';
+import { collectModuleMapDrift } from './collectors/module-map-drift.js';
 import { collectPentest } from './collectors/pentest.js';
 import { collectProjectProfile } from './collectors/project-profile.js';
 import { collectRagStatus } from './collectors/rag-status.js';
@@ -92,6 +95,12 @@ export function buildReport(
     root,
     now,
   );
+  const { section: moduleMapDriftSection, attention: moduleMapDriftAttention } =
+    collectModuleMapDrift(root);
+  const { section: moduleDecisionsSection, attention: moduleDecisionsAttention } =
+    collectModuleDecisions(root, now);
+  const { section: moduleEventsSection, attention: moduleEventsAttention } =
+    collectModuleEvents(root);
   const rulesSection = collectRules(root, now);
   const workflowsSection = collectWorkflows(root, now);
   const moduleDocsSection = collectModuleDocs(root, now);
@@ -108,6 +117,9 @@ export function buildReport(
     decisionsSection,
     moduleHealthSection,
     moduleDocsSection,
+    moduleMapDriftSection,
+    moduleDecisionsSection,
+    moduleEventsSection,
     architectureSection,
     ...areaSections,
     stackDriftSection,
@@ -120,6 +132,9 @@ export function buildReport(
   const allAttention: AttentionItem[] = [
     ...decisionsAttention,
     ...moduleHealthAttention,
+    ...moduleMapDriftAttention,
+    ...moduleDecisionsAttention,
+    ...moduleEventsAttention,
     ...stackDriftAttention,
     ...pentestAttention,
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

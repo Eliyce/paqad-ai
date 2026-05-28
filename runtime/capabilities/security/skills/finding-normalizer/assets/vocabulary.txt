@@ -18,3 +18,10 @@ wont-fix
 blocked
 retest-pass
 retest-fail
+
+# code-prefix
+# Finding-id prefixes the normalizer recognises. Each prefix scopes which
+# downstream workflow consumes the finding. Extending this set is a framework
+# PR — no project-side codes.
+PEN-      # pentest findings (security workflow)
+MD-       # prospective module decisions (issue #80, Phase 1; .paqad/decisions/module-decisions/)

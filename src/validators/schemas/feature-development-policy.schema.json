@@ -53,6 +53,19 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "attribution_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pipeline": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
         "checks": {
           "type": "object",
           "additionalProperties": false,
@@ -79,6 +92,18 @@
               "items": { "type": "string" }
             },
             "block_on_failure": { "type": "boolean" }
+          }
+        },
+        "module_health_rollup": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "command": { "type": "string" },
+            "escalation": {
+              "type": "string",
+              "enum": ["warn", "ask", "stop"]
+            }
           }
         }
       }

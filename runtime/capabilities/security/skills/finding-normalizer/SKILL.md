@@ -18,7 +18,12 @@ input_schema:
 
 ## What It Does
 
-Normalizes evidence from docs, tests, runtime checks, and advisory feeds into stable pentest finding entries with consistent ids, severity, effort, and reproduction data.
+Normalizes evidence from docs, tests, runtime checks, and advisory feeds into stable finding entries with consistent ids, severity, effort, and reproduction data.
+
+Finding-id prefixes recognised by the normalizer are listed under `# code-prefix` in `assets/vocabulary.txt`:
+
+- `PEN-*` — pentest findings (security workflow).
+- `MD-*` — prospective module decisions (issue #80, Phase 1). Stored under `.paqad/decisions/module-decisions/<id>.yml`; the consumer is the Attribution Gate, not the pentest workflow. Treat severity/effort/status as advisory only for `MD-*` — the binding state machine lives in `src/module-decisions/schema.ts`.
 
 ## Use This When
 

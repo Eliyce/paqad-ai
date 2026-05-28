@@ -118,3 +118,14 @@ test_runners:
 docs:
   overview_template: rules/foundation/guide.md
   conventions_template: rules/conventions/guide.md
+module_health:
+  source_roots:
+    - app
+  source_globs: []
+  public_api_extractor: null
+  test_command: php artisan test
+  coverage_format: lcov
+  coverage_path: coverage/lcov.info
+  test_report_format: junit-xml
+  test_report_path: junit.xml
+  git_window_days: 14
