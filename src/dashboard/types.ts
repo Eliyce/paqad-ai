@@ -19,6 +19,8 @@ export const DASHBOARD_SECTION_IDS = [
   'decisions',
   'module-health',
   'module-map-drift',
+  'module-decisions',
+  'module-events',
   'stack-drift',
   'rules',
   'workflows',
