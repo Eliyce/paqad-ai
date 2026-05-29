@@ -12,6 +12,7 @@ import {
   addRule,
   applyRuleScriptMap,
   archiveRule,
+  cleanRuleText,
   editRuleText,
   loadRuleScriptMap,
   removeRuleBullet,
@@ -58,9 +59,8 @@ switch (mode) {
     if (!located) fail(`rule ${a} not found on disk`);
     // Keep the map in sync in the same operation: new text + hash, stale
     // scripts cleared. The skill then regenerates this rule's scripts. Uses the
-    // same clean-text formula as editRuleText so the hash matches what analyze
-    // would compute.
-    const clean = b.trim().replace(/^[-*]\s+/, '');
+    // shared cleanRuleText helper so the hash matches editRuleText's on-disk text.
+    const clean = cleanRuleText(b);
     const result = applyMapMutation(
       (m) => setRuleText(m, a, clean, ruleTextHash(clean)),
       a,

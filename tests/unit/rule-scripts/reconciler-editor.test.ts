@@ -175,6 +175,29 @@ describe('recordConflictFindings (B-2)', () => {
     const cleared = recordConflictFindings(root, []);
     expect(cleared.counts['RS-CONFLICT']).toBe(0);
   });
+
+  it('a subsequent reconcile preserves recorded conflicts (C-1)', () => {
+    const { root, file } = syncedProject();
+    recordConflictFindings(root, [{ rule_ids: ['RL-aaaa', 'RL-bbbb'], message: 'contradiction' }]);
+
+    // An unrelated planning-entry reconcile must NOT clobber the conflict.
+    reconcileRuleScripts(root);
+    expect(readDrift(root)?.findings.some((f) => f.code === 'RS-CONFLICT')).toBe(true);
+    expect(readDrift(root)?.blocked).toBe(true);
+
+    // And a reconcile that finds its own drift keeps the conflict alongside it.
+    const current = readFileSync(join(root, file), 'utf8');
+    writeFileSync(join(root, file), `${current}- An unmarked rule.\n`, 'utf8');
+    const report = reconcileRuleScripts(root);
+    expect(report.counts['RS-CONFLICT']).toBe(1);
+    expect(report.counts['RS-RULE-ADDED']).toBe(1);
+  });
+
+  it('ignores malformed conflicts with empty rule_ids', () => {
+    const { root } = syncedProject();
+    const report = recordConflictFindings(root, [{ rule_ids: [], message: 'bad' }]);
+    expect(report.counts['RS-CONFLICT']).toBe(0);
+  });
 });
 
 describe('pruneOrphanScripts (B-3)', () => {

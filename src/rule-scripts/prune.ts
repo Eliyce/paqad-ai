@@ -8,7 +8,7 @@
 // the "one cycle" grace period.
 
 import { existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import fg from 'fast-glob';
 
@@ -26,6 +26,8 @@ export function pruneOrphanScripts(projectRoot: string, map: RuleScriptMap): str
   }
 
   const referenced = new Set(map.rules.flatMap((r) => r.scripts.map((s) => s.path)));
+  // cwd is already .paqad/scripts/rules, so these ignores match its own
+  // .cache/ and .history/ subtrees.
   const found = fg.sync('**/*.mjs', {
     cwd: baseAbs,
     onlyFiles: true,
@@ -39,12 +41,16 @@ export function pruneOrphanScripts(projectRoot: string, map: RuleScriptMap): str
       continue;
     }
     rmSync(join(projectRoot, rel), { force: true });
-    // The sibling fixtures directory is named after the script (sans .mjs).
-    const fixturesDir = join(projectRoot, rel.replace(/\.mjs$/, ''));
-    if (existsSync(fixturesDir)) {
-      rmSync(fixturesDir, { recursive: true, force: true });
+    // The script's fixtures live at <script-stem>/__fixtures__/. Only remove
+    // that stem directory when it actually holds a __fixtures__ subtree — a
+    // misnamed script whose stem collides with a directory holding OTHER active
+    // scripts must never take its siblings down with it.
+    const stemDir = join(projectRoot, rel.replace(/\.mjs$/, ''));
+    if (existsSync(join(stemDir, '__fixtures__'))) {
+      rmSync(stemDir, { recursive: true, force: true });
     }
-    deleted.push(rel);
+    // Normalise separators so reported paths are stable across platforms.
+    deleted.push(rel.split(sep).join('/'));
   }
   return deleted;
 }

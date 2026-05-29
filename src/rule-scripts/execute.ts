@@ -65,27 +65,40 @@ export function executeRuleScript(
   if (proc.signal) {
     return { ok: false, error: `script killed by signal ${proc.signal}` };
   }
+
+  // Parse stdout BEFORE judging the exit code. The contract is "exit 0, signal
+  // via JSON", but a common linter convention is to exit non-zero when findings
+  // exist — so if stdout is a valid findings report, honour it regardless of
+  // the exit code rather than discarding real findings as an error.
+  let parsed: unknown;
+  let parseFailed = false;
+  try {
+    parsed = JSON.parse(proc.stdout);
+  } catch {
+    parseFailed = true;
+  }
+
+  if (!parseFailed) {
+    const validation = validateFindings(parsed);
+    if (validation.valid) {
+      return { ok: true, report: parsed as FindingsReport };
+    }
+    // Parsed but not a findings report. If the script also failed, the exit is
+    // the more useful error; otherwise report the schema mismatch.
+    if (proc.status === 0) {
+      return { ok: false, error: `findings failed schema: ${validation.errors.join('; ')}` };
+    }
+  }
+
   if (proc.status !== 0) {
     const stderr = (proc.stderr || '').trim();
     return {
       ok: false,
-      error: `script exited ${proc.status}${stderr ? `: ${stderr}` : ' with no stderr'}`,
+      error: `script exited ${proc.status}${stderr ? `: ${stderr}` : ' with no parseable findings'}`,
     };
   }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(proc.stdout);
-  } catch {
-    return { ok: false, error: `invalid findings JSON on stdout: ${proc.stdout.slice(0, 200)}` };
-  }
-
-  const validation = validateFindings(parsed);
-  if (!validation.valid) {
-    return { ok: false, error: `findings failed schema: ${validation.errors.join('; ')}` };
-  }
-
-  return { ok: true, report: parsed as FindingsReport };
+  return { ok: false, error: `invalid findings JSON on stdout: ${proc.stdout.slice(0, 200)}` };
 }
 
 // Resolve a binary against PATH directly in Node — no subprocess (the old

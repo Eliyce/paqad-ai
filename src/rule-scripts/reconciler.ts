@@ -63,8 +63,37 @@ function driftPath(projectRoot: string): string {
   return join(projectRoot, PATHS.RULE_SCRIPTS_DRIFT);
 }
 
+// drift.json has two independent writers: the deterministic reconciler (every
+// code except RS-CONFLICT) and the rule-analyzer's semantic conflict pass
+// (RS-CONFLICT only). Neither owns the whole file, so each merges by code
+// partition — it replaces only the codes it owns and preserves the rest. Both
+// then recompute counts + blocked over the union, so the gate is consistent
+// regardless of which writer ran last.
+const CONFLICT_CODES: ReadonlySet<RuleScriptFindingCode> = new Set(['RS-CONFLICT']);
+
+function mergeDrift(
+  projectRoot: string,
+  ownedCodes: ReadonlySet<RuleScriptFindingCode>,
+  ownFindings: RuleScriptDriftFinding[],
+): RuleScriptDriftReport {
+  const existing = readDrift(projectRoot);
+  const preserved = (existing?.findings ?? []).filter((f) => !ownedCodes.has(f.code));
+  const findings = [...preserved, ...ownFindings];
+  const counts = emptyCounts();
+  for (const f of findings) {
+    counts[f.code]++;
+  }
+  const report: RuleScriptDriftReport = {
+    generated_at: new Date().toISOString(),
+    findings,
+    counts,
+    blocked: findings.some((f) => f.code !== 'RS-CACHE-INVALID'),
+  };
+  writeDrift(projectRoot, report);
+  return report;
+}
+
 export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport {
-  const now = new Date().toISOString();
   const findings: RuleScriptDriftFinding[] = [];
   const map = loadRuleScriptMap(projectRoot);
 
@@ -166,15 +195,12 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
     }
   }
 
-  const counts = emptyCounts();
-  for (const f of findings) {
-    counts[f.code]++;
-  }
-  const blocked = findings.some((f) => f.code !== 'RS-CACHE-INVALID');
-
-  const driftReport: RuleScriptDriftReport = { generated_at: now, findings, counts, blocked };
-  writeDrift(projectRoot, driftReport);
-  return driftReport;
+  // The reconciler owns every code except RS-CONFLICT; preserve any
+  // analyzer-recorded conflicts rather than clobbering them.
+  const reconcilerOwned = new Set(
+    (Object.keys(emptyCounts()) as RuleScriptFindingCode[]).filter((c) => !CONFLICT_CODES.has(c)),
+  );
+  return mergeDrift(projectRoot, reconcilerOwned, findings);
 }
 
 function writeDrift(projectRoot: string, report: RuleScriptDriftReport): void {
@@ -203,32 +229,18 @@ export interface RuleConflict {
 // Record conflicts found by the rule-analyzer's semantic pass as RS-CONFLICT
 // findings in drift.json. A deterministic reconciler cannot decide semantic
 // contradiction, so this is the wire the analyzer skill uses to surface them.
-// Merges with any existing drift report rather than clobbering it.
+// Owns only the RS-CONFLICT partition — the reconciler's findings are preserved
+// (and vice-versa). Passing [] clears prior conflicts.
 export function recordConflictFindings(
   projectRoot: string,
   conflicts: RuleConflict[],
 ): RuleScriptDriftReport {
-  const existing = readDrift(projectRoot);
-  const findings: RuleScriptDriftFinding[] = (existing?.findings ?? []).filter(
-    (f) => f.code !== 'RS-CONFLICT',
-  );
-  for (const c of conflicts) {
-    findings.push({
-      code: 'RS-CONFLICT',
+  const findings: RuleScriptDriftFinding[] = conflicts
+    .filter((c) => Array.isArray(c.rule_ids) && c.rule_ids.length > 0)
+    .map((c) => ({
+      code: 'RS-CONFLICT' as const,
       rule_id: c.rule_ids[0],
       message: `${c.message} (conflicting rules: ${c.rule_ids.join(', ')})`,
-    });
-  }
-  const counts = emptyCounts();
-  for (const f of findings) {
-    counts[f.code]++;
-  }
-  const report: RuleScriptDriftReport = {
-    generated_at: new Date().toISOString(),
-    findings,
-    counts,
-    blocked: findings.some((f) => f.code !== 'RS-CACHE-INVALID'),
-  };
-  writeDrift(projectRoot, report);
-  return report;
+    }));
+  return mergeDrift(projectRoot, CONFLICT_CODES, findings);
 }

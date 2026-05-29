@@ -105,6 +105,28 @@ describe('executeRuleScript', () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/schema/);
   });
+
+  it('honours valid findings even when the script exits non-zero (C-3)', () => {
+    const root = createRoot();
+    const scriptPath = join(root, 'exit-nonzero.mjs');
+    // Linter convention: emit findings, then exit 1 to signal "violations found".
+    write(
+      scriptPath,
+      `process.stdout.write(JSON.stringify({ rule_id: 'RL-7f3a', kind: 'deterministic', findings: [{ file: 'a.ts', message: 'x', severity: 'low' }] }));\nprocess.exit(1);`,
+    );
+    const result = executeRuleScript(scriptPath, { projectRoot: root, files: [] });
+    expect(result.ok).toBe(true);
+    expect(result.report?.findings).toHaveLength(1);
+  });
+
+  it('reports the exit code when a non-zero script emits no parseable findings', () => {
+    const root = createRoot();
+    const scriptPath = join(root, 'crash.mjs');
+    write(scriptPath, `process.stderr.write('boom');\nprocess.exit(3);`);
+    const result = executeRuleScript(scriptPath, { projectRoot: root, files: [] });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/exited 3/);
+  });
 });
 
 describe('runFixtures (the gate)', () => {

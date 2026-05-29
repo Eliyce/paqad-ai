@@ -76,12 +76,15 @@ function coerce(fields: Record<string, string>): Record<string, unknown> {
       continue;
     }
     const value = raw.replace(/^"(.*)"$/, '$1');
-    // Canonicalise the id's hex to lowercase so a hand-edited header with
-    // uppercase hex still validates against the lowercase-only schema.
-    out[key] =
-      key === 'rule_id'
-        ? value.replace(/^RL-([0-9a-fA-F]+)$/, (_, h) => `RL-${h.toLowerCase()}`)
-        : value;
+    // Canonicalise case so hand-edited headers still validate against the
+    // lowercase-only schema enums: the id's hex, and the closed-set fields.
+    if (key === 'rule_id') {
+      out[key] = value.replace(/^RL-([0-9a-fA-F]+)$/, (_, h) => `RL-${h.toLowerCase()}`);
+    } else if (key === 'kind' || key === 'scope' || key === 'runtime') {
+      out[key] = value.toLowerCase();
+    } else {
+      out[key] = value;
+    }
   }
   return out;
 }

@@ -33,11 +33,19 @@ function takenIds(projectRoot: string): Set<string> {
   return taken;
 }
 
+// Normalise raw rule input into the canonical bullet body (no leading marker,
+// no surrounding whitespace). The single source of truth for "what text the
+// hash is computed over" — shared with the rule-editor .mjs wrapper so the
+// on-disk text and the map's text_hash can never drift apart.
+export function cleanRuleText(input: string): string {
+  return input.trim().replace(/^[-*]\s+/, '');
+}
+
 // Append a new rule bullet with a fresh marker to a rule file. Creates the file
 // with a trailing newline if it does not yet exist. Returns the minted id.
 export function addRule(projectRoot: string, sourceRel: string, text: string): { id: string } {
   const abs = join(projectRoot, sourceRel);
-  const clean = text.trim().replace(/^[-*]\s+/, '');
+  const clean = cleanRuleText(text);
   const id = mintRuleId(sourceRel, clean, takenIds(projectRoot));
   const bullet = embedRuleMarker(`- ${clean}`, id);
 
@@ -78,7 +86,7 @@ export function editRuleText(
   const original = located.lines[located.line];
   const indent = /^(\s*)/.exec(original)?.[1] ?? '';
   const marker = /^[-*]/.exec(stripRuleMarker(original).text.trim())?.[0] ?? '-';
-  const clean = newText.trim().replace(/^[-*]\s+/, '');
+  const clean = cleanRuleText(newText);
   located.lines[located.line] = embedRuleMarker(`${indent}${marker} ${clean}`, ruleId);
   writeFileSync(join(projectRoot, located.source), located.lines.join('\n'), 'utf8');
   return { source: located.source };
