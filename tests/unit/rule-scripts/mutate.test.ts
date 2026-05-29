@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   archiveRule,
   clearRuleScripts,
+  setRuleText,
   setVerifiability,
   upsertScriptEntry,
 } from '@/rule-scripts/mutate.js';
@@ -66,6 +67,20 @@ describe('rule-script map mutations', () => {
     const next = setVerifiability(map, 'RL-aaaa', { kind: 'unverifiable', reason: 'fuzzy' });
     expect(next.rules[0].verifiability.kind).toBe('unverifiable');
     expect(next.rules[0].scripts).toHaveLength(0);
+  });
+
+  it('setRuleText updates text + hash and clears now-stale scripts', () => {
+    const map = upsertScriptEntry(baseMap(), 'RL-aaaa', entry);
+    const next = setRuleText(map, 'RL-aaaa', 'Edited rule text.', 'newhash');
+    expect(next.rules[0].text).toBe('Edited rule text.');
+    expect(next.rules[0].text_hash).toBe('newhash');
+    expect(next.rules[0].scripts).toHaveLength(0);
+    // input untouched
+    expect(map.rules[0].text).toBe('No debugger.');
+  });
+
+  it('setRuleText throws on an unknown id', () => {
+    expect(() => setRuleText(baseMap(), 'RL-zzzz', 't', 'h')).toThrow(/not found/);
   });
 
   it('archives a rule into the archived section', () => {

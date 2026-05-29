@@ -81,3 +81,8 @@ process.stdout.write(JSON.stringify({ rule_id: 'RL-7f3a', kind: 'deterministic',
 - **pass/** files demonstrate the rule satisfied → zero findings.
 - **fail/** files demonstrate the rule violated → ≥1 finding each.
 - If `validate-script.mjs` reports any mismatch, the script is **rejected** and must be regenerated, edited, or the rule marked unverifiable — it is never registered.
+
+## Caveats
+
+- **Fixture `projectRoot`.** During fixture validation the runner sets `projectRoot` to the fixture directory (`__fixtures__/pass` or `__fixtures__/fail`), not the real repo root. A script that shells out to `git` or reads files outside its `files` argument will behave differently in the gate than in production — keep detection logic confined to the passed `files`.
+- **Single-line rules.** A rule is one markdown bullet on one line; the `<!-- @rule -->` marker and the text hash are computed from that line only. Do not author rules that soft-wrap across continuation lines — keep each rule a single line so edits are tracked.

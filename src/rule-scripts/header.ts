@@ -75,7 +75,13 @@ function coerce(fields: Record<string, string>): Record<string, unknown> {
       }
       continue;
     }
-    out[key] = raw.replace(/^"(.*)"$/, '$1');
+    const value = raw.replace(/^"(.*)"$/, '$1');
+    // Canonicalise the id's hex to lowercase so a hand-edited header with
+    // uppercase hex still validates against the lowercase-only schema.
+    out[key] =
+      key === 'rule_id'
+        ? value.replace(/^RL-([0-9a-fA-F]+)$/, (_, h) => `RL-${h.toLowerCase()}`)
+        : value;
   }
   return out;
 }

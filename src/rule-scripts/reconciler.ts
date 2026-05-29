@@ -151,9 +151,11 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
   }
 
   // RS-CACHE-INVALID: a findings report exists but its rule_files_hash no longer
-  // reconciles with the current rule files.
+  // reconciles. Suppress it when an actionable finding already fired — a rule
+  // edit/add necessarily diverges the hash, so the cache message would just be
+  // noise duplicating RS-RULE-EDITED / RS-RULE-ADDED.
   const report = readReport(projectRoot);
-  if (report && files.length > 0) {
+  if (report && files.length > 0 && findings.length === 0) {
     const currentHash = computeRuleFilesHash(projectRoot, files);
     if (report.rule_files_hash && report.rule_files_hash !== currentHash) {
       findings.push({
@@ -179,4 +181,54 @@ function writeDrift(projectRoot: string, report: RuleScriptDriftReport): void {
   const path = driftPath(projectRoot);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+}
+
+export function readDrift(projectRoot: string): RuleScriptDriftReport | null {
+  const path = driftPath(projectRoot);
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as RuleScriptDriftReport;
+  } catch {
+    return null;
+  }
+}
+
+export interface RuleConflict {
+  rule_ids: string[];
+  message: string;
+}
+
+// Record conflicts found by the rule-analyzer's semantic pass as RS-CONFLICT
+// findings in drift.json. A deterministic reconciler cannot decide semantic
+// contradiction, so this is the wire the analyzer skill uses to surface them.
+// Merges with any existing drift report rather than clobbering it.
+export function recordConflictFindings(
+  projectRoot: string,
+  conflicts: RuleConflict[],
+): RuleScriptDriftReport {
+  const existing = readDrift(projectRoot);
+  const findings: RuleScriptDriftFinding[] = (existing?.findings ?? []).filter(
+    (f) => f.code !== 'RS-CONFLICT',
+  );
+  for (const c of conflicts) {
+    findings.push({
+      code: 'RS-CONFLICT',
+      rule_id: c.rule_ids[0],
+      message: `${c.message} (conflicting rules: ${c.rule_ids.join(', ')})`,
+    });
+  }
+  const counts = emptyCounts();
+  for (const f of findings) {
+    counts[f.code]++;
+  }
+  const report: RuleScriptDriftReport = {
+    generated_at: new Date().toISOString(),
+    findings,
+    counts,
+    blocked: findings.some((f) => f.code !== 'RS-CACHE-INVALID'),
+  };
+  writeDrift(projectRoot, report);
+  return report;
 }

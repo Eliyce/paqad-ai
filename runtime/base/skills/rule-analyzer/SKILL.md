@@ -50,7 +50,11 @@ It writes a draft `docs/instructions/rules/rule-script-map.yml`. **The user revi
    Prints `{ inventory, files, rule_files_hash, changed_files }`. The script has already written the markers back into the rule files on disk.
 2. Detect existing enforcers per rule. Read `eslint.config.js`/`.eslintrc.*`, `tsconfig.json`, Prettier config. A rule covered by an existing enforcer gets `enforced_by: ["eslint:no-debugger"]` and **no script** — see `references/classification-guide.md`.
 3. Classify each remaining rule `deterministic` / `heuristic` / `unverifiable`. Use `references/classification-guide.md` for the decision rubric. `unverifiable` requires a `reason`.
-4. Run the conflict pass. For any pair of contradictory rules (e.g. "always named exports" vs "components use default exports"), surface a Decision Pause packet quoting both rules and await resolution before writing the map.
+4. Run the conflict pass. For any pair of contradictory rules (e.g. "always named exports" vs "components use default exports"), record them and surface a Decision Pause packet quoting both rules; await resolution before writing the map. Record conflicts into drift.json so the dashboard + planning gate see them:
+   ```
+   node scripts/record-conflicts.mjs <project-root> <conflicts.json>
+   ```
+   where `conflicts.json` is `[{ "rule_ids": ["RL-…","RL-…"], "message": "…" }, ...]`. This emits `RS-CONFLICT` findings.
 5. Write the draft map through the single writer:
    ```
    node scripts/write-map.mjs <project-root> <classifications.json>

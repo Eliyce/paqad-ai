@@ -35,6 +35,28 @@ export function upsertScriptEntry(
   return next;
 }
 
+// Update a rule's text + hash after an in-place markdown edit, keeping the map
+// in sync atomically (mirrors the `remove` cascade). The prior scripts no
+// longer match the new text, so they are cleared — the editor then regenerates
+// only this rule's scripts. Without this, the reconciler emits a false
+// RS-RULE-EDITED until the user manually re-runs `analyze rules`.
+export function setRuleText(
+  map: RuleScriptMap,
+  ruleId: string,
+  text: string,
+  textHash: string,
+): RuleScriptMap {
+  const next = cloneMap(map);
+  const rule = findRule(next, ruleId);
+  if (!rule) {
+    throw new Error(`setRuleText: rule ${ruleId} not found in map`);
+  }
+  rule.text = text;
+  rule.text_hash = textHash;
+  rule.scripts = [];
+  return next;
+}
+
 // Drop all scripts from a rule (e.g. downgrade to unverifiable, or pre-regen).
 export function clearRuleScripts(map: RuleScriptMap, ruleId: string): RuleScriptMap {
   const next = cloneMap(map);

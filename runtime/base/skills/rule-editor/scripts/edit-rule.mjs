@@ -15,6 +15,8 @@ import {
   editRuleText,
   loadRuleScriptMap,
   removeRuleBullet,
+  ruleTextHash,
+  setRuleText,
   setVerifiability,
 } from 'paqad-ai/rule-scripts';
 
@@ -54,7 +56,18 @@ switch (mode) {
     if (!a || !b) fail('edit requires <rule-id> <text>');
     const located = editRuleText(projectRoot, a, b);
     if (!located) fail(`rule ${a} not found on disk`);
-    out = { mode, rule_id: a, ...located };
+    // Keep the map in sync in the same operation: new text + hash, stale
+    // scripts cleared. The skill then regenerates this rule's scripts. Uses the
+    // same clean-text formula as editRuleText so the hash matches what analyze
+    // would compute.
+    const clean = b.trim().replace(/^[-*]\s+/, '');
+    const result = applyMapMutation(
+      (m) => setRuleText(m, a, clean, ruleTextHash(clean)),
+      a,
+      'edit',
+      located.source,
+    );
+    out = { mode, rule_id: a, ...located, ...result };
     break;
   }
   case 'remove': {

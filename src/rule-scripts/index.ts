@@ -17,3 +17,4 @@ export * from './mutate.js';
 export * from './runner.js';
 export * from './reconciler.js';
 export * from './editor.js';
+export * from './prune.js';

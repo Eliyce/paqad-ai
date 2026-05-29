@@ -10,7 +10,7 @@
 // timeout so a runaway script cannot wedge the checks stage.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { accessSync, constants, statSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 
 import { validateFindings } from './validate.js';
@@ -55,12 +55,21 @@ export function executeRuleScript(
   });
 
   if (proc.error) {
-    return { ok: false, error: `failed to execute: ${proc.error.message}` };
+    // spawn-level failure: process never started (ENOENT) or was killed.
+    const err = proc.error as NodeJS.ErrnoException;
+    if (proc.signal === 'SIGTERM' || err.code === 'ETIMEDOUT') {
+      return { ok: false, error: `script timed out after ${timeoutMs}ms` };
+    }
+    return { ok: false, error: `script failed to start: ${proc.error.message}` };
+  }
+  if (proc.signal) {
+    return { ok: false, error: `script killed by signal ${proc.signal}` };
   }
   if (proc.status !== 0) {
+    const stderr = (proc.stderr || '').trim();
     return {
       ok: false,
-      error: `script exited ${proc.status ?? 'null'}: ${(proc.stderr || '').trim()}`,
+      error: `script exited ${proc.status}${stderr ? `: ${stderr}` : ' with no stderr'}`,
     };
   }
 
@@ -82,15 +91,40 @@ export function executeRuleScript(
 // Resolve a binary against PATH directly in Node — no subprocess (the old
 // `command -v` / `where` spawn was ENOENT on Linux, where `command` is a shell
 // builtin, not a binary). Cross-platform and injection-safe.
+function isExecutableFile(p: string): boolean {
+  try {
+    if (!statSync(p).isFile()) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+  if (process.platform === 'win32') {
+    return true;
+  }
+  try {
+    accessSync(p, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isOnPath(bin: string): boolean {
-  // Names with path separators are resolved relative to cwd as-is.
+  // Names with a path separator are resolved as-is, not against PATH.
   if (bin.includes('/') || bin.includes('\\')) {
-    return existsSync(bin);
+    return isExecutableFile(bin);
   }
   const dirs = (process.env.PATH ?? '').split(delimiter).filter(Boolean);
-  const exts =
-    process.platform === 'win32' ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';') : [''];
-  return dirs.some((dir) => exts.some((ext) => existsSync(join(dir, `${bin}${ext}`))));
+  const winExts =
+    process.platform === 'win32' ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';') : [];
+  // On Windows, a name that already carries a known executable extension is
+  // resolved bare (don't build `git.exe.EXE`); otherwise try each PATHEXT.
+  const alreadyHasExt =
+    process.platform === 'win32' &&
+    winExts.some((ext) => bin.toLowerCase().endsWith(ext.toLowerCase()));
+  const exts = process.platform === 'win32' ? (alreadyHasExt ? [''] : winExts) : [''];
+  return dirs.some((dir) => exts.some((ext) => isExecutableFile(join(dir, `${bin}${ext}`))));
 }
 
 // Returns the subset of declared binaries that are not resolvable on PATH.

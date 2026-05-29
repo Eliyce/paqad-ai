@@ -54,7 +54,12 @@ No `.sh` scripts are ever produced. See `references/script-authoring.md` for the
    ```
    node scripts/register-script.mjs <project-root> <script-path-rel> <rule-id> <kind> <scope>
    ```
-6. Present the `## Generation Summary`: scripts accepted, scripts rejected (with reasons), over-flag warnings. Tell the user the next prompt (`feature-development` will now enforce them).
+6. At the end of the cycle, prune orphaned scripts (left by edited / downgraded / removed rules):
+   ```
+   node scripts/prune.mjs <project-root>
+   ```
+   Deletes any `.mjs` + `__fixtures__/` under `.paqad/scripts/rules/` not referenced by an active map rule. Archived rules' scripts survive one cycle, then this prunes them.
+7. Present the `## Generation Summary`: scripts accepted, scripts rejected (with reasons), over-flag warnings, pruned files. Tell the user the next prompt (`feature-development` will now enforce them).
 
 ## Output Contract
 
@@ -76,4 +81,5 @@ No `.sh` scripts are ever produced. See `references/script-authoring.md` for the
 - `runtime/base/skills/rule-script-generator/agents/openai.yaml` — agent interface metadata.
 - `src/rule-scripts/fixture-runner.ts` — the fixture gate.
 - `src/rule-scripts/guard.ts` — the over-flagging guard.
+- `src/rule-scripts/prune.ts` — orphan-script pruning (end-of-cycle).
 - `.paqad/decision-pause-contract.md` — packet semantics for rejected scripts.

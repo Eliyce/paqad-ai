@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -8,8 +8,14 @@ import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { assembleMap, scanAndEmbedIds, type RuleClassification } from '@/rule-scripts/analyzer.js';
 import { addRule, editRuleText, removeRuleBullet } from '@/rule-scripts/editor.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
-import { reconcileRuleScripts } from '@/rule-scripts/reconciler.js';
-import { parseRuleMarker } from '@/rule-scripts/rule-id.js';
+import { setRuleText } from '@/rule-scripts/mutate.js';
+import { pruneOrphanScripts } from '@/rule-scripts/prune.js';
+import {
+  reconcileRuleScripts,
+  readDrift,
+  recordConflictFindings,
+} from '@/rule-scripts/reconciler.js';
+import { parseRuleMarker, ruleTextHash } from '@/rule-scripts/rule-id.js';
 
 const roots: string[] = [];
 
@@ -133,5 +139,56 @@ describe('editor', () => {
     expect(report.counts['RS-RULE-REMOVED']).toBe(1);
     // The map still has both rules until rule-editor archives the entry.
     expect(loadRuleScriptMap(root)?.rules).toHaveLength(2);
+  });
+
+  it('edit kept in sync (markdown + map) produces no false drift (B-1)', () => {
+    const { root, ids } = syncedProject();
+    const target = ids[0];
+    // Simulate the rule-editor `edit` wrapper: markdown edit + atomic map update.
+    editRuleText(root, target, 'A rewritten rule.');
+    const map = loadRuleScriptMap(root)!;
+    const clean = 'A rewritten rule.';
+    applyRuleScriptMap({
+      projectRoot: root,
+      map: setRuleText(map, target, clean, ruleTextHash(clean)),
+      via: 'test',
+      event: { action: 'edit', rule_ids: [target] },
+    });
+    const report = reconcileRuleScripts(root);
+    expect(report.counts['RS-RULE-EDITED']).toBe(0);
+    expect(report.counts['RS-SCRIPT-STALE']).toBe(0);
+    expect(report.blocked).toBe(false);
+  });
+});
+
+describe('recordConflictFindings (B-2)', () => {
+  it('emits RS-CONFLICT into drift.json and replaces prior conflicts on re-run', () => {
+    const { root } = syncedProject();
+    const report = recordConflictFindings(root, [
+      { rule_ids: ['RL-aaaa', 'RL-bbbb'], message: 'named vs default export' },
+    ]);
+    expect(report.counts['RS-CONFLICT']).toBe(1);
+    expect(report.blocked).toBe(true);
+    expect(readDrift(root)?.findings.some((f) => f.code === 'RS-CONFLICT')).toBe(true);
+
+    // Re-running with no conflicts clears the prior RS-CONFLICT entries.
+    const cleared = recordConflictFindings(root, []);
+    expect(cleared.counts['RS-CONFLICT']).toBe(0);
+  });
+});
+
+describe('pruneOrphanScripts (B-3)', () => {
+  it('deletes .mjs + fixtures not referenced by an active rule', () => {
+    const { root } = syncedProject();
+    const orphan = '.paqad/scripts/rules/coding/q/001-orphan.mjs';
+    write(join(root, orphan), '// orphan\n');
+    write(join(root, '.paqad/scripts/rules/coding/q/001-orphan/__fixtures__/pass/x.ts'), 'ok\n');
+
+    // The map references no scripts, so the orphan is unreferenced.
+    const map = loadRuleScriptMap(root)!;
+    const pruned = pruneOrphanScripts(root, map);
+    expect(pruned).toContain(orphan);
+    expect(existsSync(join(root, orphan))).toBe(false);
+    expect(existsSync(join(root, '.paqad/scripts/rules/coding/q/001-orphan'))).toBe(false);
   });
 });

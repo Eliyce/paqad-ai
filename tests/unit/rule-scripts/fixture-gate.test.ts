@@ -75,6 +75,13 @@ describe('script header', () => {
     const badId = NO_DEBUGGER_SCRIPT.replace('RL-7f3a', 'NOPE');
     expect(parseScriptHeader(badId).ok).toBe(false);
   });
+
+  it('accepts an uppercase-hex rule_id by canonicalising before validation', () => {
+    const upper = NO_DEBUGGER_SCRIPT.replace('RL-7f3a', 'RL-7F3A');
+    const parsed = parseScriptHeader(upper);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.header?.rule_id).toBe('RL-7f3a');
+  });
 });
 
 describe('executeRuleScript', () => {
