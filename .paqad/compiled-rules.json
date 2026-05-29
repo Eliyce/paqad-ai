@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-22T11:41:29.676Z",
-  "source_hash": "sha256:eae8fcf2fba47dfbf928586556f1db21bc2ef02b526217465b898e0732a9a3c2",
+  "generated_at": "2026-05-29T10:56:28.991Z",
+  "source_hash": "sha256:8c42ec1470df69df3955d520442583ca7bf165a141b08f71493ce63bf295348e",
   "rules": [
     {
       "rule_id": "RULE-1",
@@ -101,6 +101,106 @@
     },
     {
       "rule_id": "RULE-9",
+      "title": "Skill Authoring",
+      "source_path": "docs/instructions/rules/_shared/skill-authoring.md",
+      "trigger_patterns": [
+        "runtime/**/skills/*",
+        "<skill-name>/\n├── SKILL.md          # required — LLM-reasoning layer only\n├── references/       # optional — detail loaded on demand (cite from SKILL.md)\n├── assets/           # optional — output templates, schemas, lookup tables\n├── scripts/          # optional — deterministic helpers\n└── agents/           # optional — adapter-specific descriptors (e.g. openai.yaml)",
+        "is the only file loaded at activation. Everything else is referenced from it and loaded on demand (progressive disclosure).\n\n## SKILL.md rules\n\n- Use the documented frontmatter —",
+        ",",
+        ". Mirror the shape of an existing peer skill rather than inventing new fields.\n-",
+        "matches the folder name.",
+        "is the activation hint — write it from the user's perspective (\"Detect X\", \"Verify Y\"), not the implementation's.\n- Keep",
+        "under ~500 lines / ~5,000 tokens. Move detail to",
+        "and tell the agent _when_ to load it (\"Read",
+        "before doing Y\") — never a generic \"see references for details\".\n- The body must contain, in order:",
+        ".\n- Procedure steps that are deterministic (parse a file, derive an inventory, normalize a value, validate a payload, emit a diff, look up a table) **must** call a script in",
+        "— do not re-derive the work in prose.\n- Procedure steps that are judgment (severity, ambiguity, whether a flagged hit is a real finding) belong in prose. Make the boundary explicit: \"Run script X to get the candidates; the LLM picks severity per the checklist in",
+        ".\"\n- Resources section lists every script with a one-line purpose and every referenced file. The meta-test fails if any backticked path under Resources doesn't exist.\n\n## Scripts rules — interface contract\n\nEvery script in",
+        "follows this contract. The agentskills.io guidance is the spec; this rule is how we enforce it in this project.\n\n- **One verb per script.** A script does one thing —",
+        ". If you find yourself naming a script",
+        ", split it.\n- **",
+        "exits 0** and documents",
+        ", accepted flags, output shape, and exit codes. Keep it terse —",
+        "lands in the agent's context window every time.\n- **Stdout is structured.** Default to TSV (",
+        "); use JSON when the consumer is",
+        "/",
+        "(e.g. live-phase results). Never mix data and diagnostics on stdout.\n- **Stderr carries diagnostics.** Notes, warnings, \"directory not found\" hints — all stderr. Stdout stays parseable.\n- **Meaningful exit codes:**\n  -",
+        "— success (including \"no rows\" / \"no match\" — emit an empty result, don't error)\n  -",
+        "— the operation surfaced a real failure or unrecognized input that isn't usage\n  -",
+        "— usage error (missing required arg, unknown flag, file-not-found for required input)\n- **Helpful error messages.** \"Error: X is required. Usage: ...\" — never bare \"error: 1\". The agent reads stderr to decide the next attempt.\n- **No interactive prompts.** All input via flags, env vars, or stdin. A script that blocks on a TTY prompt hangs the agent indefinitely.\n- **Idempotent.** Agents retry. \"Create if not exists\" is safer than \"create and fail on duplicate\". Re-runs on the same input produce the same output (this includes stable id sequences — see",
+        ").\n- **Defaults over menus.** When multiple paths are reasonable, pick a sensible default and mention the alternative briefly. Don't dump a menu the agent has to pick from.\n- **Predictable output size.** If output can grow unbounded, default to a summary and accept a flag (",
+        ") for the full version. Many agent harnesses truncate around 10–30K characters.\n- **Trust internal callers, validate at boundaries.** Reject ambiguous or out-of-range input with a clear error and",
+        "rather than guessing.\n\n## Scripts rules — portability",
+        "is checked by the meta-test. The scripts also need to run on macOS bash 3.2 and BSD grep / POSIX awk that ship in CI. Workarounds we've already paid for:\n\n- **No",
+        ".** Bash 3.2 doesn't have it. Use",
+        "or write the list to a tempfile and iterate.\n- **No",
+        "in awk.** POSIX awk regex has no word-boundary metachar. Use explicit boundary character classes like",
+        ".\n- **BSD grep's",
+        "alternation is fragile.** When",
+        "fails to match start-of-line cases on macOS, use the",
+        "zero-or-one quantifier instead and let post-processing in awk handle the rest.\n- **awk's",
+        "is case-sensitive even when grep used",
+        ".** If you matched case-insensitively in grep, you must lowercase both sides in awk before calling",
+        ", then map",
+        "back onto the original casing for reporting.\n- **",
+        "drops the last line when there's no trailing newline.** Always write",
+        "so a one-line input doesn't get silently skipped.\n- **",
+        "** at the top of every script. Pair with",
+        "on any subshell whose non-zero exit is non-fatal (e.g.",
+        "that finds nothing).\n- **",
+        "ranges are locale-dependent.** On some POSIX locales (seen on GitHub's macOS runner)",
+        "collates as",
+        "and matches lowercase too. When the filter is meant to be \"uppercase only\" or \"lowercase only\", use an explicit byte set (",
+        ").",
+        "is safe because it already covers both cases. This applies to **both bash",
+        "patterns and awk regexes**.\n- **Don't shell out for what",
+        "already does.** Each subprocess is a real cost when the agent runs the script across hundreds of files.\n- **Inline comments document each workaround.** If a future contributor sees",
+        "and thinks \"that's wrong, it should be",
+        "\", they will revert the fix and break CI. The comment is load-bearing.\n\n## Assets rules\n\n-",
+        "— the canonical shape of the skill's output. Agents pattern-match against templates far more reliably than against prose descriptions.\n-",
+        "— closed sets the script and the agent both consume (e.g. severity vocabulary, axe-rule → WCAG mapping). Keep them flat and grep-friendly.\n- Never put logic in assets. Logic is in",
+        ". Assets are static lookup data and templates.\n\n## References rules\n\n-",
+        "— detail the agent loads only when it needs it.\n- Every reference must be cited from",
+        "with a load condition (\"Read",
+        "before evaluating Y\"). A reference that's never cited is dead weight.\n- References are reading material, not executable. If the document describes a procedure, that procedure becomes a script.\n\n## Testing rules — one test per script\n\nEvery script in",
+        "has a corresponding test that exercises it end-to-end. This is enforced by",
+        ":\n\n1. **Every skill with",
+        "has a spec at",
+        ".**\n2. **Every script in that dir is referenced by basename in the spec.** A script with no test reference fails CI.\n3. **Every script passes",
+        "** (syntax check).\n4. **Every backticked path under",
+        "in",
+        "exists on disk.**\n\nInside each spec:\n\n- **",
+        "must exit 0.** First test of every",
+        "block.\n- **Usage errors must exit 2** with stderr matching the expected guidance.\n- **Each documented behavior is a separate",
+        ".** Don't bundle \"parses tokens, ignores prose, handles empty\" into one test — fail them independently so failures point at one thing.\n- **Tests use real fixtures.** Fixture files live under",
+        "(or the equivalent path for non-design skills). Inline strings via",
+        "are fine for small one-offs (a CSS line, a single .tsx); anything larger goes in",
+        ".\n- **Tests assert on structured output, not prose.**",
+        ", not",
+        ".\n- **Tests assert both success and failure modes.** Every script that emits findings has both \"finds the expected violation\" and \"skips exempt files\" tests. Every script with required flags has a \"rejects missing flag\" test.\n- **No reliance on developer machine state.** No real",
+        ", no real network, no real Playwright. If the script needs a tempdir or a fixture, build it with",
+        ". The script must run identically on Node 22 / 24 / ubuntu / macOS.\n- **Test the portability workarounds explicitly.** If a script defends against missing trailing newline, write a test that feeds it a missing-trailing-newline input. The fix is silent without it.\n\n## Skill creation checklist\n\nBefore opening a PR that adds or modifies a skill:\n\n- [ ]",
+        "has the seven required sections in order.\n- [ ]",
+        "triggers on the right prompts and not on near-misses.\n- [ ] Every deterministic procedure step calls a script in",
+        ".\n- [ ] Every script has",
+        ", structured stdout, stderr diagnostics, and meaningful exit codes.\n- [ ] Every script is referenced under",
+        "with a one-line purpose.\n- [ ] Every script has a spec file at",
+        "that references it by basename.\n- [ ] Every script's documented behavior has its own",
+        "test, including usage errors.\n- [ ] Fixtures live under",
+        "(or the analogous path) — not inline blobs spread through the spec.\n- [ ]",
+        "is green locally before pushing.\n- [ ] Any portability workaround is documented inline so a future contributor doesn't undo it.\n\n## Rules\n\n- Skills are the LLM-reasoning layer. Anything mechanical lives in",
+        ".\n- One script per verb. Structured stdout, stderr diagnostics,",
+        ", exit codes 0/1/2.\n- Every script has a real test against fixtures — not a smoke check.\n- Scripts must run on bash 3.2 + BSD grep + POSIX awk. Workarounds documented inline.\n-",
+        "≤ ~500 lines. Detail goes in",
+        "with explicit load triggers.\n- The meta-test ("
+      ],
+      "severity": "must",
+      "summary": "Every skill in `runtime/**/skills/*` must obey this contract so the LLM does only the reasoning it actually needs to do, and every deterministic step is a tested script. This is the project rule that backs the agentskills.io guidelines — read it before creating or modifying a skill, and before adding a script to an existing skill.",
+      "raw_text": "# Skill Authoring\n\n## Purpose\n\nEvery skill in `runtime/**/skills/*` must obey this contract so the LLM does only the reasoning it actually needs to do, and every deterministic step is a tested script. This is the project rule that backs the agentskills.io guidelines — read it before creating or modifying a skill, and before adding a script to an existing skill.\n\n## Skill anatomy\n\nEvery skill is a folder with this shape:\n\n```\n<skill-name>/\n├── SKILL.md          # required — LLM-reasoning layer only\n├── references/       # optional — detail loaded on demand (cite from SKILL.md)\n├── assets/           # optional — output templates, schemas, lookup tables\n├── scripts/          # optional — deterministic helpers\n└── agents/           # optional — adapter-specific descriptors (e.g. openai.yaml)\n```\n\n`SKILL.md` is the only file loaded at activation. Everything else is referenced from it and loaded on demand (progressive disclosure).\n\n## SKILL.md rules\n\n- Use the documented frontmatter — `name`, `description`, `model_tier`, `triggers`, `cacheable`, `cache_key_inputs`, `output_format`, `input_schema`. Mirror the shape of an existing peer skill rather than inventing new fields.\n- `name` matches the folder name. `description` is the activation hint — write it from the user's perspective (\"Detect X\", \"Verify Y\"), not the implementation's.\n- Keep `SKILL.md` under ~500 lines / ~5,000 tokens. Move detail to `references/<topic>.md` and tell the agent _when_ to load it (\"Read `references/X.md` before doing Y\") — never a generic \"see references for details\".\n- The body must contain, in order: `## What It Does`, `## Use This When`, `## Inputs`, `## Procedure`, `## Output Contract`, `## Escalate / Stop Conditions`, `## Resources`.\n- Procedure steps that are deterministic (parse a file, derive an inventory, normalize a value, validate a payload, emit a diff, look up a table) **must** call a script in `scripts/` — do not re-derive the work in prose.\n- Procedure steps that are judgment (severity, ambiguity, whether a flagged hit is a real finding) belong in prose. Make the boundary explicit: \"Run script X to get the candidates; the LLM picks severity per the checklist in `references/Y.md`.\"\n- Resources section lists every script with a one-line purpose and every referenced file. The meta-test fails if any backticked path under Resources doesn't exist.\n\n## Scripts rules — interface contract\n\nEvery script in `scripts/` follows this contract. The agentskills.io guidance is the spec; this rule is how we enforce it in this project.\n\n- **One verb per script.** A script does one thing — `parse-X`, `extract-Y`, `derive-Z`, `diff-X`, `match-X-to-Y`, `propose-X`. If you find yourself naming a script `do-stuff`, split it.\n- **`--help` exits 0** and documents `Usage`, accepted flags, output shape, and exit codes. Keep it terse — `--help` lands in the agent's context window every time.\n- **Stdout is structured.** Default to TSV (`<col1>\\t<col2>\\t...`); use JSON when the consumer is `node`/`jq` (e.g. live-phase results). Never mix data and diagnostics on stdout.\n- **Stderr carries diagnostics.** Notes, warnings, \"directory not found\" hints — all stderr. Stdout stays parseable.\n- **Meaningful exit codes:**\n  - `0` — success (including \"no rows\" / \"no match\" — emit an empty result, don't error)\n  - `1` — the operation surfaced a real failure or unrecognized input that isn't usage\n  - `2` — usage error (missing required arg, unknown flag, file-not-found for required input)\n- **Helpful error messages.** \"Error: X is required. Usage: ...\" — never bare \"error: 1\". The agent reads stderr to decide the next attempt.\n- **No interactive prompts.** All input via flags, env vars, or stdin. A script that blocks on a TTY prompt hangs the agent indefinitely.\n- **Idempotent.** Agents retry. \"Create if not exists\" is safer than \"create and fail on duplicate\". Re-runs on the same input produce the same output (this includes stable id sequences — see `design-system-coverage/scripts/gap-report.sh`).\n- **Defaults over menus.** When multiple paths are reasonable, pick a sensible default and mention the alternative briefly. Don't dump a menu the agent has to pick from.\n- **Predictable output size.** If output can grow unbounded, default to a summary and accept a flag (`--out`, `--limit`) for the full version. Many agent harnesses truncate around 10–30K characters.\n- **Trust internal callers, validate at boundaries.** Reject ambiguous or out-of-range input with a clear error and `exit 2` rather than guessing.\n\n## Scripts rules — portability\n\n`bash -n` is checked by the meta-test. The scripts also need to run on macOS bash 3.2 and BSD grep / POSIX awk that ship in CI. Workarounds we've already paid for:\n\n- **No `mapfile`.** Bash 3.2 doesn't have it. Use `while IFS= read -r line; do ... done` or write the list to a tempfile and iterate.\n- **No `\\b` in awk.** POSIX awk regex has no word-boundary metachar. Use explicit boundary character classes like `(^|[^A-Za-z0-9_-])...([^A-Za-z0-9_-]|$)`.\n- **BSD grep's `(^|...)` alternation is fragile.** When `(^|[^class])foo` fails to match start-of-line cases on macOS, use the `[^class]?foo` zero-or-one quantifier instead and let post-processing in awk handle the rest.\n- **awk's `match()` is case-sensitive even when grep used `-i`.** If you matched case-insensitively in grep, you must lowercase both sides in awk before calling `match()`, then map `RSTART`/`RLENGTH` back onto the original casing for reporting.\n- **`read` drops the last line when there's no trailing newline.** Always write `while IFS= ... read -r x || [ -n \"${x:-}\" ]; do ...; done` so a one-line input doesn't get silently skipped.\n- **`set -euo pipefail`** at the top of every script. Pair with `|| true` on any subshell whose non-zero exit is non-fatal (e.g. `grep` that finds nothing).\n- **`[A-Z]` / `[a-z]` ranges are locale-dependent.** On some POSIX locales (seen on GitHub's macOS runner) `[A-Z]` collates as `aBcDeF...` and matches lowercase too. When the filter is meant to be \"uppercase only\" or \"lowercase only\", use an explicit byte set (`[ABCDEFGHIJKLMNOPQRSTUVWXYZ]`). `[A-Za-z]` is safe because it already covers both cases. This applies to **both bash `case` patterns and awk regexes**.\n- **Don't shell out for what `awk` already does.** Each subprocess is a real cost when the agent runs the script across hundreds of files.\n- **Inline comments document each workaround.** If a future contributor sees `[^class]?foo` and thinks \"that's wrong, it should be `(^|[^class])foo`\", they will revert the fix and break CI. The comment is load-bearing.\n\n## Assets rules\n\n- `assets/output.template.{md,json}` — the canonical shape of the skill's output. Agents pattern-match against templates far more reliably than against prose descriptions.\n- `assets/<vocabulary>.txt` — closed sets the script and the agent both consume (e.g. severity vocabulary, axe-rule → WCAG mapping). Keep them flat and grep-friendly.\n- Never put logic in assets. Logic is in `scripts/`. Assets are static lookup data and templates.\n\n## References rules\n\n- `references/<topic>.md` — detail the agent loads only when it needs it.\n- Every reference must be cited from `SKILL.md` with a load condition (\"Read `references/X.md` before evaluating Y\"). A reference that's never cited is dead weight.\n- References are reading material, not executable. If the document describes a procedure, that procedure becomes a script.\n\n## Testing rules — one test per script\n\nEvery script in `scripts/` has a corresponding test that exercises it end-to-end. This is enforced by `tests/unit/skills/coverage-completeness.test.ts`:\n\n1. **Every skill with `scripts/` has a spec at `tests/unit/skills/<skill>.test.ts`.**\n2. **Every script in that dir is referenced by basename in the spec.** A script with no test reference fails CI.\n3. **Every script passes `bash -n`** (syntax check).\n4. **Every backticked path under `## Resources` in `SKILL.md` exists on disk.**\n\nInside each spec:\n\n- **`--help` must exit 0.** First test of every `describe` block.\n- **Usage errors must exit 2** with stderr matching the expected guidance.\n- **Each documented behavior is a separate `it(...)`.** Don't bundle \"parses tokens, ignores prose, handles empty\" into one test — fail them independently so failures point at one thing.\n- **Tests use real fixtures.** Fixture files live under `tests/fixtures/design-skills/<skill>/` (or the equivalent path for non-design skills). Inline strings via `withTempDir + writeFile` are fine for small one-offs (a CSS line, a single .tsx); anything larger goes in `tests/fixtures/`.\n- **Tests assert on structured output, not prose.** `expect(rows).toContain('color.primary.500\\t#1a73e8\\tcolor')`, not `expect(stdout).toMatch(/primary/)`.\n- **Tests assert both success and failure modes.** Every script that emits findings has both \"finds the expected violation\" and \"skips exempt files\" tests. Every script with required flags has a \"rejects missing flag\" test.\n- **No reliance on developer machine state.** No real `git`, no real network, no real Playwright. If the script needs a tempdir or a fixture, build it with `withTempDir`. The script must run identically on Node 22 / 24 / ubuntu / macOS.\n- **Test the portability workarounds explicitly.** If a script defends against missing trailing newline, write a test that feeds it a missing-trailing-newline input. The fix is silent without it.\n\n## Skill creation checklist\n\nBefore opening a PR that adds or modifies a skill:\n\n- [ ] `SKILL.md` has the seven required sections in order.\n- [ ] `description` triggers on the right prompts and not on near-misses.\n- [ ] Every deterministic procedure step calls a script in `scripts/`.\n- [ ] Every script has `--help`, structured stdout, stderr diagnostics, and meaningful exit codes.\n- [ ] Every script is referenced under `## Resources` with a one-line purpose.\n- [ ] Every script has a spec file at `tests/unit/skills/<skill>.test.ts` that references it by basename.\n- [ ] Every script's documented behavior has its own `it(...)` test, including usage errors.\n- [ ] Fixtures live under `tests/fixtures/design-skills/<skill>/` (or the analogous path) — not inline blobs spread through the spec.\n- [ ] `pnpm run ci` is green locally before pushing.\n- [ ] Any portability workaround is documented inline so a future contributor doesn't undo it.\n\n## Rules\n\n- Skills are the LLM-reasoning layer. Anything mechanical lives in `scripts/`.\n- One script per verb. Structured stdout, stderr diagnostics, `--help`, exit codes 0/1/2.\n- Every script has a real test against fixtures — not a smoke check.\n- Scripts must run on bash 3.2 + BSD grep + POSIX awk. Workarounds documented inline.\n- `SKILL.md` ≤ ~500 lines. Detail goes in `references/` with explicit load triggers.\n- The meta-test (`coverage-completeness`) is the enforcement; do not bypass it.\n- When in doubt, copy the shape of an existing peer skill rather than inventing a new one.\n"
+    },
+    {
+      "rule_id": "RULE-10",
       "title": "Testing",
       "source_path": "docs/instructions/rules/_shared/testing.md",
       "trigger_patterns": [
@@ -111,7 +211,7 @@
       "raw_text": "# Testing\n\n## Purpose\n\nKeep implementation changes coupled with verification.\n\n## Rules\n\n- Add or update tests for every behavior change.\n- Keep coverage above the configured threshold.\n- Run the smallest relevant suite first, then the broader gates.\n"
     },
     {
-      "rule_id": "RULE-10",
+      "rule_id": "RULE-11",
       "title": "Code Quality",
       "source_path": "docs/instructions/rules/coding/code-quality.md",
       "trigger_patterns": [
@@ -122,7 +222,7 @@
       "raw_text": "# Code Quality\n\n## Purpose\n\nDefine the baseline coding standard for implementation work.\n\n## Rules\n\n- Keep changes deterministic and test-backed.\n- Match repository conventions and naming.\n- Avoid speculative abstractions outside the current scope.\n"
     },
     {
-      "rule_id": "RULE-11",
+      "rule_id": "RULE-12",
       "title": "Code Review",
       "source_path": "docs/instructions/rules/coding/code-review.md",
       "trigger_patterns": [
@@ -133,7 +233,183 @@
       "raw_text": "# Code Review\n\n## Purpose\n\nDrive adversarial, risk-based review.\n\n## Rules\n\n- Prioritize correctness, regressions, and verification gaps.\n- Call out rollback and data-integrity risk explicitly.\n- Treat missing tests as first-class findings.\n"
     },
     {
-      "rule_id": "RULE-12",
+      "rule_id": "RULE-13",
+      "title": "Design-Retest Workflow",
+      "source_path": "docs/instructions/rules/coding/design-retest.md",
+      "trigger_patterns": [
+        "fixed",
+        "still-open",
+        "needs-manual-verification",
+        "pentest-retest",
+        "docs/design-test/<timestamp>.json",
+        "docs/instructions/design-system/**",
+        "docs/design-test/*.json",
+        ".paqad/design-test/runs/<run_id>/progress.json",
+        "mode: retest",
+        "source_report: <path>",
+        "finding-normalizer",
+        "DT-XXXX",
+        "severity",
+        "category",
+        "contract_ref",
+        "playbook_ref",
+        "category: token",
+        "component",
+        "scan-tokens.sh",
+        "scan-overrides.sh",
+        "evidence",
+        "file:line",
+        "category: state",
+        "a11y",
+        "responsive",
+        "motion",
+        "category: documentation-drift",
+        "docs/modules/*/ui/**",
+        "category: performance",
+        "assets/status-vocabulary.txt",
+        "retest-verification",
+        "contract-removed",
+        "docs/design-test/<original-timestamp>-retest-<retest-timestamp>.md",
+        "docs/design-test/<original-timestamp>-retest-<retest-timestamp>.json",
+        "status",
+        "fixed: N | still-open: N | needs-manual-verification: N | contract-removed: N",
+        "design-test",
+        ".md",
+        ".json"
+      ],
+      "severity": "must",
+      "summary": "Re-evaluate prior design-test findings against the current state of the UI so a retest report can classify each finding as `fixed`, `still-open`, or `needs-manual-verification` without re-deriving context. Mirror of `pentest-retest`.",
+      "raw_text": "# Design-Retest Workflow\n\n## Purpose\n\nRe-evaluate prior design-test findings against the current state of the UI so a retest report can classify each finding as `fixed`, `still-open`, or `needs-manual-verification` without re-deriving context. Mirror of `pentest-retest`.\n\n## Trigger\n\nRun this workflow whenever the user says anything equivalent to:\n\n- \"design retest\", \"design-retest\", \"retest design\", \"retest design findings\"\n\n## Inputs\n\n- The source `docs/design-test/<timestamp>.json` sidecar (the machine-readable companion of a prior design-test report).\n- `docs/instructions/design-system/**` (contract — may have changed since the original run).\n- Fresh evidence: AST scan + Playwright walk against the current working tree.\n\nIf the source sidecar path is not supplied in the request, default to the most recent file matching `docs/design-test/*.json`.\n\n## Workflow Steps\n\nProgress is tracked in `.paqad/design-test/runs/<run_id>/progress.json` with `mode: retest` and `source_report: <path>`.\n\n### Step 1 — load-source-findings\n\n- Read the source sidecar. Validate against the design-test finding schema (same one `finding-normalizer` enforces).\n- Build an in-memory index keyed by `DT-XXXX` id.\n- Preserve every finding's original `severity`, `category`, `contract_ref`, and `playbook_ref` — retest does **not** re-derive these.\n\n### Step 2 — gather-fresh-evidence\n\nFor each finding, gather only the evidence needed to re-classify it:\n\n- `category: token` / `component` → re-run `scan-tokens.sh` and `scan-overrides.sh` over the file referenced in `evidence`; check whether the offending literal still exists at `file:line` (or has moved, in which case search the file).\n- `category: state` / `a11y` / `responsive` / `motion` → re-run the relevant Playwright snippet from the original playbook (`playbook_ref`).\n- `category: documentation-drift` → re-read the referenced `docs/modules/*/ui/**` file and the contract clause; check whether they now agree.\n- `category: performance` → re-run the perf budget probe.\n\n### Step 3 — classify-status\n\nFor each finding, pick a status from `assets/status-vocabulary.txt` (shared with `retest-verification`):\n\n- `fixed` — the offending evidence is gone AND the contract clause is now satisfied.\n- `still-open` — the offending evidence remains.\n- `needs-manual-verification` — automated evidence is inconclusive (e.g., a visual-regression diff that requires a human eye).\n\nFindings whose `contract_ref` no longer exists in the contract get a synthetic `still-open` with a `contract-removed` note — the user removed the rule rather than fixing the code; the maintainer should confirm intent.\n\n### Step 4 — write-retest-report\n\n- `docs/design-test/<original-timestamp>-retest-<retest-timestamp>.md` — human report\n- `docs/design-test/<original-timestamp>-retest-<retest-timestamp>.json` — machine sidecar with the same `DT-XXXX` ids and the new `status` field\n- Summary block at the top: `fixed: N | still-open: N | needs-manual-verification: N | contract-removed: N`\n\n## Rules\n\n- Never invent new `DT-XXXX` ids during a retest. New findings discovered during retest are out of scope — run a fresh `design-test` for those.\n- Never lower a finding's severity during retest. Severity is a property of the source report; retest only updates `status`.\n- If the source sidecar is missing or malformed, stop and ask the user to point at a valid sidecar.\n- Always write both the `.md` and `.json` retest outputs.\n"
+    },
+    {
+      "rule_id": "RULE-14",
+      "title": "Design-Test Workflow",
+      "source_path": "docs/instructions/rules/coding/design-test.md",
+      "trigger_patterns": [
+        "docs/instructions/design-system/*",
+        "design-retest",
+        "docs/modules/*/ui/**",
+        "documentation-drift",
+        ".paqad/design-test/runs/<run_id>/progress.json",
+        "completed",
+        "docs/instructions/design-system/",
+        "design-system-coverage",
+        "stride-threat-model",
+        "AskUserQuestion",
+        "create documentation",
+        "documentation-update",
+        "confidence: low",
+        "DT-DS-XXXX",
+        "design_test.strict: true",
+        "paqad.config.{json,yaml}",
+        "project-profile.yaml",
+        "docs/instructions/design-system/**",
+        "src/components/**",
+        "docs/modules/\\*/ui/**",
+        "tailwind.config.*",
+        "src/design-tokens/",
+        "contract-summary.json",
+        "surface-summary.json",
+        "test-summary.json",
+        ".paqad/design-test/runs/<run_id>/artifacts/",
+        "token-conformance-review",
+        "px",
+        "rem",
+        "em",
+        "tokens.md",
+        "primary",
+        "#1a73e8",
+        "component-conformance-review",
+        "components.md",
+        "!important",
+        "style=",
+        "state-coverage-review",
+        "accessibility-review",
+        "WCAG-2.2.x.x.x",
+        "responsive-review",
+        "motion-review",
+        "motion.md",
+        "prefers-reduced-motion",
+        "copy-and-ia-review",
+        "patterns.md",
+        "runtime/scripts/design/scan-tokens.sh",
+        "runtime/scripts/design/scan-overrides.sh",
+        "runtime/scripts/design/enumerate-surface.sh",
+        "app/",
+        "pages/",
+        "runtime/scripts/design/axe-static.sh",
+        "axe-core",
+        "runtime/scripts/design/coverage.sh",
+        "docs/design-test/<timestamp>-local-playbook.md",
+        "ts\n// contrast probe — assert text/bg pair meets WCAG-2.2-1.4.3 (4.5:1)\nimport { test, expect } from '@playwright/test';\nimport AxeBuilder from '@axe-core/playwright';\ntest('contrast on /pricing', async ({ page }) => {\n  await page.goto('/pricing');\n  const results = await new AxeBuilder({ page }).withTags(['wcag2aa']).analyze();\n  expect(results.violations.filter((v) => v.id === 'color-contrast')).toEqual([]);\n});\n\n// focus-ring probe — keyboard reach must produce a visible focus outline\ntest('focus ring visible on primary button', async ({ page }) => {\n  await page.goto('/');\n  await page.keyboard.press('Tab');\n  const outline = await page\n    .locator(':focus-visible')\n    .evaluate((el) => getComputedStyle(el).outlineWidth);\n  expect(outline).not.toBe('0px');\n});\n\n// token-leak probe — computed color must resolve to a declared token\ntest('button bg = color.primary.500', async ({ page }) => {\n  await page.goto('/');\n  const bg = await page\n    .locator('button.primary')\n    .evaluate((el) => getComputedStyle(el).backgroundColor);\n  expect(bg).toBe('rgb(26, 115, 232)'); // declared in tokens.md as color.primary.500\n});",
+        "### Step 3 — live-validation (Playwright phase)\n\nEquivalent of pentest's live-validation step. The runner brings up the app via",
+        "(from",
+        "or",
+        ") and walks it. It **reuses the project's",
+        "** (browsers, projects, baseURL) — overridable through the",
+        "config block.\n\n- **Surface walk** — visit every route from the inventory; screenshot at declared breakpoints\n- **Token diff** — inspect computed styles (color, font-family, font-size, line-height, radius, spacing, shadow) at each route; diff against",
+        ". One finding per mismatched property. This is the padding/margin/font/color/border check, mechanized.\n- **State sweep** — for every component in the inventory, drive its declared states via Playwright\n- **A11y dynamic** —",
+        "against each route in default + dark-mode + reduced-motion + RTL (if declared)\n- **Visual regression** — first run creates a baseline in",
+        "(git-ignored); subsequent runs diff;",
+        "action promotes approved diffs to a tracked path\n- **Asset budget** — fonts loaded match",
+        "; no extra families\n- **Performance budget** — LCP / CLS / INP vs declared budgets (only if",
+        "has a perf budget)\n\nIf the app can't be reached → record",
+        "and proceed (identical to pentest behavior).\n\nSkills consulted in this step:",
+        ",",
+        "(all keyed to the live walk's evidence).\n\n### Step 4 — synthesize-findings\n\nReuse",
+        "; the DT category vocabulary lives in its",
+        ". Stable",
+        "IDs. Each finding:\n\n-",
+        ": blocker / high / medium / low / nit\n-",
+        ": token / component / state / a11y / responsive / motion / copy / performance / **documentation-drift**\n-",
+        ": screen + component\n-",
+        ": clause in",
+        "violated\n-",
+        ":",
+        "for static; screenshot + selector for live\n-",
+        ": concrete fix (e.g. \"replace",
+        "at",
+        "with",
+        "from",
+        "\") so an LLM can resolve without re-deriving context\n-",
+        ": open / accepted / waived (with reason) / fixed\n-",
+        ": link to playbook snippet that reproduces it",
+        "findings default to **high** severity (raises visibility of hard-coded design values from day one).",
+        "defaults to medium; rises to high if drift is in the contract itself (token declared in",
+        "never used, or used in code but not declared).\n\n### Step 5 — write-report\n\n-",
+        "— human report\n-",
+        "— machine sidecar (so",
+        "preserves IDs)\n- **DS-COV Coverage Matrix** — every contract clause × every route → covered/blocked (analog of WSTG matrix)\n- Ordered findings (blocker → nit), remediation priorities, link to playbook\n\n#### DS-COV Coverage Matrix Template\n\n| Contract clause                      | Route      | Status            |\n| ------------------------------------ | ---------- | ----------------- |\n| tokens.md → color.primary.500        | /pricing   | covered / blocked |\n| tokens.md → spacing.4                | /          | covered / blocked |\n| components.md → Button > hover state | /signup    | covered / blocked |\n| accessibility.md → WCAG-2.2-1.4.3    | (all)      | covered / blocked |\n| motion.md → reduced-motion respected | (all)      | covered / blocked |\n| responsive.md → breakpoint:sm        | (all)      | covered / blocked |\n| patterns.md → override budget        | (codebase) | covered / blocked |\n\n## Footprint Policy\n\n**Zero project footprint.** Diverges from pentest's \"scripts live in the project\" model — pentest scripts are meant to be tweakable by the project's security team; design-test scripts are infrastructure the project shouldn't touch. This divergence is intentional.\n\n- All runners (scan-tokens, scan-overrides, enumerate-surface, axe-static, coverage, runtime-checks, retest) live inside paqad-ai under",
+        ".\n-",
+        "is a",
+        "file (Playwright is a Node API), run via",
+        "shipped as a paqad-ai dep.\n- Stack-specific behavior is **framework code** inside the runners — they read the project's",
+        ", CSS-in-JS imports — and branch internally. One runner, many stacks.\n- Outputs land in the project (",
+        ") — work products, not infrastructure. Same pattern as pentest.\n\n## What Is and Isn't Project-Tunable\n\n**Framework-owned, not project-editable:**\n\n- This workflow rule and",
+        "- All 9 skills (the 8 review skills +",
+        ")\n- Runners under",
+        "- Routing rules\n- Finding schema and severity vocabulary\n\n**Project-tunable, via declarative inputs only:**\n\n- The contract itself:",
+        "- A bounded config block (schema-validated) in",
+        ":\n  -",
+        "(default false — advisory unless opted in)\n  -",
+        "-",
+        "/",
+        "(schema framework-defined; values project-supplied)\n  -",
+        "(optional checks)\n\n**Explicitly off-limits:**\n\n- Project-side plugins loaded by the runner\n- Project-side scripts the workflow shells out to\n- Project-overridable thresholds outside the declared schema\n- Swapping a framework skill for a project-custom one\n- Editing this workflow rule in the project\n\n## Rules\n\n- Never skip steps. If a script is unavailable, record it in",
+        "and proceed.\n- Do not run destructive operations (no writes to the live database, no mutations via the API). The Playwright walk is read-only.\n- Always write both the",
+        "report and the",
+        "sidecar; the",
+        "workflow depends on the sidecar to preserve",
+        "IDs.\n- The local design playbook (Step 2.5) is **generated only** — never execute it automatically.\n-",
+        "is never evidence; any disagreement with the AST-derived inventory produces a",
+        "finding.\n- Hard-coded design values (hex, raw px/rem, ad-hoc font stacks) are never acceptable when a token exists."
+      ],
+      "severity": "must",
+      "summary": "Audit the running UI against the project's own design-system contract. Mirror of the pentest workflow — same shape, same resumability, but graded against `docs/instructions/design-system/*` instead of OWASP WSTG. The contract is the standard; the framework holds no hard-coded color/spacing rules.",
+      "raw_text": "# Design-Test Workflow\n\n## Purpose\n\nAudit the running UI against the project's own design-system contract. Mirror of the pentest workflow — same shape, same resumability, but graded against `docs/instructions/design-system/*` instead of OWASP WSTG. The contract is the standard; the framework holds no hard-coded color/spacing rules.\n\n## Trigger\n\nRun this workflow whenever the user says anything equivalent to:\n\n- \"run design test\", \"design check\", \"design audit\", \"ui audit\", \"design-system audit\", \"check design system\", \"validate the ui\", \"validate design\"\n\nDo **not** improvise a design audit. Always follow the steps below in order. For a retest of an existing report, use the `design-retest` workflow instead.\n\n## Source-of-Truth Model\n\n| Source                              | Role                                                                               |\n| ----------------------------------- | ---------------------------------------------------------------------------------- |\n| Playwright walk of the running app  | **primary evidence**                                                               |\n| UI source AST + CSS scan            | **primary evidence**                                                               |\n| `docs/instructions/design-system/*` | **contract** — what reality is graded against                                      |\n| `docs/modules/*/ui/**`              | **subject under audit** — never trusted as evidence; cross-checked against reality |\n| Playwright test files               | **coverage evidence** — what's tested ≠ what exists; gap = finding                 |\n\nDocs are help, not truth. Any disagreement between docs and reality produces a `documentation-drift` finding with bidirectional resolution (\"either implement the state or remove the claim\").\n\n## Workflow Steps\n\nProgress is tracked in `.paqad/design-test/runs/<run_id>/progress.json` (same shape as pentest). The workflow is resumable: if a step is already marked `completed` with the same input hash, skip it.\n\n### Step 0 — readiness-gate\n\nGrade `docs/instructions/design-system/` before any other step runs. The `design-system-coverage` skill produces the tier; it is always the first skill and gates everything else (analog of `stride-threat-model`).\n\n| Tier         | Criteria                                                                    | Behavior                                                                                                                                                                                                 |\n| ------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |\n| **Missing**  | Directory absent, or all six contract files empty                           | **Stop.** Decision-pause packet via `AskUserQuestion`: \"Run `create documentation` for the design system first?\" Offers inline invocation of `documentation-update` workflow, then resume.               |\n| **Bare**     | Tokens partial; no component inventory; no a11y matrix                      | Warn + prompt. Run in exploratory mode, findings flagged `confidence: low`. Also emit `DT-DS-XXXX` findings listing gaps in the contract itself.                                                         |\n| **Adequate** | Tokens + components + a11y + at least one of {patterns, motion, responsive} | Proceed with normal scoring.                                                                                                                                                                             |\n| **Strong**   | All six contract files populated                                            | Proceed; if `design_test.strict: true` is set in `paqad.config.{json,yaml}` or `project-profile.yaml`, DT-blocker findings gate the dev workflow. Strict mode never auto-engages — explicit opt-in only. |\n\n### Step 1 — collect-context\n\n- Load `docs/instructions/design-system/**` → the contract.\n- Derive component inventory from **AST scan of `src/components/**`** + Storybook stories if present. **Do not derive from `docs/modules/\\*/ui/**`** — instead audit those docs against the derived inventory.\n- Load UI source: theme/style files, Tailwind config (`tailwind.config.*`), design-token sources (`src/design-tokens/`), CSS modules / CSS-in-JS.\n- Load Playwright tests as coverage evidence.\n- Emit `contract-summary.json`, `surface-summary.json`, `test-summary.json` to `.paqad/design-test/runs/<run_id>/artifacts/`.\n\nSkills run **in this order** (`design-system-coverage` gates everything else, like STRIDE):\n\n1. `design-system-coverage` — already ran in Step 0; readiness inventory reused as input to every downstream skill\n2. `token-conformance-review` — scan UI source for hard-coded values that should reference tokens. **High severity by default** — hex literals, raw `px`/`rem`/`em`, font stacks not in `tokens.md`, color names not registered as tokens. The presence of a `primary` token while a component inlines `#1a73e8` is a finding, not a stylistic preference.\n3. `component-conformance-review` — every used component must be in `components.md`; `!important`, inline `style=`, shadcn primitives wrapped without spec, undocumented Tailwind utility combinations → findings\n4. `state-coverage-review` — every component in the AST-derived inventory must implement its declared states (default/hover/focus/disabled/loading/error/empty) AND be exercised by Playwright\n5. `accessibility-review` — WCAG 2.2 A/AA: contrast, focus visibility, keyboard order, ARIA, target size, prefers-reduced-motion. Findings tagged `WCAG-2.2.x.x.x` (analog of WSTG)\n6. `responsive-review` — declared breakpoints exercised; no horizontal scroll; touch targets ≥ spec\n7. `motion-review` — animations match `motion.md`; `prefers-reduced-motion` respected\n8. `copy-and-ia-review` — voice/tone/labeling consistency vs `patterns.md`\n\n### Step 2 — run-project-scripts\n\nFive scripts, run in parallel, **shipped inside paqad-ai** (not seeded into the project — see \"Footprint policy\" below):\n\n1. `runtime/scripts/design/scan-tokens.sh` — AST/grep for hard-coded design values\n2. `runtime/scripts/design/scan-overrides.sh` — `!important`, inline `style=`, undocumented Tailwind class combos\n3. `runtime/scripts/design/enumerate-surface.sh` — screen/route inventory (Next `app/` / `pages/` / framework router)\n4. `runtime/scripts/design/axe-static.sh` — `axe-core` against component snapshots without booting the app\n5. `runtime/scripts/design/coverage.sh` — Playwright tests cross-referenced against the AST-derived component inventory\n\nArtefacts → `.paqad/design-test/runs/<run_id>/artifacts/`.\n\n### Step 2.5 — generate-local-design-playbook\n\nFor each suspected finding category, emit `docs/design-test/<timestamp>-local-playbook.md` with a Playwright snippet per category — same \"break locally first\" pattern pentest uses with curl. **Templates only, never auto-executed.** Categories: contrast probe, focus-ring probe, motion respect, touch-target probe, token-leak probe.\n\nExample playbook entries:\n\n```ts\n// contrast probe — assert text/bg pair meets WCAG-2.2-1.4.3 (4.5:1)\nimport { test, expect } from '@playwright/test';\nimport AxeBuilder from '@axe-core/playwright';\ntest('contrast on /pricing', async ({ page }) => {\n  await page.goto('/pricing');\n  const results = await new AxeBuilder({ page }).withTags(['wcag2aa']).analyze();\n  expect(results.violations.filter((v) => v.id === 'color-contrast')).toEqual([]);\n});\n\n// focus-ring probe — keyboard reach must produce a visible focus outline\ntest('focus ring visible on primary button', async ({ page }) => {\n  await page.goto('/');\n  await page.keyboard.press('Tab');\n  const outline = await page\n    .locator(':focus-visible')\n    .evaluate((el) => getComputedStyle(el).outlineWidth);\n  expect(outline).not.toBe('0px');\n});\n\n// token-leak probe — computed color must resolve to a declared token\ntest('button bg = color.primary.500', async ({ page }) => {\n  await page.goto('/');\n  const bg = await page\n    .locator('button.primary')\n    .evaluate((el) => getComputedStyle(el).backgroundColor);\n  expect(bg).toBe('rgb(26, 115, 232)'); // declared in tokens.md as color.primary.500\n});\n```\n\n### Step 3 — live-validation (Playwright phase)\n\nEquivalent of pentest's live-validation step. The runner brings up the app via `design_test.dev_command` (from `paqad.config.*` or `project-profile.yaml`) and walks it. It **reuses the project's `playwright.config.ts`** (browsers, projects, baseURL) — overridable through the `design_test` config block.\n\n- **Surface walk** — visit every route from the inventory; screenshot at declared breakpoints\n- **Token diff** — inspect computed styles (color, font-family, font-size, line-height, radius, spacing, shadow) at each route; diff against `tokens.md`. One finding per mismatched property. This is the padding/margin/font/color/border check, mechanized.\n- **State sweep** — for every component in the inventory, drive its declared states via Playwright\n- **A11y dynamic** — `@axe-core/playwright` against each route in default + dark-mode + reduced-motion + RTL (if declared)\n- **Visual regression** — first run creates a baseline in `.paqad/design-test/baselines/` (git-ignored); subsequent runs diff; `paqad design accept-baseline` action promotes approved diffs to a tracked path\n- **Asset budget** — fonts loaded match `tokens.md`; no extra families\n- **Performance budget** — LCP / CLS / INP vs declared budgets (only if `patterns.md` has a perf budget)\n\nIf the app can't be reached → record `blocked_checks` and proceed (identical to pentest behavior).\n\nSkills consulted in this step: `accessibility-review`, `responsive-review`, `motion-review`, `state-coverage-review` (all keyed to the live walk's evidence).\n\n### Step 4 — synthesize-findings\n\nReuse `finding-normalizer`; the DT category vocabulary lives in its `assets/vocabulary.txt`. Stable `DT-XXXX` IDs. Each finding:\n\n- `severity`: blocker / high / medium / low / nit\n- `category`: token / component / state / a11y / responsive / motion / copy / performance / **documentation-drift**\n- `surface`: screen + component\n- `contract_ref`: clause in `docs/instructions/design-system/*.md` violated\n- `evidence`: `file:line` for static; screenshot + selector for live\n- `resolution`: concrete fix (e.g. \"replace `#1a73e8` at `Button.tsx:42` with `color.primary.500` from `tokens.md`\") so an LLM can resolve without re-deriving context\n- `status`: open / accepted / waived (with reason) / fixed\n- `playbook_ref`: link to playbook snippet that reproduces it\n\n`token` findings default to **high** severity (raises visibility of hard-coded design values from day one). `documentation-drift` defaults to medium; rises to high if drift is in the contract itself (token declared in `tokens.md` never used, or used in code but not declared).\n\n### Step 5 — write-report\n\n- `docs/design-test/<timestamp>.md` — human report\n- `docs/design-test/<timestamp>.json` — machine sidecar (so `design-retest` preserves IDs)\n- **DS-COV Coverage Matrix** — every contract clause × every route → covered/blocked (analog of WSTG matrix)\n- Ordered findings (blocker → nit), remediation priorities, link to playbook\n\n#### DS-COV Coverage Matrix Template\n\n| Contract clause                      | Route      | Status            |\n| ------------------------------------ | ---------- | ----------------- |\n| tokens.md → color.primary.500        | /pricing   | covered / blocked |\n| tokens.md → spacing.4                | /          | covered / blocked |\n| components.md → Button > hover state | /signup    | covered / blocked |\n| accessibility.md → WCAG-2.2-1.4.3    | (all)      | covered / blocked |\n| motion.md → reduced-motion respected | (all)      | covered / blocked |\n| responsive.md → breakpoint:sm        | (all)      | covered / blocked |\n| patterns.md → override budget        | (codebase) | covered / blocked |\n\n## Footprint Policy\n\n**Zero project footprint.** Diverges from pentest's \"scripts live in the project\" model — pentest scripts are meant to be tweakable by the project's security team; design-test scripts are infrastructure the project shouldn't touch. This divergence is intentional.\n\n- All runners (scan-tokens, scan-overrides, enumerate-surface, axe-static, coverage, runtime-checks, retest) live inside paqad-ai under `runtime/scripts/design/`.\n- `runtime-checks.ts` is a `.ts` file (Playwright is a Node API), run via `tsx` shipped as a paqad-ai dep.\n- Stack-specific behavior is **framework code** inside the runners — they read the project's `package.json`, `playwright.config.ts`, `tailwind.config.*`, CSS-in-JS imports — and branch internally. One runner, many stacks.\n- Outputs land in the project (`docs/design-test/*`, `.paqad/design-test/runs/*`) — work products, not infrastructure. Same pattern as pentest.\n\n## What Is and Isn't Project-Tunable\n\n**Framework-owned, not project-editable:**\n\n- This workflow rule and `design-retest.md`\n- All 9 skills (the 8 review skills + `design-system-sync`)\n- Runners under `runtime/scripts/design/`\n- Routing rules\n- Finding schema and severity vocabulary\n\n**Project-tunable, via declarative inputs only:**\n\n- The contract itself: `docs/instructions/design-system/*.md`\n- A bounded config block (schema-validated) in `paqad.config.{json,yaml}` or `project-profile.yaml`:\n  - `design_test.strict: true|false` (default false — advisory unless opted in)\n  - `design_test.app_url`\n  - `design_test.dev_command`\n  - `design_test.routes_include` / `routes_exclude`\n  - `design_test.baselines_path`\n  - `design_test.budgets` (schema framework-defined; values project-supplied)\n  - `design_test.with: [visual-regression, dark-mode-parity, rtl-parity, i18n-width]` (optional checks)\n\n**Explicitly off-limits:**\n\n- Project-side plugins loaded by the runner\n- Project-side scripts the workflow shells out to\n- Project-overridable thresholds outside the declared schema\n- Swapping a framework skill for a project-custom one\n- Editing this workflow rule in the project\n\n## Rules\n\n- Never skip steps. If a script is unavailable, record it in `blocked_checks` and proceed.\n- Do not run destructive operations (no writes to the live database, no mutations via the API). The Playwright walk is read-only.\n- Always write both the `.md` report and the `.json` sidecar; the `design-retest` workflow depends on the sidecar to preserve `DT-XXXX` IDs.\n- The local design playbook (Step 2.5) is **generated only** — never execute it automatically.\n- `docs/modules/*/ui/**` is never evidence; any disagreement with the AST-derived inventory produces a `documentation-drift` finding.\n- Hard-coded design values (hex, raw px/rem, ad-hoc font stacks) are never acceptable when a token exists. `token` findings default to high severity.\n"
+    },
+    {
+      "rule_id": "RULE-15",
       "title": "Pentest Workflow",
       "source_path": "docs/instructions/rules/security/pentest.md",
       "trigger_patterns": [
@@ -191,7 +467,7 @@
       "raw_text": "# Pentest Workflow\n\n## Purpose\n\nDefine the exact steps to follow when a pentest is requested so the AI executes the full structured workflow rather than ad-hoc checks.\n\n## Trigger\n\nRun this workflow whenever the user says anything equivalent to:\n\n- \"run pentest\", \"run a penetration test\", \"pentest the app\", \"security audit\", \"run security scan\"\n\nDo **not** improvise a pentest. Always follow the steps below in order.\n\n## Workflow Steps\n\nProgress is tracked in `.paqad/pentest/runs/<run_id>/progress.json`. The workflow is resumable: if a step is already marked `completed` with the same input hash, skip it.\n\n### Step 1 — collect-context\n\n- Load all module documentation from `docs/modules/` for the relevant modules.\n- Load test files from `tests/` for the relevant modules.\n- Write a `docs-summary.json` and `tests-summary.json` artefact to `.paqad/pentest/runs/<run_id>/artifacts/`.\n- Skills (run **in this order** — STRIDE must run first so all other skills can reference the threat inventory):\n  1. `stride-threat-model` — enumerate threats per STRIDE category across all modules; write `stride-threats.json`\n  2. `permission-boundary-review` — BOLA, function-level auth, mass assignment, resource consumption\n  3. `business-logic-abuse-review` — race conditions, workflow abuse, financial manipulation, GraphQL abuse\n  4. `input-validation-review` — SSRF, IDOR, mass assignment, injection, file upload, prototype pollution, ReDoS\n  5. `auth-mechanism-review` — JWT, session, OAuth/OIDC, brute-force, password storage\n  6. `cryptographic-review` — encryption at rest/transit, key management, hashing, PRNG\n  7. `logging-monitoring-review` — audit trail, log injection, sensitive data in logs, alerting\n  8. `rate-limiting-review` — missing rate limits on auth, bulk, and expensive endpoints\n\n### Step 2 — run-project-scripts\n\nRun the following five scripts in parallel (they live in `scripts/` after onboarding):\n\n1. `pentest-audit-dependencies.sh` — scan lockfile for known vulnerabilities via native audit + OSV; check for typosquatting indicators, dependency confusion, and abandoned packages\n2. `pentest-scan-secrets.sh` — scan source **and** git history for leaked credentials or secrets (including deleted files and squashed commits)\n3. `pentest-enumerate-surface.sh` — enumerate routes, controllers, exposed endpoints; include `/swagger`, `/api-docs`, `/openapi.json`, `/graphql` (introspection query), and WebSocket endpoints\n4. `pentest-db-readonly.sh` — verify database interactions are read-only where expected\n5. `pentest-scan-git-history.sh` — scan the git object database for secrets in all commits (not just the working tree), covering deleted branches, squashed commits, and amended history\n\nWrite all artefacts to `.paqad/pentest/runs/<run_id>/artifacts/`.\n\n- Skills: `dependency-advisory-triage`\n\n### Step 2.5 — generate-local-attack-playbook\n\nFor each suspected finding category identified in Steps 1–2, generate `docs/pentest/<timestamp>-local-playbook.md` with a concrete local test command per category. This is the **\"break locally first\"** step — every finding gets a curl command or script template the developer can run against `localhost` to confirm or refute it.\n\nExample playbook entries:\n\n```bash\n# IDOR — swap user ID in path\n# Expected: 403 Forbidden. If 200 with another user's data → confirmed IDOR (WSTG-AUTHZ-04).\ncurl -s -H \"Authorization: Bearer $LOW_PRIV_TOKEN\" \\\n  \"http://localhost:8000/api/users/2/profile\"\n\n# Race condition — concurrent requests (use HTTP/2 single-packet for reliable timing)\n# Expected: only 1 success. Multiple 200s → race condition confirmed (WSTG-BUSL-09).\nfor i in {1..20}; do\n  curl -s -X POST -H \"Authorization: Bearer $TOKEN\" \\\n    \"http://localhost:8000/api/vouchers/PROMO10/redeem\" &\ndone; wait\n# For tighter timing: use Burp Turbo Intruder or send all requests in one TCP packet (HTTP/2).\n\n# Mass assignment — inject privileged fields\n# Expected: extra fields ignored or 400. If role/is_admin changes → confirmed (WSTG-INPV-06).\ncurl -s -X PATCH -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer $TOKEN\" \\\n  -d '{\"name\":\"test\",\"is_admin\":true,\"role\":\"admin\",\"balance\":99999}' \\\n  \"http://localhost:8000/api/profile\"\n\n# SSRF — AWS metadata probe\n# Expected: blocked or error. If metadata returned → SSRF confirmed (WSTG-INPV-17).\ncurl -s -X POST -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"http://169.254.169.254/latest/meta-data/\"}' \\\n  \"http://localhost:8000/api/preview\"\n\n# JWT alg:none bypass\n# 1. Split your valid JWT: header.payload.signature\n# 2. Re-encode header with \"alg\":\"none\" (base64url, no padding)\n# 3. Send: <new_header>.<original_payload>. (empty signature — note trailing dot)\n# Expected: 401. If 200 → alg:none not rejected (WSTG-SESS-10).\ncurl -s -H \"Authorization: Bearer <forged_alg_none_token>\" \\\n  \"http://localhost:8000/api/me\"\n\n# GraphQL introspection\n# Expected: disabled in production config. If full schema returned → information disclosure.\ncurl -s -X POST -H \"Content-Type: application/json\" \\\n  -d '{\"query\":\"{ __schema { types { name fields { name } } } }\"}' \\\n  \"http://localhost:8000/graphql\"\n\n# Open redirect\n# Expected: only relative paths or trusted domains accepted. If external redirect → confirmed.\ncurl -sI \"http://localhost:8000/auth/callback?redirect=https://evil.com\"\n\n# Security headers check\n# Expected: all security headers present.\ncurl -sI \"http://localhost:8000/\" | grep -iE \"strict-transport|x-frame|content-security|x-content-type\"\n```\n\n**Important:** This playbook is **generated only — never auto-executed.** All commands are templates; substitute `$TOKEN`, `$LOW_PRIV_TOKEN`, and endpoint paths with values from the target project. Never run these against a production system.\n\n### Step 3 — live-validation\n\n- If a target URL is available (from the request text, `.env` APP_URL, or `project-profile.yaml`), run `pentest-runtime-checks.sh` against it.\n- The runtime checks script must cover:\n  - Base reachability (HTTP 200 on home/health)\n  - Security header audit (HSTS, X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy)\n  - CORS header probe on at least one authenticated endpoint\n  - Error disclosure probe (trigger a 404 and a malformed request; check for stack traces in response)\n  - Open redirect probe on known redirect/callback parameters\n  - Sensitive file exposure (`/.env`, `/.git/config`, `/phpinfo.php`)\n  - GraphQL introspection probe (`{ __schema { types { name } } }`)\n  - Rate limit probe on login endpoint (10 rapid requests; check for 429 response)\n- If no URL is found, record the check as blocked and continue.\n- Skills: `runtime-surface-probing`\n\n### Step 4 — synthesize-findings\n\nNormalise all evidence from steps 1–3 into structured findings:\n\n- **Dependency findings**: from lockfile audit and OSV results\n- **Module findings**: from doc and test coverage gaps (all 8 skill categories)\n- **Secret findings**: from secret scan and git history scan output\n- **Runtime findings**: from live-validation results (if available)\n\nAssign stable `PT-XXXX` IDs. Write a `finding-index.json` to `.paqad/pentest/runs/<run_id>/`.\n\n- Skills: `finding-normalizer`\n\n### Step 5 — write-report\n\n- Write a Markdown report to `docs/pentest/<timestamp>.md`\n- Write a JSON sidecar to `docs/pentest/<timestamp>.json`\n- Include:\n  - Stack summary and capability profile\n  - **OWASP WSTG Coverage Matrix** (see template below)\n  - Ordered findings (critical → high → medium → low)\n  - Blocked checks with explanation\n  - Remediation priorities\n  - Methodology notes\n  - Link to the local attack playbook generated in Step 2.5\n\n#### OWASP WSTG Coverage Matrix Template\n\n| WSTG Category     | Test ID          | Description                       | Status            |\n| ----------------- | ---------------- | --------------------------------- | ----------------- |\n| WSTG-AUTHZ-04     | IDOR             | Insecure Direct Object Reference  | covered / blocked |\n| WSTG-INPV-17      | SSRF             | Server-Side Request Forgery       | covered / blocked |\n| WSTG-INPV-06      | Mass Assignment  | Broken Object Property Level Auth | covered / blocked |\n| WSTG-SESS-10      | JWT              | JSON Web Token Security           | covered / blocked |\n| WSTG-SESS-03      | Session Fixation | Session Fixation Attack           | covered / blocked |\n| WSTG-ATHN-03      | Brute Force      | Testing for Account Lockout       | covered / blocked |\n| WSTG-BUSL-01..12  | Business Logic   | Workflow abuse, race conditions   | covered / blocked |\n| WSTG-CRYP-01..03  | Cryptography     | Weak encryption / hashing         | covered / blocked |\n| WSTG-INPV-13      | Rate Limiting    | Resource exhaustion / DoS         | covered / blocked |\n| WSTG-AUTHZ-01..11 | Authorization    | Privilege escalation suite        | covered / blocked |\n| WSTG-ERRH-02      | Logging          | Security logging failures         | covered / blocked |\n\n## Rules\n\n- Never skip steps. If a script is unavailable, record it in `blocked_checks` and proceed.\n- Do not run destructive operations (no writes to the live database, no mutations via the API).\n- Always write both the `.md` report and the `.json` sidecar; downstream retest workflows depend on the sidecar.\n- The local attack playbook (Step 2.5) is **generated only** — never execute it automatically.\n- For a retest of an existing report, use the `pentest-retest` workflow instead, referencing the original sidecar path to preserve finding IDs.\n"
     },
     {
-      "rule_id": "RULE-13",
+      "rule_id": "RULE-16",
       "title": "Content Attribution",
       "source_path": "docs/instructions/rules/content/attribution.md",
       "trigger_patterns": [
@@ -202,7 +478,7 @@
       "raw_text": "# Content Attribution\n\n- Attribute externally-derived facts, metrics, and claims whenever the source is known.\n- Distinguish observed facts from recommendations and inference.\n- Do not present guessed numbers or unsupported product claims as verified.\n"
     },
     {
-      "rule_id": "RULE-14",
+      "rule_id": "RULE-17",
       "title": "Content Code Snippets",
       "source_path": "docs/instructions/rules/content/code-snippets.md",
       "trigger_patterns": [
@@ -213,7 +489,7 @@
       "raw_text": "# Content Code Snippets\n\n- Include code only when it helps explain the content.\n- Keep snippets short and anchored to the reader task.\n- Prefer paraphrase plus a focused snippet over long pasted code blocks.\n- When coding context is active, align code examples with the detected stack and conventions.\n"
     },
     {
-      "rule_id": "RULE-15",
+      "rule_id": "RULE-18",
       "title": "Content Markdown",
       "source_path": "docs/instructions/rules/content/markdown.md",
       "trigger_patterns": [
@@ -224,7 +500,7 @@
       "raw_text": "# Content Markdown\n\n- Use headings that reflect the reader task.\n- Keep paragraphs short and lists flat.\n- Use tables only when they improve comparison clarity.\n- Avoid filler introductions and repetitive recap sections.\n"
     },
     {
-      "rule_id": "RULE-16",
+      "rule_id": "RULE-19",
       "title": "Content Writing",
       "source_path": "docs/instructions/rules/content/writing.md",
       "trigger_patterns": [
@@ -235,7 +511,7 @@
       "raw_text": "# Content Writing\n\nUse the content capability for writing, editing, planning, research synthesis, and script work.\n\n- Lead with the user outcome, not internal process notes.\n- Prefer short sections, scannable headings, and explicit next actions.\n- Keep tone consistent with the project or provided style guide.\n- Convert vague asks into a concrete structure before drafting.\n- If the project also has coding active, pull technical context from the stack and keep it accurate.\n"
     },
     {
-      "rule_id": "RULE-17",
+      "rule_id": "RULE-20",
       "title": "API Design",
       "source_path": "docs/instructions/rules/coding/stacks/_shared/api-design.md",
       "trigger_patterns": [
@@ -246,7 +522,7 @@
       "raw_text": "# API Design\n\n## Purpose\n\nDefine stable service and endpoint contracts.\n\n## Rules\n\n- Prefer additive changes.\n- Document request, response, and error expectations together.\n"
     },
     {
-      "rule_id": "RULE-18",
+      "rule_id": "RULE-21",
       "title": "CI CD",
       "source_path": "docs/instructions/rules/coding/stacks/_shared/ci-cd.md",
       "trigger_patterns": [
@@ -257,7 +533,7 @@
       "raw_text": "# CI CD\n\n## Purpose\n\nKeep automated verification aligned with the local workflow.\n\n## Rules\n\n- CI must run the same verification gates that block local delivery.\n- Keep package build and tests green at every logical step.\n"
     },
     {
-      "rule_id": "RULE-19",
+      "rule_id": "RULE-22",
       "title": "Git",
       "source_path": "docs/instructions/rules/coding/stacks/_shared/git.md",
       "trigger_patterns": [
@@ -268,7 +544,7 @@
       "raw_text": "# Git\n\n## Purpose\n\nKeep source control changes scoped and reviewable.\n\n## Rules\n\n- Commit one coherent phase or sub-phase at a time.\n- Avoid destructive history edits without explicit instruction.\n"
     },
     {
-      "rule_id": "RULE-20",
+      "rule_id": "RULE-23",
       "title": "React Architecture",
       "source_path": "docs/instructions/rules/coding/stacks/react/architecture.md",
       "trigger_patterns": [
@@ -279,7 +555,7 @@
       "raw_text": "# React Architecture\n\n- Keep feature ownership aligned with `docs/modules/<module>/` and avoid scattering one flow across unrelated folders.\n- Screens or routes coordinate composition; business logic belongs in hooks, services, and state layers.\n- Do not mix transport parsing, schema validation, rendering, and side effects in one file when the behavior is non-trivial.\n- Centralize route builders, API clients, and shared UI primitives instead of duplicating them per feature.\n- Reflect changed route, component, and state behavior in the matching canonical docs.\n"
     },
     {
-      "rule_id": "RULE-21",
+      "rule_id": "RULE-24",
       "title": "React Conventions",
       "source_path": "docs/instructions/rules/coding/stacks/react/conventions.md",
       "trigger_patterns": [
@@ -290,7 +566,7 @@
       "raw_text": "# React Conventions\n\n- Match the project's React, TypeScript, and folder-layout conventions.\n- Keep routes, components, hooks, and docs synchronized.\n"
     },
     {
-      "rule_id": "RULE-22",
+      "rule_id": "RULE-25",
       "title": "React Documentation",
       "source_path": "docs/instructions/rules/coding/stacks/react/documentation.md",
       "trigger_patterns": [
@@ -301,7 +577,7 @@
       "raw_text": "# React Documentation\n\n- Keep route, component, state, and integration docs aligned with the codebase.\n- Use generated inventories or deterministic scans before writing free-form summaries.\n"
     },
     {
-      "rule_id": "RULE-23",
+      "rule_id": "RULE-26",
       "title": "React Environment",
       "source_path": "docs/instructions/rules/coding/stacks/react/environment.md",
       "trigger_patterns": [
@@ -313,7 +589,7 @@
       "raw_text": "# React Environment\n\n- Resolve environment values through typed config wrappers, not ad hoc `process.env` or `import.meta.env` calls across the app.\n- Keep public and server-only environment keys separated explicitly.\n- Drive API endpoints, feature flags, and analytics settings from config modules, not literals.\n- Fail fast when required configuration for the selected deploy target is missing.\n- Update project tool references when environment loading behavior changes.\n"
     },
     {
-      "rule_id": "RULE-24",
+      "rule_id": "RULE-27",
       "title": "React Foundation",
       "source_path": "docs/instructions/rules/coding/stacks/react/foundation.md",
       "trigger_patterns": [
@@ -324,7 +600,7 @@
       "raw_text": "# React Foundation\n\n- Prefer framework and ecosystem primitives before custom scaffolding.\n- Keep component composition explicit and shared abstractions intentional.\n"
     },
     {
-      "rule_id": "RULE-25",
+      "rule_id": "RULE-28",
       "title": "React Localization",
       "source_path": "docs/instructions/rules/coding/stacks/react/localization.md",
       "trigger_patterns": [
@@ -335,7 +611,7 @@
       "raw_text": "# React Localization\n\n- Do not hard-code user-facing strings in routes, components, hooks, or state handlers.\n- Keep translation keys stable across route-level and component-level rendering.\n- Prefer assertions on keys, state, or semantics instead of translated literals in tests.\n- Centralize enum-to-label and status-to-copy mapping instead of duplicating it per component.\n- If localization setup changes, update testing and UI docs in the same change.\n"
     },
     {
-      "rule_id": "RULE-26",
+      "rule_id": "RULE-29",
       "title": "React Module Boundaries",
       "source_path": "docs/instructions/rules/coding/stacks/react/modules.md",
       "trigger_patterns": [
@@ -346,7 +622,7 @@
       "raw_text": "# React Module Boundaries\n\n- Keep route, feature, and shared UI ownership aligned with the canonical module docs.\n- Reuse existing module and package boundaries before introducing new folders or abstractions.\n- Treat cross-module imports as explicit contracts; avoid reaching into another feature's private internals.\n- Keep route, UI, integration, and error docs updated in the owning module when behavior changes.\n- Record module-level assumptions, dependencies, and side effects in the affected docs.\n"
     },
     {
-      "rule_id": "RULE-27",
+      "rule_id": "RULE-30",
       "title": "React Performance",
       "source_path": "docs/instructions/rules/coding/stacks/react/performance.md",
       "trigger_patterns": [
@@ -357,7 +633,7 @@
       "raw_text": "# React Performance\n\n- Watch unnecessary rerenders, oversized client bundles, hydration costs, and route-level waterfalls.\n- Prefer fixes backed by route or component measurements rather than speculative optimization.\n"
     },
     {
-      "rule_id": "RULE-28",
+      "rule_id": "RULE-31",
       "title": "React Security",
       "source_path": "docs/instructions/rules/coding/stacks/react/security.md",
       "trigger_patterns": [
@@ -368,7 +644,7 @@
       "raw_text": "# React Security\n\n- Validate auth boundaries, route protection, input handling, and secret usage explicitly.\n- Keep server-only logic and sensitive configuration out of client bundles.\n"
     },
     {
-      "rule_id": "RULE-29",
+      "rule_id": "RULE-32",
       "title": "React Testing",
       "source_path": "docs/instructions/rules/coding/stacks/react/testing.md",
       "trigger_patterns": [
@@ -379,7 +655,7 @@
       "raw_text": "# React Testing\n\n- Verify changed behavior with focused component, route, integration, and browser tests as needed.\n- Keep regression coverage close to the changed component or route boundary.\n"
     },
     {
-      "rule_id": "RULE-30",
+      "rule_id": "RULE-33",
       "title": "React UI Safety",
       "source_path": "docs/instructions/rules/coding/stacks/react/ui-safety.md",
       "trigger_patterns": [
@@ -390,7 +666,7 @@
       "raw_text": "# React UI Safety\n\n- Every user-facing flow must handle loading, empty, success, and failure states explicitly.\n- Destructive actions require visible confirmation and must prevent duplicate submits while pending.\n- Route changes must preserve valid back paths, guards, and error boundaries.\n- Validate browser-visible auth and route behavior with `docs/tools/react/playwright.md` when appropriate.\n- Keep module UI docs in sync with changed screen, state, and error behavior.\n"
     },
     {
-      "rule_id": "RULE-31",
+      "rule_id": "RULE-34",
       "title": "React Vite SPA",
       "source_path": "docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md",
       "trigger_patterns": [
