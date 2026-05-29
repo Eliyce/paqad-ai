@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-05-28T08:30:24.800Z",
+  "generated_at": "2026-05-29T10:56:19.169Z",
   "source_hashes": {
     "graph-ui/package.json": "sha256:a98677c6d4360ee9214797c076d058e69b4f722e2d91bfa51f8deccab379c0d8",
     "graph-ui/pnpm-lock.yaml": "sha256:1a5ef75116c9a3ee61a3481375831c7d0f4c3747b36c3ffb1c4593e7fc826d3f",
-    "package.json": "sha256:dc3fc1efd6fac083abb9058726a9fe511eb173356bced485b892ec310c3d964b",
+    "package.json": "sha256:337ca2a022c47bbbef0efe0c49b73716230cfb51f7ba60229066e264691289b5",
     "pnpm-lock.yaml": "sha256:7b888be264fe3c7bf4cd17ce56ff1a1d6080773b370bfe755facc6c22dd2274e"
   },
   "toolchains": [
@@ -733,6 +733,7 @@
       "dist",
       "graph-ui/node_modules",
       "node_modules",
+      "tests/fixtures",
       "tests/unit/adapters/fixtures",
       "tests/unit/templates/fixtures"
     ],

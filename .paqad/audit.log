@@ -4,3 +4,6 @@
 [2026-05-28T08:30:40.310Z] INFO rag-build-started provider="local" model="Xenova/all-MiniLM-L6-v2"
 [2026-05-28T08:33:56.698Z] INFO rag-build-completed provider="local" model="Xenova/all-MiniLM-L6-v2" chunks="4176" duration_ms="196891"
 [2026-05-28T08:33:56.751Z] INFO rag-enabled provider="local" model="Xenova/all-MiniLM-L6-v2"
+[2026-05-29T10:56:31.728Z] INFO rag-build-started provider="local" model="Xenova/all-MiniLM-L6-v2"
+[2026-05-29T11:00:12.739Z] INFO rag-build-completed provider="local" model="Xenova/all-MiniLM-L6-v2" chunks="4497" duration_ms="221227"
+[2026-05-29T11:00:12.798Z] INFO rag-enabled provider="local" model="Xenova/all-MiniLM-L6-v2"

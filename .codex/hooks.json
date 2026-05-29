@@ -3,6 +3,9 @@
     "source": "hooks/agent-entry-gate.sh"
   },
   {
+    "source": "hooks/agent-entry-prompt-gate.sh"
+  },
+  {
     "source": "hooks/agent-entry-session-start.sh"
   },
   {
@@ -16,6 +19,9 @@
   },
   {
     "source": "hooks/conversation-summarize.sh"
+  },
+  {
+    "source": "hooks/lib/agent-entry-sentinel.sh"
   },
   {
     "source": "hooks/module-health-sync.sh"
