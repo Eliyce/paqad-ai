@@ -28,7 +28,10 @@ export interface ScriptHeader {
   false_positive_surface?: string;
 }
 
-const HEADER_LINE_RE = /^\s*\/\/\s*([a-z_]+)\s*:\s*(.*)$/;
+// The value is `.trim()`-ed by the caller, so the colon binds directly to the
+// capture group — no `\s*(.*)` overlap that a backtracking engine could blow up
+// on (CWE-1333).
+const HEADER_LINE_RE = /^\s*\/\/\s*([a-z_]+)\s*:(.*)$/;
 
 // Extract the raw key/value pairs from the leading comment block. Blank lines
 // (including a bare `//` visual separator) are tolerated within the block;

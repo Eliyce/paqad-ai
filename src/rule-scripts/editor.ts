@@ -5,7 +5,7 @@
 // bullet with a fresh stable id, edit a bullet's text by id (preserving the id),
 // or remove a bullet by id. Map mutations go through src/rule-scripts/apply.ts.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -78,7 +78,17 @@ export function addRule(projectRoot: string, sourceRel: string, text: string): A
   const id = mintRuleId(sourceRel, clean, takenIds(projectRoot));
   const bullet = embedRuleMarker(`- ${clean}`, id);
 
-  const existing = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
+  // Read-or-default in one operation rather than existsSync-then-read: the
+  // separate check is a TOCTOU race (CWE-367) — the file can appear or vanish
+  // between the check and the read.
+  let existing = '';
+  try {
+    existing = readFileSync(abs, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw err;
+    }
+  }
   const sep = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
   writeFileSync(abs, `${existing}${sep}${bullet}\n`, 'utf8');
   return { id, source: sourceRel, text: clean, text_hash: ruleTextHash(clean) };
