@@ -45,7 +45,9 @@ emit() {
   printf '{\n'
   printf '  "components": [\n'
   first=1
-  for entry in "${components[@]}"; do
+  # Empty-array expansion under `set -u` is fatal on Bash 3.2 (macOS default).
+  # Use the `${arr[@]+"${arr[@]}"}` idiom to expand to nothing when unset.
+  for entry in ${components[@]+"${components[@]}"}; do
     name="${entry%%|*}"
     src="${entry#*|}"
     test_files=()
@@ -54,7 +56,7 @@ emit() {
         < <(grep -rlE "\b$name\b" "$tests_dir" 2>/dev/null || true)
     fi
     tested_states=()
-    for tf in "${test_files[@]}"; do
+    for tf in ${test_files[@]+"${test_files[@]}"}; do
       for st in default hover focus disabled loading error empty; do
         if grep -qE "\b$st\b" "$tf" 2>/dev/null; then tested_states+=("$st"); fi
       done
@@ -69,7 +71,7 @@ emit() {
     printf '    { "component": "%s", "source_file": "%s", "tested_states": [%s], "test_files": [' "$name" "$src" \
       "$(printf '%s' "$uniq_states" | awk -F, '{for(i=1;i<=NF;i++){printf "%s\"%s\"", (i>1?",":""), $i}}')"
     tf_first=1
-    for tf in "${test_files[@]}"; do
+    for tf in ${test_files[@]+"${test_files[@]}"}; do
       if [ "$tf_first" -eq 1 ]; then tf_first=0; else printf ', '; fi
       printf '"%s"' "$tf"
     done
