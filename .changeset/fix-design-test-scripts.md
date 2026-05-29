@@ -1,5 +1,5 @@
 ---
-"paqad-ai": patch
+'paqad-ai': patch
 ---
 
 Fix `design test` workflow scripts that failed on every onboarded project:
