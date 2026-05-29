@@ -10,6 +10,8 @@
 // timeout so a runaway script cannot wedge the checks stage.
 
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 
 import { validateFindings } from './validate.js';
 
@@ -77,15 +79,24 @@ export function executeRuleScript(
   return { ok: true, report: parsed as FindingsReport };
 }
 
+// Resolve a binary against PATH directly in Node — no subprocess (the old
+// `command -v` / `where` spawn was ENOENT on Linux, where `command` is a shell
+// builtin, not a binary). Cross-platform and injection-safe.
+function isOnPath(bin: string): boolean {
+  // Names with path separators are resolved relative to cwd as-is.
+  if (bin.includes('/') || bin.includes('\\')) {
+    return existsSync(bin);
+  }
+  const dirs = (process.env.PATH ?? '').split(delimiter).filter(Boolean);
+  const exts =
+    process.platform === 'win32' ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';') : [''];
+  return dirs.some((dir) => exts.some((ext) => existsSync(join(dir, `${bin}${ext}`))));
+}
+
 // Returns the subset of declared binaries that are not resolvable on PATH.
 export function missingBinaries(binaries: string[] | undefined): string[] {
   if (!binaries || binaries.length === 0) {
     return [];
   }
-  const probe = process.platform === 'win32' ? 'where' : 'command';
-  const args = process.platform === 'win32' ? [] : ['-v'];
-  return binaries.filter((bin) => {
-    const r = spawnSync(probe, [...args, bin], { encoding: 'utf8' });
-    return r.status !== 0;
-  });
+  return binaries.filter((bin) => !isOnPath(bin));
 }

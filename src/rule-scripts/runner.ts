@@ -111,11 +111,26 @@ export function runRuleScripts(opts: RunOptions): RunReport {
 
   const globs = opts.wholeTreeGlobs ?? DEFAULT_GLOBS;
   const wholeTreeFiles = wholeTree(opts.projectRoot, globs);
-  const targetUniverse = opts.changedFiles ?? wholeTreeFiles;
+  // The cache key must hash every file any registered script can actually read.
+  // A `changed-files` run still scans the whole tree for whole-tree/git-scoped
+  // scripts, so when any such script exists those files belong in the target
+  // hash too — otherwise an unrelated tree mutation returns a stale cached
+  // result for them.
+  const hasNonChangedScope = map.rules.some((r) =>
+    r.scripts.some((s) => s.scope !== 'changed-files'),
+  );
+  const targetUniverse =
+    opts.changedFiles === undefined
+      ? wholeTreeFiles
+      : hasNonChangedScope
+        ? Array.from(new Set([...opts.changedFiles, ...wholeTreeFiles]))
+        : opts.changedFiles;
   const scriptHash = scriptFilesHash(opts.projectRoot, map);
   const targetHash = hashFiles(opts.projectRoot, targetUniverse);
 
-  // Hash-cache: a prior report with matching triple is still valid.
+  // Hash-cache: a prior report with matching triple is still valid. rule_files_hash
+  // is the analyze-time snapshot from the map (not re-derived here) — rule-file
+  // edits surface separately as RS-* drift via the reconciler.
   const cached = readReport(opts.projectRoot);
   if (
     cached &&

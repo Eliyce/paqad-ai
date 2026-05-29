@@ -34,7 +34,7 @@ export interface FeatureDevelopmentRuleCompliancePolicy {
   diff_scope: boolean;
   cache_path: string;
   // `deterministic` findings under mode:strict block the stage when this is 'stop'.
-  escalation: FeatureDevelopmentEscalationAction | 'stop';
+  escalation: FeatureDevelopmentEscalationAction;
 }
 
 export interface FeatureDevelopmentStagePolicy {

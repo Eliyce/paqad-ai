@@ -23,6 +23,11 @@ export type RuleScriptFindingCode =
   | 'RS-RULE-REMOVED'
   | 'RS-SCRIPT-STALE'
   | 'RS-FIXTURE-FAIL'
+  // Emitted by the rule-analyzer's semantic conflict pass (two rules
+  // contradict), not by this deterministic reconciler — a script cannot decide
+  // semantic contradiction. Carried here so the RS-* vocabulary + drift.json
+  // shape are complete and the analyzer can record conflicts into the report.
+  | 'RS-CONFLICT'
   | 'RS-CACHE-INVALID';
 
 export interface RuleScriptDriftFinding {
@@ -36,8 +41,9 @@ export interface RuleScriptDriftReport {
   generated_at: string;
   findings: RuleScriptDriftFinding[];
   counts: Record<RuleScriptFindingCode, number>;
-  // Any of the drift codes (except cache-invalid) gates planning per
-  // escalation.rule_scripts_stale.
+  // "Drift is present" — true when any code except RS-CACHE-INVALID fired. This
+  // is NOT "stop the workflow"; the planning stage still consults
+  // escalation.rule_scripts_stale (stop | ask | warn) to decide what to do.
   blocked: boolean;
 }
 
@@ -48,6 +54,7 @@ function emptyCounts(): Record<RuleScriptFindingCode, number> {
     'RS-RULE-REMOVED': 0,
     'RS-SCRIPT-STALE': 0,
     'RS-FIXTURE-FAIL': 0,
+    'RS-CONFLICT': 0,
     'RS-CACHE-INVALID': 0,
   };
 }

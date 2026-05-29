@@ -40,7 +40,10 @@ process.stdout.write(JSON.stringify({ rule_id: '__RID__', kind: 'deterministic',
 `;
 
 // Build a project with one rule, one registered script, and a target file.
-function setup(targetBody: string): { root: string; ruleId: string } {
+function setup(
+  targetBody: string,
+  scope: 'changed-files' | 'whole-tree' = 'changed-files',
+): { root: string; ruleId: string } {
   const root = createRoot();
   write(join(root, 'docs/instructions/rules/coding/q.md'), '- No debugger statements.\n');
   const scan = scanAndEmbedIds(root);
@@ -59,7 +62,7 @@ function setup(targetBody: string): { root: string; ruleId: string } {
     path: scriptRel,
     kind: 'deterministic',
     runtime: 'node',
-    scope: 'changed-files',
+    scope,
     last_validated_at: '2026-05-29T00:00:00Z',
     fixtures_passed: true,
   });
@@ -131,5 +134,24 @@ describe('runRuleScripts', () => {
     const report = runRuleScripts({ projectRoot: root, mode: 'strict' });
     expect(report.results).toHaveLength(0);
     expect(report.blocking).toBe(false);
+  });
+
+  it('invalidates the cache for whole-tree scripts when an unrelated file changes (BUG-3)', () => {
+    // A whole-tree-scoped script scans the whole tree even on a changed-files
+    // run, so an unrelated mutation must bust the cache.
+    const { root } = setup('export const x = 1;\n', 'whole-tree');
+    const first = runRuleScripts({ projectRoot: root, mode: 'warn', changedFiles: ['src/app.ts'] });
+    expect(first.from_cache).toBeUndefined();
+
+    // Mutate a file NOT in changedFiles.
+    write(join(root, 'src/other.ts'), 'debugger;\n');
+    const second = runRuleScripts({
+      projectRoot: root,
+      mode: 'warn',
+      changedFiles: ['src/app.ts'],
+    });
+    expect(second.from_cache).toBeUndefined();
+    // The whole-tree script now sees the new violation.
+    expect(second.counts.deterministic).toBe(1);
   });
 });

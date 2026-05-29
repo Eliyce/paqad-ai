@@ -108,6 +108,7 @@
         },
         "rule_compliance": {
           "type": "object",
+          "description": "Rules-as-scripts gate (issue #89). Declared on the shared stagePolicy for schema simplicity, but the default policy renders it only on the `checks` stage.",
           "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean" },
