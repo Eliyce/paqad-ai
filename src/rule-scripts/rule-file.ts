@@ -67,11 +67,7 @@ export interface EmbedResult {
 // content. `takenIds` seeds collision avoidance across the whole project so
 // ids stay unique beyond a single file. The set is mutated with newly minted
 // ids so callers can chain files.
-export function embedRuleIds(
-  source: string,
-  content: string,
-  takenIds: Set<string>,
-): EmbedResult {
+export function embedRuleIds(source: string, content: string, takenIds: Set<string>): EmbedResult {
   const lines = content.split('\n');
   const parsed = parseRuleFile(content);
   const rules: EmbedResult['rules'] = [];

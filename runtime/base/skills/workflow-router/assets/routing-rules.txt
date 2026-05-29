@@ -34,6 +34,8 @@
 225	module-map-reconcile	update module map
 225	module-map-reconcile	check module map
 225	module-map-reconcile	module map drift
+225	rules-analyze	analyze rules
+225	rules-analyze	classify rules
 225	module-documentation	create module documentation
 225	module-documentation	generate module docs
 225	module-documentation	create per-module docs

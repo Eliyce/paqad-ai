@@ -48,9 +48,16 @@ describe('rule-id markers', () => {
 
 describe('rule-file parsing', () => {
   it('finds bullets, skips fenced code blocks', () => {
-    const content = ['## Rules', '', '- First rule.', '- Second rule.', '', '```', '- not a rule', '```'].join(
-      '\n',
-    );
+    const content = [
+      '## Rules',
+      '',
+      '- First rule.',
+      '- Second rule.',
+      '',
+      '```',
+      '- not a rule',
+      '```',
+    ].join('\n');
     const rules = parseRuleFile(content);
     expect(rules.map((r) => r.text)).toEqual(['First rule.', 'Second rule.']);
   });
@@ -79,7 +86,11 @@ describe('rule-file parsing', () => {
 describe('analyzer scan + assemble + apply', () => {
   it('embeds ids on disk, builds a map, and writes it atomically', () => {
     const root = createRoot();
-    writeRuleFile(root, 'docs/instructions/rules/coding/code-quality.md', '## Rules\n\n- No debugger.\n- Keep it deterministic.\n');
+    writeRuleFile(
+      root,
+      'docs/instructions/rules/coding/code-quality.md',
+      '## Rules\n\n- No debugger.\n- Keep it deterministic.\n',
+    );
     writeRuleFile(root, 'docs/instructions/rules/security/pentest.md', '- Validate all input.\n');
 
     const files = collectRuleFiles(root);
@@ -92,7 +103,10 @@ describe('analyzer scan + assemble + apply', () => {
     expect(scan.rule_files_hash).toMatch(/^sha256-/);
 
     // Markers are now persisted in the source files.
-    const onDisk = readFileSync(join(root, 'docs/instructions/rules/coding/code-quality.md'), 'utf8');
+    const onDisk = readFileSync(
+      join(root, 'docs/instructions/rules/coding/code-quality.md'),
+      'utf8',
+    );
     expect(onDisk).toMatch(/<!-- @rule RL-[0-9a-f]+ -->/);
 
     // Re-scan is idempotent: no new ids, no file churn.

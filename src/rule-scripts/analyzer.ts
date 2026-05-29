@@ -68,7 +68,13 @@ export function scanAndEmbedIds(projectRoot: string): ScanResult {
       changed.push(rel);
     }
     for (const r of rules) {
-      inventory.push({ id: r.id, source: rel, text: r.text, text_hash: r.text_hash, isNew: r.isNew });
+      inventory.push({
+        id: r.id,
+        source: rel,
+        text: r.text,
+        text_hash: r.text_hash,
+        isNew: r.isNew,
+      });
     }
   }
 

@@ -90,9 +90,7 @@ function appendEvent(projectRoot: string, event: RuleScriptMapEvent): void {
   appendFileSync(log, `${JSON.stringify(event)}\n`, 'utf8');
 }
 
-export function applyRuleScriptMap(
-  opts: ApplyRuleScriptMapOptions,
-): ApplyRuleScriptMapResult {
+export function applyRuleScriptMap(opts: ApplyRuleScriptMapOptions): ApplyRuleScriptMapResult {
   const now = new Date();
   const snapshot = snapshotRuleScriptMap(opts.projectRoot, opts.via, now);
   atomicWriteRuleScriptMap(opts.projectRoot, serializeRuleScriptMap(opts.map));

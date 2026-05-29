@@ -1,0 +1,6 @@
+interface:
+  display_name: Rule Analyzer
+  short_description: Classifies every rule under docs/instructions/rules as
+    deterministic / heuristic / unverifiable, embeds stable RL-<hash> markers,
+    detects existing enforcers and rule conflicts, and writes a draft
+    rule-script-map.yml for review before script generation.

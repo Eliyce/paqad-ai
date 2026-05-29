@@ -8,6 +8,9 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     'cli/index': 'src/cli/index.ts',
+    // Subpath export consumed by the rules-as-scripts skill .mjs wrappers
+    // (issue #89) via `import 'paqad-ai/rule-scripts'` self-reference.
+    'rule-scripts/index': 'src/rule-scripts/index.ts',
   },
   format: ['esm'],
   dts: true,
