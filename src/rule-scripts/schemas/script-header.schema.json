@@ -1,0 +1,26 @@
+{
+  "$id": "rule-script-header",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rule_id", "source", "kind", "scope", "runtime"],
+  "properties": {
+    "rule_id": { "type": "string", "pattern": "^RL-[0-9a-f]{4,}$" },
+    "source": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "enum": ["deterministic", "heuristic"] },
+    "scope": {
+      "type": "string",
+      "enum": ["changed-files", "whole-tree", "git-diff", "git-history"]
+    },
+    "runtime": { "type": "string", "const": "node" },
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "node": { "type": "string" },
+        "binaries": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "last_validated_at": { "type": "string" },
+    "false_positive_surface": { "type": "string" }
+  }
+}
