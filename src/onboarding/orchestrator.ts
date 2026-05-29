@@ -95,6 +95,22 @@ const NEXT_STEPS_MD = [
   '```',
   '',
   'That second prompt generates `docs/modules/**` from the reviewed module map.',
+  '',
+  '## Optional: Give your rules teeth (rules-as-scripts)',
+  '',
+  'To enforce `docs/instructions/rules/**` with deterministic checks instead of relying on the model to remember them, prompt your AI agent with:',
+  '',
+  '```text',
+  'analyze rules',
+  '```',
+  '',
+  'Review the generated `docs/instructions/rules/rule-script-map.yml`, then:',
+  '',
+  '```text',
+  'generate rule scripts',
+  '```',
+  '',
+  'Scripts run during `feature-development.checks`. The dashboard shows a Rule Compliance card (unknown until the first run).',
 ].join('\n');
 
 export class OnboardingOrchestrator {
