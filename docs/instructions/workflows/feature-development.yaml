@@ -16,16 +16,20 @@ stages:
       - Keep planning scoped to the requested feature and the current repository state.
       - "Attribution Gate (issue #80): before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. Surface every needs-decision packet via the Decision Pause Contract and await an explicit user response — no silent acceptance. Accepted decisions are applied to module-map.yml via src/module-decisions/apply.ts (the only writer of the map). Only after the gate resolves may planning continue."
       - "Design-system (issue #76): if the change touches UI, plan against the design system. Identify tokens, components, and states involved. Flag additions that require extending docs/instructions/design-system/* before extending the code. Missing design-system contract degrades planning to bare-minimum mode (warn, not stop)."
+      - "Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
     required_inputs:
       - active request
       - canonical docs
     strictness:
       require_docs_context: true
       require_attribution_gate: true
+      require_rule_scripts_synced: true
     escalation:
       missing_docs_context: warn
       attribution_pending: stop
       missing_design_system: warn
+      rule_scripts_stale: ask
+      rule_scripts_missing: warn
     artifacts:
       - implementation sequence
       - module attribution decisions
@@ -120,6 +124,16 @@ stages:
       enabled: true
       command: paqad-ai module-health rollup --project-root . --silent
       escalation: warn
+    # Rules-as-scripts gate (issue #89). Runs registered rule scripts diff-scoped
+    # after the command checks + module-health rollup. deterministic findings
+    # block under mode:strict; heuristic findings route to review and never block.
+    rule_compliance:
+      enabled: true
+      mode: strict
+      scope: changed-files
+      diff_scope: true
+      cache_path: .paqad/scripts/rules/.cache/report.json
+      escalation: stop
 
   documentation_sync:
     instructions:

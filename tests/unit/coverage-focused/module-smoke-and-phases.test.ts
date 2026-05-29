@@ -329,7 +329,7 @@ describe('pipeline phase fallbacks', () => {
       new StoryPlanningPhase().execute(createPhaseContext({ feature_policy: policy })),
     ).resolves.toMatchObject({
       summary:
-        'Story sequence planned (reads 2 path(s), 2 instruction(s), 2 required input(s), 1 expected artifact(s))',
+        'Story sequence planned (reads 2 path(s), 3 instruction(s), 2 required input(s), 1 expected artifact(s))',
     });
 
     await expect(

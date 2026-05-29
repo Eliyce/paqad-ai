@@ -105,6 +105,21 @@
               "enum": ["warn", "ask", "stop"]
             }
           }
+        },
+        "rule_compliance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "mode": { "type": "string", "enum": ["off", "warn", "strict"] },
+            "scope": { "type": "string", "enum": ["changed-files", "whole-tree"] },
+            "diff_scope": { "type": "boolean" },
+            "cache_path": { "type": "string" },
+            "escalation": {
+              "type": "string",
+              "enum": ["warn", "ask", "stop"]
+            }
+          }
         }
       }
     }

@@ -26,6 +26,17 @@ export interface FeatureDevelopmentChecksPolicy {
   block_on_failure: boolean;
 }
 
+// Rules-as-scripts compliance gate (issue #89), attached to the `checks` stage.
+export interface FeatureDevelopmentRuleCompliancePolicy {
+  enabled: boolean;
+  mode: 'off' | 'warn' | 'strict';
+  scope: 'changed-files' | 'whole-tree';
+  diff_scope: boolean;
+  cache_path: string;
+  // `deterministic` findings under mode:strict block the stage when this is 'stop'.
+  escalation: FeatureDevelopmentEscalationAction | 'stop';
+}
+
 export interface FeatureDevelopmentStagePolicy {
   read: string[];
   instructions: string[];
@@ -34,6 +45,8 @@ export interface FeatureDevelopmentStagePolicy {
   escalation: Record<string, FeatureDevelopmentEscalationAction>;
   artifacts: string[];
   checks: FeatureDevelopmentChecksPolicy | null;
+  // Present only on the `checks` stage when rules-as-scripts is configured.
+  rule_compliance?: FeatureDevelopmentRuleCompliancePolicy;
 }
 
 export interface FeatureDevelopmentPolicy {

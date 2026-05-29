@@ -71,13 +71,17 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Review the canonical module and instruction docs before planning the change.',
           'Keep planning scoped to the requested feature and the current repository state.',
+          'Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues.',
         ],
         required_inputs: ['active request', 'canonical docs'],
         strictness: {
           require_docs_context: true,
+          require_rule_scripts_synced: true,
         },
         escalation: {
           missing_docs_context: 'warn',
+          rule_scripts_stale: 'ask',
+          rule_scripts_missing: 'warn',
         },
         artifacts: ['implementation sequence'],
         checks: null,
@@ -145,6 +149,18 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
           commands: ['format', 'test', 'build'],
           shell_commands: [],
           block_on_failure: true,
+        },
+        // Rules-as-scripts gate (issue #89). Runs the registered rule scripts
+        // diff-scoped after the command checks. `deterministic` findings block
+        // under mode:strict; `heuristic` findings route to review and never
+        // block. The runner is the TS engine in src/rule-scripts/runner.ts.
+        rule_compliance: {
+          enabled: true,
+          mode: 'strict',
+          scope: 'changed-files',
+          diff_scope: true,
+          cache_path: PATHS.RULE_SCRIPTS_REPORT,
+          escalation: 'stop',
         },
       },
       documentation_sync: {
@@ -406,13 +422,17 @@ stages:
     instructions:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.
+      - "Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
     required_inputs:
       - active request
       - canonical docs
     strictness:
       require_docs_context: true
+      require_rule_scripts_synced: true
     escalation:
       missing_docs_context: warn
+      rule_scripts_stale: ask
+      rule_scripts_missing: warn
     artifacts:
       - implementation sequence
 
@@ -476,6 +496,16 @@ stages:
       # Add project-specific commands here when needed.
       # shell_commands:
       #   - pnpm typecheck
+    # Rules-as-scripts gate (issue #89). Runs registered rule scripts diff-scoped
+    # after the command checks. deterministic findings block under mode:strict;
+    # heuristic findings route to review and never block.
+    rule_compliance:
+      enabled: true
+      mode: strict
+      scope: changed-files
+      diff_scope: true
+      cache_path: .paqad/scripts/rules/.cache/report.json
+      escalation: stop
 
   documentation_sync:
     instructions:

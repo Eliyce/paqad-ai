@@ -14,3 +14,4 @@ export * from './execute.js';
 export * from './fixture-runner.js';
 export * from './guard.js';
 export * from './mutate.js';
+export * from './runner.js';
