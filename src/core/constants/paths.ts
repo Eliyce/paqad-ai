@@ -105,6 +105,14 @@ export const PATHS = {
   MODULE_MAP_HISTORY_DIR: '.paqad/module-map/history',
   MODULE_MAP_EVENTS_LOG: '.paqad/module-map/events.jsonl',
   MODULE_MAP_DRIFT: '.paqad/module-map/drift.json',
+  // Issue #89 — rules-as-scripts
+  RULE_SCRIPT_MAP: 'docs/instructions/rules/rule-script-map.yml',
+  RULE_SCRIPTS_DIR: '.paqad/scripts/rules',
+  RULE_SCRIPTS_CACHE_DIR: '.paqad/scripts/rules/.cache',
+  RULE_SCRIPTS_REPORT: '.paqad/scripts/rules/.cache/report.json',
+  RULE_SCRIPTS_DRIFT: '.paqad/scripts/rules/.cache/drift.json',
+  RULE_SCRIPT_MAP_HISTORY_DIR: '.paqad/scripts/rules/.history',
+  RULE_SCRIPT_MAP_EVENTS_LOG: '.paqad/scripts/rules/.history/events.jsonl',
 } as const;
 
 export const REGISTRIES = [
