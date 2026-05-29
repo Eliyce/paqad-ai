@@ -39,6 +39,10 @@
 225	rules-generate	generate rule scripts
 225	rules-generate	regenerate scripts for rule
 225	rules-generate	regenerate rule scripts
+225	rules-edit	add rule
+225	rules-edit	edit rule
+225	rules-edit	remove rule
+225	rules-edit	mark rule as unverifiable
 225	module-documentation	create module documentation
 225	module-documentation	generate module docs
 225	module-documentation	create per-module docs

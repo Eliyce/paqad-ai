@@ -1,0 +1,6 @@
+interface:
+  display_name: Rule Script Reconciler
+  short_description: Detects rules-as-scripts drift (rules edited/added/removed
+    without regen, manual map edits, scripts failing fixtures, stale cache),
+    writes RS-* findings to drift.json, and surfaces user-approvable
+    resolutions at feature-development planning entry.
