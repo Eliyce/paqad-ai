@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { runScript } from './_helpers/run-script.js';
 
-const SKILL = 'runtime/capabilities/security/skills/finding-normalizer';
+const SKILL = 'runtime/base/skills/finding-normalizer';
 const sh = (n: string) => join(SKILL, 'scripts', n);
 
 describe('finding-normalizer', () => {

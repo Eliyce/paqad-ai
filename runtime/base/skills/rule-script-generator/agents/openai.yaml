@@ -1,0 +1,6 @@
+interface:
+  display_name: Rule Script Generator
+  short_description: Authors deterministic .mjs verification scripts + synthetic
+    pass/fail fixtures for each verifiable rule, validates every script against
+    its own fixtures before registering it in rule-script-map.yml, and rejects
+    any script that misclassifies its fixtures via the Decision Pause Contract.

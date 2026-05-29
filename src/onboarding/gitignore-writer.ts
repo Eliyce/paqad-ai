@@ -15,6 +15,7 @@ const PAQAD_GITIGNORE_ENTRIES = [
   '.paqad/indexes/',
   '.paqad/pentest/',
   '.paqad/theme/',
+  '.paqad/scripts/rules/.cache/',
 ].join('\n');
 
 /**

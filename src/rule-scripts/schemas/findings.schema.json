@@ -1,0 +1,27 @@
+{
+  "$id": "rule-script-findings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rule_id", "kind", "findings"],
+  "properties": {
+    "rule_id": { "type": "string", "pattern": "^RL-[0-9a-f]{4,}$" },
+    "kind": { "type": "string", "enum": ["deterministic", "heuristic"] },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "message", "severity"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 0 },
+          "message": { "type": "string", "minLength": 1 },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "blocker", "high", "medium", "low", "nit", "info"]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: Rule Editor
+  short_description: Single entry point to add / edit / remove / downgrade a rule
+    with a per-rule cascade — mints or preserves the stable RL-<hash> id,
+    regenerates only the affected rule's scripts, and writes the map through the
+    single-writer apply path.

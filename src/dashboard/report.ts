@@ -15,6 +15,7 @@ import { collectModuleMapDrift } from './collectors/module-map-drift.js';
 import { collectPentest } from './collectors/pentest.js';
 import { collectProjectProfile } from './collectors/project-profile.js';
 import { collectRagStatus } from './collectors/rag-status.js';
+import { collectRuleCompliance } from './collectors/rule-compliance.js';
 import { collectRules } from './collectors/rules.js';
 import { collectSession } from './collectors/session.js';
 import { collectStackDrift } from './collectors/stack-drift.js';
@@ -107,6 +108,8 @@ export function buildReport(
   const areaSections = collectInstructionsAreas(root, now);
   const architectureSection = collectArchitecture(root, now);
   const { section: pentestSection, attention: pentestAttention } = collectPentest(root, now);
+  const { section: ruleComplianceSection, attention: ruleComplianceAttention } =
+    collectRuleCompliance(root);
   const sessionSection = collectSession(root, now);
 
   // Display order — matches the section table in the design brief.
@@ -126,6 +129,7 @@ export function buildReport(
     frameworkVersionSection,
     ragSection,
     pentestSection,
+    ruleComplianceSection,
     sessionSection,
   ];
 
@@ -137,6 +141,7 @@ export function buildReport(
     ...moduleEventsAttention,
     ...stackDriftAttention,
     ...pentestAttention,
+    ...ruleComplianceAttention,
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
   const { score: overallScore, band: overallBand } = computeOverall(sections);
