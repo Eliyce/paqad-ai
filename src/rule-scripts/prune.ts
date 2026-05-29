@@ -7,7 +7,7 @@
 // not referenced, so they survive until the next regen cycle then get pruned —
 // the "one cycle" grace period.
 
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join, sep } from 'node:path';
 
 import fg from 'fast-glob';
@@ -41,13 +41,21 @@ export function pruneOrphanScripts(projectRoot: string, map: RuleScriptMap): str
       continue;
     }
     rmSync(join(projectRoot, rel), { force: true });
-    // The script's fixtures live at <script-stem>/__fixtures__/. Only remove
-    // that stem directory when it actually holds a __fixtures__ subtree — a
-    // misnamed script whose stem collides with a directory holding OTHER active
-    // scripts must never take its siblings down with it.
+    // The script's fixtures live at <script-stem>/__fixtures__/. Remove only the
+    // __fixtures__ subtree (never the whole stem dir, which may hold sibling
+    // scripts or auxiliary files), then drop the stem dir only if it's now
+    // empty (D-2/D-7).
     const stemDir = join(projectRoot, rel.replace(/\.mjs$/, ''));
-    if (existsSync(join(stemDir, '__fixtures__'))) {
-      rmSync(stemDir, { recursive: true, force: true });
+    const fixturesDir = join(stemDir, '__fixtures__');
+    if (existsSync(fixturesDir)) {
+      rmSync(fixturesDir, { recursive: true, force: true });
+      try {
+        if (readdirSync(stemDir).length === 0) {
+          rmSync(stemDir, { recursive: true, force: true });
+        }
+      } catch {
+        // stem dir gone or unreadable — nothing to clean up.
+      }
     }
     // Normalise separators so reported paths are stable across platforms.
     deleted.push(rel.split(sep).join('/'));

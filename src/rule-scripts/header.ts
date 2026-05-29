@@ -30,9 +30,11 @@ export interface ScriptHeader {
 
 const HEADER_LINE_RE = /^\s*\/\/\s*([a-z_]+)\s*:\s*(.*)$/;
 
-// Extract the raw key/value pairs from the leading comment block. Reads only
-// the contiguous run of `//` lines containing the marker; stops at the first
-// line that is neither a comment nor blank.
+// Extract the raw key/value pairs from the leading comment block. Blank lines
+// (including a bare `//` visual separator) are tolerated within the block;
+// parsing stops only at the first line that is neither a comment nor blank
+// (i.e. the start of real code). This matches how humans and LLMs format
+// headers — a blank line after the marker must not abort the parse (D-2).
 export function extractHeaderFields(content: string): Record<string, string> | null {
   const lines = content.split('\n');
   let sawMarker = false;
@@ -41,12 +43,11 @@ export function extractHeaderFields(content: string): Record<string, string> | n
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed === '') {
-      if (sawMarker) {
-        break;
-      }
+      // Blank lines never terminate the header block.
       continue;
     }
     if (!trimmed.startsWith('//')) {
+      // First line of real code — the header block is over.
       break;
     }
     if (trimmed.includes(HEADER_MARKER)) {

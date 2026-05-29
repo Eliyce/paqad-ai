@@ -8,9 +8,17 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { PATHS } from '@/core/constants/paths.js';
+
 import { collectRuleFiles } from './analyzer.js';
 import { loadRuleScriptMap } from './map.js';
-import { embedRuleMarker, mintRuleId, parseRuleMarker, stripRuleMarker } from './rule-id.js';
+import {
+  embedRuleMarker,
+  mintRuleId,
+  parseRuleMarker,
+  ruleTextHash,
+  stripRuleMarker,
+} from './rule-id.js';
 
 // Every id already in use across the map and the on-disk markers, so a freshly
 // minted id can never collide.
@@ -41,9 +49,30 @@ export function cleanRuleText(input: string): string {
   return input.trim().replace(/^[-*]\s+/, '');
 }
 
+export interface AddedRule {
+  id: string;
+  source: string;
+  text: string;
+  text_hash: string;
+}
+
+// Normalise + reject a target rule-file path that isn't a .md under the rules
+// tree. Without this a typo (e.g. "docs/instructions/rule/…") writes a marked
+// bullet into a file collectRuleFiles never enumerates — a forgotten rule.
+function assertRuleSource(sourceRel: string): void {
+  const normalized = sourceRel.split('\\').join('/');
+  if (!normalized.startsWith(`${PATHS.RULES_DIR}/`) || !normalized.endsWith('.md')) {
+    throw new Error(
+      `addRule: source must be a .md file under ${PATHS.RULES_DIR}/ (got "${sourceRel}")`,
+    );
+  }
+}
+
 // Append a new rule bullet with a fresh marker to a rule file. Creates the file
-// with a trailing newline if it does not yet exist. Returns the minted id.
-export function addRule(projectRoot: string, sourceRel: string, text: string): { id: string } {
+// with a trailing newline if it does not yet exist. Returns the minted id plus
+// the data the caller needs to keep the map in sync (D-1).
+export function addRule(projectRoot: string, sourceRel: string, text: string): AddedRule {
+  assertRuleSource(sourceRel);
   const abs = join(projectRoot, sourceRel);
   const clean = cleanRuleText(text);
   const id = mintRuleId(sourceRel, clean, takenIds(projectRoot));
@@ -52,7 +81,7 @@ export function addRule(projectRoot: string, sourceRel: string, text: string): {
   const existing = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
   const sep = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
   writeFileSync(abs, `${existing}${sep}${bullet}\n`, 'utf8');
-  return { id };
+  return { id, source: sourceRel, text: clean, text_hash: ruleTextHash(clean) };
 }
 
 interface LocatedRule {

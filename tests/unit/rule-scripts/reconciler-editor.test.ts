@@ -132,6 +132,17 @@ describe('editor', () => {
     expect(removeRuleBullet(root, 'RL-ffff')).toBeNull();
   });
 
+  it('addRule returns text_hash + source and rejects a path outside the rules tree (D-1/D-8)', () => {
+    const { root, file } = syncedProject();
+    const added = addRule(root, file, 'A brand new rule.');
+    expect(added.source).toBe(file);
+    expect(added.text).toBe('A brand new rule.');
+    expect(added.text_hash).toMatch(/^[0-9a-f]{64}$/);
+
+    expect(() => addRule(root, 'docs/instructions/rule/typo.md', 'x')).toThrow(/under/);
+    expect(() => addRule(root, 'docs/instructions/rules/coding/q.txt', 'x')).toThrow(/\.md/);
+  });
+
   it('reconciler flags a removed rule that is still in the map', () => {
     const { root, ids } = syncedProject();
     removeRuleBullet(root, ids[0]);
@@ -213,5 +224,21 @@ describe('pruneOrphanScripts (B-3)', () => {
     expect(pruned).toContain(orphan);
     expect(existsSync(join(root, orphan))).toBe(false);
     expect(existsSync(join(root, '.paqad/scripts/rules/coding/q/001-orphan'))).toBe(false);
+  });
+
+  it('removes only __fixtures__, preserving sibling content in the stem dir (D-7)', () => {
+    const { root } = syncedProject();
+    const orphan = '.paqad/scripts/rules/coding/q/001-orphan.mjs';
+    write(join(root, orphan), '// orphan\n');
+    write(join(root, '.paqad/scripts/rules/coding/q/001-orphan/__fixtures__/pass/x.ts'), 'ok\n');
+    // A sibling file in the stem dir that is not part of __fixtures__.
+    write(join(root, '.paqad/scripts/rules/coding/q/001-orphan/notes.md'), 'keep me\n');
+
+    pruneOrphanScripts(root, loadRuleScriptMap(root)!);
+    expect(existsSync(join(root, '.paqad/scripts/rules/coding/q/001-orphan/__fixtures__'))).toBe(
+      false,
+    );
+    // The stem dir survives because it still holds the sibling file.
+    expect(existsSync(join(root, '.paqad/scripts/rules/coding/q/001-orphan/notes.md'))).toBe(true);
   });
 });

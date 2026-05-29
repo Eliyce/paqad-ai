@@ -82,6 +82,34 @@ describe('script header', () => {
     expect(parsed.ok).toBe(true);
     expect(parsed.header?.rule_id).toBe('RL-7f3a');
   });
+
+  it('tolerates blank lines and a bare // separator in the header block (D-2)', () => {
+    const spaced = [
+      '// @paqad-rule-script',
+      '//',
+      '// rule_id: RL-7f3a',
+      '',
+      '// source: docs/instructions/rules/coding/q.md',
+      '// kind: deterministic',
+      '// scope: changed-files',
+      '// runtime: node',
+      '',
+      "import { readFileSync } from 'node:fs';",
+    ].join('\n');
+    const parsed = parseScriptHeader(spaced);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.header?.rule_id).toBe('RL-7f3a');
+    expect(parsed.header?.kind).toBe('deterministic');
+  });
+
+  it('canonicalises uppercase kind/scope/runtime enums (C-5)', () => {
+    const upper = NO_DEBUGGER_SCRIPT.replace('// kind: deterministic', '// kind: Deterministic')
+      .replace('// scope: changed-files', '// scope: Changed-Files')
+      .replace('// runtime: node', '// runtime: Node');
+    const parsed = parseScriptHeader(upper);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.header?.kind).toBe('deterministic');
+  });
 });
 
 describe('executeRuleScript', () => {
@@ -167,6 +195,23 @@ describe('runFixtures (the gate)', () => {
     const result = runFixtures(scriptPath);
     expect(result.missing_fixtures).toBe(true);
     expect(result.passed).toBe(false);
+  });
+
+  it('defers (does not reject) when a declared binary is missing (D-4)', () => {
+    const root = createRoot();
+    const scriptPath = join(root, '001-needs-bin.mjs');
+    const withReq = NO_DEBUGGER_SCRIPT.replace(
+      '// runtime: node\n',
+      '// runtime: node\n// requires: {"binaries":["definitely-not-a-real-binary-xyz"]}\n',
+    );
+    write(scriptPath, withReq);
+    const fx = fixturesRoot(scriptPath);
+    write(join(fx, 'pass', 'clean.ts'), 'ok\n');
+    write(join(fx, 'fail', 'bad.ts'), 'debugger;\n');
+
+    const result = runFixtures(scriptPath);
+    expect(result.missing_binaries).toEqual(['definitely-not-a-real-binary-xyz']);
+    expect(result.failures).toHaveLength(0); // not a logic failure
   });
 });
 

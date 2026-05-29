@@ -17,12 +17,16 @@ if (!scriptPath || scriptPath === '--help' || scriptPath === '-h') {
 
 const header = parseScriptHeader(readFileSync(scriptPath, 'utf8'));
 const fixtures = runFixtures(scriptPath);
-const accepted = header.ok && fixtures.passed;
+// A missing declared binary means the script never actually ran — defer
+// (re-validate on a host that has the dependency), don't reject.
+const deferred = (fixtures.missing_binaries ?? []).length > 0;
+const accepted = header.ok && fixtures.passed && !deferred;
 
 process.stdout.write(
   `${JSON.stringify(
     {
       accepted,
+      deferred,
       header_errors: header.errors,
       fixtures,
     },
@@ -30,4 +34,5 @@ process.stdout.write(
     2,
   )}\n`,
 );
-process.exit(accepted ? 0 : 1);
+// Exit 2 = deferred (env), 1 = rejected (logic/header), 0 = accepted.
+process.exit(accepted ? 0 : deferred ? 2 : 1);

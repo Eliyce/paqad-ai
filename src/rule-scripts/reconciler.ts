@@ -6,7 +6,7 @@
 // blocked. Read-only — never embeds markers or mutates the map (that is the
 // rule-analyzer / rule-editor job).
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -76,6 +76,17 @@ function mergeDrift(
   ownedCodes: ReadonlySet<RuleScriptFindingCode>,
   ownFindings: RuleScriptDriftFinding[],
 ): RuleScriptDriftReport {
+  // If drift.json exists but is unparseable, back it up rather than silently
+  // rebuilding (which would drop the other writer's findings, e.g. RS-CONFLICT).
+  // The backup preserves forensics; we proceed with only our own findings (D-5).
+  const path = driftPath(projectRoot);
+  if (existsSync(path) && readDrift(projectRoot) === null) {
+    try {
+      renameSync(path, `${path}.corrupt-${Date.now()}`);
+    } catch {
+      // best-effort
+    }
+  }
   const existing = readDrift(projectRoot);
   const preserved = (existing?.findings ?? []).filter((f) => !ownedCodes.has(f.code));
   const findings = [...preserved, ...ownFindings];

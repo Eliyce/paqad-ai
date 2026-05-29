@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  addRuleEntry,
   archiveRule,
   clearRuleScripts,
   setRuleText,
@@ -81,6 +82,27 @@ describe('rule-script map mutations', () => {
 
   it('setRuleText throws on an unknown id', () => {
     expect(() => setRuleText(baseMap(), 'RL-zzzz', 't', 'h')).toThrow(/not found/);
+  });
+
+  it('addRuleEntry inserts a heuristic stub and rejects duplicates', () => {
+    const next = addRuleEntry(baseMap(), {
+      id: 'RL-cccc',
+      source: 'docs/instructions/rules/coding/q.md',
+      text: 'New rule.',
+      text_hash: 'h2',
+    });
+    expect(next.rules).toHaveLength(2);
+    const added = next.rules.find((r) => r.id === 'RL-cccc');
+    expect(added?.verifiability.kind).toBe('heuristic');
+    expect(added?.scripts).toHaveLength(0);
+    expect(() =>
+      addRuleEntry(next, {
+        id: 'RL-cccc',
+        source: 'x',
+        text: 'y',
+        text_hash: 'z',
+      }),
+    ).toThrow(/already in map/);
   });
 
   it('archives a rule into the archived section', () => {

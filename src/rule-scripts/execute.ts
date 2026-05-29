@@ -38,6 +38,10 @@ export interface ExecuteResult {
   ok: boolean;
   report?: FindingsReport;
   error?: string;
+  // Set when the script produced valid findings but also exited non-zero or
+  // wrote to stderr — the findings are honoured, but the diagnostic is preserved
+  // rather than silently dropped (D-6).
+  warning?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -81,7 +85,14 @@ export function executeRuleScript(
   if (!parseFailed) {
     const validation = validateFindings(parsed);
     if (validation.valid) {
-      return { ok: true, report: parsed as FindingsReport };
+      const stderr = (proc.stderr || '').trim();
+      const warning =
+        proc.status !== 0
+          ? `script exited ${proc.status}${stderr ? `: ${stderr}` : ''}`
+          : stderr || undefined;
+      return warning
+        ? { ok: true, report: parsed as FindingsReport, warning }
+        : { ok: true, report: parsed as FindingsReport };
     }
     // Parsed but not a findings report. If the script also failed, the exit is
     // the more useful error; otherwise report the schema mismatch.

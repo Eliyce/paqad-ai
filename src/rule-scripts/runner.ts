@@ -29,6 +29,9 @@ export interface ScriptRunResult {
   kind: 'deterministic' | 'heuristic';
   findings: Finding[];
   skipped?: string;
+  // Non-fatal diagnostic when the script produced findings but also signalled a
+  // problem (non-zero exit / stderr) — see execute.ts (D-6).
+  warning?: string;
 }
 
 export interface RunReport {
@@ -185,6 +188,7 @@ export function runRuleScripts(opts: RunOptions): RunReport {
         script: script.path,
         kind: script.kind,
         findings: run.report?.findings ?? [],
+        ...(run.warning ? { warning: run.warning } : {}),
       });
     }
   }

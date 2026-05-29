@@ -10,9 +10,12 @@
 // Output:  JSON describing the change on stdout.
 import {
   addRule,
+  addRuleEntry,
   applyRuleScriptMap,
   archiveRule,
   cleanRuleText,
+  collectRuleFiles,
+  computeRuleFilesHash,
   editRuleText,
   loadRuleScriptMap,
   removeRuleBullet,
@@ -50,7 +53,26 @@ let out;
 switch (mode) {
   case 'add': {
     if (!a || !b) fail('add requires <source-rel> <text>');
-    out = { mode, ...addRule(projectRoot, a, b) };
+    const added = addRule(projectRoot, a, b);
+    out = { mode, ...added };
+    // Keep the map in sync when one exists, so the reconciler doesn't emit a
+    // false RS-RULE-ADDED until the next `analyze rules` (D-1). On a project
+    // that has never been analyzed there is no map to maintain — the skill runs
+    // `analyze rules` next, which builds the full map.
+    const map = loadRuleScriptMap(projectRoot);
+    if (map) {
+      const synced = addRuleEntry(map, added);
+      synced.rule_files_hash = computeRuleFilesHash(projectRoot, collectRuleFiles(projectRoot));
+      const result = applyRuleScriptMap({
+        projectRoot,
+        map: synced,
+        via: `rule-editor:${added.id}`,
+        event: { action: 'add', rule_ids: [added.id], note: added.source },
+      });
+      out = { ...out, ...result, map_synced: true };
+    } else {
+      out = { ...out, map_synced: false };
+    }
     break;
   }
   case 'edit': {

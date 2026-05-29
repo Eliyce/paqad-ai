@@ -11,12 +11,13 @@
 // until it passes here. Each pass fixture must yield zero findings; each fail
 // fixture must yield at least one finding.
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 import fg from 'fast-glob';
 
-import { executeRuleScript } from './execute.js';
+import { executeRuleScript, missingBinaries } from './execute.js';
+import { parseScriptHeader } from './header.js';
 
 export interface FixtureFailure {
   fixture: string;
@@ -32,6 +33,10 @@ export interface FixtureResult {
   failures: FixtureFailure[];
   // True when no fixtures exist at all — a hard reject reason.
   missing_fixtures: boolean;
+  // Non-empty when the script declares binaries absent on this machine. The
+  // caller should DEFER (re-run elsewhere), not reject — the script's logic was
+  // never actually exercised (D-4).
+  missing_binaries?: string[];
 }
 
 export function fixturesRoot(scriptPath: string): string {
@@ -62,6 +67,23 @@ export function runFixtures(scriptPath: string): FixtureResult {
       failures: [],
       missing_fixtures: true,
     };
+  }
+
+  // Defer (don't reject) when a declared binary is absent — the script never
+  // actually ran, so a fixture "failure" here would be an environment artifact.
+  if (existsSync(scriptPath)) {
+    const header = parseScriptHeader(readFileSync(scriptPath, 'utf8'));
+    const missing = missingBinaries(header.header?.requires?.binaries);
+    if (missing.length > 0) {
+      return {
+        passed: false,
+        pass_fixtures: passFiles.length,
+        fail_fixtures: failFiles.length,
+        failures: [],
+        missing_fixtures: false,
+        missing_binaries: missing,
+      };
+    }
   }
 
   const failures: FixtureFailure[] = [];

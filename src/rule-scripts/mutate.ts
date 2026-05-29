@@ -35,6 +35,30 @@ export function upsertScriptEntry(
   return next;
 }
 
+// Insert a new rule as a stub entry (unclassified heuristic, no scripts) so the
+// map stays in sync the moment `add rule` writes the markdown — otherwise the
+// reconciler emits a false RS-RULE-ADDED until the user re-runs `analyze rules`
+// (D-1). The rule-analyzer reclassifies it on the next pass.
+export function addRuleEntry(
+  map: RuleScriptMap,
+  entry: { id: string; source: string; text: string; text_hash: string },
+): RuleScriptMap {
+  const next = cloneMap(map);
+  if (next.rules.some((r) => r.id === entry.id)) {
+    throw new Error(`addRuleEntry: rule ${entry.id} already in map`);
+  }
+  next.rules.push({
+    id: entry.id,
+    source: entry.source,
+    text: entry.text,
+    text_hash: entry.text_hash,
+    verifiability: { kind: 'heuristic' },
+    enforced_by: [],
+    scripts: [],
+  });
+  return next;
+}
+
 // Update a rule's text + hash after an in-place markdown edit, keeping the map
 // in sync atomically (mirrors the `remove` cascade). The prior scripts no
 // longer match the new text, so they are cleared — the editor then regenerates

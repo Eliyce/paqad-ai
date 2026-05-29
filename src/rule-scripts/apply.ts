@@ -62,6 +62,10 @@ function timestampForFilename(now: Date): string {
   return now.toISOString().replace(/[:.]/g, '-');
 }
 
+// Monotonic per-process counter so two snapshots in the same millisecond with
+// the same `via` don't collide and overwrite each other (D-3).
+let snapshotSeq = 0;
+
 export function snapshotRuleScriptMap(
   projectRoot: string,
   via: string,
@@ -70,7 +74,8 @@ export function snapshotRuleScriptMap(
   const mapPath = ruleScriptMapPath(projectRoot);
   const histDir = historyDir(projectRoot);
   mkdirSync(histDir, { recursive: true });
-  const snapPath = join(histDir, `${timestampForFilename(now)}-${sanitiseVia(via)}.yml`);
+  const unique = `${process.pid}-${(snapshotSeq++).toString(36)}`;
+  const snapPath = join(histDir, `${timestampForFilename(now)}-${sanitiseVia(via)}-${unique}.yml`);
   const existing = existsSync(mapPath) ? readFileSync(mapPath, 'utf8') : '';
   writeFileSync(snapPath, existing, 'utf8');
   return snapPath;

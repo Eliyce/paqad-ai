@@ -29,6 +29,14 @@ if (!projectRoot || !scriptRel || !ruleId || !kind || !scope) {
 const scriptAbs = join(projectRoot, scriptRel);
 const header = parseScriptHeader(readFileSync(scriptAbs, 'utf8'));
 const fixtures = runFixtures(scriptAbs);
+const deferred = (fixtures.missing_binaries ?? []).length > 0;
+if (deferred) {
+  // Environment issue, not a logic failure — defer rather than reject.
+  process.stdout.write(
+    `${JSON.stringify({ registered: false, deferred: true, fixtures }, null, 2)}\n`,
+  );
+  process.exit(2);
+}
 if (!header.ok || !fixtures.passed) {
   process.stdout.write(
     `${JSON.stringify({ registered: false, header_errors: header.errors, fixtures }, null, 2)}\n`,
