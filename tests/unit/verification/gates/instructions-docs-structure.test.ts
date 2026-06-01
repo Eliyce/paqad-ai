@@ -28,7 +28,7 @@ describe('InstructionsDocsStructureGate', () => {
       changed_files: [
         'docs/instructions/rules/_shared/testing.md',
         'docs/instructions/rules/module-map.yml',
-        'docs/instructions/architecture/design-tokens.json',
+        'docs/instructions/design-system/design-tokens.json',
         'docs/instructions/design-system/theme.css',
         'docs/instructions/workflows/feature-development.yaml',
         'docs/instructions/tools/node-cli/README.md',
@@ -44,7 +44,7 @@ describe('InstructionsDocsStructureGate', () => {
     );
     writeInstructionFile(
       context.project_root,
-      'docs/instructions/architecture/design-tokens.json',
+      'docs/instructions/design-system/design-tokens.json',
       '{}\n',
     );
     writeInstructionFile(
