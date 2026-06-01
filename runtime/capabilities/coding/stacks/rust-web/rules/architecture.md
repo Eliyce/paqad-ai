@@ -1,7 +1,7 @@
 # Rust Web Architecture
 
-- Keep handler, service, repository, and extractor boundaries explicit; avoid merging them in a single file when behavior is non-trivial.
-- Place route registration in one location (typically `main.rs` or a `router` module); keep handler logic in a `handlers` or feature-scoped module.
-- Business logic belongs in the service layer, not in Axum handlers or database query functions.
-- Centralize middleware (auth, tracing, CORS, compression) using `tower` layers applied at the router level.
-- Reflect changed route, service contract, and state injection behavior in the matching canonical docs.
+- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml` — treat that file as the source of truth for which module/crate owns which directory, and do not duplicate or contradict it here.
+- Keep handler, service, and repository responsibilities in distinct layers; Axum handlers extract/validate input and build the response, services hold business logic, repositories own data access.
+- Register routes in one place (`main.rs` or a dedicated `router` module) and keep handler functions in a `handlers`/feature module; share state with `Router::with_state` and the `State` extractor, not globals.
+- Apply cross-cutting concerns (auth, tracing, CORS, compression, timeouts) as `tower`/`tower-http` layers on the router via `Router::layer`, not inside individual handlers.
+- Define error handling once: a domain error type implementing `IntoResponse` (or `axum::response::Result`) so handlers return `Result<T, AppError>` instead of mapping status codes ad hoc.

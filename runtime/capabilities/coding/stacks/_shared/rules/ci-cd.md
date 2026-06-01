@@ -1,10 +1,6 @@
-# CI CD
+# CI/CD
 
-## Purpose
-
-Keep automated verification aligned with the local workflow.
-
-## Rules
-
-- CI must run the same verification gates that block local delivery.
-- Keep package build and tests green at every logical step.
+- CI must run the same format, lint, test, and build gates that block local delivery.
+- Keep the pipeline green; do not merge on red.
+- Commit the lockfile and pin tool versions so CI and local environments resolve the same dependencies.
+- Fail the build on high or critical dependency advisories.

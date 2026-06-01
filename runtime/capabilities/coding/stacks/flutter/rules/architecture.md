@@ -1,7 +1,6 @@
 # Flutter Architecture
 
-- Keep feature logic inside its owning module and keep shared code generic.
-- Screens coordinate composition and lifecycle; business logic belongs in state/controllers, services, and repositories.
-- Do not mix transport parsing, domain mapping, and widget rendering in the same file.
-- Centralize route builders, API clients, and shared UI primitives instead of duplicating them per feature.
-- Reflect changed screen/state/integration behavior in the matching `docs/modules/<module>/` documentation.
+- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml` — treat that file as the source of truth for which feature owns which directory, and do not duplicate or contradict it here.
+- Keep `build` methods free of business logic, I/O, and network calls; widgets compose UI and delegate to a controller/notifier (`ChangeNotifier`, `Cubit`/`Bloc`, Riverpod provider) or a service/repository class.
+- Do not parse JSON, map DTOs, and render widgets in the same file — keep transport models (`fromJson`/`toJson`) and domain models separate.
+- Define routes once with a typed router (`go_router` `GoRoute` or the project's router config); never construct `MaterialPageRoute` ad hoc inside widgets with hard-coded string paths.

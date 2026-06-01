@@ -1,11 +1,5 @@
 # Canonical Docs
 
-## Purpose
-
-Describe the framework-managed documentation set.
-
-## Rules
-
-- Treat canonical docs as authoritative for current system behavior.
-- Keep module docs scoped and complete.
-- Use registry updates to maintain discovery efficiency.
+- Treat `docs/` as the authoritative description of current system behavior; when code and docs disagree, resolve the mismatch rather than ignoring it.
+- Keep each module's docs scoped to that module and complete enough to act on without reading the source.
+- Update the docs that describe an area in the same change that alters its behavior.

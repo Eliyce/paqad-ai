@@ -1,11 +1,6 @@
 # Code Review
 
-## Purpose
-
-Drive adversarial, risk-based review.
-
-## Rules
-
-- Prioritize correctness, regressions, and verification gaps.
+- Prioritize correctness, regressions, and verification gaps over style nits.
 - Call out rollback and data-integrity risk explicitly.
-- Treat missing tests as first-class findings.
+- Treat missing, skipped, or weakened tests as blocking findings.
+- Confirm the change does only what the request asked; flag scope creep and unrelated edits.

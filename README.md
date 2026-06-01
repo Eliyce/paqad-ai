@@ -418,9 +418,8 @@ Use it to persist an obligation index, run spec-quality review, check tests for 
 Re-detects stack and regenerates derived artifacts without full re-onboarding.
 
 ```bash
-paqad-ai refresh              # Both stack + design system
-paqad-ai refresh --stack       # Stack snapshot + stack docs only
-paqad-ai refresh --design-system  # Design system docs only
+paqad-ai refresh         # Re-detect stack and regenerate stack docs
+paqad-ai refresh --stack  # Stack snapshot + stack docs only
 ```
 
 ### `paqad-ai update`

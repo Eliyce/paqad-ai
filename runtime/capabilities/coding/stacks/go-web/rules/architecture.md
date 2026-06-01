@@ -1,7 +1,7 @@
 # Go Web Architecture
 
-- Keep handler, service, repository, and transport boundaries explicit; avoid merging them in a single file when behavior is non-trivial.
-- Place route registration in one location (`cmd/` or `internal/server/`); keep handler logic in `internal/handler/` or feature-scoped packages.
-- Business logic belongs in the service layer, not in HTTP handlers or database queries.
-- Centralize middleware (auth, logging, recovery, CORS) and apply it at the router level, not inside individual handlers.
-- Reflect changed route, service contract, and configuration behavior in the matching canonical docs.
+- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml` — treat that file as the source of truth for which package owns which directory, and do not duplicate or contradict it here.
+- Keep handler, service, and repository responsibilities in distinct layers; HTTP handlers parse/validate the request and write the response, services hold business logic, repositories own data access.
+- Register all routes in one place (`cmd/<app>/` or `internal/server/`); keep handler implementations in `internal/handler/` or feature packages, and keep package-private types in `internal/` so they are not importable downstream.
+- Apply cross-cutting middleware (auth, logging, recovery/panic-catch, CORS) at the router level via the chosen mux (`net/http` `http.Handler` wrappers, `chi`, or `gin`), not inside individual handlers.
+- Accept interfaces and return concrete types at package boundaries; define the consumer-side interface in the package that uses it, not the package that implements it.

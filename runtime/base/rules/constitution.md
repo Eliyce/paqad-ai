@@ -1,16 +1,9 @@
 # Constitution
 
-## Purpose
+Non-negotiable rules that apply to every change, regardless of stack.
 
-Define the non-negotiable operating rules for the framework.
-
-## Rules
-
-- Work docs-first before writing code.
-- If `docs/modules/` is absent, run `create documentation` before any feature work begins. Do not skip this even if the user requests a feature directly.
-- Prefer deterministic scripts and MCP over file scanning.
-- Preserve user-owned project files unless explicitly updating them.
-- Never read files outside the active project-profile module list unless the user or canonical docs require it.
-- Never start implementation work before a spec artifact exists in `.paqad/` for that change.
-- Prefer MCP tool results over file scanning when both are available and trustworthy.
-- If classification confidence is below 80%, escalate instead of guessing.
+- Before changing an area, read its module and feature docs under `docs/`; reflect any behavior change back into those docs in the same change.
+- Change only what the request requires. Do not refactor, reformat, or rename unrelated code in the same change.
+- Preserve user-authored files and content. Do not overwrite or delete them without explicit instruction.
+- Pair every behavior change with tests, and run them before treating the work as done.
+- When a requirement is ambiguous, or an action is risky or hard to reverse, stop and ask instead of guessing.

@@ -6,14 +6,13 @@ import { AdapterFactory } from '@/adapters/factory.js';
 import { DifferentialRefresh } from '@/context/differential-refresh.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
-import { STACKS, type Stack } from '@/core/types/domain.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
-import { DesignTokenService } from '@/design-tokens/service.js';
 import { Detector } from '@/detection/detector.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
 import { writeDecisionPauseContractDocument } from '@/onboarding/decision-pause-contract-writer.js';
 import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
+import { refreshProjectRules, type RulesRefreshReport } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
 import { reconcileModuleMap } from '@/module-map/reconciler.js';
 import { discoverSourceRoots } from '@/module-map/source-roots.js';
@@ -23,7 +22,6 @@ export function createRefreshCommand(): Command {
   return new Command('refresh')
     .description('Refresh derived framework artifacts')
     .option('--project-root <path>', 'Project root', process.cwd())
-    .option('--design-system', 'Refresh design-system markdown from design tokens')
     .option('--stack', 'Refresh the cached stack snapshot')
     .option('--context', 'Refresh chunk and vector context indexes')
     .option(
@@ -34,45 +32,61 @@ export function createRefreshCommand(): Command {
       '--reconcile-module-map',
       'Run the module-map reconciler and exit non-zero on drift (issue #80 Phase 2)',
     )
+    .option(
+      '--rules',
+      'Regenerate docs/instructions/rules from the framework rule packs for the saved stack',
+    )
+    .option(
+      '--force',
+      'With --rules, delete the existing generated rules and rewrite them (otherwise report the plan only)',
+    )
     .action(
       async (options: {
         projectRoot: string;
-        designSystem?: boolean;
         stack?: boolean;
         context?: boolean;
         providers?: boolean;
         reconcileModuleMap?: boolean;
+        rules?: boolean;
+        force?: boolean;
       }) => {
         const hasExplicitTarget =
-          options.designSystem === true ||
           options.stack === true ||
           options.context === true ||
           options.providers === true ||
-          options.reconcileModuleMap === true;
-        const shouldRefreshDesignSystem = hasExplicitTarget ? options.designSystem === true : true;
+          options.reconcileModuleMap === true ||
+          options.rules === true;
         const shouldRefreshStack = hasExplicitTarget ? options.stack === true : true;
         const shouldRefreshContext = options.context === true;
         const shouldRefreshProviders = options.providers === true;
         const shouldReconcileModuleMap = hasExplicitTarget
           ? options.reconcileModuleMap === true
           : true;
+        const shouldRefreshRules = options.rules === true;
         const profile = readProjectProfile(options.projectRoot);
+
+        if (shouldRefreshRules) {
+          if (profile === null) {
+            console.error(
+              'paqad-ai refresh --rules: no project profile found. Run `paqad-ai onboard` first.',
+            );
+            process.exitCode = 1;
+          } else {
+            const report = await refreshProjectRules(options.projectRoot, profile, {
+              force: options.force === true,
+            });
+            printRulesReport(report);
+          }
+        }
 
         if (shouldRefreshProviders) {
           await refreshProviderEntries(options.projectRoot);
         }
 
-        if (shouldRefreshDesignSystem) {
-          const designTokens = new DesignTokenService();
-          const stack = resolveRefreshStack(profile?.stack_profile?.frameworks?.[0]);
-          // Self-heal: seed default tokens if the file is missing. `seed` is
-          // idempotent (flag 'wx', swallows EEXIST), so this is safe on every
-          // refresh and unblocks projects whose tokens file was never seeded
-          // or got deleted.
-          await designTokens.seed(options.projectRoot);
-          await designTokens.writeDocs(options.projectRoot);
-          await designTokens.writeThemeExports(options.projectRoot, stack);
-        }
+        // Note: refresh deliberately does not touch the design system. The
+        // canonical design-tokens.json and its generated docs are owned by the
+        // documentation workflow (`create documentation`), so they are never
+        // created or regenerated here.
 
         if (shouldRefreshStack) {
           const previous = await new StackSnapshotCache().read(options.projectRoot);
@@ -147,6 +161,25 @@ export function createRefreshCommand(): Command {
     );
 }
 
+function printRulesReport(report: RulesRefreshReport): void {
+  const preservedNote =
+    report.preserved.length > 0
+      ? ` Preserved (project-owned): ${report.preserved.join(', ')}.`
+      : '';
+
+  if (report.dryRun) {
+    console.error(
+      `paqad-ai refresh --rules (dry run): ${report.deleted.length} rule file(s) would be deleted, ` +
+        `${report.written.length} would be written. Re-run with --force to apply.${preservedNote}`,
+    );
+    return;
+  }
+
+  console.error(
+    `paqad-ai refresh --rules: deleted ${report.deleted.length}, wrote ${report.written.length} rule file(s).${preservedNote}`,
+  );
+}
+
 async function refreshProviderEntries(projectRoot: string): Promise<void> {
   writeDecisionPauseContractDocument(projectRoot);
 
@@ -166,10 +199,6 @@ async function refreshProviderEntries(projectRoot: string): Promise<void> {
     });
     writeGeneratedFiles(projectRoot, files);
   }
-}
-
-function resolveRefreshStack(value: string | undefined): Stack | null {
-  return value !== undefined && STACKS.includes(value as Stack) ? (value as Stack) : null;
 }
 
 function writeRefreshDrift(projectRoot: string, refreshDrift: Record<string, unknown>): void {

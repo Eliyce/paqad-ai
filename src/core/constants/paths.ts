@@ -76,7 +76,9 @@ export const PATHS = {
   INSTRUCTIONS_DIR: 'docs/instructions',
   ARCHITECTURE_DIR: 'docs/instructions/architecture',
   DESIGN_SYSTEM_DIR: 'docs/instructions/design-system',
-  DESIGN_TOKENS_FILE: 'docs/instructions/architecture/design-tokens.json',
+  // Canonical, hand-edited source of truth for the design system. Co-located
+  // with the Markdown it generates so source and outputs share one folder.
+  DESIGN_TOKENS_FILE: 'docs/instructions/design-system/design-tokens.json',
   MODULES_DIR: 'docs/modules',
   REGISTRIES_DIR: 'docs/instructions/registries',
   BENCHMARKS_DIR: 'docs/instructions/benchmarks',
