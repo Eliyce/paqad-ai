@@ -9,7 +9,8 @@
 - Prefer server-side data passing via Inertia props or API resources over client-side fetching for initial page loads.
 - Validate and sanitize all user inputs before submission; do not trust frontend-only validation.
 - Write unit tests for components with significant logic using Vitest and Vue Test Utils.
-- Keep `resources/js/` module boundaries aligned with Laravel module directories in `app/`.
+- Provide a stable `:key` for every `v-for`; use the record's id, not the loop index, and never put `v-if` and `v-for` on the same element.
+- Place page components under `resources/js/Pages/` (Inertia) and shared/reusable components under `resources/js/Components/`, matching the project's established layout.
 - Document non-obvious component behaviour and prop/emit contracts in the corresponding module UI doc.
 - Use `<Transition>` and `<TransitionGroup>` for UI state changes rather than manual CSS class toggling.
 - Avoid direct DOM manipulation; always work through Vue's reactivity system.

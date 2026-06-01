@@ -1,7 +1,7 @@
 # Rust Web Performance
 
-- Watch for blocking calls (`std::thread::sleep`, synchronous I/O) inside async handlers; use async equivalents or `spawn_blocking`.
-- Prefer streaming or pagination over collecting unbounded query results into a `Vec` in memory.
-- Avoid cloning large data structures in hot paths; prefer `Arc` for shared read-only state.
-- Use `tower` middleware for response compression and connection pooling rather than per-handler workarounds.
-- Prefer fixes backed by `cargo bench` or profiling evidence rather than speculative optimization.
+- Never block the async runtime: no `std::thread::sleep`, synchronous file/network I/O, or CPU-bound loops inside an async fn — use Tokio's async APIs or move the work to `tokio::task::spawn_blocking`.
+- Stream or paginate large result sets (`sqlx` `fetch` stream, `LIMIT`/keyset pagination) instead of collecting unbounded rows into a `Vec` in memory.
+- Avoid cloning large data in hot paths; share read-only data with `Arc` and pass borrows (`&T`) rather than owned copies through call chains.
+- Apply response compression and other cross-cutting work with `tower-http` layers (`CompressionLayer`) rather than per-handler workarounds, and reuse pooled connections (`sqlx::Pool`, a shared `reqwest::Client`) instead of opening one per request.
+- Profile and benchmark before optimizing — use `cargo bench` (e.g. `criterion`) or a profiler — and let evidence, not guesswork, drive changes.

@@ -1,12 +1,11 @@
 # Inertia.js with Laravel
 
-- Use `Inertia::render()` in controllers to return page components; avoid mixing JSON API responses with Inertia responses on the same route.
-- Pass only the data a page needs via Inertia props; avoid sending entire Eloquent models directly.
-- Use lazy props (`Inertia::lazy`) for data that is not required on initial load.
-- Use shared data (`HandleInertiaRequests` middleware) for globally available values such as auth user and flash messages.
-- Preserve scroll position and use Inertia's `preserveState` option when navigating within the same page component.
-- Use `router.visit`, `router.post`, `router.put`, and `router.delete` for client-side navigation; do not use native `fetch` for page transitions.
-- Keep Inertia page components in `resources/js/Pages/` and align the directory structure with Laravel route groups.
-- Validate all incoming requests with Form Requests before returning an Inertia response.
-- Use Inertia's `useForm` helper for form state management and server-side validation error display.
-- Document the props contract for each Inertia page component in the corresponding module UI doc.
+- Return page components from controllers with `Inertia::render('Posts/Index', [...])`; do not return JSON API responses from a route the frontend visits as an Inertia page.
+- Pass only the props a page needs, transformed through an API Resource or array; do not hand a full Eloquent model to `Inertia::render`, which serializes every attribute including hidden ones.
+- Defer non-critical data so it loads after first paint: use `Inertia::optional(fn () => ...)` for props fetched only on partial reloads, and `Inertia::defer(fn () => ...)` (Inertia v2) for data shown after the initial render. `Inertia::lazy()` is deprecated — use `optional` instead.
+- Put globally shared values (auth user, flash messages, CSRF/ziggy data) in `HandleInertiaRequests::share()`; do not re-pass them from every controller.
+- Validate write requests with Form Requests; on failure Inertia returns the errors as `$page.props.errors`, surfaced through `useForm().errors` — do not build a parallel client validation contract.
+- Submit and navigate with `useForm()` or `router.visit/post/put/delete`; do not use `fetch`/`axios` for page transitions, which bypasses Inertia's history and prop handling.
+- Use `useForm()`'s `processing` flag to disable submit controls while a request is pending, and its `reset()`/`onSuccess` callbacks for post-submit state.
+- Keep page components under `resources/js/Pages/` with a directory layout that mirrors the route groups.
+- Document each page's props contract (names, types, required/optional) in the owning module's UI doc.

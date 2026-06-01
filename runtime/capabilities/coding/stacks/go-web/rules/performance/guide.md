@@ -1,7 +1,8 @@
 # Go Web Performance
 
-- Watch for N+1 query patterns in loops that call database or HTTP dependencies per iteration.
-- Use connection pooling settings appropriate for the expected concurrency; document the chosen values.
-- Prefer streaming or pagination over loading unbounded result sets into memory.
-- Avoid unnecessary allocations in hot paths; profile with `go tool pprof` before speculative optimization.
-- Prefer fixes backed by benchmark or profiling evidence rather than guesswork.
+- Eliminate N+1 query patterns: do not call the database or an HTTP dependency once per loop iteration — batch with an `IN (...)` query, a join, or a single bulk call.
+- Configure the `database/sql` pool explicitly (`SetMaxOpenConns`, `SetMaxIdleConns`, `SetConnMaxLifetime`) for the expected concurrency instead of relying on defaults.
+- Stream or paginate large result sets (`rows.Next()` iteration, `LIMIT`/`OFFSET` or keyset pagination); do not load unbounded rows into a slice in memory.
+- Reuse a single `http.Client` (it pools connections) rather than constructing one per request, and always `defer resp.Body.Close()` and drain the body so connections are reused.
+- In hot paths preallocate slices/maps with a known capacity (`make([]T, 0, n)`) and reuse buffers (`sync.Pool`, `bytes.Buffer`) to cut allocations.
+- Profile with `go tool pprof` (CPU/heap) and benchmark with `go test -bench` before optimizing; let evidence, not guesswork, drive changes.

@@ -325,6 +325,62 @@ describe('refresh command', () => {
     expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);
   });
 
+  describe('--rules', () => {
+    const rulesDir = (root: string) => join(root, 'docs/instructions/rules');
+
+    function seedRulesTree(root: string): void {
+      mkdirSync(join(rulesDir(root), '_shared'), { recursive: true });
+      writeFileSync(join(rulesDir(root), '_shared/stale-rule.md'), '# stale rule\n');
+      writeFileSync(join(rulesDir(root), 'module-map.yml'), 'modules: []\n');
+      writeFileSync(join(rulesDir(root), 'rule-script-map.yml'), 'rules: []\n');
+    }
+
+    it('reports the plan and makes no changes without --force', async () => {
+      seedRulesTree(projectRoot);
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const command = createRefreshCommand();
+      await command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--rules'], {
+        from: 'node',
+      });
+
+      // Dry run: the stale rule is untouched and nothing fresh is written.
+      expect(existsSync(join(rulesDir(projectRoot), '_shared/stale-rule.md'))).toBe(true);
+      expect(existsSync(join(rulesDir(projectRoot), '_shared/constitution.md'))).toBe(false);
+      expect(errSpy.mock.calls.flat().join(' ')).toMatch(/dry run/i);
+    });
+
+    it('deletes generated rules and rewrites them with --force, preserving project-owned files', async () => {
+      seedRulesTree(projectRoot);
+
+      const command = createRefreshCommand();
+      await command.parseAsync(
+        ['node', 'refresh', '--project-root', projectRoot, '--rules', '--force'],
+        { from: 'node' },
+      );
+
+      // Stale generated rule removed; project-owned registries preserved.
+      expect(existsSync(join(rulesDir(projectRoot), '_shared/stale-rule.md'))).toBe(false);
+      expect(existsSync(join(rulesDir(projectRoot), 'module-map.yml'))).toBe(true);
+      expect(existsSync(join(rulesDir(projectRoot), 'rule-script-map.yml'))).toBe(true);
+      // Fresh rules written from the framework packs.
+      expect(existsSync(join(rulesDir(projectRoot), '_shared/constitution.md'))).toBe(true);
+    });
+
+    it('errors when no project profile exists', async () => {
+      unlinkSync(join(projectRoot, '.paqad/project-profile.yaml'));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const command = createRefreshCommand();
+      await command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--rules'], {
+        from: 'node',
+      });
+
+      expect(errSpy.mock.calls.flat().join(' ')).toMatch(/no project profile found/i);
+      process.exitCode = 0;
+    });
+  });
+
   it('skips profile and drift writes when the canonical profile is absent', async () => {
     unlinkSync(join(projectRoot, '.paqad/project-profile.yaml'));
 

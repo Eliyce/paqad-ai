@@ -1,7 +1,5 @@
 # React Module Boundaries
 
-- Keep route, feature, and shared UI ownership aligned with the canonical module docs.
-- Reuse existing module and package boundaries before introducing new folders or abstractions.
-- Treat cross-module imports as explicit contracts; avoid reaching into another feature's private internals.
-- Keep route, UI, integration, and error docs updated in the owning module when behavior changes.
-- Record module-level assumptions, dependencies, and side effects in the affected docs.
+- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml`. Treat it as the source of truth for which feature owns which paths; do not introduce a new top-level feature folder without a corresponding entry there.
+- Import another feature only through its declared public entry module; do not deep-import its internal components, hooks, or stores.
+- Keep shared cross-feature code (UI primitives, the API client, utilities) in the shared/common module the map designates, not duplicated inside individual features.

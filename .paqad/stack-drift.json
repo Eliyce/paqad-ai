@@ -144,5 +144,12 @@
   "material_changes": [],
   "newly_active_rule_bands": [],
   "newly_inactive_rule_bands": [],
-  "review_targets": []
+  "review_targets": [],
+  "differential_refresh": {
+    "changed_files": [],
+    "total_registries": 13,
+    "refreshed": 0,
+    "skipped": 13,
+    "registries": []
+  }
 }
