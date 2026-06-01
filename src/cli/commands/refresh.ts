@@ -6,9 +6,7 @@ import { AdapterFactory } from '@/adapters/factory.js';
 import { DifferentialRefresh } from '@/context/differential-refresh.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
-import { STACKS, type Stack } from '@/core/types/domain.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
-import { DesignTokenService } from '@/design-tokens/service.js';
 import { Detector } from '@/detection/detector.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
@@ -23,7 +21,6 @@ export function createRefreshCommand(): Command {
   return new Command('refresh')
     .description('Refresh derived framework artifacts')
     .option('--project-root <path>', 'Project root', process.cwd())
-    .option('--design-system', 'Refresh design-system markdown from design tokens')
     .option('--stack', 'Refresh the cached stack snapshot')
     .option('--context', 'Refresh chunk and vector context indexes')
     .option(
@@ -37,19 +34,16 @@ export function createRefreshCommand(): Command {
     .action(
       async (options: {
         projectRoot: string;
-        designSystem?: boolean;
         stack?: boolean;
         context?: boolean;
         providers?: boolean;
         reconcileModuleMap?: boolean;
       }) => {
         const hasExplicitTarget =
-          options.designSystem === true ||
           options.stack === true ||
           options.context === true ||
           options.providers === true ||
           options.reconcileModuleMap === true;
-        const shouldRefreshDesignSystem = hasExplicitTarget ? options.designSystem === true : true;
         const shouldRefreshStack = hasExplicitTarget ? options.stack === true : true;
         const shouldRefreshContext = options.context === true;
         const shouldRefreshProviders = options.providers === true;
@@ -62,17 +56,10 @@ export function createRefreshCommand(): Command {
           await refreshProviderEntries(options.projectRoot);
         }
 
-        if (shouldRefreshDesignSystem) {
-          const designTokens = new DesignTokenService();
-          const stack = resolveRefreshStack(profile?.stack_profile?.frameworks?.[0]);
-          // Self-heal: seed default tokens if the file is missing. `seed` is
-          // idempotent (flag 'wx', swallows EEXIST), so this is safe on every
-          // refresh and unblocks projects whose tokens file was never seeded
-          // or got deleted.
-          await designTokens.seed(options.projectRoot);
-          await designTokens.writeDocs(options.projectRoot);
-          await designTokens.writeThemeExports(options.projectRoot, stack);
-        }
+        // Note: refresh deliberately does not touch the design system. The
+        // canonical design-tokens.json and its generated docs are owned by the
+        // documentation workflow (`create documentation`), so they are never
+        // created or regenerated here.
 
         if (shouldRefreshStack) {
           const previous = await new StackSnapshotCache().read(options.projectRoot);
@@ -166,10 +153,6 @@ async function refreshProviderEntries(projectRoot: string): Promise<void> {
     });
     writeGeneratedFiles(projectRoot, files);
   }
-}
-
-function resolveRefreshStack(value: string | undefined): Stack | null {
-  return value !== undefined && STACKS.includes(value as Stack) ? (value as Stack) : null;
 }
 
 function writeRefreshDrift(projectRoot: string, refreshDrift: Record<string, unknown>): void {

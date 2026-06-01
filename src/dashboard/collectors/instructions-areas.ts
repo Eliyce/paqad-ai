@@ -21,7 +21,6 @@ const AREA_SPECS: ReadonlyArray<AreaSpec> = [
       goodLooksLike:
         'tokens.md, components.md, and patterns.md present and kept in sync with the codebase.',
     },
-    missingCommand: '`paqad refresh --design-system`',
   },
   {
     id: 'stack',

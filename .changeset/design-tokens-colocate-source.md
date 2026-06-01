@@ -12,7 +12,14 @@ pointing back at the source, and the seeded JSON carries a `$comment` declaring
 it the canonical source. This makes it obvious on disk which file to edit and
 which are outputs.
 
+**`paqad refresh` no longer handles the design system at all.** The
+`--design-system` flag is removed, and a bare `refresh` no longer seeds or
+regenerates design-system docs/theme exports. The design system (the canonical
+`design-tokens.json` and the Markdown generated from it) is owned solely by the
+documentation workflow (`create documentation`). User-facing guidance that
+pointed to `paqad refresh --design-system` (README, the design-system rule, the
+dashboard hint) has been removed accordingly.
+
 Note: no automatic migration of already-onboarded projects. A project whose
 tokens file is still under `architecture/` should move it to `design-system/`
-manually; otherwise the next `create documentation` / `paqad refresh` will seed
-a fresh default file at the new location.
+manually.

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { createRefreshCommand } from '@/cli/commands/refresh.js';
+import { PATHS } from '@/core/constants/paths.js';
 import { DifferentialRefresh } from '@/context/differential-refresh.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
 import { DesignTokenService } from '@/design-tokens/service.js';
@@ -203,59 +204,6 @@ describe('refresh command', () => {
     });
   });
 
-  it('only refreshes design-system artifacts when --design-system is passed explicitly', async () => {
-    writeProjectProfile(projectRoot, {
-      ...YAML.parse(readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8')),
-      stack_profile: {
-        frameworks: ['laravel'],
-        traits: [],
-        toolchains: [],
-        version_bands: [],
-        sources: [],
-      },
-    });
-
-    const command = createRefreshCommand();
-
-    await command.parseAsync(
-      ['node', 'refresh', '--project-root', projectRoot, '--design-system'],
-      {
-        from: 'node',
-      },
-    );
-
-    expect(DesignTokenService.prototype.writeDocs).toHaveBeenCalledOnce();
-    expect(DesignTokenService.prototype.writeThemeExports).toHaveBeenCalledWith(
-      projectRoot,
-      'laravel',
-    );
-    expect(writeStackArtifacts).not.toHaveBeenCalled();
-  });
-
-  it('falls back to null theme-export stack when the profile has no recognized stack', async () => {
-    writeProjectProfile(projectRoot, {
-      ...YAML.parse(readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8')),
-      stack_profile: {
-        frameworks: ['unknown-stack'],
-        traits: [],
-        toolchains: [],
-        version_bands: [],
-        sources: [],
-      },
-    });
-
-    const command = createRefreshCommand();
-
-    await command.parseAsync(
-      ['node', 'refresh', '--project-root', projectRoot, '--design-system'],
-      {
-        from: 'node',
-      },
-    );
-
-    expect(DesignTokenService.prototype.writeThemeExports).toHaveBeenCalledWith(projectRoot, null);
-  });
-
   it('refreshes context indexes only when --context is passed explicitly', async () => {
     vi.spyOn(RagService.prototype, 'refreshContext').mockResolvedValueOnce({
       index: { version: 1, generated_at: new Date().toISOString(), entries: [] },
@@ -317,19 +265,31 @@ describe('refresh command', () => {
     expect(drift.current_packs).toEqual([]);
   });
 
-  it('self-heals a missing design-tokens.json by seeding defaults before writeDocs', async () => {
+  it('never touches the design system: refresh neither seeds nor regenerates tokens', async () => {
     const seedSpy = vi.spyOn(DesignTokenService.prototype, 'seed').mockResolvedValue();
 
     const command = createRefreshCommand();
-    await command.parseAsync(
-      ['node', 'refresh', '--project-root', projectRoot, '--design-system'],
-      { from: 'node' },
-    );
+    await command.parseAsync(['node', 'refresh', '--project-root', projectRoot], {
+      from: 'node',
+    });
 
-    expect(seedSpy).toHaveBeenCalledWith(projectRoot);
-    expect(seedSpy.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(DesignTokenService.prototype.writeDocs).mock.invocationCallOrder[0],
-    );
+    // The design system is owned solely by `create documentation`. A bare
+    // refresh must not seed the tokens file, generate docs, or write theme
+    // exports.
+    expect(seedSpy).not.toHaveBeenCalled();
+    expect(existsSync(join(projectRoot, PATHS.DESIGN_TOKENS_FILE))).toBe(false);
+    expect(DesignTokenService.prototype.writeDocs).not.toHaveBeenCalled();
+    expect(DesignTokenService.prototype.writeThemeExports).not.toHaveBeenCalled();
+  });
+
+  it('rejects the removed --design-system flag', async () => {
+    const command = createRefreshCommand().exitOverride();
+
+    await expect(
+      command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--design-system'], {
+        from: 'node',
+      }),
+    ).rejects.toThrow(/unknown option/i);
   });
 
   it('writes the canonical decision-pause-contract doc when --providers is passed', async () => {
