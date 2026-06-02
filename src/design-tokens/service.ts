@@ -11,7 +11,7 @@ import type {
 import type { Stack } from '@/core/types/domain.js';
 import { SchemaValidator } from '@/validators/validator.js';
 
-import { DEFAULT_DESIGN_TOKENS } from './defaults.js';
+import { PLACEHOLDER_DESIGN_TOKENS } from './defaults.js';
 
 // Prepended to every generated design-system Markdown file so it is obvious on
 // disk which files are outputs and which file is the editable source.
@@ -21,18 +21,38 @@ function withGeneratedBanner(content: string): string {
   return `${GENERATED_DOC_BANNER}\n\n${content}`;
 }
 
-// Written into the seeded design-tokens.json as a `$comment` so the source file
-// self-identifies as canonical (JSON has no native comment syntax).
-const DESIGN_TOKENS_SOURCE_NOTE =
-  "Canonical, hand-edited source of truth for this project's design system. The Markdown files in this folder (tokens.md, components.md, …) are generated from this file by the documentation workflow — edit this file, not them.";
+// Written into the seeded design-tokens.json as a `$comment`. Its presence is
+// the machine-detectable signal that the file is still the unedited placeholder
+// scaffold — the documentation workflow refuses to derive design-system docs
+// from it. Filling in real tokens means deleting this `$comment`.
+export const DESIGN_TOKENS_PLACEHOLDER_NOTE =
+  'PLACEHOLDER design tokens seeded by paqad-ai. Replace these values with your project\'s real design tokens, then delete this "$comment". Until then, design-system docs (tokens.md, components.md, …) are intentionally not generated, because they would describe a design system that does not exist.';
 
 export class DesignTokensMissingError extends Error {
   constructor(public readonly path: string) {
     super(
-      `Design tokens file not found at ${path}. Run \`paqad-ai onboard\` to seed default tokens, or create the file manually.`,
+      `Design tokens file not found at ${path}. Run the documentation workflow ("create documentation") to seed a placeholder tokens file, or create the file manually.`,
     );
     this.name = 'DesignTokensMissingError';
   }
+}
+
+/**
+ * Thrown when the tokens file is still the unedited placeholder scaffold. The
+ * documentation workflow catches this and skips design-system doc generation
+ * with a clear message rather than shipping docs built from placeholder values.
+ */
+export class DesignTokensPlaceholderError extends Error {
+  constructor(public readonly path: string) {
+    super(
+      `Design tokens at ${path} are still the placeholder scaffold. Fill in your project's real tokens (and delete the placeholder "$comment"), then re-run the documentation workflow to generate design-system docs.`,
+    );
+    this.name = 'DesignTokensPlaceholderError';
+  }
+}
+
+function isPlaceholder(tokens: DesignTokensDocument): boolean {
+  return (tokens as { $comment?: unknown }).$comment === DESIGN_TOKENS_PLACEHOLDER_NOTE;
 }
 
 interface FlattenedToken {
@@ -48,11 +68,14 @@ export class DesignTokenService {
   async seed(projectRoot: string): Promise<void> {
     const target = join(projectRoot, PATHS.DESIGN_TOKENS_FILE);
 
-    // A `$comment` marker so the JSON itself declares that it is the canonical,
-    // hand-edited source — the sibling Markdown files are generated from it.
+    // Seed a neutral *placeholder* scaffold, never a brand. The `$comment`
+    // marks it as unedited so doc generation is skipped until the user fills in
+    // real tokens. Generic brand defaults are deliberately not shipped — docs
+    // built from them look authoritative while describing a design system that
+    // does not exist (see issue #72).
     const seeded = {
-      $comment: DESIGN_TOKENS_SOURCE_NOTE,
-      ...DEFAULT_DESIGN_TOKENS,
+      $comment: DESIGN_TOKENS_PLACEHOLDER_NOTE,
+      ...PLACEHOLDER_DESIGN_TOKENS,
     };
 
     await mkdir(dirname(target), { recursive: true });
@@ -90,6 +113,9 @@ export class DesignTokenService {
 
   async generateDocs(projectRoot: string): Promise<DesignTokenDocArtifact[]> {
     const tokens = await this.load(projectRoot);
+    if (isPlaceholder(tokens)) {
+      throw new DesignTokensPlaceholderError(join(projectRoot, PATHS.DESIGN_TOKENS_FILE));
+    }
     const flattened = flattenTokens(tokens);
     const sections = groupTokens(flattened);
 
@@ -138,7 +164,11 @@ export class DesignTokenService {
   }
 
   async exportTheme(projectRoot: string, stack: Stack | null): Promise<ThemeExportArtifact[]> {
-    const flattened = flattenTokens(await this.load(projectRoot));
+    const tokens = await this.load(projectRoot);
+    if (isPlaceholder(tokens)) {
+      throw new DesignTokensPlaceholderError(join(projectRoot, PATHS.DESIGN_TOKENS_FILE));
+    }
+    const flattened = flattenTokens(tokens);
     const cssVariables = flattened
       .map((token) => `  --${token.key.replace(/\./g, '-')}: ${stringifyValue(token.value)};`)
       .join('\n');
