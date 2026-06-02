@@ -1,9 +1,13 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { DesignTokenService, DesignTokensMissingError } from '@/design-tokens';
+import {
+  DesignTokenService,
+  DesignTokensMissingError,
+  DesignTokensPlaceholderError,
+} from '@/design-tokens';
 
 describe('DesignTokenService', () => {
   let root: string;
@@ -16,19 +20,57 @@ describe('DesignTokenService', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('seeds the canonical token file and generates derived docs', async () => {
-    const service = new DesignTokenService();
+  // Write a real, user-authored tokens file (no placeholder `$comment`).
+  function writeRealTokens(): void {
+    const target = join(root, PATHS.DESIGN_TOKENS_FILE);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(
+      target,
+      JSON.stringify(
+        {
+          color: {
+            primary: { $value: '#123456', $type: 'color', $description: 'Brand primary.' },
+          },
+          spacing: {
+            md: { $value: '1rem', $type: 'dimension' },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+  }
 
+  it('seeds a placeholder scaffold rather than a generic brand', async () => {
+    const service = new DesignTokenService();
     await service.seed(root);
-    await service.writeDocs(root);
-    await service.writeThemeExports(root, 'laravel');
 
     const tokensJson = readFileSync(join(root, PATHS.DESIGN_TOKENS_FILE), 'utf8');
-    expect(tokensJson).toContain('"color"');
-    // The source file lives under design-system/ and self-identifies as canonical.
+    // The file self-identifies as an unedited placeholder…
     expect(tokensJson).toContain('$comment');
-    expect(tokensJson).toContain('Canonical');
+    expect(tokensJson).toContain('PLACEHOLDER design tokens seeded by paqad-ai');
+    // …and ships no invented brand values.
+    expect(tokensJson).not.toContain('#0F766E');
+    expect(tokensJson).not.toContain('Satoshi');
     expect(PATHS.DESIGN_TOKENS_FILE).toBe('docs/instructions/design-system/design-tokens.json');
+  });
+
+  it('refuses to generate docs or theme exports while the file is the placeholder', async () => {
+    const service = new DesignTokenService();
+    await service.seed(root);
+
+    await expect(service.generateDocs(root)).rejects.toBeInstanceOf(DesignTokensPlaceholderError);
+    await expect(service.exportTheme(root, 'laravel')).rejects.toBeInstanceOf(
+      DesignTokensPlaceholderError,
+    );
+  });
+
+  it('generates derived docs and theme exports from real, user-authored tokens', async () => {
+    const service = new DesignTokenService();
+    writeRealTokens();
+
+    await service.writeDocs(root);
+    await service.writeThemeExports(root, 'laravel');
 
     const tokensMd = readFileSync(join(root, PATHS.DESIGN_SYSTEM_DIR, 'tokens.md'), 'utf8');
     expect(tokensMd).toContain('Design Tokens');
@@ -37,10 +79,7 @@ describe('DesignTokenService', () => {
     expect(tokensMd).toContain(PATHS.DESIGN_TOKENS_FILE);
     expect(readFileSync(join(root, '.paqad/theme/theme.css'), 'utf8')).toContain('--color-primary');
     const tailwindTheme = readFileSync(join(root, '.paqad/theme/tailwind.theme.cjs'), 'utf8');
-    expect(tailwindTheme).toContain("'color-primary' : '#0F766E'");
-    expect(tailwindTheme).not.toContain('spacing-xs');
-    expect(tailwindTheme).not.toContain('typography-fontFamily-body');
-    expect(tailwindTheme).not.toContain('motion-duration-fast');
+    expect(tailwindTheme).toContain("'color-primary' : '#123456'");
   });
 
   it('throws DesignTokensMissingError when the tokens file is absent', async () => {

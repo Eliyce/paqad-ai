@@ -5,6 +5,7 @@ import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import type { ClassificationResult } from '@/core/types/classification.js';
+import type { DesignTokenDocArtifact, ThemeExportArtifact } from '@/core/types/design-tokens.js';
 import type { DocProgressEntry } from '@/core/types/document-generation.js';
 import type { Capability, Domain, Stack } from '@/core/types/domain.js';
 import type { DetectionReport } from '@/core/types/health.js';
@@ -13,7 +14,7 @@ import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { RepositoryContext } from '@/core/types/repository.js';
 import { Detector } from '@/detection/detector.js';
-import { DesignTokenService } from '@/design-tokens/service.js';
+import { DesignTokenService, DesignTokensPlaceholderError } from '@/design-tokens/service.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
 import {
   writeDetectionReport,
@@ -454,9 +455,24 @@ export class DocumentationWorkflow {
     }
 
     const designTokenService = new DesignTokenService();
+    // Seed a placeholder tokens file (a scaffold for the user to fill in), then
+    // try to derive docs from it. While the file is still the unedited
+    // placeholder, generation is skipped — we never ship design-system docs
+    // built from generic defaults (issue #72).
     await designTokenService.seed(options.projectRoot);
-    const designDocs = await designTokenService.generateDocs(options.projectRoot);
-    const themeArtifacts = await designTokenService.exportTheme(options.projectRoot, routing.stack);
+    let designDocs: DesignTokenDocArtifact[] = [];
+    let themeArtifacts: ThemeExportArtifact[] = [];
+    let designSystemPlaceholderNote: string | undefined;
+    try {
+      designDocs = await designTokenService.generateDocs(options.projectRoot);
+      themeArtifacts = await designTokenService.exportTheme(options.projectRoot, routing.stack);
+    } catch (error) {
+      if (error instanceof DesignTokensPlaceholderError) {
+        designSystemPlaceholderNote = error.message;
+      } else {
+        throw error;
+      }
+    }
 
     progress.global.designSystem ??= {};
     const designSystemGenerated: string[] = [];
@@ -496,7 +512,9 @@ export class DocumentationWorkflow {
     skipped.push(...designSystemSkipped);
     steps.push({
       id: 'design-system',
-      summary: 'Synced design-system documentation',
+      summary: designSystemPlaceholderNote
+        ? `Seeded placeholder design tokens; skipped design-system docs — ${designSystemPlaceholderNote}`
+        : 'Synced design-system documentation',
       generated: designSystemGenerated,
       skipped: designSystemSkipped,
     });

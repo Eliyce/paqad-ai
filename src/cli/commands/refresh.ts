@@ -56,12 +56,26 @@ export function createRefreshCommand(): Command {
           options.providers === true ||
           options.reconcileModuleMap === true ||
           options.rules === true;
-        const shouldRefreshStack = hasExplicitTarget ? options.stack === true : true;
+
+        // A flagless `refresh` is a status-only no-op. It must not materialize
+        // files the user never asked for (issue #72): every target is opt-in.
+        if (!hasExplicitTarget) {
+          console.error(
+            'paqad-ai refresh: nothing to refresh — every target is opt-in. Choose one or more:\n' +
+              '  --stack                 refresh the cached stack snapshot and docs/instructions/stack/*\n' +
+              '  --context               refresh chunk and vector context indexes\n' +
+              '  --providers             re-render provider entry files and the Decision Pause Contract doc\n' +
+              '  --rules                 regenerate docs/instructions/rules from the framework rule packs\n' +
+              '  --reconcile-module-map  reconcile module-map.yml and fail on drift\n' +
+              'The design system (docs/instructions/design-system/*) is owned by the documentation workflow ("create documentation"), not refresh.',
+          );
+          return;
+        }
+
+        const shouldRefreshStack = options.stack === true;
         const shouldRefreshContext = options.context === true;
         const shouldRefreshProviders = options.providers === true;
-        const shouldReconcileModuleMap = hasExplicitTarget
-          ? options.reconcileModuleMap === true
-          : true;
+        const shouldReconcileModuleMap = options.reconcileModuleMap === true;
         const shouldRefreshRules = options.rules === true;
         const profile = readProjectProfile(options.projectRoot);
 

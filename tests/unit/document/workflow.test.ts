@@ -341,17 +341,28 @@ describe('DocumentationWorkflow', () => {
   // ─── Existing behaviour — unrelated to module docs ─────────────────────────
 
   it('skips unchanged foundation docs on re-run', async () => {
+    // Author real design tokens so the design-system docs are actually
+    // generated (the seeded placeholder is intentionally skipped). This keeps
+    // the test exercising the design-system doc idempotency path.
+    mkdirSync(join(root, PATHS.DESIGN_SYSTEM_DIR), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.DESIGN_TOKENS_FILE),
+      JSON.stringify(
+        { color: { primary: { $value: '#123456', $type: 'color', $description: 'Brand.' } } },
+        null,
+        2,
+      ),
+    );
+
     const workflow = new DocumentationWorkflow();
     await workflow.run({ projectRoot: root, mode: 'foundation' });
     const result2 = await workflow.run({ projectRoot: root, mode: 'foundation' });
 
-    // Architecture and design-system docs go through processEntry and are skipped when unchanged
-    expect(
-      result2.skipped.some(
-        (p) =>
-          p.startsWith('docs/instructions/architecture/') || p.startsWith('docs/instructions/'),
-      ),
-    ).toBe(true);
+    // Design-system docs (derived from the stable tokens file) go through
+    // processEntry and are skipped on re-run when unchanged.
+    expect(result2.skipped.some((p) => p.startsWith('docs/instructions/design-system/'))).toBe(
+      true,
+    );
   });
 
   it('resets stale generating entries through the canonical recovery hook', async () => {
