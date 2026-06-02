@@ -136,7 +136,7 @@ describe('refresh command', () => {
 
   it('updates the canonical profile and writes capability-aware drift metadata', async () => {
     const command = createRefreshCommand();
-    await command.parseAsync(['node', 'refresh', '--project-root', projectRoot], {
+    await command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--stack'], {
       from: 'node',
     });
 
@@ -164,6 +164,27 @@ describe('refresh command', () => {
     expect(drift.previous_packs).toEqual([]);
     expect(drift.current_packs).toEqual(['laravel']);
     expect(drift.stack_drift).toMatchObject({ changed: true, nextHash: 'snapshot-hash' });
+  });
+
+  it('is a status-only no-op when no target flag is passed', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const command = createRefreshCommand();
+    await command.parseAsync(['node', 'refresh', '--project-root', projectRoot], {
+      from: 'node',
+    });
+
+    // No target flag → nothing is materialized and no work is done.
+    expect(writeStackArtifacts).not.toHaveBeenCalled();
+    expect(DifferentialRefresh.prototype.refresh).not.toHaveBeenCalled();
+    expect(existsSync(join(projectRoot, '.paqad/stack-drift.json'))).toBe(false);
+    // The profile is left exactly as seeded — no capability re-detection.
+    const profile = YAML.parse(
+      readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8'),
+    ) as { active_capabilities: string[] };
+    expect(profile.active_capabilities).toEqual(['content']);
+    // The user is told which opt-in targets exist.
+    expect(errSpy.mock.calls.flat().join(' ')).toMatch(/--stack/);
   });
 
   it('only refreshes stack artifacts when --stack is passed explicitly', async () => {
