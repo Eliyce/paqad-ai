@@ -114,6 +114,89 @@ describe('buildVerificationEvidence', () => {
     expect(evidence.first_failure_gate).toBeNull();
   });
 
+  it('folds surviving mutants and confidence into the mutation-testing gate', () => {
+    const results = VERIFICATION_GATES.map((gate) =>
+      gate === 'mutation-testing'
+        ? inconclusive(gate, '1 behaviour-changing mutant survived', 'Strengthen the tests.')
+        : pass(gate),
+    );
+
+    const evidence = buildVerificationEvidence({
+      results,
+      context: {
+        structured_test_results: [],
+        mutation_result: {
+          tool: 'stryker',
+          language: 'typescript',
+          confidence: 'mature',
+          scoped_files: ['src/a.ts'],
+          total_mutants: 2,
+          killed: 1,
+          survived: 1,
+          equivalent_set_aside: 0,
+          kill_rate: 50,
+          surviving_mutants: [
+            { file: 'src/a.ts', line: 9, operator: 'ArithmeticOperator', description: '+ → -' },
+          ],
+          tree_clean: true,
+          status: 'survivors',
+          skipped_reason: null,
+        },
+      },
+      run_id: 'r-mut',
+      started_at: '2026-05-09T10:00:00.000Z',
+      completed_at: '2026-05-09T10:00:05.000Z',
+    });
+
+    const mutationGate = evidence.gates.find((gate) => gate.name === 'mutation-testing');
+    expect(mutationGate?.status).toBe('inconclusive');
+    expect(mutationGate?.confidence).toBe('mature');
+    expect(mutationGate?.failures).toEqual([
+      {
+        category: 'gate-failure',
+        file: 'src/a.ts',
+        line: 9,
+        test_id: null,
+        suite: null,
+        ac_id: null,
+        message: 'Surviving mutant (ArithmeticOperator): + → -',
+        stderr_excerpt: null,
+      },
+    ]);
+    // Other gates carry no mutation confidence flag and no mutation failures.
+    expect(evidence.gates.find((gate) => gate.name === 'spec-review')?.confidence).toBeUndefined();
+  });
+
+  it('emits a survivor failure without a description and no failures when none survive', () => {
+    const results = VERIFICATION_GATES.map((gate) => pass(gate));
+    const evidence = buildVerificationEvidence({
+      results,
+      context: {
+        structured_test_results: [],
+        mutation_result: {
+          tool: 'stryker',
+          language: 'typescript',
+          confidence: 'mature',
+          scoped_files: ['src/a.ts'],
+          total_mutants: 1,
+          killed: 0,
+          survived: 1,
+          equivalent_set_aside: 0,
+          kill_rate: 0,
+          surviving_mutants: [{ file: 'src/a.ts', line: 3, operator: 'BooleanLiteral' }],
+          tree_clean: true,
+          status: 'survivors',
+          skipped_reason: null,
+        },
+      },
+      run_id: 'r-mut2',
+      started_at: '2026-05-09T10:00:00.000Z',
+      completed_at: '2026-05-09T10:00:05.000Z',
+    });
+    const mutationGate = evidence.gates.find((gate) => gate.name === 'mutation-testing');
+    expect(mutationGate?.failures[0]?.message).toBe('Surviving mutant (BooleanLiteral)');
+  });
+
   it('records the first non-passing gate and folds structured test failures into code-tests-lint', () => {
     const results = VERIFICATION_GATES.map((gate) =>
       gate === 'code-tests-lint'

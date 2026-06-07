@@ -11,6 +11,7 @@ import { parseTestOutput } from '@/test-output/index.js';
 import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
 import { VerificationGateRunner } from '@/verification/gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '@/verification/evidence.js';
+import { runMutationGate } from '@/mutation/index.js';
 import type { VerificationContext } from '@/core/types/verification.js';
 import {
   detectStaleDocTargets,
@@ -104,6 +105,17 @@ async function buildDefaultVerificationContext(
   const modules = context.classification.affected_modules;
   const commandResults = await runVerificationCommands(context.project_root, profile, commands);
 
+  // Issue #105 — plant mutants in the changed code only once the suite is
+  // already green, so survivors mean "a wrong implementation would pass," not
+  // "the build is broken." Never throws; failures surface as a skipped result.
+  const mutationResult = await runMutationGate({
+    projectRoot: context.project_root,
+    changedFiles,
+    lane: context.lane,
+    stackProfile: profile?.stack_profile ?? null,
+    testsGreen: commandResults.test_commands_passed,
+  });
+
   return {
     project_root: context.project_root,
     verification_origin: 'provider-workflow',
@@ -125,6 +137,8 @@ async function buildDefaultVerificationContext(
     behavioral_correctness_passed: commandResults.test_commands_passed,
     database_quality_passed: true,
     structured_test_results: commandResults.structured_test_results,
+    mutation_result: mutationResult,
+    lane: context.lane,
     expected_ui_modules: [],
     expected_api_modules: [],
     expected_integration_modules: [],
@@ -296,7 +310,10 @@ interface WriteEvidenceArtifactInput {
 async function writeVerificationEvidenceArtifact(input: WriteEvidenceArtifactInput): Promise<void> {
   const evidence = buildVerificationEvidence({
     results: input.results,
-    context: { structured_test_results: input.verificationContext.structured_test_results },
+    context: {
+      structured_test_results: input.verificationContext.structured_test_results,
+      mutation_result: input.verificationContext.mutation_result,
+    },
     run_id: `verification-${input.startedAt}`,
     started_at: input.startedAt,
     completed_at: input.completedAt,

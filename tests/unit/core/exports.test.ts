@@ -139,7 +139,7 @@ describe('core export surface', () => {
     expect(PIPELINE_PHASES).toContain('verification-gates');
     expect(PIPELINE_PHASES).toContain('pentest');
     expect(PIPELINE_PHASES).toContain('pentest-retest');
-    expect(VERIFICATION_GATES).toHaveLength(13);
+    expect(VERIFICATION_GATES).toHaveLength(14);
     expect(VERIFICATION_GATES[0]).toBe('change-completeness');
     expect(REVIEW_TIERS).toEqual(['full', 'standard', 'spot-check']);
     expect(REVIEW_MODES).toEqual(['fresh', 'diff']);

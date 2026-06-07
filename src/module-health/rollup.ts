@@ -283,6 +283,11 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
       blocked.push('contract_stability:no_public_api_extractor');
     }
 
+    // Mutation score is fed by the verification-gate path (module-health
+    // updater), not the coverage/test report rollup — so it is always blocked
+    // here rather than fabricated. See issue #105.
+    blocked.push('mutation_score:not_configured');
+
     const metrics: ModuleHealthMetrics = {
       coverage_pct: cov.pct,
       tests_passing: t.passing,
@@ -291,6 +296,7 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
       change_velocity: velocity,
       contract_stability: stability,
       defect_frequency: null,
+      mutation_score: null,
     };
 
     const profile: ModuleHealthProfile = {

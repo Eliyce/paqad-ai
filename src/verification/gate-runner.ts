@@ -14,6 +14,7 @@ import type { Gate } from './gates/gate.interface.js';
 import { ImplementationReviewGate } from './gates/implementation-review.js';
 import { InstructionsDocsStructureGate } from './gates/instructions-docs-structure.js';
 import { ModuleDocsStructureGate } from './gates/module-docs-structure.js';
+import { MutationTestingGate } from './gates/mutation-testing.js';
 import { RequirementCompletenessGate } from './gates/requirement-completeness.js';
 import { SpecReviewGate } from './gates/spec-review.js';
 import { StoryQualityGate } from './gates/story-quality.js';
@@ -92,6 +93,7 @@ function defaultGates(): Gate[] {
     new CodeTestsLintGate(),
     new ImplementationReviewGate(),
     new BehavioralCorrectnessGate(),
+    new MutationTestingGate(),
     new DatabaseQualityGate(),
     new ModuleDocsStructureGate(),
     new InstructionsDocsStructureGate(),

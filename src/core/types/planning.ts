@@ -360,6 +360,11 @@ export interface ModuleHealthMetrics {
   tests_passing?: number | null;
   tests_failing?: number | null;
   tests_total?: number | null;
+  // Issue #105 — mutation kill rate (0–100) for the module's changed code, fed
+  // from the mutation-testing verification gate. Null when no mutation run has
+  // produced a signal for the module; the reason is recorded in
+  // `blocked_metrics` rather than fabricating a value.
+  mutation_score?: number | null;
 }
 
 export interface ModuleHealthProfile {
