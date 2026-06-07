@@ -1,5 +1,5 @@
 ---
-"paqad-ai": minor
+'paqad-ai': minor
 ---
 
 feat: freeze a machine-checkable feature spec and define a single "done" bar before building (#102)

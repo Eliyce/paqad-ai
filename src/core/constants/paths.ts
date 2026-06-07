@@ -39,6 +39,8 @@ export const PATHS = {
   TRANSITION_LOG: '.paqad/cache/transition-log.json',
   CACHE_METRICS: '.paqad/cache/metrics.json',
   PLANNING_SPECS_DIR: '.paqad/specs',
+  // Issue #103 - persisted regression guards (one sidecar per defect_id)
+  REGRESSION_GUARDS_DIR: '.paqad/regression-guards',
   PLANNING_MODULE_HEALTH_DIR: '.paqad/module-health',
   MODULE_HEALTH_EVIDENCE_DIR: '.paqad/module-health-evidence',
   MODULE_HEALTH_CONSUMED_EVENTS: '.paqad/module-health-consumed-events.json',

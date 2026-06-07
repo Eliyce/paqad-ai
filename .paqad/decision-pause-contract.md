@@ -18,6 +18,7 @@ Before implementing any choice that falls into one of the categories below, writ
 - `delivery.open_pr`
 - `spec.change`
 - `spec.contradiction`
+- `fix.proof_method`
 
 ## Resolution flow
 

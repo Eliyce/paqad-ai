@@ -113,6 +113,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'The goal changed mid-build — update the frozen spec and re-freeze?';
     case 'spec.contradiction':
       return 'Work conflicts with the frozen spec — fix the code or change the spec?';
+    case 'fix.proof_method':
+      return 'This problem cannot be auto-checked — how should we confirm it is fixed?';
   }
 }
 
@@ -260,6 +262,7 @@ export function decisionOptionsForCategory(
     case 'delivery.open_pr':
     case 'spec.change':
     case 'spec.contradiction':
+    case 'fix.proof_method':
       return { options: [] };
   }
 }

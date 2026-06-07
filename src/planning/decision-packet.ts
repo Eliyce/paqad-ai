@@ -13,6 +13,7 @@ export const DECISION_CATEGORIES = [
   'delivery.open_pr',
   'spec.change',
   'spec.contradiction',
+  'fix.proof_method',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -110,6 +111,10 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   // change spec) and is never resolved silently.
   'spec.change': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
   'spec.contradiction': { create_new: false, reversibility: 'hard', ttl_days: 7 },
+  // Fix protocol (issue #103). How to confirm an un-auto-checkable problem
+  // (timing/appearance) is fixed — asked once, reused by kind. Reversible: the
+  // agent can re-ask if the confirmation method stops fitting.
+  'fix.proof_method': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

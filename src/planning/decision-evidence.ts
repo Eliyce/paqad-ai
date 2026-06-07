@@ -110,6 +110,7 @@ export function defaultSimilarityFor(
     case 'delivery.open_pr':
     case 'spec.change':
     case 'spec.contradiction':
+    case 'fix.proof_method':
       return 0.5;
   }
 }
