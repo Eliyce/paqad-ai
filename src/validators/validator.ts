@@ -8,6 +8,7 @@ import designTokensSchema from './schemas/design-tokens.schema.json';
 import docProgressSchema from './schemas/doc-progress.schema.json';
 import errorCatalogSchema from './schemas/error-catalog.schema.json';
 import featureDevelopmentPolicySchema from './schemas/feature-development-policy.schema.json';
+import featureSpecSchema from './schemas/feature-spec.schema.json';
 import gateResultSchema from './schemas/gate-result.schema.json';
 import handoffArtifactSchema from './schemas/handoff-artifact.schema.json';
 import integrationDocSchema from './schemas/integration-doc.schema.json';
@@ -46,6 +47,7 @@ const SCHEMAS = [
   integrationDocSchema,
   errorCatalogSchema,
   featureDevelopmentPolicySchema,
+  featureSpecSchema,
   skillFrontmatterSchema,
   gateResultSchema,
   stackPackSchema,

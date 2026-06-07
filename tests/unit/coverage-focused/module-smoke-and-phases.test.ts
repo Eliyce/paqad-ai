@@ -318,7 +318,7 @@ describe('pipeline phase fallbacks', () => {
       new SpecWritingPhase().execute(createPhaseContext({ feature_policy: policy })),
     ).resolves.toMatchObject({
       summary:
-        'Specification written (1 instruction(s), 1 required input(s), 1 expected artifact(s))',
+        'Specification written (2 instruction(s), 1 required input(s), 2 expected artifact(s))',
     });
 
     await expect(new StoryPlanningPhase().execute(createPhaseContext())).resolves.toMatchObject({

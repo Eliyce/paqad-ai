@@ -108,6 +108,8 @@ export function defaultSimilarityFor(
     case 'intake.confirm_auto_resolution':
     case 'intake.write_back':
     case 'delivery.open_pr':
+    case 'spec.change':
+    case 'spec.contradiction':
       return 0.5;
   }
 }

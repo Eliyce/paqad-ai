@@ -11,6 +11,8 @@ export const DECISION_CATEGORIES = [
   'intake.confirm_auto_resolution',
   'intake.write_back',
   'delivery.open_pr',
+  'spec.change',
+  'spec.contradiction',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -103,6 +105,11 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'intake.confirm_auto_resolution': { create_new: false, reversibility: 'easy', ttl_days: 7 },
   'intake.write_back': { create_new: false, reversibility: 'easy', ttl_days: 1 },
   'delivery.open_pr': { create_new: false, reversibility: 'easy', ttl_days: 1 },
+  // Spec lifecycle (issue #102). A mid-build goal change updates and re-freezes
+  // the spec; a work-vs-spec contradiction is put to the human (fix code or
+  // change spec) and is never resolved silently.
+  'spec.change': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  'spec.contradiction': { create_new: false, reversibility: 'hard', ttl_days: 7 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

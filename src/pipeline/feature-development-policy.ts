@@ -35,7 +35,7 @@ const STAGE_ORDER: FeatureDevelopmentStageName[] = [
 
 const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Record<string, true>>> =
   {
-    specification: { require_spec: true },
+    specification: { require_spec: true, require_spec_signoff: true },
     review: { require_review: true },
     checks: { block_on_failure: true },
     documentation_sync: { require_canonical_sync: true },
@@ -90,15 +90,18 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Write or refine the feature specification before implementation when the lane includes specification.',
+          'Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
         ],
         required_inputs: ['approved spec boundary'],
         strictness: {
           require_spec: true,
+          require_spec_signoff: true,
         },
         escalation: {
           missing_spec: 'stop',
+          missing_spec_signoff: 'stop',
         },
-        artifacts: ['specification'],
+        artifacts: ['specification', 'frozen feature-spec'],
         checks: null,
       },
       development: {
@@ -439,14 +442,18 @@ stages:
   specification:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
+      - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
     required_inputs:
       - approved spec boundary
     strictness:
       require_spec: true
+      require_spec_signoff: true
     escalation:
       missing_spec: stop
+      missing_spec_signoff: stop
     artifacts:
       - specification
+      - frozen feature-spec
 
   development:
     instructions:
