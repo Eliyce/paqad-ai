@@ -154,6 +154,47 @@ describe('manifest-validator', () => {
     expect(result.warnings.map((warning) => warning.code)).toContain('FAST_ROLLBACK_CLASS_PRESENT');
   });
 
+  it('enforces the one-acceptance-criterion slice granularity floor on non-fast lanes', () => {
+    const belowFloor = createManifest({
+      execution_slices: [{ ...createManifest().execution_slices[0], covers: ['FR-1'] }],
+    });
+    expect(validateManifest(belowFloor).errors.map((error) => error.code)).toContain(
+      'SLICE_GRANULARITY_FLOOR',
+    );
+
+    const combinedNoReason = createManifest({
+      verification_matrix: [
+        createManifest().verification_matrix[0],
+        {
+          ...createManifest().verification_matrix[0],
+          criterion_id: 'AC-2',
+          proof_type: 'manual',
+          proof_target: undefined,
+        },
+      ],
+      execution_slices: [
+        { ...createManifest().execution_slices[0], covers: ['FR-1', 'AC-1', 'AC-2'] },
+      ],
+    });
+    expect(validateManifest(combinedNoReason).errors.map((error) => error.code)).toContain(
+      'SLICE_COMBINE_REASON',
+    );
+
+    const combinedWithReason = createManifest({
+      verification_matrix: combinedNoReason.verification_matrix,
+      execution_slices: [
+        {
+          ...createManifest().execution_slices[0],
+          covers: ['FR-1', 'AC-1', 'AC-2'],
+          combine_reason: 'These two criteria share one indivisible transaction.',
+        },
+      ],
+    });
+    expect(validateManifest(combinedWithReason).errors.map((error) => error.code)).not.toContain(
+      'SLICE_COMBINE_REASON',
+    );
+  });
+
   it('validates slice token budgets and warns when overrides exceed the default pool', () => {
     const manifest = createManifest({
       execution_slices: [

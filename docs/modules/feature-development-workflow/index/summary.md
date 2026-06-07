@@ -21,6 +21,7 @@ and verification. Conditional and parallel steps supported.
 - [Conditional / Failure Handling](../features/conditional-steps/business.md)
 - [Resumable Runs](../features/resumable-runs/business.md)
 - [Feature Spec & "Done" Bar](../features/spec-and-done-bar/business.md)
+- [Build in Small Pieces & Reconnect](../features/slicing-and-reconnect/business.md)
 
 ## Authority
 

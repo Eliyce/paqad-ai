@@ -56,6 +56,11 @@ export interface ExecutionSlice {
   preconditions?: string[];
   rollback_class?: RollbackClass;
   token_budget?: number;
+  // Issue #104 — the default slice unit is one acceptance criterion. A slice may
+  // cover more than one criterion only when separating them would break the work;
+  // that exception must be justified here. Slices covering a single criterion
+  // leave this unset.
+  combine_reason?: string;
 }
 
 export interface VerificationCase {
