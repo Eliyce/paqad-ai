@@ -50,7 +50,9 @@ import {
 } from './decision-packet.js';
 import { computeDecisionFingerprint } from './decision-fingerprint.js';
 import { resolveDecisionPacket, type DecisionResolutionResult } from './decision-resolver.js';
-import { DecisionStore } from './decision-store.js';
+import { DecisionCapExceededError, DecisionStore } from './decision-store.js';
+import { decisionPacketCorruptEvent } from './decision-events.js';
+import type { EngineEventBus } from '@/event-bus/index.js';
 import { DecisionSessionState } from './decision-session.js';
 
 import type { CriteriaTestRunner } from './scoped-criteria-verifier.js';
@@ -103,6 +105,14 @@ export interface ExecuteSlicesOptions {
    * returns the partial result; no further slice events are emitted.
    */
   signal?: AbortSignal;
+  /**
+   * PQD-101 — optional unified event bus. When supplied, the decision flow
+   * streams `decision-paused`, `decision-resolved`, `decision-packet-corrupt`,
+   * and `decision-cap-exceeded` events so a consumer can pop the packet UI live
+   * without polling `.paqad/decisions/pending/`. When omitted the decision flow
+   * behaves exactly as before.
+   */
+  eventBus?: EngineEventBus;
 }
 
 export interface ResumeExecutionOptions {
@@ -310,7 +320,13 @@ export class SliceExecutor {
 
       const sliceId = prepared.currentSliceId;
       const context = prepared.context;
-      manifest = await this.applyDecisionFlow(projectRoot, manifest, slug, context);
+      manifest = await this.applyDecisionFlow(
+        projectRoot,
+        manifest,
+        slug,
+        context,
+        options.eventBus,
+      );
       context.decision_context = this.contextDecisionsForSlice(manifest, context);
       const slice = context.current_slice;
       const circuitBreaker = new SliceCircuitBreaker();
@@ -640,13 +656,39 @@ export class SliceExecutor {
     };
   }
 
+  /**
+   * PQD-101 — discard a pending decision packet on a consumer's behalf. Removes
+   * the pending file (never writing a fake resolution to the resolved
+   * directory), records the discard in the audit log, and emits a
+   * `decision-discarded` event when an `eventBus` is supplied. Returns the
+   * removed packet, or `null` when no valid pending packet exists for the id.
+   */
+  discardDecision(
+    projectRoot: string,
+    decisionId: string,
+    reason: string,
+    eventBus?: EngineEventBus,
+  ): DecisionPacket | null {
+    const decisionStore = new DecisionStore(projectRoot, {
+      onEvent: eventBus ? (event) => eventBus.emit(event) : undefined,
+    });
+    try {
+      return decisionStore.discard({ decisionId, reason });
+    } catch {
+      return null;
+    }
+  }
+
   private async applyDecisionFlow(
     projectRoot: string,
     manifest: PlanningManifest,
     _slug: string,
     context: SliceContext,
+    eventBus?: EngineEventBus,
   ): Promise<PlanningManifest> {
-    const decisionStore = new DecisionStore(projectRoot);
+    const decisionStore = new DecisionStore(projectRoot, {
+      onEvent: eventBus ? (event) => eventBus.emit(event) : undefined,
+    });
     decisionStore.initialize();
 
     const forks = detectDecisionForks(this.decisionDetectionText(manifest, context));
@@ -670,6 +712,7 @@ export class SliceExecutor {
       context,
       decisionStore,
       rebuiltPacket,
+      eventBus,
     );
     const resumedRecord = resumedDecision ? toDecisionRecord(resumedDecision) : null;
     if (resumedRecord) {
@@ -782,7 +825,16 @@ export class SliceExecutor {
       return manifest;
     }
 
-    decisionStore.writePending(packet);
+    try {
+      decisionStore.writePending(packet);
+    } catch (error) {
+      // The store already emitted `decision-cap-exceeded`; refuse the new pause
+      // and leave the manifest unmodified so execution continues unblocked.
+      if (error instanceof DecisionCapExceededError) {
+        return manifest;
+      }
+      throw error;
+    }
     this.decisionSession.recordScreenShown(_slug);
     const resolved = await this.waitForResolvedDecision(projectRoot, decisionStore, packet, _slug);
     /* v8 ignore next 8 -- null-resolved and false-resumedDecision branches; tests always resolve via prompt */
@@ -804,6 +856,7 @@ export class SliceExecutor {
     context: SliceContext,
     decisionStore: DecisionStore,
     rebuiltPacket: DecisionPacket | null,
+    eventBus?: EngineEventBus,
   ): Promise<DecisionPacket | null> {
     const pendingDecisionId = decisionStore.findPendingDecisionForTask(slug);
     if (!pendingDecisionId) {
@@ -812,6 +865,9 @@ export class SliceExecutor {
 
     const pendingResult = decisionStore.readPendingResult(pendingDecisionId);
     if (!pendingResult.packet) {
+      eventBus?.emit(
+        decisionPacketCorruptEvent(pendingDecisionId, pendingResult.error ?? 'unknown'),
+      );
       const action = await promptForMalformedDecision(pendingDecisionId, pendingResult.error);
       /* v8 ignore next 3 -- stop action; malformed-decision path is not exercised in unit tests */
       if (action === 'stop') {
@@ -1539,7 +1595,9 @@ async function executeFastLane(
     decision_context: manifest.decision_log,
     token_budget: computeSliceBudgetPlan([], undefined).summary.total,
   };
-  const decisionStore = new DecisionStore(projectRoot);
+  const decisionStore = new DecisionStore(projectRoot, {
+    onEvent: options.eventBus ? (event) => options.eventBus!.emit(event) : undefined,
+  });
   decisionStore.initialize();
   const decisionText = [
     implicitSlice.goal,
@@ -1604,15 +1662,27 @@ async function executeFastLane(
           manifest = appendDecisionRecord(manifest, toDecisionRecord(decisionRecord)!);
         }
       } else {
-        decisionStore.writePending(packet);
-        const response = await promptForDecision(packet, { mode: 'fast' });
-        decisionStore.resolve({
-          decisionId: packet.decision_id,
-          humanResponse: response,
-        });
-        const decisionRecord = decisionStore.readResolved(packet.decision_id);
-        if (decisionRecord) {
-          manifest = appendDecisionRecord(manifest, toDecisionRecord(decisionRecord)!);
+        let pausedForPrompt = true;
+        try {
+          decisionStore.writePending(packet);
+        } catch (error) {
+          // Cap reached — the store emitted `decision-cap-exceeded`; skip the
+          // prompt and leave the decision unrecorded rather than crash.
+          if (!(error instanceof DecisionCapExceededError)) {
+            throw error;
+          }
+          pausedForPrompt = false;
+        }
+        if (pausedForPrompt) {
+          const response = await promptForDecision(packet, { mode: 'fast' });
+          decisionStore.resolve({
+            decisionId: packet.decision_id,
+            humanResponse: response,
+          });
+          const decisionRecord = decisionStore.readResolved(packet.decision_id);
+          if (decisionRecord) {
+            manifest = appendDecisionRecord(manifest, toDecisionRecord(decisionRecord)!);
+          }
         }
       }
       await saveManifest(projectRoot, manifest);

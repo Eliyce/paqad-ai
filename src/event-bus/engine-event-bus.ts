@@ -32,7 +32,13 @@ export interface EngineEventBusOptions {
 
 const DEFAULT_BUFFER_SIZE = 512;
 const DEFAULT_MAX_PAYLOAD_BYTES = 65536;
-const DEFAULT_NEVER_DROP: readonly EngineEventKind[] = ['decision-paused', 'decision-resolved'];
+const DEFAULT_NEVER_DROP: readonly EngineEventKind[] = [
+  'decision-paused',
+  'decision-resolved',
+  'decision-packet-corrupt',
+  'decision-cap-exceeded',
+  'decision-discarded',
+];
 
 interface SubscriberRecord {
   readonly id: string;

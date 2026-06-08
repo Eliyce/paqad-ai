@@ -51,12 +51,44 @@ export interface SliceFailedEvent extends EngineEventBase {
   error: string;
 }
 
-/** The engine paused for a human decision (the Decision Pause contract). */
+/**
+ * A single option carried on a {@link DecisionPausedEvent}. A serialisable
+ * subset of the planning `DecisionOption` — enough for the desktop to render the
+ * Decision Pause panel without a secondary filesystem read (PQD-101).
+ */
+export interface DecisionEventOption {
+  option_key: string;
+  label: string;
+  one_line_preview: string;
+  trade_off: string;
+  technical_detail?: string;
+}
+
+/**
+ * The engine paused for a human decision (the Decision Pause contract).
+ *
+ * PQD-99 introduced the minimal `decisionId`/`category`/`prompt` shape; PQD-101
+ * enriches it (additively, all optional) with the full packet content so a
+ * consumer can pop the packet UI live without reading
+ * `.paqad/decisions/pending/` itself.
+ */
 export interface DecisionPausedEvent extends EngineEventBase {
   kind: 'decision-paused';
   decisionId: string;
   category?: string;
   prompt?: string;
+  /** The packet question (the human-facing prompt text). */
+  question?: string;
+  /** The options offered, with their previews and trade-offs. */
+  options?: DecisionEventOption[];
+  /** The recommended option_key, if the packet carries one. */
+  recommendation?: string | null;
+  /** Why the recommendation was made, if provided. */
+  recommendationReason?: string;
+  /** Project-relative path to the on-disk pending packet JSON. */
+  packetPath?: string;
+  /** The slice this decision is linked to, if any. */
+  linkedSliceId?: string;
 }
 
 /** A previously paused decision was resolved. */
@@ -64,6 +96,43 @@ export interface DecisionResolvedEvent extends EngineEventBase {
   kind: 'decision-resolved';
   decisionId: string;
   resolution?: string;
+  /** The chosen option_key (null when the resolution declined to choose). */
+  chosenOptionKey?: string | null;
+  /** Who/what resolved it: `human`, `rule`, `rag-confident`, `memoization`, … */
+  resolver?: string;
+  /** The recorded resolution intent (`explicit`, `safer-default`, …). */
+  intent?: string;
+}
+
+/**
+ * The engine read a pending packet and found it malformed (PQD-101). Lets a
+ * consumer show a "decision was lost" notice instead of crashing.
+ */
+export interface DecisionPacketCorruptEvent extends EngineEventBase {
+  kind: 'decision-packet-corrupt';
+  decisionId: string;
+  reason: string;
+}
+
+/**
+ * A new pause would exceed the per-project pending-packet cap, so the engine
+ * refused to create the packet (PQD-101). Lets a consumer prompt the user to
+ * triage the existing pending packets.
+ */
+export interface DecisionCapExceededEvent extends EngineEventBase {
+  kind: 'decision-cap-exceeded';
+  pendingCount: number;
+  cap: number;
+}
+
+/**
+ * A consumer explicitly discarded a pending packet with a reason (PQD-101). No
+ * fake resolution is written; the panel can close cleanly.
+ */
+export interface DecisionDiscardedEvent extends EngineEventBase {
+  kind: 'decision-discarded';
+  decisionId: string;
+  reason: string;
 }
 
 /** A retrieval (RAG) query started. */
@@ -133,6 +202,9 @@ export type EngineEvent =
   | SliceFailedEvent
   | DecisionPausedEvent
   | DecisionResolvedEvent
+  | DecisionPacketCorruptEvent
+  | DecisionCapExceededEvent
+  | DecisionDiscardedEvent
   | RetrievalStartedEvent
   | RetrievalCompletedEvent
   | WorkflowStepStartedEvent

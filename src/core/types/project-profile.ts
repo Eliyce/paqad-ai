@@ -213,6 +213,8 @@ export type DecisionAskThreshold = (typeof DECISION_ASK_THRESHOLDS)[number];
 export interface DecisionProfileConfig {
   ask_threshold?: DecisionAskThreshold;
   max_screens_per_task?: number;
+  /** PQD-101 — per-project cap on simultaneously pending decision packets. */
+  max_pending?: number;
   idle_timeout_minutes?: number;
   ttl_overrides_days?: Partial<Record<string, number>>;
   preferred_option_keys?: Partial<Record<DecisionCategory, string>>;

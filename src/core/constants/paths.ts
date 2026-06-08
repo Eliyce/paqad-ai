@@ -23,6 +23,10 @@ export const PATHS = {
   DECISIONS_EXPIRED_DIR: '.paqad/decisions/expired',
   DECISIONS_INDEX: '.paqad/decisions/index.json',
   DECISIONS_AUDIT_LOG: '.paqad/decisions/audit.jsonl',
+  // PQD-101 — JSONL fallback channel for decision-pause events (mirrors
+  // MODULE_MAP_EVENTS_LOG). The in-process EngineEventBus is the live delivery
+  // channel; this path supports future SSE/HTTP consumers.
+  DECISIONS_EVENTS_LOG: '.paqad/decisions/events.jsonl',
   DECISIONS_LOCK: '.paqad/decisions/.lock',
   DECISION_PAUSE_CONTRACT: '.paqad/decision-pause-contract.md',
   // Feature 1 - Semantic Context Loader

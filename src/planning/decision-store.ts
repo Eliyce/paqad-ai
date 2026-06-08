@@ -13,12 +13,20 @@ import {
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readProjectProfile } from '@/core/project-profile.js';
 
 import {
   appendDecisionAuditEvent,
   ensureDecisionAuditLog,
   type DecisionAuditEventType,
 } from './decision-audit.js';
+import {
+  decisionCapExceededEvent,
+  decisionDiscardedEvent,
+  decisionPausedEvent,
+  decisionResolvedEvent,
+  type DecisionEventSink,
+} from './decision-events.js';
 import { scoreDecisionOptionOverlap } from './decision-fingerprint.js';
 import {
   isDecisionPacket,
@@ -67,8 +75,53 @@ export interface DeferUndeclaredDecisionInput {
   provider?: string;
 }
 
+export interface DiscardDecisionInput {
+  decisionId: string;
+  reason: string;
+}
+
+/**
+ * Default per-project cap on simultaneously pending decision packets (PQD-101).
+ * Overridable via `custom.decisions.max_pending` in `.paqad/project-profile.yaml`.
+ */
+export const MAX_PENDING_DECISIONS = 20;
+
+/**
+ * Thrown by {@link DecisionStore.writePending} when creating a new pending
+ * packet would meet or exceed the per-project pending cap. Carries the counts
+ * so a caller can emit a `decision-cap-exceeded` event and prompt the user to
+ * triage.
+ */
+export class DecisionCapExceededError extends Error {
+  constructor(
+    readonly pendingCount: number,
+    readonly cap: number,
+  ) {
+    super(`Pending decision cap reached (${pendingCount}/${cap}).`);
+    this.name = 'DecisionCapExceededError';
+  }
+}
+
+/** Optional hooks supplied when constructing a {@link DecisionStore}. */
+export interface DecisionStoreOptions {
+  /**
+   * PQD-101 — live decision-event sink. When supplied, the store fires a
+   * decision-pause event at each persistence boundary (paused on `writePending`,
+   * resolved on any resolution, cap-exceeded on refusal, discarded on
+   * `discard`). When omitted the store behaves exactly as before.
+   */
+  onEvent?: DecisionEventSink;
+}
+
 export class DecisionStore {
-  constructor(private readonly projectRoot: string) {}
+  private readonly onEvent?: DecisionEventSink;
+
+  constructor(
+    private readonly projectRoot: string,
+    options: DecisionStoreOptions = {},
+  ) {
+    this.onEvent = options.onEvent;
+  }
 
   initialize(): void {
     for (const relativePath of [
@@ -143,11 +196,66 @@ export class DecisionStore {
         `Task ${packet.task_session_id} already has a pending decision (${existingTaskPending}).`,
       );
     }
+    this.enforcePendingCap(packet.decision_id);
     this.assertWritablePacket(packet);
     const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, packet.decision_id);
     atomicWriteJson(path, packet);
     this.appendAudit('decision-pending-written', packet);
+    this.emit(decisionPausedEvent(packet, this.relativePendingPath(packet.decision_id)));
     return path;
+  }
+
+  /**
+   * Refuse a *new* pending packet once the project's pending cap is reached.
+   * Re-writing an already-pending packet (same `decisionId`) never trips the
+   * cap, since it is excluded from the count. Emits `decision-cap-exceeded`
+   * before throwing so a consumer learns of the refusal even though the throw
+   * is caught upstream.
+   */
+  private enforcePendingCap(decisionId: string): void {
+    const cap = this.maxPendingDecisions();
+    const pendingCount = this.listPendingDecisionIds().filter((id) => id !== decisionId).length;
+    if (pendingCount >= cap) {
+      this.emit(decisionCapExceededEvent(pendingCount, cap));
+      throw new DecisionCapExceededError(pendingCount, cap);
+    }
+  }
+
+  private maxPendingDecisions(): number {
+    const configured = readProjectProfile(this.projectRoot)?.custom?.decisions?.max_pending;
+    return typeof configured === 'number' && configured > 0 ? configured : MAX_PENDING_DECISIONS;
+  }
+
+  /**
+   * Discard a pending packet with a reason (PQD-101): remove the pending file
+   * (never copying it to the resolved directory), record a `decision-discarded`
+   * audit entry, emit a `decision-discarded` event, and return the removed
+   * packet so a caller has the full context. Throws when no valid pending
+   * packet exists for the id.
+   */
+  discard(input: DiscardDecisionInput): DecisionPacket {
+    this.initialize();
+    const result = this.readPendingResult(input.decisionId);
+    if (!result.packet) {
+      throw new Error(
+        `Cannot discard decision ${input.decisionId}: no valid pending packet${
+          result.error ? ` (${result.error})` : ''
+        }.`,
+      );
+    }
+    const packet = result.packet;
+    this.deletePending(input.decisionId);
+    this.appendAudit('decision-discarded', packet);
+    this.emit(decisionDiscardedEvent(packet.decision_id, input.reason));
+    return packet;
+  }
+
+  private emit(event: Parameters<DecisionEventSink>[0]): void {
+    this.onEvent?.(event);
+  }
+
+  private relativePendingPath(decisionId: string): string {
+    return `${PATHS.DECISIONS_PENDING_DIR}/${decisionId}.json`;
   }
 
   resolve(input: ResolveDecisionInput): string {
@@ -428,6 +536,7 @@ export class DecisionStore {
     };
     this.writeIndex(index);
     this.appendAudit(input.event, resolved, input.respondedByProvider);
+    this.emit(decisionResolvedEvent(resolved, resolverFromAuditEvent(input.event)));
     return resolved;
   }
 
@@ -467,4 +576,21 @@ function atomicWriteJson(path: string, value: unknown): void {
 
 function isExpired(packet: DecisionPacket): boolean {
   return Date.parse(packet.ttl_until) <= Date.now();
+}
+
+/** Map the audit event recorded on resolution to a short `resolver` token. */
+function resolverFromAuditEvent(event: DecisionAuditEventType): string {
+  switch (event) {
+    case 'decision-resolved-by-human':
+    case 'decision-delegated':
+      return 'human';
+    case 'decision-resolved-by-rule':
+      return 'rule';
+    case 'decision-resolved-by-rag-confident':
+      return 'rag-confident';
+    case 'decision-resolved-by-memoization':
+      return 'memoization';
+    default:
+      return event;
+  }
 }

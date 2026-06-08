@@ -2,6 +2,7 @@ export * from './contract-boundary.js';
 export * from './audit.js';
 export * from './decision-audit.js';
 export * from './decision-copy.js';
+export * from './decision-events.js';
 export * from './decision-detector.js';
 export * from './decision-evidence.js';
 export * from './decision-fingerprint.js';

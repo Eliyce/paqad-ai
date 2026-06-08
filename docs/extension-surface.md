@@ -113,3 +113,26 @@ forwarded to the renderer untransformed (plain data, no class instances).
 | desktop (planned), api (planned) | src/event-bus/types.ts | `EngineEventFilter` | `interface EngineEventFilter { kinds: readonly EngineEventKind[] }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/event-bus/types.ts | `Subscription` | `interface Subscription { id; state; unsubscribe(): void }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/event-bus/types.ts | `EngineEventCallback` | `type EngineEventCallback = (event: EngineEvent) => void` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
+### Decision-pause events (PQD-101)
+
+Decision events are multiplexed into the same `EngineEvent` stream so the
+desktop's Decision Pause panel can react live without polling
+`.paqad/decisions/pending/`. The `decision-paused`/`decision-resolved` variants
+are enriched (additively); `decision-packet-corrupt`, `decision-cap-exceeded`,
+and `decision-discarded` are new. `SliceExecutor` wires the emit calls; a
+consumer drops a packet via `SliceExecutor.discardDecision(...)`.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `DecisionEventOption` | `interface DecisionEventOption { option_key; label; one_line_preview; trade_off; technical_detail? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `DecisionPausedEvent` | `interface DecisionPausedEvent (kind: 'decision-paused'; decisionId; question?; options?; recommendation?; packetPath?; …)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `DecisionResolvedEvent` | `interface DecisionResolvedEvent (kind: 'decision-resolved'; decisionId; chosenOptionKey?; resolver?; intent?)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `DecisionPacketCorruptEvent` | `interface DecisionPacketCorruptEvent (kind: 'decision-packet-corrupt'; decisionId; reason)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `DecisionCapExceededEvent` | `interface DecisionCapExceededEvent (kind: 'decision-cap-exceeded'; pendingCount; cap)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `DecisionDiscardedEvent` | `interface DecisionDiscardedEvent (kind: 'decision-discarded'; decisionId; reason)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/planning/decision-events.ts | `DecisionPauseEvent` | `type DecisionPauseEvent = Extract<EngineEvent, { kind: DecisionPauseEventType }>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/planning/decision-events.ts | `DecisionPauseEventType` | `type DecisionPauseEventType` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/planning/decision-events.ts | `DECISION_PAUSE_EVENT_TYPES` | `const DECISION_PAUSE_EVENT_TYPES: readonly DecisionPauseEventType[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/planning/decision-store.ts | `DecisionCapExceededError` | `class DecisionCapExceededError extends Error { pendingCount; cap }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/planning/decision-store.ts | `MAX_PENDING_DECISIONS` | `const MAX_PENDING_DECISIONS: number` | beta | 1.10.0 | planned consumer; no in-tree call site yet |

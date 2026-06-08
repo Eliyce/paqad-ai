@@ -10,3 +10,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-98 (seq 29): Hot-register a skill in memory at runtime without restarting
 - PQD-99 (seq 30): Subscribe to engine events through a single unified stream
 - PQD-100 (seq 31): Stream slice execution events so consumers can render progress live
+- PQD-101 (seq 32): Stream decision pause events so consumers can pop the packet UI live
