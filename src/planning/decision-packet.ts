@@ -14,6 +14,7 @@ export const DECISION_CATEGORIES = [
   'spec.change',
   'spec.contradiction',
   'fix.proof_method',
+  'test.flaky_judgement',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -115,6 +116,10 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   // (timing/appearance) is fixed — asked once, reused by kind. Reversible: the
   // agent can re-ask if the confirmation method stops fitting.
   'fix.proof_method': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  // Flaky-test trust (issue #106). A rare flip that could be a real intermittent
+  // fault vs. flakiness — asked once, reused by kind. Reversible: the agent can
+  // re-ask if the judgement stops fitting.
+  'test.flaky_judgement': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

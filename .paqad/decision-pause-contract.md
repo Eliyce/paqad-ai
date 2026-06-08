@@ -19,6 +19,7 @@ Before implementing any choice that falls into one of the categories below, writ
 - `spec.change`
 - `spec.contradiction`
 - `fix.proof_method`
+- `test.flaky_judgement`
 
 ## Resolution flow
 

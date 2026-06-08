@@ -115,6 +115,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'Work conflicts with the frozen spec — fix the code or change the spec?';
     case 'fix.proof_method':
       return 'This problem cannot be auto-checked — how should we confirm it is fixed?';
+    case 'test.flaky_judgement':
+      return 'Is this a flaky test or a rare real fault?';
   }
 }
 
@@ -263,6 +265,7 @@ export function decisionOptionsForCategory(
     case 'spec.change':
     case 'spec.contradiction':
     case 'fix.proof_method':
+    case 'test.flaky_judgement':
       return { options: [] };
   }
 }

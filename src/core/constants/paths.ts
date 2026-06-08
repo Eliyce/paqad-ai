@@ -41,6 +41,9 @@ export const PATHS = {
   PLANNING_SPECS_DIR: '.paqad/specs',
   // Issue #103 - persisted regression guards (one sidecar per defect_id)
   REGRESSION_GUARDS_DIR: '.paqad/regression-guards',
+  // Issue #106 - flaky-test registry / quarantine list
+  FLAKY_TESTS_DIR: '.paqad/flaky-tests',
+  FLAKY_REGISTRY: '.paqad/flaky-tests/registry.json',
   PLANNING_MODULE_HEALTH_DIR: '.paqad/module-health',
   MODULE_HEALTH_EVIDENCE_DIR: '.paqad/module-health-evidence',
   MODULE_HEALTH_CONSUMED_EVENTS: '.paqad/module-health-consumed-events.json',

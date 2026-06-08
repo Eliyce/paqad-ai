@@ -111,6 +111,7 @@ export function defaultSimilarityFor(
     case 'spec.change':
     case 'spec.contradiction':
     case 'fix.proof_method':
+    case 'test.flaky_judgement':
       return 0.5;
   }
 }
