@@ -133,6 +133,36 @@ refused with a `ValidationError` and no partial tree. The standalone
 | desktop (planned) | src/core/types/onboarding.ts | `OnboardingFileTreeEntry` | `interface OnboardingFileTreeEntry { path; action ('create'/'overwrite'/'skip'); mtimeMs?; templateError? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/core/types/onboarding.ts | `OnboardingPreviewResult` | `interface OnboardingPreviewResult { entries: OnboardingFileTreeEntry[]; warnings: string[] }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 
+### Per-turn context budget breakdown (PQD-167)
+
+The desktop renders a faithful budget indicator and the optimizer decides whether
+to compress, both from `ContextBudgetEnforcer.computeBudget`. Given the seven
+per-turn slices and the active `ModelCatalogEntry`, it returns each line item's
+token cost, the total, the percentage of the window in use, and a `BudgetBand`
+derived from the workspace's `WorkspaceCompressionPolicy` thresholds. A single
+retrieved chunk larger than the remaining budget is dropped and recorded in
+`dropped_chunk_count` plus a `CompressionAuditRecord`. A missing
+`context_window_tokens` yields an explicit error union — never a default window.
+The tokenizer is loaded once per `tokenizer_version` and reused for the process
+lifetime via `getOrLoad`, degrading to a character/4 heuristic when
+`@xenova/transformers` is unavailable.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/context/budget-enforcer.ts | `ContextBudgetEnforcer` | `ContextBudgetEnforcer.computeBudget(input: ComputeBudgetInput): Promise<BudgetBreakdown>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/tokenizer-cache.ts | `getOrLoad` | `getOrLoad(version: string): Promise<LoadedTokenizer>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/tokenizer-cache.ts | `clearTokenizerCache` | `clearTokenizerCache(): void` | internal | 1.10.0 | test-isolation helper; no consumer call site |
+| desktop (planned) | src/context/tokenizer-cache.ts | `HEURISTIC_TOKENIZER_VERSION` | `const HEURISTIC_TOKENIZER_VERSION: string` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/tokenizer-cache.ts | `LoadedTokenizer` | `interface LoadedTokenizer { tokenizer_version; countTokens(text): number }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `ModelCatalogEntry` | `interface ModelCatalogEntry { context_window_tokens; max_output_tokens?; tokenizer_version }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `WorkspaceCompressionPolicy` | `type WorkspaceCompressionPolicy ('standard'/'aggressive'/'conservative')` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `BudgetBand` | `type BudgetBand ('comfortable'/'tightening'/'compressed'/'force-summary')` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `ComputeBudgetInput` | `interface ComputeBudgetInput { seven slices; model; compression_policy }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `BudgetBreakdown` | `type BudgetBreakdown (BudgetBreakdownSuccess discriminated on ok)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `BudgetBreakdownSuccess` | `interface BudgetBreakdownSuccess { ok: true; per-slice tokens; total_used; usage_pct; band; tokenizer_version; dropped_chunk_count; compression_audit? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `BudgetBreakdownError` | `interface BudgetBreakdownError { ok: false; error; missing_field }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `CompressionAuditRecord` | `interface CompressionAuditRecord { event; reason; dropped_chunk_count }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ### Consumer-side cancellation (PQD-104)
 
 Every long-running engine call accepts an optional `AbortSignal`. When the
