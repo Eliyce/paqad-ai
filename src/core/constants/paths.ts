@@ -35,6 +35,13 @@ export const PATHS = {
   VECTORS_DIR: '.paqad/vectors',
   VECTOR_INDEX: '.paqad/vectors/index.json',
   VECTOR_META: '.paqad/vectors/meta.json',
+  // PQD-102 — vision-extracted text (OCR/caption) lives in a separate vector
+  // index so a file-index rebuild never disturbs image-derived chunks and the
+  // file-index provider/model match guard isn't conflated. Co-located in
+  // .paqad/vectors so RagService.clear() (which removes the whole dir) clears
+  // both file- and vision-derived content together.
+  VISION_VECTOR_INDEX: '.paqad/vectors/vision-index.json',
+  VISION_VECTOR_META: '.paqad/vectors/vision-meta.json',
   SECRETS_ENV: '.paqad/secrets.env',
   GLOBAL_PATTERN_VECTORS_DIR: '.paqad/patterns/vectors',
   GLOBAL_PATTERN_VECTOR_INDEX: '.paqad/patterns/vectors/index.json',

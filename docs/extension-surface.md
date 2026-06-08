@@ -97,6 +97,25 @@ they are listed so the UI team can commit to their stability grade.
 | desktop (planned) | src/adapters/adapter.interface.ts | `AdapterCapabilities` | `interface AdapterCapabilities` | stable | 1.0.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/core/types/verification.ts | `VerificationContext` | `interface VerificationContext` | beta | 1.0.0 | planned consumer; no in-tree call site yet |
 
+### Vision-text retrieval ingest (PQD-102)
+
+The desktop runs vision calls (OCR/captioning) and hands the engine the extracted
+text via `RagService.ingestExtractedText`. The text is embedded and stored in a
+separate vision vector index keyed to the image path; subsequent `retrieve` calls
+surface those chunks alongside file-derived ones. Re-ingesting a path replaces its
+prior chunks. Rejections carry a stable `RagIngestError.code`.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/rag/service.ts | `RagService` | `RagService.ingestExtractedText(input: VisionIngestInput): Promise<VisionIngestResult>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `ExtractionKind` | `type ExtractionKind ('ocr' or 'caption')` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `SUPPORTED_EXTRACTION_KINDS` | `const SUPPORTED_EXTRACTION_KINDS: readonly ExtractionKind[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `SUPPORTED_VISION_EXTENSIONS` | `const SUPPORTED_VISION_EXTENSIONS: readonly string[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `VisionIngestInput` | `interface VisionIngestInput { sourcePath; text; extractionKind }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `VisionIngestResult` | `interface VisionIngestResult { chunkCount; sourcePath; extractionKind }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `RagIngestError` | `class RagIngestError extends FrameworkError { code: RagIngestErrorCode }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `RagIngestErrorCode` | `type RagIngestErrorCode (unsupported_file_type, unknown_extraction_kind, empty_extracted_text, path_outside_project, text_not_utf8)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ## Engine event-stream consumers (planned)
 
 The unified in-process event bus (PQD-99). The desktop forwards `EngineEvent`

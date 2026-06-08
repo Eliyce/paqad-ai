@@ -1,10 +1,12 @@
-import { statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 
 import { AstChunker } from '@/context/ast-chunker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
+import { PATHS } from '@/core/constants/paths.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
@@ -23,9 +25,20 @@ import type {
   RagRetrievalResult,
   RagStatus,
   StoredVectorChunk,
+  StoredVisionChunk,
+  VisionIngestInput,
+  VisionIngestResult,
 } from './types.js';
-import { isEmbeddingProviderError } from './types.js';
+import {
+  isEmbeddingProviderError,
+  RagIngestError,
+  SUPPORTED_EXTRACTION_KINDS,
+  SUPPORTED_VISION_EXTENSIONS,
+} from './types.js';
 import { FileVectorIndex } from './vector-index.js';
+
+/** Max non-whitespace characters per vision chunk before it is split further. */
+const VISION_MAX_CHUNK_CHARS = 2000;
 
 function queryTextFromTask(
   taskDescription?: string,
@@ -49,6 +62,10 @@ function estimateEtaSeconds(startMs: number, loaded: number, total: number): num
 
 export class RagService {
   private readonly vectorIndex = new FileVectorIndex<StoredVectorChunk>();
+  private readonly visionVectorIndex = new FileVectorIndex<StoredVisionChunk>(
+    PATHS.VISION_VECTOR_INDEX,
+    PATHS.VISION_VECTOR_META,
+  );
   private readonly chunker = new AstChunker();
   private readonly indexManager: ChunkIndexManager;
   private readonly patternVectors: PatternVectorService;
@@ -85,6 +102,14 @@ export class RagService {
       reason = 'configured provider/model does not match stored vector metadata';
     }
 
+    let visionChunkCount: number | undefined;
+    try {
+      visionChunkCount = (await this.visionVectorIndex.loadMeta(this.projectRoot))?.chunk_count;
+    } catch {
+      // A corrupt vision meta must never break status reporting for the file index.
+      visionChunkCount = undefined;
+    }
+
     return {
       enabled: intelligence.rag_enabled,
       configured_provider: intelligence.embedding_provider,
@@ -96,6 +121,7 @@ export class RagService {
       chunk_count: meta?.chunk_count ?? 0,
       size_bytes: status.sizeBytes,
       reason: status.present && (!valid || staleMetadata) ? reason : undefined,
+      vision_chunk_count: visionChunkCount,
     };
   }
 
@@ -352,11 +378,17 @@ export class RagService {
           input.symbolReferences ?? [],
         ),
       );
-      const results = await this.vectorIndex.query(
-        this.projectRoot,
-        queryVector,
-        topN ?? intelligence.rag_top_n,
-      );
+      const limit = topN ?? intelligence.rag_top_n;
+      const [fileResults, visionResults] = await Promise.all([
+        this.vectorIndex.query(this.projectRoot, queryVector, limit),
+        this.visionVectorIndex.query(this.projectRoot, queryVector, limit),
+      ]);
+      // Merge file- and vision-derived hits, re-rank by score, then apply the
+      // top-N cutoff so neither source crowds the other out. Vision chunks
+      // conform to the same retrieval shape; callers identify them by extension.
+      const results = [...fileResults, ...visionResults]
+        .sort((left, right) => right.score - left.score)
+        .slice(0, limit);
       const filtered = results.filter(
         (result) => result.score >= intelligence.rag_similarity_threshold,
       );
@@ -414,6 +446,120 @@ export class RagService {
   ): Promise<RagRetrievalResult> {
     const syncResult = await this.refreshContext();
     return this.retrieveWithSyncPolicy(syncResult, input, topN, true);
+  }
+
+  /**
+   * Accept plain text a consumer extracted from an image (via OCR, captioning,
+   * etc.) into the retrieval index. The engine never reads the image itself; it
+   * validates the input, embeds the text, and stores it in a separate vision
+   * vector index keyed to the image's `sourcePath`. Re-ingesting the same path
+   * replaces its prior chunks rather than duplicating them.
+   *
+   * @throws {RagIngestError} with a stable `code` for each rejection case.
+   */
+  async ingestExtractedText(input: VisionIngestInput): Promise<VisionIngestResult> {
+    // 1. Known extraction kind.
+    if (!(SUPPORTED_EXTRACTION_KINDS as readonly string[]).includes(input.extractionKind)) {
+      throw new RagIngestError(
+        'unknown_extraction_kind',
+        `Unknown extraction kind: ${String(input.extractionKind)}`,
+        { extraction_kind: input.extractionKind },
+      );
+    }
+
+    // 2. Non-empty text.
+    if (typeof input.text !== 'string' || input.text.trim().length === 0) {
+      throw new RagIngestError('empty_extracted_text', 'Extracted text is empty');
+    }
+
+    // 3. UTF-8 purity — the U+FFFD replacement character signals decode garbage.
+    if (input.text.includes('�')) {
+      throw new RagIngestError('text_not_utf8', 'Extracted text is not valid UTF-8');
+    }
+
+    // 4. Acceptable image extension on the source path.
+    const extension = extname(input.sourcePath).toLowerCase();
+    if (!(SUPPORTED_VISION_EXTENSIONS as readonly string[]).includes(extension)) {
+      throw new RagIngestError(
+        'unsupported_file_type',
+        `Unsupported file type for vision ingest: ${extension || '(none)'}`,
+        { source_path: input.sourcePath },
+      );
+    }
+
+    // 5. Source path must resolve inside the project root.
+    const resolvedRoot = resolve(this.projectRoot);
+    const resolvedPath = resolve(this.projectRoot, input.sourcePath);
+    if (!resolvedPath.startsWith(resolvedRoot + sep)) {
+      throw new RagIngestError(
+        'path_outside_project',
+        `Source path resolves outside the project root: ${input.sourcePath}`,
+        { source_path: input.sourcePath },
+      );
+    }
+
+    // RAG must be configured to embed — mirror rebuild()'s precondition.
+    const profile = readProjectProfile(this.projectRoot);
+    const intelligence = normalizeIntelligenceConfig(profile?.intelligence);
+    if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
+      throw new Error('RAG must be enabled and configured before ingesting extracted text');
+    }
+
+    // 6. Disk existence — desktop owns path lifecycle, so absence is recorded,
+    //    not rejected.
+    const sourceMissing = !existsSync(resolvedPath);
+
+    // 7. Split into chunks keyed to the source path + extraction kind.
+    const chunkTexts = this.splitTextIntoChunks(input.text, VISION_MAX_CHUNK_CHARS);
+    const chunks: Chunk[] = chunkTexts.map((raw, index) => {
+      const content = raw.trim();
+      return {
+        id: createHash('sha256')
+          .update(`${input.sourcePath}:${input.extractionKind}:${index}`)
+          .digest('hex'),
+        source_file: input.sourcePath,
+        ast_node_type: 'fallback',
+        ast_node_path: 'vision-extracted',
+        exported_symbols: [],
+        content,
+        char_count: content.replace(/\s/g, '').length,
+        content_hash: createHash('sha256').update(content).digest('hex'),
+      };
+    });
+
+    // 8. Embed with the configured provider.
+    const provider = await this.providerFactory(this.projectRoot, intelligence);
+    const vectors = await provider.embed(chunks.map((chunk) => chunk.content));
+    const embedded: StoredVisionChunk[] = chunks.map((chunk, index) => ({
+      ...chunk,
+      extraction_kind: input.extractionKind,
+      source_missing: sourceMissing,
+      vector: vectors[index],
+    }));
+
+    // 9. Replace-not-duplicate: drop prior chunks for this path, append the new
+    //    set, and rewrite atomically. Last writer wins on a same-path race.
+    const current = await this.visionVectorIndex.load(this.projectRoot);
+    const retained = (current?.items ?? []).filter((item) => item.source_file !== input.sourcePath);
+    await this.visionVectorIndex.replaceAll(this.projectRoot, [...retained, ...embedded], {
+      provider: provider.name,
+      model: provider.model,
+    });
+
+    // 10. Audit.
+    appendRagAudit(this.projectRoot, 'INFO', 'rag-vision-ingested', {
+      source_path: input.sourcePath,
+      extraction_kind: input.extractionKind,
+      chunk_count: embedded.length,
+      source_missing: sourceMissing,
+    });
+
+    // 11. Report.
+    return {
+      chunkCount: embedded.length,
+      sourcePath: input.sourcePath,
+      extractionKind: input.extractionKind,
+    };
   }
 
   resolveApiKeyName(provider: 'openai' | 'voyageai'): 'OPENAI_API_KEY' | 'VOYAGE_API_KEY' {
@@ -480,6 +626,33 @@ export class RagService {
       deleted_files: syncResult.deleted_files.length,
       chunks: unchanged.length + embedded.length,
     });
+  }
+
+  /**
+   * Split externally-supplied text into chunks bounded by non-whitespace size,
+   * mirroring {@link AstChunker.fallbackSplit}'s paragraph-buffer strategy.
+   * Always returns at least one chunk for non-empty input.
+   */
+  private splitTextIntoChunks(text: string, maxChunkChars: number): string[] {
+    const paragraphs = text.split(/\n\s*\n/);
+    const chunks: string[] = [];
+    let buffer = '';
+
+    for (const para of paragraphs) {
+      const combined = buffer ? `${buffer}\n\n${para}` : para;
+      const nonWhitespace = combined.replace(/\s/g, '').length;
+      if (nonWhitespace > maxChunkChars && buffer) {
+        chunks.push(buffer);
+        buffer = para;
+      } else {
+        buffer = combined;
+      }
+    }
+    if (buffer.trim()) {
+      chunks.push(buffer);
+    }
+
+    return chunks.length > 0 ? chunks : [text];
   }
 
   private async embedChunks(
