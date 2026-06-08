@@ -40,6 +40,7 @@ import {
   SUPPORTED_CAPABILITIES,
   SUPPORTED_DOMAINS,
   SUPPORTED_STACKS,
+  STABILITY_LEVELS,
   UI_IMPACTS,
   VERIFICATION_GATES,
   VERSION,
@@ -139,9 +140,10 @@ describe('core export surface', () => {
     expect(PIPELINE_PHASES).toContain('verification-gates');
     expect(PIPELINE_PHASES).toContain('pentest');
     expect(PIPELINE_PHASES).toContain('pentest-retest');
-    expect(VERIFICATION_GATES).toHaveLength(15);
+    expect(VERIFICATION_GATES).toHaveLength(16);
     expect(VERIFICATION_GATES[0]).toBe('change-completeness');
     expect(VERIFICATION_GATES).toContain('quality-ratchet');
+    expect(VERIFICATION_GATES).toContain('extension-surface');
     expect(REVIEW_TIERS).toEqual(['full', 'standard', 'spot-check']);
     expect(REVIEW_MODES).toEqual(['fresh', 'diff']);
     expect(FINDING_SEVERITIES).toEqual(['critical', 'high', 'medium', 'low']);
@@ -197,6 +199,10 @@ describe('core export surface', () => {
     expect(AGENT_ROLES).toContain('reviewer');
     expect(DOC_TYPES).toContain('error-catalog');
     expect(HEALTH_CHECK_STATUSES).toEqual(['pass', 'fail', 'warning']);
+  });
+
+  it('re-exports the extension-surface stability vocabulary', () => {
+    expect(STABILITY_LEVELS).toEqual(['stable', 'beta', 'alpha', 'internal']);
   });
 
   it('re-exports planning manifest constants', () => {

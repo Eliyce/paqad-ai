@@ -8,6 +8,7 @@ export * from './gates/change-completeness.js';
 export * from './gates/code-tests-lint.js';
 export * from './gates/database-quality.js';
 export * from './gates/documentation-freshness.js';
+export * from './gates/extension-surface.js';
 export * from './gates/gate.interface.js';
 export * from './gates/implementation-review.js';
 export * from './gates/instructions-docs-structure.js';

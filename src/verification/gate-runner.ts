@@ -10,6 +10,7 @@ import { ChangeCompletenessGate } from './gates/change-completeness.js';
 import { CodeTestsLintGate } from './gates/code-tests-lint.js';
 import { DatabaseQualityGate } from './gates/database-quality.js';
 import { DocumentationFreshnessGate } from './gates/documentation-freshness.js';
+import { ExtensionSurfaceGate } from './gates/extension-surface.js';
 import type { Gate } from './gates/gate.interface.js';
 import { ImplementationReviewGate } from './gates/implementation-review.js';
 import { InstructionsDocsStructureGate } from './gates/instructions-docs-structure.js';
@@ -100,5 +101,6 @@ function defaultGates(): Gate[] {
     new ModuleDocsStructureGate(),
     new InstructionsDocsStructureGate(),
     new DocumentationFreshnessGate(),
+    new ExtensionSurfaceGate(),
   ];
 }
