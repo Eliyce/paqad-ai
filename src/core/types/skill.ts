@@ -52,6 +52,24 @@ export interface LoadedSkill extends SkillDefinition {
   line_count: number;
 }
 
+/** Origin of a skill in a merged listing. */
+export type SkillSource = 'built-in' | 'runtime';
+
+/** In-memory input shape for hot-registering a skill (no disk path required). */
+export interface RuntimeSkillDescriptor {
+  /** Raw SKILL.md markdown content. */
+  content: string;
+  /** Optional label used to build the synthetic `file` value. */
+  sourceLabel?: string;
+}
+
+/** A skill in a {@link RuntimeSkillRegistry} snapshot, tagged with its origin and id. */
+export interface RuntimeSkillListEntry extends LoadedSkill {
+  /** Namespaced identifier: the skill name for built-ins, `runtime:<name>` for runtime entries. */
+  id: string;
+  source: SkillSource;
+}
+
 export interface SkillResult {
   skill_name: string;
   findings: string[];

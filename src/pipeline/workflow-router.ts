@@ -14,10 +14,15 @@ import {
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { ResolvedArtifact } from '@/core/types/resolution.js';
 import type { RoutingConfig } from '@/core/types/routing.js';
-import type { LoadedSkill, SkillRequestRoutingRule } from '@/core/types/skill.js';
+import type {
+  LoadedSkill,
+  RuntimeSkillListEntry,
+  SkillRequestRoutingRule,
+} from '@/core/types/skill.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { Resolver } from '@/resolver/resolver.js';
 import { SkillFrontmatterParser, toLoadedSkill } from '@/skills/frontmatter-parser.js';
+import type { RuntimeSkillRegistry } from '@/skills/runtime-registry.js';
 import { WorkflowTemplateLoader } from '@/workflows/template-loader.js';
 
 export interface WorkflowRouteResult {
@@ -31,6 +36,8 @@ export interface WorkflowRouteResult {
 export interface WorkflowRouterServiceOptions {
   projectRoot?: string;
   runtimeRoot?: string;
+  /** Optional registry of runtime-registered skills to merge into routing. */
+  runtimeRegistry?: RuntimeSkillRegistry;
 }
 
 interface RoutingCandidate {
@@ -46,11 +53,13 @@ const PROJECT_SKILL_ROOTS = ['.codex/skills', '.claude/skills', '.gemini/skills'
 export class WorkflowRouterService {
   private readonly projectRoot: string;
   private readonly runtimeRoot: string;
+  private readonly runtimeRegistry?: RuntimeSkillRegistry;
   private readonly parser = new SkillFrontmatterParser();
 
   constructor(options: WorkflowRouterServiceOptions = {}) {
     this.projectRoot = options.projectRoot ?? process.cwd();
     this.runtimeRoot = options.runtimeRoot ?? getRuntimeRoot();
+    this.runtimeRegistry = options.runtimeRegistry;
   }
 
   async resolve(
@@ -58,8 +67,11 @@ export class WorkflowRouterService {
     profile?: Pick<ProjectProfile, 'active_capabilities' | 'stack_profile' | 'routing'> | null,
   ): Promise<WorkflowRouteResult> {
     const effectiveProfile = profile ?? readProjectProfile(this.projectRoot);
+    // Capture the runtime-skill snapshot once per resolve() so an in-flight call
+    // is unaffected by a concurrent register()/remove() (AC3 — snapshot isolation).
+    const runtimeSnapshot = this.runtimeRegistry?.snapshot() ?? [];
     const [skills, customWorkflowNames] = await Promise.all([
-      this.loadRoutingSkills(effectiveProfile),
+      this.loadRoutingSkills(effectiveProfile, runtimeSnapshot),
       new WorkflowTemplateLoader(this.projectRoot).list(),
     ]);
     const normalizedRequest = normalizeText(requestText);
@@ -134,6 +146,7 @@ export class WorkflowRouterService {
 
   private async loadRoutingSkills(
     profile?: Pick<ProjectProfile, 'active_capabilities' | 'stack_profile' | 'routing'> | null,
+    runtimeSnapshot: readonly RuntimeSkillListEntry[] = [],
   ): Promise<LoadedSkill[]> {
     const routing = buildRoutingConfig(profile);
     const resolver = new Resolver({ runtimeRoot: this.runtimeRoot });
@@ -153,6 +166,12 @@ export class WorkflowRouterService {
       }
 
       skills.push(toLoadedSkill(artifact.path, parsed, profile?.stack_profile?.frameworks ?? []));
+    }
+
+    for (const entry of runtimeSnapshot) {
+      if (entry.request_routing?.length) {
+        skills.push(entry);
+      }
     }
 
     return skills;

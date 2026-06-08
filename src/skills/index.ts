@@ -4,4 +4,5 @@ export * from './frontmatter-parser.js';
 export * from './index-generator.js';
 export * from './loader.js';
 export * from './model-selector.js';
+export * from './runtime-registry.js';
 export * from './trigger-evaluator.js';

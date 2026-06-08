@@ -21,6 +21,7 @@ import { readProjectProfile } from '@/core/project-profile.js';
 import { Resolver } from '@/resolver/resolver.js';
 import type { ResolvedArtifact } from '@/core/types/resolution.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
+import type { RuntimeSkillRegistry } from '@/skills/runtime-registry.js';
 import { WorkflowEngine } from '@/workflows/engine.js';
 import { StepExecutor, type StepExecutionContext } from '@/workflows/step-executor.js';
 import type { WorkflowStep } from '@/workflows/types.js';
@@ -74,6 +75,8 @@ const PROJECT_SKILL_ROOTS = ['.codex/skills', '.claude/skills', '.gemini/skills'
 export interface LaneRunnerOptions {
   projectRoot?: string;
   phaseOverrides?: Partial<Record<PipelinePhase, PhaseExecutor>>;
+  /** Optional registry of runtime-registered skills to merge into the available set. */
+  runtimeRegistry?: RuntimeSkillRegistry;
 }
 
 const DEFAULT_PHASES: Record<PipelinePhase, PhaseExecutor> = {
@@ -106,10 +109,12 @@ export class LaneRunner {
   private readonly router = new PipelineRouter();
   private readonly projectRoot: string;
   private readonly phases: Record<PipelinePhase, PhaseExecutor>;
+  private readonly runtimeRegistry?: RuntimeSkillRegistry;
   private readonly skillParser = new SkillFrontmatterParser();
 
   constructor(options: LaneRunnerOptions = {}) {
     this.projectRoot = options.projectRoot ?? process.cwd();
+    this.runtimeRegistry = options.runtimeRegistry;
     this.phases = {
       ...DEFAULT_PHASES,
       ...options.phaseOverrides,
@@ -378,6 +383,12 @@ export class LaneRunner {
       const content = await readFile(artifact.path, 'utf8');
       const parsed = this.skillParser.parse(content);
       names.add(parsed.frontmatter.name);
+    }
+
+    // Capture the runtime-skill snapshot once so a concurrent register()/remove()
+    // does not change the set mid-collection (AC3 — snapshot isolation).
+    for (const entry of this.runtimeRegistry?.snapshot() ?? []) {
+      names.add(entry.name);
     }
 
     return names;
