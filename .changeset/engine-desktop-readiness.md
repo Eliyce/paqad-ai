@@ -21,3 +21,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-169 (seq 100): Generate a rolling summary that preserves speaker attribution
 - PQD-171 (seq 102): Rebuild the API conversation deterministically per turn
 - PQD-172 (seq 103): Tag turn priority and protect decision-packet turns from collapse
+- PQD-174 (seq 105): Index attachments into a session-scoped ephemeral RAG collection

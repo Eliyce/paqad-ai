@@ -43,6 +43,14 @@ export const PATHS = {
   VISION_VECTOR_INDEX: '.paqad/vectors/vision-index.json',
   VISION_VECTOR_META: '.paqad/vectors/vision-meta.json',
   SECRETS_ENV: '.paqad/secrets.env',
+  // PQD-174 — session-scoped ephemeral attachment collections for non-project
+  // desktop conversations. Each session owns a directory keyed by its id under
+  // SESSION_ATTACHMENT_COLLECTIONS_DIR; the registry maps live sessions to their
+  // collections so the boot-time orphan sweep can purge any whose session is
+  // gone. Kept fully disjoint from VECTORS_DIR (project RAG) and the pattern
+  // vectors so an attachment collection never disturbs either.
+  SESSION_ATTACHMENT_COLLECTIONS_DIR: '.paqad/attachments',
+  SESSION_ATTACHMENT_REGISTRY: '.paqad/attachments/registry.json',
   GLOBAL_PATTERN_VECTORS_DIR: '.paqad/patterns/vectors',
   GLOBAL_PATTERN_VECTOR_INDEX: '.paqad/patterns/vectors/index.json',
   GLOBAL_PATTERN_VECTOR_META: '.paqad/patterns/vectors/meta.json',
