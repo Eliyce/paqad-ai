@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -7,6 +8,7 @@ import type {
   PlanningManifest,
   SliceCheckpoint,
   SliceContext,
+  SliceExecutionEvent,
   SliceFixAttempt,
   SliceProgressEntry,
 } from '@/core/types/planning.js';
@@ -23,6 +25,7 @@ import { computeSliceBudgetPlan, resolveSliceExecutionBudget } from './slice-bud
 import { assembleSliceContext } from './slice-context.js';
 import { SliceCircuitBreaker } from './slice-circuit-breaker.js';
 import { runSliceGate, type SliceGateDetail } from './slice-gate.js';
+import { SliceEventBus } from './slice-event-bus.js';
 import { buildSliceRetryFeedback, requiresImmediateEscalation } from './slice-retry.js';
 import { createSliceEscalationReport, SliceEscalationStore } from './slice-escalation.js';
 import { snapshotDocTargets } from './slice-doc-verifier.js';
@@ -87,6 +90,27 @@ export interface ExecuteSlicesOptions {
   fullSuiteRunner: FullSuiteRunner;
   captureBaselineFailingTests?: () => Promise<string[]>;
   replan?: SliceReplanner;
+  /**
+   * PQD-100 — optional live event sink. When supplied, the executor streams a
+   * {@link SliceExecutionEvent} for every slice transition (started, gate
+   * evaluated, retried, completed, escalated) and a terminal `run-finished`.
+   * When omitted the executor behaves exactly as before.
+   */
+  onEvent?: (event: SliceExecutionEvent) => void;
+  /**
+   * PQD-100 — optional cancellation signal. When aborted, the executor stops at
+   * the next loop boundary, emits exactly one `slice-cancelled` event, and
+   * returns the partial result; no further slice events are emitted.
+   */
+  signal?: AbortSignal;
+}
+
+export interface ResumeExecutionOptions {
+  /**
+   * PQD-100 — optional event sink for the `run-resume-after-crash` event a
+   * resume emits when it resets slices left mid-flight by a crashed run.
+   */
+  onEvent?: (event: SliceExecutionEvent) => void;
 }
 
 export interface ExecuteSlicesResult {
@@ -233,6 +257,11 @@ export class SliceExecutor {
       return executeFastLane(projectRoot, manifest, options);
     }
 
+    const runId = randomUUID();
+    const bus = new SliceEventBus({ runId, slug, onEvent: options.onEvent });
+    tracker.last_run_id = runId;
+    await this.tracker.save(projectRoot, tracker);
+
     if (tracker.baseline_failing_tests === undefined) {
       tracker.baseline_failing_tests = options.captureBaselineFailingTests
         ? await options.captureBaselineFailingTests()
@@ -241,12 +270,24 @@ export class SliceExecutor {
     }
 
     while (true) {
+      if (options.signal?.aborted) {
+        return await this.cancelRun(
+          projectRoot,
+          slug,
+          tracker,
+          bus,
+          checkpointPaths,
+          escalationPaths,
+          [...warnings],
+        );
+      }
+
       const prepared = await this.prepare(projectRoot, slug);
       manifest = prepared.manifest;
       tracker = (await this.tracker.load(projectRoot, slug)) ?? tracker;
 
       if (prepared.currentSliceId === null || prepared.context === null) {
-        return {
+        const result: ExecuteSlicesResult = {
           trackerPath: prepared.trackerPath,
           trackerStatus: prepared.trackerStatus,
           manifestPath: await saveManifest(projectRoot, manifest),
@@ -257,6 +298,14 @@ export class SliceExecutor {
           escalatedSliceIds: escalatedSliceIds(tracker),
           warnings: [...warnings, ...prepared.warnings],
         };
+        bus.emit({
+          kind: 'run-finished',
+          trackerStatus: result.trackerStatus,
+          completedSliceIds: result.completedSliceIds,
+          blockedSliceIds: result.blockedSliceIds,
+          escalatedSliceIds: result.escalatedSliceIds,
+        });
+        return result;
       }
 
       const sliceId = prepared.currentSliceId;
@@ -274,8 +323,26 @@ export class SliceExecutor {
         attempt: tracker.slices[sliceId]?.attempt ?? 1,
         token_budget: context.token_budget,
       });
+      bus.emit({
+        kind: 'slice-started',
+        sliceId,
+        attempt: tracker.slices[sliceId]?.attempt ?? 1,
+        tokenBudget: context.token_budget,
+      });
 
       while (true) {
+        if (options.signal?.aborted) {
+          return await this.cancelRun(
+            projectRoot,
+            slug,
+            tracker,
+            bus,
+            checkpointPaths,
+            escalationPaths,
+            [...warnings],
+          );
+        }
+
         const attempt = tracker.slices[sliceId]?.attempt ?? 1;
         const docSnapshot = snapshotDocTargets(projectRoot, context.doc_targets);
         const scopeSnapshot = snapshotSliceScope(
@@ -312,6 +379,13 @@ export class SliceExecutor {
 
         applyGateToManifest(manifest, gate);
         await saveManifest(projectRoot, manifest);
+
+        bus.emit({
+          kind: 'slice-gate-evaluated',
+          sliceId,
+          status: gate.gate_result.status,
+          reasons: buildGateReasons(gate),
+        });
 
         if (result.tokens_used >= context.token_budget * 0.8) {
           warnings.push(
@@ -359,6 +433,12 @@ export class SliceExecutor {
             slice_id: sliceId,
             tokens_used: totalTokensForSlice,
             gate_result: gate.gate_result.status,
+          });
+          bus.emit({
+            kind: 'slice-completed',
+            sliceId,
+            tokensUsed: totalTokensForSlice,
+            filesChanged: new Set(modifiedFiles).size,
           });
           break;
         }
@@ -411,6 +491,12 @@ export class SliceExecutor {
             reason,
             blocked_downstream: blockedDownstream.join(','),
           });
+          bus.emit({
+            kind: 'slice-escalated',
+            sliceId,
+            reason,
+            blockedDownstream,
+          });
 
           if (!(tracker.re_planned_slices ?? []).includes(sliceId)) {
             try {
@@ -452,13 +538,49 @@ export class SliceExecutor {
           attempt: 2,
           feedback_provided: true,
         });
+        bus.emit({
+          kind: 'slice-retried',
+          sliceId,
+          attempt: 2,
+          feedbackSummary: summarizeFailure(gate),
+        });
       }
     }
   }
 
-  async resume(projectRoot: string, slug: string): Promise<ResumeExecutionResult> {
+  private async cancelRun(
+    projectRoot: string,
+    slug: string,
+    tracker: ExecutionProgressTracker,
+    bus: SliceEventBus,
+    checkpointPaths: string[],
+    escalationPaths: string[],
+    warnings: string[],
+  ): Promise<ExecuteSlicesResult> {
+    const manifest = await loadManifest(projectRoot, slug);
+    const trackerPath = await this.tracker.save(projectRoot, tracker);
+    bus.cancel();
+    return {
+      trackerPath,
+      trackerStatus: tracker.status,
+      manifestPath: await saveManifest(projectRoot, manifest),
+      checkpointPaths,
+      escalationPaths,
+      completedSliceIds: completedSliceIds(tracker),
+      blockedSliceIds: blockedSliceIdsFromTracker(tracker),
+      escalatedSliceIds: escalatedSliceIds(tracker),
+      warnings,
+    };
+  }
+
+  async resume(
+    projectRoot: string,
+    slug: string,
+    options: ResumeExecutionOptions = {},
+  ): Promise<ResumeExecutionResult> {
     const manifest = await loadManifest(projectRoot, slug);
     const tracker = await this.tracker.initialize(projectRoot, manifest);
+    const previousRunId = tracker.last_run_id ?? null;
     const reset = new Set<string>();
     const warnings: string[] = [];
 
@@ -483,6 +605,23 @@ export class SliceExecutor {
       }
     }
 
+    const resetSliceIds = [...reset].sort((left, right) =>
+      left.localeCompare(right, undefined, { numeric: true }),
+    );
+
+    if (resetSliceIds.length > 0 && options.onEvent) {
+      const resumeBus = new SliceEventBus({
+        runId: randomUUID(),
+        slug,
+        onEvent: options.onEvent,
+      });
+      resumeBus.emit({
+        kind: 'run-resume-after-crash',
+        previousRunId,
+        resetSliceIds,
+      });
+    }
+
     this.tracker.resetSlices(tracker, [...reset]);
     const trackerPath = await this.tracker.save(projectRoot, tracker);
     appendPlanningAudit(projectRoot, 'INFO', 'resume-triggered', {
@@ -495,9 +634,7 @@ export class SliceExecutor {
     const prepared = await this.prepare(projectRoot, slug);
     return {
       trackerPath,
-      resetSliceIds: [...reset].sort((left, right) =>
-        left.localeCompare(right, undefined, { numeric: true }),
-      ),
+      resetSliceIds,
       currentSliceId: prepared.currentSliceId,
       warnings,
     };
@@ -1134,6 +1271,32 @@ function sliceMetrics(
     docs_updated: gate.doc_checks.filter((check) => check.status === 'updated').length,
     scope_clean: gate.scope_check.status !== 'violation',
   };
+}
+
+function buildGateReasons(gate: SliceGateDetail): string[] {
+  const reasons: string[] = [];
+  for (const check of gate.criteria_checks) {
+    if (!check.passed) {
+      reasons.push(`Verification criterion ${check.criterion_id} not met: ${check.detail}`);
+    }
+  }
+  for (const violation of gate.scope_check.violations) {
+    reasons.push(`Out-of-scope change (${violation.type}) to ${violation.file}`);
+  }
+  for (const check of gate.regression_checks) {
+    if (!check.passed) {
+      reasons.push(`Regression ${check.entry_id} is failing: ${check.detail}`);
+    }
+  }
+  for (const failure of gate.full_suite_check.new_failures) {
+    reasons.push(`New test failure introduced: ${failure}`);
+  }
+  for (const decision of gate.decision_checks) {
+    if (!decision.passed) {
+      reasons.push(decision.reason);
+    }
+  }
+  return reasons;
 }
 
 function summarizeFailure(gate: SliceGateDetail): string {

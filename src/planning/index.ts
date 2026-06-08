@@ -35,6 +35,7 @@ export * from './slice-checkpoint.js';
 export * from './slice-context.js';
 export * from './slice-doc-verifier.js';
 export * from './slice-escalation.js';
+export * from './slice-event-bus.js';
 export * from './slice-executor.js';
 export * from './slice-gate.js';
 export * from './slice-granularity.js';

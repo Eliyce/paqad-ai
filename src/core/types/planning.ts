@@ -199,6 +199,11 @@ export interface ExecutionProgressTracker {
   token_budget: SliceBudgetSummary;
   baseline_failing_tests?: string[];
   re_planned_slices?: string[];
+  // PQD-100 — the run identifier of the most recent `SliceExecutor.execute`
+  // call for this manifest. Persisted so a later `resume` can attribute its
+  // crash-recovery event to the run that did not finish. Absent before the
+  // first instrumented run.
+  last_run_id?: string;
 }
 
 export interface SliceCheckpoint {
@@ -330,6 +335,124 @@ export interface SliceGateResult {
   full_suite: SliceFullSuiteCheck;
   warnings: string[];
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// Slice execution event stream (PQD-100)
+//
+// A live, in-process event stream a consumer (the desktop planning panel, an
+// agent adapter) subscribes to via `SliceExecutor.execute({ onEvent })` to
+// render slice progress without polling the tracker file. Every variant is
+// plain serialisable data so it can cross an IPC boundary untransformed. These
+// are distinct from the coarse, unified `EngineEvent` stream (PQD-99): this one
+// carries the full slice-level state machine for a single execution run.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** The discriminants of {@link SliceExecutionEvent}. */
+export type SliceExecutionEventKind =
+  | 'slice-started'
+  | 'slice-gate-evaluated'
+  | 'slice-retried'
+  | 'slice-completed'
+  | 'slice-escalated'
+  | 'slice-cancelled'
+  | 'run-finished'
+  | 'run-resume-after-crash';
+
+/** Fields stamped on every slice execution event by the {@link SliceEventBus}. */
+export interface SliceExecutionEventBase {
+  /** Per-`execute` UUID; lets a consumer route two concurrent runs apart. */
+  runId: string;
+  /** The manifest slug the run is executing. */
+  slug: string;
+  /** Strictly increasing within a run, starting at 1. */
+  seq: number;
+  /** ISO-8601 timestamp stamped when the event is emitted. */
+  ts: string;
+  kind: SliceExecutionEventKind;
+  /**
+   * Set when this event represents one or more older same-stream events the
+   * bus dropped under backpressure. Terminal events are never coalesced away.
+   */
+  coalesced?: true;
+  /**
+   * Set when the event's serialised payload exceeded the bus payload cap and
+   * its string fields were truncated. The event is delivered, not dropped.
+   */
+  truncated?: true;
+}
+
+/** A slice began executing (or began a fresh attempt). */
+export interface SliceExecutionStartedEvent extends SliceExecutionEventBase {
+  kind: 'slice-started';
+  sliceId: string;
+  attempt: number;
+  tokenBudget: number;
+}
+
+/** A slice's verification gate was evaluated. `reasons` is non-empty on fail. */
+export interface SliceExecutionGateEvaluatedEvent extends SliceExecutionEventBase {
+  kind: 'slice-gate-evaluated';
+  sliceId: string;
+  status: SliceGateResult['status'];
+  reasons: string[];
+}
+
+/** A slice failed its gate and is being retried with feedback. */
+export interface SliceExecutionRetriedEvent extends SliceExecutionEventBase {
+  kind: 'slice-retried';
+  sliceId: string;
+  attempt: number;
+  feedbackSummary: string;
+}
+
+/** A slice passed its gate and was checkpointed. */
+export interface SliceExecutionCompletedEvent extends SliceExecutionEventBase {
+  kind: 'slice-completed';
+  sliceId: string;
+  tokensUsed: number;
+  filesChanged: number;
+}
+
+/** A slice was escalated; downstream slices it blocks are listed. */
+export interface SliceExecutionEscalatedEvent extends SliceExecutionEventBase {
+  kind: 'slice-escalated';
+  sliceId: string;
+  reason: string;
+  blockedDownstream: string[];
+}
+
+/** Execution was cancelled by the consumer; `stoppedAtSeq` is the stop point. */
+export interface SliceExecutionCancelledEvent extends SliceExecutionEventBase {
+  kind: 'slice-cancelled';
+  stoppedAtSeq: number;
+}
+
+/** The run finished; final tracker status and per-status slice id lists. */
+export interface SliceExecutionRunFinishedEvent extends SliceExecutionEventBase {
+  kind: 'run-finished';
+  trackerStatus: string;
+  completedSliceIds: string[];
+  blockedSliceIds: string[];
+  escalatedSliceIds: string[];
+}
+
+/** A resume found slices left mid-flight by a crashed run and reset them. */
+export interface SliceExecutionResumeAfterCrashEvent extends SliceExecutionEventBase {
+  kind: 'run-resume-after-crash';
+  previousRunId: string | null;
+  resetSliceIds: string[];
+}
+
+/** Discriminated union a consumer switches on by `kind`. */
+export type SliceExecutionEvent =
+  | SliceExecutionStartedEvent
+  | SliceExecutionGateEvaluatedEvent
+  | SliceExecutionRetriedEvent
+  | SliceExecutionCompletedEvent
+  | SliceExecutionEscalatedEvent
+  | SliceExecutionCancelledEvent
+  | SliceExecutionRunFinishedEvent
+  | SliceExecutionResumeAfterCrashEvent;
 
 export interface SliceContext {
   manifest_header: Pick<
