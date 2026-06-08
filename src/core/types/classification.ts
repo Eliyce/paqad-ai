@@ -150,6 +150,13 @@ export interface ClassificationResult {
   prior_requirement_count?: number | null;
   prior_criterion_count?: number | null;
   context_budget_hint?: ContextBudgetHint;
+  /**
+   * Whether the next turn needs retrieved context folded in (PQD-171). Optional
+   * and additive: classifiers that do not yet set it leave it `undefined`, which
+   * the conversation rebuild treats as "no retrieval". Mirrors
+   * `selectRetrievalDepth() !== 'none'` when a depth router is wired upstream.
+   */
+  retrieval_needed?: boolean;
   affected_modules_source?: string;
   scope_graph_depth?: number;
   matched_rule_triggers?: string[];

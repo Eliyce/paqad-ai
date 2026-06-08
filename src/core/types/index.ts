@@ -2,6 +2,7 @@ export * from './adapter.js';
 export * from './agent.js';
 export * from './classification.js';
 export * from './context.js';
+export * from './conversation.js';
 export * from '../capabilities.js';
 export * from './design-tokens.js';
 export * from './documentation.js';

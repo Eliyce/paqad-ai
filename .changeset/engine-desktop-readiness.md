@@ -19,3 +19,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-107 (seq 38): Surface a stable error taxonomy that consumers can route to UI behaviours
 - PQD-167 (seq 98): Compute the per-turn context budget breakdown for the active model
 - PQD-169 (seq 100): Generate a rolling summary that preserves speaker attribution
+- PQD-171 (seq 102): Rebuild the API conversation deterministically per turn

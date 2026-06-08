@@ -190,6 +190,35 @@ interface (a concrete provider is a follow-up). Token counts are best-effort
 | desktop (planned) | src/core/types/context.ts | `SummariseSuccess` | `interface SummariseSuccess { ok: true; summary_text; valid_through_turn_id; input_token_count; summary_token_count; truncated; preserved_turn_ids }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/core/types/context.ts | `SummariseFailure` | `interface SummariseFailure { ok: false; error ('inference-failed'/'timeout'/'cancelled') }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 
+### Deterministic per-turn conversation rebuild (PQD-171)
+
+Before each turn the desktop's local-model runtime reshapes its persisted
+*display* conversation into the clean *API* conversation. `rebuildApiConversation`
+is that primitive: it follows only the active branch (excluding stopped and
+discarded turns via `resolveActiveLineage`), fits history into the model window by
+first compressing older turns through the `ContextBudgetOptimizer` and then
+dropping the oldest (reporting `truncated`/`truncatedTurnCount` and writing a
+`context.truncated` audit event), inserts retrieved chunks after any leading
+system context, and is deterministic — identical inputs yield byte-equal output.
+A content-hashed `RebuildCache` serves an unchanged turn without re-running the
+budget pass. A malformed budget or an optimizer failure surfaces as a
+`RebuildFailedError` (kind `rebuild_failed`, no retry). `ClassificationResult`
+gains an additive optional `retrieval_needed?: boolean`.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/context/conversation-rebuild.ts | `rebuildApiConversation` | `rebuildApiConversation(input: RebuildInput): Promise<ConversationRebuildResult>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/conversation-rebuild.ts | `RebuildInput` | `interface RebuildInput { displayMessages; classifierOutput; retrievedChunks?; budgetTokens; summarizer?; optimizer?; cache?; audit? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/conversation-lineage.ts | `resolveActiveLineage` | `resolveActiveLineage(messages: DisplayMessage[]): DisplayMessage[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/rebuild-cache.ts | `RebuildCache` | `class RebuildCache { computeKey(messages, classifierOutput): string; get(key); set(key, result); size }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/rebuild-cache.ts | `DEFAULT_REBUILD_CACHE_MAX_SIZE` | `const DEFAULT_REBUILD_CACHE_MAX_SIZE: number` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/conversation.ts | `DisplayMessage` | `interface DisplayMessage { id; role; content; createdAt; stopped?; discardedAt?; branchId?; parentMessageId? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/conversation.ts | `ApiMessage` | `interface ApiMessage { role; content; name? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/conversation.ts | `RetrievedChunkRef` | `interface RetrievedChunkRef { chunkId; position }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/conversation.ts | `ConversationRebuildResult` | `interface ConversationRebuildResult { messages; retrievedChunkIds; truncated; truncatedTurnCount }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/conversation.ts | `RebuildCacheKey` | `type RebuildCacheKey = string` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/conversation.ts | `RebuildFailedError` | `class RebuildFailedError extends Error { kind: 'rebuild_failed'; reason: string }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ### Consumer-side cancellation (PQD-104)
 
 Every long-running engine call accepts an optional `AbortSignal`. When the

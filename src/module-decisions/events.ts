@@ -17,7 +17,11 @@ export type ModuleMapEventType =
   | 'module.map.snapshot'
   // PQD-104 — emitted once for a workflow/pipeline/index run that a consumer
   // cancelled via an AbortSignal. No further events for that run_id follow.
-  | 'run.cancelled';
+  | 'run.cancelled'
+  // PQD-171 — emitted when a per-turn conversation rebuild had to drop the
+  // oldest turns to fit the model window after summarisation. Lets the desktop
+  // show an "older turns were removed" banner from the audit trail.
+  | 'context.truncated';
 
 export interface ModuleMapEvent {
   ts: string;
@@ -67,6 +71,24 @@ export function appendRunCancelledEvent(
     type: 'run.cancelled',
     run_id: runId,
     error_code: 'CANCELLED_BY_CONSUMER',
+    payload,
+  });
+}
+
+/**
+ * Append a `context.truncated` audit event for a per-turn conversation rebuild
+ * that dropped the oldest turns to fit the model window (PQD-171). The same
+ * facts are also returned synchronously on `ConversationRebuildResult`, so a
+ * consumer can react without tailing the event stream; this is the durable
+ * record for replay and inspectors.
+ */
+export function emitContextTruncated(
+  projectRoot: string,
+  payload: { sessionId: string; turnsDropped: number; tokensReclaimed: number },
+): void {
+  appendModuleMapEvent(projectRoot, {
+    ts: new Date().toISOString(),
+    type: 'context.truncated',
     payload,
   });
 }

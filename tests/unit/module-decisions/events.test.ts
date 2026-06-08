@@ -8,6 +8,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import {
   appendModuleMapEvent,
   appendRunCancelledEvent,
+  emitContextTruncated,
   readModuleMapEvents,
   readModuleMapEventsForSlug,
   readModuleMapEventsSince,
@@ -113,5 +114,12 @@ describe('module-decisions/events', () => {
     expect(event?.type).toBe('run.cancelled');
     expect(event?.error_code).toBe('CANCELLED_BY_CONSUMER');
     expect(event?.run_id).toBe('run-1');
+  });
+
+  it('emits context.truncated with the rebuild payload', () => {
+    emitContextTruncated(root, { sessionId: 'sess-1', turnsDropped: 3, tokensReclaimed: 420 });
+    const [event] = readModuleMapEvents(root);
+    expect(event?.type).toBe('context.truncated');
+    expect(event?.payload).toEqual({ sessionId: 'sess-1', turnsDropped: 3, tokensReclaimed: 420 });
   });
 });
