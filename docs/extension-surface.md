@@ -210,3 +210,24 @@ reverts to the default after one notice.
 | desktop (planned), api (planned) | src/core/types/logger.ts | `EngineLogger` | `interface EngineLogger { log(entry: EngineLogEntry): void or Promise<void> }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/core/types/logger.ts | `EngineLogEntry` | `interface EngineLogEntry { level: LogLevel; message: string; payload? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/install/bootstrap.ts | `BootstrapOptions` | `interface BootstrapOptions { logger?: EngineLogger }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
+## Engine version report consumers (planned)
+
+A consumer (a coding-agent adapter, the desktop app, or the api layer) calls
+`getEngineVersionReport()` at startup — before any pipeline, gate, or file I/O —
+to learn the engine version, the oldest consumer it supports, and whether it is
+deprecated, then uses `compareConsumerCompatibility()` to decide whether to start
+(PQD-106). The report is frozen and memoised for the process lifetime, so
+repeated calls return the identical object with no I/O. Comparison is semver
+major-only: minor, patch, and same-major pre-release differences never block.
+`VERSION_UNKNOWN` flags a build with no usable version string.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned), api (planned) | src/install/version-report.ts | `getEngineVersionReport` | `getEngineVersionReport(): EngineVersionReport` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/install/version-report.ts | `EngineVersionReport` | `interface EngineVersionReport { engineVersion; minConsumerVersion; deprecatedAsOf }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/install/version-report.ts | `normalizeEngineVersion` | `normalizeEngineVersion(raw: unknown): string` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/install/version-report.ts | `VERSION_UNKNOWN` | `const VERSION_UNKNOWN: string` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/install/version-report.ts | `MIN_CONSUMER_VERSION` | `const MIN_CONSUMER_VERSION: string` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/install/consumer-compatibility.ts | `compareConsumerCompatibility` | `compareConsumerCompatibility(consumerVersion: string, report: EngineVersionReport): ConsumerCompatibility` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/install/consumer-compatibility.ts | `ConsumerCompatibility` | `type ConsumerCompatibility = 'ok' or 'engine-too-new' or 'engine-too-old' or 'engine-version-unknown'` | beta | 1.10.0 | planned consumer; no in-tree call site yet |

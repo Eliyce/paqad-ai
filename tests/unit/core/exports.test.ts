@@ -45,6 +45,10 @@ import {
   UI_IMPACTS,
   VERIFICATION_GATES,
   VERSION,
+  VERSION_UNKNOWN,
+  MIN_CONSUMER_VERSION,
+  getEngineVersionReport,
+  compareConsumerCompatibility,
   getFrameworkName,
 } from '@/index';
 
@@ -56,6 +60,15 @@ describe('core export surface', () => {
   it('re-exports the package identity', () => {
     expect(VERSION).toBe(packageVersion);
     expect(getFrameworkName()).toBe('paqad-ai');
+  });
+
+  it('re-exports the engine version report surface (PQD-106)', () => {
+    expect(VERSION_UNKNOWN).toBe('version unknown');
+    expect(MIN_CONSUMER_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+    const report = getEngineVersionReport();
+    expect(report.engineVersion).toBe(packageVersion);
+    expect(report.minConsumerVersion).toBe(MIN_CONSUMER_VERSION);
+    expect(compareConsumerCompatibility(MIN_CONSUMER_VERSION, report)).toBe('ok');
   });
 
   it('re-exports the supported domains, stacks, and capabilities', () => {
