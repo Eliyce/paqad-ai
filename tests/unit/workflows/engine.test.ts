@@ -4,6 +4,8 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { EngineEventBus } from '@/event-bus/engine-event-bus.js';
+import type { EngineEvent } from '@/event-bus/types.js';
 import { WorkflowEngine } from '@/workflows/engine.js';
 import { StepExecutor } from '@/workflows/step-executor.js';
 
@@ -275,5 +277,53 @@ steps:
     });
     expect(progress.status).toBe('completed');
     expect(progress.steps[0]?.status).toBe('completed');
+  });
+
+  it('emits workflow-step events to the engine event bus when provided (PQD-99)', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-workflow-engine-'));
+    writeTemplate(
+      projectRoot,
+      'bus-steps',
+      `name: bus-steps
+description: Emits step events
+steps:
+  - skill: ok-skill
+  - skill: bad-skill
+`,
+    );
+
+    vi.spyOn(StepExecutor.prototype, 'execute').mockImplementation(async (step) =>
+      step.skill === 'bad-skill' ? { status: 'failed', error: 'kaboom' } : { status: 'completed' },
+    );
+
+    const bus = new EngineEventBus();
+    const events: EngineEvent[] = [];
+    bus.subscribe((e) => events.push(e));
+
+    const progress = await new WorkflowEngine({
+      projectRoot,
+      availableSkills: new Set(['ok-skill', 'bad-skill']),
+      eventBus: bus,
+    }).run('bus-steps', { classification: {} });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const byKind = events.map((e) => e.kind);
+    expect(byKind).toEqual([
+      'workflow-step-started',
+      'workflow-step-completed',
+      'workflow-step-started',
+      'workflow-step-failed',
+    ]);
+    const failed = events[3] as {
+      runId: string;
+      stepIndex: number;
+      skill: string | null;
+      error: string;
+    };
+    expect(failed.runId).toBe(progress.run_id);
+    expect(failed.stepIndex).toBe(1);
+    expect(failed.skill).toBe('bad-skill');
+    expect(failed.error).toBe('kaboom');
   });
 });

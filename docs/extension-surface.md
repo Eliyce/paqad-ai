@@ -96,3 +96,20 @@ they are listed so the UI team can commit to their stability grade.
 | --- | --- | --- | --- | --- | --- | --- |
 | desktop (planned) | src/adapters/adapter.interface.ts | `AdapterCapabilities` | `interface AdapterCapabilities` | stable | 1.0.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/core/types/verification.ts | `VerificationContext` | `interface VerificationContext` | beta | 1.0.0 | planned consumer; no in-tree call site yet |
+
+## Engine event-stream consumers (planned)
+
+The unified in-process event bus (PQD-99). The desktop forwards `EngineEvent`
+payloads over its Electron IPC bridge; the API layer subscribes directly. The
+bus class is reachable from the package root; the event/subscription types are
+forwarded to the renderer untransformed (plain data, no class instances).
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned), api (planned) | src/event-bus/engine-event-bus.ts | `EngineEventBus` | `class EngineEventBus { subscribe(cb, filter?): Subscription; emit(event): void; unsubscribe(id): void }` | beta | 1.10.0 | |
+| desktop (planned), api (planned) | src/event-bus/engine-event-bus.ts | `EngineEventBusOptions` | `interface EngineEventBusOptions { bufferSize?; neverDrop?; maxPayloadBytes? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `EngineEvent` | `type EngineEvent (discriminated union, kind + at)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `EngineEventKind` | `type EngineEventKind = EngineEvent['kind']` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `EngineEventFilter` | `interface EngineEventFilter { kinds: readonly EngineEventKind[] }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `Subscription` | `interface Subscription { id; state; unsubscribe(): void }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/event-bus/types.ts | `EngineEventCallback` | `type EngineEventCallback = (event: EngineEvent) => void` | beta | 1.10.0 | planned consumer; no in-tree call site yet |

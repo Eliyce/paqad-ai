@@ -16,11 +16,19 @@ import {
   type WorkflowStepRunner,
 } from './step-executor.js';
 import { ParallelExecutor } from './parallel-executor.js';
+import type { EngineEventBus } from '../event-bus/index.js';
 
 export interface WorkflowEngineOptions {
   projectRoot: string;
   availableSkills: Set<string>;
   createStepExecutor?: (context: StepExecutionContext) => WorkflowStepRunner;
+  /**
+   * Optional engine event bus (PQD-99). When provided, the engine emits
+   * `workflow-step-started` before each step and `workflow-step-completed` /
+   * `workflow-step-failed` after it, so consumers can render progress live.
+   * Omitting it leaves behaviour unchanged.
+   */
+  eventBus?: EngineEventBus;
 }
 
 export class WorkflowEngine {
@@ -85,6 +93,13 @@ export class WorkflowEngine {
       const step: TemplateStep = template.steps[i];
       stepProgress.status = 'running';
       stepProgress.started_at = new Date().toISOString();
+      this.options.eventBus?.emit({
+        kind: 'workflow-step-started',
+        at: new Date().toISOString(),
+        runId: progress.run_id,
+        stepIndex: i,
+        skill: stepProgress.skill,
+      });
       await this.saveProgress(progress, templateName);
 
       if ('parallel' in step) {
@@ -103,6 +118,24 @@ export class WorkflowEngine {
       }
 
       stepProgress.completed_at = new Date().toISOString();
+      if (stepProgress.status === 'failed') {
+        this.options.eventBus?.emit({
+          kind: 'workflow-step-failed',
+          at: new Date().toISOString(),
+          runId: progress.run_id,
+          stepIndex: i,
+          skill: stepProgress.skill,
+          error: stepProgress.error ?? 'Workflow step failed',
+        });
+      } else {
+        this.options.eventBus?.emit({
+          kind: 'workflow-step-completed',
+          at: new Date().toISOString(),
+          runId: progress.run_id,
+          stepIndex: i,
+          skill: stepProgress.skill,
+        });
+      }
       await this.saveProgress(progress, templateName);
 
       // Handle abort
