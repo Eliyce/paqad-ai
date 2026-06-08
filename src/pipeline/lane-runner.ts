@@ -56,6 +56,7 @@ import {
 import { SpecWritingPhase } from './phases/spec-writing.js';
 import { StoryPlanningPhase } from './phases/story-planning.js';
 import { VerificationPhase } from './phases/verification.js';
+import { VerificationLoopPhase } from './phases/verification-loop.js';
 import { LANE_PHASES, PipelineRouter } from './router.js';
 import { RequestClassifier } from './classifier.js';
 import { loadFeatureDevelopmentPolicy } from './feature-development-policy.js';
@@ -88,7 +89,10 @@ const DEFAULT_PHASES: Record<PipelinePhase, PhaseExecutor> = {
   'spec-review': new SpecReviewPhase(),
   implementation: new ImplementationPhase(),
   'implementation-review': new ImplementationReviewPhase(),
-  'verification-gates': new VerificationPhase(),
+  // Issue #108 — the single verification pass is wrapped in the bounded, quiet
+  // build-check-fix loop. Transparent when the work converges (round 1);
+  // emits one honest `stop` report at the lane's round cap / futility limit.
+  'verification-gates': new VerificationLoopPhase(new VerificationPhase()),
   'documentation-update': new DocumentationUpdatePhase(),
   'module-documentation': new ModuleDocumentationPhase(),
 };

@@ -9,6 +9,7 @@ import type {
   FeatureDevelopmentLogicalCommand,
   FeatureDevelopmentPolicy,
   FeatureDevelopmentPolicyLoadResult,
+  FeatureDevelopmentRoundsPolicy,
   FeatureDevelopmentStageName,
   ResolvedFeatureDevelopmentCheckCommand,
 } from '@/core/types/feature-development-policy.js';
@@ -20,6 +21,7 @@ type RawFeatureDevelopmentPolicy = {
   schema_version?: string;
   merge_mode?: 'append';
   stages?: Partial<Record<FeatureDevelopmentStageName, RawStagePolicy>>;
+  rounds?: FeatureDevelopmentRoundsPolicy;
 };
 
 const STAGE_ORDER: FeatureDevelopmentStageName[] = [
@@ -338,11 +340,36 @@ function mergeFeatureDevelopmentPolicy(
     };
   }
 
-  return {
+  const merged: FeatureDevelopmentPolicy = {
     schema_version: '1',
     merge_mode: 'append',
     stages,
   };
+
+  // Issue #108 — a project override of the loop round caps wins; the lane
+  // defaults apply otherwise (resolved at the loop, not stored here).
+  const rounds = sanitizeRounds(raw.rounds);
+  if (rounds) {
+    merged.rounds = rounds;
+  }
+
+  return merged;
+}
+
+function sanitizeRounds(
+  raw: FeatureDevelopmentRoundsPolicy | undefined,
+): FeatureDevelopmentRoundsPolicy | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  const sanitized: FeatureDevelopmentRoundsPolicy = {};
+  for (const lane of ['fast', 'graduated', 'full'] as const) {
+    const value = raw[lane];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 1) {
+      sanitized[lane] = Math.floor(value);
+    }
+  }
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
 
 function appendUnique(base: string[], additions: string[] | undefined): string[] {
@@ -398,6 +425,15 @@ export function renderDefaultFeatureDevelopmentPolicyYaml(): string {
 # The framework still owns routing, phase order, and mandatory safety stages.
 schema_version: "1"
 merge_mode: append
+
+# Issue #108 — bounded build-check-fix loop round caps, per lane. Each value is
+# the most build-check-fix rounds the loop runs before stopping with one honest
+# "I couldn't get this fully clean" report. Omit a lane to use the framework
+# default (fast 2, graduated 3, full 5). Raise for the heaviest work.
+# rounds:
+#   fast: 2
+#   graduated: 3
+#   full: 5
 
 stages:
   ticket_intake:
