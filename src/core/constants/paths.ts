@@ -122,6 +122,13 @@ export const PATHS = {
   MODULE_MAP_HISTORY_DIR: '.paqad/module-map/history',
   MODULE_MAP_EVENTS_LOG: '.paqad/module-map/events.jsonl',
   MODULE_MAP_DRIFT: '.paqad/module-map/drift.json',
+  // PQD-95 — cross-artifact `.paqad/` schema versioning baseline.
+  // SCHEMA_MARKER is the authoritative stamp readers check for layout
+  // compatibility; SCHEMA_MIGRATION_LOG is an append-only JSONL record of every
+  // forward migration; SCHEMA_MIGRATION_LOCK serialises concurrent migrators.
+  SCHEMA_MARKER: '.paqad/schema-version.json',
+  SCHEMA_MIGRATION_LOG: '.paqad/schema-migrations.jsonl',
+  SCHEMA_MIGRATION_LOCK: '.paqad/locks/schema-migration.lock',
   // Issue #89 — rules-as-scripts
   RULE_SCRIPT_MAP: 'docs/instructions/rules/rule-script-map.yml',
   RULE_SCRIPTS_DIR: '.paqad/scripts/rules',

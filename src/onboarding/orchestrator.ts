@@ -11,6 +11,7 @@ import { getPrimaryStack } from '@/core/stack-profile.js';
 import type { OnboardingOutput } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
+import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { Detector } from '@/detection/detector.js';
 import { VERSION } from '@/index.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
@@ -121,6 +122,11 @@ export class OnboardingOrchestrator {
    */
   async run(options: OnboardingOptions): Promise<OnboardingOutput> {
     // ---------- Phase 1: deterministic file writes (no RAG prompt) ----------
+    // PQD-95 — reconcile the `.paqad/` schema layout before any artifact write:
+    // stamp legacy projects, migrate older ones forward, and hard-stop (throw
+    // SchemaVersionError) when the layout is newer than this engine understands.
+    await checkAndMigrateSchema(options.projectRoot, VERSION);
+
     const detector = new Detector();
     const detection = await detector.detect(options.projectRoot);
     const introspector = new StackIntrospector();

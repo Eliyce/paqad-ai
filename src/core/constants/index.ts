@@ -3,3 +3,4 @@ export * from './domains.js';
 export * from './exit-codes.js';
 export * from './paths.js';
 export * from './planning.js';
+export * from './schema.js';

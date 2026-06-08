@@ -2,6 +2,7 @@ import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } f
 import { dirname } from 'node:path';
 
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
+import { ensureSchemaMarkerSync } from '@/core/schema-version.js';
 import { VERSION } from '@/index.js';
 import {
   resolveFrameworkInstallPath,
@@ -21,6 +22,11 @@ export function bootstrapFramework(projectRoot: string): InstallResult {
   ensureFrameworkSymlink(runtimeRoot, frameworkHome);
 
   writeFrameworkMetadata(projectRoot, VERSION);
+
+  // PQD-95 — ensure the cross-artifact schema marker exists so every freshly
+  // bootstrapped project carries the `.paqad/` layout version. Idempotent: an
+  // existing marker is left untouched (migration is checkAndMigrateSchema's job).
+  ensureSchemaMarkerSync(projectRoot, VERSION);
 
   return {
     framework_home: frameworkHome,

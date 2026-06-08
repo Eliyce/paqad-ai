@@ -22,6 +22,7 @@ export * from './project-profile.js';
 export * from './resolution.js';
 export * from './review.js';
 export * from './routing.js';
+export * from './schema-version.js';
 export * from './skill.js';
 export * from './stability.js';
 export * from './template.js';

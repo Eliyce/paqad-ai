@@ -21,6 +21,7 @@ import {
   HOOK_EXIT_CODES,
   HOOK_TRIGGERS,
   MCP_SERVER_TYPES,
+  PAQAD_SCHEMA_VERSION,
   PLAN_MODES,
   PLANNING_LANES,
   PLANNING_MANIFEST_VERSION,
@@ -203,6 +204,10 @@ describe('core export surface', () => {
 
   it('re-exports the extension-surface stability vocabulary', () => {
     expect(STABILITY_LEVELS).toEqual(['stable', 'beta', 'alpha', 'internal']);
+  });
+
+  it('re-exports the cross-artifact schema version baseline (PQD-95)', () => {
+    expect(PAQAD_SCHEMA_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it('re-exports planning manifest constants', () => {

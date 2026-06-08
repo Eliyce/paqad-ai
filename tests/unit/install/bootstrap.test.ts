@@ -14,6 +14,7 @@ import { join } from 'node:path';
 
 import { bootstrapFramework } from '@/install/bootstrap';
 import { getRuntimeRoot } from '@/core/runtime-paths';
+import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema';
 import { VERSION } from '@/index';
 
 describe('bootstrapFramework', () => {
@@ -119,5 +120,16 @@ describe('bootstrapFramework', () => {
     expect(result.framework_home).toBe(frameworkHome);
     expect(result.project_root).toBe(projectRoot);
     expect(result.version).toBe(VERSION);
+  });
+
+  it('stamps the cross-artifact schema marker (PQD-95)', () => {
+    bootstrapFramework(projectRoot);
+
+    const marker = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad/schema-version.json'), 'utf8'),
+    );
+    expect(marker.paqad_schema_version).toBe(PAQAD_SCHEMA_VERSION);
+    expect(marker.written_by_engine_version).toBe(VERSION);
+    expect(typeof marker.written_at).toBe('string');
   });
 });
