@@ -12,3 +12,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-100 (seq 31): Stream slice execution events so consumers can render progress live
 - PQD-101 (seq 32): Stream decision pause events so consumers can pop the packet UI live
 - PQD-102 (seq 33): Accept extracted text from a vision call into the retrieval index
+- PQD-103 (seq 34): Preview the onboarding file tree without writing anything to disk

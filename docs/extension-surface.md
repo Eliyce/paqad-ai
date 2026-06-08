@@ -116,6 +116,23 @@ prior chunks. Rejections carry a stable `RagIngestError.code`.
 | desktop (planned) | src/rag/types.ts | `RagIngestError` | `class RagIngestError extends FrameworkError { code: RagIngestErrorCode }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/rag/types.ts | `RagIngestErrorCode` | `type RagIngestErrorCode (unsupported_file_type, unknown_extraction_kind, empty_extracted_text, path_outside_project, text_not_utf8)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 
+### Onboarding dry-run preview (PQD-103)
+
+Before committing onboarding, the desktop asks the engine what it *would* write.
+`OnboardingOrchestrator.preview` runs the same deterministic file-planning pipeline
+as Phase 1 of `run` but classifies each target (`create` / `overwrite` / `skip`)
+without touching disk, returning each existing file's `mtimeMs` so the consumer can
+render a confirmation panel without re-scanning. An invalid or unreadable path is
+refused with a `ValidationError` and no partial tree. The standalone
+`planGeneratedFiles` helper is the pure read-only counterpart to `writeGeneratedFiles`.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/onboarding/orchestrator.ts | `OnboardingOrchestrator` | `OnboardingOrchestrator.preview(options: OnboardingOptions): Promise<OnboardingPreviewResult>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/onboarding/file-writer.ts | `planGeneratedFiles` | `planGeneratedFiles(projectRoot: string, files: GeneratedFile[]): OnboardingFileTreeEntry[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/onboarding.ts | `OnboardingFileTreeEntry` | `interface OnboardingFileTreeEntry { path; action ('create'/'overwrite'/'skip'); mtimeMs?; templateError? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/onboarding.ts | `OnboardingPreviewResult` | `interface OnboardingPreviewResult { entries: OnboardingFileTreeEntry[]; warnings: string[] }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ## Engine event-stream consumers (planned)
 
 The unified in-process event bus (PQD-99). The desktop forwards `EngineEvent`

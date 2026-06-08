@@ -41,8 +41,15 @@ export class Detector {
   private readonly introspector = new StackIntrospector();
   private readonly packLoader = new StackPackLoader();
 
-  async detect(projectRoot: string): Promise<DetectionReport> {
-    const snapshot = await this.introspector.snapshot(projectRoot);
+  /**
+   * @param options.persist When `false`, the underlying stack snapshot is not written to the
+   *   on-disk cache (`.paqad/`). Defaults to `true`. Read-only callers such as the onboarding
+   *   dry-run preview (PQD-103) pass `false` so detection touches no disk.
+   */
+  async detect(projectRoot: string, options: { persist?: boolean } = {}): Promise<DetectionReport> {
+    const snapshot = await this.introspector.snapshot(projectRoot, {
+      persist: options.persist ?? true,
+    });
     const repository = snapshot.repository ?? emptyRepositoryContext(projectRoot);
     const roots = resolvePackManagerRoots(projectRoot);
     const registry = this.packLoader.load({

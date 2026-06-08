@@ -1,14 +1,21 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import {
+  accessSync,
+  constants as fsConstants,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { ValidationError } from '@/core/errors/index.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import type { ActiveCapability, Capability, Stack } from '@/core/types/domain.js';
 import { getPrimaryStack } from '@/core/stack-profile.js';
-import type { OnboardingOutput } from '@/core/types/onboarding.js';
+import type { OnboardingOutput, OnboardingPreviewResult } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
@@ -31,7 +38,7 @@ import {
 import { bootstrapFramework } from '@/install/bootstrap.js';
 
 import { writeDecisionPauseContractDocument } from './decision-pause-contract-writer.js';
-import { writeGeneratedFiles } from './file-writer.js';
+import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { writeGitignore } from './gitignore-writer.js';
 import {
   writeDetectionReport,
@@ -362,6 +369,143 @@ export class OnboardingOrchestrator {
       ...phase1Output,
       warnings: [...writeResult.skipped, ...drift.review_targets, ...onboardingWarnings],
     };
+  }
+
+  /**
+   * Read-only preview of onboarding (PQD-103). Runs the same deterministic file-planning
+   * pipeline as Phase 1 of {@link run} — detector, introspector, resolver, adapter loop, rule
+   * generator, reference guides, hook script read — collecting `GeneratedFile[]` in memory, then
+   * classifies each target with {@link planGeneratedFiles} instead of writing it.
+   *
+   * Nothing is written to disk: no `writeFileSync`, no `bootstrapFramework`, no
+   * `DecisionStore.initialize`, and crucially no `checkAndMigrateSchema` (which would migrate
+   * the `.paqad/` layout). The caller (the desktop UI) uses the returned tree to render a
+   * "this is what will be created / overwritten / skipped" confirmation panel before committing.
+   *
+   * @throws {ValidationError} if `projectRoot` is missing, unreadable, or not a directory. No
+   *   partial {@link OnboardingPreviewResult} is returned in that case.
+   */
+  async preview(options: OnboardingOptions): Promise<OnboardingPreviewResult> {
+    this.assertReadableDirectory(options.projectRoot);
+
+    const { files, warnings } = await this.collectGeneratedFiles(options);
+    const entries = planGeneratedFiles(options.projectRoot, files);
+
+    return { entries, warnings };
+  }
+
+  /**
+   * Validate that a path exists, is readable, and is a directory. Throws a stable
+   * {@link ValidationError} (code `VALIDATION_ERROR`) otherwise — the consumer distinguishes
+   * this from a generic failure to show the right copy.
+   */
+  private assertReadableDirectory(projectRoot: string): void {
+    let isDirectory: boolean;
+    try {
+      accessSync(projectRoot, fsConstants.R_OK);
+      isDirectory = statSync(projectRoot).isDirectory();
+    } catch (error) {
+      throw new ValidationError(`Onboarding preview cannot read project path: ${projectRoot}`, {
+        projectRoot,
+        reason: error instanceof Error ? error.message : 'unreadable path',
+      });
+    }
+
+    if (!isDirectory) {
+      throw new ValidationError(
+        `Onboarding preview requires a directory, but path is not one: ${projectRoot}`,
+        { projectRoot },
+      );
+    }
+  }
+
+  /**
+   * Build the in-memory `GeneratedFile[]` list exactly as Phase 1 of {@link run} does, with no
+   * side effects. Kept separate from `run` so `run`'s write path stays untouched (PQD-103
+   * additive-only safeguard). Returns any non-fatal warnings collected while planning.
+   */
+  private async collectGeneratedFiles(
+    options: OnboardingOptions,
+  ): Promise<{ files: GeneratedFile[]; warnings: string[] }> {
+    const warnings: string[] = [];
+
+    // Read-only preview: detect + snapshot without persisting anything to `.paqad/`.
+    const detector = new Detector();
+    const detection = await detector.detect(options.projectRoot, { persist: false });
+    const introspector = new StackIntrospector();
+    const liveSnapshot = await introspector.snapshot(options.projectRoot, { persist: false });
+    const selections = await resolveSelections(detection, liveSnapshot, options.selections);
+    const runtimeRoot = options.runtimeRoot ?? getRuntimeRoot();
+    const resolver = new Resolver({ runtimeRoot });
+    const resolved = await resolver.resolve(selections);
+    const adapters = options.adapters ?? selections.providers ?? ['claude-code'];
+    const profile = buildProjectProfile(
+      selections,
+      liveSnapshot,
+      options.profileOverrides,
+      options.projectRoot,
+    );
+    profile.intelligence = applyRagSelection(profile.intelligence, undefined);
+    const validator = new SchemaValidator();
+    const validation = validator.validate('project-profile', profile);
+    if (!validation.valid) {
+      throw new ValidationError(validation.errors.map((error) => error.message).join('; '), {
+        projectRoot: options.projectRoot,
+      });
+    }
+
+    const files: GeneratedFile[] = [];
+
+    for (const adapterType of adapters) {
+      const adapter = AdapterFactory.create(adapterType);
+      files.push(
+        ...(await adapter.generateConfig({
+          frameworkPath: PATHS.FRAMEWORK_PATH,
+          rulesPath: PATHS.RULES_DIR,
+          projectRoot: options.projectRoot,
+        })),
+      );
+
+      if (adapter.capabilities.hooks) {
+        files.push(...(await adapter.installHooks(resolved.hooks)));
+      }
+
+      if (adapter.capabilities.mcp) {
+        files.push(...(await adapter.installMcp(resolved.mcpConfigs, profile)));
+      }
+
+      if (adapter.capabilities.caching) {
+        files.push(...(await adapter.configureCaching(profile)));
+      }
+
+      if (adapter.capabilities.memory) {
+        files.push(...(await adapter.configureMemory(profile)));
+      }
+    }
+
+    files.push(...(await generateProjectRules(resolved.rules)));
+    files.push(...generateFeatureDevelopmentPolicy(selections.domain));
+    files.push(
+      ...(await generateReferenceGuides(runtimeRoot, {
+        domain: selections.domain,
+        stack_profile: selections.stack_profile,
+      })),
+    );
+
+    const silentUpdateSrc = join(runtimeRoot, 'hooks', 'silent-update.sh');
+    try {
+      const hookContent = readFileSync(silentUpdateSrc, 'utf8');
+      files.push({
+        path: PATHS.HOOKS_SILENT_UPDATE,
+        content: hookContent,
+        autoUpdate: true,
+        executable: true,
+      });
+    } catch {
+      warnings.push('Silent-update hook script not found in runtime; preview omits it.');
+    }
+
+    return { files, warnings };
   }
 }
 
