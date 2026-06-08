@@ -1,5 +1,69 @@
 # paqad-ai
 
+## 1.9.0
+
+### Minor Changes
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: build in small pieces, then reconnect to the whole ([#104](https://github.com/Eliyce/paqad-ai/issues/104))
+
+  Planning now pins the default slice unit to **one acceptance criterion**. On the graduated/full lanes a
+  slice that proves no independently-testable criterion is rejected (`SLICE_GRANULARITY_FLOOR`), and a
+  slice that bundles several criteria must record why separating them would break the work
+  (`SLICE_COMBINE_REASON`, via a new `ExecutionSlice.combine_reason`). The slice executor already takes each
+  slice fully through its checks before the next begins; that one-at-a-time ordering is now pinned by test.
+  After the slices are built, a new **reconnect check** confirms the assembled pieces fit the _frozen_
+  whole-feature spec ([#102](https://github.com/Eliyce/paqad-ai/issues/102)) — every frozen criterion covered and proven, no off-spec or double-owned
+  criterion, no unwired cross-slice seam — anchored on the written spec, not the agent's memory. It is a
+  real check that fails on an incoherent assembly, structural by default and escalating to an agent
+  re-read on the full lane. The fast lane is untouched: trivial work still builds in one step with no
+  slicing or reconnect ceremony. Reuses `VerificationCriterion`, `execution_slices`, and the
+  plan-vs-actual snapshot — no new acceptance-criterion model and no new slice store.
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: freeze a machine-checkable feature spec and define a single "done" bar before building ([#102](https://github.com/Eliyce/paqad-ai/issues/102))
+
+  Non-trivial features (graduated/full lanes) now require a frozen spec carrying behaviour,
+  acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n),
+  validated by the new `feature-spec` schema. A spec freezes only with no open questions, no critical
+  spec-review defects, and a confirmed invariant set. "Done" becomes a checkable bar — gates pass, every
+  acceptance criterion is proven, and no confirmed problem remains; style/taste never blocks. Mid-build
+  goal changes and work-vs-spec contradictions pause via the Decision Pause Contract
+  (`spec.change` / `spec.contradiction`). The fast lane is unaffected — trivial work needs no spec.
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: keep a passing check meaningful — flaky-test detection, quarantine, and trust ([#106](https://github.com/Eliyce/paqad-ai/issues/106))
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: add a mutation-testing verification gate that plants mutants in the changed code, reports the kill rate and surviving mutants (file/line/operator), and selects the mature per-language tool — marking weak-tooled languages lower-confidence — with full tree-clean safety and per-module score roll-up ([#105](https://github.com/Eliyce/paqad-ai/issues/105))
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: never fix a problem without first proving it exists ([#103](https://github.com/Eliyce/paqad-ai/issues/103))
+
+  A behaviour-affecting fix now follows a four-step protocol — prove broken, fix, prove fixed, prove
+  nothing else broke — and the proof is kept as a durable regression guard so the same defect cannot
+  silently return. The proof is validated as genuine (re-run against the unfixed tree must fail);
+  trivially-passing proofs are rejected. After the fix, the full check set runs and any newly-failing
+  previously-passing check rejects the fix, reusing the existing test-output delta projection — no parallel
+  result store. Problems that genuinely cannot be auto-checked (timing/appearance) open a single
+  `fix.proof_method` Decision Pause, asked once and reused by kind. Proof-first is skipped only for changes
+  that cannot affect behaviour (comments, blank lines, docs); when in doubt, the change is treated as
+  behaviour-affecting, so the fast lane stays light for cosmetic edits.
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: quality ratchet — record four quality measures at today's real level and only ever allow equal-or-better ([#110](https://github.com/Eliyce/paqad-ai/issues/110))
+
+  Captures tangledness, dead/unused code, risky patterns, and strictness into
+  `.paqad/quality-baseline.json` (per module + project), then a verification gate
+  refuses any change that worsens a measure — the recorded level only tightens.
+  Dead code is consumed from [#109](https://github.com/Eliyce/paqad-ai/issues/109)'s reachability output (one solver, two uses);
+  the baseline starts from reality so day one is no clean-up; a legitimate
+  regression opens a reused-by-kind `quality.ratchet_exception` Decision Pause.
+  The fast lane isn't blocked by measure noise but still cannot loosen the
+  baseline.
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: bounded, quiet build-check-fix loop — wrap the single verification pass in lane-scaled rounds with futility detection, keep the round record internal, and emit exactly one honest "stuck" report via the `stop` escalation at the cap ([#108](https://github.com/Eliyce/paqad-ai/issues/108))
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: make sure everything promised got built and nothing extra crept in — bidirectional traceability ([#109](https://github.com/Eliyce/paqad-ai/issues/109))
+
+  Rebuilds a two-way promise ↔ code ↔ test map from reality each run, joining the existing compliance forward link (spec→test), the module map, the import graph, and verification-evidence `ac_id`. Flags promises with no proving check (`TR-UNTESTED-PROMISE`) and code that answers to no promise and that nothing-with-a-promise uses (`TR-CODE-ORPHAN`, decided by reachability over the import graph — not by a label). Shared groundwork passes by _use_; a "this is fine" comment cannot suppress a truly-dead flag. Lane-gated (fast = change-set subset; graduated/full = full build) and written to `.paqad/traceability/map.json`.
+
+- [#114](https://github.com/Eliyce/paqad-ai/pull/114) [`50f9651`](https://github.com/Eliyce/paqad-ai/commit/50f965179d632b444471459ea756fd7885082ac4) Thanks [@HLasani](https://github.com/HLasani)! - feat: sort every finding into four piles before acting — only confirmed, demonstrable problems drive a code change; unclear-spec routes to the spec, false-alarm/taste are recorded, ambiguous opens a `finding.triage` Decision Pause reused by kind ([#107](https://github.com/Eliyce/paqad-ai/issues/107))
+
 ## 1.8.1
 
 ### Patch Changes
