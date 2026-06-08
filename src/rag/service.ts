@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
@@ -7,6 +7,8 @@ import { AstChunker } from '@/context/ast-chunker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { CancelledError, isCancelledError } from '@/core/errors/cancelled-error.js';
+import { appendRunCancelledEvent } from '@/module-decisions/events.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
@@ -39,6 +41,14 @@ import { FileVectorIndex } from './vector-index.js';
 
 /** Max non-whitespace characters per vision chunk before it is split further. */
 const VISION_MAX_CHUNK_CHARS = 2000;
+
+/**
+ * Project-relative location of the resumable partial index written when a
+ * rebuild is cancelled mid-flight (PQD-104). Kept distinct from the full index
+ * so a cancelled run never overwrites a previously-good `index.json`.
+ */
+const PARTIAL_VECTOR_INDEX = PATHS.VECTOR_INDEX.replace(/\.json$/, '.partial.json');
+const PARTIAL_VECTOR_META = PATHS.VECTOR_META.replace(/\.json$/, '.partial.json');
 
 function queryTextFromTask(
   taskDescription?: string,
@@ -168,13 +178,15 @@ export class RagService {
     }
 
     const start = Date.now();
+    const signal = options?.signal;
+    const runId = randomUUID();
+    let provider: EmbeddingProvider | undefined;
 
     try {
-      const provider = await this.providerFactory(
-        this.projectRoot,
-        intelligence,
-        options?.onProgress,
-      );
+      // Pre-flight: never start work once the consumer has already aborted.
+      this.throwIfAborted(signal);
+
+      provider = await this.providerFactory(this.projectRoot, intelligence, options?.onProgress);
 
       try {
         await provider.validate();
@@ -213,11 +225,17 @@ export class RagService {
             : Math.round((chunkIndex.entries.length / sourceFiles.length) * 100),
       });
 
-      const items = await this.embedChunks(
-        provider,
-        flattenChunks(chunkIndex),
-        options?.onProgress,
-      );
+      const items = await this.embedChunks(provider, flattenChunks(chunkIndex), {
+        onProgress: options?.onProgress,
+        signal,
+      });
+      // Final boundary: an abort landing between embedding and the index write
+      // still cancels — the embedded chunks become the partial checkpoint.
+      if (signal?.aborted) {
+        throw new CancelledError('RAG rebuild cancelled by consumer', {
+          partialChunks: items,
+        } as Record<string, unknown>);
+      }
       await this.vectorIndex.replaceAll(this.projectRoot, items, {
         provider: provider.name,
         model: provider.model,
@@ -232,12 +250,52 @@ export class RagService {
         duration_ms: Date.now() - start,
       });
     } catch (error) {
+      if (isCancelledError(error)) {
+        const checkpointPath = await this.writePartialIndex(error, provider);
+        appendRagAudit(this.projectRoot, 'WARN', 'rag-build-cancelled', {
+          checkpoint_path: checkpointPath,
+          duration_ms: Date.now() - start,
+        });
+        appendRunCancelledEvent(this.projectRoot, runId, {
+          reason: 'rag-rebuild-cancelled',
+          checkpoint_path: checkpointPath,
+        });
+        // Re-throw with only the stable, public-facing checkpoint detail.
+        throw new CancelledError('RAG rebuild cancelled by consumer', {
+          checkpoint_path: checkpointPath,
+        });
+      }
       appendRagAudit(this.projectRoot, 'WARN', 'rag-build-failed', {
         reason: error instanceof Error ? error.message : 'unknown-error',
         duration_ms: Date.now() - start,
       });
       throw error;
     }
+  }
+
+  /**
+   * Write the chunks embedded before cancellation to a resumable `.partial`
+   * index and return its project-relative path (PQD-104). Returns undefined when
+   * nothing was embedded (e.g. aborted before the provider was ready), in which
+   * case no partial file is written.
+   */
+  private async writePartialIndex(
+    error: CancelledError,
+    provider: EmbeddingProvider | undefined,
+  ): Promise<string | undefined> {
+    const partial = (error.details?.partialChunks as StoredVectorChunk[] | undefined) ?? [];
+    if (partial.length === 0 || !provider) {
+      return undefined;
+    }
+    const partialIndex = new FileVectorIndex<StoredVectorChunk>(
+      PARTIAL_VECTOR_INDEX,
+      PARTIAL_VECTOR_META,
+    );
+    await partialIndex.replaceAll(this.projectRoot, partial, {
+      provider: provider.name,
+      model: provider.model,
+    });
+    return PARTIAL_VECTOR_INDEX;
   }
 
   async clear(): Promise<void> {
@@ -655,19 +713,34 @@ export class RagService {
     return chunks.length > 0 ? chunks : [text];
   }
 
+  private throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      throw new CancelledError('RAG rebuild cancelled by consumer');
+    }
+  }
+
   private async embedChunks(
     provider: EmbeddingProvider,
     chunks: Chunk[],
-    onProgress?: BuildIndexOptions['onProgress'],
+    options?: { onProgress?: BuildIndexOptions['onProgress']; signal?: AbortSignal },
   ): Promise<StoredVectorChunk[]> {
     if (chunks.length === 0) {
       return [];
     }
 
+    const onProgress = options?.onProgress;
+    const signal = options?.signal;
     const results: StoredVectorChunk[] = [];
     const batchSize = 32;
     const start = Date.now();
     for (let offset = 0; offset < chunks.length; offset += batchSize) {
+      // Per-batch cancellation boundary: surface the chunks embedded so far so
+      // the caller can persist them as a resumable partial checkpoint (PQD-104).
+      if (signal?.aborted) {
+        throw new CancelledError('RAG rebuild cancelled by consumer', {
+          partialChunks: results,
+        } as Record<string, unknown>);
+      }
       const batch = chunks.slice(offset, offset + batchSize);
       const vectors = await provider.embed(batch.map((chunk) => chunk.content));
       for (let index = 0; index < batch.length; index++) {

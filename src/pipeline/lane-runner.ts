@@ -69,6 +69,7 @@ import {
   createActiveImplementationSession,
   writeActiveImplementationSession,
 } from '@/session/active-implementation.js';
+import { appendRunCancelledEvent } from '@/module-decisions/events.js';
 
 const PROJECT_SKILL_ROOTS = ['.codex/skills', '.claude/skills', '.gemini/skills', '.junie/skills'];
 
@@ -77,6 +78,18 @@ export interface LaneRunnerOptions {
   phaseOverrides?: Partial<Record<PipelinePhase, PhaseExecutor>>;
   /** Optional registry of runtime-registered skills to merge into the available set. */
   runtimeRegistry?: RuntimeSkillRegistry;
+}
+
+/** Per-call options for cancellable pipeline runs (PQD-104). */
+export interface LaneRunOptions {
+  /**
+   * Optional consumer cancellation signal. When it aborts, the run settles at
+   * the next phase boundary, resolves with a `PipelineResult` carrying
+   * `cancelled: true` and `blocked_at` set to the interrupted phase, writes the
+   * handoff artifact with `closure_summary.blocked === true`, and emits a single
+   * `run.cancelled` event.
+   */
+  signal?: AbortSignal;
 }
 
 const DEFAULT_PHASES: Record<PipelinePhase, PhaseExecutor> = {
@@ -121,15 +134,21 @@ export class LaneRunner {
     };
   }
 
-  async runFullLane(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification, 'full');
+  async runFullLane(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, 'full', options);
   }
 
-  async run(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification);
+  async run(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, undefined, options);
   }
 
-  async runRequest(request: string): Promise<PipelineResult> {
+  async runRequest(request: string, options?: LaneRunOptions): Promise<PipelineResult> {
     const profile = readProjectProfile(this.projectRoot);
     const route = await new WorkflowRouterService({ projectRoot: this.projectRoot }).resolve(
       request,
@@ -141,20 +160,27 @@ export class LaneRunner {
       resolved_workflow: route,
     });
 
-    return this.runLane(classification);
+    return this.runLane(classification, undefined, options);
   }
 
-  async runGraduatedLane(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification, 'graduated');
+  async runGraduatedLane(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, 'graduated', options);
   }
 
-  async runFastLane(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification, 'fast');
+  async runFastLane(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, 'fast', options);
   }
 
   private async runLane(
     classification: ClassificationResult,
     forcedLane?: Lane,
+    options?: LaneRunOptions,
   ): Promise<PipelineResult> {
     if (classification.workflow === null) {
       const changeEvidence = await loadChangeEvidence(this.projectRoot);
@@ -197,9 +223,18 @@ export class LaneRunner {
       phases: [],
       feature_policy: featurePolicyResult.policy,
       policy_warnings: [...featurePolicyResult.warnings],
+      signal: options?.signal,
     };
+    const runId = randomUUID();
 
     for (const phaseName of phases) {
+      // Cancellation boundary: pre-flight (before the first phase) and between
+      // phases. An already-aborted signal returns here without executing any
+      // phase (PQD-104).
+      if (context.signal?.aborted) {
+        return this.cancelLaneRun(phaseName, context, classification, lane, analysisRoles, runId);
+      }
+
       const result = await this.phases[phaseName].execute(context);
       context.phases.push(result);
       await this.writeHandoffArtifact(
@@ -211,6 +246,11 @@ export class LaneRunner {
         context.verification_results,
         context.verification_context,
       );
+
+      // An abort that landed while this phase was running settles the run now.
+      if (context.signal?.aborted) {
+        return this.cancelLaneRun(phaseName, context, classification, lane, analysisRoles, runId);
+      }
 
       if (result.status === 'fail') {
         return {
@@ -448,6 +488,57 @@ export class LaneRunner {
     })();
   }
 
+  /**
+   * Settle a consumer-cancelled pipeline run (PQD-104): write the handoff
+   * artifact with a forced-blocked closure summary, emit exactly one
+   * `run.cancelled` event, and resolve with a `cancelled: true` result so the
+   * consumer never has to catch a thrown error.
+   */
+  private async cancelLaneRun(
+    phaseName: PipelinePhase,
+    context: PipelineRunContext,
+    classification: ClassificationResult,
+    lane: Lane,
+    analysisRoles: PipelineAnalysisRole[],
+    runId: string,
+  ): Promise<PipelineResult> {
+    const reason = `Run cancelled by consumer during phase "${phaseName}".`;
+    await this.writeHandoffArtifact(
+      phaseName,
+      context.phases,
+      classification,
+      lane,
+      context.policy_warnings,
+      context.verification_results,
+      context.verification_context,
+      reason,
+    );
+    appendRunCancelledEvent(this.projectRoot, runId, {
+      blocked_at: phaseName,
+      lane,
+      workflow: classification.workflow,
+    });
+    const changeEvidence = await loadChangeEvidence(this.projectRoot);
+    return {
+      lane,
+      phases: context.phases,
+      blocked_at: phaseName,
+      handoff_path: join(this.projectRoot, PATHS.HANDOFF),
+      analysisRoles,
+      reviewTier: selectImplementationReviewTier(classification, lane),
+      reviewMode: selectReviewMode(false, 0),
+      route_reason: reason,
+      cancelled: true,
+      closure_summary: buildChangeClosureSummary({
+        changed_files: changeEvidence.files,
+        phases: context.phases,
+        verification_results: context.verification_results,
+        verification_context: context.verification_context,
+        forced_blocking_reason: reason,
+      }),
+    };
+  }
+
   private async writeHandoffArtifact(
     currentPhase: PipelinePhase,
     phases: PhaseResult[],
@@ -456,6 +547,7 @@ export class LaneRunner {
     policyWarnings: string[],
     verificationResults?: PipelineRunContext['verification_results'],
     verificationContext?: PipelineRunContext['verification_context'],
+    cancellationReason?: string,
   ): Promise<void> {
     const changeEvidence = await loadChangeEvidence(this.projectRoot);
     const artifact: HandoffArtifact = {
@@ -485,6 +577,7 @@ export class LaneRunner {
         phases,
         verification_results: verificationResults,
         verification_context: verificationContext,
+        forced_blocking_reason: cancellationReason,
       }),
       references: {
         spec: 'docs/spec.md',

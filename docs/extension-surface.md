@@ -133,6 +133,24 @@ refused with a `ValidationError` and no partial tree. The standalone
 | desktop (planned) | src/core/types/onboarding.ts | `OnboardingFileTreeEntry` | `interface OnboardingFileTreeEntry { path; action ('create'/'overwrite'/'skip'); mtimeMs?; templateError? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/core/types/onboarding.ts | `OnboardingPreviewResult` | `interface OnboardingPreviewResult { entries: OnboardingFileTreeEntry[]; warnings: string[] }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 
+### Consumer-side cancellation (PQD-104)
+
+Every long-running engine call accepts an optional `AbortSignal`. When the
+consumer aborts, the call settles at the next boundary: `LaneRunner.run*`
+resolves with `PipelineResult.cancelled === true` (and `blocked_at` set to the
+interrupted phase), `WorkflowEngine.run/resume` returns
+`WorkflowRunProgress.status === 'cancelled'`, and `RagService.rebuild` /
+`checkSpecCompliance` throw `CancelledError`. A single `run.cancelled` event is
+appended to the module-map event log for the run, and no further events follow.
+Already-aborted signals return immediately without starting work.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned), api (planned) | src/core/errors/cancelled-error.ts | `CancelledError` | `class CancelledError extends FrameworkError { code: 'CANCELLED_BY_CONSUMER'; details?: { checkpoint_path? } }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/cancelled-error.ts | `isCancelledError` | `isCancelledError(error: unknown): error is CancelledError` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/pipeline/lane-runner.ts | `LaneRunOptions` | `interface LaneRunOptions { signal?: AbortSignal }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/workflows/engine.ts | `WorkflowRunOptions` | `interface WorkflowRunOptions { signal?: AbortSignal }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ## Engine event-stream consumers (planned)
 
 The unified in-process event bus (PQD-99). The desktop forwards `EngineEvent`

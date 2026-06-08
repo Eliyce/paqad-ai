@@ -230,6 +230,14 @@ export interface RagRetrievalResult {
 export interface BuildIndexOptions {
   intelligence?: IntelligenceConfig;
   onProgress?: (update: ProviderProgressUpdate) => void;
+  /**
+   * Optional consumer cancellation signal (PQD-104). When it aborts, `rebuild`
+   * stops at the next chunk-batch boundary, writes the chunks embedded so far to
+   * a resumable `.partial` index, emits a single `run.cancelled` event, and
+   * throws a `CancelledError` whose `details.checkpoint_path` points at that
+   * partial index. No full index file is written.
+   */
+  signal?: AbortSignal;
 }
 
 export type ProviderFactory = (

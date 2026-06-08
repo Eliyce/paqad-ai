@@ -272,9 +272,12 @@ steps:
       }),
     }).run('wired-runner', { classification: { workflow: 'custom' } });
 
-    expect(execute).toHaveBeenCalledWith({
-      skill: 'real-skill',
-    });
+    expect(execute).toHaveBeenCalledWith(
+      {
+        skill: 'real-skill',
+      },
+      undefined,
+    );
     expect(progress.status).toBe('completed');
     expect(progress.steps[0]?.status).toBe('completed');
   });

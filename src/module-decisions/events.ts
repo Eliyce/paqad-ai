@@ -13,7 +13,10 @@ export type ModuleMapEventType =
   | 'module.health.rolled-up'
   | 'module.decision.expired'
   | 'module.decision.rejected'
-  | 'module.map.snapshot';
+  | 'module.map.snapshot'
+  // PQD-104 — emitted once for a workflow/pipeline/index run that a consumer
+  // cancelled via an AbortSignal. No further events for that run_id follow.
+  | 'run.cancelled';
 
 export interface ModuleMapEvent {
   ts: string;
@@ -21,6 +24,8 @@ export interface ModuleMapEvent {
   slug?: string;
   via?: string;
   approved_by?: string;
+  /** Correlates the event to a specific workflow or pipeline run (PQD-104). */
+  run_id?: string;
   payload?: Record<string, unknown>;
 }
 
@@ -37,6 +42,24 @@ function ensureEventsFile(projectRoot: string): string {
 export function appendModuleMapEvent(projectRoot: string, event: ModuleMapEvent): void {
   const path = ensureEventsFile(projectRoot);
   appendFileSync(path, JSON.stringify(event) + '\n', 'utf8');
+}
+
+/**
+ * Append the single `run.cancelled` audit event for a consumer-cancelled run
+ * (PQD-104). Call sites guard so this fires at most once per run; a second
+ * abort on an already-cancelled run must not write a duplicate event.
+ */
+export function appendRunCancelledEvent(
+  projectRoot: string,
+  runId: string,
+  payload?: Record<string, unknown>,
+): void {
+  appendModuleMapEvent(projectRoot, {
+    ts: new Date().toISOString(),
+    type: 'run.cancelled',
+    run_id: runId,
+    payload,
+  });
 }
 
 export function readModuleMapEvents(projectRoot: string): ModuleMapEvent[] {

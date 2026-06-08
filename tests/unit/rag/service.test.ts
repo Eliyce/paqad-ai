@@ -815,15 +815,17 @@ describe('RagService', () => {
         embedChunks: (
           provider: EmbeddingProvider,
           chunks: typeof chunks,
-          onProgress: (update: {
-            message: string;
-            loaded: number;
-            total: number;
-            percent: number;
-          }) => void,
+          options: {
+            onProgress: (update: {
+              message: string;
+              loaded: number;
+              total: number;
+              percent: number;
+            }) => void;
+          },
         ) => Promise<Array<{ vector: number[] }>>;
       }
-    ).embedChunks(provider, chunks, progress);
+    ).embedChunks(provider, chunks, { onProgress: progress });
 
     expect(embedded).toHaveLength(40);
     expect(progress).toHaveBeenCalledTimes(2);
