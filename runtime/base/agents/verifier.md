@@ -60,6 +60,18 @@ On the first blocking failure:
 4. Stop execution - do not run subsequent gates
 5. Preserve the evidence for the final reviewer
 
+### Step 3b - Flaky-test trust (keep a pass meaningful)
+
+A pass must mean the code is fine — so a test that passes or fails at random must not be allowed to erode trust in real failures. Issue #106:
+
+- **Assume real first.** Treat every test failure as a genuine fault. Never dismiss one as "probably flaky" before evidence rules out a real cause.
+- **Judge stability by re-runs.** When a non-quarantined failure is _suspected_ flaky, re-run it on the unchanged tree a bounded, project-tunable number of times (`custom.flaky.rerun_count`, default 3). It is flaky only if it _flips_ (passes at least once); failing every time stays real.
+- **Quarantine, never delete.** A confirmed flaky test is recorded in `.paqad/flaky-tests/registry.json`. It stops blocking the gate **and** stops counting as meaningful green — a pass riding on a quarantined test is not real comfort. The test is marked, never removed.
+- **Force the fix on touch.** A quarantined test is linked to its module(s). On `graduated`/`full` lanes, the next change touching that module must fix it (the touch gate blocks); `fast`-lane changes are never blocked by it.
+- **Surface root causes.** Report the usual smells (timing, order-dependence, shared state, network/IO, randomness) so the flake is fixed at the root.
+- **Clear only on evidence.** Re-runs must prove stability before a quarantine is cleared — never trust a claimed fix.
+- **Ambiguous cases ask once.** A lone flip that could be a rare real fault opens a `test.flaky_judgement` Decision Pause, asked once and reused by kind.
+
 ### Step 4 - Result reporting
 
 After all gates complete (or after first failure):

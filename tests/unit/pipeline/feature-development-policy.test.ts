@@ -102,6 +102,42 @@ describe('feature development policy', () => {
     expect(result.policy.stages.review.strictness.require_review).toBe(true);
   });
 
+  it('merges per-lane build-check-fix round caps (issue #108)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
+    mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
+      YAML.stringify({
+        schema_version: '1',
+        stages: {},
+        rounds: { full: 8, graduated: 4 },
+      }),
+    );
+
+    const result = loadFeatureDevelopmentPolicy(root);
+
+    expect(result.policy.rounds).toEqual({ full: 8, graduated: 4 });
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('rejects an out-of-range round cap via the schema and falls back to defaults', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
+    mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
+      YAML.stringify({
+        schema_version: '1',
+        stages: {},
+        rounds: { full: 0 },
+      }),
+    );
+
+    const result = loadFeatureDevelopmentPolicy(root);
+
+    expect(result.policy).toEqual(defaultFeatureDevelopmentPolicy());
+    expect(result.warnings[0]).toContain('is invalid');
+  });
+
   it('falls back to defaults with warnings when the project policy is invalid', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
     mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });

@@ -1,6 +1,9 @@
 import type { VerificationGate } from './verification.js';
+import type { MutationConfidence } from './mutation.js';
 
-export const VERIFICATION_EVIDENCE_SCHEMA_VERSION = '1.0.0';
+// 1.1.0 — added the optional `confidence` flag on gate entries so the
+// mutation-testing gate can surface lower-confidence results (issue #105).
+export const VERIFICATION_EVIDENCE_SCHEMA_VERSION = '1.1.0';
 
 export const EVIDENCE_GATE_STATUSES = ['pass', 'fail', 'inconclusive', 'skipped'] as const;
 export type EvidenceGateStatus = (typeof EVIDENCE_GATE_STATUSES)[number];
@@ -33,6 +36,10 @@ export interface VerificationEvidenceGate {
   detail: string;
   remediation: string | null;
   failures: VerificationEvidenceFailure[];
+  // Issue #105 — present on the mutation-testing gate. `lower` flags a
+  // weak-tooled language whose score must not be over-trusted; `mature` a
+  // result from an established per-language tool.
+  confidence?: MutationConfidence;
 }
 
 export interface VerificationEvidence {

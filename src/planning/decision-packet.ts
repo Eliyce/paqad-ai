@@ -11,6 +11,12 @@ export const DECISION_CATEGORIES = [
   'intake.confirm_auto_resolution',
   'intake.write_back',
   'delivery.open_pr',
+  'spec.change',
+  'spec.contradiction',
+  'fix.proof_method',
+  'test.flaky_judgement',
+  'finding.triage',
+  'quality.ratchet_exception',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -103,6 +109,28 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'intake.confirm_auto_resolution': { create_new: false, reversibility: 'easy', ttl_days: 7 },
   'intake.write_back': { create_new: false, reversibility: 'easy', ttl_days: 1 },
   'delivery.open_pr': { create_new: false, reversibility: 'easy', ttl_days: 1 },
+  // Spec lifecycle (issue #102). A mid-build goal change updates and re-freezes
+  // the spec; a work-vs-spec contradiction is put to the human (fix code or
+  // change spec) and is never resolved silently.
+  'spec.change': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  'spec.contradiction': { create_new: false, reversibility: 'hard', ttl_days: 7 },
+  // Fix protocol (issue #103). How to confirm an un-auto-checkable problem
+  // (timing/appearance) is fixed — asked once, reused by kind. Reversible: the
+  // agent can re-ask if the confirmation method stops fitting.
+  'fix.proof_method': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  // Flaky-test trust (issue #106). A rare flip that could be a real intermittent
+  // fault vs. flakiness — asked once, reused by kind. Reversible: the agent can
+  // re-ask if the judgement stops fitting.
+  'test.flaky_judgement': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  // Finding triage (issue #107). A genuinely ambiguous finding the rules-first
+  // classifier could not sort into one of the four piles — asked once, reused by
+  // kind. Reversible: the agent can re-ask if the verdict stops fitting.
+  'finding.triage': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  // Quality-ratchet exception (issue #110). A legitimate need to worsen one of
+  // the four quality measures — approved once, reused for the same kind by
+  // `findReusableDecision`. Reversible: the agent can re-ask if the approval
+  // stops fitting.
+  'quality.ratchet_exception': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

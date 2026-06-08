@@ -1,0 +1,110 @@
+{
+  "$id": "feature-spec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "spec_id",
+    "spec_file",
+    "spec_hash",
+    "behaviour",
+    "acceptance_criteria",
+    "invariants",
+    "open_questions",
+    "frozen"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "spec_id": { "type": "string", "pattern": "^S-[A-Za-z0-9-]+$" },
+    "spec_file": { "type": "string", "minLength": 1 },
+    "spec_hash": { "type": "string", "minLength": 1 },
+    "behaviour": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/verificationCriterion" }
+    },
+    "invariants": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/invariant" }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "frozen": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/frozenMetadata" }]
+    }
+  },
+  "$defs": {
+    "verificationCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input", "expected_behavior"],
+      "properties": {
+        "input": { "type": "string" },
+        "expected_behavior": { "type": "string" }
+      }
+    },
+    "verificationCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion_id",
+        "given",
+        "when",
+        "then",
+        "proof_type",
+        "status",
+        "source",
+        "linked_requirement_ids"
+      ],
+      "properties": {
+        "criterion_id": { "type": "string", "pattern": "^AC-\\d+$" },
+        "given": { "type": "string" },
+        "when": { "type": "string" },
+        "then": { "type": "string" },
+        "proof_type": { "type": "string", "enum": ["automated", "manual", "visual"] },
+        "proof_target": { "type": "string" },
+        "negative_cases": { "type": "array", "items": { "$ref": "#/$defs/verificationCase" } },
+        "edge_cases": { "type": "array", "items": { "$ref": "#/$defs/verificationCase" } },
+        "adversarial_cases": { "type": "array", "items": { "$ref": "#/$defs/verificationCase" } },
+        "status": {
+          "type": "string",
+          "enum": ["uncovered", "covered", "partial", "indeterminate"]
+        },
+        "source": {
+          "type": "string",
+          "enum": ["planned", "compiled-rule", "defect-pattern", "contract-boundary", "inherited"]
+        },
+        "linked_requirement_ids": { "type": "array", "items": { "type": "string" } },
+        "rule_id": { "type": "string" },
+        "pattern_id": { "type": "string" }
+      }
+    },
+    "invariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invariant_id", "statement", "source", "confirmed"],
+      "properties": {
+        "invariant_id": { "type": "string", "pattern": "^INV-\\d+$" },
+        "statement": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "enum": ["compiled-rule", "module-rule", "authored"] },
+        "rule_id": { "type": "string" },
+        "confirmed": { "type": "boolean" }
+      }
+    },
+    "frozenMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frozen_at", "spec_hash", "signed_off_by"],
+      "properties": {
+        "frozen_at": { "type": "string", "format": "date-time" },
+        "spec_hash": { "type": "string", "minLength": 1 },
+        "signed_off_by": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

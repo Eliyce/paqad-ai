@@ -108,6 +108,12 @@ export function defaultSimilarityFor(
     case 'intake.confirm_auto_resolution':
     case 'intake.write_back':
     case 'delivery.open_pr':
+    case 'spec.change':
+    case 'spec.contradiction':
+    case 'fix.proof_method':
+    case 'test.flaky_judgement':
+    case 'finding.triage':
+    case 'quality.ratchet_exception':
       return 0.5;
   }
 }

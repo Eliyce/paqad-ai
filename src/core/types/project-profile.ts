@@ -218,6 +218,12 @@ export interface DecisionProfileConfig {
   preferred_option_keys?: Partial<Record<DecisionCategory, string>>;
 }
 
+// Issue #106 — flaky-test handling. Re-run count is project-tunable so a slow
+// suite can keep stability re-runs cheap; clamped to a sane band at read time.
+export interface FlakyProfileConfig {
+  rerun_count?: number;
+}
+
 export interface ProjectProfile {
   project: ProjectMetadata;
   active_capabilities: ActiveCapability[];
@@ -247,5 +253,6 @@ export interface ProjectProfile {
     verification_plugins: VerificationPluginConfig[];
     escalation_rules: EscalationRuleConfig[];
     decisions?: DecisionProfileConfig;
+    flaky?: FlakyProfileConfig;
   };
 }

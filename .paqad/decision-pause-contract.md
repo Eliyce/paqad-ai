@@ -16,6 +16,11 @@ Before implementing any choice that falls into one of the categories below, writ
 - `intake.confirm_auto_resolution`
 - `intake.write_back`
 - `delivery.open_pr`
+- `spec.change`
+- `spec.contradiction`
+- `fix.proof_method`
+- `test.flaky_judgement`
+- `finding.triage`
 
 ## Resolution flow
 

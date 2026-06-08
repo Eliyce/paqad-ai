@@ -39,6 +39,21 @@ export const PATHS = {
   TRANSITION_LOG: '.paqad/cache/transition-log.json',
   CACHE_METRICS: '.paqad/cache/metrics.json',
   PLANNING_SPECS_DIR: '.paqad/specs',
+  // Issue #103 - persisted regression guards (one sidecar per defect_id)
+  REGRESSION_GUARDS_DIR: '.paqad/regression-guards',
+  // Issue #106 - flaky-test registry / quarantine list
+  FLAKY_TESTS_DIR: '.paqad/flaky-tests',
+  FLAKY_REGISTRY: '.paqad/flaky-tests/registry.json',
+  // Issue #107 - per-run finding triage ledger (four-pile sort + reasons)
+  FINDINGS_DIR: '.paqad/findings',
+  TRIAGE_LEDGER: '.paqad/findings/triage.json',
+  // Issue #109 - bidirectional traceability map (promise ↔ code ↔ test),
+  // rebuilt from reality each run.
+  TRACEABILITY_DIR: '.paqad/traceability',
+  TRACEABILITY_MAP: '.paqad/traceability/map.json',
+  // Issue #110 - quality-ratchet baseline (four measures at today's real level;
+  // only ever tightens).
+  QUALITY_BASELINE: '.paqad/quality-baseline.json',
   PLANNING_MODULE_HEALTH_DIR: '.paqad/module-health',
   MODULE_HEALTH_EVIDENCE_DIR: '.paqad/module-health-evidence',
   MODULE_HEALTH_CONSUMED_EVENTS: '.paqad/module-health-consumed-events.json',

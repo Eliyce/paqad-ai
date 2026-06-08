@@ -50,14 +50,18 @@ stages:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
       - "Design-system (issue #76): if the feature includes new or changed UI, the spec must declare component states, breakpoints exercised, and the a11y contract (WCAG criteria the change must satisfy). This extends the spec-quality-review rubric — incomplete UI contracts surface as findings during review."
+      - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently. require_spec_signoff is framework-owned and cannot be downgraded by a project override."
     required_inputs:
       - approved spec boundary
     strictness:
       require_spec: true
+      require_spec_signoff: true
     escalation:
       missing_spec: stop
+      missing_spec_signoff: stop
     artifacts:
       - specification
+      - frozen feature-spec
 
   development:
     instructions:

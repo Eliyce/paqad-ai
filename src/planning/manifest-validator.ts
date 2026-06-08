@@ -1,5 +1,6 @@
 import type { PlanningManifest } from '@/core/types/planning.js';
 
+import { checkSliceGranularity } from './slice-granularity.js';
 import type {
   ManifestValidationError,
   ValidationIssue,
@@ -36,6 +37,7 @@ export function validateManifest(manifest: PlanningManifest): ValidationReport {
   validateDescriptions(manifest, errors);
   validateProofTargets(manifest, errors);
   validateSliceBudgets(manifest, errors, warnings);
+  validateSliceGranularity(manifest, errors);
 
   if (manifest.classification.lane === 'fast') {
     if (manifest.execution_slices.some((slice) => slice.rollback_class !== undefined)) {
@@ -245,6 +247,23 @@ function validateSliceBudgets(
       code: 'SLICE_TOKEN_BUDGET_OVERRUN',
       message: `Slice token_budget overrides exceed the default total task budget (${totalOverrides} > 15000).`,
     });
+  }
+}
+
+function validateSliceGranularity(
+  manifest: PlanningManifest,
+  errors: ManifestValidationError[],
+): void {
+  // Issue #104 — the default slice unit is one acceptance criterion. The fast
+  // lane is exempt (no slicing ceremony for trivial work); checkSliceGranularity
+  // returns ok for it.
+  const report = checkSliceGranularity(manifest);
+  for (const finding of report.findings) {
+    pushError(
+      errors,
+      finding.code === 'below-floor' ? 'SLICE_GRANULARITY_FLOOR' : 'SLICE_COMBINE_REASON',
+      finding.detail,
+    );
   }
 }
 

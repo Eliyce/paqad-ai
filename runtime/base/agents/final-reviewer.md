@@ -41,6 +41,7 @@ Confirm each gate executed and passed:
 3. **Build passes** - the project builds successfully
 4. **Lint passes** - no new lint violations introduced
 5. **Review complete** - adversarial-reviewer has run and all critical issues are resolved
+6. **Quality ratchet held** - the `quality-ratchet` gate did not regress any of the four measures (tangledness, dead code, risky patterns, strictness). A worsening blocks handoff unless a `quality.ratchet_exception` was approved for that kind (issue #110).
 
 If any gate was not run, flag it. If any gate failed and was not resolved, flag as a blocker.
 
@@ -95,3 +96,20 @@ Verify the handoff artifact at `.paqad/session/handoff.json` (or `.md`) contains
 
 ### Ready for Handoff: {yes|no}
 ```
+
+## Traceability map (issue #109)
+
+If `.paqad/traceability/map.json` is present, fold it into the review — it is the
+bidirectional promise ↔ code ↔ test map, rebuilt from reality this run. Treat its
+findings as warnings, not blockers (it never fails the build itself):
+
+- **`TR-UNTESTED-PROMISE`** — a promised acceptance criterion with no proving
+  check. Surface under **Warnings** (or **Spec Compliance** if it drops a
+  required criterion below covered).
+- **`TR-CODE-ORPHAN`** — code that answers to no promise and that nothing-with-a
+  -promise uses. Surface under **Warnings**.
+
+Trust the map's `shared-groundwork` verdict — it means a promise-backed file
+actually uses that code (proven by the import graph), so do not flag it as
+unrequested. When `anchors_known` is `false`, orphan flagging was suppressed for
+lack of a promise anchor; note that rather than treating "no orphans" as proof.

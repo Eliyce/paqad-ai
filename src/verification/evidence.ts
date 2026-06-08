@@ -21,6 +21,7 @@ import type {
   StructuredTestResult,
   TestIssueCategory,
 } from '@/core/types/test-output.js';
+import type { MutationResult } from '@/core/types/mutation.js';
 import { extractAcIdFromIssue } from '@/verification/gates/ac-test-mapping.js';
 
 export const VERIFICATION_EVIDENCE_RELATIVE_PATH = '.paqad/session/verification-evidence.json';
@@ -28,7 +29,7 @@ export const VERIFICATION_EVIDENCE_STDERR_BUDGET_BYTES = 2048;
 
 export interface BuildVerificationEvidenceInput {
   results: GateResult[];
-  context: Pick<VerificationContext, 'structured_test_results'>;
+  context: Pick<VerificationContext, 'structured_test_results' | 'mutation_result'>;
   run_id: string;
   started_at: string;
   completed_at: string;
@@ -43,6 +44,7 @@ export function buildVerificationEvidence(
   }
 
   const testFailures = collectTestFailures(input.context.structured_test_results ?? []);
+  const mutationResult = input.context.mutation_result;
 
   const gates: VerificationEvidenceGate[] = VERIFICATION_GATES.map((gate) => {
     const result = resultByGate.get(gate);
@@ -57,7 +59,12 @@ export function buildVerificationEvidence(
     }
 
     const status = mapGateStatus(result);
-    const failures = gate === 'code-tests-lint' ? testFailures : [];
+    const failures =
+      gate === 'code-tests-lint'
+        ? testFailures
+        : gate === 'mutation-testing'
+          ? collectMutationFailures(mutationResult)
+          : [];
 
     return {
       name: gate,
@@ -65,6 +72,9 @@ export function buildVerificationEvidence(
       detail: result.detail,
       remediation: result.remediation ?? null,
       failures,
+      ...(gate === 'mutation-testing' && mutationResult
+        ? { confidence: mutationResult.confidence }
+        : {}),
     };
   });
 
@@ -126,6 +136,26 @@ function collectTestFailures(
     }
   }
   return failures;
+}
+
+function collectMutationFailures(
+  mutationResult: MutationResult | undefined,
+): VerificationEvidenceFailure[] {
+  if (!mutationResult) {
+    return [];
+  }
+  return mutationResult.surviving_mutants.map((mutant) => ({
+    category: 'gate-failure',
+    file: mutant.file,
+    line: mutant.line,
+    test_id: null,
+    suite: null,
+    ac_id: null,
+    message: mutant.description
+      ? `Surviving mutant (${mutant.operator}): ${mutant.description}`
+      : `Surviving mutant (${mutant.operator})`,
+    stderr_excerpt: null,
+  }));
 }
 
 function toEvidenceFailure(issue: StructuredTestIssue): VerificationEvidenceFailure {

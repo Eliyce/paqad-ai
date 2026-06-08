@@ -97,7 +97,10 @@ function readReport(
   return { parsed: parser(content), format };
 }
 
-function assignToModule(
+// Attribute a file path to a module slug via the module-map `sources:` globs.
+// Exported so other rollups (e.g. the issue-#110 quality baseline) reuse the
+// same attribution instead of forking a second one.
+export function assignToModule(
   filePath: string,
   modules: { slug: string; sources: string[] }[],
 ): string | null {
@@ -283,6 +286,11 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
       blocked.push('contract_stability:no_public_api_extractor');
     }
 
+    // Mutation score is fed by the verification-gate path (module-health
+    // updater), not the coverage/test report rollup — so it is always blocked
+    // here rather than fabricated. See issue #105.
+    blocked.push('mutation_score:not_configured');
+
     const metrics: ModuleHealthMetrics = {
       coverage_pct: cov.pct,
       tests_passing: t.passing,
@@ -291,6 +299,7 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
       change_velocity: velocity,
       contract_stability: stability,
       defect_frequency: null,
+      mutation_score: null,
     };
 
     const profile: ModuleHealthProfile = {

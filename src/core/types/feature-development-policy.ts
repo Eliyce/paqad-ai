@@ -49,10 +49,21 @@ export interface FeatureDevelopmentStagePolicy {
   rule_compliance?: FeatureDevelopmentRuleCompliancePolicy;
 }
 
+// Issue #108 — per-lane round caps for the bounded build-check-fix loop. Each
+// value is the maximum number of build-check-fix rounds before the loop stops
+// with one honest report. Omitted lanes fall back to DEFAULT_MAX_ROUNDS_BY_LANE.
+export interface FeatureDevelopmentRoundsPolicy {
+  fast?: number;
+  graduated?: number;
+  full?: number;
+}
+
 export interface FeatureDevelopmentPolicy {
   schema_version: '1';
   merge_mode: 'append';
   stages: Record<FeatureDevelopmentStageName, FeatureDevelopmentStagePolicy>;
+  // Present only when the project overrides the lane-scaled loop round caps.
+  rounds?: FeatureDevelopmentRoundsPolicy;
 }
 
 export interface FeatureDevelopmentPolicyLoadResult {

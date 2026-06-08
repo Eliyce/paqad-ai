@@ -6,6 +6,16 @@
   "properties": {
     "schema_version": { "type": "string", "const": "1" },
     "merge_mode": { "type": "string", "enum": ["append"] },
+    "rounds": {
+      "type": "object",
+      "description": "Issue #108 — per-lane build-check-fix loop round caps. Omitted lanes use the framework defaults (fast 2, graduated 3, full 5).",
+      "additionalProperties": false,
+      "properties": {
+        "fast": { "type": "integer", "minimum": 1 },
+        "graduated": { "type": "integer", "minimum": 1 },
+        "full": { "type": "integer", "minimum": 1 }
+      }
+    },
     "stages": {
       "type": "object",
       "additionalProperties": false,

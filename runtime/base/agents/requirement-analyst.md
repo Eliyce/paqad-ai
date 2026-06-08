@@ -65,18 +65,32 @@ Check whether the request implies any of these. If so, make them explicit. If no
 
 ### Step 4 - Acceptance criteria
 
-For each functional requirement, write acceptance criteria in Given/When/Then format:
+Author acceptance criteria directly into the spec — do not leave them for a downstream agent to derive (issue #102). Each criterion reuses the framework's `VerificationCriterion` shape: a flat `AC-{n}` id, Given/When/Then, and a proof type.
 
 ```text
-AC-{n}.1: Given {precondition}, when {action}, then {expected result}.
-AC-{n}.2: Given {error condition}, when {action}, then {error handling}.
+AC-1: Given {precondition}, when {action}, then {expected result}.
+AC-2: Given {error condition}, when {action}, then {error handling} (proof: manual).
 ```
+
+Rules:
+
+- Use a **flat `AC-{n}` id** (`AC-1`, `AC-2`, …), not `AC-n.m`. The structured spec sidecar normalizes to flat ids and a dotted id collapses (e.g. `AC-3.1` and `AC-3.2` both become `AC-3`).
+- Default proof type is `automated`. Annotate `manual` or `visual` inline as `(proof: manual)` when a test cannot prove it.
 
 Every acceptance criterion must be:
 
 - **Specific** - concrete values, not "appropriate"
 - **Measurable** - can be verified by a test
 - **Complete** - covers both success and failure
+
+### Step 4b - Invariants (must never break)
+
+List the rules the feature must never break, as `INV-{n}`. These are auto-suggested at spec-build time from applicable compiled rules and module business rules; review each, drop any that do not apply, and add any the rules missed. Every invariant must be human-confirmed before the spec can be frozen.
+
+```text
+INV-1: A non-admin can never trigger an export.
+INV-2: Audit-log entries are append-only.
+```
 
 ### Step 5 - Out-of-scope definition
 
@@ -126,8 +140,11 @@ FR-2: ...
 NFR-1: ...
 
 ## Acceptance Criteria
-AC-1.1: Given..., when..., then...
-AC-1.2: Given..., when..., then...
+AC-1: Given..., when..., then...
+AC-2: Given..., when..., then... (proof: manual)
+
+## Invariants
+INV-1: {a rule the feature must never break}
 
 ## Out of Scope
 - ...
@@ -142,3 +159,5 @@ Q1: {ambiguity needing clarification}
 ```
 
 Return `Spec Status: complete` when no open questions remain, `Spec Status: blocked` when clarification is needed before proceeding.
+
+On `graduated`/`full` lanes the spec is frozen before development (issue #102). Freeze requires all three machine-checkable sections (behaviour, acceptance criteria, invariants), no open questions, no critical spec-review defects, and a human-confirmed invariant set. The structured `.paqad/specs/S-<id>.spec.json` sidecar is generated from this markdown on freeze — never hand-edit it. A mid-build goal change or a work-vs-spec contradiction pauses via the Decision Pause Contract (`spec.change` / `spec.contradiction`) and is never resolved silently.

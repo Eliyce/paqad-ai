@@ -62,6 +62,13 @@ export interface ModuleHealthEvidence {
       recurring?: number;
       resolved?: number;
     };
+    mutation?: {
+      // Kill rate 0–100 for the module's changed code.
+      kill_rate?: number;
+      // Lower-confidence (weak-tooled language) results are not recorded as a
+      // module metric to avoid over-trusting them.
+      confidence?: 'mature' | 'lower';
+    };
     docs?: {
       doc_targets_total?: number;
       doc_targets_updated?: number;
@@ -195,6 +202,11 @@ export async function syncModuleHealthFromVerification(input: {
       .filter((result) => !result.passed)
       .map((result) => result.gate);
     const status = gatesFailed.length > 0 || failedTests > 0 || erroredTests > 0 ? 'fail' : 'pass';
+    const mutation = input.verificationContext.mutation_result;
+    const mutationSignal =
+      mutation && mutation.kill_rate !== null && mutation.status !== 'skipped'
+        ? { kill_rate: mutation.kill_rate, confidence: mutation.confidence }
+        : undefined;
     const event = createEvidence({
       source: 'verification-gate',
       provider: input.provider,
@@ -220,6 +232,7 @@ export async function syncModuleHealthFromVerification(input: {
           doc_targets_total: input.verificationContext.stale_doc_targets.length,
           doc_targets_missing: input.verificationContext.stale_doc_targets.length,
         },
+        ...(mutationSignal ? { mutation: mutationSignal } : {}),
       },
     });
 
@@ -501,6 +514,11 @@ function mergeMetrics(
     next.coverage_pct = coverage;
   }
 
+  const mutationScore = deriveMutationScore(event);
+  if (mutationScore !== null) {
+    next.mutation_score = mutationScore;
+  }
+
   const defectDelta = defectContribution(event);
   if (defectDelta > 0) {
     next.defect_frequency = (next.defect_frequency ?? 0) + defectDelta;
@@ -535,6 +553,17 @@ function deriveCoverage(event: ModuleHealthEvidence): number | null {
     return clamp((compliance.covered_obligations / compliance.total_obligations) * 100, 0, 100);
   }
 
+  return null;
+}
+
+function deriveMutationScore(event: ModuleHealthEvidence): number | null {
+  const mutation = event.signals.mutation;
+  // Only mature-tool results feed the per-module metric; lower-confidence
+  // results are surfaced in evidence but never over-trusted as a rolled-up
+  // number (issue #105).
+  if (typeof mutation?.kill_rate === 'number' && mutation.confidence !== 'lower') {
+    return clamp(mutation.kill_rate, 0, 100);
+  }
   return null;
 }
 
@@ -676,6 +705,7 @@ function createUnknownProfile(moduleName: string): ModuleHealthProfile {
     defect_frequency: null,
     contract_stability: null,
     change_velocity: null,
+    mutation_score: null,
   };
   return {
     module: moduleName,

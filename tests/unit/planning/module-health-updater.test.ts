@@ -184,6 +184,68 @@ describe('module-health-updater', () => {
     });
   });
 
+  it('rolls a mature mutation kill rate into the module metric', async () => {
+    const verificationContext = createVerificationContext({
+      modules: ['health'],
+      changed_files: ['src/health/checker.ts'],
+      mutation_result: {
+        tool: 'stryker',
+        language: 'typescript',
+        confidence: 'mature',
+        scoped_files: ['src/health/checker.ts'],
+        total_mutants: 4,
+        killed: 3,
+        survived: 1,
+        equivalent_set_aside: 0,
+        kill_rate: 75,
+        surviving_mutants: [],
+        tree_clean: true,
+        status: 'survivors',
+        skipped_reason: null,
+      },
+    });
+
+    await syncModuleHealthFromVerification({
+      projectRoot: root,
+      verificationContext,
+      results: [{ gate: 'documentation-freshness', passed: true, detail: 'ok' }],
+    });
+
+    await expect(readModuleHealth(root, 'health')).resolves.toMatchObject({
+      metrics: { mutation_score: 75 },
+    });
+  });
+
+  it('does not roll a lower-confidence or skipped mutation result into the metric', async () => {
+    const verificationContext = createVerificationContext({
+      modules: ['health'],
+      changed_files: ['src/health/checker.ts'],
+      mutation_result: {
+        tool: null,
+        language: 'elixir',
+        confidence: 'lower',
+        scoped_files: ['lib/health.ex'],
+        total_mutants: 2,
+        killed: 2,
+        survived: 0,
+        equivalent_set_aside: 0,
+        kill_rate: 100,
+        surviving_mutants: [],
+        tree_clean: true,
+        status: 'lower-confidence',
+        skipped_reason: null,
+      },
+    });
+
+    await syncModuleHealthFromVerification({
+      projectRoot: root,
+      verificationContext,
+      results: [{ gate: 'documentation-freshness', passed: true, detail: 'ok' }],
+    });
+
+    expect((await readModuleHealth(root, 'health'))?.metrics.mutation_score ?? null).toBeNull();
+  });
+
   it('uses coverage only when coverage evidence exists', async () => {
     const passWithoutCoverage = createEvidence({
       source: 'verification-gate',

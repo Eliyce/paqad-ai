@@ -9,6 +9,7 @@ import type {
   FeatureDevelopmentLogicalCommand,
   FeatureDevelopmentPolicy,
   FeatureDevelopmentPolicyLoadResult,
+  FeatureDevelopmentRoundsPolicy,
   FeatureDevelopmentStageName,
   ResolvedFeatureDevelopmentCheckCommand,
 } from '@/core/types/feature-development-policy.js';
@@ -20,6 +21,7 @@ type RawFeatureDevelopmentPolicy = {
   schema_version?: string;
   merge_mode?: 'append';
   stages?: Partial<Record<FeatureDevelopmentStageName, RawStagePolicy>>;
+  rounds?: FeatureDevelopmentRoundsPolicy;
 };
 
 const STAGE_ORDER: FeatureDevelopmentStageName[] = [
@@ -35,7 +37,7 @@ const STAGE_ORDER: FeatureDevelopmentStageName[] = [
 
 const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Record<string, true>>> =
   {
-    specification: { require_spec: true },
+    specification: { require_spec: true, require_spec_signoff: true },
     review: { require_review: true },
     checks: { block_on_failure: true },
     documentation_sync: { require_canonical_sync: true },
@@ -90,15 +92,18 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Write or refine the feature specification before implementation when the lane includes specification.',
+          'Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
         ],
         required_inputs: ['approved spec boundary'],
         strictness: {
           require_spec: true,
+          require_spec_signoff: true,
         },
         escalation: {
           missing_spec: 'stop',
+          missing_spec_signoff: 'stop',
         },
-        artifacts: ['specification'],
+        artifacts: ['specification', 'frozen feature-spec'],
         checks: null,
       },
       development: {
@@ -335,11 +340,36 @@ function mergeFeatureDevelopmentPolicy(
     };
   }
 
-  return {
+  const merged: FeatureDevelopmentPolicy = {
     schema_version: '1',
     merge_mode: 'append',
     stages,
   };
+
+  // Issue #108 — a project override of the loop round caps wins; the lane
+  // defaults apply otherwise (resolved at the loop, not stored here).
+  const rounds = sanitizeRounds(raw.rounds);
+  if (rounds) {
+    merged.rounds = rounds;
+  }
+
+  return merged;
+}
+
+function sanitizeRounds(
+  raw: FeatureDevelopmentRoundsPolicy | undefined,
+): FeatureDevelopmentRoundsPolicy | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  const sanitized: FeatureDevelopmentRoundsPolicy = {};
+  for (const lane of ['fast', 'graduated', 'full'] as const) {
+    const value = raw[lane];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 1) {
+      sanitized[lane] = Math.floor(value);
+    }
+  }
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }
 
 function appendUnique(base: string[], additions: string[] | undefined): string[] {
@@ -396,6 +426,15 @@ export function renderDefaultFeatureDevelopmentPolicyYaml(): string {
 schema_version: "1"
 merge_mode: append
 
+# Issue #108 — bounded build-check-fix loop round caps, per lane. Each value is
+# the most build-check-fix rounds the loop runs before stopping with one honest
+# "I couldn't get this fully clean" report. Omit a lane to use the framework
+# default (fast 2, graduated 3, full 5). Raise for the heaviest work.
+# rounds:
+#   fast: 2
+#   graduated: 3
+#   full: 5
+
 stages:
   ticket_intake:
     read:
@@ -439,14 +478,18 @@ stages:
   specification:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
+      - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
     required_inputs:
       - approved spec boundary
     strictness:
       require_spec: true
+      require_spec_signoff: true
     escalation:
       missing_spec: stop
+      missing_spec_signoff: stop
     artifacts:
       - specification
+      - frozen feature-spec
 
   development:
     instructions:
