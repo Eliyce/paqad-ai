@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   appendModuleMapEvent,
+  appendRunCancelledEvent,
   readModuleMapEvents,
   readModuleMapEventsForSlug,
   readModuleMapEventsSince,
@@ -93,5 +94,24 @@ describe('module-decisions/events', () => {
     });
     expect(readModuleMapEventsForSlug(root, 'a')).toHaveLength(1);
     expect(readModuleMapEventsForSlug(root, 'a')[0]?.slug).toBe('a');
+  });
+
+  it('round-trips the PQD-107 error_code field', () => {
+    appendModuleMapEvent(root, {
+      ts: '2026-05-28T00:00:00.000Z',
+      type: 'module.decision.rejected',
+      slug: 'a',
+      error_code: 'WORKFLOW_ALREADY_RUNNING',
+    });
+    const [event] = readModuleMapEvents(root);
+    expect(event?.error_code).toBe('WORKFLOW_ALREADY_RUNNING');
+  });
+
+  it('stamps run.cancelled with the CANCELLED_BY_CONSUMER code', () => {
+    appendRunCancelledEvent(root, 'run-1');
+    const [event] = readModuleMapEvents(root);
+    expect(event?.type).toBe('run.cancelled');
+    expect(event?.error_code).toBe('CANCELLED_BY_CONSUMER');
+    expect(event?.run_id).toBe('run-1');
   });
 });

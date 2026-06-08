@@ -6,6 +6,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import type { EngineErrorCode } from '@/core/errors/taxonomy.js';
 
 export type ModuleMapEventType =
   | 'module.declared'
@@ -26,6 +27,13 @@ export interface ModuleMapEvent {
   approved_by?: string;
   /** Correlates the event to a specific workflow or pipeline run (PQD-104). */
   run_id?: string;
+  /**
+   * Stable taxonomy code for a terminal/failure event (PQD-107). Optional and
+   * backward-compatible: existing readers ignore it, old entries lack it. When a
+   * long-running operation fails, this carries the same code the call's returned
+   * or thrown error carries, so the consumer reconciles a single shape.
+   */
+  error_code?: EngineErrorCode;
   payload?: Record<string, unknown>;
 }
 
@@ -58,6 +66,7 @@ export function appendRunCancelledEvent(
     ts: new Date().toISOString(),
     type: 'run.cancelled',
     run_id: runId,
+    error_code: 'CANCELLED_BY_CONSUMER',
     payload,
   });
 }

@@ -231,3 +231,32 @@ major-only: minor, patch, and same-major pre-release differences never block.
 | desktop (planned), api (planned) | src/install/version-report.ts | `MIN_CONSUMER_VERSION` | `const MIN_CONSUMER_VERSION: string` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/install/consumer-compatibility.ts | `compareConsumerCompatibility` | `compareConsumerCompatibility(consumerVersion: string, report: EngineVersionReport): ConsumerCompatibility` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/install/consumer-compatibility.ts | `ConsumerCompatibility` | `type ConsumerCompatibility = 'ok' or 'engine-too-new' or 'engine-too-old' or 'engine-version-unknown'` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
+## Error taxonomy consumers (planned)
+
+A consumer routes engine failures to UI behaviours by switching on a stable
+`code` rather than parsing message strings (PQD-107). `listErrorTaxonomy()`
+returns one entry per `EngineErrorCode` — code, human-readable description, the
+canonical `retryable` default, and a runtime-inspectable `payload_shape` — and is
+callable before any operation has run, stable across patch and minor versions.
+Every typed error extends `FrameworkError` (so `instanceof` works and `retryable`
+is always readable) and carries a typed `details` payload. Credential material in
+`details` is stripped before the error is surfaced (a `redacted_fields` marker
+lists the stripped fields). `toEngineError()` normalises any thrown value to a
+taxonomy-coded error, wrapping undocumented failures as `UNKNOWN_ENGINE_ERROR`
+and logging the missing entry. Terminal events (`ModuleMapEvent.error_code`)
+carry the same code as the returned/thrown error, so the consumer reconciles one
+shape. The PQD-104 `CancelledError` is the canonical class for
+`CANCELLED_BY_CONSUMER`.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned), api (planned) | src/core/errors/taxonomy.ts | `EngineErrorCode` | `type EngineErrorCode` (union of the 11 taxonomy codes) | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/taxonomy.ts | `ENGINE_ERROR_CODES` | `const ENGINE_ERROR_CODES: Record<EngineErrorCode, EngineErrorCode>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/taxonomy.ts | `listErrorTaxonomy` | `listErrorTaxonomy(): TaxonomyEntry[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/taxonomy.ts | `TaxonomyEntry` | `interface TaxonomyEntry { code; description; retryable; payload_shape }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/framework-error.ts | `FrameworkError` | `class FrameworkError extends Error { code; details?; retryable }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/engine-errors.ts | `DecisionPacketCorruptError` | `class DecisionPacketCorruptError extends FrameworkError` (and the other typed subclasses) | beta | 1.10.0 | planned consumer; in-tree at decision-store readPacket |
+| desktop (planned), api (planned) | src/core/errors/engine-errors.ts | `toEngineError` | `toEngineError(error: unknown): FrameworkError` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/engine-errors.ts | `isEngineErrorCode` | `isEngineErrorCode(code: string): code is EngineErrorCode` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/errors/redact.ts | `redactPayload` | `redactPayload(payload, projectRoot?): { redacted; redacted_fields }` | beta | 1.10.0 | planned consumer; in-tree at FrameworkError constructor |

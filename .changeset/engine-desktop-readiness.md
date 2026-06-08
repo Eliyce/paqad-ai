@@ -16,3 +16,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-104 (seq 35): Cancel every long-running engine call from the consumer side
 - PQD-105 (seq 36): Plug a consumer logger into the engine so all engine logs surface in the consumer
 - PQD-106 (seq 37): Report the engine version and the minimum consumer version it supports
+- PQD-107 (seq 38): Surface a stable error taxonomy that consumers can route to UI behaviours

@@ -50,6 +50,13 @@ import {
   getEngineVersionReport,
   compareConsumerCompatibility,
   getFrameworkName,
+  listErrorTaxonomy,
+  ENGINE_ERROR_CODES,
+  FrameworkError,
+  DecisionPacketCorruptError,
+  VectorIndexStorageError,
+  WorkflowAlreadyRunningError,
+  UnknownEngineError,
 } from '@/index';
 
 const packageVersion = JSON.parse(
@@ -69,6 +76,21 @@ describe('core export surface', () => {
     expect(report.engineVersion).toBe(packageVersion);
     expect(report.minConsumerVersion).toBe(MIN_CONSUMER_VERSION);
     expect(compareConsumerCompatibility(MIN_CONSUMER_VERSION, report)).toBe('ok');
+  });
+
+  it('re-exports the error taxonomy surface (PQD-107)', () => {
+    expect(ENGINE_ERROR_CODES.UNKNOWN_ENGINE_ERROR).toBe('UNKNOWN_ENGINE_ERROR');
+    const taxonomy = listErrorTaxonomy();
+    expect(taxonomy.length).toBe(Object.keys(ENGINE_ERROR_CODES).length);
+    // Typed subclasses are importable from the package root and carry their code.
+    const corrupt = new DecisionPacketCorruptError('x', { decision_id: 'd', reason: 'r' });
+    expect(corrupt).toBeInstanceOf(FrameworkError);
+    expect(corrupt.code).toBe('DECISION_PACKET_CORRUPT');
+    expect(new VectorIndexStorageError('x', { index: 'file', reason: 'r' }).retryable).toBe(true);
+    expect(new WorkflowAlreadyRunningError('x', { workflow: 'w' }).code).toBe(
+      'WORKFLOW_ALREADY_RUNNING',
+    );
+    expect(new UnknownEngineError('x').code).toBe('UNKNOWN_ENGINE_ERROR');
   });
 
   it('re-exports the supported domains, stacks, and capabilities', () => {

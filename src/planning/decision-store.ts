@@ -10,9 +10,10 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 
 import {
@@ -423,7 +424,18 @@ export class DecisionStore {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
     if (!isDecisionPacket(parsed)) {
       const reasons = validateDecisionPacket(parsed).join('; ');
-      throw new Error(`Decision packet at ${path} is invalid. ${reasons}`);
+      // PQD-107: surface the stable taxonomy code so a consumer can route the
+      // corrupt-packet failure mode without parsing the message. Message text
+      // is preserved for existing callers/assertions.
+      const decisionId =
+        typeof (parsed as { decision_id?: unknown })?.decision_id === 'string'
+          ? (parsed as { decision_id: string }).decision_id
+          : basename(path).replace(/\.json$/, '');
+      throw new DecisionPacketCorruptError(`Decision packet at ${path} is invalid. ${reasons}`, {
+        decision_id: decisionId,
+        reason: reasons,
+        packet_path: relative(this.projectRoot, path),
+      });
     }
     return parsed;
   }
