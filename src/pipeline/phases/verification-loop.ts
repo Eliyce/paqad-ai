@@ -2,6 +2,7 @@ import type { PhaseExecutor } from './phase.interface.js';
 import type { PhaseResult, PipelineRunContext } from '@/core/types/pipeline.js';
 import type { DoneInput } from '@/core/types/feature-spec.js';
 import type { BuildCheckFixStuckReport } from '@/core/types/build-check-fix.js';
+import { engineLog } from '@/core/logger-registry.js';
 import { runBuildCheckFixLoop, type RoundCheck } from '@/loop/build-check-fix-loop.js';
 import {
   BUILD_CHECK_FIX_ROUNDS_RELATIVE_PATH,
@@ -96,7 +97,7 @@ export class VerificationLoopPhase implements PhaseExecutor {
       // The rounds log is an internal side-channel artifact; never fail the
       // verification phase because of an I/O issue here.
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(`paqad: could not write build-check-fix-rounds.json (${message})`);
+      engineLog('warn', `paqad: could not write build-check-fix-rounds.json (${message})`);
     }
   }
 }

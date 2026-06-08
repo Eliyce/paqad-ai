@@ -3,6 +3,7 @@ import { lstat, readFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join, matchesGlob, relative } from 'node:path';
 
+import { engineLog } from '@/core/logger-registry.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
 import Ajv from 'ajv';
@@ -456,7 +457,7 @@ export class RagFileFilter {
 
       const utf8 = preview.toString('utf8');
       if (utf8.includes('\uFFFD')) {
-        console.warn(`Skipping non-UTF-8 file: ${absolutePath}`);
+        engineLog('warn', `Skipping non-UTF-8 file: ${absolutePath}`);
         return 'invalid-utf8';
       }
 
@@ -468,7 +469,7 @@ export class RagFileFilter {
       return undefined;
     } catch (error) {
       void error;
-      console.warn(`Skipping unreadable file: ${absolutePath}`);
+      engineLog('warn', `Skipping unreadable file: ${absolutePath}`);
       return 'unreadable';
     }
   }
@@ -483,7 +484,7 @@ function readRagIgnoreConfig(projectRoot: string): RagIgnoreConfig {
   try {
     const parsed = YAML.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>;
     if (!validateRagIgnoreConfig(parsed)) {
-      console.warn(`Invalid RAG ignore config at ${configPath}; using defaults`);
+      engineLog('warn', `Invalid RAG ignore config at ${configPath}; using defaults`);
       return { ...DEFAULT_RAG_IGNORE_CONFIG };
     }
 
@@ -506,7 +507,7 @@ function readRagIgnoreConfig(projectRoot: string): RagIgnoreConfig {
         DEFAULT_RAG_IGNORE_CONFIG.use_global_gitignore,
     };
   } catch {
-    console.warn(`Failed to parse RAG ignore config at ${configPath}; using defaults`);
+    engineLog('warn', `Failed to parse RAG ignore config at ${configPath}; using defaults`);
     return { ...DEFAULT_RAG_IGNORE_CONFIG };
   }
 }

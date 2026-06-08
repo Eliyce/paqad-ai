@@ -46,6 +46,7 @@ export default defineConfig({
         'src/core/types/document-generation.ts',
         'src/core/types/feature-spec.ts',
         'src/core/types/introspection.ts',
+        'src/core/types/logger.ts',
         'src/core/types/onboarding.ts',
         'src/core/types/post-classification.ts',
         'src/core/types/pack.ts',

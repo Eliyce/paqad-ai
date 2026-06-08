@@ -12,6 +12,15 @@ import type { IntelligenceConfig } from '@/core/types/project-profile.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 import type { EmbeddingProvider, ProviderFactory } from '@/rag/types.js';
 import { RagService } from '@/rag/service.js';
+import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
+import type { EngineLogEntry } from '@/core/types/logger.js';
+
+/** Installs a recording engine logger and returns the entries it receives. */
+function captureEngineLogs(): EngineLogEntry[] {
+  const entries: EngineLogEntry[] = [];
+  setEngineLogger({ log: (entry) => void entries.push(entry) });
+  return entries;
+}
 
 type FrameworkPack = ReturnType<typeof projectPacks.getPacksForFrameworks>[number];
 
@@ -122,6 +131,7 @@ describe('RagService', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    clearEngineLogger();
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
@@ -422,7 +432,7 @@ describe('RagService', () => {
     );
     writeFileSync(join(projectRoot, '.paqad', 'vectors', 'index.json'), '{corrupt');
 
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logs = captureEngineLogs();
     const sync = await service.refreshContext();
 
     const first = await service.retrieve(sync, {
@@ -438,8 +448,9 @@ describe('RagService', () => {
 
     expect(first.fallback_reason).toBe('vector index payload is unreadable');
     expect(second.fallback_reason).toBe('vector index payload is unreadable');
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0]?.[0]).toContain('paqad-ai rag rebuild');
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.level).toBe('warn');
+    expect(logs[0]?.message).toContain('paqad-ai rag rebuild');
     expect(readFileSync(join(projectRoot, '.paqad', 'audit.log'), 'utf8')).toContain(
       'rag-resume-warning',
     );
@@ -1090,13 +1101,13 @@ describe('RagService', () => {
       },
       resumeValidationPromise: undefined,
     });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logs = captureEngineLogs();
 
     await (
       service as unknown as { validateResumeState: () => Promise<void> }
     ).validateResumeState();
 
-    expect(warn).toHaveBeenCalledWith('stale resume context');
+    expect(logs).toContainEqual({ level: 'warn', message: 'stale resume context' });
     expect(readFileSync(join(projectRoot, '.paqad', 'audit.log'), 'utf8')).toContain(
       'provider="unknown"',
     );

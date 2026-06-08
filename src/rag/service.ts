@@ -6,6 +6,7 @@ import { extname, join, resolve, sep } from 'node:path';
 import { AstChunker } from '@/context/ast-chunker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
+import { engineLog } from '@/core/logger-registry.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { CancelledError, isCancelledError } from '@/core/errors/cancelled-error.js';
 import { appendRunCancelledEvent } from '@/module-decisions/events.js';
@@ -797,7 +798,7 @@ export class RagService {
           provider: validation.embedding_provider ?? 'unknown',
           reason: validation.warning,
         });
-        console.warn(validation.warning);
+        engineLog('warn', validation.warning);
       } catch {
         // Resume validation is advisory and must never block retrieval.
       }

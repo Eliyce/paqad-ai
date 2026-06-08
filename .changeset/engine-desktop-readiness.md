@@ -14,3 +14,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-102 (seq 33): Accept extracted text from a vision call into the retrieval index
 - PQD-103 (seq 34): Preview the onboarding file tree without writing anything to disk
 - PQD-104 (seq 35): Cancel every long-running engine call from the consumer side
+- PQD-105 (seq 36): Plug a consumer logger into the engine so all engine logs surface in the consumer

@@ -190,3 +190,23 @@ consumer drops a packet via `SliceExecutor.discardDecision(...)`.
 | desktop (planned), api (planned) | src/planning/decision-events.ts | `DECISION_PAUSE_EVENT_TYPES` | `const DECISION_PAUSE_EVENT_TYPES: readonly DecisionPauseEventType[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/planning/decision-store.ts | `DecisionCapExceededError` | `class DecisionCapExceededError extends Error { pendingCount; cap }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/planning/decision-store.ts | `MAX_PENDING_DECISIONS` | `const MAX_PENDING_DECISIONS: number` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
+## Consumer logger consumers (planned)
+
+The consumer (e.g. the desktop app) installs its own logger at init via
+`setEngineLogger`, and every structured log the engine would otherwise drop into
+an internal `console.*` call is delivered to it (PQD-105). The logger is a plain
+callback — no event-bus or IPC plumbing on the engine side. Installing a logger
+replaces the previous one; with none installed the engine falls back to a safe
+stderr default (warn/error only). A faulting logger is caught and the engine
+reverts to the default after one notice.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned), api (planned) | src/core/logger-registry.ts | `setEngineLogger` | `setEngineLogger(logger: EngineLogger): void` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/logger-registry.ts | `clearEngineLogger` | `clearEngineLogger(): void` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/logger-registry.ts | `getConsumerLogger` | `getConsumerLogger(): EngineLogger or null` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| internal | src/core/logger-registry.ts | `engineLog` | `engineLog(level: LogLevel, message: string, payload?: Record<string, unknown>): void` | internal | 1.10.0 | internal library dispatch; not a consumer API |
+| desktop (planned), api (planned) | src/core/types/logger.ts | `EngineLogger` | `interface EngineLogger { log(entry: EngineLogEntry): void or Promise<void> }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/core/types/logger.ts | `EngineLogEntry` | `interface EngineLogEntry { level: LogLevel; message: string; payload? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/install/bootstrap.ts | `BootstrapOptions` | `interface BootstrapOptions { logger?: EngineLogger }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
