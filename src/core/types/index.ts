@@ -10,6 +10,7 @@ export * from './domain.js';
 export * from './health.js';
 export * from './hook.js';
 export * from './introspection.js';
+export * from './logging.js';
 export * from './mcp.js';
 export * from './onboarding.js';
 export * from './pack.js';

@@ -8,11 +8,27 @@ vi.mock('@inquirer/prompts', () => ({
 }));
 
 describe('cli ui helpers', () => {
-  it('formats logger output', () => {
-    expect(logger.info('info')).toContain('info');
-    expect(logger.success('ok')).toContain('ok');
-    expect(logger.warning('warn')).toContain('warn');
-    expect(logger.error('error')).toContain('error');
+  it('emits structured logger output', () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    try {
+      logger.info('info');
+      logger.success('ok');
+      logger.warning('warn');
+      logger.error('error');
+
+      const records = writeSpy.mock.calls.map(([line]) => JSON.parse(String(line)));
+      expect(records).toHaveLength(4);
+      expect(records[0]).toMatchObject({ level: 'info', event: 'info', runtime: 'engine' });
+      expect(records[1]).toMatchObject({ level: 'info', event: 'success', message: 'ok' });
+      expect(records[2]).toMatchObject({ level: 'warn', event: 'warn' });
+      expect(records[3]).toMatchObject({ level: 'error', event: 'error' });
+      for (const record of records) {
+        expect(typeof record.timestamp).toBe('string');
+      }
+    } finally {
+      writeSpy.mockRestore();
+    }
   });
 
   it('creates a spinner wrapper', () => {
