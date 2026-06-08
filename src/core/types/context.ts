@@ -244,3 +244,83 @@ export interface BudgetBreakdownError {
  * @since 1.10.0
  */
 export type BudgetBreakdown = BudgetBreakdownSuccess | BudgetBreakdownError;
+
+// ── PQD-172: per-turn priority tagging + decision-packet collapse protection ──
+//
+// `PriorityClassifier.tag` labels each conversation turn so the context-window
+// loop knows which turns it may collapse and which it must keep verbatim. Turns
+// flagged `decision_packet` or `approval_turn` carry a hard `high` invariant that
+// the classifier model can never lower. Distinct from `ContextSegmentPriority`
+// (`critical/high/medium/low`, segment-scoped): turn tags are a three-value scale.
+
+/**
+ * Priority tag assigned to a single conversation turn. Three values, distinct
+ * from the four-value `ContextSegmentPriority.tier`: turns have no `critical`
+ * band — protected turns occupy `high`.
+ *
+ * @since 1.10.0
+ */
+export type TurnPriority = 'high' | 'normal' | 'low';
+
+/**
+ * A conversation turn handed to `PriorityClassifier.tag`. `decision_packet` and
+ * `approval_turn` mark protected turns that must always resolve to `high`. An
+ * incoming `priority` carries a tag from a prior pass so re-tagging a protected
+ * turn that is already `high` is a silent no-op (the re-tag guard).
+ *
+ * @since 1.10.0
+ */
+export interface TurnInput {
+  turn_id: string;
+  text: string;
+  decision_packet?: boolean;
+  approval_turn?: boolean;
+  priority?: TurnPriority;
+}
+
+/**
+ * A turn with its resolved priority. Same shape as `TurnInput` but `priority` is
+ * required.
+ *
+ * @since 1.10.0
+ */
+export interface TaggedTurn extends TurnInput {
+  priority: TurnPriority;
+}
+
+/**
+ * Audit record emitted when the classifier model returned a non-`high` tag for a
+ * protected turn and the engine corrected it. The desktop surfaces these as
+ * `context.context_health_warning` events.
+ *
+ * @since 1.10.0
+ */
+export interface ContextHealthWarning {
+  type: 'context.context_health_warning';
+  reason: 'priority_invariant_breach';
+  turn_id: string;
+  classifier_returned: TurnPriority;
+  corrected_to: 'high';
+}
+
+/**
+ * Result of `PriorityClassifier.tag`: every input turn tagged, plus any
+ * invariant-breach warnings raised while correcting protected turns.
+ *
+ * @since 1.10.0
+ */
+export interface TurnTagResult {
+  tagged: TaggedTurn[];
+  warnings: ContextHealthWarning[];
+}
+
+/**
+ * Caller-supplied policy snapshot for `PriorityClassifier.tag`. `all_normal`
+ * (workspace priority-shaping disabled) flattens ordinary turns to `normal`
+ * while protected turns still resolve to `high`. Absent means `false`.
+ *
+ * @since 1.10.0
+ */
+export interface TurnTagPolicy {
+  all_normal?: boolean;
+}

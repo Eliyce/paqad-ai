@@ -219,6 +219,32 @@ gains an additive optional `retrieval_needed?: boolean`.
 | desktop (planned) | src/core/types/conversation.ts | `RebuildCacheKey` | `type RebuildCacheKey = string` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/core/types/conversation.ts | `RebuildFailedError` | `class RebuildFailedError extends Error { kind: 'rebuild_failed'; reason: string }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 
+### Per-turn priority tagging (PQD-172)
+
+`PriorityClassifier.tag` labels each conversation turn `high`, `normal`, or `low`
+so the desktop's context-window loop knows which turns it may collapse during
+compaction and which it must keep verbatim. Turns flagged `decision_packet` or
+`approval_turn` carry a hard invariant: they always resolve to `high`, whatever
+the injected `TurnClassifierModel` scores and whatever the workspace policy is.
+When the model scores a protected turn below `high` the engine silently corrects
+it and emits a `ContextHealthWarning` (`reason: priority_invariant_breach`) the
+desktop can surface. An `all_normal` policy snapshot flattens ordinary turns to
+`normal` while protected turns stay `high`. The call is synchronous,
+side-effect-free, and batched per summarisation trigger (one `tag` call for the
+whole turn list, not one per message).
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/context/priority-classifier.ts | `PriorityClassifier` | `PriorityClassifier.tag(turns: TurnInput[], policy?: TurnTagPolicy): TurnTagResult` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/priority-classifier.ts | `TurnClassifierModel` | `interface TurnClassifierModel { score(turn: TurnInput): TurnPriority }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/priority-classifier.ts | `InferredTurnClassifierModel` | `class InferredTurnClassifierModel implements TurnClassifierModel` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `TurnPriority` | `type TurnPriority (high, normal, low)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `TurnInput` | `interface TurnInput { turn_id; text; decision_packet?; approval_turn?; priority? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `TaggedTurn` | `interface TaggedTurn extends TurnInput { priority: TurnPriority }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `ContextHealthWarning` | `interface ContextHealthWarning { type; reason; turn_id; classifier_returned; corrected_to }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `TurnTagResult` | `interface TurnTagResult { tagged: TaggedTurn[]; warnings: ContextHealthWarning[] }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `TurnTagPolicy` | `interface TurnTagPolicy { all_normal? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ### Consumer-side cancellation (PQD-104)
 
 Every long-running engine call accepts an optional `AbortSignal`. When the

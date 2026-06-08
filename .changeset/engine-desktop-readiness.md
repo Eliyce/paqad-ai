@@ -20,3 +20,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-167 (seq 98): Compute the per-turn context budget breakdown for the active model
 - PQD-169 (seq 100): Generate a rolling summary that preserves speaker attribution
 - PQD-171 (seq 102): Rebuild the API conversation deterministically per turn
+- PQD-172 (seq 103): Tag turn priority and protect decision-packet turns from collapse
