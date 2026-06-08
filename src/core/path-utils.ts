@@ -18,3 +18,34 @@ import { sep } from 'node:path';
 export function toPosixPath(path: string): string {
   return path.split(sep).join('/');
 }
+
+/**
+ * Strip every trailing character contained in `chars` from `value`, in a single
+ * linear pass. Use this instead of an anchored `/[…]+$/` regex: a backtracking
+ * engine can evaluate such a pattern in O(n²) on adversarial input
+ * (CodeQL `js/polynomial-redos`), whereas this scan is always O(n).
+ */
+export function stripTrailingChars(value: string, chars: string): string {
+  let end = value.length;
+  while (end > 0 && chars.includes(value[end - 1]!)) {
+    end -= 1;
+  }
+  return end === value.length ? value : value.slice(0, end);
+}
+
+/**
+ * Strip every leading *and* trailing character contained in `chars` from
+ * `value` in a single linear pass — the non-backtracking equivalent of
+ * `/^[…]+|[…]+$/g` (CodeQL `js/polynomial-redos`).
+ */
+export function trimEdgeChars(value: string, chars: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && chars.includes(value[start]!)) {
+    start += 1;
+  }
+  while (end > start && chars.includes(value[end - 1]!)) {
+    end -= 1;
+  }
+  return start === 0 && end === value.length ? value : value.slice(start, end);
+}

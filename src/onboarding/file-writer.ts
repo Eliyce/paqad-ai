@@ -1,4 +1,13 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
@@ -61,14 +70,28 @@ export function planGeneratedFiles(
     const reportedPath = toPosixPath(file.path);
     const target = join(projectRoot, file.path);
 
-    if (!existsSync(target)) {
-      entries.push({ path: reportedPath, action: 'create' });
+    // Open the target once and derive both its mtime and content from the same
+    // descriptor. Working from a file handle rather than re-resolving the path
+    // for each operation avoids the check-then-use race a separate existence
+    // probe + later read would introduce.
+    let fd: number;
+    try {
+      fd = openSync(target, 'r');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        entries.push({ path: reportedPath, action: 'create' });
+      } else {
+        entries.push({
+          path: reportedPath,
+          action: 'skip',
+          templateError: error instanceof Error ? error.message : 'unreadable target path',
+        });
+      }
       continue;
     }
 
     try {
-      const stat = statSync(target);
-      const mtimeMs = stat.mtimeMs;
+      const mtimeMs = fstatSync(fd).mtimeMs;
 
       if (!file.autoUpdate) {
         // The writer skips an existing non-auto-update file regardless of content.
@@ -76,7 +99,7 @@ export function planGeneratedFiles(
         continue;
       }
 
-      const existing = readFileSync(target);
+      const existing = readFileSync(fd);
       const action = existing.equals(Buffer.from(file.content)) ? 'skip' : 'overwrite';
       entries.push({ path: reportedPath, action, mtimeMs });
     } catch (error) {
@@ -85,6 +108,8 @@ export function planGeneratedFiles(
         action: 'skip',
         templateError: error instanceof Error ? error.message : 'unreadable target path',
       });
+    } finally {
+      closeSync(fd);
     }
   }
 

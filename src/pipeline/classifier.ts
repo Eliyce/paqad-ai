@@ -1,3 +1,4 @@
+import { stripTrailingChars } from '@/core/path-utils.js';
 import { getPrimaryStack } from '@/core/stack-profile.js';
 import type {
   ClassificationResult,
@@ -501,10 +502,12 @@ function extractExplicitModulePrefixes(request: string): string[] {
   return Array.from(
     new Set(
       matches.map((match) =>
-        match
-          .replace(/\\/g, '/')
-          .replace(/\.(tsx?|jsx?|vue|svelte|astro|php|dart|py|rb|go|rs|java|kt|cs|md)$/i, '')
-          .replace(/\/+$/, ''),
+        stripTrailingChars(
+          match
+            .replace(/\\/g, '/')
+            .replace(/\.(tsx?|jsx?|vue|svelte|astro|php|dart|py|rb|go|rs|java|kt|cs|md)$/i, ''),
+          '/',
+        ),
       ),
     ),
   ).slice(0, 3);

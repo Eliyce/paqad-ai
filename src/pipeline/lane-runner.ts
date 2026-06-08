@@ -5,6 +5,7 @@ import { basename, dirname as pathDirname } from 'pathe';
 import fg from 'fast-glob';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { trimEdgeChars } from '@/core/path-utils.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import type {
   HandoffArtifact,
@@ -467,7 +468,7 @@ export class LaneRunner {
       protected override async runStep(step: WorkflowStep): Promise<void> {
         const targetDir = join(projectRoot, PATHS.WORKFLOW_RUNS_DIR, workflowName, 'executions');
         const timestamp = new Date().toISOString();
-        const safeSkill = step.skill.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'step';
+        const safeSkill = trimEdgeChars(step.skill.replace(/[^a-z0-9]+/gi, '-'), '-') || 'step';
         const target = join(targetDir, `${timestamp}-${safeSkill}.json`);
 
         await mkdir(targetDir, { recursive: true });
