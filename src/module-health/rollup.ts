@@ -97,7 +97,10 @@ function readReport(
   return { parsed: parser(content), format };
 }
 
-function assignToModule(
+// Attribute a file path to a module slug via the module-map `sources:` globs.
+// Exported so other rollups (e.g. the issue-#110 quality baseline) reuse the
+// same attribution instead of forking a second one.
+export function assignToModule(
   filePath: string,
   modules: { slug: string; sources: string[] }[],
 ): string | null {

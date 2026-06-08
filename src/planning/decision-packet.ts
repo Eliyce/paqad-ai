@@ -16,6 +16,7 @@ export const DECISION_CATEGORIES = [
   'fix.proof_method',
   'test.flaky_judgement',
   'finding.triage',
+  'quality.ratchet_exception',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -125,6 +126,11 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   // classifier could not sort into one of the four piles — asked once, reused by
   // kind. Reversible: the agent can re-ask if the verdict stops fitting.
   'finding.triage': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  // Quality-ratchet exception (issue #110). A legitimate need to worsen one of
+  // the four quality measures — approved once, reused for the same kind by
+  // `findReusableDecision`. Reversible: the agent can re-ask if the approval
+  // stops fitting.
+  'quality.ratchet_exception': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

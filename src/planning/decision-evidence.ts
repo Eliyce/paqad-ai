@@ -113,6 +113,7 @@ export function defaultSimilarityFor(
     case 'fix.proof_method':
     case 'test.flaky_judgement':
     case 'finding.triage':
+    case 'quality.ratchet_exception':
       return 0.5;
   }
 }

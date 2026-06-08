@@ -119,6 +119,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'Is this a flaky test or a rare real fault?';
     case 'finding.triage':
       return 'Which pile does this finding belong in?';
+    case 'quality.ratchet_exception':
+      return 'A quality measure would worsen — approve a legitimate exception or hold the line?';
   }
 }
 
@@ -269,6 +271,7 @@ export function decisionOptionsForCategory(
     case 'fix.proof_method':
     case 'test.flaky_judgement':
     case 'finding.triage':
+    case 'quality.ratchet_exception':
       return { options: [] };
   }
 }

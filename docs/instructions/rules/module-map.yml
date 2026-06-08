@@ -672,6 +672,23 @@ modules:
     sources:
       - src/traceability
 
+  - slug: quality-ratchet
+    name: Quality Ratchet
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Records four quality measures at the project's real level today
+      (`.paqad/quality-baseline.json`) and from then on only allows a change
+      that keeps each measure equal or better. Measures — tangledness, dead/
+      unused code (consumed from #109's reachability output, not re-scanned),
+      risky patterns, and strictness — are normalised to a deficiency count
+      (lower is better) and rolled up per module + project. A verification gate
+      refuses any worsening; the recorded level only ever tightens, except a
+      legitimate regression approved once via the `quality.ratchet_exception`
+      Decision Pause and reused for the same kind.
+    sources:
+      - src/quality-ratchet
+
   - slug: pentest-engine
     name: Pentest Engine (12 Skills)
     layer: framework-internals

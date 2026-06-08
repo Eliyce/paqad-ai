@@ -39,7 +39,7 @@ describe('VerificationGateRunner', () => {
     },
   };
 
-  it('runs all 14 gates in order', async () => {
+  it('runs all 15 gates in order', async () => {
     const results = await new VerificationGateRunner().run(
       createVerificationContext({
         code_changed: true,
@@ -59,6 +59,7 @@ describe('VerificationGateRunner', () => {
       'implementation-review',
       'behavioral-correctness',
       'mutation-testing',
+      'quality-ratchet',
       'database-quality',
       'module-docs-structure',
       'instructions-docs-structure',

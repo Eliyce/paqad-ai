@@ -12,6 +12,9 @@ import { syncModuleHealthFromVerification } from '@/planning/module-health-updat
 import { VerificationGateRunner } from '@/verification/gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '@/verification/evidence.js';
 import { runMutationGate } from '@/mutation/index.js';
+import { runQualityRatchetGate } from '@/quality-ratchet/index.js';
+import { readTraceabilityMap } from '@/traceability/index.js';
+import { DecisionStore } from '@/planning/decision-store.js';
 import type { VerificationContext } from '@/core/types/verification.js';
 import {
   detectStaleDocTargets,
@@ -116,6 +119,19 @@ async function buildDefaultVerificationContext(
     testsGreen: commandResults.test_commands_passed,
   });
 
+  // Issue #110 — the quality ratchet. Consumes #109's reachability/orphan output
+  // for the dead-code measure (one solver, two uses) and compares the four
+  // measures against the recorded baseline. Never throws; a missing baseline is
+  // captured rather than failed, so day one is not an impossible clean-up.
+  const qualityRatchetResult = await runQualityRatchetGate({
+    projectRoot: context.project_root,
+    changedFiles,
+    lane: context.lane,
+    stackProfile: profile?.stack_profile ?? null,
+    deadCodeFiles: await readDeadCodeFiles(context.project_root),
+    decisionStore: new DecisionStore(context.project_root),
+  });
+
   return {
     project_root: context.project_root,
     verification_origin: 'provider-workflow',
@@ -138,6 +154,7 @@ async function buildDefaultVerificationContext(
     database_quality_passed: true,
     structured_test_results: commandResults.structured_test_results,
     mutation_result: mutationResult,
+    quality_ratchet_result: qualityRatchetResult,
     lane: context.lane,
     expected_ui_modules: [],
     expected_api_modules: [],
@@ -146,6 +163,21 @@ async function buildDefaultVerificationContext(
     registry_refreshed_at: new Date().toISOString(),
     glossary_updated: true,
   };
+}
+
+/**
+ * Issue #110 — read the dead/orphan file set from #109's traceability map. We
+ * consume the reachability solver's output (`role: 'orphan'` backward links),
+ * never re-scanning for dead code. Returns null when the map is unavailable or
+ * its orphan flagging was suppressed (no known anchors), so the dead-code
+ * measure records blocked rather than flagging a whole tree by mistake.
+ */
+async function readDeadCodeFiles(projectRoot: string): Promise<string[] | null> {
+  const map = await readTraceabilityMap(projectRoot);
+  if (map === null || !map.anchors_known) {
+    return null;
+  }
+  return map.backward.filter((link) => link.role === 'orphan').map((link) => link.file);
 }
 
 interface VerificationCommandRunResult {

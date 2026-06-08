@@ -41,6 +41,7 @@ Confirm each gate executed and passed:
 3. **Build passes** - the project builds successfully
 4. **Lint passes** - no new lint violations introduced
 5. **Review complete** - adversarial-reviewer has run and all critical issues are resolved
+6. **Quality ratchet held** - the `quality-ratchet` gate did not regress any of the four measures (tangledness, dead code, risky patterns, strictness). A worsening blocks handoff unless a `quality.ratchet_exception` was approved for that kind (issue #110).
 
 If any gate was not run, flag it. If any gate failed and was not resolved, flag as a blocker.
 

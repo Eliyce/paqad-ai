@@ -51,6 +51,9 @@ export const PATHS = {
   // rebuilt from reality each run.
   TRACEABILITY_DIR: '.paqad/traceability',
   TRACEABILITY_MAP: '.paqad/traceability/map.json',
+  // Issue #110 - quality-ratchet baseline (four measures at today's real level;
+  // only ever tightens).
+  QUALITY_BASELINE: '.paqad/quality-baseline.json',
   PLANNING_MODULE_HEALTH_DIR: '.paqad/module-health',
   MODULE_HEALTH_EVIDENCE_DIR: '.paqad/module-health-evidence',
   MODULE_HEALTH_CONSUMED_EVENTS: '.paqad/module-health-consumed-events.json',
