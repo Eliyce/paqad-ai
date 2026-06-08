@@ -135,3 +135,16 @@ Return a structured review with:
 - `Loop Risk:` - `none` | `churn-detected` | `revert-detected` | `approach-exhausted` with details of what was repeated and a recommendation to change strategy
 
 Each issue must include: the file and line range, what the problem is, why it matters, and a concrete suggested fix.
+
+### Triage-ready findings (issue #107)
+
+Every finding you emit is sorted into exactly one of four piles before it can drive any change — **confirmed problem**, **unclear spec**, **false alarm**, **taste** — and only a _confirmed, demonstrable_ problem leads to a code edit. To let the rules-first classifier sort your findings automatically (and to avoid churning working code for preference or misreads), tag each issue with the signals it actually carries, not a narrative:
+
+- `gate_failed` — a gate failed for this issue, with `reproducible` set when a reproducing proof exists (a reproducible gate failure is _confirmed → demonstrable_; without the proof it waits as _needs-repro_, per issue #103).
+- `behavioural` — the issue changes runtime behaviour (vs. pure style).
+- `spec_silent` — the issue is really "the spec didn't say"; it routes to the spec (#102), not a code patch.
+- `style_only` — style/format only with no behavioural effect → **taste** (recorded, not acted on).
+- `measurable_quality` — a measurable strictness/complexity regression → handed to the quality ratchet (#110), **not** the taste bin.
+- `refuted_by_evidence` — your own check could not stand the finding up (e.g. the cited location does not exist) → **false alarm**.
+
+Do not over-explain or invent corrections to justify a finding — the research shows explanation-plus-fix prompts raise misjudgement on correct code. State the signal; let triage sort it.

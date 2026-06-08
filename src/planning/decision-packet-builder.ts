@@ -117,6 +117,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'This problem cannot be auto-checked — how should we confirm it is fixed?';
     case 'test.flaky_judgement':
       return 'Is this a flaky test or a rare real fault?';
+    case 'finding.triage':
+      return 'Which pile does this finding belong in?';
   }
 }
 
@@ -266,6 +268,7 @@ export function decisionOptionsForCategory(
     case 'spec.contradiction':
     case 'fix.proof_method':
     case 'test.flaky_judgement':
+    case 'finding.triage':
       return { options: [] };
   }
 }

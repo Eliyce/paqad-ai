@@ -112,6 +112,7 @@ export function defaultSimilarityFor(
     case 'spec.contradiction':
     case 'fix.proof_method':
     case 'test.flaky_judgement':
+    case 'finding.triage':
       return 0.5;
   }
 }

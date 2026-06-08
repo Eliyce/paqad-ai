@@ -94,3 +94,7 @@ Return a structured gap report:
 Categories for `{area}`: `requirement`, `edge-case`, `error-handling`, `security`, `test-coverage`, `documentation`, `cross-system`, `assumption`.
 
 Every gap must have a suggested resolution. "Needs clarification" is acceptable only when the gap requires a product decision.
+
+### Triage-ready findings (issue #107)
+
+Your gaps feed the four-pile triage gate before anything is acted on. Most gaps you raise are **unclear spec** — "the spec didn't say" — and route back to the spec (#102), not to a code patch; tag those `spec_silent` so triage routes them there automatically. Reserve a code-change route for gaps that are genuinely a _confirmed, demonstrable_ defect (a failing, reproducible check), and never present an ambiguous-language or assumption gap as if it were a defect to be patched. A gap you cannot stand up against the artifact (e.g. it is actually covered) is a **false alarm** (`refuted_by_evidence`) — record it with its reason rather than dropping it silently. Do not over-explain to justify a gap; state what is missing and let triage sort it.

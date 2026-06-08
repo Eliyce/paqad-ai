@@ -44,6 +44,9 @@ export const PATHS = {
   // Issue #106 - flaky-test registry / quarantine list
   FLAKY_TESTS_DIR: '.paqad/flaky-tests',
   FLAKY_REGISTRY: '.paqad/flaky-tests/registry.json',
+  // Issue #107 - per-run finding triage ledger (four-pile sort + reasons)
+  FINDINGS_DIR: '.paqad/findings',
+  TRIAGE_LEDGER: '.paqad/findings/triage.json',
   PLANNING_MODULE_HEALTH_DIR: '.paqad/module-health',
   MODULE_HEALTH_EVIDENCE_DIR: '.paqad/module-health-evidence',
   MODULE_HEALTH_CONSUMED_EVENTS: '.paqad/module-health-consumed-events.json',
