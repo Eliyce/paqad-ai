@@ -57,6 +57,7 @@ import { SpecWritingPhase } from './phases/spec-writing.js';
 import { StoryPlanningPhase } from './phases/story-planning.js';
 import { VerificationPhase } from './phases/verification.js';
 import { VerificationLoopPhase } from './phases/verification-loop.js';
+import { TraceabilityPhase } from './phases/traceability.js';
 import { LANE_PHASES, PipelineRouter } from './router.js';
 import { RequestClassifier } from './classifier.js';
 import { loadFeatureDevelopmentPolicy } from './feature-development-policy.js';
@@ -93,7 +94,11 @@ const DEFAULT_PHASES: Record<PipelinePhase, PhaseExecutor> = {
   // build-check-fix loop. Transparent when the work converges (round 1);
   // emits one honest `stop` report at the lane's round cap / futility limit.
   'verification-gates': new VerificationLoopPhase(new VerificationPhase()),
-  'documentation-update': new DocumentationUpdatePhase(),
+  // Issue #109 — the documentation-update phase (which runs in every lane and is
+  // where docs are reconciled with reality) is wrapped so the bidirectional
+  // traceability map is rebuilt each run, lane-gated. Transparent on a clean
+  // run; surfaces untested-promise / orphan-code findings as a warning.
+  'documentation-update': new TraceabilityPhase(new DocumentationUpdatePhase()),
   'module-documentation': new ModuleDocumentationPhase(),
 };
 

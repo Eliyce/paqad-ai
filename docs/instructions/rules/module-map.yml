@@ -658,6 +658,20 @@ modules:
     sources:
       - src/compliance
 
+  - slug: traceability-engine
+    name: Bidirectional Traceability Engine
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Rebuilds a two-way promise ↔ code ↔ test map from reality each run by
+      joining the compliance forward link (spec→test), the module map, the
+      import graph, and verification-evidence `ac_id`. Flags promises with no
+      proving check (TR-UNTESTED-PROMISE) and code that answers to no promise
+      and that nothing-with-a-promise uses (TR-CODE-ORPHAN, by reachability —
+      not a label). Writes `.paqad/traceability/map.json`.
+    sources:
+      - src/traceability
+
   - slug: pentest-engine
     name: Pentest Engine (12 Skills)
     layer: framework-internals

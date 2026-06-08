@@ -95,3 +95,20 @@ Verify the handoff artifact at `.paqad/session/handoff.json` (or `.md`) contains
 
 ### Ready for Handoff: {yes|no}
 ```
+
+## Traceability map (issue #109)
+
+If `.paqad/traceability/map.json` is present, fold it into the review — it is the
+bidirectional promise ↔ code ↔ test map, rebuilt from reality this run. Treat its
+findings as warnings, not blockers (it never fails the build itself):
+
+- **`TR-UNTESTED-PROMISE`** — a promised acceptance criterion with no proving
+  check. Surface under **Warnings** (or **Spec Compliance** if it drops a
+  required criterion below covered).
+- **`TR-CODE-ORPHAN`** — code that answers to no promise and that nothing-with-a
+  -promise uses. Surface under **Warnings**.
+
+Trust the map's `shared-groundwork` verdict — it means a promise-backed file
+actually uses that code (proven by the import graph), so do not flag it as
+unrequested. When `anchors_known` is `false`, orphan flagging was suppressed for
+lack of a promise anchor; note that rather than treating "no orphans" as proof.

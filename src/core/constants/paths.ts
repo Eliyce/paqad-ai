@@ -47,6 +47,10 @@ export const PATHS = {
   // Issue #107 - per-run finding triage ledger (four-pile sort + reasons)
   FINDINGS_DIR: '.paqad/findings',
   TRIAGE_LEDGER: '.paqad/findings/triage.json',
+  // Issue #109 - bidirectional traceability map (promise ↔ code ↔ test),
+  // rebuilt from reality each run.
+  TRACEABILITY_DIR: '.paqad/traceability',
+  TRACEABILITY_MAP: '.paqad/traceability/map.json',
   PLANNING_MODULE_HEALTH_DIR: '.paqad/module-health',
   MODULE_HEALTH_EVIDENCE_DIR: '.paqad/module-health-evidence',
   MODULE_HEALTH_CONSUMED_EVENTS: '.paqad/module-health-consumed-events.json',
