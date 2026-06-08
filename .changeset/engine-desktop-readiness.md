@@ -18,3 +18,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-106 (seq 37): Report the engine version and the minimum consumer version it supports
 - PQD-107 (seq 38): Surface a stable error taxonomy that consumers can route to UI behaviours
 - PQD-167 (seq 98): Compute the per-turn context budget breakdown for the active model
+- PQD-169 (seq 100): Generate a rolling summary that preserves speaker attribution

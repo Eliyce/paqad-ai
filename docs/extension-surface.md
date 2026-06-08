@@ -163,6 +163,33 @@ lifetime via `getOrLoad`, degrading to a character/4 heuristic when
 | desktop (planned) | src/core/types/context.ts | `BudgetBreakdownError` | `interface BudgetBreakdownError { ok: false; error; missing_field }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/core/types/context.ts | `CompressionAuditRecord` | `interface CompressionAuditRecord { event; reason; dropped_chunk_count }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 
+### Rolling conversation summary (PQD-169)
+
+For long conversations the desktop trims history before calling the local-model
+runtime. `TurnSummarizer.summarise` is that primitive: it collapses older
+user+assistant turns into a single attributed summary (`user said` /
+`assistant replied`), folds in a prior summary (summarise-the-summary), excludes
+`decision_packet`/`approval_turn` turns (reported in `preserved_turn_ids` for the
+caller to re-insert verbatim), enforces a 2,000-token cap (stricter-prompt retry
+then truncation), and returns a typed `SummariseResult` — success with metadata
+or an explicit `inference-failed`/`timeout`/`cancelled` failure so the caller can
+fall back to drop-oldest without overwriting the last-known-good summary. The LLM
+call goes through an injected `InferenceProvider`; the engine ships only the
+interface (a concrete provider is a follow-up). Token counts are best-effort
+(character/4). The legacy `summarize(text, index, timestamp)` method is unchanged.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/context/turn-summarizer.ts | `TurnSummarizer` | `TurnSummarizer.summarise(messages: SummarisationMessage[], targetTokenCount: number, opts?: SummariseOptions): Promise<SummariseResult>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/turn-summarizer.ts | `SummariseOptions` | `interface SummariseOptions { priorSummary?; summaryModelPreference?; signal?; inferenceProvider?; timeoutMs? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/inference-provider.ts | `InferenceProvider` | `interface InferenceProvider { complete(messages, opts?): Promise<string> }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/inference-provider.ts | `InferenceMessage` | `interface InferenceMessage { role ('system'/'user'/'assistant'); content }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/context/inference-provider.ts | `InferenceCompleteOptions` | `interface InferenceCompleteOptions { timeoutMs?; signal? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `SummarisationMessage` | `interface SummarisationMessage { role; content; turn_id; decision_packet?; approval_turn? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `SummariseResult` | `type SummariseResult (SummariseSuccess discriminated on ok)` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `SummariseSuccess` | `interface SummariseSuccess { ok: true; summary_text; valid_through_turn_id; input_token_count; summary_token_count; truncated; preserved_turn_ids }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/core/types/context.ts | `SummariseFailure` | `interface SummariseFailure { ok: false; error ('inference-failed'/'timeout'/'cancelled') }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ### Consumer-side cancellation (PQD-104)
 
 Every long-running engine call accepts an optional `AbortSignal`. When the

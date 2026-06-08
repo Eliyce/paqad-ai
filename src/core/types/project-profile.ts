@@ -178,6 +178,8 @@ export interface EfficiencyConfig {
   predictive_cache?: boolean;
   auto_summarize_interval?: number;
   context_budget_strategy?: 'aggressive' | 'balanced' | 'conservative';
+  /** Model tier preference for rolling-summary inference (PQD-169). @since 1.10.0 */
+  summary_model_preference?: 'local' | 'cheapest' | 'default';
   skip_version_check?: boolean;
   version_check_interval_hours?: number;
 }

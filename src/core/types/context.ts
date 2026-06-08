@@ -50,6 +50,61 @@ export interface SummarizedTurn {
   summary_tokens: number;
 }
 
+// ── PQD-169: inference-backed rolling summary with speaker attribution ───────
+//
+// `TurnSummarizer.summarise` collapses older user+assistant turns into a single
+// attributed summary, leaving decision/approval turns for the caller to keep
+// verbatim. These types describe its input messages and its result.
+
+/**
+ * A conversation turn handed to `TurnSummarizer.summarise`. Turns flagged
+ * `decision_packet` or `approval_turn` are excluded from the collapsed span and
+ * their ids are reported in `preserved_turn_ids` for the caller to re-insert.
+ *
+ * @since 1.10.0
+ */
+export interface SummarisationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  turn_id: string;
+  decision_packet?: boolean;
+  approval_turn?: boolean;
+}
+
+/**
+ * Successful rolling-summary result. `summary_token_count` is a best-effort
+ * estimate (character/4) and never exceeds the 2,000-token hard cap.
+ *
+ * @since 1.10.0
+ */
+export interface SummariseSuccess {
+  ok: true;
+  summary_text: string;
+  valid_through_turn_id: string;
+  input_token_count: number;
+  summary_token_count: number;
+  truncated: boolean;
+  preserved_turn_ids: string[];
+}
+
+/**
+ * Failure result: an explicit, non-partial outcome so the caller can fall back
+ * to drop-oldest without overwriting the last-known-good summary.
+ *
+ * @since 1.10.0
+ */
+export interface SummariseFailure {
+  ok: false;
+  error: 'inference-failed' | 'timeout' | 'cancelled';
+}
+
+/**
+ * Discriminated union on `ok` returned by `TurnSummarizer.summarise`.
+ *
+ * @since 1.10.0
+ */
+export type SummariseResult = SummariseSuccess | SummariseFailure;
+
 export interface BudgetOptimizerState {
   tier: BudgetTier;
   tokens_used: number;

@@ -5,6 +5,7 @@ export * from './context-evictor.js';
 export * from './differential-refresh.js';
 export * from './file-registry-mapper.js';
 export * from './hit-tracker.js';
+export * from './inference-provider.js';
 export * from './priority-classifier.js';
 export * from './turn-summarizer.js';
 // Feature 1 - Semantic Context Loader
