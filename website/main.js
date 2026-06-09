@@ -338,7 +338,7 @@ function renderComparison() {
   if (!root) return;
   root.innerHTML = comparisonCards
     .map((card, index) => {
-      const icon = card.tone === 'positive' ? '✓' : '✕';
+      const icon = card.tone === 'positive' ? '✅' : '❌';
       return `
         <article class="comparison-card comparison-card--${card.tone} reveal-item" style="--reveal-delay:${index * 80}ms">
           <span class="comparison-tag comparison-tag--${card.tone}">${card.title}</span>

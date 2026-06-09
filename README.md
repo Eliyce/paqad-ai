@@ -73,14 +73,14 @@ AI writes the code now. The hard part moved: it is no longer typing the code, it
 
 Here is the difference paqad-ai makes on the same request.
 
-| Without paqad-ai                                                  | With paqad-ai                                                               |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| ✗ Guesses your folder structure and puts files in the wrong place | ✓ Knows your stack, layout, and conventions before it writes a line         |
-| ✗ Rebuilds a component that already exists                        | ✓ Finds the existing component and extends it                               |
-| ✗ Writes code that quietly breaks tests it never ran              | ✓ Writes the failing test first, then makes it pass without breaking others |
-| ✗ Forgets everything when you come back tomorrow                  | ✓ Picks up from a structured handoff of decisions and next steps            |
-| ✗ Burns tokens re-reading the same files every turn               | ✓ Loads only what the task needs                                            |
-| ✗ Tells you it is "done" when it is not                           | ✓ Cannot mark work done until the checks actually pass                      |
+| Without paqad-ai                                                   | With paqad-ai                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| ❌ Guesses your folder structure and puts files in the wrong place | ✅ Knows your stack, layout, and conventions before it writes a line         |
+| ❌ Rebuilds a component that already exists                        | ✅ Finds the existing component and extends it                               |
+| ❌ Writes code that quietly breaks tests it never ran              | ✅ Writes the failing test first, then makes it pass without breaking others |
+| ❌ Forgets everything when you come back tomorrow                  | ✅ Picks up from a structured handoff of decisions and next steps            |
+| ❌ Burns tokens re-reading the same files every turn               | ✅ Loads only what the task needs                                            |
+| ❌ Tells you it is "done" when it is not                           | ✅ Cannot mark work done until the checks actually pass                      |
 
 This is not a model problem you can wait out. The research is consistent:
 
@@ -229,10 +229,10 @@ Most tools treat security as a separate scanner you remember to run. paqad-ai tr
 
 **Security workflow.** A resumable pentest pass with full OWASP coverage, timed to the moment the industry is formalizing security for AI agents.
 
-| Standard                    | Coverage        |
-| --------------------------- | --------------- |
-| **OWASP Top 10 2025**       | A01 to A10 ✓    |
-| **OWASP API Security 2023** | API1 to API10 ✓ |
+| Standard                    | Coverage         |
+| --------------------------- | ---------------- |
+| **OWASP Top 10 2025**       | A01 to A10 ✅    |
+| **OWASP API Security 2023** | API1 to API10 ✅ |
 
 It writes a local `curl` playbook to prove each finding (it never runs attacks for you), gives each finding a stable ID so it survives retests, scans only changed files after the first run, and replays findings later as fixed, still-open, or needs another look.
 
@@ -316,15 +316,15 @@ One command, nothing extra to install. The server, the interface, and the layout
 
 paqad-ai sits in a space the others only touch the edges of: proof you can run locally, across every agent, driven by your own spec.
 
-| Tool                | What it is                          | What it leaves to you                             |
-| ------------------- | ----------------------------------- | ------------------------------------------------- |
-| **GitHub Spec Kit** | Write the spec before you build     | No check that the agent actually built it         |
-| **AWS Kiro**        | Spec-driven, inside one IDE         | Tied to its own editor, not local or multi-tool   |
-| **Tessl**           | A cloud spec registry               | Cloud-leaning, not a check on your own code       |
-| **Cursor rules**    | Context for one editor              | Rules inform, they never verify                   |
-| **Continue.dev**    | Checks as code, in CI               | AI-judged checks, no spec or security workflow    |
-| **Qodo**            | AI review of pull requests          | Reviews at the end, does not set the agent up     |
-| **paqad-ai**        | Spec, workflows, and proof, locally | Brings all of the above together, on your machine |
+| Tool                | What it is                          | What it leaves to you                                |
+| ------------------- | ----------------------------------- | ---------------------------------------------------- |
+| **GitHub Spec Kit** | Write the spec before you build     | No check that the agent actually built it            |
+| **AWS Kiro**        | Spec-driven, inside one IDE         | Tied to its own editor, not local or multi-tool      |
+| **Tessl**           | A cloud spec registry               | Cloud-leaning, not a check on your own code          |
+| **Cursor rules**    | Context for one editor              | Rules inform, they never verify                      |
+| **Continue.dev**    | Checks as code, in CI               | AI-judged checks, no spec or security workflow       |
+| **Qodo**            | AI review of pull requests          | Reviews at the end, does not set the agent up        |
+| **paqad-ai**        | Spec, workflows, and proof, locally | ✅ Brings all of the above together, on your machine |
 
 The short version: most tools tell the agent what to build, or review it after the fact. paqad-ai makes the agent follow your process and prove the result, before anything ships.
 
