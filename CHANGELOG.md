@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.10.1
+
+### Patch Changes
+
+- [#125](https://github.com/Eliyce/paqad-ai/pull/125) [`6708fd6`](https://github.com/Eliyce/paqad-ai/commit/6708fd6c23609efa48f3a1144527c1b44a2630d4) Thanks [@HLasani](https://github.com/HLasani)! - Rewrite the README and marketing site to make it obvious what paqad-ai is and the problem it solves. The new copy leads with the problem, puts a 30-second install up front, and walks through the framework as a guided tour: one setup for every agent, workflows instead of prompts, deterministic verification, security and design workflows, living documentation, token-efficient context, and local-first enterprise features. The docs site introduction and SEO metadata were updated to match.
+
 ## 1.10.0
 
 ### Minor Changes
