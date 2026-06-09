@@ -1,4 +1,14 @@
-export type StackEcosystem = 'node' | 'php' | 'python' | 'ruby' | 'jvm' | 'go' | 'rust' | 'dart';
+export const STACK_ECOSYSTEMS = [
+  'node',
+  'php',
+  'python',
+  'ruby',
+  'jvm',
+  'go',
+  'rust',
+  'dart',
+] as const;
+export type StackEcosystem = (typeof STACK_ECOSYSTEMS)[number];
 export type StackProfileSourceKind = 'manifest' | 'lockfile' | 'config' | 'heuristic' | 'fallback';
 
 export interface ToolchainInfo {

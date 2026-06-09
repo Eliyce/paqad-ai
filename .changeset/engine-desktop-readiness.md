@@ -25,3 +25,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-194 (seq 125): Emit skill-load-failed and pack-load-failed audit events
 - PQD-331 (seq 266): Index an attached file into the session or project collection
 - PQD-415 (seq 350): Index, retrieve, and destroy a project-scoped CRS collection through the engine
+- PQD-423 (seq 358): Detect the project stack from a folder (AI-first with static fallback)

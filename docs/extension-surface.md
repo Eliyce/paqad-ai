@@ -263,6 +263,34 @@ Already-aborted signals return immediately without starting work.
 | desktop (planned), api (planned) | src/pipeline/lane-runner.ts | `LaneRunOptions` | `interface LaneRunOptions { signal?: AbortSignal }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/workflows/engine.ts | `WorkflowRunOptions` | `interface WorkflowRunOptions { signal?: AbortSignal }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 
+### Stack detection from a folder (PQD-423)
+
+`Detector.detect(projectRoot)` runs AI-first stack detection with a static
+fallback and returns a `DetectionReport` carrying three additive fields the
+desktop renders without a form: `primary_language` (human-readable, derived from
+the primary toolchain ecosystem via `ecosystemToLanguage`), `confidence_score`
+(numeric, `[0, 1]` — coexists with the categorical `confidence`), and `source`
+(`'ai'` when the AI path returned a confident result, `'static'` otherwise). The
+AI path is opt-in: inject an `AIDetector` (backed by an `InferenceProvider`) into
+the `Detector` constructor; with none, detection stays purely static. `AIDetector`
+never throws — any call failure, parse failure, 10s timeout, or sub-0.6 confidence
+yields `null` so the static fallback runs. Concurrent `detect()` calls on the same
+unchanged folder are deduplicated to one in-flight promise, so they return
+identical results. `toStackDetectionResource` wraps a report in the seven
+`ModelResource` envelope fields at the IPC boundary, with a deterministic id.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned), api (planned) | src/detection/detector.ts | `Detector` | `Detector.detect(projectRoot: string, options?: { persist? }): Promise<DetectionReport>` | beta | 1.10.0 | |
+| desktop (planned), api (planned) | src/detection/detector.ts | `DetectorOptions` | `interface DetectorOptions { aiDetector?: AIDetector｜null }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/detection/ai-detector.ts | `AIDetector` | `class AIDetector { detect(projectRoot: string): Promise<DetectionReport｜null> }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/detection/ai-detector.ts | `AIDetectorOptions` | `interface AIDetectorOptions { provider?; timeoutMs?; minConfidence? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/detection/language-map.ts | `ecosystemToLanguage` | `ecosystemToLanguage(ecosystem: StackEcosystem｜null): string｜null` | beta | 1.10.0 | |
+| desktop (planned), api (planned) | src/detection/types.ts | `toStackDetectionResource` | `toStackDetectionResource(report: DetectionReport, options?): StackDetectionResource` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/detection/types.ts | `StackDetectionResource` | `interface StackDetectionResource { id; type; created_at; updated_at; created_at_human; updated_at_human; permissions; report }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/detection/types.ts | `StackDetectionPermissions` | `interface StackDetectionPermissions { can_view; can_edit; can_delete }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned), api (planned) | src/detection/types.ts | `ToStackDetectionResourceOptions` | `interface ToStackDetectionResourceOptions { projectRoot?; permissions? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
 ## Engine event-stream consumers (planned)
 
 The unified in-process event bus (PQD-99). The desktop forwards `EngineEvent`
