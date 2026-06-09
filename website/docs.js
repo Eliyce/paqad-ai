@@ -42,7 +42,7 @@ function setupRain() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const layer = document.getElementById('rain-layer');
   if (!layer) return;
-  const chars = ['0', '1', '{', '}', '/', '\\', '#', '·', '—', '<', '>', '='];
+  const chars = ['0', '1', '{', '}', '/', '\\', '#', '·', '+', '<', '>', '='];
   const count = Math.min(30, Math.floor(window.innerWidth / 28));
   for (let i = 0; i < count; i++) {
     const el = document.createElement('span');
@@ -384,7 +384,7 @@ function renderToC(page) {
   const headings = page.content.filter((n) => n.type === 'h2' || n.type === 'h3');
 
   if (headings.length < 2) {
-    tocNav.innerHTML = '<span style="font-size:.75rem;color:var(--muted)">—</span>';
+    tocNav.innerHTML = '<span style="font-size:.75rem;color:var(--muted)">·</span>';
     return;
   }
 
@@ -513,7 +513,7 @@ const docsRouter = {
       history.pushState(null, '', `#${pageId}`);
     }
 
-    document.title = `paqad-ai Docs — ${page.title}`;
+    document.title = `paqad-ai docs: ${page.title}`;
     renderPage(page);
     updateSidebarActiveState(pageId);
     window.scrollTo({ top: 0, behavior: 'instant' });

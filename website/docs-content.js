@@ -18,11 +18,11 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Introduction' },
       {
         type: 'p',
-        text: 'paqad-ai is a free, open-source onboarding tool for AI coding workflows. It reads your project, detects your stack, and generates the structured context your AI tools need so they stop guessing about your codebase.',
+        text: 'paqad-ai is a free, open-source, spec-driven framework for AI coding agents. It reads your project, learns your stack, and turns your specs, rules, and workflows into context every AI tool has to follow. Then it proves each change with automatic checks, instead of trusting the prompt.',
       },
       {
         type: 'p',
-        text: 'When you open a project in Claude Code, Cursor, Codex, Gemini, or Copilot, those agents start cold. They do not know your stack, your file layout, or the rules your project already follows. paqad-ai fixes that with one onboarding command and a shared knowledge base every supported tool can read.',
+        text: 'A prompt is the most error-prone part of AI development. When you open a project in Claude Code, Cursor, Codex, Gemini, or Copilot, those agents start cold: they do not know your stack, your layout, or the rules your project already follows, so they guess. paqad-ai fixes that with one onboarding command, a shared knowledge base every tool reads, and a verification pipeline that catches work an agent only claims to have finished.',
       },
       {
         type: 'callout',
@@ -39,7 +39,7 @@ export const DOCS_PAGES = {
         items: [
           'Solo developers who switch between AI tools and want consistent context in all of them.',
           "Teams that need every developer's AI agent to follow the same conventions.",
-          'Shops running multiple agents in parallel — planning, implementing, reviewing — who need a shared ground truth.',
+          'Shops running multiple agents in parallel, planning, implementing, reviewing, who need a shared ground truth.',
           'Organisations that require auditable, version-controlled AI configuration alongside their code.',
         ],
       },
@@ -85,7 +85,7 @@ export const DOCS_PAGES = {
           ['.paqad/', 'Framework metadata, project profile, and vector store.'],
           [
             'docs/instructions/',
-            'Rules, stack docs, design system, and workflow templates — consumed by every adapter.',
+            'Rules, stack docs, design system, and workflow templates, consumed by every adapter.',
           ],
           [
             'CLAUDE.md / AGENTS.md / etc.',
@@ -116,7 +116,7 @@ export const DOCS_PAGES = {
         items: [
           'Node.js 22 or higher (`node --version` to check).',
           'npm 10 or higher, or pnpm 10 or higher.',
-          'Any project directory — paqad-ai works with or without an existing `package.json`.',
+          'Any project directory, paqad-ai works with or without an existing `package.json`.',
         ],
       },
       { type: 'h2', id: 'global-install', text: 'Global install' },
@@ -173,13 +173,13 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The fastest path from zero to a fully configured project is a single command. Here is what happens when you run it, and where the token savings come from.',
       },
-      { type: 'h2', id: 'run-onboard', text: 'Step 1 — Run onboard' },
+      { type: 'h2', id: 'run-onboard', text: 'Step 1, Run onboard' },
       {
         type: 'p',
-        text: 'Navigate to your project root — the directory that contains your `package.json`, `composer.json`, `go.mod`, or equivalent manifest — and run:',
+        text: 'Navigate to your project root, the directory that contains your `package.json`, `composer.json`, `go.mod`, or equivalent manifest, and run:',
       },
       { type: 'terminal', lang: 'bash', copyable: true, code: 'cd your-project\npaqad-ai onboard' },
-      { type: 'h2', id: 'choose-adapters', text: 'Step 2 — Choose adapters' },
+      { type: 'h2', id: 'choose-adapters', text: 'Step 2, Choose adapters' },
       {
         type: 'p',
         text: 'paqad-ai asks which AI tools you use. Select one or more with the spacebar and press Enter. It will generate matching instruction files from the same source of truth.',
@@ -189,7 +189,7 @@ export const DOCS_PAGES = {
         lang: 'bash',
         code: '? Which AI adapters should be configured?\n❯ ◉ Claude Code\n  ◯ Cursor\n  ◯ GitHub Copilot\n  ◯ Windsurf\n  ◯ Continue\n  ◯ Codex CLI',
       },
-      { type: 'h2', id: 'stack-detection', text: 'Step 3 — Stack detection' },
+      { type: 'h2', id: 'stack-detection', text: 'Step 3, Stack detection' },
       {
         type: 'p',
         text: 'paqad-ai scans your project, reads your lockfiles and manifests, and tells you exactly what it found. This replaces the usual “read the whole repo first” prompt spam with structured project context.',
@@ -199,7 +199,7 @@ export const DOCS_PAGES = {
         lang: 'bash',
         code: '✔ Detected: laravel (composer.lock)\n✔ Detected: node-pnpm (pnpm-lock.yaml)\n✔ Loaded pack: laravel\n✔ Loaded pack: node-service',
       },
-      { type: 'h2', id: 'what-gets-created', text: 'Step 4 — What gets created' },
+      { type: 'h2', id: 'what-gets-created', text: 'Step 4, What gets created' },
       {
         type: 'p',
         text: 'paqad-ai writes all generated files into your project. Nothing is hidden in a global directory, and nothing requires a hosted account.',
@@ -209,18 +209,18 @@ export const DOCS_PAGES = {
         lang: 'bash',
         code: '✔ Written: CLAUDE.md\n✔ Written: .paqad/project-profile.yaml\n✔ Written: docs/instructions/rules/\n✔ Written: docs/instructions/stack/\n✔ Written: docs/instructions/design-system/\n✔ Written: .claude/settings.json (MCP defaults)',
       },
-      { type: 'h2', id: 'health-check', text: 'Step 5 — Health check' },
+      { type: 'h2', id: 'health-check', text: 'Step 5, Health check' },
       { type: 'p', text: 'Confirm everything is in order with the `doctor` command.' },
       { type: 'terminal', lang: 'bash', copyable: true, code: 'paqad-ai doctor' },
       {
         type: 'terminal',
         lang: 'bash',
-        code: '✔ schema valid\n✔ instructions present\n✔ adapter output matches\n✔ MCP config present\n✔ no duplicate rules\n\n5/10 gates checked — all pass',
+        code: '✔ schema valid\n✔ instructions present\n✔ adapter output matches\n✔ MCP config present\n✔ no duplicate rules\n\n5/10 gates checked, all pass',
       },
       {
         type: 'callout',
         variant: 'tip',
-        text: 'Commit the generated files immediately. They are first-class project assets — review them, version them, and update them when your stack changes so every AI session starts with the same ground truth.',
+        text: 'Commit the generated files immediately. They are first-class project assets, review them, version them, and update them when your stack changes so every AI session starts with the same ground truth.',
       },
     ],
   },
@@ -241,7 +241,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The landing page shows the simple version: ask, plan, verify. Under the hood, paqad-ai processes your project in three sequential passes: detect, resolve, and generate. Each pass feeds the next, which is why the resulting context is structured instead of improvised.',
       },
-      { type: 'h2', id: 'pass-1-detection', text: 'Pass 1 — Detection' },
+      { type: 'h2', id: 'pass-1-detection', text: 'Pass 1, Detection' },
       {
         type: 'p',
         text: 'The detection pass reads every manifest and lockfile in your project root. It identifies your primary language ecosystem, the frameworks and libraries in use, and produces a version-band summary for each, so the AI does not have to infer your stack from scattered files.',
@@ -254,10 +254,10 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'Detection is lockfile-first. When a lockfile is present, paqad-ai reads pinned versions from it rather than the looser ranges in a manifest. This makes version detection deterministic across machines.',
       },
-      { type: 'h2', id: 'pass-2-resolution', text: 'Pass 2 — Resolution' },
+      { type: 'h2', id: 'pass-2-resolution', text: 'Pass 2, Resolution' },
       {
         type: 'p',
-        text: 'The resolution pass takes the detected packs and assembles the full documentation and configuration set. It walks an inheritance chain — base layer first, then capability overlays, then stack-specific content — deduplicating rules at each step so tokens are spent on the task, not on repeated boilerplate.',
+        text: 'The resolution pass takes the detected packs and assembles the full documentation and configuration set. It walks an inheritance chain, base layer first, then capability overlays, then stack-specific content, deduplicating rules at each step so tokens are spent on the task, not on repeated boilerplate.',
       },
       {
         type: 'table',
@@ -273,7 +273,7 @@ export const DOCS_PAGES = {
           ['8', 'project overrides', 'Anything in .paqad/ takes final precedence.'],
         ],
       },
-      { type: 'h2', id: 'pass-3-generation', text: 'Pass 3 — Generation' },
+      { type: 'h2', id: 'pass-3-generation', text: 'Pass 3, Generation' },
       {
         type: 'p',
         text: 'The generation pass takes the resolved content and writes adapter-specific output files. Each adapter has its own entry file format, MCP configuration path, and optional skills or agents directory. The same resolved knowledge base drives all of them, which keeps Claude Code, Codex, Cursor, Gemini, and the rest in sync.',
@@ -317,7 +317,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'capabilities', text: 'Capabilities' },
       {
         type: 'p',
-        text: 'Capabilities are feature tiers. Each one unlocks additional documentation, rules, and agent configuration. They are additive — enabling `security` also requires `coding` to be enabled.',
+        text: 'Capabilities are feature tiers. Each one unlocks additional documentation, rules, and agent configuration. They are additive, enabling `security` also requires `coding` to be enabled.',
       },
       {
         type: 'dl',
@@ -366,7 +366,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Stack Detection' },
       {
         type: 'p',
-        text: "Stack detection is the first thing paqad-ai does when you run `onboard` or `refresh --stack`. It reads your project's manifest and lockfile files to determine what frameworks, languages, and tools you are using — without you having to tell it anything.",
+        text: "Stack detection is the first thing paqad-ai does when you run `onboard` or `refresh --stack`. It reads your project's manifest and lockfile files to determine what frameworks, languages, and tools you are using, without you having to tell it anything.",
       },
       { type: 'h2', id: 'supported-ecosystems', text: 'Supported ecosystems' },
       {
@@ -391,7 +391,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'lockfile-precedence', text: 'Lockfile precedence' },
       {
         type: 'p',
-        text: 'When a lockfile is present alongside a manifest, paqad-ai reads version information from the lockfile. Lockfiles contain pinned, resolved versions — not the open ranges that manifests typically declare. This makes detection consistent across environments.',
+        text: 'When a lockfile is present alongside a manifest, paqad-ai reads version information from the lockfile. Lockfiles contain pinned, resolved versions, not the open ranges that manifests typically declare. This makes detection consistent across environments.',
       },
       {
         type: 'callout',
@@ -429,19 +429,19 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'layer-stack', text: 'The layer stack' },
       {
         type: 'p',
-        text: 'Layers are processed in order from lowest to highest precedence. Later layers can add content or override content from earlier layers. Duplicate rules — identified by their rule ID — are dropped in favour of the later version.',
+        text: 'Layers are processed in order from lowest to highest precedence. Later layers can add content or override content from earlier layers. Duplicate rules, identified by their rule ID, are dropped in favour of the later version.',
       },
       {
         type: 'ol',
         items: [
-          'Base layer — always-on agents, shared rules, core checklists.',
-          'Content capability — writing style, markdown, attribution.',
-          'Coding capability — code quality, review, architecture.',
-          'Security capability — pentest, OWASP, guardrails.',
-          'Stack pack — framework-specific rules and MCP defaults.',
-          'Trait overlays — per-library rules (e.g. `vitest`, `tailwind`).',
-          'Archetype rules — project-shape rules (cli, library, service).',
-          'Project overrides — anything in `.paqad/` wins.',
+          'Base layer, always-on agents, shared rules, core checklists.',
+          'Content capability, writing style, markdown, attribution.',
+          'Coding capability, code quality, review, architecture.',
+          'Security capability, pentest, OWASP, guardrails.',
+          'Stack pack, framework-specific rules and MCP defaults.',
+          'Trait overlays, per-library rules (e.g. `vitest`, `tailwind`).',
+          'Archetype rules, project-shape rules (cli, library, service).',
+          'Project overrides, anything in `.paqad/` wins.',
         ],
       },
       { type: 'h2', id: 'stack-conditional-syntax', text: 'Stack-conditional content' },
@@ -517,8 +517,8 @@ export const DOCS_PAGES = {
       {
         type: 'ul',
         items: [
-          '`.paqad/project-profile.yaml` — project configuration.',
-          '`docs/instructions/` — the shared documentation bundle.',
+          '`.paqad/project-profile.yaml`, project configuration.',
+          '`docs/instructions/`, the shared documentation bundle.',
           'One entry file per selected adapter (e.g. `CLAUDE.md`, `.cursorrules`).',
           'MCP configuration files for each adapter that supports MCP.',
         ],
@@ -574,7 +574,7 @@ export const DOCS_PAGES = {
       {
         type: 'terminal',
         lang: 'bash',
-        code: '✔ schema valid\n✔ instructions present\n✔ adapter output matches\n✔ MCP config present\n✔ no duplicate rules\n✔ cache warm\n✗ context hit-rate — RAG index is empty. Run: paqad-ai rag index\n✔ stack drift — none detected\n✔ skill cache warm\n✔ adapter file integrity\n\n9/10 gates pass · 1 warning',
+        code: '✔ schema valid\n✔ instructions present\n✔ adapter output matches\n✔ MCP config present\n✔ no duplicate rules\n✔ cache warm\n✗ context hit-rate, RAG index is empty. Run: paqad-ai rag index\n✔ stack drift, none detected\n✔ skill cache warm\n✔ adapter file integrity\n\n9/10 gates pass · 1 warning',
       },
       { type: 'h2', id: 'json-output', text: 'JSON output' },
       {
@@ -720,7 +720,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'refresh', text: 'refresh' },
       {
         type: 'p',
-        text: 'Use `refresh` whenever you make a change to your project that should be reflected in the generated documentation — adding a new framework dependency, changing your design system, or enabling a new capability.',
+        text: 'Use `refresh` whenever you make a change to your project that should be reflected in the generated documentation, adding a new framework dependency, changing your design system, or enabling a new capability.',
       },
       {
         type: 'terminal',
@@ -759,7 +759,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'packs' },
       {
         type: 'p',
-        text: 'The `packs` command group lets you inspect, install, validate, and create stack packs — the YAML units that drive detection and documentation generation.',
+        text: 'The `packs` command group lets you inspect, install, validate, and create stack packs, the YAML units that drive detection and documentation generation.',
       },
       { type: 'h2', id: 'list', text: 'packs list' },
       {
@@ -878,7 +878,7 @@ export const DOCS_PAGES = {
       {
         type: 'terminal',
         lang: 'bash',
-        code: 'enabled:\n  ✔ content\n  ✔ coding\n  ✔ security\n\navailable:\n  content   — writing, markdown, attribution rules\n  coding    — code quality, review, architecture (requires: content)\n\ndependency-managed:\n  security  — pentest, OWASP, guardrails (follows coding automatically)',
+        code: 'enabled:\n  ✔ content\n  ✔ coding\n  ✔ security\n\navailable:\n  content  : writing, markdown, attribution rules\n  coding   : code quality, review, architecture (requires: content)\n\ndependency-managed:\n  security : pentest, OWASP, guardrails (follows coding automatically)',
       },
       { type: 'h2', id: 'add-remove', text: 'capabilities add & remove' },
       {
@@ -890,7 +890,7 @@ export const DOCS_PAGES = {
       {
         type: 'callout',
         variant: 'warning',
-        text: 'Adding a capability triggers a `refresh` automatically. Removing one removes the documentation it generated — review the diff carefully before committing.',
+        text: 'Adding a capability triggers a `refresh` automatically. Removing one removes the documentation it generated, review the diff carefully before committing.',
       },
       { type: 'h2', id: 'dependencies', text: 'Capability dependencies' },
       {
@@ -917,7 +917,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'init', text: 'rag init' },
       {
         type: 'p',
-        text: 'Enable RAG and build the initial vector index. Pick a provider — `local` is free and runs entirely on your machine; `openai` and `voyageai` use remote APIs.',
+        text: 'Enable RAG and build the initial vector index. Pick a provider, `local` is free and runs entirely on your machine; `openai` and `voyageai` use remote APIs.',
       },
       {
         type: 'terminal',
@@ -996,7 +996,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'graph' },
       {
         type: 'p',
-        text: 'The `graph` command opens an interactive WebGL visualization of your project in the browser. One command, no extra install — the server, frontend, and layout engine all ship inside `paqad-ai`. It reads everything paqad-ai already knows about your project from `.paqad/` — modules, files, imports, RAG chunks, symbols, health, defects — and renders it as a live, explorable map.',
+        text: 'The `graph` command opens an interactive WebGL visualization of your project in the browser. One command, no extra install, the server, frontend, and layout engine all ship inside `paqad-ai`. It reads everything paqad-ai already knows about your project from `.paqad/`, modules, files, imports, RAG chunks, symbols, health, defects, and renders it as a live, explorable map.',
       },
       { type: 'h2', id: 'synopsis', text: 'Synopsis' },
       { type: 'terminal', lang: 'bash', copyable: true, code: 'paqad-ai graph [options]' },
@@ -1020,7 +1020,7 @@ export const DOCS_PAGES = {
             '--port <n>',
             'Server port. Auto-increments to the next free port if taken. Default `5371`.',
           ],
-          ['--host <h>', 'Bind address. Default `127.0.0.1` (loopback only — no remote exposure).'],
+          ['--host <h>', 'Bind address. Default `127.0.0.1` (loopback only, no remote exposure).'],
           ['--no-open', 'Print the URL and skip auto-opening the browser. Useful in SSH or CI.'],
           [
             '--threshold <n>',
@@ -1037,8 +1037,8 @@ export const DOCS_PAGES = {
         items: [
           '**Modules** as the largest nodes, coloured by your active overlay (health / defects / risk / complexity correction).',
           '**Files** clustered around their parent module, sized by symbol count, inheriting overlay colour at reduced saturation.',
-          '**Chunks** — the AST-aware RAG chunks paqad-ai indexed — in teal.',
-          '**Symbols** — every exported function, class, and constant — in purple.',
+          '**Chunks**, the AST-aware RAG chunks paqad-ai indexed, in teal.',
+          '**Symbols**, every exported function, class, and constant, in purple.',
           '**Imports edges** in indigo, derived from a TS/JS import scan with `@/` alias support.',
           '**Similarity edges** in orange, resolved on demand from your vector store at any cosine threshold.',
         ],
@@ -1048,17 +1048,17 @@ export const DOCS_PAGES = {
         type: 'ul',
         items: [
           '**Search** modules, files, symbols, and file basenames from the top bar. Press `/` to focus, `n`/`N` to cycle matches. The camera pans to the active match.',
-          '**Click** any node to open a detail panel — module file lists, file import-in/import-out neighbourhoods, chunk content with show-more, symbol metadata.',
+          '**Click** any node to open a detail panel, module file lists, file import-in/import-out neighbourhoods, chunk content with show-more, symbol metadata.',
           '**Threshold slider** rebuilds the similarity layer on commit (not on drag). Module-scoped queries return in milliseconds; full-project queries return in a few seconds.',
           '**Overlays** swap the module colour scheme between none, health, defect density (log-scaled), risk floor, and complexity correction. The legend in the bottom-left always reflects the active overlay.',
           '**Layer toggles** hide and re-show modules, files, chunks, symbols, contains/imports/similar edges client-side without re-fetching.',
-          '**Live reload** picks up any `.paqad/` change within ~500ms and merges the new graph in place — your viewport and selection are preserved.',
+          '**Live reload** picks up any `.paqad/` change within ~500ms and merges the new graph in place, your viewport and selection are preserved.',
         ],
       },
       { type: 'h2', id: 'rag-requirements', text: 'RAG and similarity' },
       {
         type: 'p',
-        text: 'Similarity edges and chunk nodes need a vector store. They work with any embedding provider — `local`, `openai`, or `voyageai`. If RAG is disabled, the graph still renders fully: modules, files, imports, symbols, overlays, search, and detail panel all work normally. The similarity slider is disabled with a clear banner, and chunk nodes are hidden until you run `paqad-ai rag init`.',
+        text: 'Similarity edges and chunk nodes need a vector store. They work with any embedding provider, `local`, `openai`, or `voyageai`. If RAG is disabled, the graph still renders fully: modules, files, imports, symbols, overlays, search, and detail panel all work normally. The similarity slider is disabled with a clear banner, and chunk nodes are hidden until you run `paqad-ai rag init`.',
       },
       {
         type: 'callout',
@@ -1068,7 +1068,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'pre-conditions', text: 'Pre-conditions' },
       {
         type: 'p',
-        text: 'The current directory must contain a `.paqad/` produced by onboarding. If it is missing, `paqad-ai graph` exits with code 2 and points you at `paqad-ai onboard`. All other artefacts (module health, defect store, vector index, plan history) are optional — missing pieces degrade gracefully into a banner instead of an error.',
+        text: 'The current directory must contain a `.paqad/` produced by onboarding. If it is missing, `paqad-ai graph` exits with code 2 and points you at `paqad-ai onboard`. All other artefacts (module health, defect store, vector index, plan history) are optional, missing pieces degrade gracefully into a banner instead of an error.',
       },
     ],
   },
@@ -1087,7 +1087,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'What Are Packs' },
       {
         type: 'p',
-        text: 'A pack is a YAML file that teaches paqad-ai about a specific framework or project archetype. Every built-in stack — Laravel, React, Django, Rails, and so on — is defined by a pack. You can create your own packs for internal frameworks or custom project shapes.',
+        text: 'A pack is a YAML file that teaches paqad-ai about a specific framework or project archetype. Every built-in stack, Laravel, React, Django, Rails, and so on, is defined by a pack. You can create your own packs for internal frameworks or custom project shapes.',
       },
       { type: 'h2', id: 'pack-anatomy', text: 'Anatomy of a pack' },
       {
@@ -1100,13 +1100,13 @@ export const DOCS_PAGES = {
       {
         type: 'ul',
         items: [
-          'Detection — which manifest files and dependency names trigger this pack.',
-          'Documentation — which stack-specific doc templates to include in the resolved output.',
-          'MCP servers — which Model Context Protocol servers to register for this stack.',
-          'Traits — sub-library overlays (e.g. a `vitest` trait within a `node` pack).',
-          'Archetypes — project-shape rules that apply on top of the stack rules.',
-          'Pentest maps — OWASP attack surface hints for the security capability.',
-          'Testing metadata — test runner, coverage thresholds, and test file patterns.',
+          'Detection, which manifest files and dependency names trigger this pack.',
+          'Documentation, which stack-specific doc templates to include in the resolved output.',
+          'MCP servers, which Model Context Protocol servers to register for this stack.',
+          'Traits, sub-library overlays (e.g. a `vitest` trait within a `node` pack).',
+          'Archetypes, project-shape rules that apply on top of the stack rules.',
+          'Pentest maps, OWASP attack surface hints for the security capability.',
+          'Testing metadata, test runner, coverage thresholds, and test file patterns.',
         ],
       },
     ],
@@ -1249,9 +1249,9 @@ export const DOCS_PAGES = {
       {
         type: 'ol',
         items: [
-          'Built-in packs — lowest precedence.',
+          'Built-in packs, lowest precedence.',
           'Globally installed packs (`~/.paqad/packs/`).',
-          'Project-local packs (`.paqad/packs/`) — highest precedence.',
+          'Project-local packs (`.paqad/packs/`), highest precedence.',
         ],
       },
       {
@@ -1299,14 +1299,14 @@ export const DOCS_PAGES = {
         rows: [
           ['claude-code', 'CLAUDE.md', '.claude/settings.mcp.json', 'Hooks, cache, memory'],
           ['cursor', '.cursor/rules/paqad.mdc', '.cursor/mcp.json', 'Cache, memory'],
-          ['github-copilot', '.github/copilot-instructions.md', '.vscode/mcp.json', '—'],
+          ['github-copilot', '.github/copilot-instructions.md', '.vscode/mcp.json', ', '],
           ['windsurf', '.windsurfrules', '.windsurf/mcp.json', 'Cache, memory'],
-          ['continue', '.continue/rules/paqad.md', '.continue/mcp.json', '—'],
+          ['continue', '.continue/rules/paqad.md', '.continue/mcp.json', ', '],
           ['codex-cli', 'AGENTS.md', '.codex/mcp.json', 'Hooks, cache, memory'],
           ['gemini-cli', 'GEMINI.md', '.gemini/mcp.json', 'Hooks, cache, memory'],
           ['antigravity', 'ANTIGRAVITY.md', '.antigravity/mcp.json', 'Hooks, cache, memory'],
-          ['junie', '.junie/AGENTS.md', '.junie/mcp/mcp.json', '—'],
-          ['aider', '.aider.conf.yml', '—', 'Conventions only'],
+          ['junie', '.junie/AGENTS.md', '.junie/mcp/mcp.json', ', '],
+          ['aider', '.aider.conf.yml', ', ', 'Conventions only'],
         ],
       },
       { type: 'h2', id: 'selecting-adapters', text: 'Selecting adapters' },
@@ -1331,7 +1331,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The Claude Code adapter writes `CLAUDE.md` at your project root and configures the `.claude/` directory with MCP defaults plus lightweight local settings such as hooks, cache, and memory.',
       },
-      { type: 'h2', id: 'entry-file', text: 'Entry file — CLAUDE.md' },
+      { type: 'h2', id: 'entry-file', text: 'Entry file, CLAUDE.md' },
       {
         type: 'p',
         text: '`CLAUDE.md` is the first file Claude Code reads when it opens your project. paqad-ai keeps it lean: it declares the framework entry path and defers all detail to `docs/instructions/`.',
@@ -1374,7 +1374,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The Cursor adapter writes `.cursorrules` at the project root and populates `.cursor/rules/` with stack-specific rule fragments. MCP configuration goes to `.cursor/mcp.json`.',
       },
-      { type: 'h2', id: 'entry-file', text: 'Entry file — .cursorrules' },
+      { type: 'h2', id: 'entry-file', text: 'Entry file, .cursorrules' },
       {
         type: 'p',
         text: "`.cursorrules` is a markdown file Cursor loads as persistent context for all AI interactions in your project. paqad-ai writes a structured summary of your project's conventions, referencing the full rule set in `.cursor/rules/`.",
@@ -1384,7 +1384,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'Cursor supports scoped rule files in `.cursor/rules/`. paqad-ai writes one `.mdc` file per documentation category (architecture, testing, security, etc.) so Cursor can apply rules contextually based on which files are open.',
       },
-      { type: 'h2', id: 'mcp', text: 'MCP — .cursor/mcp.json' },
+      { type: 'h2', id: 'mcp', text: 'MCP, .cursor/mcp.json' },
       {
         type: 'terminal',
         lang: 'json',
@@ -1406,9 +1406,9 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'GitHub Copilot' },
       {
         type: 'p',
-        text: 'The GitHub Copilot adapter writes `.github/copilot-instructions.md` — the standard file GitHub Copilot and Copilot Chat read for repository-level context.',
+        text: 'The GitHub Copilot adapter writes `.github/copilot-instructions.md`, the standard file GitHub Copilot and Copilot Chat read for repository-level context.',
       },
-      { type: 'h2', id: 'entry-file', text: 'Entry file — copilot-instructions.md' },
+      { type: 'h2', id: 'entry-file', text: 'Entry file, copilot-instructions.md' },
       {
         type: 'p',
         text: 'GitHub Copilot reads `.github/copilot-instructions.md` automatically for any repository it is active in. paqad-ai generates a comprehensive markdown document covering your stack, conventions, and team rules.',
@@ -1440,7 +1440,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The Windsurf adapter produces `.windsurfrules` for the Windsurf editor plus MCP, cache, and memory configuration for Cascade. Runtime skills and agents remain in the installed paqad-ai package.',
       },
-      { type: 'h2', id: 'entry-file', text: 'Entry file — .windsurfrules' },
+      { type: 'h2', id: 'entry-file', text: 'Entry file, .windsurfrules' },
       {
         type: 'p',
         text: 'Windsurf reads `.windsurfrules` to set persistent project context for all Cascade sessions. The generated file is structured with clearly labelled sections: Stack, Rules, Design System, and Testing.',
@@ -1450,7 +1450,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'Cascade uses the shared runtime agents shipped with paqad-ai. Onboarding keeps the project-local output thin and does not create `.windsurf/agents/` or `.windsurf/skills/` directories.',
       },
-      { type: 'h2', id: 'mcp', text: 'MCP — .windsurf/mcp.json' },
+      { type: 'h2', id: 'mcp', text: 'MCP, .windsurf/mcp.json' },
       {
         type: 'p',
         text: 'Stack-specific MCP servers are registered in `.windsurf/mcp.json`. Cascade loads these automatically at session start.',
@@ -1472,10 +1472,10 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The Continue adapter writes `.continue/config.json` with project context, custom prompts, and MCP server registration. Continue is an open-source VS Code and JetBrains extension.',
       },
-      { type: 'h2', id: 'config', text: 'Configuration — .continue/config.json' },
+      { type: 'h2', id: 'config', text: 'Configuration, .continue/config.json' },
       {
         type: 'p',
-        text: 'paqad-ai writes the system prompt, custom slash commands, and context providers into `.continue/config.json`. The file is merged carefully — existing user customisations are preserved.',
+        text: 'paqad-ai writes the system prompt, custom slash commands, and context providers into `.continue/config.json`. The file is merged carefully, existing user customisations are preserved.',
       },
       { type: 'h2', id: 'prompts', text: 'Custom prompts' },
       {
@@ -1502,9 +1502,9 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Codex CLI' },
       {
         type: 'p',
-        text: "The Codex CLI adapter writes `AGENTS.md` at your project root — the standard file that OpenAI's Codex CLI reads for project context — alongside an MCP configuration file.",
+        text: "The Codex CLI adapter writes `AGENTS.md` at your project root, the standard file that OpenAI's Codex CLI reads for project context, alongside an MCP configuration file.",
       },
-      { type: 'h2', id: 'entry-file', text: 'Entry file — AGENTS.md' },
+      { type: 'h2', id: 'entry-file', text: 'Entry file, AGENTS.md' },
       {
         type: 'p',
         text: '`AGENTS.md` follows the same structure as `CLAUDE.md`: a brief framework header pointing to `docs/instructions/`. Codex CLI reads this file before any agent task begins.',
@@ -1532,7 +1532,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The Gemini CLI adapter writes `GEMINI.md` and `gemini-mcp.json`. Gemini CLI reads `GEMINI.md` as its project context file at the start of every session.',
       },
-      { type: 'h2', id: 'entry-file', text: 'Entry file — GEMINI.md' },
+      { type: 'h2', id: 'entry-file', text: 'Entry file, GEMINI.md' },
       {
         type: 'p',
         text: '`GEMINI.md` follows the same lean framework-entry structure used by all paqad-ai adapters: a header block pointing to `docs/instructions/`. This keeps the entry file short and the detail centralised.',
@@ -1559,7 +1559,7 @@ export const DOCS_PAGES = {
         type: 'p',
         text: 'The Google Antigravity adapter writes `ANTIGRAVITY.md` and `antigravity-mcp.json`, following the same pattern as other CLI adapters.',
       },
-      { type: 'h2', id: 'entry-file', text: 'Entry file — ANTIGRAVITY.md' },
+      { type: 'h2', id: 'entry-file', text: 'Entry file, ANTIGRAVITY.md' },
       {
         type: 'p',
         text: 'Google Antigravity reads `ANTIGRAVITY.md` as its project context entry point. paqad-ai keeps the file minimal and forwards all documentation to `docs/instructions/`.',
@@ -1584,9 +1584,9 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Junie' },
       {
         type: 'p',
-        text: 'Junie is the JetBrains AI agent. The paqad-ai adapter writes `.junie/guidelines.md` — the file Junie reads for project context — and an MCP configuration file.',
+        text: 'Junie is the JetBrains AI agent. The paqad-ai adapter writes `.junie/guidelines.md`, the file Junie reads for project context, and an MCP configuration file.',
       },
-      { type: 'h2', id: 'guidelines', text: 'Entry file — .junie/guidelines.md' },
+      { type: 'h2', id: 'guidelines', text: 'Entry file, .junie/guidelines.md' },
       {
         type: 'p',
         text: 'Junie reads `.junie/guidelines.md` at session start. paqad-ai generates a structured guidelines document that covers your stack conventions, testing rules, and architecture constraints.',
@@ -1611,9 +1611,9 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Aider' },
       {
         type: 'p',
-        text: 'Aider is a command-line AI coding assistant that works directly with your git history. The paqad-ai adapter produces `.aider.conf.yml` — a conventions configuration file — and a `CONVENTIONS.md` that Aider can reference.',
+        text: 'Aider is a command-line AI coding assistant that works directly with your git history. The paqad-ai adapter produces `.aider.conf.yml`, a conventions configuration file, and a `CONVENTIONS.md` that Aider can reference.',
       },
-      { type: 'h2', id: 'config', text: 'Configuration — .aider.conf.yml' },
+      { type: 'h2', id: 'config', text: 'Configuration, .aider.conf.yml' },
       {
         type: 'p',
         text: "Aider reads `.aider.conf.yml` for persistent settings. paqad-ai writes your detected stack's model preference, convention file path, and git commit message style into this file.",
@@ -1627,7 +1627,7 @@ export const DOCS_PAGES = {
       {
         type: 'callout',
         variant: 'note',
-        text: 'Aider does not support MCP. The paqad-ai adapter provides conventions configuration only — no MCP or skills output is generated for this adapter.',
+        text: 'Aider does not support MCP. The paqad-ai adapter provides conventions configuration only, no MCP or skills output is generated for this adapter.',
       },
     ],
   },
@@ -1651,7 +1651,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'when-to-use', text: 'When to use workflows' },
       {
         type: 'p',
-        text: 'Use a workflow when a task spans multiple agent roles. A feature delivery workflow might run requirement analysis, then solution architecture, then implementation, then security review, then documentation — each as a named step with its own context and success criteria.',
+        text: 'Use a workflow when a task spans multiple agent roles. A feature delivery workflow might run requirement analysis, then solution architecture, then implementation, then security review, then documentation, each as a named step with its own context and success criteria.',
       },
       { type: 'h2', id: 'phases', text: 'Standard phases' },
       {
@@ -1670,9 +1670,9 @@ export const DOCS_PAGES = {
       {
         type: 'ul',
         items: [
-          '`abort` — stop the workflow and report the failure. Default for security and verification steps.',
-          '`skip` — log the failure and continue to the next step.',
-          '`retry` — retry the step up to the configured retry limit before aborting.',
+          '`abort`, stop the workflow and report the failure. Default for security and verification steps.',
+          '`skip`, log the failure and continue to the next step.',
+          '`retry`, retry the step up to the configured retry limit before aborting.',
         ],
       },
     ],
@@ -1894,7 +1894,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'hit-tracking', text: 'Hit tracking' },
       {
         type: 'p',
-        text: 'The framework tracks which documentation sections are actually used by agents during each session. Over time, low-hit sections are flagged for review — they may be redundant, out of date, or simply not relevant to your current work.',
+        text: 'The framework tracks which documentation sections are actually used by agents during each session. Over time, low-hit sections are flagged for review, they may be redundant, out of date, or simply not relevant to your current work.',
       },
       {
         type: 'callout',
@@ -2076,7 +2076,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Action Routing' },
       {
         type: 'p',
-        text: 'Action routing classifies each RAG query by intent before retrieval begins. This allows the system to apply different retrieval strategies to different kinds of questions — code lookup, documentation lookup, and cross-cutting searches each benefit from different approaches.',
+        text: 'Action routing classifies each RAG query by intent before retrieval begins. This allows the system to apply different retrieval strategies to different kinds of questions, code lookup, documentation lookup, and cross-cutting searches each benefit from different approaches.',
       },
       { type: 'h2', id: 'intent-types', text: 'Intent types' },
       {
@@ -2130,7 +2130,7 @@ export const DOCS_PAGES = {
       },
       {
         type: 'p',
-        text: 'Every answer carries a grounding state, file-level citations, freshness metadata, and contradiction detection — so you always know how trustworthy the answer is and where it came from.',
+        text: 'Every answer carries a grounding state, file-level citations, freshness metadata, and contradiction detection, so you always know how trustworthy the answer is and where it came from.',
       },
       {
         type: 'callout',
@@ -2164,11 +2164,11 @@ export const DOCS_PAGES = {
       {
         type: 'ol',
         items: [
-          'Canonical module docs — docs/modules/**/*.md',
-          'Generated instructions — docs/instructions/**/*.md',
-          'Framework state — .paqad/**/*.{json,yaml,yml}',
-          'Manifests — package.json, composer.json, go.mod, and equivalents',
-          'Workflow files — .github/workflows/**/*.{yml,yaml}',
+          'Canonical module docs, docs/modules/**/*.md',
+          'Generated instructions, docs/instructions/**/*.md',
+          'Framework state, .paqad/**/*.{json,yaml,yml}',
+          'Manifests, package.json, composer.json, go.mod, and equivalents',
+          'Workflow files, .github/workflows/**/*.{yml,yaml}',
         ],
       },
       { type: 'h2', id: 'answer-modes', text: 'Answer modes' },
@@ -2176,7 +2176,7 @@ export const DOCS_PAGES = {
         type: 'table',
         headers: ['Mode', 'Output'],
         rows: [
-          ['quick', 'One sentence — evidence count and top match.'],
+          ['quick', 'One sentence, evidence count and top match.'],
           [
             'explain',
             'Multi-sentence with all citation paths named. Default mode used by the pipeline.',
@@ -2197,7 +2197,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'contradictions', text: 'Contradiction handling' },
       {
         type: 'p',
-        text: 'The answerer compares claims extracted from different evidence files. If two files make conflicting assertions about the same key — for example, different node engine requirements in package.json versus the framework profile — both sources are named and the conflict is described.',
+        text: 'The answerer compares claims extracted from different evidence files. If two files make conflicting assertions about the same key, for example, different node engine requirements in package.json versus the framework profile, both sources are named and the conflict is described.',
       },
       {
         type: 'p',
@@ -2239,7 +2239,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'local-vs-ci', text: 'Local vs CI' },
       {
         type: 'p',
-        text: 'The local pentest is fast and incremental — it scans only the files changed in the current task. The CI pentest runs the full OWASP surface scan. Both produce the same evidence format, so failures are reproducible.',
+        text: 'The local pentest is fast and incremental, it scans only the files changed in the current task. The CI pentest runs the full OWASP surface scan. Both produce the same evidence format, so failures are reproducible.',
       },
       {
         type: 'callout',
@@ -2307,16 +2307,16 @@ export const DOCS_PAGES = {
         type: 'table',
         headers: ['OWASP category', 'Status'],
         rows: [
-          ['A01 — Broken Access Control', 'Covered'],
-          ['A02 — Cryptographic Failures', 'Covered'],
-          ['A03 — Injection (SQL, NoSQL, command)', 'Covered'],
-          ['A04 — Insecure Design', 'Partial — architecture review only'],
-          ['A05 — Security Misconfiguration', 'Covered'],
-          ['A06 — Vulnerable & Outdated Components', 'Covered — reads lockfile'],
-          ['A07 — Identification & Auth Failures', 'Covered'],
-          ['A08 — Software & Data Integrity Failures', 'Partial — CI config review only'],
-          ['A09 — Security Logging & Monitoring Failures', 'Covered'],
-          ['A10 — Server-Side Request Forgery', 'Covered'],
+          ['A01, Broken Access Control', 'Covered'],
+          ['A02, Cryptographic Failures', 'Covered'],
+          ['A03, Injection (SQL, NoSQL, command)', 'Covered'],
+          ['A04, Insecure Design', 'Partial, architecture review only'],
+          ['A05, Security Misconfiguration', 'Covered'],
+          ['A06, Vulnerable & Outdated Components', 'Covered, reads lockfile'],
+          ['A07, Identification & Auth Failures', 'Covered'],
+          ['A08, Software & Data Integrity Failures', 'Partial, CI config review only'],
+          ['A09, Security Logging & Monitoring Failures', 'Covered'],
+          ['A10, Server-Side Request Forgery', 'Covered'],
         ],
       },
       {
@@ -2385,7 +2385,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Patterns Library' },
       {
         type: 'p',
-        text: 'The patterns library is a collection of proven solutions captured from completed workflows in your project. When paqad-ai encounters a task similar to a recorded pattern, it surfaces the pattern to the agent as a starting point — saving time and reducing the chance of reimplementing something incorrectly.',
+        text: 'The patterns library is a collection of proven solutions captured from completed workflows in your project. When paqad-ai encounters a task similar to a recorded pattern, it surfaces the pattern to the agent as a starting point, saving time and reducing the chance of reimplementing something incorrectly.',
       },
       { type: 'h2', id: 'pattern-structure', text: 'Pattern structure' },
       {
@@ -2400,7 +2400,7 @@ export const DOCS_PAGES = {
           ['verification', 'How to confirm the solution is working correctly.'],
           ['tags', 'Keywords for search and filtering.'],
           ['stack', 'The stack this pattern was recorded for.'],
-          ['score', 'Relevance score (0–1) updated each time the pattern is suggested.'],
+          ['score', 'Relevance score (0-1) updated each time the pattern is suggested.'],
         ],
       },
       { type: 'h2', id: 'where-stored', text: 'Where patterns are stored' },
@@ -2486,7 +2486,7 @@ export const DOCS_PAGES = {
         headers: ['Score', 'Action'],
         rows: [
           ['≥ 0.7', 'Pattern is suggested with high confidence.'],
-          ['0.4 – 0.69', 'Pattern is offered as a lower-confidence suggestion.'],
+          ['0.4 - 0.69', 'Pattern is offered as a lower-confidence suggestion.'],
           ['< 0.4', 'Pattern is not suggested for this task.'],
         ],
       },
@@ -2507,12 +2507,12 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Doctor Command' },
       {
         type: 'p',
-        text: 'The `doctor` command is your first stop when something feels off. It runs all ten quality gates and gives you a clear, actionable report — each failure includes the exact command to fix it.',
+        text: 'The `doctor` command is your first stop when something feels off. It runs all ten quality gates and gives you a clear, actionable report, each failure includes the exact command to fix it.',
       },
       { type: 'h2', id: 'reading-the-output', text: 'Reading the output' },
       {
         type: 'p',
-        text: 'Each gate displays a `✔` (pass) or `✗` (fail), followed by the gate name and — for failures — a short explanation and the remediation command.',
+        text: 'Each gate displays a `✔` (pass) or `✗` (fail), followed by the gate name and, for failures, a short explanation and the remediation command.',
       },
       {
         type: 'p',
@@ -2725,7 +2725,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'MCP Integration' },
       {
         type: 'p',
-        text: 'Model Context Protocol (MCP) is a standard for connecting AI agents to external tools and data sources. paqad-ai manages your MCP server configuration automatically — registering the right servers for your stack and writing the correct config file for each adapter.',
+        text: 'Model Context Protocol (MCP) is a standard for connecting AI agents to external tools and data sources. paqad-ai manages your MCP server configuration automatically, registering the right servers for your stack and writing the correct config file for each adapter.',
       },
       { type: 'h2', id: 'what-mcp-does', text: 'What MCP enables' },
       {
@@ -2850,7 +2850,7 @@ export const DOCS_PAGES = {
         type: 'terminal',
         lang: 'bash',
         copyable: true,
-        code: '# Claude Code — include handoff automatically via CLAUDE.md\n# The framework path in CLAUDE.md references .paqad/handoff.md',
+        code: '# Claude Code, include handoff automatically via CLAUDE.md\n# The framework path in CLAUDE.md references .paqad/handoff.md',
       },
       {
         type: 'callout',
@@ -2872,7 +2872,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Skill Cache' },
       {
         type: 'p',
-        text: 'Skills are short, named prompt fragments that agents can invoke during a session to perform specific tasks — running tests, generating a migration, creating a component, and so on. The skill cache pre-loads and validates the shared paqad-ai runtime skills so they are available instantly when needed.',
+        text: 'Skills are short, named prompt fragments that agents can invoke during a session to perform specific tasks, running tests, generating a migration, creating a component, and so on. The skill cache pre-loads and validates the shared paqad-ai runtime skills so they are available instantly when needed.',
       },
       { type: 'h2', id: 'warming', text: 'Cache warming' },
       {
@@ -2888,7 +2888,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'trigger-evaluation', text: 'Trigger evaluation' },
       {
         type: 'p',
-        text: 'Each skill has a trigger condition — a keyword or phrase pattern that, when detected in a user prompt, causes the agent to consider invoking the skill. Trigger evaluation runs at session start and is cached for the duration of the session.',
+        text: 'Each skill has a trigger condition, a keyword or phrase pattern that, when detected in a user prompt, causes the agent to consider invoking the skill. Trigger evaluation runs at session start and is cached for the duration of the session.',
       },
       { type: 'h2', id: 'invalidation', text: 'Cache invalidation' },
       { type: 'p', text: 'The skill cache is invalidated when:' },
@@ -2924,7 +2924,7 @@ export const DOCS_PAGES = {
       },
       {
         type: 'p',
-        text: 'Instead of generating stories, acceptance-criteria tables, and review prose across multiple model calls, paqad-ai emits one planning contract — requirement graph, execution slices, verification matrix, decision log, doc targets, and regression watch — all before any implementation begins.',
+        text: 'Instead of generating stories, acceptance-criteria tables, and review prose across multiple model calls, paqad-ai emits one planning contract, requirement graph, execution slices, verification matrix, decision log, doc targets, and regression watch, all before any implementation begins.',
       },
       { type: 'h2', id: 'key-terms', text: 'Key terms' },
       {
@@ -2962,32 +2962,29 @@ export const DOCS_PAGES = {
         headers: ['Phase', 'Output'],
         rows: [
           [
-            '0 — Classify',
+            '0, Classify',
             'Three-stage classification: workflow, modules, scope, impacts, delta overlap, confidence',
           ],
           [
-            '1 — Assemble intelligence',
+            '1, Assemble intelligence',
             'Module health, compiled rules, coverage overlay, defect patterns, selective docs, code matches, token ceiling',
           ],
-          ['1 — Generate manifest', 'Single YAML planning artifact (one model call)'],
+          ['1, Generate manifest', 'Single YAML planning artifact (one model call)'],
           [
-            '2 — Validate and inject',
+            '2, Validate and inject',
             'Schema checks, cycle detection, compiled-rule and defect-pattern criteria injection, coverage overlay marking',
           ],
           [
-            '3 — Emit deterministic outputs',
+            '3, Emit deterministic outputs',
             'Test skeletons at `proof_target` paths, doc targets, regression watch entries',
           ],
           [
-            '4 — Execute',
+            '4, Execute',
             'Implementing agent makes failing skeletons pass, updates docs, respects scope',
           ],
+          ['5, Verify', 'Compliance system reads verification matrix directly as obligation index'],
           [
-            '5 — Verify',
-            'Compliance system reads verification matrix directly as obligation index',
-          ],
-          [
-            '6 — Post-execution learning',
+            '6, Post-execution learning',
             'Module health update, plan-vs-actual diff, planning cost log',
           ],
         ],
@@ -3112,7 +3109,7 @@ regression_watch: []`,
       { type: 'h1', text: 'Planning Pipeline' },
       {
         type: 'p',
-        text: 'The pipeline combines one model generation step with deterministic enrichment and validation stages. Only the manifest generation call consumes tokens — every other stage is zero-token.',
+        text: 'The pipeline combines one model generation step with deterministic enrichment and validation stages. Only the manifest generation call consumes tokens, every other stage is zero-token.',
       },
       { type: 'h2', id: 'lanes', text: 'Lanes' },
       {
@@ -3207,7 +3204,7 @@ Stage 2: reduced-scope fallback (model)
 Stage 3: post-classification adjustment (deterministic)
   health overrides + defect floors + history correction`,
       },
-      { type: 'h2', id: 'stage-1', text: 'Stage 1 — Deterministic pre-classification' },
+      { type: 'h2', id: 'stage-1', text: 'Stage 1, Deterministic pre-classification' },
       {
         type: 'p',
         text: 'All operations run in parallel within a 300ms timeout. If the timeout fires, unresolved dimensions fall back to defaults and classification continues.',
@@ -3216,7 +3213,7 @@ Stage 3: post-classification adjustment (deterministic)
         type: 'ul',
         items: [
           'Workflow resolved from a priority-ordered pattern table (pentest-retest 250 → pentest 240 → rca 230 → docs 200 → research 180 → cleanup 170 → bug-fix 160 → feature-development 140).',
-          'Affected modules resolved from explicit file paths in the request text, AST chunk-index symbol matches, RAG hits, MCP queries, and stack heuristics — in that order.',
+          'Affected modules resolved from explicit file paths in the request text, AST chunk-index symbol matches, RAG hits, MCP queries, and stack heuristics, in that order.',
           'Scope derived from import graph depth over resolved modules.',
           'Impact dimensions (database, API, UI, compliance, reversibility, data sensitivity) inferred from paths and request text.',
           'Delta candidate detected by scanning `.paqad/specs/*.yaml` for 50%+ manifest overlap with the affected scope.',
@@ -3224,12 +3221,12 @@ Stage 3: post-classification adjustment (deterministic)
           'Compiled rule triggers matched against affected module paths.',
         ],
       },
-      { type: 'h2', id: 'stage-2', text: 'Stage 2 — Reduced-scope fallback' },
+      { type: 'h2', id: 'stage-2', text: 'Stage 2, Reduced-scope fallback' },
       {
         type: 'p',
         text: 'Only unresolved or interpretation-heavy dimensions reach this stage. The model receives pre-classifier results as structured hints and may confirm, override with justification, or defer to the hint. Each dimension carries a `resolution_source` tag in the final `resolution_map`.',
       },
-      { type: 'h2', id: 'stage-3', text: 'Stage 3 — Post-classification adjustment' },
+      { type: 'h2', id: 'stage-3', text: 'Stage 3, Post-classification adjustment' },
       {
         type: 'ul',
         items: [
@@ -3242,7 +3239,7 @@ Stage 3: post-classification adjustment (deterministic)
       { type: 'h2', id: 'confidence', text: 'Confidence and resolution map' },
       {
         type: 'p',
-        text: 'Every result includes `classification_confidence` (0.0–1.0, ratio of deterministically resolved dimensions) and a per-field `resolution_map` with one of: `deterministic`, `deterministic:rag`, `deterministic:graph`, `deterministic:manifest`, `llm-confirmed`, `llm-overridden`, `llm-guessed`, `health-override`, `history-corrected`, `defect-floor`, or `default`.',
+        text: 'Every result includes `classification_confidence` (0.0-1.0, ratio of deterministically resolved dimensions) and a per-field `resolution_map` with one of: `deterministic`, `deterministic:rag`, `deterministic:graph`, `deterministic:manifest`, `llm-confirmed`, `llm-overridden`, `llm-guessed`, `health-override`, `history-corrected`, `defect-floor`, or `default`.',
       },
     ],
   },
@@ -3309,7 +3306,7 @@ Stage 3: post-classification adjustment (deterministic)
           ],
           [
             'contract_stability',
-            'Ratio of obligations not modified in the last 90 days to total obligations (0–1)',
+            'Ratio of obligations not modified in the last 90 days to total obligations (0-1)',
           ],
           [
             'change_velocity',

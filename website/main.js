@@ -19,22 +19,22 @@ const comparisonCards = [
     title: 'WITHOUT PAQAD',
     tone: 'negative',
     items: [
-      'AI guesses your folder structure and creates files in the wrong place',
-      "Rewrites a component that already exists because it didn't know",
-      'Writes code that breaks 4 existing tests it never checked',
-      'Forgets everything you discussed when you come back tomorrow',
-      'Uses 3× more tokens because it keeps re-reading the same files',
+      'Guesses your folder structure and drops files in the wrong place',
+      'Rebuilds a component that already exists, because it never knew',
+      'Writes code that quietly breaks tests it never ran',
+      'Tells you it is done when it is not',
+      'Burns tokens re-reading the same files every turn',
     ],
   },
   {
     title: 'WITH PAQAD',
     tone: 'positive',
     items: [
-      'Knows your exact stack, folder structure, and conventions',
-      'Finds existing components and extends them instead of duplicating',
-      'Writes failing tests first, then makes them pass without breaking others',
-      'Picks up exactly where you left off with full context',
-      'Cuts token usage by 60–85% through intelligent context loading',
+      'Knows your stack, layout, and conventions before it writes a line',
+      'Finds the existing component and extends it',
+      'Writes the failing test first, then makes it pass without breaking others',
+      'Cannot mark work done until the checks actually pass',
+      'Cuts token use by 60-85% by loading only what the task needs',
     ],
   },
 ];
@@ -64,7 +64,7 @@ const demoLines = [
   },
   {
     type: 'annotation',
-    text: 'Stack conventions, testing rules, folder structure — all documented',
+    text: 'Stack conventions, testing rules, and folder structure, all documented',
   },
   { type: 'success', text: '✓ Generated: docs/instructions/rules/*' },
   {
@@ -85,28 +85,57 @@ const howCards = [
   {
     number: '1',
     accent: 'amber',
-    title: 'You ask for something',
-    body: '"Add search to the products page that filters by name and category"',
+    title: 'Codify',
+    body: 'Your stack, rules, and spec become version-controlled context every agent reads. Written once, reused everywhere.',
   },
   {
     number: '2',
     accent: 'cyan',
-    title: 'It plans before coding',
-    body: 'Finds existing code, writes tests first, creates a step-by-step plan with token-efficient context — all before touching a single file',
+    title: 'Follow',
+    body: 'The agent runs your workflow, not an improvised prompt. It routes the task, plans it, writes the tests, then builds. Same process every time.',
   },
   {
     number: '3',
     accent: 'green',
-    title: 'Nothing breaks',
-    body: 'Each step is verified independently. Existing tests still pass. Docs update automatically. Your token budget is respected. Done.',
+    title: 'Prove',
+    body: 'Automatic checks confirm the tests pass, the spec is met, the docs are in sync, and nothing else broke. Code does the checking, not another AI.',
   },
 ];
 
 const problemPairs = [
   {
+    title: '"My AI says it is done when it is not"',
+    description:
+      'paqad-ai checks the work instead of taking its word for it. Tests, spec coverage, docs, and security all have to pass before a change counts as done. The checks are plain code, so the AI cannot talk its way past them.',
+    visual: [
+      'Verification log:',
+      '✓ SL-1: API search params      3 tests pass',
+      '✓ SL-2: SearchInput component  4 tests pass',
+      '✓ SL-3: Wire to products page  2 tests pass',
+      '✓ Full suite: 247 tests, 0 failures',
+      '✓ Docs updated: api.md, components.md',
+    ],
+    emphasis: '✓ Full suite: 247 tests, 0 failures',
+  },
+  {
+    title: '"My AI rewrites code that already exists"',
+    description:
+      'paqad-ai indexes your codebase and loads the relevant pieces with every message, using 60-85% fewer tokens than letting the AI read everything itself. It sees the components, hooks, and routes you already have, and extends them instead of reinventing them.',
+    visual: [
+      'Context loaded for this task:',
+      '→ ProductCard.tsx (existing)',
+      '→ useProducts.ts (existing hook)',
+      '→ /api/products (existing route)',
+      '',
+      "AI decision: extend, don't rebuild",
+      'Tokens saved: ~4,200',
+    ],
+    emphasis: 'Tokens saved: ~4,200',
+  },
+  {
     title: '"My AI forgets everything between sessions"',
     description:
-      'Paqad compresses your session into a structured handoff — decisions, files touched, next steps. When you come back, your AI picks up exactly where you left off. No re-explaining. No wasted tokens re-establishing context.',
+      'paqad-ai compresses each session into a short, structured handoff: the decisions made, the files touched, and the next steps. When you come back, your AI picks up where you left off, with no re-explaining and no wasted tokens rebuilding context.',
     visual: [
       'handoff.json',
       '"active_task": "adding search..."',
@@ -121,46 +150,17 @@ const problemPairs = [
     emphasis: '  "wire search to API"',
   },
   {
-    title: '"My AI rewrites code that already exists"',
+    title: '"I have to write CLAUDE.md by hand, for every tool"',
     description:
-      'Paqad indexes your codebase and retrieves relevant context with every message — using 60–85% fewer tokens than letting the AI read everything itself. Your AI sees existing components, utilities, and patterns — and extends them instead of reinventing them.',
-    visual: [
-      'Context loaded for this task:',
-      '→ ProductCard.tsx (existing)',
-      '→ useProducts.ts (existing hook)',
-      '→ /api/products (existing route)',
-      '',
-      "AI decision: extend, don't rebuild",
-      'Tokens saved: ~4,200',
-    ],
-    emphasis: 'Tokens saved: ~4,200',
-  },
-  {
-    title: `"My AI breaks things and I don't notice"`,
-    description:
-      'Paqad writes failing tests before any code. Then builds one step at a time, verifying after each step. If something breaks, it catches it immediately — not after 6 files have changed.',
-    visual: [
-      'Execution log:',
-      '✓ SL-1: API search params      3 tests pass',
-      '✓ SL-2: SearchInput component  4 tests pass',
-      '✓ SL-3: Wire to products page  2 tests pass',
-      '✓ Full suite: 247 tests, 0 failures',
-      '✓ Docs updated: api.md, components.md',
-    ],
-    emphasis: '✓ Full suite: 247 tests, 0 failures',
-  },
-  {
-    title: '"I have to write CLAUDE.md by hand"',
-    description:
-      'One command generates instructions for every AI coding tool you use. Claude Code, Codex, Gemini, Cursor, Copilot, Windsurf — all from the same source of truth, all kept in sync. And it is completely free.',
+      'One command generates the config for every AI tool you use: Claude Code, Codex, Gemini, Cursor, Copilot, Windsurf, and more. They all read from the same source of truth, they stay in sync, and it is completely free.',
     visual: [
       'Generated automatically:',
-      'CLAUDE.md          ← Claude Code',
-      'AGENTS.md          ← Codex CLI',
-      'GEMINI.md          ← Gemini CLI',
-      '.cursor/rules/     ← Cursor',
+      'CLAUDE.md          for Claude Code',
+      'AGENTS.md          for Codex CLI',
+      'GEMINI.md          for Gemini CLI',
+      '.cursor/rules/     for Cursor',
       '.github/copilot-instructions.md',
-      '.windsurfrules     ← Windsurf',
+      '.windsurfrules     for Windsurf',
       '',
       'All pointing to the same shared knowledge base',
     ],
@@ -171,7 +171,7 @@ const problemPairs = [
 const ragCards = [
   {
     title: 'What it loads',
-    body: 'For each request, Paqad pulls the most relevant code, docs, and project rules first. Your AI sees the evidence it needs without re-reading everything.',
+    body: 'For each request, paqad-ai pulls the most relevant code, docs, and project rules first. Your AI sees what it needs without re-reading everything.',
     lines: [
       'Task: add product search',
       '',
@@ -184,21 +184,21 @@ const ragCards = [
   },
   {
     title: 'Why it saves tokens',
-    body: 'Instead of stuffing full folders into every prompt, Paqad ranks and packs only the useful pieces. That is where the 60–85% token savings come from.',
+    body: 'Instead of stuffing whole folders into every prompt, paqad-ai ranks and packs only the useful pieces. That is where the 60-85% token saving comes from.',
     lines: [
-      'Without RAG:',
-      'repo dump → huge prompt',
+      'Whole-repo dump:',
+      'one huge prompt',
       '',
-      'With Paqad RAG:',
-      'top-ranked chunks only',
+      'With paqad-ai:',
+      'top-ranked pieces only',
       '',
       'Tokens saved:',
-      '60–85%',
+      '60-85%',
     ],
   },
   {
-    title: 'Why outputs improve',
-    body: 'Because the AI sees the existing implementation first, it extends what is already there, follows your conventions, and stops inventing duplicate code paths.',
+    title: 'Why the answers improve',
+    body: 'Because the AI sees what already exists first, it extends what is there, follows your conventions, and stops inventing duplicate code. Less context also means a sharper model.',
     lines: [
       'AI decision:',
       "extend, don't rebuild",
@@ -296,6 +296,39 @@ const adapters = [
   'Antigravity',
 ];
 
+const pillars = [
+  {
+    kicker: 'Workflows, not prompts',
+    title: 'Your process, run the same way every time',
+    body: 'Write your team workflow and rules down once. Every agent follows them, instead of improvising from a prompt.',
+  },
+  {
+    kicker: 'Proof, not promises',
+    title: 'Checks that confirm the work is done',
+    body: 'Tests, spec coverage, docs, and quality all have to pass. The checks are code, not another AI grading itself.',
+  },
+  {
+    kicker: 'Security workflow',
+    title: 'A full OWASP pentest pass, with retests',
+    body: 'Find issues, prove them with a local playbook, fix them, then replay the findings to confirm. Built in, not bolted on.',
+  },
+  {
+    kicker: 'Design workflow',
+    title: 'Your UI, audited against your design system',
+    body: 'design-test checks the interface for token, component, accessibility, and responsive drift, the way pentest checks the code.',
+  },
+  {
+    kicker: 'Living docs',
+    title: 'Documentation that keeps itself current',
+    body: 'The framework re-reads your stack and updates the docs when the code changes, so they never fall out of date.',
+  },
+  {
+    kicker: 'Runs locally',
+    title: 'Your code stays on your machine',
+    body: 'Analysis and embeddings run on-device by default, with an audit trail you can keep. No SaaS, no lock-in.',
+  },
+];
+
 function escapeHtml(value) {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
@@ -305,7 +338,7 @@ function renderComparison() {
   if (!root) return;
   root.innerHTML = comparisonCards
     .map((card, index) => {
-      const icon = card.tone === 'positive' ? '✓' : '✕';
+      const icon = card.tone === 'positive' ? '✅' : '❌';
       return `
         <article class="comparison-card comparison-card--${card.tone} reveal-item" style="--reveal-delay:${index * 80}ms">
           <span class="comparison-tag comparison-tag--${card.tone}">${card.title}</span>
@@ -371,6 +404,22 @@ function renderHow() {
           <span class="how-number how-number--${card.accent}">${card.number}</span>
           <h3>${card.title}</h3>
           <p>${card.body}</p>
+        </article>
+      `,
+    )
+    .join('');
+}
+
+function renderPillars() {
+  const root = document.getElementById('pillars-grid');
+  if (!root) return;
+  root.innerHTML = pillars
+    .map(
+      (card, index) => `
+        <article class="how-card reveal-item" style="--reveal-delay:${index * 60}ms">
+          <div class="how-kicker">${escapeHtml(card.kicker)}</div>
+          <h3>${escapeHtml(card.title)}</h3>
+          <p>${escapeHtml(card.body)}</p>
         </article>
       `,
     )
@@ -676,6 +725,7 @@ function init() {
   renderComparison();
   renderDemo();
   renderHow();
+  renderPillars();
   renderProblems();
   renderRag();
   renderProof();
