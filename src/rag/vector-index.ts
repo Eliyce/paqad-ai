@@ -5,7 +5,10 @@ import { dirname } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
+import { crsCollectionDir, crsCollectionPaths } from './crs-paths.js';
 import type {
+  CrsChunk,
+  CrsCollectionId,
   RagIndexMeta,
   StoredVectorItem,
   VectorIndexPayload,
@@ -49,6 +52,39 @@ async function atomicWrite(path: string, content: string): Promise<void> {
   const tmp = `${path}.tmp`;
   await writeFile(tmp, content, 'utf8');
   await rename(tmp, path);
+}
+
+const COLLECTION_LOCK_RETRIES = 50;
+const COLLECTION_LOCK_DELAY_MS = 10;
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Run `fn` while holding a best-effort per-collection lock (a `.lock` directory).
+ * Serialises destroy/reindex mutations so a concurrent operation can't tear the
+ * on-disk index. Read queries deliberately do not take the lock — the atomic
+ * `rename` swap means they always see a complete old or new state.
+ */
+async function withCollectionLock<T>(dir: string, fn: () => Promise<T>): Promise<T> {
+  const lockPath = join(dir, '.lock');
+  await mkdir(dir, { recursive: true });
+  let acquired = false;
+  for (let attempt = 0; attempt < COLLECTION_LOCK_RETRIES; attempt++) {
+    try {
+      await mkdir(lockPath);
+      acquired = true;
+      break;
+    } catch {
+      await delay(COLLECTION_LOCK_DELAY_MS);
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    if (acquired) {
+      await rm(lockPath, { recursive: true, force: true });
+    }
+  }
 }
 
 export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
@@ -195,6 +231,88 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
     const payload: VectorIndexPayload<T> = { version: 1, dimensions, items };
     await this.save(projectRoot, payload, meta);
     return meta;
+  }
+
+  // ── Project-scoped CRS collections (PQD-415) ─────────────────────────────────
+
+  /**
+   * Idempotently create a CRS collection under `.paqad/crs/<escaped-id>/`. Writes
+   * an empty index + meta only when neither file exists yet; a second call for the
+   * same id is a no-op rather than an error and never overwrites existing data.
+   */
+  static async create(projectRoot: string, collectionId: CrsCollectionId): Promise<void> {
+    const dir = crsCollectionDir(projectRoot, collectionId);
+    await mkdir(dir, { recursive: true });
+    const { indexPath, metaPath } = crsCollectionPaths(collectionId);
+    const absIndex = join(projectRoot, indexPath);
+    const absMeta = join(projectRoot, metaPath);
+    if (existsSync(absIndex) || existsSync(absMeta)) {
+      return;
+    }
+    const payload: VectorIndexPayload<CrsChunk> = { version: 1, dimensions: 0, items: [] };
+    const meta: RagIndexMeta = {
+      version: 1,
+      provider: 'local',
+      model: '',
+      built_at: new Date().toISOString(),
+      chunk_count: 0,
+      embedding_dimensions: 0,
+    };
+    await atomicWrite(absIndex, JSON.stringify(payload, null, 2));
+    await atomicWrite(absMeta, JSON.stringify(meta, null, 2));
+  }
+
+  /**
+   * Remove chunks from a CRS collection atomically and return the count purged.
+   * With `{ sourceSessionId }`, only that session's chunks are removed and the
+   * filtered index is rewritten in place; without options the whole collection
+   * directory is deleted. A non-existent collection or session purges nothing and
+   * returns `0` rather than throwing.
+   */
+  static async destroy(
+    projectRoot: string,
+    collectionId: CrsCollectionId,
+    options?: { sourceSessionId?: string },
+  ): Promise<number> {
+    const dir = crsCollectionDir(projectRoot, collectionId);
+    if (!existsSync(dir)) {
+      return 0;
+    }
+    const { indexPath, metaPath } = crsCollectionPaths(collectionId);
+    const index = new FileVectorIndex<CrsChunk>(indexPath, metaPath);
+
+    if (options?.sourceSessionId !== undefined) {
+      const sessionId = options.sourceSessionId;
+      return withCollectionLock(dir, async () => {
+        const payload = await index.load(projectRoot);
+        if (!payload) {
+          return 0;
+        }
+        const kept = payload.items.filter((item) => item.source_session_id !== sessionId);
+        const removed = payload.items.length - kept.length;
+        if (removed > 0) {
+          const meta = await index.loadMeta(projectRoot);
+          await index.replaceAll(projectRoot, kept, {
+            provider: meta?.provider ?? 'local',
+            model: meta?.model ?? '',
+          });
+        }
+        return removed;
+      });
+    }
+
+    return withCollectionLock(dir, async () => {
+      let count = 0;
+      try {
+        const payload = await index.load(projectRoot);
+        count = payload?.items.length ?? 0;
+      } catch {
+        // A corrupt index still gets purged (the desktop's rebuild path); the
+        // count is best-effort and reported as 0 when the payload is unreadable.
+      }
+      await rm(dir, { recursive: true, force: true });
+      return count;
+    });
   }
 
   private resolve(projectRoot: string, relativePath: string): string {

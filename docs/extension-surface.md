@@ -444,3 +444,51 @@ library. `clearEphemeralCollection` purges a session's collection on session end
 | desktop (planned) | src/rag/attachment-events.ts | `readAttachmentEvents` | `readAttachmentEvents(projectRoot: string): AttachmentEvent[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/rag/attachment-events.ts | `AttachmentEvent` | `interface AttachmentEvent { kind; file_name; at; collection_scope?; session_id?; chunk_count?; provider?; reason? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned) | src/rag/attachment-events.ts | `AttachmentEventKind` | `type AttachmentEventKind ('attachment.indexed', 'attachment.index_failed', 'attachment.format_rejected')` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
+### Project-scoped CRS collections (PQD-415)
+
+A CRS (Contextual Retrieval Store) collection is a named, persistent vector
+collection the desktop can power opt-in cross-session retrieval from, without
+reimplementing any vector logic. Collections live under `.paqad/crs/<escaped-id>/`
+(fully disjoint from the project RAG index and the ephemeral attachment
+collections). `FileVectorIndex.create` makes one idempotently; `RagService.writeChunks`
+embeds a session's chunks into it (persisting `source_session_id`,
+`source_workspace_id`, `created_at`, `project_id`, and an engine-stamped
+`vector_timestamp`) and emits an audit-grade `crs.indexed_session` event;
+`RagService.retrieveCrs` returns hits at/above a 0.5 confidence threshold ranked
+by score, each carrying its session/workspace provenance; `FileVectorIndex.destroy`
+purges a single session or the whole collection atomically and returns the count;
+and `RagService.reindex` rebuilds against a new embedding provider side-by-side
+with progress events, swaps atomically, and retains the old index under a
+`.revert.<ms>` sibling for 24 hours. When the embedding provider is unreachable,
+writes are parked in an in-memory `CrsBacklogQueue` (cap 1000, oldest dropped →
+`EmbeddingBacklogOverflow`) and drained automatically on the next successful
+write. A corrupt on-disk index raises the existing `CorruptVectorIndexError` so
+the desktop can fall back to file-RAG and trigger a rebuild. Collection ids are
+escaped to filesystem-safe directory names by `escapeCollectionId`, which is part
+of the public contract so the desktop can reconstruct on-disk paths.
+
+The CRS read/write/destroy/reindex operations are methods on the already-exported
+`RagService` (`writeChunks`, `retrieveCrs`, `reindex`) and `FileVectorIndex`
+(static `create`, `destroy`) classes; the supporting types, helpers, and the
+backlog queue listed below are the standalone exports.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/rag/types.ts | `CrsCollectionId` | `type CrsCollectionId = string & brand` | beta | 1.10.0 | planned consumer; used across CRS surface |
+| desktop (planned) | src/rag/types.ts | `toCrsCollectionId` | `toCrsCollectionId(id: string): CrsCollectionId` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `CrsChunkInput` | `interface CrsChunkInput { id; content; source_session_id; source_workspace_id; created_at; project_id }` | beta | 1.10.0 | planned consumer; in-tree at RagService |
+| desktop (planned) | src/rag/types.ts | `CrsChunk` | `interface CrsChunk extends StoredVectorItem { content; source_session_id; source_workspace_id; created_at; project_id; vector_timestamp }` | beta | 1.10.0 | planned consumer; in-tree at RagService |
+| desktop (planned) | src/rag/types.ts | `CrsRetrievalResult` | `interface CrsRetrievalResult { chunk: CrsChunk; sourceSessionId; sourceWorkspaceId; score }` | beta | 1.10.0 | planned consumer; in-tree at RagService |
+| desktop (planned) | src/rag/types.ts | `CrsIndexedSessionEvent` | `interface CrsIndexedSessionEvent { session_id; project_id; chunk_count }` | beta | 1.10.0 | planned consumer; in-tree at RagService |
+| desktop (planned) | src/rag/types.ts | `ReindexProgressEvent` | `interface ReindexProgressEvent { status_percent; current_collection; est_time }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/types.ts | `ReindexProgressHandler` | `type ReindexProgressHandler = (event: ReindexProgressEvent) => void` | beta | 1.10.0 | planned consumer; in-tree at RagService |
+| desktop (planned) | src/rag/types.ts | `EmbeddingBacklogOverflow` | `class EmbeddingBacklogOverflow extends Error { dropped_count }` | beta | 1.10.0 | planned consumer; in-tree at CrsBacklogQueue |
+| desktop (planned) | src/rag/types.ts | `isEmbeddingBacklogOverflow` | `isEmbeddingBacklogOverflow(error: unknown): boolean` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/crs-paths.ts | `escapeCollectionId` | `escapeCollectionId(id: CrsCollectionId): string` | beta | 1.10.0 | planned consumer; in-tree at crsCollectionDir |
+| desktop (planned) | src/rag/crs-paths.ts | `crsCollectionDir` | `crsCollectionDir(projectRoot: string, collectionId: CrsCollectionId): string` | beta | 1.10.0 | planned consumer; in-tree at FileVectorIndex |
+| desktop (planned) | src/rag/crs-paths.ts | `crsCollectionPaths` | `crsCollectionPaths(collectionId: CrsCollectionId): { indexPath; metaPath }` | beta | 1.10.0 | planned consumer; in-tree at FileVectorIndex/RagService |
+| desktop (planned) | src/rag/crs-paths.ts | `crsCollectionLayout` | `crsCollectionLayout(projectRoot: string, collectionId: CrsCollectionId): { escaped; crsRootAbs; relDir; absDir; indexPath; metaPath }` | beta | 1.10.0 | planned consumer; in-tree at RagService |
+| desktop (planned) | src/rag/crs-backlog.ts | `CrsBacklogQueue` | `class CrsBacklogQueue { size; enqueue; drain }` | beta | 1.10.0 | planned consumer; in-tree at RagService |
+| desktop (planned) | src/rag/crs-backlog.ts | `CrsBacklogPersist` | `type CrsBacklogPersist = (collectionId, chunks) => Promise<void>` | beta | 1.10.0 | planned consumer; in-tree at CrsBacklogQueue |
+| desktop (planned) | src/rag/crs-backlog.ts | `DEFAULT_CRS_BACKLOG_CAP` | `const DEFAULT_CRS_BACKLOG_CAP: number` | beta | 1.10.0 | planned consumer; in-tree at CrsBacklogQueue |

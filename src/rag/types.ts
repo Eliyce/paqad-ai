@@ -125,6 +125,99 @@ export function isRagIngestError(error: unknown): error is RagIngestError {
   return error instanceof RagIngestError;
 }
 
+// ── Project-scoped CRS collections (PQD-415) ───────────────────────────────────
+
+/**
+ * A named, persistent vector collection addressable by id. Branded so a raw
+ * string can't be passed by accident — construct one with {@link toCrsCollectionId}.
+ */
+export type CrsCollectionId = string & { readonly __crsCollectionId: unique symbol };
+
+/**
+ * Brand a string as a {@link CrsCollectionId}. The only validation is
+ * non-emptiness; filesystem-safety is handled at the path layer (`escapeCollectionId`).
+ *
+ * @throws {Error} when `id` is empty/whitespace.
+ */
+export function toCrsCollectionId(id: string): CrsCollectionId {
+  if (id.trim().length === 0) {
+    throw new Error('CRS collection id must be a non-empty string');
+  }
+  return id as CrsCollectionId;
+}
+
+/**
+ * The write-side shape the desktop hands {@link RagService.writeChunks}: the raw
+ * text to embed plus the session/workspace provenance. The engine produces the
+ * `vector` and stamps `vector_timestamp`, yielding a stored {@link CrsChunk}.
+ */
+export interface CrsChunkInput {
+  id: string;
+  content: string;
+  source_session_id: string;
+  source_workspace_id: string;
+  created_at: string;
+  project_id: string;
+}
+
+/** A persisted CRS chunk: a {@link CrsChunkInput} the engine has embedded and stamped. */
+export interface CrsChunk extends StoredVectorItem {
+  content: string;
+  source_session_id: string;
+  source_workspace_id: string;
+  created_at: string;
+  project_id: string;
+  /** ISO timestamp stamped by the engine when the vector was produced. */
+  vector_timestamp: string;
+}
+
+/** A retrieval hit from a CRS collection, carrying its session/workspace provenance. */
+export interface CrsRetrievalResult {
+  chunk: CrsChunk;
+  sourceSessionId: string;
+  sourceWorkspaceId: string;
+  score: number;
+}
+
+/** Audit-grade payload emitted when a session's chunks are written into a collection. */
+export interface CrsIndexedSessionEvent {
+  session_id: string;
+  project_id: string;
+  chunk_count: number;
+}
+
+/** Progress event emitted by {@link RagService.reindex} during a side-by-side rebuild. */
+export interface ReindexProgressEvent {
+  status_percent: number;
+  current_collection: string;
+  est_time: number;
+}
+
+export type ReindexProgressHandler = (event: ReindexProgressEvent) => void;
+
+/**
+ * Raised when the in-memory write backlog (used when the embedding provider is
+ * unreachable) overflows its cap and the oldest pending chunks are dropped.
+ *
+ * The backlog is in-memory only: a host-process restart loses any queued chunks
+ * silently. This error is the desktop's signal that data loss has occurred so it
+ * can surface a degraded-mode notice. Mirrors {@link CorruptVectorIndexError} in
+ * being a plain `Error` subclass (no `FrameworkError` inheritance).
+ */
+export class EmbeddingBacklogOverflow extends Error {
+  constructor(
+    readonly dropped_count: number,
+    message?: string,
+  ) {
+    super(message ?? `Embedding backlog overflow: dropped ${dropped_count} pending chunk(s)`);
+    this.name = 'EmbeddingBacklogOverflow';
+  }
+}
+
+export function isEmbeddingBacklogOverflow(error: unknown): error is EmbeddingBacklogOverflow {
+  return error instanceof EmbeddingBacklogOverflow;
+}
+
 export interface VectorIndexPayload<T extends StoredVectorItem = StoredVectorItem> {
   version: 1;
   dimensions: number;

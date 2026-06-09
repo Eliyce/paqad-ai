@@ -1,11 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, statSync } from 'node:fs';
+import { mkdir, readdir, rename, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
 
 import { AstChunker } from '@/context/ast-chunker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
+import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { engineLog } from '@/core/logger-registry.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { CancelledError, isCancelledError } from '@/core/errors/cancelled-error.js';
@@ -17,16 +19,24 @@ import { PatternVectorService } from '@/patterns/pattern-rag.js';
 import { SessionResumeValidator } from '@/session/resume-validator.js';
 
 import { appendRagAudit } from './audit.js';
+import { CrsBacklogQueue } from './crs-backlog.js';
+import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
 import { createEmbeddingProvider } from './providers.js';
 import { getProjectSecret, writeProjectSecret } from './secrets.js';
 import type {
   BuildIndexOptions,
   ChunkIndexSyncResult,
+  CrsChunk,
+  CrsChunkInput,
+  CrsCollectionId,
+  CrsIndexedSessionEvent,
+  CrsRetrievalResult,
   EmbeddingProvider,
   ProviderFactory,
   RagRetrievalResult,
   RagStatus,
+  ReindexProgressHandler,
   StoredVectorChunk,
   StoredVisionChunk,
   VisionIngestInput,
@@ -42,6 +52,12 @@ import { FileVectorIndex } from './vector-index.js';
 
 /** Max non-whitespace characters per vision chunk before it is split further. */
 const VISION_MAX_CHUNK_CHARS = 2000;
+
+/** Embedding batch size for CRS writes/reindex (PQD-415). */
+const CRS_EMBED_BATCH_SIZE = 32;
+
+/** How long a retired CRS index is kept under a `.revert.<ms>` suffix (24 hours). */
+const CRS_REVERT_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Project-relative location of the resumable partial index written when a
@@ -86,6 +102,12 @@ export class RagService {
   constructor(
     private readonly projectRoot: string,
     private readonly providerFactory: ProviderFactory = createEmbeddingProvider,
+    /**
+     * In-memory write backlog for CRS collections (PQD-415). Injectable so a
+     * caller can size the cap or observe `.size`; defaults to a fresh queue at the
+     * 1000-chunk cap.
+     */
+    private readonly crsBacklog: CrsBacklogQueue = new CrsBacklogQueue(),
   ) {
     this.indexManager = new ChunkIndexManager(projectRoot);
     this.patternVectors = new PatternVectorService(undefined, providerFactory);
@@ -643,6 +665,250 @@ export class RagService {
       return statSync(path).isDirectory();
     } catch {
       return false;
+    }
+  }
+
+  // ── Project-scoped CRS collections (PQD-415) ─────────────────────────────────
+
+  /**
+   * Embed and persist a session's chunks into the named CRS collection, returning
+   * the audit-grade {@link CrsIndexedSessionEvent} (also appended to the audit log
+   * as `crs.indexed_session`). The collection is created on demand. Every stored
+   * chunk carries its `source_session_id`, `source_workspace_id`, `created_at`,
+   * `project_id`, and an engine-stamped `vector_timestamp`.
+   *
+   * If the embedding provider is unreachable, the chunks are parked in the
+   * in-memory backlog and the failure is surfaced: an {@link EmbeddingBacklogOverflow}
+   * when the 1000-chunk cap is exceeded (oldest dropped), otherwise the provider
+   * error. On the next successful call the parked backlog is drained first.
+   */
+  async writeChunks(
+    chunks: CrsChunkInput[],
+    collectionId: CrsCollectionId,
+  ): Promise<CrsIndexedSessionEvent> {
+    await FileVectorIndex.create(this.projectRoot, collectionId);
+    const intelligence = normalizeIntelligenceConfig(
+      readProjectProfile(this.projectRoot)?.intelligence,
+    );
+    const provider = await this.providerFactory(this.projectRoot, intelligence);
+
+    // Provider is reachable — flush anything parked during an earlier outage first.
+    if (this.crsBacklog.size > 0) {
+      await this.crsBacklog.drain((id, queued) =>
+        this.persistCrsChunks(provider, id, queued).then(() => undefined),
+      );
+    }
+
+    try {
+      return await this.persistCrsChunks(provider, collectionId, chunks);
+    } catch (error) {
+      // Provider failed mid-write: park the chunks. enqueue throws
+      // EmbeddingBacklogOverflow when the cap is exceeded (oldest dropped);
+      // otherwise re-surface the provider error so the desktop knows the write
+      // was deferred to the backlog.
+      this.crsBacklog.enqueue(chunks, collectionId);
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieve from a CRS collection by raw query string. Returns only hits at or
+   * above `confidenceThreshold` (default 0.5 cosine similarity), ranked by
+   * descending score, each carrying its session/workspace provenance. Propagates
+   * {@link CorruptVectorIndexError} on a corrupt on-disk index so the desktop can
+   * fall back to file-RAG and trigger a rebuild.
+   */
+  async retrieveCrs(
+    query: string,
+    collectionId: CrsCollectionId,
+    topK: number,
+    confidenceThreshold = 0.5,
+  ): Promise<CrsRetrievalResult[]> {
+    const intelligence = normalizeIntelligenceConfig(
+      readProjectProfile(this.projectRoot)?.intelligence,
+    );
+    const provider = await this.providerFactory(this.projectRoot, intelligence);
+    const [queryVector] = await provider.embed(query);
+    const { indexPath, metaPath } = crsCollectionPaths(collectionId);
+    const index = new FileVectorIndex<CrsChunk>(indexPath, metaPath);
+    const results = await index.query(this.projectRoot, queryVector, topK);
+    return results
+      .filter((result) => result.score >= confidenceThreshold)
+      .map((result) => ({
+        chunk: result.item,
+        sourceSessionId: result.item.source_session_id,
+        sourceWorkspaceId: result.item.source_workspace_id,
+        score: result.score,
+      }));
+  }
+
+  /**
+   * Rebuild a CRS collection against a new embedding provider/model side by side,
+   * with zero downtime: the new index is built in a sibling `.rebuilding` dir,
+   * progress is reported via `onProgress`, then the live and new indexes are
+   * swapped atomically. The old index is retained under a `.revert.<ms>` sibling
+   * for 24 hours; expired reverts are swept on the next reindex.
+   */
+  async reindex(
+    provider: EmbeddingProviderName,
+    model: string,
+    collectionId: CrsCollectionId,
+    onProgress?: ReindexProgressHandler,
+  ): Promise<void> {
+    const layout = crsCollectionLayout(this.projectRoot, collectionId);
+    await this.sweepExpiredCrsReverts(collectionId);
+
+    const live = new FileVectorIndex<CrsChunk>(layout.indexPath, layout.metaPath);
+    const existing = await live.load(this.projectRoot);
+    const items = existing?.items ?? [];
+
+    const relRebuildDir = join(PATHS.CRS_DIR, `${layout.escaped}.rebuilding`);
+    const absRebuildDir = join(this.projectRoot, relRebuildDir);
+    await rm(absRebuildDir, { recursive: true, force: true });
+    await mkdir(absRebuildDir, { recursive: true });
+
+    const intelligence = normalizeIntelligenceConfig({
+      embedding_provider: provider,
+      embedding_model: model,
+      rag_enabled: true,
+    });
+    const newProvider = await this.providerFactory(this.projectRoot, intelligence);
+
+    const rebuilt = await this.embedCrsForReindex(newProvider, items, collectionId, onProgress);
+    const rebuildIndex = new FileVectorIndex<CrsChunk>(
+      join(relRebuildDir, 'index.json'),
+      join(relRebuildDir, 'meta.json'),
+    );
+    await rebuildIndex.replaceAll(this.projectRoot, rebuilt, {
+      provider: newProvider.name,
+      model: newProvider.model,
+    });
+
+    // Atomic swap: retire the live index to `.revert.<ms>`, promote the rebuild.
+    if (existsSync(layout.absDir)) {
+      const revertDir = join(layout.crsRootAbs, `${layout.escaped}.revert.${Date.now()}`);
+      await rename(layout.absDir, revertDir);
+    }
+    await rename(absRebuildDir, layout.absDir);
+
+    appendRagAudit(this.projectRoot, 'INFO', 'crs-reindexed', {
+      collection_id: String(collectionId),
+      provider: newProvider.name,
+      model: newProvider.model,
+      chunks: rebuilt.length,
+    });
+  }
+
+  private async persistCrsChunks(
+    provider: EmbeddingProvider,
+    collectionId: CrsCollectionId,
+    chunks: CrsChunkInput[],
+  ): Promise<CrsIndexedSessionEvent> {
+    const { indexPath, metaPath } = crsCollectionPaths(collectionId);
+    const index = new FileVectorIndex<CrsChunk>(indexPath, metaPath);
+    const embedded = await this.embedCrsChunks(provider, chunks);
+    const existing = await index.load(this.projectRoot);
+    const merged = [...(existing?.items ?? []), ...embedded];
+    await index.replaceAll(this.projectRoot, merged, {
+      provider: provider.name,
+      model: provider.model,
+    });
+    const event: CrsIndexedSessionEvent = {
+      session_id: chunks[0]?.source_session_id ?? '',
+      project_id: chunks[0]?.project_id ?? '',
+      chunk_count: embedded.length,
+    };
+    appendRagAudit(this.projectRoot, 'INFO', 'crs.indexed_session', {
+      session_id: event.session_id,
+      project_id: event.project_id,
+      chunk_count: event.chunk_count,
+    });
+    return event;
+  }
+
+  private async embedCrsChunks(
+    provider: EmbeddingProvider,
+    chunks: CrsChunkInput[],
+  ): Promise<CrsChunk[]> {
+    if (chunks.length === 0) {
+      return [];
+    }
+    const out: CrsChunk[] = [];
+    for (let offset = 0; offset < chunks.length; offset += CRS_EMBED_BATCH_SIZE) {
+      const batch = chunks.slice(offset, offset + CRS_EMBED_BATCH_SIZE);
+      const vectors = await provider.embed(batch.map((chunk) => chunk.content));
+      const stampedAt = new Date().toISOString();
+      for (let index = 0; index < batch.length; index++) {
+        const chunk = batch[index];
+        out.push({
+          id: chunk.id,
+          vector: vectors[index],
+          content: chunk.content,
+          source_session_id: chunk.source_session_id,
+          source_workspace_id: chunk.source_workspace_id,
+          created_at: chunk.created_at,
+          project_id: chunk.project_id,
+          vector_timestamp: stampedAt,
+        });
+      }
+    }
+    return out;
+  }
+
+  private async embedCrsForReindex(
+    provider: EmbeddingProvider,
+    items: CrsChunk[],
+    collectionId: CrsCollectionId,
+    onProgress?: ReindexProgressHandler,
+  ): Promise<CrsChunk[]> {
+    const total = items.length;
+    const currentCollection = String(collectionId);
+    if (total === 0) {
+      onProgress?.({ status_percent: 100, current_collection: currentCollection, est_time: 0 });
+      return [];
+    }
+    const out: CrsChunk[] = [];
+    const start = Date.now();
+    for (let offset = 0; offset < total; offset += CRS_EMBED_BATCH_SIZE) {
+      const batch = items.slice(offset, offset + CRS_EMBED_BATCH_SIZE);
+      const vectors = await provider.embed(batch.map((item) => item.content));
+      const stampedAt = new Date().toISOString();
+      for (let index = 0; index < batch.length; index++) {
+        out.push({ ...batch[index], vector: vectors[index], vector_timestamp: stampedAt });
+      }
+      const done = Math.min(offset + batch.length, total);
+      onProgress?.({
+        status_percent: Math.round((done / total) * 100),
+        current_collection: currentCollection,
+        est_time: estimateEtaSeconds(start, done, total),
+      });
+    }
+    return out;
+  }
+
+  /** Delete `.revert.<ms>` siblings older than the 24-hour retention window. */
+  private async sweepExpiredCrsReverts(collectionId: CrsCollectionId): Promise<void> {
+    const { escaped, crsRootAbs } = crsCollectionLayout(this.projectRoot, collectionId);
+    let entries: string[];
+    try {
+      entries = await readdir(crsRootAbs);
+    } catch {
+      // The CRS root does not exist yet — nothing to sweep.
+      return;
+    }
+    const prefix = `${escaped}.revert.`;
+    const now = Date.now();
+    for (const entry of entries) {
+      if (!entry.startsWith(prefix)) {
+        continue;
+      }
+      const stampedAt = Number(entry.slice(prefix.length));
+      if (!Number.isFinite(stampedAt)) {
+        continue;
+      }
+      if (now - stampedAt > CRS_REVERT_RETENTION_MS) {
+        await rm(join(crsRootAbs, entry), { recursive: true, force: true });
+      }
     }
   }
 

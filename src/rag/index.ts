@@ -15,3 +15,6 @@ export * from './attachment-retriever.js';
 // PQD-331 — single-file attachment indexing (project or session) + parser/events.
 export * from './attachment-parser.js';
 export * from './attachment-events.js';
+// PQD-415 — project-scoped CRS collections (create/write/retrieve/destroy/reindex).
+export * from './crs-paths.js';
+export * from './crs-backlog.js';

@@ -42,6 +42,14 @@ export const PATHS = {
   // both file- and vision-derived content together.
   VISION_VECTOR_INDEX: '.paqad/vectors/vision-index.json',
   VISION_VECTOR_META: '.paqad/vectors/vision-meta.json',
+  // PQD-415 — project-scoped CRS (Contextual Retrieval Store) collections. Each
+  // named collection owns a directory under CRS_DIR keyed by its escaped id, with
+  // its own `index.json` + `meta.json` mirroring the `.paqad/vectors/` layout.
+  // Kept fully disjoint from VECTORS_DIR (project RAG) and the ephemeral
+  // attachment collections so a CRS collection never disturbs either. Old indexes
+  // are retained next to the live one under a `.revert.<ISO>` suffix for 24h after
+  // a side-by-side reindex.
+  CRS_DIR: '.paqad/crs',
   SECRETS_ENV: '.paqad/secrets.env',
   // PQD-174 — session-scoped ephemeral attachment collections for non-project
   // desktop conversations. Each session owns a directory keyed by its id under
