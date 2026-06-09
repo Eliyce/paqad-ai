@@ -458,6 +458,10 @@ describe('CRS collection — RagService', () => {
       best = Math.min(best, performance.now() - start);
       expect(hits).toHaveLength(10);
     }
-    expect(best).toBeLessThan(200);
+    // Generous wall-clock bound: a linear scan over 100k 2-dim vectors is tens of
+    // milliseconds on dev hardware, but shared CI runners vary several-fold, so a
+    // tight threshold flakes. 1000ms still fails loudly on an O(n²) regression
+    // (which would be seconds) while tolerating runner jitter.
+    expect(best).toBeLessThan(1000);
   });
 });
