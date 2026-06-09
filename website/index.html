@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>paqad-ai — Make your AI agent stop guessing</title>
+    <title>paqad-ai: spec-driven AI coding agents that prove their work</title>
     <meta
       name="description"
-      content="Paqad reads your project, learns your stack, and gives every AI coding tool the context it needs so it stops guessing and starts building. Free forever."
+      content="paqad-ai turns your team's specs, rules, and workflows into context every AI coding agent follows, then proves each change with automatic checks. Works with Claude Code, Cursor, Copilot, Gemini, and more. Open source, runs locally."
     />
-    <meta property="og:title" content="paqad-ai — Make your AI agent stop guessing" />
+    <meta property="og:title" content="paqad-ai: don't trust the prompt, trust the workflow" />
     <meta
       property="og:description"
-      content="One command. Free forever. Paqad gives AI coding tools project-specific context, reduces token waste, and helps them stop breaking things."
+      content="One command sets up every AI coding tool from one source of truth, then automatic checks prove the work is done. Spec-driven, runs locally, open source."
     />
     <meta property="og:url" content="https://paqad.ai/" />
     <meta property="og:image" content="https://paqad.ai/assets/og-card.png" />
@@ -78,15 +78,16 @@
         <div class="hero-glow" aria-hidden="true"></div>
         <div class="hero-shell">
           <div class="hero-copy-block reveal-group" style="--reveal-delay: 40ms">
-            <div class="hero-badge">OPEN SOURCE · FREE FOREVER</div>
+            <div class="hero-badge">OPEN SOURCE · SPEC-DRIVEN · RUNS LOCALLY</div>
             <h1>
-              Your AI agent keeps<br />
-              forgetting your <span>project</span>
+              Don't trust the prompt.<br />
+              Trust the <span>workflow</span>.
             </h1>
             <p class="hero-subheadline">
-              Paqad reads your codebase, learns your stack, and gives every AI agent the context it
-              needs — so it stops guessing and starts building. <span class="hero-free">Free</span>.
-              Open source. Zero config.
+              paqad-ai turns your team's specs, rules, and workflows into context every AI coding
+              agent has to follow, then proves each change with automatic checks instead of another
+              AI. One command sets up all your tools. <span class="hero-free">Free</span> and open
+              source.
             </p>
             <div class="hero-actions">
               <a class="button button-primary" href="#demo">See it in action ↓</a>
@@ -101,8 +102,8 @@
             ></pre>
             <pre class="hero-logo hero-logo-mobile" id="hero-logo-mobile" aria-hidden="true"></pre>
             <p class="hero-logo-caption">
-              One onboarding command gives Claude Code, Codex, Cursor, Gemini, Copilot, and Windsurf
-              the same project-specific context.
+              One command gives Claude Code, Cursor, Copilot, Gemini, Codex, and Windsurf the same
+              rules, the same context, and the same standards.
             </p>
           </div>
         </div>
@@ -121,8 +122,8 @@
           <span class="section-kicker">ONE COMMAND</span>
           <h2>This is all you do.</h2>
           <p>
-            Run one command. Paqad reads your lockfiles and manifests, detects everything, and sets
-            up your AI agents automatically. Free — no account, no API key, no subscription.
+            Run one command. paqad-ai reads your lockfiles and manifests, detects everything, and
+            sets up your AI agents automatically. No account, no API key, no subscription.
           </p>
         </div>
         <div class="terminal-window reveal-group" id="terminal-demo"></div>
@@ -139,6 +140,17 @@
         </p>
       </section>
 
+      <section class="section reveal-section" id="pillars">
+        <div class="section-intro reveal-group">
+          <span class="section-kicker">WHAT YOU GET</span>
+          <h2>A framework, not just a config file.</h2>
+          <p>
+            Setup is the first five seconds. The rest is what keeps your AI honest on every change.
+          </p>
+        </div>
+        <div class="how-grid" id="pillars-grid"></div>
+      </section>
+
       <section class="section reveal-section" id="problems">
         <div class="section-intro reveal-group">
           <span class="section-kicker">PROBLEMS SOLVED</span>
@@ -149,11 +161,12 @@
 
       <section class="section reveal-section" id="rag">
         <div class="section-intro reveal-group">
-          <span class="section-kicker">RAG CONTEXT</span>
+          <span class="section-kicker">THE RIGHT CONTEXT</span>
           <h2>Your AI does not need your whole repo. It needs the right files.</h2>
           <p>
-            Paqad uses retrieval-augmented context loading to pull in the components, routes, docs,
-            and rules that matter for the current task instead of burning tokens on full-repo dumps.
+            Every model gets worse as you cram more into it, so loading less is not just cheaper, it
+            makes the answers better. paqad-ai pulls in the components, routes, docs, and rules that
+            matter for the task at hand, and leaves the rest out.
           </p>
         </div>
         <div class="rag-grid" id="rag-grid"></div>
@@ -164,9 +177,9 @@
           <span class="section-kicker">PROJECT GRAPH</span>
           <h2>See what your AI sees.</h2>
           <p>
-            One command opens an interactive WebGL map of your project — every module, file, chunk,
-            symbol, import, and semantic neighbour. Validate Paqad's mental model in seconds, audit
-            RAG retrieval, and spot architectural drift before it ships.
+            One command opens an interactive WebGL map of your project: every module, file, chunk,
+            symbol, import, and semantic neighbour. Check what paqad-ai sees in seconds, audit
+            retrieval, and spot architectural drift before it ships.
           </p>
         </div>
         <div class="terminal-window reveal-group">
@@ -177,7 +190,7 @@
             <div class="how-kicker">Live by default</div>
             <h3>Watches `.paqad/`</h3>
             <p>
-              Re-onboard, re-index, or tweak module health — the graph refreshes in place while
+              Re-onboard, re-index, or tweak module health, and the graph refreshes in place while
               keeping your zoom and selection. No reloads.
             </p>
           </div>
@@ -201,8 +214,8 @@
             <div class="how-kicker">Zero install</div>
             <h3>Ships with the CLI</h3>
             <p>
-              Server, frontend, layout worker — all bundled in `paqad-ai`. Loopback only by default.
-              No telemetry, no remote calls, no extra dependencies in your project.
+              Server, frontend, and layout worker, all bundled in `paqad-ai`. Loopback only by
+              default. No telemetry, no remote calls, no extra dependencies in your project.
             </p>
           </div>
         </div>
@@ -246,10 +259,10 @@
       <section class="section final-cta reveal-section" id="install">
         <div class="final-cta-glow" aria-hidden="true"></div>
         <div class="final-cta-shell reveal-group">
-          <h2>Make your AI agent actually useful.</h2>
+          <h2>Set it up once. Trust it every time.</h2>
           <p>
-            One command. No config files. No account required. Free forever. Works with your
-            existing project in under 5 seconds.
+            One command wires up every AI tool you use, on your machine, with no account required.
+            Works with your existing project in seconds.
           </p>
           <p class="final-cta-note">
             Maintained with a strict 100% lines, statements, functions, and branches coverage bar.

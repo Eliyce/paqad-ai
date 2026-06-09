@@ -1,3 +1,5 @@
+<div align="center">
+
 ```
 ██████╗  █████╗  ██████╗  █████╗ ██████╗
 ██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔══██╗
@@ -7,32 +9,26 @@
 ╚═╝     ╚═╝  ╚═╝ ╚══▀▀═╝ ╚═╝  ╚═╝╚═════╝
 ```
 
-**AI agents that think before they type.** paqad-ai reads your codebase, detects your stack, builds optional hybrid RAG context, and generates the docs, rules, MCP configs, security checks, and workflows your coding agents need to operate with real project context.
+### Don't trust the prompt. Trust the workflow.
+
+**The open-source, spec-driven framework for AI coding agents that have to be right, not just fast.**
 
 [![npm version](https://img.shields.io/npm/v/paqad-ai.svg?style=flat-square)](https://www.npmjs.com/package/paqad-ai)
 [![npm downloads](https://img.shields.io/npm/dm/paqad-ai.svg?style=flat-square)](https://www.npmjs.com/package/paqad-ai)
 [![CI](https://img.shields.io/github/actions/workflow/status/Eliyce/paqad-ai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Eliyce/paqad-ai/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/npm/l/paqad-ai.svg?style=flat-square)](./LICENSE)
 [![Node](https://img.shields.io/node/v/paqad-ai.svg?style=flat-square)](https://nodejs.org)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](./CONTRIBUTING.md)
 [![website](https://img.shields.io/badge/website-paqad.ai-0A7A5C?style=flat-square)](https://paqad.ai)
-[![docs](https://img.shields.io/badge/docs-paqad.ai-1f6feb?style=flat-square)](https://paqad.ai)
+
+Works with Claude Code, Cursor, GitHub Copilot, Gemini, Codex, Windsurf, Junie, Continue, Antigravity, and Aider.
+
+</div>
 
 ---
 
-## The problem
+A prompt is the most error-prone part of AI development. paqad-ai replaces "hope the prompt works" with something a team can stand behind. Your specs, rules, and workflows become version-controlled context that every AI agent has to follow, and every change is proven by automatic checks instead of by another AI guessing. One command sets up all your agents at once, and the whole thing runs on your machine, so your code never has to leave the building.
 
-You install an AI coding agent. You ask it to help with your Laravel + React project. It doesn't know your folder structure, conventions, test runner, or which version of anything you're running.
-
-Then the context problem gets worse: the agent still cannot retrieve the right files when the repo is large, ambiguous, or spread across app code, docs, workflows, and generated artifacts. It guesses. It misses the right modules. It burns tokens on the wrong files.
-
-So you spend an hour writing `CLAUDE.md` by hand. Then you do it again for Cursor. And again for Copilot. And again when your stack changes. Then you still have to solve retrieval, documentation drift, and workflow consistency yourself.
-
-**paqad-ai solves both setup and retrieval: shared instructions for multiple external agent platforms, plus a built-in multi-agent runtime and optional hybrid RAG for real project context.**
-
----
-
-## Get started
+## Install in 30 seconds
 
 ```bash
 npm install -g paqad-ai
@@ -40,231 +36,128 @@ cd your-project
 paqad-ai onboard
 ```
 
-paqad-ai reads your lockfiles, detects your stack, asks you to confirm, and generates everything:
+paqad-ai reads your lockfiles, detects your stack, asks you to confirm, then sets everything up:
 
-```
-✓ Detected: laravel + react (inertia, tailwind, pest, docker)
-✓ Generated: CLAUDE.md, AGENTS.md, ANTIGRAVITY.md, GEMINI.md, .cursor/rules/paqad.mdc
-✓ Generated: .github/copilot-instructions.md, .windsurfrules
+```text
+✓ Detected:  laravel + react (inertia, tailwind, pest, docker)
+✓ Generated: CLAUDE.md, AGENTS.md, GEMINI.md, .cursor/rules, copilot-instructions, .windsurfrules
 ✓ Generated: docs/instructions/rules/* and stack-specific tool guides
-✓ Wrote: .paqad/project-profile.yaml, onboarding-manifest.json, detection-report.json
-✓ Configured: adapter entry files and MCP settings for selected platforms
+✓ Wrote:     .paqad/project-profile.yaml, onboarding-manifest.json, detection-report.json
+✓ Configured: entry files and MCP settings for every tool you picked
 
-Ready. Your AI agents now understand your project.
+Ready. Your AI agents now understand your project, and your rules.
 ```
 
-Or run with `npx` without installing:
+No account, no API key, no subscription. Prefer not to install anything? Run `npx paqad-ai onboard`.
 
-```bash
-npx paqad-ai onboard
+## What you get, at a glance
+
+| Area                         | What it means for you                                                            |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| **One setup, every tool**    | Configure Claude, Cursor, Copilot, Gemini, and the rest from one source of truth |
+| **Workflows, not prompts**   | Your team's process runs the same way every time, instead of being re-typed      |
+| **Proof, not promises**      | Automatic checks confirm tests, specs, docs, and security before "done" counts   |
+| **Security as a workflow**   | A full OWASP pentest pass, with retests, built in                                |
+| **Design as a workflow**     | Your UI audited against your own design system                                   |
+| **Docs that stay current**   | The framework keeps your documentation in sync with the code                     |
+| **Fewer tokens, on purpose** | Loads the right files, not the whole repo, cutting token use by 60-85%           |
+| **Runs locally**             | Your code stays on your machine, with an audit trail you can keep                |
+
+The rest of this page walks through each of these. The [full docs](https://paqad.ai/docs.html) go deeper on every command and concept.
+
+---
+
+## The problem it solves
+
+AI writes the code now. The hard part moved: it is no longer typing the code, it is trusting it.
+
+Here is the difference paqad-ai makes on the same request.
+
+| Without paqad-ai                                                  | With paqad-ai                                                               |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| ✗ Guesses your folder structure and puts files in the wrong place | ✓ Knows your stack, layout, and conventions before it writes a line         |
+| ✗ Rebuilds a component that already exists                        | ✓ Finds the existing component and extends it                               |
+| ✗ Writes code that quietly breaks tests it never ran              | ✓ Writes the failing test first, then makes it pass without breaking others |
+| ✗ Forgets everything when you come back tomorrow                  | ✓ Picks up from a structured handoff of decisions and next steps            |
+| ✗ Burns tokens re-reading the same files every turn               | ✓ Loads only what the task needs                                            |
+| ✗ Tells you it is "done" when it is not                           | ✓ Cannot mark work done until the checks actually pass                      |
+
+This is not a model problem you can wait out. The research is consistent:
+
+- **84%** of developers use AI tools, but more now distrust their accuracy (**46%**) than trust it (**33%**), and the single biggest frustration, named by **66%**, is "AI solutions that are almost right, but not quite." <sup>[1]</sup>
+- **81%** of developers say they spend more time reviewing code since adopting AI. The work did not vanish, it moved to review. <sup>[2]</sup>
+- About **1 in 5** packages an AI recommends do not exist, a hallucination so reliable it created a new supply-chain attack. <sup>[3]</sup>
+- **45%** of AI-generated code ships with a known security flaw, and bigger models are not measurably safer. <sup>[4]</sup>
+- Every frontier model gets worse as you cram more into its context window, so dumping your whole repo into the prompt makes answers worse, not better. <sup>[5]</sup>
+
+An agent driven by an ad-hoc prompt has no spec to meet, no rules it must follow, and no check that can tell "done" from "looks done." paqad-ai adds all three.
+
+> Spec Kit and Kiro tell the agent **what** to build.
+> paqad-ai makes it **prove it actually did**, with automatic checks, on your machine, across every agent you use.
+
+---
+
+## How it works
+
+Three steps turn AI coding from a prompt you hope works into a pipeline you can trust.
+
+```
+   You ask for something
+   "Add product search that filters by name and category"
+            │
+            ▼
+   ┌─────────────────────────────────────────────┐
+   │ 1. CODIFY                                     │   Your stack, rules, and spec become
+   │    stack  ·  rules  ·  spec                   │   context every agent reads. Written once,
+   └─────────────────────────────────────────────┘   reused everywhere.
+            │
+            ▼
+   ┌─────────────────────────────────────────────┐
+   │ 2. FOLLOW                                     │   The agent runs your workflow, not an
+   │    route  →  plan  →  test  →  build          │   improvised prompt. Same process,
+   └─────────────────────────────────────────────┘   every time.
+            │
+            ▼
+   ┌─────────────────────────────────────────────┐
+   │ 3. PROVE                                      │   Automatic checks confirm the work.
+   │    ✓ tests   ✓ spec met   ✓ docs in sync     │   Code, not another AI. Nothing ships
+   │    ✓ security  ✓ quality  ✓ no regressions   │   until they pass.
+   └─────────────────────────────────────────────┘
+            │
+            ▼
+        Done, and proven
 ```
 
----
-
-## Core features
-
-| Area                     | What you get                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------ |
-| **Agent onboarding**     | Shared instructions and MCP config for supported external agent platforms            |
-| **Stack detection**      | Lockfile-driven framework, trait, and archetype detection across 9 ecosystems        |
-| **Documentation**        | Stack, architecture, design-system, registry, and module documentation flows         |
-| **Hybrid RAG**           | Optional vector indexing, hybrid retrieval, reranking, evals, and benchmarks         |
-| **Project graph**        | One-command WebGL map of modules, files, chunks, symbols, imports, and similarities  |
-| **Security**             | OWASP-mapped pentest workflow with incremental retests                               |
-| **Spec compliance**      | Obligation extraction, test evidence checks, and failing skeleton generation         |
-| **Built-in agent roles** | 20 internal specialist roles for routing, review, design, verification, and security |
-| **Context controls**     | Chunking, scoring, dedup, summarization, and budget enforcement                      |
-| **Pack system**          | Built-in and custom stack packs for framework-specific behavior                      |
-| **Operations**           | `doctor`, `compliance`, `refresh`, `update`, `patterns`, and capability toggles      |
+| Step       | What happens                                                                              | Why it matters                                              |
+| ---------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Codify** | Your stack, conventions, rules, specs, and workflows become version-controlled context.   | One source of truth, owned by the team and reviewed in PRs. |
+| **Follow** | Agents run your workflows and rules the same way every time, instead of guessing.         | Represent a workflow once, and every agent follows it.      |
+| **Prove**  | Automatic checks confirm tests, spec coverage, docs, security, and quality before "done." | "Done" means proven, not claimed.                           |
 
 ---
 
-## Supported adapters
+## Set up every agent once
 
-One onboarding. Thin entry files that all point to the same shared instruction bundles:
+Run `paqad-ai onboard` one time. It writes a thin, native config file for each tool you use, and they all point at the same shared instruction bundle. Change a rule in one place, and every agent sees it. Switch tools next month without losing anything.
 
-| Platform               | What it generates                                      |
-| ---------------------- | ------------------------------------------------------ |
-| **Claude Code**        | `CLAUDE.md` + MCP config                               |
-| **Codex CLI**          | `AGENTS.md` + MCP config                               |
-| **Google Antigravity** | `ANTIGRAVITY.md` + MCP config                          |
-| **Gemini CLI**         | `GEMINI.md` + MCP config                               |
-| **Junie**              | `.junie/AGENTS.md` + `.junie/mcp/mcp.json`             |
-| **Cursor**             | `.cursor/rules/paqad.mdc` + MCP, skills, agents        |
-| **GitHub Copilot**     | `.github/copilot-instructions.md` + `.vscode/mcp.json` |
-| **Windsurf**           | `.windsurfrules` + MCP, skills, agents                 |
-| **Continue**           | `.continue/rules/paqad.md` + MCP, prompts              |
-| **Aider**              | `CONVENTIONS.md` (config-only)                         |
+| Tool                   | What it creates                                          |
+| ---------------------- | -------------------------------------------------------- |
+| **Claude Code**        | `CLAUDE.md` and MCP config                               |
+| **Codex CLI**          | `AGENTS.md` and MCP config                               |
+| **Google Antigravity** | `ANTIGRAVITY.md` and MCP config                          |
+| **Gemini CLI**         | `GEMINI.md` and MCP config                               |
+| **Junie**              | `.junie/AGENTS.md` and `.junie/mcp/mcp.json`             |
+| **Cursor**             | `.cursor/rules/paqad.mdc` plus MCP, skills, agents       |
+| **GitHub Copilot**     | `.github/copilot-instructions.md` and `.vscode/mcp.json` |
+| **Windsurf**           | `.windsurfrules` plus MCP, skills, agents                |
+| **Continue**           | `.continue/rules/paqad.md` plus MCP, prompts             |
+| **Aider**              | `CONVENTIONS.md`                                         |
 
-Pick one or pick all. `paqad-ai onboard` lets you multi-select. If no `--providers` flag is passed, onboarding defaults to `claude-code`.
+Pick one or pick all. Onboarding is multi-select.
 
-## 20 built-in specialist agents
+## Run your workflows, not prompts
 
-Beyond adapter targets, paqad-ai also ships internal agent roles used by the framework's runtime content, reviews, workflows, and specialized guidance.
-
-| Group                    | Count | Examples                                                                     |
-| ------------------------ | ----- | ---------------------------------------------------------------------------- |
-| **Base workflow agents** | 11    | `router`, `verifier`, `story-designer`, `test-planner`, `product-owner`      |
-| **Coding specialists**   | 8     | `solution-architect`, `database-expert`, `devops-engineer`, `doc-maintainer` |
-| **Security specialists** | 1     | `security-auditor`                                                           |
-
-That is **20 built-in agent roles** in the shipped runtime, in addition to the supported external adapters above.
-
----
-
-## 22 built-in Stack Packs
-
-paqad-ai parses manifests and lockfiles across 9 ecosystems. It doesn't ask what stack you use — it reads your repo to figure it out.
-
-**19 framework packs:**
-
-`laravel` · `react` · `vue` · `flutter` · `django` · `fastapi` · `rails` · `spring-boot` · `express` · `angular` · `svelte` · `astro` · `go-web` · `rust-web` · `dotnet` · `nextjs` · `flask` · `nestjs` · `kotlin-android`
-
-**3 archetype packs** (fallback for Node projects that don't match a framework):
-
-`node-cli` · `node-library` · `node-service`
-
-Each pack is a declarative `pack.yaml` that drives detection, documentation, MCP configuration, security mappings, and more. Don't see your framework? [Author your own pack](./docs/modules/packs/features/authoring/technical.md).
-
-**What it reads:**
-
-| Ecosystem  | Manifests & lockfiles                                                                     |
-| ---------- | ----------------------------------------------------------------------------------------- |
-| **Node**   | `package.json`, `package-lock.json`, `pnpm-lock.yaml`                                     |
-| **PHP**    | `composer.json`, `composer.lock`                                                          |
-| **Python** | `requirements.txt`, `pyproject.toml`, `Pipfile`, `Pipfile.lock`, `poetry.lock`, `uv.lock` |
-| **Ruby**   | `Gemfile`, `Gemfile.lock`                                                                 |
-| **JVM**    | `build.gradle`, `build.gradle.kts`, `pom.xml`, `gradle.lockfile`                          |
-| **Go**     | `go.mod`, `go.sum`                                                                        |
-| **Rust**   | `Cargo.toml`, `Cargo.lock`                                                                |
-| **Dart**   | `pubspec.yaml`, `pubspec.lock`                                                            |
-
-Lockfiles always win over manifest constraints. Traits like `inertia`, `tailwind`, `pest`, `docker`, and `sail` are detected automatically from packages and config files.
-
-**Stack + capability matrix:**
-
-| Stack              | Available traits                                   |
-| ------------------ | -------------------------------------------------- |
-| **Laravel**        | `inertia`, `react`, `vue`, `tailwind`, `boost`     |
-| **React**          | `next`, `remix`, `vite-spa`, `gatsby`, `tailwind`  |
-| **Vue**            | `nuxt`, `vite-spa`, `quasar`, `tailwind`           |
-| **Flutter**        | `docker`, `compose`                                |
-| **Django**         | `docker`, `compose`                                |
-| **FastAPI**        | `docker`, `compose`                                |
-| **Rails**          | `docker`, `compose`                                |
-| **Spring Boot**    | `docker`, `compose`                                |
-| **Express**        | `docker`, `compose`                                |
-| **Angular**        | `docker`, `compose`                                |
-| **Svelte**         | `docker`, `compose`                                |
-| **Astro**          | `docker`, `compose`                                |
-| **Go Web**         | `docker`, `compose`                                |
-| **Rust Web**       | `docker`, `compose`                                |
-| **ASP.NET Core**   | `ef-core`, `mvc`, `minimal-api`, `blazor`          |
-| **Next.js**        | `app-router`, `pages-router`, `tailwind`, `prisma` |
-| **Flask**          | `sqlalchemy`, `blueprints`, `celery`, `gunicorn`   |
-| **NestJS**         | `prisma`, `typeorm`, `graphql`, `swagger`          |
-| **Kotlin Android** | `jetpack-compose`, `room`, `hilt`, `navigation`    |
-
-Laravel also detects `pest`, `phpunit`, `sail`, `docker`, and `compose` automatically. Environment traits like Docker and Compose are detected across all stacks.
-
----
-
-## What you get after onboarding
-
-paqad-ai isn't just a setup tool. Here's the full feature set:
-
-### Stack intelligence and pack resolution
-
-Detection is lockfile-first and feeds the rest of the framework. Onboarding, refresh, docs, MCP config, and security workflows all consume the same resolved stack profile and effective pack set.
-
-| System                  | What it does                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| **Framework detection** | Detects frameworks, traits, and archetypes from manifests, lockfiles, and config |
-| **Pack resolution**     | Merges built-in, global, and project pack overrides by precedence                |
-| **Capability routing**  | Activates `content`, `coding`, and `security` based on the effective stack       |
-| **Drift tracking**      | Stores stack snapshots and reports when the live repo diverges from onboarding   |
-
-### Documentation as a first-class output
-
-Docs aren't an afterthought — they're a primary framework output. There's no standalone `document` command. Instead, ask any connected agent to `create documentation` and the workflow:
-
-1. Re-reads your live app state from manifests and lockfiles
-2. Syncs if reality differs from stored onboarding data
-3. Generates stack docs, architecture docs, design-system docs
-4. Generates module docs — `business.md` + `technical.md` per feature
-5. Tracks progress in `.paqad/doc-progress.json`
-
-**Differential refresh** — when files change, only stale docs are regenerated.
-
-### Security — "Break locally first"
-
-A resumable 5-step pentest workflow with **12 security skills** and full OWASP coverage:
-
-| Standard                    | Coverage     |
-| --------------------------- | ------------ |
-| **OWASP Top 10 2025**       | A01–A10 ✓    |
-| **OWASP API Security 2023** | API1–API10 ✓ |
-
-**The 12 skills:**
-
-| Skill                         | What it checks                                                                          |
-| ----------------------------- | --------------------------------------------------------------------------------------- |
-| `dependency-advisory-triage`  | Supply chain: typosquatting, dependency confusion, abandoned packages, transitive risk  |
-| `permission-boundary-review`  | BOLA, function-level auth, mass assignment, resource consumption                        |
-| `business-logic-abuse-review` | Race conditions, workflow bypass, financial manipulation, GraphQL abuse                 |
-| `runtime-surface-probing`     | Headers, CORS, error disclosure, open redirects, sensitive files, SSRF, TLS             |
-| `stride-threat-model`         | Systematic STRIDE enumeration per module and surface type                               |
-| `input-validation-review`     | SSRF, IDOR, injection (SQL, template, command), file upload, prototype pollution, ReDoS |
-| `auth-mechanism-review`       | JWT flaws, session fixation, OAuth/OIDC, brute-force, MFA bypass                        |
-| `cryptographic-review`        | Encryption at rest/transit, key management, password hashing, weak PRNG                 |
-| `logging-monitoring-review`   | Audit trail gaps, log injection, alerting coverage                                      |
-| `rate-limiting-review`        | Missing throttling per framework, DoS surfaces                                          |
-| `finding-normalizer`          | Stable PT-XXXX IDs across retests                                                       |
-| `retest-verification`         | Finding replay against fresh evidence                                                   |
-
-**Local attack playbook** — generates `curl` commands to prove findings locally. Never auto-executes.
-
-**Incremental mode** — only re-scans changed files. Full scan staleness warning after 14 days.
-
-### Context intelligence
-
-Your AI agent has a limited context window. paqad-ai makes every token count:
-
-| System               | What it does                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| **Semantic loader**  | Chunks files at AST boundaries, scores by 5-signal relevance, packs into 40/45/15% budget    |
-| **Budget optimizer** | 4 graduated tiers (green → yellow → amber → red), auto eviction + summarization              |
-| **Deduplication**    | Identical artifacts from multiple paths → one-line reference pointers                        |
-| **Turn summarizer**  | Old turns → structured extracts (decisions, files, blockers, next steps). No LLM, pure regex |
-| **Stream truncator** | Per-tier output limits (fast: 2K, medium: 5K, reasoning: 15K) with sentence-boundary cuts    |
-
-### Optional hybrid RAG retrieval
-
-RAG is optional, but when enabled it plugs directly into the semantic loader instead of living off to the side as a separate experiment.
-
-| Feature                 | What it does                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------- |
-| **Vector index**        | Builds an AST-aware code/document index under `.paqad/vectors/` from the chunk index        |
-| **Embedding providers** | Supports `local` (default), `openai`, and `voyageai` with provider-specific default models  |
-| **Hybrid scoring**      | Fuses vector similarity, keyword overlap, symbol hits, and file-path proximity              |
-| **Adaptive depth**      | Routes retrieval as `none`, `standard`, or `deep` based on task complexity, risk, and scope |
-| **Metadata filtering**  | Narrows candidates by extension, module path, framework, and recency with safe fallbacks    |
-| **Reranking**           | Supports `passthrough`, local cross-encoder reranking, or Cohere reranking                  |
-| **Pattern vectors**     | Extends retrieval with vectorized cross-project patterns from `~/.paqad/patterns/`          |
-| **Audit + fallbacks**   | Logs build/fallback/provider mismatch events to `.paqad/audit.log`                          |
-| **Eval gates**          | Benchmarks hit@5, task success, correction turns, and prompt-token deltas                   |
-
-RAG configuration lives in `.paqad/project-profile.yaml`. Project-specific corpus exclusions can be tuned with `.paqad/rag.ignore.yaml`, and remote provider keys are stored in `.paqad/secrets.env`.
-
-### Smart session handoff
-
-Structured v2 handoff captures active task, decisions, files, blockers, and next steps. **70–85% smaller** than raw dumps. Both JSON and Markdown.
-
-### Predictive skill cache
-
-Learns skill execution sequences. Pre-warms cache when `P(next | current) ≥ 0.7`. Disabled by default — transition data accumulates passively.
-
-### Custom workflows
+This is the core idea: the prompt is the unreliable part, so paqad-ai does not rely on it. Your team writes its process down as plain workflows and rules, and the framework runs them the same way every time.
 
 ```yaml
 # docs/instructions/workflows/feature-with-review.yaml
@@ -284,370 +177,239 @@ steps:
   - skill: diff-doc-sync
 ```
 
-Conditional steps, parallel execution, failure handling (`abort` / `skip` / `retry`), resumable runs.
+Steps can run in order or in parallel, branch on complexity and risk, handle failure (abort, skip, or retry), and resume where they left off after a restart.
 
-### Cross-project pattern library
+<details>
+<summary><b>How a request flows through the framework</b></summary>
 
-Verified solutions stored globally at `~/.paqad/patterns/`. Scored by framework overlap + keyword match, staleness penalty after 180 days.
+<br>
 
-### Spec compliance verification
+A built-in router reads each request, judges its complexity and risk, and sends it down the right track so simple work stays simple:
 
-Structured feature specs can be turned into executable obligation artifacts before implementation starts.
+- **fast** lane for questions and small, low-risk fixes
+- **graduated** lane for everyday features
+- **full** lane for risky or wide-reaching changes, with a frozen spec and story breakdown first
 
-| Workflow                  | What it does                                                                |
-| ------------------------- | --------------------------------------------------------------------------- |
-| **Obligation extraction** | Parses structured Markdown specs into deterministic obligation indexes      |
-| **Compliance checking**   | Scans tests for explicit obligation evidence and reports coverage gaps      |
-| **Skeleton generation**   | Creates failing Vitest stubs from obligations before implementation begins  |
-| **Index doctoring**       | Validates schema version and duplicate IDs before checks or skeleton output |
+Along the way it coordinates **20 built-in specialist roles**, each with one job and no conflicting incentives:
 
-Compliance artifacts live under `.paqad/compliance/` and are designed so the durable module docs can outlive the original feature spec once the behavior is implemented.
+| Group             | Roles                                                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Workflow (11)** | router, requirement-analyst, story-designer, test-planner, product-owner, verifier, gap-detector, adversarial-reviewer, context-curator, final-reviewer, market-researcher |
+| **Coding (8)**    | solution-architect, database-expert, devops-engineer, doc-maintainer, integration-architect, performance-analyst, ux-ui-analyst, data-modeler                              |
+| **Security (1)**  | security-auditor                                                                                                                                                           |
 
-### Health, refresh, and update workflows
+The requirement-analyst never writes code, the verifier never reviews, and the reviewer never implements. Keeping the roles separate is what keeps the output honest.
 
-The operational side matters too: paqad-ai keeps generated artifacts and project state from quietly drifting.
+</details>
 
-| Workflow         | What it does                                                                        |
-| ---------------- | ----------------------------------------------------------------------------------- |
-| **Doctor**       | Validates framework artifacts, copied instructions, MCP config, docs, and RAG state |
-| **Refresh**      | Re-detects stack and regenerates stack or design-system outputs                     |
-| **Update**       | Rewrites framework-managed artifacts against the current package version            |
-| **Compliance**   | Extracts spec obligations, checks evidence, generates skeletons, validates indexes  |
-| **Capabilities** | Toggles active capability layers with dependency rules                              |
-| **Patterns**     | Lists, prunes, and exports the global pattern library                               |
+## Prove the work is done
+
+Any agent will happily tell you it finished. paqad-ai checks reality instead, using code rather than another AI that can be talked into a "yes."
+
+- **Spec coverage you can see.** A structured spec becomes a checklist of everything it promised. A plain scan then reads your test files for the matching evidence and reports exactly which acceptance criteria are actually proven, and which are not. An agent cannot claim a feature is tested when no test exists for it.
+- **Gates that block bad changes.** Lint, types, tests, build, and rule checks run in order. Any failure stops the change and records what broke, where, and why.
+- **Traceability both ways.** Every promise in the spec maps to the code and test that satisfy it, flagging untested promises and leftover code that nothing asked for.
+- **Reproduce before you fix.** A bug has to be reproduced, fixed, proven fixed, and proven to break nothing else.
+- **Mutation testing on changed code,** because a test that cannot catch a mistake is not really a test.
+- **Flaky tests get quarantined, never deleted.** A suspected-flaky failure is re-run and held aside until it is fixed, so a green check actually means green.
+- **A quality floor that only goes up.** Four measures (tangle, dead code, risky patterns, strictness) are pinned at today's level and can improve but never quietly slip.
+
+<details>
+<summary><b>Catch hallucinated rules without spending a token</b></summary>
+
+<br>
+
+paqad-ai can turn the plain rules in your `docs/instructions/rules/` into small validation scripts that run in a sandbox with no AI in the loop. They check the actual files and block a change when a rule is broken. Because there is no model involved, they are fast, free, and immune to the very hallucination they guard against.
+
+</details>
+
+## Security and design, as full workflows
+
+Most tools treat security as a separate scanner you remember to run. paqad-ai treats it as part of the work.
+
+**Security workflow.** A resumable pentest pass with full OWASP coverage, timed to the moment the industry is formalizing security for AI agents.
+
+| Standard                    | Coverage        |
+| --------------------------- | --------------- |
+| **OWASP Top 10 2025**       | A01 to A10 ✓    |
+| **OWASP API Security 2023** | API1 to API10 ✓ |
+
+It writes a local `curl` playbook to prove each finding (it never runs attacks for you), gives each finding a stable ID so it survives retests, scans only changed files after the first run, and replays findings later as fixed, still-open, or needs another look.
+
+<details>
+<summary><b>The 12 security checks</b></summary>
+
+<br>
+
+| Check                       | What it looks for                                                              |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| dependency-advisory-triage  | Typosquatting, dependency confusion, abandoned and risky packages              |
+| permission-boundary-review  | Broken object and function-level access, mass assignment                       |
+| business-logic-abuse-review | Race conditions, workflow bypass, financial manipulation                       |
+| runtime-surface-probing     | Headers, CORS, error leaks, open redirects, SSRF, TLS                          |
+| stride-threat-model         | A structured STRIDE pass per module and surface                                |
+| input-validation-review     | SSRF, IDOR, SQL and command injection, file upload, prototype pollution, ReDoS |
+| auth-mechanism-review       | JWT flaws, session fixation, OAuth and OIDC issues, brute force, MFA bypass    |
+| cryptographic-review        | Encryption at rest and in transit, key management, password hashing            |
+| logging-monitoring-review   | Missing audit trails, log injection, gaps in alerting                          |
+| rate-limiting-review        | Missing throttling and denial-of-service surfaces                              |
+| finding-normalizer          | Stable finding IDs that hold across retests                                    |
+| retest-verification         | Replays old findings against fresh evidence                                    |
+
+</details>
+
+**Design workflow.** The same rigor, pointed at the front end. The design-test pass audits your UI against your own design system, covering tokens, components, accessibility, responsive behavior, and motion, and design-retest replays the findings after you fix them. Pentest checks that the code is safe. Design-test checks that the interface is consistent.
+
+## Documentation that stays current
+
+Documentation is a real output here, not an afterthought you maintain by hand. Ask any connected agent to `create documentation` and the workflow re-reads your live stack, syncs anything that drifted, and writes stack, architecture, design-system, and per-feature docs. A differential refresh updates only what changed. When the code and the docs disagree, the framework treats that as a defect to fix. The result is documentation a new teammate, or a new agent, can actually rely on.
+
+## The right context, with fewer tokens
+
+Your agent does not need your whole repo. It needs the right files. And since every model gets worse on a bloated context, loading less is not just cheaper, it makes the answers better. paqad-ai cuts token use by **60-85%** through careful context loading.
+
+- It splits files at natural boundaries (functions and classes), not at arbitrary line counts.
+- It ranks each piece by five signals: meaning, keywords, the symbols involved, how close the file is to the task, and how deeply nested it is.
+- It fills a token budget in tiers, evicts the least useful context first, and collapses duplicate material to a single reference.
+- It compresses old conversation turns into a short, structured summary using plain pattern-matching, with no extra AI call to pay for.
+- It tidies noisy test output into a compact result, so a huge test log does not flood the agent's context, and the checks read the clean version.
+
+<details>
+<summary><b>Optional hybrid retrieval (RAG)</b></summary>
+
+<br>
+
+When you want deeper recall, paqad-ai can build a local search index over your code and docs.
+
+- Embeddings run locally by default. You can switch to OpenAI or Voyage if you prefer.
+- Scoring blends meaning, keywords, symbols, and file paths, with optional reranking.
+- Retrieval depth adapts to how hard the task is.
+- Built-in evals measure whether retrieval actually helps, tracking hit rate, task success, correction turns, and tokens sent.
+
+Run `paqad-ai rag init --provider local` to start. It stays off until you turn it on.
+
+</details>
+
+## Built for teams and enterprises
+
+Everything above adds up to what a serious team needs before it lets AI near its pipeline.
+
+- **It runs on your machine.** Analysis happens locally, embeddings default to a local model, and any remote keys you opt into live in a locked-down file and are scrubbed from logs. Your source never has to leave the building.
+- **No vendor lock-in.** Ten agent platforms from one source of truth. Move between them whenever you want.
+- **A real audit trail.** An append-only log, structured logging that redacts secrets, and decision records: architectural choices pause for a human and are saved with the reason and a timestamp, never decided silently.
+- **Reproducible by design.** Onboarding is idempotent, detection reads lockfiles first, artifacts are schema-versioned, and drift tracking tells you when reality has moved away from what you onboarded.
+- **A quality bar enforced by code,** not by good intentions, including the quality ratchet and a strict test-coverage standard.
+
+## See what your AI sees
+
+```bash
+paqad-ai graph        # an interactive map of modules, files, symbols, imports, and similarity
+paqad-ai dashboard    # one screen of project health: completeness, drift, module health, RAG, pentest
+paqad-ai status       # the same report as JSON or Markdown, for an agent to read
+```
+
+One command, nothing extra to install. The server, the interface, and the layout engine all ship inside `paqad-ai`, run on loopback only, and send no telemetry.
 
 ---
 
-## The capability model
+## How it compares
 
-| Capability | What it enables                                                 | When it activates           |
-| ---------- | --------------------------------------------------------------- | --------------------------- |
-| `content`  | Writing rules, content skills, doc workflows                    | Always on                   |
-| `coding`   | Stack detection, resolver, MCP config, implementation workflows | When a pack matches         |
-| `security` | 12 security skills, pentest workflow, finding tracking          | Automatically with `coding` |
+paqad-ai sits in a space the others only touch the edges of: proof you can run locally, across every agent, driven by your own spec.
 
-No framework match? Content-only setup. Node projects without a framework match get archetype packs (`node-cli`, `node-library`, `node-service`) with full `coding` + `security`.
+| Tool                | What it is                          | What it leaves to you                             |
+| ------------------- | ----------------------------------- | ------------------------------------------------- |
+| **GitHub Spec Kit** | Write the spec before you build     | No check that the agent actually built it         |
+| **AWS Kiro**        | Spec-driven, inside one IDE         | Tied to its own editor, not local or multi-tool   |
+| **Tessl**           | A cloud spec registry               | Cloud-leaning, not a check on your own code       |
+| **Cursor rules**    | Context for one editor              | Rules inform, they never verify                   |
+| **Continue.dev**    | Checks as code, in CI               | AI-judged checks, no spec or security workflow    |
+| **Qodo**            | AI review of pull requests          | Reviews at the end, does not set the agent up     |
+| **paqad-ai**        | Spec, workflows, and proof, locally | Brings all of the above together, on your machine |
 
----
+The short version: most tools tell the agent what to build, or review it after the fact. paqad-ai makes the agent follow your process and prove the result, before anything ships.
 
-## CLI reference
+## Works with your stack
 
-### `paqad-ai install`
+paqad-ai does not ask what you use. It reads your repo across nine ecosystems and figures it out, trusting your lockfiles first.
 
-Bootstraps the framework into a project and writes framework metadata.
+**Frameworks:** `laravel` `react` `vue` `flutter` `django` `fastapi` `rails` `spring-boot` `express` `angular` `svelte` `astro` `go-web` `rust-web` `dotnet` `nextjs` `flask` `nestjs` `kotlin-android`
 
-```bash
-paqad-ai install --project-root .
-```
+**Plain Node projects:** `node-cli` `node-library` `node-service`
 
-### `paqad-ai onboard`
+<details>
+<summary><b>What it reads, by ecosystem</b></summary>
 
-Full project onboarding. The main command.
+<br>
 
-```bash
-# Interactive — prompts for providers, confirms detected stack
-paqad-ai onboard
+| Ecosystem  | Manifests and lockfiles                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| **Node**   | `package.json`, `package-lock.json`, `pnpm-lock.yaml`                                     |
+| **PHP**    | `composer.json`, `composer.lock`                                                          |
+| **Python** | `requirements.txt`, `pyproject.toml`, `Pipfile`, `Pipfile.lock`, `poetry.lock`, `uv.lock` |
+| **Ruby**   | `Gemfile`, `Gemfile.lock`                                                                 |
+| **JVM**    | `build.gradle`, `build.gradle.kts`, `pom.xml`, `gradle.lockfile`                          |
+| **Go**     | `go.mod`, `go.sum`                                                                        |
+| **Rust**   | `Cargo.toml`, `Cargo.lock`                                                                |
+| **Dart**   | `pubspec.yaml`, `pubspec.lock`                                                            |
 
-# Explicit stack and providers
-paqad-ai onboard --stack laravel --capability react tailwind --providers claude-code antigravity cursor
+Each stack is a plain `pack.yaml` that drives detection, docs, MCP config, and security mappings. Don't see your framework? You can [write your own pack](./docs/modules/packs/features/authoring/technical.md).
 
-# Flutter with all providers
-paqad-ai onboard --stack flutter
+</details>
 
-# Next.js with Tailwind
-paqad-ai onboard --stack react --capability next tailwind
+## Commands
 
-# GitHub Copilot only
-paqad-ai onboard --providers github-copilot
+`onboard` is the one you start with. The rest keep the project honest over time. Full reference at [paqad.ai/docs.html](https://paqad.ai/docs.html).
 
-# Windsurf + Continue
-paqad-ai onboard --providers windsurf continue
-```
-
-**Options:**
-
-| Flag                       | What it does                                             |
-| -------------------------- | -------------------------------------------------------- |
-| `--project-root <path>`    | Target directory (default: `.`)                          |
-| `--stack <stack>`          | Manual framework override                                |
-| `--capability <traits...>` | Manual trait overrides (e.g., `inertia tailwind docker`) |
-| `--providers <agents...>`  | Which agents to generate for                             |
-
-**Available `--stack` values:** `laravel`, `flutter`, `react`, `vue`, `django`, `fastapi`, `rails`, `spring-boot`, `express`, `angular`, `svelte`, `astro`, `go-web`, `rust-web`, `dotnet`, `nextjs`, `flask`, `nestjs`, `kotlin-android`, `short-video`
-
-**Available `--providers`:** `claude-code`, `codex-cli`, `antigravity`, `gemini-cli`, `junie`, `cursor`, `github-copilot`, `windsurf`, `continue`, `aider`
-
-**Notes:**
-
-- `react` and `vue` are mutually exclusive — pick one
-- `nextjs` supersedes standalone `react`, and `nestjs` supersedes standalone `express`
-- Standalone React/Vue brings sub-stack rule bundles (`next`, `remix`, `nuxt`, etc.)
-- Laravel auto-detects Pest vs PHPUnit from Composer dependencies
-- Empty or content-only repos onboard as `active_capabilities: [content]`
-- Onboarding is idempotent — running it twice produces the same output
-- Default provider is `claude-code` if none specified
-
-### `paqad-ai doctor`
-
-Health checks. Validates framework artifacts, profile schema, instruction bundles, adapter config, MCP config, and doc completeness.
+| Command                 | What it does                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `paqad-ai onboard`      | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP |
+| `paqad-ai doctor`       | Check that everything paqad-ai manages is present and valid                      |
+| `paqad-ai compliance`   | Pull obligations from a spec and check which ones the tests actually prove       |
+| `paqad-ai refresh`      | Re-detect the stack and regenerate the derived docs                              |
+| `paqad-ai update`       | Regenerate framework-managed files after a version change                        |
+| `paqad-ai capabilities` | Turn `content`, `coding`, and `security` on or off                               |
+| `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                |
+| `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                   |
+| `paqad-ai graph`        | Open the interactive project map                                                 |
+| `paqad-ai dashboard`    | Open the single-screen health view                                               |
+| `paqad-ai status`       | Print the same health report for an agent to read                                |
+| `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                            |
 
 ```bash
-paqad-ai doctor
+# a few common runs
+paqad-ai onboard --stack laravel --capability react tailwind --providers claude-code cursor copilot
+paqad-ai onboard --providers github-copilot     # just one tool
+paqad-ai compliance check                        # which promises are actually tested?
+paqad-ai rag init --provider local               # free, on-device search
+paqad-ai doctor                                  # exits 1 on failure, 0 on pass
 ```
 
-Exits `1` on failure, `0` on pass.
-
-### `paqad-ai compliance`
-
-Spec verification and test-evidence tooling.
-
-```bash
-paqad-ai compliance extract --spec docs/features/spec-compliance-verification.md
-paqad-ai compliance check
-paqad-ai compliance review docs/features/spec-compliance-verification.md
-paqad-ai compliance skeleton --out tests/compliance-skeletons
-paqad-ai compliance doctor
-paqad-ai compliance boundary
-paqad-ai compliance patterns
-```
-
-Use it to persist an obligation index, run spec-quality review, check tests for explicit `@obligation` evidence, generate failing Vitest skeletons, validate index/report health, and run boundary/pattern gap tooling before CI or review.
-
-### `paqad-ai refresh`
-
-Re-detects stack and regenerates derived artifacts without full re-onboarding.
-
-```bash
-paqad-ai refresh         # Re-detect stack and regenerate stack docs
-paqad-ai refresh --stack  # Stack snapshot + stack docs only
-```
-
-### `paqad-ai update`
-
-Regenerates framework-managed files after a package version change. Preserves your onboarding decisions.
-
-```bash
-paqad-ai update
-```
-
-### `paqad-ai capabilities`
-
-```bash
-paqad-ai capabilities list       # What's active
-paqad-ai capabilities available   # What's available
-paqad-ai capabilities add coding  # Activate coding + security
-paqad-ai capabilities remove coding  # Deactivate coding + security
-```
-
-Rules: `content` can't be removed. Removing `coding` also removes `security`. Adding `coding` auto-adds `security`.
-
-### `paqad-ai packs`
-
-```bash
-paqad-ai packs list              # Show effective packs + sources
-paqad-ai packs list --json       # Machine-readable with override state
-paqad-ai packs install <source>  # Local path, git URL, or registry name
-paqad-ai packs install <source> --scope project --project-root .
-paqad-ai packs remove <name>     # Remove overrides only (can't remove built-ins)
-paqad-ai packs validate <path>   # Validate a pack before installing
-paqad-ai packs create <name>     # Scaffold a new pack
-```
-
-### `paqad-ai rag`
-
-Optional RAG management, indexing, and benchmark tooling.
-
-```bash
-paqad-ai rag init                          # Enable RAG and build the initial vector index
-paqad-ai rag init --provider local         # Local embeddings via Xenova/all-MiniLM-L6-v2
-paqad-ai rag init --provider openai        # Remote embeddings via text-embedding-3-small
-paqad-ai rag init --provider voyageai      # Remote embeddings via voyage-code-3
-paqad-ai rag rebuild                       # Force a full rebuild
-paqad-ai rag status                        # Show provider, model, validity, size, chunk count
-paqad-ai rag clear --yes                   # Delete the vector index and disable RAG
-paqad-ai rag eval                          # Run deterministic evals on the current index
-paqad-ai rag eval --mode lexical-vs-rag
-paqad-ai rag eval --baseline ./baseline.json --mode rag-vs-candidate
-paqad-ai rag eval --model-graded           # Also run the optional model-graded lane
-```
-
-**What `rag init` configures:**
-
-- Builds a vector index from the existing chunk index and enables `intelligence.rag_enabled`
-- Persists provider/model selection in `.paqad/project-profile.yaml`
-- Uses a free local model by default, or prompts for `OPENAI_API_KEY` / `VOYAGE_API_KEY` when needed
-- Reuses cached local models under `~/.paqad/models` to avoid repeat downloads
-
-**What `rag eval` measures:**
-
-- `hit_at_5`
-- `task_success_rate`
-- `correction_turns`
-- `prompt_tokens_sent`
-
-Benchmark comparisons support `lexical-vs-rag`, `rag-vs-candidate`, and `feature-off-vs-on`.
-
-### `paqad-ai graph`
-
-Open an interactive WebGL map of your project in the browser. One command, no extra install — the server, frontend, and Force Atlas 2 layout worker all ship inside `paqad-ai`.
-
-```bash
-paqad-ai graph                          # Opens http://127.0.0.1:5371 in your browser
-paqad-ai graph --no-open                # Print the URL and skip auto-open
-paqad-ai graph --port 8080              # Custom port (auto-increments if busy)
-paqad-ai graph --host 0.0.0.0           # Share on a trusted network (loopback by default)
-paqad-ai graph --threshold 0.85         # Initial similarity threshold
-paqad-ai graph --no-watch               # Disable live reload on .paqad/ changes
-```
-
-**What you get:**
-
-- Modules, files, chunks, symbols, and the full import graph rendered together as one explorable map
-- Click-through detail panel: module file lists, file `imports_in` / `imports_out`, chunk content with show-more, symbol metadata
-- Search across modules, files, symbols, and file basenames — `/` to focus, `n` / `N` to cycle matches; the camera pans to each hit
-- Similarity slider — adjust the cosine threshold and watch the orange semantic-neighbour edges redraw on demand. Works with `local`, `openai`, and `voyageai` embeddings.
-- Four intelligence overlays — health, defect density (log-scaled), risk floor, complexity correction — with a persistent legend
-- Live reload — change anything under `.paqad/` and the graph updates in place while preserving viewport and selection
-
-**Pre-conditions:** the current directory must contain a `.paqad/` from a previous `paqad-ai onboard`. RAG is optional — without it the graph still renders fully, with similarity and chunk nodes disabled behind a clear banner.
-
-### `paqad-ai dashboard`
-
-The single-pane "where am I on this project?" view. Same bundle as `paqad-ai graph` — the graph view is now one section inside the dashboard, opened by the architecture card.
-
-```bash
-paqad-ai dashboard                       # Opens http://127.0.0.1:5372/#/dashboard
-paqad-ai dashboard --no-open             # Print the URL and skip auto-open
-paqad-ai dashboard --port 8080           # Custom port (auto-increments if busy)
-paqad-ai dashboard --no-watch            # Disable live reload on .paqad/ changes
-```
-
-**What you get:**
-
-- Overall completeness score (existence + freshness, no content-quality heuristics)
-- A card per section: project profile, rules, workflows, decisions (living), module health (living), module docs, architecture, design system / stack / registries / tools / tech-debt, stack drift, framework version, RAG status, and — when present — pentest and session continuity
-- Per-card score badge using the same `mod-green` / `mod-amber` / `mod-red` / `mod-unknown` tokens as the graph view
-- Helper text behind a `?` affordance on every card (what this means + what good looks like)
-- Summary band with up to five "Needs your attention" items, ordered critical-first
-- Live reload — same SSE pattern as the graph view, the card border pulses when its section changes
-- `paqad-ai graph` and `paqad-ai dashboard` share the bundle; switching between routes is a hash-router nav
-
-### `paqad-ai status`
-
-One-shot LLM-friendly snapshot of the same report — no server, no long-running process. Use this from an agent prompt.
-
-```bash
-paqad-ai status                          # Markdown (default) to stdout
-paqad-ai status --format json            # Full DashboardReport contract
-paqad-ai status --project-root <path>    # Snapshot a different project
-```
-
-The JSON shape is stable (`schemaVersion: 1`) and identical to the payload served by `GET /api/dashboard` on the dashboard server.
-
-### Security workflows
-
-Security and retest flows are part of the framework runtime and agent workflows in this package version. They are not exposed as standalone top-level CLI commands in `paqad-ai` today.
-
-### Pattern library
-
-```bash
-paqad-ai patterns list [--domain <d>] [--frameworks <f1,f2>] [--category <c>]
-paqad-ai patterns prune [--older-than <days>]
-paqad-ai patterns export <output> [--format json|markdown]
-```
-
-### `paqad-ai plan`
-
-Resumable execution of structured planning manifests. Picks up at the last incomplete slice.
-
-```bash
-paqad-ai plan resume <slug>
-```
-
-### `paqad-ai module-health`
-
-Maintains the module health ledger. `sync` ingests pending provider evidence into the module profile; `record` writes a normalized evidence entry directly.
-
-```bash
-paqad-ai module-health sync
-paqad-ai module-health record
-```
-
----
-
-## What paqad-ai manages
+## What paqad-ai creates
 
 ```text
 your-project/
-├── CLAUDE.md                              # onboarding, if Claude Code is selected
-├── AGENTS.md                              # onboarding, if Codex CLI is selected
-├── ANTIGRAVITY.md                         # onboarding, if Antigravity is selected
-├── GEMINI.md                              # onboarding, if Gemini CLI is selected
-├── CONVENTIONS.md                         # onboarding, if Aider is selected
-├── .junie/AGENTS.md                       # onboarding, if Junie is selected
-├── .cursor/rules/paqad.mdc               # onboarding, if Cursor is selected
-├── .github/copilot-instructions.md        # onboarding, if GitHub Copilot is selected
-├── .windsurfrules                         # onboarding, if Windsurf is selected
-├── .continue/rules/paqad.md               # onboarding, if Continue is selected
+├── CLAUDE.md, AGENTS.md, GEMINI.md, .cursor/rules, copilot-instructions, ...
+│       thin config files, one per tool you picked, all pointing at the same knowledge
 │
 ├── docs/
 │   ├── instructions/
-│   │   ├── stack/                         # generated later by refresh/documentation workflows
-│   │   │   ├── overview.md
-│   │   │   ├── frameworks.md
-│   │   │   ├── dependencies.md
-│   │   │   ├── tooling.md
-│   │   │   ├── version-rules.md
-│   │   │   ├── sources.md
-│   │   │   └── drift-report.md
-│   │   ├── rules/                         # onboarding-generated conventions and writing rules
-│   │   ├── tools/                         # onboarding-generated stack tool guides
-│   │   └── workflows/                     # user-authored workflow templates
-│   ├── modules/                           # generated later by documentation workflows
-│   └── pentest/                           # generated later by security workflows
+│   │   ├── rules/        your conventions and writing rules (the source for rules-as-scripts)
+│   │   ├── stack/        generated stack docs: overview, frameworks, dependencies, drift, ...
+│   │   ├── tools/        stack-specific tool guides
+│   │   └── workflows/    your own resumable workflow templates
+│   ├── modules/          per-feature docs kept in sync with the code
+│   └── pentest/          security workflow output
 │
-└── .paqad/                                # Framework metadata (machine-managed)
-    ├── project-profile.yaml
-    ├── stack-snapshot.json
-    ├── stack-drift.json
-    ├── onboarding-manifest.json
-    ├── rag.ignore.yaml                    # Optional RAG corpus include/exclude rules
-    ├── secrets.env                        # Optional API keys for remote RAG providers
-    ├── audit.log                          # Build, fallback, and provider mismatch events
-    ├── compliance/                        # Obligation indexes and related compliance artifacts
-    ├── doc-progress.json
-    ├── pentest/runs/                      # generated when pentest workflows run
-    ├── session/                           # Handoff, budget, dedup stats
-    ├── context/                           # Chunk index, load stats
-    ├── vectors/                           # Optional RAG vector index + metadata
-    ├── cache/                             # Transition log, metrics
-    └── workflows/                         # Custom workflow run state
+└── .paqad/               framework metadata, machine-managed
+    ├── project-profile.yaml, stack-snapshot.json, stack-drift.json, onboarding-manifest.json
+    ├── compliance/        spec obligations
+    ├── decisions/         human decision records
+    ├── audit.log          append-only event log
+    ├── vectors/           optional search index, with opt-in keys kept in a locked file
+    └── session/, context/, cache/, workflows/
 ```
 
-Entry files stay thin. Knowledge lives in shared instruction bundles that external platforms and built-in runtime roles consume consistently.
-
----
-
-## Workflow overview
-
-| Workflow              | How to trigger                         | What happens                                              |
-| --------------------- | -------------------------------------- | --------------------------------------------------------- |
-| **Onboarding**        | `paqad-ai onboard`                     | Detect stack → confirm → generate everything              |
-| **Health check**      | `paqad-ai doctor`                      | Validate artifacts, config, docs                          |
-| **Spec compliance**   | `paqad-ai compliance ...`              | Extract obligations, check evidence, generate skeletons   |
-| **Refresh**           | `paqad-ai refresh`                     | Re-detect stack, update derived docs                      |
-| **Update**            | `paqad-ai update`                      | Regenerate framework files after version bump             |
-| **RAG**               | `paqad-ai rag ...`                     | Build, inspect, clear, and benchmark hybrid retrieval     |
-| **Project graph**     | `paqad-ai graph`                       | Interactive browser view of modules, files, chunks, deps  |
-| **Project dashboard** | `paqad-ai dashboard`                   | Living single-pane health overview, per-section scoring   |
-| **Project status**    | `paqad-ai status [--format json]`      | One-shot LLM-friendly snapshot of the dashboard           |
-| **Documentation**     | Ask agent: _"create documentation"_    | Stack → architecture → design system → modules            |
-| **Pentest**           | Ask agent: _"run pentest"_             | 5-step scan → findings → report                           |
-| **Retest**            | Ask agent: _"retest pentest"_          | Replay findings → fixed / still-open / needs-verification |
-| **Capabilities**      | `paqad-ai capabilities add/remove`     | Toggle content / coding / security                        |
-| **Pack management**   | `paqad-ai packs install/remove`        | Install, validate, scaffold stack packs                   |
-| **Pattern library**   | `paqad-ai patterns ...`                | Query, prune, and export reusable solutions               |
-| **Custom workflows**  | YAML at `docs/instructions/workflows/` | Your own resumable skill sequences                        |
+The config files stay short. The real knowledge lives in shared bundles that every tool and every built-in role reads the same way.
 
 ---
 
@@ -655,35 +417,37 @@ Entry files stay thin. Knowledge lives in shared instruction bundles that extern
 
 | Requirement | Version                       |
 | ----------- | ----------------------------- |
-| **Node.js** | `≥ 22` (pinned via `.nvmrc`)  |
-| **pnpm**    | `10+` (for local development) |
-
----
+| **Node.js** | `>= 22` (pinned via `.nvmrc`) |
+| **pnpm**    | `10+` for local development   |
 
 ## Development
 
 ```bash
 pnpm install
-npm run format     # required before completion
-npm run ci         # required before completion
+pnpm run format     # run before you finish
+pnpm run ci         # typecheck, lint, format check, test at 100% coverage, build
 ```
 
-```bash
-pnpm run test       # Tests only
-pnpm run test:coverage  # Coverage gate summary
-pnpm run typecheck  # TypeScript checks
-pnpm run lint       # ESLint
-pnpm run build      # Production build
-```
-
-Every completed change in this repo is expected to keep 100% lines, 100% statements, 100% functions, and 100% branches coverage, add positive and negative E2E coverage for changed user flows, and update the owning `docs/modules/**` plus `website/` surfaces when their contract changes.
-
----
+Every change keeps 100% line, statement, function, and branch coverage, adds tests for the flows it touches, and updates the matching docs and website surfaces when a contract changes.
 
 ## Contributing
 
-Coming soon
+Issues and pull requests are welcome. The [release workflow](./docs/RELEASE-WORKFLOW.md) explains how changes ship: branch, open a PR, add a changeset, squash-merge, and the release is published automatically.
+
+## Sources
+
+The statistics in "The problem it solves" come from outside research, linked here so you can check them.
+
+1. Stack Overflow 2025 Developer Survey, AI section, about 49,000 respondents: https://survey.stackoverflow.co/2025/ai
+2. Harness 2026 State of Engineering Excellence, via ITPro, May 2026: https://www.itpro.com/software/development/ai-might-help-speed-up-software-development-but-81-percent-of-devs-now-spend-more-time-reviewing-code-and-its-creating-an-invisible-work-trend-thats-pushing-teams-to-the-limit
+3. Package-hallucination study, USENIX Security 2025: https://www.usenix.org/system/files/conference/usenixsecurity25/sec25cycle1-prepub-742-spracklen.pdf
+4. Veracode 2025 GenAI Code Security Report: https://www.veracode.com/resources/analyst-reports/2025-genai-code-security-report/
+5. Chroma Research, "Context Rot," across 18 frontier models: https://www.trychroma.com/research/context-rot
 
 ---
 
-MIT License · [npm](https://npmjs.com/package/paqad-ai) · [Docs](https://paqad.ai) · [Maintainer Overview](./docs/maintainers/project-overview.md) · [Modules](./docs/modules/README.md)
+<div align="center">
+
+MIT License · [npm](https://npmjs.com/package/paqad-ai) · [Website](https://paqad.ai) · [Docs](https://paqad.ai/docs.html) · Built by [Eliyce](https://eliyce.com)
+
+</div>
