@@ -23,3 +23,4 @@ Engine surface buildout for the desktop app (PQD Engine tickets):
 - PQD-172 (seq 103): Tag turn priority and protect decision-packet turns from collapse
 - PQD-174 (seq 105): Index attachments into a session-scoped ephemeral RAG collection
 - PQD-194 (seq 125): Emit skill-load-failed and pack-load-failed audit events
+- PQD-331 (seq 266): Index an attached file into the session or project collection

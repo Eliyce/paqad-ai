@@ -51,6 +51,11 @@ export const PATHS = {
   // vectors so an attachment collection never disturbs either.
   SESSION_ATTACHMENT_COLLECTIONS_DIR: '.paqad/attachments',
   SESSION_ATTACHMENT_REGISTRY: '.paqad/attachments/registry.json',
+  // PQD-331 — append-only JSONL stream of attachment-indexing lifecycle events
+  // (`attachment.indexed` / `attachment.index_failed` / `attachment.format_rejected`).
+  // Kept separate from the RAG audit log so the desktop can tail just these to
+  // badge an attachment's index state without parsing the broader audit stream.
+  ATTACHMENT_EVENTS_LOG: '.paqad/attachment-events.jsonl',
   GLOBAL_PATTERN_VECTORS_DIR: '.paqad/patterns/vectors',
   GLOBAL_PATTERN_VECTOR_INDEX: '.paqad/patterns/vectors/index.json',
   GLOBAL_PATTERN_VECTOR_META: '.paqad/patterns/vectors/meta.json',

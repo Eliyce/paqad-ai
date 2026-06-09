@@ -12,3 +12,6 @@ export * from './attachment-registry.js';
 export * from './attachment-indexer.js';
 export * from './orphan-sweep.js';
 export * from './attachment-retriever.js';
+// PQD-331 — single-file attachment indexing (project or session) + parser/events.
+export * from './attachment-parser.js';
+export * from './attachment-events.js';

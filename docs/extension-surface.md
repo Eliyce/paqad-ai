@@ -401,3 +401,46 @@ the event's `validation_error_code`.
 | desktop (planned) | src/skills/audit-events.ts | `SkillAuditBuffer` | `class SkillAuditBuffer { add; snapshot; flush; size }` | beta | 1.10.0 | planned consumer; in-tree at loaders |
 | desktop (planned) | src/skills/audit-events.ts | `getSharedSkillAuditBuffer` | `getSharedSkillAuditBuffer(): SkillAuditBuffer` | beta | 1.10.0 | planned consumer; in-tree at loaders |
 | desktop (planned) | src/skills/audit-events.ts | `DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY` | `const DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY: number` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+
+### Attachment indexing into a project or session collection (PQD-331)
+
+When a workspace member attaches a file to a conversation, the desktop calls
+`indexAttachment` to chunk, embed, and store that file's content into either the
+persistent project collection (`sessionKind: 'project'` → `.paqad/vectors/`) or a
+session-scoped ephemeral collection (`sessionKind: 'ephemeral'` →
+`.paqad/attachments/<sessionId>/`, reusing the PQD-174 layout). Every call emits
+exactly one structured event to `.paqad/attachment-events.jsonl` (and to an
+optional `onEvent` sink): `attachment.indexed` on success, `attachment.index_failed`
+for an unreadable/corrupt/encrypted file, or `attachment.format_rejected` for a
+disallowed shape (page cap, zip-bomb, unsupported format). Re-indexing identical
+content for the same path is a no-op (SHA-256 content dedupe). A rate-limited
+remote provider is retried within a wall-clock budget (`ATTACHMENT_RETRY_BUDGET_MS`,
+30 s) before failing. PDF text extraction and archive inspection are *injectable*
+(`ParseAttachmentOptions.pdfExtractor` / `archiveInspector`) so the published engine
+takes no PDF/ZIP dependency; the engine owns the page-cap (`PDF_PAGE_CAP`) and
+zip-bomb (`ZIP_DECOMPRESSED_LIMIT_BYTES`) guards regardless of the plugged-in
+library. `clearEphemeralCollection` purges a session's collection on session end.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/rag/attachment-indexer.ts | `indexAttachment` | `indexAttachment(projectRoot: string, params: IndexAttachmentParams): Promise<IndexAttachmentOutcome>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `clearEphemeralCollection` | `clearEphemeralCollection(projectRoot: string, sessionId: string): Promise<void>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `isIndexAttachmentFailure` | `isIndexAttachmentFailure(outcome: IndexAttachmentOutcome): boolean` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `ATTACHMENT_RETRY_BUDGET_MS` | `const ATTACHMENT_RETRY_BUDGET_MS: number` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `IndexAttachmentParams` | `interface IndexAttachmentParams { filePath; sessionId; sessionKind; intelligence; onProgress?; onEvent?; signal?; parse?; providerFactory?; retryBudgetMs?; retryDelayMs? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `IndexAttachmentResult` | `interface IndexAttachmentResult { ok: true; chunkCount; provider; collectionScope; deduped }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `IndexAttachmentFailure` | `interface IndexAttachmentFailure { ok: false; outcome; reason }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `IndexAttachmentOutcome` | `type IndexAttachmentOutcome = IndexAttachmentResult or IndexAttachmentFailure` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `AttachmentSessionKind` | `type AttachmentSessionKind ('project' or 'ephemeral')` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-indexer.ts | `AttachmentStoredChunk` | `interface AttachmentStoredChunk extends StoredVectorChunk { file_content_hash }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-parser.ts | `parseAttachment` | `parseAttachment(filePath: string, options?: ParseAttachmentOptions): Promise<ParseAttachmentResult>` | beta | 1.10.0 | planned consumer; in-tree at indexAttachment |
+| desktop (planned) | src/rag/attachment-parser.ts | `PDF_PAGE_CAP` | `const PDF_PAGE_CAP: number` | beta | 1.10.0 | planned consumer; in-tree at parseAttachment |
+| desktop (planned) | src/rag/attachment-parser.ts | `ZIP_DECOMPRESSED_LIMIT_BYTES` | `const ZIP_DECOMPRESSED_LIMIT_BYTES: number` | beta | 1.10.0 | planned consumer; in-tree at parseAttachment |
+| desktop (planned) | src/rag/attachment-parser.ts | `ParseAttachmentOptions` | `interface ParseAttachmentOptions { pdfExtractor?; archiveInspector?; bytes?; pageCap?; zipDecompressedLimitBytes? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-parser.ts | `ParseAttachmentResult` | `type ParseAttachmentResult = ParsedAttachment or AttachmentRejection` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-parser.ts | `PdfTextExtractor` | `type PdfTextExtractor = (bytes: Buffer) => Promise<PdfExtraction>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-parser.ts | `ArchiveInspector` | `type ArchiveInspector = (bytes: Buffer) => Promise<ArchiveInspection>` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-events.ts | `appendAttachmentEvent` | `appendAttachmentEvent(projectRoot: string, event: AttachmentEventInput): AttachmentEvent` | beta | 1.10.0 | planned consumer; in-tree at indexAttachment |
+| desktop (planned) | src/rag/attachment-events.ts | `readAttachmentEvents` | `readAttachmentEvents(projectRoot: string): AttachmentEvent[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-events.ts | `AttachmentEvent` | `interface AttachmentEvent { kind; file_name; at; collection_scope?; session_id?; chunk_count?; provider?; reason? }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/rag/attachment-events.ts | `AttachmentEventKind` | `type AttachmentEventKind ('attachment.indexed', 'attachment.index_failed', 'attachment.format_rejected')` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
