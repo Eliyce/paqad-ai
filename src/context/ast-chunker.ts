@@ -74,8 +74,11 @@ export class AstChunker {
 
   private parsePhp(filePath: string, content: string): Chunk[] {
     const chunks: Chunk[] = [];
+    // Whitespace is kept unambiguous (no two adjacent `\s*`) to avoid polynomial
+    // backtracking (ReDoS) on lines with long runs of spaces — an optional modifier
+    // is matched together with its trailing whitespace as a single unit.
     const pattern =
-      /^(\s*(?:public|protected|private|static|abstract|final)?\s*(?:function|class|interface|trait)\s+\w+)/gm;
+      /^\s*(?:(?:public|protected|private|static|abstract|final)\s+)?(?:function|class|interface|trait)\s+\w+/gm;
 
     const boundaries: number[] = [];
     let match;

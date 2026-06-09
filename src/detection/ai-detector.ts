@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { InferenceMessage, InferenceProvider } from '@/context/inference-provider.js';
@@ -139,14 +139,13 @@ function readManifestSamples(projectRoot: string): Array<{ file: string; content
   const samples: Array<{ file: string; content: string }> = [];
   for (const file of MANIFEST_FILES) {
     const path = join(projectRoot, file);
-    if (!existsSync(path)) {
-      continue;
-    }
     try {
+      // Read directly (no existsSync pre-check) to avoid a TOCTOU file-system race;
+      // a missing or unreadable file simply throws and is skipped.
       const content = readFileSync(path, 'utf8').slice(0, MAX_FILE_BYTES);
       samples.push({ file, content });
     } catch {
-      // Unreadable file — skip it; other manifests may still carry signal.
+      // Missing or unreadable file — skip it; other manifests may still carry signal.
     }
   }
   return samples;
