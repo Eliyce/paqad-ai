@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, resolve } from 'node:path';
 import { createGzip, gzipSync } from 'node:zlib';
 
+import { engineLog } from '@/core/logger-registry.js';
 import { startPaqadWatcher, type RunningWatcher } from '@/graph/watcher.js';
 
 import { renderMarkdown } from './markdown.js';
@@ -212,7 +213,9 @@ export async function startDashboardServer(
     try {
       handleRequest(req, res);
     } catch (err) {
-      console.error('Unhandled dashboard server error', err);
+      engineLog('error', 'Unhandled dashboard server error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       writeJson(res, req, { error: 'Internal server error' }, 500);
     }
   });

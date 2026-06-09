@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -7,6 +8,7 @@ import type {
   PlanningManifest,
   SliceCheckpoint,
   SliceContext,
+  SliceExecutionEvent,
   SliceFixAttempt,
   SliceProgressEntry,
 } from '@/core/types/planning.js';
@@ -23,6 +25,7 @@ import { computeSliceBudgetPlan, resolveSliceExecutionBudget } from './slice-bud
 import { assembleSliceContext } from './slice-context.js';
 import { SliceCircuitBreaker } from './slice-circuit-breaker.js';
 import { runSliceGate, type SliceGateDetail } from './slice-gate.js';
+import { SliceEventBus } from './slice-event-bus.js';
 import { buildSliceRetryFeedback, requiresImmediateEscalation } from './slice-retry.js';
 import { createSliceEscalationReport, SliceEscalationStore } from './slice-escalation.js';
 import { snapshotDocTargets } from './slice-doc-verifier.js';
@@ -47,7 +50,9 @@ import {
 } from './decision-packet.js';
 import { computeDecisionFingerprint } from './decision-fingerprint.js';
 import { resolveDecisionPacket, type DecisionResolutionResult } from './decision-resolver.js';
-import { DecisionStore } from './decision-store.js';
+import { DecisionCapExceededError, DecisionStore } from './decision-store.js';
+import { decisionPacketCorruptEvent } from './decision-events.js';
+import type { EngineEventBus } from '@/event-bus/index.js';
 import { DecisionSessionState } from './decision-session.js';
 
 import type { CriteriaTestRunner } from './scoped-criteria-verifier.js';
@@ -87,6 +92,35 @@ export interface ExecuteSlicesOptions {
   fullSuiteRunner: FullSuiteRunner;
   captureBaselineFailingTests?: () => Promise<string[]>;
   replan?: SliceReplanner;
+  /**
+   * PQD-100 — optional live event sink. When supplied, the executor streams a
+   * {@link SliceExecutionEvent} for every slice transition (started, gate
+   * evaluated, retried, completed, escalated) and a terminal `run-finished`.
+   * When omitted the executor behaves exactly as before.
+   */
+  onEvent?: (event: SliceExecutionEvent) => void;
+  /**
+   * PQD-100 — optional cancellation signal. When aborted, the executor stops at
+   * the next loop boundary, emits exactly one `slice-cancelled` event, and
+   * returns the partial result; no further slice events are emitted.
+   */
+  signal?: AbortSignal;
+  /**
+   * PQD-101 — optional unified event bus. When supplied, the decision flow
+   * streams `decision-paused`, `decision-resolved`, `decision-packet-corrupt`,
+   * and `decision-cap-exceeded` events so a consumer can pop the packet UI live
+   * without polling `.paqad/decisions/pending/`. When omitted the decision flow
+   * behaves exactly as before.
+   */
+  eventBus?: EngineEventBus;
+}
+
+export interface ResumeExecutionOptions {
+  /**
+   * PQD-100 — optional event sink for the `run-resume-after-crash` event a
+   * resume emits when it resets slices left mid-flight by a crashed run.
+   */
+  onEvent?: (event: SliceExecutionEvent) => void;
 }
 
 export interface ExecuteSlicesResult {
@@ -233,6 +267,11 @@ export class SliceExecutor {
       return executeFastLane(projectRoot, manifest, options);
     }
 
+    const runId = randomUUID();
+    const bus = new SliceEventBus({ runId, slug, onEvent: options.onEvent });
+    tracker.last_run_id = runId;
+    await this.tracker.save(projectRoot, tracker);
+
     if (tracker.baseline_failing_tests === undefined) {
       tracker.baseline_failing_tests = options.captureBaselineFailingTests
         ? await options.captureBaselineFailingTests()
@@ -241,12 +280,24 @@ export class SliceExecutor {
     }
 
     while (true) {
+      if (options.signal?.aborted) {
+        return await this.cancelRun(
+          projectRoot,
+          slug,
+          tracker,
+          bus,
+          checkpointPaths,
+          escalationPaths,
+          [...warnings],
+        );
+      }
+
       const prepared = await this.prepare(projectRoot, slug);
       manifest = prepared.manifest;
       tracker = (await this.tracker.load(projectRoot, slug)) ?? tracker;
 
       if (prepared.currentSliceId === null || prepared.context === null) {
-        return {
+        const result: ExecuteSlicesResult = {
           trackerPath: prepared.trackerPath,
           trackerStatus: prepared.trackerStatus,
           manifestPath: await saveManifest(projectRoot, manifest),
@@ -257,11 +308,25 @@ export class SliceExecutor {
           escalatedSliceIds: escalatedSliceIds(tracker),
           warnings: [...warnings, ...prepared.warnings],
         };
+        bus.emit({
+          kind: 'run-finished',
+          trackerStatus: result.trackerStatus,
+          completedSliceIds: result.completedSliceIds,
+          blockedSliceIds: result.blockedSliceIds,
+          escalatedSliceIds: result.escalatedSliceIds,
+        });
+        return result;
       }
 
       const sliceId = prepared.currentSliceId;
       const context = prepared.context;
-      manifest = await this.applyDecisionFlow(projectRoot, manifest, slug, context);
+      manifest = await this.applyDecisionFlow(
+        projectRoot,
+        manifest,
+        slug,
+        context,
+        options.eventBus,
+      );
       context.decision_context = this.contextDecisionsForSlice(manifest, context);
       const slice = context.current_slice;
       const circuitBreaker = new SliceCircuitBreaker();
@@ -274,8 +339,26 @@ export class SliceExecutor {
         attempt: tracker.slices[sliceId]?.attempt ?? 1,
         token_budget: context.token_budget,
       });
+      bus.emit({
+        kind: 'slice-started',
+        sliceId,
+        attempt: tracker.slices[sliceId]?.attempt ?? 1,
+        tokenBudget: context.token_budget,
+      });
 
       while (true) {
+        if (options.signal?.aborted) {
+          return await this.cancelRun(
+            projectRoot,
+            slug,
+            tracker,
+            bus,
+            checkpointPaths,
+            escalationPaths,
+            [...warnings],
+          );
+        }
+
         const attempt = tracker.slices[sliceId]?.attempt ?? 1;
         const docSnapshot = snapshotDocTargets(projectRoot, context.doc_targets);
         const scopeSnapshot = snapshotSliceScope(
@@ -312,6 +395,13 @@ export class SliceExecutor {
 
         applyGateToManifest(manifest, gate);
         await saveManifest(projectRoot, manifest);
+
+        bus.emit({
+          kind: 'slice-gate-evaluated',
+          sliceId,
+          status: gate.gate_result.status,
+          reasons: buildGateReasons(gate),
+        });
 
         if (result.tokens_used >= context.token_budget * 0.8) {
           warnings.push(
@@ -359,6 +449,12 @@ export class SliceExecutor {
             slice_id: sliceId,
             tokens_used: totalTokensForSlice,
             gate_result: gate.gate_result.status,
+          });
+          bus.emit({
+            kind: 'slice-completed',
+            sliceId,
+            tokensUsed: totalTokensForSlice,
+            filesChanged: new Set(modifiedFiles).size,
           });
           break;
         }
@@ -411,6 +507,12 @@ export class SliceExecutor {
             reason,
             blocked_downstream: blockedDownstream.join(','),
           });
+          bus.emit({
+            kind: 'slice-escalated',
+            sliceId,
+            reason,
+            blockedDownstream,
+          });
 
           if (!(tracker.re_planned_slices ?? []).includes(sliceId)) {
             try {
@@ -452,13 +554,49 @@ export class SliceExecutor {
           attempt: 2,
           feedback_provided: true,
         });
+        bus.emit({
+          kind: 'slice-retried',
+          sliceId,
+          attempt: 2,
+          feedbackSummary: summarizeFailure(gate),
+        });
       }
     }
   }
 
-  async resume(projectRoot: string, slug: string): Promise<ResumeExecutionResult> {
+  private async cancelRun(
+    projectRoot: string,
+    slug: string,
+    tracker: ExecutionProgressTracker,
+    bus: SliceEventBus,
+    checkpointPaths: string[],
+    escalationPaths: string[],
+    warnings: string[],
+  ): Promise<ExecuteSlicesResult> {
+    const manifest = await loadManifest(projectRoot, slug);
+    const trackerPath = await this.tracker.save(projectRoot, tracker);
+    bus.cancel();
+    return {
+      trackerPath,
+      trackerStatus: tracker.status,
+      manifestPath: await saveManifest(projectRoot, manifest),
+      checkpointPaths,
+      escalationPaths,
+      completedSliceIds: completedSliceIds(tracker),
+      blockedSliceIds: blockedSliceIdsFromTracker(tracker),
+      escalatedSliceIds: escalatedSliceIds(tracker),
+      warnings,
+    };
+  }
+
+  async resume(
+    projectRoot: string,
+    slug: string,
+    options: ResumeExecutionOptions = {},
+  ): Promise<ResumeExecutionResult> {
     const manifest = await loadManifest(projectRoot, slug);
     const tracker = await this.tracker.initialize(projectRoot, manifest);
+    const previousRunId = tracker.last_run_id ?? null;
     const reset = new Set<string>();
     const warnings: string[] = [];
 
@@ -483,6 +621,23 @@ export class SliceExecutor {
       }
     }
 
+    const resetSliceIds = [...reset].sort((left, right) =>
+      left.localeCompare(right, undefined, { numeric: true }),
+    );
+
+    if (resetSliceIds.length > 0 && options.onEvent) {
+      const resumeBus = new SliceEventBus({
+        runId: randomUUID(),
+        slug,
+        onEvent: options.onEvent,
+      });
+      resumeBus.emit({
+        kind: 'run-resume-after-crash',
+        previousRunId,
+        resetSliceIds,
+      });
+    }
+
     this.tracker.resetSlices(tracker, [...reset]);
     const trackerPath = await this.tracker.save(projectRoot, tracker);
     appendPlanningAudit(projectRoot, 'INFO', 'resume-triggered', {
@@ -495,12 +650,33 @@ export class SliceExecutor {
     const prepared = await this.prepare(projectRoot, slug);
     return {
       trackerPath,
-      resetSliceIds: [...reset].sort((left, right) =>
-        left.localeCompare(right, undefined, { numeric: true }),
-      ),
+      resetSliceIds,
       currentSliceId: prepared.currentSliceId,
       warnings,
     };
+  }
+
+  /**
+   * PQD-101 — discard a pending decision packet on a consumer's behalf. Removes
+   * the pending file (never writing a fake resolution to the resolved
+   * directory), records the discard in the audit log, and emits a
+   * `decision-discarded` event when an `eventBus` is supplied. Returns the
+   * removed packet, or `null` when no valid pending packet exists for the id.
+   */
+  discardDecision(
+    projectRoot: string,
+    decisionId: string,
+    reason: string,
+    eventBus?: EngineEventBus,
+  ): DecisionPacket | null {
+    const decisionStore = new DecisionStore(projectRoot, {
+      onEvent: eventBus ? (event) => eventBus.emit(event) : undefined,
+    });
+    try {
+      return decisionStore.discard({ decisionId, reason });
+    } catch {
+      return null;
+    }
   }
 
   private async applyDecisionFlow(
@@ -508,8 +684,11 @@ export class SliceExecutor {
     manifest: PlanningManifest,
     _slug: string,
     context: SliceContext,
+    eventBus?: EngineEventBus,
   ): Promise<PlanningManifest> {
-    const decisionStore = new DecisionStore(projectRoot);
+    const decisionStore = new DecisionStore(projectRoot, {
+      onEvent: eventBus ? (event) => eventBus.emit(event) : undefined,
+    });
     decisionStore.initialize();
 
     const forks = detectDecisionForks(this.decisionDetectionText(manifest, context));
@@ -533,6 +712,7 @@ export class SliceExecutor {
       context,
       decisionStore,
       rebuiltPacket,
+      eventBus,
     );
     const resumedRecord = resumedDecision ? toDecisionRecord(resumedDecision) : null;
     if (resumedRecord) {
@@ -645,7 +825,16 @@ export class SliceExecutor {
       return manifest;
     }
 
-    decisionStore.writePending(packet);
+    try {
+      decisionStore.writePending(packet);
+    } catch (error) {
+      // The store already emitted `decision-cap-exceeded`; refuse the new pause
+      // and leave the manifest unmodified so execution continues unblocked.
+      if (error instanceof DecisionCapExceededError) {
+        return manifest;
+      }
+      throw error;
+    }
     this.decisionSession.recordScreenShown(_slug);
     const resolved = await this.waitForResolvedDecision(projectRoot, decisionStore, packet, _slug);
     /* v8 ignore next 8 -- null-resolved and false-resumedDecision branches; tests always resolve via prompt */
@@ -667,6 +856,7 @@ export class SliceExecutor {
     context: SliceContext,
     decisionStore: DecisionStore,
     rebuiltPacket: DecisionPacket | null,
+    eventBus?: EngineEventBus,
   ): Promise<DecisionPacket | null> {
     const pendingDecisionId = decisionStore.findPendingDecisionForTask(slug);
     if (!pendingDecisionId) {
@@ -675,6 +865,9 @@ export class SliceExecutor {
 
     const pendingResult = decisionStore.readPendingResult(pendingDecisionId);
     if (!pendingResult.packet) {
+      eventBus?.emit(
+        decisionPacketCorruptEvent(pendingDecisionId, pendingResult.error ?? 'unknown'),
+      );
       const action = await promptForMalformedDecision(pendingDecisionId, pendingResult.error);
       /* v8 ignore next 3 -- stop action; malformed-decision path is not exercised in unit tests */
       if (action === 'stop') {
@@ -1136,6 +1329,32 @@ function sliceMetrics(
   };
 }
 
+function buildGateReasons(gate: SliceGateDetail): string[] {
+  const reasons: string[] = [];
+  for (const check of gate.criteria_checks) {
+    if (!check.passed) {
+      reasons.push(`Verification criterion ${check.criterion_id} not met: ${check.detail}`);
+    }
+  }
+  for (const violation of gate.scope_check.violations) {
+    reasons.push(`Out-of-scope change (${violation.type}) to ${violation.file}`);
+  }
+  for (const check of gate.regression_checks) {
+    if (!check.passed) {
+      reasons.push(`Regression ${check.entry_id} is failing: ${check.detail}`);
+    }
+  }
+  for (const failure of gate.full_suite_check.new_failures) {
+    reasons.push(`New test failure introduced: ${failure}`);
+  }
+  for (const decision of gate.decision_checks) {
+    if (!decision.passed) {
+      reasons.push(decision.reason);
+    }
+  }
+  return reasons;
+}
+
 function summarizeFailure(gate: SliceGateDetail): string {
   const reasons = [
     ...gate.criteria_checks.filter((check) => !check.passed).map((check) => check.criterion_id),
@@ -1376,7 +1595,9 @@ async function executeFastLane(
     decision_context: manifest.decision_log,
     token_budget: computeSliceBudgetPlan([], undefined).summary.total,
   };
-  const decisionStore = new DecisionStore(projectRoot);
+  const decisionStore = new DecisionStore(projectRoot, {
+    onEvent: options.eventBus ? (event) => options.eventBus!.emit(event) : undefined,
+  });
   decisionStore.initialize();
   const decisionText = [
     implicitSlice.goal,
@@ -1441,15 +1662,27 @@ async function executeFastLane(
           manifest = appendDecisionRecord(manifest, toDecisionRecord(decisionRecord)!);
         }
       } else {
-        decisionStore.writePending(packet);
-        const response = await promptForDecision(packet, { mode: 'fast' });
-        decisionStore.resolve({
-          decisionId: packet.decision_id,
-          humanResponse: response,
-        });
-        const decisionRecord = decisionStore.readResolved(packet.decision_id);
-        if (decisionRecord) {
-          manifest = appendDecisionRecord(manifest, toDecisionRecord(decisionRecord)!);
+        let pausedForPrompt = true;
+        try {
+          decisionStore.writePending(packet);
+        } catch (error) {
+          // Cap reached — the store emitted `decision-cap-exceeded`; skip the
+          // prompt and leave the decision unrecorded rather than crash.
+          if (!(error instanceof DecisionCapExceededError)) {
+            throw error;
+          }
+          pausedForPrompt = false;
+        }
+        if (pausedForPrompt) {
+          const response = await promptForDecision(packet, { mode: 'fast' });
+          decisionStore.resolve({
+            decisionId: packet.decision_id,
+            humanResponse: response,
+          });
+          const decisionRecord = decisionStore.readResolved(packet.decision_id);
+          if (decisionRecord) {
+            manifest = appendDecisionRecord(manifest, toDecisionRecord(decisionRecord)!);
+          }
         }
       }
       await saveManifest(projectRoot, manifest);

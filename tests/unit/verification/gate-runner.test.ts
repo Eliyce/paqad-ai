@@ -39,7 +39,7 @@ describe('VerificationGateRunner', () => {
     },
   };
 
-  it('runs all 15 gates in order', async () => {
+  it('runs all 16 gates in order', async () => {
     const results = await new VerificationGateRunner().run(
       createVerificationContext({
         code_changed: true,
@@ -64,6 +64,7 @@ describe('VerificationGateRunner', () => {
       'module-docs-structure',
       'instructions-docs-structure',
       'documentation-freshness',
+      'extension-surface',
     ]);
   });
 
@@ -162,7 +163,7 @@ describe('VerificationGateRunner', () => {
       baseline,
     );
 
-    expect(withDelta.results.at(-1)?.gate).toBe('documentation-freshness');
+    expect(withDelta.results.at(-1)?.gate).toBe('extension-surface');
     expect(withDelta.delta_payload.payload.metadata.delta_mode_used).toBe(true);
     expect(withDelta.delta_payload.delta.changed_gate_outcomes.length).toBeGreaterThan(0);
   });

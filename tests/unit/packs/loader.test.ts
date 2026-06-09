@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { StackPackLoader } from '@/packs';
+import { readSkillAuditEvents, type SkillPackLoadFailedEvent } from '@/skills/audit-events.js';
 import { SchemaValidator } from '@/validators';
 
 describe('StackPackLoader', () => {
@@ -291,6 +292,63 @@ describe('StackPackLoader', () => {
         (issue) => issue.level === 'warning' && issue.message.includes('package-based detection'),
       ),
     ).toBe(true);
+  });
+
+  it('emits a skill.pack_load_failed event for a missing pack.yaml', () => {
+    mkdirSync(join(projectRoot, '.paqad', 'packs', 'no-manifest'), { recursive: true });
+
+    new StackPackLoader().load({ runtimeRoot, projectRoot });
+
+    const events = readSkillAuditEvents(projectRoot) as SkillPackLoadFailedEvent[];
+    const event = events.find((candidate) => candidate.pack_id === 'no-manifest');
+    expect(event).toBeDefined();
+    expect(event?.type).toBe('skill.pack_load_failed');
+    expect(event?.validation_error_code).toBe('PACK_MANIFEST_MISSING');
+    expect(event?.issue_count).toBe(1);
+    expect(event?.content_hash).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it('emits a skill.pack_load_failed event for an error-level schema failure', () => {
+    mkdirSync(join(projectRoot, '.paqad', 'packs', 'bad-schema'), { recursive: true });
+    // Only `name` is present, so the manifest exists but fails schema validation.
+    writeFileSync(
+      join(projectRoot, '.paqad', 'packs', 'bad-schema', 'pack.yaml'),
+      'name: bad-schema\n',
+    );
+
+    new StackPackLoader().load({ runtimeRoot, projectRoot });
+
+    const events = readSkillAuditEvents(projectRoot) as SkillPackLoadFailedEvent[];
+    const event = events.find((candidate) => candidate.pack_id === 'bad-schema');
+    expect(event).toBeDefined();
+    expect(event?.validation_error_code).toBe('PACK_VALIDATION_FAILED');
+    expect(event?.issue_count).toBeGreaterThan(0);
+    expect(event?.content_hash).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it('uses a stable content hash for the same unchanged invalid pack.yaml', () => {
+    mkdirSync(join(projectRoot, '.paqad', 'packs', 'bad-schema'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.paqad', 'packs', 'bad-schema', 'pack.yaml'),
+      'name: bad-schema\n',
+    );
+
+    new StackPackLoader().load({ runtimeRoot, projectRoot });
+    new StackPackLoader().load({ runtimeRoot, projectRoot });
+
+    const events = (readSkillAuditEvents(projectRoot) as SkillPackLoadFailedEvent[]).filter(
+      (event) => event.pack_id === 'bad-schema',
+    );
+    expect(events).toHaveLength(2);
+    expect(events[0]?.content_hash).toBe(events[1]?.content_hash);
+  });
+
+  it('does not emit a skill.pack_load_failed event for a valid pack', () => {
+    writePack(join(projectRoot, '.paqad', 'packs', 'laravel'), 'Laravel Project');
+
+    new StackPackLoader().load({ runtimeRoot, projectRoot });
+
+    expect(readSkillAuditEvents(projectRoot)).toEqual([]);
   });
 
   it('accepts archetype pack with fields detection without warning', () => {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -13,6 +14,12 @@ import type {
   StackPackManifest,
   StackPackTestRunner,
 } from '@/core/types/pack.js';
+import {
+  emitSkillAuditEvent,
+  getSharedSkillAuditBuffer,
+  type SkillAuditBuffer,
+  type SkillPackLoadFailedEvent,
+} from '@/skills/audit-events.js';
 import { SchemaValidator } from '@/validators/validator.js';
 
 const KNOWN_PENTEST_CHECKS = new Set([
@@ -36,6 +43,8 @@ export interface StackPackLoaderOptions {
 export class StackPackLoader {
   private readonly validator = new SchemaValidator();
 
+  constructor(private readonly auditBuffer: SkillAuditBuffer = getSharedSkillAuditBuffer()) {}
+
   load(options: StackPackLoaderOptions): PackRegistry {
     const candidates = new Map<string, LoadedStackPack>();
     const warnings: PackValidationIssue[] = [];
@@ -57,6 +66,12 @@ export class StackPackLoader {
                 ...issue,
                 level: 'warning' as const,
               })),
+          );
+          // PQD-194 — record the quarantine so the desktop can badge the pack.
+          emitSkillAuditEvent(
+            buildPackLoadFailedEvent(pack),
+            options.projectRoot,
+            this.auditBuffer,
           );
           continue;
         }
@@ -91,9 +106,17 @@ export class StackPackLoader {
   }
 
   private loadPacksFromRoot(root: string, source: PackInstallSource): LoadedStackPack[] {
-    return readdirSync(root, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => this.readPack(join(root, entry.name), source));
+    return (
+      readdirSync(root, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        // Convention directories (leading `_` or `.`) hold shared inheritance
+        // assets (e.g. `_shared/rules`) or VCS metadata — they are never packs, so
+        // they must not be enumerated as missing-manifest pack candidates (which
+        // would otherwise emit a spurious `skill.pack_load_failed` audit event on
+        // every load — PQD-194).
+        .filter((entry) => !entry.name.startsWith('_') && !entry.name.startsWith('.'))
+        .map((entry) => this.readPack(join(root, entry.name), source))
+    );
   }
 
   private readPack(packRoot: string, source: PackInstallSource): LoadedStackPack {
@@ -327,6 +350,33 @@ function hasMatchingRunner(
   if (frameworkName.toLowerCase() === 'vitest') aliases.add('jest');
 
   return [...aliases].some((alias) => runnersById.has(alias));
+}
+
+/**
+ * Build the `skill.pack_load_failed` audit event for a quarantined pack
+ * (PQD-194). When the manifest file exists the content hash is taken over its
+ * bytes (so an unchanged invalid pack.yaml re-emits an identical hash for
+ * de-dup); when it is absent there is nothing to hash, so the pack-root path
+ * string is hashed instead. `validation_error_code` distinguishes the two
+ * failure classes; `pack_id` is the manifest name, which falls back to the last
+ * path segment via the placeholder manifest when the id is unrecoverable.
+ */
+function buildPackLoadFailedEvent(pack: LoadedStackPack): SkillPackLoadFailedEvent {
+  const errorIssues = pack.validation.issues.filter((issue) => issue.level === 'error');
+  const manifestExists = existsSync(pack.manifestPath);
+  const content_hash = manifestExists
+    ? createHash('sha256').update(readFileSync(pack.manifestPath)).digest('hex')
+    : createHash('sha256').update(pack.root).digest('hex');
+
+  return {
+    ts: new Date().toISOString(),
+    type: 'skill.pack_load_failed',
+    pack_id: pack.manifest.name,
+    pack_path: pack.root,
+    validation_error_code: manifestExists ? 'PACK_VALIDATION_FAILED' : 'PACK_MANIFEST_MISSING',
+    issue_count: errorIssues.length,
+    content_hash,
+  };
 }
 
 function createPlaceholderManifest(packRoot: string): StackPackManifest {

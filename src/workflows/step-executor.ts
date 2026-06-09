@@ -1,3 +1,4 @@
+import { CancelledError } from '../core/errors/cancelled-error.js';
 import type { SkillCacheManager } from '../skills/cache-manager.js';
 import type { PredictiveCache } from '../cache/predictive-cache.js';
 import type { WorkflowStep, StepCondition } from './types.js';
@@ -17,7 +18,7 @@ export interface StepExecutionResult {
 }
 
 export interface WorkflowStepRunner {
-  execute(step: WorkflowStep): Promise<StepExecutionResult>;
+  execute(step: WorkflowStep, signal?: AbortSignal): Promise<StepExecutionResult>;
 }
 
 export interface StepExecutorOptions {
@@ -49,7 +50,14 @@ export class StepExecutor implements WorkflowStepRunner {
     return this.evaluateCondition(step.condition, this.context.classification);
   }
 
-  async execute(step: WorkflowStep): Promise<StepExecutionResult> {
+  async execute(step: WorkflowStep, signal?: AbortSignal): Promise<StepExecutionResult> {
+    // Pre-flight cancellation: never start a step's work once the consumer has
+    // aborted (PQD-104). Throwing keeps the engine loop's cancellation handling
+    // and the parallel executor's short-circuit in a single place.
+    if (signal?.aborted) {
+      throw new CancelledError();
+    }
+
     if (!this.shouldExecute(step)) {
       return { status: 'skipped' };
     }

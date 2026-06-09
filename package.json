@@ -83,6 +83,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "check:surface-orphans": "node scripts/check-surface-orphans.mjs",
+    "check:surface-drift": "node scripts/check-surface-drift.mjs",
     "ci": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run build",
     "changeset": "changeset",
     "version-packages": "changeset version",

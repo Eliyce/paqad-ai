@@ -112,6 +112,24 @@ describe('onboarding helpers', () => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
+  it('overwrites even non-auto-update files when forceOverwrite is set (PQD-424)', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-ai-force-writer-'));
+    const protectedPath = join(projectRoot, 'protected.txt');
+    writeFileSync(protectedPath, 'keep');
+
+    const result = writeGeneratedFiles(
+      projectRoot,
+      [{ path: 'protected.txt', content: 'replace', autoUpdate: false }],
+      { forceOverwrite: true },
+    );
+
+    expect(result.written).toContain('protected.txt');
+    expect(result.skipped).not.toContain('protected.txt');
+    expect(readFileSync(protectedPath, 'utf8')).toBe('replace');
+
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
   it('preserves project-owned glossary and registry files on later writes', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-ai-registry-writer-'));
     const glossaryPath = join(projectRoot, '.paqad/glossary.md');

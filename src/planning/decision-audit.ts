@@ -16,6 +16,7 @@ export const DECISION_AUDIT_EVENTS = [
   'decision-superseded',
   'decision-delegated',
   'undeclared-decision-flagged',
+  'decision-discarded',
 ] as const;
 
 export type DecisionAuditEventType = (typeof DECISION_AUDIT_EVENTS)[number];

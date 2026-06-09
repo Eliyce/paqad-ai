@@ -114,6 +114,9 @@
       "enum": ["framework", "archetype", "none"]
     },
     "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "confidence_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "primary_language": { "type": ["string", "null"] },
+    "source": { "type": "string", "enum": ["ai", "static"] },
     "signals": {
       "type": "array",
       "items": {

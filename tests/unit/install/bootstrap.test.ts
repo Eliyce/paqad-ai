@@ -14,6 +14,9 @@ import { join } from 'node:path';
 
 import { bootstrapFramework } from '@/install/bootstrap';
 import { getRuntimeRoot } from '@/core/runtime-paths';
+import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema';
+import { clearEngineLogger, engineLog, getConsumerLogger } from '@/core/logger-registry';
+import type { EngineLogEntry } from '@/core/types/logger';
 import { VERSION } from '@/index';
 
 describe('bootstrapFramework', () => {
@@ -119,5 +122,44 @@ describe('bootstrapFramework', () => {
     expect(result.framework_home).toBe(frameworkHome);
     expect(result.project_root).toBe(projectRoot);
     expect(result.version).toBe(VERSION);
+  });
+
+  it('installs a consumer logger when one is passed (PQD-105)', () => {
+    const entries: EngineLogEntry[] = [];
+    try {
+      bootstrapFramework(projectRoot, {
+        logger: {
+          log(entry) {
+            entries.push(entry);
+          },
+        },
+      });
+
+      expect(getConsumerLogger()).not.toBeNull();
+      engineLog('warn', 'after-bootstrap');
+      expect(entries).toEqual([{ level: 'warn', message: 'after-bootstrap' }]);
+    } finally {
+      clearEngineLogger();
+    }
+  });
+
+  it('leaves the logger untouched when no logger option is passed (PQD-105)', () => {
+    try {
+      bootstrapFramework(projectRoot);
+      expect(getConsumerLogger()).toBeNull();
+    } finally {
+      clearEngineLogger();
+    }
+  });
+
+  it('stamps the cross-artifact schema marker (PQD-95)', () => {
+    bootstrapFramework(projectRoot);
+
+    const marker = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad/schema-version.json'), 'utf8'),
+    );
+    expect(marker.paqad_schema_version).toBe(PAQAD_SCHEMA_VERSION);
+    expect(marker.written_by_engine_version).toBe(VERSION);
+    expect(typeof marker.written_at).toBe('string');
   });
 });

@@ -39,6 +39,7 @@ import {
   verifySlicePreconditions,
 } from '@/planning/index.js';
 import { PATHS } from '@/core/constants/paths.js';
+import type { SliceExecutionEvent } from '@/core/types/planning.js';
 
 import { createManifest } from './fixtures.js';
 
@@ -2405,3 +2406,321 @@ function makeDecisionProfile(askThreshold: 'strict' | 'balanced' | 'permissive')
     },
   };
 }
+
+describe('slice execution event stream (PQD-100)', () => {
+  function twoSliceManifest(slug: string) {
+    return createManifest({
+      slug,
+      execution_slices: [
+        {
+          ...createManifest().execution_slices[0],
+          slice_id: 'SL-1',
+          touches: ['src/planning/one.ts'],
+        },
+        {
+          ...createManifest().execution_slices[0],
+          slice_id: 'SL-2',
+          depends_on: ['SL-1'],
+          touches: ['src/planning/two.ts'],
+        },
+      ],
+    });
+  }
+
+  const passingRunners = {
+    criteriaRunner: async () => ({ passed: true, detail: 'ok' }),
+    regressionRunner: async () => ({ passed: true, detail: 'ok' }),
+    fullSuiteRunner: async () => ({
+      total_tests: 1,
+      passing: 1,
+      failing: 0,
+      failing_tests: [],
+      duration_ms: 1,
+    }),
+  };
+
+  it('streams started, gate-evaluated, completed per slice and a terminal run-finished', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'slice-events-happy-'));
+    try {
+      mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+      mkdirSync(join(root, 'src/planning'), { recursive: true });
+      const manifest = twoSliceManifest('events-happy');
+      writeFileSync(join(root, '.paqad/specs/events-happy.yaml'), YAML.stringify(manifest), 'utf8');
+
+      const events: SliceExecutionEvent[] = [];
+      const result = await new SliceExecutor().execute(root, manifest.slug, {
+        executeSlice: async ({ context }) => {
+          writeFileSync(join(root, context.current_slice.touches[0]!), 'export const x = 1;\n');
+          return { tokens_used: 10, files_changed: [context.current_slice.touches[0]!] };
+        },
+        ...passingRunners,
+        onEvent: (event) => events.push(event),
+      });
+
+      expect(result.completedSliceIds).toEqual(['SL-1', 'SL-2']);
+      expect(events.map((event) => event.kind)).toEqual([
+        'slice-started',
+        'slice-gate-evaluated',
+        'slice-completed',
+        'slice-started',
+        'slice-gate-evaluated',
+        'slice-completed',
+        'run-finished',
+      ]);
+
+      // Every event carries the run routing fields and a strictly increasing seq.
+      const runIds = new Set(events.map((event) => event.runId));
+      expect(runIds.size).toBe(1);
+      const seqs = events.map((event) => event.seq);
+      expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
+      expect(new Set(seqs).size).toBe(seqs.length);
+
+      const finished = events.at(-1)!;
+      expect(finished).toMatchObject({
+        kind: 'run-finished',
+        trackerStatus: 'completed',
+        completedSliceIds: ['SL-1', 'SL-2'],
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('carries non-empty human-readable reasons on a gate-failure event', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'slice-events-fail-'));
+    try {
+      mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+      mkdirSync(join(root, 'src/planning'), { recursive: true });
+      const manifest = createManifest({
+        slug: 'events-fail',
+        execution_slices: [{ ...createManifest().execution_slices[0], slice_id: 'SL-1' }],
+      });
+      writeFileSync(join(root, '.paqad/specs/events-fail.yaml'), YAML.stringify(manifest), 'utf8');
+
+      const events: SliceExecutionEvent[] = [];
+      await new SliceExecutor().execute(root, manifest.slug, {
+        executeSlice: async () => ({ tokens_used: 10 }),
+        criteriaRunner: async () => ({ passed: false, detail: 'assertion still red' }),
+        regressionRunner: async () => ({ passed: true, detail: 'ok' }),
+        fullSuiteRunner: async () => ({
+          total_tests: 1,
+          passing: 1,
+          failing: 0,
+          failing_tests: [],
+          duration_ms: 1,
+        }),
+        onEvent: (event) => events.push(event),
+      });
+
+      const gateFail = events.find(
+        (event) => event.kind === 'slice-gate-evaluated' && event.status === 'fail',
+      ) as Extract<SliceExecutionEvent, { kind: 'slice-gate-evaluated' }> | undefined;
+      expect(gateFail).toBeDefined();
+      expect(gateFail!.reasons.length).toBeGreaterThan(0);
+      expect(gateFail!.reasons[0]).toContain('assertion still red');
+      expect(events.some((event) => event.kind === 'slice-escalated')).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('emits exactly one slice-cancelled event and stops when the signal aborts mid-run', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'slice-events-cancel-'));
+    try {
+      mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+      mkdirSync(join(root, 'src/planning'), { recursive: true });
+      const manifest = twoSliceManifest('events-cancel');
+      writeFileSync(
+        join(root, '.paqad/specs/events-cancel.yaml'),
+        YAML.stringify(manifest),
+        'utf8',
+      );
+
+      const controller = new AbortController();
+      const events: SliceExecutionEvent[] = [];
+      await new SliceExecutor().execute(root, manifest.slug, {
+        executeSlice: async ({ context }) => {
+          writeFileSync(join(root, context.current_slice.touches[0]!), 'export const x = 1;\n');
+          // Abort while the first slice is in flight; the run halts before SL-2.
+          controller.abort();
+          return { tokens_used: 10, files_changed: [context.current_slice.touches[0]!] };
+        },
+        ...passingRunners,
+        signal: controller.signal,
+        onEvent: (event) => events.push(event),
+      });
+
+      const cancelled = events.filter((event) => event.kind === 'slice-cancelled');
+      expect(cancelled).toHaveLength(1);
+      expect(events.at(-1)!.kind).toBe('slice-cancelled');
+      expect(events.filter((event) => event.kind === 'slice-started')).toHaveLength(1);
+      expect(events.some((event) => event.kind === 'run-finished')).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('cancels before any slice runs when the signal is already aborted', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'slice-events-preabort-'));
+    try {
+      mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+      const manifest = twoSliceManifest('events-preabort');
+      writeFileSync(
+        join(root, '.paqad/specs/events-preabort.yaml'),
+        YAML.stringify(manifest),
+        'utf8',
+      );
+
+      const events: SliceExecutionEvent[] = [];
+      const executeSlice = vi.fn(async () => ({ tokens_used: 10 }));
+      await new SliceExecutor().execute(root, manifest.slug, {
+        executeSlice,
+        ...passingRunners,
+        signal: AbortSignal.abort(),
+        onEvent: (event) => events.push(event),
+      });
+
+      expect(executeSlice).not.toHaveBeenCalled();
+      expect(events.map((event) => event.kind)).toEqual(['slice-cancelled']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('runs unchanged and produces the same result when no onEvent is supplied', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'slice-events-none-'));
+    try {
+      mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+      mkdirSync(join(root, 'src/planning'), { recursive: true });
+      const manifest = createManifest({
+        slug: 'events-none',
+        execution_slices: [{ ...createManifest().execution_slices[0], slice_id: 'SL-1' }],
+      });
+      writeFileSync(join(root, '.paqad/specs/events-none.yaml'), YAML.stringify(manifest), 'utf8');
+
+      const result = await new SliceExecutor().execute(root, manifest.slug, {
+        executeSlice: async ({ context }) => {
+          writeFileSync(join(root, context.current_slice.touches[0]!), 'export const x = 1;\n');
+          return { tokens_used: 10, files_changed: [context.current_slice.touches[0]!] };
+        },
+        ...passingRunners,
+      });
+
+      expect(result.completedSliceIds).toEqual(['SL-1']);
+      // The run id is persisted on the tracker even without a consumer.
+      const tracker = JSON.parse(
+        readFileSync(join(root, '.paqad/specs/events-none.execution.json'), 'utf8'),
+      ) as { last_run_id?: string };
+      expect(typeof tracker.last_run_id).toBe('string');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('emits run-resume-after-crash listing reset slices and the prior run id', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'slice-events-resume-'));
+    try {
+      mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+      const manifest = twoSliceManifest('events-resume');
+      writeFileSync(
+        join(root, '.paqad/specs/events-resume.yaml'),
+        YAML.stringify(manifest),
+        'utf8',
+      );
+      writeFileSync(
+        join(root, '.paqad/specs/events-resume.execution.json'),
+        JSON.stringify({
+          slug: manifest.slug,
+          started_at: '2026-04-10T00:00:00.000Z',
+          updated_at: '2026-04-10T00:00:00.000Z',
+          total_slices: 2,
+          status: 'in-progress',
+          last_run_id: 'prior-run-7',
+          slices: {
+            'SL-1': { status: 'in-progress', attempt: 1 },
+            'SL-2': { status: 'pending', attempt: 0 },
+          },
+          token_budget: {
+            total: 1000,
+            per_slice_base: 500,
+            per_slice_with_buffer: 650,
+            consumed: 0,
+            remaining: 1000,
+          },
+        }),
+        'utf8',
+      );
+
+      const events: SliceExecutionEvent[] = [];
+      const resumed = await new SliceExecutor().resume(root, manifest.slug, {
+        onEvent: (event) => events.push(event),
+      });
+
+      expect(resumed.resetSliceIds).toContain('SL-1');
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        kind: 'run-resume-after-crash',
+        previousRunId: 'prior-run-7',
+      });
+      expect(
+        (events[0] as Extract<SliceExecutionEvent, { kind: 'run-resume-after-crash' }>)
+          .resetSliceIds,
+      ).toContain('SL-1');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not emit a resume event when nothing was reset', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'slice-events-resume-clean-'));
+    try {
+      mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+      const manifest = createManifest({
+        slug: 'events-resume-clean',
+        execution_slices: [{ ...createManifest().execution_slices[0], slice_id: 'SL-1' }],
+      });
+      writeFileSync(
+        join(root, '.paqad/specs/events-resume-clean.yaml'),
+        YAML.stringify(manifest),
+        'utf8',
+      );
+      writeFileSync(
+        join(root, '.paqad/specs/events-resume-clean.execution.json'),
+        JSON.stringify({
+          slug: manifest.slug,
+          started_at: '2026-04-10T00:00:00.000Z',
+          updated_at: '2026-04-10T00:00:00.000Z',
+          total_slices: 1,
+          status: 'completed',
+          slices: { 'SL-1': { status: 'completed', attempt: 1, tokens_used: 10 } },
+          token_budget: {
+            total: 1000,
+            per_slice_base: 500,
+            per_slice_with_buffer: 650,
+            consumed: 10,
+            remaining: 990,
+          },
+        }),
+        'utf8',
+      );
+      mkdirSync(join(root, '.paqad/specs/events-resume-clean.checkpoints'), { recursive: true });
+      writeFileSync(
+        join(root, '.paqad/specs/events-resume-clean.checkpoints/SL-1.json'),
+        JSON.stringify({ slice_id: 'SL-1', status: 'completed' }),
+        'utf8',
+      );
+
+      const events: SliceExecutionEvent[] = [];
+      // Also exercises the no-onEvent branch of a reset-free resume.
+      await new SliceExecutor().resume(root, manifest.slug);
+      const resumed = await new SliceExecutor().resume(root, manifest.slug, {
+        onEvent: (event) => events.push(event),
+      });
+
+      expect(resumed.resetSliceIds).toEqual([]);
+      expect(events).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

@@ -1,15 +1,56 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
+import { PATHS } from '@/core/constants/paths.js';
+import { FrameworkError } from '@/core/errors/index.js';
 import {
+  readExistingOnboardingManifest,
   sanitizeStackSnapshotRepository,
   writeFrameworkVersionPreservingTimestamp,
   writeJsonPreservingTimestamp,
   writeOnboardingManifest,
 } from '@/onboarding/manifest-writer.js';
+
+describe('readExistingOnboardingManifest (PQD-424)', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'paqad-mw-existing-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns null when no manifest exists (first onboarding)', () => {
+    expect(readExistingOnboardingManifest(dir)).toBeNull();
+  });
+
+  it('parses and returns an existing valid manifest', () => {
+    const path = join(dir, PATHS.ONBOARDING_MANIFEST);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify({ framework_version: '1.0.0' }));
+
+    expect(readExistingOnboardingManifest(dir)).toMatchObject({ framework_version: '1.0.0' });
+  });
+
+  it('throws a coded FrameworkError when the manifest is corrupt JSON', () => {
+    const path = join(dir, PATHS.ONBOARDING_MANIFEST);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, '{ not valid json');
+
+    try {
+      readExistingOnboardingManifest(dir);
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(FrameworkError);
+      expect((error as FrameworkError).code).toBe('REGISTRY_CORRUPTED');
+    }
+  });
+});
 
 describe('writeJsonPreservingTimestamp', () => {
   let dir: string;

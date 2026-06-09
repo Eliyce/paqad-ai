@@ -1,10 +1,17 @@
-import { statSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { existsSync, statSync } from 'node:fs';
+import { mkdir, readdir, rename, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 
 import { AstChunker } from '@/context/ast-chunker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
+import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
+import { engineLog } from '@/core/logger-registry.js';
+import { PATHS } from '@/core/constants/paths.js';
+import { CancelledError, isCancelledError } from '@/core/errors/cancelled-error.js';
+import { appendRunCancelledEvent } from '@/module-decisions/events.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
@@ -12,20 +19,53 @@ import { PatternVectorService } from '@/patterns/pattern-rag.js';
 import { SessionResumeValidator } from '@/session/resume-validator.js';
 
 import { appendRagAudit } from './audit.js';
+import { CrsBacklogQueue } from './crs-backlog.js';
+import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
 import { createEmbeddingProvider } from './providers.js';
 import { getProjectSecret, writeProjectSecret } from './secrets.js';
 import type {
   BuildIndexOptions,
   ChunkIndexSyncResult,
+  CrsChunk,
+  CrsChunkInput,
+  CrsCollectionId,
+  CrsIndexedSessionEvent,
+  CrsRetrievalResult,
   EmbeddingProvider,
   ProviderFactory,
   RagRetrievalResult,
   RagStatus,
+  ReindexProgressHandler,
   StoredVectorChunk,
+  StoredVisionChunk,
+  VisionIngestInput,
+  VisionIngestResult,
 } from './types.js';
-import { isEmbeddingProviderError } from './types.js';
+import {
+  isEmbeddingProviderError,
+  RagIngestError,
+  SUPPORTED_EXTRACTION_KINDS,
+  SUPPORTED_VISION_EXTENSIONS,
+} from './types.js';
 import { FileVectorIndex } from './vector-index.js';
+
+/** Max non-whitespace characters per vision chunk before it is split further. */
+const VISION_MAX_CHUNK_CHARS = 2000;
+
+/** Embedding batch size for CRS writes/reindex (PQD-415). */
+const CRS_EMBED_BATCH_SIZE = 32;
+
+/** How long a retired CRS index is kept under a `.revert.<ms>` suffix (24 hours). */
+const CRS_REVERT_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Project-relative location of the resumable partial index written when a
+ * rebuild is cancelled mid-flight (PQD-104). Kept distinct from the full index
+ * so a cancelled run never overwrites a previously-good `index.json`.
+ */
+const PARTIAL_VECTOR_INDEX = PATHS.VECTOR_INDEX.replace(/\.json$/, '.partial.json');
+const PARTIAL_VECTOR_META = PATHS.VECTOR_META.replace(/\.json$/, '.partial.json');
 
 function queryTextFromTask(
   taskDescription?: string,
@@ -49,6 +89,10 @@ function estimateEtaSeconds(startMs: number, loaded: number, total: number): num
 
 export class RagService {
   private readonly vectorIndex = new FileVectorIndex<StoredVectorChunk>();
+  private readonly visionVectorIndex = new FileVectorIndex<StoredVisionChunk>(
+    PATHS.VISION_VECTOR_INDEX,
+    PATHS.VISION_VECTOR_META,
+  );
   private readonly chunker = new AstChunker();
   private readonly indexManager: ChunkIndexManager;
   private readonly patternVectors: PatternVectorService;
@@ -58,6 +102,12 @@ export class RagService {
   constructor(
     private readonly projectRoot: string,
     private readonly providerFactory: ProviderFactory = createEmbeddingProvider,
+    /**
+     * In-memory write backlog for CRS collections (PQD-415). Injectable so a
+     * caller can size the cap or observe `.size`; defaults to a fresh queue at the
+     * 1000-chunk cap.
+     */
+    private readonly crsBacklog: CrsBacklogQueue = new CrsBacklogQueue(),
   ) {
     this.indexManager = new ChunkIndexManager(projectRoot);
     this.patternVectors = new PatternVectorService(undefined, providerFactory);
@@ -85,6 +135,14 @@ export class RagService {
       reason = 'configured provider/model does not match stored vector metadata';
     }
 
+    let visionChunkCount: number | undefined;
+    try {
+      visionChunkCount = (await this.visionVectorIndex.loadMeta(this.projectRoot))?.chunk_count;
+    } catch {
+      // A corrupt vision meta must never break status reporting for the file index.
+      visionChunkCount = undefined;
+    }
+
     return {
       enabled: intelligence.rag_enabled,
       configured_provider: intelligence.embedding_provider,
@@ -96,6 +154,7 @@ export class RagService {
       chunk_count: meta?.chunk_count ?? 0,
       size_bytes: status.sizeBytes,
       reason: status.present && (!valid || staleMetadata) ? reason : undefined,
+      vision_chunk_count: visionChunkCount,
     };
   }
 
@@ -142,13 +201,15 @@ export class RagService {
     }
 
     const start = Date.now();
+    const signal = options?.signal;
+    const runId = randomUUID();
+    let provider: EmbeddingProvider | undefined;
 
     try {
-      const provider = await this.providerFactory(
-        this.projectRoot,
-        intelligence,
-        options?.onProgress,
-      );
+      // Pre-flight: never start work once the consumer has already aborted.
+      this.throwIfAborted(signal);
+
+      provider = await this.providerFactory(this.projectRoot, intelligence, options?.onProgress);
 
       try {
         await provider.validate();
@@ -187,11 +248,17 @@ export class RagService {
             : Math.round((chunkIndex.entries.length / sourceFiles.length) * 100),
       });
 
-      const items = await this.embedChunks(
-        provider,
-        flattenChunks(chunkIndex),
-        options?.onProgress,
-      );
+      const items = await this.embedChunks(provider, flattenChunks(chunkIndex), {
+        onProgress: options?.onProgress,
+        signal,
+      });
+      // Final boundary: an abort landing between embedding and the index write
+      // still cancels — the embedded chunks become the partial checkpoint.
+      if (signal?.aborted) {
+        throw new CancelledError('RAG rebuild cancelled by consumer', {
+          partialChunks: items,
+        } as Record<string, unknown>);
+      }
       await this.vectorIndex.replaceAll(this.projectRoot, items, {
         provider: provider.name,
         model: provider.model,
@@ -206,12 +273,52 @@ export class RagService {
         duration_ms: Date.now() - start,
       });
     } catch (error) {
+      if (isCancelledError(error)) {
+        const checkpointPath = await this.writePartialIndex(error, provider);
+        appendRagAudit(this.projectRoot, 'WARN', 'rag-build-cancelled', {
+          checkpoint_path: checkpointPath,
+          duration_ms: Date.now() - start,
+        });
+        appendRunCancelledEvent(this.projectRoot, runId, {
+          reason: 'rag-rebuild-cancelled',
+          checkpoint_path: checkpointPath,
+        });
+        // Re-throw with only the stable, public-facing checkpoint detail.
+        throw new CancelledError('RAG rebuild cancelled by consumer', {
+          checkpoint_path: checkpointPath,
+        });
+      }
       appendRagAudit(this.projectRoot, 'WARN', 'rag-build-failed', {
         reason: error instanceof Error ? error.message : 'unknown-error',
         duration_ms: Date.now() - start,
       });
       throw error;
     }
+  }
+
+  /**
+   * Write the chunks embedded before cancellation to a resumable `.partial`
+   * index and return its project-relative path (PQD-104). Returns undefined when
+   * nothing was embedded (e.g. aborted before the provider was ready), in which
+   * case no partial file is written.
+   */
+  private async writePartialIndex(
+    error: CancelledError,
+    provider: EmbeddingProvider | undefined,
+  ): Promise<string | undefined> {
+    const partial = (error.details?.partialChunks as StoredVectorChunk[] | undefined) ?? [];
+    if (partial.length === 0 || !provider) {
+      return undefined;
+    }
+    const partialIndex = new FileVectorIndex<StoredVectorChunk>(
+      PARTIAL_VECTOR_INDEX,
+      PARTIAL_VECTOR_META,
+    );
+    await partialIndex.replaceAll(this.projectRoot, partial, {
+      provider: provider.name,
+      model: provider.model,
+    });
+    return PARTIAL_VECTOR_INDEX;
   }
 
   async clear(): Promise<void> {
@@ -352,11 +459,17 @@ export class RagService {
           input.symbolReferences ?? [],
         ),
       );
-      const results = await this.vectorIndex.query(
-        this.projectRoot,
-        queryVector,
-        topN ?? intelligence.rag_top_n,
-      );
+      const limit = topN ?? intelligence.rag_top_n;
+      const [fileResults, visionResults] = await Promise.all([
+        this.vectorIndex.query(this.projectRoot, queryVector, limit),
+        this.visionVectorIndex.query(this.projectRoot, queryVector, limit),
+      ]);
+      // Merge file- and vision-derived hits, re-rank by score, then apply the
+      // top-N cutoff so neither source crowds the other out. Vision chunks
+      // conform to the same retrieval shape; callers identify them by extension.
+      const results = [...fileResults, ...visionResults]
+        .sort((left, right) => right.score - left.score)
+        .slice(0, limit);
       const filtered = results.filter(
         (result) => result.score >= intelligence.rag_similarity_threshold,
       );
@@ -416,6 +529,120 @@ export class RagService {
     return this.retrieveWithSyncPolicy(syncResult, input, topN, true);
   }
 
+  /**
+   * Accept plain text a consumer extracted from an image (via OCR, captioning,
+   * etc.) into the retrieval index. The engine never reads the image itself; it
+   * validates the input, embeds the text, and stores it in a separate vision
+   * vector index keyed to the image's `sourcePath`. Re-ingesting the same path
+   * replaces its prior chunks rather than duplicating them.
+   *
+   * @throws {RagIngestError} with a stable `code` for each rejection case.
+   */
+  async ingestExtractedText(input: VisionIngestInput): Promise<VisionIngestResult> {
+    // 1. Known extraction kind.
+    if (!(SUPPORTED_EXTRACTION_KINDS as readonly string[]).includes(input.extractionKind)) {
+      throw new RagIngestError(
+        'unknown_extraction_kind',
+        `Unknown extraction kind: ${String(input.extractionKind)}`,
+        { extraction_kind: input.extractionKind },
+      );
+    }
+
+    // 2. Non-empty text.
+    if (typeof input.text !== 'string' || input.text.trim().length === 0) {
+      throw new RagIngestError('empty_extracted_text', 'Extracted text is empty');
+    }
+
+    // 3. UTF-8 purity — the U+FFFD replacement character signals decode garbage.
+    if (input.text.includes('�')) {
+      throw new RagIngestError('text_not_utf8', 'Extracted text is not valid UTF-8');
+    }
+
+    // 4. Acceptable image extension on the source path.
+    const extension = extname(input.sourcePath).toLowerCase();
+    if (!(SUPPORTED_VISION_EXTENSIONS as readonly string[]).includes(extension)) {
+      throw new RagIngestError(
+        'unsupported_file_type',
+        `Unsupported file type for vision ingest: ${extension || '(none)'}`,
+        { source_path: input.sourcePath },
+      );
+    }
+
+    // 5. Source path must resolve inside the project root.
+    const resolvedRoot = resolve(this.projectRoot);
+    const resolvedPath = resolve(this.projectRoot, input.sourcePath);
+    if (!resolvedPath.startsWith(resolvedRoot + sep)) {
+      throw new RagIngestError(
+        'path_outside_project',
+        `Source path resolves outside the project root: ${input.sourcePath}`,
+        { source_path: input.sourcePath },
+      );
+    }
+
+    // RAG must be configured to embed — mirror rebuild()'s precondition.
+    const profile = readProjectProfile(this.projectRoot);
+    const intelligence = normalizeIntelligenceConfig(profile?.intelligence);
+    if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
+      throw new Error('RAG must be enabled and configured before ingesting extracted text');
+    }
+
+    // 6. Disk existence — desktop owns path lifecycle, so absence is recorded,
+    //    not rejected.
+    const sourceMissing = !existsSync(resolvedPath);
+
+    // 7. Split into chunks keyed to the source path + extraction kind.
+    const chunkTexts = this.splitTextIntoChunks(input.text, VISION_MAX_CHUNK_CHARS);
+    const chunks: Chunk[] = chunkTexts.map((raw, index) => {
+      const content = raw.trim();
+      return {
+        id: createHash('sha256')
+          .update(`${input.sourcePath}:${input.extractionKind}:${index}`)
+          .digest('hex'),
+        source_file: input.sourcePath,
+        ast_node_type: 'fallback',
+        ast_node_path: 'vision-extracted',
+        exported_symbols: [],
+        content,
+        char_count: content.replace(/\s/g, '').length,
+        content_hash: createHash('sha256').update(content).digest('hex'),
+      };
+    });
+
+    // 8. Embed with the configured provider.
+    const provider = await this.providerFactory(this.projectRoot, intelligence);
+    const vectors = await provider.embed(chunks.map((chunk) => chunk.content));
+    const embedded: StoredVisionChunk[] = chunks.map((chunk, index) => ({
+      ...chunk,
+      extraction_kind: input.extractionKind,
+      source_missing: sourceMissing,
+      vector: vectors[index],
+    }));
+
+    // 9. Replace-not-duplicate: drop prior chunks for this path, append the new
+    //    set, and rewrite atomically. Last writer wins on a same-path race.
+    const current = await this.visionVectorIndex.load(this.projectRoot);
+    const retained = (current?.items ?? []).filter((item) => item.source_file !== input.sourcePath);
+    await this.visionVectorIndex.replaceAll(this.projectRoot, [...retained, ...embedded], {
+      provider: provider.name,
+      model: provider.model,
+    });
+
+    // 10. Audit.
+    appendRagAudit(this.projectRoot, 'INFO', 'rag-vision-ingested', {
+      source_path: input.sourcePath,
+      extraction_kind: input.extractionKind,
+      chunk_count: embedded.length,
+      source_missing: sourceMissing,
+    });
+
+    // 11. Report.
+    return {
+      chunkCount: embedded.length,
+      sourcePath: input.sourcePath,
+      extractionKind: input.extractionKind,
+    };
+  }
+
   resolveApiKeyName(provider: 'openai' | 'voyageai'): 'OPENAI_API_KEY' | 'VOYAGE_API_KEY' {
     return provider === 'openai' ? 'OPENAI_API_KEY' : 'VOYAGE_API_KEY';
   }
@@ -438,6 +665,250 @@ export class RagService {
       return statSync(path).isDirectory();
     } catch {
       return false;
+    }
+  }
+
+  // ── Project-scoped CRS collections (PQD-415) ─────────────────────────────────
+
+  /**
+   * Embed and persist a session's chunks into the named CRS collection, returning
+   * the audit-grade {@link CrsIndexedSessionEvent} (also appended to the audit log
+   * as `crs.indexed_session`). The collection is created on demand. Every stored
+   * chunk carries its `source_session_id`, `source_workspace_id`, `created_at`,
+   * `project_id`, and an engine-stamped `vector_timestamp`.
+   *
+   * If the embedding provider is unreachable, the chunks are parked in the
+   * in-memory backlog and the failure is surfaced: an {@link EmbeddingBacklogOverflow}
+   * when the 1000-chunk cap is exceeded (oldest dropped), otherwise the provider
+   * error. On the next successful call the parked backlog is drained first.
+   */
+  async writeChunks(
+    chunks: CrsChunkInput[],
+    collectionId: CrsCollectionId,
+  ): Promise<CrsIndexedSessionEvent> {
+    await FileVectorIndex.create(this.projectRoot, collectionId);
+    const intelligence = normalizeIntelligenceConfig(
+      readProjectProfile(this.projectRoot)?.intelligence,
+    );
+    const provider = await this.providerFactory(this.projectRoot, intelligence);
+
+    // Provider is reachable — flush anything parked during an earlier outage first.
+    if (this.crsBacklog.size > 0) {
+      await this.crsBacklog.drain((id, queued) =>
+        this.persistCrsChunks(provider, id, queued).then(() => undefined),
+      );
+    }
+
+    try {
+      return await this.persistCrsChunks(provider, collectionId, chunks);
+    } catch (error) {
+      // Provider failed mid-write: park the chunks. enqueue throws
+      // EmbeddingBacklogOverflow when the cap is exceeded (oldest dropped);
+      // otherwise re-surface the provider error so the desktop knows the write
+      // was deferred to the backlog.
+      this.crsBacklog.enqueue(chunks, collectionId);
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieve from a CRS collection by raw query string. Returns only hits at or
+   * above `confidenceThreshold` (default 0.5 cosine similarity), ranked by
+   * descending score, each carrying its session/workspace provenance. Propagates
+   * {@link CorruptVectorIndexError} on a corrupt on-disk index so the desktop can
+   * fall back to file-RAG and trigger a rebuild.
+   */
+  async retrieveCrs(
+    query: string,
+    collectionId: CrsCollectionId,
+    topK: number,
+    confidenceThreshold = 0.5,
+  ): Promise<CrsRetrievalResult[]> {
+    const intelligence = normalizeIntelligenceConfig(
+      readProjectProfile(this.projectRoot)?.intelligence,
+    );
+    const provider = await this.providerFactory(this.projectRoot, intelligence);
+    const [queryVector] = await provider.embed(query);
+    const { indexPath, metaPath } = crsCollectionPaths(collectionId);
+    const index = new FileVectorIndex<CrsChunk>(indexPath, metaPath);
+    const results = await index.query(this.projectRoot, queryVector, topK);
+    return results
+      .filter((result) => result.score >= confidenceThreshold)
+      .map((result) => ({
+        chunk: result.item,
+        sourceSessionId: result.item.source_session_id,
+        sourceWorkspaceId: result.item.source_workspace_id,
+        score: result.score,
+      }));
+  }
+
+  /**
+   * Rebuild a CRS collection against a new embedding provider/model side by side,
+   * with zero downtime: the new index is built in a sibling `.rebuilding` dir,
+   * progress is reported via `onProgress`, then the live and new indexes are
+   * swapped atomically. The old index is retained under a `.revert.<ms>` sibling
+   * for 24 hours; expired reverts are swept on the next reindex.
+   */
+  async reindex(
+    provider: EmbeddingProviderName,
+    model: string,
+    collectionId: CrsCollectionId,
+    onProgress?: ReindexProgressHandler,
+  ): Promise<void> {
+    const layout = crsCollectionLayout(this.projectRoot, collectionId);
+    await this.sweepExpiredCrsReverts(collectionId);
+
+    const live = new FileVectorIndex<CrsChunk>(layout.indexPath, layout.metaPath);
+    const existing = await live.load(this.projectRoot);
+    const items = existing?.items ?? [];
+
+    const relRebuildDir = join(PATHS.CRS_DIR, `${layout.escaped}.rebuilding`);
+    const absRebuildDir = join(this.projectRoot, relRebuildDir);
+    await rm(absRebuildDir, { recursive: true, force: true });
+    await mkdir(absRebuildDir, { recursive: true });
+
+    const intelligence = normalizeIntelligenceConfig({
+      embedding_provider: provider,
+      embedding_model: model,
+      rag_enabled: true,
+    });
+    const newProvider = await this.providerFactory(this.projectRoot, intelligence);
+
+    const rebuilt = await this.embedCrsForReindex(newProvider, items, collectionId, onProgress);
+    const rebuildIndex = new FileVectorIndex<CrsChunk>(
+      join(relRebuildDir, 'index.json'),
+      join(relRebuildDir, 'meta.json'),
+    );
+    await rebuildIndex.replaceAll(this.projectRoot, rebuilt, {
+      provider: newProvider.name,
+      model: newProvider.model,
+    });
+
+    // Atomic swap: retire the live index to `.revert.<ms>`, promote the rebuild.
+    if (existsSync(layout.absDir)) {
+      const revertDir = join(layout.crsRootAbs, `${layout.escaped}.revert.${Date.now()}`);
+      await rename(layout.absDir, revertDir);
+    }
+    await rename(absRebuildDir, layout.absDir);
+
+    appendRagAudit(this.projectRoot, 'INFO', 'crs-reindexed', {
+      collection_id: String(collectionId),
+      provider: newProvider.name,
+      model: newProvider.model,
+      chunks: rebuilt.length,
+    });
+  }
+
+  private async persistCrsChunks(
+    provider: EmbeddingProvider,
+    collectionId: CrsCollectionId,
+    chunks: CrsChunkInput[],
+  ): Promise<CrsIndexedSessionEvent> {
+    const { indexPath, metaPath } = crsCollectionPaths(collectionId);
+    const index = new FileVectorIndex<CrsChunk>(indexPath, metaPath);
+    const embedded = await this.embedCrsChunks(provider, chunks);
+    const existing = await index.load(this.projectRoot);
+    const merged = [...(existing?.items ?? []), ...embedded];
+    await index.replaceAll(this.projectRoot, merged, {
+      provider: provider.name,
+      model: provider.model,
+    });
+    const event: CrsIndexedSessionEvent = {
+      session_id: chunks[0]?.source_session_id ?? '',
+      project_id: chunks[0]?.project_id ?? '',
+      chunk_count: embedded.length,
+    };
+    appendRagAudit(this.projectRoot, 'INFO', 'crs.indexed_session', {
+      session_id: event.session_id,
+      project_id: event.project_id,
+      chunk_count: event.chunk_count,
+    });
+    return event;
+  }
+
+  private async embedCrsChunks(
+    provider: EmbeddingProvider,
+    chunks: CrsChunkInput[],
+  ): Promise<CrsChunk[]> {
+    if (chunks.length === 0) {
+      return [];
+    }
+    const out: CrsChunk[] = [];
+    for (let offset = 0; offset < chunks.length; offset += CRS_EMBED_BATCH_SIZE) {
+      const batch = chunks.slice(offset, offset + CRS_EMBED_BATCH_SIZE);
+      const vectors = await provider.embed(batch.map((chunk) => chunk.content));
+      const stampedAt = new Date().toISOString();
+      for (let index = 0; index < batch.length; index++) {
+        const chunk = batch[index];
+        out.push({
+          id: chunk.id,
+          vector: vectors[index],
+          content: chunk.content,
+          source_session_id: chunk.source_session_id,
+          source_workspace_id: chunk.source_workspace_id,
+          created_at: chunk.created_at,
+          project_id: chunk.project_id,
+          vector_timestamp: stampedAt,
+        });
+      }
+    }
+    return out;
+  }
+
+  private async embedCrsForReindex(
+    provider: EmbeddingProvider,
+    items: CrsChunk[],
+    collectionId: CrsCollectionId,
+    onProgress?: ReindexProgressHandler,
+  ): Promise<CrsChunk[]> {
+    const total = items.length;
+    const currentCollection = String(collectionId);
+    if (total === 0) {
+      onProgress?.({ status_percent: 100, current_collection: currentCollection, est_time: 0 });
+      return [];
+    }
+    const out: CrsChunk[] = [];
+    const start = Date.now();
+    for (let offset = 0; offset < total; offset += CRS_EMBED_BATCH_SIZE) {
+      const batch = items.slice(offset, offset + CRS_EMBED_BATCH_SIZE);
+      const vectors = await provider.embed(batch.map((item) => item.content));
+      const stampedAt = new Date().toISOString();
+      for (let index = 0; index < batch.length; index++) {
+        out.push({ ...batch[index], vector: vectors[index], vector_timestamp: stampedAt });
+      }
+      const done = Math.min(offset + batch.length, total);
+      onProgress?.({
+        status_percent: Math.round((done / total) * 100),
+        current_collection: currentCollection,
+        est_time: estimateEtaSeconds(start, done, total),
+      });
+    }
+    return out;
+  }
+
+  /** Delete `.revert.<ms>` siblings older than the 24-hour retention window. */
+  private async sweepExpiredCrsReverts(collectionId: CrsCollectionId): Promise<void> {
+    const { escaped, crsRootAbs } = crsCollectionLayout(this.projectRoot, collectionId);
+    let entries: string[];
+    try {
+      entries = await readdir(crsRootAbs);
+    } catch {
+      // The CRS root does not exist yet — nothing to sweep.
+      return;
+    }
+    const prefix = `${escaped}.revert.`;
+    const now = Date.now();
+    for (const entry of entries) {
+      if (!entry.startsWith(prefix)) {
+        continue;
+      }
+      const stampedAt = Number(entry.slice(prefix.length));
+      if (!Number.isFinite(stampedAt)) {
+        continue;
+      }
+      if (now - stampedAt > CRS_REVERT_RETENTION_MS) {
+        await rm(join(crsRootAbs, entry), { recursive: true, force: true });
+      }
     }
   }
 
@@ -482,19 +953,61 @@ export class RagService {
     });
   }
 
+  /**
+   * Split externally-supplied text into chunks bounded by non-whitespace size,
+   * mirroring {@link AstChunker.fallbackSplit}'s paragraph-buffer strategy.
+   * Always returns at least one chunk for non-empty input.
+   */
+  private splitTextIntoChunks(text: string, maxChunkChars: number): string[] {
+    const paragraphs = text.split(/\n\s*\n/);
+    const chunks: string[] = [];
+    let buffer = '';
+
+    for (const para of paragraphs) {
+      const combined = buffer ? `${buffer}\n\n${para}` : para;
+      const nonWhitespace = combined.replace(/\s/g, '').length;
+      if (nonWhitespace > maxChunkChars && buffer) {
+        chunks.push(buffer);
+        buffer = para;
+      } else {
+        buffer = combined;
+      }
+    }
+    if (buffer.trim()) {
+      chunks.push(buffer);
+    }
+
+    return chunks.length > 0 ? chunks : [text];
+  }
+
+  private throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      throw new CancelledError('RAG rebuild cancelled by consumer');
+    }
+  }
+
   private async embedChunks(
     provider: EmbeddingProvider,
     chunks: Chunk[],
-    onProgress?: BuildIndexOptions['onProgress'],
+    options?: { onProgress?: BuildIndexOptions['onProgress']; signal?: AbortSignal },
   ): Promise<StoredVectorChunk[]> {
     if (chunks.length === 0) {
       return [];
     }
 
+    const onProgress = options?.onProgress;
+    const signal = options?.signal;
     const results: StoredVectorChunk[] = [];
     const batchSize = 32;
     const start = Date.now();
     for (let offset = 0; offset < chunks.length; offset += batchSize) {
+      // Per-batch cancellation boundary: surface the chunks embedded so far so
+      // the caller can persist them as a resumable partial checkpoint (PQD-104).
+      if (signal?.aborted) {
+        throw new CancelledError('RAG rebuild cancelled by consumer', {
+          partialChunks: results,
+        } as Record<string, unknown>);
+      }
       const batch = chunks.slice(offset, offset + batchSize);
       const vectors = await provider.embed(batch.map((chunk) => chunk.content));
       for (let index = 0; index < batch.length; index++) {
@@ -551,7 +1064,7 @@ export class RagService {
           provider: validation.embedding_provider ?? 'unknown',
           reason: validation.warning,
         });
-        console.warn(validation.warning);
+        engineLog('warn', validation.warning);
       } catch {
         // Resume validation is advisory and must never block retrieval.
       }

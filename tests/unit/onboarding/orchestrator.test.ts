@@ -13,9 +13,12 @@ import { posix } from 'node:path';
 
 const { join } = posix;
 
+import { PATHS } from '@/core/constants/paths.js';
+import { FrameworkError } from '@/core/errors/index.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { getRuntimeRoot } from '@/core/runtime-paths';
 import { OnboardingOrchestrator } from '@/onboarding';
+import { readOnboardingCheckpoint, writeOnboardingCheckpoint } from '@/onboarding/checkpoint.js';
 import { RagService } from '@/rag/service.js';
 
 const PROJECT_SKILL_DIRS = [
@@ -695,6 +698,120 @@ describe('OnboardingOrchestrator', () => {
     const secondProfile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
 
     expect(secondProfile).toBe(firstProfile);
+  });
+
+  describe('PQD-424 — generate baseline docs and configs', () => {
+    const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
+
+    it('writes the .paqad/version schema marker on the first run', async () => {
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      expect(readFileSync(join(projectRoot, PATHS.SCHEMA_VERSION_FILE), 'utf8')).toBe(
+        'schema_version=1\n',
+      );
+    });
+
+    it('writes a project.onboarded audit line with project_id, wizard_version and steps_completed', async () => {
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      const auditLog = readFileSync(join(projectRoot, PATHS.AUDIT_LOG), 'utf8');
+      expect(auditLog).toContain('project.onboarded');
+      expect(auditLog).toMatch(/project_id="[^"]+"/);
+      expect(auditLog).toMatch(/wizard_version="[^"]+"/);
+      expect(auditLog).toMatch(/steps_completed="\d+"/);
+    });
+
+    it('emits the project.onboarded audit line only once, not on a refresh re-run', async () => {
+      const orchestrator = new OnboardingOrchestrator();
+      await orchestrator.run({ projectRoot, selections });
+      await orchestrator.run({ projectRoot, selections });
+
+      const occurrences = readFileSync(join(projectRoot, PATHS.AUDIT_LOG), 'utf8')
+        .split('\n')
+        .filter((line) => line.includes('project.onboarded')).length;
+      expect(occurrences).toBe(1);
+    });
+
+    it('refuses cleanly without touching disk when project creation is disabled', async () => {
+      await expect(
+        new OnboardingOrchestrator().run({
+          projectRoot,
+          selections,
+          workspacePolicy: { project_creation_disabled: true },
+        }),
+      ).rejects.toMatchObject({ code: 'PROJECT_CREATION_DISABLED' });
+
+      // No artifacts written — the project root stays empty.
+      expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/project-profile.yaml'))).toBe(false);
+    });
+
+    it('blocks with REGISTRY_CORRUPTED when the existing manifest is corrupt', async () => {
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      writeFileSync(join(projectRoot, PATHS.ONBOARDING_MANIFEST), '{ not valid json');
+
+      await expect(
+        new OnboardingOrchestrator().run({ projectRoot, selections }),
+      ).rejects.toBeInstanceOf(FrameworkError);
+      await expect(
+        new OnboardingOrchestrator().run({ projectRoot, selections }),
+      ).rejects.toMatchObject({ code: 'REGISTRY_CORRUPTED' });
+    });
+
+    it('does not overwrite an existing CLAUDE.md on a re-run, but does with forceOverwrite', async () => {
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      const claudePath = join(projectRoot, 'CLAUDE.md');
+      writeFileSync(claudePath, '# user-customised entry\n');
+
+      // Default re-run leaves the project-owned entry file untouched.
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+      expect(readFileSync(claudePath, 'utf8')).toBe('# user-customised entry\n');
+
+      // forceOverwrite regenerates it.
+      await new OnboardingOrchestrator().run({ projectRoot, selections, forceOverwrite: true });
+      expect(readFileSync(claudePath, 'utf8')).not.toBe('# user-customised entry\n');
+      expect(readFileSync(claudePath, 'utf8')).toContain('create documentation');
+    });
+
+    it('resumes from a checkpoint, skipping already-written files and producing the remainder', async () => {
+      // Simulate an interrupted run: cache.json was written, then the process died
+      // before the rest. The checkpoint records it as done.
+      mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+      const cachePath = join(projectRoot, '.claude/cache.json');
+      writeFileSync(cachePath, '{"sentinel":true}');
+      writeOnboardingCheckpoint(projectRoot, ['.claude/cache.json']);
+
+      const output = await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      // The checkpointed file is skipped (not regenerated) and not reported as written.
+      expect(readFileSync(cachePath, 'utf8')).toBe('{"sentinel":true}');
+      expect(output.generated_files).not.toContain('.claude/cache.json');
+      // The remainder is produced.
+      expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
+      // A clean finish clears the checkpoint.
+      expect(readOnboardingCheckpoint(projectRoot)).toBeNull();
+    });
+
+    it('translates an ENOSPC disk-full error into a clean DISK_FULL FrameworkError', async () => {
+      // Simulate the disk filling up mid-write: the core file batch throws ENOSPC.
+      // (node:fs itself cannot be spied under ESM, so we fail the orchestrator's
+      // own write entry point, which is exactly what the disk-full guard wraps.)
+      const fileWriter = await import('@/onboarding/file-writer.js');
+      const spy = vi.spyOn(fileWriter, 'writeGeneratedFiles').mockImplementation(() => {
+        const error = new Error('ENOSPC: no space left on device') as NodeJS.ErrnoException;
+        error.code = 'ENOSPC';
+        throw error;
+      });
+
+      try {
+        await expect(
+          new OnboardingOrchestrator().run({ projectRoot, selections }),
+        ).rejects.toMatchObject({ code: 'DISK_FULL', retryable: true });
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   it('throws when profile overrides make the profile invalid', async () => {

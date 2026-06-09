@@ -26,9 +26,12 @@ vi.mock('@/cli/ui/decision-screen.js', () => ({
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
-import { readDecisionAuditEvents, SliceExecutor } from '@/planning/index.js';
+import { EngineEventBus, type EngineEvent } from '@/event-bus/index.js';
+import { DecisionStore, readDecisionAuditEvents, SliceExecutor } from '@/planning/index.js';
 
 import { createManifest } from './fixtures.js';
+
+const flushMicrotasks = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('slice executor decision flow', () => {
   beforeEach(() => {
@@ -1076,6 +1079,205 @@ describe('slice executor decision flow', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  describe('PQD-101 decision-pause event streaming', () => {
+    it('streams decision-paused and decision-resolved through the unified event bus', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'slice-decision-events-'));
+      try {
+        mockPromptForDecision.mockResolvedValue({
+          chosen_option_key: 'reuse-existing',
+          intent: 'explicit',
+          explanation_rounds_used: 1,
+          responded_at: '2026-04-27T12:01:00Z',
+          responded_by: 'haider',
+          carry_over_scope: 'none',
+        });
+
+        const manifest = createManifest({
+          execution_slices: [
+            {
+              ...createManifest().execution_slices[0],
+              goal: 'Should we reuse existing code or create new support?',
+              touches: ['src/planning/index.ts'],
+            },
+          ],
+        });
+        mkdirSync(join(root, 'src/planning'), { recursive: true });
+        mkdirSync(join(root, PATHS.PLANNING_SPECS_DIR), { recursive: true });
+        writeStrictProfile(root);
+        writeFileSync(join(root, 'src/planning/index.ts'), 'export const value = 1;\n', 'utf8');
+        writeFileSync(
+          join(root, PATHS.PLANNING_SPECS_DIR, `${manifest.slug}.yaml`),
+          YAML.stringify(manifest),
+          'utf8',
+        );
+
+        const bus = new EngineEventBus();
+        const events: EngineEvent[] = [];
+        bus.subscribe((event) => events.push(event));
+
+        await new SliceExecutor().execute(root, manifest.slug, {
+          executeSlice: vi.fn().mockResolvedValue({
+            tokens_used: 10,
+            files_changed: ['src/planning/index.ts'],
+            change_summary: 'updated existing file',
+          }),
+          criteriaRunner: vi.fn().mockResolvedValue({ passed: true }),
+          regressionRunner: vi.fn().mockResolvedValue({ passed: true }),
+          fullSuiteRunner: vi.fn().mockResolvedValue({
+            total_tests: 1,
+            passing: 1,
+            failing: 0,
+            failing_tests: [],
+            duration_ms: 10,
+          }),
+          eventBus: bus,
+        });
+        await flushMicrotasks();
+
+        const paused = events.find((event) => event.kind === 'decision-paused');
+        const resolved = events.find((event) => event.kind === 'decision-resolved');
+        expect(paused).toMatchObject({
+          kind: 'decision-paused',
+          decisionId: 'D-2',
+          packetPath: `${PATHS.DECISIONS_PENDING_DIR}/D-2.json`,
+        });
+        expect(resolved).toMatchObject({
+          kind: 'decision-resolved',
+          decisionId: 'D-2',
+          chosenOptionKey: 'reuse-existing',
+          resolver: 'human',
+        });
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('emits decision-packet-corrupt when a pending file is malformed', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'slice-decision-corrupt-'));
+      try {
+        mockPromptForMalformedDecision.mockResolvedValue('continue');
+        mockPromptForDecision.mockResolvedValue({
+          chosen_option_key: 'reuse-existing',
+          intent: 'explicit',
+          explanation_rounds_used: 0,
+          responded_at: '2026-04-27T12:01:00Z',
+          responded_by: 'haider',
+          carry_over_scope: 'none',
+        });
+
+        const manifest = createManifest({
+          execution_slices: [
+            {
+              ...createManifest().execution_slices[0],
+              goal: 'Should we reuse existing code or create new support?',
+              touches: ['src/planning/index.ts'],
+            },
+          ],
+        });
+        mkdirSync(join(root, 'src/planning'), { recursive: true });
+        mkdirSync(join(root, PATHS.PLANNING_SPECS_DIR), { recursive: true });
+        writeStrictProfile(root);
+        writeFileSync(join(root, 'src/planning/index.ts'), 'export const value = 1;\n', 'utf8');
+        writeFileSync(
+          join(root, PATHS.PLANNING_SPECS_DIR, `${manifest.slug}.yaml`),
+          YAML.stringify(manifest),
+          'utf8',
+        );
+        mkdirSync(join(root, PATHS.DECISIONS_PENDING_DIR), { recursive: true });
+        writeFileSync(join(root, PATHS.DECISIONS_PENDING_DIR, 'D-9.json'), '{bad', 'utf8');
+
+        const bus = new EngineEventBus();
+        const events: EngineEvent[] = [];
+        bus.subscribe((event) => events.push(event));
+
+        await new SliceExecutor().execute(root, manifest.slug, {
+          executeSlice: vi.fn().mockResolvedValue({
+            tokens_used: 10,
+            files_changed: ['src/planning/index.ts'],
+            change_summary: 'updated existing file',
+          }),
+          criteriaRunner: vi.fn().mockResolvedValue({ passed: true }),
+          regressionRunner: vi.fn().mockResolvedValue({ passed: true }),
+          fullSuiteRunner: vi.fn().mockResolvedValue({
+            total_tests: 1,
+            passing: 1,
+            failing: 0,
+            failing_tests: [],
+            duration_ms: 10,
+          }),
+          eventBus: bus,
+        });
+        await flushMicrotasks();
+
+        const corrupt = events.find((event) => event.kind === 'decision-packet-corrupt');
+        expect(corrupt).toMatchObject({ kind: 'decision-packet-corrupt', decisionId: 'D-9' });
+        expect(
+          corrupt?.kind === 'decision-packet-corrupt' && corrupt.reason.length,
+        ).toBeGreaterThan(0);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('discardDecision removes the pending packet and streams decision-discarded', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'slice-decision-discard-'));
+      try {
+        const store = new DecisionStore(root);
+        store.initialize();
+        store.writePending({
+          decision_id: 'D-3',
+          fingerprint: 'sha256:test',
+          category: 'component-reuse',
+          question: 'Use the Button we have?',
+          context: 'Adding a dashboard action.',
+          options: [
+            {
+              option_key: 'reuse-button',
+              label: 'Reuse Button',
+              one_line_preview: 'If you pick this, we will update src/components/Button.tsx.',
+              trade_off: 'You give up: a fresh design.',
+              evidence: { file: 'src/components/Button.tsx', callers: 3 },
+            },
+            {
+              option_key: 'make-new',
+              label: 'Make new Button',
+              one_line_preview: 'If you pick this, we will create src/components/ButtonV2.tsx.',
+              trade_off: 'You give up: one shared place.',
+              evidence: { file: 'src/components/ButtonV2.tsx', evidence_partial: true },
+            },
+          ],
+          confidence: 0.72,
+          requested_by: 'codex-cli',
+          task_session_id: 'session-1',
+          created_at: '2026-04-27T12:00:00Z',
+          status: 'pending',
+          ttl_until: '2099-12-31T12:00:00Z',
+          invalidation_watch: [],
+        });
+
+        const bus = new EngineEventBus();
+        const events: EngineEvent[] = [];
+        bus.subscribe((event) => events.push(event));
+
+        const removed = new SliceExecutor().discardDecision(root, 'D-3', 'superseded', bus);
+        await flushMicrotasks();
+
+        expect(removed?.decision_id).toBe('D-3');
+        expect(existsSync(join(root, PATHS.DECISIONS_PENDING_DIR, 'D-3.json'))).toBe(false);
+        expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-3.json'))).toBe(false);
+        expect(events.find((event) => event.kind === 'decision-discarded')).toMatchObject({
+          kind: 'decision-discarded',
+          decisionId: 'D-3',
+          reason: 'superseded',
+        });
+        // An unknown id returns null without throwing.
+        expect(new SliceExecutor().discardDecision(root, 'D-404', 'gone', bus)).toBeNull();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 });
 

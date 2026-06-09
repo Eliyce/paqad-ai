@@ -50,6 +50,61 @@ export interface SummarizedTurn {
   summary_tokens: number;
 }
 
+// ── PQD-169: inference-backed rolling summary with speaker attribution ───────
+//
+// `TurnSummarizer.summarise` collapses older user+assistant turns into a single
+// attributed summary, leaving decision/approval turns for the caller to keep
+// verbatim. These types describe its input messages and its result.
+
+/**
+ * A conversation turn handed to `TurnSummarizer.summarise`. Turns flagged
+ * `decision_packet` or `approval_turn` are excluded from the collapsed span and
+ * their ids are reported in `preserved_turn_ids` for the caller to re-insert.
+ *
+ * @since 1.10.0
+ */
+export interface SummarisationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  turn_id: string;
+  decision_packet?: boolean;
+  approval_turn?: boolean;
+}
+
+/**
+ * Successful rolling-summary result. `summary_token_count` is a best-effort
+ * estimate (character/4) and never exceeds the 2,000-token hard cap.
+ *
+ * @since 1.10.0
+ */
+export interface SummariseSuccess {
+  ok: true;
+  summary_text: string;
+  valid_through_turn_id: string;
+  input_token_count: number;
+  summary_token_count: number;
+  truncated: boolean;
+  preserved_turn_ids: string[];
+}
+
+/**
+ * Failure result: an explicit, non-partial outcome so the caller can fall back
+ * to drop-oldest without overwriting the last-known-good summary.
+ *
+ * @since 1.10.0
+ */
+export interface SummariseFailure {
+  ok: false;
+  error: 'inference-failed' | 'timeout' | 'cancelled';
+}
+
+/**
+ * Discriminated union on `ok` returned by `TurnSummarizer.summarise`.
+ *
+ * @since 1.10.0
+ */
+export type SummariseResult = SummariseSuccess | SummariseFailure;
+
 export interface BudgetOptimizerState {
   tier: BudgetTier;
   tokens_used: number;
@@ -73,4 +128,199 @@ export interface DeduplicationStats {
   total_artifacts: number;
   deduplicated: number;
   tokens_saved_estimate: number;
+}
+
+// ── PQD-167: per-turn context budget breakdown ──────────────────────────────
+//
+// The desktop renders a faithful budget indicator and the optimizer decides
+// whether to compress, both from a single token-by-token breakdown of how the
+// active model's context window is consumed. These types describe the call's
+// input and result; the computation lives in `ContextBudgetEnforcer.computeBudget`.
+
+/**
+ * Minimal model-catalog shape needed to size a context window. Aligns with the
+ * desktop's `ModelMeta.contextWindowTokens` (spec 106) so the two repos agree on
+ * the field name when they integrate.
+ *
+ * @since 1.10.0
+ */
+export interface ModelCatalogEntry {
+  /** Total tokens the model's context window can hold. */
+  context_window_tokens: number;
+  /** Maximum tokens the model may emit; caps `reserved_output_tokens` when set. */
+  max_output_tokens?: number;
+  /** Tokenizer identifier; selects (and is reported by) the tokenizer used. */
+  tokenizer_version: string;
+}
+
+/**
+ * Workspace `context_compression_aggression` policy. Separate from the
+ * optimizer's `BudgetOptimizerConfig.strategy` (which uses `balanced`): the two
+ * remain intentionally distinct so neither change drags the other.
+ *
+ * @since 1.10.0
+ */
+export type WorkspaceCompressionPolicy = 'standard' | 'aggressive' | 'conservative';
+
+/**
+ * Usage band the breakdown falls into, derived from the active compression
+ * policy's thresholds. Distinct from `BudgetTier` (`green/yellow/amber/red`).
+ *
+ * @since 1.10.0
+ */
+export type BudgetBand = 'comfortable' | 'tightening' | 'compressed' | 'force-summary';
+
+/**
+ * Fully-assembled per-turn context slices plus the active model and policy.
+ * Slices are raw strings; the engine tokenizes them.
+ *
+ * @since 1.10.0
+ */
+export interface ComputeBudgetInput {
+  system_prompt: string;
+  project_knowledge: string;
+  retrieved_chunks: string[];
+  /** `null` when no rolling summary exists yet. */
+  rolling_summary: string | null;
+  recent_turns: string;
+  new_user_message: string;
+  /** Requested reserved output tokens; capped to `model.max_output_tokens`. */
+  reserved_output_tokens: number;
+  model: ModelCatalogEntry;
+  compression_policy: WorkspaceCompressionPolicy;
+}
+
+/**
+ * Audit record attached when one or more retrieved chunks were dropped because
+ * a single chunk's token cost exceeded the remaining available budget.
+ *
+ * @since 1.10.0
+ */
+export interface CompressionAuditRecord {
+  event: 'context.compression_applied';
+  reason: 'chunk_exceeds_budget';
+  dropped_chunk_count: number;
+}
+
+/**
+ * Successful budget breakdown: every slice's token cost, the total, the
+ * percentage of the active window in use, and the band.
+ *
+ * @since 1.10.0
+ */
+export interface BudgetBreakdownSuccess {
+  ok: true;
+  system_prompt_tokens: number;
+  project_knowledge_tokens: number;
+  retrieved_chunks_tokens: number;
+  /** `"—"` sentinel when no rolling summary exists yet (see `ComputeBudgetInput`). */
+  rolling_summary_tokens: number | '—';
+  recent_turns_tokens: number;
+  new_user_message_tokens: number;
+  reserved_output_tokens: number;
+  total_used: number;
+  usage_pct: number;
+  band: BudgetBand;
+  tokenizer_version: string;
+  dropped_chunk_count: number;
+  compression_audit?: CompressionAuditRecord;
+}
+
+/**
+ * Error breakdown returned when the model catalog entry has no
+ * `context_window_tokens`; no default window is ever substituted.
+ *
+ * @since 1.10.0
+ */
+export interface BudgetBreakdownError {
+  ok: false;
+  error: string;
+  missing_field: 'context_window_tokens';
+}
+
+/**
+ * Discriminated union on `ok` returned by `ContextBudgetEnforcer.computeBudget`.
+ *
+ * @since 1.10.0
+ */
+export type BudgetBreakdown = BudgetBreakdownSuccess | BudgetBreakdownError;
+
+// ── PQD-172: per-turn priority tagging + decision-packet collapse protection ──
+//
+// `PriorityClassifier.tag` labels each conversation turn so the context-window
+// loop knows which turns it may collapse and which it must keep verbatim. Turns
+// flagged `decision_packet` or `approval_turn` carry a hard `high` invariant that
+// the classifier model can never lower. Distinct from `ContextSegmentPriority`
+// (`critical/high/medium/low`, segment-scoped): turn tags are a three-value scale.
+
+/**
+ * Priority tag assigned to a single conversation turn. Three values, distinct
+ * from the four-value `ContextSegmentPriority.tier`: turns have no `critical`
+ * band — protected turns occupy `high`.
+ *
+ * @since 1.10.0
+ */
+export type TurnPriority = 'high' | 'normal' | 'low';
+
+/**
+ * A conversation turn handed to `PriorityClassifier.tag`. `decision_packet` and
+ * `approval_turn` mark protected turns that must always resolve to `high`. An
+ * incoming `priority` carries a tag from a prior pass so re-tagging a protected
+ * turn that is already `high` is a silent no-op (the re-tag guard).
+ *
+ * @since 1.10.0
+ */
+export interface TurnInput {
+  turn_id: string;
+  text: string;
+  decision_packet?: boolean;
+  approval_turn?: boolean;
+  priority?: TurnPriority;
+}
+
+/**
+ * A turn with its resolved priority. Same shape as `TurnInput` but `priority` is
+ * required.
+ *
+ * @since 1.10.0
+ */
+export interface TaggedTurn extends TurnInput {
+  priority: TurnPriority;
+}
+
+/**
+ * Audit record emitted when the classifier model returned a non-`high` tag for a
+ * protected turn and the engine corrected it. The desktop surfaces these as
+ * `context.context_health_warning` events.
+ *
+ * @since 1.10.0
+ */
+export interface ContextHealthWarning {
+  type: 'context.context_health_warning';
+  reason: 'priority_invariant_breach';
+  turn_id: string;
+  classifier_returned: TurnPriority;
+  corrected_to: 'high';
+}
+
+/**
+ * Result of `PriorityClassifier.tag`: every input turn tagged, plus any
+ * invariant-breach warnings raised while correcting protected turns.
+ *
+ * @since 1.10.0
+ */
+export interface TurnTagResult {
+  tagged: TaggedTurn[];
+  warnings: ContextHealthWarning[];
+}
+
+/**
+ * Caller-supplied policy snapshot for `PriorityClassifier.tag`. `all_normal`
+ * (workspace priority-shaping disabled) flattens ordinary turns to `normal`
+ * while protected turns still resolve to `high`. Absent means `false`.
+ *
+ * @since 1.10.0
+ */
+export interface TurnTagPolicy {
+  all_normal?: boolean;
 }

@@ -12,7 +12,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LoadedStackPack } from '@/core/types/pack.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
+import type { EngineLogEntry } from '@/core/types/logger.js';
 import { RagFileFilter } from '@/rag/file-filter.js';
+
+/** Installs a recording engine logger and returns the entries it receives. */
+function captureEngineLogs(): EngineLogEntry[] {
+  const entries: EngineLogEntry[] = [];
+  setEngineLogger({ log: (entry) => void entries.push(entry) });
+  return entries;
+}
 
 function createPack(options?: {
   extensions?: string[];
@@ -66,6 +75,7 @@ describe('RagFileFilter', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    clearEngineLogger();
     for (const root of tempRoots.splice(0)) {
       rmSync(root, { recursive: true, force: true });
     }
@@ -206,7 +216,7 @@ describe('RagFileFilter', () => {
 
   it('ignores negation rules in nested gitignores without warning', async () => {
     const root = makeRoot();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logs = captureEngineLogs();
     writeProjectFile(root, 'storage/logs/.gitignore', '*\n!.gitignore\n');
     writeText(root, 'storage/logs/app.md', 'log');
 
@@ -216,7 +226,7 @@ describe('RagFileFilter', () => {
     });
 
     await expect(filter.discoverFiles()).resolves.not.toContain(join(root, 'storage/logs/app.md'));
-    expect(warn).not.toHaveBeenCalled();
+    expect(logs).toHaveLength(0);
   });
 
   it('emits discovery progress before and during filtering', async () => {
@@ -272,7 +282,7 @@ describe('RagFileFilter', () => {
 
   it('falls back safely when rag.ignore.yaml is invalid', async () => {
     const root = makeRoot();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logs = captureEngineLogs();
     writeRagConfig(root, 'version: nope\nexclude: [docs/**]');
     writeText(root, 'docs/guide.md', 'guide');
 
@@ -282,12 +292,12 @@ describe('RagFileFilter', () => {
     });
 
     await expect(filter.discoverFiles()).resolves.toContain(join(root, 'docs/guide.md'));
-    expect(warn).toHaveBeenCalled();
+    expect(logs.some((entry) => entry.level === 'warn')).toBe(true);
   });
 
   it('falls back safely when rag.ignore.yaml cannot be parsed as yaml', async () => {
     const root = makeRoot();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logs = captureEngineLogs();
     writeRagConfig(root, 'version: [unterminated');
     writeText(root, 'docs/guide.md', 'guide');
 
@@ -297,7 +307,7 @@ describe('RagFileFilter', () => {
     });
 
     await expect(filter.discoverFiles()).resolves.toContain(join(root, 'docs/guide.md'));
-    expect(warn).toHaveBeenCalled();
+    expect(logs.some((entry) => entry.level === 'warn')).toBe(true);
   });
 
   it('applies size and content guards at layer 4', async () => {
@@ -458,7 +468,7 @@ describe('RagFileFilter', () => {
 
   it('skips unreadable and invalid-utf8 files with warnings', async () => {
     const root = makeRoot();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logs = captureEngineLogs();
     const unreadablePath = writeText(root, 'docs/private.md', 'private');
     const invalidUtf8Path = writeProjectFile(
       root,
@@ -477,7 +487,7 @@ describe('RagFileFilter', () => {
 
     expect(files).not.toContain(unreadablePath);
     expect(files).not.toContain(invalidUtf8Path);
-    expect(warn).toHaveBeenCalled();
+    expect(logs.some((entry) => entry.level === 'warn')).toBe(true);
 
     chmodSync(unreadablePath, 0o644);
   });

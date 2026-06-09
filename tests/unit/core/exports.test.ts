@@ -21,6 +21,7 @@ import {
   HOOK_EXIT_CODES,
   HOOK_TRIGGERS,
   MCP_SERVER_TYPES,
+  PAQAD_SCHEMA_VERSION,
   PLAN_MODES,
   PLANNING_LANES,
   PLANNING_MANIFEST_VERSION,
@@ -40,10 +41,22 @@ import {
   SUPPORTED_CAPABILITIES,
   SUPPORTED_DOMAINS,
   SUPPORTED_STACKS,
+  STABILITY_LEVELS,
   UI_IMPACTS,
   VERIFICATION_GATES,
   VERSION,
+  VERSION_UNKNOWN,
+  MIN_CONSUMER_VERSION,
+  getEngineVersionReport,
+  compareConsumerCompatibility,
   getFrameworkName,
+  listErrorTaxonomy,
+  ENGINE_ERROR_CODES,
+  FrameworkError,
+  DecisionPacketCorruptError,
+  VectorIndexStorageError,
+  WorkflowAlreadyRunningError,
+  UnknownEngineError,
 } from '@/index';
 
 const packageVersion = JSON.parse(
@@ -54,6 +67,30 @@ describe('core export surface', () => {
   it('re-exports the package identity', () => {
     expect(VERSION).toBe(packageVersion);
     expect(getFrameworkName()).toBe('paqad-ai');
+  });
+
+  it('re-exports the engine version report surface (PQD-106)', () => {
+    expect(VERSION_UNKNOWN).toBe('version unknown');
+    expect(MIN_CONSUMER_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+    const report = getEngineVersionReport();
+    expect(report.engineVersion).toBe(packageVersion);
+    expect(report.minConsumerVersion).toBe(MIN_CONSUMER_VERSION);
+    expect(compareConsumerCompatibility(MIN_CONSUMER_VERSION, report)).toBe('ok');
+  });
+
+  it('re-exports the error taxonomy surface (PQD-107)', () => {
+    expect(ENGINE_ERROR_CODES.UNKNOWN_ENGINE_ERROR).toBe('UNKNOWN_ENGINE_ERROR');
+    const taxonomy = listErrorTaxonomy();
+    expect(taxonomy.length).toBe(Object.keys(ENGINE_ERROR_CODES).length);
+    // Typed subclasses are importable from the package root and carry their code.
+    const corrupt = new DecisionPacketCorruptError('x', { decision_id: 'd', reason: 'r' });
+    expect(corrupt).toBeInstanceOf(FrameworkError);
+    expect(corrupt.code).toBe('DECISION_PACKET_CORRUPT');
+    expect(new VectorIndexStorageError('x', { index: 'file', reason: 'r' }).retryable).toBe(true);
+    expect(new WorkflowAlreadyRunningError('x', { workflow: 'w' }).code).toBe(
+      'WORKFLOW_ALREADY_RUNNING',
+    );
+    expect(new UnknownEngineError('x').code).toBe('UNKNOWN_ENGINE_ERROR');
   });
 
   it('re-exports the supported domains, stacks, and capabilities', () => {
@@ -139,9 +176,10 @@ describe('core export surface', () => {
     expect(PIPELINE_PHASES).toContain('verification-gates');
     expect(PIPELINE_PHASES).toContain('pentest');
     expect(PIPELINE_PHASES).toContain('pentest-retest');
-    expect(VERIFICATION_GATES).toHaveLength(15);
+    expect(VERIFICATION_GATES).toHaveLength(16);
     expect(VERIFICATION_GATES[0]).toBe('change-completeness');
     expect(VERIFICATION_GATES).toContain('quality-ratchet');
+    expect(VERIFICATION_GATES).toContain('extension-surface');
     expect(REVIEW_TIERS).toEqual(['full', 'standard', 'spot-check']);
     expect(REVIEW_MODES).toEqual(['fresh', 'diff']);
     expect(FINDING_SEVERITIES).toEqual(['critical', 'high', 'medium', 'low']);
@@ -197,6 +235,14 @@ describe('core export surface', () => {
     expect(AGENT_ROLES).toContain('reviewer');
     expect(DOC_TYPES).toContain('error-catalog');
     expect(HEALTH_CHECK_STATUSES).toEqual(['pass', 'fail', 'warning']);
+  });
+
+  it('re-exports the extension-surface stability vocabulary', () => {
+    expect(STABILITY_LEVELS).toEqual(['stable', 'beta', 'alpha', 'internal']);
+  });
+
+  it('re-exports the cross-artifact schema version baseline (PQD-95)', () => {
+    expect(PAQAD_SCHEMA_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it('re-exports planning manifest constants', () => {

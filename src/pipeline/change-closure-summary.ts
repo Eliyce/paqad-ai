@@ -8,6 +8,12 @@ export interface BuildChangeClosureSummaryInput {
   phases: PhaseResult[];
   verification_results?: GateResult[];
   verification_context?: VerificationContext;
+  /**
+   * Forces the summary to `blocked` with this reason when no failing phase/gate
+   * already supplies one. Used for consumer-cancelled runs (PQD-104), whose
+   * interrupted phase never produced a fail result of its own.
+   */
+  forced_blocking_reason?: string;
 }
 
 export function buildChangeClosureSummary(
@@ -20,9 +26,12 @@ export function buildChangeClosureSummary(
   const canonicalDocsChanged = input.changed_files.some((filePath) => isCanonicalDocPath(filePath));
   const blockingGate = input.verification_results?.find((result) => !result.passed) ?? null;
   const blockingPhase = input.phases.find((phase) => phase.status === 'fail') ?? null;
-  const primaryBlockingReason = blockingGate
-    ? `${blockingGate.gate}: ${blockingGate.detail}`
-    : (blockingPhase?.summary ?? null);
+  const primaryBlockingReason =
+    (blockingGate
+      ? `${blockingGate.gate}: ${blockingGate.detail}`
+      : (blockingPhase?.summary ?? null)) ??
+    input.forced_blocking_reason ??
+    null;
   const blocked = primaryBlockingReason !== null;
 
   return {

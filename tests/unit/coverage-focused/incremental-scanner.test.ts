@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileCheckMapper } from '@/pentest/file-check-mapper.js';
 import { IncrementalScanner } from '@/pentest/incremental-scanner.js';
+import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
+import type { EngineLogEntry } from '@/core/types/logger.js';
 
 vi.mock('execa', () => ({
   execa: vi.fn(),
@@ -22,11 +24,13 @@ describe('IncrementalScanner', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    clearEngineLogger();
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
   it('uses git diff results and warns when the last full scan is stale', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logs: EngineLogEntry[] = [];
+    setEngineLogger({ log: (entry) => void logs.push(entry) });
     vi.mocked(execa).mockResolvedValue({
       stdout: 'src/auth.ts\nconfig/app.ts\n',
     } as never);
@@ -66,7 +70,12 @@ describe('IncrementalScanner', () => {
     );
     expect(result.narrowed_scope.files_in_scope).toEqual(['src/auth.ts', 'config/app.ts']);
     expect(result.no_security_changes).toBe(false);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Last full pentest was'));
+    expect(logs).toContainEqual(
+      expect.objectContaining({
+        level: 'warn',
+        message: expect.stringContaining('Last full pentest was'),
+      }),
+    );
   });
 
   it('falls back to hash diff and treats deleted files as changed', async () => {

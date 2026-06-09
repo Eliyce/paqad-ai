@@ -3,6 +3,7 @@ import { readdir } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 
 import { ChunkIndexManager } from '@/context/chunk-index.js';
+import { stripTrailingChars } from '@/core/path-utils.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { AffectedModule } from '@/core/types/pre-classification.js';
 import { RagService } from '@/rag/service.js';
@@ -51,7 +52,7 @@ export class ModuleResolver {
     const resolved: AffectedModule[] = [];
 
     for (const match of matches) {
-      const normalized = match.replace(/\\/g, '/').replace(/[.,:;!?]+$/, '');
+      const normalized = stripTrailingChars(match.replace(/\\/g, '/'), '.,:;!?');
       const absolute = join(this.root, normalized);
       if (existsSync(absolute)) {
         resolved.push({
@@ -193,7 +194,7 @@ function dedupeModules(modules: AffectedModule[]): AffectedModule[] {
 }
 
 function trimKnownExtension(filePath: string): string {
-  return filePath.replace(KNOWN_EXTENSIONS, '').replace(/\/+$/, '');
+  return stripTrailingChars(filePath.replace(KNOWN_EXTENSIONS, ''), '/');
 }
 
 function apiPrefixesForFramework(framework: string): string[] {

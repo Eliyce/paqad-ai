@@ -1,13 +1,38 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ValidationError } from '@/core/errors/index.js';
+import { PATHS } from '@/core/constants/paths.js';
+import {
+  SkillAuditBuffer,
+  type SkillLoadFailedEvent,
+  readSkillAuditEvents,
+} from '@/skills/audit-events.js';
 import { SkillLoader } from '@/skills/loader.js';
 
 import { fixtureResolvedArtifact } from './shared.fixture.js';
+
+/**
+ * A malformed SKILL.md is now excluded (not thrown) and recorded as a
+ * `skill.load_failed` audit event (PQD-194). This drives an injected buffer so
+ * the assertion is deterministic and needs no disk.
+ */
+async function expectLoadFailure(skillFile: string, expectedCode: string): Promise<void> {
+  const buffer = new SkillAuditBuffer();
+  const skills = await new SkillLoader(buffer).load([fixtureResolvedArtifact(skillFile)]);
+
+  expect(skills).toEqual([]);
+  expect(buffer.snapshot()).toHaveLength(1);
+  const [event] = buffer.snapshot() as SkillLoadFailedEvent[];
+  expect(event.type).toBe('skill.load_failed');
+  expect(event.path).toBe(skillFile);
+  expect(event.skill_id).toBeNull();
+  expect(event.validation_error_code).toBe(expectedCode);
+  expect(event.message).toBeTruthy();
+  expect(event.content_hash).toMatch(/^[a-f0-9]{64}$/u);
+}
 
 describe('SkillLoader', () => {
   it('parses valid SKILL.md frontmatter', async () => {
@@ -76,9 +101,7 @@ ${body}
 `,
     );
 
-    await expect(
-      new SkillLoader().load([fixtureResolvedArtifact(skillFile)]),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expectLoadFailure(skillFile, 'SKILL_LINE_LIMIT_EXCEEDED');
   });
 
   it('rejects SKILL.md without model_tier', async () => {
@@ -106,9 +129,7 @@ Broken.
 `,
     );
 
-    await expect(
-      new SkillLoader().load([fixtureResolvedArtifact(skillFile)]),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expectLoadFailure(skillFile, 'SKILL_FIELD_INVALID:model_tier');
   });
 
   it('loads skills from resolved artifacts', async () => {
@@ -168,6 +189,119 @@ Beta body.
     ]);
 
     expect(skills.map((skill) => skill.name)).toEqual(['alpha', 'beta']);
+  });
+
+  it('excludes only the malformed file and still loads the valid skills', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skills-'));
+    const projectRoot = join(root, 'project');
+    mkdirSync(projectRoot, { recursive: true });
+    const validSkill = join(root, 'valid.SKILL.md');
+    const brokenSkill = join(root, 'broken.SKILL.md');
+
+    writeFileSync(
+      validSkill,
+      `---
+name: valid
+description: Valid skill
+model_tier: fast
+triggers:
+  - workflow: [feature-development]
+cacheable: false
+cache_key_inputs: []
+output_format: markdown
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Request text
+---
+
+Valid body.
+`,
+    );
+    writeFileSync(brokenSkill, `---\nname: broken\n---\n\nNo required fields.\n`);
+
+    const skills = await new SkillLoader().load(
+      [fixtureResolvedArtifact(validSkill), fixtureResolvedArtifact(brokenSkill)],
+      projectRoot,
+    );
+
+    expect(skills.map((skill) => skill.name)).toEqual(['valid']);
+
+    const events = readSkillAuditEvents(projectRoot) as SkillLoadFailedEvent[];
+    expect(events).toHaveLength(1);
+    expect(events[0]?.path).toBe(brokenSkill);
+    expect(events[0]?.type).toBe('skill.load_failed');
+  });
+
+  it('writes the failure event to disk when a projectRoot is supplied', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skills-'));
+    const projectRoot = join(root, 'project');
+    mkdirSync(projectRoot, { recursive: true });
+    const brokenSkill = join(root, 'broken.SKILL.md');
+    writeFileSync(brokenSkill, `---\nname: broken\n---\n\nNo required fields.\n`);
+
+    await new SkillLoader().load([fixtureResolvedArtifact(brokenSkill)], projectRoot);
+
+    const logPath = join(projectRoot, PATHS.SKILL_AUDIT_EVENTS_LOG);
+    const raw = readFileSync(logPath, 'utf8').trim();
+    expect(raw.split('\n')).toHaveLength(1);
+    expect(JSON.parse(raw)).toMatchObject({ type: 'skill.load_failed', path: brokenSkill });
+  });
+
+  it('produces a stable content hash for the same unchanged malformed file', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skills-'));
+    const brokenSkill = join(root, 'broken.SKILL.md');
+    writeFileSync(brokenSkill, `---\nname: broken\n---\n\nNo required fields.\n`);
+
+    const firstBuffer = new SkillAuditBuffer();
+    await new SkillLoader(firstBuffer).load([fixtureResolvedArtifact(brokenSkill)]);
+    const secondBuffer = new SkillAuditBuffer();
+    await new SkillLoader(secondBuffer).load([fixtureResolvedArtifact(brokenSkill)]);
+
+    const [first] = firstBuffer.snapshot() as SkillLoadFailedEvent[];
+    const [second] = secondBuffer.snapshot() as SkillLoadFailedEvent[];
+    expect(first.content_hash).toBe(second.content_hash);
+  });
+
+  it('re-emits no event and loads the skill after the malformed file is fixed', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-skills-'));
+    const skillFile = join(root, 'will-be-fixed.SKILL.md');
+    writeFileSync(skillFile, `---\nname: will-be-fixed\n---\n\nBroken first.\n`);
+
+    const firstBuffer = new SkillAuditBuffer();
+    const firstPass = await new SkillLoader(firstBuffer).load([fixtureResolvedArtifact(skillFile)]);
+    expect(firstPass).toEqual([]);
+    expect(firstBuffer.snapshot()).toHaveLength(1);
+
+    writeFileSync(
+      skillFile,
+      `---
+name: will-be-fixed
+description: Now valid
+model_tier: fast
+triggers:
+  - workflow: [feature-development]
+cacheable: false
+cache_key_inputs: []
+output_format: markdown
+input_schema:
+  request_text:
+    type: string
+    required: true
+    description: Request text
+---
+
+Fixed body.
+`,
+    );
+
+    const secondBuffer = new SkillAuditBuffer();
+    const secondPass = await new SkillLoader(secondBuffer).load([
+      fixtureResolvedArtifact(skillFile),
+    ]);
+    expect(secondPass.map((skill) => skill.name)).toEqual(['will-be-fixed']);
+    expect(secondBuffer.snapshot()).toEqual([]);
   });
 
   it('sorts same-name skills by file path as a tie-breaker', async () => {
@@ -309,9 +443,7 @@ Body.
 `,
     );
 
-    await expect(
-      new SkillLoader().load([fixtureResolvedArtifact(skillFile)]),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expectLoadFailure(skillFile, 'SKILL_FIELD_INVALID:input_schema.request_text');
   });
 
   it('rejects invalid input_schema field types', async () => {
@@ -339,9 +471,7 @@ Body.
 `,
     );
 
-    await expect(
-      new SkillLoader().load([fixtureResolvedArtifact(skillFile)]),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expectLoadFailure(skillFile, 'SKILL_FIELD_INVALID:input_schema.request_text.type');
   });
 
   it('rejects empty input_schema objects', async () => {
@@ -366,9 +496,7 @@ Body.
 `,
     );
 
-    await expect(
-      new SkillLoader().load([fixtureResolvedArtifact(skillFile)]),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expectLoadFailure(skillFile, 'SKILL_FIELD_INVALID:input_schema');
   });
 
   it('rejects malformed on_complete blocks', async () => {
@@ -397,8 +525,6 @@ Body.
 `,
     );
 
-    await expect(
-      new SkillLoader().load([fixtureResolvedArtifact(skillFile)]),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expectLoadFailure(skillFile, 'SKILL_FIELD_INVALID:on_complete');
   });
 });

@@ -1,11 +1,17 @@
 export * from './budget-enforcer.js';
 export * from './budget-optimizer.js';
+export * from './tokenizer-cache.js';
 export * from './context-evictor.js';
 export * from './differential-refresh.js';
 export * from './file-registry-mapper.js';
 export * from './hit-tracker.js';
+export * from './inference-provider.js';
 export * from './priority-classifier.js';
 export * from './turn-summarizer.js';
+// PQD-171 - deterministic per-turn API conversation rebuild
+export * from './conversation-lineage.js';
+export * from './conversation-rebuild.js';
+export * from './rebuild-cache.js';
 // Feature 1 - Semantic Context Loader
 export * from './types.js';
 export * from './ast-chunker.js';

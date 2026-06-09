@@ -1,4 +1,7 @@
 export * from './constants/index.js';
 export * from './errors/index.js';
+export * from './logger-registry.js';
+export * from './logging/index.js';
 export * from './runtime-paths.js';
+export * from './schema-version.js';
 export * from './types/index.js';

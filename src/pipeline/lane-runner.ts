@@ -5,6 +5,7 @@ import { basename, dirname as pathDirname } from 'pathe';
 import fg from 'fast-glob';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { trimEdgeChars } from '@/core/path-utils.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import type {
   HandoffArtifact,
@@ -21,6 +22,7 @@ import { readProjectProfile } from '@/core/project-profile.js';
 import { Resolver } from '@/resolver/resolver.js';
 import type { ResolvedArtifact } from '@/core/types/resolution.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
+import type { RuntimeSkillRegistry } from '@/skills/runtime-registry.js';
 import { WorkflowEngine } from '@/workflows/engine.js';
 import { StepExecutor, type StepExecutionContext } from '@/workflows/step-executor.js';
 import type { WorkflowStep } from '@/workflows/types.js';
@@ -68,12 +70,27 @@ import {
   createActiveImplementationSession,
   writeActiveImplementationSession,
 } from '@/session/active-implementation.js';
+import { appendRunCancelledEvent } from '@/module-decisions/events.js';
 
 const PROJECT_SKILL_ROOTS = ['.codex/skills', '.claude/skills', '.gemini/skills', '.junie/skills'];
 
 export interface LaneRunnerOptions {
   projectRoot?: string;
   phaseOverrides?: Partial<Record<PipelinePhase, PhaseExecutor>>;
+  /** Optional registry of runtime-registered skills to merge into the available set. */
+  runtimeRegistry?: RuntimeSkillRegistry;
+}
+
+/** Per-call options for cancellable pipeline runs (PQD-104). */
+export interface LaneRunOptions {
+  /**
+   * Optional consumer cancellation signal. When it aborts, the run settles at
+   * the next phase boundary, resolves with a `PipelineResult` carrying
+   * `cancelled: true` and `blocked_at` set to the interrupted phase, writes the
+   * handoff artifact with `closure_summary.blocked === true`, and emits a single
+   * `run.cancelled` event.
+   */
+  signal?: AbortSignal;
 }
 
 const DEFAULT_PHASES: Record<PipelinePhase, PhaseExecutor> = {
@@ -106,25 +123,33 @@ export class LaneRunner {
   private readonly router = new PipelineRouter();
   private readonly projectRoot: string;
   private readonly phases: Record<PipelinePhase, PhaseExecutor>;
+  private readonly runtimeRegistry?: RuntimeSkillRegistry;
   private readonly skillParser = new SkillFrontmatterParser();
 
   constructor(options: LaneRunnerOptions = {}) {
     this.projectRoot = options.projectRoot ?? process.cwd();
+    this.runtimeRegistry = options.runtimeRegistry;
     this.phases = {
       ...DEFAULT_PHASES,
       ...options.phaseOverrides,
     };
   }
 
-  async runFullLane(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification, 'full');
+  async runFullLane(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, 'full', options);
   }
 
-  async run(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification);
+  async run(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, undefined, options);
   }
 
-  async runRequest(request: string): Promise<PipelineResult> {
+  async runRequest(request: string, options?: LaneRunOptions): Promise<PipelineResult> {
     const profile = readProjectProfile(this.projectRoot);
     const route = await new WorkflowRouterService({ projectRoot: this.projectRoot }).resolve(
       request,
@@ -136,20 +161,27 @@ export class LaneRunner {
       resolved_workflow: route,
     });
 
-    return this.runLane(classification);
+    return this.runLane(classification, undefined, options);
   }
 
-  async runGraduatedLane(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification, 'graduated');
+  async runGraduatedLane(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, 'graduated', options);
   }
 
-  async runFastLane(classification: ClassificationResult): Promise<PipelineResult> {
-    return this.runLane(classification, 'fast');
+  async runFastLane(
+    classification: ClassificationResult,
+    options?: LaneRunOptions,
+  ): Promise<PipelineResult> {
+    return this.runLane(classification, 'fast', options);
   }
 
   private async runLane(
     classification: ClassificationResult,
     forcedLane?: Lane,
+    options?: LaneRunOptions,
   ): Promise<PipelineResult> {
     if (classification.workflow === null) {
       const changeEvidence = await loadChangeEvidence(this.projectRoot);
@@ -192,9 +224,18 @@ export class LaneRunner {
       phases: [],
       feature_policy: featurePolicyResult.policy,
       policy_warnings: [...featurePolicyResult.warnings],
+      signal: options?.signal,
     };
+    const runId = randomUUID();
 
     for (const phaseName of phases) {
+      // Cancellation boundary: pre-flight (before the first phase) and between
+      // phases. An already-aborted signal returns here without executing any
+      // phase (PQD-104).
+      if (context.signal?.aborted) {
+        return this.cancelLaneRun(phaseName, context, classification, lane, analysisRoles, runId);
+      }
+
       const result = await this.phases[phaseName].execute(context);
       context.phases.push(result);
       await this.writeHandoffArtifact(
@@ -206,6 +247,11 @@ export class LaneRunner {
         context.verification_results,
         context.verification_context,
       );
+
+      // An abort that landed while this phase was running settles the run now.
+      if (context.signal?.aborted) {
+        return this.cancelLaneRun(phaseName, context, classification, lane, analysisRoles, runId);
+      }
 
       if (result.status === 'fail') {
         return {
@@ -380,6 +426,12 @@ export class LaneRunner {
       names.add(parsed.frontmatter.name);
     }
 
+    // Capture the runtime-skill snapshot once so a concurrent register()/remove()
+    // does not change the set mid-collection (AC3 — snapshot isolation).
+    for (const entry of this.runtimeRegistry?.snapshot() ?? []) {
+      names.add(entry.name);
+    }
+
     return names;
   }
 
@@ -416,7 +468,7 @@ export class LaneRunner {
       protected override async runStep(step: WorkflowStep): Promise<void> {
         const targetDir = join(projectRoot, PATHS.WORKFLOW_RUNS_DIR, workflowName, 'executions');
         const timestamp = new Date().toISOString();
-        const safeSkill = step.skill.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'step';
+        const safeSkill = trimEdgeChars(step.skill.replace(/[^a-z0-9]+/gi, '-'), '-') || 'step';
         const target = join(targetDir, `${timestamp}-${safeSkill}.json`);
 
         await mkdir(targetDir, { recursive: true });
@@ -437,6 +489,57 @@ export class LaneRunner {
     })();
   }
 
+  /**
+   * Settle a consumer-cancelled pipeline run (PQD-104): write the handoff
+   * artifact with a forced-blocked closure summary, emit exactly one
+   * `run.cancelled` event, and resolve with a `cancelled: true` result so the
+   * consumer never has to catch a thrown error.
+   */
+  private async cancelLaneRun(
+    phaseName: PipelinePhase,
+    context: PipelineRunContext,
+    classification: ClassificationResult,
+    lane: Lane,
+    analysisRoles: PipelineAnalysisRole[],
+    runId: string,
+  ): Promise<PipelineResult> {
+    const reason = `Run cancelled by consumer during phase "${phaseName}".`;
+    await this.writeHandoffArtifact(
+      phaseName,
+      context.phases,
+      classification,
+      lane,
+      context.policy_warnings,
+      context.verification_results,
+      context.verification_context,
+      reason,
+    );
+    appendRunCancelledEvent(this.projectRoot, runId, {
+      blocked_at: phaseName,
+      lane,
+      workflow: classification.workflow,
+    });
+    const changeEvidence = await loadChangeEvidence(this.projectRoot);
+    return {
+      lane,
+      phases: context.phases,
+      blocked_at: phaseName,
+      handoff_path: join(this.projectRoot, PATHS.HANDOFF),
+      analysisRoles,
+      reviewTier: selectImplementationReviewTier(classification, lane),
+      reviewMode: selectReviewMode(false, 0),
+      route_reason: reason,
+      cancelled: true,
+      closure_summary: buildChangeClosureSummary({
+        changed_files: changeEvidence.files,
+        phases: context.phases,
+        verification_results: context.verification_results,
+        verification_context: context.verification_context,
+        forced_blocking_reason: reason,
+      }),
+    };
+  }
+
   private async writeHandoffArtifact(
     currentPhase: PipelinePhase,
     phases: PhaseResult[],
@@ -445,6 +548,7 @@ export class LaneRunner {
     policyWarnings: string[],
     verificationResults?: PipelineRunContext['verification_results'],
     verificationContext?: PipelineRunContext['verification_context'],
+    cancellationReason?: string,
   ): Promise<void> {
     const changeEvidence = await loadChangeEvidence(this.projectRoot);
     const artifact: HandoffArtifact = {
@@ -474,6 +578,7 @@ export class LaneRunner {
         phases,
         verification_results: verificationResults,
         verification_context: verificationContext,
+        forced_blocking_reason: cancellationReason,
       }),
       references: {
         spec: 'docs/spec.md',

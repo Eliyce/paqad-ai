@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import fg from 'fast-glob';
 
+import { CancelledError } from '@/core/errors/cancelled-error.js';
+
 import { COMPLIANCE_SCHEMA_VERSION } from './constants.js';
 import { sha256Hex } from './markdown.js';
 import type {
@@ -24,6 +26,12 @@ export interface CheckComplianceOptions {
    */
   report_path?: string;
   spec_review?: SpecReviewReport | null;
+  /**
+   * Optional consumer cancellation signal (PQD-104). Checked before the test
+   * file scan and before the report is written; an abort throws `CancelledError`
+   * and writes no report.
+   */
+  signal?: AbortSignal;
 }
 
 const DEFAULT_TEST_GLOBS = ['tests/**/*.{test,spec}.{ts,tsx,js,jsx}', 'tests/**/*.test.ts'];
@@ -35,6 +43,11 @@ const TEST_CALL_PATTERN = /(?:it|test|describe)\s*\(\s*['"`]([^'"`\n]*)/g;
 export async function checkSpecCompliance(
   options: CheckComplianceOptions,
 ): Promise<ComplianceReport> {
+  // Pre-flight: never start the scan once the consumer has aborted (PQD-104).
+  if (options.signal?.aborted) {
+    throw new CancelledError('Compliance check cancelled by consumer');
+  }
+
   const testGlobs =
     options.test_globs && options.test_globs.length > 0 ? options.test_globs : DEFAULT_TEST_GLOBS;
 
@@ -101,6 +114,11 @@ export async function checkSpecCompliance(
     obligations,
     uncovered_obligations,
   };
+
+  // A cancellation that arrived during the scan must leave no report on disk.
+  if (options.signal?.aborted) {
+    throw new CancelledError('Compliance check cancelled by consumer');
+  }
 
   // Persist for future cache hits (FR-3.5).
   if (options.report_path) {

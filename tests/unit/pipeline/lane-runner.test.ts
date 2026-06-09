@@ -1010,6 +1010,67 @@ steps:
       '## Detailed Findings',
     );
   });
+
+  it('resolves a cancelled result and writes a blocked handoff when aborted mid-run (PQD-104)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-pipeline-cancel-'));
+    const controller = new AbortController();
+
+    class AbortingClassifyPhase implements PhaseExecutor {
+      readonly phase = 'request-classification' as const;
+      async execute() {
+        controller.abort(); // the consumer cancels while this phase is running
+        return {
+          phase: this.phase,
+          status: 'pass' as const,
+          summary: 'classified',
+          artifacts: [],
+        };
+      }
+    }
+
+    const result = await new LaneRunner({
+      projectRoot: root,
+      phaseOverrides: { 'request-classification': new AbortingClassifyPhase() },
+    }).run(fixtureClassification(), { signal: controller.signal });
+
+    expect(result.cancelled).toBe(true);
+    expect(result.blocked_at).toBe('request-classification');
+    expect(result.closure_summary.blocked).toBe(true);
+
+    const handoff = JSON.parse(readFileSync(join(root, PATHS.HANDOFF), 'utf8')) as {
+      closure_summary: { blocked: boolean };
+    };
+    expect(handoff.closure_summary.blocked).toBe(true);
+  });
+
+  it('returns a cancelled result before any phase runs when pre-aborted (PQD-104)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-pipeline-cancel-'));
+    const controller = new AbortController();
+    controller.abort();
+
+    let executed = false;
+    class TrackingClassifyPhase implements PhaseExecutor {
+      readonly phase = 'request-classification' as const;
+      async execute() {
+        executed = true;
+        return {
+          phase: this.phase,
+          status: 'pass' as const,
+          summary: 'classified',
+          artifacts: [],
+        };
+      }
+    }
+
+    const result = await new LaneRunner({
+      projectRoot: root,
+      phaseOverrides: { 'request-classification': new TrackingClassifyPhase() },
+    }).run(fixtureClassification(), { signal: controller.signal });
+
+    expect(result.cancelled).toBe(true);
+    expect(result.blocked_at).toBe('request-classification');
+    expect(executed).toBe(false);
+  });
 });
 
 describe('review tier selection', () => {

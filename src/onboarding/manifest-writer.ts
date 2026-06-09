@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { FrameworkError } from '@/core/errors/index.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { writeProjectProfile as writeCanonicalProjectProfile } from '@/core/project-profile.js';
 import type { DetectionReport } from '@/core/types/health.js';
@@ -36,6 +37,35 @@ export function writeFrameworkMetadata(projectRoot: string, version: string): vo
     new Date().toISOString(),
   );
   writeFileSync(join(projectRoot, PATHS.FRAMEWORK_PATH), `${resolveFrameworkInstallReference()}\n`);
+}
+
+/**
+ * Read the existing onboarding manifest before a re-run (PQD-424).
+ *
+ * Returns `null` when no manifest exists yet (a first-time onboarding). When a
+ * manifest is present but cannot be parsed as JSON, the local registry is
+ * corrupt: rather than silently overwriting it or skipping it with no signal,
+ * this throws a {@link FrameworkError} (`REGISTRY_CORRUPTED`) so onboarding
+ * blocks adoption cleanly and the consumer can surface a precise message.
+ */
+export function readExistingOnboardingManifest(projectRoot: string): OnboardingManifest | null {
+  const path = join(projectRoot, PATHS.ONBOARDING_MANIFEST);
+  if (!existsSync(path)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as OnboardingManifest;
+  } catch (error) {
+    throw new FrameworkError(
+      'Project registry corrupted — the onboarding manifest is not valid JSON. Contact support.',
+      {
+        code: 'REGISTRY_CORRUPTED',
+        cause: error,
+        details: { manifest_path: PATHS.ONBOARDING_MANIFEST },
+      },
+    );
+  }
 }
 
 export function writeOnboardingManifest(projectRoot: string, manifest: OnboardingManifest): string {

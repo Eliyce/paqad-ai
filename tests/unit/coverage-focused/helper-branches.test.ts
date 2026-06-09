@@ -29,6 +29,7 @@ describe('coverage-focused helper branches', () => {
     vi.doUnmock('@/core/runtime-paths.js');
     vi.doUnmock('@/onboarding/manifest-writer.js');
     vi.doUnmock('@/index.js');
+    vi.doUnmock('@/core/schema-version.js');
   });
 
   it('covers parser and ecosystem helper fallbacks', async () => {
@@ -373,6 +374,9 @@ describe('coverage-focused helper branches', () => {
     }));
     vi.doMock('@/index.js', () => ({
       VERSION: 'test-version',
+    }));
+    vi.doMock('@/core/schema-version.js', () => ({
+      ensureSchemaMarkerSync: vi.fn(),
     }));
 
     const { bootstrapFramework } = await import('@/install/bootstrap.js');

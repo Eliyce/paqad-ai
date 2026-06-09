@@ -19,6 +19,7 @@ export const VERIFICATION_GATES = [
   'module-docs-structure',
   'instructions-docs-structure',
   'documentation-freshness',
+  'extension-surface',
 ] as const;
 export type VerificationGate = (typeof VERIFICATION_GATES)[number];
 

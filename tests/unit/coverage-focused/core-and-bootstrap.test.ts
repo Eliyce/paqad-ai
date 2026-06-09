@@ -88,6 +88,7 @@ describe('coverage bootstrap branches', () => {
     vi.unmock('@/core/runtime-paths.js');
     vi.unmock('@/onboarding/manifest-writer.js');
     vi.unmock('@/index.js');
+    vi.unmock('@/core/schema-version.js');
     vi.unmock('node:fs');
   });
 
@@ -121,6 +122,9 @@ describe('coverage bootstrap branches', () => {
     }));
     vi.doMock('@/index.js', () => ({
       VERSION: '1.2.3',
+    }));
+    vi.doMock('@/core/schema-version.js', () => ({
+      ensureSchemaMarkerSync: vi.fn(),
     }));
 
     const { bootstrapFramework } = await import('@/install/bootstrap.js');
@@ -166,6 +170,9 @@ describe('coverage bootstrap branches', () => {
     }));
     vi.doMock('@/index.js', () => ({
       VERSION: '1.2.3',
+    }));
+    vi.doMock('@/core/schema-version.js', () => ({
+      ensureSchemaMarkerSync: vi.fn(),
     }));
 
     const { bootstrapFramework } = await import('@/install/bootstrap.js');
@@ -219,6 +226,9 @@ describe('coverage bootstrap branches', () => {
     }));
     vi.doMock('@/index.js', () => ({
       VERSION: '1.2.3',
+    }));
+    vi.doMock('@/core/schema-version.js', () => ({
+      ensureSchemaMarkerSync: vi.fn(),
     }));
 
     const { bootstrapFramework } = await import('@/install/bootstrap.js');

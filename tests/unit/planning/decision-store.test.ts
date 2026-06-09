@@ -4,7 +4,13 @@ import { join } from 'node:path';
 import { rmSync, readFileSync } from 'node:fs';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { DecisionStore, readDecisionAuditEvents, type DecisionPacket } from '@/planning/index.js';
+import {
+  DecisionCapExceededError,
+  DecisionStore,
+  readDecisionAuditEvents,
+  type DecisionPacket,
+  type DecisionPauseEvent,
+} from '@/planning/index.js';
 
 describe('DecisionStore', () => {
   let projectRoot: string;
@@ -745,7 +751,149 @@ describe('DecisionStore', () => {
       '"responded_at": "2026-04-27T12:00:00Z"',
     );
   });
+
+  describe('PQD-101 decision-pause events', () => {
+    it('emits decision-paused with the full packet and a project-relative path on writePending', () => {
+      const events: DecisionPauseEvent[] = [];
+      const store = new DecisionStore(projectRoot, { onEvent: (event) => events.push(event) });
+      store.initialize();
+
+      store.writePending(makePacket());
+
+      const paused = events.find((event) => event.kind === 'decision-paused');
+      expect(paused).toMatchObject({
+        kind: 'decision-paused',
+        decisionId: 'D-1',
+        question: 'Use the Button we have?',
+        recommendation: null,
+        packetPath: `${PATHS.DECISIONS_PENDING_DIR}/D-1.json`,
+      });
+      expect(paused?.kind === 'decision-paused' && paused.options).toHaveLength(2);
+      // path must be relative — never leak an absolute (home-dir) path
+      expect(paused?.kind === 'decision-paused' && paused.packetPath?.startsWith('/')).toBe(false);
+    });
+
+    it('emits decision-resolved with the chosen option, resolver, and intent on resolve', () => {
+      const events: DecisionPauseEvent[] = [];
+      const store = new DecisionStore(projectRoot, { onEvent: (event) => events.push(event) });
+      store.initialize();
+      const packet = makePacket();
+      store.writePending(packet);
+
+      store.resolve({
+        decisionId: packet.decision_id,
+        humanResponse: {
+          chosen_option_key: 'reuse-button',
+          intent: 'explicit',
+          explanation_rounds_used: 0,
+          responded_at: '2026-04-27T12:01:00Z',
+          responded_by: 'haider',
+          carry_over_scope: 'none',
+        },
+      });
+
+      const resolved = events.find((event) => event.kind === 'decision-resolved');
+      expect(resolved).toMatchObject({
+        kind: 'decision-resolved',
+        decisionId: 'D-1',
+        chosenOptionKey: 'reuse-button',
+        resolver: 'human',
+        intent: 'explicit',
+      });
+    });
+
+    it('maps resolveExisting audit events to resolver tokens', () => {
+      const events: DecisionPauseEvent[] = [];
+      const store = new DecisionStore(projectRoot, { onEvent: (event) => events.push(event) });
+      store.initialize();
+
+      store.resolveExisting({
+        packet: makePacket(),
+        event: 'decision-resolved-by-rag-confident',
+        humanResponse: {
+          chosen_option_key: 'reuse-button',
+          intent: 'safer-default',
+          explanation_rounds_used: 0,
+          responded_at: '2026-04-27T12:01:00Z',
+          responded_by: 'paqad-system',
+          carry_over_scope: 'none',
+        },
+      });
+
+      const resolved = events.find((event) => event.kind === 'decision-resolved');
+      expect(resolved?.kind === 'decision-resolved' && resolved.resolver).toBe('rag-confident');
+    });
+
+    it('refuses a new pending packet past the cap and emits decision-cap-exceeded', () => {
+      const events: DecisionPauseEvent[] = [];
+      const store = new DecisionStore(projectRoot, { onEvent: (event) => events.push(event) });
+      store.initialize();
+      // Fill to the (low, profile-driven) cap.
+      writeProfileMaxPending(projectRoot, 2);
+      store.writePending(makePacket({ decision_id: 'D-1', task_session_id: 's-1' }));
+      store.writePending(makePacket({ decision_id: 'D-2', task_session_id: 's-2' }));
+
+      expect(() =>
+        store.writePending(makePacket({ decision_id: 'D-3', task_session_id: 's-3' })),
+      ).toThrow(DecisionCapExceededError);
+
+      const capped = events.find((event) => event.kind === 'decision-cap-exceeded');
+      expect(capped).toMatchObject({ kind: 'decision-cap-exceeded', pendingCount: 2, cap: 2 });
+      // The refused packet must not have been written.
+      expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-3.json'))).toBe(false);
+    });
+
+    it('re-writing an already-pending packet never trips the cap', () => {
+      const store = new DecisionStore(projectRoot);
+      store.initialize();
+      writeProfileMaxPending(projectRoot, 1);
+      store.writePending(makePacket({ decision_id: 'D-1' }));
+      // Same id, same task — a refresh, not a new pause.
+      expect(() => store.writePending(makePacket({ decision_id: 'D-1' }))).not.toThrow();
+    });
+
+    it('discards a pending packet: file removed, audit appended, no resolved entry, event emitted', () => {
+      const events: DecisionPauseEvent[] = [];
+      const store = new DecisionStore(projectRoot, { onEvent: (event) => events.push(event) });
+      store.initialize();
+      const packet = makePacket();
+      store.writePending(packet);
+
+      const removed = store.discard({
+        decisionId: packet.decision_id,
+        reason: 'no longer relevant',
+      });
+
+      expect(removed.decision_id).toBe('D-1');
+      expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-1.json'))).toBe(false);
+      expect(existsSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, 'D-1.json'))).toBe(false);
+      const audit = readDecisionAuditEvents(projectRoot);
+      expect(audit.some((event) => event.event === 'decision-discarded')).toBe(true);
+      const discarded = events.find((event) => event.kind === 'decision-discarded');
+      expect(discarded).toMatchObject({
+        kind: 'decision-discarded',
+        decisionId: 'D-1',
+        reason: 'no longer relevant',
+      });
+    });
+
+    it('throws when discarding a decision with no valid pending packet', () => {
+      const store = new DecisionStore(projectRoot);
+      store.initialize();
+      expect(() => store.discard({ decisionId: 'D-99', reason: 'gone' })).toThrow(
+        /no valid pending packet/,
+      );
+    });
+  });
 });
+
+function writeProfileMaxPending(projectRoot: string, maxPending: number): void {
+  mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  writeFileSync(
+    join(projectRoot, '.paqad', 'project-profile.yaml'),
+    `custom:\n  decisions:\n    max_pending: ${maxPending}\n`,
+  );
+}
 
 function makePacket(overrides: Partial<DecisionPacket> = {}): DecisionPacket {
   return {

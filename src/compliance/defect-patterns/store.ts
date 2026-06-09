@@ -14,6 +14,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { engineLog } from '@/core/logger-registry.js';
 import { DEFECT_PATTERN_SCHEMA_VERSION } from './types.js';
 import type {
   DefectFinding,
@@ -194,7 +195,7 @@ async function rebuildIndex(storeRoot: string): Promise<DefectPatternIndex> {
         stale: entry.stale,
       });
     } catch {
-      console.warn(`[defect-patterns] Skipping corrupt entry file: ${id}.json`);
+      engineLog('warn', `[defect-patterns] Skipping corrupt entry file: ${id}.json`);
     }
   }
 

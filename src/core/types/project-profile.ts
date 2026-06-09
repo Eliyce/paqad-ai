@@ -178,6 +178,8 @@ export interface EfficiencyConfig {
   predictive_cache?: boolean;
   auto_summarize_interval?: number;
   context_budget_strategy?: 'aggressive' | 'balanced' | 'conservative';
+  /** Model tier preference for rolling-summary inference (PQD-169). @since 1.10.0 */
+  summary_model_preference?: 'local' | 'cheapest' | 'default';
   skip_version_check?: boolean;
   version_check_interval_hours?: number;
 }
@@ -213,6 +215,8 @@ export type DecisionAskThreshold = (typeof DECISION_ASK_THRESHOLDS)[number];
 export interface DecisionProfileConfig {
   ask_threshold?: DecisionAskThreshold;
   max_screens_per_task?: number;
+  /** PQD-101 — per-project cap on simultaneously pending decision packets. */
+  max_pending?: number;
   idle_timeout_minutes?: number;
   ttl_overrides_days?: Partial<Record<string, number>>;
   preferred_option_keys?: Partial<Record<DecisionCategory, string>>;

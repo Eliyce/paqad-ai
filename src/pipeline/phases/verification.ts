@@ -5,6 +5,7 @@ import {
   resolveFeatureDevelopmentCheckCommands,
   summarizeFeatureDevelopmentStage,
 } from '@/pipeline/feature-development-policy.js';
+import { engineLog } from '@/core/logger-registry.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { getPackTestRunners } from '@/packs/project-packs.js';
 import { parseTestOutput } from '@/test-output/index.js';
@@ -357,6 +358,6 @@ async function writeVerificationEvidenceArtifact(input: WriteEvidenceArtifactInp
     // Evidence file is a side-channel artifact; never fail the verification phase
     // because of an I/O issue here. Surface a single warning and continue.
     const message = error instanceof Error ? error.message : String(error);
-    console.warn(`paqad: could not write verification-evidence.json (${message})`);
+    engineLog('warn', `paqad: could not write verification-evidence.json (${message})`);
   }
 }

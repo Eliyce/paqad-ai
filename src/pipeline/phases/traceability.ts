@@ -1,6 +1,7 @@
 import type { PhaseExecutor } from './phase.interface.js';
 import type { PhaseResult, PipelineRunContext } from '@/core/types/pipeline.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
+import { engineLog } from '@/core/logger-registry.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   buildTraceabilityMap,
@@ -47,7 +48,7 @@ export class TraceabilityPhase implements PhaseExecutor {
       // The map is a reconciliation artifact; never fail the host phase over an
       // I/O or scan error here (same contract as the #108 rounds log).
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(`paqad: could not build traceability map (${message})`);
+      engineLog('warn', `paqad: could not build traceability map (${message})`);
       return innerResult;
     }
 

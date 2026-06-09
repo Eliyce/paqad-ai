@@ -23,6 +23,10 @@ export const PATHS = {
   DECISIONS_EXPIRED_DIR: '.paqad/decisions/expired',
   DECISIONS_INDEX: '.paqad/decisions/index.json',
   DECISIONS_AUDIT_LOG: '.paqad/decisions/audit.jsonl',
+  // PQD-101 — JSONL fallback channel for decision-pause events (mirrors
+  // MODULE_MAP_EVENTS_LOG). The in-process EngineEventBus is the live delivery
+  // channel; this path supports future SSE/HTTP consumers.
+  DECISIONS_EVENTS_LOG: '.paqad/decisions/events.jsonl',
   DECISIONS_LOCK: '.paqad/decisions/.lock',
   DECISION_PAUSE_CONTRACT: '.paqad/decision-pause-contract.md',
   // Feature 1 - Semantic Context Loader
@@ -31,7 +35,35 @@ export const PATHS = {
   VECTORS_DIR: '.paqad/vectors',
   VECTOR_INDEX: '.paqad/vectors/index.json',
   VECTOR_META: '.paqad/vectors/meta.json',
+  // PQD-102 — vision-extracted text (OCR/caption) lives in a separate vector
+  // index so a file-index rebuild never disturbs image-derived chunks and the
+  // file-index provider/model match guard isn't conflated. Co-located in
+  // .paqad/vectors so RagService.clear() (which removes the whole dir) clears
+  // both file- and vision-derived content together.
+  VISION_VECTOR_INDEX: '.paqad/vectors/vision-index.json',
+  VISION_VECTOR_META: '.paqad/vectors/vision-meta.json',
+  // PQD-415 — project-scoped CRS (Contextual Retrieval Store) collections. Each
+  // named collection owns a directory under CRS_DIR keyed by its escaped id, with
+  // its own `index.json` + `meta.json` mirroring the `.paqad/vectors/` layout.
+  // Kept fully disjoint from VECTORS_DIR (project RAG) and the ephemeral
+  // attachment collections so a CRS collection never disturbs either. Old indexes
+  // are retained next to the live one under a `.revert.<ISO>` suffix for 24h after
+  // a side-by-side reindex.
+  CRS_DIR: '.paqad/crs',
   SECRETS_ENV: '.paqad/secrets.env',
+  // PQD-174 — session-scoped ephemeral attachment collections for non-project
+  // desktop conversations. Each session owns a directory keyed by its id under
+  // SESSION_ATTACHMENT_COLLECTIONS_DIR; the registry maps live sessions to their
+  // collections so the boot-time orphan sweep can purge any whose session is
+  // gone. Kept fully disjoint from VECTORS_DIR (project RAG) and the pattern
+  // vectors so an attachment collection never disturbs either.
+  SESSION_ATTACHMENT_COLLECTIONS_DIR: '.paqad/attachments',
+  SESSION_ATTACHMENT_REGISTRY: '.paqad/attachments/registry.json',
+  // PQD-331 — append-only JSONL stream of attachment-indexing lifecycle events
+  // (`attachment.indexed` / `attachment.index_failed` / `attachment.format_rejected`).
+  // Kept separate from the RAG audit log so the desktop can tail just these to
+  // badge an attachment's index state without parsing the broader audit stream.
+  ATTACHMENT_EVENTS_LOG: '.paqad/attachment-events.jsonl',
   GLOBAL_PATTERN_VECTORS_DIR: '.paqad/patterns/vectors',
   GLOBAL_PATTERN_VECTOR_INDEX: '.paqad/patterns/vectors/index.json',
   GLOBAL_PATTERN_VECTOR_META: '.paqad/patterns/vectors/meta.json',
@@ -74,6 +106,12 @@ export const PATHS = {
   WORKFLOW_RUNS_DIR: '.paqad/workflows',
   SKILL_CACHE_DIR: '.paqad/cache/skill-results',
   SKILL_INDEX: '.paqad/skill-index.json',
+  // PQD-194 — append-only JSONL audit trail of skill/pack registrations that
+  // failed to load (malformed frontmatter, missing/invalid pack.yaml). Kept
+  // separate from MODULE_MAP_EVENTS_LOG so skill concerns don't pollute the
+  // module-map stream; the desktop tails this to badge a failed skill/pack and
+  // clears the badge once the file reloads cleanly.
+  SKILL_AUDIT_EVENTS_LOG: '.paqad/skills/events.jsonl',
   DOC_PROGRESS: '.paqad/doc-progress.json',
   DOC_RUN_SESSION: '.paqad/session/doc-run.json',
   PENTEST_ROOT_DIR: '.paqad/pentest',
@@ -122,6 +160,25 @@ export const PATHS = {
   MODULE_MAP_HISTORY_DIR: '.paqad/module-map/history',
   MODULE_MAP_EVENTS_LOG: '.paqad/module-map/events.jsonl',
   MODULE_MAP_DRIFT: '.paqad/module-map/drift.json',
+  // PQD-95 — cross-artifact `.paqad/` schema versioning baseline.
+  // SCHEMA_MARKER is the authoritative stamp readers check for layout
+  // compatibility; SCHEMA_MIGRATION_LOG is an append-only JSONL record of every
+  // forward migration; SCHEMA_MIGRATION_LOCK serialises concurrent migrators.
+  SCHEMA_MARKER: '.paqad/schema-version.json',
+  SCHEMA_MIGRATION_LOG: '.paqad/schema-migrations.jsonl',
+  SCHEMA_MIGRATION_LOCK: '.paqad/locks/schema-migration.lock',
+  // PQD-424 — plain-text `.paqad/` schema-version marker (spec 27). A minimal,
+  // human-readable stamp (`schema_version=<n>`) written during onboarding so a
+  // future engine version can detect the on-disk `.paqad/` schema generation at
+  // a glance. Distinct from SCHEMA_MARKER above (the PQD-95 JSON marker used for
+  // programmatic migration); this one is the lightweight onboarding stamp.
+  SCHEMA_VERSION_FILE: '.paqad/version',
+  // PQD-424 — resume checkpoint for onboarding. Records the project-relative
+  // paths already written during a run so a re-run after an interrupt skips the
+  // completed files and produces only the remainder. Written after the main
+  // file batch and deleted once onboarding finishes cleanly, so it is normally
+  // absent on disk and only lingers after an interrupted run.
+  ONBOARDING_CHECKPOINT: '.paqad/onboarding-checkpoint.json',
   // Issue #89 — rules-as-scripts
   RULE_SCRIPT_MAP: 'docs/instructions/rules/rule-script-map.yml',
   RULE_SCRIPTS_DIR: '.paqad/scripts/rules',

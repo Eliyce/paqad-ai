@@ -1,7 +1,10 @@
 import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { setEngineLogger } from '@/core/logger-registry.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
+import { ensureSchemaMarkerSync } from '@/core/schema-version.js';
+import type { EngineLogger } from '@/core/types/logger.js';
 import { VERSION } from '@/index.js';
 import {
   resolveFrameworkInstallPath,
@@ -14,13 +17,33 @@ export interface InstallResult {
   version: string;
 }
 
-export function bootstrapFramework(projectRoot: string): InstallResult {
+/** Options for {@link bootstrapFramework}. */
+export interface BootstrapOptions {
+  /**
+   * A consumer logger to install at init (PQD-105). When supplied, every
+   * structured log the engine emits is routed to it. Equivalent to calling
+   * {@link setEngineLogger} before bootstrapping; provided here so the consumer
+   * has a single clean init surface.
+   */
+  logger?: EngineLogger;
+}
+
+export function bootstrapFramework(projectRoot: string, options?: BootstrapOptions): InstallResult {
+  if (options?.logger !== undefined) {
+    setEngineLogger(options.logger);
+  }
+
   const frameworkHome = resolveFrameworkInstallPath();
   const runtimeRoot = getRuntimeRoot();
 
   ensureFrameworkSymlink(runtimeRoot, frameworkHome);
 
   writeFrameworkMetadata(projectRoot, VERSION);
+
+  // PQD-95 — ensure the cross-artifact schema marker exists so every freshly
+  // bootstrapped project carries the `.paqad/` layout version. Idempotent: an
+  // existing marker is left untouched (migration is checkAndMigrateSchema's job).
+  ensureSchemaMarkerSync(projectRoot, VERSION);
 
   return {
     framework_home: frameworkHome,

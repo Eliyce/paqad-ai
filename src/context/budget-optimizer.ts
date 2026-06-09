@@ -99,6 +99,12 @@ export class ContextBudgetOptimizer {
     return { action, tier };
   }
 
+  /**
+   * Follow-on (PQD-172): once turns carry a `PriorityClassifier.tag` priority, a
+   * future pass should skip summarising turns where `priority === 'high'` so
+   * decision-packet/approval turns survive compaction verbatim. The signature is
+   * intentionally unchanged in this ticket — the AC does not require it.
+   */
   async summarizeTurns(
     turns: Array<{ text: string; timestamp: string }>,
     olderThanIndex: number,
