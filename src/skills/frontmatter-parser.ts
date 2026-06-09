@@ -27,23 +27,39 @@ export class SkillFrontmatterParser {
     const lineCount = lines.length;
 
     if (lineCount > DEFAULT_MAX_LINES) {
-      throw new ValidationError(`SKILL.md exceeds ${DEFAULT_MAX_LINES} lines`);
+      throw new ValidationError(
+        `SKILL.md exceeds ${DEFAULT_MAX_LINES} lines`,
+        undefined,
+        'SKILL_LINE_LIMIT_EXCEEDED',
+      );
     }
 
     if (lines[0] !== FRONTMATTER_BOUNDARY) {
-      throw new ValidationError('SKILL.md must start with YAML frontmatter');
+      throw new ValidationError(
+        'SKILL.md must start with YAML frontmatter',
+        undefined,
+        'SKILL_BOUNDARY_MISSING',
+      );
     }
 
     const closingIndex = lines.indexOf(FRONTMATTER_BOUNDARY, 1);
     if (closingIndex === -1) {
-      throw new ValidationError('SKILL.md frontmatter is missing a closing boundary');
+      throw new ValidationError(
+        'SKILL.md frontmatter is missing a closing boundary',
+        undefined,
+        'SKILL_BOUNDARY_UNCLOSED',
+      );
     }
 
     const rawFrontmatter = lines.slice(1, closingIndex).join('\n');
     const parsed = YAML.parse(rawFrontmatter);
 
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new ValidationError('SKILL.md frontmatter must be a YAML object');
+      throw new ValidationError(
+        'SKILL.md frontmatter must be a YAML object',
+        undefined,
+        'SKILL_FRONTMATTER_NOT_OBJECT',
+      );
     }
 
     const frontmatter = normalizeDefinition(parsed as Record<string, unknown>);
@@ -108,9 +124,18 @@ function normalizeDefinition(input: Record<string, unknown>): SkillDefinition {
   };
 }
 
+/** Stable sub-code for an invalid value in a named frontmatter field. */
+function fieldInvalidCode(field: string): string {
+  return `SKILL_FIELD_INVALID:${field}`;
+}
+
 function asString(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim() === '') {
-    throw new ValidationError(`SKILL.md frontmatter field "${field}" must be a non-empty string`);
+    throw new ValidationError(
+      `SKILL.md frontmatter field "${field}" must be a non-empty string`,
+      undefined,
+      fieldInvalidCode(field),
+    );
   }
 
   return value.trim();
@@ -118,7 +143,11 @@ function asString(value: unknown, field: string): string {
 
 function asBoolean(value: unknown, field: string): boolean {
   if (typeof value !== 'boolean') {
-    throw new ValidationError(`SKILL.md frontmatter field "${field}" must be a boolean`);
+    throw new ValidationError(
+      `SKILL.md frontmatter field "${field}" must be a boolean`,
+      undefined,
+      fieldInvalidCode(field),
+    );
   }
 
   return value;
@@ -129,7 +158,11 @@ function asStringArray(value: unknown, field: string): string[] {
     !Array.isArray(value) ||
     value.some((item) => typeof item !== 'string' || item.trim() === '')
   ) {
-    throw new ValidationError(`SKILL.md frontmatter field "${field}" must be an array of strings`);
+    throw new ValidationError(
+      `SKILL.md frontmatter field "${field}" must be an array of strings`,
+      undefined,
+      fieldInvalidCode(field),
+    );
   }
 
   return value.map((item) => item.trim());
@@ -137,7 +170,11 @@ function asStringArray(value: unknown, field: string): string[] {
 
 function asPositiveInteger(value: unknown, field: string): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
-    throw new ValidationError(`SKILL.md frontmatter field "${field}" must be a positive integer`);
+    throw new ValidationError(
+      `SKILL.md frontmatter field "${field}" must be a positive integer`,
+      undefined,
+      fieldInvalidCode(field),
+    );
   }
 
   return value;
@@ -158,6 +195,8 @@ function asModelTier(value: unknown): SkillDefinition['model_tier'] {
 
   throw new ValidationError(
     'SKILL.md frontmatter field "model_tier" must be one of fast, medium, reasoning',
+    undefined,
+    fieldInvalidCode('model_tier'),
   );
 }
 
@@ -169,6 +208,8 @@ function asTriggers(value: unknown, allowEmpty = false): SkillDefinition['trigge
   if (!Array.isArray(value) || value.length === 0) {
     throw new ValidationError(
       'SKILL.md frontmatter field "triggers" must be a non-empty array unless "request_routing" is provided',
+      undefined,
+      fieldInvalidCode('triggers'),
     );
   }
 
@@ -176,6 +217,8 @@ function asTriggers(value: unknown, allowEmpty = false): SkillDefinition['trigge
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
       throw new ValidationError(
         'Each skill trigger must be an object of classification dimensions',
+        undefined,
+        fieldInvalidCode('triggers'),
       );
     }
 
@@ -190,12 +233,20 @@ function asTriggers(value: unknown, allowEmpty = false): SkillDefinition['trigge
 
 function asRequestRouting(value: unknown, field: string): SkillRequestRoutingRule[] {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new ValidationError(`SKILL.md frontmatter field "${field}" must be a non-empty array`);
+    throw new ValidationError(
+      `SKILL.md frontmatter field "${field}" must be a non-empty array`,
+      undefined,
+      fieldInvalidCode(field),
+    );
   }
 
   return value.map((entry, index) => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      throw new ValidationError(`SKILL.md frontmatter field "${field}.${index}" must be an object`);
+      throw new ValidationError(
+        `SKILL.md frontmatter field "${field}.${index}" must be an object`,
+        undefined,
+        fieldInvalidCode(`${field}.${index}`),
+      );
     }
 
     const typedEntry = entry as Record<string, unknown>;
@@ -224,6 +275,8 @@ function asWorkflowTarget(value: unknown, field: string): string {
 
   throw new ValidationError(
     `SKILL.md frontmatter field "${field}" must be a known workflow or custom:<template-name>`,
+    undefined,
+    fieldInvalidCode(field),
   );
 }
 
@@ -234,12 +287,18 @@ function asOutputFormat(value: unknown): SkillOutputFormat {
 
   throw new ValidationError(
     'SKILL.md frontmatter field "output_format" must be one of markdown, yaml, json',
+    undefined,
+    fieldInvalidCode('output_format'),
   );
 }
 
 function asInputSchema(value: unknown): SkillInputSchema {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new ValidationError('SKILL.md frontmatter field "input_schema" must be an object');
+    throw new ValidationError(
+      'SKILL.md frontmatter field "input_schema" must be an object',
+      undefined,
+      fieldInvalidCode('input_schema'),
+    );
   }
 
   const schema: SkillInputSchema = {};
@@ -248,6 +307,8 @@ function asInputSchema(value: unknown): SkillInputSchema {
     if (!field || typeof field !== 'object' || Array.isArray(field)) {
       throw new ValidationError(
         `SKILL.md frontmatter field "input_schema.${name}" must be an object`,
+        undefined,
+        fieldInvalidCode(`input_schema.${name}`),
       );
     }
 
@@ -263,6 +324,8 @@ function asInputSchema(value: unknown): SkillInputSchema {
     ) {
       throw new ValidationError(
         `SKILL.md frontmatter field "input_schema.${name}.type" must be one of string, string[], boolean, path, path[], object`,
+        undefined,
+        fieldInvalidCode(`input_schema.${name}.type`),
       );
     }
 
@@ -279,6 +342,8 @@ function asInputSchema(value: unknown): SkillInputSchema {
   if (Object.keys(schema).length === 0) {
     throw new ValidationError(
       'SKILL.md frontmatter field "input_schema" must define at least one input',
+      undefined,
+      fieldInvalidCode('input_schema'),
     );
   }
 
@@ -287,7 +352,11 @@ function asInputSchema(value: unknown): SkillInputSchema {
 
 function asCompletionTrigger(value: unknown, field: string): SkillCompletionTrigger {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new ValidationError(`SKILL.md frontmatter field "${field}" must be an object`);
+    throw new ValidationError(
+      `SKILL.md frontmatter field "${field}" must be an object`,
+      undefined,
+      fieldInvalidCode(field),
+    );
   }
 
   const typedValue = value as Record<string, unknown>;

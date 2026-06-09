@@ -372,3 +372,32 @@ shape. The PQD-104 `CancelledError` is the canonical class for
 | desktop (planned), api (planned) | src/core/errors/engine-errors.ts | `toEngineError` | `toEngineError(error: unknown): FrameworkError` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/core/errors/engine-errors.ts | `isEngineErrorCode` | `isEngineErrorCode(code: string): code is EngineErrorCode` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
 | desktop (planned), api (planned) | src/core/errors/redact.ts | `redactPayload` | `redactPayload(payload, projectRoot?): { redacted; redacted_fields }` | beta | 1.10.0 | planned consumer; in-tree at FrameworkError constructor |
+
+## Skill & pack load-failure audit consumers (planned)
+
+When the skill loader or pack loader hits a file it cannot register — malformed
+SKILL.md frontmatter, or a missing/invalid `pack.yaml` — it emits a
+machine-readable audit event rather than silently dropping the failure (PQD-194).
+The desktop tails `.paqad/skills/events.jsonl` (or reads it via
+`readSkillAuditEvents`) to badge a skill/pack that failed to load, and clears the
+badge once the file reloads cleanly (a successful reload simply emits no new
+failure event). Each event carries a SHA-256 `content_hash` of the offending
+bytes so the consumer can de-duplicate repeated emissions of the same unchanged
+failure. When no `projectRoot` is available (or a disk write fails) events are
+held in a bounded in-process buffer (`DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY` = 50,
+oldest dropped) and delivered, in order, on the next flush. `ValidationError`
+now carries an optional `subCode` that surfaces *which* frontmatter rule fired as
+the event's `validation_error_code`.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| desktop (planned) | src/skills/audit-events.ts | `SkillLoadFailedEvent` | `interface SkillLoadFailedEvent { ts; type: 'skill.load_failed'; path; validation_error_code; message; skill_id: null; content_hash }` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/skills/audit-events.ts | `SkillPackLoadFailedEvent` | `interface SkillPackLoadFailedEvent { ts; type: 'skill.pack_load_failed'; pack_id; pack_path; validation_error_code; issue_count; content_hash }` | beta | 1.10.0 | planned consumer; in-tree at pack loader |
+| desktop (planned) | src/skills/audit-events.ts | `SkillAuditEvent` | `type SkillAuditEvent = SkillLoadFailedEvent or SkillPackLoadFailedEvent` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/skills/audit-events.ts | `SkillAuditEventType` | `type SkillAuditEventType = 'skill.load_failed' or 'skill.pack_load_failed'` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/skills/audit-events.ts | `readSkillAuditEvents` | `readSkillAuditEvents(projectRoot: string): SkillAuditEvent[]` | beta | 1.10.0 | planned consumer; no in-tree call site yet |
+| desktop (planned) | src/skills/audit-events.ts | `appendSkillAuditEvent` | `appendSkillAuditEvent(projectRoot: string, event: SkillAuditEvent): void` | beta | 1.10.0 | planned consumer; in-tree at loaders |
+| desktop (planned) | src/skills/audit-events.ts | `emitSkillAuditEvent` | `emitSkillAuditEvent(event, projectRoot?, buffer?): void` | beta | 1.10.0 | planned consumer; in-tree at loaders |
+| desktop (planned) | src/skills/audit-events.ts | `SkillAuditBuffer` | `class SkillAuditBuffer { add; snapshot; flush; size }` | beta | 1.10.0 | planned consumer; in-tree at loaders |
+| desktop (planned) | src/skills/audit-events.ts | `getSharedSkillAuditBuffer` | `getSharedSkillAuditBuffer(): SkillAuditBuffer` | beta | 1.10.0 | planned consumer; in-tree at loaders |
+| desktop (planned) | src/skills/audit-events.ts | `DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY` | `const DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY: number` | beta | 1.10.0 | planned consumer; no in-tree call site yet |

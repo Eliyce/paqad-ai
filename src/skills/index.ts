@@ -1,3 +1,4 @@
+export * from './audit-events.js';
 export * from './cache-manager.js';
 export * from './conditional-processor.js';
 export * from './frontmatter-parser.js';

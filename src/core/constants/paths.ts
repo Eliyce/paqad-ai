@@ -93,6 +93,12 @@ export const PATHS = {
   WORKFLOW_RUNS_DIR: '.paqad/workflows',
   SKILL_CACHE_DIR: '.paqad/cache/skill-results',
   SKILL_INDEX: '.paqad/skill-index.json',
+  // PQD-194 — append-only JSONL audit trail of skill/pack registrations that
+  // failed to load (malformed frontmatter, missing/invalid pack.yaml). Kept
+  // separate from MODULE_MAP_EVENTS_LOG so skill concerns don't pollute the
+  // module-map stream; the desktop tails this to badge a failed skill/pack and
+  // clears the badge once the file reloads cleanly.
+  SKILL_AUDIT_EVENTS_LOG: '.paqad/skills/events.jsonl',
   DOC_PROGRESS: '.paqad/doc-progress.json',
   DOC_RUN_SESSION: '.paqad/session/doc-run.json',
   PENTEST_ROOT_DIR: '.paqad/pentest',
