@@ -19,7 +19,21 @@ export interface FileWriteResult {
   skipped: string[];
 }
 
-export function writeGeneratedFiles(projectRoot: string, files: GeneratedFile[]): FileWriteResult {
+export interface WriteGeneratedFilesOptions {
+  /**
+   * Write every file regardless of its `autoUpdate` flag or whether the target
+   * already exists (PQD-424, AC2). The caller's explicit escape hatch for
+   * "regenerate everything", overriding the default skip-if-present behaviour
+   * that protects project-owned files.
+   */
+  forceOverwrite?: boolean;
+}
+
+export function writeGeneratedFiles(
+  projectRoot: string,
+  files: GeneratedFile[],
+  options: WriteGeneratedFilesOptions = {},
+): FileWriteResult {
   const written: string[] = [];
   const skipped: string[] = [];
 
@@ -29,7 +43,7 @@ export function writeGeneratedFiles(projectRoot: string, files: GeneratedFile[])
     const reportedPath = toPosixPath(file.path);
     const target = join(projectRoot, file.path);
 
-    if (!file.autoUpdate && existsSync(target)) {
+    if (!options.forceOverwrite && !file.autoUpdate && existsSync(target)) {
       skipped.push(reportedPath);
       continue;
     }

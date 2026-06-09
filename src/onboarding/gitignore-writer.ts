@@ -16,6 +16,7 @@ const PAQAD_GITIGNORE_ENTRIES = [
   '.paqad/pentest/',
   '.paqad/theme/',
   '.paqad/scripts/rules/.cache/',
+  '.paqad/onboarding-checkpoint.json',
 ].join('\n');
 
 /**

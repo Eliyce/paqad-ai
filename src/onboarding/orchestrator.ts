@@ -1,6 +1,7 @@
 import {
   accessSync,
   constants as fsConstants,
+  mkdirSync,
   readFileSync,
   statSync,
   writeFileSync,
@@ -9,7 +10,8 @@ import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
 import { PATHS } from '@/core/constants/paths.js';
-import { ValidationError } from '@/core/errors/index.js';
+import { FrameworkError, ValidationError } from '@/core/errors/index.js';
+import { appendPlanningAudit } from '@/planning/audit.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
 import type { AdapterType } from '@/core/types/adapter.js';
@@ -37,10 +39,16 @@ import {
 
 import { bootstrapFramework } from '@/install/bootstrap.js';
 
+import {
+  deleteOnboardingCheckpoint,
+  readOnboardingCheckpoint,
+  writeOnboardingCheckpoint,
+} from './checkpoint.js';
 import { writeDecisionPauseContractDocument } from './decision-pause-contract-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { writeGitignore } from './gitignore-writer.js';
 import {
+  readExistingOnboardingManifest,
   writeDetectionReport,
   writeFrameworkMetadata,
   writeOnboardingManifest,
@@ -81,7 +89,27 @@ export interface OnboardingOptions {
    * Invariant: by the time this fires, every core `.paqad/**` artifact already exists. See #62.
    */
   onPhase1Complete?: (result: OnboardingOutput) => void;
+  /**
+   * PQD-424 (AC2) — when `true`, regenerate every artifact even if it already exists, including
+   * the external-agent entry files (`CLAUDE.md`, `AGENTS.md`, …) that are otherwise left untouched
+   * on a re-run. Defaults to `false`: existing files are not overwritten without this explicit opt-in.
+   */
+  forceOverwrite?: boolean;
+  /**
+   * PQD-424 — workspace governance applied before any disk write. When
+   * `project_creation_disabled` is `true`, `run()` refuses cleanly (throws a `FrameworkError`
+   * coded `PROJECT_CREATION_DISABLED`) without touching the filesystem.
+   */
+  workspacePolicy?: {
+    project_creation_disabled?: boolean;
+  };
 }
+
+/**
+ * PQD-424 (spec 27) — schema generation stamped into `.paqad/version` so a future engine can
+ * detect the on-disk `.paqad/` layout. Bumped when the `.paqad/` schema changes shape.
+ */
+const ONBOARDING_SCHEMA_VERSION = 1;
 
 const NEXT_STEPS_MD = [
   '## Required: Create Documentation Foundation',
@@ -128,6 +156,21 @@ export class OnboardingOrchestrator {
    * and the project is still fully onboarded. See issue #62 for the regression this protects.
    */
   async run(options: OnboardingOptions): Promise<OnboardingOutput> {
+    // PQD-424 (AC: policy) — refuse cleanly, before any disk write, when the
+    // workspace bans project creation. No `.paqad/` artifact is produced.
+    if (options.workspacePolicy?.project_creation_disabled === true) {
+      throw new FrameworkError(
+        'Project creation is disabled by workspace policy; onboarding will not run.',
+        { code: 'PROJECT_CREATION_DISABLED' },
+      );
+    }
+
+    // PQD-424 (AC: corrupted registry) — if a manifest already exists but is not
+    // parseable, block adoption cleanly rather than silently clobbering it. A
+    // `null` result means this is a first-time onboarding (used below to decide
+    // whether to emit the one-shot `project.onboarded` audit event).
+    const firstOnboarding = readExistingOnboardingManifest(options.projectRoot) === null;
+
     // ---------- Phase 1: deterministic file writes (no RAG prompt) ----------
     // PQD-95 — reconcile the `.paqad/` schema layout before any artifact write:
     // stamp legacy projects, migrate older ones forward, and hard-stop (throw
@@ -161,9 +204,17 @@ export class OnboardingOrchestrator {
     }
 
     const generatedFiles: GeneratedFile[] = [];
+    // PQD-424 (AC2) — the external-agent entry files (each adapter's prose config:
+    // CLAUDE.md, AGENTS.md, GEMINI.md, .junie/AGENTS.md, …) are opt-in: written on
+    // a fresh run but never silently overwritten on a re-run unless the caller
+    // passes `forceOverwrite`. Tracked by path here and demoted to skip-if-present
+    // below — without touching the adapter's `autoUpdate` flag, so the manifest
+    // policy and `paqad-ai update`'s entry-file refresh stay exactly as before.
+    const entryFilePaths = new Set<string>();
 
     for (const adapterType of adapters) {
       const adapter = AdapterFactory.create(adapterType);
+      entryFilePaths.add(adapter.getConfigPath());
       generatedFiles.push(
         ...(await adapter.generateConfig({
           frameworkPath: PATHS.FRAMEWORK_PATH,
@@ -211,18 +262,45 @@ export class OnboardingOrchestrator {
       // Hook script not found — non-fatal, continue without it
     }
 
-    const writeResult = writeGeneratedFiles(options.projectRoot, generatedFiles);
-    const drift = await writeStackArtifacts(
-      options.projectRoot,
-      { ...liveSnapshot, profile: profile.stack_profile ?? liveSnapshot.profile },
-      previousSnapshot,
-      { writeHumanDocs: false },
-    );
+    // AC3 (resume) — skip any file a prior interrupted run already wrote, so this
+    // call produces only the unwritten remainder. Empty/absent checkpoint ⇒ full run.
+    const completed = new Set(readOnboardingCheckpoint(options.projectRoot) ?? []);
+    const filesToWrite = generatedFiles
+      .map((file) =>
+        !options.forceOverwrite && entryFilePaths.has(file.path)
+          ? { ...file, autoUpdate: false }
+          : file,
+      )
+      .filter((file) => !completed.has(toPosixPath(file.path)));
+
     const onboardingWarnings: string[] = [];
-    writeProjectProfile(options.projectRoot, profile);
-    writeGitignore(options.projectRoot);
-    writeDetectionReport(options.projectRoot, detection);
-    writeFrameworkMetadata(options.projectRoot, VERSION);
+    let writeResult: ReturnType<typeof writeGeneratedFiles>;
+    let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;
+    // AC (disk-full) — translate a raw ENOSPC from any core write into a clean,
+    // user-facing FrameworkError instead of leaking a Node errno object.
+    try {
+      writeResult = writeGeneratedFiles(options.projectRoot, filesToWrite, {
+        forceOverwrite: options.forceOverwrite,
+      });
+      // Persist progress the moment the main batch is durable, so an interrupt
+      // after this point resumes with only the remainder.
+      writeOnboardingCheckpoint(options.projectRoot, [...completed, ...writeResult.written]);
+      drift = await writeStackArtifacts(
+        options.projectRoot,
+        { ...liveSnapshot, profile: profile.stack_profile ?? liveSnapshot.profile },
+        previousSnapshot,
+        { writeHumanDocs: false },
+      );
+      writeProjectProfile(options.projectRoot, profile);
+      writeGitignore(options.projectRoot);
+      writeDetectionReport(options.projectRoot, detection);
+      writeFrameworkMetadata(options.projectRoot, VERSION);
+      // AC (spec 27) — stamp the on-disk schema generation marker.
+      writeSchemaVersionMarker(options.projectRoot);
+      writeResult.written.push(PATHS.SCHEMA_VERSION_FILE);
+    } catch (error) {
+      throw translateDiskFullError(error);
+    }
     bootstrapFramework(options.projectRoot);
     new DecisionStore(options.projectRoot).initialize();
     try {
@@ -331,6 +409,21 @@ export class OnboardingOrchestrator {
         classifier_config_path: '.paqad/classifier-config.json',
       },
     });
+
+    // Phase 1 is fully durable on disk — clear the resume checkpoint so a later
+    // re-run starts clean. AC3 only needs the checkpoint while phase 1 is in flight.
+    deleteOnboardingCheckpoint(options.projectRoot);
+
+    // AC (audit) — record `project.onboarded` once, on the first onboarding of
+    // this project (manifest absent at entry). Re-runs are refreshes, not new
+    // onboardings, so they do not append — which also keeps re-runs idempotent.
+    if (firstOnboarding) {
+      appendPlanningAudit(options.projectRoot, 'INFO', 'project.onboarded', {
+        project_id: profile.project.id,
+        wizard_version: VERSION,
+        steps_completed: writeResult.written.length,
+      });
+    }
 
     const phase1Output: OnboardingOutput = {
       adapter: adapters[0],
@@ -507,6 +600,32 @@ export class OnboardingOrchestrator {
 
     return { files, warnings };
   }
+}
+
+/**
+ * Write the plain-text `.paqad/version` schema marker (PQD-424, spec 27). Content is
+ * deterministic (`schema_version=<n>`) so re-runs leave it byte-identical.
+ */
+function writeSchemaVersionMarker(projectRoot: string): void {
+  const target = join(projectRoot, PATHS.SCHEMA_VERSION_FILE);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, `schema_version=${ONBOARDING_SCHEMA_VERSION}\n`);
+}
+
+/**
+ * Translate a raw `ENOSPC` (disk full) Node error from a core onboarding write into a
+ * clean, retryable {@link FrameworkError} (PQD-424). Any other error is returned unchanged
+ * so the narrow disk-full catch never masks unrelated failures.
+ */
+function translateDiskFullError(error: unknown): unknown {
+  if ((error as NodeJS.ErrnoException | null)?.code === 'ENOSPC') {
+    return new FrameworkError('Not enough disk space — free up space and retry.', {
+      code: 'DISK_FULL',
+      cause: error,
+      retryable: true,
+    });
+  }
+  return error;
 }
 
 function buildProjectProfile(

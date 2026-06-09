@@ -167,6 +167,18 @@ export const PATHS = {
   SCHEMA_MARKER: '.paqad/schema-version.json',
   SCHEMA_MIGRATION_LOG: '.paqad/schema-migrations.jsonl',
   SCHEMA_MIGRATION_LOCK: '.paqad/locks/schema-migration.lock',
+  // PQD-424 — plain-text `.paqad/` schema-version marker (spec 27). A minimal,
+  // human-readable stamp (`schema_version=<n>`) written during onboarding so a
+  // future engine version can detect the on-disk `.paqad/` schema generation at
+  // a glance. Distinct from SCHEMA_MARKER above (the PQD-95 JSON marker used for
+  // programmatic migration); this one is the lightweight onboarding stamp.
+  SCHEMA_VERSION_FILE: '.paqad/version',
+  // PQD-424 — resume checkpoint for onboarding. Records the project-relative
+  // paths already written during a run so a re-run after an interrupt skips the
+  // completed files and produces only the remainder. Written after the main
+  // file batch and deleted once onboarding finishes cleanly, so it is normally
+  // absent on disk and only lingers after an interrupted run.
+  ONBOARDING_CHECKPOINT: '.paqad/onboarding-checkpoint.json',
   // Issue #89 — rules-as-scripts
   RULE_SCRIPT_MAP: 'docs/instructions/rules/rule-script-map.yml',
   RULE_SCRIPTS_DIR: '.paqad/scripts/rules',
