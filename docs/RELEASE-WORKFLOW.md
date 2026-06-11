@@ -14,7 +14,7 @@ the only document a maintainer needs to ship code.
 You: write code in a branch
 You: pnpm changeset → pick bump → write summary
 You: commit + push + open PR
-GitHub: CI runs (lint, types, tests, build × 3 matrix legs)
+GitHub: CI runs (lint, types, tests, build × 4 matrix legs)
 You: review CI, address feedback
 You: squash-merge the PR
 GitHub: changesets bot opens "chore(release): version packages" PR
@@ -24,7 +24,7 @@ GitHub: release workflow publishes to npm with provenance, tags, and creates a G
 
 Branches → main are gated by:
 
-- 3 CI contexts (Node 22 ubuntu, Node 24 ubuntu, Node 22 macOS)
+- 4 CI contexts (Node 22 ubuntu, Node 24 ubuntu, Node 22 macOS, Node 22 Windows)
 - Linear history
 - Resolved conversations
 - No force pushes, no deletions
@@ -184,8 +184,7 @@ when something needs to change.
 
 - Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 - Triggers: `pull_request` to `main`, `push` to `main`
-- Matrix: Node 22 (ubuntu, macOS), Node 24 (ubuntu). **Windows is currently
-  deferred — see [#17](https://github.com/Eliyce/paqad-ai/issues/17).**
+- Matrix: Node 22 (ubuntu, macOS, windows), Node 24 (ubuntu)
 
 ### Release
 
@@ -201,7 +200,7 @@ when something needs to change.
 ### Branch protection (`main`)
 
 - Required status checks: `Node 22 / ubuntu-latest`, `Node 24 / ubuntu-latest`,
-  `Node 22 / macos-latest`
+  `Node 22 / macos-latest`, `Node 22 / windows-latest`
 - Linear history required
 - Conversation resolution required
 - Force pushes and deletions blocked
