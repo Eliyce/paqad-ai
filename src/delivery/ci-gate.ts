@@ -26,6 +26,11 @@ export interface CiGateResult {
   /** Ticket status to move to on green, when configured (else null). */
   transitionTo: string | null;
   message: string;
+  /**
+   * Whether the rendered verification-evidence comment was posted to the PR
+   * (issue #119). Absent when no evidence body was supplied.
+   */
+  evidenceCommentPosted?: boolean;
 }
 
 export interface CiGateOptions {
@@ -34,6 +39,28 @@ export interface CiGateOptions {
   pollIntervalMs?: number;
   /** Hard cap on poll iterations — a safety net independent of the clock. */
   maxPolls?: number;
+  /**
+   * Rendered verification-evidence markdown (issue #119). When supplied, it is
+   * posted to the PR as the gate resolves — on green (the "safe to merge"
+   * proof) and on a `comment_and_stop` red (the proof of what blocked it).
+   * `null`/absent posts nothing, so projects without evidence are unaffected.
+   * Posting is best-effort: a failed comment never changes the gate verdict.
+   */
+  evidenceComment?: string | null;
+}
+
+async function postEvidence(
+  host: HostProvider,
+  branch: string,
+  body: string | null | undefined,
+): Promise<boolean> {
+  if (!body) return false;
+  try {
+    const result = await host.comment(branch, body);
+    return result.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function runCiGate(
@@ -69,17 +96,22 @@ export async function runCiGate(
     const status = await host.getChecksStatus(branch);
 
     if (status.state === 'green') {
+      const evidenceCommentPosted = await postEvidence(host, branch, options.evidenceComment);
       return {
         action: 'passed',
         state: 'green',
         transitionTo: transitionOnGreen,
         message: 'CI is green.',
+        evidenceCommentPosted,
       };
     }
 
     if (status.state === 'red') {
-      const action: CiGateAction =
-        ci.on_red === 'comment_and_stop' ? 'failed_comment_and_stop' : 'failed_stop';
+      const commentAndStop = ci.on_red === 'comment_and_stop';
+      const action: CiGateAction = commentAndStop ? 'failed_comment_and_stop' : 'failed_stop';
+      const evidenceCommentPosted = commentAndStop
+        ? await postEvidence(host, branch, options.evidenceComment)
+        : false;
       return {
         action,
         state: 'red',
@@ -90,6 +122,7 @@ export async function runCiGate(
             .map((c) => c.name)
             .join(', ') || 'unknown check'
         }). Stopping per on_red=${ci.on_red}.`,
+        evidenceCommentPosted,
       };
     }
 

@@ -67,6 +67,22 @@ describe('GithubHostProvider', () => {
     expect(res.pr?.number).toBe(123);
   });
 
+  it('posts a PR comment via gh pr comment', async () => {
+    const { shell, calls } = fakeShell({});
+    const provider = new GithubHostProvider(shell);
+    const res = await provider.comment('feat/x', '## evidence\nbody');
+    expect(res.ok).toBe(true);
+    expect(calls[0]).toEqual(['gh', 'pr', 'comment', 'feat/x', '--body', '## evidence\nbody']);
+  });
+
+  it('returns remediation when gh pr comment fails', async () => {
+    const { shell } = fakeShell({ 'gh pr comment': { exitCode: 1, stderr: 'no pr' } });
+    const provider = new GithubHostProvider(shell);
+    const res = await provider.comment('feat/x', 'body');
+    expect(res.ok).toBe(false);
+    expect(res.remediation).toContain('gh pr comment failed');
+  });
+
   it('reads check status from gh json even on non-zero exit (pending)', async () => {
     const { shell } = fakeShell({
       'gh pr': {

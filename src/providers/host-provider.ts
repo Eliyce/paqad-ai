@@ -53,4 +53,11 @@ export interface HostProvider {
   push(branch: string): Promise<HostStepResult>;
   openPR(input: OpenPrInput): Promise<HostStepResult & { pr?: PullRequest }>;
   getChecksStatus(prOrBranch: string): Promise<ChecksStatus>;
+  /**
+   * Post a comment on an existing PR (identified by number, URL, or branch).
+   * The verifiable-trust surface (issue #119) posts paqad's rendered
+   * verification evidence here so the deterministic proof lands on the PR
+   * without a human running a command.
+   */
+  comment(prOrBranch: string, body: string): Promise<HostStepResult>;
 }

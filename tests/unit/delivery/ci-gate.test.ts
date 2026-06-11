@@ -22,6 +22,7 @@ function hostWith(sequence: ChecksStatus[]): HostProvider {
     commit: async () => ({ ok: true }),
     push: async () => ({ ok: true }),
     openPR: async () => ({ ok: true }),
+    comment: async () => ({ ok: true }),
     getChecksStatus: async () => sequence[Math.min(i++, sequence.length - 1)],
   };
 }
@@ -86,6 +87,67 @@ describe('CI gate', () => {
       ci({ on_red: 'comment_and_stop' }),
     );
     expect(res.action).toBe('failed_comment_and_stop');
+  });
+
+  it('posts the evidence comment on green', async () => {
+    const posted: Array<[string, string]> = [];
+    const host = hostWith([{ state: 'green', checks: [] }]);
+    host.comment = async (ref, body) => {
+      posted.push([ref, body]);
+      return { ok: true };
+    };
+    const res = await runCiGate(host, 'feat/x', ci(), { evidenceComment: '## paqad evidence' });
+    expect(res.action).toBe('passed');
+    expect(res.evidenceCommentPosted).toBe(true);
+    expect(posted).toEqual([['feat/x', '## paqad evidence']]);
+  });
+
+  it('does not post when no evidence body is supplied', async () => {
+    let called = false;
+    const host = hostWith([{ state: 'green', checks: [] }]);
+    host.comment = async () => {
+      called = true;
+      return { ok: true };
+    };
+    const res = await runCiGate(host, 'b', ci());
+    expect(res.evidenceCommentPosted).toBe(false);
+    expect(called).toBe(false);
+  });
+
+  it('posts the evidence on a comment_and_stop red but not a plain-stop red', async () => {
+    const commentAndStop = hostWith([{ state: 'red', checks: [{ name: 'x', state: 'red' }] }]);
+    let cs = false;
+    commentAndStop.comment = async () => {
+      cs = true;
+      return { ok: true };
+    };
+    const r1 = await runCiGate(commentAndStop, 'b', ci({ on_red: 'comment_and_stop' }), {
+      evidenceComment: 'body',
+    });
+    expect(r1.action).toBe('failed_comment_and_stop');
+    expect(r1.evidenceCommentPosted).toBe(true);
+    expect(cs).toBe(true);
+
+    const plainStop = hostWith([{ state: 'red', checks: [{ name: 'x', state: 'red' }] }]);
+    let ps = false;
+    plainStop.comment = async () => {
+      ps = true;
+      return { ok: true };
+    };
+    const r2 = await runCiGate(plainStop, 'b', ci({ on_red: 'stop' }), { evidenceComment: 'body' });
+    expect(r2.action).toBe('failed_stop');
+    expect(r2.evidenceCommentPosted).toBe(false);
+    expect(ps).toBe(false);
+  });
+
+  it('best-effort: a comment failure never changes the green verdict', async () => {
+    const host = hostWith([{ state: 'green', checks: [] }]);
+    host.comment = async () => {
+      throw new Error('gh exploded');
+    };
+    const res = await runCiGate(host, 'b', ci(), { evidenceComment: 'body' });
+    expect(res.action).toBe('passed');
+    expect(res.evidenceCommentPosted).toBe(false);
   });
 
   it('times out when checks never go green', async () => {
