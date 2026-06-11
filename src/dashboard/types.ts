@@ -34,6 +34,7 @@ export const DASHBOARD_SECTION_IDS = [
   'architecture',
   'pentest',
   'rule-compliance',
+  'attestation',
   'session',
 ] as const;
 

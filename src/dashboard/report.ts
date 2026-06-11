@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 
 import { collectArchitecture } from './collectors/architecture.js';
+import { collectAttestation } from './collectors/attestation.js';
 import { collectDecisions } from './collectors/decisions.js';
 import { collectDelivery } from './collectors/delivery.js';
 import { collectFrameworkVersion } from './collectors/framework-version.js';
@@ -112,6 +113,7 @@ export function buildReport(
   const { section: pentestSection, attention: pentestAttention } = collectPentest(root, now);
   const { section: ruleComplianceSection, attention: ruleComplianceAttention } =
     collectRuleCompliance(root);
+  const { section: attestationSection } = collectAttestation(root);
   const sessionSection = collectSession(root, now);
 
   // Display order — matches the section table in the design brief.
@@ -133,6 +135,7 @@ export function buildReport(
     ragSection,
     pentestSection,
     ruleComplianceSection,
+    attestationSection,
     sessionSection,
   ];
 
