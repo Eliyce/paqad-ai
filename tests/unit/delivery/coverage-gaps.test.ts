@@ -36,6 +36,7 @@ function hostWith(status: ChecksStatus): HostProvider {
     commit: async () => ({ ok: true }),
     push: async () => ({ ok: true }),
     openPR: async () => ({ ok: true }),
+    comment: async () => ({ ok: true }),
     getChecksStatus: async () => status,
   };
 }
