@@ -6,10 +6,7 @@
 // vouched for it. Informational only — receipt presence is the signal; the
 // collector never pushes attention items by itself.
 
-import {
-  decodeReceiptStatement,
-  readReceiptChain,
-} from '@/evidence/receipt/project.js';
+import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
 import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
 
 import type { SectionData } from '../types.js';

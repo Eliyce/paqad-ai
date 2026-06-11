@@ -91,7 +91,8 @@ export function buildChangeAuthorship(input: BuildAuthorshipInput): ChangeAuthor
   const [idProvider, idModel] = splitModelId(env.PAQAD_MODEL_ID);
   const model = nonEmpty(env.PAQAD_AGENT_MODEL) ?? idModel;
   const provider = nonEmpty(env.PAQAD_AGENT_PROVIDER) ?? idProvider;
-  const model_id = model !== undefined && provider !== undefined ? `${provider}/${model}` : undefined;
+  const model_id =
+    model !== undefined && provider !== undefined ? `${provider}/${model}` : undefined;
 
   const declared = model !== undefined || provider !== undefined;
 

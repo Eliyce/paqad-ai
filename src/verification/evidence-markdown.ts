@@ -91,7 +91,10 @@ export function buildEvidenceComment(projectRoot: string, sha?: string): string 
   const evidence = readVerificationEvidence(projectRoot);
   if (evidence === null) return null;
   const authorship = latestReceiptAuthorship(projectRoot) ?? undefined;
-  return renderEvidenceMarkdown(evidence, { ...(sha ? { sha } : {}), ...(authorship ? { authorship } : {}) });
+  return renderEvidenceMarkdown(evidence, {
+    ...(sha ? { sha } : {}),
+    ...(authorship ? { authorship } : {}),
+  });
 }
 
 function shortSha(sha: string | undefined): string | null {

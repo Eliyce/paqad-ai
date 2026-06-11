@@ -117,7 +117,10 @@ function authorshipProps(authorship: ChangeAuthorship | undefined): CycloneDxPro
   if (authorship.model_id !== undefined)
     props.push({ name: 'paqad:authorship:model_id', value: authorship.model_id });
   if (authorship.accepting_human?.name !== undefined)
-    props.push({ name: 'paqad:authorship:accepting_human:name', value: authorship.accepting_human.name });
+    props.push({
+      name: 'paqad:authorship:accepting_human:name',
+      value: authorship.accepting_human.name,
+    });
   if (authorship.accepting_human?.email !== undefined)
     props.push({
       name: 'paqad:authorship:accepting_human:email',

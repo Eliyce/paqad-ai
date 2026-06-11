@@ -169,7 +169,9 @@ describe('renderEvidenceMarkdown', () => {
         provenance: 'declared',
       },
     });
-    expect(md).toContain('> Authorship: written by `cursor` · model `openai/gpt-5` (declared) · accepted by Jane Dev.');
+    expect(md).toContain(
+      '> Authorship: written by `cursor` · model `openai/gpt-5` (declared) · accepted by Jane Dev.',
+    );
     // The accepter email stays out of the public comment.
     expect(md).not.toContain('jane@example.com');
   });
