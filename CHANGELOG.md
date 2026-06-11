@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.11.1
+
+### Patch Changes
+
+- [#129](https://github.com/Eliyce/paqad-ai/pull/129) [`9046543`](https://github.com/Eliyce/paqad-ai/commit/904654309a963f1bad712d89d2e51ae2bafc4100) Thanks [@HLasani](https://github.com/HLasani)! - Fix `onboard` crashing with `EEXIST: file already exists, symlink` when a previous run left a dangling framework symlink (e.g. the npx cache directory it pointed at was garbage-collected). `ensureFrameworkSymlink` now detects the link with `lstat` instead of `existsSync` so dangling symlinks are cleaned up and replaced idempotently.
+
 ## 1.11.0
 
 ### Minor Changes
