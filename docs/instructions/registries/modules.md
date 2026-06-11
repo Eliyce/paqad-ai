@@ -58,6 +58,7 @@ paqad-ai's modules live in three layers:
 | pentest-engine             | Pentest Engine (12 Skills)             | [↗](../../modules/pentest-engine/index/summary.md) |
 | project-profile-schema     | Project Profile & Onboarding Manifest  | [↗](../../modules/project-profile-schema/index/summary.md) |
 | repository-resolver        | Repository Resolver                    | [↗](../../modules/repository-resolver/index/summary.md) |
+| evidence-ledger            | Evidence Ledger & Provenance Receipt   | [↗](../../modules/evidence-ledger/index/summary.md) |
 
 ## Confidence
 

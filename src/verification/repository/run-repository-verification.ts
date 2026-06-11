@@ -8,9 +8,26 @@
 import { engineLog } from '@/core/logger-registry.js';
 import type { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { VerificationContext } from '@/core/types/verification.js';
+import {
+  appendEvidenceRows,
+  computeChangeSubjectDigest,
+  computeFileDigests,
+  gateResultsToRows,
+  projectReceipt,
+  ratchetResultToRows,
+} from '@/evidence/index.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '../evidence.js';
+
+// Injected at build time by tsup/vitest (see tsup.config.ts); the unreplaced
+// placeholder is tolerated so a dev/test run still produces a receipt.
+declare const __PKG_VERSION__: string;
+function verifierVersion(): string {
+  return typeof __PKG_VERSION__ === 'string' && __PKG_VERSION__ !== '__PKG_VERSION__'
+    ? __PKG_VERSION__
+    : '0.0.0-dev';
+}
 import type { Gate } from '../gates/gate.interface.js';
 import { AcTestMappingGate } from '../gates/ac-test-mapping.js';
 import { ChangeCompletenessGate } from '../gates/change-completeness.js';
@@ -113,6 +130,32 @@ export async function runRepositoryVerification(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     engineLog('warn', `paqad: could not write verification-evidence.json (${message})`);
+  }
+
+  // Issue #118 — fan the graded gate (and ratchet measure) results into the
+  // unified evidence ledger, then project a signed per-change receipt + AI-BOM.
+  // Never block verification on a ledger/receipt failure: a missing receipt is a
+  // weaker trust signal, not a verdict.
+  try {
+    const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
+    const subjectDigest = computeChangeSubjectDigest(fileDigests);
+    const rowCtx = { subjectDigest, ts: completedAt };
+    const rows = [
+      ...gateResultsToRows(results, rowCtx),
+      ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
+    ];
+    appendEvidenceRows(context.project_root, rows);
+    await projectReceipt({
+      projectRoot: context.project_root,
+      fileDigests,
+      rows,
+      verifierVersion: verifierVersion(),
+      timeVerified: completedAt,
+      env: process.env,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: could not project evidence receipt (${message})`);
   }
 
   const verdict = buildRepositoryVerificationVerdict({

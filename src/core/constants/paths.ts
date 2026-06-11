@@ -79,6 +79,15 @@ export const PATHS = {
   // Issue #107 - per-run finding triage ledger (four-pile sort + reasons)
   FINDINGS_DIR: '.paqad/findings',
   TRIAGE_LEDGER: '.paqad/findings/triage.json',
+  // Issue #118 - unified append-only evidence ledger + the merge-time
+  // provenance receipt (in-toto Statement / DSSE + CycloneDX AI-BOM) projected
+  // from it. EVIDENCE_RECEIPT_CHAIN is the tamper-evident hash chain (one
+  // envelope per line); EVIDENCE_RECEIPT/EVIDENCE_AI_BOM are the latest snapshots.
+  EVIDENCE_LEDGER_DIR: '.paqad/ledger',
+  EVIDENCE_LEDGER: '.paqad/ledger/evidence.jsonl',
+  EVIDENCE_RECEIPT: '.paqad/ledger/receipt.dsse.json',
+  EVIDENCE_RECEIPT_CHAIN: '.paqad/ledger/receipts.jsonl',
+  EVIDENCE_AI_BOM: '.paqad/ledger/ai-bom.json',
   // Issue #109 - bidirectional traceability map (promise ↔ code ↔ test),
   // rebuilt from reality each run.
   TRACEABILITY_DIR: '.paqad/traceability',
