@@ -469,7 +469,9 @@ export class LaneRunner {
         const targetDir = join(projectRoot, PATHS.WORKFLOW_RUNS_DIR, workflowName, 'executions');
         const timestamp = new Date().toISOString();
         const safeSkill = trimEdgeChars(step.skill.replace(/[^a-z0-9]+/gi, '-'), '-') || 'step';
-        const target = join(targetDir, `${timestamp}-${safeSkill}.json`);
+        // ISO timestamps contain ':' which is illegal in Windows filenames.
+        const safeTimestamp = timestamp.replace(/[:.]/g, '-');
+        const target = join(targetDir, `${safeTimestamp}-${safeSkill}.json`);
 
         await mkdir(targetDir, { recursive: true });
         await writeFile(
