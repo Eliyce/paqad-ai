@@ -7,8 +7,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   buildEvidenceComment,
   readVerificationEvidence,
+  renderAuthorshipLine,
   renderEvidenceMarkdown,
 } from '@/verification/evidence-markdown';
+import { projectReceipt } from '@/evidence/receipt/project';
+import { buildEvidenceRow } from '@/evidence/ledger';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 import type {
   VerificationEvidence,
@@ -154,6 +157,39 @@ describe('renderEvidenceMarkdown', () => {
   it('is deterministic — identical evidence yields byte-identical output', () => {
     expect(renderEvidenceMarkdown(PASSING)).toBe(renderEvidenceMarkdown(PASSING));
   });
+
+  it('appends the authorship footer when authorship is supplied', () => {
+    const md = renderEvidenceMarkdown(PASSING, {
+      authorship: {
+        agent: 'cursor',
+        model: 'gpt-5',
+        provider: 'openai',
+        model_id: 'openai/gpt-5',
+        accepting_human: { name: 'Jane Dev', email: 'jane@example.com' },
+        provenance: 'declared',
+      },
+    });
+    expect(md).toContain('> Authorship: written by `cursor` · model `openai/gpt-5` (declared) · accepted by Jane Dev.');
+    // The accepter email stays out of the public comment.
+    expect(md).not.toContain('jane@example.com');
+  });
+
+  it('omits the footer when no authorship is supplied', () => {
+    expect(renderEvidenceMarkdown(PASSING)).not.toContain('Authorship:');
+  });
+});
+
+describe('renderAuthorshipLine', () => {
+  it('returns null when no renderable field is present', () => {
+    expect(renderAuthorshipLine({ provenance: 'unknown' })).toBeNull();
+  });
+
+  it('drops the (declared) qualifier when provenance is unknown', () => {
+    const line = renderAuthorshipLine({ agent: 'aider', provenance: 'unknown' });
+    expect(line).toBe(
+      '> Authorship: written by `aider`. paqad attests this on its gates, so the proof holds whichever tool wrote it.',
+    );
+  });
 });
 
 describe('readVerificationEvidence', () => {
@@ -207,5 +243,37 @@ describe('buildEvidenceComment', () => {
     writeFileSync(path, JSON.stringify(PASSING), 'utf8');
     const body = buildEvidenceComment(root, 'deadbeefcafe');
     expect(body).toMatch(/## paqad evidence — deadbee {2}🟢 Safe to merge/);
+  });
+
+  it('folds in authorship from the latest receipt', async () => {
+    const path = join(root, VERIFICATION_EVIDENCE_RELATIVE_PATH);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, JSON.stringify(PASSING), 'utf8');
+
+    await projectReceipt({
+      projectRoot: root,
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [
+        buildEvidenceRow({
+          ts: '2026-06-11T00:00:00.000Z',
+          engine: 'verification-gate',
+          code: 'mutation-testing',
+          subject_digest: 'subject-1',
+          verdict: 'pass',
+          strength_class: 'deterministic',
+        }),
+      ],
+      verifierVersion: '1.0.0',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+      authorship: {
+        agent: 'claude-code',
+        model_id: 'anthropic/claude-opus-4-8',
+        provenance: 'declared',
+      },
+    });
+
+    const body = buildEvidenceComment(root);
+    expect(body).toContain('written by `claude-code`');
+    expect(body).toContain('model `anthropic/claude-opus-4-8` (declared)');
   });
 });
