@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import fg from 'fast-glob';
 
+import { toPosixPath } from '@/core/path-utils.js';
 import { RagService } from '@/rag/service.js';
 
 import type { AnswerQuery, CitationSourceClass } from './types.js';
@@ -111,7 +112,10 @@ const MAX_RESULTS = 6;
 const EXCERPT_LENGTH = 500;
 const SOURCE_CLASS_ORDER = EVIDENCE_PATTERNS.map((pattern) => pattern.source_class);
 
-function classifySource(relativePath: string): CitationSourceClass | null {
+function classifySource(rawRelativePath: string): CitationSourceClass | null {
+  // Chunk source files may carry native separators on Windows; the prefix
+  // checks below are all posix-shaped.
+  const relativePath = toPosixPath(rawRelativePath);
   if (relativePath.startsWith('docs/modules/') && relativePath.endsWith('.md')) {
     return 'canonical-doc';
   }
@@ -211,7 +215,7 @@ export class EvidenceRetriever {
 
       seen.add(chunk.source_file);
       candidates.push({
-        path: chunk.source_file,
+        path: toPosixPath(chunk.source_file),
         source_class: sourceClass,
         excerpt: buildExcerpt(chunk.content, keywords),
         score: Math.max(scoreFile(chunk.source_file, chunk.content, keywords), 1),

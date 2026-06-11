@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import YAML from 'yaml';
 
@@ -381,7 +381,7 @@ function buildPackLoadFailedEvent(pack: LoadedStackPack): SkillPackLoadFailedEve
 
 function createPlaceholderManifest(packRoot: string): StackPackManifest {
   return {
-    name: packRoot.split('/').at(-1) ?? 'unknown-pack',
+    name: basename(packRoot) || 'unknown-pack',
     display_name: 'Unknown Pack',
     ecosystem: 'unknown',
     version: '0.0.0',

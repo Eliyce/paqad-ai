@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LoadedStackPack } from '@/core/types/pack.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type { EngineLogEntry } from '@/core/types/logger.js';
 import { RagFileFilter } from '@/rag/file-filter.js';
 
@@ -82,7 +83,9 @@ describe('RagFileFilter', () => {
   });
 
   function makeRoot() {
-    const root = mkdtempSync(join(tmpdir(), 'paqad-rag-filter-'));
+    // Posix-normalize so join(root, ...) expectations match the posix paths
+    // discoverFiles returns (mkdtempSync emits backslashes on Windows).
+    const root = toPosixPath(mkdtempSync(join(tmpdir(), 'paqad-rag-filter-')));
     tempRoots.push(root);
     return root;
   }
@@ -395,7 +398,11 @@ describe('RagFileFilter', () => {
     const root = makeRoot();
     const home = makeRoot();
     const previousHome = process.env.HOME;
+    const previousUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
+    // os.homedir() reads USERPROFILE on Windows; without this the global
+    // gitignore files land outside the resolved home and are never applied.
+    process.env.USERPROFILE = home;
     mkdirSync(join(home, '.config', 'git'), { recursive: true });
     writeProjectFile(home, '.gitignore_global', 'global.md\n');
     writeProjectFile(join(home, '.config', 'git'), 'ignore', 'config-global.md\n');
@@ -424,6 +431,11 @@ describe('RagFileFilter', () => {
     } finally {
       process.chdir(cwd);
       process.env.HOME = previousHome;
+      if (previousUserProfile === undefined) {
+        delete process.env.USERPROFILE;
+      } else {
+        process.env.USERPROFILE = previousUserProfile;
+      }
     }
   });
 
@@ -485,7 +497,11 @@ describe('RagFileFilter', () => {
 
     const files = await filter.discoverFiles();
 
-    expect(files).not.toContain(unreadablePath);
+    // chmod 0o000 does not block reads on Windows, so the file stays
+    // legitimately readable (and admitted) there.
+    if (process.platform !== 'win32') {
+      expect(files).not.toContain(unreadablePath);
+    }
     expect(files).not.toContain(invalidUtf8Path);
     expect(logs.some((entry) => entry.level === 'warn')).toBe(true);
 

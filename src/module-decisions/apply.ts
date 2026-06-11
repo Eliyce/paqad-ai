@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 
 import { appendModuleMapEvent, type ModuleMapEvent } from './events.js';
 
@@ -66,7 +67,7 @@ export function snapshotModuleMap(
   const snapPath = join(histDir, filename);
   const existing = existsSync(mapPath) ? readFileSync(mapPath, 'utf8') : '';
   writeFileSync(snapPath, existing, 'utf8');
-  return snapPath;
+  return toPosixPath(snapPath);
 }
 
 // Atomic write of the new module-map.yml via temp+rename. The temp file lives

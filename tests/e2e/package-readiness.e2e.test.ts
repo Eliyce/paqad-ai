@@ -12,8 +12,22 @@ const cliPath = join(process.cwd(), 'dist/cli/index.js');
 const buildLockRoot = join(process.cwd(), '.tmp');
 const buildLockDir = join(process.cwd(), '.tmp', 'built-cli.lock');
 
+async function builtCliIsCurrent(): Promise<boolean> {
+  if (!existsSync(cliPath)) {
+    return false;
+  }
+  // A dist built from an older version makes `--version` assertions flake;
+  // treat a version mismatch the same as a missing build.
+  try {
+    const { stdout } = await execa('node', [cliPath, '--version'], { cwd: process.cwd() });
+    return stdout.trim() === VERSION;
+  } catch {
+    return false;
+  }
+}
+
 async function ensureBuiltCli(): Promise<void> {
-  if (existsSync(cliPath) && !existsSync(buildLockDir)) {
+  if ((await builtCliIsCurrent()) && !existsSync(buildLockDir)) {
     return;
   }
 
@@ -27,7 +41,7 @@ async function ensureBuiltCli(): Promise<void> {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw error;
       }
-      if (existsSync(cliPath) && !existsSync(buildLockDir)) {
+      if ((await builtCliIsCurrent()) && !existsSync(buildLockDir)) {
         return;
       }
       await sleep(100);
@@ -35,7 +49,7 @@ async function ensureBuiltCli(): Promise<void> {
   }
 
   try {
-    if (!existsSync(cliPath)) {
+    if (!(await builtCliIsCurrent())) {
       await execa('pnpm', ['run', 'build'], {
         cwd: process.cwd(),
       });
@@ -50,31 +64,37 @@ describe('package publishing readiness', () => {
     await ensureBuiltCli();
   });
 
-  it('exposes a working built cli and pack manifest', async () => {
-    const npmCache = mkdtempSync(join(tmpdir(), 'paqad-npm-cache-'));
-    const version = await execa('node', [cliPath, '--version'], {
-      cwd: process.cwd(),
-    });
-    const help = await execa('node', [cliPath, '--help'], {
-      cwd: process.cwd(),
-    });
-    const pack = await execa('npm', ['pack', '--json', '--dry-run'], {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        npm_config_cache: npmCache,
-      },
-    });
-    const files = JSON.parse(pack.stdout)[0].files as Array<{ path: string }>;
+  it(
+    'exposes a working built cli and pack manifest',
+    async () => {
+      const npmCache = mkdtempSync(join(tmpdir(), 'paqad-npm-cache-'));
+      const version = await execa('node', [cliPath, '--version'], {
+        cwd: process.cwd(),
+      });
+      const help = await execa('node', [cliPath, '--help'], {
+        cwd: process.cwd(),
+      });
+      const pack = await execa('npm', ['pack', '--json', '--dry-run'], {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          npm_config_cache: npmCache,
+        },
+      });
+      const files = JSON.parse(pack.stdout)[0].files as Array<{ path: string }>;
 
-    expect(version.stdout.trim()).toBe(VERSION);
-    expect(help.stdout).toContain('install');
-    expect(help.stdout).toContain('doctor');
-    expect(help.stdout).toContain('onboard');
-    expect(files.some((file) => file.path.startsWith('runtime/'))).toBe(true);
-    expect(files.some((file) => file.path.startsWith('tests/'))).toBe(false);
-    rmSync(npmCache, { recursive: true, force: true });
-  }, 15000);
+      expect(version.stdout.trim()).toBe(VERSION);
+      expect(help.stdout).toContain('install');
+      expect(help.stdout).toContain('doctor');
+      expect(help.stdout).toContain('onboard');
+      expect(files.some((file) => file.path.startsWith('runtime/'))).toBe(true);
+      expect(files.some((file) => file.path.startsWith('tests/'))).toBe(false);
+      rmSync(npmCache, { recursive: true, force: true });
+      // npm pack --dry-run over the runtime/ tree is much slower on Windows
+      // runners; mirror the platform-aware defaults in vitest.config.ts.
+    },
+    process.platform === 'win32' ? 60_000 : 15_000,
+  );
 
   it('supports install and doctor flows from the built cli', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-package-'));

@@ -20,6 +20,7 @@ import {
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 
 import { ruleScriptMapPath, serializeRuleScriptMap } from './map.js';
 import type { RuleScriptMap } from './types.js';
@@ -78,7 +79,7 @@ export function snapshotRuleScriptMap(
   const snapPath = join(histDir, `${timestampForFilename(now)}-${sanitiseVia(via)}-${unique}.yml`);
   const existing = existsSync(mapPath) ? readFileSync(mapPath, 'utf8') : '';
   writeFileSync(snapPath, existing, 'utf8');
-  return snapPath;
+  return toPosixPath(snapPath);
 }
 
 export function atomicWriteRuleScriptMap(projectRoot: string, yaml: string): void {

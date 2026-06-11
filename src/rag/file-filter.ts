@@ -282,7 +282,9 @@ export class RagFileFilter {
         if (probe.layer === 4) stats.excluded_layer4 += 1;
       } else {
         stats.passed += 1;
-        files.push(absolutePath);
+        // fast-glob can emit native/mixed separators on Windows; the
+        // discoverFiles contract is posix paths.
+        files.push(toPosixPath(absolutePath));
       }
 
       const processed = index + 1;

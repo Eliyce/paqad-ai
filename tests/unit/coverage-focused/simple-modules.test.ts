@@ -14,6 +14,7 @@ import { JunieAdapter } from '@/adapters/junie/junie-adapter.js';
 import { DocumentPipeline } from '@/document/pipeline.js';
 import { DocumentationWorkflow } from '@/document/workflow.js';
 import { PriorityClassifier } from '@/context/priority-classifier.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import {
   resolveFrameworkInstallPath,
   writeDetectionReport,
@@ -229,8 +230,10 @@ describe('coverage simple modules', () => {
     });
 
     it('sanitizes persisted paths to repo-relative values and preserves external paths', () => {
-      const externalRoot = join(tmpdir(), 'paqad-external-root');
-      const externalIgnored = join(tmpdir(), 'paqad-external-ignore');
+      // Posix-normalized: the manifest writer persists external absolute paths
+      // in posix form, so expectations must match on Windows too.
+      const externalRoot = toPosixPath(join(tmpdir(), 'paqad-external-root'));
+      const externalIgnored = toPosixPath(join(tmpdir(), 'paqad-external-ignore'));
 
       const detectionPath = writeDetectionReport(root, {
         detected_domain: null,

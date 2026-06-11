@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type {
   PlanVsActualDiff,
   PlanVsActualSnapshot,
@@ -46,7 +47,7 @@ export async function writePlanVsActual(
   await mkdir(dir, { recursive: true });
   const filePath = join(dir, `${slug}.plan-vs-actual.json`);
   await writeFile(filePath, JSON.stringify(diff, null, 2) + '\n', 'utf8');
-  return filePath;
+  return toPosixPath(filePath);
 }
 
 function round(value: number): number {

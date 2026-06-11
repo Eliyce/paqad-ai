@@ -10,6 +10,9 @@ import type { EmbeddingProvider } from '@/rag/types.js';
 async function importPatternModules(homeDir: string) {
   vi.resetModules();
   vi.stubEnv('HOME', homeDir);
+  // os.homedir() reads USERPROFILE on Windows — stub both or the fake home
+  // is ignored there and pattern state leaks into the runner's real home.
+  vi.stubEnv('USERPROFILE', homeDir);
   const [
     {
       PatternStore,
