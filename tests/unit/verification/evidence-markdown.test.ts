@@ -4,7 +4,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readVerificationEvidence, renderEvidenceMarkdown } from '@/verification/evidence-markdown';
+import {
+  buildEvidenceComment,
+  readVerificationEvidence,
+  renderEvidenceMarkdown,
+} from '@/verification/evidence-markdown';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 import type {
   VerificationEvidence,
@@ -179,5 +183,29 @@ describe('readVerificationEvidence', () => {
     mkdirSync(join(path, '..'), { recursive: true });
     writeFileSync(path, JSON.stringify(PASSING), 'utf8');
     expect(readVerificationEvidence(root)).toEqual(PASSING);
+  });
+});
+
+describe('buildEvidenceComment', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-evidence-comment-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('returns null when no evidence exists (self-disables auto-post)', () => {
+    expect(buildEvidenceComment(root)).toBeNull();
+  });
+
+  it('renders the comment body, passing the sha through', () => {
+    const path = join(root, VERIFICATION_EVIDENCE_RELATIVE_PATH);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, JSON.stringify(PASSING), 'utf8');
+    const body = buildEvidenceComment(root, 'deadbeefcafe');
+    expect(body).toMatch(/## paqad evidence — deadbee {2}🟢 Safe to merge/);
   });
 });

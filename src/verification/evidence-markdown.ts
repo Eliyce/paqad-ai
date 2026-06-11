@@ -77,6 +77,20 @@ export function readVerificationEvidence(projectRoot: string): VerificationEvide
   }
 }
 
+/**
+ * Render the PR-comment body for a project's current verification evidence,
+ * or `null` when no evidence has been persisted. Used by the manual
+ * `paqad-ai evidence` command and by the delivery CI gate (issue #42), which
+ * posts it automatically so every onboarded project lands the deterministic
+ * proof on its PR. Returning `null` self-disables the comment on projects that
+ * never ran verification.
+ */
+export function buildEvidenceComment(projectRoot: string, sha?: string): string | null {
+  const evidence = readVerificationEvidence(projectRoot);
+  if (evidence === null) return null;
+  return renderEvidenceMarkdown(evidence, sha ? { sha } : {});
+}
+
 function shortSha(sha: string | undefined): string | null {
   if (!sha) return null;
   const trimmed = sha.trim();

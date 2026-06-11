@@ -96,6 +96,18 @@ export class GithubHostProvider implements HostProvider {
     };
   }
 
+  async comment(prOrBranch: string, body: string): Promise<HostStepResult> {
+    const result = await this.shell.run('gh', ['pr', 'comment', prOrBranch, '--body', body]);
+    return {
+      ok: result.exitCode === 0,
+      output: result.stderr || result.stdout,
+      remediation:
+        result.exitCode === 0
+          ? undefined
+          : 'gh pr comment failed. Ensure `gh auth status` is OK and the PR exists for this branch, then re-run delivery.',
+    };
+  }
+
   async getChecksStatus(prOrBranch: string): Promise<ChecksStatus> {
     // `gh pr checks <branch> --json name,state` returns one row per check run.
     const result = await this.shell.run('gh', ['pr', 'checks', prOrBranch, '--json', 'name,state']);
