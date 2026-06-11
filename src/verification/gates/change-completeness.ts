@@ -3,6 +3,8 @@ import { assessTestEvidence } from '@/verification/test-evidence.js';
 
 import type { Gate } from './gate.interface.js';
 
+import { collectScopeDriftPaths } from '@/verification/repository/scope-drift.js';
+
 import {
   areRegistriesStale,
   collectCanonicalDocumentationFailures,
@@ -86,6 +88,17 @@ async function collectBlockerReasons(context: Parameters<Gate['check']>[0]): Pro
   }
   if (!context.architecture_compliant) {
     reasons.push('Architecture compliance failed');
+  }
+
+  // Issue #117 (C-4) — scope drift. On the hook/backstop path the context
+  // carries the frozen spec boundary; any changed file outside it is an
+  // out-of-scope change the developer never asked for. Surface the specific
+  // paths so a human can accept or reject them.
+  if (context.spec_boundary && context.spec_boundary.length > 0) {
+    const driftPaths = collectScopeDriftPaths(context.changed_files, context.spec_boundary);
+    if (driftPaths.length > 0) {
+      reasons.push(`Out-of-scope changes outside the spec boundary: ${driftPaths.join(', ')}`);
+    }
   }
 
   const structuredTestIssue = getStructuredTestIssue(context.structured_test_results);

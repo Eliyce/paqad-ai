@@ -82,6 +82,34 @@ describe('ChangeCompletenessGate', () => {
     expect(result.detail).toContain('No test evidence recorded for changed code');
   });
 
+  it('blocks on out-of-scope changes outside the spec boundary (issue #117 C-4)', async () => {
+    const result = await gate.check(
+      createVerificationContext({
+        code_changed: true,
+        changed_files: ['src/feature/a.ts', 'src/unrelated/x.ts'],
+        spec_boundary: ['src/feature', 'tests', 'docs'],
+      }),
+    );
+
+    expect(result.passed).toBe(false);
+    const driftClause = result.detail.split('Remaining work')[0];
+    expect(driftClause).toContain('Out-of-scope changes outside the spec boundary');
+    expect(driftClause).toContain('src/unrelated/x.ts');
+    expect(driftClause).not.toContain('src/feature/a.ts');
+  });
+
+  it('does not flag scope drift when every change sits inside the boundary', async () => {
+    const result = await gate.check(
+      createVerificationContext({
+        code_changed: true,
+        changed_files: ['src/feature/a.ts'],
+        spec_boundary: ['src/feature'],
+      }),
+    );
+
+    expect(result.detail).not.toContain('Out-of-scope');
+  });
+
   it('accepts scope-mapped structured test results as test evidence', async () => {
     const result = await gate.check(
       createVerificationContext({

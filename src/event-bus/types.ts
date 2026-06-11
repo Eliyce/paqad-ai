@@ -182,6 +182,29 @@ export interface RegistryChangedEvent extends EngineEventBase {
   id?: string;
 }
 
+/** A single gate's outcome carried on a {@link VerificationVerdictEvent}. */
+export interface VerificationGateVerdictEntry {
+  gate: string;
+  status: 'pass' | 'fail' | 'inconclusive' | 'skipped';
+  detail: string;
+}
+
+/**
+ * A verification run (issue #117) finished — fired by the completion hook / CI
+ * backstop. Carries the one trust verdict so a desktop/UI subscriber renders
+ * "did the agent obey?" without re-reading the diff. `ok` is the deterministic
+ * pass/fail; `gates` carries per-gate specifics; `escalations` lists signals
+ * that could not be proven and need a human.
+ */
+export interface VerificationVerdictEvent extends EngineEventBase {
+  kind: 'verification-verdict';
+  origin: string;
+  ok: boolean;
+  summary: string;
+  gates: VerificationGateVerdictEntry[];
+  escalations: string[];
+}
+
 /**
  * Synthetic event delivered to a subscriber whose buffer overflowed: the bus
  * dropped `droppedCount` older non-critical events before this marker. It is
@@ -211,6 +234,7 @@ export type EngineEvent =
   | WorkflowStepCompletedEvent
   | WorkflowStepFailedEvent
   | RegistryChangedEvent
+  | VerificationVerdictEvent
   | EventsCoalescedEvent;
 
 /** The set of `kind` discriminants, for use in {@link EngineEventFilter}. */
