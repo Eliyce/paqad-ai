@@ -20,6 +20,7 @@ describe('createProgram', () => {
       'compliance',
       'dashboard',
       'doctor',
+      'evidence',
       'graph',
       'module-decisions',
       'module-events',

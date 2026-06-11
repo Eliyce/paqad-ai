@@ -6,6 +6,7 @@ import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createComplianceCommand } from './commands/compliance.js';
 import { createDashboardCommand } from './commands/dashboard.js';
 import { createDoctorCommand } from './commands/doctor.js';
+import { createEvidenceCommand } from './commands/evidence.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
@@ -36,6 +37,7 @@ export function createProgram(): Command {
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());
   program.addCommand(createDoctorCommand());
+  program.addCommand(createEvidenceCommand());
   program.addCommand(createGraphCommand());
   program.addCommand(createModuleDecisionsCommand());
   program.addCommand(createModuleEventsCommand());
