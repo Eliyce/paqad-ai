@@ -30,3 +30,12 @@ paqad-ai evidence $(git rev-parse HEAD) --output evidence.md \
 Output is deterministic: identical evidence yields a byte-identical comment.
 The command computes nothing, gates nothing, and signs nothing — it only
 surfaces what verification already produced.
+
+**Auto-post for every onboarded project.** The same render is now posted to
+the PR automatically by the delivery CI gate (#42), so the proof lands without
+anyone running a command. The provider-neutral `HostProvider` contract gains a
+`comment()` capability (GitHub adapter: `gh pr comment`), completing the
+previously half-built `on_red: comment_and_stop` intent. The gate posts the
+evidence on green (the "safe to merge" proof) and on a `comment_and_stop` red
+(the proof of what blocked it). Posting is best-effort — a failed comment never
+changes the gate verdict — and self-disables when no evidence exists.
