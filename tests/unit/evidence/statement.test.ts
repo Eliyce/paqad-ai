@@ -95,4 +95,36 @@ describe('buildInTotoStatement', () => {
     expect(statement.predicate.evidence_by_engine['verification-gate']).toBe(2);
     expect(statement.predicate.rows).toHaveLength(2);
   });
+
+  it('omits change_authorship entirely when none is supplied', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row({})],
+      verifierVersion: '1.2.3',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+    });
+    expect('change_authorship' in statement.predicate).toBe(false);
+  });
+
+  it('folds change_authorship into the predicate when supplied', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row({})],
+      verifierVersion: '1.2.3',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+      authorship: {
+        agent: 'cursor',
+        model: 'gpt-5',
+        provider: 'openai',
+        model_id: 'openai/gpt-5',
+        accepting_human: { name: 'Jane', email: 'jane@example.com' },
+        provenance: 'declared',
+      },
+    });
+    expect(statement.predicate.change_authorship).toMatchObject({
+      agent: 'cursor',
+      model_id: 'openai/gpt-5',
+      provenance: 'declared',
+    });
+  });
 });

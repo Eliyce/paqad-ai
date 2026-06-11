@@ -8,7 +8,12 @@ import { PATHS } from '@/core/constants/paths.js';
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
-import { latestReceiptHash, projectReceipt, readReceiptChain } from '@/evidence/receipt/project.js';
+import {
+  latestReceiptAuthorship,
+  latestReceiptHash,
+  projectReceipt,
+  readReceiptChain,
+} from '@/evidence/receipt/project.js';
 
 function row(code: string): EvidenceLedgerRow {
   return buildEvidenceRow({
@@ -55,5 +60,39 @@ describe('projectReceipt', () => {
     const chain = readReceiptChain(root);
     expect(chain).toHaveLength(2);
     expect(verifyReceiptChain(chain)).toBeNull();
+  });
+
+  it('reads back the authorship attested by the latest receipt', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-receipt-'));
+    expect(latestReceiptAuthorship(root)).toBeNull();
+
+    await projectReceipt({
+      projectRoot: root,
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row('mutation-testing')],
+      verifierVersion: '1.0.0',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+      authorship: {
+        agent: 'claude-code',
+        model: 'claude-opus-4-8',
+        provider: 'anthropic',
+        model_id: 'anthropic/claude-opus-4-8',
+        accepting_human: { name: 'Jane', email: 'jane@example.com' },
+        provenance: 'declared',
+      },
+    });
+
+    expect(latestReceiptAuthorship(root)).toMatchObject({
+      agent: 'claude-code',
+      model_id: 'anthropic/claude-opus-4-8',
+      accepting_human: { name: 'Jane' },
+      provenance: 'declared',
+    });
+  });
+
+  it('returns null authorship when the receipt carried none', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-receipt-'));
+    await project(root, 'mutation-testing');
+    expect(latestReceiptAuthorship(root)).toBeNull();
   });
 });

@@ -12,8 +12,10 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import {
+  type ChangeAuthorship,
   type EvidenceFileDigest,
   type EvidenceLedgerRow,
+  type InTotoStatement,
   type ReceiptEnvelope,
 } from '@/core/types/evidence-ledger.js';
 
@@ -51,6 +53,29 @@ export function latestReceiptHash(projectRoot: string): string {
   return chain.length === 0 ? ZERO_DIGEST : chain[chain.length - 1].paqad.receipt_hash;
 }
 
+/** Decode a receipt envelope's wrapped in-toto Statement, or `null` when the
+ *  base64 payload is unparseable. */
+export function decodeReceiptStatement(envelope: ReceiptEnvelope): InTotoStatement | null {
+  try {
+    return JSON.parse(Buffer.from(envelope.payload, 'base64').toString('utf8')) as InTotoStatement;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Issue #120 — the change authorship attested by the most recent receipt, or
+ * `null` when no receipt exists or it carried no authorship. The single source
+ * of truth every surface (PR comment, dashboard) reads, so the moat is shown
+ * from the signed record rather than re-derived per surface.
+ */
+export function latestReceiptAuthorship(projectRoot: string): ChangeAuthorship | null {
+  const chain = readReceiptChain(projectRoot);
+  if (chain.length === 0) return null;
+  const statement = decodeReceiptStatement(chain[chain.length - 1]);
+  return statement?.predicate.change_authorship ?? null;
+}
+
 async function atomicWriteJson(targetPath: string, value: unknown): Promise<void> {
   await mkdir(dirname(targetPath), { recursive: true });
   const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
@@ -64,6 +89,8 @@ export interface ProjectReceiptInput {
   rows: readonly EvidenceLedgerRow[];
   verifierVersion: string;
   timeVerified: string;
+  /** Issue #120 — who wrote/accepted the change, folded into the predicate. */
+  authorship?: ChangeAuthorship;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -86,6 +113,7 @@ export async function projectReceipt(input: ProjectReceiptInput): Promise<Projec
     rows: input.rows,
     verifierVersion: input.verifierVersion,
     timeVerified: input.timeVerified,
+    authorship: input.authorship,
   });
 
   // Mode detection is recorded for transparency even though the local signer
