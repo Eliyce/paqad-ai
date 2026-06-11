@@ -86,9 +86,6 @@ export async function buildRepositoryVerificationContext(
   const specBoundary = deriveSpecBoundary(traceabilityMap);
 
   const escalations: string[] = [];
-  if (acMapping.inconclusive) {
-    escalations.push(`ac-test-mapping: ${acMapping.detail}`);
-  }
   if (specReviewSignal.inconclusive) {
     escalations.push(`spec-review: ${specReviewSignal.detail}`);
   }

@@ -159,6 +159,22 @@ describe('buildRepositoryVerificationContext', () => {
     expect(verdict.summary).toContain('src/unrelated/x.ts');
   });
 
+  it('leaves the spec boundary undefined when a frozen spec delivers no directories', async () => {
+    const root = makeProject();
+    setChangedFiles(root, ['src/feature.ts']);
+    // Frozen AC present (so hasFrozenSpec) but no delivering directories.
+    const map = frozenAcMap([]);
+    map.forward[0].delivering_code = ['bare-file-no-dir'];
+    writeMap(root, map);
+
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'ci-backstop',
+    });
+
+    expect(context.spec_boundary).toBeUndefined();
+  });
+
   it('escalates (without blocking) when code changed but no spec is on record', async () => {
     const root = makeProject();
     setChangedFiles(root, ['src/feature.ts']);
