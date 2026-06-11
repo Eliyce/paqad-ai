@@ -1,5 +1,31 @@
 # paqad-ai
 
+## 1.11.0
+
+### Minor Changes
+
+- [#127](https://github.com/Eliyce/paqad-ai/pull/127) [`30ba1c5`](https://github.com/Eliyce/paqad-ai/commit/30ba1c5f7e14b42323acddea7d2b7056885c23e2) Thanks [@HLasani](https://github.com/HLasani)! - Make the verification gates bind ([#117](https://github.com/Eliyce/paqad-ai/issues/117)). The existing gate runner now fires
+  automatically from a completion hook and a git/CI backstop via a new exported
+  `runRepositoryVerification` API, against repository reality, with the judgment
+  inputs computed instead of stubbed:
+  - C-1: agent-independent verification entry point + non-provider origins
+    (`hook-completion`, `git-backstop`, `ci-backstop`); completion (`Stop`) hook,
+    git pre-commit hook, and CI backstop script.
+  - C-2: `ac-test-mapping`, `implementation-review`, and `spec-review` computed
+    from the traceability map, decision store, and spec-review reports; signals
+    that need model judgment escalate as inconclusive instead of passing vacuously.
+  - C-3: a decision-pause PreToolUse hook that blocks mutating tools while a
+    decision packet is unresolved.
+  - C-4: scope-drift in the `change-completeness` gate against the derived spec
+    boundary, naming the out-of-scope paths.
+  - C-5: the live hooks are generated for hook-capable adapters from one
+    definition, with a documented per-adapter coverage matrix.
+  - C-6: one machine-readable trust verdict, streamed as a `verification-verdict`
+    engine event and written to the verification-evidence artifact.
+
+  No new CLI verb. See `docs/verification-enforcement.md` for the enforcement
+  boundary and limitations.
+
 ## 1.10.1
 
 ### Patch Changes
