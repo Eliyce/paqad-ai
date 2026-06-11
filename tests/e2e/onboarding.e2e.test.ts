@@ -7,6 +7,7 @@ import YAML from 'yaml';
 
 import { runCli } from '@/cli/index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import type { Stack } from '@/core/types/domain.js';
 import { DocumentationWorkflow } from '@/document/workflow.js';
@@ -635,7 +636,9 @@ async function walk(root: string, current = root): Promise<string[]> {
       continue;
     }
 
-    files.push(relative(root, absolute));
+    // relative() emits backslashes on Windows; snapshot keys must stay posix so
+    // normalizeSnapshotValue's file-name matches keep stripping volatile fields.
+    files.push(toPosixPath(relative(root, absolute)));
   }
 
   return files.sort();
