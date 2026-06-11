@@ -6,12 +6,25 @@
 // Pure prefix matching, kept separate from the boundary *policy* (which the
 // context builder owns) so it is trivially unit-testable.
 
-function normalizeBoundaryPath(value: string): string {
-  return value
-    .replace(/\\/g, '/')
-    .replace(/^\.?\//, '')
-    .replace(/\/+$/, '')
-    .trim();
+/**
+ * Normalize a project-relative path for prefix comparison: backslashes to
+ * forward slashes, strip a single leading `./` or `/`, strip trailing slashes.
+ * Trailing slashes are removed with a character scan rather than a `/\/+$/`
+ * regex, which CodeQL flags as polynomial ReDoS on strings of many slashes.
+ */
+function normalizePath(value: string): string {
+  const slashed = value.replace(/\\/g, '/').trim();
+  let start = 0;
+  if (slashed.startsWith('./')) {
+    start = 2;
+  } else if (slashed.startsWith('/')) {
+    start = 1;
+  }
+  let end = slashed.length;
+  while (end > start && slashed[end - 1] === '/') {
+    end -= 1;
+  }
+  return slashed.slice(start, end);
 }
 
 function isWithinBoundary(file: string, boundary: string[]): boolean {
@@ -26,18 +39,13 @@ function isWithinBoundary(file: string, boundary: string[]): boolean {
  * equals, or sits under, any entry.
  */
 export function collectScopeDriftPaths(changedFiles: string[], specBoundary: string[]): string[] {
-  const boundary = specBoundary.map(normalizeBoundaryPath).filter((entry) => entry.length > 0);
+  const boundary = specBoundary.map(normalizePath).filter((entry) => entry.length > 0);
   if (boundary.length === 0) {
     return [];
   }
 
   const drift = changedFiles
-    .map((file) =>
-      file
-        .replace(/\\/g, '/')
-        .replace(/^\.?\//, '')
-        .trim(),
-    )
+    .map((file) => normalizePath(file))
     .filter((file) => file.length > 0 && !isWithinBoundary(file, boundary));
 
   return [...new Set(drift)].sort();

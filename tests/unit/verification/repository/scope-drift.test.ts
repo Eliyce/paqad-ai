@@ -37,4 +37,11 @@ describe('collectScopeDriftPaths', () => {
       'src/featureX/a.ts',
     ]);
   });
+
+  it('strips trailing slashes from boundary entries (no ReDoS regex)', () => {
+    expect(collectScopeDriftPaths(['src/feature/a.ts'], ['src/feature///'])).toEqual([]);
+    expect(collectScopeDriftPaths(['src/other/a.ts'], ['src/feature/'])).toEqual([
+      'src/other/a.ts',
+    ]);
+  });
 });
