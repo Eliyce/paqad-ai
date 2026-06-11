@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.13.1
+
+### Patch Changes
+
+- [#136](https://github.com/Eliyce/paqad-ai/pull/136) [`6c53e5a`](https://github.com/Eliyce/paqad-ai/commit/6c53e5aa937336ec0221c81391f2761b2896b6e6) Thanks [@HLasani](https://github.com/HLasani)! - Full Windows support. Fixed every Windows-only failure tracked in [#43](https://github.com/Eliyce/paqad-ai/issues/43)-[#53](https://github.com/Eliyce/paqad-ai/issues/53) plus the follow-ups it surfaced: path outputs are now forward-slash everywhere (RAG file discovery, evidence retrieval, planning doc targets, pentest reports and retests, rule scripts, delivery policy, module-map snapshots, pack manifests), custom workflow execution artifacts no longer use characters that are illegal in Windows filenames, and onboarding re-runs stay byte-identical on Windows. The windows-latest leg now runs as a full CI gate.
+
 ## 1.13.0
 
 ### Minor Changes
