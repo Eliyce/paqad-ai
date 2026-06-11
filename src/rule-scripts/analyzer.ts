@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import fg from 'fast-glob';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 
 import { embedRuleIds } from './rule-file.js';
 import { sha256 } from './rule-id.js';
@@ -39,7 +40,7 @@ export function collectRuleFiles(projectRoot: string): string[] {
     cwd: join(projectRoot, PATHS.RULES_DIR),
     onlyFiles: true,
   });
-  return rel.map((r) => join(PATHS.RULES_DIR, r)).sort();
+  return rel.map((r) => toPosixPath(join(PATHS.RULES_DIR, r))).sort();
 }
 
 export function computeRuleFilesHash(projectRoot: string, files: string[]): string {

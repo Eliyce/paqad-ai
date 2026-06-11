@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type {
   DeliveryPolicy,
   DeliveryPolicyLoadResult,
@@ -27,7 +28,7 @@ import { SchemaValidator } from '@/validators/validator.js';
 export const DELIVERY_POLICY_FILE = 'delivery-policy.yaml';
 
 export function deliveryPolicyPath(projectRoot: string): string {
-  return join(projectRoot, PATHS.WORKFLOWS_DIR, DELIVERY_POLICY_FILE);
+  return toPosixPath(join(projectRoot, PATHS.WORKFLOWS_DIR, DELIVERY_POLICY_FILE));
 }
 
 /**

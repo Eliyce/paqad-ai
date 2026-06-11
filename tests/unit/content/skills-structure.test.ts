@@ -4,6 +4,7 @@ import { dirname, join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { toPosixPath } from '@/core/path-utils.js';
 import { SkillFrontmatterParser } from '@/skills/frontmatter-parser.js';
 
 describe('runtime skills', () => {
@@ -56,7 +57,12 @@ describe('runtime skills', () => {
         expect(parsed.body).toContain(section);
       }
 
-      const resourceReferences = [...bundledReferences, relative(process.cwd(), agentConfigPath)];
+      // Skill bodies reference resources with forward slashes; relative()
+      // emits backslashes on Windows.
+      const resourceReferences = [
+        ...bundledReferences,
+        toPosixPath(relative(process.cwd(), agentConfigPath)),
+      ];
       expect(resourceReferences.some((resource) => parsed.body.includes(`\`${resource}\``))).toBe(
         true,
       );
