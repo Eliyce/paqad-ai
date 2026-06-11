@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
+import { lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync, type Stats } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { setEngineLogger } from '@/core/logger-registry.js';
@@ -77,11 +77,14 @@ function ensureFrameworkSymlink(runtimeRoot: string, frameworkHome: string): voi
 }
 
 function removeConflictingFrameworkPath(frameworkHome: string): void {
-  if (!existsSync(frameworkHome)) {
+  // Use lstat, not existsSync: existsSync follows symlinks, so a dangling link
+  // (e.g. the npx cache dir it pointed at was garbage-collected between runs)
+  // reads as "absent" — skipping cleanup and crashing symlinkSync with EEXIST.
+  const stat = lstatSafe(frameworkHome);
+  if (stat === undefined) {
     return;
   }
 
-  const stat = lstatSync(frameworkHome);
   if (stat.isDirectory() && !stat.isSymbolicLink()) {
     throw new Error(
       `Refusing to replace existing framework home directory at ${frameworkHome}. Remove it manually or point PAQAD_FRAMEWORK_HOME at an empty path.`,
@@ -92,14 +95,23 @@ function removeConflictingFrameworkPath(frameworkHome: string): void {
 }
 
 function isExpectedRuntimeSymlink(runtimeRoot: string, frameworkHome: string): boolean {
-  if (!existsSync(frameworkHome)) {
+  const stat = lstatSafe(frameworkHome);
+  if (stat === undefined || !stat.isSymbolicLink()) {
     return false;
   }
 
   try {
-    const stat = lstatSync(frameworkHome);
-    return stat.isSymbolicLink() && readlinkSync(frameworkHome) === runtimeRoot;
+    return readlinkSync(frameworkHome) === runtimeRoot;
   } catch {
     return false;
+  }
+}
+
+/** lstat that returns undefined instead of throwing when the path is absent. */
+function lstatSafe(path: string): Stats | undefined {
+  try {
+    return lstatSync(path);
+  } catch {
+    return undefined;
   }
 }

@@ -101,6 +101,22 @@ describe('bootstrapFramework', () => {
     expect(realpathSync(frameworkHome)).toBe(getRuntimeRoot());
   });
 
+  it('replaces a dangling framework symlink left by a deleted runtime (issue #68)', () => {
+    // Simulate the npx scenario: a prior run created the symlink pointing at a
+    // runtime dir that has since been garbage-collected, leaving a dangling
+    // link. existsSync would report this as absent (it follows symlinks), so
+    // the old code skipped cleanup and symlinkSync crashed with EEXIST.
+    const staleTarget = mkdtempSync(join(tmpdir(), 'paqad-stale-runtime-'));
+    symlinkSync(staleTarget, frameworkHome);
+    rmSync(staleTarget, { recursive: true, force: true });
+
+    expect(existsSync(frameworkHome)).toBe(false); // dangling: target gone
+    expect(lstatSync(frameworkHome).isSymbolicLink()).toBe(true); // link still on disk
+
+    expect(() => bootstrapFramework(projectRoot)).not.toThrow();
+    expect(realpathSync(frameworkHome)).toBe(getRuntimeRoot());
+  });
+
   it('writes framework-path.txt using a machine-safe reference', () => {
     bootstrapFramework(projectRoot);
 
