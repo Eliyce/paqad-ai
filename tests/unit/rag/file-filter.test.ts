@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LoadedStackPack } from '@/core/types/pack.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type { EngineLogEntry } from '@/core/types/logger.js';
 import { RagFileFilter } from '@/rag/file-filter.js';
 
@@ -82,7 +83,9 @@ describe('RagFileFilter', () => {
   });
 
   function makeRoot() {
-    const root = mkdtempSync(join(tmpdir(), 'paqad-rag-filter-'));
+    // Posix-normalize so join(root, ...) expectations match the posix paths
+    // discoverFiles returns (mkdtempSync emits backslashes on Windows).
+    const root = toPosixPath(mkdtempSync(join(tmpdir(), 'paqad-rag-filter-')));
     tempRoots.push(root);
     return root;
   }
