@@ -1,8 +1,8 @@
-import type { ResolvedConventions } from '@/core/conventions.js';
+import type { ResolvedDeliveryProcess } from '@/core/types/delivery-policy.js';
 
 /**
  * Inputs for delivery template rendering. The orchestrator gathers these
- * from the refined ticket (intake) and the conventions: block.
+ * from the refined ticket (intake) and the delivery-policy `process:` block.
  */
 export interface DeliveryRenderInputs {
   /** Ticket id like "PAQ-123" or "#42". Empty when no ticket was provided. */
@@ -68,18 +68,18 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
 
 /**
  * Render the full delivery surface (branch name, commit, PR title, PR body)
- * from the conventions block + inputs. PR body comes verbatim from
- * `conventions.pr.body_template_path` after substitution — the caller is
+ * from the delivery-policy `process:` block + inputs. PR body comes verbatim
+ * from `process.pr.body_template_path` after substitution — the caller is
  * responsible for reading that file; this renderer accepts the loaded body
  * via `prBodyTemplate`.
  */
 export function renderDelivery(
-  conventions: ResolvedConventions,
+  process: ResolvedDeliveryProcess,
   inputs: DeliveryRenderInputs,
   prBodyTemplate: string,
 ): RenderedDelivery {
-  const type = resolveConventionalType(inputs.ticket_type, conventions.branch.type_map);
-  const title_slug = slugify(inputs.title, conventions.branch.slug_max_length);
+  const type = resolveConventionalType(inputs.ticket_type, process.branch.type_map);
+  const title_slug = slugify(inputs.title, process.branch.slug_max_length);
   const ticket = inputs.ticket || '';
   const scope = inputs.scope ?? type;
 
@@ -93,9 +93,9 @@ export function renderDelivery(
   };
 
   return {
-    branch: renderTemplate(conventions.branch.template, vars),
-    commit: renderTemplate(conventions.commit.template, vars),
-    pr_title: renderTemplate(conventions.pr.title_template, vars),
+    branch: renderTemplate(process.branch.template, vars),
+    commit: renderTemplate(process.commit.template, vars),
+    pr_title: renderTemplate(process.pr.title_template, vars),
     pr_body: renderTemplate(prBodyTemplate, vars),
   };
 }

@@ -54,6 +54,7 @@ import {
   writeOnboardingManifest,
   writeProjectProfile,
 } from './manifest-writer.js';
+import { generateDeliveryPolicy } from './delivery-policy-generator.js';
 import { generateFeatureDevelopmentPolicy } from './feature-policy-generator.js';
 import { resolveSelections } from './prompts.js';
 import {
@@ -242,6 +243,7 @@ export class OnboardingOrchestrator {
 
     generatedFiles.push(...(await generateProjectRules(resolved.rules)));
     generatedFiles.push(...generateFeatureDevelopmentPolicy(selections.domain));
+    generatedFiles.push(...generateDeliveryPolicy(selections.domain));
     generatedFiles.push(
       ...(await generateReferenceGuides(runtimeRoot, {
         domain: selections.domain,

@@ -24,6 +24,7 @@ export const DASHBOARD_SECTION_IDS = [
   'stack-drift',
   'rules',
   'workflows',
+  'delivery',
   'module-docs',
   'design-system',
   'stack',

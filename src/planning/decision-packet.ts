@@ -11,6 +11,7 @@ export const DECISION_CATEGORIES = [
   'intake.confirm_auto_resolution',
   'intake.write_back',
   'delivery.open_pr',
+  'delivery.ci_red',
   'spec.change',
   'spec.contradiction',
   'fix.proof_method',
@@ -109,6 +110,9 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'intake.confirm_auto_resolution': { create_new: false, reversibility: 'easy', ttl_days: 7 },
   'intake.write_back': { create_new: false, reversibility: 'easy', ttl_days: 1 },
   'delivery.open_pr': { create_new: false, reversibility: 'easy', ttl_days: 1 },
+  // Delivery CI gate (issue #42). A red build where on_red needs a human call
+  // (retry / override / abandon). Reversible: the agent re-asks on the next run.
+  'delivery.ci_red': { create_new: false, reversibility: 'easy', ttl_days: 1 },
   // Spec lifecycle (issue #102). A mid-build goal change updates and re-freezes
   // the spec; a work-vs-spec contradiction is put to the human (fix code or
   // change spec) and is never resolved silently.

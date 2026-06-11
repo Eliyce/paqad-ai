@@ -17,80 +17,6 @@
     "escalation",
     "custom"
   ],
-  "$defs": {
-    "conventionsBlock": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Project-owned conventions consumed by ticket_intake and delivery stages. All keys are optional; framework defaults populate unspecified values.",
-      "properties": {
-        "ticket": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "provider": {
-              "type": "string",
-              "enum": ["jira", "linear", "github-issues", "generic"]
-            },
-            "server": { "type": "string" },
-            "require_ticket": { "type": "boolean" },
-            "write_back": { "type": "string", "enum": ["never", "ask", "always"] }
-          }
-        },
-        "intake_decisions": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "auto_resolve_from_priors": { "type": "boolean" },
-            "auto_resolve_from_rules": { "type": "boolean" },
-            "confirm_auto_resolutions": {
-              "type": "string",
-              "enum": ["always", "batched", "never"]
-            },
-            "max_options_per_packet": { "type": "integer", "minimum": 2, "maximum": 10 },
-            "fingerprint_scope": {
-              "type": "array",
-              "items": { "type": "string" }
-            }
-          }
-        },
-        "branch": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "template": { "type": "string" },
-            "type_map": {
-              "type": "object",
-              "additionalProperties": { "type": "string" }
-            },
-            "slug_max_length": { "type": "integer", "minimum": 1, "maximum": 200 },
-            "base": { "type": "string" }
-          }
-        },
-        "commit": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "template": { "type": "string" },
-            "sign_off": { "type": "boolean" }
-          }
-        },
-        "pr": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "title_template": { "type": "string" },
-            "body_template_path": { "type": "string" },
-            "base": { "type": "string" },
-            "draft": { "type": "boolean" },
-            "reviewers": { "type": "array", "items": { "type": "string" } },
-            "labels": { "type": "array", "items": { "type": "string" } },
-            "link_ticket": { "type": "boolean" },
-            "transition_on_open": { "type": "string" }
-          }
-        }
-      }
-    }
-  },
   "properties": {
     "project": {
       "type": "object",
@@ -258,7 +184,6 @@
         "ai_governance": { "type": "boolean" }
       }
     },
-    "conventions": { "$ref": "#/$defs/conventionsBlock" },
     "mcp": {
       "type": "object",
       "additionalProperties": false,

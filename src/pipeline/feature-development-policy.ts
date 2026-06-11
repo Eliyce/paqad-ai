@@ -186,16 +186,19 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
       delivery: {
         read: [],
         instructions: [
-          'After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet.',
-          'On yes/draft, render branch / commit / PR text from the conventions: block templates, infer the host from the git remote, and link back to the ticket if one is present.',
-          'MCP / git / remote failures stop with actionable remediation — never silently fall back to a local-only commit.',
+          'After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet — unless process.pr already pins it.',
+          'Render branch / commit / PR text from the delivery-policy process: block (docs/instructions/workflows/delivery-policy.yaml), resolve the host/ticket provider from config, and link back to the ticket if one is present.',
+          'Run the CI gate per process.ci: wait_for_green polls checks until green (timeout_minutes), applies on_red on failure, and transitions the ticket on green. A red build surfaces via a delivery.ci_red Decision Packet when on_red needs a human call.',
+          'Graceful degradation: if a required provider (host/tracker MCP) is not connected, do what is possible (branch/commit always run), skip the provider-bound steps, and re-surface the connect nudge — do not hard stop.',
+          'MCP / git / remote failures (auth, conflicts, branch protection) stop with actionable remediation — never silently fall back to a local-only commit.',
         ],
-        required_inputs: ['merged change', 'conventions block'],
+        required_inputs: ['merged change', 'delivery-policy process block'],
         strictness: {},
         escalation: {
           remote_failure: 'stop',
+          ci_red: 'ask',
         },
-        artifacts: ['branch', 'commit', 'pull request'],
+        artifacts: ['branch', 'commit', 'pull request', 'CI gate result'],
         checks: null,
       },
     },
@@ -411,7 +414,10 @@ function validateRequiredCommands(
   return resolved.warnings;
 }
 
-export const RESERVED_WORKFLOW_POLICY_FILES = ['feature-development.yaml'] as const;
+export const RESERVED_WORKFLOW_POLICY_FILES = [
+  'feature-development.yaml',
+  'delivery-policy.yaml',
+] as const;
 
 export function isReservedWorkflowPolicyFile(fileName: string): boolean {
   return RESERVED_WORKFLOW_POLICY_FILES.includes(
@@ -564,18 +570,22 @@ stages:
 
   delivery:
     instructions:
-      - After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet.
-      - On yes/draft, render branch / commit / PR text from the conventions: block templates, infer the host from the git remote, and link back to the ticket if one is present.
-      - MCP / git / remote failures stop with actionable remediation — never silently fall back to a local-only commit.
+      - After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet — unless process.pr already pins it.
+      - Render branch / commit / PR text from the delivery-policy process block (docs/instructions/workflows/delivery-policy.yaml), resolve the host/ticket provider from config, and link back to the ticket if one is present.
+      - "Run the CI gate per process.ci: wait_for_green polls checks until green (timeout_minutes), applies on_red on failure, and transitions the ticket on green. A red build surfaces via a delivery.ci_red Decision Packet when on_red needs a human call."
+      - "Graceful degradation: if a required provider (host/tracker MCP) is not connected, do what is possible (branch/commit always run), skip the provider-bound steps, and re-surface the connect nudge — do not hard stop."
+      - MCP / git / remote failures (auth, conflicts, branch protection) stop with actionable remediation — never silently fall back to a local-only commit.
     required_inputs:
       - merged change
-      - conventions block
+      - delivery-policy process block
     escalation:
       remote_failure: stop
+      ci_red: ask
     artifacts:
       - branch
       - commit
       - pull request
+      - CI gate result
 `;
 }
 

@@ -5,6 +5,7 @@ import { PATHS } from '@/core/constants/paths.js';
 
 import { collectArchitecture } from './collectors/architecture.js';
 import { collectDecisions } from './collectors/decisions.js';
+import { collectDelivery } from './collectors/delivery.js';
 import { collectFrameworkVersion } from './collectors/framework-version.js';
 import { collectInstructionsAreas } from './collectors/instructions-areas.js';
 import { collectModuleDecisions } from './collectors/module-decisions.js';
@@ -104,6 +105,7 @@ export function buildReport(
     collectModuleEvents(root);
   const rulesSection = collectRules(root, now);
   const workflowsSection = collectWorkflows(root, now);
+  const { section: deliverySection, attention: deliveryAttention } = collectDelivery(root);
   const moduleDocsSection = collectModuleDocs(root, now);
   const areaSections = collectInstructionsAreas(root, now);
   const architectureSection = collectArchitecture(root, now);
@@ -117,6 +119,7 @@ export function buildReport(
     projectProfileSection,
     rulesSection,
     workflowsSection,
+    deliverySection,
     decisionsSection,
     moduleHealthSection,
     moduleDocsSection,
@@ -142,6 +145,7 @@ export function buildReport(
     ...stackDriftAttention,
     ...pentestAttention,
     ...ruleComplianceAttention,
+    ...deliveryAttention,
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
   const { score: overallScore, band: overallBand } = computeOverall(sections);
