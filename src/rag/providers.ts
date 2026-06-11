@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type { EmbeddingProviderName, IntelligenceConfig } from '@/core/types/project-profile.js';
 
 import { getProjectSecret } from './secrets.js';
@@ -154,7 +155,9 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
         ) => Promise<LocalEmbeddingExtractor>;
         env: TransformersRuntimeEnv;
       };
-      const modelsDir = join(homedir(), '.paqad', 'models');
+      // Posix-normalized so the configured cache location is separator-stable
+      // across platforms (transformers accepts forward slashes on Windows).
+      const modelsDir = toPosixPath(join(homedir(), '.paqad', 'models'));
       env.cacheDir = modelsDir;
       env.localModelPath = modelsDir;
       env.allowLocalModels = true;
