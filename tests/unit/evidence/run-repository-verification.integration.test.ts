@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
 import { readEvidenceLedger } from '@/evidence/ledger.js';
-import { readReceiptChain } from '@/evidence/receipt/project.js';
+import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
 
 import { createVerificationContext } from '../verification/shared.fixture.js';
@@ -42,6 +42,15 @@ describe('runRepositoryVerification — evidence ledger + receipt (issue #118)',
 
     const chain = readReceiptChain(context.project_root);
     expect(verifyReceiptChain(chain)).toBeNull();
+
+    // Issue #120 — authorship is wired in: when the resolver yields anything
+    // (env/git-dependent in this fixture), it is well-formed and inside the
+    // signed payload, not bolted on afterwards.
+    const statement = decodeReceiptStatement(chain[chain.length - 1]);
+    const authorship = statement?.predicate.change_authorship;
+    if (authorship !== undefined) {
+      expect(['declared', 'unknown']).toContain(authorship.provenance);
+    }
   });
 
   it('never blocks verification when no files changed (empty subject still receipts)', async () => {
