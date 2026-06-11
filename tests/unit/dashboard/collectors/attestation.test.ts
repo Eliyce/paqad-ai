@@ -1,9 +1,10 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { PATHS } from '@/core/constants/paths';
 import { collectAttestation } from '@/dashboard/collectors/attestation';
 import { buildEvidenceRow } from '@/evidence/ledger';
 import { projectReceipt } from '@/evidence/receipt/project';
@@ -67,5 +68,46 @@ describe('collectAttestation', () => {
     expect(section.summary).toContain('unattributed');
     const metrics = Object.fromEntries(section.metrics.map((m) => [m.label, m.value]));
     expect(metrics['Accepted by']).toBe('—');
+  });
+
+  it('labels by model alone when no agent is recorded', async () => {
+    await project({
+      model: 'gpt-5',
+      provider: 'openai',
+      model_id: 'openai/gpt-5',
+      provenance: 'declared',
+    });
+    const { section } = collectAttestation(root);
+    const metrics = Object.fromEntries(section.metrics.map((m) => [m.label, m.value]));
+    expect(metrics['Written by']).toBe('openai/gpt-5');
+  });
+
+  it('falls back to the bare model when no model_id is present', async () => {
+    await project({ model: 'gpt-5', provenance: 'declared' });
+    const { section } = collectAttestation(root);
+    const metrics = Object.fromEntries(section.metrics.map((m) => [m.label, m.value]));
+    expect(metrics['Written by']).toBe('gpt-5');
+  });
+
+  it('labels a human-only receipt as unattributed but records the accepter', async () => {
+    await project({ accepting_human: { name: 'Bob' }, provenance: 'unknown' });
+    const { section } = collectAttestation(root);
+    const metrics = Object.fromEntries(section.metrics.map((m) => [m.label, m.value]));
+    expect(metrics['Written by']).toBe('unattributed');
+    expect(metrics['Accepted by']).toBe('Bob');
+  });
+
+  it('falls back to FAILED + unattributed when the latest receipt is undecodable', () => {
+    const path = join(root, PATHS.EVIDENCE_RECEIPT_CHAIN);
+    mkdirSync(dirname(path), { recursive: true });
+    appendFileSync(
+      path,
+      `${JSON.stringify({ payload: '!!!bad', paqad: { receipt_hash: 'h' } })}\n`,
+      'utf8',
+    );
+    const { section } = collectAttestation(root);
+    const metrics = Object.fromEntries(section.metrics.map((m) => [m.label, m.value]));
+    expect(metrics['Latest result']).toBe('FAILED');
+    expect(metrics['Written by']).toBe('unattributed');
   });
 });

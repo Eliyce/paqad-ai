@@ -2,11 +2,13 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import {
   buildChangeAuthorship,
+  readGitIdentity,
   readOnboardedAgent,
   resolveChangeAuthorship,
 } from '@/evidence/receipt/authorship.js';
@@ -14,6 +16,29 @@ import {
 describe('buildChangeAuthorship', () => {
   it('returns undefined when nothing meaningful resolves', () => {
     expect(buildChangeAuthorship({ env: {}, gitIdentity: null })).toBeUndefined();
+  });
+
+  it('defaults env to empty when none is passed', () => {
+    expect(buildChangeAuthorship({ gitIdentity: null })).toBeUndefined();
+  });
+
+  it('keeps a name-only accepting human (no email)', () => {
+    const authorship = buildChangeAuthorship({
+      agent: 'continue',
+      env: {},
+      gitIdentity: { name: 'Solo Dev' },
+    });
+    expect(authorship?.accepting_human).toEqual({ name: 'Solo Dev' });
+  });
+
+  it('drops an all-blank git identity', () => {
+    const authorship = buildChangeAuthorship({
+      agent: 'continue',
+      env: {},
+      gitIdentity: { name: '  ', email: '   ' },
+    });
+    expect(authorship?.accepting_human).toBeUndefined();
+    expect(authorship?.agent).toBe('continue');
   });
 
   it('records the agent as a known fact with unknown provenance when no model declared', () => {
@@ -121,6 +146,27 @@ describe('readOnboardedAgent / resolveChangeAuthorship', () => {
 
   it('returns undefined when no manifest exists', () => {
     expect(readOnboardedAgent(root)).toBeUndefined();
+  });
+
+  it('returns undefined when the manifest is malformed JSON', () => {
+    const path = join(root, PATHS.ONBOARDING_MANIFEST);
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(path, '{ not json', 'utf8');
+    expect(readOnboardedAgent(root)).toBeUndefined();
+  });
+
+  it('readGitIdentity returns null when git cannot run for the path', async () => {
+    // A path that does not exist makes `git -C <path>` throw, exercising the
+    // tolerant catch — resolution degrades to null rather than throwing.
+    const missing = join(root, 'no', 'such', 'dir');
+    expect(await readGitIdentity(missing)).toBeNull();
+  });
+
+  it('treats an empty git config value as unset', async () => {
+    await execa('git', ['init', root]);
+    await execa('git', ['-C', root, 'config', 'user.name', '']);
+    await execa('git', ['-C', root, 'config', 'user.email', '']);
+    expect(await readGitIdentity(root)).toBeNull();
   });
 
   it('resolves authorship from manifest + injected git identity', async () => {
