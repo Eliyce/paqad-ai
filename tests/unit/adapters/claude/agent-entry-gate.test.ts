@@ -31,6 +31,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         PreToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }>;
         UserPromptSubmit: Array<{ hooks: Array<{ command: string }> }>;
         SessionStart: Array<{ hooks: Array<{ command: string }> }>;
+        Stop: Array<{ hooks: Array<{ command: string }> }>;
       };
     };
     expect(parsed.hooks.PreToolUse[0].matcher).toBe('Edit|Write|NotebookEdit');
@@ -39,6 +40,15 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
       'agent-entry-prompt-gate.sh',
     );
     expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain('agent-entry-session-start.sh');
+    // Issue #117 (C-5) — the decision-pause gate and the verification completion
+    // hook are generated from the single hook-spec definition.
+    const preToolCommands = parsed.hooks.PreToolUse.flatMap((entry) =>
+      entry.hooks.map((hook) => hook.command),
+    );
+    expect(preToolCommands.some((command) => command.includes('decision-pause-gate.sh'))).toBe(
+      true,
+    );
+    expect(parsed.hooks.Stop[0].hooks[0].command).toContain('verification-completion.mjs');
   });
 
   it('preserves existing settings.json keys and existing hook entries when merging', async () => {
@@ -75,9 +85,11 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     };
 
     expect(parsed.permissions.allow).toEqual(['Bash(ls:*)']);
-    expect(parsed.hooks.PreToolUse).toHaveLength(2);
+    // existing hook + agent-entry gate + decision-pause gate (#117 C-5).
+    expect(parsed.hooks.PreToolUse).toHaveLength(3);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
     expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.sh');
+    expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('decision-pause-gate.sh');
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
       'agent-entry-prompt-gate.sh',
@@ -110,10 +122,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         PreToolUse: unknown[];
         UserPromptSubmit: unknown[];
         SessionStart: unknown[];
+        Stop: unknown[];
       };
     };
-    expect(parsed.hooks.PreToolUse).toHaveLength(1);
+    // agent-entry gate + decision-pause gate, no duplicates after re-run.
+    expect(parsed.hooks.PreToolUse).toHaveLength(2);
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     expect(parsed.hooks.SessionStart).toHaveLength(1);
+    expect(parsed.hooks.Stop).toHaveLength(1);
   });
 });

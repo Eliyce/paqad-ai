@@ -1,6 +1,7 @@
 export * from './delta.js';
 export * from './evidence.js';
 export * from './gate-runner.js';
+export * from './repository/index.js';
 export * from './gates/ac-test-mapping.js';
 export * from './gates/architecture-compliance.js';
 export * from './gates/behavioral-correctness.js';

@@ -40,7 +40,7 @@ export class AcTestMappingGate implements Gate {
     if (!context.ac_test_mapping_passed) {
       return createFail(
         this.gate,
-        'Acceptance criteria are missing test mappings',
+        context.ac_test_mapping_detail ?? 'Acceptance criteria are missing test mappings',
         'Add or update the test-per-AC mapping.',
       );
     }
