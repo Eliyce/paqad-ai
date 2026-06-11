@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
+import { PAQAD_LIVE_HOOKS } from '../shared/paqad-hooks.js';
 
 const AGENT_ENTRY_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-gate.sh';
 const AGENT_ENTRY_PROMPT_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-prompt-gate.sh';
@@ -78,6 +79,20 @@ type HookEvents = Record<string, HookMatcher[]>;
 function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, unknown> {
   const next = { ...existing };
   const hooks = (next.hooks && typeof next.hooks === 'object' ? next.hooks : {}) as HookEvents;
+
+  // Render the single-definition #117 live hooks (decision-pause PreToolUse +
+  // verification-completion Stop) into Claude's settings.json shape, alongside
+  // the pre-existing agent-entry gates.
+  const preToolMutation = PAQAD_LIVE_HOOKS.filter((hook) => hook.event === 'pre-tool-mutation').map(
+    (hook) => ({
+      matcher: hook.mutatingToolMatcher,
+      hooks: [{ type: 'command', command: hook.script }],
+    }),
+  );
+  const completion = PAQAD_LIVE_HOOKS.filter((hook) => hook.event === 'completion').map((hook) => ({
+    hooks: [{ type: 'command', command: hook.script }],
+  }));
+
   next.hooks = {
     ...hooks,
     PreToolUse: mergeHookList(hooks.PreToolUse, [
@@ -85,6 +100,7 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
         matcher: 'Edit|Write|NotebookEdit',
         hooks: [{ type: 'command', command: AGENT_ENTRY_GATE_SCRIPT }],
       },
+      ...preToolMutation,
     ]),
     UserPromptSubmit: mergeHookList(hooks.UserPromptSubmit, [
       {
@@ -96,6 +112,7 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
         hooks: [{ type: 'command', command: AGENT_ENTRY_SESSION_START_SCRIPT }],
       },
     ]),
+    Stop: mergeHookList(hooks.Stop, completion),
   };
   return next;
 }
