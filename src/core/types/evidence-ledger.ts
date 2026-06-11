@@ -12,6 +12,8 @@
 // inconclusive (Tier C) — so a receipt can never flatten a mutation-tested pass
 // and a model's say-so into the same "12/16 gates passed" number.
 
+import type { AdapterType } from './adapter.js';
+
 /** Bumped when the on-disk ledger-row or receipt shape changes incompatibly. */
 export const EVIDENCE_LEDGER_SCHEMA_VERSION = 1 as const;
 
@@ -93,6 +95,36 @@ export interface GradedEvidenceSummary {
   inconclusive: number;
 }
 
+/**
+ * Issue #120 — the change-authorship dimension that makes paqad a *neutral,
+ * producer-agnostic* attestor: who wrote the change and who accepted it, folded
+ * into the same gate-derived receipt so the attestation is **gate-derived, not
+ * agent-derived**. paqad can vouch for a change regardless of which of its
+ * supported adapters produced it; no single-vendor tool can occupy that seat.
+ *
+ * The provenance is honestly graded. `agent` is a known fact (the onboarded
+ * adapter), but `model`/`provider` are *declared* — an adapter knows it is
+ * "cursor" yet Cursor routes to many models — so they are recorded with no false
+ * certainty and `provenance: 'declared'` says so. Field names mirror the
+ * cross-vendor `agent-trace` convention (`model_id` = `provider/model`) so the
+ * record interoperates with that ecosystem rather than competing with it.
+ */
+export interface ChangeAuthorship {
+  /** Which paqad adapter produced the change (a known fact from onboarding). */
+  agent?: AdapterType;
+  /** Declared model, e.g. `claude-opus-4-8`. Not self-verified — see provenance. */
+  model?: string;
+  /** Declared provider, e.g. `anthropic`. Not self-verified — see provenance. */
+  provider?: string;
+  /** agent-trace–style `provider/model` identifier, when both are known. */
+  model_id?: string;
+  /** Git identity of the human who accepted the change (EU AI Act Art. 14). */
+  accepting_human?: { name?: string; email?: string };
+  /** How model/provider were established. `declared` = adapter/env said so,
+   *  not independently verified; `unknown` = not supplied. */
+  provenance: 'declared' | 'unknown';
+}
+
 export interface VsaPredicate {
   verifier: { id: string; version: string };
   /** ISO-8601 time the verification completed. */
@@ -104,6 +136,9 @@ export interface VsaPredicate {
   graded_results: GradedEvidenceSummary;
   /** Per-engine row counts, for at-a-glance provenance. */
   evidence_by_engine: Partial<Record<EvidenceEngine, number>>;
+  /** Issue #120 — who wrote and accepted the change. Omitted entirely when no
+   *  authorship could be resolved, so prior receipts stay byte-identical. */
+  change_authorship?: ChangeAuthorship;
   /** The graded rows themselves, so the receipt is self-contained. */
   rows: EvidenceLedgerRow[];
 }

@@ -1,6 +1,6 @@
 # Evidence Ledger & Provenance Receipt
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `evidence-ledger` &nbsp;·&nbsp; **Issue:** #118
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `evidence-ledger` &nbsp;·&nbsp; **Issues:** #118, #120
 
 ## Purpose
 
@@ -40,7 +40,8 @@ total. `src/evidence/grading.ts` is the single source of truth for the A/B split
 | in-toto Statement (v1) + SLSA-VSA-modelled predicate | `src/evidence/receipt/statement.ts` (`buildInTotoStatement`, `summarizeGradedEvidence`) |
 | DSSE envelope + hash-chain signing + chain verification | `src/evidence/receipt/dsse.ts` (`signReceipt`, `verifyReceiptChain`, `pae`) |
 | CycloneDX-adjacent AI-BOM view | `src/evidence/receipt/ai-bom.ts` (`buildAiBom`) |
-| Project + persist the receipt at merge | `src/evidence/receipt/project.ts` (`projectReceipt`) |
+| Project + persist the receipt at merge | `src/evidence/receipt/project.ts` (`projectReceipt`, `latestReceiptAuthorship`) |
+| Resolve change authorship (agent/model/provider/human) | `src/evidence/receipt/authorship.ts` (`resolveChangeAuthorship`, `buildChangeAuthorship`) |
 | Wired into the merge-time backstop | `src/verification/repository/run-repository-verification.ts` |
 
 ## On-disk layout
@@ -72,12 +73,46 @@ detected from the environment (`detectSigningMode`), but the local signer never
 dresses the hash chain up as a third-party signature — `signing_mode` records
 the truth.
 
+## Change authorship — the neutral, cross-agent attestation (#120)
+
+paqad's correctness signal is **gate-derived** (tests/mutation/traceability), not
+agent-derived, so paqad can vouch for a change **regardless of which AI tool wrote
+it**. No single-vendor tool can occupy that seat: every competitor scopes trust to
+its own output, and cross-vendor provenance formats (`agent-trace`, `git-ai`)
+record *who wrote it* but explicitly do not evaluate quality or capture a human
+accepter. #120 captures the missing authorship dimension and folds it into the
+same signed receipt, so the attestation stays **gate-derived yet
+producer-attributed**.
+
+The provenance is honestly graded:
+
+| Field | Source | Trust |
+| ----- | ------ | ----- |
+| `agent` | the onboarded adapter (one of the 10 `AdapterType` values) | a **known fact** from the manifest |
+| `model` / `provider` / `model_id` | declared via env (`PAQAD_MODEL_ID` = `provider/model`, or `PAQAD_AGENT_MODEL` / `PAQAD_AGENT_PROVIDER`) | **declared**, not self-verified — an adapter knows it is "cursor" but Cursor routes to many models; `provenance: 'declared'` says so |
+| `accepting_human` | git identity (`user.name` / `user.email`) | the same name/email git already records; suppressible with `PAQAD_NO_HUMAN_ATTESTATION=1` |
+
+Field names mirror the cross-vendor `agent-trace` convention (`model_id` =
+`provider/model`) so the record **interoperates** with that ecosystem rather than
+competing with it. Authorship is folded into the VSA predicate (and so into the
+hash-chained signature), flattened into `paqad:authorship:*` AI-BOM properties,
+rendered as a one-line PR-comment footer, and summarised in the dashboard's
+**Attestation** section. When no authorship resolves, the field is omitted
+entirely so prior receipts stay byte-identical.
+
+> **Privacy:** `.paqad/ledger/` is committed, so `accepting_human` lands in the
+> repo. It is the same identity git stores in every commit, so this adds no new
+> disclosure; the env opt-out drops it, and the public PR comment shows the name
+> only (never the email).
+
 ## Boundaries
 
-- **Owns:** the unified ledger and the merge-time receipt projected from it.
+- **Owns:** the unified ledger, the merge-time receipt projected from it, and the
+  change-authorship dimension folded into that receipt (#120).
 - **Does not own:** making gates fire from hooks (issue #117, the binding layer
-  this builds on); the human-readable PR-comment renderer; agent/model
-  attestation; gate→legal-clause mapping; the context-replay stamp; SIEM export.
+  this builds on); raw cross-vendor authorship logging (left to `agent-trace` /
+  `git-ai`, which this interoperates with); gate→legal-clause mapping; the
+  context-replay stamp; SIEM export; third-party (Sigstore) signing.
 - The gate and quality-ratchet fan-in is wired at the merge-time backstop.
   Traceability (`TR-*`), pentest (`PT-*`), and triage findings share the same
   schema via `findingRowsFrom` and are emitted by their own engines.

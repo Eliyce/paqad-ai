@@ -6,6 +6,7 @@ export * from './grading.js';
 export * from './digests.js';
 export * from './ledger.js';
 export * from './fan-in.js';
+export * from './receipt/authorship.js';
 export * from './receipt/statement.js';
 export * from './receipt/dsse.js';
 export * from './receipt/ai-bom.js';

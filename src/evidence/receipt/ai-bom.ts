@@ -9,7 +9,7 @@
 
 import { createHash } from 'node:crypto';
 
-import type { InTotoStatement } from '@/core/types/evidence-ledger.js';
+import type { ChangeAuthorship, InTotoStatement } from '@/core/types/evidence-ledger.js';
 
 export interface CycloneDxProperty {
   name: string;
@@ -69,6 +69,10 @@ export function buildAiBom(input: BuildAiBomInput): AiBomDocument {
     { name: 'paqad:evidence:blocked', value: String(graded.blocked) },
     { name: 'paqad:evidence:inconclusive', value: String(graded.inconclusive) },
     { name: 'paqad:predicateType', value: input.statement.predicateType },
+    // Issue #120 — flatten authorship into the same CycloneDX namespace so a
+    // generic AI-BOM reader (EU-AI-Act / procurement tooling) surfaces *who
+    // wrote and accepted* the change alongside *whether the gates passed*.
+    ...authorshipProps(predicate.change_authorship),
   ];
 
   // Deterministic serial: a UUID-shaped digest of the subjects + predicate, so
@@ -94,6 +98,35 @@ export function buildAiBom(input: BuildAiBomInput): AiBomDocument {
     components,
     properties: evidenceProps,
   };
+}
+
+/** Flatten change authorship into `paqad:authorship:*` CycloneDX properties.
+ *  Only present keys are emitted, and the `provenance` grade always rides along
+ *  so a reader never mistakes a *declared* model for a verified one. */
+function authorshipProps(authorship: ChangeAuthorship | undefined): CycloneDxProperty[] {
+  if (authorship === undefined) return [];
+  const props: CycloneDxProperty[] = [
+    { name: 'paqad:authorship:provenance', value: authorship.provenance },
+  ];
+  if (authorship.agent !== undefined)
+    props.push({ name: 'paqad:authorship:agent', value: authorship.agent });
+  if (authorship.model !== undefined)
+    props.push({ name: 'paqad:authorship:model', value: authorship.model });
+  if (authorship.provider !== undefined)
+    props.push({ name: 'paqad:authorship:provider', value: authorship.provider });
+  if (authorship.model_id !== undefined)
+    props.push({ name: 'paqad:authorship:model_id', value: authorship.model_id });
+  if (authorship.accepting_human?.name !== undefined)
+    props.push({
+      name: 'paqad:authorship:accepting_human:name',
+      value: authorship.accepting_human.name,
+    });
+  if (authorship.accepting_human?.email !== undefined)
+    props.push({
+      name: 'paqad:authorship:accepting_human:email',
+      value: authorship.accepting_human.email,
+    });
+  return props;
 }
 
 /** Shape a hex digest into the 8-4-4-4-12 UUID layout (not RFC-versioned —

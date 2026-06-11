@@ -15,6 +15,7 @@ import {
   gateResultsToRows,
   projectReceipt,
   ratchetResultToRows,
+  resolveChangeAuthorship,
 } from '@/evidence/index.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -145,12 +146,21 @@ export async function runRepositoryVerification(
       ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
     ];
     appendEvidenceRows(context.project_root, rows);
+    // Issue #120 — fold change authorship (which adapter/model wrote it, who
+    // accepted it) into the receipt so the attestation is gate-derived yet
+    // producer-attributed. Resolution never throws; absent authorship simply
+    // omits the predicate field.
+    const authorship = await resolveChangeAuthorship({
+      projectRoot: context.project_root,
+      env: process.env,
+    });
     await projectReceipt({
       projectRoot: context.project_root,
       fileDigests,
       rows,
       verifierVersion: verifierVersion(),
       timeVerified: completedAt,
+      authorship,
       env: process.env,
     });
   } catch (error) {

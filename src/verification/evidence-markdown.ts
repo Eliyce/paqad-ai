@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
 import type {
   EvidenceGateStatus,
   EvidenceOverallStatus,
@@ -8,6 +9,7 @@ import type {
   VerificationEvidenceFailure,
   VerificationEvidenceGate,
 } from '@/core/types/verification-evidence.js';
+import { latestReceiptAuthorship } from '@/evidence/receipt/project.js';
 
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from './evidence.js';
 
@@ -88,7 +90,11 @@ export function readVerificationEvidence(projectRoot: string): VerificationEvide
 export function buildEvidenceComment(projectRoot: string, sha?: string): string | null {
   const evidence = readVerificationEvidence(projectRoot);
   if (evidence === null) return null;
-  return renderEvidenceMarkdown(evidence, sha ? { sha } : {});
+  const authorship = latestReceiptAuthorship(projectRoot) ?? undefined;
+  return renderEvidenceMarkdown(evidence, {
+    ...(sha ? { sha } : {}),
+    ...(authorship ? { authorship } : {}),
+  });
 }
 
 function shortSha(sha: string | undefined): string | null {
@@ -119,6 +125,31 @@ function gateSummaryLine(gate: VerificationEvidenceGate): string {
 export interface RenderEvidenceMarkdownOptions {
   /** Optional commit SHA or label rendered in the headline. */
   sha?: string;
+  /** Issue #120 — change authorship from the signed receipt, rendered as a
+   *  footer so a reviewer sees who wrote/accepted the change next to the gates. */
+  authorship?: ChangeAuthorship;
+}
+
+/**
+ * Render the one-line authorship footer (issue #120), or `null` when no
+ * authorship was attested. Name-only for the accepter — the email already lives
+ * in the receipt and git history, so the public PR comment need not repeat it.
+ * The framing is the moat: paqad's gates vouch for the change whichever adapter
+ * wrote it.
+ */
+export function renderAuthorshipLine(authorship: ChangeAuthorship): string | null {
+  const parts: string[] = [];
+  if (authorship.agent !== undefined) parts.push(`written by \`${authorship.agent}\``);
+  const modelLabel = authorship.model_id ?? authorship.model;
+  if (modelLabel !== undefined) {
+    const qualifier = authorship.provenance === 'declared' ? ' (declared)' : '';
+    parts.push(`model \`${modelLabel}\`${qualifier}`);
+  }
+  if (authorship.accepting_human?.name !== undefined) {
+    parts.push(`accepted by ${authorship.accepting_human.name}`);
+  }
+  if (parts.length === 0) return null;
+  return `> Authorship: ${parts.join(' · ')}. paqad attests this on its gates, so the proof holds whichever tool wrote it.`;
 }
 
 /**
@@ -191,6 +222,12 @@ export function renderEvidenceMarkdown(
       ? '> Attests paqad’s gates passed for this run — not that the change is correct.'
       : '> paqad’s gates did not all pass. Resolve the blocking items above before merge.',
   );
+
+  const authorshipLine = options.authorship ? renderAuthorshipLine(options.authorship) : null;
+  if (authorshipLine !== null) {
+    lines.push('');
+    lines.push(authorshipLine);
+  }
 
   return lines.join('\n');
 }

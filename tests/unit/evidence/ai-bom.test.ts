@@ -52,4 +52,32 @@ describe('buildAiBom', () => {
     expect(a.serialNumber).toBe(b.serialNumber);
     expect(a.serialNumber).toMatch(/^urn:uuid:[0-9a-f-]{36}$/);
   });
+
+  it('omits authorship properties when the statement carries none', () => {
+    const bom = buildAiBom({ statement, toolVersion: '1.2.3' });
+    expect(bom.properties.some((p) => p.name.startsWith('paqad:authorship:'))).toBe(false);
+  });
+
+  it('flattens change authorship into paqad:authorship:* properties', () => {
+    const withAuthor = buildInTotoStatement({
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row({})],
+      verifierVersion: '1.2.3',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+      authorship: {
+        agent: 'cursor',
+        model: 'gpt-5',
+        provider: 'openai',
+        model_id: 'openai/gpt-5',
+        accepting_human: { name: 'Jane', email: 'jane@example.com' },
+        provenance: 'declared',
+      },
+    });
+    const bom = buildAiBom({ statement: withAuthor, toolVersion: '1.2.3' });
+    const props = Object.fromEntries(bom.properties.map((p) => [p.name, p.value]));
+    expect(props['paqad:authorship:agent']).toBe('cursor');
+    expect(props['paqad:authorship:model_id']).toBe('openai/gpt-5');
+    expect(props['paqad:authorship:accepting_human:email']).toBe('jane@example.com');
+    expect(props['paqad:authorship:provenance']).toBe('declared');
+  });
 });

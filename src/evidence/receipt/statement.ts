@@ -10,6 +10,7 @@ import {
   IN_TOTO_STATEMENT_TYPE,
   PAQAD_VSA_PREDICATE_TYPE,
   EVIDENCE_LEDGER_SCHEMA_VERSION,
+  type ChangeAuthorship,
   type EvidenceEngine,
   type EvidenceFileDigest,
   type EvidenceLedgerRow,
@@ -70,6 +71,9 @@ export interface BuildStatementInput {
   rows: readonly EvidenceLedgerRow[];
   verifierVersion: string;
   timeVerified: string;
+  /** Issue #120 — who wrote/accepted the change. Omitted from the predicate
+   *  when absent, so receipts without authorship stay byte-identical. */
+  authorship?: ChangeAuthorship;
 }
 
 /** Build the in-toto Statement: per-file subjects + a graded VSA predicate. */
@@ -91,6 +95,7 @@ export function buildInTotoStatement(input: BuildStatementInput): InTotoStatemen
     verification_result: deriveVerificationResult(summary),
     graded_results: summary,
     evidence_by_engine: countByEngine(input.rows),
+    ...(input.authorship !== undefined ? { change_authorship: input.authorship } : {}),
     rows: [...input.rows],
   };
 
