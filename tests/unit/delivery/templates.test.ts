@@ -1,10 +1,12 @@
-import { DEFAULT_CONVENTIONS } from '@/core/conventions.js';
+import { defaultDeliveryProcess } from '@/pipeline/delivery-policy.js';
 import {
   renderDelivery,
   renderTemplate,
   resolveConventionalType,
   slugify,
 } from '@/delivery/templates.js';
+
+const DEFAULT_PROCESS = defaultDeliveryProcess();
 
 describe('delivery templates', () => {
   it('slugifies titles and respects the max length', () => {
@@ -27,7 +29,7 @@ describe('delivery templates', () => {
 
   it('renders the full delivery surface from conventions + inputs', () => {
     const rendered = renderDelivery(
-      DEFAULT_CONVENTIONS,
+      DEFAULT_PROCESS,
       {
         ticket: 'PAQ-42',
         ticket_type: 'Story',
@@ -51,7 +53,7 @@ describe('delivery templates', () => {
 
   it('falls back to type as scope when caller omits it', () => {
     const rendered = renderDelivery(
-      DEFAULT_CONVENTIONS,
+      DEFAULT_PROCESS,
       {
         ticket: 'PAQ-7',
         ticket_type: 'Task',

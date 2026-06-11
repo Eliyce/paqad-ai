@@ -109,6 +109,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'Update the source ticket with the refined description and acceptance criteria?';
     case 'delivery.open_pr':
       return 'Open a pull request now (yes / draft / no)?';
+    case 'delivery.ci_red':
+      return 'CI is red — retry the gate, override and continue, or abandon delivery?';
     case 'spec.change':
       return 'The goal changed mid-build — update the frozen spec and re-freeze?';
     case 'spec.contradiction':
@@ -266,6 +268,7 @@ export function decisionOptionsForCategory(
     case 'intake.confirm_auto_resolution':
     case 'intake.write_back':
     case 'delivery.open_pr':
+    case 'delivery.ci_red':
     case 'spec.change':
     case 'spec.contradiction':
     case 'fix.proof_method':

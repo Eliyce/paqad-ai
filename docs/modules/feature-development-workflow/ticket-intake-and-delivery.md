@@ -49,13 +49,14 @@ Runs **before `planning`**. Triggered when the request references a ticket
      until the user resolves it.
 5. **Confirm auto-resolutions.** When N decisions were auto-resolved,
    surface them per
-   [`conventions.intake_decisions.confirm_auto_resolutions`](../../../src/core/conventions.ts)
+   `process.intake_decisions.confirm_auto_resolutions` in
+   [`delivery-policy.yaml`](../../../src/pipeline/delivery-policy.ts)
    (default `batched`). The batched-confirm primitive is in
    [`src/planning/batched-confirm.ts`](../../../src/planning/batched-confirm.ts);
    single-packet flow stays the default for every other category.
 6. **(Optional) Write-back** — propose updating the source ticket with
    the refined description + AC + linked decisions, gated by
-   `conventions.ticket.write_back: never | ask | always`.
+   `process.ticket.write_back_refined: never | ask | always`.
 
 Failure modes:
 
@@ -67,71 +68,65 @@ Failure modes:
 ## `delivery`
 
 Runs **after `documentation_sync`** as the final stage. Asks a
-`delivery.open_pr` Decision Packet (`yes | draft | no`). On `yes` or
-`draft` it renders branch / commit / PR text from the conventions block
-(see below) and runs the sequence through
-[`src/delivery/runner.ts`](../../../src/delivery/runner.ts):
+`delivery.open_pr` Decision Packet (`yes | draft | no`) unless `process.pr`
+already pins it. The branch / commit / PR text is rendered from the
+delivery-policy `process:` block (see below) via
+[`src/delivery/templates.ts`](../../../src/delivery/templates.ts), and the host
+operations run through the **`HostProvider`** contract
+([`src/providers/host-provider.ts`](../../../src/providers/host-provider.ts),
+GitHub adapter at
+[`github-host-provider.ts`](../../../src/providers/github-host-provider.ts)):
 
-1. `git checkout -b <branch>`
-2. `git commit -m <message>`
-3. `git push --set-upstream origin <branch>`
-4. `gh pr create …` (with `--draft` when applicable)
+1. `ensureBranch(name, base)` — cut from the configured base
+2. `commit(message)`
+3. `push(branch)`
+4. `openPR({ … })` (with `--draft` when applicable)
+5. **CI gate** ([`src/delivery/ci-gate.ts`](../../../src/delivery/ci-gate.ts)) —
+   `process.ci.gate = wait_for_green` polls `getChecksStatus` until green
+   (bounded by `timeout_minutes`), applies `on_red`, and reports
+   `transition_on_green`.
 
-Every failure short-circuits with an actionable remediation hint —
-`escalation.remote_failure: stop`. There is no silent local-only fallback.
+**Graceful degradation** ([`src/delivery/degradation.ts`](../../../src/delivery/degradation.ts)):
+when a required provider's MCP / CLI is not connected, git-only steps still run,
+the provider-bound steps are skipped, and the connect nudge is re-surfaced — it
+does **not** hard-stop. Genuine git / remote failures (auth, conflicts, branch
+protection) still `stop` with remediation — no silent local-only fallback.
 
-[`detectDeliveryHost`](../../../src/delivery/host.ts) recognises GitHub,
-GitLab, and Bitbucket from the remote URL. GitHub is automated today via
-`gh`; GitLab / Bitbucket are detected but route to a manual-PR
-remediation message until a follow-up wires their CLIs.
+Provider resolution (and connection state, which drives degradation + the
+dashboard) lives in
+[`src/providers/registry.ts`](../../../src/providers/registry.ts).
 
-## The `conventions:` block
+## The delivery-policy `process:` block
 
-Project-owned conventions consumed by both bookend stages.
-[`DEFAULT_CONVENTIONS`](../../../src/core/conventions.ts) is the runtime
-source of truth; the JSON schema's
-`$defs/conventionsBlock` is the validation source of truth.
-[`resolveConventions`](../../../src/core/conventions.ts) shallow-merges
-project overrides over the per-section defaults so every field is
-populated for downstream consumers.
+Conventions are configured by
+[`docs/instructions/workflows/delivery-policy.yaml`](../../../src/pipeline/delivery-policy.ts)
+— a workflow-policy peer of `feature-development.yaml` (same location, schema,
+and `merge_mode: append`). `paqad-ai onboard` writes it `enabled: true` with
+every section `maintained: auto`; detection silently fills the `auto` sections
+during `create documentation`.
+[`defaultDeliveryProcess`](../../../src/pipeline/delivery-policy.ts) is the
+runtime source of truth;
+[`delivery-policy.schema.json`](../../../src/validators/schemas/delivery-policy.schema.json)
+is the validation source of truth.
 
 ```yaml
-conventions:
-  ticket:
-    provider: jira
-    server: ""
-    require_ticket: false
-    write_back: ask
-  intake_decisions:
-    auto_resolve_from_priors: true
-    auto_resolve_from_rules:   true
-    confirm_auto_resolutions:  batched
-    max_options_per_packet:    4
-    fingerprint_scope: [ticket_type, module, category]
-  branch:
-    template: "{type}/{ticket}-{title_slug}"
-    type_map: { Story: feat, Bug: fix, Task: chore, default: feat }
-    slug_max_length: 50
-    base: main
-  commit:
-    template: "{type}({scope}): {summary}\n\nRefs: {ticket}"
-    sign_off: false
-  pr:
-    title_template: "{type}({scope}): {summary} [{ticket}]"
-    body_template_path: .paqad/templates/pr-body.md
-    base: main
-    draft: false
-    reviewers: []
-    labels: []
-    link_ticket: true
-    transition_on_open: "In Review"
+enabled: true
+process:
+  ticket:   { maintained: auto, provider: jira, write_back_refined: ask, comment_decisions: true }
+  host:     { maintained: auto, provider: github }
+  branch:   { maintained: auto, template: "{type}/{ticket}-{title_slug}", base: main }
+  commit:   { maintained: auto, template: "{type}({scope}): {summary}\n\nRefs: {ticket}" }
+  pr:       { maintained: auto, body_template_path: .paqad/templates/pr-body.md, transition_on_open: "In Review" }
+  ci:       { maintained: auto, gate: wait_for_green, timeout_minutes: 30, on_red: stop, transition_on_green: "Done" }
+  intake_decisions: { maintained: auto, confirm_auto_resolutions: batched, fingerprint_scope: [ticket_type, module, category] }
 ```
 
-Schema validation rejects unknown keys at the `conventions.*` path.
+Each section's `maintained: auto | manual` governs whether detection may touch
+it. Schema validation rejects unknown keys at any `process.*` path.
 
 ## New Decision categories
 
-Four bookend categories were added to `DECISION_CATEGORIES` in
+Five bookend categories were added to `DECISION_CATEGORIES` in
 [`src/planning/decision-packet.ts`](../../../src/planning/decision-packet.ts):
 
 | Category | Used by |
@@ -140,16 +135,19 @@ Four bookend categories were added to `DECISION_CATEGORIES` in
 | `intake.confirm_auto_resolution` | The batched "we resolved N from priors, accept or override" prompt. |
 | `intake.write_back` | Source-ticket write-back confirmation. |
 | `delivery.open_pr` | The PR creation gate (yes / draft / no). |
+| `delivery.ci_red` | A red CI build where `on_red` needs a human call. |
 
-All four ride the existing `pending → resolved` lifecycle, audit log,
-and TTL machinery. `DECISION_CATEGORY_DEFAULTS` lists their `create_new`
-flag, `reversibility`, and `ttl_days`.
+All ride the existing `pending → resolved` lifecycle, audit log, and TTL
+machinery. `DECISION_CATEGORY_DEFAULTS` lists their `create_new` flag,
+`reversibility`, and `ttl_days`.
 
 ## Related
 
+- [Provider-Agnostic Delivery Workflow](../delivery-workflow/index/summary.md)
 - [Decision Pause Contract managed-doc architecture](../decision-pause-contract/managed-doc-architecture.md)
 - [`src/pipeline/feature-development-policy.ts`](../../../src/pipeline/feature-development-policy.ts)
-- [`src/core/conventions.ts`](../../../src/core/conventions.ts)
+- [`src/pipeline/delivery-policy.ts`](../../../src/pipeline/delivery-policy.ts)
+- [`src/providers/`](../../../src/providers/)
 - [`src/planning/intake-prior-resolver.ts`](../../../src/planning/intake-prior-resolver.ts)
 - [`src/planning/batched-confirm.ts`](../../../src/planning/batched-confirm.ts)
 - [`src/delivery/`](../../../src/delivery/)

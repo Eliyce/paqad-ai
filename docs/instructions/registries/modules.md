@@ -59,6 +59,7 @@ paqad-ai's modules live in three layers:
 | project-profile-schema     | Project Profile & Onboarding Manifest  | [↗](../../modules/project-profile-schema/index/summary.md) |
 | repository-resolver        | Repository Resolver                    | [↗](../../modules/repository-resolver/index/summary.md) |
 | evidence-ledger            | Evidence Ledger & Provenance Receipt   | [↗](../../modules/evidence-ledger/index/summary.md) |
+| delivery-workflow          | Provider-Agnostic Delivery Workflow    | [↗](../../modules/delivery-workflow/index/summary.md) |
 
 ## Confidence
 

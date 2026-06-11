@@ -1,0 +1,113 @@
+{
+  "$id": "delivery-policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version"],
+  "description": "Issue #42 — delivery workflow policy, a workflow-policy peer of feature-development.yaml. On by default; git-only conventions active immediately, provider-bound capabilities dormant until the MCP is connected.",
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "merge_mode": { "type": "string", "enum": ["append"] },
+    "enabled": { "type": "boolean" },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ticket": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maintained": { "$ref": "#/$defs/maintained" },
+            "provider": {
+              "type": "string",
+              "enum": ["jira", "linear", "github-issues", "generic"]
+            },
+            "server": { "type": "string" },
+            "require_ticket": { "type": "boolean" },
+            "write_back_refined": { "type": "string", "enum": ["never", "ask", "always"] },
+            "comment_decisions": { "type": "boolean" }
+          }
+        },
+        "host": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maintained": { "$ref": "#/$defs/maintained" },
+            "provider": { "type": "string", "enum": ["github", "gitlab", "bitbucket"] },
+            "server": { "type": "string" }
+          }
+        },
+        "branch": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maintained": { "$ref": "#/$defs/maintained" },
+            "template": { "type": "string" },
+            "type_map": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            },
+            "slug_max_length": { "type": "integer", "minimum": 1 },
+            "base": { "type": "string" }
+          }
+        },
+        "commit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maintained": { "$ref": "#/$defs/maintained" },
+            "template": { "type": "string" },
+            "sign_off": { "type": "boolean" }
+          }
+        },
+        "pr": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maintained": { "$ref": "#/$defs/maintained" },
+            "title_template": { "type": "string" },
+            "body_template_path": { "type": "string" },
+            "base": { "type": "string" },
+            "draft": { "type": "boolean" },
+            "reviewers": { "type": "array", "items": { "type": "string" } },
+            "labels": { "type": "array", "items": { "type": "string" } },
+            "link_ticket": { "type": "boolean" },
+            "transition_on_open": { "type": "string" }
+          }
+        },
+        "ci": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maintained": { "$ref": "#/$defs/maintained" },
+            "gate": { "type": "string", "enum": ["wait_for_green", "warn_only", "off"] },
+            "timeout_minutes": { "type": "integer", "minimum": 1 },
+            "on_red": { "type": "string", "enum": ["stop", "comment_and_stop"] },
+            "transition_on_green": { "type": "string" }
+          }
+        },
+        "intake_decisions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maintained": { "$ref": "#/$defs/maintained" },
+            "auto_resolve_from_priors": { "type": "boolean" },
+            "auto_resolve_from_rules": { "type": "boolean" },
+            "confirm_auto_resolutions": {
+              "type": "string",
+              "enum": ["always", "batched", "never"]
+            },
+            "max_options_per_packet": { "type": "integer", "minimum": 1 },
+            "fingerprint_scope": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "maintained": {
+      "type": "string",
+      "enum": ["auto", "manual"],
+      "description": "auto = framework keeps in sync (detection fills it); manual = team-owned, never auto-touched."
+    }
+  }
+}

@@ -60,54 +60,11 @@ export interface ProjectMcpServer {
   config?: Record<string, unknown>;
 }
 
+// Shared enums consumed by the delivery-policy (issue #42). The delivery
+// conventions themselves now live in `docs/instructions/workflows/delivery-policy.yaml`
+// (see `src/core/types/delivery-policy.ts`), not in the project profile.
 export type AutoResolveConfirmation = 'always' | 'batched' | 'never';
 export type TicketWriteBackMode = 'never' | 'ask' | 'always';
-
-export interface ConventionsTicket {
-  provider?: TicketProviderKind;
-  server?: string;
-  require_ticket?: boolean;
-  write_back?: TicketWriteBackMode;
-}
-
-export interface ConventionsIntakeDecisions {
-  auto_resolve_from_priors?: boolean;
-  auto_resolve_from_rules?: boolean;
-  confirm_auto_resolutions?: AutoResolveConfirmation;
-  max_options_per_packet?: number;
-  fingerprint_scope?: string[];
-}
-
-export interface ConventionsBranch {
-  template?: string;
-  type_map?: Record<string, string>;
-  slug_max_length?: number;
-  base?: string;
-}
-
-export interface ConventionsCommit {
-  template?: string;
-  sign_off?: boolean;
-}
-
-export interface ConventionsPullRequest {
-  title_template?: string;
-  body_template_path?: string;
-  base?: string;
-  draft?: boolean;
-  reviewers?: string[];
-  labels?: string[];
-  link_ticket?: boolean;
-  transition_on_open?: string;
-}
-
-export interface ConventionsBlock {
-  ticket?: ConventionsTicket;
-  intake_decisions?: ConventionsIntakeDecisions;
-  branch?: ConventionsBranch;
-  commit?: ConventionsCommit;
-  pr?: ConventionsPullRequest;
-}
 
 export interface ModelRoutingConfig {
   default_model: string;
@@ -244,7 +201,6 @@ export interface ProjectProfile {
   mcp: {
     servers: ProjectMcpServer[];
   };
-  conventions?: ConventionsBlock;
   model_routing: ModelRoutingConfig;
   research: {
     depth: ResearchDepth;
