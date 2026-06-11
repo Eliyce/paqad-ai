@@ -24,6 +24,12 @@ import {
   scoreFile,
 } from '@/project-knowledge/evidence-retriever.js';
 
+// The retriever reads files via native join(), so mocked readFile paths carry
+// backslashes on Windows; normalize before matching posix literals.
+function posix(path: unknown): string {
+  return String(path).replace(/\\/g, '/');
+}
+
 beforeEach(() => {
   mockGetStatus.mockResolvedValue({
     enabled: false,
@@ -472,14 +478,15 @@ describe('EvidenceRetriever', () => {
       return Promise.resolve(map[pattern] ?? []);
     });
     mockReadFile.mockImplementation((path: string) => {
-      if (path.includes('docs/modules/foo/summary.md'))
+      const normalized = posix(path);
+      if (normalized.includes('docs/modules/foo/summary.md'))
         return Promise.resolve('foo module coverage');
-      if (path.includes('docs/instructions/rules/testing.md'))
+      if (normalized.includes('docs/instructions/rules/testing.md'))
         return Promise.resolve('testing workflow coverage');
-      if (path.includes('.paqad/project-profile.yaml'))
+      if (normalized.includes('.paqad/project-profile.yaml'))
         return Promise.resolve('project coverage state');
-      if (path.includes('package.json')) return Promise.resolve('{"coverage":"enabled"}');
-      if (path.includes('.github/workflows/ci.yml'))
+      if (normalized.includes('package.json')) return Promise.resolve('{"coverage":"enabled"}');
+      if (normalized.includes('.github/workflows/ci.yml'))
         return Promise.resolve('name: coverage checks');
       return Promise.resolve('');
     });
@@ -821,7 +828,7 @@ describe('EvidenceRetriever', () => {
       });
       mockReadFile.mockImplementation((path: string) => {
         // canonical-doc gets a higher score (two keyword matches) vs framework-state (one)
-        if ((path as string).includes('docs/modules/auth.md'))
+        if (posix(path).includes('docs/modules/auth.md'))
           return Promise.resolve('auth keyword extra');
         return Promise.resolve('auth content');
       });
