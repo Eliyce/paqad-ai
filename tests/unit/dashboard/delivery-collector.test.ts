@@ -71,4 +71,28 @@ describe('delivery dashboard collector', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('host detected but tracker dormant → one connection, nudge for the tracker only', () => {
+    const root = repo();
+    try {
+      writeProfile(root, '[]'); // no jira server → tracker dormant
+      writeDetection(
+        root,
+        detectDelivery({
+          remoteUrl: 'git@github.com:o/r.git',
+          defaultBranch: 'origin/main',
+          branchNames: ['feat/a'],
+          recentCommitSubjects: ['feat: a'],
+        }),
+      );
+      const { section, attention } = collectDelivery(root);
+      expect(section.score).toBe(70); // exactly one connected
+      expect(section.summary).toContain('github ✓');
+      expect(section.summary).toContain('dormant');
+      expect(attention).toHaveLength(1);
+      expect(attention[0].message).toContain('jira');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

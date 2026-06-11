@@ -105,6 +105,7 @@ export async function runCiGate(
     await sleep(pollIntervalMs);
   }
 
+  /* v8 ignore next 6 -- safety backstop: the timeout check returns first in every real run; only reachable if maxPolls is hit before the deadline */
   return {
     action: 'timed_out',
     state: 'unknown',
