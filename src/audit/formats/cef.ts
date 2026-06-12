@@ -21,10 +21,7 @@ export function escapeCefHeader(value: string): string {
 
 /** Escape a CEF extension value: backslash, equals, and newlines. */
 export function escapeCefExtension(value: string): string {
-  return value
-    .replace(/\\/g, '\\\\')
-    .replace(/=/g, '\\=')
-    .replace(/\r?\n/g, ' ');
+  return value.replace(/\\/g, '\\\\').replace(/=/g, '\\=').replace(/\r?\n/g, ' ');
 }
 
 function pushPair(parts: string[], key: string, value: string | undefined): void {
