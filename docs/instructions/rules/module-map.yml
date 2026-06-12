@@ -275,6 +275,26 @@ modules:
       - slug: compliance-patterns
         name: compliance patterns
 
+  - slug: cli-audit
+    name: Audit Export Command
+    layer: cli-commands
+    confidence: high
+    summary: |
+      Read-only, local-first SIEM exporter. Projects the #118 unified evidence
+      ledger and tamper-evident receipt chain into the schemas an enterprise's
+      own SIEM ingests — OCSF (primary), Elastic ECS, ArcSight CEF, and a
+      canonical JSONL passthrough — writing a file or stdout for the customer's
+      own collector to ship. No paqad-hosted endpoint, stream, or network push:
+      it reads the on-disk ledger and transforms it. `--since` windows the
+      export; `--redact` strips free-text detail and human identities.
+    sources:
+      - src/cli/commands/audit.ts
+      - src/audit
+    features:
+      - slug: audit-export
+        name: paqad-ai audit export
+        sources: [src/cli/commands/audit.ts, src/audit]
+
   - slug: cli-plan
     name: Resumable Plan Command
     layer: cli-commands
