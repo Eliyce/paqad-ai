@@ -39,7 +39,10 @@ const DEFAULT_EVIDENCE_LIMIT = 200;
 const MAX_EVIDENCE_LIMIT = 1000;
 
 /** The evidence ledger shaped for the timeline: newest first, filtered, capped. */
-export function buildEvidenceFeed(projectRoot: string, query: EvidenceFeedQuery = {}): EvidenceFeed {
+export function buildEvidenceFeed(
+  projectRoot: string,
+  query: EvidenceFeedQuery = {},
+): EvidenceFeed {
   const all = readEvidenceLedger(projectRoot);
   const limit = Math.min(
     Math.max(1, Math.trunc(query.limit ?? DEFAULT_EVIDENCE_LIMIT)),

@@ -280,8 +280,8 @@ export function ApprovalsView() {
       <div className="mx-auto w-full max-w-3xl p-6">
         <h1 className="text-xl font-semibold">Approvals</h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
-          Nothing risky moves forward without you. This is where you stay in control without
-          reading logs.
+          Nothing risky moves forward without you. This is where you stay in control without reading
+          logs.
         </p>
         {error && (
           <div

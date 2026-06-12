@@ -34,7 +34,11 @@ function EvidenceLine({ row }: { row: EvidenceRow }) {
       className="border-b py-2 text-sm last:border-b-0"
       style={{ borderColor: 'var(--color-border)' }}
     >
-      <button type="button" className="flex w-full items-baseline gap-2 text-left" onClick={() => setOpen(!open)}>
+      <button
+        type="button"
+        className="flex w-full items-baseline gap-2 text-left"
+        onClick={() => setOpen(!open)}
+      >
         <span
           className="inline-block h-2 w-2 shrink-0 self-center rounded-full"
           style={{ background: VERDICT_COLOR[row.verdict] }}
@@ -115,8 +119,7 @@ function ReceiptCardView({ receipt, onCopy }: { receipt: ReceiptCard; onCopy: ()
       )}
       {receipt.subjects.length > 0 && (
         <div className="mt-2 text-xs" style={{ color: 'var(--color-muted)' }}>
-          Covers {receipt.subjects.length}{' '}
-          {receipt.subjects.length === 1 ? 'file' : 'files'}:{' '}
+          Covers {receipt.subjects.length} {receipt.subjects.length === 1 ? 'file' : 'files'}:{' '}
           {receipt.subjects
             .slice(0, 3)
             .map((s) => s.name)
@@ -274,11 +277,7 @@ export function TrustView() {
         )}
         <div className="mt-3 flex flex-col gap-3">
           {receipts?.receipts.map((receipt) => (
-            <ReceiptCardView
-              key={receipt.receipt_hash}
-              receipt={receipt}
-              onCopy={copyPrComment}
-            />
+            <ReceiptCardView key={receipt.receipt_hash} receipt={receipt} onCopy={copyPrComment} />
           ))}
         </div>
 
