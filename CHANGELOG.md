@@ -1,5 +1,138 @@
 # paqad-ai
 
+## 1.18.0
+
+### Minor Changes
+
+- [#153](https://github.com/Eliyce/paqad-ai/pull/153) [`e3f2377`](https://github.com/Eliyce/paqad-ai/commit/e3f237740e201e5019f5d0514f1460011eda917c) Thanks [@HLasani](https://github.com/HLasani)! - Complete the dashboard editing surface: every web-managed setting is editable on the web ([#146](https://github.com/Eliyce/paqad-ai/issues/146) phase 3).
+
+  New editors, all through the audited write pipeline: the instructions
+  editor in Knowledge (file tree, CodeMirror with frontmatter as fields,
+  markdown preview, the 409 diff prompt), the module map editor in Build
+  (structured table, raw YAML editor of record, drift findings inline with
+  one-click reconcile), the design token editor (swatch grid, raw JSON, live
+  preview, derived docs regenerated on save), the profile schema form,
+  capability toggles, pack install and remove, the decision pause contract,
+  and the RAG settings panel.
+
+  Safe operations run as jobs through the same code paths as the CLI:
+  reconcile, refresh rules, refresh context, rebuild or clear the RAG index,
+  regenerate design docs, compliance check, and doctor. Progress streams over
+  SSE as `ops-progress`, double-starts of the same action answer 409, and
+  every finished job lands in the audit log.
+
+  Also new: `GET /api/audit` (the filterable audit feed),
+  `GET /api/onboarding-checklist` (real-event completion states), and
+  `GET /api/export/evidence-packet` (a self-contained HTML, Markdown, and
+  JSON trust bundle).
+
+- [#153](https://github.com/Eliyce/paqad-ai/pull/153) [`e3f2377`](https://github.com/Eliyce/paqad-ai/commit/e3f237740e201e5019f5d0514f1460011eda917c) Thanks [@HLasani](https://github.com/HLasani)! - Finish the dashboard onboarding and polish slice ([#146](https://github.com/Eliyce/paqad-ai/issues/146) phase 4).
+
+  The command palette opens on Cmd+K (and Ctrl+K) and jumps to any area,
+  editor, or action. Pulse gains the onboarding checklist driven by real
+  events, never clicks: connect your agent, watch your first gate pass,
+  approve your first decision, open your first receipt, edit one instruction
+  file. It completes itself from artifacts on disk, teaches the palette in
+  step one, and signs off with a single win line. Pulse also gains the recent
+  activity feed, rendered as sentences rather than log lines.
+
+  Trust gains the receipt seal animation (the product's only spring, 300ms,
+  played once when a new receipt arrives live) and two export actions: open
+  the evidence packet as standalone HTML, or copy its Markdown for a PR or a
+  release note.
+
+- [#151](https://github.com/Eliyce/paqad-ai/pull/151) [`226ac1f`](https://github.com/Eliyce/paqad-ai/commit/226ac1f453b2094d3e801d6e23afc36471d1670e) Thanks [@HLasani](https://github.com/HLasani)! - Give the dashboard the seven-area management IA and the comprehension layer ([#146](https://github.com/Eliyce/paqad-ai/issues/146) phase 3, first slice).
+
+  The dashboard now opens on Pulse and organizes everything the spec's
+  management rule describes into seven areas behind a quiet, collapsible left
+  sidebar: Pulse, Approvals, Trust, Build, Automation, Knowledge, Setup. The
+  legacy all-sections health view stays reachable at `#/dashboard` and the
+  architecture graph keeps `#/graph`, reached from Build.
+
+  A new `GET /api/inventory` endpoint classifies every paqad functionality
+  exactly once as web-managed, prompt-managed, evidence, or a safe operation,
+  with its owner, live on-disk state, and the area page that renders it. Area
+  pages draw their cards entirely from this report, so the three-way
+  classification lives in one place.
+
+  The comprehension layer ships with it: an ownership badge on every card (You
+  manage this, Paqad manages this, Shared), a why-sentence under every title, a
+  "Why this matters" drawer with the problem, the benefit, and what happens
+  without it, and empty states that teach. All copy follows the spec's voice
+  pack verbatim.
+
+- [#152](https://github.com/Eliyce/paqad-ai/pull/152) [`7ac4c43`](https://github.com/Eliyce/paqad-ai/commit/7ac4c437ff617d3c7e49fb704bfe87795b3568e0) Thanks [@HLasani](https://github.com/HLasani)! - Add the audited write pipeline and the first full web editor: the delivery policy rule builder ([#146](https://github.com/Eliyce/paqad-ai/issues/146) phase 3).
+
+  Every dashboard file mutation now runs one pipeline: validate (ajv for
+  schema-backed files, YAML parse otherwise), enforce the path allowlist (only
+  `docs/instructions/**` and the named config files; no traversal, no
+  dotfiles, symlinks resolved and rejected outside the project root), check
+  the content hash the client loaded (a mismatch returns 409 with the current
+  content for a side-by-side diff), write atomically, and append
+  `actor="dashboard"` with the content hash to `.paqad/audit.log`. Edits under
+  `docs/instructions/**` invalidate the agent entry sentinel through the
+  existing mtime gates, so every agent reloads the canonical context next
+  session.
+
+  The delivery policy gets the spec's rule builder at `#/delivery-policy`:
+  one card per process section with a "Paqad keeps this in sync" / "You own
+  this" toggle, typed fields, and a plain-language preview line under each
+  section. A raw YAML mode covers everything else, and structured edits go
+  through a YAML document so comments survive. Saving validates against the
+  delivery-policy schema and answers with the win line. The instructions file
+  tree and file read/write endpoints land server-side for the Knowledge
+  editor that follows.
+
+  New endpoints: `GET/PUT /api/config/delivery-policy`,
+  `GET /api/files/instructions`, `GET/PUT /api/files/instructions/{path}`.
+  All mutations sit behind the existing guardrails, including `--read-only`.
+
+### Patch Changes
+
+- [#148](https://github.com/Eliyce/paqad-ai/pull/148) [`7b3146c`](https://github.com/Eliyce/paqad-ai/commit/7b3146c109374147ac22d231a0406d9844f39cfc) Thanks [@HLasani](https://github.com/HLasani)! - Stop the dashboard audit-log feedback loop on legacy project profiles.
+
+  On projects whose `.paqad/project-profile.yaml` predates the canonical
+  capabilities model, `readProjectProfile` could flag a profile as "migrated"
+  even when the canonical rewrite was byte-identical (a declared `coding`
+  capability with no usable stack profile). Every read then re-appended the
+  "Migrated project profile to canonical capabilities model" line to
+  `.paqad/audit.log`. With `paqad-ai dashboard` running, the `.paqad/` watcher
+  saw each append, rebuilt the report, read the profile again, and looped
+  roughly every 500ms, growing the audit log forever and firing the SSE
+  `dashboard-updated` stream continuously.
+
+  Two changes close the loop:
+  - Profile migration now reports `migrated` only when the canonical form
+    actually differs from what is on disk. `coding` active without a stack
+    profile is treated as a valid converged state (stack detection may simply
+    not have run yet), so the migration converges after a single write.
+  - The `.paqad/` watcher ignores append-only logs the report build and
+    dashboard mutations write themselves (`audit.log`, `logs/`), so a log
+    append can never re-trigger the build that produced it.
+
+- [#149](https://github.com/Eliyce/paqad-ai/pull/149) [`3b9bf40`](https://github.com/Eliyce/paqad-ai/commit/3b9bf40c5d2fcba2f120b05ee79eb41672d4f170) Thanks [@HLasani](https://github.com/HLasani)! - Make the shipped skill scripts portable to Debian and immune to a SIGPIPE race.
+
+  Two real defects surfaced by running the test suite in `node:22-bookworm`
+  and `node:24-bookworm` containers:
+  - Debian's default awk is mawk, which silently fails to match `{n,m}`
+    interval expressions. The copy-and-ia-review scripts used intervals inside
+    awk `match()` calls, so `extract-user-strings.sh` dropped every jsx-text
+    row and `check-action-verbs.sh` produced no output on Debian while
+    gawk-based CI stayed green. The awk patterns now use `+` with an explicit
+    `length()` cap, and a guard test rejects any future awk `match()` interval.
+  - Under `set -o pipefail`, `printf '%s' "$body" | grep -qE pattern` fails
+    with status 141 exactly when the pattern matches early: `grep -q` exits on
+    first match and printf dies of a silent SIGPIPE. The `|| say` validation
+    idiom then recorded a plausible-looking finding, which is why lint scripts
+    intermittently rejected valid input on loaded runners. All 166 occurrences
+    across 60 scripts now use herestrings (`grep -q pattern <<<"$var"`), which
+    cannot race, and a guard test keeps pipelines from feeding `grep -q` again.
+
+  The test harness retry gate also tightened: it retries only results with no
+  output at all (or infrastructure-flavored stderr), so specs that expect a
+  non-zero exit no longer burn the full backoff, and a `PAQAD_DEBUG_RUNSCRIPT`
+  hook records non-zero results for future flake forensics.
+
 ## 1.17.0
 
 ### Minor Changes
