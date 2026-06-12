@@ -483,17 +483,24 @@ modules:
     layer: framework-internals
     confidence: high
     summary: |
-      Declarative `pack.yaml` packs that bind a stack to its detection
-      signals, docs, MCP config, and security mappings. Ships 19 framework
-      packs + 3 archetype packs and supports global + project-scoped
-      overrides with deterministic precedence.
+      Declarative packs with deterministic built-in < global < project
+      precedence. Two kinds: `pack.yaml` stack packs (bind a stack to its
+      detection signals, docs, MCP config, security mappings — 19 framework +
+      3 archetype packs) and `compliance-pack.yaml` compliance packs (issue
+      #122) that map verification gates to legal-framework clauses (EU AI Act /
+      NIST / ISO) using OSCAL relations, so a passing gate on the receipt can
+      cite which clause it produces evidence toward. Compliance packs carry no
+      detection fields and live in their own roots (runtime
+      capabilities/compliance, ~/.paqad/compliance-packs, .paqad/compliance-packs).
     sources:
       - src/packs
     features:
       - slug: pack-schema
         name: Pack Schema (pack.yaml)
+      - slug: compliance-pack-schema
+        name: Compliance Pack Schema (compliance-pack.yaml — gate→clause)
       - slug: built-in-packs
-        name: 22 Built-in Packs
+        name: 22 Built-in Packs + EU AI Act compliance pack
       - slug: pack-overrides
         name: Override Precedence
       - slug: pack-authoring
