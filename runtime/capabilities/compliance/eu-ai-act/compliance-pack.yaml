@@ -1,0 +1,54 @@
+kind: compliance-pack
+name: eu-ai-act
+description: >
+  Maps paqad verification gates to technical-documentation and robustness
+  clauses of the EU AI Act (Regulation (EU) 2024/1689). Built-in starter pack —
+  override or extend it with a project pack under .paqad/compliance-packs/.
+maintainer: paqad-ai
+framework:
+  id: eu-ai-act
+  title: Regulation (EU) 2024/1689 (EU AI Act)
+  authority_url: https://artificialintelligenceact.eu/
+  # High-risk obligations apply from 2 Dec 2027 (Annex III) / 2 Aug 2028
+  # (Annex I) after the 2026 Digital Omnibus deferral.
+  version: '2024/1689'
+
+disclaimer: >
+  paqad produces technical evidence toward the cited clause. It does NOT
+  constitute a conformity assessment (Art. 43) and does not make any system
+  compliant. A passing gate is evidence a specific technical control held for
+  this change, not a legal conclusion.
+
+mappings:
+  - clause:
+      id: Art.15
+      title: Accuracy, robustness and cybersecurity
+      url: https://artificialintelligenceact.eu/article/15/
+    satisfied_by:
+      - { type: gate, ref: behavioral-correctness, relation: subset-of }
+      - { type: gate, ref: mutation-testing, relation: subset-of }
+      - { type: gate, ref: code-tests-lint, relation: subset-of }
+      - { type: gate, ref: quality-ratchet, relation: intersects-with }
+    evidence_strength: partial
+    reviewed_by: paqad-ai maintainers
+
+  - clause:
+      id: Art.11
+      title: Technical documentation
+      url: https://artificialintelligenceact.eu/article/11/
+    satisfied_by:
+      - { type: gate, ref: module-docs-structure, relation: subset-of }
+      - { type: gate, ref: instructions-docs-structure, relation: subset-of }
+      - { type: gate, ref: documentation-freshness, relation: intersects-with }
+    evidence_strength: partial
+    reviewed_by: paqad-ai maintainers
+
+  - clause:
+      id: Art.9
+      title: Risk management system
+      url: https://artificialintelligenceact.eu/article/9/
+    satisfied_by:
+      - { type: gate, ref: architecture-compliance, relation: subset-of }
+      - { type: gate, ref: ac-test-mapping, relation: intersects-with }
+    evidence_strength: partial
+    reviewed_by: paqad-ai maintainers

@@ -11,3 +11,5 @@ export * from './receipt/statement.js';
 export * from './receipt/dsse.js';
 export * from './receipt/ai-bom.js';
 export * from './receipt/project.js';
+export * from './reproducibility.js';
+export * from './compliance/citations.js';

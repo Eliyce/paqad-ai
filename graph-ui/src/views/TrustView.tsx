@@ -67,6 +67,40 @@ function EvidenceLine({ row }: { row: EvidenceRow }) {
   );
 }
 
+/**
+ * Issue #122 — clause chips on a receipt. One chip per cited clause (deduped
+ * across the gates that satisfy it), with the pack's disclaimer on hover. The
+ * wording is deliberately "evidence toward", never "compliant".
+ */
+function ComplianceChips({ citations }: { citations: ReceiptCard['compliance'] }) {
+  const byClause = new Map<string, ReceiptCard['compliance'][number]>();
+  for (const citation of citations) {
+    byClause.set(citation.framework_id + '|' + citation.clause_id, citation);
+  }
+  const clauses = [...byClause.values()];
+  const disclaimer = citations[0]?.disclaimer;
+  return (
+    <div className="mt-2">
+      <div className="text-xs" style={{ color: 'var(--color-muted)' }}>
+        Evidence toward
+      </div>
+      <ul className="mt-1 flex flex-wrap gap-2 text-xs">
+        {clauses.map((c) => (
+          <li
+            key={c.framework_id + c.clause_id}
+            className="rounded border px-2 py-0.5"
+            style={{ borderColor: 'var(--color-border)' }}
+            title={disclaimer}
+          >
+            {c.framework_title} {c.clause_id}
+            <span style={{ color: 'var(--color-muted)' }}> ({c.evidence_strength})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ReceiptCardView({
   receipt,
   onCopy,
@@ -111,6 +145,18 @@ function ReceiptCardView({
           {human ? ', accepted by ' + human : ''} ({receipt.authorship.provenance})
         </div>
       )}
+      {receipt.reproducibility && (
+        <div
+          className="mt-2 text-xs"
+          style={{ color: 'var(--color-muted)' }}
+          title="Proves the context the agent saw is replayable from these exact inputs. It does not claim the model would regenerate the same output."
+        >
+          Replayable from frozen context:{' '}
+          <code>{shortHash(receipt.reproducibility.context_hash)}</code> (
+          {receipt.reproducibility.determinism})
+        </div>
+      )}
+      {receipt.compliance.length > 0 && <ComplianceChips citations={receipt.compliance} />}
       {receipt.checks.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2 text-xs">
           {receipt.checks.map((check, i) => (

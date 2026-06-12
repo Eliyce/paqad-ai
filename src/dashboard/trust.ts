@@ -9,8 +9,10 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import type {
   ChangeAuthorship,
+  ComplianceCitation,
   EvidenceLedgerRow,
   ReceiptEnvelope,
+  ReproducibilityStampPredicate,
 } from '@/core/types/evidence-ledger.js';
 import { readEvidenceLedger } from '@/evidence/ledger.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
@@ -68,6 +70,10 @@ export interface ReceiptCard {
   time_verified: string | null;
   verification_result: 'PASSED' | 'FAILED' | null;
   authorship: ChangeAuthorship | null;
+  /** Issue #122 — which legal clauses the passing gates produce evidence toward. */
+  compliance: ComplianceCitation[];
+  /** Issue #123 — the frozen-context reproducibility stamp, or null when absent. */
+  reproducibility: ReproducibilityStampPredicate | null;
   /** The graded checks the receipt covers. */
   checks: Pick<EvidenceLedgerRow, 'code' | 'engine' | 'verdict' | 'strength_class'>[];
   /** Changed files attested by the receipt. */
@@ -98,6 +104,8 @@ export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
       time_verified: predicate?.time_verified ?? null,
       verification_result: predicate?.verification_result ?? null,
       authorship: predicate?.change_authorship ?? null,
+      compliance: predicate?.compliance_citations ?? [],
+      reproducibility: predicate?.reproducibility ?? null,
       checks: (predicate?.rows ?? []).map((row) => ({
         code: row.code,
         engine: row.engine,

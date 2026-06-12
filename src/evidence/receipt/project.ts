@@ -13,10 +13,12 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   type ChangeAuthorship,
+  type ComplianceCitation,
   type EvidenceFileDigest,
   type EvidenceLedgerRow,
   type InTotoStatement,
   type ReceiptEnvelope,
+  type ReproducibilityStampPredicate,
 } from '@/core/types/evidence-ledger.js';
 
 import { ZERO_DIGEST } from '../digests.js';
@@ -76,6 +78,22 @@ export function latestReceiptAuthorship(projectRoot: string): ChangeAuthorship |
   return statement?.predicate.change_authorship ?? null;
 }
 
+/** Issue #122/#123 — the compliance citations and reproducibility stamp attested
+ *  by the most recent receipt. The single source every surface reads, so the PR
+ *  comment and dashboard always agree with the signed record. */
+export function latestReceiptTrustExtras(projectRoot: string): {
+  compliance: ComplianceCitation[];
+  reproducibility: ReproducibilityStampPredicate | null;
+} {
+  const chain = readReceiptChain(projectRoot);
+  if (chain.length === 0) return { compliance: [], reproducibility: null };
+  const statement = decodeReceiptStatement(chain[chain.length - 1]);
+  return {
+    compliance: statement?.predicate.compliance_citations ?? [],
+    reproducibility: statement?.predicate.reproducibility ?? null,
+  };
+}
+
 async function atomicWriteJson(targetPath: string, value: unknown): Promise<void> {
   await mkdir(dirname(targetPath), { recursive: true });
   const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
@@ -91,6 +109,10 @@ export interface ProjectReceiptInput {
   timeVerified: string;
   /** Issue #120 — who wrote/accepted the change, folded into the predicate. */
   authorship?: ChangeAuthorship;
+  /** Issue #122 — `gate → clause` citations from the active compliance packs. */
+  complianceCitations?: readonly ComplianceCitation[];
+  /** Issue #123 — the frozen-context reproducibility stamp. */
+  reproducibility?: ReproducibilityStampPredicate;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -114,6 +136,8 @@ export async function projectReceipt(input: ProjectReceiptInput): Promise<Projec
     verifierVersion: input.verifierVersion,
     timeVerified: input.timeVerified,
     authorship: input.authorship,
+    complianceCitations: input.complianceCitations,
+    reproducibility: input.reproducibility,
   });
 
   // Mode detection is recorded for transparency even though the local signer

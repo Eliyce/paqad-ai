@@ -8,8 +8,11 @@ import {
   buildEvidenceComment,
   readVerificationEvidence,
   renderAuthorshipLine,
+  renderComplianceLines,
   renderEvidenceMarkdown,
+  renderReproducibilityLine,
 } from '@/verification/evidence-markdown';
+import type { ComplianceCitation } from '@/core/types/evidence-ledger';
 import { projectReceipt } from '@/evidence/receipt/project';
 import { buildEvidenceRow } from '@/evidence/ledger';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
@@ -54,7 +57,78 @@ const PASSING: VerificationEvidence = {
   ],
 };
 
+function citation(overrides: Partial<ComplianceCitation> = {}): ComplianceCitation {
+  return {
+    framework_id: 'eu-ai-act',
+    framework_title: 'EU AI Act',
+    clause_id: 'Art.15',
+    clause_title: 'Robustness',
+    gate: 'mutation-testing',
+    relation: 'subset-of',
+    evidence_strength: 'partial',
+    disclaimer: 'Evidence toward, not a conformity assessment.',
+    ...overrides,
+  };
+}
+
+describe('renderComplianceLines (#122)', () => {
+  it('returns null when there are no citations', () => {
+    expect(renderComplianceLines([])).toBeNull();
+  });
+
+  it('says "evidence toward", never "compliant", and carries the disclaimer', () => {
+    const lines = renderComplianceLines([citation()]);
+    const text = lines?.join('\n') ?? '';
+    expect(text).toContain('Compliance evidence toward: EU AI Act Art.15 (partial)');
+    expect(text).toContain('not a conformity assessment');
+    expect(text.toLowerCase()).not.toContain('is compliant');
+  });
+
+  it('dedupes multiple gates satisfying the same clause into one chip', () => {
+    const lines = renderComplianceLines([
+      citation({ gate: 'mutation-testing' }),
+      citation({ gate: 'behavioral-correctness' }),
+    ]);
+    const clauseHits = (lines?.[0].match(/Art\.15/g) ?? []).length;
+    expect(clauseHits).toBe(1);
+  });
+});
+
+describe('renderReproducibilityLine (#123)', () => {
+  it('claims input-replay and never bit-identical regeneration', () => {
+    const line = renderReproducibilityLine({
+      context_hash: 'deadbeefcafe1234',
+      determinism: 'input-replay',
+      algo_version: 1,
+      replayable: true,
+    });
+    expect(line).toContain('Replayable from frozen context');
+    expect(line).toContain('deadbeefcafe');
+    expect(line).toContain('input-replay');
+  });
+});
+
 describe('renderEvidenceMarkdown', () => {
+  it('appends compliance + reproducibility footers when supplied', () => {
+    const md = renderEvidenceMarkdown(PASSING, {
+      compliance: [citation()],
+      reproducibility: {
+        context_hash: 'abcdef0123456789',
+        determinism: 'input-replay',
+        algo_version: 1,
+        replayable: true,
+      },
+    });
+    expect(md).toContain('Compliance evidence toward');
+    expect(md).toContain('Replayable from frozen context');
+  });
+
+  it('omits both footers when not supplied', () => {
+    const md = renderEvidenceMarkdown(PASSING);
+    expect(md).not.toContain('Compliance evidence toward');
+    expect(md).not.toContain('Replayable from frozen context');
+  });
+
   it('renders a green "Safe to merge" headline for a passing run', () => {
     const md = renderEvidenceMarkdown(PASSING);
     expect(md).toMatch(/^## paqad evidence {2}🟢 Safe to merge$/m);

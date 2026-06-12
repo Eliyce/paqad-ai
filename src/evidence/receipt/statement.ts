@@ -11,12 +11,14 @@ import {
   PAQAD_VSA_PREDICATE_TYPE,
   EVIDENCE_LEDGER_SCHEMA_VERSION,
   type ChangeAuthorship,
+  type ComplianceCitation,
   type EvidenceEngine,
   type EvidenceFileDigest,
   type EvidenceLedgerRow,
   type GradedEvidenceSummary,
   type InTotoStatement,
   type InTotoSubject,
+  type ReproducibilityStampPredicate,
   type VsaPredicate,
 } from '@/core/types/evidence-ledger.js';
 
@@ -74,6 +76,10 @@ export interface BuildStatementInput {
   /** Issue #120 — who wrote/accepted the change. Omitted from the predicate
    *  when absent, so receipts without authorship stay byte-identical. */
   authorship?: ChangeAuthorship;
+  /** Issue #122 — `gate → clause` citations. Omitted when empty/absent. */
+  complianceCitations?: readonly ComplianceCitation[];
+  /** Issue #123 — frozen-context reproducibility stamp. Omitted when absent. */
+  reproducibility?: ReproducibilityStampPredicate;
 }
 
 /** Build the in-toto Statement: per-file subjects + a graded VSA predicate. */
@@ -96,6 +102,10 @@ export function buildInTotoStatement(input: BuildStatementInput): InTotoStatemen
     graded_results: summary,
     evidence_by_engine: countByEngine(input.rows),
     ...(input.authorship !== undefined ? { change_authorship: input.authorship } : {}),
+    ...(input.complianceCitations !== undefined && input.complianceCitations.length > 0
+      ? { compliance_citations: [...input.complianceCitations] }
+      : {}),
+    ...(input.reproducibility !== undefined ? { reproducibility: input.reproducibility } : {}),
     rows: [...input.rows],
   };
 

@@ -1,7 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
+import type {
+  ChangeAuthorship,
+  ComplianceCitation,
+  ReproducibilityStampPredicate,
+} from '@/core/types/evidence-ledger.js';
 import type {
   EvidenceGateStatus,
   EvidenceOverallStatus,
@@ -9,7 +13,7 @@ import type {
   VerificationEvidenceFailure,
   VerificationEvidenceGate,
 } from '@/core/types/verification-evidence.js';
-import { latestReceiptAuthorship } from '@/evidence/receipt/project.js';
+import { latestReceiptAuthorship, latestReceiptTrustExtras } from '@/evidence/receipt/project.js';
 
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from './evidence.js';
 
@@ -91,9 +95,12 @@ export function buildEvidenceComment(projectRoot: string, sha?: string): string 
   const evidence = readVerificationEvidence(projectRoot);
   if (evidence === null) return null;
   const authorship = latestReceiptAuthorship(projectRoot) ?? undefined;
+  const extras = latestReceiptTrustExtras(projectRoot);
   return renderEvidenceMarkdown(evidence, {
     ...(sha ? { sha } : {}),
     ...(authorship ? { authorship } : {}),
+    ...(extras.compliance.length > 0 ? { compliance: extras.compliance } : {}),
+    ...(extras.reproducibility ? { reproducibility: extras.reproducibility } : {}),
   });
 }
 
@@ -128,6 +135,37 @@ export interface RenderEvidenceMarkdownOptions {
   /** Issue #120 — change authorship from the signed receipt, rendered as a
    *  footer so a reviewer sees who wrote/accepted the change next to the gates. */
   authorship?: ChangeAuthorship;
+  /** Issue #122 — `gate → clause` citations, rendered as an honest "evidence
+   *  toward" footer with the pack's disclaimer. */
+  compliance?: ComplianceCitation[];
+  /** Issue #123 — the reproducibility stamp, rendered as a one-line claim. */
+  reproducibility?: ReproducibilityStampPredicate;
+}
+
+/** Render the compliance footer (issue #122): one line per cited clause, grouped
+ *  by framework, plus the single shared disclaimer. Returns `null` when there
+ *  are no citations. Deliberately says "evidence toward", never "compliant". */
+export function renderComplianceLines(citations: ComplianceCitation[]): string[] | null {
+  if (citations.length === 0) return null;
+  // Dedupe to one entry per (framework, clause): several gates can satisfy the
+  // same clause, but the reviewer wants the clause listed once.
+  const byClause = new Map<string, ComplianceCitation>();
+  for (const citation of citations) {
+    byClause.set(`${citation.framework_id}|${citation.clause_id}`, citation);
+  }
+  const clauses = [...byClause.values()].map(
+    (c) => `${c.framework_title} ${c.clause_id} (${c.evidence_strength})`,
+  );
+  const disclaimer = citations[0]?.disclaimer.trim().replace(/\s+/g, ' ') ?? '';
+  const lines = [`> Compliance evidence toward: ${clauses.join(', ')}.`];
+  if (disclaimer.length > 0) lines.push(`> _${disclaimer}_`);
+  return lines;
+}
+
+/** Render the reproducibility line (issue #123). Honest: input-replay, never
+ *  bit-identical regeneration. */
+export function renderReproducibilityLine(stamp: ReproducibilityStampPredicate): string {
+  return `> Replayable from frozen context: \`${stamp.context_hash.slice(0, 12)}\` (${stamp.determinism}, algo v${stamp.algo_version}).`;
 }
 
 /**
@@ -227,6 +265,17 @@ export function renderEvidenceMarkdown(
   if (authorshipLine !== null) {
     lines.push('');
     lines.push(authorshipLine);
+  }
+
+  const complianceLines = options.compliance ? renderComplianceLines(options.compliance) : null;
+  if (complianceLines !== null) {
+    lines.push('');
+    lines.push(...complianceLines);
+  }
+
+  if (options.reproducibility) {
+    lines.push('');
+    lines.push(renderReproducibilityLine(options.reproducibility));
   }
 
   return lines.join('\n');

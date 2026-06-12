@@ -71,6 +71,16 @@ export interface ConversationRebuildResult {
   retrievedChunkIds: string[];
   truncated: boolean;
   truncatedTurnCount: number;
+  /**
+   * Issue #123 — SHA-256 over the canonical, versioned materials this rebuild
+   * froze (lineage, classifier output, retrieved chunk digests, budget,
+   * summariser mode, truncation). Proves the context is replayable from these
+   * inputs; it does NOT assert bit-identical LLM regeneration. See
+   * `computeContextHash`.
+   *
+   * @since 1.19.0
+   */
+  contextHash: string;
 }
 
 /**

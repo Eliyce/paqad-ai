@@ -122,6 +122,47 @@ describe('dashboard trust', () => {
       expect(feed.receipts[1].prev_receipt_hash).toMatch(/^0+$/);
     });
 
+    it('surfaces compliance citations and the reproducibility stamp on the card (#122/#123)', async () => {
+      await projectReceipt({
+        projectRoot: root,
+        fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+        rows: [row('mutation-testing')],
+        verifierVersion: '1.0.0',
+        timeVerified: '2026-06-11T00:00:00.000Z',
+        complianceCitations: [
+          {
+            framework_id: 'eu-ai-act',
+            framework_title: 'EU AI Act',
+            clause_id: 'Art.15',
+            clause_title: 'Robustness',
+            gate: 'mutation-testing',
+            relation: 'subset-of',
+            evidence_strength: 'partial',
+            disclaimer: 'Evidence toward, not compliance.',
+          },
+        ],
+        reproducibility: {
+          context_hash: 'deadbeef',
+          determinism: 'input-replay',
+          algo_version: 1,
+          replayable: true,
+        },
+      });
+
+      const card = buildReceiptFeed(root).receipts[0];
+      expect(card.compliance).toHaveLength(1);
+      expect(card.compliance[0].clause_id).toBe('Art.15');
+      expect(card.reproducibility?.determinism).toBe('input-replay');
+      expect(card.reproducibility?.context_hash).toBe('deadbeef');
+    });
+
+    it('defaults compliance to [] and reproducibility to null when absent', async () => {
+      await project(root, 'mutation-testing');
+      const card = buildReceiptFeed(root).receipts[0];
+      expect(card.compliance).toEqual([]);
+      expect(card.reproducibility).toBeNull();
+    });
+
     it('marks receipts from the first broken link as unsealed', async () => {
       const first = await project(root, 'mutation-testing');
       // Tamper: append a forged envelope whose prev hash skips the real chain.
