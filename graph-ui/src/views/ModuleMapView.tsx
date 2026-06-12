@@ -37,10 +37,16 @@ function ModulesTable({ modules }: { modules: ModuleMapModule[] }) {
         <div className="text-caption font-medium" style={{ color: 'var(--color-muted)' }}>
           Name
         </div>
-        <div className="text-caption font-medium text-right" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="text-caption font-medium text-right"
+          style={{ color: 'var(--color-muted)' }}
+        >
           Sources
         </div>
-        <div className="text-caption font-medium text-right" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="text-caption font-medium text-right"
+          style={{ color: 'var(--color-muted)' }}
+        >
           Features
         </div>
         {modules.map((module) => (
@@ -238,13 +244,19 @@ export function ModuleMapView() {
                 <div className="mt-3 flex flex-col gap-1.5">
                   {findings.map((finding, index) => (
                     // eslint-disable-next-line react/no-array-index-key
-                    <div key={finding.code + index} className="flex items-baseline gap-2 text-secondary">
+                    <div
+                      key={finding.code + index}
+                      className="flex items-baseline gap-2 text-secondary"
+                    >
                       <span
                         aria-hidden="true"
                         className="inline-block h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full"
                         style={{ background: 'var(--color-mod-amber)' }}
                       />
-                      <span className="shrink-0 font-mono text-caption" style={{ color: 'var(--color-muted)' }}>
+                      <span
+                        className="shrink-0 font-mono text-caption"
+                        style={{ color: 'var(--color-muted)' }}
+                      >
                         {finding.code}
                       </span>
                       <span className="min-w-0">{finding.detail}</span>

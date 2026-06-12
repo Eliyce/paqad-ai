@@ -6,6 +6,8 @@ import type { DashboardArea } from '../lib/dashboard-types';
 import { useHashRoute, type Route } from '../lib/router';
 import { getThemeMode, setThemeMode } from '../lib/theme';
 
+import { CommandPalette } from './CommandPalette';
+
 interface Props {
   projectName: string | null;
   frameworkVersion: string | null;
@@ -228,6 +230,7 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive, childr
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">{children}</main>
+      <CommandPalette />
     </div>
   );
 }

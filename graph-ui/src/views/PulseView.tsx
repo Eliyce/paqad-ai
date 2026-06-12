@@ -2,11 +2,26 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { DashboardChrome } from '../components/DashboardChrome';
 import { EmptyState } from '../components/EmptyState';
+import { OnboardingChecklist } from '../components/OnboardingChecklist';
 import { StatCard } from '../components/StatCard';
 import { WhySentence } from '../components/WhySentence';
-import { fetchApprovals, fetchDashboard, fetchReceipts } from '../lib/api';
+import {
+  fetchApprovals,
+  fetchAudit,
+  fetchDashboard,
+  fetchEvidence,
+  fetchOnboardingChecklist,
+  fetchReceipts,
+} from '../lib/api';
 import { PAGE_WHY } from '../lib/copy';
-import type { AttentionItem, DashboardReport, ScoreBand } from '../lib/dashboard-types';
+import type {
+  AttentionItem,
+  AuditFeedEntry,
+  DashboardReport,
+  EvidenceRow,
+  OnboardingChecklist as OnboardingChecklistData,
+  ScoreBand,
+} from '../lib/dashboard-types';
 import { useHashRoute, type Route } from '../lib/router';
 
 const BAND_COLOR: Record<ScoreBand, string> = {
@@ -49,6 +64,75 @@ const SECTION_AREA: Partial<Record<string, Route>> = {
   tools: 'setup',
 };
 
+const VERDICT_COLOR: Record<EvidenceRow['verdict'], string> = {
+  pass: 'var(--color-mod-green)',
+  fail: 'var(--color-mod-red)',
+  inconclusive: 'var(--color-mod-amber)',
+  blocked: 'var(--color-mod-amber)',
+};
+
+interface ActivityItem {
+  key: string;
+  ts: string | null;
+  text: string;
+  dot: string;
+}
+
+/** "4m ago" style relative time. Tiny on purpose, no dependency. */
+function relativeTime(iso: string): string {
+  const delta = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(delta)) return '';
+  const minutes = Math.floor(delta / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return minutes + 'm ago';
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + 'h ago';
+  return Math.floor(hours / 24) + 'd ago';
+}
+
+/** One sentence per dashboard-actor audit action (issue #146 polish). */
+function auditSentence(entry: AuditFeedEntry): string {
+  const action = entry.action ?? '';
+  if (/^dashboard\.config\..+\.write$/.test(action)) {
+    const segment = action.split('.')[2] ?? 'settings';
+    return 'You saved ' + segment.replace(/-/g, ' ') + ' on the web.';
+  }
+  if (action === 'dashboard.instructions.write') return 'You edited an instruction file.';
+  if (action.startsWith('dashboard.ops.')) {
+    const op = action.split('.')[2] ?? action;
+    const status = /(?:^|\s)status="([^"]+)"/.exec(entry.raw)?.[1] ?? 'finished';
+    return 'Operation ' + op + ' ' + status + '.';
+  }
+  if (action.includes('resolve') || action.includes('accept')) return 'A decision was resolved.';
+  return action;
+}
+
+/** Merge gate evidence and dashboard-actor audit lines, newest first, ten. */
+function buildActivity(rows: EvidenceRow[], entries: AuditFeedEntry[]): ActivityItem[] {
+  const items: ActivityItem[] = rows.map((row) => ({
+    key: 'evidence:' + row.content_hash + row.ts,
+    ts: row.ts,
+    text: 'Gate ' + row.code + ' ' + row.verdict + '.',
+    dot: VERDICT_COLOR[row.verdict],
+  }));
+  for (const entry of entries) {
+    if (entry.actor !== 'dashboard' || entry.action === null) continue;
+    items.push({
+      key: 'audit:' + (entry.ts ?? '') + entry.raw,
+      ts: entry.ts,
+      text: auditSentence(entry),
+      dot: 'var(--color-mod-unknown)',
+    });
+  }
+  items.sort((a, b) => {
+    if (a.ts === null && b.ts === null) return 0;
+    if (a.ts === null) return 1;
+    if (b.ts === null) return -1;
+    return b.ts.localeCompare(a.ts);
+  });
+  return items.slice(0, 10);
+}
+
 /**
  * Pulse — the home page of the comprehension layer (issue #146). One
  * health number, four stats, and at most five things worth attention,
@@ -58,6 +142,8 @@ export function PulseView() {
   const [report, setReport] = useState<DashboardReport | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [receiptCount, setReceiptCount] = useState<number | null>(null);
+  const [checklist, setChecklist] = useState<OnboardingChecklistData | null>(null);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sseLive, setSseLive] = useState(false);
   const { navigate } = useHashRoute();
@@ -77,6 +163,14 @@ export function PulseView() {
     fetchReceipts()
       .then((feed) => setReceiptCount(feed.receipts.length))
       .catch(() => setReceiptCount(null));
+    fetchOnboardingChecklist()
+      .then(setChecklist)
+      .catch(() => setChecklist(null));
+    Promise.all([fetchEvidence({}), fetchAudit(50)])
+      .then(([evidenceFeed, auditPage]) =>
+        setActivity(buildActivity(evidenceFeed.rows, auditPage.entries)),
+      )
+      .catch(() => setActivity([]));
   }, []);
 
   useEffect(() => {
@@ -130,6 +224,8 @@ export function PulseView() {
 
         {report && !report.notOnboarded && (
           <>
+            {checklist && <OnboardingChecklist data={checklist} />}
+
             <div className="mt-6 rounded-[10px] p-5" style={{ background: 'var(--color-surface)' }}>
               <div className="flex items-baseline gap-3">
                 <span className="text-stat font-semibold">
@@ -198,6 +294,36 @@ export function PulseView() {
                         {item.severity}
                       </span>
                     </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activity.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-section font-medium">Recent activity</h2>
+                <div className="mt-2 flex flex-col gap-1">
+                  {activity.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center gap-2.5 rounded-[6px] px-2.5 py-1.5 text-secondary"
+                      style={{ color: 'var(--color-canvas-fg)' }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ background: item.dot }}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{item.text}</span>
+                      {item.ts !== null && (
+                        <span
+                          className="shrink-0 text-caption"
+                          style={{ color: 'var(--color-muted)' }}
+                        >
+                          {relativeTime(item.ts)}
+                        </span>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

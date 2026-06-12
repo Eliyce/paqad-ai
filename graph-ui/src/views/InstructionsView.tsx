@@ -251,9 +251,7 @@ export function InstructionsView() {
         .then((outcome) => {
           if (outcome.status === 'ok') {
             setFile((prev) =>
-              prev
-                ? { ...prev, exists: true, content, hash: outcome.result.hash, body }
-                : prev,
+              prev ? { ...prev, exists: true, content, hash: outcome.result.hash, body } : prev,
             );
             setConflict(null);
             setDirty(false);
@@ -385,7 +383,10 @@ export function InstructionsView() {
               {selected !== null && file && (
                 <>
                   <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 truncate text-secondary" style={{ color: 'var(--color-muted)' }}>
+                    <div
+                      className="min-w-0 truncate text-secondary"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
                       {file.path}
                     </div>
                     <div className="flex items-center gap-2.5">

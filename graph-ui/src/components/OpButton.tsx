@@ -63,7 +63,9 @@ export function OpButton({ action, label, confirm, done, onDone }: Props) {
       if (payload.status === 'running') {
         setPhase({ kind: 'running', jobId, message: payload.message });
       } else {
-        fetchOpsJob(jobId).then(finish).catch(() => undefined);
+        fetchOpsJob(jobId)
+          .then(finish)
+          .catch(() => undefined);
       }
     });
     const poll = setInterval(() => {
@@ -140,9 +142,7 @@ export function OpButton({ action, label, confirm, done, onDone }: Props) {
   }
 
   if (phase.kind === 'done') {
-    return (
-      <WinLine onDone={() => setPhase({ kind: 'idle' })}>{done ?? 'Done.'}</WinLine>
-    );
+    return <WinLine onDone={() => setPhase({ kind: 'idle' })}>{done ?? 'Done.'}</WinLine>;
   }
 
   if (phase.kind === 'failed') {

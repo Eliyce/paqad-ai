@@ -36,8 +36,10 @@ function draftFrom(config: RagConfigResponse): Draft {
   const read = (key: string): unknown => intelligence[key];
   return {
     rag_enabled: read('rag_enabled') === true,
-    embedding_provider: typeof read('embedding_provider') === 'string' ? String(read('embedding_provider')) : '',
-    embedding_model: typeof read('embedding_model') === 'string' ? String(read('embedding_model')) : '',
+    embedding_provider:
+      typeof read('embedding_provider') === 'string' ? String(read('embedding_provider')) : '',
+    embedding_model:
+      typeof read('embedding_model') === 'string' ? String(read('embedding_model')) : '',
     rag_similarity_threshold:
       typeof read('rag_similarity_threshold') === 'number'
         ? String(read('rag_similarity_threshold'))

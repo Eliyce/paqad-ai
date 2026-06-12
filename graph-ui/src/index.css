@@ -39,6 +39,39 @@
   --color-edge-contains: #334155;
 }
 
+/* The receipt seal is the only spring animation in the product (issue
+   #146): one 300ms overshoot when a new receipt lands, no loop. */
+@keyframes receipt-seal {
+  0% {
+    transform: scale(0.6);
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.receipt-seal-animate {
+  display: inline-block;
+  animation: receipt-seal 300ms ease-out both;
+}
+
+/* Command palette entrance: quiet 150ms ease-out, no spring. */
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.palette-in {
+  animation: palette-in 150ms ease-out both;
+}
+
 html,
 body,
 #root {

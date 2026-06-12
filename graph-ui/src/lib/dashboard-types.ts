@@ -485,6 +485,42 @@ export interface OpsProgressEvent {
   message: string;
 }
 
+/* Onboarding checklist — mirrors src/dashboard/onboarding-checklist.ts. */
+
+export interface OnboardingChecklistStep {
+  key: 'connect-agent' | 'first-gate' | 'first-decision' | 'first-receipt' | 'edit-instruction';
+  label: string;
+  /** Hash route where the step happens, e.g. "#/trust". */
+  route: string;
+  /** True when the underlying real event has happened (server-side view). */
+  done: boolean;
+  detail: string;
+}
+
+export interface OnboardingChecklist {
+  steps: OnboardingChecklistStep[];
+  /** True once every server-knowable step is done. */
+  complete: boolean;
+  /** A receipt exists, so the client may complete the receipt step on view. */
+  receiptAvailable: boolean;
+}
+
+/* Audit feed — mirrors src/dashboard/audit-feed.ts. */
+
+export interface AuditFeedEntry {
+  ts: string | null;
+  level: string | null;
+  action: string | null;
+  actor: string | null;
+  raw: string;
+}
+
+export interface AuditFeedPage {
+  entries: AuditFeedEntry[];
+  nextCursor: number | null;
+  total: number;
+}
+
 export interface AiBomResponse {
   generatedAt: string;
   document: {

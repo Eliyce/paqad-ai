@@ -1,6 +1,7 @@
 import type {
   AiBomResponse,
   ApprovalsFeed,
+  AuditFeedPage,
   DashboardPack,
   DashboardReport,
   DeliveryPolicyConfigResponse,
@@ -14,6 +15,7 @@ import type {
   ManagedFileInfo,
   ModuleMapConfigResponse,
   MutationOutcome,
+  OnboardingChecklist,
   OpsAction,
   OpsJob,
   ProfileConfigResponse,
@@ -137,7 +139,11 @@ export async function putDeliveryPolicy(input: {
  * editors render, so they come back as values; everything else (403
  * read-only, guard refusals, network) throws with the server's sentence.
  */
-async function mutate<T>(url: string, method: 'PUT' | 'POST', body: unknown): Promise<MutationOutcome<T>> {
+async function mutate<T>(
+  url: string,
+  method: 'PUT' | 'POST',
+  body: unknown,
+): Promise<MutationOutcome<T>> {
   const res = await fetch(url, {
     method,
     headers: { 'content-type': 'application/json' },
@@ -349,6 +355,24 @@ export async function fetchAiBom(): Promise<AiBomResponse> {
   const res = await fetch('/api/ledger/ai-bom');
   if (!res.ok) throw new Error(await errorMessage(res));
   return (await res.json()) as AiBomResponse;
+}
+
+export async function fetchOnboardingChecklist(): Promise<OnboardingChecklist> {
+  const res = await fetch('/api/onboarding-checklist');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as OnboardingChecklist;
+}
+
+export async function fetchAudit(limit?: number): Promise<AuditFeedPage> {
+  const res = await fetch('/api/audit' + (limit !== undefined ? '?limit=' + limit : ''));
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as AuditFeedPage;
+}
+
+export async function fetchEvidencePacketMarkdown(): Promise<string> {
+  const res = await fetch('/api/export/evidence-packet?format=markdown');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return await res.text();
 }
 
 export async function fetchPrComment(): Promise<string> {

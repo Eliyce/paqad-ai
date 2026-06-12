@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DashboardChrome } from '../components/DashboardChrome';
+import { WinLine } from '../components/WinLine';
 import {
   fetchAiBom,
   fetchDashboard,
   fetchEvidence,
+  fetchEvidencePacketMarkdown,
   fetchPrComment,
   fetchReceipts,
 } from '../lib/api';
@@ -65,7 +67,16 @@ function EvidenceLine({ row }: { row: EvidenceRow }) {
   );
 }
 
-function ReceiptCardView({ receipt, onCopy }: { receipt: ReceiptCard; onCopy: () => void }) {
+function ReceiptCardView({
+  receipt,
+  onCopy,
+  animateSeal,
+}: {
+  receipt: ReceiptCard;
+  onCopy: () => void;
+  /** Plays the one allowed spring: the 300ms seal scale on a new receipt. */
+  animateSeal?: boolean;
+}) {
   const human = receipt.authorship?.accepting_human?.name;
   return (
     <div
@@ -75,7 +86,7 @@ function ReceiptCardView({ receipt, onCopy }: { receipt: ReceiptCard; onCopy: ()
       <div className="flex items-start justify-between gap-3">
         <div className="font-medium">Receipt {shortHash(receipt.receipt_hash)}</div>
         <span
-          className="text-xs"
+          className={'text-xs' + (animateSeal === true ? ' receipt-seal-animate' : '')}
           style={{
             color: receipt.sealed ? 'var(--color-mod-green)' : 'var(--color-mod-red)',
           }}
@@ -154,9 +165,13 @@ export function TrustView() {
   const [verdictFilter, setVerdictFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [packetCopied, setPacketCopied] = useState(false);
   const [sseLive, setSseLive] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
+  /** The newest receipt's hash when it arrived live, so only it seals. */
+  const [sealHash, setSealHash] = useState<string | null>(null);
+  const receiptCountRef = useRef<number | null>(null);
 
   const loadAll = useCallback((): void => {
     Promise.all([
@@ -169,6 +184,21 @@ export function TrustView() {
         setReceipts(nextReceipts);
         setAiBom(nextBom);
         setError(null);
+        const count = nextReceipts.receipts.length;
+        // A new receipt arrived while the view was open: play the one
+        // allowed spring on the newest receipt's sealed indicator.
+        if (receiptCountRef.current !== null && count > receiptCountRef.current) {
+          setSealHash(nextReceipts.receipts[0]?.receipt_hash ?? null);
+        }
+        receiptCountRef.current = count;
+        // Receipts have been seen: completes the checklist's receipt step.
+        if (count > 0) {
+          try {
+            localStorage.setItem('paqad-receipt-viewed', '1');
+          } catch {
+            // private mode; the checklist step stays pending, nothing breaks
+          }
+        }
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : String(err));
@@ -209,6 +239,22 @@ export function TrustView() {
       });
   };
 
+  const exportPacket = (): void => {
+    window.open('/api/export/evidence-packet?format=html', '_blank');
+  };
+
+  const copyPacketMarkdown = (): void => {
+    fetchEvidencePacketMarkdown()
+      .then((markdown) => navigator.clipboard.writeText(markdown))
+      .then(() => {
+        setError(null);
+        setPacketCopied(true);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : String(err));
+      });
+  };
+
   const downloadAiBom = (): void => {
     if (!aiBom?.document) return;
     const blob = new Blob([JSON.stringify(aiBom.document, null, 2)], {
@@ -233,10 +279,37 @@ export function TrustView() {
       sseLive={sseLive}
     >
       <div className="mx-auto w-full max-w-3xl p-6">
-        <h1 className="text-xl font-semibold">Trust</h1>
+        <div className="flex items-baseline justify-between gap-3">
+          <h1 className="text-xl font-semibold">Trust</h1>
+          <div className="flex shrink-0 items-baseline gap-3">
+            <button
+              type="button"
+              className="text-xs"
+              style={{ color: 'var(--color-accent)' }}
+              onClick={exportPacket}
+            >
+              Export packet
+            </button>
+            <button
+              type="button"
+              className="text-xs"
+              style={{ color: 'var(--color-accent)' }}
+              onClick={copyPacketMarkdown}
+            >
+              Copy packet markdown
+            </button>
+          </div>
+        </div>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
           {PAGE_WHY.trust}
         </p>
+        {packetCopied && (
+          <div className="mt-3">
+            <WinLine onDone={() => setPacketCopied(false)}>
+              Copied. Paste it into a PR or a release note.
+            </WinLine>
+          </div>
+        )}
         {error && (
           <div
             className="mt-4 rounded-lg border p-4 text-sm"
@@ -274,7 +347,12 @@ export function TrustView() {
         )}
         <div className="mt-3 flex flex-col gap-3">
           {receipts?.receipts.map((receipt) => (
-            <ReceiptCardView key={receipt.receipt_hash} receipt={receipt} onCopy={copyPrComment} />
+            <ReceiptCardView
+              key={receipt.receipt_hash}
+              receipt={receipt}
+              onCopy={copyPrComment}
+              animateSeal={sealHash !== null && receipt.receipt_hash === sealHash}
+            />
           ))}
         </div>
 

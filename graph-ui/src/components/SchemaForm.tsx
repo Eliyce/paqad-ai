@@ -256,7 +256,10 @@ function Field({
         ? (value as Record<string, unknown>)
         : {};
     return (
-      <fieldset className="min-w-0 sm:col-span-2 rounded-[10px] p-4" style={{ background: 'var(--color-canvas)' }}>
+      <fieldset
+        className="min-w-0 sm:col-span-2 rounded-[10px] p-4"
+        style={{ background: 'var(--color-canvas)' }}
+      >
         <legend className="text-section font-medium px-1">{label}</legend>
         <SchemaForm
           schema={schema}

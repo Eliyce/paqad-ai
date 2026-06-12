@@ -445,7 +445,12 @@ function PacksSection() {
       {packs !== null && (
         <div className="mt-3 flex flex-col gap-2">
           {packs.map((pack) => (
-            <PackRow key={pack.name + pack.source} pack={pack} onRemoved={load} onError={setError} />
+            <PackRow
+              key={pack.name + pack.source}
+              pack={pack}
+              onRemoved={load}
+              onError={setError}
+            />
           ))}
           {packs.length === 0 && (
             <div className="text-secondary" style={{ color: 'var(--color-muted)' }}>

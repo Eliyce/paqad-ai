@@ -170,8 +170,7 @@ export function DesignTokensView() {
     (leaf) => typeof leaf.value === 'string' && HEX_PATTERN.test(leaf.value),
   );
   const scalarLeaves = leaves.filter(
-    (leaf) =>
-      !(typeof leaf.value === 'string' && HEX_PATTERN.test(leaf.value)) && isListable(leaf),
+    (leaf) => !(typeof leaf.value === 'string' && HEX_PATTERN.test(leaf.value)) && isListable(leaf),
   );
   const previewColors = colorLeaves.slice(0, 3).map((leaf) => String(leaf.value));
 
@@ -389,8 +388,14 @@ export function DesignTokensView() {
                   )}
 
                   {parsed !== null && colorLeaves.length > 0 && (
-                    <div className="rounded-[10px] p-4" style={{ background: 'var(--color-surface)' }}>
-                      <div className="text-caption font-medium" style={{ color: 'var(--color-muted)' }}>
+                    <div
+                      className="rounded-[10px] p-4"
+                      style={{ background: 'var(--color-surface)' }}
+                    >
+                      <div
+                        className="text-caption font-medium"
+                        style={{ color: 'var(--color-muted)' }}
+                      >
                         Colors
                       </div>
                       <div className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2">
@@ -433,7 +438,10 @@ export function DesignTokensView() {
                       className="mt-4 rounded-[10px] p-4"
                       style={{ background: 'var(--color-surface)' }}
                     >
-                      <div className="text-caption font-medium" style={{ color: 'var(--color-muted)' }}>
+                      <div
+                        className="text-caption font-medium"
+                        style={{ color: 'var(--color-muted)' }}
+                      >
                         Other values
                       </div>
                       <div className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2">

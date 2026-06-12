@@ -24,8 +24,7 @@ const quietTheme = EditorView.theme({
   },
   '&.cm-focused': { outline: 'none' },
   '.cm-content': {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
     padding: '14px 16px',
     caretColor: 'var(--color-canvas-fg)',
   },
