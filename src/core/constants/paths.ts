@@ -93,6 +93,10 @@ export const PATHS = {
   EVIDENCE_RECEIPT: '.paqad/ledger/receipt.dsse.json',
   EVIDENCE_RECEIPT_CHAIN: '.paqad/ledger/receipts.jsonl',
   EVIDENCE_AI_BOM: '.paqad/ledger/ai-bom.json',
+  // Issue #123 - the latest reproducibility stamp (context hash of the frozen
+  // materials the agent saw), read at receipt projection and folded into the
+  // receipt as an input-replay claim.
+  EVIDENCE_CONTEXT_STAMP: '.paqad/ledger/context-stamp.json',
   // Issue #109 - bidirectional traceability map (promise ↔ code ↔ test),
   // rebuilt from reality each run.
   TRACEABILITY_DIR: '.paqad/traceability',

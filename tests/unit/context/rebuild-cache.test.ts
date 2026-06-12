@@ -9,6 +9,7 @@ function result(tag: string): ConversationRebuildResult {
     retrievedChunkIds: [],
     truncated: false,
     truncatedTurnCount: 0,
+    contextHash: `hash-${tag}`,
   };
 }
 

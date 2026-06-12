@@ -10,6 +10,7 @@ import type { SummarizedTurn } from '../core/types/context.js';
 import { emitContextTruncated } from '../module-decisions/events.js';
 
 import type { ContextBudgetOptimizer } from './budget-optimizer.js';
+import { computeContextHash } from './context-hash.js';
 import { resolveActiveLineage } from './conversation-lineage.js';
 import type { RebuildCache } from './rebuild-cache.js';
 import { TurnSummarizer } from './turn-summarizer.js';
@@ -125,11 +126,27 @@ export async function rebuildApiConversation(
     }
   }
 
+  // Issue #123 — the reproducibility context hash over the frozen materials:
+  // the full active lineage (input), the chunks actually folded in, the
+  // classifier signals, the budget, the summariser mode, and the truncation
+  // outcome. The optimizer path is LLM-backed and non-deterministic, so its
+  // presence is recorded in the mode rather than silently hashed as equivalent.
+  const contextHash = computeContextHash({
+    lineage,
+    classifierOutput: input.classifierOutput,
+    retrievedChunks: chunks,
+    budgetTokens,
+    summarizerMode: input.optimizer ? 'optimizer' : 'deterministic-regex',
+    truncated,
+    truncatedTurnCount,
+  });
+
   const result: ConversationRebuildResult = {
     messages,
     retrievedChunkIds,
     truncated,
     truncatedTurnCount,
+    contextHash,
   };
 
   // 5. Durable audit signal (the synchronous flag is always on the result).
