@@ -15,17 +15,25 @@ export interface RunOptions {
   timeoutMs?: number;
 }
 
+/** Synchronous sleep — vitest skill specs are synchronous, so no await. */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 /**
  * Runs a bash script and captures stdout / stderr / exit status.
  * Used by every skill spec instead of mocking — tests run the real script
  * the LLM would invoke at runtime.
  *
- * Retries once on transient bash-subprocess failures. Under heavy parallel
+ * Retries on transient bash-subprocess failures. Under heavy parallel
  * CI load (vitest spawning many bash processes simultaneously), some
  * invocations exit non-zero before the script can run — we'd see status 1
  * with empty stderr and no real assertion. Scripts that *actually* reject
  * their input always write to stderr via `say` / `printf >&2`, so the
  * empty-stderr gate ensures we only retry true flakes, not real failures.
+ * A single 50ms retry proved too little under sustained runner load (a
+ * Node 22 ubuntu leg flaked while Node 24 on the same image passed in the
+ * same run), so the backoff now escalates across three attempts.
  * See https://github.com/Eliyce/paqad-ai/issues/24.
  */
 export function runScript(
@@ -51,17 +59,16 @@ export function runScript(
       stderr: r.stderr ?? '',
     };
   };
-  const first = invoke();
-  if (first.status === 0 || first.stderr.trim().length > 0) {
-    return first;
+  let result = invoke();
+  for (const backoffMs of [50, 150, 450]) {
+    if (result.status === 0 || result.stderr.trim().length > 0) {
+      return result;
+    }
+    // Transient bash-subprocess failure (non-zero exit, no real stderr).
+    sleepSync(backoffMs);
+    result = invoke();
   }
-  // Transient bash-subprocess failure (non-zero exit, no real stderr).
-  // Brief backoff, then retry once.
-  const wait = Date.now() + 50;
-  while (Date.now() < wait) {
-    // tight spin — vitest tests are synchronous, can't await
-  }
-  return invoke();
+  return result;
 }
 
 /**
