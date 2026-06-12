@@ -44,21 +44,17 @@ function PauseCard({
   onResolved,
 }: {
   item: ApprovalsPauseItem;
-  onResolved: () => void;
+  onResolved: (winTitle: string) => void;
 }) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-
-  if (done) return <WinCard title={item.question} />;
 
   const choose = (optionKey: string): void => {
     setBusyKey(optionKey);
     setError(null);
     resolvePause(item.id, optionKey)
       .then(() => {
-        setDone(true);
-        onResolved();
+        onResolved(item.question);
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : String(err));
@@ -131,31 +127,21 @@ function ProposalCard({
   onResolved,
 }: {
   item: ApprovalsProposalItem;
-  onResolved: () => void;
+  onResolved: (winTitle: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<'accepted' | 'rejected' | null>(null);
-
-  if (done) {
-    return (
-      <WinCard
-        title={
-          done === 'accepted'
-            ? 'Module ' + item.proposed_slug + ' accepted. The map gains it on the next apply.'
-            : 'Module ' + item.proposed_slug + ' rejected.'
-        }
-      />
-    );
-  }
 
   const act = (action: 'accept' | 'reject'): void => {
     setBusy(true);
     setError(null);
     actOnModuleProposal(item.id, action)
       .then(() => {
-        setDone(action === 'accept' ? 'accepted' : 'rejected');
-        onResolved();
+        onResolved(
+          action === 'accept'
+            ? 'Module ' + item.proposed_slug + ' accepted. The map gains it on the next apply.'
+            : 'Module ' + item.proposed_slug + ' rejected.',
+        );
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : String(err));
@@ -234,6 +220,8 @@ export function ApprovalsView() {
   const [sseLive, setSseLive] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
+  /** Items resolved in this browser session — kept visible as win lines. */
+  const [resolved, setResolved] = useState<{ id: string; title: string }[]>([]);
 
   const loadFeed = useCallback((): void => {
     fetchApprovals()
@@ -268,10 +256,15 @@ export function ApprovalsView() {
     };
   }, [loadFeed]);
 
+  const onItemResolved = (id: string) => (winTitle: string) => {
+    setResolved((prev) => [...prev, { id, title: winTitle }]);
+    loadFeed();
+  };
+
   const items: (ApprovalsPauseItem | ApprovalsProposalItem)[] = feed
-    ? [...feed.pauses, ...feed.proposals].sort((a, b) =>
-        b.created_at.localeCompare(a.created_at),
-      )
+    ? [...feed.pauses, ...feed.proposals]
+        .filter((item) => !resolved.some((r) => r.id === item.id))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
     : [];
 
   return (
@@ -298,7 +291,14 @@ export function ApprovalsView() {
             Could not load the inbox: {error}
           </div>
         )}
-        {feed && items.length === 0 && !error && (
+        {resolved.length > 0 && (
+          <div className="mt-4 flex flex-col gap-3">
+            {resolved.map((entry) => (
+              <WinCard key={entry.id} title={entry.title} />
+            ))}
+          </div>
+        )}
+        {feed && items.length === 0 && resolved.length === 0 && !error && (
           <div
             className="mt-6 rounded-lg border p-6 text-sm"
             style={{
@@ -313,9 +313,9 @@ export function ApprovalsView() {
         <div className="mt-4 flex flex-col gap-3">
           {items.map((item) =>
             item.kind === 'pause' ? (
-              <PauseCard key={item.id} item={item} onResolved={loadFeed} />
+              <PauseCard key={item.id} item={item} onResolved={onItemResolved(item.id)} />
             ) : (
-              <ProposalCard key={item.id} item={item} onResolved={loadFeed} />
+              <ProposalCard key={item.id} item={item} onResolved={onItemResolved(item.id)} />
             ),
           )}
         </div>
