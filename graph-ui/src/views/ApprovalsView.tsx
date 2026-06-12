@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { DashboardChrome } from '../components/DashboardChrome';
 import { actOnModuleProposal, fetchApprovals, fetchDashboard, resolvePause } from '../lib/api';
+import { PAGE_WHY } from '../lib/copy';
 import type {
   ApprovalsFeed,
   ApprovalsPauseItem,
@@ -268,20 +269,15 @@ export function ApprovalsView() {
     : [];
 
   return (
-    <div
-      className="flex h-full w-full flex-col overflow-auto"
-      style={{ background: 'var(--color-canvas)', color: 'var(--color-canvas-fg)' }}
+    <DashboardChrome
+      projectName={projectName}
+      frameworkVersion={frameworkVersion}
+      sseLive={sseLive}
     >
-      <DashboardChrome
-        projectName={projectName}
-        frameworkVersion={frameworkVersion}
-        sseLive={sseLive}
-      />
       <div className="mx-auto w-full max-w-3xl p-6">
         <h1 className="text-xl font-semibold">Approvals</h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
-          Nothing risky moves forward without you. This is where you stay in control without reading
-          logs.
+          {PAGE_WHY.approvals}
         </p>
         {error && (
           <div
@@ -325,6 +321,6 @@ export function ApprovalsView() {
           </div>
         )}
       </div>
-    </div>
+    </DashboardChrome>
   );
 }

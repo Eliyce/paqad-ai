@@ -21,6 +21,7 @@ export interface GraphNode {
     chunk_index?: number | null;
     content_hash?: string | null;
     ast_node_type?: string | null;
+    exported?: boolean | null;
   };
 }
 

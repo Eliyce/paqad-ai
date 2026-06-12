@@ -16,6 +16,15 @@
   --color-edge-contains: #cbd5e1;
   --color-edge-imports: #6366f1;
   --color-edge-similar: #f97316;
+
+  /* Type scale for the comprehension layer (issue #146). Used by the new
+     components and views only; existing views keep their Tailwind sizes. */
+  --text-caption: 12px;
+  --text-secondary: 13px;
+  --text-body: 15px;
+  --text-section: 17px;
+  --text-page: 22px;
+  --text-stat: 28px;
 }
 
 :root[data-theme='dark'] {

@@ -8,6 +8,7 @@ import {
   fetchPrComment,
   fetchReceipts,
 } from '../lib/api';
+import { PAGE_WHY } from '../lib/copy';
 import type {
   AiBomResponse,
   EvidenceFeed,
@@ -226,19 +227,15 @@ export function TrustView() {
   );
 
   return (
-    <div
-      className="flex h-full w-full flex-col overflow-auto"
-      style={{ background: 'var(--color-canvas)', color: 'var(--color-canvas-fg)' }}
+    <DashboardChrome
+      projectName={projectName}
+      frameworkVersion={frameworkVersion}
+      sseLive={sseLive}
     >
-      <DashboardChrome
-        projectName={projectName}
-        frameworkVersion={frameworkVersion}
-        sseLive={sseLive}
-      />
       <div className="mx-auto w-full max-w-3xl p-6">
         <h1 className="text-xl font-semibold">Trust</h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-muted)' }}>
-          Proof you can show anyone: what was checked, who wrote it, who vouched.
+          {PAGE_WHY.trust}
         </p>
         {error && (
           <div
@@ -368,6 +365,6 @@ export function TrustView() {
           </div>
         )}
       </div>
-    </div>
+    </DashboardChrome>
   );
 }

@@ -3,6 +3,7 @@ import type {
   ApprovalsFeed,
   DashboardReport,
   EvidenceFeed,
+  InventoryReport,
   ReceiptFeed,
 } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
@@ -21,6 +22,12 @@ async function errorMessage(res: Response): Promise<string> {
     // fall through to the status line
   }
   return 'Request failed with status ' + res.status;
+}
+
+export async function fetchInventory(): Promise<InventoryReport> {
+  const res = await fetch('/api/inventory');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as InventoryReport;
 }
 
 export async function fetchApprovals(): Promise<ApprovalsFeed> {

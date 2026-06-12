@@ -134,6 +134,48 @@ export interface ReceiptFeed {
   receipts: ReceiptCard[];
 }
 
+/* Functionality inventory — mirrors src/dashboard/inventory.ts. */
+
+export type InventoryClass = 'web' | 'prompt' | 'evidence' | 'operation';
+export type InventoryOwner = 'you' | 'paqad' | 'shared';
+export type DashboardArea =
+  | 'pulse'
+  | 'approvals'
+  | 'trust'
+  | 'build'
+  | 'automation'
+  | 'knowledge'
+  | 'setup';
+
+export interface InventoryItemState {
+  /** True when the source of truth exists on disk. */
+  exists: boolean;
+  /** One short sentence describing the live state. */
+  detail: string;
+  /** Optional count behind the detail (files, entries, pending items). */
+  count?: number;
+}
+
+export interface InventoryItem {
+  key: string;
+  name: string;
+  why: string;
+  class: InventoryClass;
+  managedBy: InventoryOwner;
+  area: DashboardArea;
+  /** Hash route of the area page that renders this item. */
+  route: string;
+  /** Project-relative source of truth (posix). */
+  source: string;
+  state: InventoryItemState;
+}
+
+export interface InventoryReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  items: InventoryItem[];
+}
+
 export interface AiBomResponse {
   generatedAt: string;
   document: {
