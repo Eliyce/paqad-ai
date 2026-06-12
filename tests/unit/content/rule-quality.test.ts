@@ -22,6 +22,62 @@ const WORKFLOW_SPEC_ALLOWLIST = [
 const ruleFiles = fg.sync('**/rules/**/*.md', { cwd: RUNTIME }).sort();
 const guardedFiles = ruleFiles.filter((rel) => !WORKFLOW_SPEC_ALLOWLIST.includes(rel));
 
+/**
+ * A rule must earn its place: a stack rule may sharpen an always-on rule with
+ * stack-specific detail, but it must not merely restate one. Always-on rules
+ * (base + capability-level + `_shared`) ship to every project alongside the
+ * stack rules, so a near-verbatim copy is pure duplication the consumer reads
+ * twice. This guard backstops that — see issue #94.
+ */
+const REDUNDANCY_THRESHOLD = 0.6;
+
+const isAlwaysOnRule = (rel: string): boolean =>
+  rel.startsWith('base/rules/') ||
+  /^capabilities\/(?:coding|content|security)\/rules\/[^/]+\.md$/.test(rel) ||
+  rel.includes('/stacks/_shared/rules/');
+
+const normalizeBullet = (text: string): string =>
+  text
+    .replace(/[`*_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/^[.\s]+|[.\s]+$/g, '');
+
+const bulletTokens = (text: string): Set<string> =>
+  new Set(
+    normalizeBullet(text)
+      .split(' ')
+      .filter((word) => word.length > 3),
+  );
+
+const jaccard = (a: Set<string>, b: Set<string>): number => {
+  const intersection = [...a].filter((token) => b.has(token)).length;
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+};
+
+interface Bullet {
+  file: string;
+  text: string;
+  tokens: Set<string>;
+}
+
+const extractBullets = (rel: string): Bullet[] => {
+  const bullets: Bullet[] = [];
+  for (const line of readFileSync(join(RUNTIME, rel), 'utf8').split('\n')) {
+    const match = line.match(/^\s*[-*]\s+(.*)/);
+    if (!match) continue;
+    const text = match[1].trim();
+    if (normalizeBullet(text).length < 10) continue;
+    bullets.push({ file: rel, text, tokens: bulletTokens(text) });
+  }
+  return bullets;
+};
+
+const alwaysOnBullets = guardedFiles.filter(isAlwaysOnRule).flatMap(extractBullets);
+const stackBullets = guardedFiles.filter((rel) => !isAlwaysOnRule(rel)).flatMap(extractBullets);
+
 describe('rule quality guard', () => {
   it('discovers the rule corpus', () => {
     expect(ruleFiles.length).toBeGreaterThan(50);
@@ -43,5 +99,23 @@ describe('rule quality guard', () => {
     const content = readFileSync(join(RUNTIME, rel), 'utf8');
     // Rules ship into the project and must survive deleting `.paqad/`.
     expect(content, 'references the .paqad/ runtime directory').not.toMatch(/\.paqad\//);
+  });
+
+  it('no stack rule restates an always-on rule', () => {
+    const violations: string[] = [];
+    for (const stack of stackBullets) {
+      for (const base of alwaysOnBullets) {
+        const score = jaccard(stack.tokens, base.tokens);
+        if (score >= REDUNDANCY_THRESHOLD) {
+          violations.push(
+            `${stack.file}\n    "${stack.text}"\n  duplicates ${base.file}\n    "${base.text}" (overlap ${score.toFixed(2)})`,
+          );
+        }
+      }
+    }
+    expect(
+      violations,
+      `Stack rules must sharpen, not restate, always-on rules:\n${violations.join('\n')}`,
+    ).toEqual([]);
   });
 });
