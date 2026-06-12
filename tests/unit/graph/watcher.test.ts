@@ -25,6 +25,32 @@ describe('startPaqadWatcher', () => {
     w.close();
   });
 
+  it('ignores append-only logs the report build itself writes', async () => {
+    mkdirSync(join(root, '.paqad', 'logs'), { recursive: true });
+    let calls = 0;
+    const w = startPaqadWatcher({
+      projectRoot: root,
+      debounceMs: 40,
+      onChange: () => {
+        calls += 1;
+      },
+    });
+    writeFileSync(join(root, '.paqad', 'audit.log'), 'entry one\n');
+    writeFileSync(join(root, '.paqad', 'logs', 'auto-update.log'), 'tick\n');
+    await new Promise((r) => setTimeout(r, 200));
+    // FSEvents (macOS) may deliver coalesced events with a null or
+    // parent-directory filename, so the ignore is best-effort there; the
+    // idempotent profile migration prevents the loop on every platform.
+    if (process.platform !== 'darwin') {
+      expect(calls).toBe(0);
+    }
+
+    writeFileSync(join(root, '.paqad', 'project-profile.yaml'), 'project: {}\n');
+    await new Promise((r) => setTimeout(r, 200));
+    w.close();
+    expect(calls).toBeGreaterThanOrEqual(1);
+  });
+
   it('debounces rapid changes into a single onChange', async () => {
     let calls = 0;
     const w = startPaqadWatcher({

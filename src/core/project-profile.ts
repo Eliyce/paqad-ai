@@ -98,11 +98,16 @@ export function migrateProjectProfile(input: ProjectProfileLike | ProjectProfile
     intelligence: normalizeIntelligenceConfig(legacy.intelligence),
   };
 
+  // `migrated` must be true only when the canonical form differs from the
+  // input. Flagging an unchanged profile re-runs the migration (and appends
+  // its audit line) on every read — with the dashboard watcher that became a
+  // ~500ms feedback loop. In particular, `coding` active without a stack
+  // profile is a valid converged state (stack detection may not have run),
+  // not a migration trigger.
   const migrated =
     !Array.isArray(legacy.active_capabilities) ||
     legacy.routing !== undefined ||
     legacy.stack_profile?.domain !== undefined ||
-    activeCapabilities.includes('coding') !== Boolean(stackProfile) ||
     JSON.stringify(legacy.active_capabilities ?? []) !== JSON.stringify(activeCapabilities) ||
     JSON.stringify(legacy.intelligence ?? null) !== JSON.stringify(profile.intelligence) ||
     JSON.stringify(legacy.stack_profile ?? null) !== JSON.stringify(stackProfile ?? null);
