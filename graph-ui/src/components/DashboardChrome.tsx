@@ -6,6 +6,8 @@ import type { DashboardArea } from '../lib/dashboard-types';
 import { useHashRoute, type Route } from '../lib/router';
 import { getThemeMode, setThemeMode } from '../lib/theme';
 
+import { CommandPalette } from './CommandPalette';
+
 interface Props {
   projectName: string | null;
   frameworkVersion: string | null;
@@ -97,8 +99,15 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive, childr
   };
 
   // Sub-pages highlight their parent area: the delivery-policy editor
-  // lives under Automation, so the sidebar keeps Automation lit there.
-  const activeRoute: Route = route === 'delivery-policy' ? 'automation' : route;
+  // lives under Automation, the instructions and design-token editors
+  // under Knowledge, the module map under Build.
+  const PARENT_AREA: Partial<Record<Route, Route>> = {
+    'delivery-policy': 'automation',
+    instructions: 'knowledge',
+    'design-tokens': 'knowledge',
+    'module-map': 'build',
+  };
+  const activeRoute: Route = PARENT_AREA[route] ?? route;
 
   const navItem = (target: Route & DashboardArea, label: string, badge?: number | null) => {
     const active = activeRoute === target;
@@ -221,6 +230,7 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive, childr
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">{children}</main>
+      <CommandPalette />
     </div>
   );
 }

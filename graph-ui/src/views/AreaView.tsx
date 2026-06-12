@@ -12,6 +12,8 @@ import { useHashRoute } from '../lib/router';
 interface Props {
   area: Extract<DashboardArea, 'build' | 'automation' | 'knowledge' | 'setup'>;
   title: string;
+  /** Optional area-specific panel rendered after the inventory groups. */
+  extra?: React.ReactNode;
 }
 
 /** Per-class caption under each card. Honest about what the page can do. */
@@ -34,9 +36,19 @@ interface EditAction {
  */
 const EDIT_ACTIONS: Record<string, EditAction> = {
   'delivery-policy': { label: 'Edit the policy', route: '#/delivery-policy' },
+  instructions: { label: 'Open the editor', route: '#/instructions' },
+  'module-map': { label: 'Edit the map', route: '#/module-map' },
+  'design-tokens': { label: 'Open the token editor', route: '#/design-tokens' },
 };
 
-function ItemCard({ item, onWhy }: { item: InventoryItem; onWhy: (item: InventoryItem) => void }) {
+/** Exported so SetupView can render the same cards for its evidence items. */
+export function ItemCard({
+  item,
+  onWhy,
+}: {
+  item: InventoryItem;
+  onWhy: (item: InventoryItem) => void;
+}) {
   const action = EDIT_ACTIONS[item.key];
   const caption = action ? null : CLASS_CAPTION[item.class];
   return (
@@ -93,7 +105,7 @@ function ItemCard({ item, onWhy }: { item: InventoryItem; onWhy: (item: Inventor
  * and Setup. Inventory cards grouped by the management rule: you manage
  * the web class, Paqad runs prompt and operation, evidence is view only.
  */
-export function AreaView({ area, title }: Props) {
+export function AreaView({ area, title, extra }: Props) {
   const [items, setItems] = useState<InventoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sseLive, setSseLive] = useState(false);
@@ -206,6 +218,8 @@ export function AreaView({ area, title }: Props) {
             </div>
           </section>
         ))}
+
+        {extra}
 
         {items && items.length === 0 && !error && (
           <div className="mt-6 text-secondary" style={{ color: 'var(--color-muted)' }}>

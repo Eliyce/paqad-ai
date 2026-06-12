@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseDocument } from 'yaml';
 import type { Document } from 'yaml';
 
+import { ConflictPanel } from '../components/ConflictPanel';
 import { DashboardChrome } from '../components/DashboardChrome';
 import { EmptyState } from '../components/EmptyState';
 import { OwnershipBadge } from '../components/OwnershipBadge';
@@ -528,38 +529,6 @@ function MaintainedToggle({
   );
 }
 
-// --- Conflict diff -----------------------------------------------------------
-
-function DiffPane({ title, mine, other }: { title: string; mine: string; other: string }) {
-  const lines = mine.split('\n');
-  const otherLines = other.split('\n');
-  return (
-    <div className="min-w-0 flex-1">
-      <div className="text-caption font-medium" style={{ color: 'var(--color-muted)' }}>
-        {title}
-      </div>
-      <pre
-        className="mt-1 max-h-72 overflow-auto rounded-[6px] p-2 text-caption"
-        style={{ background: 'var(--color-canvas)', color: 'var(--color-canvas-fg)' }}
-      >
-        {lines.map((line, index) => (
-          // eslint-disable-next-line react/no-array-index-key
-          <div
-            key={index}
-            style={
-              line !== (otherLines[index] ?? '')
-                ? { background: 'color-mix(in srgb, var(--color-accent) 14%, transparent)' }
-                : undefined
-            }
-          >
-            {line === '' ? ' ' : line}
-          </div>
-        ))}
-      </pre>
-    </div>
-  );
-}
-
 // --- The view ----------------------------------------------------------------
 
 export function DeliveryPolicyView() {
@@ -1049,41 +1018,17 @@ export function DeliveryPolicyView() {
             )}
 
             {conflict && (
-              <div
-                className="mt-4 rounded-[10px] p-4"
-                style={{ background: 'var(--color-surface)' }}
-              >
-                <div className="text-body font-medium">
-                  This file changed since you opened it, likely by an agent. Review the diff.
-                </div>
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                  <DiffPane title="Your edit" mine={currentContent()} other={conflict.content} />
-                  <DiffPane title="On disk now" mine={conflict.content} other={currentContent()} />
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded-[6px] border px-3 py-1.5 text-secondary font-medium"
-                    style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }}
-                    onClick={() => {
-                      adoptContent(conflict.content, conflict.hash);
-                      setConflict(null);
-                      setDirty(false);
-                    }}
-                  >
-                    Load the latest version
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    className="rounded-[6px] border px-3 py-1.5 text-secondary font-medium disabled:opacity-50"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
-                    onClick={() => save(conflict.hash)}
-                  >
-                    Keep mine and overwrite
-                  </button>
-                </div>
-              </div>
+              <ConflictPanel
+                mine={currentContent()}
+                theirs={conflict.content}
+                saving={saving}
+                onLoadLatest={() => {
+                  adoptContent(conflict.content, conflict.hash);
+                  setConflict(null);
+                  setDirty(false);
+                }}
+                onKeepMine={() => save(conflict.hash)}
+              />
             )}
           </>
         )}

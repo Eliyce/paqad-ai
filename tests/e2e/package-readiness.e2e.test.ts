@@ -92,8 +92,10 @@ describe('package publishing readiness', () => {
       rmSync(npmCache, { recursive: true, force: true });
       // npm pack --dry-run over the runtime/ tree is much slower on Windows
       // runners; mirror the platform-aware defaults in vitest.config.ts.
+      // 30s elsewhere: two CLI spawns plus the pack scan can exceed 15s on a
+      // cold container running the suite at full parallelism.
     },
-    process.platform === 'win32' ? 60_000 : 15_000,
+    process.platform === 'win32' ? 60_000 : 30_000,
   );
 
   it('supports install and doctor flows from the built cli', async () => {
