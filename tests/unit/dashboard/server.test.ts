@@ -72,6 +72,29 @@ describe('startDashboardServer', () => {
     expect(body.projectName).toBe('demo');
   });
 
+  it('serves the functionality inventory on /api/inventory', async () => {
+    bootstrap(root);
+    server = await startDashboardServer({
+      projectRoot: root,
+      host: '127.0.0.1',
+      port: 0,
+      staticDir: STATIC_DIR,
+      watch: false,
+    });
+
+    const res = await fetch(`${server.url}/api/inventory`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      schemaVersion: number;
+      items: { key: string; class: string }[];
+    };
+    expect(body.schemaVersion).toBe(1);
+    expect(body.items.some((item) => item.key === 'profile' && item.class === 'web')).toBe(true);
+    expect(
+      body.items.some((item) => item.key === 'evidence-ledger' && item.class === 'evidence'),
+    ).toBe(true);
+  });
+
   it('serves the Markdown form on /api/dashboard/markdown', async () => {
     bootstrap(root);
     server = await startDashboardServer({

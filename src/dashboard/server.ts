@@ -17,6 +17,7 @@ import {
   rejectModuleProposal,
   resolvePauseDecision,
 } from './approvals.js';
+import { buildInventory } from './inventory.js';
 import { renderMarkdown } from './markdown.js';
 import { buildReport } from './report.js';
 import {
@@ -434,6 +435,10 @@ export async function startDashboardServer(
         return;
       }
       writeText(res, markdown, 200, 'text/markdown; charset=utf-8');
+      return;
+    }
+    if (pathname === '/api/inventory' && req.method === 'GET') {
+      writeJson(res, req, buildInventory(options.projectRoot));
       return;
     }
     if (pathname === '/api/dashboard') {

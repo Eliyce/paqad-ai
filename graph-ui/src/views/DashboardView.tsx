@@ -79,15 +79,11 @@ export function DashboardView() {
   };
 
   return (
-    <div
-      className="flex h-full w-full flex-col overflow-auto"
-      style={{ background: 'var(--color-canvas)' }}
+    <DashboardChrome
+      projectName={report?.projectName ?? null}
+      frameworkVersion={report?.frameworkVersion ?? null}
+      sseLive={sseLive}
     >
-      <DashboardChrome
-        projectName={report?.projectName ?? null}
-        frameworkVersion={report?.frameworkVersion ?? null}
-        sseLive={sseLive}
-      />
       {report && (
         <SummaryBand
           score={report.overallScore}
@@ -136,6 +132,6 @@ export function DashboardView() {
           Loading…
         </div>
       )}
-    </div>
+    </DashboardChrome>
   );
 }

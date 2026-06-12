@@ -132,8 +132,12 @@ modules:
       via a hash router so the graph view becomes one section inside the
       dashboard. Issue #146 adds the approvals inbox (resolve decision
       pauses and module proposals on the web through the same stores the
-      agent uses) and the read-only trust area (evidence timeline, DSSE
-      receipt cards, AI-BOM, PR-comment export).
+      agent uses), the read-only trust area (evidence timeline, DSSE
+      receipt cards, AI-BOM, PR-comment export), the seven-area management
+      IA (Pulse, Approvals, Trust, Build, Automation, Knowledge, Setup)
+      with the comprehension layer (ownership badges, why sentences, why
+      drawers, empty states), and the audited write pipeline behind the
+      web editors.
     sources:
       - src/cli/commands/dashboard.ts
       - src/cli/commands/status.ts
@@ -171,6 +175,23 @@ modules:
       - slug: dashboard-trust
         name: Trust Area (evidence, receipts, AI-BOM — view and export only)
         sources: [src/dashboard/trust.ts, graph-ui/src/views/TrustView.tsx]
+      - slug: dashboard-inventory
+        name: Functionality Inventory (web / prompt / evidence classification)
+        sources: [src/dashboard/inventory.ts]
+      - slug: dashboard-ia
+        name: Seven-Area IA + Comprehension Layer (Pulse, areas, badges, drawers)
+        sources:
+          [
+            graph-ui/src/views/PulseView.tsx,
+            graph-ui/src/views/AreaView.tsx,
+            graph-ui/src/lib/copy.ts,
+          ]
+      - slug: dashboard-write-pipeline
+        name: Audited Write Pipeline (allowlist, hash guard, atomic write, audit)
+        sources: [src/dashboard/write-pipeline.ts]
+      - slug: dashboard-config-editors
+        name: Config Editors (delivery policy first; instructions file store)
+        sources: [src/dashboard/config-delivery-policy.ts, src/dashboard/instructions-files.ts]
 
   - slug: cli-packs
     name: Pack Management Commands
