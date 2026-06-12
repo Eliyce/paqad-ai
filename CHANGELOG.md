@@ -1,5 +1,51 @@
 # paqad-ai
 
+## 1.17.0
+
+### Minor Changes
+
+- [#147](https://github.com/Eliyce/paqad-ai/pull/147) [`f38179b`](https://github.com/Eliyce/paqad-ai/commit/f38179b8ba5289feea5a7cd3ed21ec36ab410403) Thanks [@HLasani](https://github.com/HLasani)! - Add the approvals inbox and trust area to the dashboard ([#146](https://github.com/Eliyce/paqad-ai/issues/146), scoped).
+
+  The dashboard gains two surfaces on top of the existing health view, for
+  onboarded projects:
+
+  **Approvals** is one inbox for everything waiting on the human: decision
+  pauses and proposed MD-XXXX module decisions, each with consequence lines per
+  option. Resolving on the web writes through the same `DecisionStore` and
+  module-decision state machine the agent uses, so the conversation picks the
+  answer up on its next tool call. Every web mutation is recorded with
+  `actor="dashboard"` in `.paqad/audit.log`.
+
+  **Trust** renders the proof: the evidence ledger as a filterable timeline, DSSE
+  receipts as cards with per-link seal verification and authorship, the
+  CycloneDX AI-BOM with download, and a "Copy as PR comment" action that emits
+  the exact Markdown `paqad-ai evidence` prints. View and export only, by
+  design.
+
+  Mutations are guarded: onboarded projects only, loopback host and same-origin
+  checks, 64 KB body cap, and a new `paqad-ai dashboard --read-only` flag that
+  disables every mutation endpoint for shared or CI usage.
+
+  Issue [#146](https://github.com/Eliyce/paqad-ai/issues/146)'s full editing surface (web editors for instructions, workflows,
+  policies, tokens) is deliberately deferred; the scope decision and the market
+  evidence behind it are recorded in `docs/design/dashboard-approvals-trust.md`.
+
+### Patch Changes
+
+- [#144](https://github.com/Eliyce/paqad-ai/pull/144) [`12cccfb`](https://github.com/Eliyce/paqad-ai/commit/12cccfb46d67af1a69edcc4b1a710b1e18535766) Thanks [@HLasani](https://github.com/HLasani)! - Stop shipping a duplicated environment rule and guard against it recurring ([#94](https://github.com/Eliyce/paqad-ai/issues/94)).
+
+  The `node-service` stack's "Environment Variable Management" rules restated the
+  typed-config, fail-fast, `.env.example`, and safe-default guidance that the
+  always-on `_shared/environment.md` rule already ships to the same project, so
+  onboarded node-service projects received the same guidance twice. That section
+  is collapsed to the one node-specific rule that sharpens the shared contract.
+
+  A new regression guard in `rule-quality.test.ts` compares every stack rule
+  against the always-on base, capability, and `_shared` rules that ship alongside
+  it and fails when a stack rule near-verbatim repeats one — a stack rule may
+  sharpen an always-on rule with stack-specific detail but must not duplicate it.
+  The contract is documented in `runtime/rules-authoring.md`.
+
 ## 1.16.0
 
 ### Minor Changes
