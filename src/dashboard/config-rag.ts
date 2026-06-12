@@ -99,21 +99,24 @@ export function putRagConfig(projectRoot: string, candidate: unknown): PutRagCon
 
   const issues: SchemaValidationIssue[] = [];
   const patch: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(candidate)) {
+  const candidateRecord = candidate as Record<string, unknown>;
+  const allowedKeys = Object.keys(FIELD_CHECKS);
+  for (const key of Object.keys(candidateRecord)) {
+    if (candidateRecord[key] !== undefined && !allowedKeys.includes(key)) {
+      issues.push({
+        path: `/${key}`,
+        message: `Unknown setting. Allowed: ${allowedKeys.join(', ')}.`,
+      });
+    }
+  }
+  // Iterate our own static key list, never client-provided names, so the
+  // written property names are provably from the allowlist.
+  for (const key of allowedKeys) {
+    const value = candidateRecord[key];
     if (value === undefined) {
       continue;
     }
-    const check = Object.prototype.hasOwnProperty.call(FIELD_CHECKS, key)
-      ? FIELD_CHECKS[key]
-      : undefined;
-    if (check === undefined) {
-      issues.push({
-        path: `/${key}`,
-        message: `Unknown setting. Allowed: ${Object.keys(FIELD_CHECKS).join(', ')}.`,
-      });
-      continue;
-    }
-    const problem = check(value);
+    const problem = FIELD_CHECKS[key]!(value);
     if (problem !== null) {
       issues.push({ path: `/${key}`, message: problem });
       continue;

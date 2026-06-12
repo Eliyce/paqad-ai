@@ -395,7 +395,13 @@ export async function startDashboardServer(
       );
       return;
     }
-    writeJson(res, req, { error: err instanceof Error ? err.message : String(err) }, 400);
+    // Only the first line of a known Error's message crosses the boundary;
+    // anything else gets a static sentence so no exception detail leaks.
+    const message =
+      err instanceof Error
+        ? (err.message.split('\n')[0] ?? 'The request could not be processed.')
+        : 'The request could not be processed.';
+    writeJson(res, req, { error: message }, 400);
   }
 
   async function handleMutation(

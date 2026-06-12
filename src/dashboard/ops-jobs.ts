@@ -279,7 +279,12 @@ export class OpsJobRunner {
     } catch (error) {
       job.status = 'failed';
       job.finishedAt = new Date().toISOString();
-      job.error = error instanceof Error ? error.message : String(error);
+      // First line only: job errors are served to the browser, so no stack
+      // or multi-line exception detail crosses the boundary.
+      job.error =
+        error instanceof Error
+          ? (error.message.split('\n')[0] ?? 'The operation failed.')
+          : 'The operation failed.';
       this.emit(job, `Failed ${job.action}: ${job.error}`);
     }
 
