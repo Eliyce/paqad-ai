@@ -14,9 +14,9 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Workflow Status'  || say 'missing "## Workflow Status"'
-printf '%s' "$body" | grep -qE '^## Completed Stages' || say 'missing "## Completed Stages"'
-printf '%s' "$body" | grep -qE '^## Blocked Stages'   || say 'missing "## Blocked Stages"'
+grep -qE '^## Workflow Status'  <<<"$body" || say 'missing "## Workflow Status"'
+grep -qE '^## Completed Stages' <<<"$body" || say 'missing "## Completed Stages"'
+grep -qE '^## Blocked Stages'   <<<"$body" || say 'missing "## Blocked Stages"'
 
 [ "$issues" -gt 0 ] && exit 1
 printf 'ok\n'

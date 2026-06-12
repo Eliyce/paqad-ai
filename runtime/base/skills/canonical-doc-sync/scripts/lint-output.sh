@@ -19,18 +19,18 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Updated Docs' || say 'missing "## Updated Docs" heading'
-printf '%s' "$body" | grep -qE '^## Known Drift'  || say 'missing "## Known Drift" heading'
+grep -qE '^## Updated Docs' <<<"$body" || say 'missing "## Updated Docs" heading'
+grep -qE '^## Known Drift'  <<<"$body" || say 'missing "## Known Drift" heading'
 
 upd=$(printf '%s\n' "$body" | awk '/^## Updated Docs/{f=1;next} /^## /{f=0} f')
-printf '%s' "$upd" | grep -qE '`[^`]+\.md`' \
+grep -qE '`[^`]+\.md`' <<<"$upd" \
   || say '"## Updated Docs" must list at least one backticked .md path'
 
 drift=$(printf '%s\n' "$body" | awk '/^## Known Drift/{f=1;next} /^## /{f=0} f')
-if printf '%s' "$drift" | grep -qE '^\s*none\s*$'; then
+if grep -qE '^\s*none\s*$' <<<"$drift"; then
   :
 else
-  printf '%s' "$drift" | grep -qE '`[^`]+\.md`' \
+  grep -qE '`[^`]+\.md`' <<<"$drift" \
     || say '"## Known Drift" must list backticked .md paths or be exactly "none"'
 fi
 

@@ -20,11 +20,11 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Updated API Docs' || say 'missing "## Updated API Docs" heading'
-printf '%s' "$body" | grep -qE '^## Coverage Gaps'    || say 'missing "## Coverage Gaps" heading'
+grep -qE '^## Updated API Docs' <<<"$body" || say 'missing "## Updated API Docs" heading'
+grep -qE '^## Coverage Gaps'    <<<"$body" || say 'missing "## Coverage Gaps" heading'
 
 updated=$(printf '%s\n' "$body" | awk '/^## Updated API Docs/{f=1;next} /^## /{f=0} f')
-printf '%s' "$updated" | grep -qE '`[^`]+\.md`' \
+grep -qE '`[^`]+\.md`' <<<"$updated" \
   || say '"## Updated API Docs" must list at least one backtick-quoted .md path'
 
 [ "$issues" -gt 0 ] && exit 1

@@ -14,12 +14,12 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Updated Integration Docs' || say 'missing "## Updated Integration Docs"'
-printf '%s' "$body" | grep -qE '^(## Consistency Warnings|^Consistency Warnings: none$)' \
+grep -qE '^## Updated Integration Docs' <<<"$body" || say 'missing "## Updated Integration Docs"'
+grep -qE '^(## Consistency Warnings|^Consistency Warnings: none$)' <<<"$body" \
   || say 'missing "## Consistency Warnings" or exact "Consistency Warnings: none" line'
 
 upd=$(printf '%s\n' "$body" | awk '/^## Updated Integration Docs/{f=1;next} /^## /{f=0} f')
-printf '%s' "$upd" | grep -qE '`[^`]+\.md`' \
+grep -qE '`[^`]+\.md`' <<<"$upd" \
   || say '"## Updated Integration Docs" must list at least one backticked .md path'
 
 [ "$issues" -gt 0 ] && exit 1

@@ -13,15 +13,15 @@ else printf 'error: file not found: %s\n' "$1" >&2; exit 2
 fi
 
 # Short circuit.
-if printf '%s' "$body" | grep -qE '^Glossary Updates: none$'; then
+if grep -qE '^Glossary Updates: none$' <<<"$body"; then
   printf 'ok\n'; exit 0
 fi
 
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Glossary Updates'   || say 'missing "## Glossary Updates"'
-printf '%s' "$body" | grep -qE '^## Terminology Drift'  || say 'missing "## Terminology Drift"'
+grep -qE '^## Glossary Updates'   <<<"$body" || say 'missing "## Glossary Updates"'
+grep -qE '^## Terminology Drift'  <<<"$body" || say 'missing "## Terminology Drift"'
 
 # Each "- term:" entry under Glossary Updates needs a Used in: line within 4 lines.
 awk '

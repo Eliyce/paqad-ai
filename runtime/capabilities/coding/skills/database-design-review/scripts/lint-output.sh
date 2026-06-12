@@ -16,7 +16,7 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 for h in 'Correctness Risks' 'Migration Safety Risks' 'Performance Risks'; do
-  if ! printf '%s' "$body" | grep -qE "^(## ${h}|^${h}: none)\$"; then
+  if ! grep -qE "^(## ${h}|^${h}: none)\$" <<<"$body"; then
     say "missing \"## ${h}\" or \"${h}: none\""
   fi
 done

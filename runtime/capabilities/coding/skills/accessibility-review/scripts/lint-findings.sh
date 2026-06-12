@@ -19,7 +19,7 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Findings' || say 'missing "## Findings" heading'
+grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings" heading'
 
 findings=$(printf '%s\n' "$body" | awk '/^## Findings/{f=1;next} /^## /{f=0} f && /^- /')
 [ -z "$findings" ] && say 'no finding bullets under "## Findings"'
@@ -27,16 +27,16 @@ findings=$(printf '%s\n' "$body" | awk '/^## Findings/{f=1;next} /^## /{f=0} f &
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   # severity in parens or bold
-  printf '%s' "$line" | grep -qE '\b(blocker|high|medium|low|nit)\b' \
+  grep -qE '\b(blocker|high|medium|low|nit)\b' <<<"$line" \
     || say "finding missing severity: $line"
   # contract_ref — either tokens.md / components.md / accessibility.md / etc, or a WCAG-* id
-  printf '%s' "$line" | grep -qE '(tokens|components|accessibility|responsive|motion|patterns)\.md|WCAG-[0-9]+\.[0-9]+(\.[0-9]+)*' \
+  grep -qE '(tokens|components|accessibility|responsive|motion|patterns)\.md|WCAG-[0-9]+\.[0-9]+(\.[0-9]+)*' <<<"$line" \
     || say "finding missing contract_ref (e.g. tokens.md → token.name or WCAG-2.2.1.4.3): $line"
   # Evidence file:line
-  printf '%s' "$line" | grep -qE 'Evidence:.*[^[:space:]]+:[0-9]+' \
+  grep -qE 'Evidence:.*[^[:space:]]+:[0-9]+' <<<"$line" \
     || say "finding missing 'Evidence: file:line': $line"
   # Required action
-  printf '%s' "$line" | grep -qE 'Required action:' \
+  grep -qE 'Required action:' <<<"$line" \
     || say "finding missing 'Required action:': $line"
 done <<EOF
 $findings

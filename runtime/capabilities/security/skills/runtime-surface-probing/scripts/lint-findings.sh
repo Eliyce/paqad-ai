@@ -14,14 +14,14 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Findings' || say 'missing "## Findings"'
+grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings"'
 
 # Each finding must include path and observed status.
 findings=$(printf '%s\n' "$body" | awk '/^## Findings/{f=1;next} /^## /{f=0} f && /^- /')
 while IFS= read -r line; do
   [ -z "$line" ] && continue
-  printf '%s' "$line" | grep -qE 'Path:[[:space:]]*`[^`]+`' || say "finding missing 'Path: \`...\`': $line"
-  printf '%s' "$line" | grep -qE 'Status:[[:space:]]*[1-5][0-9][0-9]' || say "finding missing numeric Status: $line"
+  grep -qE 'Path:[[:space:]]*`[^`]+`' <<<"$line" || say "finding missing 'Path: \`...\`': $line"
+  grep -qE 'Status:[[:space:]]*[1-5][0-9][0-9]' <<<"$line" || say "finding missing numeric Status: $line"
 done <<EOF
 $findings
 EOF

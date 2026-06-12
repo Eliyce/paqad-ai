@@ -19,7 +19,7 @@ for (const f of arr) console.log(f.id);
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$retest" | grep -qE '^## Retest Decisions' || say 'missing "## Retest Decisions"'
+grep -qE '^## Retest Decisions' <<<"$retest" || say 'missing "## Retest Decisions"'
 
 # Each retest entry like: "### PT-... → fixed|still-open|needs-manual-verification"
 entries=$(printf '%s\n' "$retest" | grep -E '^### ')
@@ -28,7 +28,7 @@ while IFS= read -r line; do
   id=$(printf '%s' "$line" | grep -oE 'PT-[A-Za-z0-9_-]+' | head -1)
   status=$( { printf '%s' "$line" | grep -oE '(^|[^a-zA-Z-])(fixed|still-open|needs-manual-verification)([^a-zA-Z-]|$)' || true; } | { grep -oE 'fixed|still-open|needs-manual-verification' || true; } | head -1)
   if [ -z "$id" ] || [ -z "$status" ]; then say "malformed entry: $line"; continue; fi
-  printf '%s\n' "$source_ids" | grep -qx "$id" || say "invented id (not in source): $id"
+  grep -qx "$id" <<<"$source_ids" || say "invented id (not in source): $id"
 done <<EOF
 $entries
 EOF

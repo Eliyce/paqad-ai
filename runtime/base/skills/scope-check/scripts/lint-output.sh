@@ -16,7 +16,7 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 for h in '## Scope Decision' '## Spec Evidence' '## Required Next Step'; do
-  printf '%s' "$body" | grep -qE "^${h}\$" || say "missing \"${h}\""
+  grep -qE "^${h}\$" <<<"$body" || say "missing \"${h}\""
 done
 
 dec=$(printf '%s\n' "$body" | awk '/^## Scope Decision/{f=1;next} /^## /{f=0} f' | grep -oE 'within-scope|extension-needed|blocked-no-spec' | head -1 || true)

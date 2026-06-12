@@ -12,14 +12,14 @@ else printf 'error: file not found: %s\n' "$1" >&2; exit 2
 fi
 
 # Empty short-circuit.
-if printf '%s' "$body" | grep -qE '^Rollback Plans: none required \(all stories have easy reversibility and isolated blast radius\)\.$'; then
+if grep -qE '^Rollback Plans: none required \(all stories have easy reversibility and isolated blast radius\)\.$' <<<"$body"; then
   printf 'ok\n'; exit 0
 fi
 
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Rollback Plans' || say 'missing "## Rollback Plans"'
+grep -qE '^## Rollback Plans' <<<"$body" || say 'missing "## Rollback Plans"'
 
 # Each story header is "### S-<n>".
 plans=$(printf '%s\n' "$body" | grep -cE '^### S-[0-9]+' || true)
@@ -30,7 +30,7 @@ for needle in 'Trigger:' 'Time-to-rollback:' 'Steps:' 'Verification:' 'Drill:'; 
   [ "${hits:-0}" -lt "${plans:-0}" ] && say "fewer '${needle}' lines (${hits:-0}) than plans (${plans:-0})"
 done
 
-printf '%s' "$body" | grep -qE '^Coverage: Stories needing rollback plans: [0-9]+ \| Plans drafted: [0-9]+ \| Open Questions: [0-9]+' \
+grep -qE '^Coverage: Stories needing rollback plans: [0-9]+ \| Plans drafted: [0-9]+ \| Open Questions: [0-9]+' <<<"$body" \
   || say 'missing or malformed "Coverage:" footer line'
 
 [ "$issues" -gt 0 ] && exit 1

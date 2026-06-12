@@ -16,7 +16,7 @@ fi
 
 lc=$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]')
 
-match() { printf '%s' "$lc" | grep -qE "$1"; }
+match() { grep -qE "$1" <<<"$lc"; }
 
 # workflow inference
 if   match '\bbug|broken|fix\b|regression|crash|error\b'; then printf 'workflow: bug-fix\n'

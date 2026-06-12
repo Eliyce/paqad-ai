@@ -17,17 +17,17 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '"tier"[[:space:]]*:[[:space:]]*"(missing|bare|adequate|strong)"' \
+grep -qE '"tier"[[:space:]]*:[[:space:]]*"(missing|bare|adequate|strong)"' <<<"$body" \
   || say 'missing or invalid "tier" — must be missing|bare|adequate|strong'
 
-printf '%s' "$body" | grep -qE '"files"[[:space:]]*:' || say 'missing "files" array'
-printf '%s' "$body" | grep -qE '"clauses"[[:space:]]*:' || say 'missing "clauses" object'
+grep -qE '"files"[[:space:]]*:' <<<"$body" || say 'missing "files" array'
+grep -qE '"clauses"[[:space:]]*:' <<<"$body" || say 'missing "clauses" object'
 
 # If tier is adequate or strong, tokens/components/accessibility clause arrays
 # must be non-empty.
-if printf '%s' "$body" | grep -qE '"tier"[[:space:]]*:[[:space:]]*"(adequate|strong)"'; then
+if grep -qE '"tier"[[:space:]]*:[[:space:]]*"(adequate|strong)"' <<<"$body"; then
   for ns in tokens components accessibility; do
-    if printf '%s' "$body" | grep -qE "\"$ns\"[[:space:]]*:[[:space:]]*\\[[[:space:]]*\\]"; then
+    if grep -qE "\"$ns\"[[:space:]]*:[[:space:]]*\\[[[:space:]]*\\]" <<<"$body"; then
       say "tier is adequate/strong but \"clauses.$ns\" is empty"
     fi
   done

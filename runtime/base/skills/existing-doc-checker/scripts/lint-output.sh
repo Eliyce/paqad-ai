@@ -15,7 +15,7 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 for h in '## Canonical Files' '## Potential Drift' '## Missing Docs'; do
-  printf '%s' "$body" | grep -qE "^${h}\$" || say "missing \"${h}\" heading"
+  grep -qE "^${h}\$" <<<"$body" || say "missing \"${h}\" heading"
 done
 
 [ "$issues" -gt 0 ] && exit 1

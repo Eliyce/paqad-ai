@@ -15,11 +15,11 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Classification' || say 'missing "## Classification"'
+grep -qE '^## Classification' <<<"$body" || say 'missing "## Classification"'
 for k in 'workflow' 'scope' 'risk' 'ui_impact' 'api_impact' 'db_impact'; do
-  printf '%s' "$body" | grep -qE "^${k}:[[:space:]]" || say "missing dimension: ${k}"
+  grep -qE "^${k}:[[:space:]]" <<<"$body" || say "missing dimension: ${k}"
 done
-printf '%s' "$body" | grep -qE '^## Evidence|^Evidence:' || say 'missing "Evidence" section/line'
+grep -qE '^## Evidence|^Evidence:' <<<"$body" || say 'missing "Evidence" section/line'
 
 [ "$issues" -gt 0 ] && exit 1
 printf 'ok\n'

@@ -72,16 +72,19 @@ exclude=(
 
 # JSX text nodes: >Text</  or  >Text<
 # Limited heuristic — picks up `>...<` segments with non-trivial content.
+# The awk regex avoids {n,m} intervals (mawk, Debian's default awk, does not
+# support them) and the [A-Z] range (collates as aBcD… under POSIX locales);
+# the 81-char cap from the grep prefilter is enforced via length() instead.
 { grep -rEn --binary-files=without-match "${exclude[@]}" \
-    '>[A-Z][A-Za-z0-9 ,.:?!()-]{1,80}<' "$root" 2>/dev/null || true; } \
+    '>[ABCDEFGHIJKLMNOPQRSTUVWXYZ][A-Za-z0-9 ,.:?!()-]{1,80}<' "$root" 2>/dev/null || true; } \
   | awk -F: '{
       excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
-      if (match(excerpt, />[A-Z][A-Za-z0-9 ,.:?!()-]{1,80}</)) {
+      if (match(excerpt, />[ABCDEFGHIJKLMNOPQRSTUVWXYZ][A-Za-z0-9 ,.:?!()-]+</)) {
         s = substr(excerpt, RSTART, RLENGTH)
         sub(/^>/, "", s)
         sub(/<$/, "", s)
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
-        if (length(s) >= 2) {
+        if (length(s) >= 2 && length(s) <= 81) {
           printf "jsx-text\t%s:%s\t%s\n", $1, $2, s
         }
       }

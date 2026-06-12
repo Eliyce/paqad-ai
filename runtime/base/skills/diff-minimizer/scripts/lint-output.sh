@@ -15,13 +15,13 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Diff Minimization' || say 'missing "## Diff Minimization"'
-printf '%s' "$body" | grep -qE '^### Step Map'         || say 'missing "### Step Map"'
-printf '%s' "$body" | grep -qE '^\| # \| Step \| Classification \| Mapped AC \| Action \|' \
+grep -qE '^## Diff Minimization' <<<"$body" || say 'missing "## Diff Minimization"'
+grep -qE '^### Step Map'         <<<"$body" || say 'missing "### Step Map"'
+grep -qE '^\| # \| Step \| Classification \| Mapped AC \| Action \|' <<<"$body" \
   || say 'Step Map missing canonical 5-column header'
-printf '%s' "$body" | grep -qE '^### Recommended Drops'      || say 'missing "### Recommended Drops"'
-printf '%s' "$body" | grep -qE '^### Necessary Setup'        || say 'missing "### Necessary Setup"'
-printf '%s' "$body" | grep -qE '(^Open Questions: none$|^### Open Questions)' \
+grep -qE '^### Recommended Drops'      <<<"$body" || say 'missing "### Recommended Drops"'
+grep -qE '^### Necessary Setup'        <<<"$body" || say 'missing "### Necessary Setup"'
+grep -qE '(^Open Questions: none$|^### Open Questions)' <<<"$body" \
   || say 'missing Open Questions section or exact "Open Questions: none" line'
 
 # Classifications must be exactly one of the four allowed values.

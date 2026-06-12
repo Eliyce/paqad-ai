@@ -15,14 +15,14 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 # Empty short-circuit.
-if printf '%s' "$body" | grep -qE '^Documentation Sync: no canonical docs require update\.$'; then
+if grep -qE '^Documentation Sync: no canonical docs require update\.$' <<<"$body"; then
   printf 'ok\n'; exit 0
 fi
 
-printf '%s' "$body" | grep -qE '^## Documentation Sync' || say 'missing "## Documentation Sync"'
-printf '%s' "$body" | grep -qE '^Stale Doc Set: Detected: [0-9]+ \| Routed: [0-9]+ \| Skipped \(target_domains filter\): [0-9]+' \
+grep -qE '^## Documentation Sync' <<<"$body" || say 'missing "## Documentation Sync"'
+grep -qE '^Stale Doc Set: Detected: [0-9]+ \| Routed: [0-9]+ \| Skipped \(target_domains filter\): [0-9]+' <<<"$body" \
   || say 'missing or malformed Stale Doc Set summary'
-printf '%s' "$body" | grep -qE '^Known Drift' || say 'missing "Known Drift" section/line'
+grep -qE '^Known Drift' <<<"$body" || say 'missing "Known Drift" section/line'
 
 # Domain headings must come from the allowed set when present.
 domains=$(printf '%s\n' "$body" | grep -E '^### ' | sed -E 's/^### //; s/[[:space:]]+$//')
