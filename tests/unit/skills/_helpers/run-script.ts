@@ -1,6 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdtempSync,
+  openSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 export interface RunResult {
   status: number;
@@ -21,20 +30,32 @@ function sleepSync(ms: number): void {
 }
 
 /**
+ * stderr text that means the *infrastructure* failed (fork pressure, pipe or
+ * here-document setup), not that the script rejected its input. Such results
+ * are retryable even though stderr is non-empty.
+ */
+const INFRA_STDERR =
+  /cannot allocate memory|resource temporarily unavailable|cannot fork|cannot make pipe|here-document/i;
+
+/**
  * Runs a bash script and captures stdout / stderr / exit status.
  * Used by every skill spec instead of mocking — tests run the real script
  * the LLM would invoke at runtime.
  *
- * Retries on transient bash-subprocess failures. Under heavy parallel
- * CI load (vitest spawning many bash processes simultaneously), some
- * invocations exit non-zero before the script can run — we'd see status 1
- * with empty stderr and no real assertion. Scripts that *actually* reject
- * their input always write to stderr via `say` / `printf >&2`, so the
- * empty-stderr gate ensures we only retry true flakes, not real failures.
- * A single 50ms retry proved too little under sustained runner load (a
- * Node 22 ubuntu leg flaked while Node 24 on the same image passed in the
- * same run), so the backoff now escalates across three attempts.
- * See https://github.com/Eliyce/paqad-ai/issues/24.
+ * Two defenses against vitest-parallelism flakes (issue #24):
+ *
+ * 1. `input` is delivered through a temp file opened as the child's stdin
+ *    instead of a pipe. Under heavy parallel spawn load the pipe write could
+ *    be lost, so a stdin-validating script saw empty input and rejected it —
+ *    a "real" failure (non-zero exit, stderr written) that no retry gate can
+ *    distinguish from a genuine rejection. A file-backed fd cannot be
+ *    truncated by spawn races; scripts still read it as plain stdin.
+ *
+ * 2. Retries with escalating backoff, but only when the child produced no
+ *    output at all (or infrastructure-flavored stderr). A script that printed
+ *    anything ran for real — returning immediately keeps genuine rejections
+ *    fast and stops expected-non-zero specs (e.g. `--help` exits 2 with usage
+ *    on stdout) from burning the full backoff on every invocation.
  */
 export function runScript(
   scriptPath: string,
@@ -46,27 +67,58 @@ export function runScript(
     return { status: -1, stdout: '', stderr: `script not found: ${abs}` };
   }
   const invoke = (): RunResult => {
-    const r = spawnSync('bash', [abs, ...args], {
-      input: opts.input,
+    const common = {
       cwd: opts.cwd,
       env: { ...process.env, ...(opts.env ?? {}) },
       encoding: 'utf8',
       timeout: opts.timeoutMs ?? 10_000,
-    });
-    return {
-      status: r.status ?? -1,
-      stdout: r.stdout ?? '',
-      stderr: r.stderr ?? '',
-    };
+    } as const;
+    if (opts.input === undefined) {
+      const r = spawnSync('bash', [abs, ...args], common);
+      return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+    }
+    const dir = mkdtempSync(join(tmpdir(), 'paqad-skill-stdin-'));
+    const stdinFile = join(dir, 'stdin');
+    let fd: number | null = null;
+    try {
+      writeFileSync(stdinFile, opts.input);
+      fd = openSync(stdinFile, 'r');
+      const r = spawnSync('bash', [abs, ...args], { ...common, stdio: [fd, 'pipe', 'pipe'] });
+      return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+    } finally {
+      if (fd !== null) closeSync(fd);
+      rmSync(dir, { recursive: true, force: true });
+    }
   };
+  const debugLog = (r: RunResult, attempt: number): void => {
+    // Flake forensics: PAQAD_DEBUG_RUNSCRIPT=<path> appends every non-zero
+    // result so CI flakes can be diagnosed from their real stderr.
+    const target = process.env.PAQAD_DEBUG_RUNSCRIPT;
+    if (!target || r.status === 0) return;
+    try {
+      appendFileSync(
+        target,
+        `${JSON.stringify({ script: abs, args, attempt, ...r })}\n`,
+      );
+    } catch {
+      // diagnostics must never fail a test
+    }
+  };
+  const retryable = (r: RunResult): boolean =>
+    r.status !== 0 &&
+    r.stdout.trim().length === 0 &&
+    (r.stderr.trim().length === 0 || INFRA_STDERR.test(r.stderr));
+  let attempt = 1;
   let result = invoke();
+  debugLog(result, attempt);
   for (const backoffMs of [50, 150, 450]) {
-    if (result.status === 0 || result.stderr.trim().length > 0) {
+    if (!retryable(result)) {
       return result;
     }
-    // Transient bash-subprocess failure (non-zero exit, no real stderr).
     sleepSync(backoffMs);
+    attempt += 1;
     result = invoke();
+    debugLog(result, attempt);
   }
   return result;
 }

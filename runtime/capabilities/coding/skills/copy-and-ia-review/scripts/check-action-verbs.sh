@@ -54,12 +54,15 @@ emit() {
     | awk -F: -v allow="$verbs_lower" '
         {
           excerpt=""; for (i=3; i<=NF; i++) excerpt = excerpt (i==3?"":":") $i
-          if (match(excerpt, /<(button|Button)[^>]*>[A-Za-z][A-Za-z ]{0,40}</)) {
+          # No {n,m} interval in the awk regex — mawk (Debian default awk)
+          # does not support intervals; the 41-char label cap from the grep
+          # prefilter is enforced via length() below instead.
+          if (match(excerpt, /<(button|Button)[^>]*>[A-Za-z][A-Za-z ]*</)) {
             s = substr(excerpt, RSTART, RLENGTH)
             sub(/^<[Bb]utton[^>]*>/, "", s)
             sub(/<$/, "", s)
             gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
-            if (length(s) == 0) next
+            if (length(s) == 0 || length(s) > 41) next
             lower = tolower(s)
             n = split(allow, A, /\|/)
             ok = 0
