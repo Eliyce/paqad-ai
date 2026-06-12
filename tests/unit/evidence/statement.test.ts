@@ -127,4 +127,58 @@ describe('buildInTotoStatement', () => {
       provenance: 'declared',
     });
   });
+
+  // Issues #122 / #123 — both new fields stay omitted when absent so prior
+  // receipts remain byte-identical, and fold in cleanly when supplied.
+  it('omits compliance_citations and reproducibility when absent (byte-identical)', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row({})],
+      verifierVersion: '1.2.3',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+    });
+    expect('compliance_citations' in statement.predicate).toBe(false);
+    expect('reproducibility' in statement.predicate).toBe(false);
+  });
+
+  it('omits compliance_citations when the array is empty', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row({})],
+      verifierVersion: '1.2.3',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+      complianceCitations: [],
+    });
+    expect('compliance_citations' in statement.predicate).toBe(false);
+  });
+
+  it('folds compliance_citations and reproducibility into the predicate when supplied', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row({})],
+      verifierVersion: '1.2.3',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+      complianceCitations: [
+        {
+          framework_id: 'eu-ai-act',
+          framework_title: 'EU AI Act',
+          clause_id: 'Art.15',
+          clause_title: 'Robustness',
+          gate: 'mutation-testing',
+          relation: 'subset-of',
+          evidence_strength: 'partial',
+          disclaimer: 'evidence toward, not compliance',
+        },
+      ],
+      reproducibility: {
+        context_hash: 'deadbeef',
+        determinism: 'input-replay',
+        algo_version: 1,
+        replayable: true,
+      },
+    });
+    expect(statement.predicate.compliance_citations).toHaveLength(1);
+    expect(statement.predicate.compliance_citations?.[0]?.clause_id).toBe('Art.15');
+    expect(statement.predicate.reproducibility?.determinism).toBe('input-replay');
+  });
 });

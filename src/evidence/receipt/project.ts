@@ -13,10 +13,12 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   type ChangeAuthorship,
+  type ComplianceCitation,
   type EvidenceFileDigest,
   type EvidenceLedgerRow,
   type InTotoStatement,
   type ReceiptEnvelope,
+  type ReproducibilityStampPredicate,
 } from '@/core/types/evidence-ledger.js';
 
 import { ZERO_DIGEST } from '../digests.js';
@@ -91,6 +93,10 @@ export interface ProjectReceiptInput {
   timeVerified: string;
   /** Issue #120 — who wrote/accepted the change, folded into the predicate. */
   authorship?: ChangeAuthorship;
+  /** Issue #122 — `gate → clause` citations from the active compliance packs. */
+  complianceCitations?: readonly ComplianceCitation[];
+  /** Issue #123 — the frozen-context reproducibility stamp. */
+  reproducibility?: ReproducibilityStampPredicate;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -114,6 +120,8 @@ export async function projectReceipt(input: ProjectReceiptInput): Promise<Projec
     verifierVersion: input.verifierVersion,
     timeVerified: input.timeVerified,
     authorship: input.authorship,
+    complianceCitations: input.complianceCitations,
+    reproducibility: input.reproducibility,
   });
 
   // Mode detection is recorded for transparency even though the local signer

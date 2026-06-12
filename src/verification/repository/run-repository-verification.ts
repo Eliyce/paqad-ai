@@ -15,7 +15,9 @@ import {
   gateResultsToRows,
   projectReceipt,
   ratchetResultToRows,
+  readReproducibilityPredicate,
   resolveChangeAuthorship,
+  resolveComplianceCitations,
 } from '@/evidence/index.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -154,6 +156,15 @@ export async function runRepositoryVerification(
       projectRoot: context.project_root,
       env: process.env,
     });
+    // Issue #122 — cite which legal clauses each passing gate produces evidence
+    // toward, from the active compliance packs. Empty (→ field omitted) when no
+    // pack is installed. Issue #123 — fold in the reproducibility stamp the
+    // session recorded, when present. Both degrade to absent, never throw.
+    const complianceCitations = resolveComplianceCitations({
+      projectRoot: context.project_root,
+      rows,
+    });
+    const reproducibility = readReproducibilityPredicate(context.project_root) ?? undefined;
     await projectReceipt({
       projectRoot: context.project_root,
       fileDigests,
@@ -161,6 +172,8 @@ export async function runRepositoryVerification(
       verifierVersion: verifierVersion(),
       timeVerified: completedAt,
       authorship,
+      complianceCitations,
+      reproducibility,
       env: process.env,
     });
   } catch (error) {
