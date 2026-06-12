@@ -13,6 +13,7 @@
 // and a model's say-so into the same "12/16 gates passed" number.
 
 import type { AdapterType } from './adapter.js';
+import type { ComplianceEvidenceStrength, ComplianceRelation } from './pack.js';
 
 /** Bumped when the on-disk ledger-row or receipt shape changes incompatibly. */
 export const EVIDENCE_LEDGER_SCHEMA_VERSION = 1 as const;
@@ -125,6 +126,47 @@ export interface ChangeAuthorship {
   provenance: 'declared' | 'unknown';
 }
 
+/**
+ * Issue #122 — one `gate → legal clause` citation derived from an active
+ * compliance pack. Emitted only for a gate that *passed* (never inconclusive /
+ * blocked), so the receipt can say which clause each green gate produces
+ * evidence toward. The verbatim `disclaimer` rides along on every citation: this
+ * is evidence *toward* a clause, never a conformity assessment.
+ */
+export interface ComplianceCitation {
+  framework_id: string;
+  framework_title: string;
+  framework_version?: string;
+  clause_id: string;
+  clause_title: string;
+  clause_url?: string;
+  /** The passing gate that produced the evidence. */
+  gate: string;
+  /** OSCAL relation between the gate and the clause (honestly graded). */
+  relation: ComplianceRelation;
+  /** `partial` | `substantial` — never `full`. */
+  evidence_strength: ComplianceEvidenceStrength;
+  disclaimer: string;
+}
+
+/**
+ * Issue #123 — the reproducibility stamp: a content hash over the exact frozen
+ * context an agent saw, asserting the *input is replayable*. For a hosted LLM
+ * (no stable seed; temp 0 is still non-deterministic) this proves replayable
+ * input + recorded output, NOT bit-identical regeneration — so `determinism` is
+ * fixed to `input-replay` and the field must never imply exact regeneration.
+ */
+export interface ReproducibilityStampPredicate {
+  /** SHA-256 over the canonical, versioned rebuild materials. */
+  context_hash: string;
+  /** The only honest claim for a hosted LLM. */
+  determinism: 'input-replay';
+  /** Bumped when the preimage serialization changes, so a hash can be re-derived. */
+  algo_version: number;
+  /** True when the materials are faithfully reconstructable (input-replay holds). */
+  replayable: boolean;
+}
+
 export interface VsaPredicate {
   verifier: { id: string; version: string };
   /** ISO-8601 time the verification completed. */
@@ -139,6 +181,13 @@ export interface VsaPredicate {
   /** Issue #120 — who wrote and accepted the change. Omitted entirely when no
    *  authorship could be resolved, so prior receipts stay byte-identical. */
   change_authorship?: ChangeAuthorship;
+  /** Issue #122 — which legal clauses each passing gate produces evidence
+   *  toward, from the active compliance packs. Omitted when no pack is installed
+   *  (or no passing gate maps to a clause), so prior receipts stay byte-identical. */
+  compliance_citations?: ComplianceCitation[];
+  /** Issue #123 — the frozen-context reproducibility stamp. Omitted when no
+   *  context stamp was recorded for the change, so receipts stay byte-identical. */
+  reproducibility?: ReproducibilityStampPredicate;
   /** The graded rows themselves, so the receipt is self-contained. */
   rows: EvidenceLedgerRow[];
 }
