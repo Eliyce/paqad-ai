@@ -130,12 +130,17 @@ modules:
       (paqad-ai status). Score is existence + freshness only — no
       content-quality heuristics in phase 1. Shares the graph-ui bundle
       via a hash router so the graph view becomes one section inside the
-      dashboard.
+      dashboard. Issue #146 adds the approvals inbox (resolve decision
+      pauses and module proposals on the web through the same stores the
+      agent uses) and the read-only trust area (evidence timeline, DSSE
+      receipt cards, AI-BOM, PR-comment export).
     sources:
       - src/cli/commands/dashboard.ts
       - src/cli/commands/status.ts
       - src/dashboard
       - graph-ui/src/views/DashboardView.tsx
+      - graph-ui/src/views/ApprovalsView.tsx
+      - graph-ui/src/views/TrustView.tsx
       - graph-ui/src/components/SectionCard.tsx
       - graph-ui/src/components/ScoreBadge.tsx
       - graph-ui/src/components/SummaryBand.tsx
@@ -160,6 +165,12 @@ modules:
       - slug: dashboard-ui
         name: Dashboard View + Section Components
         sources: [graph-ui/src/views/DashboardView.tsx, graph-ui/src/components]
+      - slug: dashboard-approvals
+        name: Approvals Inbox (feed + resolve/accept/reject write paths)
+        sources: [src/dashboard/approvals.ts, graph-ui/src/views/ApprovalsView.tsx]
+      - slug: dashboard-trust
+        name: Trust Area (evidence, receipts, AI-BOM — view and export only)
+        sources: [src/dashboard/trust.ts, graph-ui/src/views/TrustView.tsx]
 
   - slug: cli-packs
     name: Pack Management Commands

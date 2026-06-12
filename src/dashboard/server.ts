@@ -4,11 +4,27 @@ import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, resolve } from 'node:path';
 import { createGzip, gzipSync } from 'node:zlib';
 
+import { PATHS } from '@/core/constants/paths.js';
+import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { engineLog } from '@/core/logger-registry.js';
 import { startPaqadWatcher, type RunningWatcher } from '@/graph/watcher.js';
 
+import {
+  acceptModuleProposal,
+  ApprovalConflictError,
+  ApprovalNotFoundError,
+  buildApprovalsFeed,
+  rejectModuleProposal,
+  resolvePauseDecision,
+} from './approvals.js';
 import { renderMarkdown } from './markdown.js';
 import { buildReport } from './report.js';
+import {
+  buildEvidenceFeed,
+  buildPrCommentMarkdown,
+  buildReceiptFeed,
+  readAiBomDocument,
+} from './trust.js';
 import type { DashboardReport } from './types.js';
 
 export interface DashboardServerOptions {
@@ -21,6 +37,8 @@ export interface DashboardServerOptions {
   watch?: boolean;
   /** Quiet period for the watcher in milliseconds. Default 500. */
   watchDebounceMs?: number;
+  /** If true, every mutation endpoint refuses with 403 (for shared/CI usage). */
+  readOnly?: boolean;
 }
 
 export interface RunningDashboardServer {
@@ -138,6 +156,61 @@ function serveStatic(
   }
 }
 
+const MAX_BODY_BYTES = 64 * 1024;
+
+/** Read and parse a JSON request body, capped at {@link MAX_BODY_BYTES}. */
+function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolveBody, rejectBody) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        rejectBody(new Error(`Request body exceeds ${MAX_BODY_BYTES} bytes.`));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (chunks.length === 0) {
+        resolveBody({});
+        return;
+      }
+      try {
+        resolveBody(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch {
+        rejectBody(new Error('Request body is not valid JSON.'));
+      }
+    });
+    req.on('error', rejectBody);
+  });
+}
+
+/** True when the request's Host header names a loopback address. */
+function isLoopbackHost(hostHeader: string | undefined): boolean {
+  if (!hostHeader) return false;
+  const name = hostHeader.replace(/:\d+$/, '').toLowerCase();
+  return name === 'localhost' || name === '127.0.0.1' || name === '[::1]';
+}
+
+/**
+ * True when the Origin header, if present, points back at this server.
+ * Browsers always send Origin on cross-site POSTs, so a foreign value means a
+ * web page elsewhere is trying to drive the local API (DNS-rebinding/CSRF).
+ * Same-machine CLI clients send no Origin and pass.
+ */
+function isSameOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (origin === undefined) return true;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    // Includes `Origin: null` (sandboxed iframes, file://) — treated as foreign.
+    return false;
+  }
+}
+
 async function tryListen(server: Server, host: string, startPort: number): Promise<number> {
   let port = startPort;
   for (let attempt = 0; attempt < 50; attempt++) {
@@ -210,22 +283,157 @@ export async function startDashboardServer(
   }
 
   const server = createServer((req, res) => {
-    try {
-      handleRequest(req, res);
-    } catch (err) {
+    handleRequest(req, res).catch((err: unknown) => {
       engineLog('error', 'Unhandled dashboard server error', {
         error: err instanceof Error ? err.message : String(err),
       });
       writeJson(res, req, { error: 'Internal server error' }, 500);
-    }
+    });
   });
 
-  function handleRequest(req: IncomingMessage, res: ServerResponse): void {
+  /**
+   * Gate every mutation behind the issue #146 guardrails: onboarded project
+   * only, refused in `--read-only` mode, loopback Host (DNS-rebinding guard),
+   * same-origin when a browser sends Origin. Returns null when the request may
+   * proceed; otherwise writes the refusal and returns the status it sent.
+   */
+  function guardMutation(req: IncomingMessage, res: ServerResponse): number | null {
+    if (options.readOnly === true) {
+      writeJson(
+        res,
+        req,
+        { error: 'This dashboard is running in read-only mode. Mutations are disabled.' },
+        403,
+      );
+      return 403;
+    }
+    if (!existsSync(join(options.projectRoot, PATHS.ONBOARDING_MANIFEST))) {
+      writeJson(
+        res,
+        req,
+        { error: 'Project is not onboarded. Run `paqad-ai onboard` first.' },
+        409,
+      );
+      return 409;
+    }
+    if (!isLoopbackHost(req.headers.host) || !isSameOrigin(req)) {
+      writeJson(res, req, { error: 'Mutations are accepted from this machine only.' }, 403);
+      return 403;
+    }
+    return null;
+  }
+
+  /** Map a thrown mutation error onto the HTTP status the inbox expects. */
+  function writeMutationError(req: IncomingMessage, res: ServerResponse, err: unknown): void {
+    if (err instanceof ApprovalNotFoundError) {
+      writeJson(res, req, { error: err.message }, 404);
+      return;
+    }
+    if (err instanceof ApprovalConflictError || err instanceof DecisionPacketCorruptError) {
+      writeJson(res, req, { error: err.message }, 409);
+      return;
+    }
+    writeJson(res, req, { error: err instanceof Error ? err.message : String(err) }, 400);
+  }
+
+  async function handleMutation(
+    req: IncomingMessage,
+    res: ServerResponse,
+    mutate: () => unknown | Promise<unknown>,
+  ): Promise<void> {
+    if (guardMutation(req, res) !== null) return;
+    try {
+      const result = await mutate();
+      // Refresh + broadcast immediately so every open client updates without
+      // waiting for the .paqad/ watcher debounce.
+      onArtefactChange();
+      writeJson(res, req, { ok: true, result });
+    } catch (err) {
+      writeMutationError(req, res, err);
+    }
+  }
+
+  async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', `http://${options.host}:${options.port}`);
     const pathname = url.pathname;
 
     if (pathname === '/api/health') {
       writeJson(res, req, { ok: true });
+      return;
+    }
+    if (pathname === '/api/decisions' && req.method === 'GET') {
+      writeJson(res, req, buildApprovalsFeed(options.projectRoot));
+      return;
+    }
+    const resolveMatch = /^\/api\/decisions\/(D-\d+)\/resolve$/.exec(pathname);
+    if (resolveMatch && req.method === 'POST') {
+      const decisionId = resolveMatch[1];
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as {
+          chosen_option_key?: unknown;
+          note?: unknown;
+        };
+        if (typeof body.chosen_option_key !== 'string' || body.chosen_option_key.length === 0) {
+          throw new Error('Body must include a non-empty `chosen_option_key` string.');
+        }
+        return resolvePauseDecision(options.projectRoot, {
+          decisionId,
+          chosenOptionKey: body.chosen_option_key,
+          ...(typeof body.note === 'string' && body.note.length > 0 ? { note: body.note } : {}),
+        });
+      });
+      return;
+    }
+    const proposalMatch = /^\/api\/module-decisions\/(MD-\d{4,})\/(accept|reject)$/.exec(pathname);
+    if (proposalMatch && req.method === 'POST') {
+      const [, proposalId, action] = proposalMatch;
+      await handleMutation(req, res, () =>
+        action === 'accept'
+          ? acceptModuleProposal(options.projectRoot, proposalId)
+          : rejectModuleProposal(options.projectRoot, proposalId),
+      );
+      return;
+    }
+    if (pathname === '/api/ledger/evidence') {
+      const limitRaw = url.searchParams.get('limit');
+      const limit = limitRaw === null ? undefined : Number.parseInt(limitRaw, 10);
+      writeJson(
+        res,
+        req,
+        buildEvidenceFeed(options.projectRoot, {
+          gate: url.searchParams.get('gate') ?? undefined,
+          verdict: url.searchParams.get('verdict') ?? undefined,
+          ...(limit !== undefined && Number.isFinite(limit) ? { limit } : {}),
+        }),
+      );
+      return;
+    }
+    if (pathname === '/api/ledger/receipts') {
+      writeJson(res, req, buildReceiptFeed(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/ledger/ai-bom') {
+      writeJson(res, req, {
+        generatedAt: new Date().toISOString(),
+        document: readAiBomDocument(options.projectRoot),
+      });
+      return;
+    }
+    if (pathname === '/api/ledger/pr-comment') {
+      const markdown = buildPrCommentMarkdown(
+        options.projectRoot,
+        url.searchParams.get('sha') ?? undefined,
+      );
+      if (markdown === null) {
+        writeJson(
+          res,
+          req,
+          { error: 'No verification evidence yet. The comment appears after the first gate run.' },
+          404,
+        );
+        return;
+      }
+      writeText(res, markdown, 200, 'text/markdown; charset=utf-8');
       return;
     }
     if (pathname === '/api/dashboard') {

@@ -66,10 +66,16 @@ export function DashboardView() {
     };
   }, [loadReport]);
 
+  const SECTION_ROUTES: Partial<Record<string, Parameters<typeof navigate>[0]>> = {
+    architecture: 'graph',
+    decisions: 'approvals',
+    'module-decisions': 'approvals',
+    attestation: 'trust',
+  };
+
   const onOpenSection = (section: SectionData): void => {
-    if (section.id === 'architecture') {
-      navigate('graph');
-    }
+    const target = SECTION_ROUTES[section.id];
+    if (target) navigate(target);
   };
 
   return (
@@ -117,7 +123,7 @@ export function DashboardView() {
               key={section.id}
               section={section}
               pulsing={pulsing.has(section.id)}
-              onOpen={section.id === 'architecture' ? onOpenSection : undefined}
+              onOpen={SECTION_ROUTES[section.id] ? onOpenSection : undefined}
             />
           ))}
         </div>
