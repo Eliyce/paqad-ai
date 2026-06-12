@@ -15,7 +15,7 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Dependency Findings' || say 'missing "## Dependency Findings"'
+grep -qE '^## Dependency Findings' <<<"$body" || say 'missing "## Dependency Findings"'
 
 # Each finding starts with "### <ecosystem>:<package> — <id>".
 keys=$(printf '%s\n' "$body" | grep -E '^### ' | sed -E 's/^### //; s/[[:space:]]+—.*$//')

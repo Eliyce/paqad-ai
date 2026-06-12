@@ -17,11 +17,11 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Context Budget' || say 'missing "## Context Budget"'
-printf '%s' "$body" | grep -qE '^Summary: Tier: (green|yellow|amber|red) \| Estimate: [0-9]+ tokens \| Available: [0-9]+ tokens \| Headroom: -?[0-9]+ tokens' \
+grep -qE '^## Context Budget' <<<"$body" || say 'missing "## Context Budget"'
+grep -qE '^Summary: Tier: (green|yellow|amber|red) \| Estimate: [0-9]+ tokens \| Available: [0-9]+ tokens \| Headroom: -?[0-9]+ tokens' <<<"$body" \
   || say 'missing or malformed Summary line'
-printf '%s' "$body" | grep -qE '^### Per-Artifact Estimate' || say 'missing "### Per-Artifact Estimate"'
-printf '%s' "$body" | grep -qE '^### Recommended Compactions' || say 'missing "### Recommended Compactions"'
+grep -qE '^### Per-Artifact Estimate' <<<"$body" || say 'missing "### Per-Artifact Estimate"'
+grep -qE '^### Recommended Compactions' <<<"$body" || say 'missing "### Recommended Compactions"'
 
 [ "$issues" -gt 0 ] && exit 1
 printf 'ok\n'

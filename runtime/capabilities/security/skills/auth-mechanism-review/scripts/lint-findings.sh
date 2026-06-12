@@ -18,15 +18,15 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Findings' || say 'missing "## Findings" heading'
+grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings" heading'
 
 findings=$(printf '%s\n' "$body" | awk '/^## Findings/{f=1;next} /^## /{f=0} f && /^- /')
 [ -z "$findings" ] && say 'no finding bullets under "## Findings"'
 
 while IFS= read -r line; do
   [ -z "$line" ] && continue
-  printf '%s' "$line" | grep -qE 'WSTG-[A-Z]+-[0-9]+' || say "finding missing WSTG id: $line"
-  printf '%s' "$line" | grep -qE 'Evidence:.*[^[:space:]]+:[0-9]+' || say "finding missing 'Evidence: file:line': $line"
+  grep -qE 'WSTG-[A-Z]+-[0-9]+' <<<"$line" || say "finding missing WSTG id: $line"
+  grep -qE 'Evidence:.*[^[:space:]]+:[0-9]+' <<<"$line" || say "finding missing 'Evidence: file:line': $line"
 done <<EOF
 $findings
 EOF

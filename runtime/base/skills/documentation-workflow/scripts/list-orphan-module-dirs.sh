@@ -18,5 +18,5 @@ declared=$( { grep -E '^[a-z][a-z0-9_-]*:[[:space:]]*$' "$map" || true; } \
 for d in docs/modules/*/; do
   [ -d "$d" ] || continue
   slug=$(basename "$d")
-  printf '%s\n' "$declared" | grep -qx "$slug" || printf 'docs/modules/%s\n' "$slug"
+  grep -qx "$slug" <<<"$declared" || printf 'docs/modules/%s\n' "$slug"
 done | sort -u

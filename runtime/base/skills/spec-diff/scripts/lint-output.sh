@@ -15,7 +15,7 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 for h in '## Spec Diff Decision' '## Evidence' '## Implication'; do
-  printf '%s' "$body" | grep -qE "^${h}\$" || say "missing \"${h}\""
+  grep -qE "^${h}\$" <<<"$body" || say "missing \"${h}\""
 done
 
 dec=$(printf '%s\n' "$body" | awk '/^## Spec Diff Decision/{f=1;next} /^## /{f=0} f' | grep -oE 'covered|extension|conflict' | head -1 || true)

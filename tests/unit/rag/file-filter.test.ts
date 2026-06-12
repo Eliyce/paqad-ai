@@ -497,9 +497,11 @@ describe('RagFileFilter', () => {
 
     const files = await filter.discoverFiles();
 
-    // chmod 0o000 does not block reads on Windows, so the file stays
-    // legitimately readable (and admitted) there.
-    if (process.platform !== 'win32') {
+    // chmod 0o000 does not block reads on Windows, and root bypasses file
+    // permissions entirely (e.g. CI inside a Docker container), so the file
+    // stays legitimately readable (and admitted) in both cases.
+    const runningAsRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+    if (process.platform !== 'win32' && !runningAsRoot) {
       expect(files).not.toContain(unreadablePath);
     }
     expect(files).not.toContain(invalidUtf8Path);

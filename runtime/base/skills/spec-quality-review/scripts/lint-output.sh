@@ -14,7 +14,7 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Findings' || say 'missing "## Findings"'
+grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings"'
 # Resolved is optional but if present must follow.
 
 [ "$issues" -gt 0 ] && exit 1

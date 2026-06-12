@@ -19,7 +19,7 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Findings' || say 'missing "## Findings" heading'
+grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings" heading'
 
 # Each finding starts with "### " under Findings.
 findings=$(printf '%s\n' "$body" | awk '/^## Findings/{f=1;next} /^## /{f=0} f' )

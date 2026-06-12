@@ -149,7 +149,7 @@ if command -v flock &>/dev/null; then
 else
   LOCKDIR="$LOCKFILE.d"
   if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    if [ -d "$LOCKDIR" ] && find "$LOCKDIR" -maxdepth 0 -mmin +60 2>/dev/null | grep -q .; then
+    if [ -d "$LOCKDIR" ] && [ -n "$(find "$LOCKDIR" -maxdepth 0 -mmin +60 2>/dev/null)" ]; then
       rmdir "$LOCKDIR" 2>/dev/null || true
       mkdir "$LOCKDIR" 2>/dev/null || exit 0
     else

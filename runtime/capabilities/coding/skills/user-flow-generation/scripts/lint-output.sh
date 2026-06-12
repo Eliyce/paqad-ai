@@ -15,13 +15,13 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 for h in '## Primary Flow' '## Alternate Paths'; do
-  printf '%s' "$body" | grep -qE "^${h}\$" || say "missing \"${h}\""
+  grep -qE "^${h}\$" <<<"$body" || say "missing \"${h}\""
 done
-printf '%s' "$body" | grep -qE '(^## Flow Gaps|^Flow Gaps: none$)' || say 'missing "## Flow Gaps" or exact "Flow Gaps: none"'
+grep -qE '(^## Flow Gaps|^Flow Gaps: none$)' <<<"$body" || say 'missing "## Flow Gaps" or exact "Flow Gaps: none"'
 
 # Primary Flow must have at least one ordered item.
 prim=$(printf '%s\n' "$body" | awk '/^## Primary Flow/{f=1;next} /^## /{f=0} f')
-printf '%s' "$prim" | grep -qE '^[0-9]+\.[[:space:]]' || say 'Primary Flow must contain ordered list items (1. 2. ...)'
+grep -qE '^[0-9]+\.[[:space:]]' <<<"$prim" || say 'Primary Flow must contain ordered list items (1. 2. ...)'
 
 [ "$issues" -gt 0 ] && exit 1
 printf 'ok\n'

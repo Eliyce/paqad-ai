@@ -15,13 +15,13 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 # Special-case: internal-only short circuit.
-if printf '%s' "$body" | grep -qE '^Cross-Module Impact: internal-only — no consumers affected\.$'; then
+if grep -qE '^Cross-Module Impact: internal-only — no consumers affected\.$' <<<"$body"; then
   printf 'ok\n'; exit 0
 fi
 
-printf '%s' "$body" | grep -qE '^## Cross-Module Impact' || say 'missing "## Cross-Module Impact"'
-printf '%s' "$body" | grep -qE '^### Impact Map'         || say 'missing "### Impact Map"'
-printf '%s' "$body" | grep -qE '^\| Surface \| Type \| Consumer \| Severity \| Coordinated change \|' \
+grep -qE '^## Cross-Module Impact' <<<"$body" || say 'missing "## Cross-Module Impact"'
+grep -qE '^### Impact Map'         <<<"$body" || say 'missing "### Impact Map"'
+grep -qE '^\| Surface \| Type \| Consumer \| Severity \| Coordinated change \|' <<<"$body" \
   || say 'missing canonical Impact Map table header'
 
 # Severity tokens must come from the rubric.

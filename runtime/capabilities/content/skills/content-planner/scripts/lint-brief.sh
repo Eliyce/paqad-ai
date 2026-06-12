@@ -14,7 +14,7 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 for k in 'Audience:' 'Goal:' 'Constraints:' 'Outline' 'Dependencies:' 'Success metric:'; do
-  printf '%s' "$body" | grep -qE "${k}" || say "missing field: ${k}"
+  grep -qE "${k}" <<<"$body" || say "missing field: ${k}"
 done
 [ "$issues" -gt 0 ] && exit 1
 printf 'ok\n'

@@ -14,11 +14,11 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Updated Error Entries' || say 'missing "## Updated Error Entries"'
-printf '%s' "$body" | grep -qE '^## Catalog Gaps'         || say 'missing "## Catalog Gaps"'
+grep -qE '^## Updated Error Entries' <<<"$body" || say 'missing "## Updated Error Entries"'
+grep -qE '^## Catalog Gaps'         <<<"$body" || say 'missing "## Catalog Gaps"'
 
 upd=$(printf '%s\n' "$body" | awk '/^## Updated Error Entries/{f=1;next} /^## /{f=0} f')
-printf '%s' "$upd" | grep -qE '`[^`]+`' \
+grep -qE '`[^`]+`' <<<"$upd" \
   || say '"## Updated Error Entries" must list backticked entries (code or path)'
 
 [ "$issues" -gt 0 ] && exit 1

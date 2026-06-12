@@ -15,8 +15,8 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Verification Plan' || say 'missing "## Verification Plan"'
-printf '%s' "$body" | grep -qE '^## Uncovered Criteria' || say 'missing "## Uncovered Criteria"'
+grep -qE '^## Verification Plan' <<<"$body" || say 'missing "## Verification Plan"'
+grep -qE '^## Uncovered Criteria' <<<"$body" || say 'missing "## Uncovered Criteria"'
 
 # Each AC subsection must have the canonical 5-column header.
 sections=$(printf '%s' "$body" | grep -cE '^### AC-' || true)

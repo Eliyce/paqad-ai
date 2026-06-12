@@ -13,14 +13,14 @@ else printf 'error: file not found: %s\n' "$1" >&2; exit 2
 fi
 
 # Empty short-circuit.
-if printf '%s' "$body" | grep -qE '^No Additional Edge Cases$'; then
+if grep -qE '^No Additional Edge Cases$' <<<"$body"; then
   printf 'ok\n'; exit 0
 fi
 
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Edge Cases' || say 'missing "## Edge Cases" heading'
+grep -qE '^## Edge Cases' <<<"$body" || say 'missing "## Edge Cases" heading'
 
 cases=$(printf '%s\n' "$body" | grep -cE '^### ' || true)
 [ "${cases:-0}" -eq 0 ] && say 'no "### ..." case headings'
