@@ -22,8 +22,23 @@ const CLASS_CAPTION: Record<InventoryClass, string | null> = {
   operation: null,
 };
 
+interface EditAction {
+  label: string;
+  route: string;
+}
+
+/**
+ * Web-class items with a real editor in the dashboard. A card listed here
+ * swaps the "editable here soon" caption for the action; everything else
+ * keeps the honest caption until its editor ships.
+ */
+const EDIT_ACTIONS: Record<string, EditAction> = {
+  'delivery-policy': { label: 'Edit the policy', route: '#/delivery-policy' },
+};
+
 function ItemCard({ item, onWhy }: { item: InventoryItem; onWhy: (item: InventoryItem) => void }) {
-  const caption = CLASS_CAPTION[item.class];
+  const action = EDIT_ACTIONS[item.key];
+  const caption = action ? null : CLASS_CAPTION[item.class];
   return (
     <div
       className="flex flex-col rounded-[10px] p-4"
@@ -43,6 +58,20 @@ function ItemCard({ item, onWhy }: { item: InventoryItem; onWhy: (item: Inventor
       {caption && (
         <div className="mt-2 text-caption" style={{ color: 'var(--color-muted)' }}>
           {caption}
+        </div>
+      )}
+      {action && (
+        <div className="mt-3">
+          <button
+            type="button"
+            className="rounded-[6px] border px-3 py-1.5 text-secondary font-medium"
+            style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }}
+            onClick={() => {
+              window.location.hash = action.route.replace(/^#/, '');
+            }}
+          >
+            {action.label}
+          </button>
         </div>
       )}
       <div className="mt-3">

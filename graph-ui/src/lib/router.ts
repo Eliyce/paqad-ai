@@ -15,7 +15,8 @@ export type Route =
   | 'knowledge'
   | 'setup'
   | 'graph'
-  | 'dashboard';
+  | 'dashboard'
+  | 'delivery-policy';
 
 const ROUTES: ReadonlySet<Route> = new Set<Route>([
   'pulse',
@@ -27,6 +28,7 @@ const ROUTES: ReadonlySet<Route> = new Set<Route>([
   'setup',
   'graph',
   'dashboard',
+  'delivery-policy',
 ]);
 
 function parseHash(hash: string): Route {

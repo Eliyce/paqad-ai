@@ -96,8 +96,12 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive, childr
     setThemeMode(next);
   };
 
+  // Sub-pages highlight their parent area: the delivery-policy editor
+  // lives under Automation, so the sidebar keeps Automation lit there.
+  const activeRoute: Route = route === 'delivery-policy' ? 'automation' : route;
+
   const navItem = (target: Route & DashboardArea, label: string, badge?: number | null) => {
-    const active = route === target;
+    const active = activeRoute === target;
     return (
       <button
         key={target}

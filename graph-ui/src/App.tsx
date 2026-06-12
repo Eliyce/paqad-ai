@@ -2,6 +2,7 @@ import { useHashRoute } from './lib/router';
 import { ApprovalsView } from './views/ApprovalsView';
 import { AreaView } from './views/AreaView';
 import { DashboardView } from './views/DashboardView';
+import { DeliveryPolicyView } from './views/DeliveryPolicyView';
 import { GraphView } from './views/GraphView';
 import { PulseView } from './views/PulseView';
 import { TrustView } from './views/TrustView';
@@ -21,6 +22,7 @@ export function App() {
   if (route === 'build') return <AreaView key="build" area="build" title="Build" />;
   if (route === 'automation')
     return <AreaView key="automation" area="automation" title="Automation" />;
+  if (route === 'delivery-policy') return <DeliveryPolicyView />;
   if (route === 'knowledge') return <AreaView key="knowledge" area="knowledge" title="Knowledge" />;
   if (route === 'setup') return <AreaView key="setup" area="setup" title="Setup" />;
   return <PulseView />;
