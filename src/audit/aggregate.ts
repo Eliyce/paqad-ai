@@ -79,7 +79,7 @@ function attestationEvents(projectRoot: string): SiemEvent[] {
       ...(predicate?.change_authorship !== undefined
         ? { authorship: mapAuthorship(predicate.change_authorship) }
         : {}),
-      ...(predicate !== undefined && predicate !== null
+      ...(predicate !== null
         ? { detail: summarizeReceipt(predicate.verification_result, sealed) }
         : {}),
     };
