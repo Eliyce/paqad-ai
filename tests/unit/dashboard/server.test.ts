@@ -396,6 +396,151 @@ describe('startDashboardServer', () => {
     });
   });
 
+  describe('config and file endpoints', () => {
+    const VALID_POLICY = [
+      'schema_version: "1"',
+      'merge_mode: append',
+      'enabled: true',
+      'process:',
+      '  branch:',
+      '    maintained: manual',
+      '    base: develop',
+      '',
+    ].join('\n');
+
+    it('serves the delivery-policy config on GET and accepts a valid PUT', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const before = await fetch(`${server!.url}/api/config/delivery-policy`);
+      expect(before.status).toBe(200);
+      const beforeBody = (await before.json()) as {
+        resolved: { process: { branch: { base: string } } };
+        file: { exists: boolean };
+        schema: { $id: string };
+      };
+      expect(beforeBody.resolved.process.branch.base).toBe('main');
+      expect(beforeBody.file.exists).toBe(false);
+      expect(beforeBody.schema.$id).toBe('delivery-policy');
+
+      const put = await fetch(`${server!.url}/api/config/delivery-policy`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: VALID_POLICY, baseHash: null }),
+      });
+      expect(put.status).toBe(200);
+      const putBody = (await put.json()) as {
+        ok: boolean;
+        result: { resolved: { process: { branch: { base: string } } } };
+      };
+      expect(putBody.ok).toBe(true);
+      expect(putBody.result.resolved.process.branch.base).toBe('develop');
+
+      const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
+      expect(audit).toContain('dashboard.config.delivery-policy.write');
+    });
+
+    it('returns 422 with field issues for a schema violation', async () => {
+      bootstrap(root);
+      await startServer();
+      const res = await fetch(`${server!.url}/api/config/delivery-policy`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          content: 'schema_version: "1"\nprocess:\n  ci:\n    gate: yolo\n',
+          baseHash: null,
+        }),
+      });
+      expect(res.status).toBe(422);
+      const body = (await res.json()) as { issues: { path: string }[] };
+      expect(body.issues.length).toBeGreaterThan(0);
+    });
+
+    it('returns 409 with the current content on a stale baseHash', async () => {
+      bootstrap(root);
+      mkdirSync(join(root, 'docs/instructions/workflows'), { recursive: true });
+      writeFileSync(join(root, 'docs/instructions/workflows/delivery-policy.yaml'), VALID_POLICY);
+      await startServer();
+
+      const res = await fetch(`${server!.url}/api/config/delivery-policy`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          content: VALID_POLICY.replace('develop', 'trunk'),
+          baseHash: 'sha256:stale',
+        }),
+      });
+      expect(res.status).toBe(409);
+      const body = (await res.json()) as { conflict: { content: string; hash: string } };
+      expect(body.conflict.content).toBe(VALID_POLICY);
+      expect(body.conflict.hash).toMatch(/^sha256:/);
+    });
+
+    it('refuses the delivery-policy PUT in read-only mode', async () => {
+      bootstrap(root);
+      await startServer({ readOnly: true });
+      const res = await fetch(`${server!.url}/api/config/delivery-policy`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: VALID_POLICY, baseHash: null }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it('lists, reads, and writes instructions files through the pipeline', async () => {
+      bootstrap(root);
+      mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
+      writeFileSync(
+        join(root, 'docs/instructions/rules/style.md'),
+        '---\ntitle: Style\n---\n# Body\n',
+      );
+      await startServer();
+
+      const tree = await fetch(`${server!.url}/api/files/instructions`);
+      expect(tree.status).toBe(200);
+      const treeBody = (await tree.json()) as { exists: boolean };
+      expect(treeBody.exists).toBe(true);
+
+      const file = await fetch(`${server!.url}/api/files/instructions/rules/style.md`);
+      expect(file.status).toBe(200);
+      const fileBody = (await file.json()) as {
+        frontmatter: Record<string, unknown>;
+        body: string;
+        hash: string;
+      };
+      expect(fileBody.frontmatter).toEqual({ title: 'Style' });
+
+      const put = await fetch(`${server!.url}/api/files/instructions/rules/style.md`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          content: '---\ntitle: Style v2\n---\n# Body v2\n',
+          baseHash: fileBody.hash,
+        }),
+      });
+      expect(put.status).toBe(200);
+      expect(readFileSync(join(root, 'docs/instructions/rules/style.md'), 'utf8')).toContain(
+        'Style v2',
+      );
+      const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
+      expect(audit).toContain('dashboard.instructions.write');
+    });
+
+    it('refuses traversal and foreign paths on the instructions endpoints with 403', async () => {
+      bootstrap(root);
+      await startServer();
+      const res = await fetch(
+        `${server!.url}/api/files/instructions/${encodeURIComponent('../../src/index.ts')}`,
+        {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ content: 'x', baseHash: null }),
+        },
+      );
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('trust endpoints', () => {
     it('serves the evidence feed with filters on GET /api/ledger/evidence', async () => {
       bootstrap(root);

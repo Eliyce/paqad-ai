@@ -2,9 +2,13 @@ import type {
   AiBomResponse,
   ApprovalsFeed,
   DashboardReport,
+  DeliveryPolicyConfigResponse,
+  DeliveryPolicyIssue,
   EvidenceFeed,
   InventoryReport,
+  PutDeliveryPolicyOutcome,
   ReceiptFeed,
+  ResolvedDeliveryPolicy,
 } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
 
@@ -54,6 +58,57 @@ export async function actOnModuleProposal(id: string, action: 'accept' | 'reject
     method: 'POST',
   });
   if (!res.ok) throw new Error(await errorMessage(res));
+}
+
+export async function fetchDeliveryPolicyConfig(): Promise<DeliveryPolicyConfigResponse> {
+  const res = await fetch('/api/config/delivery-policy');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as DeliveryPolicyConfigResponse;
+}
+
+/**
+ * PUT the delivery policy. Validation (422) and edit conflicts (409) are
+ * expected outcomes the editor renders, so they come back as values; only
+ * transport and guard failures (403, network) throw.
+ */
+export async function putDeliveryPolicy(input: {
+  content: string;
+  baseHash: string | null;
+}): Promise<PutDeliveryPolicyOutcome> {
+  const res = await fetch('/api/config/delivery-policy', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (res.ok) {
+    const body = (await res.json()) as {
+      result: { path: string; hash: string; resolved: ResolvedDeliveryPolicy };
+    };
+    return { status: 'ok', ...body.result };
+  }
+  if (res.status === 422) {
+    const body = (await res.json()) as { error?: string; issues?: DeliveryPolicyIssue[] };
+    return {
+      status: 'invalid',
+      error: body.error ?? 'The policy does not match the schema.',
+      issues: body.issues ?? [],
+    };
+  }
+  if (res.status === 409) {
+    const body = (await res.json()) as {
+      error?: string;
+      conflict?: { content: string | null; hash: string | null };
+    };
+    if (body.conflict) {
+      return {
+        status: 'conflict',
+        error: body.error ?? 'The file changed since you loaded it.',
+        conflict: body.conflict,
+      };
+    }
+    throw new Error(body.error ?? 'Request failed with status 409');
+  }
+  throw new Error(await errorMessage(res));
 }
 
 export async function fetchEvidence(filters: {

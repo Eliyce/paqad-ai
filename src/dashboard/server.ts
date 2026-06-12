@@ -17,9 +17,16 @@ import {
   rejectModuleProposal,
   resolvePauseDecision,
 } from './approvals.js';
+import {
+  DeliveryPolicyValidationError,
+  getDeliveryPolicyConfig,
+  putDeliveryPolicy,
+} from './config-delivery-policy.js';
+import { listInstructionsTree, readInstructionsFile } from './instructions-files.js';
 import { buildInventory } from './inventory.js';
 import { renderMarkdown } from './markdown.js';
 import { buildReport } from './report.js';
+import { PathNotAllowedError, WriteConflictError, writeManagedFile } from './write-pipeline.js';
 import {
   buildEvidenceFeed,
   buildPrCommentMarkdown,
@@ -330,8 +337,27 @@ export async function startDashboardServer(
       writeJson(res, req, { error: err.message }, 404);
       return;
     }
+    if (err instanceof WriteConflictError) {
+      // Spec 6.3 — the friendly merge prompt: 409 plus the current content so
+      // the client can render a side-by-side diff.
+      writeJson(
+        res,
+        req,
+        { error: err.message, conflict: { content: err.currentContent, hash: err.currentHash } },
+        409,
+      );
+      return;
+    }
     if (err instanceof ApprovalConflictError || err instanceof DecisionPacketCorruptError) {
       writeJson(res, req, { error: err.message }, 409);
+      return;
+    }
+    if (err instanceof PathNotAllowedError) {
+      writeJson(res, req, { error: err.message }, 403);
+      return;
+    }
+    if (err instanceof DeliveryPolicyValidationError) {
+      writeJson(res, req, { error: err.message, issues: err.issues }, 422);
       return;
     }
     writeJson(res, req, { error: err instanceof Error ? err.message : String(err) }, 400);
@@ -439,6 +465,56 @@ export async function startDashboardServer(
     }
     if (pathname === '/api/inventory' && req.method === 'GET') {
       writeJson(res, req, buildInventory(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/config/delivery-policy' && req.method === 'GET') {
+      writeJson(res, req, getDeliveryPolicyConfig(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/config/delivery-policy' && req.method === 'PUT') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
+        if (typeof body.content !== 'string') {
+          throw new Error('Body must include the policy `content` as a string.');
+        }
+        return putDeliveryPolicy(options.projectRoot, {
+          content: body.content,
+          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
+        });
+      });
+      return;
+    }
+    if (pathname === '/api/files/instructions' && req.method === 'GET') {
+      writeJson(res, req, listInstructionsTree(options.projectRoot));
+      return;
+    }
+    const instructionsFileMatch = /^\/api\/files\/instructions\/(.+)$/.exec(pathname);
+    if (instructionsFileMatch && req.method === 'GET') {
+      try {
+        writeJson(
+          res,
+          req,
+          readInstructionsFile(options.projectRoot, decodeURIComponent(instructionsFileMatch[1]!)),
+        );
+      } catch (err) {
+        writeMutationError(req, res, err);
+      }
+      return;
+    }
+    if (instructionsFileMatch && req.method === 'PUT') {
+      const relative = decodeURIComponent(instructionsFileMatch[1]!);
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
+        if (typeof body.content !== 'string') {
+          throw new Error('Body must include the file `content` as a string.');
+        }
+        return writeManagedFile(options.projectRoot, {
+          relativePath: `${PATHS.INSTRUCTIONS_DIR}/${relative}`,
+          content: body.content,
+          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
+          action: 'dashboard.instructions.write',
+        });
+      });
       return;
     }
     if (pathname === '/api/dashboard') {

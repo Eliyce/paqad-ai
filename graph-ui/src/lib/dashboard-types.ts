@@ -176,6 +176,117 @@ export interface InventoryReport {
   items: InventoryItem[];
 }
 
+/* Delivery policy editor — mirrors src/core/types/delivery-policy.ts and
+   src/dashboard/config-delivery-policy.ts. */
+
+export type MaintenanceMode = 'auto' | 'manual';
+
+export interface ResolvedDeliveryTicket {
+  maintained: MaintenanceMode;
+  provider: 'jira' | 'linear' | 'github-issues' | 'generic';
+  server: string;
+  require_ticket: boolean;
+  write_back_refined: 'never' | 'ask' | 'always';
+  comment_decisions: boolean;
+}
+
+export interface ResolvedDeliveryHost {
+  maintained: MaintenanceMode;
+  provider: 'github' | 'gitlab' | 'bitbucket';
+  server: string;
+}
+
+export interface ResolvedDeliveryBranch {
+  maintained: MaintenanceMode;
+  template: string;
+  type_map: Record<string, string>;
+  slug_max_length: number;
+  base: string;
+}
+
+export interface ResolvedDeliveryCommit {
+  maintained: MaintenanceMode;
+  template: string;
+  sign_off: boolean;
+}
+
+export interface ResolvedDeliveryPr {
+  maintained: MaintenanceMode;
+  title_template: string;
+  body_template_path: string;
+  base: string;
+  draft: boolean;
+  reviewers: string[];
+  labels: string[];
+  link_ticket: boolean;
+  transition_on_open: string;
+}
+
+export interface ResolvedDeliveryCi {
+  maintained: MaintenanceMode;
+  gate: 'wait_for_green' | 'warn_only' | 'off';
+  timeout_minutes: number;
+  on_red: 'stop' | 'comment_and_stop';
+  transition_on_green: string;
+}
+
+export interface ResolvedDeliveryIntakeDecisions {
+  maintained: MaintenanceMode;
+  auto_resolve_from_priors: boolean;
+  auto_resolve_from_rules: boolean;
+  confirm_auto_resolutions: 'always' | 'batched' | 'never';
+  max_options_per_packet: number;
+  fingerprint_scope: string[];
+}
+
+export interface ResolvedDeliveryProcess {
+  ticket: ResolvedDeliveryTicket;
+  host: ResolvedDeliveryHost;
+  branch: ResolvedDeliveryBranch;
+  commit: ResolvedDeliveryCommit;
+  pr: ResolvedDeliveryPr;
+  ci: ResolvedDeliveryCi;
+  intake_decisions: ResolvedDeliveryIntakeDecisions;
+}
+
+export interface ResolvedDeliveryPolicy {
+  enabled: boolean;
+  process: ResolvedDeliveryProcess;
+}
+
+export type DeliverySectionKey = keyof ResolvedDeliveryProcess;
+
+/** A dashboard-managed file plus the hash a PUT must echo back. */
+export interface ManagedFileInfo {
+  path: string;
+  exists: boolean;
+  content: string | null;
+  hash: string | null;
+}
+
+export interface DeliveryPolicyConfigResponse {
+  resolved: ResolvedDeliveryPolicy;
+  warnings: string[];
+  file: ManagedFileInfo;
+  defaultsYaml: string;
+  schema: Record<string, unknown>;
+}
+
+export interface DeliveryPolicyIssue {
+  path: string;
+  message: string;
+}
+
+/** Discriminated PUT outcome so views never parse responses ad hoc. */
+export type PutDeliveryPolicyOutcome =
+  | { status: 'ok'; path: string; hash: string; resolved: ResolvedDeliveryPolicy }
+  | { status: 'invalid'; error: string; issues: DeliveryPolicyIssue[] }
+  | {
+      status: 'conflict';
+      error: string;
+      conflict: { content: string | null; hash: string | null };
+    };
+
 export interface AiBomResponse {
   generatedAt: string;
   document: {
