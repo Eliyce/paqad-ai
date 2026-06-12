@@ -27,10 +27,7 @@ Never start accepting work before the ready phase is complete.
 
 ## Environment Variable Management
 
-- Validate all required environment variables at startup. Fail fast with a clear error message listing missing variables — do not let the service start in a broken state.
-- Use a typed configuration module (e.g., `zod`, `envalid`, or a hand-written validator) that maps `process.env` to a typed config object.
-- Document every environment variable in a `.env.example` file committed to the repository.
-- Never default to production values — default to safe local-development values.
+- Map `process.env` to a typed config object via `zod`, `envalid`, or a hand-written validator, and import that config module everywhere instead of reading `process.env` inline.
 
 ## Logging
 

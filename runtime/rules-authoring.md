@@ -34,6 +34,12 @@ A rule is a **constraint on the code or artifact**, phrased as a how-to, that:
 - **Not a restatement of `module-map.yml`.** Module ownership and boundaries are
   defined per-project in `docs/instructions/rules/module-map.yml`. Stack rules
   must point to it, not re-describe generic "keep modules cohesive" advice.
+- **Not a restatement of an always-on rule.** The base, capability-level, and
+  `_shared` rules ship to every project alongside the stack rules. A stack rule
+  may _sharpen_ one with stack-specific detail (name the library, the file, the
+  API), but must not near-verbatim repeat it — the consumer would read the same
+  guidance twice. The guard flags a stack bullet that overlaps an always-on
+  bullet too closely.
 
 ## Format
 
