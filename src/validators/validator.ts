@@ -2,6 +2,7 @@ import Ajv, { type ErrorObject } from 'ajv';
 
 import adversarialReviewReportSchema from './schemas/adversarial-review-report.schema.json';
 import apiEndpointDocSchema from './schemas/api-endpoint-doc.schema.json';
+import compliancePackSchema from './schemas/compliance-pack.schema.json';
 import contextHitLogSchema from './schemas/context-hit-log.schema.json';
 import deliveryPolicySchema from './schemas/delivery-policy.schema.json';
 import detectionReportSchema from './schemas/detection-report.schema.json';
@@ -53,6 +54,7 @@ const SCHEMAS = [
   skillFrontmatterSchema,
   gateResultSchema,
   stackPackSchema,
+  compliancePackSchema,
   testOutputResultSchema,
 ];
 
