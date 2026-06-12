@@ -1,5 +1,13 @@
 # paqad-ai
 
+## 1.15.0
+
+### Minor Changes
+
+- [#140](https://github.com/Eliyce/paqad-ai/pull/140) [`a4a3c6d`](https://github.com/Eliyce/paqad-ai/commit/a4a3c6d7d2a31a1366618fe53ae7b846da03626c) Thanks [@HLasani](https://github.com/HLasani)! - Become the neutral, cross-agent attestation authority (issue [#120](https://github.com/Eliyce/paqad-ai/issues/120)).
+
+  The [#118](https://github.com/Eliyce/paqad-ai/issues/118) receipt now records change authorship: which onboarded adapter wrote the change (a known fact), the declared model/provider (env-supplied, graded `provenance: 'declared'` so a routed model is never mistaken for a verified one), and the human who accepted it (git identity, suppressible via `PAQAD_NO_HUMAN_ATTESTATION`). Because paqad's trust signal is gate-derived, the attestation vouches for the change regardless of which AI tool produced it. Field names mirror the cross-vendor `agent-trace` convention (`model_id` = `provider/model`) so the record interoperates with that ecosystem rather than competing with it. Authorship is folded into the signed VSA predicate, flattened into `paqad:authorship:*` AI-BOM properties, rendered as a one-line PR-comment footer, and summarised in the dashboard's new Attestation section. When no authorship resolves the field is omitted entirely, so prior receipts stay byte-identical.
+
 ## 1.14.0
 
 ### Minor Changes
