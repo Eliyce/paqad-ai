@@ -151,8 +151,9 @@ function ReceiptCardView({
           style={{ color: 'var(--color-muted)' }}
           title="Proves the context the agent saw is replayable from these exact inputs. It does not claim the model would regenerate the same output."
         >
-          Replayable from frozen context: <code>{shortHash(receipt.reproducibility.context_hash)}</code>{' '}
-          ({receipt.reproducibility.determinism})
+          Replayable from frozen context:{' '}
+          <code>{shortHash(receipt.reproducibility.context_hash)}</code> (
+          {receipt.reproducibility.determinism})
         </div>
       )}
       {receipt.compliance.length > 0 && <ComplianceChips citations={receipt.compliance} />}

@@ -88,7 +88,9 @@ export function readReproducibilityPredicate(
 export function buildReproducibilityStamp(
   contextHash: string,
   timestamp: string,
-  output: Partial<Pick<ReproducibilityStamp, 'model_id' | 'provider' | 'sampling_params' | 'output_hash'>> = {},
+  output: Partial<
+    Pick<ReproducibilityStamp, 'model_id' | 'provider' | 'sampling_params' | 'output_hash'>
+  > = {},
 ): ReproducibilityStamp {
   return {
     context_hash: contextHash,

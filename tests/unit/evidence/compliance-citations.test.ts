@@ -1,5 +1,8 @@
 import { resolveComplianceCitations } from '@/evidence/compliance/citations.js';
-import { EVIDENCE_LEDGER_SCHEMA_VERSION, type EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
+import {
+  EVIDENCE_LEDGER_SCHEMA_VERSION,
+  type EvidenceLedgerRow,
+} from '@/core/types/evidence-ledger.js';
 import type { LoadedCompliancePack } from '@/core/types/pack.js';
 
 function gateRow(code: string, verdict: EvidenceLedgerRow['verdict']): EvidenceLedgerRow {
@@ -15,9 +18,19 @@ function gateRow(code: string, verdict: EvidenceLedgerRow['verdict']): EvidenceL
   };
 }
 
-function pack(name: string, framework: { id: string; title: string }, mappings: LoadedCompliancePack['manifest']['mappings']): LoadedCompliancePack {
+function pack(
+  name: string,
+  framework: { id: string; title: string },
+  mappings: LoadedCompliancePack['manifest']['mappings'],
+): LoadedCompliancePack {
   return {
-    manifest: { kind: 'compliance-pack', name, framework, disclaimer: 'evidence toward only', mappings },
+    manifest: {
+      kind: 'compliance-pack',
+      name,
+      framework,
+      disclaimer: 'evidence toward only',
+      mappings,
+    },
     root: '/x',
     manifestPath: '/x/compliance-pack.yaml',
     source: 'built-in',
@@ -41,14 +54,20 @@ describe('resolveComplianceCitations', () => {
     const rows = [gateRow('behavioral-correctness', 'pass'), gateRow('mutation-testing', 'pass')];
     const citations = resolveComplianceCitations({ projectRoot: '/x', rows, packs: [ART15] });
     expect(citations).toHaveLength(2);
-    expect(citations.map((c) => c.gate).sort()).toEqual(['behavioral-correctness', 'mutation-testing']);
+    expect(citations.map((c) => c.gate).sort()).toEqual([
+      'behavioral-correctness',
+      'mutation-testing',
+    ]);
     expect(citations[0]?.clause_id).toBe('Art.15');
     expect(citations[0]?.evidence_strength).toBe('partial');
     expect(citations[0]?.disclaimer).toContain('evidence toward');
   });
 
   it('does not cite when a required gate is inconclusive or blocked', () => {
-    const rows = [gateRow('behavioral-correctness', 'pass'), gateRow('mutation-testing', 'inconclusive')];
+    const rows = [
+      gateRow('behavioral-correctness', 'pass'),
+      gateRow('mutation-testing', 'inconclusive'),
+    ];
     const citations = resolveComplianceCitations({ projectRoot: '/x', rows, packs: [ART15] });
     expect(citations).toHaveLength(0);
   });
@@ -62,7 +81,9 @@ describe('resolveComplianceCitations', () => {
     const nist = pack('nist-ssdf', { id: 'nist-ssdf', title: 'NIST SSDF' }, [
       {
         clause: { id: 'PW.7', title: 'Review code' },
-        satisfied_by: [{ type: 'gate', ref: 'behavioral-correctness', relation: 'intersects-with' }],
+        satisfied_by: [
+          { type: 'gate', ref: 'behavioral-correctness', relation: 'intersects-with' },
+        ],
         evidence_strength: 'partial',
       },
     ]);

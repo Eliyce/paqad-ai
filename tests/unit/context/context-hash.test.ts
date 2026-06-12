@@ -44,14 +44,15 @@ describe('computeContextHash', () => {
   it('flips when any material changes', () => {
     const original = computeContextHash(base());
     expect(computeContextHash({ ...base(), budgetTokens: 9000 })).not.toBe(original);
-    expect(
-      computeContextHash({ ...base(), summarizerMode: 'optimizer' }),
-    ).not.toBe(original);
+    expect(computeContextHash({ ...base(), summarizerMode: 'optimizer' })).not.toBe(original);
     expect(computeContextHash({ ...base(), truncated: true })).not.toBe(original);
     expect(
       computeContextHash({
         ...base(),
-        lineage: [...lineage, { id: 'c', role: 'user', content: 'more', createdAt: '2026-01-01T00:00:02Z' }],
+        lineage: [
+          ...lineage,
+          { id: 'c', role: 'user', content: 'more', createdAt: '2026-01-01T00:00:02Z' },
+        ],
       }),
     ).not.toBe(original);
   });

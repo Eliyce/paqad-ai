@@ -43,7 +43,10 @@ describe('reproducibility stamp', () => {
   });
 
   it('projects an input-replay predicate from a stamp', () => {
-    recordReproducibilityStamp(root, buildReproducibilityStamp('abc123', '2026-06-12T00:00:00.000Z'));
+    recordReproducibilityStamp(
+      root,
+      buildReproducibilityStamp('abc123', '2026-06-12T00:00:00.000Z'),
+    );
     const predicate = readReproducibilityPredicate(root);
     expect(predicate).toEqual({
       context_hash: 'abc123',

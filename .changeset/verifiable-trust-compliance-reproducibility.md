@@ -12,7 +12,7 @@ own registered schema, `kind` discriminator, OSCAL relation vocabulary,
 `evidence_strength` that rejects `full`) maps verification gates to legal-
 framework clauses. At verification time, a clause is cited only when every gate
 it depends on **passed** (never inconclusive/blocked), so a green gate can cite
-which EU AI Act / NIST / ISO clause it produces *evidence toward* — never a
+which EU AI Act / NIST / ISO clause it produces _evidence toward_ — never a
 claim of compliance. Ships an honest built-in EU AI Act pack and surfaces clause
 chips + the pack's disclaimer on the receipt, the Trust dashboard, and the PR
 comment. Project packs override built-ins via the usual precedence.

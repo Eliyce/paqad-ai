@@ -5,14 +5,13 @@ description: >
   clauses of the EU AI Act (Regulation (EU) 2024/1689). Built-in starter pack —
   override or extend it with a project pack under .paqad/compliance-packs/.
 maintainer: paqad-ai
-
 framework:
   id: eu-ai-act
   title: Regulation (EU) 2024/1689 (EU AI Act)
   authority_url: https://artificialintelligenceact.eu/
   # High-risk obligations apply from 2 Dec 2027 (Annex III) / 2 Aug 2028
   # (Annex I) after the 2026 Digital Omnibus deferral.
-  version: "2024/1689"
+  version: '2024/1689'
 
 disclaimer: >
   paqad produces technical evidence toward the cited clause. It does NOT

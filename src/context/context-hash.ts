@@ -56,7 +56,9 @@ function canonicalize(value: unknown): string {
   }
   const entries = Object.keys(value as Record<string, unknown>)
     .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalize((value as Record<string, unknown>)[key])}`);
+    .map(
+      (key) => `${JSON.stringify(key)}:${canonicalize((value as Record<string, unknown>)[key])}`,
+    );
   return `{${entries.join(',')}}`;
 }
 

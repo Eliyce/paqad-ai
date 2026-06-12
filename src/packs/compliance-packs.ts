@@ -54,18 +54,12 @@ export function resolveCompliancePackRoots(
   options: CompliancePackLoaderOptions = {},
 ): Record<PackInstallSource, string | null> {
   return {
-    'built-in': join(
-      options.runtimeRoot ?? getRuntimeRoot(),
-      'capabilities',
-      'compliance',
-    ),
+    'built-in': join(options.runtimeRoot ?? getRuntimeRoot(), 'capabilities', 'compliance'),
     global:
       options.globalPacksRoot ??
       process.env.PAQAD_GLOBAL_COMPLIANCE_PACKS_ROOT ??
       join(homedir(), '.paqad', 'compliance-packs'),
-    project: options.projectRoot
-      ? join(options.projectRoot, '.paqad', 'compliance-packs')
-      : null,
+    project: options.projectRoot ? join(options.projectRoot, '.paqad', 'compliance-packs') : null,
   };
 }
 
@@ -153,7 +147,10 @@ export class CompliancePackLoader {
           if (signal.type === 'gate' && !GATE_NAMES.has(signal.ref)) {
             issues.push({ level: 'error', path: at, message: `unknown gate '${signal.ref}'` });
           }
-          if (signal.type === 'obligation_category' && !KNOWN_OBLIGATION_CATEGORIES.has(signal.ref)) {
+          if (
+            signal.type === 'obligation_category' &&
+            !KNOWN_OBLIGATION_CATEGORIES.has(signal.ref)
+          ) {
             issues.push({
               level: 'error',
               path: at,
@@ -179,7 +176,13 @@ function invalid(
   issues: PackValidationIssue[],
 ): LoadedCompliancePack {
   return {
-    manifest: { kind: 'compliance-pack', name: '', framework: { id: '', title: '' }, disclaimer: '', mappings: [] },
+    manifest: {
+      kind: 'compliance-pack',
+      name: '',
+      framework: { id: '', title: '' },
+      disclaimer: '',
+      mappings: [],
+    },
     root,
     manifestPath,
     source,
