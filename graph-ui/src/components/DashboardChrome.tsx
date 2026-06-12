@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { fetchApprovals } from '../lib/api';
 import { useHashRoute, type Route } from '../lib/router';
 import { getThemeMode, setThemeMode } from '../lib/theme';
 
@@ -17,6 +18,23 @@ interface Props {
 export function DashboardChrome({ projectName, frameworkVersion, sseLive }: Props) {
   const { route, navigate } = useHashRoute();
   const [mode, setMode] = useState(() => getThemeMode());
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  // Live badge on the Approvals tab. Re-counts whenever the .paqad/ stream
+  // fires, quiet (no badge) at zero.
+  useEffect(() => {
+    const refresh = (): void => {
+      fetchApprovals()
+        .then((feed) => setPendingCount(feed.pendingCount))
+        .catch(() => setPendingCount(null));
+    };
+    refresh();
+    const source = new EventSource('/api/events');
+    source.addEventListener('dashboard-updated', refresh);
+    return () => {
+      source.close();
+    };
+  }, []);
 
   const cycleTheme = (): void => {
     const next = mode === 'light' ? 'dark' : mode === 'dark' ? 'auto' : 'light';
@@ -24,7 +42,7 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive }: Prop
     setThemeMode(next);
   };
 
-  const navItem = (target: Route, label: string): React.ReactNode => (
+  const navItem = (target: Route, label: string, badge?: number | null): React.ReactNode => (
     <button
       type="button"
       className="rounded px-2 py-1 text-xs"
@@ -37,6 +55,14 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive }: Prop
       onClick={() => navigate(target)}
     >
       {label}
+      {typeof badge === 'number' && badge > 0 && (
+        <span
+          className="ml-1.5 inline-block rounded-full px-1.5 text-[10px] font-semibold"
+          style={{ background: 'var(--color-accent)', color: 'var(--color-canvas)' }}
+        >
+          {badge}
+        </span>
+      )}
     </button>
   );
 
@@ -58,6 +84,8 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive }: Prop
       <div className="flex items-center gap-3">
         <nav className="flex gap-1">
           {navItem('dashboard', 'Dashboard')}
+          {navItem('approvals', 'Approvals', pendingCount)}
+          {navItem('trust', 'Trust')}
           {navItem('graph', 'Graph')}
         </nav>
         <button

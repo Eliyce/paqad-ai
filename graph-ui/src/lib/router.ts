@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
  * — the new entry point. `paqad-ai graph` opens the SPA at /#/graph so
  * its muscle-memory shortcut keeps working.
  */
-export type Route = 'dashboard' | 'graph';
+export type Route = 'dashboard' | 'graph' | 'approvals' | 'trust';
 
-const ROUTES: ReadonlySet<Route> = new Set<Route>(['dashboard', 'graph']);
+const ROUTES: ReadonlySet<Route> = new Set<Route>(['dashboard', 'graph', 'approvals', 'trust']);
 
 function parseHash(hash: string): Route {
   // Strip leading '#' and any leading '/'.
