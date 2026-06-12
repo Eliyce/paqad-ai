@@ -14,6 +14,7 @@ interface DashboardCommandOptions {
   open: boolean;
   watch: boolean;
   quiet: boolean;
+  readOnly: boolean;
   projectRoot: string;
   staticDir?: string;
 }
@@ -45,6 +46,7 @@ export function createDashboardCommand(): Command {
     .option('--no-open', 'Do not open the browser automatically')
     .option('--no-watch', 'Disable live reload on .paqad/ changes')
     .option('--quiet', 'Suppress non-essential stdout', false)
+    .option('--read-only', 'Disable every mutation endpoint (for shared or CI usage)', false)
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--static-dir <path>', 'Override the bundled frontend directory')
     .action(async (options: DashboardCommandOptions) => {
@@ -79,6 +81,7 @@ export function createDashboardCommand(): Command {
         port,
         staticDir,
         watch: options.watch,
+        readOnly: options.readOnly,
       });
 
       const dashboardUrl = `${server.url}/#/dashboard`;
