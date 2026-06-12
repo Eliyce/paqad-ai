@@ -1,0 +1,22 @@
+{
+  "id": "D-2",
+  "category": "architecture-path",
+  "title": "Silent global auto-update enforcement policy",
+  "context": "silent-update.sh currently (a) is never wired into SessionStart, and (b) only runs `npx paqad-ai@latest update` which regenerates project artifacts but never upgrades the installed global CLI. Fix wires it as a SessionStart hook and makes it run `npm install -g paqad-ai@latest`. Open questions: how strictly to enforce the 'only last two minor versions allowed' rule, and blocking vs background.",
+  "options": [
+    {
+      "option_key": "block-when-stale",
+      "summary": "Background-update within window; BLOCK session start until global reinstall finishes when >2 minors behind"
+    },
+    {
+      "option_key": "always-background",
+      "summary": "Always spawn the global reinstall in the background; never block"
+    }
+  ],
+  "chosen": {
+    "enforcement": "always-background",
+    "window": "minor-within-same-major"
+  },
+  "rationale": "Never block session start; always spawn npm install -g in background. Allowed window = latest minor and prior minor within same major; older minor or older major is out-of-window (logged as forced).",
+  "resolved_at": "2026-06-12T07:00:40.362Z"
+}

@@ -1,12 +1,29 @@
 #!/bin/bash
-# silent-update.sh — version check and background update hook
-# Called at the start of every agent session. Always exits 0.
-# Never blocks, prompts, or produces visible output to the user.
+# silent-update.sh — SessionStart version-check + forced background self-update.
+#
+# Keeps the globally-installed paqad-ai CLI current by running
+#   npm install -g paqad-ai@latest
+# in the background whenever a newer version exists. Never blocks, never
+# prompts, never produces visible output to the user. Always exits 0.
+#
+# Update policy (resolved decision D-2):
+#   - The "allowed" window is the latest minor and the one before it, within
+#     the SAME major (e.g. latest 1.15.x => 1.15.x and 1.14.x are allowed).
+#   - ANY newer version triggers a background `npm install -g paqad-ai@latest`
+#     followed by `paqad-ai update --silent` to resync project artifacts.
+#   - Being out-of-window (a minor older than the 2-minor band, or any older
+#     major) is recorded as a FORCED update in the audit log so the gap is
+#     visible. The action is identical (always background, never blocking) but
+#     classified so we can see who has fallen too far behind.
+#
+# Project root is resolved from the host-provided env vars (CLAUDE_PROJECT_DIR /
+# PAQAD_PROJECT_ROOT), falling back to the current working directory. This lets
+# the single global copy under ~/.paqad-ai/current/hooks/ operate on whichever
+# project the session is in — it does NOT derive the root from its own location.
 set +e
 trap 'exit 0' ERR EXIT
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-${PAQAD_PROJECT_ROOT:-$(pwd)}}"
 VERSION_FILE="$PROJECT_ROOT/.paqad/framework-version.txt"
 PROFILE_FILE="$PROJECT_ROOT/.paqad/project-profile.yaml"
 LOCKFILE="$PROJECT_ROOT/.paqad/locks/update.lock"
@@ -69,47 +86,88 @@ except:
   fi
 fi
 
-# ── Step 3: Fetch latest version from npm (5s timeout) ───────────────────────
+# ── Step 3: Fetch latest version from npm (5s timeout when available) ─────────
+# `timeout` ships with GNU coreutils (Linux/CI) but not stock macOS, so fall
+# back to `gtimeout` and finally a bare `npm` call. Without this fallback the
+# version check silently no-ops on every macOS machine.
 if ! command -v npm &>/dev/null; then
   exit 0
 fi
-LATEST_VERSION=$(timeout 5 npm view paqad-ai version 2>/dev/null || true)
+if command -v timeout &>/dev/null; then
+  LATEST_VERSION=$(timeout 5 npm view paqad-ai version 2>/dev/null || true)
+elif command -v gtimeout &>/dev/null; then
+  LATEST_VERSION=$(gtimeout 5 npm view paqad-ai version 2>/dev/null || true)
+else
+  LATEST_VERSION=$(npm view paqad-ai version 2>/dev/null || true)
+fi
 [ -z "$LATEST_VERSION" ] && exit 0
 
-# ── Step 4: Compare versions ─────────────────────────────────────────────────
+# ── Step 4: Classify against the two-minor policy ────────────────────────────
+# Prints one of: "current" | "routine" | "forced".
+#   current  — already on (or ahead of) latest; nothing to do.
+#   routine  — behind, but inside the allowed 2-minor window of latest.
+#   forced   — out-of-window: older minor beyond the band, or an older major.
 if ! command -v node &>/dev/null; then
   exit 0
 fi
-node -e "
+DECISION=$(node -e "
 const cur = '$CURRENT_VERSION'.split('.').map(Number);
 const lat = '$LATEST_VERSION'.split('.').map(Number);
-for (let i = 0; i < 3; i++) {
-  if ((cur[i]||0) < (lat[i]||0)) process.exit(1);
-  if ((cur[i]||0) > (lat[i]||0)) process.exit(0);
-}
-process.exit(0);
-" 2>/dev/null
-COMPARE_EXIT=$?
+const cmaj = cur[0]||0, cmin = cur[1]||0, cpatch = cur[2]||0;
+const lmaj = lat[0]||0, lmin = lat[1]||0, lpatch = lat[2]||0;
+const behind =
+  cmaj < lmaj ||
+  (cmaj === lmaj && cmin < lmin) ||
+  (cmaj === lmaj && cmin === lmin && cpatch < lpatch);
+if (!behind) { console.log('current'); process.exit(0); }
+// Allowed window: same major AND within the last two minors (>= latest minor - 1).
+const inWindow = cmaj === lmaj && cmin >= lmin - 1;
+console.log(inWindow ? 'routine' : 'forced');
+" 2>/dev/null)
+[ -z "$DECISION" ] && exit 0
 
-if [ "$COMPARE_EXIT" -ne 1 ]; then
-  # Already up to date — touch updated_at so the interval window resets
-  NOW_ISO=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))" 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)
+NOW_ISO=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))" 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)
+
+if [ "$DECISION" = "current" ]; then
+  # Already up to date — touch updated_at so the interval window resets.
   if [ -n "$NOW_ISO" ]; then
     sed -i.bak "s/^updated_at=.*/updated_at=$NOW_ISO/" "$VERSION_FILE" 2>/dev/null && rm -f "${VERSION_FILE}.bak" 2>/dev/null
   fi
   exit 0
 fi
 
-# ── Step 5: Acquire lockfile and spawn background update ─────────────────────
+# ── Step 5: Acquire lock and spawn background global self-update ──────────────
 mkdir -p "$PROJECT_ROOT/.paqad/locks" 2>/dev/null || true
 mkdir -p "$LOGS_DIR" 2>/dev/null || true
 
-# Try lockfile — skip silently if another update is running
-exec 200>"$LOCKFILE" 2>/dev/null || exit 0
-flock -n 200 2>/dev/null || exit 0
+# Single-flight lock. `flock` is GNU-only (Linux/CI) and absent on stock macOS,
+# so fall back to a portable atomic-mkdir lock. Skip silently if another update
+# is already running; reap a lock left behind by a killed run after 60 min.
+if command -v flock &>/dev/null; then
+  exec 200>"$LOCKFILE" 2>/dev/null || exit 0
+  flock -n 200 2>/dev/null || exit 0
+else
+  LOCKDIR="$LOCKFILE.d"
+  if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    if [ -d "$LOCKDIR" ] && find "$LOCKDIR" -maxdepth 0 -mmin +60 2>/dev/null | grep -q .; then
+      rmdir "$LOCKDIR" 2>/dev/null || true
+      mkdir "$LOCKDIR" 2>/dev/null || exit 0
+    else
+      exit 0
+    fi
+  fi
+  trap 'rmdir "$LOCKDIR" 2>/dev/null; exit 0' EXIT
+fi
 
-nohup npx paqad-ai@latest update --silent \
-  >"$LOGS_DIR/auto-update.log" 2>&1 &
+# Record intent synchronously (before detaching) so the audit log captures the
+# classification even if the background install is slow or fails.
+echo "[${NOW_ISO:-unknown}] INFO silent-update $DECISION self-update $CURRENT_VERSION -> $LATEST_VERSION (npm install -g paqad-ai@latest)" \
+  >> "$LOGS_DIR/auto-update.log" 2>/dev/null || true
+
+# Force the actual global upgrade, then resync project artifacts with the new
+# CLI. Background + disown so session start is never blocked (decision D-2).
+nohup sh -c 'npm install -g paqad-ai@latest && paqad-ai update --silent' \
+  >>"$LOGS_DIR/auto-update.log" 2>&1 &
 disown 2>/dev/null || true
 
 exit 0

@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -38,6 +39,32 @@ function writeFakeNpm(dir: string): void {
   const fakePath = join(dir, 'npm');
   writeFileSync(fakePath, '#!/bin/sh\nexit 0\n');
   chmodSync(fakePath, 0o755);
+}
+
+/**
+ * Create a fake `npm` that prints `version` for `npm view` and exits 0 for
+ * everything else (so the backgrounded `npm install -g` is a harmless no-op).
+ */
+function writeFakeNpmVersion(dir: string, version: string): void {
+  const fakePath = join(dir, 'npm');
+  writeFileSync(fakePath, `#!/bin/sh\nif [ "$1" = "view" ]; then echo ${version}; fi\nexit 0\n`);
+  chmodSync(fakePath, 0o755);
+}
+
+const STALE = '2020-01-01T00:00:00Z';
+
+async function runHook(root: string, fakeBinDir: string) {
+  return execa('bash', [SCRIPT], {
+    reject: false,
+    cwd: root,
+    env: { ...process.env, PATH: `${fakeBinDir}:${process.env.PATH}`, CLAUDE_PROJECT_DIR: root },
+    timeout: 10000,
+  });
+}
+
+function readAuditLog(root: string): string {
+  const path = join(root, '.paqad', 'logs', 'auto-update.log');
+  return existsSync(path) ? readFileSync(path, 'utf8') : '';
 }
 
 describe('silent-update.sh', () => {
@@ -145,6 +172,77 @@ describe('silent-update.sh', () => {
       rmSync(root, { recursive: true, force: true });
     }
   }, 15000);
+
+  it('logs a routine self-update when behind but inside the 2-minor window', async () => {
+    const root = makeRoot();
+    try {
+      // Current 1.14.0, latest 1.15.0 — same major, within the last two minors.
+      writeVersionFile(root, '1.14.0', STALE);
+      const fakeBinDir = join(root, 'fakebin');
+      mkdirSync(fakeBinDir, { recursive: true });
+      writeFakeNpmVersion(fakeBinDir, '1.15.0');
+
+      const result = await runHook(root, fakeBinDir);
+      expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toMatch(/routine self-update 1\.14\.0 -> 1\.15\.0/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('logs a forced self-update when more than two minors behind', async () => {
+    const root = makeRoot();
+    try {
+      // Current 1.6.0, latest 1.15.0 — same major but far outside the window.
+      writeVersionFile(root, '1.6.0', STALE);
+      const fakeBinDir = join(root, 'fakebin');
+      mkdirSync(fakeBinDir, { recursive: true });
+      writeFakeNpmVersion(fakeBinDir, '1.15.0');
+
+      const result = await runHook(root, fakeBinDir);
+      expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toMatch(/forced self-update 1\.6\.0 -> 1\.15\.0/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('logs a forced self-update when an older major is installed', async () => {
+    const root = makeRoot();
+    try {
+      // Current 1.99.0, latest 2.0.0 — older major is always out-of-window.
+      writeVersionFile(root, '1.99.0', STALE);
+      const fakeBinDir = join(root, 'fakebin');
+      mkdirSync(fakeBinDir, { recursive: true });
+      writeFakeNpmVersion(fakeBinDir, '2.0.0');
+
+      const result = await runHook(root, fakeBinDir);
+      expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toMatch(/forced self-update 1\.99\.0 -> 2\.0\.0/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not spawn an update when already on the latest version', async () => {
+    const root = makeRoot();
+    try {
+      writeVersionFile(root, '1.15.0', STALE);
+      const fakeBinDir = join(root, 'fakebin');
+      mkdirSync(fakeBinDir, { recursive: true });
+      writeFakeNpmVersion(fakeBinDir, '1.15.0');
+
+      const result = await runHook(root, fakeBinDir);
+      expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toBe('');
+      // updated_at is refreshed away from the stale sentinel value.
+      expect(readFileSync(join(root, '.paqad', 'framework-version.txt'), 'utf8')).not.toContain(
+        STALE,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 
   it.skipIf(process.platform === 'win32')('script file exists and is executable', () => {
     // Windows doesn't expose the POSIX +x bit via stat.mode. The hook is

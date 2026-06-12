@@ -8,6 +8,10 @@ import { PAQAD_LIVE_HOOKS } from '../shared/paqad-hooks.js';
 const AGENT_ENTRY_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-gate.sh';
 const AGENT_ENTRY_PROMPT_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-prompt-gate.sh';
 const AGENT_ENTRY_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-session-start.sh';
+// Background, non-blocking forced self-update on every session start. Resolves
+// the project root from CLAUDE_PROJECT_DIR/pwd, so the single global copy under
+// ~/.paqad-ai/current operates on whichever project the session is in.
+const SILENT_UPDATE_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/silent-update.sh';
 
 export class ClaudeCodeAdapter extends BaseAdapter {
   readonly type = 'claude-code' as const;
@@ -110,6 +114,9 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
     SessionStart: mergeHookList(hooks.SessionStart, [
       {
         hooks: [{ type: 'command', command: AGENT_ENTRY_SESSION_START_SCRIPT }],
+      },
+      {
+        hooks: [{ type: 'command', command: SILENT_UPDATE_SESSION_START_SCRIPT }],
       },
     ]),
     Stop: mergeHookList(hooks.Stop, completion),

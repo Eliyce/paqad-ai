@@ -40,6 +40,12 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
       'agent-entry-prompt-gate.sh',
     );
     expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain('agent-entry-session-start.sh');
+    // The background forced-self-update hook (decision D-2) must be wired into
+    // SessionStart, otherwise the installed CLI never auto-updates.
+    const sessionStartCommands = parsed.hooks.SessionStart.flatMap((entry) =>
+      entry.hooks.map((hook) => hook.command),
+    );
+    expect(sessionStartCommands.some((command) => command.includes('silent-update.sh'))).toBe(true);
     // Issue #117 (C-5) — the decision-pause gate and the verification completion
     // hook are generated from the single hook-spec definition.
     const preToolCommands = parsed.hooks.PreToolUse.flatMap((entry) =>
@@ -94,7 +100,8 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
       'agent-entry-prompt-gate.sh',
     );
-    expect(parsed.hooks.SessionStart).toHaveLength(1);
+    // agent-entry session-start + background self-update (decision D-2).
+    expect(parsed.hooks.SessionStart).toHaveLength(2);
   });
 
   it('is idempotent — re-running does not duplicate the gate entries', async () => {
@@ -128,7 +135,8 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     // agent-entry gate + decision-pause gate, no duplicates after re-run.
     expect(parsed.hooks.PreToolUse).toHaveLength(2);
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
-    expect(parsed.hooks.SessionStart).toHaveLength(1);
+    // agent-entry session-start + background self-update, no duplicates.
+    expect(parsed.hooks.SessionStart).toHaveLength(2);
     expect(parsed.hooks.Stop).toHaveLength(1);
   });
 });
