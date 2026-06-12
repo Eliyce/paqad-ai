@@ -124,8 +124,30 @@ export interface ReceiptCard {
     accepting_human?: { name?: string; email?: string };
     provenance: 'declared' | 'unknown';
   } | null;
+  // Issue #122 — which legal clauses the passing gates produce evidence toward.
+  compliance: ComplianceCitation[];
+  // Issue #123 — the frozen-context reproducibility stamp, or null when absent.
+  reproducibility: {
+    context_hash: string;
+    determinism: 'input-replay';
+    algo_version: number;
+    replayable: boolean;
+  } | null;
   checks: ReceiptCheck[];
   subjects: { name: string; digest: string }[];
+}
+
+export interface ComplianceCitation {
+  framework_id: string;
+  framework_title: string;
+  framework_version?: string;
+  clause_id: string;
+  clause_title: string;
+  clause_url?: string;
+  gate: string;
+  relation: string;
+  evidence_strength: 'partial' | 'substantial';
+  disclaimer: string;
 }
 
 export interface ReceiptFeed {

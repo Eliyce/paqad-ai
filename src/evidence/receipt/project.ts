@@ -78,6 +78,22 @@ export function latestReceiptAuthorship(projectRoot: string): ChangeAuthorship |
   return statement?.predicate.change_authorship ?? null;
 }
 
+/** Issue #122/#123 — the compliance citations and reproducibility stamp attested
+ *  by the most recent receipt. The single source every surface reads, so the PR
+ *  comment and dashboard always agree with the signed record. */
+export function latestReceiptTrustExtras(projectRoot: string): {
+  compliance: ComplianceCitation[];
+  reproducibility: ReproducibilityStampPredicate | null;
+} {
+  const chain = readReceiptChain(projectRoot);
+  if (chain.length === 0) return { compliance: [], reproducibility: null };
+  const statement = decodeReceiptStatement(chain[chain.length - 1]);
+  return {
+    compliance: statement?.predicate.compliance_citations ?? [],
+    reproducibility: statement?.predicate.reproducibility ?? null,
+  };
+}
+
 async function atomicWriteJson(targetPath: string, value: unknown): Promise<void> {
   await mkdir(dirname(targetPath), { recursive: true });
   const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
