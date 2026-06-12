@@ -15,6 +15,16 @@ export interface RunningWatcher {
   close: () => void;
 }
 
+// Append-only logs that report builds and dashboard mutations write as side
+// effects. Reacting to them would loop: build → append → event → build again.
+const IGNORED_APPEND_ONLY = ['audit.log', 'logs'];
+
+function isAppendOnlyLog(filename: string | Buffer | null): boolean {
+  if (!filename) return false;
+  const posix = String(filename).replace(/\\/g, '/');
+  return IGNORED_APPEND_ONLY.some((entry) => posix === entry || posix.startsWith(`${entry}/`));
+}
+
 /**
  * Watches the project's .paqad/ directory for any change (any depth) and
  * fires `onChange` after `debounceMs` of quiet. Multiple rapid changes
@@ -45,7 +55,10 @@ export function startPaqadWatcher(options: WatcherOptions): RunningWatcher {
 
   let watcher: FSWatcher | null = null;
   try {
-    watcher = watch(watchPath, { recursive: true }, () => onAny());
+    watcher = watch(watchPath, { recursive: true }, (_event, filename) => {
+      if (isAppendOnlyLog(filename)) return;
+      onAny();
+    });
     watcher.on('error', () => {
       // recursive watch can fail on unusual filesystems — degrade silently
     });
