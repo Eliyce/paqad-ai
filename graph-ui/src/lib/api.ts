@@ -1,14 +1,34 @@
 import type {
   AiBomResponse,
   ApprovalsFeed,
+  DashboardPack,
   DashboardReport,
   DeliveryPolicyConfigResponse,
   DeliveryPolicyIssue,
+  DesignTokensConfigResponse,
   EvidenceFeed,
+  InstallPackResult,
+  InstructionsFileResponse,
+  InstructionsTreeResponse,
   InventoryReport,
+  ManagedFileInfo,
+  ModuleMapConfigResponse,
+  MutationOutcome,
+  OpsAction,
+  OpsJob,
+  ProfileConfigResponse,
   PutDeliveryPolicyOutcome,
+  PutDesignTokensResult,
+  PutManagedFileResult,
+  PutModuleMapResult,
+  PutProfileResult,
+  PutRagResult,
+  RagConfigResponse,
   ReceiptFeed,
+  RemovePackResult,
   ResolvedDeliveryPolicy,
+  SetCapabilityResult,
+  ValidationIssue,
 } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
 
@@ -109,6 +129,201 @@ export async function putDeliveryPolicy(input: {
     throw new Error(body.error ?? 'Request failed with status 409');
   }
   throw new Error(await errorMessage(res));
+}
+
+/**
+ * Shared mutation transport for the issue #146 editors. Validation (422)
+ * and edit conflicts (409 with a `conflict` body) are expected outcomes the
+ * editors render, so they come back as values; everything else (403
+ * read-only, guard refusals, network) throws with the server's sentence.
+ */
+async function mutate<T>(url: string, method: 'PUT' | 'POST', body: unknown): Promise<MutationOutcome<T>> {
+  const res = await fetch(url, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.ok) {
+    const payload = (await res.json()) as { result: T };
+    return { status: 'ok', result: payload.result };
+  }
+  if (res.status === 422) {
+    const payload = (await res.json()) as { error?: string; issues?: ValidationIssue[] };
+    return {
+      status: 'invalid',
+      error: payload.error ?? 'The change failed validation.',
+      issues: payload.issues ?? [],
+    };
+  }
+  if (res.status === 409) {
+    const payload = (await res.json()) as {
+      error?: string;
+      conflict?: { content: string | null; hash: string | null };
+    };
+    if (payload.conflict) {
+      return {
+        status: 'conflict',
+        error: payload.error ?? 'The file changed since you loaded it.',
+        conflict: payload.conflict,
+      };
+    }
+    throw new Error(payload.error ?? 'Request failed with status 409');
+  }
+  throw new Error(await errorMessage(res));
+}
+
+/* Project profile + capabilities */
+
+export async function fetchProfileConfig(): Promise<ProfileConfigResponse> {
+  const res = await fetch('/api/config/profile');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as ProfileConfigResponse;
+}
+
+export async function putProfile(
+  profile: Record<string, unknown>,
+): Promise<MutationOutcome<PutProfileResult>> {
+  return mutate('/api/config/profile', 'PUT', { profile });
+}
+
+export async function setCapability(
+  name: string,
+  enabled: boolean,
+): Promise<MutationOutcome<SetCapabilityResult>> {
+  return mutate('/api/capabilities/' + encodeURIComponent(name), 'POST', { enabled });
+}
+
+/* Module map */
+
+export async function fetchModuleMapConfig(): Promise<ModuleMapConfigResponse> {
+  const res = await fetch('/api/config/module-map');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as ModuleMapConfigResponse;
+}
+
+export async function putModuleMap(input: {
+  content: string;
+  baseHash: string | null;
+}): Promise<MutationOutcome<PutModuleMapResult>> {
+  return mutate('/api/config/module-map', 'PUT', input);
+}
+
+/* RAG settings */
+
+export async function fetchRagConfig(): Promise<RagConfigResponse> {
+  const res = await fetch('/api/config/rag');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as RagConfigResponse;
+}
+
+export async function putRagConfig(
+  intelligence: Record<string, unknown>,
+): Promise<MutationOutcome<PutRagResult>> {
+  return mutate('/api/config/rag', 'PUT', { intelligence });
+}
+
+/* Decision contract */
+
+export async function fetchDecisionContract(): Promise<ManagedFileInfo> {
+  const res = await fetch('/api/config/decision-contract');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as ManagedFileInfo;
+}
+
+export async function putDecisionContract(input: {
+  content: string;
+  baseHash: string | null;
+}): Promise<MutationOutcome<PutManagedFileResult>> {
+  return mutate('/api/config/decision-contract', 'PUT', input);
+}
+
+/* Design tokens */
+
+export async function fetchDesignTokensConfig(): Promise<DesignTokensConfigResponse> {
+  const res = await fetch('/api/config/design-tokens');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as DesignTokensConfigResponse;
+}
+
+export async function putDesignTokens(input: {
+  content: string;
+  baseHash: string | null;
+}): Promise<MutationOutcome<PutDesignTokensResult>> {
+  return mutate('/api/config/design-tokens', 'PUT', input);
+}
+
+/* Instructions files */
+
+export async function fetchInstructionsTree(): Promise<InstructionsTreeResponse> {
+  const res = await fetch('/api/files/instructions');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as InstructionsTreeResponse;
+}
+
+export async function fetchInstructionsFile(path: string): Promise<InstructionsFileResponse> {
+  const res = await fetch(
+    '/api/files/instructions/' + path.split('/').map(encodeURIComponent).join('/'),
+  );
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as InstructionsFileResponse;
+}
+
+export async function putInstructionsFile(
+  path: string,
+  input: { content: string; baseHash: string | null },
+): Promise<MutationOutcome<PutManagedFileResult>> {
+  return mutate(
+    '/api/files/instructions/' + path.split('/').map(encodeURIComponent).join('/'),
+    'PUT',
+    input,
+  );
+}
+
+/* Packs */
+
+export async function fetchPacks(): Promise<DashboardPack[]> {
+  const res = await fetch('/api/packs');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as DashboardPack[];
+}
+
+export async function installPack(input: {
+  source: string;
+  scope: 'project' | 'global';
+}): Promise<MutationOutcome<InstallPackResult>> {
+  return mutate('/api/packs/install', 'POST', input);
+}
+
+export async function removePack(input: {
+  name: string;
+  scope: 'project' | 'global';
+}): Promise<MutationOutcome<RemovePackResult>> {
+  return mutate('/api/packs/remove', 'POST', input);
+}
+
+/* Ops jobs */
+
+/**
+ * Start an ops job. A 409 here means the same action is already running —
+ * surfaced as a thrown error sentence, there is nothing to merge.
+ */
+export async function startOp(action: OpsAction): Promise<OpsJob> {
+  const res = await fetch('/api/ops/' + action, { method: 'POST' });
+  if (!res.ok) throw new Error(await errorMessage(res));
+  const payload = (await res.json()) as { result: OpsJob };
+  return payload.result;
+}
+
+export async function fetchOpsJob(jobId: string): Promise<OpsJob> {
+  const res = await fetch('/api/ops/' + encodeURIComponent(jobId));
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as OpsJob;
+}
+
+export async function fetchOps(): Promise<{ jobs: OpsJob[] }> {
+  const res = await fetch('/api/ops');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as { jobs: OpsJob[] };
 }
 
 export async function fetchEvidence(filters: {

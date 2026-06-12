@@ -17,14 +17,24 @@ import {
   rejectModuleProposal,
   resolvePauseDecision,
 } from './approvals.js';
+import { readAuditFeed } from './audit-feed.js';
+import { getDecisionContract, putDecisionContract } from './config-decision-contract.js';
 import {
   DeliveryPolicyValidationError,
   getDeliveryPolicyConfig,
   putDeliveryPolicy,
 } from './config-delivery-policy.js';
+import { getDesignTokensConfig, putDesignTokens } from './config-design-tokens.js';
+import { getModuleMapConfig, putModuleMap } from './config-module-map.js';
+import { getProfileConfig, putProfile, setCapability } from './config-profile.js';
+import { getRagConfig, putRagConfig } from './config-rag.js';
+import { buildEvidencePacket } from './export-packet.js';
 import { listInstructionsTree, readInstructionsFile } from './instructions-files.js';
 import { buildInventory } from './inventory.js';
 import { renderMarkdown } from './markdown.js';
+import { buildOnboardingChecklist } from './onboarding-checklist.js';
+import { isOpsAction, OpsConflictError, OpsJobRunner } from './ops-jobs.js';
+import { installPack, listPacks, removePack } from './packs-config.js';
 import { buildReport } from './report.js';
 import { PathNotAllowedError, WriteConflictError, writeManagedFile } from './write-pipeline.js';
 import {
@@ -290,6 +300,18 @@ export async function startDashboardServer(
     });
   }
 
+  // Safe operations (spec 3D): jobs stream progress over SSE and refresh the
+  // report when they finish, so cards update without waiting for the watcher.
+  const opsRunner = new OpsJobRunner({
+    projectRoot: options.projectRoot,
+    onEvent: (event) => {
+      broadcastSse('ops-progress', event);
+      if (event.status !== 'running') {
+        onArtefactChange();
+      }
+    },
+  });
+
   const server = createServer((req, res) => {
     handleRequest(req, res).catch((err: unknown) => {
       engineLog('error', 'Unhandled dashboard server error', {
@@ -356,8 +378,21 @@ export async function startDashboardServer(
       writeJson(res, req, { error: err.message }, 403);
       return;
     }
-    if (err instanceof DeliveryPolicyValidationError) {
-      writeJson(res, req, { error: err.message, issues: err.issues }, 422);
+    if (err instanceof OpsConflictError) {
+      writeJson(res, req, { error: err.message }, 409);
+      return;
+    }
+    if (
+      err instanceof DeliveryPolicyValidationError ||
+      (err instanceof Error && Array.isArray((err as { issues?: unknown }).issues))
+    ) {
+      // Every config validation error carries field-level `issues`.
+      writeJson(
+        res,
+        req,
+        { error: err.message, issues: (err as unknown as { issues: unknown }).issues },
+        422,
+      );
       return;
     }
     writeJson(res, req, { error: err instanceof Error ? err.message : String(err) }, 400);
@@ -515,6 +550,177 @@ export async function startDashboardServer(
           action: 'dashboard.instructions.write',
         });
       });
+      return;
+    }
+    if (pathname === '/api/config/profile' && req.method === 'GET') {
+      writeJson(res, req, getProfileConfig(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/config/profile' && req.method === 'PUT') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { profile?: unknown };
+        return putProfile(options.projectRoot, body.profile);
+      });
+      return;
+    }
+    const capabilityMatch = /^\/api\/capabilities\/([a-z-]+)$/.exec(pathname);
+    if (capabilityMatch && req.method === 'POST') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { enabled?: unknown };
+        if (typeof body.enabled !== 'boolean') {
+          throw new Error('Body must include `enabled` as a boolean.');
+        }
+        return setCapability(options.projectRoot, capabilityMatch[1]!, body.enabled);
+      });
+      return;
+    }
+    if (pathname === '/api/config/module-map' && req.method === 'GET') {
+      writeJson(res, req, getModuleMapConfig(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/config/module-map' && req.method === 'PUT') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
+        if (typeof body.content !== 'string') {
+          throw new Error('Body must include the module map `content` as a string.');
+        }
+        return putModuleMap(options.projectRoot, {
+          content: body.content,
+          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
+        });
+      });
+      return;
+    }
+    if (pathname === '/api/config/rag' && req.method === 'GET') {
+      writeJson(res, req, getRagConfig(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/config/rag' && req.method === 'PUT') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { intelligence?: unknown };
+        return putRagConfig(options.projectRoot, body.intelligence);
+      });
+      return;
+    }
+    if (pathname === '/api/config/decision-contract' && req.method === 'GET') {
+      writeJson(res, req, getDecisionContract(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/config/decision-contract' && req.method === 'PUT') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
+        if (typeof body.content !== 'string') {
+          throw new Error('Body must include the contract `content` as a string.');
+        }
+        return putDecisionContract(options.projectRoot, {
+          content: body.content,
+          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
+        });
+      });
+      return;
+    }
+    if (pathname === '/api/config/design-tokens' && req.method === 'GET') {
+      writeJson(res, req, getDesignTokensConfig(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/config/design-tokens' && req.method === 'PUT') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
+        if (typeof body.content !== 'string') {
+          throw new Error('Body must include the tokens `content` as a string.');
+        }
+        return putDesignTokens(options.projectRoot, {
+          content: body.content,
+          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
+        });
+      });
+      return;
+    }
+    if (pathname === '/api/packs' && req.method === 'GET') {
+      writeJson(res, req, listPacks(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/packs/install' && req.method === 'POST') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { source?: unknown; scope?: unknown };
+        if (typeof body.source !== 'string' || body.source.length === 0) {
+          throw new Error('Body must include the pack `source` as a string.');
+        }
+        return installPack(options.projectRoot, {
+          source: body.source,
+          scope: body.scope === 'global' ? 'global' : 'project',
+        });
+      });
+      return;
+    }
+    if (pathname === '/api/packs/remove' && req.method === 'POST') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { name?: unknown; scope?: unknown };
+        if (typeof body.name !== 'string' || body.name.length === 0) {
+          throw new Error('Body must include the pack `name` as a string.');
+        }
+        return removePack(options.projectRoot, {
+          name: body.name,
+          scope: body.scope === 'global' ? 'global' : 'project',
+        });
+      });
+      return;
+    }
+    const opsActionMatch = /^\/api\/ops\/([a-z-]+)$/.exec(pathname);
+    if (opsActionMatch && req.method === 'POST') {
+      const action = opsActionMatch[1]!;
+      if (!isOpsAction(action)) {
+        writeJson(res, req, { error: `Unknown operation: ${action}` }, 404);
+        return;
+      }
+      await handleMutation(req, res, () => opsRunner.start(action));
+      return;
+    }
+    const opsJobMatch = /^\/api\/ops\/(op-[a-z-]+-\d+)$/.exec(pathname);
+    if (opsJobMatch && req.method === 'GET') {
+      const job = opsRunner.get(opsJobMatch[1]!);
+      if (job === null) {
+        writeJson(res, req, { error: `Unknown job: ${opsJobMatch[1]!}` }, 404);
+        return;
+      }
+      writeJson(res, req, job);
+      return;
+    }
+    if (pathname === '/api/ops' && req.method === 'GET') {
+      writeJson(res, req, { jobs: opsRunner.list() });
+      return;
+    }
+    if (pathname === '/api/audit' && req.method === 'GET') {
+      const limitRaw = url.searchParams.get('limit');
+      const cursorRaw = url.searchParams.get('cursor');
+      writeJson(
+        res,
+        req,
+        readAuditFeed(options.projectRoot, {
+          ...(limitRaw !== null ? { limit: Number.parseInt(limitRaw, 10) } : {}),
+          ...(cursorRaw !== null ? { cursor: Number.parseInt(cursorRaw, 10) } : {}),
+        }),
+      );
+      return;
+    }
+    if (pathname === '/api/onboarding-checklist' && req.method === 'GET') {
+      writeJson(res, req, buildOnboardingChecklist(options.projectRoot));
+      return;
+    }
+    if (pathname === '/api/export/evidence-packet' && req.method === 'GET') {
+      const packet = buildEvidencePacket(options.projectRoot, {
+        projectName: cachedReport.projectName,
+      });
+      const format = url.searchParams.get('format');
+      if (format === 'html') {
+        writeText(res, packet.html, 200, 'text/html; charset=utf-8');
+        return;
+      }
+      if (format === 'markdown') {
+        writeText(res, packet.markdown, 200, 'text/markdown; charset=utf-8');
+        return;
+      }
+      writeJson(res, req, packet);
       return;
     }
     if (pathname === '/api/dashboard') {

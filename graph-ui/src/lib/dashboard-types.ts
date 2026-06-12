@@ -287,6 +287,204 @@ export type PutDeliveryPolicyOutcome =
       conflict: { content: string | null; hash: string | null };
     };
 
+/* Shared mutation envelope — every PUT/POST under /api/config and friends
+   answers { ok: true, result } on 200, { error, issues } on 422 and
+   { error, conflict } on 409 (see src/dashboard/server.ts handleMutation). */
+
+export interface ValidationIssue {
+  path: string;
+  message: string;
+}
+
+export type MutationOutcome<T> =
+  | { status: 'ok'; result: T }
+  | { status: 'invalid'; error: string; issues: ValidationIssue[] }
+  | {
+      status: 'conflict';
+      error: string;
+      conflict: { content: string | null; hash: string | null };
+    };
+
+/** PUT result for plain managed files (decision contract, instructions). */
+export interface PutManagedFileResult {
+  path: string;
+  hash: string;
+}
+
+/* Project profile + capabilities — mirrors src/dashboard/config-profile.ts. */
+
+export interface ProfileConfigResponse {
+  profile: Record<string, unknown> | null;
+  schema: Record<string, unknown>;
+  capabilities: { available: string[]; active: string[] };
+}
+
+export interface PutProfileResult {
+  path: string;
+  profile: Record<string, unknown>;
+}
+
+export interface SetCapabilityResult {
+  active: string[];
+}
+
+/* Module map — mirrors src/dashboard/config-module-map.ts. */
+
+export interface ModuleMapFeature {
+  slug: string;
+  name: string;
+  sources: string[];
+}
+
+export interface ModuleMapModule {
+  slug: string;
+  name: string;
+  sources: string[];
+  features: ModuleMapFeature[];
+}
+
+export interface ModuleMapDriftFinding {
+  code: string;
+  module_slug: string | null;
+  feature_slug: string | null;
+  paths: string[];
+  detail: string;
+}
+
+export interface ModuleMapDrift {
+  generated_at: string;
+  source_roots: string[];
+  findings: ModuleMapDriftFinding[];
+  blocked: string | null;
+  counts: Record<string, number>;
+}
+
+export interface ModuleMapConfigResponse {
+  file: ManagedFileInfo;
+  modules: ModuleMapModule[];
+  drift: ModuleMapDrift | null;
+}
+
+export interface PutModuleMapResult {
+  path: string;
+  hash: string;
+  modules: ModuleMapModule[];
+}
+
+/* RAG settings — mirrors src/dashboard/config-rag.ts. */
+
+export interface RagStatus {
+  enabled: boolean;
+  provider: string | null;
+  model: string | null;
+  indexPresent: boolean;
+  indexAgeDays: number | null;
+}
+
+export interface RagConfigResponse {
+  intelligence: Record<string, unknown> | null;
+  status: RagStatus;
+}
+
+export interface PutRagResult {
+  path: string;
+  intelligence: Record<string, unknown>;
+}
+
+/* Design tokens — mirrors src/dashboard/config-design-tokens.ts. */
+
+export interface DesignTokensConfigResponse {
+  file: ManagedFileInfo;
+  tokens: Record<string, unknown> | null;
+  placeholder: boolean;
+  schema: Record<string, unknown>;
+}
+
+export interface PutDesignTokensResult {
+  path: string;
+  hash: string;
+  regenerated: string[];
+  regenerationError?: string;
+}
+
+/* Instructions files — mirrors src/dashboard/instructions-files.ts. */
+
+export interface InstructionsTreeNode {
+  /** Path relative to docs/instructions, posix. Empty string for the root. */
+  path: string;
+  name: string;
+  type: 'directory' | 'file';
+  children?: InstructionsTreeNode[];
+}
+
+export interface InstructionsTreeResponse {
+  root: string;
+  exists: boolean;
+  tree: InstructionsTreeNode | null;
+}
+
+export interface InstructionsFileResponse extends ManagedFileInfo {
+  /** Parsed YAML frontmatter for .md files (empty object when none). */
+  frontmatter: Record<string, unknown>;
+  /** File body with the frontmatter block removed (equals content for non-md). */
+  body: string | null;
+}
+
+/* Packs — mirrors src/dashboard/packs-config.ts. */
+
+export type PackSource = 'built-in' | 'global' | 'project';
+
+export interface DashboardPack {
+  name: string;
+  source: PackSource;
+  version: string;
+  valid: boolean;
+}
+
+export interface InstallPackResult {
+  name: string;
+  version: string;
+  scope: 'global' | 'project';
+  root: string;
+}
+
+export interface RemovePackResult {
+  name: string;
+  scope: 'global' | 'project';
+  removed: true;
+}
+
+/* Ops jobs — mirrors src/dashboard/ops-jobs.ts. */
+
+export type OpsAction =
+  | 'reconcile'
+  | 'refresh-rules'
+  | 'refresh-context'
+  | 'rag-rebuild'
+  | 'rag-clear'
+  | 'regenerate-docs'
+  | 'compliance-check'
+  | 'doctor';
+
+export interface OpsJob {
+  id: string;
+  action: OpsAction;
+  status: 'running' | 'done' | 'failed';
+  startedAt: string;
+  finishedAt: string | null;
+  progress: string[];
+  result: unknown;
+  error: string | null;
+}
+
+/** One `ops-progress` SSE event payload. */
+export interface OpsProgressEvent {
+  jobId: string;
+  action: OpsAction;
+  status: OpsJob['status'];
+  message: string;
+}
+
 export interface AiBomResponse {
   generatedAt: string;
   document: {

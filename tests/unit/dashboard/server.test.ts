@@ -29,10 +29,44 @@ function bootstrap(root: string): void {
     join(root, '.paqad/project-profile.yaml'),
     YAML.stringify({
       project: { name: 'demo', id: 'demo', description: '' },
-      commands: { install: 'pnpm i', test: 'pnpm test', build: 'pnpm build' },
-      intelligence: { rag_enabled: false },
+      active_capabilities: ['content'],
+      commands: {
+        install: 'pnpm i',
+        dev: 'pnpm dev',
+        test: 'pnpm test',
+        test_single: 'pnpm test -- one',
+        lint: 'pnpm lint',
+        format: 'pnpm format',
+        migrate: 'pnpm migrate',
+        build: 'pnpm build',
+      },
+      strictness: {
+        full_lane_default: false,
+        require_adversarial_review: true,
+        block_on_stale_docs: true,
+        require_db_review_for_migrations: true,
+      },
+      compliance_packs: [],
+      features: {
+        spec_only_mode: false,
+        market_research: false,
+        design_research: false,
+        team_agents: true,
+        supply_chain_governance: false,
+        ai_governance: false,
+      },
       mcp: { servers: [] },
-      routing: { domain: 'coding' },
+      model_routing: { default_model: 'gpt-5', reasoning_model: 'gpt-5', fast_model: 'gpt-5-mini' },
+      research: { depth: 'standard' },
+      intelligence: { rag_enabled: false },
+      efficiency: { skill_caching: true },
+      escalation: {
+        destructive_operations: 'block',
+        risky_migrations: 'warn',
+        security_findings: 'block',
+        db_row_threshold: 10000,
+      },
+      custom: { classification_dimensions: [], verification_plugins: [], escalation_rules: [] },
     }),
   );
 }
@@ -538,6 +572,233 @@ describe('startDashboardServer', () => {
         },
       );
       expect(res.status).toBe(403);
+    });
+  });
+
+  describe('full editing endpoints (#146 phase 3)', () => {
+    it('serves and updates the profile, and toggles capabilities', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const get = await fetch(`${server!.url}/api/config/profile`);
+      expect(get.status).toBe(200);
+      const config = (await get.json()) as {
+        profile: { project: { name: string } } | null;
+        capabilities: { available: string[] };
+      };
+      expect(config.profile?.project.name).toBe('demo');
+      expect(config.capabilities.available).toContain('coding');
+
+      const toggle = await fetch(`${server!.url}/api/capabilities/planning`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      });
+      expect(toggle.status).toBe(200);
+      const toggled = (await toggle.json()) as { result: { active: string[] } };
+      expect(toggled.result.active).toContain('planning');
+    });
+
+    it('serves module-map, rag, decision-contract, and design-tokens configs', async () => {
+      bootstrap(root);
+      writeFileSync(
+        join(root, '.paqad/decision-pause-contract.md'),
+        '# Decision Pause Contract\n\nBody.\n',
+      );
+      await startServer();
+
+      for (const endpoint of [
+        '/api/config/module-map',
+        '/api/config/rag',
+        '/api/config/decision-contract',
+        '/api/config/design-tokens',
+      ]) {
+        const res = await fetch(`${server!.url}${endpoint}`);
+        expect(res.status, endpoint).toBe(200);
+      }
+    });
+
+    it('starts an ops job, reports it, and streams completion to the report', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const start = await fetch(`${server!.url}/api/ops/doctor`, { method: 'POST' });
+      expect(start.status).toBe(200);
+      const started = (await start.json()) as { result: { id: string; status: string } };
+      expect(started.result.status).toBe('running');
+
+      // Poll until the job settles (doctor on a fixture finishes quickly).
+      let job: { status: string } | null = null;
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const res = await fetch(`${server!.url}/api/ops/${started.result.id}`);
+        expect(res.status).toBe(200);
+        job = (await res.json()) as { status: string };
+        if (job.status !== 'running') break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(job?.status).toMatch(/done|failed/);
+
+      const list = await fetch(`${server!.url}/api/ops`);
+      const listing = (await list.json()) as { jobs: unknown[] };
+      expect(listing.jobs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('rejects unknown ops actions with 404', async () => {
+      bootstrap(root);
+      await startServer();
+      const res = await fetch(`${server!.url}/api/ops/format-disk`, { method: 'POST' });
+      expect(res.status).toBe(404);
+    });
+
+    it('serves the audit feed, the onboarding checklist, and the evidence packet', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const audit = await fetch(`${server!.url}/api/audit`);
+      expect(audit.status).toBe(200);
+
+      const checklist = await fetch(`${server!.url}/api/onboarding-checklist`);
+      expect(checklist.status).toBe(200);
+      const checklistBody = (await checklist.json()) as { steps: unknown[] };
+      expect(checklistBody.steps).toHaveLength(5);
+
+      const packet = await fetch(`${server!.url}/api/export/evidence-packet?format=html`);
+      expect(packet.status).toBe(200);
+      expect(packet.headers.get('content-type')).toMatch(/text\/html/);
+      expect(await packet.text()).toContain('<!doctype html>');
+    });
+
+    it('accepts every config PUT over HTTP through the pipeline', async () => {
+      bootstrap(root);
+      writeFileSync(
+        join(root, '.paqad/decision-pause-contract.md'),
+        '# Decision Pause Contract\n\nOriginal.\n',
+      );
+      await startServer();
+
+      const profileGet = await fetch(`${server!.url}/api/config/profile`);
+      const { profile } = (await profileGet.json()) as { profile: Record<string, unknown> };
+      const putProfileRes = await fetch(`${server!.url}/api/config/profile`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ profile }),
+      });
+      expect(putProfileRes.status).toBe(200);
+
+      const badProfile = await fetch(`${server!.url}/api/config/profile`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ profile: { project: { name: 'broken' } } }),
+      });
+      expect(badProfile.status).toBe(422);
+
+      const mapPut = await fetch(`${server!.url}/api/config/module-map`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          content: 'modules:\n  - slug: core\n    name: Core\n',
+          baseHash: null,
+        }),
+      });
+      expect(mapPut.status).toBe(200);
+
+      const ragPut = await fetch(`${server!.url}/api/config/rag`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ intelligence: { rag_enabled: false } }),
+      });
+      expect(ragPut.status).toBe(200);
+
+      const contractGet = await fetch(`${server!.url}/api/config/decision-contract`);
+      const contract = (await contractGet.json()) as { hash: string };
+      const contractPut = await fetch(`${server!.url}/api/config/decision-contract`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          content: '# Decision Pause Contract\n\nUpdated.\n',
+          baseHash: contract.hash,
+        }),
+      });
+      expect(contractPut.status).toBe(200);
+
+      const tokensPut = await fetch(`${server!.url}/api/config/design-tokens`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: JSON.stringify({ color: { accent: '#2563eb' } }) }),
+      });
+      // 200 when the schema accepts it, 422 when stricter — both paths are the
+      // pipeline working; assert it is not a transport or guard failure.
+      expect([200, 422]).toContain(tokensPut.status);
+
+      const badBody = await fetch(`${server!.url}/api/config/module-map`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 42 }),
+      });
+      expect(badBody.status).toBe(400);
+
+      const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
+      expect(audit).toContain('dashboard.config.profile.write');
+      expect(audit).toContain('dashboard.config.module-map.write');
+      expect(audit).toContain('dashboard.config.rag.write');
+      expect(audit).toContain('dashboard.config.decision-contract.write');
+    });
+
+    it('covers packs listing, ops job lookups, audit paging, and packet formats', async () => {
+      bootstrap(root);
+      await startServer();
+
+      expect((await fetch(`${server!.url}/api/packs`)).status).toBe(200);
+
+      const missingJob = await fetch(`${server!.url}/api/ops/op-doctor-999`);
+      expect(missingJob.status).toBe(404);
+
+      const installBad = await fetch(`${server!.url}/api/packs/install`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ source: '/no/such/pack-dir' }),
+      });
+      expect([400, 422]).toContain(installBad.status);
+
+      const removeBad = await fetch(`${server!.url}/api/packs/remove`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'not-installed' }),
+      });
+      expect([400, 404, 422]).toContain(removeBad.status);
+
+      const auditPaged = await fetch(`${server!.url}/api/audit?limit=5&cursor=0`);
+      expect(auditPaged.status).toBe(200);
+
+      const markdown = await fetch(`${server!.url}/api/export/evidence-packet?format=markdown`);
+      expect(markdown.headers.get('content-type')).toMatch(/markdown/);
+      const jsonPacket = await fetch(`${server!.url}/api/export/evidence-packet`);
+      const packetBody = (await jsonPacket.json()) as { html: string; markdown: string };
+      expect(packetBody.html).toContain('<!doctype html>');
+
+      const missingFile = await fetch(`${server!.url}/api/files/instructions/rules/none.md`);
+      expect(missingFile.status).toBe(200);
+      expect(((await missingFile.json()) as { exists: boolean }).exists).toBe(false);
+    });
+
+    it('refuses the new mutations in read-only mode', async () => {
+      bootstrap(root);
+      await startServer({ readOnly: true });
+      for (const [path, method, body] of [
+        ['/api/config/profile', 'PUT', { profile: {} }],
+        ['/api/capabilities/coding', 'POST', { enabled: true }],
+        ['/api/config/module-map', 'PUT', { content: 'modules: []' }],
+        ['/api/config/rag', 'PUT', { intelligence: {} }],
+        ['/api/ops/doctor', 'POST', {}],
+        ['/api/packs/remove', 'POST', { name: 'x' }],
+      ] as const) {
+        const res = await fetch(`${server!.url}${path}`, {
+          method,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        expect(res.status, `${method} ${path}`).toBe(403);
+      }
     });
   });
 

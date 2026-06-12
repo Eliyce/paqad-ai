@@ -304,7 +304,7 @@ Everything above adds up to what a serious team needs before it lets AI near its
 
 ```bash
 paqad-ai graph        # an interactive map of modules, files, symbols, imports, and similarity
-paqad-ai dashboard    # project health, an approvals inbox, and a trust view of receipts and evidence
+paqad-ai dashboard    # the management surface: health, approvals, trust, and web editors for everything you own
 paqad-ai status       # the same report as JSON or Markdown, for an agent to read
 ```
 
@@ -371,7 +371,7 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP config, and s
 | `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                |
 | `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                   |
 | `paqad-ai graph`        | Open the interactive project map                                                 |
-| `paqad-ai dashboard`    | Open the health view, approvals inbox, and trust area                            |
+| `paqad-ai dashboard`    | Open the management surface: pulse, approvals, trust, and the web editors        |
 | `paqad-ai status`       | Print the same health report for an agent to read                                |
 | `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                            |
 

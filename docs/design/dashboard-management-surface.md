@@ -82,6 +82,46 @@ Every PUT/POST funnels through `src/dashboard/write-pipeline.ts`:
 Safe operations (spec 3D) run as idempotent jobs over the same core functions
 the CLI commands call, with progress streamed as `ops-progress` SSE events.
 
+## Area-by-area design
+
+**Pulse** is the home: the overall score as the one big number with a band
+dot and a sentence from the top attention item, four stat cards (pending
+approvals, healthy sections, sealed receipts, framework version), the
+attention list capped at five with deep links, and the onboarding checklist
+until it completes. The empty state for a never-onboarded project teaches
+the first step.
+
+**Approvals** and **Trust** are the phases 1-2 surfaces, unchanged in
+behavior; both gain the page why-sentence. Trust adds the evidence packet
+export (`/api/export/evidence-packet`, HTML / Markdown / JSON), a
+self-contained bundle with the receipt chain, the timeline, and the AI-BOM
+summary.
+
+**Build** carries the module map editor (structured table for orientation, a
+raw-YAML editor of record, drift findings inline with a one-click reconcile
+job) plus the evidence cards for module health, events, stack snapshot,
+compliance, quality baseline, pentest, and rule compliance. The architecture
+graph stays one click away.
+
+**Automation** carries the delivery policy rule builder (per-section
+auto/manual toggles, typed fields, plain-language previews, raw YAML mode)
+and the prompt-managed status cards for workflow runs, plans, specs, and the
+session.
+
+**Knowledge** carries the instructions editor (file tree, CodeMirror with
+frontmatter as fields, markdown preview, the 409 diff prompt), the design
+token editor (swatch grid, raw JSON, live preview, derived docs regenerated
+on save), and the RAG panel (status, settings form, rebuild / clear /
+refresh-context jobs with consequence confirmations).
+
+**Setup** carries the profile schema form, the capability toggles with
+per-capability why lines, pack install / remove with consequence
+confirmations, and the doctor / refresh-rules / compliance-check operations.
+
+Safe operations run through one in-memory job runner per server: same-action
+starts conflict with 409, progress streams as `ops-progress` SSE events,
+finishing jobs refresh the report and append their audit line.
+
 ## Delivery plan
 
 Stacked, reviewable PRs: (A) comprehension layer, `/api/inventory`, 7-area IA
