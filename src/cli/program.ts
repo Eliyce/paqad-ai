@@ -2,6 +2,7 @@ import { Command } from 'commander';
 
 import { VERSION } from '@/index.js';
 
+import { createAuditCommand } from './commands/audit.js';
 import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createComplianceCommand } from './commands/compliance.js';
 import { createDashboardCommand } from './commands/dashboard.js';
@@ -38,6 +39,7 @@ export function createProgram(): Command {
   program.addCommand(createDashboardCommand());
   program.addCommand(createDoctorCommand());
   program.addCommand(createEvidenceCommand());
+  program.addCommand(createAuditCommand());
   program.addCommand(createGraphCommand());
   program.addCommand(createModuleDecisionsCommand());
   program.addCommand(createModuleEventsCommand());
