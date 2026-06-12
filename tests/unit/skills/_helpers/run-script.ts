@@ -1,15 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import {
-  appendFileSync,
-  closeSync,
-  existsSync,
-  mkdtempSync,
-  openSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { appendFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export interface RunResult {
   status: number;
@@ -42,20 +33,19 @@ const INFRA_STDERR =
  * Used by every skill spec instead of mocking — tests run the real script
  * the LLM would invoke at runtime.
  *
- * Two defenses against vitest-parallelism flakes (issue #24):
+ * Retries transient spawn-level failures (issue #24) with escalating
+ * backoff, but only when the child produced no output at all (or
+ * infrastructure-flavored stderr). A script that printed anything ran for
+ * real — returning immediately keeps genuine rejections fast and stops
+ * expected-non-zero specs (e.g. `--help` exits 2 with usage on stdout) from
+ * burning the full backoff on every invocation.
  *
- * 1. `input` is delivered through a temp file opened as the child's stdin
- *    instead of a pipe. Under heavy parallel spawn load the pipe write could
- *    be lost, so a stdin-validating script saw empty input and rejected it —
- *    a "real" failure (non-zero exit, stderr written) that no retry gate can
- *    distinguish from a genuine rejection. A file-backed fd cannot be
- *    truncated by spawn races; scripts still read it as plain stdin.
- *
- * 2. Retries with escalating backoff, but only when the child produced no
- *    output at all (or infrastructure-flavored stderr). A script that printed
- *    anything ran for real — returning immediately keeps genuine rejections
- *    fast and stops expected-non-zero specs (e.g. `--help` exits 2 with usage
- *    on stdout) from burning the full backoff on every invocation.
+ * Note the historical "lint script rejects a valid block" flake was not a
+ * spawn failure at all: it was `set -o pipefail` + `printf | grep -q`, where
+ * an early-exiting grep kills printf with a silent SIGPIPE (status 141) and
+ * the `|| say` idiom records a plausible finding. The scripts now use
+ * herestrings (`grep -q PATTERN <<<"$var"`), which cannot race; the
+ * script-portability guard test keeps the racy idiom out.
  */
 export function runScript(
   scriptPath: string,
@@ -67,28 +57,18 @@ export function runScript(
     return { status: -1, stdout: '', stderr: `script not found: ${abs}` };
   }
   const invoke = (): RunResult => {
-    const common = {
+    const r = spawnSync('bash', [abs, ...args], {
+      input: opts.input,
       cwd: opts.cwd,
       env: { ...process.env, ...(opts.env ?? {}) },
       encoding: 'utf8',
       timeout: opts.timeoutMs ?? 10_000,
-    } as const;
-    if (opts.input === undefined) {
-      const r = spawnSync('bash', [abs, ...args], common);
-      return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
-    }
-    const dir = mkdtempSync(join(tmpdir(), 'paqad-skill-stdin-'));
-    const stdinFile = join(dir, 'stdin');
-    let fd: number | null = null;
-    try {
-      writeFileSync(stdinFile, opts.input);
-      fd = openSync(stdinFile, 'r');
-      const r = spawnSync('bash', [abs, ...args], { ...common, stdio: [fd, 'pipe', 'pipe'] });
-      return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
-    } finally {
-      if (fd !== null) closeSync(fd);
-      rmSync(dir, { recursive: true, force: true });
-    }
+    });
+    return {
+      status: r.status ?? -1,
+      stdout: r.stdout ?? '',
+      stderr: r.stderr ?? '',
+    };
   };
   const debugLog = (r: RunResult, attempt: number): void => {
     // Flake forensics: PAQAD_DEBUG_RUNSCRIPT=<path> appends every non-zero
@@ -96,10 +76,7 @@ export function runScript(
     const target = process.env.PAQAD_DEBUG_RUNSCRIPT;
     if (!target || r.status === 0) return;
     try {
-      appendFileSync(
-        target,
-        `${JSON.stringify({ script: abs, args, attempt, ...r })}\n`,
-      );
+      appendFileSync(target, `${JSON.stringify({ script: abs, args, attempt, ...r })}\n`);
     } catch {
       // diagnostics must never fail a test
     }

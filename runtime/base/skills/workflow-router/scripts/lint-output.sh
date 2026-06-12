@@ -15,12 +15,12 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-if printf '%s' "$body" | grep -qE '^workflow: none$'; then
-  printf '%s' "$body" | grep -qE '^reason:' || say 'workflow:none must include "reason:"'
+if grep -qE '^workflow: none$' <<<"$body"; then
+  grep -qE '^reason:' <<<"$body" || say 'workflow:none must include "reason:"'
 else
-  printf '%s' "$body" | grep -qE '^workflow: [a-z][a-z0-9-]+$' || say 'missing canonical workflow line'
-  printf '%s' "$body" | grep -qE '^reason:' || say 'missing reason: line'
-  printf '%s' "$body" | grep -qE '^matched_rule:' || say 'missing matched_rule: line'
+  grep -qE '^workflow: [a-z][a-z0-9-]+$' <<<"$body" || say 'missing canonical workflow line'
+  grep -qE '^reason:' <<<"$body" || say 'missing reason: line'
+  grep -qE '^matched_rule:' <<<"$body" || say 'missing matched_rule: line'
 fi
 
 [ "$issues" -gt 0 ] && exit 1

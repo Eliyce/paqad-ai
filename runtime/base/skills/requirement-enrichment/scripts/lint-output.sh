@@ -17,7 +17,7 @@ say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 # Required headings
 for h in '## Confirmed Requirements' '## Assumptions' '## Open Questions'; do
-  printf '%s' "$body" | grep -qE "^${h}\$" || say "missing \"${h}\""
+  grep -qE "^${h}\$" <<<"$body" || say "missing \"${h}\""
 done
 
 # Order check: line numbers must be strictly increasing in the listed sequence.

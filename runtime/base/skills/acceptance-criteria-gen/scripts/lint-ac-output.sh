@@ -24,10 +24,10 @@ fi
 issues=0
 say_issue() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Acceptance Criteria' \
+grep -qE '^## Acceptance Criteria' <<<"$body" \
   || say_issue 'missing "## Acceptance Criteria" heading'
 
-printf '%s' "$body" | grep -qE '^## Coverage Notes' \
+grep -qE '^## Coverage Notes' <<<"$body" \
   || say_issue 'missing "## Coverage Notes" section'
 
 ids=$(printf '%s' "$body" | grep -Eo '^### AC-[0-9]+(\.[0-9]+)?' | awk '{print $2}')

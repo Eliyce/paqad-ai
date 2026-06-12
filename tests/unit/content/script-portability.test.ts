@@ -33,4 +33,32 @@ describe('runtime shell script portability', () => {
 
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
+
+  it('no pipeline feeds grep -q (early-exit SIGPIPE + pipefail turns matches into failures)', async () => {
+    // `producer | grep -q PATTERN` under `set -o pipefail` is racy: grep -q
+    // exits the moment it matches, the producer dies of a silent SIGPIPE
+    // (status 141), and the pipeline reports failure precisely when the
+    // pattern WAS found. The `|| say` validation idiom then records a
+    // plausible-looking finding, which surfaced as cold-container CI flakes.
+    // Use `grep -q PATTERN <<<"$var"` or a file argument instead.
+    const files = (
+      await fg(['runtime/**/scripts/*.sh', 'runtime/hooks/*.sh'], {
+        cwd: process.cwd(),
+        absolute: true,
+      })
+    ).sort();
+    expect(files.length).toBeGreaterThan(0);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const lines = (await readFile(file, 'utf8')).split('\n');
+      lines.forEach((line, index) => {
+        if (/\|\s*grep\s+-[a-zA-Z]*q/.test(line)) {
+          offenders.push(`${file}:${index + 1}: ${line.trim()}`);
+        }
+      });
+    }
+
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
 });

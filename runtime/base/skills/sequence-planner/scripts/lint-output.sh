@@ -15,8 +15,8 @@ fi
 issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
-printf '%s' "$body" | grep -qE '^## Implementation Sequence' || say 'missing "## Implementation Sequence"'
-printf '%s' "$body" | grep -qE '^## Sequencing Risks'        || say 'missing "## Sequencing Risks"'
+grep -qE '^## Implementation Sequence' <<<"$body" || say 'missing "## Implementation Sequence"'
+grep -qE '^## Sequencing Risks'        <<<"$body" || say 'missing "## Sequencing Risks"'
 
 # Story numbering must start at 1 and increment by 1.
 nums=$(printf '%s\n' "$body" | grep -E '^### Story [0-9]+' | grep -oE '[0-9]+' | sort -n)
