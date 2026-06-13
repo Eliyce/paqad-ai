@@ -51,11 +51,19 @@ graph-ui/  →  separate Vite + React 19 SPA, consumes graph data exported by th
 6. **Skills system** (`src/skills/`) — Discovers and loads skills from `runtime/base/skills/**`.
 7. **Module map / health** (`src/module-map`, `src/module-health`, `src/introspection`) — Static analysis of repo
    structure into business modules and feature slugs.
-8. **Compliance, pentest, validators** (`src/compliance`, `src/pentest`, `src/validators`, `src/verification`) —
+8. **Compliance, pentest, validators** (`src/compliance`, `src/pentest`, `src/validators`) —
    Security/quality gates.
-9. **MCP** (`src/mcp/`) — Optional integration with Model Context Protocol servers.
-10. **Graph rendering** (`src/graph/`) — Builds graph data consumed by `graph-ui/`.
-11. **Templates** (`src/templates`, `runtime/templates/**`) — Handlebars templates for docs and module scaffolds.
+9. **Verification & trust** (`src/verification`, `src/evidence`, `src/traceability`, `src/quality-ratchet`,
+   `src/audit`) — The gate bank (#117) that decides whether a change lands, the unified evidence ledger +
+   per-change provenance receipt (#118/#120), bidirectional promise↔code↔test traceability, the quality
+   ratchet, and the read-only SIEM exporter (#121).
+10. **Delivery** (`src/delivery`, `src/providers`) — Provider-agnostic delivery automation (#42) behind the
+    `TicketProvider` (Jira) and `HostProvider` (GitHub) contracts, conventions detected from git history.
+11. **Dashboard** (`src/dashboard`) — Local web view + one-shot `status` report; shares the `graph-ui` bundle
+    via a hash router and serves the approvals inbox, trust area, and audited write pipeline (#146).
+12. **MCP** (`src/mcp/`) — Optional integration with Model Context Protocol servers.
+13. **Graph rendering** (`src/graph/`) — Builds graph data consumed by `graph-ui/`.
+14. **Templates** (`src/templates`, `runtime/templates/**`) — Handlebars templates for docs and module scaffolds.
 
 ## Build & Distribution
 

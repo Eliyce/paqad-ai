@@ -1,5 +1,5 @@
 version: 2
-generatedAt: 2026-05-22
+generatedAt: 2026-06-13
 confidence: high
 notes: |
   paqad-ai is a documentation-first npm package that helps LLM coding agents
@@ -276,24 +276,61 @@ modules:
         name: compliance patterns
 
   - slug: cli-audit
-    name: Audit Export Command
+    name: Trust Export Commands (audit + evidence)
     layer: cli-commands
     confidence: high
     summary: |
-      Read-only, local-first SIEM exporter. Projects the #118 unified evidence
-      ledger and tamper-evident receipt chain into the schemas an enterprise's
-      own SIEM ingests — OCSF (primary), Elastic ECS, ArcSight CEF, and a
-      canonical JSONL passthrough — writing a file or stdout for the customer's
-      own collector to ship. No paqad-hosted endpoint, stream, or network push:
-      it reads the on-disk ledger and transforms it. `--since` windows the
-      export; `--redact` strips free-text detail and human identities.
+      The two read-only, local-first exporters that turn the #118 unified
+      evidence ledger into something an outside system can consume. `audit
+      export` is the SIEM projector — OCSF (primary), Elastic ECS, ArcSight
+      CEF, and a canonical JSONL passthrough — writing a file or stdout for
+      the customer's own collector to ship (no paqad-hosted endpoint, stream,
+      or network push; `--since` windows it, `--redact` strips free-text
+      detail and human identities). `evidence` renders the same verification
+      evidence as a scannable PR comment (Markdown or JSON) for a human
+      reviewer at merge time.
     sources:
       - src/cli/commands/audit.ts
+      - src/cli/commands/evidence.ts
       - src/audit
+      - src/evidence
     features:
       - slug: audit-export
         name: paqad-ai audit export
         sources: [src/cli/commands/audit.ts, src/audit]
+      - slug: evidence-comment
+        name: paqad-ai evidence (PR-comment renderer)
+        sources: [src/cli/commands/evidence.ts, src/verification/evidence-markdown.ts]
+
+  - slug: cli-module-map
+    name: Module Map Inspection Commands
+    layer: cli-commands
+    confidence: high
+    summary: |
+      The terminal surface over the module-map engine's reconciliation and
+      audit trail (issue #80). `module-map reconcile` scans the source roots,
+      compares them to `module-map.yml` and `docs/modules/`, and writes
+      `.paqad/module-map/drift.json` (with `--fail-on-drift` for CI).
+      `module-decisions` inspects the MD-XXXX prospective decisions
+      (list / show / expire-stale / extract); `module-events` reads the
+      append-only `.paqad/module-map/events.jsonl` audit trail
+      (list / since / for-module).
+    sources:
+      - src/cli/commands/module-map.ts
+      - src/cli/commands/module-decisions.ts
+      - src/cli/commands/module-events.ts
+      - src/module-map
+      - src/module-decisions
+    features:
+      - slug: module-map-reconcile
+        name: module-map reconcile
+        sources: [src/cli/commands/module-map.ts, src/module-map]
+      - slug: module-decisions
+        name: module-decisions (list / show / expire-stale / extract)
+        sources: [src/cli/commands/module-decisions.ts, src/module-decisions]
+      - slug: module-events
+        name: module-events (list / since / for-module)
+        sources: [src/cli/commands/module-events.ts]
 
   - slug: cli-plan
     name: Resumable Plan Command
@@ -748,6 +785,98 @@ modules:
     sources:
       - src/quality-ratchet
 
+  - slug: verification
+    name: Verification Gates
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The gate runner and the bank of verification gates (issue #117) that
+      decide whether a change is allowed to land. Each gate under
+      `src/verification/gates/` returns a pass / block verdict with computed
+      judgment inputs — ac-test-mapping, behavioral-correctness, change-
+      completeness, code-tests-lint, mutation-testing, quality-ratchet,
+      spec-review, implementation-review, requirement-completeness,
+      documentation-freshness / -checks / -structure, architecture- and
+      database-quality, and extension-surface. The runner aggregates verdicts,
+      computes a delta versus the last run, and emits the evidence the ledger
+      and receipt consume. Gates fire from hooks with a git/CI backstop.
+    sources:
+      - src/verification
+      - src/verification/gates
+      - src/verification/repository
+    features:
+      - slug: gate-runner
+        name: Gate Runner & Verdict Aggregation
+        sources: [src/verification/gate-runner.ts, src/verification/delta.ts]
+      - slug: verification-gates
+        name: Gate Bank (16 gates)
+        sources: [src/verification/gates]
+      - slug: verification-evidence
+        name: Evidence Emission (markdown + structured)
+        sources: [src/verification/evidence.ts, src/verification/evidence-markdown.ts]
+
+  - slug: evidence-ledger
+    name: Evidence Ledger & Provenance Receipt
+    layer: framework-internals
+    confidence: high
+    summary: |
+      One unified, append-only evidence ledger (issues #118, #120) that every
+      verification gate and correctness engine writes to, plus the per-change
+      provenance receipt (an AI-BOM) projected from it at merge time. Each row
+      carries a `strength_class` — deterministic (A), llm-judged (B), or
+      blocked (C) — so a receipt reports "8 deterministic + 3 llm-judged
+      passed, 1 ratchet blocked, 1 inconclusive" instead of a pooled total.
+      `src/evidence/grading.ts` is the single source of truth for the A/B
+      split; `reproducibility.ts` stamps the receipt for replay.
+    sources:
+      - src/evidence
+      - src/evidence/receipt
+      - src/evidence/compliance
+    features:
+      - slug: unified-ledger
+        name: Unified Append-Only Ledger
+        sources: [src/evidence/ledger.ts, src/evidence/fan-in.ts]
+      - slug: evidence-grading
+        name: Evidence Grading (A/B/C strength classes)
+        sources: [src/evidence/grading.ts]
+      - slug: provenance-receipt
+        name: Per-Change Provenance Receipt (AI-BOM)
+        sources: [src/evidence/receipt, src/evidence/reproducibility.ts]
+      - slug: compliance-citations
+        name: Compliance Citations on the Receipt
+        sources: [src/evidence/compliance]
+
+  - slug: delivery-workflow
+    name: Provider-Agnostic Delivery Workflow
+    layer: framework-internals
+    confidence: high
+    summary: |
+      On-by-default delivery automation (issue #42) whose branch, CI, and
+      ticket conventions are detected from the team's real git history rather
+      than authored. The capability is two provider-neutral contracts —
+      `TicketProvider` (tracker-neutral; Jira first) and `HostProvider` (VCS +
+      code-host-neutral; GitHub first) — with vendors as adapters resolved by
+      `src/providers/registry.ts`. A delivery-policy.yaml carries the detected
+      conventions; a CI gate enforces them; graceful degradation kicks in when
+      a provider is not connected.
+    sources:
+      - src/delivery
+      - src/providers
+      - docs/instructions/workflows/delivery-policy.yaml
+    features:
+      - slug: ticket-provider
+        name: TicketProvider Contract (Jira adapter)
+        sources: [src/providers/ticket-provider.ts, src/providers/jira-ticket-provider.ts]
+      - slug: host-provider
+        name: HostProvider Contract (GitHub adapter)
+        sources: [src/providers/host-provider.ts, src/providers/github-host-provider.ts]
+      - slug: delivery-detection
+        name: Convention Detection from Git History
+        sources: [src/delivery/detection.ts, src/delivery/detect-run.ts]
+      - slug: delivery-ci-gate
+        name: Delivery CI Gate + Graceful Degradation
+        sources: [src/delivery/ci-gate.ts, src/delivery/degradation.ts]
+
   - slug: pentest-engine
     name: Pentest Engine (12 Skills)
     layer: framework-internals
@@ -761,7 +890,6 @@ modules:
     sources:
       - src/pentest
       - src/validators
-      - src/verification
 
   - slug: project-profile-schema
     name: Project Profile & Onboarding Manifest

@@ -17,10 +17,13 @@ paqad-ai's modules live in three layers:
 | cli-health          | Health & Diagnostics Commands                | [↗](../../modules/cli-health/index/summary.md) | doctor, module-health |
 | cli-rag             | RAG Index Commands                           | [↗](../../modules/cli-rag/index/summary.md) | init, rebuild, status, clear, eval |
 | cli-graph           | Project Graph Command                        | [↗](../../modules/cli-graph/index/summary.md) | graph server, graph-ui SPA, similarity overlay |
+| cli-dashboard       | Project Dashboard & Status Commands          | [↗](../../modules/cli-dashboard/index/summary.md) | dashboard, status, approvals, trust, seven-area IA, write pipeline |
 | cli-packs           | Pack Management Commands                     | [↗](../../modules/cli-packs/index/summary.md) | list, install, remove, validate, create |
 | cli-capabilities    | Capability Toggle Commands                   | [↗](../../modules/cli-capabilities/index/summary.md) | list, add, remove |
 | cli-patterns        | Pattern Library Commands                     | [↗](../../modules/cli-patterns/index/summary.md) | list, prune, export |
 | cli-compliance      | Spec Compliance Commands                     | [↗](../../modules/cli-compliance/index/summary.md) | extract, check, review, skeleton, doctor, boundary, patterns |
+| cli-audit           | Trust Export Commands (audit + evidence)     | [↗](../../modules/cli-audit/index/summary.md) | audit export (OCSF/ECS/CEF/JSONL), evidence PR comment |
+| cli-module-map      | Module Map Inspection Commands               | [↗](../../modules/cli-module-map/index/summary.md) | module-map reconcile, module-decisions, module-events |
 | cli-plan            | Resumable Plan Command                       | [↗](../../modules/cli-plan/index/summary.md) | plan resume |
 | adapter-onboarding  | Adapter Onboarding (LLM platform entry files)| [↗](../../modules/adapter-onboarding/index/summary.md) | claude-code, codex-cli, antigravity, gemini-cli, junie, cursor, github-copilot, windsurf, continue, aider |
 
@@ -55,11 +58,14 @@ paqad-ai's modules live in three layers:
 | decision-pause-contract    | Decision Pause Contract                | [↗](../../modules/decision-pause-contract/index/summary.md) |
 | pattern-library            | Cross-Project Pattern Library          | [↗](../../modules/pattern-library/index/summary.md) |
 | compliance-engine          | Spec Compliance Engine                 | [↗](../../modules/compliance-engine/index/summary.md) |
+| traceability-engine        | Bidirectional Traceability Engine      | [↗](../../modules/traceability-engine/index/summary.md) |
+| quality-ratchet            | Quality Ratchet                        | [↗](../../modules/quality-ratchet/index/summary.md) |
+| verification               | Verification Gates                     | [↗](../../modules/verification/index/summary.md) |
+| evidence-ledger            | Evidence Ledger & Provenance Receipt   | [↗](../../modules/evidence-ledger/index/summary.md) |
+| delivery-workflow          | Provider-Agnostic Delivery Workflow    | [↗](../../modules/delivery-workflow/index/summary.md) |
 | pentest-engine             | Pentest Engine (12 Skills)             | [↗](../../modules/pentest-engine/index/summary.md) |
 | project-profile-schema     | Project Profile & Onboarding Manifest  | [↗](../../modules/project-profile-schema/index/summary.md) |
 | repository-resolver        | Repository Resolver                    | [↗](../../modules/repository-resolver/index/summary.md) |
-| evidence-ledger            | Evidence Ledger & Provenance Receipt   | [↗](../../modules/evidence-ledger/index/summary.md) |
-| delivery-workflow          | Provider-Agnostic Delivery Workflow    | [↗](../../modules/delivery-workflow/index/summary.md) |
 
 ## Confidence
 

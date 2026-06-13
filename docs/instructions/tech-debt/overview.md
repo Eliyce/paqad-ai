@@ -11,8 +11,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 
 ## Known Gaps
 
-- Module map v2 confidence is **high** overall, with five low-confidence modules flagged: `root-cause-analysis-workflow`, `agent-routing`, `feature-development-workflow`, `pattern-library`, `repository-resolver`. Each needs a contributor pass before Stage 2.
-- No design-system tokens have been rendered yet; only template stubs exist under `runtime/templates/design-system/`. The only real UI surface (graph-ui SPA) is undocumented.
+- Module map v2 confidence is **high** overall, with five low-confidence modules still flagged: `root-cause-analysis-workflow`, `agent-routing`, `feature-development-workflow`, `pattern-library`, `repository-resolver`. Each needs a contributor pass.
+- **Module docs lag the refreshed map.** The 2026-06-13 foundation refresh added `cli-dashboard`, `cli-module-map`, `verification`, `evidence-ledger`, and `delivery-workflow` to the map. `docs/modules/cli-dashboard` and `docs/modules/cli-module-map` do not exist yet, and `docs/modules/verification` has feature pages (mutation-testing, flaky-handling) but no `index/summary.md`. Re-run **`create module documentation`** (Stage 2) to close the gap.
 - No error-catalog has been produced; module docs (Stage 2) should populate `docs/modules/{slug}/error-catalog.md` where errors exist.
 - Benchmark eval (model-graded) is disabled — enable when measuring RAG changes.
 

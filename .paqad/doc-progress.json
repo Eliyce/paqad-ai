@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-05-22T00:00:00Z",
+  "updatedAt": "2026-06-13T00:00:00Z",
   "stage": "module-docs",
   "moduleDocStage": "complete",
   "completed": [
@@ -47,7 +47,15 @@
     "modules/compliance-engine",
     "modules/pentest-engine",
     "modules/project-profile-schema",
-    "modules/repository-resolver"
+    "modules/repository-resolver",
+    "modules/cli-dashboard",
+    "modules/cli-module-map",
+    "modules/cli-audit",
+    "modules/verification",
+    "modules/evidence-ledger",
+    "modules/delivery-workflow",
+    "modules/quality-ratchet",
+    "modules/traceability-engine"
   ],
   "blocked": [],
   "lowConfidenceModules": [
@@ -60,8 +68,8 @@
   "moduleMapVersion": 2,
   "moduleMapLayers": ["cli-commands", "agent-workflows", "framework-internals"],
   "moduleDocStats": {
-    "modules": 35,
+    "modules": 43,
     "features": 73,
-    "filesWritten": 181
+    "filesWritten": 184
   }
 }
