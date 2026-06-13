@@ -40,7 +40,8 @@ export function createProgram(): Command {
   program.addCommand(createDoctorCommand());
   program.addCommand(createEvidenceCommand());
   program.addCommand(createAuditCommand());
-  program.addCommand(createGraphCommand());
+  // Hidden deprecated alias (issue #159): the graph is now a dashboard area.
+  program.addCommand(createGraphCommand(), { hidden: true });
   program.addCommand(createModuleDecisionsCommand());
   program.addCommand(createModuleEventsCommand());
   program.addCommand(createModuleHealthCommand());

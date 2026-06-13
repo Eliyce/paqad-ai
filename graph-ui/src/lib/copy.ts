@@ -13,6 +13,7 @@ export const PAGE_WHY: Record<DashboardArea, string> = {
     'Nothing risky moves forward without you. This is where you stay in control without reading logs.',
   trust: 'Proof you can show anyone: what was checked, who wrote it, who vouched.',
   build: 'Your codebase, mapped, measured, and honest.',
+  graph: 'Your codebase as a living map: modules, files, and how they connect.',
   automation: 'Decide once how work flows. Paqad follows your rules every time.',
   knowledge:
     'Everything your agents know about this project. Edit it here, every agent learns it instantly.',

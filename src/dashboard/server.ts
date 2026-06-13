@@ -7,6 +7,7 @@ import { createGzip, gzipSync } from 'node:zlib';
 import { PATHS } from '@/core/constants/paths.js';
 import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { engineLog } from '@/core/logger-registry.js';
+import { createGraphRoutes } from '@/graph/routes.js';
 import { startPaqadWatcher, type RunningWatcher } from '@/graph/watcher.js';
 
 import {
@@ -267,6 +268,10 @@ export async function startDashboardServer(
   const sseClients = new Set<ServerResponse>();
   let watcher: RunningWatcher | null = null;
 
+  // The graph area (issue #159) shares this front door. Read-only and lazy —
+  // extraction happens on the first `/api/graph` hit, never at boot.
+  const graphRoutes = createGraphRoutes(options.projectRoot);
+
   function refreshReport(): void {
     cachedReport = buildReport(options.projectRoot);
   }
@@ -283,6 +288,10 @@ export async function startDashboardServer(
   }
 
   function onArtefactChange(): void {
+    // Drop the cached graph too so the Graph area re-extracts on its next
+    // read, and nudge any open GraphView via its existing listener.
+    graphRoutes.invalidate();
+    broadcastSse('graph-updated', { extracted_at: new Date().toISOString() });
     try {
       refreshReport();
       broadcastSse('dashboard-updated', { generatedAt: cachedReport.generatedAt });
@@ -763,6 +772,12 @@ export async function startDashboardServer(
       };
       req.on('close', cleanup);
       req.on('error', cleanup);
+      return;
+    }
+    // Read-only graph API (issue #159). Mounted directly, never through the
+    // mutation guard, so a write to a graph path falls through to the 404
+    // below instead of mutating anything.
+    if (await graphRoutes.handle(req, res, url)) {
       return;
     }
     if (pathname.startsWith('/api/')) {

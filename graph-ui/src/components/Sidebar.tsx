@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { fetchSimilar } from '../lib/api';
 import type { OverlayKind } from '../lib/overlay';
 import { useAppStore, type LayerVisibility } from '../lib/store';
-import type { ThemeMode } from '../lib/theme';
 
 const LAYER_LABELS: { key: keyof LayerVisibility; label: string }[] = [
   { key: 'modules', label: 'Modules' },
@@ -14,14 +13,10 @@ const LAYER_LABELS: { key: keyof LayerVisibility; label: string }[] = [
   { key: 'similar', label: 'Similarity edges' },
 ];
 
-const THEME_OPTIONS: ThemeMode[] = ['auto', 'light', 'dark'];
-
 export function Sidebar() {
   const graph = useAppStore((s) => s.graph);
   const layers = useAppStore((s) => s.layers);
   const toggleLayer = useAppStore((s) => s.toggleLayer);
-  const theme = useAppStore((s) => s.theme);
-  const setTheme = useAppStore((s) => s.setTheme);
   const similarity = useAppStore((s) => s.similarity);
   const setSimilarityThreshold = useAppStore((s) => s.setSimilarityThreshold);
   const setSimilarityLoading = useAppStore((s) => s.setSimilarityLoading);
@@ -61,19 +56,7 @@ export function Sidebar() {
       style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
     >
       <header className="flex items-center justify-between">
-        <h1 className="font-semibold tracking-tight">paqad-ai graph</h1>
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value as ThemeMode)}
-          className="rounded border px-1.5 py-0.5 text-xs"
-          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-        >
-          {THEME_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+        <h1 className="font-semibold tracking-tight">Graph</h1>
       </header>
 
       {graph && (

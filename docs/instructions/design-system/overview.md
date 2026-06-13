@@ -1,6 +1,6 @@
 # Design System Overview
 
-paqad-ai's primary surface is a CLI. The only UI surface is the embedded `graph-ui/` React SPA used for visualizing project graphs.
+paqad-ai's primary surface is a CLI. The only UI surface is the embedded `graph-ui/` React SPA: the project dashboard. Graph is one area inside it (opened with `paqad-ai dashboard`, then the **Graph** nav item), alongside Pulse, Approvals, Trust, Build, and the rest.
 
 ## Surfaces
 

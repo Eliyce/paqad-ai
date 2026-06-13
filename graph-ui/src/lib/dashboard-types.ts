@@ -165,6 +165,7 @@ export type DashboardArea =
   | 'approvals'
   | 'trust'
   | 'build'
+  | 'graph'
   | 'automation'
   | 'knowledge'
   | 'setup';
