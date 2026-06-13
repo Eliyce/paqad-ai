@@ -361,19 +361,19 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP config, and s
 
 `onboard` is the one you start with. The rest keep the project honest over time. Full reference at [paqad.ai/docs.html](https://paqad.ai/docs.html).
 
-| Command                 | What it does                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| `paqad-ai onboard`      | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP |
-| `paqad-ai doctor`       | Check that everything paqad-ai manages is present and valid                      |
-| `paqad-ai compliance`   | Pull obligations from a spec and check which ones the tests actually prove       |
-| `paqad-ai refresh`      | Re-detect the stack and regenerate the derived docs                              |
-| `paqad-ai update`       | Regenerate framework-managed files after a version change                        |
-| `paqad-ai capabilities` | Turn `content`, `coding`, and `security` on or off                               |
-| `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                |
-| `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                   |
+| Command                 | What it does                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `paqad-ai onboard`      | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP          |
+| `paqad-ai doctor`       | Check that everything paqad-ai manages is present and valid                               |
+| `paqad-ai compliance`   | Pull obligations from a spec and check which ones the tests actually prove                |
+| `paqad-ai refresh`      | Re-detect the stack and regenerate the derived docs                                       |
+| `paqad-ai update`       | Regenerate framework-managed files after a version change                                 |
+| `paqad-ai capabilities` | Turn `content`, `coding`, and `security` on or off                                        |
+| `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                         |
+| `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                            |
 | `paqad-ai dashboard`    | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors |
-| `paqad-ai status`       | Print the same health report for an agent to read                                |
-| `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                            |
+| `paqad-ai status`       | Print the same health report for an agent to read                                         |
+| `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                                     |
 
 ```bash
 # a few common runs

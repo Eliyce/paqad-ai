@@ -24,7 +24,9 @@ function NavIcon({ name }: { name: DashboardArea }) {
     approvals: <path d="M2 9l3 3 4-4M2 5h12M9 9h5M9 13h5" transform="translate(0 -1)" />,
     trust: <path d="M8 2l5 2v4c0 3-2 5-5 6-3-1-5-3-5-6V4l5-2z" />,
     build: <path d="M8 2l5 3v6l-5 3-5-3V5l5-3zM8 8l5-3M8 8L3 5M8 8v6" />,
-    graph: <path d="M4 4a1.5 1.5 0 1 0 0-.01M12 4a1.5 1.5 0 1 0 0-.01M8 13a1.5 1.5 0 1 0 0-.01M4.8 4.8l2.4 7M11.2 4.8l-2.4 7M5 4h6" />,
+    graph: (
+      <path d="M4 4a1.5 1.5 0 1 0 0-.01M12 4a1.5 1.5 0 1 0 0-.01M8 13a1.5 1.5 0 1 0 0-.01M4.8 4.8l2.4 7M11.2 4.8l-2.4 7M5 4h6" />
+    ),
     automation: <path d="M3 6a5 5 0 0 1 9-2m1 6a5 5 0 0 1-9 2M12 1v3H9M4 15v-3h3" />,
     knowledge: <path d="M3 3a3 3 0 0 1 5 1 3 3 0 0 1 5-1v9a3 3 0 0 0-5 1 3 3 0 0 0-5-1V3z" />,
     setup: <path d="M3 5h10M3 11h10M6 3v4M11 9v4" />,
