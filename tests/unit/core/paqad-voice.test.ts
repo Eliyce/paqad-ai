@@ -34,7 +34,10 @@ describe('paqad-voice canonical vocabulary', () => {
     const legend = paqadGlyphLegend();
     expect(legend).toBe('🟢 good · 🔴 failed · 🟡 needs a look · ⚪ skipped');
     // Stripping the emoji must leave a still-meaningful line.
-    const stripped = legend.replace(/[🟢🔴🟡⚪]/gu, '').replace(/\s+/g, ' ').trim();
+    const stripped = legend
+      .replace(/[🟢🔴🟡⚪]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     expect(stripped).toBe('good · failed · needs a look · skipped');
   });
 

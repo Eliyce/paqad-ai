@@ -110,7 +110,7 @@ export const PAQAD_TERM_TRANSLATIONS: readonly PaqadTermTranslation[] = [
   },
   {
     term: 'requirement derivation',
-    plain: "I worked out what this actually needs to do before building it.",
+    plain: 'I worked out what this actually needs to do before building it.',
   },
   {
     term: 'verification gates',

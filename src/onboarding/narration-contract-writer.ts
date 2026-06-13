@@ -28,9 +28,9 @@ export function buildNarrationContractDocument(): string {
     .map((kind) => `| ${PAQAD_STATUS_GLYPH[kind]} | ${PAQAD_STATUS_LABEL[kind]} |`)
     .join('\n');
 
-  const translationRows = PAQAD_TERM_TRANSLATIONS.map(
-    (t) => `| ${t.term} | ${t.plain} |`,
-  ).join('\n');
+  const translationRows = PAQAD_TERM_TRANSLATIONS.map((t) => `| ${t.term} | ${t.plain} |`).join(
+    '\n',
+  );
 
   return `${MANAGED_HEADER}
 
