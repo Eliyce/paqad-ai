@@ -45,6 +45,7 @@ import {
   writeOnboardingCheckpoint,
 } from './checkpoint.js';
 import { writeDecisionPauseContractDocument } from './decision-pause-contract-writer.js';
+import { writeNarrationContractDocument } from './narration-contract-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { writeGitignore } from './gitignore-writer.js';
 import {
@@ -313,6 +314,16 @@ export class OnboardingOrchestrator {
     } catch (error) {
       onboardingWarnings.push(
         `Decision Pause Contract doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
+      );
+    }
+    try {
+      const wrote = writeNarrationContractDocument(options.projectRoot);
+      if (wrote) {
+        writeResult.written.push(PATHS.NARRATION_CONTRACT);
+      }
+    } catch (error) {
+      onboardingWarnings.push(
+        `Narration Contract doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
     let compiledRulesPath = join(options.projectRoot, PATHS.COMPILED_RULES);
