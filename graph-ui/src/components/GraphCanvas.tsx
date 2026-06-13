@@ -391,7 +391,7 @@ export function GraphCanvas({ data }: { data: GraphData }) {
   return (
     <div
       ref={containerRef}
-      style={{ position: 'absolute', inset: 0, width: '100vw', height: '100vh' }}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
     />
   );
 }

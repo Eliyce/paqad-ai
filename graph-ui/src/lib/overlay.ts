@@ -1,3 +1,4 @@
+import { HEALTH_STATE } from './copy';
 import type { Graph, GraphNode, ModuleHealthTier } from './types';
 
 export type OverlayKind = 'none' | 'health' | 'defects' | 'risk' | 'complexity';
@@ -187,10 +188,10 @@ export function legendForOverlay(
     return {
       title: 'Module health',
       stops: [
-        { label: 'green', color: TIER_COLOR.green },
-        { label: 'amber', color: TIER_COLOR.amber },
-        { label: 'red', color: TIER_COLOR.red },
-        { label: 'unknown', color: TIER_COLOR.unknown },
+        { label: HEALTH_STATE.green, color: TIER_COLOR.green },
+        { label: HEALTH_STATE.amber, color: TIER_COLOR.amber },
+        { label: HEALTH_STATE.red, color: TIER_COLOR.red },
+        { label: HEALTH_STATE.unknown, color: TIER_COLOR.unknown },
       ],
     };
   }

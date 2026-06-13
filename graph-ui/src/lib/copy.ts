@@ -20,6 +20,23 @@ export const PAGE_WHY: Record<DashboardArea, string> = {
   setup: "Your project's foundation. Set it once, change it any time.",
 };
 
+/**
+ * Plain-language health states (issue #163). The graph and its detail panels
+ * speak these words to owners; the raw tier names and engineering metrics
+ * (risk_floor, complexity_correction, defect_density, ast type) never reach a
+ * user-facing surface.
+ */
+export const HEALTH_STATE: Record<string, string> = {
+  green: 'Healthy',
+  amber: 'Needs attention',
+  red: 'At risk',
+  unknown: 'Not yet measured',
+};
+
+export function healthLabel(tier: string | null | undefined): string {
+  return HEALTH_STATE[tier ?? 'unknown'] ?? 'Not yet measured';
+}
+
 export interface WhyDrawerCopy {
   problem: string;
   benefit: string;

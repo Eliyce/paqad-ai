@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../lib/store';
 import { fetchChunkContent, fetchNodeDetail } from '../lib/api';
+import { healthLabel } from '../lib/copy';
 import type { NodeDetail } from '../lib/types';
 
 function fmtBytes(n: number | null | undefined): string {
@@ -84,13 +85,25 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
 
 function ModuleDetail({ detail }: { detail: NodeDetail }) {
   const attrs = detail.node.attributes;
+  const tier = (attrs.health_tier ?? 'unknown') as string;
+  const dotColor =
+    tier === 'green'
+      ? 'var(--color-mod-green)'
+      : tier === 'red'
+        ? 'var(--color-mod-red)'
+        : tier === 'amber'
+          ? 'var(--color-mod-amber)'
+          : 'var(--color-muted)';
   return (
     <>
       <section className="space-y-1">
-        <Row k="health tier" v={attrs.health_tier ?? '—'} />
-        <Row k="defects" v={attrs.defect_count ?? '—'} />
-        <Row k="risk floor" v={attrs.risk_floor ?? '—'} />
-        <Row k="complexity correction" v={attrs.complexity_correction ?? '—'} />
+        <div className="flex items-center gap-2 text-xs">
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full"
+            style={{ background: dotColor }}
+          />
+          <span className="font-medium">{healthLabel(tier)}</span>
+        </div>
         <Row k="files" v={detail.children.length} />
       </section>
       <section>
@@ -205,7 +218,7 @@ function ChunkDetail({ detail }: { detail: NodeDetail }) {
       <section className="space-y-1">
         <Row k="file" v={detail.parent?.label ?? '—'} />
         <Row k="index" v={detail.node.attributes.chunk_index ?? '—'} />
-        <Row k="ast type" v={detail.node.attributes.ast_node_type ?? '—'} />
+        <Row k="kind" v={detail.node.attributes.ast_node_type ?? '—'} />
         <Row k="hash" v={(detail.node.attributes.content_hash ?? '').slice(0, 12)} />
       </section>
       <section>

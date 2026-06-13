@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { DashboardChrome } from '../components/DashboardChrome';
 import { DetailPanel } from '../components/DetailPanel';
 import { GraphCanvas } from '../components/GraphCanvas';
+import { HealthHeadline } from '../components/HealthHeadline';
 import { Legend } from '../components/Legend';
 import { SearchBar } from '../components/SearchBar';
 import { Sidebar } from '../components/Sidebar';
@@ -88,48 +89,51 @@ export function GraphView() {
       frameworkVersion={frameworkVersion}
       sseLive={sseLive}
     >
-      <div className="relative h-full w-full">
-        {graph && <GraphCanvas data={graph} />}
-        <Sidebar />
-        {graph && <SearchBar />}
-        <DetailPanel />
-        <Legend />
-        {(loading || error) && (
-          <div
-            className="absolute right-3 top-3 rounded border px-3 py-1.5 text-xs shadow-sm"
-            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-          >
-            {loading ? 'Loading graph…' : `Error: ${error}`}
-          </div>
-        )}
-        {reloadFlashAt != null && (
-          <div
-            className="absolute bottom-3 right-3 rounded border px-3 py-1.5 text-xs shadow-sm"
-            style={{
-              background: 'var(--color-surface)',
-              borderColor: 'var(--color-accent)',
-              color: 'var(--color-accent)',
-            }}
-          >
-            .paqad/ changed · graph reloaded
-          </div>
-        )}
-        {graph && graph.nodes.length === 0 && !loading && (
-          <div
-            className="absolute inset-0 grid place-items-center text-sm"
-            style={{ color: 'var(--color-muted)' }}
-          >
+      <div className="flex h-full w-full flex-col">
+        <HealthHeadline graph={graph} />
+        <div className="relative min-h-0 flex-1">
+          {graph && <GraphCanvas data={graph} />}
+          <Sidebar />
+          {graph && <SearchBar />}
+          <DetailPanel />
+          <Legend />
+          {(loading || error) && (
             <div
-              className="rounded-lg border p-6"
+              className="absolute right-3 top-3 rounded border px-3 py-1.5 text-xs shadow-sm"
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             >
-              <div className="text-base font-medium">No nodes to display</div>
-              <div className="mt-1">
-                Run <code>paqad-ai onboard</code> to populate this project's graph.
+              {loading ? 'Loading graph…' : `Error: ${error}`}
+            </div>
+          )}
+          {reloadFlashAt != null && (
+            <div
+              className="absolute bottom-3 right-3 rounded border px-3 py-1.5 text-xs shadow-sm"
+              style={{
+                background: 'var(--color-surface)',
+                borderColor: 'var(--color-accent)',
+                color: 'var(--color-accent)',
+              }}
+            >
+              .paqad/ changed · graph reloaded
+            </div>
+          )}
+          {graph && graph.nodes.length === 0 && !loading && (
+            <div
+              className="absolute inset-0 grid place-items-center text-sm"
+              style={{ color: 'var(--color-muted)' }}
+            >
+              <div
+                className="rounded-lg border p-6"
+                style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+              >
+                <div className="text-base font-medium">No nodes to display</div>
+                <div className="mt-1">
+                  Run <code>paqad-ai onboard</code> to populate this project's graph.
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </DashboardChrome>
   );
