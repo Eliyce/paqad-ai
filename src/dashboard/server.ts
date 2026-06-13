@@ -4,10 +4,12 @@ import type { AddressInfo } from 'node:net';
 import { extname, join, normalize, resolve } from 'node:path';
 import { createGzip, gzipSync } from 'node:zlib';
 
+import { exportAuditEvents, SIEM_FORMATS, type SiemFormat } from '@/audit/index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { engineLog } from '@/core/logger-registry.js';
 import { createGraphRoutes } from '@/graph/routes.js';
+import { VERSION } from '@/index.js';
 import { startPaqadWatcher, type RunningWatcher } from '@/graph/watcher.js';
 
 import {
@@ -79,6 +81,18 @@ const MIME_TYPES: Record<string, string> = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.map': 'application/json; charset=utf-8',
+};
+
+/**
+ * Per-format download metadata for the SIEM export (issue #160). Content types
+ * mirror the spec: ndjson for the line-per-event schemas, json for jsonl, plain
+ * text for CEF. Extensions stay posix-safe.
+ */
+const SIEM_DOWNLOAD: Record<SiemFormat, { contentType: string; ext: string }> = {
+  ocsf: { contentType: 'application/x-ndjson; charset=utf-8', ext: 'ndjson' },
+  ecs: { contentType: 'application/x-ndjson; charset=utf-8', ext: 'ndjson' },
+  cef: { contentType: 'text/plain; charset=utf-8', ext: 'cef' },
+  jsonl: { contentType: 'application/json; charset=utf-8', ext: 'jsonl' },
 };
 
 function clientAcceptsGzip(req: IncomingMessage): boolean {
@@ -736,6 +750,51 @@ export async function startDashboardServer(
         return;
       }
       writeJson(res, req, packet);
+      return;
+    }
+    if (pathname === '/api/export/siem' && req.method === 'GET') {
+      // Read-only projection of the evidence ledger into the customer's SIEM
+      // schema (issue #160). Byte-identical to `paqad-ai audit export`; nothing
+      // is pushed anywhere, the browser just downloads what the CLI would write.
+      const format = (url.searchParams.get('format') ?? 'ocsf').toLowerCase();
+      if (!(SIEM_FORMATS as readonly string[]).includes(format)) {
+        writeJson(
+          res,
+          req,
+          { error: `Invalid format '${format}' (expected ${SIEM_FORMATS.join(' | ')}).` },
+          400,
+        );
+        return;
+      }
+      const since = url.searchParams.get('since') ?? undefined;
+      if (since !== undefined && Number.isNaN(Date.parse(since))) {
+        writeJson(
+          res,
+          req,
+          { error: `Invalid since '${since}' (expected an ISO-8601 timestamp).` },
+          400,
+        );
+        return;
+      }
+      const result = exportAuditEvents(options.projectRoot, {
+        format: format as SiemFormat,
+        ...(since !== undefined ? { since } : {}),
+        redact: url.searchParams.get('redact') === 'true',
+        productVersion: VERSION,
+      });
+      // Match the CLI: a non-empty export ends in a newline, an empty one is
+      // a truly empty file.
+      const payload = result.count > 0 ? `${result.output}\n` : '';
+      const meta = SIEM_DOWNLOAD[format as SiemFormat];
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      res.writeHead(200, {
+        'content-type': meta.contentType,
+        'content-disposition': `attachment; filename="paqad-siem-${format}-${stamp}.${meta.ext}"`,
+        'content-length': String(Buffer.byteLength(payload)),
+        'cache-control': 'no-store',
+        'x-paqad-event-count': String(result.count),
+      });
+      res.end(payload);
       return;
     }
     if (pathname === '/api/dashboard') {

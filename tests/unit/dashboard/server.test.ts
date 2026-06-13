@@ -6,10 +6,12 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 
+import { exportAuditEvents } from '@/audit/index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { VerificationEvidence } from '@/core/types/verification-evidence';
 import { startDashboardServer, type RunningDashboardServer } from '@/dashboard/server';
 import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger.js';
+import { VERSION } from '@/index.js';
 import { writeDecision } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { DecisionStore } from '@/planning/decision-store.js';
@@ -885,6 +887,83 @@ describe('startDashboardServer', () => {
       expect(res.status).toBe(200);
       expect(res.headers.get('content-type')).toMatch(/text\/markdown/);
       expect(await res.text()).toMatch(/abc1234/);
+    });
+  });
+
+  describe('SIEM export endpoint', () => {
+    function seedLedger(): void {
+      appendEvidenceRows(root, [
+        buildEvidenceRow({
+          ts: '2026-06-10T00:00:00.000Z',
+          engine: 'verification-gate',
+          code: 'mutation-testing',
+          subject_digest: 'subj',
+          verdict: 'pass',
+          strength_class: 'deterministic',
+          detail: 'token=secret',
+        }),
+      ]);
+    }
+
+    it('downloads OCSF by default, byte-identical to exportAuditEvents', async () => {
+      bootstrap(root);
+      seedLedger();
+      await startServer();
+
+      const res = await fetch(`${server!.url}/api/export/siem`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toMatch(/application\/x-ndjson/);
+      expect(res.headers.get('content-disposition')).toMatch(
+        /attachment; filename="paqad-siem-ocsf-\d{8}\.ndjson"/,
+      );
+      expect(res.headers.get('content-disposition')).not.toContain(':');
+      expect(res.headers.get('x-paqad-event-count')).toBe('1');
+
+      const expected =
+        exportAuditEvents(root, { format: 'ocsf', redact: false, productVersion: VERSION }).output +
+        '\n';
+      expect(await res.text()).toBe(expected);
+    });
+
+    it('honours format, since, and redact and matches the CLI projection', async () => {
+      bootstrap(root);
+      seedLedger();
+      await startServer();
+
+      const res = await fetch(
+        `${server!.url}/api/export/siem?format=jsonl&since=2026-01-01&redact=true`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toMatch(/application\/json/);
+      const text = await res.text();
+      expect(text).not.toContain('secret');
+      expect(text).toContain('[REDACTED]');
+
+      const expected =
+        exportAuditEvents(root, {
+          format: 'jsonl',
+          since: '2026-01-01',
+          redact: true,
+          productVersion: VERSION,
+        }).output + '\n';
+      expect(text).toBe(expected);
+    });
+
+    it('returns 400 on an invalid format and 400 on an unparseable since', async () => {
+      bootstrap(root);
+      await startServer();
+      expect((await fetch(`${server!.url}/api/export/siem?format=xml`)).status).toBe(400);
+      expect((await fetch(`${server!.url}/api/export/siem?since=yesterday`)).status).toBe(400);
+    });
+
+    it('emits an empty body and a zero count when there is nothing to export', async () => {
+      bootstrap(root);
+      await startServer();
+      const res = await fetch(`${server!.url}/api/export/siem?format=cef`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toMatch(/text\/plain/);
+      expect(res.headers.get('x-paqad-event-count')).toBe('0');
+      expect(await res.text()).toBe('');
     });
   });
 

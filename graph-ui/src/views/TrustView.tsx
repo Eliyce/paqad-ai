@@ -30,6 +30,15 @@ function shortHash(hash: string): string {
   return hash.slice(0, 12);
 }
 
+const SIEM_FORMATS = [
+  { value: 'ocsf', label: 'OCSF (recommended)' },
+  { value: 'ecs', label: 'ECS' },
+  { value: 'cef', label: 'CEF' },
+  { value: 'jsonl', label: 'JSONL' },
+] as const;
+
+type SiemFormatValue = (typeof SIEM_FORMATS)[number]['value'];
+
 function EvidenceLine({ row }: { row: EvidenceRow }) {
   const [open, setOpen] = useState(false);
   return (
@@ -218,6 +227,12 @@ export function TrustView() {
   /** The newest receipt's hash when it arrived live, so only it seals. */
   const [sealHash, setSealHash] = useState<string | null>(null);
   const receiptCountRef = useRef<number | null>(null);
+  // SIEM export utility (issue #160).
+  const [siemFormat, setSiemFormat] = useState<SiemFormatValue>('ocsf');
+  const [siemSince, setSiemSince] = useState('');
+  const [siemRedact, setSiemRedact] = useState(false);
+  const [siemBusy, setSiemBusy] = useState(false);
+  const [siemResult, setSiemResult] = useState<string | null>(null);
 
   const loadAll = useCallback((): void => {
     Promise.all([
@@ -289,6 +304,38 @@ export function TrustView() {
     window.open('/api/export/evidence-packet?format=html', '_blank');
   };
 
+  const downloadSiem = (): void => {
+    setSiemBusy(true);
+    setSiemResult(null);
+    const params = new URLSearchParams({ format: siemFormat });
+    if (siemSince) params.set('since', siemSince);
+    if (siemRedact) params.set('redact', 'true');
+    fetch(`/api/export/siem?${params.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(body?.error ?? `Export failed (${res.status}).`);
+        }
+        const count = res.headers.get('x-paqad-event-count') ?? '0';
+        const disposition = res.headers.get('content-disposition') ?? '';
+        const filename =
+          /filename="([^"]+)"/.exec(disposition)?.[1] ?? `paqad-siem-${siemFormat}.txt`;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        setError(null);
+        setSiemResult(`Exported ${count} events.`);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => setSiemBusy(false));
+  };
+
   const copyPacketMarkdown = (): void => {
     fetchEvidencePacketMarkdown()
       .then((markdown) => navigator.clipboard.writeText(markdown))
@@ -356,6 +403,89 @@ export function TrustView() {
             </WinLine>
           </div>
         )}
+
+        <details
+          className="mt-4 rounded-lg border text-sm"
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+        >
+          <summary className="cursor-pointer px-4 py-2 font-medium">Export to your SIEM</summary>
+          <div className="border-t px-4 py-3" style={{ borderColor: 'var(--color-border)' }}>
+            <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+              Project the evidence ledger into the schema your SIEM already ingests. Nothing leaves
+              your machine until you download it.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label
+                className="flex flex-col gap-1 text-xs"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                Format
+                <select
+                  className="rounded border px-2 py-1 text-xs"
+                  style={{
+                    background: 'var(--color-canvas)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-canvas-fg)',
+                  }}
+                  value={siemFormat}
+                  onChange={(event) => setSiemFormat(event.target.value as SiemFormatValue)}
+                >
+                  {SIEM_FORMATS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label
+                className="flex flex-col gap-1 text-xs"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                From date
+                <input
+                  type="date"
+                  className="rounded border px-2 py-1 text-xs"
+                  style={{
+                    background: 'var(--color-canvas)',
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-canvas-fg)',
+                  }}
+                  value={siemSince}
+                  onChange={(event) => setSiemSince(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="rounded border px-3 py-1.5 text-xs font-medium"
+                style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }}
+                onClick={downloadSiem}
+                disabled={siemBusy}
+              >
+                {siemBusy ? 'Exporting…' : 'Download export'}
+              </button>
+            </div>
+            <label className="mt-3 flex items-start gap-2 text-xs">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={siemRedact}
+                onChange={(event) => setSiemRedact(event.target.checked)}
+              />
+              <span>
+                Redact names and free text
+                <span className="block" style={{ color: 'var(--color-muted)' }}>
+                  Strips human identities and free-text detail. Use this when you are sharing the
+                  export outside your team.
+                </span>
+              </span>
+            </label>
+            {siemResult && (
+              <div className="mt-3 text-xs" style={{ color: 'var(--color-mod-green)' }}>
+                {siemResult}
+              </div>
+            )}
+          </div>
+        </details>
         {error && (
           <div
             className="mt-4 rounded-lg border p-4 text-sm"
