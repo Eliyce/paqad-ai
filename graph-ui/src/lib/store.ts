@@ -1,8 +1,12 @@
 import { create } from 'zustand';
+import type { ActivityByModule } from './activity';
 import type { Graph, GraphEdge, GraphNode, NodeDetail } from './types';
 import type { OverlayKind } from './overlay';
 import type { ThemeMode } from './theme';
 import { getThemeMode, setThemeMode } from './theme';
+
+/** Issue #165 — how much failing detail the views disclose. */
+export type DisclosureMode = 'working' | 'shareable';
 
 export interface LayerVisibility {
   modules: boolean;
@@ -41,6 +45,13 @@ export interface AppState {
   similarity: SimilarityState;
   overlay: OverlayKind;
   setOverlay: (o: OverlayKind) => void;
+  // Issue #165 — AI-activity overlay + receipt-backed per-module activity.
+  aiActivity: boolean;
+  setAiActivity: (on: boolean) => void;
+  activityByModule: ActivityByModule;
+  setActivityByModule: (a: ActivityByModule) => void;
+  disclosure: DisclosureMode;
+  setDisclosure: (m: DisclosureMode) => void;
   setGraph: (g: Graph | null) => void;
   setLoading: (b: boolean) => void;
   setError: (e: string | null) => void;
@@ -48,6 +59,7 @@ export interface AppState {
   setDetail: (d: NodeDetail | null) => void;
   setDetailLoading: (b: boolean) => void;
   toggleLayer: (k: keyof LayerVisibility) => void;
+  setLayers: (layers: LayerVisibility) => void;
   setTheme: (m: ThemeMode) => void;
   setSearchQuery: (q: string) => void;
   setSearchMatches: (matches: string[]) => void;
@@ -67,15 +79,24 @@ export const useAppStore = create<AppState>((set) => ({
   detailLoading: false,
   search: { query: '', matches: [], index: 0 },
   similarity: { threshold: 0.75, loading: false, edges: [], capped: false, error: null },
-  overlay: 'none',
+  // North Star default (issue #162): lead with the health-coloured map of
+  // named areas. Files, chunks, and symbols arrive via semantic zoom; the raw
+  // overlay picker lives under Advanced.
+  overlay: 'health',
   setOverlay: (overlay) => set({ overlay }),
+  aiActivity: true,
+  setAiActivity: (aiActivity) => set({ aiActivity }),
+  activityByModule: {},
+  setActivityByModule: (activityByModule) => set({ activityByModule }),
+  disclosure: 'working',
+  setDisclosure: (disclosure) => set({ disclosure }),
   layers: {
     modules: true,
-    files: true,
+    files: false,
     chunks: false,
     symbols: false,
-    contains: true,
-    imports: true,
+    contains: false,
+    imports: false,
     similar: false,
   },
   theme: typeof window !== 'undefined' ? getThemeMode() : 'auto',
@@ -90,6 +111,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       layers: { ...s.layers, [k]: !s.layers[k] },
     })),
+  setLayers: (layers) => set({ layers }),
   setTheme: (m) => {
     setThemeMode(m);
     set({ theme: m });

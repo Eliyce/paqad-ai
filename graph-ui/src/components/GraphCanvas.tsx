@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import type { Graph as GraphData, GraphNode } from '../lib/types';
+import { isRecent } from '../lib/activity';
 import { useAppStore, type LayerVisibility } from '../lib/store';
 import {
   colorForNodeWithOverlay,
@@ -23,6 +24,25 @@ function sizeForNode(type: GraphNode['type']): number {
   }
 }
 
+/**
+ * Module nodes are sized by importance (issue #162): the more files a module
+ * holds, the bigger and more prominent it reads on the default map.
+ */
+function moduleSize(fileCount: number): number {
+  return 10 + Math.min(26, Math.sqrt(fileCount) * 4);
+}
+
+/**
+ * Semantic-zoom level derived from the camera ratio (issue #162). Zoomed out
+ * (level 0) shows modules only; zooming in reveals files (1), then chunks and
+ * symbols (2). Sigma's ratio shrinks as you zoom in.
+ */
+function levelForRatio(ratio: number): 0 | 1 | 2 {
+  if (ratio <= 0.22) return 2;
+  if (ratio <= 0.55) return 1;
+  return 0;
+}
+
 function hash(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
@@ -37,27 +57,55 @@ function seedPosition(id: string): { x: number; y: number } {
   };
 }
 
-function shouldShowNode(node: GraphNode, layers: LayerVisibility): boolean {
-  switch (node.type) {
+/**
+ * Effective node visibility = the engineer layer toggle OR the semantic-zoom
+ * reveal level. Modules are always governed by their toggle; deeper layers
+ * appear once the viewer zooms in even if the toggle is off.
+ */
+function effectiveShowNode(
+  type: GraphNode['type'],
+  layers: LayerVisibility,
+  level: number,
+): boolean {
+  switch (type) {
     case 'module':
       return layers.modules;
     case 'file':
-      return layers.files;
+      return layers.files || level >= 1;
     case 'chunk':
-      return layers.chunks;
+      return layers.chunks || level >= 2;
     case 'symbol':
-      return layers.symbols;
+      return layers.symbols || level >= 2;
     default:
       return true;
   }
 }
 
-function shouldShowEdge(type: string, layers: LayerVisibility): boolean {
-  if (type === 'contains') return layers.contains;
-  if (type === 'imports') return layers.imports;
+function effectiveShowEdge(type: string, layers: LayerVisibility, level: number): boolean {
+  if (type === 'contains') return layers.contains || level >= 1;
+  if (type === 'imports') return layers.imports || level >= 1;
   if (type === 'similar') return layers.similar;
-  if (type === 'defines') return layers.symbols;
+  if (type === 'defines') return layers.symbols || level >= 2;
   return true;
+}
+
+/**
+ * Reapply node and edge visibility for the current layer toggles and zoom
+ * level. Edges only show when both endpoints are visible, so revealing files
+ * by zoom also reveals the contains/imports edges between them.
+ */
+function applyVisibility(g: Graph, layers: LayerVisibility, level: number): void {
+  g.forEachNode((id, attrs) => {
+    g.setNodeAttribute(id, 'hidden', !effectiveShowNode(attrs.nodeType, layers, level));
+  });
+  g.forEachEdge((id, attrs, _s, _t, sourceAttrs, targetAttrs) => {
+    const endpointsVisible = !sourceAttrs.hidden && !targetAttrs.hidden;
+    g.setEdgeAttribute(
+      id,
+      'hidden',
+      !endpointsVisible || !effectiveShowEdge(attrs.edgeType as string, layers, level),
+    );
+  });
 }
 
 function dim(hex: string): string {
@@ -85,7 +133,10 @@ export function GraphCanvas({ data }: { data: GraphData }) {
   const selected = useAppStore((s) => s.selectedNode);
   const similarEdges = useAppStore((s) => s.similarity.edges);
   const overlay = useAppStore((s) => s.overlay);
+  const aiActivity = useAppStore((s) => s.aiActivity);
+  const activityByModule = useAppStore((s) => s.activityByModule);
   const metrics = useMemo<OverlayMetrics>(() => computeOverlayMetrics(data), [data]);
+  const zoomLevelRef = useRef<0 | 1 | 2>(0);
   const lastCameraKey = useRef<string>('');
   const preservedCameraRef = useRef<{ x: number; y: number; ratio: number; angle: number } | null>(
     null,
@@ -95,6 +146,13 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     if (!containerRef.current) return;
     const g = new Graph({ multi: true, type: 'mixed' });
     const nodeById = new Map<string, GraphNode>();
+    // Module importance = how many files it holds, for size-by-importance.
+    const fileCount = new Map<string, number>();
+    for (const node of data.nodes) {
+      if (node.type === 'file' && node.parent_id) {
+        fileCount.set(node.parent_id, (fileCount.get(node.parent_id) ?? 0) + 1);
+      }
+    }
     for (const node of data.nodes) {
       nodeById.set(node.id, node);
       const pos = seedPosition(node.id);
@@ -102,12 +160,13 @@ export function GraphCanvas({ data }: { data: GraphData }) {
       g.addNode(node.id, {
         x: pos.x,
         y: pos.y,
-        size: sizeForNode(node.type),
+        size:
+          node.type === 'module' ? moduleSize(fileCount.get(node.id) ?? 0) : sizeForNode(node.type),
         label: node.label,
         color: baseColor,
         baseColor,
         nodeType: node.type,
-        hidden: !shouldShowNode(node, layers),
+        hidden: false,
       });
     }
     for (const edge of data.edges) {
@@ -127,9 +186,11 @@ export function GraphCanvas({ data }: { data: GraphData }) {
         color,
         baseColor: color,
         edgeType: edge.type,
-        hidden: !shouldShowEdge(edge.type, layers),
+        hidden: true,
       });
     }
+    // Initial visibility for the current toggles at the starting zoom level.
+    applyVisibility(g, layers, zoomLevelRef.current);
     graphRef.current = g;
 
     const sigma = new Sigma(g, containerRef.current, {
@@ -151,6 +212,21 @@ export function GraphCanvas({ data }: { data: GraphData }) {
       if (n) selectNode(n);
     });
     sigma.on('clickStage', () => selectNode(null));
+
+    // Semantic zoom: as the camera zooms in, reveal files then chunks/symbols
+    // on top of whatever the engineer toggles allow. Reads layers live so it
+    // never fights the Advanced controls.
+    const camera = sigma.getCamera();
+    const onCameraUpdate = (): void => {
+      const level = levelForRatio(camera.getState().ratio);
+      if (level === zoomLevelRef.current) return;
+      zoomLevelRef.current = level;
+      const gg = graphRef.current;
+      if (!gg) return;
+      applyVisibility(gg, useAppStore.getState().layers, level);
+      sigmaRef.current?.refresh();
+    };
+    camera.on('updated', onCameraUpdate);
 
     // Kick off layout in worker.
     const worker = new Worker(new URL('../lib/layout.worker.ts', import.meta.url), {
@@ -201,6 +277,7 @@ export function GraphCanvas({ data }: { data: GraphData }) {
       } catch {
         preservedCameraRef.current = null;
       }
+      camera.off('updated', onCameraUpdate);
       resizeObserver.disconnect();
       worker.terminate();
       sigma.kill();
@@ -226,18 +303,12 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     sigmaRef.current?.refresh();
   }, [overlay, metrics, data]);
 
-  // Reapply layer visibility when layers change.
+  // Reapply visibility when the engineer toggles change, combined with the
+  // current semantic-zoom level.
   useEffect(() => {
     const g = graphRef.current;
     if (!g) return;
-    g.forEachNode((id, attrs) => {
-      const type = attrs.nodeType as GraphNode['type'];
-      const fake = { type } as GraphNode;
-      g.setNodeAttribute(id, 'hidden', !shouldShowNode(fake, layers));
-    });
-    g.forEachEdge((id, attrs) => {
-      g.setEdgeAttribute(id, 'hidden', !shouldShowEdge(attrs.edgeType as string, layers));
-    });
+    applyVisibility(g, layers, zoomLevelRef.current);
     sigmaRef.current?.refresh();
   }, [layers]);
 
@@ -267,35 +338,42 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     sigmaRef.current?.refresh();
   }, [similarEdges, layers.similar]);
 
-  // Selection & search highlight.
+  // Selection & search highlight, plus the AI-activity overlay (issue #165):
+  // when nothing is selected, recently AI-touched modules stay lit and the
+  // rest dim, so "what the AI changed" reads pre-attentively.
   useEffect(() => {
     const g = graphRef.current;
     const sig = sigmaRef.current;
     if (!g || !sig) return;
     const matchSet = new Set(search.query.trim() ? search.matches : []);
-    const dimMode = matchSet.size > 0 || Boolean(selected);
+    const selectionMode = matchSet.size > 0 || Boolean(selected);
+    const now = Date.now();
+    const activeModules = new Set<string>();
+    if (aiActivity && !selectionMode) {
+      for (const a of Object.values(activityByModule)) {
+        if (isRecent(a, now)) activeModules.add(a.moduleId);
+      }
+    }
+    const activityMode = activeModules.size > 0;
     g.forEachNode((id, attrs) => {
       const base = (attrs.baseColor as string) ?? (attrs.color as string);
-      const isMatch = matchSet.has(id);
-      const isSelected = selected?.id === id;
-      if (!dimMode) {
-        g.setNodeAttribute(id, 'color', base);
-        g.setNodeAttribute(id, 'highlighted', false);
-      } else if (isSelected || isMatch) {
-        g.setNodeAttribute(id, 'color', base);
-        g.setNodeAttribute(id, 'highlighted', true);
+      const type = attrs.nodeType as GraphNode['type'];
+      if (selectionMode) {
+        const lit = matchSet.has(id) || selected?.id === id;
+        g.setNodeAttribute(id, 'color', lit ? base : dim(base));
+        g.setNodeAttribute(id, 'highlighted', lit);
+      } else if (activityMode) {
+        const lit = type !== 'module' || activeModules.has(id);
+        g.setNodeAttribute(id, 'color', lit ? base : dim(base));
+        g.setNodeAttribute(id, 'highlighted', type === 'module' && activeModules.has(id));
       } else {
-        g.setNodeAttribute(id, 'color', dim(base));
+        g.setNodeAttribute(id, 'color', base);
         g.setNodeAttribute(id, 'highlighted', false);
       }
     });
     g.forEachEdge((id, attrs) => {
       const base = (attrs.baseColor as string) ?? (attrs.color as string);
-      if (!dimMode) {
-        g.setEdgeAttribute(id, 'color', base);
-      } else {
-        g.setEdgeAttribute(id, 'color', dim(base));
-      }
+      g.setEdgeAttribute(id, 'color', selectionMode ? dim(base) : base);
     });
     sig.refresh();
 
@@ -318,12 +396,12 @@ export function GraphCanvas({ data }: { data: GraphData }) {
         sig.getCamera().animate({ x: 0.5, y: 0.5, ratio: 1, angle: 0 }, { duration: 300 });
       }
     }
-  }, [search, selected]);
+  }, [search, selected, aiActivity, activityByModule]);
 
   return (
     <div
       ref={containerRef}
-      style={{ position: 'absolute', inset: 0, width: '100vw', height: '100vh' }}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
     />
   );
 }

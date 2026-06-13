@@ -4,20 +4,24 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { startGraphServer, type RunningGraphServer } from '@/graph/server';
+import { startDashboardServer, type RunningDashboardServer } from '@/dashboard/server';
 
 function writeJson(path: string, data: unknown): void {
   mkdirSync(join(path, '..'), { recursive: true });
   writeFileSync(path, JSON.stringify(data));
 }
 
-describe('startGraphServer', () => {
+/**
+ * The graph API is now mounted on the dashboard server (issue #159). These
+ * tests drive the read-only graph routes through that single front door.
+ */
+describe('graph routes on the dashboard server', () => {
   let root: string;
   let staticDir: string;
-  let server: RunningGraphServer | null = null;
+  let server: RunningDashboardServer | null = null;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'paqad-graph-srv-'));
+    root = mkdtempSync(join(tmpdir(), 'paqad-graph-routes-'));
     staticDir = join(root, 'static');
     mkdirSync(staticDir, { recursive: true });
     writeFileSync(join(staticDir, 'index.html'), '<!doctype html><title>ok</title>');
@@ -32,17 +36,14 @@ describe('startGraphServer', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('serves /api/health and /api/graph as JSON and falls back to index.html', async () => {
-    server = await startGraphServer({
+  it('serves /api/graph as JSON and falls back to index.html', async () => {
+    server = await startDashboardServer({
       projectRoot: root,
       host: '127.0.0.1',
       port: 0,
       staticDir,
+      watch: false,
     });
-
-    const health = await fetch(`${server.url}/api/health`);
-    expect(health.status).toBe(200);
-    expect(await health.json()).toEqual({ ok: true });
 
     const graph = await fetch(`${server.url}/api/graph`);
     expect(graph.status).toBe(200);
@@ -57,8 +58,22 @@ describe('startGraphServer', () => {
     expect(unknown.status).toBe(404);
   });
 
+  it('keeps the graph API read-only: a write to /api/graph is rejected', async () => {
+    server = await startDashboardServer({
+      projectRoot: root,
+      host: '127.0.0.1',
+      port: 0,
+      staticDir,
+      watch: false,
+    });
+
+    // No mutating graph endpoint exists, so a forced write falls through to the
+    // unknown-endpoint 404 rather than mutating anything.
+    const put = await fetch(`${server.url}/api/graph`, { method: 'PUT' });
+    expect(put.status).toBe(404);
+  });
+
   it('serves /api/node/:id and /api/chunk/:id/content', async () => {
-    const { mkdirSync, writeFileSync } = await import('node:fs');
     mkdirSync(join(root, '.paqad/context'), { recursive: true });
     mkdirSync(join(root, '.paqad/module-health'), { recursive: true });
     writeFileSync(
@@ -91,11 +106,12 @@ describe('startGraphServer', () => {
       }),
     );
 
-    server = await startGraphServer({
+    server = await startDashboardServer({
       projectRoot: root,
       host: '127.0.0.1',
       port: 0,
       staticDir,
+      watch: false,
     });
     const detailRes = await fetch(
       `${server.url}/api/node/${encodeURIComponent('file:src/x/a.ts')}`,
@@ -113,10 +129,14 @@ describe('startGraphServer', () => {
 
     const missing = await fetch(`${server.url}/api/node/nope`);
     expect(missing.status).toBe(404);
+
+    const missingChunk = await fetch(
+      `${server.url}/api/chunk/${encodeURIComponent('chunk:nope#9')}/content`,
+    );
+    expect(missingChunk.status).toBe(404);
   });
 
   it('serves POST /api/similar and rejects malformed bodies', async () => {
-    const { mkdirSync, writeFileSync } = await import('node:fs');
     mkdirSync(join(root, '.paqad/context'), { recursive: true });
     mkdirSync(join(root, '.paqad/module-health'), { recursive: true });
     mkdirSync(join(root, '.paqad/vectors'), { recursive: true });
@@ -183,11 +203,12 @@ describe('startGraphServer', () => {
       }),
     );
 
-    server = await startGraphServer({
+    server = await startDashboardServer({
       projectRoot: root,
       host: '127.0.0.1',
       port: 0,
       staticDir,
+      watch: false,
     });
 
     const bad = await fetch(`${server.url}/api/similar`, {
@@ -196,6 +217,20 @@ describe('startGraphServer', () => {
       body: '{}',
     });
     expect(bad.status).toBe(400);
+
+    // Empty body (readJsonBody resolves null) and unparseable body both reject.
+    const empty = await fetch(`${server.url}/api/similar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(empty.status).toBe(400);
+
+    const malformed = await fetch(`${server.url}/api/similar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{ not json',
+    });
+    expect(malformed.status).toBe(400);
 
     const ok = await fetch(`${server.url}/api/similar`, {
       method: 'POST',
@@ -208,8 +243,7 @@ describe('startGraphServer', () => {
   });
 
   it('broadcasts a graph-updated SSE event when .paqad/ changes', async () => {
-    const { writeFileSync } = await import('node:fs');
-    server = await startGraphServer({
+    server = await startDashboardServer({
       projectRoot: root,
       host: '127.0.0.1',
       port: 0,
@@ -241,26 +275,5 @@ describe('startGraphServer', () => {
     writeFileSync(join(root, '.paqad/touched.txt'), String(Date.now()));
     const got = await events;
     expect(got).toBe(true);
-  });
-
-  it('increments to the next free port when the requested port is taken', async () => {
-    const first = await startGraphServer({
-      projectRoot: root,
-      host: '127.0.0.1',
-      port: 0,
-      staticDir,
-    });
-    try {
-      const second = await startGraphServer({
-        projectRoot: root,
-        host: '127.0.0.1',
-        port: first.port,
-        staticDir,
-      });
-      expect(second.port).not.toBe(first.port);
-      await second.close();
-    } finally {
-      await first.close();
-    }
   });
 });

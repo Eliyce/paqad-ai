@@ -29,6 +29,8 @@ import type {
   ReceiptFeed,
   RemovePackResult,
   ResolvedDeliveryPolicy,
+  SavedView,
+  SavedViewArea,
   SetCapabilityResult,
   ValidationIssue,
 } from './dashboard-types';
@@ -420,4 +422,32 @@ export async function fetchSimilar(req: SimilarityRequest): Promise<SimilarityRe
   });
   if (!res.ok) throw new Error('Failed to fetch /api/similar: ' + res.status);
   return (await res.json()) as SimilarityResponse;
+}
+
+/* Saved views (issue #161) */
+
+export async function fetchSavedViews(): Promise<SavedView[]> {
+  const res = await fetch('/api/saved-views');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return ((await res.json()) as { views: SavedView[] }).views;
+}
+
+export async function putSavedView(input: {
+  id: string;
+  name: string;
+  area: SavedViewArea;
+  scope: Record<string, unknown>;
+}): Promise<SavedView> {
+  const res = await fetch('/api/saved-views/' + encodeURIComponent(input.id), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: input.name, area: input.area, scope: input.scope }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return ((await res.json()) as { result: SavedView }).result;
+}
+
+export async function deleteSavedView(id: string): Promise<void> {
+  const res = await fetch('/api/saved-views/' + encodeURIComponent(id), { method: 'DELETE' });
+  if (!res.ok) throw new Error(await errorMessage(res));
 }

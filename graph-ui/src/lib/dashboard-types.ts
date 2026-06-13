@@ -165,6 +165,7 @@ export type DashboardArea =
   | 'approvals'
   | 'trust'
   | 'build'
+  | 'graph'
   | 'automation'
   | 'knowledge'
   | 'setup';
@@ -196,6 +197,18 @@ export interface InventoryReport {
   schemaVersion: 1;
   generatedAt: string;
   items: InventoryItem[];
+}
+
+/* Saved views — mirrors src/dashboard/saved-views.ts. */
+
+export type SavedViewArea = 'graph' | 'trust' | 'export';
+
+export interface SavedView {
+  id: string;
+  name: string;
+  area: SavedViewArea;
+  scope: Record<string, unknown>;
+  createdAt: string;
 }
 
 /* Delivery policy editor — mirrors src/core/types/delivery-policy.ts and

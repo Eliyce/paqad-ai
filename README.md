@@ -303,10 +303,11 @@ Everything above adds up to what a serious team needs before it lets AI near its
 ## See what your AI sees
 
 ```bash
-paqad-ai graph        # an interactive map of modules, files, symbols, imports, and similarity
-paqad-ai dashboard    # the management surface: health, approvals, trust, and web editors for everything you own
+paqad-ai dashboard    # the management surface: health, approvals, trust, the Graph area, and web editors for everything you own
 paqad-ai status       # the same report as JSON or Markdown, for an agent to read
 ```
+
+The **Graph** area inside the dashboard is an interactive map of modules, files, symbols, imports, and similarity. It lives behind the same left rail as every other area.
 
 One command, nothing extra to install. The server, the interface, and the layout engine all ship inside `paqad-ai`, run on loopback only, and send no telemetry.
 
@@ -360,20 +361,19 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP config, and s
 
 `onboard` is the one you start with. The rest keep the project honest over time. Full reference at [paqad.ai/docs.html](https://paqad.ai/docs.html).
 
-| Command                 | What it does                                                                     |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| `paqad-ai onboard`      | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP |
-| `paqad-ai doctor`       | Check that everything paqad-ai manages is present and valid                      |
-| `paqad-ai compliance`   | Pull obligations from a spec and check which ones the tests actually prove       |
-| `paqad-ai refresh`      | Re-detect the stack and regenerate the derived docs                              |
-| `paqad-ai update`       | Regenerate framework-managed files after a version change                        |
-| `paqad-ai capabilities` | Turn `content`, `coding`, and `security` on or off                               |
-| `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                |
-| `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                   |
-| `paqad-ai graph`        | Open the interactive project map                                                 |
-| `paqad-ai dashboard`    | Open the management surface: pulse, approvals, trust, and the web editors        |
-| `paqad-ai status`       | Print the same health report for an agent to read                                |
-| `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                            |
+| Command                 | What it does                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `paqad-ai onboard`      | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP          |
+| `paqad-ai doctor`       | Check that everything paqad-ai manages is present and valid                               |
+| `paqad-ai compliance`   | Pull obligations from a spec and check which ones the tests actually prove                |
+| `paqad-ai refresh`      | Re-detect the stack and regenerate the derived docs                                       |
+| `paqad-ai update`       | Regenerate framework-managed files after a version change                                 |
+| `paqad-ai capabilities` | Turn `content`, `coding`, and `security` on or off                                        |
+| `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                         |
+| `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                            |
+| `paqad-ai dashboard`    | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors |
+| `paqad-ai status`       | Print the same health report for an agent to read                                         |
+| `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                                     |
 
 ```bash
 # a few common runs

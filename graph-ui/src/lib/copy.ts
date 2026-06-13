@@ -13,11 +13,29 @@ export const PAGE_WHY: Record<DashboardArea, string> = {
     'Nothing risky moves forward without you. This is where you stay in control without reading logs.',
   trust: 'Proof you can show anyone: what was checked, who wrote it, who vouched.',
   build: 'Your codebase, mapped, measured, and honest.',
+  graph: 'Your codebase as a living map: modules, files, and how they connect.',
   automation: 'Decide once how work flows. Paqad follows your rules every time.',
   knowledge:
     'Everything your agents know about this project. Edit it here, every agent learns it instantly.',
   setup: "Your project's foundation. Set it once, change it any time.",
 };
+
+/**
+ * Plain-language health states (issue #163). The graph and its detail panels
+ * speak these words to owners; the raw tier names and engineering metrics
+ * (risk_floor, complexity_correction, defect_density, ast type) never reach a
+ * user-facing surface.
+ */
+export const HEALTH_STATE: Record<string, string> = {
+  green: 'Healthy',
+  amber: 'Needs attention',
+  red: 'At risk',
+  unknown: 'Not yet measured',
+};
+
+export function healthLabel(tier: string | null | undefined): string {
+  return HEALTH_STATE[tier ?? 'unknown'] ?? 'Not yet measured';
+}
 
 export interface WhyDrawerCopy {
   problem: string;

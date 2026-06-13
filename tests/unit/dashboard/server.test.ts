@@ -6,10 +6,12 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 
+import { exportAuditEvents } from '@/audit/index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { VerificationEvidence } from '@/core/types/verification-evidence';
 import { startDashboardServer, type RunningDashboardServer } from '@/dashboard/server';
 import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger.js';
+import { VERSION } from '@/index.js';
 import { writeDecision } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { DecisionStore } from '@/planning/decision-store.js';
@@ -885,6 +887,197 @@ describe('startDashboardServer', () => {
       expect(res.status).toBe(200);
       expect(res.headers.get('content-type')).toMatch(/text\/markdown/);
       expect(await res.text()).toMatch(/abc1234/);
+    });
+  });
+
+  describe('SIEM export endpoint', () => {
+    function seedLedger(): void {
+      appendEvidenceRows(root, [
+        buildEvidenceRow({
+          ts: '2026-06-10T00:00:00.000Z',
+          engine: 'verification-gate',
+          code: 'mutation-testing',
+          subject_digest: 'subj',
+          verdict: 'pass',
+          strength_class: 'deterministic',
+          detail: 'token=secret',
+        }),
+      ]);
+    }
+
+    it('downloads OCSF by default, byte-identical to exportAuditEvents', async () => {
+      bootstrap(root);
+      seedLedger();
+      await startServer();
+
+      const res = await fetch(`${server!.url}/api/export/siem`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toMatch(/application\/x-ndjson/);
+      expect(res.headers.get('content-disposition')).toMatch(
+        /attachment; filename="paqad-siem-ocsf-\d{8}\.ndjson"/,
+      );
+      expect(res.headers.get('content-disposition')).not.toContain(':');
+      expect(res.headers.get('x-paqad-event-count')).toBe('1');
+
+      const expected =
+        exportAuditEvents(root, { format: 'ocsf', redact: false, productVersion: VERSION }).output +
+        '\n';
+      expect(await res.text()).toBe(expected);
+    });
+
+    it('honours format, since, and redact and matches the CLI projection', async () => {
+      bootstrap(root);
+      seedLedger();
+      await startServer();
+
+      const res = await fetch(
+        `${server!.url}/api/export/siem?format=jsonl&since=2026-01-01&redact=true`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toMatch(/application\/json/);
+      const text = await res.text();
+      expect(text).not.toContain('secret');
+      expect(text).toContain('[REDACTED]');
+
+      const expected =
+        exportAuditEvents(root, {
+          format: 'jsonl',
+          since: '2026-01-01',
+          redact: true,
+          productVersion: VERSION,
+        }).output + '\n';
+      expect(text).toBe(expected);
+    });
+
+    it('returns 400 on an invalid format and 400 on an unparseable since', async () => {
+      bootstrap(root);
+      await startServer();
+      expect((await fetch(`${server!.url}/api/export/siem?format=xml`)).status).toBe(400);
+      expect((await fetch(`${server!.url}/api/export/siem?since=yesterday`)).status).toBe(400);
+    });
+
+    it('emits an empty body and a zero count when there is nothing to export', async () => {
+      bootstrap(root);
+      await startServer();
+      const res = await fetch(`${server!.url}/api/export/siem?format=cef`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toMatch(/text\/plain/);
+      expect(res.headers.get('x-paqad-event-count')).toBe('0');
+      expect(await res.text()).toBe('');
+    });
+  });
+
+  describe('saved views (#161)', () => {
+    it('creates, lists, applies-by-reload, and deletes a saved view', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const empty = (await (await fetch(`${server!.url}/api/saved-views`)).json()) as {
+        views: unknown[];
+      };
+      expect(empty.views).toEqual([]);
+
+      const put = await fetch(`${server!.url}/api/saved-views/graph-1`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Modules only',
+          area: 'graph',
+          scope: { layers: { modules: true }, threshold: 0.8, overlay: 'health' },
+        }),
+      });
+      expect(put.status).toBe(200);
+      const created = (await put.json()) as { result: { id: string; createdAt: string } };
+      expect(created.result.id).toBe('graph-1');
+      expect(created.result.createdAt).toMatch(/^\d{4}-/);
+
+      // Reload (a fresh GET) restores the scope exactly.
+      const listed = (await (await fetch(`${server!.url}/api/saved-views`)).json()) as {
+        views: { id: string; scope: { threshold: number; overlay: string } }[];
+      };
+      expect(listed.views).toHaveLength(1);
+      expect(listed.views[0].scope.threshold).toBe(0.8);
+      expect(listed.views[0].scope.overlay).toBe('health');
+
+      const del = await fetch(`${server!.url}/api/saved-views/graph-1`, { method: 'DELETE' });
+      expect(del.status).toBe(200);
+      const after = (await (await fetch(`${server!.url}/api/saved-views`)).json()) as {
+        views: unknown[];
+      };
+      expect(after.views).toEqual([]);
+    });
+
+    it('rejects a bad area and a bad id with 400, 404s an unknown delete', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const badArea = await fetch(`${server!.url}/api/saved-views/x1`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'n', area: 'nope', scope: {} }),
+      });
+      expect(badArea.status).toBe(400);
+
+      const badId = await fetch(`${server!.url}/api/saved-views/${encodeURIComponent('a/b')}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'n', area: 'graph', scope: {} }),
+      });
+      // The id decodes to 'a/b', which the slug validator rejects → 400.
+      expect(badId.status).toBe(400);
+
+      const missing = await fetch(`${server!.url}/api/saved-views/never`, { method: 'DELETE' });
+      expect(missing.status).toBe(404);
+    });
+
+    it('refuses saved-view writes in read-only mode', async () => {
+      bootstrap(root);
+      await startServer({ readOnly: true });
+      const res = await fetch(`${server!.url}/api/saved-views/x`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'n', area: 'graph', scope: {} }),
+      });
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('snapshots (#161)', () => {
+    it('renders a static module-health snapshot with no live calls, 404 when absent', async () => {
+      bootstrap(root);
+      mkdirSync(join(root, '.paqad/module-health'), { recursive: true });
+      writeFileSync(
+        join(root, '.paqad/module-health/payments.json'),
+        JSON.stringify({
+          module: 'payments',
+          tier: 'green',
+          metrics: { coverage_pct: 80, defect_frequency: null },
+          updated_at: '2026-06-01T00:00:00.000Z',
+        }),
+      );
+      await startServer();
+
+      const ok = await fetch(
+        `${server!.url}/api/snapshot/module/${encodeURIComponent('module:payments')}`,
+      );
+      expect(ok.status).toBe(200);
+      expect(ok.headers.get('content-type')).toMatch(/text\/html/);
+      const html = await ok.text();
+      expect(html).toContain('Module payments');
+      expect(html).toContain('Static copy, no live data.');
+      // Fully static: no scripts and no live API calls.
+      expect(html).not.toContain('<script');
+      expect(html).not.toContain('/api/');
+
+      const missing = await fetch(`${server!.url}/api/snapshot/module/nope`);
+      expect(missing.status).toBe(404);
+    });
+
+    it('404s a receipt snapshot before any receipt exists', async () => {
+      bootstrap(root);
+      await startServer();
+      const res = await fetch(`${server!.url}/api/snapshot/receipt/deadbeef`);
+      expect(res.status).toBe(404);
     });
   });
 
