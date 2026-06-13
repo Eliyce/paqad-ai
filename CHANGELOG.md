@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.21.0
+
+### Minor Changes
+
+- [#167](https://github.com/Eliyce/paqad-ai/pull/167) [`f852189`](https://github.com/Eliyce/paqad-ai/commit/f852189f4dfcf0df264b6af638e804213c47cde2) Thanks [@HLasani](https://github.com/HLasani)! - Give paqad a visible voice in the live agent chat. Onboarding now bakes a "paqad in your chat" narration contract into every provider entry file (CLAUDE.md, AGENTS.md, .cursor/rules, and the rest), instructing the agent to surface paqad's orchestration work — classification, lane routing, verification verdicts, decision pauses — in a lean, first-person, value-anchored voice. The glyphs (🟢🔴🟡⚪), verdict words, status-block frame, and plain-English term translations are defined once in a canonical voice spec and reused by the PR evidence comment, the dashboard, and the chat contract, plus a managed `.paqad/narration-contract.md` reference doc. A health check flags a missing or drifted contract.
+
 ## 1.20.0
 
 ### Minor Changes
