@@ -14,29 +14,31 @@ import type {
   VerificationEvidenceGate,
 } from '@/core/types/verification-evidence.js';
 import { latestReceiptAuthorship, latestReceiptTrustExtras } from '@/evidence/receipt/project.js';
+import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from './evidence.js';
 
-// Mirror of the dashboard glyph vocabulary (src/dashboard/markdown.ts) and the
-// three-band SummaryBand wording, so paqad speaks one verdict language across
-// every surface.
+// Glyph + verdict vocabulary comes from the canonical paqad-voice spec
+// (src/core/constants/paqad-voice.ts), so the PR comment, the dashboard, and
+// the in-chat narration contract all speak one verdict language. These maps
+// only translate each surface's own status enum onto the shared glyphs.
 const GATE_GLYPHS: Record<EvidenceGateStatus, string> = {
-  pass: '🟢',
-  fail: '🔴',
-  inconclusive: '🟡',
-  skipped: '⚪',
+  pass: PAQAD_STATUS_GLYPH.good,
+  fail: PAQAD_STATUS_GLYPH.failed,
+  inconclusive: PAQAD_STATUS_GLYPH.needsLook,
+  skipped: PAQAD_STATUS_GLYPH.skipped,
 };
 
 const OVERALL_GLYPHS: Record<EvidenceOverallStatus, string> = {
-  pass: '🟢',
-  fail: '🔴',
-  error: '🟡',
+  pass: PAQAD_STATUS_GLYPH.good,
+  fail: PAQAD_STATUS_GLYPH.failed,
+  error: PAQAD_STATUS_GLYPH.needsLook,
 };
 
 const OVERALL_HEADLINE: Record<EvidenceOverallStatus, string> = {
-  pass: 'Safe to merge',
-  fail: 'Needs your attention',
-  error: 'Inconclusive',
+  pass: PAQAD_VERDICT.pass,
+  fail: PAQAD_VERDICT.fail,
+  error: PAQAD_VERDICT.inconclusive,
 };
 
 // Human labels for the gates surfaced in the summary. Gates not listed are
