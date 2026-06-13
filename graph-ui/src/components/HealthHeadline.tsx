@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import { fetchReceipts } from '../lib/api';
+import { useAppStore } from '../lib/store';
 import type { Graph } from '../lib/types';
 
 interface Props {
@@ -40,30 +40,17 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
  * health on the graph and the verification receipts.
  */
 export function HealthHeadline({ graph }: Props) {
-  const [weekChanges, setWeekChanges] = useState<{ total: number; unverified: number } | null>(
-    null,
-  );
+  const activityByModule = useAppStore((s) => s.activityByModule);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchReceipts()
-      .then((feed) => {
-        if (cancelled) return;
-        const cutoff = Date.now() - WEEK_MS;
-        const week = feed.receipts.filter((r) => {
-          const t = r.time_verified ? Date.parse(r.time_verified) : NaN;
-          return !Number.isNaN(t) && t >= cutoff;
-        });
-        setWeekChanges({
-          total: week.length,
-          unverified: week.filter((r) => r.verification_result !== 'PASSED').length,
-        });
-      })
-      .catch(() => setWeekChanges(null));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Modules an AI agent shipped to this week, from the receipt-backed activity.
+  const weekModules = useMemo(() => {
+    const cutoff = Date.now() - WEEK_MS;
+    const week = Object.values(activityByModule).filter((a) => {
+      const t = Date.parse(a.lastChange);
+      return !Number.isNaN(t) && t >= cutoff;
+    });
+    return { total: week.length, unverified: week.filter((a) => !a.verified).length };
+  }, [activityByModule]);
 
   const counts = useMemo(() => tierCounts(graph), [graph]);
 
@@ -83,9 +70,9 @@ export function HealthHeadline({ graph }: Props) {
       : 'Run paqad-ai onboard to measure your areas.';
 
   const activityFact =
-    weekChanges && weekChanges.total > 0
-      ? ` AI agents shipped ${weekChanges.total} ${weekChanges.total === 1 ? 'change' : 'changes'} this week, ${
-          weekChanges.unverified === 0 ? 'all verified' : `${weekChanges.unverified} unverified`
+    weekModules.total > 0
+      ? ` AI agents shipped to ${weekModules.total} ${weekModules.total === 1 ? 'module' : 'modules'} this week, ${
+          weekModules.unverified === 0 ? 'all verified' : `${weekModules.unverified} unverified`
         }.`
       : '';
 

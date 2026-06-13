@@ -130,6 +130,18 @@ function resolveModuleTier(detail: NodeDetail, nodesById: Map<string, GraphNode>
     : 'unknown';
 }
 
+/** The owning module id for any node, for the receipt-backed activity lookup. */
+function resolveModuleId(detail: NodeDetail, nodesById: Map<string, GraphNode>): string | null {
+  if (detail.node.type === 'module') return detail.node.id;
+  let cursor = nodesById.get(detail.node.id);
+  let guard = 0;
+  while (cursor && cursor.type !== 'module' && guard < 10) {
+    cursor = cursor.parent_id ? nodesById.get(cursor.parent_id) : undefined;
+    guard += 1;
+  }
+  return cursor?.type === 'module' ? cursor.id : null;
+}
+
 function describeNode(detail: NodeDetail): string {
   const n = detail.node;
   switch (n.type) {
@@ -158,8 +170,14 @@ function PlainCard({
   detail: NodeDetail;
   nodesById: Map<string, GraphNode>;
 }) {
+  const activityByModule = useAppStore((s) => s.activityByModule);
+  const disclosure = useAppStore((s) => s.disclosure);
   const tier = resolveModuleTier(detail, nodesById);
   const isModule = detail.node.type === 'module';
+  const shareable = disclosure === 'shareable';
+  const moduleId = resolveModuleId(detail, nodesById);
+  const activity = moduleId ? activityByModule[moduleId] : undefined;
+  const atRisk = tier === 'amber' || tier === 'red';
 
   return (
     <div className="mt-3 space-y-4">
@@ -175,29 +193,50 @@ function PlainCard({
           />
           <span className="font-medium">{healthLabel(tier)}</span>
         </div>
-        <p className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
-          {HEALTH_WHY[tier] ?? HEALTH_WHY.unknown}
-        </p>
+        {/* The plain "why" is the failing detail a shareable view withholds. */}
+        {!(shareable && atRisk) && (
+          <p className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
+            {HEALTH_WHY[tier] ?? HEALTH_WHY.unknown}
+          </p>
+        )}
       </Block>
 
       <Block label="What the AI changed">
-        <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
-          Every AI change here is recorded with its verification status.
-        </p>
-        <button
-          type="button"
-          className="mt-1 text-xs"
-          style={{ color: 'var(--color-accent)' }}
-          onClick={() => {
-            window.location.hash = '/trust';
-          }}
-        >
-          See the receipts in Trust
-        </button>
+        {activity ? (
+          <>
+            <p>
+              AI changed this {new Date(activity.lastChange).toLocaleDateString()}. Verified by{' '}
+              {activity.checks} {activity.checks === 1 ? 'check' : 'checks'}.
+              {activity.acceptedBy && !shareable ? ` Accepted by ${activity.acceptedBy}.` : ''}
+            </p>
+            <button
+              type="button"
+              className="mt-1 text-xs"
+              style={{ color: 'var(--color-accent)' }}
+              onClick={() =>
+                window.open(
+                  '/api/snapshot/receipt/' + encodeURIComponent(activity.receiptHash),
+                  '_blank',
+                  'noopener',
+                )
+              }
+            >
+              View the receipt
+            </button>
+          </>
+        ) : (
+          <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+            No recent AI changes recorded for this area.
+          </p>
+        )}
       </Block>
 
       <Block label="What to do">
-        <p>{HEALTH_ACTION[tier] ?? HEALTH_ACTION.unknown}</p>
+        {shareable && atRisk ? (
+          <p>Details available in the working view.</p>
+        ) : (
+          <p>{HEALTH_ACTION[tier] ?? HEALTH_ACTION.unknown}</p>
+        )}
       </Block>
 
       {isModule && (
@@ -217,17 +256,20 @@ function PlainCard({
         </button>
       )}
 
-      <details className="rounded border pt-0" style={{ borderColor: 'var(--color-border)' }}>
-        <summary
-          className="cursor-pointer px-2 py-1.5 text-[10px] uppercase tracking-wide"
-          style={{ color: 'var(--color-muted)' }}
-        >
-          For engineers
-        </summary>
-        <div className="space-y-3 px-2 pb-2">
-          <EngineerFields detail={detail} />
-        </div>
-      </details>
+      {/* The raw spec sheet is sensitive detail: working view only. */}
+      {!shareable && (
+        <details className="rounded border pt-0" style={{ borderColor: 'var(--color-border)' }}>
+          <summary
+            className="cursor-pointer px-2 py-1.5 text-[10px] uppercase tracking-wide"
+            style={{ color: 'var(--color-muted)' }}
+          >
+            For engineers
+          </summary>
+          <div className="space-y-3 px-2 pb-2">
+            <EngineerFields detail={detail} />
+          </div>
+        </details>
+      )}
     </div>
   );
 }

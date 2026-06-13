@@ -29,6 +29,10 @@ export function Sidebar() {
   const similarityAvailable = graph?.meta.similarity_edges_available ?? false;
   const overlay = useAppStore((s) => s.overlay);
   const setOverlay = useAppStore((s) => s.setOverlay);
+  const aiActivity = useAppStore((s) => s.aiActivity);
+  const setAiActivity = useAppStore((s) => s.setAiActivity);
+  const disclosure = useAppStore((s) => s.disclosure);
+  const setDisclosure = useAppStore((s) => s.setDisclosure);
   const overlaysAvailable = graph?.meta.overlays_available;
   const OVERLAY_OPTIONS: {
     key: OverlayKind;
@@ -68,6 +72,34 @@ export function Sidebar() {
             {graph.meta.counts.modules} {graph.meta.counts.modules === 1 ? 'area' : 'areas'},
             coloured by health. Zoom in to see the files inside each one.
           </p>
+
+          <section className="mt-3 space-y-2 text-xs">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={aiActivity}
+                onChange={(e) => setAiActivity(e.target.checked)}
+              />
+              What the AI changed
+            </label>
+            <div className="flex gap-1">
+              {(['working', 'shareable'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className="rounded border px-2 py-0.5"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    background: disclosure === mode ? 'var(--color-canvas)' : 'transparent',
+                    color: disclosure === mode ? 'var(--color-canvas-fg)' : 'var(--color-muted)',
+                  }}
+                  onClick={() => setDisclosure(mode)}
+                >
+                  {mode === 'working' ? 'Working view' : 'Shareable view'}
+                </button>
+              ))}
+            </div>
+          </section>
 
           <details className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
             <summary

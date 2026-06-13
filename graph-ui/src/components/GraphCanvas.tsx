@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import type { Graph as GraphData, GraphNode } from '../lib/types';
+import { isRecent } from '../lib/activity';
 import { useAppStore, type LayerVisibility } from '../lib/store';
 import {
   colorForNodeWithOverlay,
@@ -132,6 +133,8 @@ export function GraphCanvas({ data }: { data: GraphData }) {
   const selected = useAppStore((s) => s.selectedNode);
   const similarEdges = useAppStore((s) => s.similarity.edges);
   const overlay = useAppStore((s) => s.overlay);
+  const aiActivity = useAppStore((s) => s.aiActivity);
+  const activityByModule = useAppStore((s) => s.activityByModule);
   const metrics = useMemo<OverlayMetrics>(() => computeOverlayMetrics(data), [data]);
   const zoomLevelRef = useRef<0 | 1 | 2>(0);
   const lastCameraKey = useRef<string>('');
@@ -335,35 +338,42 @@ export function GraphCanvas({ data }: { data: GraphData }) {
     sigmaRef.current?.refresh();
   }, [similarEdges, layers.similar]);
 
-  // Selection & search highlight.
+  // Selection & search highlight, plus the AI-activity overlay (issue #165):
+  // when nothing is selected, recently AI-touched modules stay lit and the
+  // rest dim, so "what the AI changed" reads pre-attentively.
   useEffect(() => {
     const g = graphRef.current;
     const sig = sigmaRef.current;
     if (!g || !sig) return;
     const matchSet = new Set(search.query.trim() ? search.matches : []);
-    const dimMode = matchSet.size > 0 || Boolean(selected);
+    const selectionMode = matchSet.size > 0 || Boolean(selected);
+    const now = Date.now();
+    const activeModules = new Set<string>();
+    if (aiActivity && !selectionMode) {
+      for (const a of Object.values(activityByModule)) {
+        if (isRecent(a, now)) activeModules.add(a.moduleId);
+      }
+    }
+    const activityMode = activeModules.size > 0;
     g.forEachNode((id, attrs) => {
       const base = (attrs.baseColor as string) ?? (attrs.color as string);
-      const isMatch = matchSet.has(id);
-      const isSelected = selected?.id === id;
-      if (!dimMode) {
-        g.setNodeAttribute(id, 'color', base);
-        g.setNodeAttribute(id, 'highlighted', false);
-      } else if (isSelected || isMatch) {
-        g.setNodeAttribute(id, 'color', base);
-        g.setNodeAttribute(id, 'highlighted', true);
+      const type = attrs.nodeType as GraphNode['type'];
+      if (selectionMode) {
+        const lit = matchSet.has(id) || selected?.id === id;
+        g.setNodeAttribute(id, 'color', lit ? base : dim(base));
+        g.setNodeAttribute(id, 'highlighted', lit);
+      } else if (activityMode) {
+        const lit = type !== 'module' || activeModules.has(id);
+        g.setNodeAttribute(id, 'color', lit ? base : dim(base));
+        g.setNodeAttribute(id, 'highlighted', type === 'module' && activeModules.has(id));
       } else {
-        g.setNodeAttribute(id, 'color', dim(base));
+        g.setNodeAttribute(id, 'color', base);
         g.setNodeAttribute(id, 'highlighted', false);
       }
     });
     g.forEachEdge((id, attrs) => {
       const base = (attrs.baseColor as string) ?? (attrs.color as string);
-      if (!dimMode) {
-        g.setEdgeAttribute(id, 'color', base);
-      } else {
-        g.setEdgeAttribute(id, 'color', dim(base));
-      }
+      g.setEdgeAttribute(id, 'color', selectionMode ? dim(base) : base);
     });
     sig.refresh();
 
@@ -386,7 +396,7 @@ export function GraphCanvas({ data }: { data: GraphData }) {
         sig.getCamera().animate({ x: 0.5, y: 0.5, ratio: 1, angle: 0 }, { duration: 300 });
       }
     }
-  }, [search, selected]);
+  }, [search, selected, aiActivity, activityByModule]);
 
   return (
     <div

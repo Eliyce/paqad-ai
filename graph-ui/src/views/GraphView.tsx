@@ -7,7 +7,9 @@ import { HealthHeadline } from '../components/HealthHeadline';
 import { Legend } from '../components/Legend';
 import { SearchBar } from '../components/SearchBar';
 import { Sidebar } from '../components/Sidebar';
-import { fetchDashboard, fetchGraph } from '../lib/api';
+import { computeActivity } from '../lib/activity';
+import { fetchDashboard, fetchGraph, fetchReceipts } from '../lib/api';
+import type { ReceiptCard } from '../lib/dashboard-types';
 import { useAppStore } from '../lib/store';
 
 /**
@@ -27,6 +29,8 @@ export function GraphView() {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
   const [sseLive, setSseLive] = useState(false);
+  const [receipts, setReceipts] = useState<ReceiptCard[]>([]);
+  const setActivityByModule = useAppStore((s) => s.setActivityByModule);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +60,27 @@ export function GraphView() {
     };
   }, [setGraph, setLoading, setError]);
 
+  // Receipts back the AI-activity overlay (issue #165): fetch once, refresh on
+  // the same SSE the graph listens to.
+  useEffect(() => {
+    let cancelled = false;
+    fetchReceipts()
+      .then((feed) => {
+        if (!cancelled) setReceipts(feed.receipts);
+      })
+      .catch(() => {
+        // the overlay simply stays empty if receipts cannot be read
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Recompute per-module activity whenever the graph or the receipts change.
+  useEffect(() => {
+    setActivityByModule(computeActivity(graph, receipts));
+  }, [graph, receipts, setActivityByModule]);
+
   const [reloadFlashAt, setReloadFlashAt] = useState<number | null>(null);
 
   useEffect(() => {
@@ -67,6 +92,11 @@ export function GraphView() {
           setReloadFlashAt(Date.now());
         })
         .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+      fetchReceipts()
+        .then((feed) => setReceipts(feed.receipts))
+        .catch(() => {
+          // overlay stays as-is on a transient receipt fetch failure
+        });
     };
     source.addEventListener('open', () => setSseLive(true));
     source.addEventListener('error', () => setSseLive(false));

@@ -1,8 +1,12 @@
 import { create } from 'zustand';
+import type { ActivityByModule } from './activity';
 import type { Graph, GraphEdge, GraphNode, NodeDetail } from './types';
 import type { OverlayKind } from './overlay';
 import type { ThemeMode } from './theme';
 import { getThemeMode, setThemeMode } from './theme';
+
+/** Issue #165 — how much failing detail the views disclose. */
+export type DisclosureMode = 'working' | 'shareable';
 
 export interface LayerVisibility {
   modules: boolean;
@@ -41,6 +45,13 @@ export interface AppState {
   similarity: SimilarityState;
   overlay: OverlayKind;
   setOverlay: (o: OverlayKind) => void;
+  // Issue #165 — AI-activity overlay + receipt-backed per-module activity.
+  aiActivity: boolean;
+  setAiActivity: (on: boolean) => void;
+  activityByModule: ActivityByModule;
+  setActivityByModule: (a: ActivityByModule) => void;
+  disclosure: DisclosureMode;
+  setDisclosure: (m: DisclosureMode) => void;
   setGraph: (g: Graph | null) => void;
   setLoading: (b: boolean) => void;
   setError: (e: string | null) => void;
@@ -73,6 +84,12 @@ export const useAppStore = create<AppState>((set) => ({
   // overlay picker lives under Advanced.
   overlay: 'health',
   setOverlay: (overlay) => set({ overlay }),
+  aiActivity: true,
+  setAiActivity: (aiActivity) => set({ aiActivity }),
+  activityByModule: {},
+  setActivityByModule: (activityByModule) => set({ activityByModule }),
+  disclosure: 'working',
+  setDisclosure: (disclosure) => set({ disclosure }),
   layers: {
     modules: true,
     files: false,
