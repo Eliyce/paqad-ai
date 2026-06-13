@@ -1,5 +1,5 @@
 {
-  "framework_version": "1.6.0",
+  "framework_version": "1.21.0",
   "adapter": "codex-cli",
   "project_root": ".",
   "profile": {
@@ -203,6 +203,9 @@
     ],
     "detection_phase": "archetype",
     "confidence": "medium",
+    "confidence_score": 0.7,
+    "primary_language": "JavaScript/TypeScript",
+    "source": "static",
     "signals": [
       {
         "signal": "node-cli detected from package.json manifest fields",
@@ -295,7 +298,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-05-29T10:56:19.217Z",
+    "timestamp": "2026-06-13T14:25:22.596Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -395,7 +398,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-05-29T10:56:28.995Z",
+  "generated_at": "2026-06-13T14:25:26.924Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -439,6 +442,34 @@
     },
     {
       "path": ".claude/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": "GEMINI.md",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": ".junie/AGENTS.md",
+      "auto_update": true
+    },
+    {
+      "path": ".junie/mcp/mcp.json",
       "auto_update": true
     },
     {
@@ -578,6 +609,14 @@
       "auto_update": false
     },
     {
+      "path": "docs/instructions/workflows/delivery-policy.yaml",
+      "auto_update": false
+    },
+    {
+      "path": ".paqad/templates/pr-body.md",
+      "auto_update": false
+    },
+    {
       "path": "docs/instructions/tools/react/README.md",
       "auto_update": false
     },
@@ -619,6 +658,7 @@
       "cli-capabilities",
       "cli-patterns",
       "cli-compliance",
+      "cli-audit",
       "cli-plan",
       "adapter-onboarding",
       "documentation-workflow",
@@ -643,6 +683,8 @@
       "decision-pause-contract",
       "pattern-library",
       "compliance-engine",
+      "traceability-engine",
+      "quality-ratchet",
       "pentest-engine",
       "project-profile-schema",
       "repository-resolver"

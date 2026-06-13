@@ -1,0 +1,288 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:c92bc0ff-a35f-0712-a2a6-bf10f9856bba",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-06-13T14:23:36.970Z",
+    "tools": [
+      {
+        "vendor": "paqad",
+        "name": "paqad-ai",
+        "version": "1.20.0"
+      }
+    ],
+    "properties": [
+      {
+        "name": "paqad:verification:result",
+        "value": "FAILED"
+      },
+      {
+        "name": "paqad:evidence:deterministic:pass",
+        "value": "3"
+      },
+      {
+        "name": "paqad:evidence:deterministic:fail",
+        "value": "1"
+      },
+      {
+        "name": "paqad:evidence:llm-judged:pass",
+        "value": "2"
+      },
+      {
+        "name": "paqad:evidence:llm-judged:fail",
+        "value": "0"
+      },
+      {
+        "name": "paqad:evidence:blocked",
+        "value": "3"
+      },
+      {
+        "name": "paqad:evidence:inconclusive",
+        "value": "0"
+      },
+      {
+        "name": "paqad:predicateType",
+        "value": "https://paqad.ai/attestations/verification-summary/v1"
+      },
+      {
+        "name": "paqad:authorship:provenance",
+        "value": "unknown"
+      },
+      {
+        "name": "paqad:authorship:agent",
+        "value": "codex-cli"
+      },
+      {
+        "name": "paqad:authorship:accepting_human:name",
+        "value": "Haider Lasani"
+      },
+      {
+        "name": "paqad:authorship:accepting_human:email",
+        "value": "haiderlasani@gmail.com"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "file",
+      "name": ".paqad/ledger/ai-bom.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "acd01a6c7129526db5f1d332a48322e5d86b6e49b7d159038d48d426fb3894e6"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".paqad/ledger/evidence.jsonl",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "11b439d2fe47a7a032a44c7c324d665077839e41f50f4103c14e21f20e947b0f"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".paqad/ledger/receipt.dsse.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7058598717082d8ea0639732102682b19064128278bb7fed4b45357ba7394912"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".paqad/ledger/receipts.jsonl",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "52b619f5db2985395b4f73a3ffc14d14328277e65be6410867f7b0c59519180c"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".paqad/logs/auto-update.log",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a845ad7cc7015cbca1d01703f59e5e2387be738bfba102d5f4d8357830d27514"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".paqad/quality-baseline.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3a0fbbfe952428eb627f917021f86e8940da0636897a8a4d9b1247bfb0d42ba1"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".paqad/templates/pr-body.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "45c515fed156652fbdc6533ee015f47700aaa03ad38e86ec408b3c8160d2f87f"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".paqad/version",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d6af9baaf90cf0c086acc02127b5d047cfa68933ba37825b4169b5626ab3a443"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "docs/feature-requests/dashboard-one-stop-shop.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f48e3f6256e83e6e4b959a218a3421d40edd6f00974309ef811bc1e648cb649a"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "docs/feature-requests/graph-north-star.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "02038ed1200b1a99b4d7ed2fa9e493f200bee3993ce9ebdf70bfdf90cecdfb94"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "docs/feature-requests/unified-management-dashboard.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a0839f32831880676ca83f2b638a77327f847a7e7dfa59228b1bed85ca7319b5"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "docs/instructions/workflows/delivery-policy.yaml",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "da807012e25dc4faacd17cc97a1eab11d258f0d4d4027083020725c5413bcec3"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "paqad/audit.log",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b7fa7fc58c807fdcd9cb1ce80afc2384cd88be891711e471e0aaa947056d3ab3"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "paqad/decision-pause-contract.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f9554671fb747b02cfdf22411892d8d81698d4e54fe9d62e47bdac3f8a17b445"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "paqad/framework-version.txt",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b6e599b80fa0d38f8472aad85bd01d4b51e5dede8de81c21493909860c9406d0"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "paqad/hooks/silent-update.sh",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f44869422d24ae225529001f54dad5ccef382d17636e89d0583c8138d1bcb5f8"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "paqad/next-steps.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3b3b334f8b01892e3c9fa4a52ec2c15b7e6b612a44118fc4b4f3a74a39d95a7e"
+        }
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "name": "paqad:verification:result",
+      "value": "FAILED"
+    },
+    {
+      "name": "paqad:evidence:deterministic:pass",
+      "value": "3"
+    },
+    {
+      "name": "paqad:evidence:deterministic:fail",
+      "value": "1"
+    },
+    {
+      "name": "paqad:evidence:llm-judged:pass",
+      "value": "2"
+    },
+    {
+      "name": "paqad:evidence:llm-judged:fail",
+      "value": "0"
+    },
+    {
+      "name": "paqad:evidence:blocked",
+      "value": "3"
+    },
+    {
+      "name": "paqad:evidence:inconclusive",
+      "value": "0"
+    },
+    {
+      "name": "paqad:predicateType",
+      "value": "https://paqad.ai/attestations/verification-summary/v1"
+    },
+    {
+      "name": "paqad:authorship:provenance",
+      "value": "unknown"
+    },
+    {
+      "name": "paqad:authorship:agent",
+      "value": "codex-cli"
+    },
+    {
+      "name": "paqad:authorship:accepting_human:name",
+      "value": "Haider Lasani"
+    },
+    {
+      "name": "paqad:authorship:accepting_human:email",
+      "value": "haiderlasani@gmail.com"
+    }
+  ]
+}

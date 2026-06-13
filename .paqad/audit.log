@@ -7,3 +7,5 @@
 [2026-05-29T10:56:31.728Z] INFO rag-build-started provider="local" model="Xenova/all-MiniLM-L6-v2"
 [2026-05-29T11:00:12.739Z] INFO rag-build-completed provider="local" model="Xenova/all-MiniLM-L6-v2" chunks="4497" duration_ms="221227"
 [2026-05-29T11:00:12.798Z] INFO rag-enabled provider="local" model="Xenova/all-MiniLM-L6-v2"
+[2026-06-12T09:22:56.410Z] INFO silent-update previous=1.6.0 updated=1.16.0
+[2026-06-13T08:06:30.566Z] INFO silent-update previous=1.16.0 updated=1.20.0
