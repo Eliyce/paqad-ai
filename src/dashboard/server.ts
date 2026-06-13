@@ -39,6 +39,13 @@ import { buildOnboardingChecklist } from './onboarding-checklist.js';
 import { isOpsAction, OpsConflictError, OpsJobRunner } from './ops-jobs.js';
 import { installPack, listPacks, removePack } from './packs-config.js';
 import { buildReport } from './report.js';
+import {
+  deleteSavedView,
+  listSavedViews,
+  putSavedView,
+  SavedViewNotFoundError,
+} from './saved-views.js';
+import { buildModuleSnapshot, buildReceiptSnapshot } from './snapshot.js';
 import { PathNotAllowedError, WriteConflictError, writeManagedFile } from './write-pipeline.js';
 import {
   buildEvidenceFeed,
@@ -378,7 +385,7 @@ export async function startDashboardServer(
 
   /** Map a thrown mutation error onto the HTTP status the inbox expects. */
   function writeMutationError(req: IncomingMessage, res: ServerResponse, err: unknown): void {
-    if (err instanceof ApprovalNotFoundError) {
+    if (err instanceof ApprovalNotFoundError || err instanceof SavedViewNotFoundError) {
       writeJson(res, req, { error: err.message }, 404);
       return;
     }
@@ -529,6 +536,61 @@ export async function startDashboardServer(
     }
     if (pathname === '/api/inventory' && req.method === 'GET') {
       writeJson(res, req, buildInventory(options.projectRoot));
+      return;
+    }
+    // Saved views (issue #161): project-scoped graph / trust / export scopes.
+    if (pathname === '/api/saved-views' && req.method === 'GET') {
+      writeJson(res, req, { views: listSavedViews(options.projectRoot) });
+      return;
+    }
+    const savedViewMatch = /^\/api\/saved-views\/([^/]+)$/.exec(pathname);
+    if (savedViewMatch && req.method === 'PUT') {
+      const id = decodeURIComponent(savedViewMatch[1]!);
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as {
+          name?: unknown;
+          area?: unknown;
+          scope?: unknown;
+        };
+        return putSavedView(options.projectRoot, {
+          id,
+          name: body.name,
+          area: body.area,
+          scope: body.scope,
+        });
+      });
+      return;
+    }
+    if (savedViewMatch && req.method === 'DELETE') {
+      const id = decodeURIComponent(savedViewMatch[1]!);
+      await handleMutation(req, res, () => deleteSavedView(options.projectRoot, id));
+      return;
+    }
+    // Access-free snapshots (issue #161): one self-contained static HTML doc.
+    const receiptSnapshotMatch = /^\/api\/snapshot\/receipt\/(.+)$/.exec(pathname);
+    if (receiptSnapshotMatch && req.method === 'GET') {
+      const html = buildReceiptSnapshot(
+        options.projectRoot,
+        decodeURIComponent(receiptSnapshotMatch[1]!),
+      );
+      if (html === null) {
+        writeJson(res, req, { error: 'No receipt with that hash.' }, 404);
+        return;
+      }
+      writeText(res, html, 200, 'text/html; charset=utf-8');
+      return;
+    }
+    const moduleSnapshotMatch = /^\/api\/snapshot\/module\/(.+)$/.exec(pathname);
+    if (moduleSnapshotMatch && req.method === 'GET') {
+      const html = buildModuleSnapshot(
+        options.projectRoot,
+        decodeURIComponent(moduleSnapshotMatch[1]!),
+      );
+      if (html === null) {
+        writeJson(res, req, { error: 'No module-health card with that id.' }, 404);
+        return;
+      }
+      writeText(res, html, 200, 'text/html; charset=utf-8');
       return;
     }
     if (pathname === '/api/config/delivery-policy' && req.method === 'GET') {

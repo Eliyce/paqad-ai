@@ -3,6 +3,8 @@ import { fetchSimilar } from '../lib/api';
 import type { OverlayKind } from '../lib/overlay';
 import { useAppStore, type LayerVisibility } from '../lib/store';
 
+import { SavedViewsBar } from './SavedViewsBar';
+
 const LAYER_LABELS: { key: keyof LayerVisibility; label: string }[] = [
   { key: 'modules', label: 'Modules' },
   { key: 'files', label: 'Files' },
@@ -17,6 +19,7 @@ export function Sidebar() {
   const graph = useAppStore((s) => s.graph);
   const layers = useAppStore((s) => s.layers);
   const toggleLayer = useAppStore((s) => s.toggleLayer);
+  const setLayers = useAppStore((s) => s.setLayers);
   const similarity = useAppStore((s) => s.similarity);
   const setSimilarityThreshold = useAppStore((s) => s.setSimilarityThreshold);
   const setSimilarityLoading = useAppStore((s) => s.setSimilarityLoading);
@@ -187,6 +190,30 @@ export function Sidebar() {
               </ul>
             </section>
           )}
+
+          <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
+            <SavedViewsBar
+              area="graph"
+              getScope={() => ({
+                layers,
+                threshold: similarity.threshold,
+                overlay,
+              })}
+              onApply={(scope) => {
+                const s = scope as {
+                  layers?: LayerVisibility;
+                  threshold?: number;
+                  overlay?: OverlayKind;
+                };
+                if (s.layers) setLayers(s.layers);
+                if (typeof s.overlay === 'string') setOverlay(s.overlay);
+                if (typeof s.threshold === 'number') {
+                  setPending(s.threshold);
+                  void runSimilar(s.threshold);
+                }
+              }}
+            />
+          </section>
         </>
       )}
     </aside>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DashboardChrome } from '../components/DashboardChrome';
+import { SavedViewsBar } from '../components/SavedViewsBar';
 import { WinLine } from '../components/WinLine';
 import {
   fetchAiBom,
@@ -194,7 +195,7 @@ function ReceiptCardView({
           {receipt.subjects.length > 3 ? '…' : ''}
         </div>
       )}
-      <div className="mt-3">
+      <div className="mt-3 flex items-baseline gap-3">
         <button
           type="button"
           className="text-xs"
@@ -202,6 +203,20 @@ function ReceiptCardView({
           onClick={onCopy}
         >
           Copy as PR comment
+        </button>
+        <button
+          type="button"
+          className="text-xs"
+          style={{ color: 'var(--color-accent)' }}
+          onClick={() =>
+            window.open(
+              '/api/snapshot/receipt/' + encodeURIComponent(receipt.receipt_hash),
+              '_blank',
+              'noopener',
+            )
+          }
+        >
+          Share snapshot
         </button>
       </div>
     </div>
@@ -484,6 +499,25 @@ export function TrustView() {
                 {siemResult}
               </div>
             )}
+            <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
+              <SavedViewsBar
+                area="export"
+                getScope={() => ({ format: siemFormat, since: siemSince, redact: siemRedact })}
+                onApply={(scope) => {
+                  const s = scope as { format?: string; since?: string; redact?: boolean };
+                  if (
+                    s.format === 'ocsf' ||
+                    s.format === 'ecs' ||
+                    s.format === 'cef' ||
+                    s.format === 'jsonl'
+                  ) {
+                    setSiemFormat(s.format);
+                  }
+                  if (typeof s.since === 'string') setSiemSince(s.since);
+                  if (typeof s.redact === 'boolean') setSiemRedact(s.redact);
+                }}
+              />
+            </div>
           </div>
         </details>
         {error && (
@@ -588,6 +622,16 @@ export function TrustView() {
             <option value="inconclusive">inconclusive</option>
             <option value="blocked">blocked</option>
           </select>
+        </div>
+        <div className="mt-2">
+          <SavedViewsBar
+            area="trust"
+            getScope={() => ({ verdict: verdictFilter })}
+            onApply={(scope) => {
+              const s = scope as { verdict?: string };
+              setVerdictFilter(typeof s.verdict === 'string' ? s.verdict : '');
+            }}
+          />
         </div>
         {evidence && evidence.rows.length === 0 && (
           <div

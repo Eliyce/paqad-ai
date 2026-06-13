@@ -111,6 +111,22 @@ function ModuleDetail({ detail }: { detail: NodeDetail }) {
           )}
         </ul>
       </section>
+      <section>
+        <button
+          type="button"
+          className="rounded border px-2 py-1 text-xs font-medium"
+          style={{ borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }}
+          onClick={() =>
+            window.open(
+              '/api/snapshot/module/' + encodeURIComponent(detail.node.id),
+              '_blank',
+              'noopener',
+            )
+          }
+        >
+          Share snapshot
+        </button>
+      </section>
     </>
   );
 }

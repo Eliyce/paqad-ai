@@ -48,6 +48,7 @@ export interface AppState {
   setDetail: (d: NodeDetail | null) => void;
   setDetailLoading: (b: boolean) => void;
   toggleLayer: (k: keyof LayerVisibility) => void;
+  setLayers: (layers: LayerVisibility) => void;
   setTheme: (m: ThemeMode) => void;
   setSearchQuery: (q: string) => void;
   setSearchMatches: (matches: string[]) => void;
@@ -90,6 +91,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       layers: { ...s.layers, [k]: !s.layers[k] },
     })),
+  setLayers: (layers) => set({ layers }),
   setTheme: (m) => {
     setThemeMode(m);
     set({ theme: m });
