@@ -129,6 +129,11 @@ describe('graph routes on the dashboard server', () => {
 
     const missing = await fetch(`${server.url}/api/node/nope`);
     expect(missing.status).toBe(404);
+
+    const missingChunk = await fetch(
+      `${server.url}/api/chunk/${encodeURIComponent('chunk:nope#9')}/content`,
+    );
+    expect(missingChunk.status).toBe(404);
   });
 
   it('serves POST /api/similar and rejects malformed bodies', async () => {
@@ -212,6 +217,20 @@ describe('graph routes on the dashboard server', () => {
       body: '{}',
     });
     expect(bad.status).toBe(400);
+
+    // Empty body (readJsonBody resolves null) and unparseable body both reject.
+    const empty = await fetch(`${server.url}/api/similar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(empty.status).toBe(400);
+
+    const malformed = await fetch(`${server.url}/api/similar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{ not json',
+    });
+    expect(malformed.status).toBe(400);
 
     const ok = await fetch(`${server.url}/api/similar`, {
       method: 'POST',
