@@ -6,8 +6,11 @@ node_modules
 .paqad
 docs
 runtime/templates
+# Generated adapter entry files — written by `paqad-ai onboard`/`update`, not hand-formatted.
 AGENTS.md
 CLAUDE.md
+GEMINI.md
+.junie
 
 # pnpm manages its own lockfile format — don't fight it.
 pnpm-lock.yaml

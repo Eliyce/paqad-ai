@@ -21,6 +21,9 @@
     "source": "hooks/conversation-summarize.sh"
   },
   {
+    "source": "hooks/decision-pause-gate.sh"
+  },
+  {
     "source": "hooks/lib/agent-entry-sentinel.sh"
   },
   {
@@ -31,6 +34,9 @@
   },
   {
     "source": "hooks/pre-commit-check.sh"
+  },
+  {
+    "source": "hooks/pre-commit-verify.sh"
   },
   {
     "source": "hooks/pre-compact-preserve.mjs"
@@ -64,5 +70,8 @@
   },
   {
     "source": "hooks/track-file-changes.sh"
+  },
+  {
+    "source": "hooks/verification-completion.mjs"
   }
 ]

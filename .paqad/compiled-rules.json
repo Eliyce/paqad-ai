@@ -1,31 +1,29 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-29T10:56:28.991Z",
-  "source_hash": "sha256:8c42ec1470df69df3955d520442583ca7bf165a141b08f71493ce63bf295348e",
+  "generated_at": "2026-06-13T14:25:26.920Z",
+  "source_hash": "sha256:edb0e21f56759ce05c3e8bf14c716de5ae88fadc1a62f55d3050f74a89255179",
   "rules": [
     {
       "rule_id": "RULE-1",
       "title": "Canonical Docs",
       "source_path": "docs/instructions/rules/_shared/canonical-docs.md",
       "trigger_patterns": [
-        "**"
+        "docs/"
       ],
       "severity": "could",
-      "summary": "Describe the framework-managed documentation set.",
-      "raw_text": "# Canonical Docs\n\n## Purpose\n\nDescribe the framework-managed documentation set.\n\n## Rules\n\n- Treat canonical docs as authoritative for current system behavior.\n- Keep module docs scoped and complete.\n- Use registry updates to maintain discovery efficiency.\n"
+      "summary": "- Treat `docs/` as the authoritative description of current system behavior; when code and docs disagree, resolve the mismatch rather than ignoring it.",
+      "raw_text": "# Canonical Docs\n\n- Treat `docs/` as the authoritative description of current system behavior; when code and docs disagree, resolve the mismatch rather than ignoring it.\n- Keep each module's docs scoped to that module and complete enough to act on without reading the source.\n- Update the docs that describe an area in the same change that alters its behavior.\n"
     },
     {
       "rule_id": "RULE-2",
       "title": "Constitution",
       "source_path": "docs/instructions/rules/_shared/constitution.md",
       "trigger_patterns": [
-        "docs/modules/",
-        "create documentation",
-        ".paqad/"
+        "docs/"
       ],
-      "severity": "must",
-      "summary": "Define the non-negotiable operating rules for the framework.",
-      "raw_text": "# Constitution\n\n## Purpose\n\nDefine the non-negotiable operating rules for the framework.\n\n## Rules\n\n- Work docs-first before writing code.\n- If `docs/modules/` is absent, run `create documentation` before any feature work begins. Do not skip this even if the user requests a feature directly.\n- Prefer deterministic scripts and MCP over file scanning.\n- Preserve user-owned project files unless explicitly updating them.\n- Never read files outside the active project-profile module list unless the user or canonical docs require it.\n- Never start implementation work before a spec artifact exists in `.paqad/` for that change.\n- Prefer MCP tool results over file scanning when both are available and trustworthy.\n- If classification confidence is below 80%, escalate instead of guessing.\n"
+      "severity": "could",
+      "summary": "Non-negotiable rules that apply to every change, regardless of stack.",
+      "raw_text": "# Constitution\n\nNon-negotiable rules that apply to every change, regardless of stack.\n\n- Before changing an area, read its module and feature docs under `docs/`; reflect any behavior change back into those docs in the same change.\n- Change only what the request requires. Do not refactor, reformat, or rename unrelated code in the same change.\n- Preserve user-authored files and content. Do not overwrite or delete them without explicit instruction.\n- Pair every behavior change with tests, and run them before treating the work as done.\n- When a requirement is ambiguous, or an action is risky or hard to reverse, stop and ask instead of guessing.\n"
     },
     {
       "rule_id": "RULE-3",
@@ -35,25 +33,24 @@
         "docs/instructions/design-system/",
         "tokens.md",
         "components.md",
-        "patterns.md",
-        "paqad refresh --design-system"
+        "patterns.md"
       ],
       "severity": "must",
-      "summary": "Ensure all UI changes are consistent with the project's established design tokens and patterns.",
-      "raw_text": "# Design System\n\n## Purpose\n\nEnsure all UI changes are consistent with the project's established design tokens and patterns.\n\n## Rules\n\n- Before proposing any UI change (component, screen, style, layout), check whether `docs/instructions/design-system/` exists in the project.\n- If that directory exists, read `tokens.md`, `components.md`, and `patterns.md` before writing any code. All colours, spacing, typography, motion, and component behaviour must align with those specifications.\n- Do not introduce new design tokens, component variants, or style values that contradict the documented design system. Extend it by adding to the token file first, then implement.\n- If `docs/instructions/design-system/` does not exist, follow general good-practice UI conventions and suggest the team runs `paqad refresh --design-system` to seed the design system from their token file.\n- `docs/instructions/design-system/` is the single source of truth for UI design decisions; it takes precedence over ad-hoc inline styles or undocumented conventions.\n"
+      "summary": "- Before proposing any UI change (component, screen, style, layout), check whether `docs/instructions/design-system/` exists in the project.",
+      "raw_text": "# Design System\n\n- Before proposing any UI change (component, screen, style, layout), check whether `docs/instructions/design-system/` exists in the project.\n- If it exists, read `tokens.md`, `components.md`, and `patterns.md` before writing code. All colours, spacing, typography, motion, and component behaviour must align with those specifications.\n- Do not introduce design tokens, component variants, or style values that contradict the documented design system. Extend it by adding to the token files first, then implement.\n- If `docs/instructions/design-system/` does not exist, follow general good-practice UI conventions and keep values consistent so they can be tokenized later.\n- `docs/instructions/design-system/` is the single source of truth for UI design decisions; it takes precedence over ad-hoc inline styles or undocumented conventions.\n"
     },
     {
       "rule_id": "RULE-4",
       "title": "Documentation",
       "source_path": "docs/instructions/rules/_shared/documentation.md",
       "trigger_patterns": [
-        "composer.json",
+        "docs/",
         "package.json",
-        ".paqad/doc-progress.json"
+        "composer.json"
       ],
       "severity": "could",
-      "summary": "Maintain canonical documentation as current system truth.",
-      "raw_text": "# Documentation\n\n## Purpose\n\nMaintain canonical documentation as current system truth.\n\n## Rules\n\n- Documentation creation is a workflow, not a standalone framework CLI command.\n- Run documentation creation only after onboarding has established framework metadata.\n- Validate the current application state from `composer.json`, `package.json`, and stack manifests before writing docs.\n- If the real stack differs from stored onboarding state, update the effective stack context first.\n- Create docs in ordered steps and persist progress to `.paqad/doc-progress.json`.\n- Update specs, flows, API docs, integration docs, and error catalogs together.\n- Refresh registries after relevant file changes.\n- Keep glossary terms aligned with new business language.\n"
+      "summary": "- Keep `docs/` consistent with the code: update the affected module, flow, API, and error docs in the same change that alters behavior.",
+      "raw_text": "# Documentation\n\n- Keep `docs/` consistent with the code: update the affected module, flow, API, and error docs in the same change that alters behavior.\n- Validate the real stack from manifests (`package.json`, `composer.json`, and equivalents) before documenting it; fix stale stack assumptions first.\n- Document specs, flows, API contracts, integrations, and error cases together so they don't drift apart.\n- Keep glossary and domain terms consistent with the language used in the code.\n"
     },
     {
       "rule_id": "RULE-5",
@@ -62,9 +59,9 @@
       "trigger_patterns": [
         "**"
       ],
-      "severity": "could",
-      "summary": "Require traceable verification and runtime visibility.",
-      "raw_text": "# Observability\n\n## Purpose\n\nRequire traceable verification and runtime visibility.\n\n## Rules\n\n- Capture verification outcomes in structured artifacts.\n- Preserve handoff state between phases.\n- Treat context hit rate and cache usage as optimization signals.\n"
+      "severity": "must",
+      "summary": "- Log meaningful events with enough structured context (identifiers, operation, outcome) to trace a request or job end-to-end.",
+      "raw_text": "# Observability\n\n- Log meaningful events with enough structured context (identifiers, operation, outcome) to trace a request or job end-to-end.\n- Never log secrets, credentials, or personal data.\n- Fail loudly: surface errors with actionable messages and do not swallow exceptions silently.\n- Make externally observable failures diagnosable from logs and metrics alone, without reproducing locally.\n"
     },
     {
       "rule_id": "RULE-6",
@@ -73,9 +70,9 @@
       "trigger_patterns": [
         "**"
       ],
-      "severity": "must",
-      "summary": "Bias the framework toward efficient, deterministic execution.",
-      "raw_text": "# Performance\n\n## Purpose\n\nBias the framework toward efficient, deterministic execution.\n\n## Rules\n\n- Load only the context required for the current phase.\n- Prefer differential refresh over full rebuilds.\n- Reuse cacheable skill results when inputs are unchanged.\n"
+      "severity": "could",
+      "summary": "- Measure before optimizing: base performance changes on a profile or benchmark, not a guess.",
+      "raw_text": "# Performance\n\n- Measure before optimizing: base performance changes on a profile or benchmark, not a guess.\n- Avoid N+1 queries and unbounded result sets; paginate, batch, and stream large work.\n- Cache only with a clear invalidation story; prefer correctness over a fragile cache.\n- Keep hot paths free of avoidable allocation and repeated I/O.\n"
     },
     {
       "rule_id": "RULE-7",
@@ -85,8 +82,8 @@
         "**"
       ],
       "severity": "could",
-      "summary": "Define the canonical phase progression.",
-      "raw_text": "# Pipeline\n\n## Purpose\n\nDefine the canonical phase progression.\n\n## Rules\n\n- Move phases in order and stop on blocking failures.\n- Keep handoff artifacts current after each phase.\n- Route work through fast, graduated, or full lanes deterministically.\n"
+      "summary": "- Treat a change as deliverable only when format, tests, and build all pass locally.",
+      "raw_text": "# Pipeline\n\n- Treat a change as deliverable only when format, tests, and build all pass locally.\n- Stop and fix on the first failing gate; do not stack new work on a broken base.\n- Keep each commit scoped to one coherent step so it can be reviewed and reverted on its own.\n"
     },
     {
       "rule_id": "RULE-8",
@@ -95,9 +92,9 @@
       "trigger_patterns": [
         "**"
       ],
-      "severity": "could",
-      "summary": "Set baseline security expectations for every task.",
-      "raw_text": "# Security\n\n## Purpose\n\nSet baseline security expectations for every task.\n\n## Rules\n\n- Block destructive commands unless explicitly authorized.\n- Avoid leaking secrets into docs, specs, or handoff artifacts.\n- Prefer least-privilege integrations and stable local paths.\n"
+      "severity": "must",
+      "summary": "Baseline security expectations for every change, regardless of stack.",
+      "raw_text": "# Security\n\nBaseline security expectations for every change, regardless of stack.\n\n- Never commit secrets, credentials, or tokens. Load them from environment variables or a secrets manager, and keep them out of logs, error messages, and docs.\n- Validate and sanitize all external input at the trust boundary before using it.\n- Use parameterized queries and prepared statements; never assemble SQL, shell commands, or HTML by concatenating untrusted input.\n- Enforce authentication and authorization on every non-public entry point; default to deny.\n- Apply least privilege to integrations, tokens, and file/database access.\n- Confirm destructive or irreversible operations before running them.\n"
     },
     {
       "rule_id": "RULE-9",
@@ -207,8 +204,8 @@
         "**"
       ],
       "severity": "could",
-      "summary": "Keep implementation changes coupled with verification.",
-      "raw_text": "# Testing\n\n## Purpose\n\nKeep implementation changes coupled with verification.\n\n## Rules\n\n- Add or update tests for every behavior change.\n- Keep coverage above the configured threshold.\n- Run the smallest relevant suite first, then the broader gates.\n"
+      "summary": "- Add or update tests for every behavior change, in the same change.",
+      "raw_text": "# Testing\n\n- Add or update tests for every behavior change, in the same change.\n- Cover failure and edge paths, not just the happy path.\n- Keep tests deterministic and isolated: no reliance on network, real clocks, shared state, or test execution order.\n- Assert on observable behavior and outputs, not private implementation details.\n- Run the narrowest relevant suite while iterating, then the full gate before treating the work as done; maintain the project's coverage bar.\n"
     },
     {
       "rule_id": "RULE-11",
@@ -217,9 +214,9 @@
       "trigger_patterns": [
         "**"
       ],
-      "severity": "could",
-      "summary": "Define the baseline coding standard for implementation work.",
-      "raw_text": "# Code Quality\n\n## Purpose\n\nDefine the baseline coding standard for implementation work.\n\n## Rules\n\n- Keep changes deterministic and test-backed.\n- Match repository conventions and naming.\n- Avoid speculative abstractions outside the current scope.\n"
+      "severity": "must",
+      "summary": "- Match the surrounding code's style, naming, and structure; read neighboring files before adding new ones.",
+      "raw_text": "# Code Quality\n\n- Match the surrounding code's style, naming, and structure; read neighboring files before adding new ones.\n- Keep functions small and single-purpose; avoid abstractions not required by the current change.\n- Handle errors explicitly and propagate them with context; no silent catches.\n- Do not leave dead code, commented-out blocks, or unused imports you introduced.\n"
     },
     {
       "rule_id": "RULE-12",
@@ -229,8 +226,8 @@
         "**"
       ],
       "severity": "could",
-      "summary": "Drive adversarial, risk-based review.",
-      "raw_text": "# Code Review\n\n## Purpose\n\nDrive adversarial, risk-based review.\n\n## Rules\n\n- Prioritize correctness, regressions, and verification gaps.\n- Call out rollback and data-integrity risk explicitly.\n- Treat missing tests as first-class findings.\n"
+      "summary": "- Prioritize correctness, regressions, and verification gaps over style nits.",
+      "raw_text": "# Code Review\n\n- Prioritize correctness, regressions, and verification gaps over style nits.\n- Call out rollback and data-integrity risk explicitly.\n- Treat missing, skipped, or weakened tests as blocking findings.\n- Confirm the change does only what the request asked; flag scope creep and unrelated edits.\n"
     },
     {
       "rule_id": "RULE-13",
@@ -518,163 +515,251 @@
         "**"
       ],
       "severity": "could",
-      "summary": "Define stable service and endpoint contracts.",
-      "raw_text": "# API Design\n\n## Purpose\n\nDefine stable service and endpoint contracts.\n\n## Rules\n\n- Prefer additive changes.\n- Document request, response, and error expectations together.\n"
+      "summary": "- Prefer additive, backward-compatible changes; deprecate before removing a field or endpoint, and version when a break is unavoidable.",
+      "raw_text": "# API Design\n\n- Prefer additive, backward-compatible changes; deprecate before removing a field or endpoint, and version when a break is unavoidable.\n- Validate every request payload at the boundary and reject unknown fields where the contract is closed.\n- Document request shape, response shape, status codes, and error format together for each endpoint.\n- Keep resource naming, pagination, and error envelopes consistent across endpoints.\n"
     },
     {
       "rule_id": "RULE-21",
-      "title": "CI CD",
+      "title": "CI/CD",
       "source_path": "docs/instructions/rules/coding/stacks/_shared/ci-cd.md",
       "trigger_patterns": [
         "**"
       ],
       "severity": "must",
-      "summary": "Keep automated verification aligned with the local workflow.",
-      "raw_text": "# CI CD\n\n## Purpose\n\nKeep automated verification aligned with the local workflow.\n\n## Rules\n\n- CI must run the same verification gates that block local delivery.\n- Keep package build and tests green at every logical step.\n"
+      "summary": "- CI must run the same format, lint, test, and build gates that block local delivery.",
+      "raw_text": "# CI/CD\n\n- CI must run the same format, lint, test, and build gates that block local delivery.\n- Keep the pipeline green; do not merge on red.\n- Commit the lockfile and pin tool versions so CI and local environments resolve the same dependencies.\n- Fail the build on high or critical dependency advisories.\n"
     },
     {
       "rule_id": "RULE-22",
       "title": "Git",
       "source_path": "docs/instructions/rules/coding/stacks/_shared/git.md",
       "trigger_patterns": [
-        "**"
+        ".gitignore"
       ],
       "severity": "could",
-      "summary": "Keep source control changes scoped and reviewable.",
-      "raw_text": "# Git\n\n## Purpose\n\nKeep source control changes scoped and reviewable.\n\n## Rules\n\n- Commit one coherent phase or sub-phase at a time.\n- Avoid destructive history edits without explicit instruction.\n"
+      "summary": "- Commit one coherent change at a time, with a message that explains why, not just what.",
+      "raw_text": "# Git\n\n- Commit one coherent change at a time, with a message that explains why, not just what.\n- Do not rewrite or force-push published history without explicit instruction.\n- Keep build artifacts, dependencies, and secrets out of commits via `.gitignore`.\n"
     },
     {
       "rule_id": "RULE-23",
       "title": "React Architecture",
       "source_path": "docs/instructions/rules/coding/stacks/react/architecture.md",
       "trigger_patterns": [
-        "docs/modules/<module>/"
+        "docs/instructions/rules/module-map.yml",
+        "fetch",
+        "Date.now()",
+        "Math.random()",
+        "useEffect",
+        "'use client'",
+        "useState"
       ],
-      "severity": "could",
-      "summary": "- Keep feature ownership aligned with `docs/modules/<module>/` and avoid scattering one flow across unrelated folders.",
-      "raw_text": "# React Architecture\n\n- Keep feature ownership aligned with `docs/modules/<module>/` and avoid scattering one flow across unrelated folders.\n- Screens or routes coordinate composition; business logic belongs in hooks, services, and state layers.\n- Do not mix transport parsing, schema validation, rendering, and side effects in one file when the behavior is non-trivial.\n- Centralize route builders, API clients, and shared UI primitives instead of duplicating them per feature.\n- Reflect changed route, component, and state behavior in the matching canonical docs.\n"
+      "severity": "must",
+      "summary": "- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml`; treat that file as the source of truth for which feature owns which directory, and do not invent a parallel folder taxonomy.",
+      "raw_text": "# React Architecture\n\n- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml`; treat that file as the source of truth for which feature owns which directory, and do not invent a parallel folder taxonomy.\n- Keep components pure during render: do not mutate props, state, or module-level variables, perform `fetch`, or read `Date.now()`/`Math.random()` in the component body. Put side effects in event handlers or `useEffect`.\n- Co-locate a feature's components, hooks, and tests; import across features only through each feature's public entry module, never deep-import another feature's internal files.\n- Define one canonical module per concern — the API/HTTP client, the router config, and shared UI primitives — and import from it rather than re-instantiating clients or re-declaring route paths per feature.\n- In codebases using React Server Components, only files marked `'use client'` may use hooks (`useState`, `useEffect`), browser APIs, or event handler props; keep data fetching and secrets in server components and pass plain serializable props across the boundary.\n"
     },
     {
       "rule_id": "RULE-24",
       "title": "React Conventions",
       "source_path": "docs/instructions/rules/coding/stacks/react/conventions.md",
       "trigger_patterns": [
-        "**"
+        "PascalCase",
+        "useX",
+        "use",
+        "try/catch",
+        "return",
+        "interface",
+        "type",
+        "React.FC",
+        "children",
+        "ReactNode",
+        "key",
+        "useEffect",
+        "react-hooks/exhaustive-deps",
+        "map",
+        "filter",
+        "setState"
       ],
-      "severity": "could",
-      "summary": "- Match the project's React, TypeScript, and folder-layout conventions.",
-      "raw_text": "# React Conventions\n\n- Match the project's React, TypeScript, and folder-layout conventions.\n- Keep routes, components, hooks, and docs synchronized.\n"
+      "severity": "must",
+      "summary": "- Name components in `PascalCase` and hooks `useX`; only functions whose name starts with `use` may call other hooks.",
+      "raw_text": "# React Conventions\n\n- Name components in `PascalCase` and hooks `useX`; only functions whose name starts with `use` may call other hooks.\n- Call hooks unconditionally at the top level of a component or custom hook — never inside conditions, loops, `try/catch`, or after an early `return`.\n- Type component props with an explicit `interface`/`type`; do not use `React.FC` (it is discouraged and implies an unwanted `children` prop). Type children as `ReactNode` when needed.\n- Provide a stable, domain-derived `key` on list items (an entity id), never the array index for lists that can reorder, insert, or delete.\n- Pass `useEffect` a dependency array listing every reactive value it reads; do not disable `react-hooks/exhaustive-deps` to silence a missing dependency — fix the dependency instead.\n- Prefer derived values computed during render over storing redundant copies in state that must be kept in sync via effects.\n- Treat state as immutable: produce new objects/arrays (spread, `map`, `filter`) instead of mutating the existing value before `setState`.\n"
     },
     {
       "rule_id": "RULE-25",
       "title": "React Documentation",
       "source_path": "docs/instructions/rules/coding/stacks/react/documentation.md",
       "trigger_patterns": [
-        "**"
+        "docs/modules/<module>/",
+        "README",
+        "package.json"
       ],
-      "severity": "could",
-      "summary": "- Keep route, component, state, and integration docs aligned with the codebase.",
-      "raw_text": "# React Documentation\n\n- Keep route, component, state, and integration docs aligned with the codebase.\n- Use generated inventories or deterministic scans before writing free-form summaries.\n"
+      "severity": "must",
+      "summary": "- When a change adds, removes, or renames a route, update the route table in the owning module's docs under `docs/modules/<module>/` so the documented route list matches the router config.",
+      "raw_text": "# React Documentation\n\n- When a change adds, removes, or renames a route, update the route table in the owning module's docs under `docs/modules/<module>/` so the documented route list matches the router config.\n- Document non-obvious component contracts (required providers/context, required props, side effects) in a comment or the module doc, not just in the prop types.\n- Keep `README`/setup docs accurate for the commands they name (dev server, build, test); update them when scripts in `package.json` change.\n- Prefer linking to the canonical module doc over duplicating the same explanation across multiple component files.\n"
     },
     {
       "rule_id": "RULE-26",
       "title": "React Environment",
       "source_path": "docs/instructions/rules/coding/stacks/react/environment.md",
       "trigger_patterns": [
+        "zod",
+        "import.meta.env",
         "process.env",
-        "import.meta.env"
+        "VITE_",
+        "NEXT_PUBLIC_",
+        "undefined",
+        ".env*",
+        ".env.example"
       ],
       "severity": "must",
-      "summary": "- Resolve environment values through typed config wrappers, not ad hoc `process.env` or `import.meta.env` calls across the app.",
-      "raw_text": "# React Environment\n\n- Resolve environment values through typed config wrappers, not ad hoc `process.env` or `import.meta.env` calls across the app.\n- Keep public and server-only environment keys separated explicitly.\n- Drive API endpoints, feature flags, and analytics settings from config modules, not literals.\n- Fail fast when required configuration for the selected deploy target is missing.\n- Update project tool references when environment loading behavior changes.\n"
+      "summary": "- Read environment values through one typed config module that validates them at startup (e.g. with `zod`), not scattered `import.meta.env`/`process.env` reads across components.",
+      "raw_text": "# React Environment\n\n- Read environment values through one typed config module that validates them at startup (e.g. with `zod`), not scattered `import.meta.env`/`process.env` reads across components.\n- Only expose variables intended for the browser: under Vite they must be prefixed `VITE_`; under Next.js they must be prefixed `NEXT_PUBLIC_`. Never reference an unprefixed secret in client code — it will not be defined and risks leaking if mis-prefixed.\n- Keep server-only secrets (API keys, DB URLs) out of any module that can be imported by a client component or the browser bundle.\n- Fail fast at boot when a required variable is missing, with an error naming the variable, rather than letting `undefined` propagate into requests.\n- Do not commit `.env*` files containing real secrets; commit a `.env.example` listing the required keys with placeholder values.\n"
     },
     {
       "rule_id": "RULE-27",
       "title": "React Foundation",
       "source_path": "docs/instructions/rules/coding/stacks/react/foundation.md",
       "trigger_patterns": [
-        "**"
+        "useState",
+        "useReducer",
+        "useSyncExternalStore",
+        "useEffect",
+        "ref.current.value",
+        "value",
+        "children"
       ],
       "severity": "could",
-      "summary": "- Prefer framework and ecosystem primitives before custom scaffolding.",
-      "raw_text": "# React Foundation\n\n- Prefer framework and ecosystem primitives before custom scaffolding.\n- Keep component composition explicit and shared abstractions intentional.\n"
+      "summary": "- Use the project's existing router, data-fetching, and state libraries (e.g. React Router/TanStack Router, TanStack Query, Redux Toolkit, Zustand) instead of hand-rolling caching, routing, or global stores.",
+      "raw_text": "# React Foundation\n\n- Use the project's existing router, data-fetching, and state libraries (e.g. React Router/TanStack Router, TanStack Query, Redux Toolkit, Zustand) instead of hand-rolling caching, routing, or global stores.\n- Reach for `useState`/`useReducer` for local state and Context only for low-frequency shared values (theme, auth user); do not use Context as a high-frequency global store — every consumer re-renders on each change.\n- Read external/changing values that are not React state with `useSyncExternalStore` rather than subscribing manually in `useEffect`.\n- Manage controlled inputs with React state; do not mix uncontrolled DOM reads (`ref.current.value`) with a controlled `value` prop on the same input.\n- Prefer composition (passing `children`/render props) over deep prop drilling or premature higher-order-component abstractions.\n"
     },
     {
       "rule_id": "RULE-28",
       "title": "React Localization",
       "source_path": "docs/instructions/rules/coding/stacks/react/localization.md",
       "trigger_patterns": [
-        "**"
+        "react-i18next",
+        "react-intl",
+        "next-intl",
+        "Intl.DateTimeFormat",
+        "Intl.NumberFormat"
       ],
       "severity": "could",
-      "summary": "- Do not hard-code user-facing strings in routes, components, hooks, or state handlers.",
-      "raw_text": "# React Localization\n\n- Do not hard-code user-facing strings in routes, components, hooks, or state handlers.\n- Keep translation keys stable across route-level and component-level rendering.\n- Prefer assertions on keys, state, or semantics instead of translated literals in tests.\n- Centralize enum-to-label and status-to-copy mapping instead of duplicating it per component.\n- If localization setup changes, update testing and UI docs in the same change.\n"
+      "summary": "- Render user-facing copy through the project's i18n library (`react-i18next`, `react-intl`, `next-intl`, etc.) via translation keys; do not hard-code display strings in JSX.",
+      "raw_text": "# React Localization\n\n- Render user-facing copy through the project's i18n library (`react-i18next`, `react-intl`, `next-intl`, etc.) via translation keys; do not hard-code display strings in JSX.\n- Build plurals and interpolated values with the i18n API's plural/format features, not string concatenation, so grammar stays correct per locale.\n- Format dates, numbers, and currency with `Intl.DateTimeFormat`/`Intl.NumberFormat` (or the i18n library's formatter) bound to the active locale, not manual formatting.\n- In tests, assert on translation keys or test ids rather than translated literals so copy edits do not break tests.\n- Centralize enum-to-label and status-to-copy mapping in one module keyed by translation key, instead of re-deriving labels per component.\n"
     },
     {
       "rule_id": "RULE-29",
       "title": "React Module Boundaries",
       "source_path": "docs/instructions/rules/coding/stacks/react/modules.md",
       "trigger_patterns": [
-        "**"
+        "docs/instructions/rules/module-map.yml"
       ],
       "severity": "could",
-      "summary": "- Keep route, feature, and shared UI ownership aligned with the canonical module docs.",
-      "raw_text": "# React Module Boundaries\n\n- Keep route, feature, and shared UI ownership aligned with the canonical module docs.\n- Reuse existing module and package boundaries before introducing new folders or abstractions.\n- Treat cross-module imports as explicit contracts; avoid reaching into another feature's private internals.\n- Keep route, UI, integration, and error docs updated in the owning module when behavior changes.\n- Record module-level assumptions, dependencies, and side effects in the affected docs.\n"
+      "summary": "- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml`. Treat it as the source of truth for which feature owns which paths; do not introduce a new top-level feature folder without a corresponding entry there.",
+      "raw_text": "# React Module Boundaries\n\n- Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml`. Treat it as the source of truth for which feature owns which paths; do not introduce a new top-level feature folder without a corresponding entry there.\n- Import another feature only through its declared public entry module; do not deep-import its internal components, hooks, or stores.\n- Keep shared cross-feature code (UI primitives, the API client, utilities) in the shared/common module the map designates, not duplicated inside individual features.\n"
     },
     {
       "rule_id": "RULE-30",
       "title": "React Performance",
       "source_path": "docs/instructions/rules/coding/stacks/react/performance.md",
       "trigger_patterns": [
-        "**"
+        "memo",
+        "useMemo",
+        "useCallback",
+        "React.memo",
+        "React.lazy",
+        "<Suspense>",
+        "fallback",
+        "Promise.all",
+        "@tanstack/react-virtual",
+        "key"
       ],
       "severity": "could",
-      "summary": "- Watch unnecessary rerenders, oversized client bundles, hydration costs, and route-level waterfalls.",
-      "raw_text": "# React Performance\n\n- Watch unnecessary rerenders, oversized client bundles, hydration costs, and route-level waterfalls.\n- Prefer fixes backed by route or component measurements rather than speculative optimization.\n"
+      "summary": "- Optimize only re-renders you have confirmed are expensive (via the React DevTools Profiler); do not sprinkle `memo`/`useMemo`/`useCallback` speculatively.",
+      "raw_text": "# React Performance\n\n- Optimize only re-renders you have confirmed are expensive (via the React DevTools Profiler); do not sprinkle `memo`/`useMemo`/`useCallback` speculatively.\n- If the project has React Compiler enabled, do not add manual `memo`/`useMemo`/`useCallback` — let the compiler memoize. Without the compiler, wrap a child in `React.memo` only when it re-renders often with unchanged props, and pass it stable callbacks/objects via `useCallback`/`useMemo`.\n- Code-split heavy or rarely used routes/components with `React.lazy` + `<Suspense>` (or the framework's route-level lazy loading) instead of shipping everything in the initial bundle.\n- Give every `<Suspense>` a meaningful `fallback`, and place boundaries so a slow section does not block unrelated UI.\n- Avoid request waterfalls: start independent fetches in parallel (`Promise.all` or parallel queries) rather than awaiting them sequentially; let the data library dedupe and cache.\n- Virtualize long lists (`@tanstack/react-virtual` or similar) instead of rendering thousands of DOM nodes.\n- Use the `key` prop to reset component state intentionally; avoid changing keys on every render, which forces full remounts.\n"
     },
     {
       "rule_id": "RULE-31",
       "title": "React Security",
       "source_path": "docs/instructions/rules/coding/stacks/react/security.md",
       "trigger_patterns": [
-        "**"
+        "dangerouslySetInnerHTML",
+        "DOMPurify",
+        "href",
+        "src",
+        "javascript:",
+        "data:",
+        "HttpOnly",
+        "Secure",
+        "SameSite",
+        "localStorage",
+        "rel=\"noopener noreferrer\"",
+        "target=\"_blank\"",
+        "postMessage"
       ],
-      "severity": "could",
-      "summary": "- Validate auth boundaries, route protection, input handling, and secret usage explicitly.",
-      "raw_text": "# React Security\n\n- Validate auth boundaries, route protection, input handling, and secret usage explicitly.\n- Keep server-only logic and sensitive configuration out of client bundles.\n"
+      "severity": "must",
+      "summary": "- Do not pass unsanitized or user-controlled HTML to `dangerouslySetInnerHTML`; if you must render HTML, sanitize it first with `DOMPurify`. Prefer rendering text as children (React escapes it).",
+      "raw_text": "# React Security\n\n- Do not pass unsanitized or user-controlled HTML to `dangerouslySetInnerHTML`; if you must render HTML, sanitize it first with `DOMPurify`. Prefer rendering text as children (React escapes it).\n- Never build `href`/`src` from user input without validating the scheme — reject `javascript:` and `data:` URLs to prevent script execution on click.\n- Treat the client as untrusted: enforce authentication and authorization on the server/API for every mutation; client-side route guards are UX only, not a security boundary.\n- Keep secrets and privileged API calls server-side (server components, route handlers, or a backend); anything in client code or a browser-exposed env var is public.\n- Store auth tokens in `HttpOnly`, `Secure`, `SameSite` cookies rather than `localStorage`, which is readable by any injected script.\n- Add `rel=\"noopener noreferrer\"` to any `target=\"_blank\"` link to external origins to prevent reverse-tabnabbing.\n- Validate and type all data crossing a trust boundary (API responses, URL params, `postMessage`) with a schema validator before use; do not assume response shapes.\n"
     },
     {
       "rule_id": "RULE-32",
       "title": "React Testing",
       "source_path": "docs/instructions/rules/coding/stacks/react/testing.md",
       "trigger_patterns": [
-        "**"
+        "getByRole",
+        "getByLabelText",
+        "findByText",
+        "container.querySelector",
+        "@testing-library/user-event",
+        "fireEvent",
+        "findBy*",
+        "waitFor",
+        "fetch"
       ],
       "severity": "could",
-      "summary": "- Verify changed behavior with focused component, route, integration, and browser tests as needed.",
-      "raw_text": "# React Testing\n\n- Verify changed behavior with focused component, route, integration, and browser tests as needed.\n- Keep regression coverage close to the changed component or route boundary.\n"
+      "summary": "- Write component tests with React Testing Library on Vitest or Jest; render the component and assert on what the user sees and does, not on internal state or implementation details.",
+      "raw_text": "# React Testing\n\n- Write component tests with React Testing Library on Vitest or Jest; render the component and assert on what the user sees and does, not on internal state or implementation details.\n- Query by accessible role/label/text (`getByRole`, `getByLabelText`, `findByText`); avoid `container.querySelector` and test-id queries except as a last resort.\n- Drive interactions with `@testing-library/user-event` (not raw `fireEvent`) so events match real browser sequences (focus, keydown, input).\n- Await async UI with `findBy*` / `waitFor`; wrap state-updating interactions so no \"act(...)\" warnings appear — treat those warnings as test failures to fix.\n- Mock network at the boundary with MSW rather than stubbing `fetch` or the data-library hooks, so tests exercise real request/response handling.\n- Cover the meaningful branches of changed behavior — success, loading, empty, and error states — not just the happy path.\n- Reserve end-to-end browser tests (Playwright/Cypress) for critical user journeys; do not duplicate unit-level logic there.\n"
     },
     {
       "rule_id": "RULE-33",
       "title": "React UI Safety",
       "source_path": "docs/instructions/rules/coding/stacks/react/ui-safety.md",
       "trigger_patterns": [
-        "docs/tools/react/playwright.md"
+        "getDerivedStateFromError",
+        "componentDidCatch",
+        "errorElement",
+        "<button>",
+        "<a>",
+        "<div>"
       ],
       "severity": "must",
-      "summary": "- Every user-facing flow must handle loading, empty, success, and failure states explicitly.",
-      "raw_text": "# React UI Safety\n\n- Every user-facing flow must handle loading, empty, success, and failure states explicitly.\n- Destructive actions require visible confirmation and must prevent duplicate submits while pending.\n- Route changes must preserve valid back paths, guards, and error boundaries.\n- Validate browser-visible auth and route behavior with `docs/tools/react/playwright.md` when appropriate.\n- Keep module UI docs in sync with changed screen, state, and error behavior.\n"
+      "summary": "- Every async/data-driven view must render explicit loading, empty, success, and error states; never leave a blank screen while a request is pending or after it fails.",
+      "raw_text": "# React UI Safety\n\n- Every async/data-driven view must render explicit loading, empty, success, and error states; never leave a blank screen while a request is pending or after it fails.\n- Wrap render-time failures in an error boundary (a class component with `getDerivedStateFromError`/`componentDidCatch`, or your router's `errorElement`) so one broken subtree does not blank the whole app; effect/handler errors must be caught explicitly.\n- Disable submit buttons and guard against duplicate submission while a mutation is in flight; re-enable on success or error.\n- Require explicit confirmation for destructive or irreversible actions before performing them.\n- Keep interactive elements accessible: real `<button>`/`<a>` for clicks/navigation (not click-handled `<div>`s), labels associated with inputs, and visible focus states.\n- Preserve valid navigation: after a route change keep a working back path and re-apply route guards; do not strand the user on a protected or 404 route with no way out.\n"
     },
     {
       "rule_id": "RULE-34",
       "title": "React Vite SPA",
       "source_path": "docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md",
       "trigger_patterns": [
-        "import.meta.env"
+        "main.tsx",
+        "createRoot",
+        "VITE_",
+        "import.meta.env",
+        "import()",
+        "React.lazy",
+        "<Suspense>",
+        "manualChunks",
+        "import",
+        "public/",
+        "/src/...",
+        "vite.config.ts",
+        "tsconfig",
+        "paths",
+        "vite build",
+        "vite preview"
       ],
-      "severity": "could",
-      "summary": "- Keep client-side route ownership, bootstrapping, and app providers explicit in the main entry path.",
-      "raw_text": "# React Vite SPA\n\n- Keep client-side route ownership, bootstrapping, and app providers explicit in the main entry path.\n- Centralize environment access, API client setup, and build-time configuration instead of scattering `import.meta.env` usage.\n- Watch bundle growth, code-splitting, and lazy-route behavior when adding new screens or heavy dependencies.\n- Prefer typed route, state, and API boundaries over implicit prop drilling across the SPA shell.\n- Validate production build assumptions when changing Vite plugins, aliases, or asset handling.\n"
+      "severity": "must",
+      "summary": "- Keep app bootstrapping in one entry (`main.tsx`): mount with `createRoot`, and wrap the tree in routers/providers there rather than scattering provider setup across components.",
+      "raw_text": "# React Vite SPA\n\n- Keep app bootstrapping in one entry (`main.tsx`): mount with `createRoot`, and wrap the tree in routers/providers there rather than scattering provider setup across components.\n- Expose browser env vars only via the `VITE_` prefix and read them through `import.meta.env` in one typed config module; unprefixed vars are not bundled and must never hold secrets.\n- A Vite SPA ships no server — keep all secrets and privileged calls behind a separate backend/API; never embed API keys in the bundle.\n- Code-split routes and heavy dependencies with dynamic `import()` + `React.lazy`/`<Suspense>` so the initial chunk stays small; rely on Vite/Rollup automatic chunking and only configure `manualChunks` for measured wins.\n- Reference static assets via `import` or the `public/` directory so Vite fingerprints and rewrites their URLs; do not hard-code `/src/...` paths that break in the production build.\n- Configure path aliases once in `vite.config.ts` and mirror them in `tsconfig` `paths`; do not maintain divergent alias sets.\n- Verify changes against the production build (`vite build` + `vite preview`), not just the dev server, when touching plugins, aliases, or asset handling — dev and prod resolve modules differently.\n"
     }
   ]
 }

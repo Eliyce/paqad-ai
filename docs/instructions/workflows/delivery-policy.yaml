@@ -1,0 +1,79 @@
+# Delivery Workflow Policy  (issue #42)
+# Authored exactly like feature-development.yaml: same location, same schema
+# validation, same merge_mode: append precedence — project edits win.
+#
+# Configured to match docs/RELEASE-WORKFLOW.md — paqad-ai ships on GitHub, not
+# Jira. The tracker is GitHub Issues (referenced as #N in the commit/PR scope),
+# the host is GitHub, and the loop is:
+#   branch → PR → CI green → squash-merge → changesets bot release PR → npm publish.
+# Conventions below were derived from this repo's real git history
+# (e.g. `feat(#158): give paqad a visible voice in the live agent chat (#167)`).
+#
+# Every section carries  maintained: auto | manual
+#   auto   — the framework keeps it in sync with your repo; detection fills it
+#            during `create documentation`.
+#   manual — you own it; detection never touches it.
+# The release-workflow conventions are pinned `manual` so a detection pass can
+# never silently rewrite them; `host` stays `auto` (derived from the git remote)
+# and `intake_decisions` stays `auto` (framework behaviour).
+schema_version: "1"
+merge_mode: append
+enabled: true
+
+process:
+  ticket:
+    maintained: manual
+    provider: github-issues     # GitHub Issues, referenced as #N — not Jira
+    server: ""                  # "" = the gh CLI / first enabled github-issues MCP
+    require_ticket: false       # docs/, chore/, and some fixes ship without an issue
+    write_back_refined: never   # issues are for triage/tracking, not a requirements write-back target
+    comment_decisions: false    # decisions surface via the Decision Pause Contract, not issue comments
+
+  host:
+    maintained: auto
+    provider: github            # detected from the git remote (github.com:Eliyce/paqad-ai)
+    server: ""
+
+  branch:
+    maintained: manual
+    template: "{type}/{title_slug}"   # e.g. feat/new-stack-pack-nextjs (RELEASE-WORKFLOW §2)
+    # GitHub issue labels → conventional commit type
+    type_map: { enhancement: feat, bug: fix, chore: chore, docs: docs, default: feat }
+    slug_max_length: 50
+    base: main
+
+  commit:
+    maintained: manual
+    # Conventional commits; the GitHub issue rides in the scope position → feat(#158): …
+    # No `Refs:` trailer — issues are closed from the PR body ("Closes #N") on GitHub.
+    # Issue-less changes (docs/chore) render empty parens — drop them by hand: `docs: …`.
+    template: "{type}({ticket}): {summary}"
+    sign_off: false             # no DCO sign-off required
+
+  pr:
+    maintained: manual
+    # GitHub appends " (#<pr>)" to the squash-merge title automatically, so the
+    # template carries only the issue ref, matching history: feat(#158): …
+    title_template: "{type}({ticket}): {summary}"
+    body_template_path: .paqad/templates/pr-body.md
+    base: main
+    draft: false
+    reviewers: []               # 0 required approvals today (RELEASE-WORKFLOW §11); raise when contributors join
+    labels: []
+    link_ticket: true           # link the GitHub issue from the PR ("Closes #N")
+    transition_on_open: ""       # GitHub issues have no "In Review" state
+
+  ci:
+    maintained: manual
+    gate: wait_for_green        # squash-merge only after CI is green (RELEASE-WORKFLOW §2, §6)
+    timeout_minutes: 30         # 4 required contexts: Node 22 ubuntu/macOS/windows + Node 24 ubuntu
+    on_red: stop                # red CI blocks the merge; fix before proceeding
+    transition_on_green: ""      # merge is a deliberate human squash-merge; no issue transition
+
+  intake_decisions:
+    maintained: auto
+    auto_resolve_from_priors: true
+    auto_resolve_from_rules: true
+    confirm_auto_resolutions: batched   # always | batched | never
+    max_options_per_packet: 4
+    fingerprint_scope: [ticket_type, module, category]
