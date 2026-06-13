@@ -68,15 +68,18 @@ export const useAppStore = create<AppState>((set) => ({
   detailLoading: false,
   search: { query: '', matches: [], index: 0 },
   similarity: { threshold: 0.75, loading: false, edges: [], capped: false, error: null },
-  overlay: 'none',
+  // North Star default (issue #162): lead with the health-coloured map of
+  // named areas. Files, chunks, and symbols arrive via semantic zoom; the raw
+  // overlay picker lives under Advanced.
+  overlay: 'health',
   setOverlay: (overlay) => set({ overlay }),
   layers: {
     modules: true,
-    files: true,
+    files: false,
     chunks: false,
     symbols: false,
-    contains: true,
-    imports: true,
+    contains: false,
+    imports: false,
     similar: false,
   },
   theme: typeof window !== 'undefined' ? getThemeMode() : 'auto',

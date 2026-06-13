@@ -64,113 +64,127 @@ export function Sidebar() {
 
       {graph && (
         <>
-          <section
-            className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs"
-            style={{ color: 'var(--color-muted)' }}
-          >
-            <div>modules</div>
-            <div className="text-right">{graph.meta.counts.modules}</div>
-            <div>files</div>
-            <div className="text-right">{graph.meta.counts.files}</div>
-            <div>chunks</div>
-            <div className="text-right">{graph.meta.counts.chunks}</div>
-            <div>symbols</div>
-            <div className="text-right">{graph.meta.counts.symbols}</div>
-            <div>imports</div>
-            <div className="text-right">{graph.meta.counts.imports}</div>
-          </section>
+          <p className="mt-2 text-xs" style={{ color: 'var(--color-muted)' }}>
+            {graph.meta.counts.modules} {graph.meta.counts.modules === 1 ? 'area' : 'areas'},
+            coloured by health. Zoom in to see the files inside each one.
+          </p>
 
-          <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-            <h2
-              className="text-xs font-medium uppercase tracking-wide"
+          <details className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
+            <summary
+              className="cursor-pointer text-xs font-medium uppercase tracking-wide"
               style={{ color: 'var(--color-muted)' }}
             >
-              Layers
-            </h2>
-            <ul className="mt-1 space-y-1">
-              {LAYER_LABELS.map((l) => (
-                <li key={l.key} className="flex items-center gap-2">
-                  <input
-                    id={'layer-' + l.key}
-                    type="checkbox"
-                    checked={layers[l.key]}
-                    onChange={() => toggleLayer(l.key)}
-                  />
-                  <label htmlFor={'layer-' + l.key}>{l.label}</label>
-                </li>
-              ))}
-            </ul>
-          </section>
+              Advanced / for engineers
+            </summary>
 
-          <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-            <h2
-              className="text-xs font-medium uppercase tracking-wide"
+            <section
+              className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs"
               style={{ color: 'var(--color-muted)' }}
             >
-              Overlay
-            </h2>
-            <select
-              value={overlay}
-              onChange={(e) => setOverlay(e.target.value as OverlayKind)}
-              className="mt-1 w-full rounded border px-1.5 py-0.5 text-xs"
-              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-            >
-              {OVERLAY_OPTIONS.map((o) => {
-                const disabled =
-                  o.availableKey != null &&
-                  overlaysAvailable != null &&
-                  !overlaysAvailable[o.availableKey];
-                return (
-                  <option key={o.key} value={o.key} disabled={disabled}>
-                    {o.label}
-                    {disabled ? ' (unavailable)' : ''}
-                  </option>
-                );
-              })}
-            </select>
-          </section>
+              <div>modules</div>
+              <div className="text-right">{graph.meta.counts.modules}</div>
+              <div>files</div>
+              <div className="text-right">{graph.meta.counts.files}</div>
+              <div>chunks</div>
+              <div className="text-right">{graph.meta.counts.chunks}</div>
+              <div>symbols</div>
+              <div className="text-right">{graph.meta.counts.symbols}</div>
+              <div>imports</div>
+              <div className="text-right">{graph.meta.counts.imports}</div>
+            </section>
 
-          <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
-            <h2
-              className="text-xs font-medium uppercase tracking-wide"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              Similarity
-            </h2>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="range"
-                min={0.1}
-                max={1}
-                step={0.01}
-                disabled={!similarityAvailable}
-                value={pending}
-                onChange={(e) => setPending(parseFloat(e.target.value))}
-                onMouseUp={(e) => runSimilar(parseFloat((e.target as HTMLInputElement).value))}
-                onKeyUp={(e) => {
-                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                    runSimilar(parseFloat((e.target as HTMLInputElement).value));
-                  }
-                }}
-                className="flex-1"
-              />
-              <span
-                className="w-10 text-right text-xs tabular-nums"
+            <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
+              <h2
+                className="text-xs font-medium uppercase tracking-wide"
                 style={{ color: 'var(--color-muted)' }}
               >
-                {pending.toFixed(2)}
-              </span>
-            </div>
-            <div className="mt-1 text-[11px]" style={{ color: 'var(--color-muted)' }}>
-              {!similarityAvailable
-                ? 'vector store missing — similarity disabled'
-                : similarity.loading
-                  ? 'resolving…'
-                  : similarity.error
-                    ? `error: ${similarity.error}`
-                    : `${similarity.edges.length} edges${similarity.capped ? ' (capped)' : ''}`}
-            </div>
-          </section>
+                Layers
+              </h2>
+              <ul className="mt-1 space-y-1">
+                {LAYER_LABELS.map((l) => (
+                  <li key={l.key} className="flex items-center gap-2">
+                    <input
+                      id={'layer-' + l.key}
+                      type="checkbox"
+                      checked={layers[l.key]}
+                      onChange={() => toggleLayer(l.key)}
+                    />
+                    <label htmlFor={'layer-' + l.key}>{l.label}</label>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
+              <h2
+                className="text-xs font-medium uppercase tracking-wide"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                Overlay
+              </h2>
+              <select
+                value={overlay}
+                onChange={(e) => setOverlay(e.target.value as OverlayKind)}
+                className="mt-1 w-full rounded border px-1.5 py-0.5 text-xs"
+                style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+              >
+                {OVERLAY_OPTIONS.map((o) => {
+                  const disabled =
+                    o.availableKey != null &&
+                    overlaysAvailable != null &&
+                    !overlaysAvailable[o.availableKey];
+                  return (
+                    <option key={o.key} value={o.key} disabled={disabled}>
+                      {o.label}
+                      {disabled ? ' (unavailable)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </section>
+
+            <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
+              <h2
+                className="text-xs font-medium uppercase tracking-wide"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                Similarity
+              </h2>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.01}
+                  disabled={!similarityAvailable}
+                  value={pending}
+                  onChange={(e) => setPending(parseFloat(e.target.value))}
+                  onMouseUp={(e) => runSimilar(parseFloat((e.target as HTMLInputElement).value))}
+                  onKeyUp={(e) => {
+                    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                      runSimilar(parseFloat((e.target as HTMLInputElement).value));
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <span
+                  className="w-10 text-right text-xs tabular-nums"
+                  style={{ color: 'var(--color-muted)' }}
+                >
+                  {pending.toFixed(2)}
+                </span>
+              </div>
+              <div className="mt-1 text-[11px]" style={{ color: 'var(--color-muted)' }}>
+                {!similarityAvailable
+                  ? 'vector store missing — similarity disabled'
+                  : similarity.loading
+                    ? 'resolving…'
+                    : similarity.error
+                      ? `error: ${similarity.error}`
+                      : `${similarity.edges.length} edges${similarity.capped ? ' (capped)' : ''}`}
+              </div>
+            </section>
+          </details>
 
           {graph.meta.degraded_reasons.length > 0 && (
             <section className="mt-3 border-t pt-2" style={{ borderColor: 'var(--color-border)' }}>
