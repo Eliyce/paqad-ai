@@ -34,6 +34,12 @@ export const PATHS = {
   DECISIONS_EVENTS_LOG: '.paqad/decisions/events.jsonl',
   DECISIONS_LOCK: '.paqad/decisions/.lock',
   DECISION_PAUSE_CONTRACT: '.paqad/decision-pause-contract.md',
+  // Issue #158 — canonical, managed narration contract: the full spec for how
+  // paqad speaks in the live agent chat (voice, cadence, status-block format,
+  // glyph vocabulary, plain-English term translations). A lean copy of the
+  // operative rules is rendered into each provider entry file; this is the
+  // single source of truth they point at.
+  NARRATION_CONTRACT: '.paqad/narration-contract.md',
   // Feature 1 - Semantic Context Loader
   CHUNK_INDEX: '.paqad/context/chunk-index.json',
   LOAD_STATS: '.paqad/context/load-stats.json',

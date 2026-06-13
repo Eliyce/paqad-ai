@@ -5,6 +5,10 @@ import { AdapterFactory } from '@/adapters/factory.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
+  buildNarrationContractSection,
+  extractNarrationContractSection,
+} from '@/adapters/shared/narration-contract.js';
+import {
   buildDecisionPauseContractSection,
   extractDecisionPauseContractSection,
   normalizeProviderEntryContract,
@@ -86,6 +90,83 @@ export function inspectProviderEntryDecisionPauseContracts(
     status: 'pass',
     detail:
       'Generated adapter config files point at the canonical decision pause contract and the managed doc is present.',
+    remediation: 'No action needed.',
+  };
+}
+
+/**
+ * Checks that every present provider entry file carries the issue #158
+ * narration contract, that it matches the canonical section (no drift), and
+ * that the managed `.paqad/narration-contract.md` doc exists. Mirrors the
+ * decision-pause check above.
+ */
+export function inspectProviderEntryNarrationContracts(
+  projectRoot: string,
+): ProviderEntryContractCheckResult {
+  const configPaths = ADAPTER_TYPES.map((type) => ({
+    type,
+    path: join(projectRoot, AdapterFactory.create(type).getConfigPath()),
+  }));
+  const existing = configPaths.filter(({ path }) => existsSync(path));
+
+  if (existing.length === 0) {
+    return {
+      status: 'warning',
+      detail: 'No adapter config files were found to check',
+      remediation: 'Generate at least one adapter config before checking the narration contract.',
+    };
+  }
+
+  const expected = normalizeProviderEntryContract(buildNarrationContractSection());
+  const missing: string[] = [];
+  const drifted: string[] = [];
+
+  for (const { path } of existing) {
+    const current = readFileSync(path, 'utf8');
+    const section = extractNarrationContractSection(current);
+
+    if (section === null) {
+      missing.push(relative(projectRoot, path));
+      continue;
+    }
+
+    if (normalizeProviderEntryContract(section) !== expected) {
+      drifted.push(relative(projectRoot, path));
+    }
+  }
+
+  const remediation =
+    'Re-run `paqad refresh --providers` to restore the narration contract and managed doc.';
+
+  if (missing.length > 0) {
+    return {
+      status: 'fail',
+      detail: `Narration contract missing from: ${missing.join(', ')}`,
+      remediation,
+    };
+  }
+
+  if (drifted.length > 0) {
+    return {
+      status: 'warning',
+      detail: `Narration contract drift detected in: ${drifted.join(', ')}`,
+      remediation,
+    };
+  }
+
+  const canonicalPath = join(projectRoot, PATHS.NARRATION_CONTRACT);
+  if (!existsSync(canonicalPath)) {
+    return {
+      status: 'warning',
+      detail: `Canonical narration contract document is missing at ${relative(projectRoot, canonicalPath)}`,
+      remediation,
+    };
+  }
+
+  return {
+    status: 'pass',
+    detail:
+      'Generated adapter config files carry the narration contract and the managed doc is present.',
     remediation: 'No action needed.',
   };
 }

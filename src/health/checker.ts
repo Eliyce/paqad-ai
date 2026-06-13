@@ -24,7 +24,10 @@ import type {
 } from '@/core/types/health.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { SchemaValidator } from '@/validators/validator.js';
-import { inspectProviderEntryDecisionPauseContracts } from './provider-entry-contract.js';
+import {
+  inspectProviderEntryDecisionPauseContracts,
+  inspectProviderEntryNarrationContracts,
+} from './provider-entry-contract.js';
 
 const STALENESS_WINDOW_MS = 1000 * 60 * 60 * 24 * 7;
 
@@ -47,6 +50,7 @@ export class HealthChecker {
       this.checkIndexesCurrent(projectRoot),
       this.checkAdapterConfig(projectRoot),
       this.checkDecisionPauseContract(projectRoot),
+      this.checkNarrationContract(projectRoot),
       this.checkStackCommands(profile),
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
@@ -354,6 +358,20 @@ export class HealthChecker {
     }
 
     return fail('Decision pause contract present', result.detail, result.remediation);
+  }
+
+  private checkNarrationContract(projectRoot: string): HealthCheckResult {
+    const result = inspectProviderEntryNarrationContracts(projectRoot);
+
+    if (result.status === 'pass') {
+      return pass('Narration contract present', result.detail);
+    }
+
+    if (result.status === 'warning') {
+      return warn('Narration contract present', result.detail, result.remediation);
+    }
+
+    return fail('Narration contract present', result.detail, result.remediation);
   }
 
   private checkStackCommands(profile: ProjectProfile | null): HealthCheckResult {

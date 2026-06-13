@@ -1,10 +1,14 @@
+import { PAQAD_STATUS_GLYPH } from '@/core/constants/paqad-voice.js';
+
 import type { DashboardReport, ScoreBand, SectionData } from './types.js';
 
+// Glyphs come from the canonical paqad-voice spec so the dashboard, the PR
+// evidence comment, and the in-chat narration contract share one vocabulary.
 const BAND_GLYPHS: Record<ScoreBand, string> = {
-  green: '🟢',
-  amber: '🟡',
-  red: '🔴',
-  unknown: '⚪',
+  green: PAQAD_STATUS_GLYPH.good,
+  amber: PAQAD_STATUS_GLYPH.needsLook,
+  red: PAQAD_STATUS_GLYPH.failed,
+  unknown: PAQAD_STATUS_GLYPH.skipped,
 };
 
 function scoreText(section: SectionData): string {
