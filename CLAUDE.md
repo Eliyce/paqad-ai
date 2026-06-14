@@ -16,6 +16,10 @@ Workflow handling:
 - Do not ask the user to choose a document type when a Paqad workflow already matches the request.
 - Generate or update the canonical project documentation and registries defined by Paqad instead of defaulting to generic templates.
 
+## paqad in your chat
+
+See `.paqad/narration-contract.md` for the full voice spec, cadence detail, and the plain-English translation of every internal term.
+
 ## Decision Pause Contract
 
 See `.paqad/decision-pause-contract.md` for the full rule, categories, resolution flow, and fallback.
