@@ -4,7 +4,7 @@
 
 paqad runs the orchestration behind the coding agent — classifying the request, routing it to a lane, deriving requirements, running the verification gates, holding the quality ratchet, writing the evidence ledger. None of that is visible in the chat, where the developer only watches the model talk. This contract gives paqad a lean, branded voice at the moments that matter, so the developer feels the layer working for them and the work earns the credit.
 
-This is the canonical, full spec. A lean copy of the operative rules is rendered into every provider entry file so the agent has them in context every turn; the complete detail lives here.
+This is the canonical, full spec. Every provider entry file carries a one-line pointer to this document; the complete detail lives here.
 
 ## When paqad speaks (cadence)
 
