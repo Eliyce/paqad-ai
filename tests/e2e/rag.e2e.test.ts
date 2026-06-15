@@ -284,103 +284,110 @@ describe('RAG end-to-end', () => {
     }
   });
 
-  it('passes benchmark gates across a 32-task lexical-vs-rag benchmark set', async () => {
-    const projectRoot = join(root, 'benchmark-project');
-    mkdirSync(join(projectRoot, 'src'), { recursive: true });
-    writeCodingProfile(projectRoot);
-    const files = writeFeatureFiles(projectRoot);
-    const artifacts = readArtifacts(projectRoot);
+  it(
+    'passes benchmark gates across a 32-task lexical-vs-rag benchmark set',
+    async () => {
+      const projectRoot = join(root, 'benchmark-project');
+      mkdirSync(join(projectRoot, 'src'), { recursive: true });
+      writeCodingProfile(projectRoot);
+      const files = writeFeatureFiles(projectRoot);
+      const artifacts = readArtifacts(projectRoot);
 
-    const tasks = [
-      ...Array.from({ length: 8 }, (_, index) => ({
-        description: `authorization incident ${index + 1} in the admin flow`,
-        keywords: ['authorization'],
-        expectedFile: files.auth,
-      })),
-      ...Array.from({ length: 8 }, (_, index) => ({
-        description: `concurrent discount claim issue ${index + 1}`,
-        keywords: ['concurrent'],
-        expectedFile: files.billing,
-      })),
-      ...Array.from({ length: 8 }, (_, index) => ({
-        description: `customer notification problem ${index + 1}`,
-        keywords: ['notification'],
-        expectedFile: files.email,
-      })),
-      ...Array.from({ length: 8 }, (_, index) => ({
-        description: `background task failure ${index + 1}`,
-        keywords: ['background'],
-        expectedFile: files.queue,
-      })),
-    ];
+      const tasks = [
+        ...Array.from({ length: 8 }, (_, index) => ({
+          description: `authorization incident ${index + 1} in the admin flow`,
+          keywords: ['authorization'],
+          expectedFile: files.auth,
+        })),
+        ...Array.from({ length: 8 }, (_, index) => ({
+          description: `concurrent discount claim issue ${index + 1}`,
+          keywords: ['concurrent'],
+          expectedFile: files.billing,
+        })),
+        ...Array.from({ length: 8 }, (_, index) => ({
+          description: `customer notification problem ${index + 1}`,
+          keywords: ['notification'],
+          expectedFile: files.email,
+        })),
+        ...Array.from({ length: 8 }, (_, index) => ({
+          description: `background task failure ${index + 1}`,
+          keywords: ['background'],
+          expectedFile: files.queue,
+        })),
+      ];
 
-    async function runSnapshot(): Promise<{
-      hit_at_5: number;
-      task_success_rate: number;
-      correction_turns: number;
-      prompt_tokens_sent: number;
-      task_count: number;
-    }> {
-      let hits = 0;
-      let successes = 0;
-      let correctionTurns = 0;
-      let promptTokens = 0;
+      async function runSnapshot(): Promise<{
+        hit_at_5: number;
+        task_success_rate: number;
+        correction_turns: number;
+        prompt_tokens_sent: number;
+        task_count: number;
+      }> {
+        let hits = 0;
+        let successes = 0;
+        let correctionTurns = 0;
+        let promptTokens = 0;
 
-      for (const [index, task] of tasks.entries()) {
-        const result = await new SemanticLoader({
-          projectRoot,
-          sessionId: `benchmark-${index}`,
-        }).load(artifacts, {
-          taskKeywords: task.keywords,
-          taskDescription: task.description,
-          symbolReferences: [],
-          tokenBudget: 800,
-        });
+        for (const [index, task] of tasks.entries()) {
+          const result = await new SemanticLoader({
+            projectRoot,
+            sessionId: `benchmark-${index}`,
+          }).load(artifacts, {
+            taskKeywords: task.keywords,
+            taskDescription: task.description,
+            symbolReferences: [],
+            tokenBudget: 800,
+          });
 
-        const topFive = result.chunks.slice(0, 5).map((chunk) => chunk.source_file);
-        const inTopFive = topFive.includes(task.expectedFile);
-        const topOne = result.chunks[0]?.source_file === task.expectedFile;
-        if (inTopFive) {
-          hits++;
+          const topFive = result.chunks.slice(0, 5).map((chunk) => chunk.source_file);
+          const inTopFive = topFive.includes(task.expectedFile);
+          const topOne = result.chunks[0]?.source_file === task.expectedFile;
+          if (inTopFive) {
+            hits++;
+          }
+          if (topOne) {
+            successes++;
+          }
+          correctionTurns += topOne ? 0 : inTopFive ? 1 : 2;
+          promptTokens +=
+            estimatePromptTokens(task.description, task.keywords.join('\n')) +
+            result.stats.tokens_after;
         }
-        if (topOne) {
-          successes++;
-        }
-        correctionTurns += topOne ? 0 : inTopFive ? 1 : 2;
-        promptTokens +=
-          estimatePromptTokens(task.description, task.keywords.join('\n')) +
-          result.stats.tokens_after;
+
+        return {
+          hit_at_5: hits / tasks.length,
+          task_success_rate: successes / tasks.length,
+          correction_turns: correctionTurns / tasks.length,
+          prompt_tokens_sent: Math.round(promptTokens / tasks.length),
+          task_count: tasks.length,
+        };
       }
 
-      return {
-        hit_at_5: hits / tasks.length,
-        task_success_rate: successes / tasks.length,
-        correction_turns: correctionTurns / tasks.length,
-        prompt_tokens_sent: Math.round(promptTokens / tasks.length),
-        task_count: tasks.length,
-      };
-    }
+      const baseline = await runSnapshot();
 
-    const baseline = await runSnapshot();
+      await new RagService(projectRoot).configureAndBuild({
+        rag_enabled: true,
+        embedding_provider: 'local',
+        embedding_model: 'Xenova/all-MiniLM-L6-v2',
+      });
+      const candidate = await runSnapshot();
+      const report = evaluateBenchmarkGates(baseline, candidate);
 
-    await new RagService(projectRoot).configureAndBuild({
-      rag_enabled: true,
-      embedding_provider: 'local',
-      embedding_model: 'Xenova/all-MiniLM-L6-v2',
-    });
-    const candidate = await runSnapshot();
-    const report = evaluateBenchmarkGates(baseline, candidate);
+      expect(tasks).toHaveLength(32);
+      expect(report.passed).toBe(true);
 
-    expect(tasks).toHaveLength(32);
-    expect(report.passed).toBe(true);
-
-    mkdirSync(join(process.cwd(), 'coverage'), { recursive: true });
-    writeFileSync(
-      join(process.cwd(), 'coverage', 'rag-benchmark-gates.json'),
-      JSON.stringify(report, null, 2),
-      'utf8',
-    );
-  }, 15000);
+      mkdirSync(join(process.cwd(), 'coverage'), { recursive: true });
+      writeFileSync(
+        join(process.cwd(), 'coverage', 'rag-benchmark-gates.json'),
+        JSON.stringify(report, null, 2),
+        'utf8',
+      );
+      // This 32-task benchmark is the heaviest e2e case; the slower Windows
+      // runner needs the same headroom the global config grants (30s on win32,
+      // see vitest.config.ts). A flat 15s overrode that and timed out on Windows.
+    },
+    process.platform === 'win32' ? 30_000 : 15_000,
+  );
 
   it('handles a larger repository with repeated retrievals and incremental refresh', async () => {
     const projectRoot = join(root, 'stress-project');
