@@ -10,7 +10,7 @@ import {
   normalizeProviderEntryContract,
 } from '@/adapters/shared/provider-entry-contract.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
-import { paqadGlyphLegend } from '@/core/constants/paqad-voice.js';
+import { buildNarrationContractDocument } from '@/onboarding/narration-contract-writer.js';
 
 const CONFIG_CONTEXT = {
   frameworkPath: '.paqad/framework-path.txt',
@@ -53,17 +53,17 @@ describe('paqad narration contract in provider entry files', () => {
     }
   });
 
-  it('carries the cadence, the branded frame, and the shared glyph legend', () => {
+  it('collapses to the heading plus the one-line pointer, with no inlined spec', () => {
     const section = buildNarrationContractSection();
-    expect(section).toContain('Handshake (once per session)');
-    expect(section).toContain('On a verdict');
-    expect(section).toContain('**▸ paqad**');
-    // The legend is sourced from paqad-voice — assert it is the same string.
-    expect(section).toContain(paqadGlyphLegend());
+    expect(section).toBe(`## paqad in your chat\n\n${narrationContractPointerBody()}`);
+    // The full voice spec now lives only in the managed doc, not the entry file.
+    expect(section).not.toContain('Handshake (once per session)');
+    expect(section).not.toContain('On a verdict');
+    expect(section).not.toContain('**▸ paqad**');
   });
 
-  it('stays legible with the status glyphs stripped', () => {
-    const stripped = buildNarrationContractSection().replace(/[🟢🔴🟡⚪▸]/gu, '');
+  it('keeps the full voice spec legible in the managed doc with glyphs stripped', () => {
+    const stripped = buildNarrationContractDocument().replace(/[🟢🔴🟡⚪▸]/gu, '');
     // Every status word survives the strip, so meaning never rides on a glyph.
     expect(stripped).toContain('good');
     expect(stripped).toContain('failed');

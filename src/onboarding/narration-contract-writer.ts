@@ -15,9 +15,9 @@ import { MANAGED_HEADER, writeMarkdownIfChanged } from './decision-pause-contrac
 /**
  * Builds the canonical narration-contract markdown that lives at
  * `.paqad/narration-contract.md` (issue #158). This is the full spec for how
- * paqad speaks in the live agent chat; a lean copy of the operative rules is
- * rendered into every provider entry file (see
- * `src/adapters/shared/narration-contract.ts`), which points back here.
+ * paqad speaks in the live agent chat; every provider entry file carries a
+ * one-line pointer back here (see
+ * `src/adapters/shared/narration-contract.ts`), not a copy of the rules.
  *
  * The glyphs, verdict words, status-block frame, and term translations are all
  * sourced from the canonical `paqad-voice` spec, so this document, the entry
@@ -38,7 +38,7 @@ export function buildNarrationContractDocument(): string {
 
 paqad runs the orchestration behind the coding agent — classifying the request, routing it to a lane, deriving requirements, running the verification gates, holding the quality ratchet, writing the evidence ledger. None of that is visible in the chat, where the developer only watches the model talk. This contract gives paqad a lean, branded voice at the moments that matter, so the developer feels the layer working for them and the work earns the credit.
 
-This is the canonical, full spec. A lean copy of the operative rules is rendered into every provider entry file so the agent has them in context every turn; the complete detail lives here.
+This is the canonical, full spec. Every provider entry file carries a one-line pointer to this document; the complete detail lives here.
 
 ## When paqad speaks (cadence)
 
