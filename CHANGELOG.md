@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.22.1
+
+### Patch Changes
+
+- [#174](https://github.com/Eliyce/paqad-ai/pull/174) [`8ad856b`](https://github.com/Eliyce/paqad-ai/commit/8ad856b5c02d7a32ccc7113aa811f2777a5e3985) Thanks [@HLasani](https://github.com/HLasani)! - Collapse the in-chat narration contract in provider entry files to a one-line pointer ([#173](https://github.com/Eliyce/paqad-ai/issues/173)). The full voice spec stays in the canonical `.paqad/narration-contract.md`; the entry files (CLAUDE.md, AGENTS.md, and every adapter) now carry only the heading plus a pointer line, matching the Decision Pause Contract shape. `paqad refresh --providers` rewrites already-onboarded projects down to the pointer.
+
 ## 1.22.0
 
 ### Minor Changes
