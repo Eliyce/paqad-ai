@@ -184,6 +184,17 @@
         "ai_governance": { "type": "boolean" }
       }
     },
+    "enterprise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "evidence_ledger", "ai_bom", "compliance_citations"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "evidence_ledger": { "type": "boolean" },
+        "ai_bom": { "type": "boolean" },
+        "compliance_citations": { "type": "boolean" }
+      }
+    },
     "mcp": {
       "type": "object",
       "additionalProperties": false,

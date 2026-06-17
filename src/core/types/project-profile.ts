@@ -185,6 +185,24 @@ export interface FlakyProfileConfig {
   rerun_count?: number;
 }
 
+// Issue #187 — enterprise/governance capabilities are opt-in and off by default.
+// The `enterprise` block is the config seam for the licensed evidence-ledger
+// feature. `enabled` is the master switch; when false (or the block is absent),
+// every sub-flag is forced off regardless of its value. A normal user pays zero
+// tokens and gets a clean working tree (no `.paqad/ledger/` writes). A future
+// license/token check slots in behind `resolveEnterprisePolicy`, so callers
+// never learn about billing — see `src/core/enterprise-policy.ts`.
+export interface EnterpriseConfig {
+  /** Master switch. When false, every sub-flag below is forced off. */
+  enabled: boolean;
+  /** Write the receipt + ledger set: `evidence.jsonl`, `receipts.jsonl`, `receipt.dsse.json`. */
+  evidence_ledger: boolean;
+  /** Write the CycloneDX `ai-bom.json` view. Independent of `evidence_ledger`. */
+  ai_bom: boolean;
+  /** Resolve framework citations into the receipt (the token-spending path). */
+  compliance_citations: boolean;
+}
+
 export interface ProjectProfile {
   project: ProjectMetadata;
   active_capabilities: ActiveCapability[];
@@ -198,6 +216,8 @@ export interface ProjectProfile {
   strictness: StrictnessConfig;
   compliance_packs: CompliancePackConfig[];
   features: ProjectFeatureFlags;
+  /** Issue #187 — opt-in enterprise capabilities. Absent ⇒ everything off. */
+  enterprise?: EnterpriseConfig;
   mcp: {
     servers: ProjectMcpServer[];
   };

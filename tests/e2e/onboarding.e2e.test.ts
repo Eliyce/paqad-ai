@@ -475,7 +475,9 @@ describe('framework end-to-end onboarding', () => {
     expect(gitignore).toContain('.paqad/cache/');
     expect(gitignore).toContain('.paqad/session/');
     expect(gitignore).toContain('.paqad/pentest/');
-    expect(gitignore).toContain('.paqad/ledger/');
+    // Issue #187 — the evidence ledger is opt-in; a default onboard never
+    // ignores `.paqad/ledger/`.
+    expect(gitignore).not.toContain('.paqad/ledger/');
   });
 
   it('does not create empty architecture or design-system folders during onboarding', async () => {

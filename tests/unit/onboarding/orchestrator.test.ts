@@ -175,7 +175,9 @@ describe('OnboardingOrchestrator', () => {
     expect(gitignore).toContain('.paqad/cache/');
     expect(gitignore).toContain('.paqad/session/');
     expect(gitignore).toContain('.paqad/pentest/');
-    expect(gitignore).toContain('.paqad/ledger/');
+    // Issue #187 — the evidence ledger is opt-in, so a fresh onboard (no
+    // `enterprise` block) must not ignore `.paqad/ledger/`.
+    expect(gitignore).not.toContain('.paqad/ledger/');
   });
 
   it('enables RAG during onboarding when explicit RAG selections are provided', async () => {
