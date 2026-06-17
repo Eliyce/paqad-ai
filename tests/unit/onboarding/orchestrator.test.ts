@@ -171,10 +171,11 @@ describe('OnboardingOrchestrator', () => {
     });
 
     const gitignore = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
-    expect(gitignore).toContain('# paqad-ai');
+    expect(gitignore).toContain('# >>> paqad-ai managed');
     expect(gitignore).toContain('.paqad/cache/');
     expect(gitignore).toContain('.paqad/session/');
     expect(gitignore).toContain('.paqad/pentest/');
+    expect(gitignore).toContain('.paqad/ledger/');
   });
 
   it('enables RAG during onboarding when explicit RAG selections are provided', async () => {

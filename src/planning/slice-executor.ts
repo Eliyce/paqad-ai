@@ -698,7 +698,7 @@ export class SliceExecutor {
             projectRoot,
             requestedBy: 'codex-cli',
             taskSessionId: _slug,
-            decisionId: nextDecisionId(manifest, decisionStore),
+            decisionId: decisionStore.nextDecisionId(),
             category: forks[0]!.category,
             confidence: forks[0]!.confidence,
             context,
@@ -1012,13 +1012,13 @@ export class SliceExecutor {
 
     const decisionStore = new DecisionStore(projectRoot);
     decisionStore.initialize();
-    return findings.map((finding, index) => {
+    return findings.map((finding) => {
       const packet = buildDeferredDecisionPacket({
         projectRoot,
         slug,
         manifest,
         context,
-        decisionId: nextDecisionIdWithOffset(manifest, decisionStore, index),
+        decisionId: decisionStore.nextDecisionId(),
         category: finding.category,
         file: finding.file,
         matchedExisting: finding.matched_existing,
@@ -1413,25 +1413,6 @@ function appendDecisionRecord(
   };
 }
 
-function nextDecisionId(manifest: PlanningManifest, decisionStore: DecisionStore): string {
-  const storeNext = Number(decisionStore.nextDecisionId().replace(/^D-/, ''));
-  const manifestNext =
-    manifest.decision_log
-      .map((decision) => Number(decision.decision_id.replace(/^D-/, '')))
-      .filter((value) => Number.isFinite(value))
-      .reduce((max, value) => Math.max(max, value), 0) + 1;
-  return `D-${Math.max(storeNext, manifestNext)}`;
-}
-
-function nextDecisionIdWithOffset(
-  manifest: PlanningManifest,
-  decisionStore: DecisionStore,
-  offset: number,
-): string {
-  const base = Number(nextDecisionId(manifest, decisionStore).replace(/^D-/, ''));
-  return `D-${base + offset}`;
-}
-
 function buildDecisionPacket(input: {
   projectRoot: string;
   requestedBy: string;
@@ -1610,7 +1591,7 @@ async function executeFastLane(
       projectRoot,
       requestedBy: 'codex-cli',
       taskSessionId: manifest.slug,
-      decisionId: nextDecisionId(manifest, decisionStore),
+      decisionId: decisionStore.nextDecisionId(),
       category: primaryFork.category,
       detectorConfidence: primaryFork.confidence,
       context,

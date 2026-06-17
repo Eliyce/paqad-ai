@@ -1926,8 +1926,11 @@ describe('slice execution helpers', () => {
       });
 
       expect(result.trackerStatus).toBe('completed');
+      // Issue #184 — minted ids are opaque ULIDs, so match the shape not a literal.
       expect(mockPromptForDecision).toHaveBeenCalledWith(
-        expect.objectContaining({ decision_id: 'D-2' }),
+        expect.objectContaining({
+          decision_id: expect.stringMatching(/^D-[0-9A-HJKMNP-TV-Z]{26}$/),
+        }),
         { mode: 'fast' },
       );
     } finally {
@@ -2025,7 +2028,9 @@ describe('slice execution helpers', () => {
       const saved = YAML.parse(
         readFileSync(join(root, '.paqad/specs/fast-auto-resolve.yaml'), 'utf8'),
       ) as { decision_log: Array<{ decision_id: string }> };
-      expect(saved.decision_log.some((entry) => entry.decision_id === 'D-2')).toBe(true);
+      expect(
+        saved.decision_log.some((entry) => /^D-[0-9A-HJKMNP-TV-Z]{26}$/.test(entry.decision_id)),
+      ).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -15,6 +15,9 @@ import {
 } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
 
+/** An `MD-` id whose body is a 26-char Crockford-base32 ULID (issue #184). */
+const ULID_MD_ID = /^MD-[0-9A-HJKMNP-TV-Z]{26}$/;
+
 function makeDecision(over: Partial<ModuleDecision> = {}): ModuleDecision {
   return {
     id: 'MD-0001',
@@ -53,8 +56,10 @@ describe('module-decisions/store', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('nextDecisionId returns MD-0001 on empty directory', () => {
-    expect(nextDecisionId(root)).toBe('MD-0001');
+  // Issue #184 — ids are `MD-<ULID>`: collision-free, time-sortable, allocated
+  // without touching the filesystem.
+  it('nextDecisionId mints a ULID id without reading the directory', () => {
+    expect(nextDecisionId()).toMatch(ULID_MD_ID);
     expect(listDecisionIds(root)).toEqual([]);
   });
 
@@ -67,11 +72,25 @@ describe('module-decisions/store', () => {
     expect(read?.proposed_slug).toBe('payments');
   });
 
-  it('nextDecisionId increments past the highest existing ordinal', () => {
+  it('nextDecisionId is collision-free and time-sortable, ignoring existing ids', () => {
     writeDecision(root, makeDecision({ id: 'MD-0001' }));
     writeDecision(root, makeDecision({ id: 'MD-0005' }));
-    writeDecision(root, makeDecision({ id: 'MD-0003' }));
-    expect(nextDecisionId(root)).toBe('MD-0006');
+    const ids = Array.from({ length: 25 }, () => nextDecisionId());
+    expect(new Set(ids).size).toBe(ids.length);
+    expect([...ids].sort()).toEqual(ids);
+    expect(ids.every((id) => ULID_MD_ID.test(id))).toBe(true);
+  });
+
+  it('lists a directory mixing legacy MD-{XXXX} and new MD-<ULID> ids', () => {
+    const legacy = makeDecision({ id: 'MD-0003' });
+    const ulidId = nextDecisionId();
+    writeDecision(root, legacy);
+    writeDecision(root, makeDecision({ id: ulidId }));
+    const listed = listDecisionIds(root);
+    expect(listed).toContain('MD-0003');
+    expect(listed).toContain(ulidId);
+    expect(readDecision(root, ulidId)?.id).toBe(ulidId);
+    expect(readDecision(root, 'MD-0003')?.id).toBe('MD-0003');
   });
 
   it('listDecisionsByState filters correctly', () => {

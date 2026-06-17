@@ -1,8 +1,10 @@
-// Read / write / list MD-XXXX decision YAML files under
+// Read / write / list module decision YAML files under
 // .paqad/decisions/module-decisions/. Issue #80, Phase 1.
 //
-// File naming: <MD-id>.yml. One decision per file. ID allocation walks the
-// directory and increments past the highest existing ordinal.
+// File naming: <MD-id>.yml. One decision per file. Issue #184: ids are now
+// `MD-<ULID>` (collision-free, time-sortable) instead of a monotonic
+// `MD-{XXXX}` ordinal, so two branches never mint the same id. Allocation no
+// longer reads the directory.
 
 import {
   existsSync,
@@ -17,12 +19,11 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { ulid } from '@/core/ids/ulid.js';
 
 import {
-  formatDecisionId,
   isExpired,
   isValidDecisionId,
-  parseDecisionId,
   type ModuleDecision,
   type ModuleDecisionState,
 } from './schema.js';
@@ -54,11 +55,12 @@ export function listDecisionIds(projectRoot: string): string[] {
     .sort();
 }
 
-export function nextDecisionId(projectRoot: string): string {
-  const ids = listDecisionIds(projectRoot);
-  if (ids.length === 0) return formatDecisionId(1);
-  const max = ids.reduce((acc, id) => Math.max(acc, parseDecisionId(id)), 0);
-  return formatDecisionId(max + 1);
+// Issue #184: mint a fresh `MD-<ULID>`. ULIDs are time-sortable and
+// collision-free across machines, so the old directory-walk + increment (which
+// produced identical ids on parallel branches) is gone. Allocation no longer
+// touches the filesystem, so it takes no `projectRoot`.
+export function nextDecisionId(): string {
+  return `MD-${ulid()}`;
 }
 
 export function readDecision(projectRoot: string, id: string): ModuleDecision | null {

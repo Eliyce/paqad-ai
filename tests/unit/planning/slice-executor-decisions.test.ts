@@ -33,6 +33,21 @@ import { createManifest } from './fixtures.js';
 
 const flushMicrotasks = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
+// Issue #184 — minted decision ids are now opaque ULIDs (`D-<ULID>`), not the
+// old predictable `D-2`/`D-3`. Tests derive the id from disk/events instead of
+// hardcoding it. Ids returned sorted, which is chronological for ULIDs.
+const ULID_DECISION_ID = /^D-[0-9A-HJKMNP-TV-Z]{26}$/;
+
+function decisionIdsIn(root: string, relativeDir: string): string[] {
+  const dir = join(root, relativeDir);
+  return existsSync(dir)
+    ? readdirSync(dir)
+        .filter((file) => /^D-.*\.json$/.test(file))
+        .map((file) => file.replace(/\.json$/, ''))
+        .sort()
+    : [];
+}
+
 describe('slice executor decision flow', () => {
   beforeEach(() => {
     mockPromptForDecision.mockReset();
@@ -73,9 +88,11 @@ describe('slice executor decision flow', () => {
 
       const result = await new SliceExecutor().execute(root, manifest.slug, {
         executeSlice: vi.fn().mockImplementation(async ({ context }) => {
-          expect(context.decision_context.some((decision) => decision.decision_id === 'D-2')).toBe(
-            true,
-          );
+          expect(
+            context.decision_context.some((decision) =>
+              ULID_DECISION_ID.test(decision.decision_id),
+            ),
+          ).toBe(true);
           return {
             tokens_used: 10,
             files_changed: ['src/planning/index.ts'],
@@ -95,14 +112,14 @@ describe('slice executor decision flow', () => {
 
       expect(result.completedSliceIds).toEqual(['SL-1']);
       expect(mockPromptForDecision).toHaveBeenCalledTimes(1);
-      expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-2.json'))).toBe(true);
+      expect(decisionIdsIn(root, PATHS.DECISIONS_RESOLVED_DIR)).toHaveLength(1);
 
       const savedManifest = YAML.parse(
         readFileSync(join(root, PATHS.PLANNING_SPECS_DIR, `${manifest.slug}.yaml`), 'utf8'),
       ) as { decision_log: Array<{ decision_id: string }> };
-      expect(savedManifest.decision_log.some((decision) => decision.decision_id === 'D-2')).toBe(
-        true,
-      );
+      expect(
+        savedManifest.decision_log.some((decision) => ULID_DECISION_ID.test(decision.decision_id)),
+      ).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -151,7 +168,7 @@ describe('slice executor decision flow', () => {
 
       expect(result.completedSliceIds).toEqual(['SL-1']);
       expect(mockPromptForDecision).not.toHaveBeenCalled();
-      expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-2.json'))).toBe(true);
+      expect(decisionIdsIn(root, PATHS.DECISIONS_RESOLVED_DIR)).toHaveLength(1);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -535,8 +552,10 @@ describe('slice executor decision flow', () => {
 
       expect(result.completedSliceIds).toEqual(['SL-1', 'SL-2']);
       expect(mockPromptForDecision).toHaveBeenCalledTimes(1);
+      // The carry-over decision is the second (latest) resolved packet.
+      const carryOverId = decisionIdsIn(root, PATHS.DECISIONS_RESOLVED_DIR).at(-1);
       const resolved = JSON.parse(
-        readFileSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-3.json'), 'utf8'),
+        readFileSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${carryOverId}.json`), 'utf8'),
       ) as { human_response: { note: string } };
       expect(resolved.human_response.note).toContain('Applied carry-over preference');
     } finally {
@@ -725,8 +744,10 @@ describe('slice executor decision flow', () => {
 
       expect(result.completedSliceIds).toEqual(['SL-1', 'SL-2', 'SL-3', 'SL-4']);
       expect(mockPromptForDecision).toHaveBeenCalledTimes(3);
+      // The cap-triggered decision is the last one created (highest ULID).
+      const cappedId = decisionIdsIn(root, PATHS.DECISIONS_RESOLVED_DIR).at(-1);
       const capped = JSON.parse(
-        readFileSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-5.json'), 'utf8'),
+        readFileSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${cappedId}.json`), 'utf8'),
       ) as { human_response: { intent: string; note: string } };
       expect(capped.human_response.intent).toBe('safer-default-by-cap');
       expect(capped.human_response.note).toContain('per-task screen cap');
@@ -851,7 +872,10 @@ describe('slice executor decision flow', () => {
         readFileSync(join(root, PATHS.PLANNING_SPECS_DIR, `${manifest.slug}.yaml`), 'utf8'),
       ) as { decision_log: Array<{ decision_id: string; reason: string }> };
       expect(carried.decision_log).toHaveLength(6);
-      expect(carried.decision_log[5]?.reason).toContain('Applied carry-over preference from D-5.');
+      // The fifth decision carries the answer forward from the fourth (batched) one.
+      expect(carried.decision_log[5]?.reason).toContain(
+        `Applied carry-over preference from ${carried.decision_log[4]?.decision_id}.`,
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -939,13 +963,16 @@ describe('slice executor decision flow', () => {
       });
 
       expect(mockPromptForDecision).not.toHaveBeenCalled();
-      expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-3.json'))).toBe(true);
+      // First run minted the reused decision; the second memoized a fresh one.
+      // ULIDs sort chronologically, so [reused, memoized].
+      const [reusedId, memoizedId] = decisionIdsIn(root, PATHS.DECISIONS_RESOLVED_DIR);
+      expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${memoizedId}.json`))).toBe(true);
       expect(readDecisionAuditEvents(root)).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ event: 'decision-reused', decision_id: 'D-2' }),
+          expect.objectContaining({ event: 'decision-reused', decision_id: reusedId }),
           expect.objectContaining({
             event: 'decision-resolved-by-memoization',
-            decision_id: 'D-3',
+            decision_id: memoizedId,
             provider: 'paqad-system',
           }),
         ]),
@@ -1000,18 +1027,24 @@ describe('slice executor decision flow', () => {
       });
 
       expect(result.completedSliceIds).toEqual(['SL-1']);
-      expect(result.warnings).toEqual(['decision:undeclared:D-2:src/components/ButtonV2.tsx']);
-      expect(existsSync(join(root, PATHS.DECISIONS_PENDING_DIR, 'D-2.json'))).toBe(true);
+      const [undeclaredId] = decisionIdsIn(root, PATHS.DECISIONS_PENDING_DIR);
+      expect(undeclaredId).toMatch(ULID_DECISION_ID);
+      expect(result.warnings).toEqual([
+        `decision:undeclared:${undeclaredId}:src/components/ButtonV2.tsx`,
+      ]);
+      expect(existsSync(join(root, PATHS.DECISIONS_PENDING_DIR, `${undeclaredId}.json`))).toBe(
+        true,
+      );
       expect(readDecisionAuditEvents(root)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             event: 'decision-pending-written',
-            decision_id: 'D-2',
+            decision_id: undeclaredId,
             task_session_id: 'retroactive:planning-manifest:SL-1',
           }),
           expect.objectContaining({
             event: 'undeclared-decision-flagged',
-            decision_id: 'D-2',
+            decision_id: undeclaredId,
             provider: 'paqad-system',
           }),
         ]),
@@ -1067,12 +1100,13 @@ describe('slice executor decision flow', () => {
 
       expect(result.completedSliceIds).toEqual(['SL-1']);
       expect(mockPromptForDecision).not.toHaveBeenCalled();
-      expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-2.json'))).toBe(true);
+      const [silentId] = decisionIdsIn(root, PATHS.DECISIONS_RESOLVED_DIR);
+      expect(silentId).toMatch(ULID_DECISION_ID);
       expect(readDecisionAuditEvents(root)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             event: 'decision-resolved-by-rag-confident',
-            decision_id: 'D-2',
+            decision_id: silentId,
           }),
         ]),
       );
@@ -1138,14 +1172,16 @@ describe('slice executor decision flow', () => {
 
         const paused = events.find((event) => event.kind === 'decision-paused');
         const resolved = events.find((event) => event.kind === 'decision-resolved');
+        const pausedId = (paused as { decisionId?: string } | undefined)?.decisionId;
+        expect(pausedId).toMatch(ULID_DECISION_ID);
         expect(paused).toMatchObject({
           kind: 'decision-paused',
-          decisionId: 'D-2',
-          packetPath: `${PATHS.DECISIONS_PENDING_DIR}/D-2.json`,
+          decisionId: pausedId,
+          packetPath: `${PATHS.DECISIONS_PENDING_DIR}/${pausedId}.json`,
         });
         expect(resolved).toMatchObject({
           kind: 'decision-resolved',
-          decisionId: 'D-2',
+          decisionId: pausedId,
           chosenOptionKey: 'reuse-existing',
           resolver: 'human',
         });

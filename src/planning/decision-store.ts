@@ -1,8 +1,6 @@
 import {
-  closeSync,
   existsSync,
   mkdirSync,
-  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -13,6 +11,7 @@ import {
 import { basename, dirname, join, relative } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { ulid } from '@/core/ids/ulid.js';
 import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 
@@ -143,50 +142,17 @@ export class DecisionStore {
     }
   }
 
+  /**
+   * Mint a fresh decision id. Issue #184: ids are now `D-<ULID>` rather than a
+   * monotonic `D-{N}`. ULIDs are timestamp-sortable and collision-free across
+   * machines, so two developers on parallel branches never allocate the same
+   * id (the old `max + 1` walk produced identical ids and hard merge conflicts
+   * on real, non-regenerable decision packets). Allocation no longer reads the
+   * filesystem, so the per-machine decision lock is gone — it only ever
+   * serialised the now-removed directory walk.
+   */
   nextDecisionId(): string {
-    this.acquireDecisionLock();
-    try {
-      const ids = [
-        ...this.listDirectoryIds(PATHS.DECISIONS_PENDING_DIR),
-        ...this.listDirectoryIds(PATHS.DECISIONS_RESOLVED_DIR),
-        ...this.listDirectoryIds(PATHS.DECISIONS_EXPIRED_DIR),
-      ];
-      const next = ids
-        .map((value) => Number(value.replace(/^D-/, '')))
-        .filter((value) => Number.isFinite(value))
-        .reduce((max, value) => Math.max(max, value), 0);
-      return `D-${next + 1}`;
-    } finally {
-      this.releaseDecisionLock();
-    }
-  }
-
-  private acquireDecisionLock(): void {
-    const lockPath = join(this.projectRoot, PATHS.DECISIONS_LOCK);
-    mkdirSync(dirname(lockPath), { recursive: true });
-    const deadline = Date.now() + 2000;
-    while (Date.now() < deadline) {
-      try {
-        const fd = openSync(lockPath, 'wx');
-        closeSync(fd);
-        return;
-        /* v8 ignore next 4 -- lock contention path; only reachable under cross-process test contention */
-      } catch {
-        // lock held by another process; spin
-      }
-    }
-    /* v8 ignore next 2 -- stale lock recovery only reachable after 2s cross-process contention */
-    // Stale lock recovery: force-acquire after timeout
-    writeFileSync(lockPath, String(process.pid));
-  }
-
-  private releaseDecisionLock(): void {
-    try {
-      unlinkSync(join(this.projectRoot, PATHS.DECISIONS_LOCK));
-      /* v8 ignore next 3 -- defensive: lock file already removed before unlock attempt */
-    } catch {
-      // ignore if already released
-    }
+    return `D-${ulid()}`;
   }
 
   writePending(packet: DecisionPacket): string {
@@ -520,8 +486,11 @@ export class DecisionStore {
     if (!existsSync(absoluteDir)) {
       return [];
     }
+    // Accept both legacy numeric ids (`D-7.json`) and new ULID ids
+    // (`D-01J9Z3K7QW8X….json`) so a directory holding a mix of both lists
+    // without dropping either (issue #184, B3).
     return readdirSync(absoluteDir)
-      .filter((file) => /^D-\d+\.json$/.test(file))
+      .filter((file) => /^D-(?:\d+|[0-9A-HJKMNP-TV-Z]{26})\.json$/.test(file))
       .map((file) => file.replace(/\.json$/, ''));
   }
 

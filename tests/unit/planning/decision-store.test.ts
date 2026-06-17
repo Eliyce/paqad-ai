@@ -12,6 +12,9 @@ import {
   type DecisionPauseEvent,
 } from '@/planning/index.js';
 
+/** A `D-` id whose body is a 26-char Crockford-base32 ULID (issue #184). */
+const ULID_DECISION_ID = /^D-[0-9A-HJKMNP-TV-Z]{26}$/;
+
 describe('DecisionStore', () => {
   let projectRoot: string;
 
@@ -33,34 +36,43 @@ describe('DecisionStore', () => {
     expect(existsSync(join(projectRoot, PATHS.DECISIONS_AUDIT_LOG))).toBe(true);
   });
 
-  it('increments the next decision id across directories', () => {
+  // Issue #184 — ids are `D-<ULID>`: collision-free, time-sortable, and never
+  // derived from the directory contents.
+  it('mints ULID decision ids without reading the directory or colliding', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
     mkdirSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR), { recursive: true });
     mkdirSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR), { recursive: true });
     mkdirSync(join(projectRoot, PATHS.DECISIONS_EXPIRED_DIR), { recursive: true });
+    // A high numeric id on disk must not influence allocation (the old walk
+    // would have returned D-1000 here).
     writeFileSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-2.json'), '{}');
-    writeFileSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, 'D-4.json'), '{}');
-    writeFileSync(join(projectRoot, PATHS.DECISIONS_EXPIRED_DIR, 'D-3.json'), '{}');
+    writeFileSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, 'D-999.json'), '{}');
 
-    expect(store.nextDecisionId()).toBe('D-5');
+    const first = store.nextDecisionId();
+    const second = store.nextDecisionId();
+
+    expect(first).toMatch(ULID_DECISION_ID);
+    expect(second).toMatch(ULID_DECISION_ID);
+    // Not derived from the directory's max numeric id.
+    expect(first).not.toMatch(/^D-\d+$/);
+    // Collision-free and lexicographically sortable in allocation order.
+    expect(second).not.toBe(first);
+    expect([second, first].sort()).toEqual([first, second]);
   });
 
-  it('acquires and releases the decision lock file around nextDecisionId (§12.3)', () => {
+  it('allocates ids lock-free and never collides across rapid calls (§12.3)', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
     const lockPath = join(projectRoot, PATHS.DECISIONS_LOCK);
-    expect(existsSync(lockPath)).toBe(false);
+    const ids = Array.from({ length: 50 }, () => store.nextDecisionId());
 
-    const id = store.nextDecisionId();
-    expect(id).toBe('D-1');
-    // lock must be released by the time the call returns
-    expect(existsSync(lockPath)).toBe(false);
-
-    // sequential calls must not leave a stale lock
-    const id2 = store.nextDecisionId();
-    expect(id2).toBe('D-1');
+    // Every id is unique...
+    expect(new Set(ids).size).toBe(ids.length);
+    // ...sorting by id preserves allocation order (ULID monotonicity)...
+    expect([...ids].sort()).toEqual(ids);
+    // ...and allocation never touches a lock file (the walk it guarded is gone).
     expect(existsSync(lockPath)).toBe(false);
   });
 
@@ -516,7 +528,7 @@ describe('DecisionStore', () => {
     const bareRoot = mkdtempSync(join(tmpdir(), 'paqad-decisions-bare-'));
     try {
       const bareStore = new DecisionStore(bareRoot);
-      expect(bareStore.nextDecisionId()).toBe('D-1');
+      expect(bareStore.nextDecisionId()).toMatch(ULID_DECISION_ID);
       mkdirSync(join(bareRoot, PATHS.DECISIONS_PENDING_DIR), { recursive: true });
       writeFileSync(join(bareRoot, PATHS.DECISIONS_PENDING_DIR, 'D-9.json'), '{bad', 'utf8');
       expect(bareStore.findPendingDecisionForTask('missing')).toBe('D-9');

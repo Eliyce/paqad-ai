@@ -25,7 +25,7 @@ export const DECISION_PAUSE_UI_NOTES: Record<AdapterType, string> = {
  * primitive — defers to the file-wait fallback documented in the managed doc.
  */
 export const DECISION_PAUSE_UI_FALLBACK =
-  'If no interactive UI is available, stop and wait until `.paqad/decisions/resolved/D-{N}.json` exists.';
+  'If no interactive UI is available, stop and wait until `.paqad/decisions/resolved/D-{id}.json` exists.';
 
 export function decisionPauseUiNote(adapter: AdapterType): string {
   return DECISION_PAUSE_UI_NOTES[adapter] ?? DECISION_PAUSE_UI_FALLBACK;

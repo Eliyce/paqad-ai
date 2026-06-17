@@ -25,7 +25,7 @@ export function buildDecisionPauseContractDocument(): string {
 
 # Decision Pause Contract
 
-Before implementing any choice that falls into one of the categories below, write a Decision Packet to \`.paqad/decisions/pending/D-{N}.json\` and stop work. Do not continue until \`.paqad/decisions/resolved/D-{N}.json\` exists.
+Before implementing any choice that falls into one of the categories below, write a Decision Packet to \`.paqad/decisions/pending/D-{id}.json\` and stop work. Do not continue until \`.paqad/decisions/resolved/D-{id}.json\` exists. \`{id}\` is an opaque, time-sortable id the decision store allocates for you — do not hand-compute a sequential number; call the store to mint one.
 
 ## Categories
 
@@ -33,9 +33,9 @@ ${categoriesList}
 
 ## Resolution flow
 
-1. Write the packet to \`.paqad/decisions/pending/D-{N}.json\`.
-2. Present the packet's options to the user via the host's interactive UI (see the per-adapter table below). If multiple packets are pending, ask them one at a time in numeric order. If a packet has more than 4 options, present the top 4 — the user can pick "Other" to write in an alternative.
-3. When the user answers, move the file from \`.paqad/decisions/pending/D-{N}.json\` to \`.paqad/decisions/resolved/D-{N}.json\`, adding these fields to the JSON: \`chosen\` (the selected option_key), \`rationale\` (any free-text note the user added), and \`resolved_at\` (ISO 8601 timestamp).
+1. Write the packet to \`.paqad/decisions/pending/D-{id}.json\` (the store allocates \`{id}\`).
+2. Present the packet's options to the user via the host's interactive UI (see the per-adapter table below). If multiple packets are pending, ask them one at a time in creation order (ids sort chronologically). If a packet has more than 4 options, present the top 4 — the user can pick "Other" to write in an alternative.
+3. When the user answers, move the file from \`.paqad/decisions/pending/D-{id}.json\` to \`.paqad/decisions/resolved/D-{id}.json\`, adding these fields to the JSON: \`chosen\` (the selected option_key), \`rationale\` (any free-text note the user added), and \`resolved_at\` (ISO 8601 timestamp).
 4. Only after the resolved file exists may implementation continue.
 
 ## Per-adapter UI
@@ -46,7 +46,7 @@ ${adapterRows}
 
 ## Fallback
 
-If the interactive UI is not available (non-interactive run, hook context, etc.), stop work and wait until \`.paqad/decisions/resolved/D-{N}.json\` exists — created out of band by the user.
+If the interactive UI is not available (non-interactive run, hook context, etc.), stop work and wait until \`.paqad/decisions/resolved/D-{id}.json\` exists — created out of band by the user.
 `;
 }
 

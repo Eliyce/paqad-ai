@@ -149,8 +149,10 @@ export function validateDecisionPacket(value: unknown): string[] {
   const packet = value as Partial<DecisionPacket>;
   const errors: string[] = [];
 
-  if (!/^D-\d+$/.test(packet.decision_id ?? '')) {
-    errors.push('decision_id must match D-{N}');
+  // Issue #184: ids are now `D-<ULID>`. Accept both the new ULID form and the
+  // legacy numeric `D-{N}` form so pre-existing packets keep validating.
+  if (!/^D-(?:\d+|[0-9A-HJKMNP-TV-Z]{26})$/.test(packet.decision_id ?? '')) {
+    errors.push('decision_id must match D-{id}');
   }
   if (typeof packet.fingerprint !== 'string' || !packet.fingerprint.startsWith('sha256:')) {
     errors.push('fingerprint must be a sha256 string');
