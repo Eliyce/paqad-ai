@@ -70,6 +70,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "postinstall": "node runtime/scripts/postinstall.mjs",
     "build": "tsup && pnpm run graph-ui:build",
     "build:server": "tsup",
     "dev": "tsup --watch",
