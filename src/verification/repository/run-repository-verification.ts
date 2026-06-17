@@ -6,6 +6,8 @@
 // verb — this is a library function the generated hooks invoke.
 
 import { engineLog } from '@/core/logger-registry.js';
+import { readProjectProfile } from '@/core/project-profile.js';
+import { resolveEnterprisePolicy, writesLedger } from '@/core/enterprise-policy.js';
 import type { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { VerificationContext } from '@/core/types/verification.js';
 import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
@@ -153,46 +155,58 @@ export async function runRepositoryVerification(
   // unified evidence ledger, then project a signed per-change receipt + AI-BOM.
   // Never block verification on a ledger/receipt failure: a missing receipt is a
   // weaker trust signal, not a verdict.
-  try {
-    const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
-    const subjectDigest = computeChangeSubjectDigest(fileDigests);
-    const rowCtx = { subjectDigest, ts: completedAt };
-    const rows = [
-      ...gateResultsToRows(results, rowCtx),
-      ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
-    ];
-    appendEvidenceRows(context.project_root, rows);
-    // Issue #120 — fold change authorship (which adapter/model wrote it, who
-    // accepted it) into the receipt so the attestation is gate-derived yet
-    // producer-attributed. Resolution never throws; absent authorship simply
-    // omits the predicate field.
-    const authorship = await resolveChangeAuthorship({
-      projectRoot: context.project_root,
-      env: process.env,
-    });
-    // Issue #122 — cite which legal clauses each passing gate produces evidence
-    // toward, from the active compliance packs. Empty (→ field omitted) when no
-    // pack is installed. Issue #123 — fold in the reproducibility stamp the
-    // session recorded, when present. Both degrade to absent, never throw.
-    const complianceCitations = resolveComplianceCitations({
-      projectRoot: context.project_root,
-      rows,
-    });
-    const reproducibility = readReproducibilityPredicate(context.project_root) ?? undefined;
-    await projectReceipt({
-      projectRoot: context.project_root,
-      fileDigests,
-      rows,
-      verifierVersion: verifierVersion(),
-      timeVerified: completedAt,
-      authorship,
-      complianceCitations,
-      reproducibility,
-      env: process.env,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    engineLog('warn', `paqad: could not project evidence receipt (${message})`);
+  //
+  // Issue #187 — the whole ledger is an opt-in enterprise capability, off by
+  // default. Resolve the policy once and skip the entire block when nothing is
+  // enabled, so a normal user pays zero tokens (no citation resolution) and
+  // writes no `.paqad/ledger/` files. Sub-flags gate each write independently.
+  const policy = resolveEnterprisePolicy(readProjectProfile(context.project_root));
+  if (writesLedger(policy)) {
+    try {
+      const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
+      const subjectDigest = computeChangeSubjectDigest(fileDigests);
+      const rowCtx = { subjectDigest, ts: completedAt };
+      const rows = [
+        ...gateResultsToRows(results, rowCtx),
+        ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
+      ];
+      if (policy.evidence_ledger) {
+        appendEvidenceRows(context.project_root, rows);
+      }
+      // Issue #120 — fold change authorship (which adapter/model wrote it, who
+      // accepted it) into the receipt so the attestation is gate-derived yet
+      // producer-attributed. Resolution never throws; absent authorship simply
+      // omits the predicate field.
+      const authorship = await resolveChangeAuthorship({
+        projectRoot: context.project_root,
+        env: process.env,
+      });
+      // Issue #122 — cite which legal clauses each passing gate produces evidence
+      // toward, from the active compliance packs. Empty (→ field omitted) when no
+      // pack is installed. This is the token-spending path, so it only runs when
+      // `compliance_citations` is on (issue #187) — otherwise the receipt omits
+      // the field. Issue #123 — fold in the reproducibility stamp the session
+      // recorded, when present. Both degrade to absent, never throw.
+      const complianceCitations = policy.compliance_citations
+        ? resolveComplianceCitations({ projectRoot: context.project_root, rows })
+        : undefined;
+      const reproducibility = readReproducibilityPredicate(context.project_root) ?? undefined;
+      await projectReceipt({
+        projectRoot: context.project_root,
+        fileDigests,
+        rows,
+        verifierVersion: verifierVersion(),
+        timeVerified: completedAt,
+        authorship,
+        complianceCitations,
+        reproducibility,
+        env: process.env,
+        write: { evidenceReceipt: policy.evidence_ledger, aiBom: policy.ai_bom },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      engineLog('warn', `paqad: could not project evidence receipt (${message})`);
+    }
   }
 
   const verdict = buildRepositoryVerificationVerdict({

@@ -14,6 +14,27 @@ function read(projectRoot: string, file: string): string {
   return readFileSync(join(projectRoot, file), 'utf8');
 }
 
+/**
+ * Issue #187 — write a project profile that opts the enterprise evidence ledger
+ * on, so the managed `.gitignore` block includes `.paqad/ledger/`. A minimal
+ * YAML is enough: `readProjectProfile` tolerates and migrates a partial profile,
+ * preserving the `enterprise` block.
+ */
+function enableLedger(projectRoot: string): void {
+  mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  writeFileSync(
+    join(projectRoot, '.paqad', 'project-profile.yaml'),
+    [
+      'enterprise:',
+      '  enabled: true',
+      '  evidence_ledger: true',
+      '  ai_bom: true',
+      '  compliance_citations: false',
+      '',
+    ].join('\n'),
+  );
+}
+
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
@@ -55,7 +76,27 @@ describe('writeGitignore', () => {
     expect(content).toContain('.paqad/audit.log');
     expect(content).toContain('.paqad/module-health/');
     expect(content).toContain('.paqad/module-health-evidence/');
-    expect(content).toContain('.paqad/ledger/');
+    // Issue #187 — the ledger is opt-in, so a default project never ignores it.
+    expect(content).not.toContain('.paqad/ledger/');
+  });
+
+  it('ignores .paqad/ledger/ only when the enterprise policy writes it (#187)', () => {
+    enableLedger(projectRoot);
+    writeGitignore(projectRoot);
+    expect(read(projectRoot, '.gitignore')).toContain('.paqad/ledger/');
+  });
+
+  it('drops .paqad/ledger/ from a stale block when the ledger is disabled (#187)', () => {
+    // A pre-#187 block ignored the ledger unconditionally; re-onboarding with the
+    // default-off policy must reconcile it out.
+    const stale = [BEGIN, '.paqad/cache/', '.paqad/ledger/', END, ''].join('\n');
+    writeFileSync(join(projectRoot, '.gitignore'), stale);
+
+    writeGitignore(projectRoot);
+
+    const content = read(projectRoot, '.gitignore');
+    expect(content).not.toContain('.paqad/ledger/');
+    expect(content).toContain('.paqad/cache/');
   });
 
   it('appends the managed block to an existing .gitignore, preserving content', () => {
@@ -67,7 +108,7 @@ describe('writeGitignore', () => {
     expect(content).toContain('node_modules/');
     expect(content).toContain('dist/');
     expect(content).toContain(BEGIN);
-    expect(content).toContain('.paqad/ledger/');
+    expect(content).toContain('.paqad/module-health/');
   });
 
   it('is idempotent — a second run leaves the file byte-identical', () => {
@@ -103,7 +144,7 @@ describe('writeGitignore', () => {
 
     const content = read(projectRoot, '.gitignore');
     // Newly shipped entry is now present.
-    expect(content).toContain('.paqad/ledger/');
+    expect(content).toContain('.paqad/module-health-evidence/');
     expect(content).toContain('.paqad/module-health/');
     // Out-of-block content (before and after) is untouched.
     expect(content).toContain('node_modules/');
@@ -131,7 +172,7 @@ describe('writeGitignore', () => {
     // The legacy marker is gone; the managed block owns the entries now.
     expect(content).not.toContain('# paqad-ai\n');
     expect(content).toContain(BEGIN);
-    expect(content).toContain('.paqad/ledger/');
+    expect(content).toContain('.paqad/module-health/');
     // No duplicate framework-path entry left behind by the migration.
     expect(countOccurrences(content, '.paqad/framework-path.txt')).toBe(1);
     expect(content).toContain('node_modules/');

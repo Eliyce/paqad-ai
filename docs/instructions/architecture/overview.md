@@ -56,7 +56,11 @@ graph-ui/  →  separate Vite + React 19 SPA, consumes graph data exported by th
 9. **Verification & trust** (`src/verification`, `src/evidence`, `src/traceability`, `src/quality-ratchet`,
    `src/audit`) — The gate bank (#117) that decides whether a change lands, the unified evidence ledger +
    per-change provenance receipt (#118/#120), bidirectional promise↔code↔test traceability, the quality
-   ratchet, and the read-only SIEM exporter (#121).
+   ratchet, and the read-only SIEM exporter (#121). The evidence ledger is an **opt-in enterprise
+   capability, off by default** (#187): with no `enterprise` block in `project-profile.yaml`, a
+   verification run writes no `.paqad/ledger/` files and resolves no compliance citations (the
+   token-spending path). `src/core/enterprise-policy.ts` is the single resolver — and the seam a future
+   license/token check slots behind.
 10. **Delivery** (`src/delivery`, `src/providers`) — Provider-agnostic delivery automation (#42) behind the
     `TicketProvider` (Jira) and `HostProvider` (GitHub) contracts, conventions detected from git history.
 11. **Dashboard** (`src/dashboard`) — Local web view + one-shot `status` report; shares the `graph-ui` bundle

@@ -114,6 +114,18 @@ export interface ProjectReceiptInput {
   /** Issue #123 — the frozen-context reproducibility stamp. */
   reproducibility?: ReproducibilityStampPredicate;
   env?: NodeJS.ProcessEnv;
+  /**
+   * Issue #187 — which artifacts to persist. Both default to `true` so existing
+   * callers are unaffected. The statement is always built (it is the input to
+   * the AI-BOM), but the on-disk writes are gated independently:
+   * - `evidenceReceipt: false` skips the chain append + `receipt.dsse.json`.
+   * - `aiBom: false` skips `ai-bom.json`.
+   * With `evidenceReceipt: false, aiBom: true`, only `ai-bom.json` is produced.
+   */
+  write?: {
+    evidenceReceipt?: boolean;
+    aiBom?: boolean;
+  };
 }
 
 export interface ProjectReceiptResult {
@@ -155,13 +167,23 @@ export async function projectReceipt(input: ProjectReceiptInput): Promise<Projec
   const receiptPath = join(input.projectRoot, PATHS.EVIDENCE_RECEIPT);
   const aiBomPath = join(input.projectRoot, PATHS.EVIDENCE_AI_BOM);
 
-  // Append to the tamper-evident chain first, then write the latest snapshots.
-  const chain = chainPath(input.projectRoot);
-  mkdirSync(dirname(chain), { recursive: true });
-  appendFileSync(chain, `${JSON.stringify(envelope)}\n`, 'utf8');
+  const writeEvidenceReceipt = input.write?.evidenceReceipt ?? true;
+  const writeAiBom = input.write?.aiBom ?? true;
 
-  await atomicWriteJson(receiptPath, envelope);
-  await atomicWriteJson(aiBomPath, aiBom);
+  // Issue #187 — gate each write independently. The chain + receipt are the
+  // `evidence_ledger` write set; the AI-BOM is its own flag. The envelope is
+  // still returned (callers may use it in-memory) even when nothing is written.
+  if (writeEvidenceReceipt) {
+    // Append to the tamper-evident chain first, then write the latest snapshot.
+    const chain = chainPath(input.projectRoot);
+    mkdirSync(dirname(chain), { recursive: true });
+    appendFileSync(chain, `${JSON.stringify(envelope)}\n`, 'utf8');
+    await atomicWriteJson(receiptPath, envelope);
+  }
+
+  if (writeAiBom) {
+    await atomicWriteJson(aiBomPath, aiBom);
+  }
 
   return { envelope, aiBom, receiptPath, aiBomPath };
 }

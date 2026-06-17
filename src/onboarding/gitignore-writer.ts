@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { resolveEnterprisePolicy, writesLedger } from '@/core/enterprise-policy.js';
+import { readProjectProfile } from '@/core/project-profile.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 
 // Issue #184 — onboarded repos must be team-safe. The paqad entries now live in
@@ -21,12 +23,17 @@ const LEGACY_MARKER = '# paqad-ai';
 /**
  * Canonical ignore paths (issue #184, A2). Order matters only for readability;
  * the contract is the set of paths. Section-header comments are interleaved for
- * a tidy file. Anything here is per-machine runtime state, secrets, the
- * compliance ledger, or all module-health (rollup + evidence) — none of which
- * belongs in version control. Decision packets, contracts, and config stay
- * tracked and are deliberately absent.
+ * a tidy file. Anything here is per-machine runtime state, secrets, or all
+ * module-health (rollup + evidence) — none of which belongs in version control.
+ * Decision packets, contracts, and config stay tracked and are deliberately
+ * absent.
+ *
+ * Issue #187 — `.paqad/ledger/` is NOT in this base set. It is appended by
+ * {@link managedGitignoreEntries} only when the resolved enterprise policy
+ * actually writes the ledger; with the default-off policy a fresh repo never
+ * ignores (or untracks) a directory it never writes.
  */
-const MANAGED_GITIGNORE_ENTRIES = [
+const MANAGED_GITIGNORE_ENTRIES_BASE = [
   '.paqad/framework-path.txt',
   '.paqad/.agent-entry-loaded',
   '.paqad/cache/',
@@ -54,9 +61,27 @@ const MANAGED_GITIGNORE_ENTRIES = [
   '.paqad/module-health/',
   '.paqad/module-health-evidence/',
   '.paqad/module-health-consumed-events.json',
+];
+
+/** The compliance-ledger ignore entry, appended only when the enterprise policy
+ *  writes it (issue #187). Shared via dashboard/SIEM, never committed. */
+const LEDGER_GITIGNORE_ENTRIES = [
   '# compliance ledger (share via dashboard/SIEM, not git)',
   '.paqad/ledger/',
 ];
+
+/**
+ * The managed ignore set for this project. Equal to the base set, plus the
+ * ledger entry when the resolved enterprise policy writes `.paqad/ledger/`.
+ * Read once per call so re-onboarding reconciles the block against current
+ * config: enabling the ledger adds the entry, disabling it removes the entry.
+ */
+function managedGitignoreEntries(projectRoot: string): string[] {
+  const policy = resolveEnterprisePolicy(readProjectProfile(projectRoot));
+  return writesLedger(policy)
+    ? [...MANAGED_GITIGNORE_ENTRIES_BASE, ...LEDGER_GITIGNORE_ENTRIES]
+    : [...MANAGED_GITIGNORE_ENTRIES_BASE];
+}
 
 const GITATTRIBUTES_BEGIN = '# >>> paqad-ai managed >>>';
 const GITATTRIBUTES_END = '# <<< paqad-ai managed <<<';
@@ -126,19 +151,15 @@ function ensureTrailingNewline(value: string): string {
  * changed, so re-onboarding stays clean.
  */
 export function writeGitignore(projectRoot: string): void {
-  reconcileFile(
-    join(projectRoot, '.gitignore'),
-    GITIGNORE_BEGIN,
-    GITIGNORE_END,
-    MANAGED_GITIGNORE_ENTRIES,
-  );
+  const gitignoreEntries = managedGitignoreEntries(projectRoot);
+  reconcileFile(join(projectRoot, '.gitignore'), GITIGNORE_BEGIN, GITIGNORE_END, gitignoreEntries);
   reconcileFile(
     join(projectRoot, '.gitattributes'),
     GITATTRIBUTES_BEGIN,
     GITATTRIBUTES_END,
     MANAGED_GITATTRIBUTES_ENTRIES,
   );
-  untrackNowIgnoredPaths(projectRoot);
+  untrackNowIgnoredPaths(projectRoot, gitignoreEntries);
 }
 
 function reconcileFile(path: string, begin: string, end: string, entries: string[]): void {
@@ -173,14 +194,18 @@ function readTextOrEmpty(path: string): string {
  * never touches working-tree files (`--cached` only), idempotent (no-op once
  * nothing tracked matches), and leaves a single audit entry of what it did.
  */
-function untrackNowIgnoredPaths(projectRoot: string): void {
+function untrackNowIgnoredPaths(projectRoot: string, entries: string[]): void {
   if (!isGitRepository(projectRoot)) {
     return;
   }
 
-  const managedPaths = MANAGED_GITIGNORE_ENTRIES.filter((entry) => !entry.startsWith('#')).map(
-    (entry) => entry.replace(/\/$/, ''),
-  );
+  // Only untrack paths the managed block currently ignores. When the ledger is
+  // disabled (issue #187) it is absent from `entries`, so an already-committed
+  // ledger is left tracked rather than wrongly untracked — it is no longer an
+  // ignored path.
+  const managedPaths = entries
+    .filter((entry) => !entry.startsWith('#'))
+    .map((entry) => entry.replace(/\/$/, ''));
 
   const tracked = managedPaths.filter((path) => isTracked(projectRoot, path));
   if (tracked.length === 0) {

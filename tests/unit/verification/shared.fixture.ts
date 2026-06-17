@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { EnterpriseConfig } from '@/core/types/project-profile.js';
 import type { VerificationContext } from '@/core/types/verification.js';
 
 export function createVerificationContext(
@@ -79,4 +80,33 @@ Use stable codes with a prefix and numeric suffix.
     glossary_updated: true,
     ...overrides,
   };
+}
+
+/**
+ * Issue #187 — write a minimal project profile into a fixture's `project_root`
+ * that opts the enterprise ledger on. `readProjectProfile` tolerates/migrates a
+ * partial profile, preserving the `enterprise` block. Defaults turn on the full
+ * ledger write set; pass overrides to exercise individual sub-flags.
+ */
+export function writeEnterpriseProfile(
+  projectRoot: string,
+  enterprise: Partial<EnterpriseConfig> = {},
+): void {
+  const block: EnterpriseConfig = {
+    enabled: true,
+    evidence_ledger: true,
+    ai_bom: true,
+    compliance_citations: false,
+    ...enterprise,
+  };
+  mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  const lines = [
+    'enterprise:',
+    `  enabled: ${block.enabled}`,
+    `  evidence_ledger: ${block.evidence_ledger}`,
+    `  ai_bom: ${block.ai_bom}`,
+    `  compliance_citations: ${block.compliance_citations}`,
+    '',
+  ];
+  writeFileSync(join(projectRoot, '.paqad', 'project-profile.yaml'), lines.join('\n'));
 }
