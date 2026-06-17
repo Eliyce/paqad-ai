@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.23.1
+
+### Patch Changes
+
+- [#181](https://github.com/Eliyce/paqad-ai/pull/181) [`21c2d82`](https://github.com/Eliyce/paqad-ai/commit/21c2d82227e23c9228c127bf029053573fba9c82) Thanks [@HLasani](https://github.com/HLasani)! - Fix `module-health rollup` resolving zero stack packs. `source-roots.ts` shipped a local `resolveRuntimeRoot()` that returned the _parent_ of `runtime/` instead of `runtime/` itself, so `StackPackLoader` looked under `<packageRoot>/capabilities` (which does not exist), loaded no packs, and every `discoverModuleHealth`/`discoverSourceRoots` call returned `null` — hard-blocking the rollup with `module_health_unknown`. It now uses the canonical `getRuntimeRoot()`, matching every other framework caller, so module-health refresh resolves the active pack's `module_health` block correctly.
+
 ## 1.23.0
 
 ### Minor Changes
