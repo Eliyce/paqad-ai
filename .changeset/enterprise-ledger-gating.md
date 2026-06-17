@@ -8,9 +8,9 @@ Gate the evidence ledger behind an opt-in `enterprise` config block (disabled by
 
 ```yaml
 enterprise:
-  enabled: false              # master switch; when false every sub-flag is forced off
-  evidence_ledger: false      # evidence.jsonl + receipts.jsonl + receipt.dsse.json
-  ai_bom: false               # ai-bom.json (CycloneDX); independent of evidence_ledger
+  enabled: false # master switch; when false every sub-flag is forced off
+  evidence_ledger: false # evidence.jsonl + receipts.jsonl + receipt.dsse.json
+  ai_bom: false # ai-bom.json (CycloneDX); independent of evidence_ledger
   compliance_citations: false # framework citations baked into the receipt
 ```
 
