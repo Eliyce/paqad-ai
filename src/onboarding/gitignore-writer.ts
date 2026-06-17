@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { appendPlanningAudit } from '@/planning/audit.js';
@@ -142,10 +142,27 @@ export function writeGitignore(projectRoot: string): void {
 }
 
 function reconcileFile(path: string, begin: string, end: string, entries: string[]): void {
-  const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  // Single read, catch ENOENT — never `existsSync(path) ? readFileSync(path)`.
+  // The check-then-write pair is a TOCTOU file-system race (CWE-367,
+  // CodeQL js/file-system-race): the file can change between the existence
+  // check and the write. Mirrors writeMarkdownIfChanged in
+  // decision-pause-contract-writer.ts.
+  const existing = readTextOrEmpty(path);
   const next = reconcileManagedBlock(existing, begin, end, entries);
   if (next !== existing) {
     writeFileSync(path, next);
+  }
+}
+
+/** Read a UTF-8 file, returning `''` when it does not exist (ENOENT). */
+function readTextOrEmpty(path: string): string {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return '';
+    }
+    throw error;
   }
 }
 
