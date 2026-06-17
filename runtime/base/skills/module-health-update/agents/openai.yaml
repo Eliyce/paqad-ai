@@ -1,0 +1,6 @@
+interface:
+  display_name: Update Module Health
+  short_description: Whole-project module-health refresh. Runs the test-driven
+    rollup then the session-evidence sync across every declared module in one
+    pass, writing .paqad/module-health/<slug>.json. Wraps the existing
+    module-health rollup and sync verbs and introduces no new command.

@@ -8,6 +8,7 @@
 import { engineLog } from '@/core/logger-registry.js';
 import type { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { VerificationContext } from '@/core/types/verification.js';
+import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
 import {
   appendEvidenceRows,
   computeChangeSubjectDigest,
@@ -113,6 +114,19 @@ export async function runRepositoryVerification(
   const runner = new VerificationGateRunner(backstopGates());
   const results = await runner.run(context);
   const completedAt = now();
+
+  // Issue #80 — the backstop is the agent-independent verification chokepoint
+  // (Claude Stop hook + git pre-commit/pre-push + CI), so it is also the place
+  // to fold verification reality into each touched module's health profile.
+  // Without this the profiles stay frozen at their onboarding stub because no
+  // other code path runs in a consumer repo. syncModuleHealthFromVerification
+  // owns its error handling — it returns a skipped result rather than throwing —
+  // so a module-health failure can never change the trust verdict surfaced here.
+  await syncModuleHealthFromVerification({
+    projectRoot: context.project_root,
+    verificationContext: context,
+    results,
+  });
 
   const evidence = buildVerificationEvidence({
     results,

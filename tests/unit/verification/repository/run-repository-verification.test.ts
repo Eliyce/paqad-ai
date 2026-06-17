@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -66,6 +66,33 @@ describe('runRepositoryVerification (prebuilt context)', () => {
     expect(received).toHaveLength(1);
     expect(received[0]).toMatchObject({ kind: 'verification-verdict', ok: true });
     expect(received[0].gates.some((g) => g.gate === 'ac-test-mapping')).toBe(true);
+  });
+
+  it('refreshes module health for the touched modules after the gates run (#80)', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      modules: ['core'],
+      changed_files: ['src/core/thing.ts'],
+    });
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+    });
+
+    // The backstop is the chokepoint that folds verification reality into each
+    // touched module's health profile — without it the profile stays frozen at
+    // its onboarding stub.
+    const profilePath = join(context.project_root, '.paqad/module-health/core.json');
+    expect(existsSync(profilePath)).toBe(true);
+    const profile = JSON.parse(readFileSync(profilePath, 'utf8')) as {
+      module: string;
+      history?: { events_count?: number };
+    };
+    expect(profile.module).toBe('core');
+    expect(profile.history?.events_count ?? 0).toBeGreaterThanOrEqual(1);
   });
 
   it('blocks (ok=false) when a computed judgment input fails', async () => {
