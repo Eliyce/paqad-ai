@@ -563,7 +563,11 @@ export interface AiBomResponse {
     specVersion: string;
     serialNumber: string;
     metadata: { timestamp: string; properties: { name: string; value: string }[] };
-    components: { type: string; name: string }[];
+    components: {
+      type: string;
+      name: string;
+      hashes?: { alg: string; content: string }[];
+    }[];
     properties: { name: string; value: string }[];
   } | null;
 }

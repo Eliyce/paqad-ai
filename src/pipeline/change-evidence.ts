@@ -123,8 +123,6 @@ async function readGitStatusFiles(projectRoot: string): Promise<string[]> {
     return normalizePaths(
       result.stdout
         .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
         .map(parseGitStatusPath)
         .filter((value): value is string => value !== null),
     );
@@ -134,12 +132,20 @@ async function readGitStatusFiles(projectRoot: string): Promise<string[]> {
 }
 
 function parseGitStatusPath(line: string): string | null {
-  const trimmed = line.trim();
-  if (trimmed.length < 4) {
+  // `git status --short` emits `XY PATH`: a two-column status, one separator
+  // space, then the path starting at column 3. The first column is a space for
+  // worktree-only changes (e.g. " M package.json"), so the line must NOT be
+  // left-trimmed before slicing — trimming the leading space shifts everything
+  // left and drops the first character of the path ("ackage.json").
+  const stripped = line.replace(/\r$/, '');
+  if (stripped.length < 4) {
     return null;
   }
 
-  const payload = trimmed.slice(3).trim();
+  const payload = stripped.slice(3).trim();
+  if (payload.length === 0) {
+    return null;
+  }
   if (payload.includes(' -> ')) {
     return /* v8 ignore next */ payload.split(' -> ').at(-1) ?? null;
   }

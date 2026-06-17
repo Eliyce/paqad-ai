@@ -32,7 +32,7 @@ describe('loadChangeEvidence (mocked execa)', () => {
   it('skips malformed short lines in git status output', async () => {
     mockedExeca.mockResolvedValueOnce({
       exitCode: 0,
-      stdout: '??\n M  src/file.ts\n',
+      stdout: '??\n M src/file.ts\n',
       stderr: '',
       failed: false,
       timedOut: false,
@@ -47,6 +47,32 @@ describe('loadChangeEvidence (mocked execa)', () => {
     expect(result.source).toBe('git-status');
     expect(result.files).toContain('src/file.ts');
     expect(result.files).not.toContain('??');
+  });
+
+  it('preserves the first path character for worktree-only (leading-space) changes', async () => {
+    // Real `git status --short` porcelain: ` M ` (one separator space) for a
+    // tracked, unstaged modification; `?? ` for an untracked file. The leading
+    // space on the modified line must not shift the path slice.
+    mockedExeca.mockResolvedValueOnce({
+      exitCode: 0,
+      stdout:
+        ' M package.json\n?? runtime/scripts/postinstall.mjs\nR  old/name.ts -> new/name.ts\n',
+      stderr: '',
+      failed: false,
+      timedOut: false,
+      isCanceled: false,
+      killed: false,
+      command: 'git status',
+    } as Awaited<ReturnType<typeof execa>>);
+
+    const root = makeTmpRoot();
+    const result = await loadChangeEvidence(root);
+
+    expect(result.source).toBe('git-status');
+    expect(result.files).toContain('package.json');
+    expect(result.files).not.toContain('ackage.json');
+    expect(result.files).toContain('runtime/scripts/postinstall.mjs');
+    expect(result.files).toContain('new/name.ts');
   });
 });
 
