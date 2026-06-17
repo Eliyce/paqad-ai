@@ -58,7 +58,9 @@ export interface ModuleDecision {
 export const DEFAULT_PROPOSED_TTL_DAYS = 7;
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const ID_RE = /^MD-\d{4,}$/;
+// Issue #184: accept both new `MD-<ULID>` ids and legacy `MD-{XXXX}` ordinals
+// so a directory holding a mix of both validates without error.
+const ID_RE = /^MD-(?:\d{4,}|[0-9A-HJKMNP-TV-Z]{26})$/;
 
 export function isValidSlug(value: string): boolean {
   return SLUG_RE.test(value);

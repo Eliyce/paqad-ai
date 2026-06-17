@@ -37,7 +37,7 @@ Runs **before `planning`**. Triggered when the request references a ticket
      [`findIntakePriorMatch`](../../../src/planning/intake-prior-resolver.ts).
      If the fingerprint hits, pre-fill `human_response.chosen_option_key`
      with the prior's value and `human_response.note` with a citation back
-     to the prior `D-{N}`.
+     to the prior `D-{id}`.
      [`DecisionStore.findReusableDecision`](../../../src/planning/decision-store.ts)
      emits the `decision-reused` audit event on every hit.
    - **Rules second.** If a repo rule answers the question, treat the rule

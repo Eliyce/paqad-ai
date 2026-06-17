@@ -470,11 +470,12 @@ describe('framework end-to-end onboarding', () => {
     await runOnboard(projectRoot, { stack: 'laravel' });
 
     const gitignore = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
-    expect(gitignore).toContain('# paqad-ai');
+    expect(gitignore).toContain('# >>> paqad-ai managed');
     expect(gitignore).toContain('.paqad/framework-path.txt');
     expect(gitignore).toContain('.paqad/cache/');
     expect(gitignore).toContain('.paqad/session/');
     expect(gitignore).toContain('.paqad/pentest/');
+    expect(gitignore).toContain('.paqad/ledger/');
   });
 
   it('does not create empty architecture or design-system folders during onboarding', async () => {

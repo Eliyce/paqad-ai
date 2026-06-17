@@ -6,7 +6,7 @@
 
 Agent-side contract enforced by `CLAUDE.md` / `AGENTS.md`: before any
 flagged choice the agent writes a Decision Packet to
-`.paqad/decisions/pending/D-{N}.json` and stops until the resolved
+`.paqad/decisions/pending/D-{id}.json` and stops until the resolved
 packet exists. Routed through the interactive question UI when
 available.
 
