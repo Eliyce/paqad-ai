@@ -5,31 +5,10 @@
 // null and the reconciler hard-fails with `blocked: source_roots_unknown` —
 // which is the spec-required behaviour (AC #17, no silent fallback).
 
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { readProjectProfile } from '@/core/project-profile.js';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import type { LoadedStackPack, StackPackManifest } from '@/core/types/pack.js';
 import { StackPackLoader } from '@/packs/loader.js';
-
-// Resolve the runtime root at module load. The framework ships its packs
-// under `runtime/capabilities/coding/stacks/`; this resolver climbs from
-// dist/src up to the package root the same way other framework callers do.
-function resolveRuntimeRoot(): string {
-  // When bundled by tsup we live in dist/; the runtime/ tree is alongside it.
-  // When sourced via vitest we live in src/. Climb to find runtime/.
-  const here = dirname(fileURLToPath(import.meta.url));
-  let cur = here;
-  for (let i = 0; i < 10; i++) {
-    const candidate = join(cur, 'runtime');
-    if (existsSync(candidate)) return cur;
-    const parent = dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  return here;
-}
 
 export interface DiscoveredSourceRoots {
   source_roots: string[] | null;
@@ -51,7 +30,7 @@ export function discoverSourceRoots(projectRoot: string): DiscoveredSourceRoots 
 
   const loader = new StackPackLoader();
   const registry = loader.load({
-    runtimeRoot: resolveRuntimeRoot(),
+    runtimeRoot: getRuntimeRoot(),
     projectRoot,
   });
 
@@ -90,7 +69,7 @@ export function discoverModuleHealth(projectRoot: string): DiscoveredModuleHealt
 
   const loader = new StackPackLoader();
   const registry = loader.load({
-    runtimeRoot: resolveRuntimeRoot(),
+    runtimeRoot: getRuntimeRoot(),
     projectRoot,
   });
 
