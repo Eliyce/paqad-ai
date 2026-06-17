@@ -575,22 +575,47 @@ export function TrustView() {
           style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
         >
           {aiBom?.document ? (
-            <div className="flex items-center justify-between gap-3">
-              <span>
-                {aiBom.document.components.length}{' '}
-                {aiBom.document.components.length === 1 ? 'file' : 'files'} attested
-                {modelsTouched && modelsTouched.length > 0
-                  ? ' · ' + modelsTouched.map((p) => p.value).join(', ')
-                  : ''}
-              </span>
-              <button
-                type="button"
-                className="shrink-0 text-xs"
-                style={{ color: 'var(--color-accent)' }}
-                onClick={downloadAiBom}
-              >
-                Download CycloneDX JSON
-              </button>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <span>
+                  {aiBom.document.components.length}{' '}
+                  {aiBom.document.components.length === 1 ? 'file' : 'files'} attested
+                  {modelsTouched && modelsTouched.length > 0
+                    ? ' · ' + modelsTouched.map((p) => p.value).join(', ')
+                    : ''}
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-xs"
+                  style={{ color: 'var(--color-accent)' }}
+                  onClick={downloadAiBom}
+                >
+                  Download CycloneDX JSON
+                </button>
+              </div>
+              {aiBom.document.components.length > 0 ? (
+                <ul className="flex flex-col gap-1">
+                  {aiBom.document.components.map((component) => (
+                    <li
+                      key={component.name}
+                      className="flex items-center justify-between gap-3 font-mono text-xs"
+                    >
+                      <span className="truncate">{component.name}</span>
+                      {component.hashes && component.hashes.length > 0 ? (
+                        <span className="shrink-0" style={{ color: 'var(--color-muted)' }}>
+                          {component.hashes[0]!.content.slice(0, 12)}…
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                  No files were in the most recent verified change. The bill of materials lists
+                  every changed file the next time paqad verifies a change with edits in your
+                  working tree.
+                </p>
+              )}
             </div>
           ) : (
             <span style={{ color: 'var(--color-muted)' }}>
