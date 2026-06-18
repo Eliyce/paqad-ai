@@ -674,8 +674,17 @@ function buildProjectProfile(
       market_research: false,
       design_research: false,
       team_agents: true,
-      supply_chain_governance: false,
-      ai_governance: false,
+    },
+    // Issue #187 — emit the enterprise block at onboarding so the opt-in
+    // evidence-ledger / AI-BOM / compliance-citation switches are visible and
+    // toggleable in the generated profile. Defaults are all-off, which matches
+    // the absent-block resolution in resolveEnterprisePolicy: a normal user pays
+    // zero tokens and nothing is written under .paqad/ledger/.
+    enterprise: overrides?.enterprise ?? {
+      enabled: false,
+      evidence_ledger: false,
+      ai_bom: false,
+      compliance_citations: false,
     },
     mcp: overrides?.mcp ?? { servers: [] },
     model_routing: overrides?.model_routing ?? {

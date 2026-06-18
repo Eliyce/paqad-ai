@@ -112,6 +112,23 @@ describe('OnboardingOrchestrator', () => {
     );
   });
 
+  it('emits the enterprise block (all-off) in the generated profile', async () => {
+    // Issue #187 — onboarding must surface the opt-in evidence-ledger / AI-BOM /
+    // compliance-citation switches so they are visible and toggleable, even
+    // though they all default off (a normal user pays zero tokens).
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+
+    const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
+    expect(profile).toContain('enterprise:');
+    expect(profile).toContain('  enabled: false');
+    expect(profile).toContain('  evidence_ledger: false');
+    expect(profile).toContain('  ai_bom: false');
+    expect(profile).toContain('  compliance_citations: false');
+  });
+
   it('reports decision pause support for every generated adapter', async () => {
     const orchestrator = new OnboardingOrchestrator();
 

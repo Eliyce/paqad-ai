@@ -167,21 +167,12 @@
     "features": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "spec_only_mode",
-        "market_research",
-        "design_research",
-        "team_agents",
-        "supply_chain_governance",
-        "ai_governance"
-      ],
+      "required": ["spec_only_mode", "market_research", "design_research", "team_agents"],
       "properties": {
         "spec_only_mode": { "type": "boolean" },
         "market_research": { "type": "boolean" },
         "design_research": { "type": "boolean" },
-        "team_agents": { "type": "boolean" },
-        "supply_chain_governance": { "type": "boolean" },
-        "ai_governance": { "type": "boolean" }
+        "team_agents": { "type": "boolean" }
       }
     },
     "enterprise": {

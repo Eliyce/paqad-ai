@@ -64,8 +64,6 @@ describe('decision packet builder', () => {
           market_research: false,
           design_research: false,
           team_agents: false,
-          supply_chain_governance: false,
-          ai_governance: false,
         },
         mcp: { servers: [] },
         model_routing: {
@@ -372,8 +370,6 @@ describe('decision packet builder', () => {
           market_research: false,
           design_research: false,
           team_agents: false,
-          supply_chain_governance: false,
-          ai_governance: false,
         },
         mcp: { servers: [] },
         model_routing: {

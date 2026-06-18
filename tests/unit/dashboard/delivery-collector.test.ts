@@ -21,7 +21,7 @@ function writeProfile(root: string, servers: string): void {
       'commands: { install: i, dev: d, test: t, test_single: ts, lint: l, format: f, migrate: m, build: b }',
       'strictness: { full_lane_default: false, require_adversarial_review: false, block_on_stale_docs: false, require_db_review_for_migrations: false }',
       'compliance_packs: []',
-      'features: { spec_only_mode: false, market_research: false, design_research: false, team_agents: false, supply_chain_governance: false, ai_governance: false }',
+      'features: { spec_only_mode: false, market_research: false, design_research: false, team_agents: false }',
       `mcp: { servers: ${servers} }`,
       'model_routing: { default_model: m, reasoning_model: m, fast_model: m }',
       'research: { depth: standard }',
