@@ -27,8 +27,6 @@ export function fixtureProfile(stack: 'laravel' | 'flutter' = 'laravel'): Projec
       market_research: false,
       design_research: false,
       team_agents: true,
-      supply_chain_governance: false,
-      ai_governance: false,
     },
     mcp: {
       servers:

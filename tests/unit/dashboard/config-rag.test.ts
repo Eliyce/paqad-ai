@@ -33,8 +33,6 @@ function baseProfile(): Record<string, unknown> {
       market_research: false,
       design_research: false,
       team_agents: true,
-      supply_chain_governance: false,
-      ai_governance: false,
     },
     mcp: { servers: [] },
     model_routing: { default_model: 'gpt-5', reasoning_model: 'gpt-5', fast_model: 'gpt-5-mini' },

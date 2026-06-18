@@ -2381,8 +2381,6 @@ function makeDecisionProfile(askThreshold: 'strict' | 'balanced' | 'permissive')
       market_research: false,
       design_research: false,
       team_agents: false,
-      supply_chain_governance: false,
-      ai_governance: false,
     },
     mcp: { servers: [] },
     model_routing: {

@@ -306,8 +306,6 @@ describe('LaneRunner', () => {
           market_research: false,
           design_research: false,
           team_agents: true,
-          supply_chain_governance: false,
-          ai_governance: false,
         },
         mcp: { servers: [] },
         model_routing: {
@@ -407,8 +405,6 @@ describe('LaneRunner', () => {
           market_research: false,
           design_research: false,
           team_agents: true,
-          supply_chain_governance: false,
-          ai_governance: false,
         },
         mcp: { servers: [] },
         model_routing: {
@@ -503,8 +499,6 @@ describe('LaneRunner', () => {
           market_research: false,
           design_research: false,
           team_agents: true,
-          supply_chain_governance: false,
-          ai_governance: false,
         },
         mcp: { servers: [] },
         model_routing: {
@@ -1368,8 +1362,6 @@ steps:
           market_research: false,
           design_research: false,
           team_agents: false,
-          supply_chain_governance: false,
-          ai_governance: false,
         },
         mcp: { servers: [] },
         model_routing: {

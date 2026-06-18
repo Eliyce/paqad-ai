@@ -42,8 +42,6 @@ export interface ProjectFeatureFlags {
   market_research: boolean;
   design_research: boolean;
   team_agents: boolean;
-  supply_chain_governance: boolean;
-  ai_governance: boolean;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;

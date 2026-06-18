@@ -154,8 +154,6 @@ describe('packs command', () => {
         '  market_research: false',
         '  design_research: false',
         '  team_agents: true',
-        '  supply_chain_governance: false',
-        '  ai_governance: false',
         'mcp:',
         '  servers: []',
         'model_routing:',
