@@ -58,6 +58,9 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('logs/');
     expect(content).toContain('module-health/');
     expect(content).toContain('module-health-evidence/');
+    // Both rule-script runtime subtrees (snapshots + cache) are local-only.
+    expect(content).toContain('scripts/rules/.cache/');
+    expect(content).toContain('scripts/rules/.history/');
   });
 
   it('keeps the boot pointer shared and the version file local (the inversion)', () => {

@@ -52,6 +52,7 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'pentest/',
   'theme/',
   'scripts/rules/.cache/',
+  'scripts/rules/.history/',
   'onboarding-checkpoint.json',
   '# per-machine runtime state (regenerated locally)',
   'logs/',
