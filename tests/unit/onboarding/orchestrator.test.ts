@@ -181,20 +181,23 @@ describe('OnboardingOrchestrator', () => {
     assertNoProjectLocalSkillsOrAgents(projectRoot);
   });
 
-  it('writes .gitignore with paqad volatile paths during onboarding', async () => {
+  it('writes paqad volatile paths into the nested .paqad/.gitignore during onboarding', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
     });
 
-    const gitignore = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
+    // The managed policy lives under `.paqad/` now, never in the project root.
+    const gitignore = readFileSync(join(projectRoot, '.paqad', '.gitignore'), 'utf8');
     expect(gitignore).toContain('# >>> paqad-ai managed');
-    expect(gitignore).toContain('.paqad/cache/');
-    expect(gitignore).toContain('.paqad/session/');
-    expect(gitignore).toContain('.paqad/pentest/');
-    // Issue #187 — the evidence ledger is opt-in, so a fresh onboard (no
-    // `enterprise` block) must not ignore `.paqad/ledger/`.
-    expect(gitignore).not.toContain('.paqad/ledger/');
+    expect(gitignore).toContain('cache/');
+    expect(gitignore).toContain('session/');
+    expect(gitignore).toContain('pentest/');
+    // Decision 2 — the per-machine version file is ignored; the boot pointer is not.
+    expect(gitignore).toContain('framework-version.txt');
+    expect(gitignore).not.toContain('framework-path.txt');
+    // The ledger is always ignored so enabling it can never leak into git.
+    expect(gitignore).toContain('ledger/');
   });
 
   it('enables RAG during onboarding when explicit RAG selections are provided', async () => {

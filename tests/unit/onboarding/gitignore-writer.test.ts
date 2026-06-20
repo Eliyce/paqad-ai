@@ -14,27 +14,6 @@ function read(projectRoot: string, file: string): string {
   return readFileSync(join(projectRoot, file), 'utf8');
 }
 
-/**
- * Issue #187 — write a project profile that opts the enterprise evidence ledger
- * on, so the managed `.gitignore` block includes `.paqad/ledger/`. A minimal
- * YAML is enough: `readProjectProfile` tolerates and migrates a partial profile,
- * preserving the `enterprise` block.
- */
-function enableLedger(projectRoot: string): void {
-  mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
-  writeFileSync(
-    join(projectRoot, '.paqad', 'project-profile.yaml'),
-    [
-      'enterprise:',
-      '  enabled: true',
-      '  evidence_ledger: true',
-      '  ai_bom: true',
-      '  compliance_citations: false',
-      '',
-    ].join('\n'),
-  );
-}
-
 function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
@@ -50,7 +29,14 @@ function trackedFiles(projectRoot: string, path: string): string {
   return execFileSync('git', ['ls-files', '--', path], { cwd: projectRoot }).toString().trim();
 }
 
-describe('writeGitignore', () => {
+function commitFile(projectRoot: string, relPath: string, body: string): void {
+  mkdirSync(join(projectRoot, relPath, '..'), { recursive: true });
+  writeFileSync(join(projectRoot, relPath), body);
+  execFileSync('git', ['add', '--force', relPath], { cwd: projectRoot, stdio: 'ignore' });
+  execFileSync('git', ['commit', '-m', `seed ${relPath}`], { cwd: projectRoot, stdio: 'ignore' });
+}
+
+describe('writeGitignore (nested .paqad-owned policy)', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -61,101 +47,87 @@ describe('writeGitignore', () => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
-  it('creates a managed .gitignore block with the canonical entries', () => {
+  it('writes the managed block into .paqad/.gitignore with relative entries', () => {
     writeGitignore(projectRoot);
 
-    const content = read(projectRoot, '.gitignore');
+    const content = read(projectRoot, '.paqad/.gitignore');
     expect(content).toContain(BEGIN);
     expect(content).toContain(END);
-    // Pre-existing entries.
-    expect(content).toContain('.paqad/framework-path.txt');
-    expect(content).toContain('.paqad/cache/');
-    // New (#184) entries.
-    expect(content).toContain('.paqad/.agent-entry-loaded');
-    expect(content).toContain('.paqad/logs/');
-    expect(content).toContain('.paqad/audit.log');
-    expect(content).toContain('.paqad/module-health/');
-    expect(content).toContain('.paqad/module-health-evidence/');
-    // Issue #187 — the ledger is opt-in, so a default project never ignores it.
-    expect(content).not.toContain('.paqad/ledger/');
+    // Relative to .paqad/ — no `.paqad/` prefix.
+    expect(content).toContain('cache/');
+    expect(content).toContain('logs/');
+    expect(content).toContain('module-health/');
+    expect(content).toContain('module-health-evidence/');
   });
 
-  it('ignores .paqad/ledger/ only when the enterprise policy writes it (#187)', () => {
-    enableLedger(projectRoot);
+  it('keeps the boot pointer shared and the version file local (the inversion)', () => {
     writeGitignore(projectRoot);
-    expect(read(projectRoot, '.gitignore')).toContain('.paqad/ledger/');
+
+    const content = read(projectRoot, '.paqad/.gitignore');
+    // Decision 1 — framework-path.txt stays committed, so it is NOT ignored.
+    expect(content).not.toContain('framework-path.txt');
+    // Decision 2 — framework-version.txt is per-machine, so it IS ignored.
+    expect(content).toContain('framework-version.txt');
   });
 
-  it('drops .paqad/ledger/ from a stale block when the ledger is disabled (#187)', () => {
-    // A pre-#187 block ignored the ledger unconditionally; re-onboarding with the
-    // default-off policy must reconcile it out.
-    const stale = [BEGIN, '.paqad/cache/', '.paqad/ledger/', END, ''].join('\n');
-    writeFileSync(join(projectRoot, '.gitignore'), stale);
-
+  it('ignores the ledger unconditionally, with no project profile present', () => {
+    // No `.paqad/project-profile.yaml` / enterprise block at all.
     writeGitignore(projectRoot);
-
-    const content = read(projectRoot, '.gitignore');
-    expect(content).not.toContain('.paqad/ledger/');
-    expect(content).toContain('.paqad/cache/');
+    expect(read(projectRoot, '.paqad/.gitignore')).toContain('ledger/');
   });
 
-  it('appends the managed block to an existing .gitignore, preserving content', () => {
-    writeFileSync(join(projectRoot, '.gitignore'), 'node_modules/\ndist/\n');
-
+  it('writes a nested .paqad/.gitattributes making the decision index merge cleanly', () => {
     writeGitignore(projectRoot);
 
-    const content = read(projectRoot, '.gitignore');
-    expect(content).toContain('node_modules/');
-    expect(content).toContain('dist/');
-    expect(content).toContain(BEGIN);
-    expect(content).toContain('.paqad/module-health/');
+    const content = read(projectRoot, '.paqad/.gitattributes');
+    expect(content).toContain('decisions/index.json merge=union');
+    expect(countOccurrences(content, 'decisions/index.json merge=union')).toBe(1);
   });
 
-  it('is idempotent — a second run leaves the file byte-identical', () => {
-    writeFileSync(join(projectRoot, '.gitignore'), 'node_modules/\n');
+  it('is idempotent — a second run leaves both files byte-identical', () => {
     writeGitignore(projectRoot);
-    const first = read(projectRoot, '.gitignore');
+    const ignoreFirst = read(projectRoot, '.paqad/.gitignore');
+    const attrFirst = read(projectRoot, '.paqad/.gitattributes');
 
     writeGitignore(projectRoot);
-    const second = read(projectRoot, '.gitignore');
 
-    expect(second).toBe(first);
-    expect(countOccurrences(second, BEGIN)).toBe(1);
-    expect(countOccurrences(second, END)).toBe(1);
+    expect(read(projectRoot, '.paqad/.gitignore')).toBe(ignoreFirst);
+    expect(read(projectRoot, '.paqad/.gitattributes')).toBe(attrFirst);
+    expect(countOccurrences(read(projectRoot, '.paqad/.gitignore'), BEGIN)).toBe(1);
   });
 
-  it('reconciles the managed block in place, adding new entries and preserving out-of-block content', () => {
-    // A stale managed block (missing the #184 ledger entry) plus user content
-    // both before and after it.
-    const stale = [
+  it('migrates: scrubs the old paqad-managed block out of the project root .gitignore', () => {
+    // A repo onboarded under the old layout carried paqad's block in the root
+    // file, surrounded by the project's own rules.
+    const rootBefore = [
       'node_modules/',
       '',
       BEGIN,
       '.paqad/cache/',
+      '.paqad/ledger/',
       END,
       '',
       '# my own rules',
       'coverage/',
       '',
     ].join('\n');
-    writeFileSync(join(projectRoot, '.gitignore'), stale);
+    writeFileSync(join(projectRoot, '.gitignore'), rootBefore);
 
     writeGitignore(projectRoot);
 
-    const content = read(projectRoot, '.gitignore');
-    // Newly shipped entry is now present.
-    expect(content).toContain('.paqad/module-health-evidence/');
-    expect(content).toContain('.paqad/module-health/');
-    // Out-of-block content (before and after) is untouched.
-    expect(content).toContain('node_modules/');
-    expect(content).toContain('# my own rules');
-    expect(content).toContain('coverage/');
-    // Exactly one managed block.
-    expect(countOccurrences(content, BEGIN)).toBe(1);
-    expect(countOccurrences(content, END)).toBe(1);
+    const root = read(projectRoot, '.gitignore');
+    // paqad's block is gone from the root...
+    expect(root).not.toContain(BEGIN);
+    expect(root).not.toContain('.paqad/cache/');
+    // ...the project's own content is preserved, before and after...
+    expect(root).toContain('node_modules/');
+    expect(root).toContain('# my own rules');
+    expect(root).toContain('coverage/');
+    // ...and the policy now lives under .paqad/.
+    expect(read(projectRoot, '.paqad/.gitignore')).toContain('cache/');
   });
 
-  it('migrates a legacy "# paqad-ai" block to the managed block without duplicate entries', () => {
+  it('migrates: scrubs a pre-#184 "# paqad-ai" legacy block from the root .gitignore', () => {
     const legacy = [
       'node_modules/',
       '# paqad-ai',
@@ -168,52 +140,82 @@ describe('writeGitignore', () => {
 
     writeGitignore(projectRoot);
 
-    const content = read(projectRoot, '.gitignore');
-    // The legacy marker is gone; the managed block owns the entries now.
-    expect(content).not.toContain('# paqad-ai\n');
-    expect(content).toContain(BEGIN);
-    expect(content).toContain('.paqad/module-health/');
-    // No duplicate framework-path entry left behind by the migration.
-    expect(countOccurrences(content, '.paqad/framework-path.txt')).toBe(1);
-    expect(content).toContain('node_modules/');
+    const root = read(projectRoot, '.gitignore');
+    expect(root).not.toContain('# paqad-ai');
+    expect(root).not.toContain('.paqad/cache/');
+    // Even the legacy boot-pointer entry is cleaned (it is no longer ignored).
+    expect(root).not.toContain('.paqad/framework-path.txt');
+    expect(root).toContain('node_modules/');
   });
 
-  it('writes a managed .gitattributes block making the decision index merge cleanly', () => {
+  it('leaves a project root .gitignore with no paqad content untouched', () => {
+    writeFileSync(join(projectRoot, '.gitignore'), 'node_modules/\ndist/\n');
     writeGitignore(projectRoot);
+    expect(read(projectRoot, '.gitignore')).toBe('node_modules/\ndist/\n');
+  });
 
-    const content = read(projectRoot, '.gitattributes');
-    expect(content).toContain('.paqad/decisions/index.json merge=union');
-    expect(countOccurrences(content, '.paqad/decisions/index.json merge=union')).toBe(1);
-
-    // Idempotent.
-    const before = content;
+  it('empties a project root .gitignore that contained nothing but paqad block', () => {
+    writeFileSync(join(projectRoot, '.gitignore'), [BEGIN, '.paqad/cache/', END, ''].join('\n'));
     writeGitignore(projectRoot);
-    expect(read(projectRoot, '.gitattributes')).toBe(before);
+    expect(read(projectRoot, '.gitignore')).toBe('');
+  });
+
+  it('scrubs a paqad block sitting at the very top of the root .gitignore', () => {
+    writeFileSync(
+      join(projectRoot, '.gitignore'),
+      [BEGIN, '.paqad/cache/', END, '', 'node_modules/', ''].join('\n'),
+    );
+    writeGitignore(projectRoot);
+    const root = read(projectRoot, '.gitignore');
+    expect(root).not.toContain(BEGIN);
+    expect(root).toContain('node_modules/');
+  });
+
+  it('scrubs a paqad block sitting at the very end of the root .gitignore', () => {
+    writeFileSync(
+      join(projectRoot, '.gitignore'),
+      ['node_modules/', '', BEGIN, '.paqad/cache/', END, ''].join('\n'),
+    );
+    writeGitignore(projectRoot);
+    const root = read(projectRoot, '.gitignore');
+    expect(root).not.toContain(BEGIN);
+    expect(root).toContain('node_modules/');
   });
 
   it('does not throw outside a git repository (untrack step is a no-op)', () => {
     expect(() => writeGitignore(projectRoot)).not.toThrow();
-    expect(existsSync(join(projectRoot, '.gitignore'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.paqad/.gitignore'))).toBe(true);
   });
 
-  it('untracks a now-ignored path that an earlier onboarding committed, keeping the working-tree file', () => {
+  it('untracks a now-ignored file an earlier onboarding committed, keeping the working tree', () => {
     gitInit(projectRoot);
-    // An older onboarding committed runtime state into git.
-    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
-    writeFileSync(join(projectRoot, '.paqad', 'audit.log'), 'old audit entry\n');
-    execFileSync('git', ['add', '.paqad/audit.log'], { cwd: projectRoot, stdio: 'ignore' });
-    execFileSync('git', ['commit', '-m', 'seed'], { cwd: projectRoot, stdio: 'ignore' });
+    // Older onboarding committed per-machine runtime state into git.
+    commitFile(projectRoot, '.paqad/audit.log', 'old audit entry\n');
+    commitFile(projectRoot, '.paqad/framework-version.txt', 'version=1.0.0\n');
     expect(trackedFiles(projectRoot, '.paqad/audit.log')).toBe('.paqad/audit.log');
 
     writeGitignore(projectRoot);
 
-    // No longer tracked...
+    // Now-ignored paths are untracked...
     expect(trackedFiles(projectRoot, '.paqad/audit.log')).toBe('');
-    // ...but the working-tree file is preserved.
+    expect(trackedFiles(projectRoot, '.paqad/framework-version.txt')).toBe('');
+    // ...but the working-tree files are preserved.
     expect(existsSync(join(projectRoot, '.paqad', 'audit.log'))).toBe(true);
-    // And the untrack is recorded once in the (local) audit log.
-    const audit = read(projectRoot, '.paqad/audit.log');
-    expect(audit).toContain('gitignore.untracked-now-ignored');
+    expect(existsSync(join(projectRoot, '.paqad', 'framework-version.txt'))).toBe(true);
+    // ...and the untrack is recorded once in the (local) audit log.
+    expect(read(projectRoot, '.paqad/audit.log')).toContain('gitignore.untracked-now-ignored');
+  });
+
+  it('keeps the committed boot pointer tracked (never untracks framework-path.txt)', () => {
+    gitInit(projectRoot);
+    commitFile(projectRoot, '.paqad/framework-path.txt', '~/.paqad-ai/current\n');
+
+    writeGitignore(projectRoot);
+
+    // Decision 1 — the boot pointer is not in the ignore set, so it stays shared.
+    expect(trackedFiles(projectRoot, '.paqad/framework-path.txt')).toBe(
+      '.paqad/framework-path.txt',
+    );
   });
 
   it('is a no-op in a git repo with nothing tracked to untrack', () => {

@@ -119,8 +119,8 @@ describe('rag command', () => {
       }),
       expect.any(Function),
     );
-    expect(readFileSync(join(projectRoot(tempProjectRoot), '.gitignore'), 'utf8')).toContain(
-      '.paqad/vectors/',
+    expect(readFileSync(join(projectRoot(tempProjectRoot), '.paqad/.gitignore'), 'utf8')).toContain(
+      'vectors/',
     );
   });
 

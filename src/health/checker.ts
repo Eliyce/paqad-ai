@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
@@ -92,7 +93,12 @@ export class HealthChecker {
   }
 
   private checkFrameworkArtifacts(projectRoot: string): HealthCheckResult {
-    const required = [PATHS.PROJECT_PROFILE, PATHS.FRAMEWORK_VERSION, PATHS.FRAMEWORK_PATH];
+    // `framework-version.txt` is intentionally NOT required: it is per-machine,
+    // git-ignored, local-only state (the silent-update hook recreates it on
+    // first session). A teammate who clones an onboarded repo without re-running
+    // onboarding has the committed boot pointer + profile but not the local
+    // version file, and that is a healthy state, not a missing artifact.
+    const required = [PATHS.PROJECT_PROFILE, PATHS.FRAMEWORK_PATH];
     const missing = required.filter((relative) => !existsSync(join(projectRoot, relative)));
 
     return missing.length === 0
@@ -102,6 +108,44 @@ export class HealthChecker {
           `Missing framework artifacts: ${missing.join(', ')}`,
           'Re-run onboarding to regenerate the missing framework artifacts.',
         );
+  }
+
+  /**
+   * Whether `relPath` (relative to the project root, e.g. `.paqad/vectors/`) is
+   * git-ignored. Asks git, which honours the project root `.gitignore`, paqad's
+   * nested `.paqad/.gitignore`, and any global excludes alike. Falls back to a
+   * textual scan of both ignore files when git is unavailable or the project is
+   * not a git repository (e.g. a freshly scaffolded test fixture), so the check
+   * is meaningful before `git init`.
+   */
+  private isPathIgnored(projectRoot: string, relPath: string): boolean {
+    const target = relPath.replace(/\/$/, '');
+    try {
+      execFileSync('git', ['check-ignore', '-q', '--', target], {
+        cwd: projectRoot,
+        stdio: 'ignore',
+      });
+      return true; // exit 0 — git resolved the path as ignored.
+    } catch (error) {
+      // exit 1 — git ran and the path is NOT ignored. Any other status (128 for
+      // "not a git repo", or git missing) drops to the textual fallback below.
+      if ((error as { status?: number }).status === 1) {
+        return false;
+      }
+    }
+
+    // Fallback: the root `.gitignore` carries the full path; the nested
+    // `.paqad/.gitignore` carries it relative to `.paqad/`.
+    const probes: Array<[string, string]> = [
+      [join(projectRoot, '.gitignore'), target],
+      [join(projectRoot, '.paqad', '.gitignore'), target.replace(/^\.paqad\//, '')],
+    ];
+    for (const [file, needle] of probes) {
+      if (existsSync(file) && readFileSync(file, 'utf8').includes(needle)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private checkProfile(profile: ProjectProfile | null): HealthCheckResult {
@@ -794,9 +838,6 @@ export class HealthChecker {
 
     const service = new RagService(projectRoot);
     const status = await service.getStatus();
-    const gitignore = existsSync(join(projectRoot, '.gitignore'))
-      ? readFileSync(join(projectRoot, '.gitignore'), 'utf8')
-      : '';
 
     results.push(
       status.index_present
@@ -864,21 +905,21 @@ export class HealthChecker {
     );
 
     results.push(
-      gitignore.includes(PATHS.VECTORS_DIR)
+      this.isPathIgnored(projectRoot, PATHS.VECTORS_DIR)
         ? pass('RAG vector gitignore present', 'Vector index path is gitignored')
         : warn(
             'RAG vector gitignore present',
-            `Missing gitignore entry: ${PATHS.VECTORS_DIR}`,
-            'Add `.paqad/vectors/` to `.gitignore`.',
+            `Vector index path is not gitignored: ${PATHS.VECTORS_DIR}`,
+            'Re-run `paqad-ai onboard` to refresh the managed `.paqad/.gitignore`.',
           ),
     );
     results.push(
-      gitignore.includes(PATHS.SECRETS_ENV)
+      this.isPathIgnored(projectRoot, PATHS.SECRETS_ENV)
         ? pass('RAG secrets gitignore present', 'Secrets file path is gitignored')
         : warn(
             'RAG secrets gitignore present',
-            `Missing gitignore entry: ${PATHS.SECRETS_ENV}`,
-            'Add `.paqad/secrets.env` to `.gitignore`.',
+            `Secrets file path is not gitignored: ${PATHS.SECRETS_ENV}`,
+            'Re-run `paqad-ai onboard` to refresh the managed `.paqad/.gitignore`.',
           ),
     );
 
