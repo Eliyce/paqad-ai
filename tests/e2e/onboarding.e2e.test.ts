@@ -464,20 +464,22 @@ describe('framework end-to-end onboarding', () => {
     assertNoProjectLocalSkillsOrAgents(projectRoot);
   });
 
-  it('writes .gitignore with paqad volatile paths during onboarding', async () => {
+  it('writes paqad volatile paths into the nested .paqad/.gitignore during onboarding', async () => {
     const projectRoot = join(root, 'new-laravel-gitignore');
 
     await runOnboard(projectRoot, { stack: 'laravel' });
 
-    const gitignore = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
+    // paqad manages its policy inside `.paqad/`, never in the project root.
+    const gitignore = readFileSync(join(projectRoot, '.paqad', '.gitignore'), 'utf8');
     expect(gitignore).toContain('# >>> paqad-ai managed');
-    expect(gitignore).toContain('.paqad/framework-path.txt');
-    expect(gitignore).toContain('.paqad/cache/');
-    expect(gitignore).toContain('.paqad/session/');
-    expect(gitignore).toContain('.paqad/pentest/');
-    // Issue #187 — the evidence ledger is opt-in; a default onboard never
-    // ignores `.paqad/ledger/`.
-    expect(gitignore).not.toContain('.paqad/ledger/');
+    expect(gitignore).toContain('cache/');
+    expect(gitignore).toContain('session/');
+    expect(gitignore).toContain('pentest/');
+    // The per-machine version file is ignored; the committed boot pointer is not.
+    expect(gitignore).toContain('framework-version.txt');
+    expect(gitignore).not.toContain('framework-path.txt');
+    // The ledger is always ignored so enabling it can never leak into git.
+    expect(gitignore).toContain('ledger/');
   });
 
   it('does not create empty architecture or design-system folders during onboarding', async () => {

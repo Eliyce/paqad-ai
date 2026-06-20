@@ -100,8 +100,9 @@ rendered as a one-line PR-comment footer, and summarised in the dashboard's
 **Attestation** section. When no authorship resolves, the field is omitted
 entirely so prior receipts stay byte-identical.
 
-> **Privacy:** `.paqad/ledger/` is committed, so `accepting_human` lands in the
-> repo. It is the same identity git stores in every commit, so this adds no new
+> **Privacy:** `.paqad/ledger/` is git-ignored (shared via the dashboard/SIEM,
+> never committed), so `accepting_human` does not land in the repo history. It is
+> the same identity git already stores in every commit, so it adds no new
 > disclosure; the env opt-out drops it, and the public PR comment shows the name
 > only (never the email).
 

@@ -1,104 +1,147 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
-import { resolveEnterprisePolicy, writesLedger } from '@/core/enterprise-policy.js';
-import { readProjectProfile } from '@/core/project-profile.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 
-// Issue #184 — onboarded repos must be team-safe. The paqad entries now live in
-// an explicit begin/end managed block that is reconciled in place on every
-// run, so re-onboarding an already-onboarded repo picks up newly added ignore
-// entries (the old writer bailed the moment it saw its marker and so could
-// never ship new entries). A matching `.gitattributes` block makes the shared
-// decision index auto-merge, and a one-time untrack removes any now-ignored
-// path that an older onboarding committed to the index.
+// Issue #184 + follow-up — onboarded repos manage their git hygiene *inside*
+// `.paqad/` rather than by editing the project's root `.gitignore`. paqad owns
+// `.paqad/.gitignore` and `.paqad/.gitattributes` (git reads nested ignore /
+// attributes files, applying their patterns relative to their own directory),
+// so we never touch a file the project owns. Re-onboarding also scrubs the old
+// paqad-managed block (and any pre-#184 `# paqad-ai` block) out of the project
+// root `.gitignore`, migrating already-onboarded repos off the old layout.
+//
+// Decisions baked into the entry set:
+//   - `framework-path.txt` is intentionally NOT ignored. It is the boot pointer
+//     the agent-entry contract reads first; it is portable and stays committed
+//     so a teammate who clones can boot without re-onboarding.
+//   - `framework-version.txt` IS ignored. It is per-machine version state that
+//     the silent-update hook rewrites every session; keeping it committed
+//     churned the tree on every version bump.
+//   - `ledger/` is ignored UNCONDITIONALLY (no longer gated on the enterprise
+//     policy). Whether or not the ledger is written, it must never be able to
+//     leak into git. The token-saving "don't write it unless enterprise" gate
+//     lives at the verification write-site, not here.
 
-const GITIGNORE_BEGIN = '# >>> paqad-ai managed (do not edit between markers) >>>';
-const GITIGNORE_END = '# <<< paqad-ai managed <<<';
-
-/** Legacy single-line marker emitted by the pre-#184 writer. */
-const LEGACY_MARKER = '# paqad-ai';
-
-/**
- * Canonical ignore paths (issue #184, A2). Order matters only for readability;
- * the contract is the set of paths. Section-header comments are interleaved for
- * a tidy file. Anything here is per-machine runtime state, secrets, or all
- * module-health (rollup + evidence) — none of which belongs in version control.
- * Decision packets, contracts, and config stay tracked and are deliberately
- * absent.
- *
- * Issue #187 — `.paqad/ledger/` is NOT in this base set. It is appended by
- * {@link managedGitignoreEntries} only when the resolved enterprise policy
- * actually writes the ledger; with the default-off policy a fresh repo never
- * ignores (or untracks) a directory it never writes.
- */
-const MANAGED_GITIGNORE_ENTRIES_BASE = [
-  '.paqad/framework-path.txt',
-  '.paqad/.agent-entry-loaded',
-  '.paqad/cache/',
-  '.paqad/session/',
-  '.paqad/context/',
-  '.paqad/vectors/',
-  '.paqad/secrets.env',
-  '.paqad/workflows/',
-  '.paqad/indexes/',
-  '.paqad/pentest/',
-  '.paqad/theme/',
-  '.paqad/scripts/rules/.cache/',
-  '.paqad/onboarding-checkpoint.json',
-  '# per-machine runtime state (regenerated locally)',
-  '.paqad/logs/',
-  '.paqad/audit.log',
-  '.paqad/decisions/audit.jsonl',
-  '.paqad/decisions/events.jsonl',
-  '.paqad/detection-report.json',
-  '.paqad/stack-snapshot.json',
-  '.paqad/stack-drift.json',
-  '.paqad/doc-progress.json',
-  '.paqad/quality-baseline.json',
-  '.paqad/compiled-rules.json',
-  '.paqad/module-health/',
-  '.paqad/module-health-evidence/',
-  '.paqad/module-health-consumed-events.json',
-];
-
-/** The compliance-ledger ignore entry, appended only when the enterprise policy
- *  writes it (issue #187). Shared via dashboard/SIEM, never committed. */
-const LEDGER_GITIGNORE_ENTRIES = [
-  '# compliance ledger (share via dashboard/SIEM, not git)',
-  '.paqad/ledger/',
-];
-
-/**
- * The managed ignore set for this project. Equal to the base set, plus the
- * ledger entry when the resolved enterprise policy writes `.paqad/ledger/`.
- * Read once per call so re-onboarding reconciles the block against current
- * config: enabling the ledger adds the entry, disabling it removes the entry.
- */
-function managedGitignoreEntries(projectRoot: string): string[] {
-  const policy = resolveEnterprisePolicy(readProjectProfile(projectRoot));
-  return writesLedger(policy)
-    ? [...MANAGED_GITIGNORE_ENTRIES_BASE, ...LEDGER_GITIGNORE_ENTRIES]
-    : [...MANAGED_GITIGNORE_ENTRIES_BASE];
-}
+const MANAGED_BEGIN = '# >>> paqad-ai managed (do not edit between markers) >>>';
+const MANAGED_END = '# <<< paqad-ai managed <<<';
 
 const GITATTRIBUTES_BEGIN = '# >>> paqad-ai managed >>>';
 const GITATTRIBUTES_END = '# <<< paqad-ai managed <<<';
 
-/**
- * Workstream C — the decision index is the one shared file two branches still
- * rewrite (each appends its resolved decisions). `merge=union` keeps both
- * sides' additions instead of raising a conflict. The index is pretty-printed
- * one key per line, which is what union merge needs.
- */
-const MANAGED_GITATTRIBUTES_ENTRIES = ['.paqad/decisions/index.json merge=union'];
+/** Legacy single-line marker emitted by the pre-#184 root-file writer. */
+const LEGACY_MARKER = '# paqad-ai';
 
 /**
- * Reconcile the paqad-managed block inside `existing`, returning the new file
- * contents. Idempotent: when the block already matches, the returned string
- * equals `existing`. Everything outside the markers is preserved untouched.
+ * Canonical ignore entries, written into `.paqad/.gitignore`. Patterns are
+ * relative to the `.paqad/` directory because that is where the nested ignore
+ * file lives. Section-header comments are interleaved for readability; the
+ * contract is the set of non-comment paths.
  */
+const MANAGED_GITIGNORE_ENTRIES = [
+  '.agent-entry-loaded',
+  'framework-version.txt',
+  'cache/',
+  'session/',
+  'context/',
+  'vectors/',
+  'secrets.env',
+  'workflows/',
+  'indexes/',
+  'pentest/',
+  'theme/',
+  'scripts/rules/.cache/',
+  'onboarding-checkpoint.json',
+  '# per-machine runtime state (regenerated locally)',
+  'logs/',
+  'audit.log',
+  'decisions/audit.jsonl',
+  'decisions/events.jsonl',
+  'detection-report.json',
+  'stack-snapshot.json',
+  'stack-drift.json',
+  'doc-progress.json',
+  'quality-baseline.json',
+  'compiled-rules.json',
+  'module-health/',
+  'module-health-evidence/',
+  'module-health-consumed-events.json',
+  '# compliance ledger (share via dashboard/SIEM, not git)',
+  'ledger/',
+];
+
+/**
+ * Workstream C (issue #184) — the decision index is the one shared file two
+ * branches still rewrite. `merge=union` keeps both sides' additions instead of
+ * raising a conflict. The path is relative to `.paqad/` (nested attributes
+ * file), and the index is pretty-printed one key per line, which is what union
+ * merge needs.
+ */
+const MANAGED_GITATTRIBUTES_ENTRIES = ['decisions/index.json merge=union'];
+
+/**
+ * Full-from-project-root paths the managed block ignores, used to (a) untrack
+ * any now-ignored path an earlier onboarding committed and (b) scrub a legacy
+ * `# paqad-ai` block out of the root `.gitignore`. `framework-path.txt` is added
+ * to the scrub set (not the untrack set) so a legacy root entry for it is
+ * cleaned even though it is no longer ignored.
+ */
+function ignoredPathsFromRoot(): string[] {
+  return MANAGED_GITIGNORE_ENTRIES.filter((entry) => !entry.startsWith('#')).map(
+    (entry) => `.paqad/${entry}`,
+  );
+}
+
+/**
+ * Write/refresh paqad's nested `.gitignore` + `.gitattributes` (the managed
+ * policy now lives under `.paqad/`), scrub the old paqad-managed block out of
+ * the project root `.gitignore` / `.gitattributes` (migration), and untrack any
+ * now-ignored path an earlier onboarding committed. Each write is a no-op when
+ * nothing changed, so re-onboarding stays clean.
+ */
+export function writeGitignore(projectRoot: string): void {
+  // 1. paqad's own files under `.paqad/`.
+  reconcileFile(
+    join(projectRoot, '.paqad', '.gitignore'),
+    MANAGED_BEGIN,
+    MANAGED_END,
+    MANAGED_GITIGNORE_ENTRIES,
+  );
+  reconcileFile(
+    join(projectRoot, '.paqad', '.gitattributes'),
+    GITATTRIBUTES_BEGIN,
+    GITATTRIBUTES_END,
+    MANAGED_GITATTRIBUTES_ENTRIES,
+  );
+
+  // 2. Migrate off the old root-file layout: remove paqad's managed block (and
+  //    any pre-#184 legacy block) from the project root, preserving the rest.
+  scrubRootFile(join(projectRoot, '.gitignore'), MANAGED_BEGIN, MANAGED_END, true);
+  scrubRootFile(join(projectRoot, '.gitattributes'), GITATTRIBUTES_BEGIN, GITATTRIBUTES_END, false);
+
+  // 3. Untrack any now-ignored path an earlier onboarding committed.
+  untrackNowIgnoredPaths(projectRoot, ignoredPathsFromRoot());
+}
+
+/**
+ * Reconcile the paqad-managed block inside a paqad-owned file, creating it (and
+ * its parent directory) when absent. Idempotent: when the block already
+ * matches, the file is left byte-identical. Content outside the markers is
+ * preserved untouched.
+ */
+function reconcileFile(path: string, begin: string, end: string, entries: string[]): void {
+  // Single read, catch ENOENT — never `existsSync(path) ? readFileSync(path)`.
+  // The check-then-write pair is a TOCTOU file-system race (CWE-367,
+  // CodeQL js/file-system-race).
+  const existing = readTextOrEmpty(path);
+  const next = reconcileManagedBlock(existing, begin, end, entries);
+  if (next !== existing) {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, next);
+  }
+}
+
 function reconcileManagedBlock(
   existing: string,
   begin: string,
@@ -115,22 +158,69 @@ function reconcileManagedBlock(
     return ensureTrailingNewline(`${before}${block}${after}`);
   }
 
-  // No managed block yet. Drop any legacy single-marker block first so we don't
-  // leave stale duplicate entries behind, then append the managed block.
-  const base = existing.includes(LEGACY_MARKER) ? stripLegacyBlock(existing, entries) : existing;
-  const trimmed = base.replace(/\s+$/, '');
+  const trimmed = existing.replace(/\s+$/, '');
   const prefix = trimmed.length > 0 ? `${trimmed}\n\n` : '';
   return `${prefix}${block}\n`;
 }
 
 /**
- * Remove the pre-#184 legacy region: the `# paqad-ai` marker line plus any
- * line that exactly matches one of the managed entries (every legacy path is a
- * `.paqad/**` path that the managed block re-adds, so removing exact matches
- * loses nothing). Comment lines among the entries are never used to match.
+ * Remove the paqad-managed block — and, when `scrubLegacy`, a pre-#184
+ * `# paqad-ai` block — from a project-owned root file, preserving everything
+ * outside paqad's own region. A no-op when the file does not exist or carries
+ * nothing of paqad's (so we never dirty a file needlessly).
  */
-function stripLegacyBlock(existing: string, entries: string[]): string {
-  const managedPaths = new Set(entries.filter((entry) => !entry.startsWith('#')));
+function scrubRootFile(path: string, begin: string, end: string, scrubLegacy: boolean): void {
+  const existing = readTextOrEmpty(path);
+  if (existing === '') {
+    return;
+  }
+
+  let next = removeManagedBlock(existing, begin, end);
+  if (scrubLegacy && next.includes(LEGACY_MARKER)) {
+    next = stripLegacyBlock(next);
+  }
+
+  if (next !== existing) {
+    writeFileSync(path, next);
+  }
+}
+
+/**
+ * Splice paqad's marker-fenced block out of `existing`, collapsing the blank
+ * lines the removal would otherwise leave behind. Returns `existing` unchanged
+ * when no complete block is present.
+ */
+function removeManagedBlock(existing: string, begin: string, end: string): string {
+  const beginIdx = existing.indexOf(begin);
+  const endIdx = existing.indexOf(end);
+  if (beginIdx === -1 || endIdx <= beginIdx) {
+    return existing;
+  }
+
+  const before = existing.slice(0, beginIdx).replace(/\n+$/, '');
+  const after = existing.slice(endIdx + end.length).replace(/^\n+/, '');
+
+  if (before === '' && after === '') {
+    return '';
+  }
+  if (before === '') {
+    return ensureTrailingNewline(after);
+  }
+  if (after === '') {
+    return ensureTrailingNewline(before);
+  }
+  return ensureTrailingNewline(`${before}\n\n${after}`);
+}
+
+/**
+ * Remove the pre-#184 legacy region from a root file: the `# paqad-ai` marker
+ * line plus any line that exactly matches a path paqad has ever managed in the
+ * root (every legacy path is a `.paqad/**` path). `framework-path.txt` is
+ * included here so a legacy root entry for the boot pointer is cleaned even
+ * though paqad no longer ignores it.
+ */
+function stripLegacyBlock(existing: string): string {
+  const managedPaths = new Set([...ignoredPathsFromRoot(), '.paqad/framework-path.txt']);
   return existing
     .split('\n')
     .filter((line) => {
@@ -142,37 +232,6 @@ function stripLegacyBlock(existing: string, entries: string[]): string {
 
 function ensureTrailingNewline(value: string): string {
   return value.endsWith('\n') ? value : `${value}\n`;
-}
-
-/**
- * Write/refresh the paqad-managed `.gitignore` block (issue #184, A1+A2), the
- * `.gitattributes` block (Workstream C), and untrack any now-ignored path an
- * earlier onboarding committed (A3). Each write is a no-op when nothing
- * changed, so re-onboarding stays clean.
- */
-export function writeGitignore(projectRoot: string): void {
-  const gitignoreEntries = managedGitignoreEntries(projectRoot);
-  reconcileFile(join(projectRoot, '.gitignore'), GITIGNORE_BEGIN, GITIGNORE_END, gitignoreEntries);
-  reconcileFile(
-    join(projectRoot, '.gitattributes'),
-    GITATTRIBUTES_BEGIN,
-    GITATTRIBUTES_END,
-    MANAGED_GITATTRIBUTES_ENTRIES,
-  );
-  untrackNowIgnoredPaths(projectRoot, gitignoreEntries);
-}
-
-function reconcileFile(path: string, begin: string, end: string, entries: string[]): void {
-  // Single read, catch ENOENT — never `existsSync(path) ? readFileSync(path)`.
-  // The check-then-write pair is a TOCTOU file-system race (CWE-367,
-  // CodeQL js/file-system-race): the file can change between the existence
-  // check and the write. Mirrors writeMarkdownIfChanged in
-  // decision-pause-contract-writer.ts.
-  const existing = readTextOrEmpty(path);
-  const next = reconcileManagedBlock(existing, begin, end, entries);
-  if (next !== existing) {
-    writeFileSync(path, next);
-  }
 }
 
 /** Read a UTF-8 file, returning `''` when it does not exist (ENOENT). */
@@ -189,24 +248,17 @@ function readTextOrEmpty(path: string): string {
 
 /**
  * A3 — adding a path to `.gitignore` does not untrack files already in the
- * index. For repos onboarded before #184, untrack any now-ignored managed path
- * that is currently tracked. Safe when not in a git repo (skips silently),
- * never touches working-tree files (`--cached` only), idempotent (no-op once
- * nothing tracked matches), and leaves a single audit entry of what it did.
+ * index. For repos onboarded before this layout, untrack any now-ignored
+ * managed path that is currently tracked. Safe when not in a git repo (skips
+ * silently), never touches working-tree files (`--cached` only), idempotent
+ * (no-op once nothing tracked matches), and leaves a single audit entry.
  */
-function untrackNowIgnoredPaths(projectRoot: string, entries: string[]): void {
+function untrackNowIgnoredPaths(projectRoot: string, paths: string[]): void {
   if (!isGitRepository(projectRoot)) {
     return;
   }
 
-  // Only untrack paths the managed block currently ignores. When the ledger is
-  // disabled (issue #187) it is absent from `entries`, so an already-committed
-  // ledger is left tracked rather than wrongly untracked — it is no longer an
-  // ignored path.
-  const managedPaths = entries
-    .filter((entry) => !entry.startsWith('#'))
-    .map((entry) => entry.replace(/\/$/, ''));
-
+  const managedPaths = paths.map((path) => path.replace(/\/$/, ''));
   const tracked = managedPaths.filter((path) => isTracked(projectRoot, path));
   if (tracked.length === 0) {
     return;

@@ -68,14 +68,48 @@ function readAuditLog(root: string): string {
 }
 
 describe('silent-update.sh', () => {
-  it('exits 0 when framework-version.txt is missing', async () => {
+  it('exits 0 when framework-version.txt is missing and cannot be seeded', async () => {
     const root = makeRoot();
     try {
+      // Point the framework home at an empty dir so there is no package.json to
+      // seed from — the hook must still exit cleanly, exactly as before.
+      const emptyHome = join(root, 'no-framework');
+      mkdirSync(emptyHome, { recursive: true });
       const result = await execa('bash', [SCRIPT], {
         reject: false,
         cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: emptyHome },
       });
       expect(result.exitCode).toBe(0);
+      expect(existsSync(join(root, '.paqad', 'framework-version.txt'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('self-heals: seeds framework-version.txt from the installed package, then exits', async () => {
+    const root = makeRoot();
+    try {
+      // A teammate who never onboarded has no local version file. Point the
+      // framework home at a fake install carrying a version.
+      const frameworkHome = join(root, 'framework-home');
+      mkdirSync(frameworkHome, { recursive: true });
+      writeFileSync(
+        join(frameworkHome, 'package.json'),
+        JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
+      );
+
+      const result = await execa('bash', [SCRIPT], {
+        reject: false,
+        cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: frameworkHome },
+      });
+
+      expect(result.exitCode).toBe(0);
+      const content = readFileSync(join(root, '.paqad', 'framework-version.txt'), 'utf8');
+      expect(content).toContain('version=3.4.5');
+      // Seeded at the epoch so the NEXT session's interval check fires at once.
+      expect(content).toContain('updated_at=1970-01-01T00:00:00Z');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
