@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.26.1
+
+### Patch Changes
+
+- [#194](https://github.com/Eliyce/paqad-ai/pull/194) [`8885a27`](https://github.com/Eliyce/paqad-ai/commit/8885a27083898032206225e8483ee03cc89843a8) Thanks [@HLasani](https://github.com/HLasani)! - Ignore the rule-script snapshot directory `.paqad/scripts/rules/.history/` in the managed `.paqad/.gitignore`. It holds per-machine pre-mutation rule snapshots and an events log (the same runtime category as the already-ignored `.cache/` sibling) and should never be committed.
+
 ## 1.26.0
 
 ### Minor Changes
