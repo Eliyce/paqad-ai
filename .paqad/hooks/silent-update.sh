@@ -29,8 +29,29 @@ PROFILE_FILE="$PROJECT_ROOT/.paqad/project-profile.yaml"
 LOCKFILE="$PROJECT_ROOT/.paqad/locks/update.lock"
 LOGS_DIR="$PROJECT_ROOT/.paqad/logs"
 
-# ── Step 1: Read local version ───────────────────────────────────────────────
-[ ! -f "$VERSION_FILE" ] && exit 0
+# ── Step 1: Read local version (self-heal when missing) ──────────────────────
+# framework-version.txt is per-machine, git-ignored, local-only state. A
+# teammate who clones an already-onboarded repo without re-running onboarding
+# has no copy of it, so auto-update would silently never run for them. When it
+# is missing, recreate it from the installed package version (seeded at the
+# epoch so the NEXT session's interval check fires immediately) and exit — we
+# never seed and run a version check in the same session, keeping the first
+# session cheap and side-effect free. The file is git-ignored, so this never
+# dirties the tree. If we cannot resolve the installed version we exit anyway,
+# exactly as before.
+if [ ! -f "$VERSION_FILE" ]; then
+  FRAMEWORK_HOME="${PAQAD_FRAMEWORK_HOME:-$HOME/.paqad-ai/current}"
+  INSTALLED_PKG="$FRAMEWORK_HOME/package.json"
+  if [ -f "$INSTALLED_PKG" ] && command -v node &>/dev/null; then
+    SEED_VERSION=$(node -p "require('$INSTALLED_PKG').version" 2>/dev/null | tr -d '[:space:]')
+    if [ -n "$SEED_VERSION" ]; then
+      mkdir -p "$(dirname "$VERSION_FILE")" 2>/dev/null || true
+      printf 'version=%s\nupdated_at=%s\n' "$SEED_VERSION" '1970-01-01T00:00:00Z' \
+        > "$VERSION_FILE" 2>/dev/null || true
+    fi
+  fi
+  exit 0
+fi
 CURRENT_VERSION=$(grep '^version=' "$VERSION_FILE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
 [ -z "$CURRENT_VERSION" ] && exit 0
 
