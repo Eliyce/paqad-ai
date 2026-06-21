@@ -37,7 +37,9 @@ describe('coverage adapter protected paths', () => {
       {
         adapter: new CodexCliAdapter(),
         expected: {
-          hooks: '.codex/hooks.json',
+          // The real Codex hook file (.codex/hooks.json) is emitted by
+          // generateConfig; this sidecar path holds base installHooks metadata.
+          hooks: '.codex/settings.hooks.json',
           mcp: '.codex/mcp.json',
           cache: '.codex/cache.json',
           memory: '.codex/memory.json',
@@ -55,7 +57,9 @@ describe('coverage adapter protected paths', () => {
       {
         adapter: new GeminiCliAdapter(),
         expected: {
-          hooks: '.gemini/hooks.json',
+          // The real Gemini hooks live in .gemini/settings.json (emitted by
+          // generateConfig); this sidecar path holds base installHooks metadata.
+          hooks: '.gemini/settings.hooks.json',
           mcp: '.gemini/mcp.json',
           cache: '.gemini/cache.json',
           memory: '.gemini/memory.json',

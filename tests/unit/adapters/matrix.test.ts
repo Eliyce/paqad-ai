@@ -54,9 +54,13 @@ describe('adapter stack matrix', () => {
           files.push(...(await adapter.configureMemory(profile)));
         }
 
-        // Claude Code also emits .claude/settings.json for the agent-entry
-        // gate alongside CLAUDE.md.
-        const extraConfigFiles = adapterType === 'claude-code' ? 1 : 0;
+        // Some adapters emit an extra native-config file from generateConfig
+        // alongside their entry file: Claude Code writes .claude/settings.json
+        // (agent-entry gate); Codex and Gemini write their native completion-hook
+        // file (.codex/hooks.json / .gemini/settings.json) so the evidence ledger
+        // fires on every host, not Claude Code alone.
+        const adaptersWithExtraConfigFile = ['claude-code', 'codex-cli', 'gemini-cli'];
+        const extraConfigFiles = adaptersWithExtraConfigFile.includes(adapterType) ? 1 : 0;
         const expectedLength =
           1 +
           extraConfigFiles +

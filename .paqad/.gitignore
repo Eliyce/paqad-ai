@@ -1,0 +1,32 @@
+# >>> paqad-ai managed (do not edit between markers) >>>
+.agent-entry-loaded
+framework-version.txt
+cache/
+session/
+context/
+vectors/
+secrets.env
+workflows/
+indexes/
+pentest/
+theme/
+scripts/rules/.cache/
+scripts/rules/.history/
+onboarding-checkpoint.json
+# per-machine runtime state (regenerated locally)
+logs/
+audit.log
+decisions/audit.jsonl
+decisions/events.jsonl
+detection-report.json
+stack-snapshot.json
+stack-drift.json
+doc-progress.json
+quality-baseline.json
+compiled-rules.json
+module-health/
+module-health-evidence/
+module-health-consumed-events.json
+# compliance ledger (share via dashboard/SIEM, not git)
+ledger/
+# <<< paqad-ai managed <<<

@@ -1,5 +1,5 @@
 {
-  "framework_version": "1.21.0",
+  "framework_version": "1.26.1",
   "adapter": "codex-cli",
   "project_root": ".",
   "profile": {
@@ -104,9 +104,13 @@
       "spec_only_mode": false,
       "market_research": false,
       "design_research": false,
-      "team_agents": true,
-      "supply_chain_governance": false,
-      "ai_governance": false
+      "team_agents": true
+    },
+    "enterprise": {
+      "enabled": false,
+      "evidence_ledger": false,
+      "ai_bom": false,
+      "compliance_citations": false
     },
     "mcp": {
       "servers": []
@@ -298,7 +302,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-13T14:25:22.596Z",
+    "timestamp": "2026-06-21T08:43:12.985Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -398,7 +402,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-13T14:25:26.924Z",
+  "generated_at": "2026-06-21T08:43:16.579Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -442,34 +446,6 @@
     },
     {
       "path": ".claude/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": "GEMINI.md",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/hooks.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/cache.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": ".junie/AGENTS.md",
-      "auto_update": true
-    },
-    {
-      "path": ".junie/mcp/mcp.json",
       "auto_update": true
     },
     {
@@ -659,6 +635,7 @@
       "cli-patterns",
       "cli-compliance",
       "cli-audit",
+      "cli-module-map",
       "cli-plan",
       "adapter-onboarding",
       "documentation-workflow",
@@ -685,6 +662,9 @@
       "compliance-engine",
       "traceability-engine",
       "quality-ratchet",
+      "verification",
+      "evidence-ledger",
+      "delivery-workflow",
       "pentest-engine",
       "project-profile-schema",
       "repository-resolver"
