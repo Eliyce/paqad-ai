@@ -18,7 +18,7 @@ layered.
 | Layer | Mechanism | Fires when | Coverage | Bypassable? |
 | --- | --- | --- | --- | --- |
 | **1. Live in-session** | Native pre-tool hooks (`decision-pause-gate.sh`, `pre-write-check-spec.sh`) | As the offending tool call happens | Hosts with real pre-tool hooks | Yes (host-dependent) |
-| **2. Completion** | `Stop` / completion hook (`verification-completion.mjs`) | The moment the agent finishes | Hosts with a completion/stop hook | Yes (agent can be configured without it) |
+| **2. Completion** | Each host's native completion hook, rendered into its own config from one definition: Claude `Stop` (`verification-completion.mjs`), Codex `Stop` and Gemini `AfterAgent` (`verification-record.mjs`, record-only) | The moment the agent finishes a turn | Every host with a native completion hook | Yes (agent can be configured without it) |
 | **3. Backstop** | Git pre-commit/pre-push (`pre-commit-verify.sh`) + CI step, both running `verify-backstop.mjs` | On commit / in CI | Every agent and every human | Local git: yes (`--no-verify`). **CI: no.** |
 
 Layers 1 and 2 are fast feedback. Layer 3 is the real backstop: an agent cannot
@@ -37,8 +37,12 @@ pass `--no-verify` to CI, and CI applies to every agent and to humans.
   evidence artifact, and returns one machine-readable trust verdict (C-6).
 
 The completion hook **soft-fails** on infrastructure errors (a missing build, an
-import failure) so a broken install never wedges the agent. The CI backstop
-**fails hard**: infra errors and blocking verdicts both exit non-zero.
+import failure) so a broken install never wedges the agent. On hosts other than
+Claude Code the completion hook is **record-only** (`verification-record.mjs`):
+it writes the evidence ledger but always exits 0 and stays silent, so a host that
+reads a Stop-hook's exit code or stdout as a control decision is never blocked or
+retried. The CI backstop **fails hard**: infra errors and blocking verdicts both
+exit non-zero.
 
 ## Per-adapter coverage matrix (C-5)
 
@@ -49,10 +53,10 @@ pre-tool/stop hooks are covered by the git/CI backstop only.
 | Adapter | Live (layers 1–2) | Backstop (layer 3) | Notes |
 | --- | --- | --- | --- |
 | claude-code | yes (wired) | yes | Reference host; `settings.json` PreToolUse + Stop |
-| codex-cli | host-capable | yes | Hooks with partial tool coverage |
-| gemini-cli | host-capable | yes | |
-| cursor | host-capable | yes | No pre-edit block; rules are instruction-only |
-| windsurf | host-capable | yes | Cascade pre-hooks |
+| codex-cli | yes (wired) | yes | `.codex/hooks.json` `Stop` → record-only completion hook |
+| gemini-cli | yes (wired) | yes | `.gemini/settings.json` `AfterAgent` → record-only completion hook |
+| cursor | host-capable | yes | Native hooks not yet wired; backstop-only today |
+| windsurf | host-capable | yes | Native hooks not yet wired; backstop-only today |
 | aider | no | yes | Conventions are instruction-only |
 | antigravity | no | yes | Gate unreliable |
 

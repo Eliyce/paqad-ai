@@ -90,9 +90,11 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.continue/mcp.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/settings.hooks.json'))).toBe(true);
+    // Codex executes .codex/hooks.json; Gemini executes .gemini/settings.json —
+    // each now carries paqad's native completion hook so the ledger fires there too.
     expect(existsSync(join(projectRoot, '.codex/hooks.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.antigravity/hooks.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.gemini/hooks.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.gemini/settings.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/cache.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/memory.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.codex/cache.json'))).toBe(true);

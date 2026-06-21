@@ -26,6 +26,18 @@ export const PAQAD_RUNTIME_PREFIX = '~/.paqad-ai/current';
 export const PAQAD_MUTATING_TOOL_MATCHER = 'Edit|Write|NotebookEdit';
 
 /**
+ * The record-only completion hook hosts other than Claude Code bind to (Codex
+ * CLI's `Stop`, Gemini CLI's `AfterAgent`, …). It runs the same verification
+ * backstop as Claude's `Stop` hook — producing the evidence ledger when
+ * enterprise evidence is on — but always exits 0 and stays silent, so a
+ * non-Claude host's hook never halts, retries, or misreads it. This is what
+ * makes the ledger a property of *every* hook-capable provider, not Claude
+ * Code alone, with no change to any host's prose entry file. See
+ * `runtime/hooks/verification-record.mjs`.
+ */
+export const PAQAD_COMPLETION_RECORD_SCRIPT = `${PAQAD_RUNTIME_PREFIX}/hooks/verification-record.mjs`;
+
+/**
  * The live hooks paqad generates for every hook-capable adapter (issue #117).
  * The decision-pause gate (C-3) blocks mutating tools while a packet is
  * unresolved; the completion hook (C-1/C-6) runs the verification backstop and

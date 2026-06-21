@@ -168,7 +168,11 @@ describe('onboarding adapter matrix', () => {
           expect(existsSync(join(projectRoot, '.claude/memory.json'))).toBe(true);
         }
         if (adapter === 'codex-cli') {
-          expect(existsSync(join(projectRoot, '.codex/hooks.json'))).toBe(true);
+          // The real Codex hook file must carry the native `Stop` completion hook
+          // so the evidence ledger fires on Codex out of the box (the ledger bug).
+          const codexHooks = readFileSync(join(projectRoot, '.codex/hooks.json'), 'utf8');
+          expect(codexHooks).toContain('"Stop"');
+          expect(codexHooks).toContain('verification-record.mjs');
           expect(existsSync(join(projectRoot, '.codex/cache.json'))).toBe(true);
           expect(existsSync(join(projectRoot, '.codex/memory.json'))).toBe(true);
         }
@@ -180,7 +184,11 @@ describe('onboarding adapter matrix', () => {
           expect(existsSync(join(projectRoot, '.antigravity/memory.json'))).toBe(true);
         }
         if (adapter === 'gemini-cli') {
-          expect(existsSync(join(projectRoot, '.gemini/hooks.json'))).toBe(true);
+          // Gemini executes hooks from .gemini/settings.json; it must carry the
+          // native `AfterAgent` completion hook so the ledger fires on Gemini too.
+          const geminiSettings = readFileSync(join(projectRoot, '.gemini/settings.json'), 'utf8');
+          expect(geminiSettings).toContain('"AfterAgent"');
+          expect(geminiSettings).toContain('verification-record.mjs');
           expect(existsSync(join(projectRoot, '.gemini/cache.json'))).toBe(true);
           expect(existsSync(join(projectRoot, '.gemini/memory.json'))).toBe(true);
         }
