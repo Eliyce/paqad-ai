@@ -1,5 +1,5 @@
 ---
-"paqad-ai": patch
+'paqad-ai': patch
 ---
 
 fix: produce the evidence ledger on every provider, not Claude Code alone

@@ -6,8 +6,16 @@ antigravity, aider). A capability wired into a single host's hooks silently does
 nothing on the others — the class of bug where the evidence ledger was produced
 under Claude Code only, because only `ClaudeCodeAdapter` rendered the
 verification-completion hook into its host config. These rules keep agent-facing
-behaviour at provider parity.
+behaviour at provider parity. Entry files stay out of it — see
+`agent-entry-files.md`.
 
+- **Two tiers, in this order.** (1) **Provider-native first:** use the host's own
+  hook system (the same way Claude Code's `Stop` hook already works). (2)
+  **paqad's own backstop as the fallback:** the provider-independent git/CI
+  backstop (`runtime/scripts/verify-backstop.mjs`) running the same
+  `runRepositoryVerification`, for hosts with no native hook. Tier 1 is the
+  preferred, deterministic path; tier 2 catches everything tier 1 cannot. Never
+  rely on a prompt instruction in the entry file as the trigger.
 - Render host-triggered behaviour into each host's **native** config, not one
   host's. A completion-time write (evidence ledger, receipts, module-health) must
   be emitted into every hook-capable host's real hook file from one shared
