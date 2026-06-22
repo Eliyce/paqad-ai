@@ -276,4 +276,31 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
     expect(existsSync(join(projectRoot, '.paqad', 'classifier-config.json'))).toBe(false);
   });
+
+  it('unlinks a deprecated artifact that exists but was never committed in a git repo', () => {
+    gitInit(projectRoot);
+    // Present on disk, untracked (nothing committed) — git rm is skipped, but the
+    // orphan is still unlinked.
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad', 'version'), 'schema_version=1\n');
+
+    writeGitignore(projectRoot);
+
+    expect(existsSync(join(projectRoot, '.paqad', 'version'))).toBe(false);
+  });
+
+  it('untracks a now-ignored directory whose files an earlier onboarding committed', () => {
+    gitInit(projectRoot);
+    // A directory-form ignore entry (logs/) with a committed file beneath it.
+    commitFile(projectRoot, '.paqad/logs/auto-update.log', 'old log line\n');
+    expect(trackedFiles(projectRoot, '.paqad/logs/auto-update.log')).toBe(
+      '.paqad/logs/auto-update.log',
+    );
+
+    writeGitignore(projectRoot);
+
+    expect(trackedFiles(projectRoot, '.paqad/logs/auto-update.log')).toBe('');
+    // Working-tree file preserved (--cached only).
+    expect(existsSync(join(projectRoot, '.paqad', 'logs', 'auto-update.log'))).toBe(true);
+  });
 });

@@ -144,6 +144,33 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(commands.filter((command) => command.includes('silent-update.mjs'))).toHaveLength(1);
   });
 
+  it('tolerates a malformed SessionStart matcher with no hooks array', async () => {
+    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.claude/settings.json'),
+      // A hand-edited matcher missing its `hooks` array must not crash the merge.
+      JSON.stringify({ hooks: { SessionStart: [{ matcher: 'broken' }] } }),
+    );
+
+    const adapter = new ClaudeCodeAdapter();
+    const files = await adapter.generateConfig({
+      frameworkPath: '.paqad/framework-path.txt',
+      rulesPath: 'docs/instructions/rules',
+      projectRoot,
+    });
+    const parsed = JSON.parse(
+      files.find((file) => file.path === '.claude/settings.json')!.content,
+    ) as { hooks: { SessionStart: Array<{ hooks?: Array<{ command: string }> }> } };
+
+    // The empty matcher is dropped; only the two paqad SessionStart hooks remain.
+    expect(parsed.hooks.SessionStart).toHaveLength(2);
+    const commands = parsed.hooks.SessionStart.flatMap((entry) =>
+      (entry.hooks ?? []).map((hook) => hook.command),
+    );
+    expect(commands.some((command) => command.includes('agent-entry-session-start.sh'))).toBe(true);
+    expect(commands.some((command) => command.includes('silent-update.mjs'))).toBe(true);
+  });
+
   it('is idempotent — re-running does not duplicate the gate entries', async () => {
     const adapter = new ClaudeCodeAdapter();
     const first = await adapter.generateConfig({

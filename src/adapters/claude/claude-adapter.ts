@@ -146,7 +146,7 @@ function pruneLegacyHooks(list: HookMatcher[] | undefined): HookMatcher[] {
       ...matcher,
       hooks: (matcher.hooks ?? []).filter((hook) => !LEGACY_HOOK_COMMANDS.has(hook.command)),
     }))
-    .filter((matcher) => (matcher.hooks?.length ?? 0) > 0);
+    .filter((matcher) => matcher.hooks.length > 0);
 }
 
 function mergeHookList(

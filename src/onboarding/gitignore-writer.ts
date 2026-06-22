@@ -178,7 +178,7 @@ export function writeGitignore(projectRoot: string): void {
  */
 function removeDeprecatedArtifacts(projectRoot: string, paths: string[]): void {
   if (isGitRepository(projectRoot)) {
-    const tracked = paths.filter((path) => isTracked(projectRoot, path));
+    const tracked = listTrackedPaths(projectRoot, paths);
     if (tracked.length > 0) {
       try {
         execFileSync('git', ['rm', '-r', '--cached', '--ignore-unmatch', ...tracked], {
@@ -349,8 +349,7 @@ function untrackNowIgnoredPaths(projectRoot: string, paths: string[]): void {
     return;
   }
 
-  const managedPaths = paths.map((path) => path.replace(/\/$/, ''));
-  const tracked = managedPaths.filter((path) => isTracked(projectRoot, path));
+  const tracked = listTrackedPaths(projectRoot, paths);
   if (tracked.length === 0) {
     return;
   }
@@ -383,14 +382,36 @@ function isGitRepository(projectRoot: string): boolean {
   }
 }
 
-function isTracked(projectRoot: string, path: string): boolean {
+/**
+ * Resolve, in a SINGLE `git ls-files` (not one subprocess per path), which of
+ * `paths` git is currently tracking. A directory input matches when git tracks
+ * any file beneath it; a file input matches an exact entry. Returns the matching
+ * input paths (trailing slash stripped). Empty on any git failure (best-effort).
+ *
+ * Batching matters: writeGitignore checks ~30 ignore entries plus the deprecated
+ * set on every run, and one subprocess per path made onboarding spawn dozens of
+ * `git` processes, which timed out under load.
+ */
+function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
+  if (paths.length === 0) {
+    return [];
+  }
+  const normalized = paths.map((path) => path.replace(/\/$/, ''));
+  let listed: Set<string>;
   try {
-    const out = execFileSync('git', ['ls-files', '--', path], {
+    const out = execFileSync('git', ['ls-files', '-z', '--', ...normalized], {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    return out.toString().trim().length > 0;
+    listed = new Set(out.toString('utf8').split('\0').filter(Boolean));
   } catch {
-    return false;
+    return [];
   }
+  if (listed.size === 0) {
+    return [];
+  }
+  const trackedEntries = [...listed];
+  return normalized.filter((path) =>
+    trackedEntries.some((entry) => entry === path || entry.startsWith(`${path}/`)),
+  );
 }
