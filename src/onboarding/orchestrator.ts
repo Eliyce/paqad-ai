@@ -1,11 +1,4 @@
-import {
-  accessSync,
-  constants as fsConstants,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { accessSync, constants as fsConstants, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
@@ -32,7 +25,6 @@ import { SchemaValidator } from '@/validators/validator.js';
 import {
   compileRules,
   DecisionStore,
-  initializeModuleHealth,
   isCompiledRulesStale,
   writeCompiledRules,
 } from '@/planning/index.js';
@@ -106,50 +98,6 @@ export interface OnboardingOptions {
     project_creation_disabled?: boolean;
   };
 }
-
-/**
- * PQD-424 (spec 27) — schema generation stamped into `.paqad/version` so a future engine can
- * detect the on-disk `.paqad/` layout. Bumped when the `.paqad/` schema changes shape.
- */
-const ONBOARDING_SCHEMA_VERSION = 1;
-
-const NEXT_STEPS_MD = [
-  '## Required: Create Documentation Foundation',
-  '',
-  'Before starting feature work, prompt your AI agent with:',
-  '',
-  '```text',
-  'create documentation',
-  '```',
-  '',
-  'This generates:',
-  '- `docs/instructions/**`',
-  '- `docs/instructions/rules/module-map.yml`',
-  '',
-  'Review `docs/instructions/rules/module-map.yml` first. Confirm that module and feature names use business language, then prompt your AI agent with:',
-  '',
-  '```text',
-  'create module documentation',
-  '```',
-  '',
-  'That second prompt generates `docs/modules/**` from the reviewed module map.',
-  '',
-  '## Optional: Give your rules teeth (rules-as-scripts)',
-  '',
-  'To enforce `docs/instructions/rules/**` with deterministic checks instead of relying on the model to remember them, prompt your AI agent with:',
-  '',
-  '```text',
-  'analyze rules',
-  '```',
-  '',
-  'Review the generated `docs/instructions/rules/rule-script-map.yml`, then:',
-  '',
-  '```text',
-  'generate rule scripts',
-  '```',
-  '',
-  'Scripts run during `feature-development.checks`. The dashboard shows a Rule Compliance card (unknown until the first run).',
-].join('\n');
 
 export class OnboardingOrchestrator {
   /**
@@ -252,19 +200,6 @@ export class OnboardingOrchestrator {
       })),
     );
 
-    const silentUpdateSrc = join(runtimeRoot, 'hooks', 'silent-update.sh');
-    try {
-      const hookContent = readFileSync(silentUpdateSrc, 'utf8');
-      generatedFiles.push({
-        path: PATHS.HOOKS_SILENT_UPDATE,
-        content: hookContent,
-        autoUpdate: true,
-        executable: true,
-      });
-    } catch {
-      // Hook script not found — non-fatal, continue without it
-    }
-
     // AC3 (resume) — skip any file a prior interrupted run already wrote, so this
     // call produces only the unwritten remainder. Empty/absent checkpoint ⇒ full run.
     const completed = new Set(readOnboardingCheckpoint(options.projectRoot) ?? []);
@@ -298,9 +233,6 @@ export class OnboardingOrchestrator {
       writeGitignore(options.projectRoot);
       writeDetectionReport(options.projectRoot, detection);
       writeFrameworkMetadata(options.projectRoot, VERSION);
-      // AC (spec 27) — stamp the on-disk schema generation marker.
-      writeSchemaVersionMarker(options.projectRoot);
-      writeResult.written.push(PATHS.SCHEMA_VERSION_FILE);
     } catch (error) {
       throw translateDiskFullError(error);
     }
@@ -327,7 +259,6 @@ export class OnboardingOrchestrator {
       );
     }
     let compiledRulesPath = join(options.projectRoot, PATHS.COMPILED_RULES);
-    let initializedModules: string[] = [];
     try {
       if (await isCompiledRulesStale(options.projectRoot)) {
         const compiledRules = await compileRules(options.projectRoot);
@@ -338,73 +269,12 @@ export class OnboardingOrchestrator {
         `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
-    try {
-      initializedModules = await Promise.all(
-        modules.map(async (moduleName) => {
-          await initializeModuleHealth(options.projectRoot, moduleName);
-          return moduleName;
-        }),
-      );
-    } catch (error) {
-      onboardingWarnings.push(
-        `Planning module health initialization failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
-    try {
-      const classifierConfigPath = join(options.projectRoot, '.paqad', 'classifier-config.json');
-      writeFileSync(
-        classifierConfigPath,
-        JSON.stringify(
-          {
-            schema_version: 1,
-            workflow_patterns: [
-              {
-                workflow: 'pentest-retest',
-                priority: 250,
-                patterns: ['pentest retest', 'pentest-retest'],
-              },
-              {
-                workflow: 'pentest',
-                priority: 240,
-                patterns: ['run a pentest', 'penetration test', 'security audit'],
-              },
-              { workflow: 'root-cause-analysis', priority: 230, patterns: ['root cause', 'rca'] },
-              {
-                workflow: 'documentation-update',
-                priority: 200,
-                patterns: ['documentation', 'docs', 'documenation'],
-              },
-              { workflow: 'research', priority: 180, patterns: ['research', 'investigate'] },
-              { workflow: 'cleanup', priority: 170, patterns: ['cleanup', 'clean up'] },
-              { workflow: 'bug-fix', priority: 160, patterns: ['fix', 'bug'] },
-              {
-                workflow: 'feature-development',
-                priority: 140,
-                patterns: ['implement', 'build', 'add', 'feature', 'develop'],
-              },
-            ],
-          },
-          null,
-          2,
-        ) + '\n',
-      );
-      writeResult.written.push('.paqad/classifier-config.json');
-    } catch (error) {
-      onboardingWarnings.push(
-        `Classifier config initialization failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
-    try {
-      const nextStepsPath = join(options.projectRoot, '.paqad', 'next-steps.md');
-      writeFileSync(nextStepsPath, NEXT_STEPS_MD);
-      writeResult.written.push('.paqad/next-steps.md');
-    } catch (error) {
-      onboardingWarnings.push(
-        `Next-steps doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
+    // Module-health profiles are no longer eagerly seeded at onboard: an all-null
+    // profile per module reads identically to having none (both "unknown") and
+    // only adds one file per module to the tree. They are created on demand the
+    // first time real evidence maps to a module (syncModuleHealth →
+    // applyEvidenceToProfile creates an unknown profile when none exists).
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
-      framework_version: VERSION,
       adapter: adapters[0],
       project_root: toPosixPath(options.projectRoot),
       profile,
@@ -418,8 +288,7 @@ export class OnboardingOrchestrator {
       })),
       planning_artifacts: {
         compiled_rules_path: toPosixPath(compiledRulesPath),
-        module_health_initialized: initializedModules,
-        classifier_config_path: '.paqad/classifier-config.json',
+        module_health_initialized: [],
       },
     });
 
@@ -598,31 +467,8 @@ export class OnboardingOrchestrator {
       })),
     );
 
-    const silentUpdateSrc = join(runtimeRoot, 'hooks', 'silent-update.sh');
-    try {
-      const hookContent = readFileSync(silentUpdateSrc, 'utf8');
-      files.push({
-        path: PATHS.HOOKS_SILENT_UPDATE,
-        content: hookContent,
-        autoUpdate: true,
-        executable: true,
-      });
-    } catch {
-      warnings.push('Silent-update hook script not found in runtime; preview omits it.');
-    }
-
     return { files, warnings };
   }
-}
-
-/**
- * Write the plain-text `.paqad/version` schema marker (PQD-424, spec 27). Content is
- * deterministic (`schema_version=<n>`) so re-runs leave it byte-identical.
- */
-function writeSchemaVersionMarker(projectRoot: string): void {
-  const target = join(projectRoot, PATHS.SCHEMA_VERSION_FILE);
-  mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, `schema_version=${ONBOARDING_SCHEMA_VERSION}\n`);
 }
 
 /**

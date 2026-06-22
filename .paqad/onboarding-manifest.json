@@ -1,5 +1,5 @@
 {
-  "framework_version": "1.26.1",
+  "framework_version": "1.26.2",
   "adapter": "codex-cli",
   "project_root": ".",
   "profile": {
@@ -302,7 +302,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-21T08:43:12.985Z",
+    "timestamp": "2026-06-22T09:27:09.460Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -402,7 +402,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-21T08:43:16.579Z",
+  "generated_at": "2026-06-22T09:27:14.224Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -410,6 +410,10 @@
     },
     {
       "path": ".codex/hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".codex/settings.hooks.json",
       "auto_update": true
     },
     {

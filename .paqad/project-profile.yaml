@@ -36,9 +36,7 @@ model_routing:
 research:
   depth: standard
 intelligence:
-  rag_enabled: true
-  embedding_provider: local
-  embedding_model: Xenova/all-MiniLM-L6-v2
+  rag_enabled: false
   rag_similarity_threshold: 0.75
   rag_top_n: 20
   rag_max_file_size: 153600

@@ -63,6 +63,26 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('scripts/rules/.history/');
   });
 
+  it('ignores per-machine runtime state created on first use of later workflows', () => {
+    writeGitignore(projectRoot);
+
+    const content = read(projectRoot, '.paqad/.gitignore');
+    // Regenerable embeddings / collections — mirror of the already-ignored vectors/.
+    expect(content).toContain('patterns/');
+    expect(content).toContain('crs/');
+    expect(content).toContain('attachments/');
+    // Per-machine append-only logs and regenerated snapshots.
+    expect(content).toContain('attachment-events.jsonl');
+    expect(content).toContain('traceability/');
+    expect(content).toContain('module-map/drift.json');
+    expect(content).toContain('module-map/events.jsonl');
+    expect(content).toContain('schema-migrations.jsonl');
+    expect(content).toContain('skills/');
+    expect(content).toContain('delivery-detection.json');
+    // Conservative: the module-map history audit trail stays shared (tracked).
+    expect(content).not.toContain('module-map/history/');
+  });
+
   it('keeps the boot pointer shared and the version file local (the inversion)', () => {
     writeGitignore(projectRoot);
 
@@ -225,5 +245,62 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     gitInit(projectRoot);
     expect(() => writeGitignore(projectRoot)).not.toThrow();
     expect(trackedFiles(projectRoot, '.paqad/audit.log')).toBe('');
+  });
+
+  it('untracks AND removes deprecated artifacts an earlier onboarding committed', () => {
+    gitInit(projectRoot);
+    // A repo onboarded before these files were dropped committed them.
+    commitFile(projectRoot, '.paqad/version', 'schema_version=1\n');
+    commitFile(projectRoot, '.paqad/classifier-config.json', '{"schema_version":1}\n');
+    expect(trackedFiles(projectRoot, '.paqad/version')).toBe('.paqad/version');
+
+    writeGitignore(projectRoot);
+
+    // Untracked from git AND the orphaned working-tree file is gone.
+    expect(trackedFiles(projectRoot, '.paqad/version')).toBe('');
+    expect(trackedFiles(projectRoot, '.paqad/classifier-config.json')).toBe('');
+    expect(existsSync(join(projectRoot, '.paqad', 'version'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.paqad', 'classifier-config.json'))).toBe(false);
+    // Recorded once in the local audit log.
+    expect(read(projectRoot, '.paqad/audit.log')).toContain(
+      'gitignore.removed-deprecated-artifacts',
+    );
+  });
+
+  it('removes a deprecated working-tree artifact outside a git repository', () => {
+    // No git repo: the untrack step is skipped, but the orphan is still unlinked.
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad', 'classifier-config.json'), '{}\n');
+
+    writeGitignore(projectRoot);
+
+    expect(existsSync(join(projectRoot, '.paqad', 'classifier-config.json'))).toBe(false);
+  });
+
+  it('unlinks a deprecated artifact that exists but was never committed in a git repo', () => {
+    gitInit(projectRoot);
+    // Present on disk, untracked (nothing committed) — git rm is skipped, but the
+    // orphan is still unlinked.
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad', 'version'), 'schema_version=1\n');
+
+    writeGitignore(projectRoot);
+
+    expect(existsSync(join(projectRoot, '.paqad', 'version'))).toBe(false);
+  });
+
+  it('untracks a now-ignored directory whose files an earlier onboarding committed', () => {
+    gitInit(projectRoot);
+    // A directory-form ignore entry (logs/) with a committed file beneath it.
+    commitFile(projectRoot, '.paqad/logs/auto-update.log', 'old log line\n');
+    expect(trackedFiles(projectRoot, '.paqad/logs/auto-update.log')).toBe(
+      '.paqad/logs/auto-update.log',
+    );
+
+    writeGitignore(projectRoot);
+
+    expect(trackedFiles(projectRoot, '.paqad/logs/auto-update.log')).toBe('');
+    // Working-tree file preserved (--cached only).
+    expect(existsSync(join(projectRoot, '.paqad', 'logs', 'auto-update.log'))).toBe(true);
   });
 });

@@ -89,7 +89,10 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/rules/_shared/constitution.md'))).toBe(
       true,
     );
-    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(true);
+    // The silent-update hook is no longer copied into the project; it runs from
+    // the framework install as a cross-platform .mjs.
+    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.mjs'))).toBe(false);
     expect(existsSync(join(projectRoot, '.claude/settings.hooks.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/cache.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/memory.json'))).toBe(true);
@@ -99,7 +102,9 @@ describe('OnboardingOrchestrator', () => {
       existsSync(join(projectRoot, 'docs/instructions/workflows/feature-development.yaml')),
     ).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/compiled-rules.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.paqad/module-health/core.json'))).toBe(true);
+    // Module-health profiles are no longer eagerly seeded; they are created on
+    // demand when a module first accrues real evidence.
+    expect(existsSync(join(projectRoot, '.paqad/module-health/core.json'))).toBe(false);
     const onboardingManifest = JSON.parse(
       readFileSync(join(projectRoot, '.paqad/onboarding-manifest.json'), 'utf8'),
     );
@@ -107,7 +112,7 @@ describe('OnboardingOrchestrator', () => {
     expect(onboardingManifest.planning_artifacts).toEqual(
       expect.objectContaining({
         compiled_rules_path: expect.stringContaining('.paqad/compiled-rules.json'),
-        module_health_initialized: expect.arrayContaining(['core']),
+        module_health_initialized: [],
       }),
     );
   });
@@ -726,12 +731,24 @@ describe('OnboardingOrchestrator', () => {
   describe('PQD-424 — generate baseline docs and configs', () => {
     const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
 
-    it('writes the .paqad/version schema marker on the first run', async () => {
+    it('does not create the deprecated .paqad/version, classifier-config, or next-steps', async () => {
       await new OnboardingOrchestrator().run({ projectRoot, selections });
 
-      expect(readFileSync(join(projectRoot, PATHS.SCHEMA_VERSION_FILE), 'utf8')).toBe(
-        'schema_version=1\n',
-      );
+      expect(existsSync(join(projectRoot, '.paqad/version'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/classifier-config.json'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/next-steps.md'))).toBe(false);
+    });
+
+    it('writes a tracked manifest with no churning framework_version field', async () => {
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      const manifest = JSON.parse(
+        readFileSync(join(projectRoot, PATHS.ONBOARDING_MANIFEST), 'utf8'),
+      ) as Record<string, unknown>;
+      // The load-bearing file stays, but the per-release volatile field is gone.
+      expect(manifest).not.toHaveProperty('framework_version');
+      expect(manifest).toHaveProperty('adapter');
+      expect(manifest).toHaveProperty('generated_artifacts');
     });
 
     it('writes a project.onboarded audit line with project_id, wizard_version and steps_completed', async () => {
@@ -1269,10 +1286,8 @@ describe('OnboardingOrchestrator', () => {
       '.paqad/framework-version.txt',
       '.paqad/framework-path.txt',
       '.paqad/onboarding-manifest.json',
-      '.paqad/classifier-config.json',
       '.paqad/compiled-rules.json',
       '.paqad/decision-pause-contract.md',
-      '.paqad/next-steps.md',
       'CLAUDE.md',
     ];
 

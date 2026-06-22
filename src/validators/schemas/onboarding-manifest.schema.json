@@ -3,7 +3,6 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "framework_version",
     "adapter",
     "project_root",
     "profile",

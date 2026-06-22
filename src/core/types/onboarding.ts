@@ -4,7 +4,13 @@ import type { ProjectProfile } from './project-profile.js';
 import type { RepositoryContext } from './repository.js';
 
 export interface OnboardingManifest {
-  framework_version: string;
+  /**
+   * Optional. No longer written into newly generated manifests: it is the one
+   * field that churned the tracked manifest on every version bump, and its only
+   * reader (graph extraction) null-guards a soft advisory. Kept in the type for
+   * back-compat reading of manifests written before it was dropped.
+   */
+  framework_version?: string;
   adapter: AdapterType;
   project_root: string;
   profile: ProjectProfile;

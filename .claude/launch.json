@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "paqad-dashboard",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dist/cli/index.js", "dashboard", "--no-open", "--quiet", "--no-watch", "--port", "5377", "--project-root", "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm"],
+      "port": 5377
+    }
+  ]
+}

@@ -73,6 +73,30 @@ describe('HealthChecker', () => {
     ).toBe('pass');
   });
 
+  it('treats the decision workspace as ready without the git-ignored audit log', async () => {
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+      },
+    });
+
+    // audit.jsonl is git-ignored write-only telemetry; a clean clone never
+    // carries it and must still be healthy.
+    const auditLog = join(projectRoot, PATHS.DECISIONS_AUDIT_LOG);
+    if (existsSync(auditLog)) {
+      unlinkSync(auditLog);
+    }
+
+    const report = await new HealthChecker().run(projectRoot);
+
+    expect(report.checks.find((check) => check.name === 'Decision workspace ready')?.status).toBe(
+      'pass',
+    );
+  });
+
   it('does not require stack tool copies for content-only projects', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,

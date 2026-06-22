@@ -135,15 +135,16 @@ describe('framework end-to-end onboarding', () => {
     expect(readFileSync(join(projectRoot, '.junie/AGENTS.md'), 'utf8')).not.toContain(
       'silent-update.sh',
     );
-    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(true);
+    // The silent-update hook runs from the framework install, not a project copy.
+    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(false);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/README.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/boost.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/testing.md'))).toBe(true);
     assertNoProjectLocalSkillsOrAgents(projectRoot);
     expect(existsSync(join(projectRoot, 'scripts/health-check.sh'))).toBe(false);
-    expect(readFileSync(join(projectRoot, '.paqad/next-steps.md'), 'utf8')).toContain(
-      'create documentation',
-    );
+    // next-steps.md is no longer written to disk; the guidance is printed to the
+    // terminal at onboarding completion (printNextSteps).
+    expect(existsSync(join(projectRoot, '.paqad/next-steps.md'))).toBe(false);
   });
 
   it('validates Laravel Sail onboarding and writes Sail-aware stack artifacts', async () => {

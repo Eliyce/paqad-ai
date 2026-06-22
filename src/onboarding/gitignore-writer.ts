@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { appendPlanningAudit } from '@/planning/audit.js';
@@ -68,6 +68,20 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'module-health/',
   'module-health-evidence/',
   'module-health-consumed-events.json',
+  // Per-machine runtime state created on first use of a later workflow (not at
+  // onboard). Each is regenerated locally or is a per-machine append-only log,
+  // so committing it churns the tree the moment that workflow runs. Kept
+  // unconditional (lesson from #187: a conditional ignore leaks).
+  'patterns/', // regenerable pattern embeddings (mirror of vectors/)
+  'crs/', // regenerable contextual-retrieval-store collections
+  'attachments/', // ephemeral desktop-session attachment collections
+  'attachment-events.jsonl', // per-machine attachment-index event log
+  'traceability/', // rebuilt from reality each run
+  'module-map/drift.json', // regenerable module-map drift snapshot
+  'module-map/events.jsonl', // per-machine module-map audit log
+  'schema-migrations.jsonl', // per-machine schema-migration audit log
+  'skills/', // per-machine skill/pack failed-load event log
+  'delivery-detection.json', // regenerated from git history per machine
   '# compliance ledger (share via dashboard/SIEM, not git)',
   'ledger/',
 ];
@@ -80,6 +94,31 @@ const MANAGED_GITIGNORE_ENTRIES = [
  * merge needs.
  */
 const MANAGED_GITATTRIBUTES_ENTRIES = ['decisions/index.json merge=union'];
+
+/**
+ * Framework artifacts the engine no longer creates. On re-onboard we untrack any
+ * copy an earlier onboarding committed (`--cached`, working tree preserved) AND
+ * remove the orphaned working-tree file, so a repo onboarded before this change
+ * does not carry a stale, never-read file indefinitely. Each is a pure
+ * framework artifact (no user-authored content), project-root-relative.
+ *
+ *   - `.paqad/version` — the PQD-424 plain-text schema stamp; zero readers, made
+ *     redundant by `.paqad/schema-version.json` (the real migration marker).
+ *   - `.paqad/classifier-config.json` — static, never read (the live router uses
+ *     the compiled-in WORKFLOW_PATTERNS const); it had already silently drifted.
+ *   - `.paqad/next-steps.md` — a one-time onboarding nudge with zero readers; the
+ *     same guidance is printed to the terminal at the end of onboarding.
+ *   - `.paqad/hooks/silent-update.sh` — the auto-update hook is no longer copied
+ *     into the project; it runs from the framework install as a cross-platform
+ *     `.mjs`. The per-project copy was never executed (the host wires the global
+ *     one), so removing it is safe.
+ */
+const DEPRECATED_ARTIFACTS = [
+  '.paqad/version',
+  '.paqad/classifier-config.json',
+  '.paqad/next-steps.md',
+  '.paqad/hooks/silent-update.sh',
+];
 
 /**
  * Full-from-project-root paths the managed block ignores, used to (a) untrack
@@ -123,6 +162,57 @@ export function writeGitignore(projectRoot: string): void {
 
   // 3. Untrack any now-ignored path an earlier onboarding committed.
   untrackNowIgnoredPaths(projectRoot, ignoredPathsFromRoot());
+
+  // 4. Remove framework artifacts the engine no longer creates (untrack the
+  //    committed copy and unlink the orphaned working-tree file).
+  removeDeprecatedArtifacts(projectRoot, DEPRECATED_ARTIFACTS);
+}
+
+/**
+ * Clean up framework artifacts that are no longer generated. For each path:
+ * untrack it when an earlier onboarding committed it (`--cached`, never deleting
+ * a working-tree file via git), then unlink the orphaned working-tree copy.
+ * Safe when not in a git repo, idempotent (no-op once nothing remains), and
+ * leaves a single audit entry listing what was removed. Best-effort: a git or
+ * unlink failure must never fail onboarding.
+ */
+function removeDeprecatedArtifacts(projectRoot: string, paths: string[]): void {
+  if (isGitRepository(projectRoot)) {
+    const tracked = listTrackedPaths(projectRoot, paths);
+    if (tracked.length > 0) {
+      try {
+        execFileSync('git', ['rm', '-r', '--cached', '--ignore-unmatch', ...tracked], {
+          cwd: projectRoot,
+          stdio: 'ignore',
+        });
+      } catch {
+        // Untrack is best-effort; a git failure must not fail onboarding.
+      }
+    }
+  }
+
+  const removed = paths.filter((path) => unlinkIfPresent(join(projectRoot, path)));
+  if (removed.length > 0) {
+    appendPlanningAudit(projectRoot, 'INFO', 'gitignore.removed-deprecated-artifacts', {
+      paths: removed.join(','),
+      count: removed.length,
+    });
+  }
+}
+
+/**
+ * Unlink a file, returning whether it existed. ENOENT (already gone) is the
+ * normal idempotent case; any other error is swallowed (best-effort). Uses a
+ * try/unlink rather than existsSync-then-unlink to avoid a TOCTOU race
+ * (CWE-367, CodeQL js/file-system-race).
+ */
+function unlinkIfPresent(path: string): boolean {
+  try {
+    unlinkSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -259,8 +349,7 @@ function untrackNowIgnoredPaths(projectRoot: string, paths: string[]): void {
     return;
   }
 
-  const managedPaths = paths.map((path) => path.replace(/\/$/, ''));
-  const tracked = managedPaths.filter((path) => isTracked(projectRoot, path));
+  const tracked = listTrackedPaths(projectRoot, paths);
   if (tracked.length === 0) {
     return;
   }
@@ -293,14 +382,36 @@ function isGitRepository(projectRoot: string): boolean {
   }
 }
 
-function isTracked(projectRoot: string, path: string): boolean {
+/**
+ * Resolve, in a SINGLE `git ls-files` (not one subprocess per path), which of
+ * `paths` git is currently tracking. A directory input matches when git tracks
+ * any file beneath it; a file input matches an exact entry. Returns the matching
+ * input paths (trailing slash stripped). Empty on any git failure (best-effort).
+ *
+ * Batching matters: writeGitignore checks ~30 ignore entries plus the deprecated
+ * set on every run, and one subprocess per path made onboarding spawn dozens of
+ * `git` processes, which timed out under load.
+ */
+function listTrackedPaths(projectRoot: string, paths: string[]): string[] {
+  if (paths.length === 0) {
+    return [];
+  }
+  const normalized = paths.map((path) => path.replace(/\/$/, ''));
+  let listed: Set<string>;
   try {
-    const out = execFileSync('git', ['ls-files', '--', path], {
+    const out = execFileSync('git', ['ls-files', '-z', '--', ...normalized], {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    return out.toString().trim().length > 0;
+    listed = new Set(out.toString('utf8').split('\0').filter(Boolean));
   } catch {
-    return false;
+    return [];
   }
+  if (listed.size === 0) {
+    return [];
+  }
+  const trackedEntries = [...listed];
+  return normalized.filter((path) =>
+    trackedEntries.some((entry) => entry === path || entry.startsWith(`${path}/`)),
+  );
 }

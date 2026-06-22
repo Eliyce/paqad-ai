@@ -260,12 +260,15 @@ export class HealthChecker {
   }
 
   private checkDecisionWorkspace(projectRoot: string): HealthCheckResult {
+    // DECISIONS_AUDIT_LOG is intentionally NOT required: it is git-ignored,
+    // write-only telemetry with no production reader, so a clean clone (which
+    // never carries it) is healthy without it. Requiring it produced a spurious
+    // "Missing decision artifacts" warning on every fresh checkout.
     const required = [
       PATHS.DECISIONS_PENDING_DIR,
       PATHS.DECISIONS_RESOLVED_DIR,
       PATHS.DECISIONS_EXPIRED_DIR,
       PATHS.DECISIONS_INDEX,
-      PATHS.DECISIONS_AUDIT_LOG,
     ];
     const missing = required.filter((relativePath) => !existsSync(join(projectRoot, relativePath)));
 
@@ -281,10 +284,11 @@ export class HealthChecker {
   private checkModuleHealthLedger(projectRoot: string): HealthCheckResult {
     const root = join(projectRoot, PATHS.PLANNING_MODULE_HEALTH_DIR);
     if (!existsSync(root)) {
-      return warn(
+      // Profiles are created on demand as modules accrue evidence; an absent
+      // directory on a fresh/quiet project is expected, not a problem.
+      return pass(
         'Module health ledger valid',
-        'Module health directory is missing',
-        'Run onboarding to seed module health profiles.',
+        'No module health profiles yet — created on demand as modules accrue evidence',
       );
     }
 
