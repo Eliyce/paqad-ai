@@ -80,7 +80,6 @@ const CORE_PHASE1_ARTIFACTS = [
   '.paqad/onboarding-manifest.json',
   '.paqad/compiled-rules.json',
   '.paqad/decision-pause-contract.md',
-  '.paqad/next-steps.md',
   'CLAUDE.md',
 ];
 

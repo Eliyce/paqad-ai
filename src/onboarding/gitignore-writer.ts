@@ -106,8 +106,14 @@ const MANAGED_GITATTRIBUTES_ENTRIES = ['decisions/index.json merge=union'];
  *     redundant by `.paqad/schema-version.json` (the real migration marker).
  *   - `.paqad/classifier-config.json` — static, never read (the live router uses
  *     the compiled-in WORKFLOW_PATTERNS const); it had already silently drifted.
+ *   - `.paqad/next-steps.md` — a one-time onboarding nudge with zero readers; the
+ *     same guidance is printed to the terminal at the end of onboarding.
  */
-const DEPRECATED_ARTIFACTS = ['.paqad/version', '.paqad/classifier-config.json'];
+const DEPRECATED_ARTIFACTS = [
+  '.paqad/version',
+  '.paqad/classifier-config.json',
+  '.paqad/next-steps.md',
+];
 
 /**
  * Full-from-project-root paths the managed block ignores, used to (a) untrack

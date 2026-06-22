@@ -68,6 +68,17 @@ export function printNextSteps(): void {
       claudeMuted(pad('  Review the map, then prompt: create module documentation')) +
       claudeAccent('║'),
   );
+  console.log(claudeAccent('║') + claudeSurface(pad()) + claudeAccent('║'));
+  console.log(
+    claudeAccent('║') +
+      claudeMuted(pad('  Optional: prompt "analyze rules" then "generate rule scripts"')) +
+      claudeAccent('║'),
+  );
+  console.log(
+    claudeAccent('║') +
+      claudeMuted(pad('  to enforce docs/instructions/rules/** as real checks.')) +
+      claudeAccent('║'),
+  );
   console.log(claudeAccent(borderLine('╚', '═', '╝')));
   console.log();
 }

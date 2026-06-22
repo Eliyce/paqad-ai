@@ -141,9 +141,9 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/testing.md'))).toBe(true);
     assertNoProjectLocalSkillsOrAgents(projectRoot);
     expect(existsSync(join(projectRoot, 'scripts/health-check.sh'))).toBe(false);
-    expect(readFileSync(join(projectRoot, '.paqad/next-steps.md'), 'utf8')).toContain(
-      'create documentation',
-    );
+    // next-steps.md is no longer written to disk; the guidance is printed to the
+    // terminal at onboarding completion (printNextSteps).
+    expect(existsSync(join(projectRoot, '.paqad/next-steps.md'))).toBe(false);
   });
 
   it('validates Laravel Sail onboarding and writes Sail-aware stack artifacts', async () => {

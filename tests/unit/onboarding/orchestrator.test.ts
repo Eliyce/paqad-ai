@@ -728,11 +728,12 @@ describe('OnboardingOrchestrator', () => {
   describe('PQD-424 — generate baseline docs and configs', () => {
     const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
 
-    it('does not create the deprecated .paqad/version or classifier-config.json', async () => {
+    it('does not create the deprecated .paqad/version, classifier-config, or next-steps', async () => {
       await new OnboardingOrchestrator().run({ projectRoot, selections });
 
       expect(existsSync(join(projectRoot, '.paqad/version'))).toBe(false);
       expect(existsSync(join(projectRoot, '.paqad/classifier-config.json'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/next-steps.md'))).toBe(false);
     });
 
     it('writes a tracked manifest with no churning framework_version field', async () => {
@@ -1284,7 +1285,6 @@ describe('OnboardingOrchestrator', () => {
       '.paqad/onboarding-manifest.json',
       '.paqad/compiled-rules.json',
       '.paqad/decision-pause-contract.md',
-      '.paqad/next-steps.md',
       'CLAUDE.md',
     ];
 

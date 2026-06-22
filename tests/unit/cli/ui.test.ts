@@ -47,6 +47,9 @@ describe('cli ui helpers', () => {
       expect(output).toContain('AI Framework');
       expect(output).toContain('ONBOARDING COMPLETE');
       expect(output).toContain('create documentation');
+      expect(output).toContain('create module documentation');
+      // The optional rules-as-scripts guidance moved here from next-steps.md.
+      expect(output).toContain('analyze rules');
     } finally {
       logSpy.mockRestore();
     }

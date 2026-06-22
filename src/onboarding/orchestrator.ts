@@ -1,10 +1,4 @@
-import {
-  accessSync,
-  constants as fsConstants,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { accessSync, constants as fsConstants, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
@@ -104,44 +98,6 @@ export interface OnboardingOptions {
     project_creation_disabled?: boolean;
   };
 }
-
-const NEXT_STEPS_MD = [
-  '## Required: Create Documentation Foundation',
-  '',
-  'Before starting feature work, prompt your AI agent with:',
-  '',
-  '```text',
-  'create documentation',
-  '```',
-  '',
-  'This generates:',
-  '- `docs/instructions/**`',
-  '- `docs/instructions/rules/module-map.yml`',
-  '',
-  'Review `docs/instructions/rules/module-map.yml` first. Confirm that module and feature names use business language, then prompt your AI agent with:',
-  '',
-  '```text',
-  'create module documentation',
-  '```',
-  '',
-  'That second prompt generates `docs/modules/**` from the reviewed module map.',
-  '',
-  '## Optional: Give your rules teeth (rules-as-scripts)',
-  '',
-  'To enforce `docs/instructions/rules/**` with deterministic checks instead of relying on the model to remember them, prompt your AI agent with:',
-  '',
-  '```text',
-  'analyze rules',
-  '```',
-  '',
-  'Review the generated `docs/instructions/rules/rule-script-map.yml`, then:',
-  '',
-  '```text',
-  'generate rule scripts',
-  '```',
-  '',
-  'Scripts run during `feature-development.checks`. The dashboard shows a Rule Compliance card (unknown until the first run).',
-].join('\n');
 
 export class OnboardingOrchestrator {
   /**
@@ -331,15 +287,6 @@ export class OnboardingOrchestrator {
     // only adds one file per module to the tree. They are created on demand the
     // first time real evidence maps to a module (syncModuleHealth →
     // applyEvidenceToProfile creates an unknown profile when none exists).
-    try {
-      const nextStepsPath = join(options.projectRoot, '.paqad', 'next-steps.md');
-      writeFileSync(nextStepsPath, NEXT_STEPS_MD);
-      writeResult.written.push('.paqad/next-steps.md');
-    } catch (error) {
-      onboardingWarnings.push(
-        `Next-steps doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
       adapter: adapters[0],
       project_root: toPosixPath(options.projectRoot),
