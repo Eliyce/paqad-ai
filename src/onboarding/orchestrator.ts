@@ -350,7 +350,6 @@ export class OnboardingOrchestrator {
       );
     }
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
-      framework_version: VERSION,
       adapter: adapters[0],
       project_root: toPosixPath(options.projectRoot),
       profile,

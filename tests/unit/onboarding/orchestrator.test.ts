@@ -733,6 +733,18 @@ describe('OnboardingOrchestrator', () => {
       expect(existsSync(join(projectRoot, '.paqad/classifier-config.json'))).toBe(false);
     });
 
+    it('writes a tracked manifest with no churning framework_version field', async () => {
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      const manifest = JSON.parse(
+        readFileSync(join(projectRoot, PATHS.ONBOARDING_MANIFEST), 'utf8'),
+      ) as Record<string, unknown>;
+      // The load-bearing file stays, but the per-release volatile field is gone.
+      expect(manifest).not.toHaveProperty('framework_version');
+      expect(manifest).toHaveProperty('adapter');
+      expect(manifest).toHaveProperty('generated_artifacts');
+    });
+
     it('writes a project.onboarded audit line with project_id, wizard_version and steps_completed', async () => {
       await new OnboardingOrchestrator().run({ projectRoot, selections });
 
