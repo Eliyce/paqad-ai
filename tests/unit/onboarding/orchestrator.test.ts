@@ -726,12 +726,11 @@ describe('OnboardingOrchestrator', () => {
   describe('PQD-424 — generate baseline docs and configs', () => {
     const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
 
-    it('writes the .paqad/version schema marker on the first run', async () => {
+    it('does not create the deprecated .paqad/version or classifier-config.json', async () => {
       await new OnboardingOrchestrator().run({ projectRoot, selections });
 
-      expect(readFileSync(join(projectRoot, PATHS.SCHEMA_VERSION_FILE), 'utf8')).toBe(
-        'schema_version=1\n',
-      );
+      expect(existsSync(join(projectRoot, '.paqad/version'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/classifier-config.json'))).toBe(false);
     });
 
     it('writes a project.onboarded audit line with project_id, wizard_version and steps_completed', async () => {
@@ -1269,7 +1268,6 @@ describe('OnboardingOrchestrator', () => {
       '.paqad/framework-version.txt',
       '.paqad/framework-path.txt',
       '.paqad/onboarding-manifest.json',
-      '.paqad/classifier-config.json',
       '.paqad/compiled-rules.json',
       '.paqad/decision-pause-contract.md',
       '.paqad/next-steps.md',

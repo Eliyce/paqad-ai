@@ -246,4 +246,34 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(() => writeGitignore(projectRoot)).not.toThrow();
     expect(trackedFiles(projectRoot, '.paqad/audit.log')).toBe('');
   });
+
+  it('untracks AND removes deprecated artifacts an earlier onboarding committed', () => {
+    gitInit(projectRoot);
+    // A repo onboarded before these files were dropped committed them.
+    commitFile(projectRoot, '.paqad/version', 'schema_version=1\n');
+    commitFile(projectRoot, '.paqad/classifier-config.json', '{"schema_version":1}\n');
+    expect(trackedFiles(projectRoot, '.paqad/version')).toBe('.paqad/version');
+
+    writeGitignore(projectRoot);
+
+    // Untracked from git AND the orphaned working-tree file is gone.
+    expect(trackedFiles(projectRoot, '.paqad/version')).toBe('');
+    expect(trackedFiles(projectRoot, '.paqad/classifier-config.json')).toBe('');
+    expect(existsSync(join(projectRoot, '.paqad', 'version'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.paqad', 'classifier-config.json'))).toBe(false);
+    // Recorded once in the local audit log.
+    expect(read(projectRoot, '.paqad/audit.log')).toContain(
+      'gitignore.removed-deprecated-artifacts',
+    );
+  });
+
+  it('removes a deprecated working-tree artifact outside a git repository', () => {
+    // No git repo: the untrack step is skipped, but the orphan is still unlinked.
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad', 'classifier-config.json'), '{}\n');
+
+    writeGitignore(projectRoot);
+
+    expect(existsSync(join(projectRoot, '.paqad', 'classifier-config.json'))).toBe(false);
+  });
 });

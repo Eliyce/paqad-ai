@@ -182,7 +182,6 @@ describe('portability sanitization (issue #69)', () => {
       planning_artifacts: {
         compiled_rules_path: join(dir, '.paqad/compiled-rules.json'),
         module_health_initialized: [],
-        classifier_config_path: '.paqad/classifier-config.json',
       },
     });
     const written = readFileSync(join(dir, '.paqad/onboarding-manifest.json'), 'utf8');

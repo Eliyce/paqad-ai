@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { appendPlanningAudit } from '@/planning/audit.js';
@@ -96,6 +96,20 @@ const MANAGED_GITIGNORE_ENTRIES = [
 const MANAGED_GITATTRIBUTES_ENTRIES = ['decisions/index.json merge=union'];
 
 /**
+ * Framework artifacts the engine no longer creates. On re-onboard we untrack any
+ * copy an earlier onboarding committed (`--cached`, working tree preserved) AND
+ * remove the orphaned working-tree file, so a repo onboarded before this change
+ * does not carry a stale, never-read file indefinitely. Each is a pure
+ * framework artifact (no user-authored content), project-root-relative.
+ *
+ *   - `.paqad/version` — the PQD-424 plain-text schema stamp; zero readers, made
+ *     redundant by `.paqad/schema-version.json` (the real migration marker).
+ *   - `.paqad/classifier-config.json` — static, never read (the live router uses
+ *     the compiled-in WORKFLOW_PATTERNS const); it had already silently drifted.
+ */
+const DEPRECATED_ARTIFACTS = ['.paqad/version', '.paqad/classifier-config.json'];
+
+/**
  * Full-from-project-root paths the managed block ignores, used to (a) untrack
  * any now-ignored path an earlier onboarding committed and (b) scrub a legacy
  * `# paqad-ai` block out of the root `.gitignore`. `framework-path.txt` is added
@@ -137,6 +151,57 @@ export function writeGitignore(projectRoot: string): void {
 
   // 3. Untrack any now-ignored path an earlier onboarding committed.
   untrackNowIgnoredPaths(projectRoot, ignoredPathsFromRoot());
+
+  // 4. Remove framework artifacts the engine no longer creates (untrack the
+  //    committed copy and unlink the orphaned working-tree file).
+  removeDeprecatedArtifacts(projectRoot, DEPRECATED_ARTIFACTS);
+}
+
+/**
+ * Clean up framework artifacts that are no longer generated. For each path:
+ * untrack it when an earlier onboarding committed it (`--cached`, never deleting
+ * a working-tree file via git), then unlink the orphaned working-tree copy.
+ * Safe when not in a git repo, idempotent (no-op once nothing remains), and
+ * leaves a single audit entry listing what was removed. Best-effort: a git or
+ * unlink failure must never fail onboarding.
+ */
+function removeDeprecatedArtifacts(projectRoot: string, paths: string[]): void {
+  if (isGitRepository(projectRoot)) {
+    const tracked = paths.filter((path) => isTracked(projectRoot, path));
+    if (tracked.length > 0) {
+      try {
+        execFileSync('git', ['rm', '-r', '--cached', '--ignore-unmatch', ...tracked], {
+          cwd: projectRoot,
+          stdio: 'ignore',
+        });
+      } catch {
+        // Untrack is best-effort; a git failure must not fail onboarding.
+      }
+    }
+  }
+
+  const removed = paths.filter((path) => unlinkIfPresent(join(projectRoot, path)));
+  if (removed.length > 0) {
+    appendPlanningAudit(projectRoot, 'INFO', 'gitignore.removed-deprecated-artifacts', {
+      paths: removed.join(','),
+      count: removed.length,
+    });
+  }
+}
+
+/**
+ * Unlink a file, returning whether it existed. ENOENT (already gone) is the
+ * normal idempotent case; any other error is swallowed (best-effort). Uses a
+ * try/unlink rather than existsSync-then-unlink to avoid a TOCTOU race
+ * (CWE-367, CodeQL js/file-system-race).
+ */
+function unlinkIfPresent(path: string): boolean {
+  try {
+    unlinkSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
