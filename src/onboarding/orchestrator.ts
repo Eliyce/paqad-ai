@@ -1,4 +1,4 @@
-import { accessSync, constants as fsConstants, readFileSync, statSync } from 'node:fs';
+import { accessSync, constants as fsConstants, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
@@ -199,19 +199,6 @@ export class OnboardingOrchestrator {
         stack_profile: selections.stack_profile,
       })),
     );
-
-    const silentUpdateSrc = join(runtimeRoot, 'hooks', 'silent-update.sh');
-    try {
-      const hookContent = readFileSync(silentUpdateSrc, 'utf8');
-      generatedFiles.push({
-        path: PATHS.HOOKS_SILENT_UPDATE,
-        content: hookContent,
-        autoUpdate: true,
-        executable: true,
-      });
-    } catch {
-      // Hook script not found — non-fatal, continue without it
-    }
 
     // AC3 (resume) — skip any file a prior interrupted run already wrote, so this
     // call produces only the unwritten remainder. Empty/absent checkpoint ⇒ full run.
@@ -479,19 +466,6 @@ export class OnboardingOrchestrator {
         stack_profile: selections.stack_profile,
       })),
     );
-
-    const silentUpdateSrc = join(runtimeRoot, 'hooks', 'silent-update.sh');
-    try {
-      const hookContent = readFileSync(silentUpdateSrc, 'utf8');
-      files.push({
-        path: PATHS.HOOKS_SILENT_UPDATE,
-        content: hookContent,
-        autoUpdate: true,
-        executable: true,
-      });
-    } catch {
-      warnings.push('Silent-update hook script not found in runtime; preview omits it.');
-    }
 
     return { files, warnings };
   }

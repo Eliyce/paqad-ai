@@ -89,7 +89,10 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/rules/_shared/constitution.md'))).toBe(
       true,
     );
-    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(true);
+    // The silent-update hook is no longer copied into the project; it runs from
+    // the framework install as a cross-platform .mjs.
+    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.mjs'))).toBe(false);
     expect(existsSync(join(projectRoot, '.claude/settings.hooks.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/cache.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/memory.json'))).toBe(true);

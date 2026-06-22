@@ -45,7 +45,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     const sessionStartCommands = parsed.hooks.SessionStart.flatMap((entry) =>
       entry.hooks.map((hook) => hook.command),
     );
-    expect(sessionStartCommands.some((command) => command.includes('silent-update.sh'))).toBe(true);
+    expect(sessionStartCommands.some((command) => command.includes('silent-update.mjs'))).toBe(
+      true,
+    );
+    // The retired .sh command must never be wired in.
+    expect(sessionStartCommands.some((command) => command.includes('silent-update.sh'))).toBe(
+      false,
+    );
     // Issue #117 (C-5) — the decision-pause gate and the verification completion
     // hook are generated from the single hook-spec definition.
     const preToolCommands = parsed.hooks.PreToolUse.flatMap((entry) =>
@@ -102,6 +108,40 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     );
     // agent-entry session-start + background self-update (decision D-2).
     expect(parsed.hooks.SessionStart).toHaveLength(2);
+  });
+
+  it('prunes the retired silent-update.sh SessionStart entry on re-onboard', async () => {
+    // An earlier onboarding wired the now-retired .sh hook into SessionStart.
+    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.claude/settings.json'),
+      JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              hooks: [{ type: 'command', command: '~/.paqad-ai/current/hooks/silent-update.sh' }],
+            },
+          ],
+        },
+      }),
+    );
+
+    const adapter = new ClaudeCodeAdapter();
+    const files = await adapter.generateConfig({
+      frameworkPath: '.paqad/framework-path.txt',
+      rulesPath: 'docs/instructions/rules',
+      projectRoot,
+    });
+    const settings = files.find((file) => file.path === '.claude/settings.json');
+    const commands = (
+      JSON.parse(settings!.content) as {
+        hooks: { SessionStart: Array<{ hooks: Array<{ command: string }> }> };
+      }
+    ).hooks.SessionStart.flatMap((entry) => entry.hooks.map((hook) => hook.command));
+
+    // The dangling .sh entry is gone; the new .mjs hook is wired in exactly once.
+    expect(commands.filter((command) => command.includes('silent-update.sh'))).toHaveLength(0);
+    expect(commands.filter((command) => command.includes('silent-update.mjs'))).toHaveLength(1);
   });
 
   it('is idempotent — re-running does not duplicate the gate entries', async () => {

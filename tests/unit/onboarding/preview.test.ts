@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ValidationError } from '@/core/errors/index.js';
-import { PATHS } from '@/core/constants/paths.js';
 import { OnboardingOrchestrator } from '@/onboarding';
 
 const SELECTIONS = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
@@ -74,17 +73,18 @@ describe('OnboardingOrchestrator.preview', () => {
     const orchestrator = new OnboardingOrchestrator();
     await orchestrator.run({ projectRoot, selections: SELECTIONS });
 
-    // The silent-update hook is an auto-update artifact; mutate it so its bytes diverge.
-    const hookPath = join(projectRoot, PATHS.HOOKS_SILENT_UPDATE);
-    writeFileSync(hookPath, '# locally edited\n');
+    // settings.hooks.json is an auto-update artifact; mutate it so its bytes diverge.
+    const hookConfigRelative = '.claude/settings.hooks.json';
+    const hookConfigPath = join(projectRoot, hookConfigRelative);
+    writeFileSync(hookConfigPath, '{ "hooks": {} }\n');
 
     const result = await orchestrator.preview({ projectRoot, selections: SELECTIONS });
-    const hookEntry = result.entries.find((entry) => entry.path.endsWith('silent-update.sh'));
+    const entry = result.entries.find((item) => item.path === hookConfigRelative);
 
-    expect(hookEntry?.action).toBe('overwrite');
-    expect(typeof hookEntry?.mtimeMs).toBe('number');
+    expect(entry?.action).toBe('overwrite');
+    expect(typeof entry?.mtimeMs).toBe('number');
     // The file we edited was not touched by the preview.
-    expect(readFileSync(hookPath, 'utf8')).toBe('# locally edited\n');
+    expect(readFileSync(hookConfigPath, 'utf8')).toBe('{ "hooks": {} }\n');
   });
 
   it('throws ValidationError for a non-existent path and returns no partial result', async () => {

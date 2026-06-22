@@ -13,7 +13,13 @@ import { join } from 'node:path';
 
 import { execa } from 'execa';
 
-const SCRIPT = join(process.cwd(), 'runtime/hooks/silent-update.sh');
+const SCRIPT = join(process.cwd(), 'runtime/hooks/silent-update.mjs');
+
+// The npm-dependent paths drive a fake `npm` via a POSIX `#!/bin/sh` shim and the
+// hook's shell-resolved `npm` lookup, which only behaves on POSIX. On Windows the
+// hook would hit the real npm; skip those cases there (matching the .sh suite,
+// which required bash). The seed/interval/skip paths need no npm and run anywhere.
+const itPosix = process.platform === 'win32' ? it.skip : it;
 
 function makeRoot(): string {
   return mkdtempSync(join(tmpdir(), 'paqad-silent-update-'));
@@ -53,11 +59,15 @@ function writeFakeNpmVersion(dir: string, version: string): void {
 
 const STALE = '2020-01-01T00:00:00Z';
 
-async function runHook(root: string, fakeBinDir: string) {
-  return execa('bash', [SCRIPT], {
+async function runHook(root: string, fakeBinDir?: string) {
+  return execa('node', [SCRIPT], {
     reject: false,
     cwd: root,
-    env: { ...process.env, PATH: `${fakeBinDir}:${process.env.PATH}`, CLAUDE_PROJECT_DIR: root },
+    env: {
+      ...process.env,
+      ...(fakeBinDir ? { PATH: `${fakeBinDir}:${process.env.PATH}` } : {}),
+      CLAUDE_PROJECT_DIR: root,
+    },
     timeout: 10000,
   });
 }
@@ -67,7 +77,7 @@ function readAuditLog(root: string): string {
   return existsSync(path) ? readFileSync(path, 'utf8') : '';
 }
 
-describe('silent-update.sh', () => {
+describe('silent-update.mjs', () => {
   it('exits 0 when framework-version.txt is missing and cannot be seeded', async () => {
     const root = makeRoot();
     try {
@@ -75,7 +85,7 @@ describe('silent-update.sh', () => {
       // seed from — the hook must still exit cleanly, exactly as before.
       const emptyHome = join(root, 'no-framework');
       mkdirSync(emptyHome, { recursive: true });
-      const result = await execa('bash', [SCRIPT], {
+      const result = await execa('node', [SCRIPT], {
         reject: false,
         cwd: root,
         env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: emptyHome },
@@ -99,7 +109,7 @@ describe('silent-update.sh', () => {
         JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
       );
 
-      const result = await execa('bash', [SCRIPT], {
+      const result = await execa('node', [SCRIPT], {
         reject: false,
         cwd: root,
         env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: frameworkHome },
@@ -121,11 +131,10 @@ describe('silent-update.sh', () => {
       writeVersionFile(root, '0.1.0', new Date().toISOString());
       writeProfile(root, 'efficiency:\n  version_check_interval_hours: 12\n');
 
-      const result = await execa('bash', [SCRIPT], {
-        reject: false,
-        cwd: root,
-      });
+      const result = await execa('node', [SCRIPT], { reject: false, cwd: root });
       expect(result.exitCode).toBe(0);
+      // Nothing should have been logged or spawned within the window.
+      expect(readAuditLog(root)).toBe('');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -134,80 +143,56 @@ describe('silent-update.sh', () => {
   it('exits 0 when skip_version_check is true', async () => {
     const root = makeRoot();
     try {
-      writeVersionFile(root, '0.1.0', '2020-01-01T00:00:00Z');
+      writeVersionFile(root, '0.1.0', STALE);
       writeProfile(root, 'efficiency:\n  skip_version_check: true\n');
 
-      const result = await execa('bash', [SCRIPT], {
-        reject: false,
-        cwd: root,
-      });
+      const result = await execa('node', [SCRIPT], { reject: false, cwd: root });
       expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toBe('');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it('exits 0 when npm returns empty output (simulates registry unreachable)', async () => {
+  itPosix('exits 0 when npm returns empty output (simulates registry unreachable)', async () => {
     const root = makeRoot();
     try {
-      writeVersionFile(root, '0.1.0', '2020-01-01T00:00:00Z');
+      writeVersionFile(root, '0.1.0', STALE);
 
-      // Prepend a dir with a fake npm that exits 0 but prints nothing
       const fakeBinDir = join(root, 'fakebin');
       mkdirSync(fakeBinDir, { recursive: true });
       writeFakeNpm(fakeBinDir);
 
-      const result = await execa('bash', [SCRIPT], {
-        reject: false,
-        cwd: root,
-        env: { ...process.env, PATH: `${fakeBinDir}:${process.env.PATH}` },
-      });
+      const result = await runHook(root, fakeBinDir);
       expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toBe('');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it('exits 0 when a concurrent lockfile is held', async () => {
+  itPosix('exits 0 without spawning when the update lock is already held', async () => {
     const root = makeRoot();
-    const locksDir = join(root, '.paqad', 'locks');
-    mkdirSync(locksDir, { recursive: true });
-    const lockfile = join(locksDir, 'update.lock');
-
-    // Hold the lock in a background bash process
-    const holder = execa('bash', ['-c', `exec 200>"${lockfile}"; flock -e 200; sleep 10`], {
-      reject: false,
-      cwd: root,
-    });
-
     try {
-      writeVersionFile(root, '0.1.0', '2020-01-01T00:00:00Z');
+      writeVersionFile(root, '0.1.0', STALE);
+      // Hold the lock the hook uses (atomic-mkdir directory lock).
+      const lockDir = join(root, '.paqad', 'locks', 'update.lock');
+      mkdirSync(lockDir, { recursive: true });
 
-      // Give the holder time to acquire the lock
-      await new Promise((r) => setTimeout(r, 300));
-
-      // Provide a fake npm that returns a higher version to ensure we reach the lock check
       const fakeBinDir = join(root, 'fakebin');
       mkdirSync(fakeBinDir, { recursive: true });
-      writeFileSync(join(fakeBinDir, 'npm'), '#!/bin/sh\necho 999.0.0\n');
-      chmodSync(join(fakeBinDir, 'npm'), 0o755);
+      writeFakeNpmVersion(fakeBinDir, '999.0.0');
 
-      const result = await execa('bash', [SCRIPT], {
-        reject: false,
-        cwd: root,
-        env: { ...process.env, PATH: `${fakeBinDir}:${process.env.PATH}` },
-        timeout: 10000,
-      });
-
+      const result = await runHook(root, fakeBinDir);
       expect(result.exitCode).toBe(0);
+      // Lock held → no self-update intent recorded.
+      expect(readAuditLog(root)).toBe('');
     } finally {
-      holder.kill();
-      await holder.catch(() => undefined);
       rmSync(root, { recursive: true, force: true });
     }
-  }, 15000);
+  });
 
-  it('logs a routine self-update when behind but inside the 2-minor window', async () => {
+  itPosix('logs a routine self-update when behind but inside the 2-minor window', async () => {
     const root = makeRoot();
     try {
       // Current 1.14.0, latest 1.15.0 — same major, within the last two minors.
@@ -224,7 +209,7 @@ describe('silent-update.sh', () => {
     }
   });
 
-  it('logs a forced self-update when more than two minors behind', async () => {
+  itPosix('logs a forced self-update when more than two minors behind', async () => {
     const root = makeRoot();
     try {
       // Current 1.6.0, latest 1.15.0 — same major but far outside the window.
@@ -241,7 +226,7 @@ describe('silent-update.sh', () => {
     }
   });
 
-  it('logs a forced self-update when an older major is installed', async () => {
+  itPosix('logs a forced self-update when an older major is installed', async () => {
     const root = makeRoot();
     try {
       // Current 1.99.0, latest 2.0.0 — older major is always out-of-window.
@@ -258,7 +243,7 @@ describe('silent-update.sh', () => {
     }
   });
 
-  it('does not spawn an update when already on the latest version', async () => {
+  itPosix('does not spawn an update when already on the latest version', async () => {
     const root = makeRoot();
     try {
       writeVersionFile(root, '1.15.0', STALE);
@@ -279,8 +264,7 @@ describe('silent-update.sh', () => {
   });
 
   it.skipIf(process.platform === 'win32')('script file exists and is executable', () => {
-    // Windows doesn't expose the POSIX +x bit via stat.mode. The hook is
-    // only invoked on POSIX platforms anyway.
+    // Windows doesn't expose the POSIX +x bit via stat.mode.
     expect(existsSync(SCRIPT)).toBe(true);
     const stat = statSync(SCRIPT);
     expect(stat.mode & 0o100).toBe(0o100);

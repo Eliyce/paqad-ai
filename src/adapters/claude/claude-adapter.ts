@@ -10,8 +10,15 @@ const AGENT_ENTRY_PROMPT_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-pr
 const AGENT_ENTRY_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-session-start.sh';
 // Background, non-blocking forced self-update on every session start. Resolves
 // the project root from CLAUDE_PROJECT_DIR/pwd, so the single global copy under
-// ~/.paqad-ai/current operates on whichever project the session is in.
-const SILENT_UPDATE_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/silent-update.sh';
+// ~/.paqad-ai/current operates on whichever project the session is in. The hook
+// lives only in the framework install (never copied into the project) and is now
+// a cross-platform Node script.
+const SILENT_UPDATE_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/silent-update.mjs';
+
+// Hook commands paqad used to generate but no longer does. Pruned from an
+// existing settings.json on re-onboard so a renamed/removed hook does not leave
+// a dangling SessionStart entry that fails every session.
+const LEGACY_HOOK_COMMANDS = new Set(['~/.paqad-ai/current/hooks/silent-update.sh']);
 
 export class ClaudeCodeAdapter extends BaseAdapter {
   readonly type = 'claude-code' as const;
@@ -111,7 +118,7 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
         hooks: [{ type: 'command', command: AGENT_ENTRY_PROMPT_GATE_SCRIPT }],
       },
     ]),
-    SessionStart: mergeHookList(hooks.SessionStart, [
+    SessionStart: mergeHookList(pruneLegacyHooks(hooks.SessionStart), [
       {
         hooks: [{ type: 'command', command: AGENT_ENTRY_SESSION_START_SCRIPT }],
       },
@@ -122,6 +129,24 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
     Stop: mergeHookList(hooks.Stop, completion),
   };
   return next;
+}
+
+/**
+ * Drop any hook whose command paqad has retired (e.g. the old `.sh` silent-update
+ * path replaced by the `.mjs` one), removing matchers left empty by the prune.
+ * Keeps re-onboard from leaving a dangling SessionStart entry pointing at a hook
+ * the framework no longer ships.
+ */
+function pruneLegacyHooks(list: HookMatcher[] | undefined): HookMatcher[] {
+  if (!list) {
+    return [];
+  }
+  return list
+    .map((matcher) => ({
+      ...matcher,
+      hooks: (matcher.hooks ?? []).filter((hook) => !LEGACY_HOOK_COMMANDS.has(hook.command)),
+    }))
+    .filter((matcher) => (matcher.hooks?.length ?? 0) > 0);
 }
 
 function mergeHookList(

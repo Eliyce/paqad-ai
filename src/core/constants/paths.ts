@@ -178,7 +178,6 @@ export const PATHS = {
   LOGS_DIR: '.paqad/logs',
   LOCKS_DIR: '.paqad/locks',
   AUTO_UPDATE_LOG: '.paqad/logs/auto-update.log',
-  HOOKS_SILENT_UPDATE: '.paqad/hooks/silent-update.sh',
   // Issue #80 — living module lifecycle
   PROSPECTIVE_DECISIONS_DIR: '.paqad/decisions/module-decisions',
   MODULE_MAP_HISTORY_DIR: '.paqad/module-map/history',

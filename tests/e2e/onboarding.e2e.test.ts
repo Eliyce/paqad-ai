@@ -135,7 +135,8 @@ describe('framework end-to-end onboarding', () => {
     expect(readFileSync(join(projectRoot, '.junie/AGENTS.md'), 'utf8')).not.toContain(
       'silent-update.sh',
     );
-    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(true);
+    // The silent-update hook runs from the framework install, not a project copy.
+    expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(false);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/README.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/boost.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/testing.md'))).toBe(true);

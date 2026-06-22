@@ -108,11 +108,16 @@ const MANAGED_GITATTRIBUTES_ENTRIES = ['decisions/index.json merge=union'];
  *     the compiled-in WORKFLOW_PATTERNS const); it had already silently drifted.
  *   - `.paqad/next-steps.md` — a one-time onboarding nudge with zero readers; the
  *     same guidance is printed to the terminal at the end of onboarding.
+ *   - `.paqad/hooks/silent-update.sh` — the auto-update hook is no longer copied
+ *     into the project; it runs from the framework install as a cross-platform
+ *     `.mjs`. The per-project copy was never executed (the host wires the global
+ *     one), so removing it is safe.
  */
 const DEPRECATED_ARTIFACTS = [
   '.paqad/version',
   '.paqad/classifier-config.json',
   '.paqad/next-steps.md',
+  '.paqad/hooks/silent-update.sh',
 ];
 
 /**
