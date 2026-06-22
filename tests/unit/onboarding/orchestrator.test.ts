@@ -99,7 +99,9 @@ describe('OnboardingOrchestrator', () => {
       existsSync(join(projectRoot, 'docs/instructions/workflows/feature-development.yaml')),
     ).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/compiled-rules.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.paqad/module-health/core.json'))).toBe(true);
+    // Module-health profiles are no longer eagerly seeded; they are created on
+    // demand when a module first accrues real evidence.
+    expect(existsSync(join(projectRoot, '.paqad/module-health/core.json'))).toBe(false);
     const onboardingManifest = JSON.parse(
       readFileSync(join(projectRoot, '.paqad/onboarding-manifest.json'), 'utf8'),
     );
@@ -107,7 +109,7 @@ describe('OnboardingOrchestrator', () => {
     expect(onboardingManifest.planning_artifacts).toEqual(
       expect.objectContaining({
         compiled_rules_path: expect.stringContaining('.paqad/compiled-rules.json'),
-        module_health_initialized: expect.arrayContaining(['core']),
+        module_health_initialized: [],
       }),
     );
   });

@@ -31,7 +31,6 @@ import { SchemaValidator } from '@/validators/validator.js';
 import {
   compileRules,
   DecisionStore,
-  initializeModuleHealth,
   isCompiledRulesStale,
   writeCompiledRules,
 } from '@/planning/index.js';
@@ -317,7 +316,6 @@ export class OnboardingOrchestrator {
       );
     }
     let compiledRulesPath = join(options.projectRoot, PATHS.COMPILED_RULES);
-    let initializedModules: string[] = [];
     try {
       if (await isCompiledRulesStale(options.projectRoot)) {
         const compiledRules = await compileRules(options.projectRoot);
@@ -328,18 +326,11 @@ export class OnboardingOrchestrator {
         `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
-    try {
-      initializedModules = await Promise.all(
-        modules.map(async (moduleName) => {
-          await initializeModuleHealth(options.projectRoot, moduleName);
-          return moduleName;
-        }),
-      );
-    } catch (error) {
-      onboardingWarnings.push(
-        `Planning module health initialization failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
+    // Module-health profiles are no longer eagerly seeded at onboard: an all-null
+    // profile per module reads identically to having none (both "unknown") and
+    // only adds one file per module to the tree. They are created on demand the
+    // first time real evidence maps to a module (syncModuleHealth →
+    // applyEvidenceToProfile creates an unknown profile when none exists).
     try {
       const nextStepsPath = join(options.projectRoot, '.paqad', 'next-steps.md');
       writeFileSync(nextStepsPath, NEXT_STEPS_MD);
@@ -363,7 +354,7 @@ export class OnboardingOrchestrator {
       })),
       planning_artifacts: {
         compiled_rules_path: toPosixPath(compiledRulesPath),
-        module_health_initialized: initializedModules,
+        module_health_initialized: [],
       },
     });
 
