@@ -3,6 +3,7 @@ dist
 node_modules
 .codex-tracker
 .codex
+.claude
 .paqad
 docs
 runtime/templates
