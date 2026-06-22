@@ -121,10 +121,16 @@ export async function syncModuleHealth(
     const modules = await resolveKnownModules(options.projectRoot);
     const consumed = await readConsumedEventIndex(options.projectRoot);
     const updated = new Set<string>();
+    // Evidence files that are done with — already consumed (backlog) or applied
+    // this run. Their content is folded into the profiles, the consumed index
+    // dedups any byte-identical re-collection, and each profile keeps its own
+    // processed_event_ids, so the on-disk evidence file is now pure clutter.
+    const staleEvidenceIds = new Set<string>();
     let processed = 0;
 
     for (const event of evidence) {
       if (consumed.event_ids.includes(event.event_id)) {
+        staleEvidenceIds.add(event.event_id);
         continue;
       }
 
@@ -147,11 +153,18 @@ export async function syncModuleHealth(
         }
       }
       consumed.event_ids.push(event.event_id);
+      staleEvidenceIds.add(event.event_id);
       processed += 1;
     }
 
     if (processed > 0) {
       await writeConsumedEventIndex(options.projectRoot, consumed);
+    }
+
+    // Delete the now-redundant evidence files (best-effort). A byte-identical
+    // event re-collected later simply re-creates then re-skips its file.
+    for (const eventId of staleEvidenceIds) {
+      await rm(evidencePath(options.projectRoot, eventId), { force: true });
     }
 
     return {

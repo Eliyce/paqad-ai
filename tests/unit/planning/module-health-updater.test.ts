@@ -83,10 +83,10 @@ describe('module-health-updater', () => {
 
   it('collects preflight changed-file evidence with default source metadata', async () => {
     mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(
-      join(root, '.paqad/session/changed-files.json'),
-      JSON.stringify(['src/pre/a.ts']),
-    );
+    // Use a path that maps to no module so the collected evidence is not
+    // consumed (and therefore not deleted) in the same sync — this test only
+    // verifies collection metadata, not consumption.
+    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['README.md']));
 
     await syncModuleHealth({
       projectRoot: root,
@@ -99,6 +99,47 @@ describe('module-health-updater', () => {
       readFileSync(join(root, '.paqad/module-health-evidence', evidenceFiles[0]!), 'utf8'),
     );
     expect(event.source).toBe('preflight');
+  });
+
+  it('deletes evidence files once they are consumed into module profiles', async () => {
+    const event = createEvidence({
+      source: 'provider-hook',
+      provider: 'codex-cli',
+      affectedFiles: ['src/planning/a.ts'],
+    });
+    await persistEvidence(root, event);
+    const evidenceFile = join(root, '.paqad/module-health-evidence', `${event.event_id}.json`);
+    expect(existsSync(evidenceFile)).toBe(true);
+
+    const result = await syncModuleHealth({ projectRoot: root, silent: true });
+
+    // The event was applied to the 'planning' profile, so its evidence file is
+    // removed — but the metric it contributed survives in the profile.
+    expect(result.processed_events).toBe(1);
+    expect(existsSync(evidenceFile)).toBe(false);
+    await expect(readModuleHealth(root, 'planning')).resolves.toMatchObject({
+      metrics: { change_velocity: 1 },
+    });
+  });
+
+  it('cleans up a backlog evidence file already recorded in the consumed index', async () => {
+    const event = createEvidence({
+      source: 'provider-hook',
+      provider: 'codex-cli',
+      affectedFiles: ['src/planning/a.ts'],
+    });
+    await persistEvidence(root, event);
+    await syncModuleHealth({ projectRoot: root, silent: true });
+
+    // Re-persist the same event (simulating a pre-cleanup backlog file) and sync
+    // again: it is already in the consumed index, so it is skipped and removed.
+    await persistEvidence(root, event);
+    const evidenceFile = join(root, '.paqad/module-health-evidence', `${event.event_id}.json`);
+    expect(existsSync(evidenceFile)).toBe(true);
+
+    await syncModuleHealth({ projectRoot: root, silent: true });
+
+    expect(existsSync(evidenceFile)).toBe(false);
   });
 
   it('creates empty evidence lists when no files or modules are supplied', () => {
