@@ -42,8 +42,8 @@ importers:
         specifier: ^2.0.3
         version: 2.0.3
       voyageai:
-        specifier: ^0.3.1
-        version: 0.3.1
+        specifier: ^0.4.0
+        version: 0.4.0
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -2417,8 +2417,8 @@ packages:
       jsdom:
         optional: true
 
-  voyageai@0.3.1:
-    resolution: {integrity: sha512-+f6gRsnuV7gi2tFvSFWTqERkZhox1VQCT0G+ALUDAwz75OpzpqaXgy6TSRkbrf6az9WZsXoAyDtplDksHLSbag==}
+  voyageai@0.4.0:
+    resolution: {integrity: sha512-RCWGknFqwbZORdRo7dHwBuZYeO64TnE+G30Qv4IGxq5jkMa2uK+eqMbOv/DhszcFUtE1iZjb4LqO9G/hj2EjxA==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@huggingface/transformers': ^3.8.0
@@ -4915,7 +4915,7 @@ snapshots:
       - tsx
       - yaml
 
-  voyageai@0.3.1:
+  voyageai@0.4.0:
     dependencies:
       node-fetch: 2.7.0
     transitivePeerDependencies:
