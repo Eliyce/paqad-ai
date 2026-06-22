@@ -68,6 +68,20 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'module-health/',
   'module-health-evidence/',
   'module-health-consumed-events.json',
+  // Per-machine runtime state created on first use of a later workflow (not at
+  // onboard). Each is regenerated locally or is a per-machine append-only log,
+  // so committing it churns the tree the moment that workflow runs. Kept
+  // unconditional (lesson from #187: a conditional ignore leaks).
+  'patterns/', // regenerable pattern embeddings (mirror of vectors/)
+  'crs/', // regenerable contextual-retrieval-store collections
+  'attachments/', // ephemeral desktop-session attachment collections
+  'attachment-events.jsonl', // per-machine attachment-index event log
+  'traceability/', // rebuilt from reality each run
+  'module-map/drift.json', // regenerable module-map drift snapshot
+  'module-map/events.jsonl', // per-machine module-map audit log
+  'schema-migrations.jsonl', // per-machine schema-migration audit log
+  'skills/', // per-machine skill/pack failed-load event log
+  'delivery-detection.json', // regenerated from git history per machine
   '# compliance ledger (share via dashboard/SIEM, not git)',
   'ledger/',
 ];

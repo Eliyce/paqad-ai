@@ -63,6 +63,26 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('scripts/rules/.history/');
   });
 
+  it('ignores per-machine runtime state created on first use of later workflows', () => {
+    writeGitignore(projectRoot);
+
+    const content = read(projectRoot, '.paqad/.gitignore');
+    // Regenerable embeddings / collections — mirror of the already-ignored vectors/.
+    expect(content).toContain('patterns/');
+    expect(content).toContain('crs/');
+    expect(content).toContain('attachments/');
+    // Per-machine append-only logs and regenerated snapshots.
+    expect(content).toContain('attachment-events.jsonl');
+    expect(content).toContain('traceability/');
+    expect(content).toContain('module-map/drift.json');
+    expect(content).toContain('module-map/events.jsonl');
+    expect(content).toContain('schema-migrations.jsonl');
+    expect(content).toContain('skills/');
+    expect(content).toContain('delivery-detection.json');
+    // Conservative: the module-map history audit trail stays shared (tracked).
+    expect(content).not.toContain('module-map/history/');
+  });
+
   it('keeps the boot pointer shared and the version file local (the inversion)', () => {
     writeGitignore(projectRoot);
 
