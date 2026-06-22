@@ -260,12 +260,15 @@ export class HealthChecker {
   }
 
   private checkDecisionWorkspace(projectRoot: string): HealthCheckResult {
+    // DECISIONS_AUDIT_LOG is intentionally NOT required: it is git-ignored,
+    // write-only telemetry with no production reader, so a clean clone (which
+    // never carries it) is healthy without it. Requiring it produced a spurious
+    // "Missing decision artifacts" warning on every fresh checkout.
     const required = [
       PATHS.DECISIONS_PENDING_DIR,
       PATHS.DECISIONS_RESOLVED_DIR,
       PATHS.DECISIONS_EXPIRED_DIR,
       PATHS.DECISIONS_INDEX,
-      PATHS.DECISIONS_AUDIT_LOG,
     ];
     const missing = required.filter((relativePath) => !existsSync(join(projectRoot, relativePath)));
 
