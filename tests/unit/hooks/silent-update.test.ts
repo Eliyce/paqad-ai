@@ -154,6 +154,46 @@ describe('silent-update.mjs', () => {
     }
   });
 
+  // Issue #220 — a disabled install must never seed a version file, run a
+  // version check, or spawn `npm install -g`. It does nothing, leaving the
+  // install exactly as the user left it.
+  it('does nothing when paqad.enabled: false (no seed, no spawn)', async () => {
+    const root = makeRoot();
+    try {
+      // No framework-version.txt: an ENABLED hook would self-heal and seed one.
+      writeProfile(root, 'paqad:\n  enabled: false\n');
+
+      const result = await execa('node', [SCRIPT], {
+        reject: false,
+        cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toBe('');
+      expect(existsSync(join(root, '.paqad', 'framework-version.txt'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does nothing when PAQAD_DISABLED=1 (no seed, no spawn)', async () => {
+    const root = makeRoot();
+    try {
+      const result = await execa('node', [SCRIPT], {
+        reject: false,
+        cwd: root,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_DISABLED: '1' },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(readAuditLog(root)).toBe('');
+      expect(existsSync(join(root, '.paqad', 'framework-version.txt'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   itPosix('exits 0 when npm returns empty output (simulates registry unreachable)', async () => {
     const root = makeRoot();
     try {

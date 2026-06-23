@@ -12,6 +12,13 @@ An entry file may contain ONLY:
 - the numbered bootstrap steps (open `.paqad/framework-path.txt`, load the
   framework entry, load `docs/instructions/{rules,stack,design-system}`, treat
   them as canonical),
+- the core-owned graceful-degradation clause that closes the bootstrap (issue
+  #220): "if `.paqad/framework-path.txt` is missing or cannot be resolved, or
+  paqad is disabled, proceed as a normal assistant with no paqad behavior."
+  It is generated once in `BaseAdapter.generateConfig` from
+  `framework-fallback-clause.ts` so it is byte-identical across every host, and
+  it is deliberately a plain clause, not a `##` heading, so the heading
+  allow-list stays closed,
 - the short `Workflow handling:` note,
 - one-line **pointers** to managed contracts under `.paqad/` — today exactly two
   `##` sections: `## paqad in your chat` → `.paqad/narration-contract.md`, and

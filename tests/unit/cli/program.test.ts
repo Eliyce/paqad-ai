@@ -28,6 +28,8 @@ describe('createProgram', () => {
       'module-health',
       'module-map',
       'onboard',
+      'enable',
+      'disable',
       'refresh',
       'rag',
       'update',
