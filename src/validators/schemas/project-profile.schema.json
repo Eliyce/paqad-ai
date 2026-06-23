@@ -186,6 +186,13 @@
         "compliance_citations": { "type": "boolean" }
       }
     },
+    "paqad": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
     "mcp": {
       "type": "object",
       "additionalProperties": false,

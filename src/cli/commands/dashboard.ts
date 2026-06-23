@@ -6,6 +6,7 @@ import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { startDashboardServer } from '@/dashboard/server.js';
+import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { openBrowser } from '@/graph/opener.js';
 
 interface DashboardCommandOptions {
@@ -65,6 +66,15 @@ export function createDashboardCommand(): Command {
           `error: onboarding manifest missing at ${manifestPath}. Run \`paqad-ai onboard\` first.\n`,
         );
         process.exitCode = 2;
+        return;
+      }
+      // Issue #220 — vanilla mode means no paqad behavior at all, including the
+      // dashboard. When disabled (paqad.enabled: false or PAQAD_DISABLED=1), do
+      // not start the server. This is a deliberate, healthy state, so exit 0.
+      if (isFrameworkDisabledForRoot(projectRoot)) {
+        process.stdout.write(
+          'paqad is disabled (vanilla mode); the dashboard will not start. Run `paqad-ai enable` (or unset PAQAD_DISABLED) to use it.\n',
+        );
         return;
       }
       const port = Number.parseInt(options.port, 10);
