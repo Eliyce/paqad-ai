@@ -24,6 +24,14 @@ set -u
 # shellcheck source=lib/agent-entry-sentinel.sh
 . "$(dirname "$0")/lib/agent-entry-sentinel.sh"
 
+# Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
+# pure no-op. This MUST short-circuit before the soft-mode stdout reminder below,
+# not just the hard-mode exit 2: an injected `[paqad]` line would contaminate the
+# OFF arm's context in an A/B comparison.
+if paqad_is_disabled; then
+  exit 0
+fi
+
 mode="${PAQAD_AGENT_ENTRY_MODE:-soft}"
 
 state=$(paqad_sentinel_state)

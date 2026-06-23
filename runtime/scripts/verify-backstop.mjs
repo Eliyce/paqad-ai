@@ -15,6 +15,8 @@
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
+import { isPaqadDisabled } from '../hooks/lib/paqad-disabled.mjs';
+
 export async function loadPaqadApi() {
   // This script ships inside the paqad-ai package (runtime/scripts/...), so its
   // built entry sits two levels up at dist/index.js. Resolving relative to the
@@ -27,6 +29,14 @@ export async function loadPaqadApi() {
 export async function runVerificationBackstop({ origin, softFail, projectRoot, stdout, stderr }) {
   const out = stdout ?? process.stdout;
   const err = stderr ?? process.stderr;
+  // Issue #220 — when paqad is disabled (or env-overridden off, or the package
+  // is uninstalled so the off-signal can't be confirmed on either side), the
+  // backstop is a pure no-op: allow, write nothing, load no dist. This is a
+  // distinct short-circuit from `softFail` (which only catches infra errors) so
+  // the git/CI backstop allows BEFORE running any gate when off.
+  if (isPaqadDisabled(projectRoot)) {
+    return 0;
+  }
   try {
     const api = await loadPaqadApi();
     const verdict = await api.runRepositoryVerification({ projectRoot, origin });

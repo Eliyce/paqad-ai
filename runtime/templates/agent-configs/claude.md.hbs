@@ -11,6 +11,8 @@ Before handling repository work:
 
 The sentinel is invalidated automatically if `CLAUDE.md`, `.paqad/framework-path.txt`, or any file under `docs/instructions/` changes mid-session — re-do steps 1–5 when that happens.
 
+{{{frameworkFallback}}}
+
 Workflow handling:
 - Interpret short Paqad workflow prompts such as `create documentation` as workflow invocations.
 - Do not ask the user to choose a document type when a Paqad workflow already matches the request.

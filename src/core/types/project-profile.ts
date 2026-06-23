@@ -201,9 +201,28 @@ export interface EnterpriseConfig {
   compliance_citations: boolean;
 }
 
+// Issue #220 — the global enable/disable master switch. `paqad.enabled: false`
+// turns the whole framework off (vanilla mode): every enforcement surface
+// (entry gates, decision-pause gate, completion hooks, the verification
+// backstop, silent-update) early-exits to a pure no-op, and a disabled install
+// converges with a missing one. The block is absent by default and absence
+// means ON, so existing projects are unchanged. The off-signal is read three
+// ways that must never depend on the built dist — the TS predicate
+// (`src/core/framework-enabled.ts`), the shell primitive
+// (`runtime/hooks/lib/paqad-disabled.sh`), and the `.mjs` primitive
+// (`runtime/hooks/lib/paqad-disabled.mjs`) — plus the `PAQAD_DISABLED` env
+// override, which wins over this flag.
+export interface PaqadConfig {
+  /** Master switch. Absent ⇒ enabled (default-on). When `false`, paqad produces
+   *  zero behavior and zero `.paqad/` writes until re-enabled. */
+  enabled?: boolean;
+}
+
 export interface ProjectProfile {
   project: ProjectMetadata;
   active_capabilities: ActiveCapability[];
+  /** Issue #220 — global enable/disable master switch. Absent ⇒ ON. */
+  paqad?: PaqadConfig;
   routing?: {
     domain: Domain;
     stack?: string;

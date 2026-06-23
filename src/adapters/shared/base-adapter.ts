@@ -7,6 +7,7 @@ import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { McpConfigManager } from '@/mcp/config-manager.js';
 import { TemplateEngine } from '@/templates/engine.js';
 
+import { buildFrameworkFallbackClause } from './framework-fallback-clause.js';
 import { buildNarrationContractSection } from './narration-contract.js';
 import { buildDecisionPauseContractSection } from './provider-entry-contract.js';
 
@@ -57,6 +58,7 @@ export abstract class BaseAdapter implements AdapterInterface {
             adapter: this.type,
             frameworkPath: context.frameworkPath,
             rulesPath: context.rulesPath,
+            frameworkFallback: buildFrameworkFallbackClause(),
             narrationContract: buildNarrationContractSection(),
             decisionPauseContract: buildDecisionPauseContractSection(this.type),
           },

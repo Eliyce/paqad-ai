@@ -6,6 +6,7 @@ import { AdapterFactory } from '@/adapters/factory.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
+import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { getSecretPermissionWarning } from '@/rag/secrets.js';
 import { RagService } from '@/rag/service.js';
 import { FileVectorIndex } from '@/rag/vector-index.js';
@@ -515,6 +516,19 @@ export class HealthChecker {
   }
 
   private checkStableFrameworkPaths(projectRoot: string): HealthCheckResult {
+    // Issue #220 — a deliberate disable is a healthy state, not a fault. The
+    // profile flag (`paqad.enabled: false`) or `PAQAD_DISABLED` is the
+    // disambiguator: when set, report "disabled (vanilla mode)" as a pass so
+    // doctor never reads it as broken. When absent, the checks below treat a
+    // missing/ephemeral install as the fault it is — that is how a deliberate
+    // disable is distinguished from an accidental uninstall.
+    if (isFrameworkDisabledForRoot(projectRoot)) {
+      return pass(
+        'Stable framework paths only',
+        'paqad is disabled (vanilla mode) — gates, hooks, and the verification backstop are a no-op. Re-enable with `paqad-ai enable`.',
+      );
+    }
+
     const frameworkPath = join(projectRoot, PATHS.FRAMEWORK_PATH);
     if (!existsSync(frameworkPath)) {
       return fail(
