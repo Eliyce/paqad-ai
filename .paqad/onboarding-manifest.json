@@ -1,5 +1,4 @@
 {
-  "framework_version": "1.26.2",
   "adapter": "codex-cli",
   "project_root": ".",
   "profile": {
@@ -302,7 +301,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-22T09:27:09.460Z",
+    "timestamp": "2026-06-23T11:26:50.029Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -402,7 +401,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-22T09:27:14.224Z",
+  "generated_at": "2026-06-23T11:26:55.593Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -619,60 +618,10 @@
     {
       "path": "docs/instructions/tools/react/testing.md",
       "auto_update": false
-    },
-    {
-      "path": ".paqad/hooks/silent-update.sh",
-      "auto_update": true,
-      "executable": true
     }
   ],
   "planning_artifacts": {
     "compiled_rules_path": ".paqad/compiled-rules.json",
-    "module_health_initialized": [
-      "cli-lifecycle",
-      "cli-health",
-      "cli-rag",
-      "cli-graph",
-      "cli-dashboard",
-      "cli-packs",
-      "cli-capabilities",
-      "cli-patterns",
-      "cli-compliance",
-      "cli-audit",
-      "cli-module-map",
-      "cli-plan",
-      "adapter-onboarding",
-      "documentation-workflow",
-      "pentest-workflow",
-      "feature-development-workflow",
-      "root-cause-analysis-workflow",
-      "agent-routing",
-      "stack-detection-engine",
-      "pack-system",
-      "capability-model",
-      "workflow-engine",
-      "skill-runtime",
-      "agent-runtime",
-      "rules-runtime",
-      "template-engine",
-      "context-intelligence",
-      "hybrid-rag",
-      "mcp-config",
-      "module-map-engine",
-      "module-health-ledger",
-      "session-handoff",
-      "decision-pause-contract",
-      "pattern-library",
-      "compliance-engine",
-      "traceability-engine",
-      "quality-ratchet",
-      "verification",
-      "evidence-ledger",
-      "delivery-workflow",
-      "pentest-engine",
-      "project-profile-schema",
-      "repository-resolver"
-    ],
-    "classifier_config_path": ".paqad/classifier-config.json"
+    "module_health_initialized": []
   }
 }

@@ -54,7 +54,7 @@
     "source": "hooks/reset-doc-progress.sh"
   },
   {
-    "source": "hooks/silent-update.sh"
+    "source": "hooks/silent-update.mjs"
   },
   {
     "source": "hooks/skill-cache-check.mjs"

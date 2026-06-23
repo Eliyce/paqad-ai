@@ -43,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.paqad-ai/current/hooks/silent-update.sh"
+            "command": "~/.paqad-ai/current/hooks/silent-update.mjs"
           }
         ]
       }

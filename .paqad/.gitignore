@@ -27,6 +27,16 @@ compiled-rules.json
 module-health/
 module-health-evidence/
 module-health-consumed-events.json
+patterns/
+crs/
+attachments/
+attachment-events.jsonl
+traceability/
+module-map/drift.json
+module-map/events.jsonl
+schema-migrations.jsonl
+skills/
+delivery-detection.json
 # compliance ledger (share via dashboard/SIEM, not git)
 ledger/
 # <<< paqad-ai managed <<<
