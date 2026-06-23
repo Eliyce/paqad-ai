@@ -18,6 +18,13 @@
 #                            "stale:<entry-file|framework-path|docs-instructions>"
 #                            "fresh"
 #                          and deletes the sentinel when stale.
+#
+#   paqad_is_disabled    — global enable/disable switch (issue #220), sourced
+#                          from paqad-disabled.sh so both entry gates can
+#                          early-exit to a no-op when paqad is off.
+
+# shellcheck source=paqad-disabled.sh
+. "$(dirname "${BASH_SOURCE[0]}")/paqad-disabled.sh"
 
 paqad_project_root="${CLAUDE_PROJECT_DIR:-${PAQAD_PROJECT_ROOT:-$(pwd)}}"
 paqad_entry_file="${PAQAD_ENTRY_FILE:-CLAUDE.md}"

@@ -39,6 +39,8 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { isPaqadDisabled } from './lib/paqad-disabled.mjs';
+
 const DEFAULT_INTERVAL_HOURS = 12;
 const STALE_LOCK_MS = 60 * 60 * 1000; // reap a lock left by a killed run after 60 min
 const NPM_TIMEOUT_MS = 5000;
@@ -46,6 +48,15 @@ const NPM_TIMEOUT_MS = 5000;
 function main() {
   const projectRoot =
     process.env.CLAUDE_PROJECT_DIR || process.env.PAQAD_PROJECT_ROOT || process.cwd();
+
+  // Issue #220 — when paqad is disabled (or env-overridden off), do nothing: no
+  // version seed, no version check, and above all no background
+  // `npm install -g paqad-ai@latest`. A disabled install stays exactly as the
+  // user left it.
+  if (isPaqadDisabled(projectRoot)) {
+    return;
+  }
+
   const versionFile = join(projectRoot, '.paqad', 'framework-version.txt');
   const profileFile = join(projectRoot, '.paqad', 'project-profile.yaml');
   const logsDir = join(projectRoot, '.paqad', 'logs');

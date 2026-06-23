@@ -14,6 +14,15 @@
 #   2  → block the tool call (host surfaces stderr to the model)
 set -u
 
+# shellcheck source=lib/paqad-disabled.sh
+. "$(dirname "$0")/lib/paqad-disabled.sh"
+
+# Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
+# pure no-op: never block on a pending packet, write nothing.
+if paqad_is_disabled; then
+  exit 0
+fi
+
 PENDING_DIR=".paqad/decisions/pending"
 
 shopt -s nullglob

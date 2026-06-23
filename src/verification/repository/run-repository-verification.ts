@@ -7,6 +7,7 @@
 
 import { engineLog } from '@/core/logger-registry.js';
 import { readProjectProfile } from '@/core/project-profile.js';
+import { isFrameworkEnabledForRoot } from '@/core/framework-enabled.js';
 import { resolveEnterprisePolicy, writesLedger } from '@/core/enterprise-policy.js';
 import type { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { VerificationContext } from '@/core/types/verification.js';
@@ -103,6 +104,27 @@ export async function runRepositoryVerification(
   options: RunRepositoryVerificationOptions,
 ): Promise<RepositoryVerificationVerdict> {
   const now = options.now ?? (() => new Date().toISOString());
+
+  // Issue #220 — when paqad is disabled (or env-overridden off), the backstop is
+  // a pure no-op: build no context, run no gates, and write nothing — no
+  // verification-evidence, no module-health, no ledger/receipt, no audit.log or
+  // session artifacts. It returns an `ok` verdict so no caller reads "off" as a
+  // failure. The check is side-effect-free (no profile-migration write), so an
+  // OFF turn leaves `git status` clean.
+  if (!isFrameworkEnabledForRoot(options.projectRoot)) {
+    const at = now();
+    return {
+      origin: options.origin,
+      ok: true,
+      summary: '✓ paqad disabled — verification skipped (vanilla mode).',
+      gates: [],
+      escalations: [],
+      evidence_path: null,
+      started_at: at,
+      completed_at: at,
+    };
+  }
+
   const startedAt = now();
 
   const built =

@@ -6,7 +6,9 @@ import { createAuditCommand } from './commands/audit.js';
 import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createComplianceCommand } from './commands/compliance.js';
 import { createDashboardCommand } from './commands/dashboard.js';
+import { createDisableCommand } from './commands/disable.js';
 import { createDoctorCommand } from './commands/doctor.js';
+import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
@@ -47,6 +49,8 @@ export function createProgram(): Command {
   program.addCommand(createModuleHealthCommand());
   program.addCommand(createModuleMapCommand());
   program.addCommand(createOnboardCommand());
+  program.addCommand(createEnableCommand());
+  program.addCommand(createDisableCommand());
   program.addCommand(createRefreshCommand());
   program.addCommand(createRagCommand());
   program.addCommand(createUpdateCommand());

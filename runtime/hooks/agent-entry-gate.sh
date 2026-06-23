@@ -17,6 +17,13 @@ set -u
 # shellcheck source=lib/agent-entry-sentinel.sh
 . "$(dirname "$0")/lib/agent-entry-sentinel.sh"
 
+# Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
+# pure no-op: never block, write nothing. Disabled converges with a missing
+# package (a vanilla baseline). Checked before any blocking logic.
+if paqad_is_disabled; then
+  exit 0
+fi
+
 print_block() {
   echo "[paqad] Blocked: load the paqad framework before editing." 1>&2
   echo "[paqad] Required steps:" 1>&2
