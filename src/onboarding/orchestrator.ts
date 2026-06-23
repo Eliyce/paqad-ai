@@ -7,6 +7,7 @@ import { FrameworkError, ValidationError } from '@/core/errors/index.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
+import { readProjectProfile } from '@/core/project-profile.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import type { ActiveCapability, Capability, Stack } from '@/core/types/domain.js';
 import { getPrimaryStack } from '@/core/stack-profile.js';
@@ -137,13 +138,22 @@ export class OnboardingOrchestrator {
     const resolver = new Resolver({ runtimeRoot });
     const resolved = await resolver.resolve(selections);
     const adapters = options.adapters ?? selections.providers ?? ['claude-code'];
+    // Config-preservation: a re-onboard is a refresh, not a reset. Read the
+    // existing profile and carry every user-set section forward (enterprise,
+    // intelligence/RAG, paqad.enabled, escalation, model_routing, …) so onboarding
+    // only refreshes detection-derived fields (active_capabilities, stack_profile)
+    // and adds newly-introduced sections. Explicit caller overrides still win.
+    // See docs/instructions/rules/coding/config-visibility.md.
+    const existingProfile = readProjectProfile(options.projectRoot);
     const profile = buildProjectProfile(
       selections,
       liveSnapshot,
-      options.profileOverrides,
+      mergeProfileOverrides(existingProfile, options.profileOverrides),
       options.projectRoot,
     );
-    // Intelligence starts with defaults (rag_enabled: false). Phase 2 may update it.
+    // Phase 1 keeps whatever RAG state the existing profile had (normalized);
+    // Phase 2 may update it after the opt-in prompt. On a first onboard the
+    // existing profile is absent, so this is the default (rag_enabled: false).
     profile.intelligence = applyRagSelection(profile.intelligence, undefined);
     const validator = new SchemaValidator();
     const validation = validator.validate('project-profile', profile);
@@ -487,6 +497,25 @@ function translateDiskFullError(error: unknown): unknown {
   return error;
 }
 
+/**
+ * Section-level merge of the existing on-disk profile with caller-supplied
+ * overrides, used as the base for {@link buildProjectProfile} on a re-onboard.
+ * Existing user-set sections are preserved; an explicit `profileOverrides`
+ * (programmatic callers, tests) wins over the existing value. Detection-derived
+ * sections (`active_capabilities`, `stack_profile`) are always re-derived inside
+ * `buildProjectProfile`, so carrying them here is harmless. Returns `undefined`
+ * when neither source exists (a first onboard with no overrides).
+ */
+function mergeProfileOverrides(
+  existing: ProjectProfile | null,
+  explicit: Partial<ProjectProfile> | undefined,
+): Partial<ProjectProfile> | undefined {
+  if (!existing && !explicit) {
+    return undefined;
+  }
+  return { ...(existing ?? {}), ...(explicit ?? {}) };
+}
+
 function buildProjectProfile(
   selections: {
     domain: 'coding' | 'content';
@@ -532,6 +561,11 @@ function buildProjectProfile(
       ai_bom: false,
       compliance_citations: false,
     },
+    // Issue #220 / config-visibility — always materialize the global enable
+    // switch so it is visible and toggleable in the generated profile, defaulting
+    // ON. Absence already resolves to ON, but we write it explicitly so a team
+    // never has to discover a hidden default. Preserved verbatim on re-onboard.
+    paqad: overrides?.paqad ?? { enabled: true },
     mcp: overrides?.mcp ?? { servers: [] },
     model_routing: overrides?.model_routing ?? {
       default_model: 'gpt-5',
