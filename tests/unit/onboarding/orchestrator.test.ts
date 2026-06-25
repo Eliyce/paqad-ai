@@ -137,6 +137,12 @@ describe('OnboardingOrchestrator', () => {
     expect(appConfig).toMatch(/^# enterprise_evidence_ledger=false$/m);
     expect(appConfig).toMatch(/^# enterprise_ai_bom=false$/m);
     expect(appConfig).toMatch(/^# enterprise_compliance_citations=false$/m);
+
+    // The single copy-paste catalog is also written, listing every knob commented.
+    const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
+    expect(example).toMatch(/^# enterprise=false$/m);
+    expect(example).toMatch(/^# rag_top_n=20$/m);
+    expect(example).toMatch(/^# model_default=gpt-5$/m);
   });
 
   it('returns the no-migration safety net: framework values a legacy fat profile reverted', async () => {

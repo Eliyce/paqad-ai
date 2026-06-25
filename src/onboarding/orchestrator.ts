@@ -11,6 +11,7 @@ import {
   reconcileConfigOverrides,
   setConfigValue,
   syncGroupConfigs,
+  writeConfigExample,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
@@ -268,6 +269,9 @@ export class OnboardingOrchestrator {
       // files are all-commented, so every knob resolves to its code default.
       syncGroupConfigs(options.projectRoot);
       writeConfigsReadme(options.projectRoot);
+      // Also write the single `.config.example` catalog — a copy-paste reference
+      // listing every knob (never read at runtime). Always refreshed.
+      writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {
         writeFrameworkOverridesToConfig(options.projectRoot, options.profileOverrides);
       }
