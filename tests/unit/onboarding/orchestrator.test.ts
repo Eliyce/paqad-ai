@@ -117,12 +117,13 @@ describe('OnboardingOrchestrator', () => {
     );
   });
 
-  it('documents the enterprise switches in .config.example and keeps the profile lean', async () => {
+  it('documents the enterprise switches in the team config files and keeps the profile lean', async () => {
     // Issue #187 + the `.config` cutover — the opt-in evidence-ledger / AI-BOM /
-    // compliance-citation switches are surfaced in the tracked `.config.example`
-    // (the discoverability surface), not the profile. They default off (a normal
-    // user pays zero tokens) and live in code defaults until overridden in
-    // `.paqad/.config`, so the generated profile carries no `enterprise:` block.
+    // compliance-citation switches are surfaced in the tracked `configs/.config.app`
+    // group file (commented out, the discoverability surface), not the profile.
+    // They default off (a normal user pays zero tokens) and stay at the code
+    // default until uncommented, so the generated profile carries no `enterprise:`
+    // block and resolution is unchanged.
     await new OnboardingOrchestrator().run({
       projectRoot,
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
@@ -131,11 +132,11 @@ describe('OnboardingOrchestrator', () => {
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
     expect(profile).not.toContain('enterprise:');
 
-    const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
-    expect(example).toContain('enterprise=false');
-    expect(example).toContain('enterprise_evidence_ledger=false');
-    expect(example).toContain('enterprise_ai_bom=false');
-    expect(example).toContain('enterprise_compliance_citations=false');
+    const appConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
+    expect(appConfig).toMatch(/^# enterprise=false$/m);
+    expect(appConfig).toMatch(/^# enterprise_evidence_ledger=false$/m);
+    expect(appConfig).toMatch(/^# enterprise_ai_bom=false$/m);
+    expect(appConfig).toMatch(/^# enterprise_compliance_citations=false$/m);
   });
 
   it('returns the no-migration safety net: framework values a legacy fat profile reverted', async () => {

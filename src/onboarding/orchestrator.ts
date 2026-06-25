@@ -10,7 +10,7 @@ import {
   readConfigsDir,
   reconcileConfigOverrides,
   setConfigValue,
-  writeConfigExample,
+  syncGroupConfigs,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
@@ -261,12 +261,12 @@ export class OnboardingOrchestrator {
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
       // Framework knobs live in the `.config` layer, not the (lean) profile.
-      // Always refresh the tracked catalog (`.config.example`) and the tracked
-      // `configs/README` (which also creates the team `configs/` dir); persist
-      // only explicitly passed overrides (desktop/tests) into the git-ignored
-      // `.config`. A plain CLI onboard passes none, so `.config` stays absent and
-      // code defaults apply.
-      writeConfigExample(options.projectRoot);
+      // Write the tracked, self-documenting team config files (one per group,
+      // every knob commented out at its default) plus the `configs/README`, then
+      // persist only explicitly passed overrides (desktop/tests) into the
+      // git-ignored `.config`. A plain CLI onboard passes none, and the group
+      // files are all-commented, so every knob resolves to its code default.
+      syncGroupConfigs(options.projectRoot);
       writeConfigsReadme(options.projectRoot);
       if (options.profileOverrides) {
         writeFrameworkOverridesToConfig(options.projectRoot, options.profileOverrides);

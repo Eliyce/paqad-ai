@@ -54,7 +54,7 @@ export function createOnboardCommand(): Command {
             `\n⚠ Framework settings now live in the .config layer. These non-default values in ` +
               `project-profile.yaml were not migrated and now use code defaults until you set them ` +
               `in .paqad/configs/.config.* or .paqad/.config:\n    ${reverted.join('\n    ')}\n` +
-              `  See .paqad/.config.example for the full catalog.`,
+              `  See the .paqad/configs/ files (every option is listed there, commented out).`,
           );
         }
       },

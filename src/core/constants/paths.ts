@@ -6,12 +6,12 @@ export const PATHS = {
   // Laravel-style framework config — four surfaces (precedence low→high, LOCAL
   // WINS): code defaults (`DEFAULT_FRAMEWORK_CONFIG`) < `configs/.config.*`
   // (tracked, team-shared, merged) < `.config` (git-ignored, dev-local) <
-  // `PAQAD_*` env. `.config.example` is the tracked, commented catalog — the
-  // discoverability surface, NEVER read at runtime. Framework knobs (paqad/
-  // enterprise/RAG/strictness/escalation/features/research/model_routing/
-  // decisions + version/update) are resolved through these, not the profile.
+  // `PAQAD_*` env. Onboarding writes one self-documenting `configs/.config.*` file
+  // per group, every knob commented out at its default — the discoverability
+  // surface. Framework knobs (paqad/enterprise/RAG/strictness/escalation/features/
+  // research/model_routing/decisions + version/update) resolve through these, not
+  // the profile.
   PROJECT_CONFIG: '.paqad/.config',
-  PROJECT_CONFIG_EXAMPLE: '.paqad/.config.example',
   PROJECT_CONFIGS_DIR: '.paqad/configs',
   PROJECT_CONFIGS_README: '.paqad/configs/README.md',
   DETECTION_REPORT: '.paqad/detection-report.json',

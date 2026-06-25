@@ -113,7 +113,7 @@ detection-report.json   onboarding-manifest.json
 > features) are **not** in `project-profile.yaml`. They come from code defaults in
 > `src/core/framework-config.ts`, overridable through the config layer — tracked
 > team `.paqad/configs/.config.*`, git-ignored local `.paqad/.config` (local wins),
-> and `PAQAD_*` env — and documented in the tracked `.paqad/.config.example`
-> catalog. The profile holds only
+> and `PAQAD_*` env — with every knob documented (commented out at its default) in
+> the tracked `.paqad/configs/.config.*` files. The profile holds only
 > project facts (name, commands, `mcp.servers`, detected `stack_profile` /
 > `active_capabilities`, and the project-owned `custom` arrays).

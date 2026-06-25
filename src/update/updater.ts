@@ -7,7 +7,7 @@ import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   reconcileConfigOverrides,
-  writeConfigExample,
+  syncGroupConfigs,
   writeConfigsReadme,
 } from '@/core/framework-config.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -88,15 +88,15 @@ export class FrameworkUpdater {
       }
     }
 
-    // Refresh the framework-owned config catalog/README (silently, like the
-    // version file — they are always-refreshed templates, not user artifacts to
-    // diff), then reconcile the team/local override files against the current
-    // knob registry: PRUNE ONLY keys this version no longer knows, preserving
-    // every value the team set (never reset-to-default, never inject newly-added
-    // keys). This is the knob add/remove evolution path — added keys surface in
-    // the refreshed catalog, removed keys are pruned here and reported.
-    writeConfigExample(projectRoot);
+    // Refresh the team config layer: write the README and sync the group files
+    // (create any missing one fully; append knobs added in a newer version to
+    // existing files, commented; preserve every value the team uncommented).
+    // Then reconcile: PRUNE ONLY keys this version no longer knows, preserving
+    // every value the team set (never reset-to-default). This is the knob
+    // add/remove evolution path — added keys surface in the group files, removed
+    // keys are pruned here and reported.
     writeConfigsReadme(projectRoot);
+    syncGroupConfigs(projectRoot);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });

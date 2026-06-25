@@ -71,9 +71,9 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
   framework knobs in the four-surface config layer (strictness, RAG, enterprise,
   escalation, features, model routing, …) — defaults in
   `src/core/framework-config.ts`, tracked team overrides in
-  `.paqad/configs/.config.*`, a git-ignored local `.paqad/.config` (local wins),
-  and `PAQAD_*` env — documented in the tracked `.paqad/.config.example` catalog,
-  and the onboarding manifest
+  `.paqad/configs/.config.*` (onboarding writes one self-documenting file per
+  group, every knob commented out at its default), a git-ignored local
+  `.paqad/.config` (local wins), and `PAQAD_*` env — and the onboarding manifest
   ([`project-profile-schema`](project-profile-schema/index/summary.md)).
 
 ### 1b. Every session loads the contract before it can edit

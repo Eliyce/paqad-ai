@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,8 +14,8 @@ import {
   configSaysPaqadDisabled,
   detectFlippedFrameworkValues,
   frameworkOverridesToFlat,
-  generateConfigExample,
   generateConfigsReadme,
+  generateGroupConfig,
   layeredConfigMap,
   listConfigsFiles,
   parseDotConfig,
@@ -29,7 +29,7 @@ import {
   setConfigValue,
   stripFrameworkConfigFromProfile,
   syncFrameworkConfig,
-  writeConfigExample,
+  syncGroupConfigs,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
@@ -365,33 +365,47 @@ describe('readDotConfig / resolveFrameworkConfig', () => {
   });
 });
 
-describe('generateConfigExample — discoverability surface stays in sync', () => {
-  const example = generateConfigExample();
+describe('generateGroupConfig — self-documenting group files, defaults by default', () => {
+  const GROUPS = Object.keys(CONFIG_GROUP_FILES) as Array<keyof typeof CONFIG_GROUP_FILES>;
 
-  it('documents every spec key and its env equivalent', () => {
-    for (const spec of FRAMEWORK_CONFIG_SPECS) {
-      expect(example).toContain(spec.key);
-      expect(example).toContain(spec.env);
+  it('each group file has an intro header and documents its keys, all commented out', () => {
+    for (const group of GROUPS) {
+      const text = generateGroupConfig(group);
+      expect(text).toMatch(/^# \.paqad\/configs\/\.config\./m); // intro header line
+      for (const spec of FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === group)) {
+        expect(text).toContain(spec.env); // env equivalent documented
+        expect(text).toMatch(new RegExp(`^# ${spec.key}=`, 'm')); // present, commented out
+        expect(text).not.toMatch(new RegExp(`^${spec.key}=`, 'm')); // not active by default
+      }
     }
   });
 
-  it('round-trips: the example’s active lines resolve back to the defaults', () => {
-    const resolved = resolveFrameworkConfigFromMap(parseDotConfig(example));
-    expect(resolved).toEqual(DEFAULT_FRAMEWORK_CONFIG);
+  it('the four group files together cover every knob exactly once', () => {
+    const inFiles = GROUPS.flatMap((g) =>
+      FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === g).map((s) => s.key),
+    ).sort();
+    expect(inFiles).toEqual(FRAMEWORK_CONFIG_SPECS.map((s) => s.key).sort());
   });
 
   it('is byte-stable across re-runs (idempotent onboarding)', () => {
-    expect(generateConfigExample()).toBe(example);
+    for (const group of GROUPS) {
+      expect(generateGroupConfig(group)).toBe(generateGroupConfig(group));
+    }
   });
 
-  it('comments out optional, default-unset keys', () => {
-    expect(example).toMatch(/^# rag_embedding_provider=/m);
-    expect(example).toMatch(/^# rag_embedding_model=/m);
+  it('round-trips: uncommenting every knob line resolves back to the code defaults', () => {
+    const uncommented = GROUPS.map((g) => generateGroupConfig(g))
+      .join('\n')
+      .replace(/^# ([a-z0-9_]+=.*)$/gm, '$1'); // activate the "# key=default" lines
+    expect(resolveFrameworkConfigFromMap(parseDotConfig(uncommented))).toEqual(
+      DEFAULT_FRAMEWORK_CONFIG,
+    );
   });
 
-  it('keeps the two new version knobs front and centre', () => {
-    expect(example).toMatch(/^auto_update=true$/m);
-    expect(example).toMatch(/^minimum_version=latest$/m);
+  it('re-emits an already-active override instead of commenting it', () => {
+    const text = generateGroupConfig('app', new Map([['enterprise', 'true']]));
+    expect(text).toMatch(/^enterprise=true$/m); // active
+    expect(text).not.toMatch(/^# enterprise=/m); // not the commented default
   });
 });
 
@@ -732,25 +746,43 @@ describe('the knob registry — internally consistent, no drift', () => {
   });
 });
 
-describe('writeConfigExample / writeConfigsReadme — write the tracked templates', () => {
-  it('writes .paqad/.config.example matching generateConfigExample()', () => {
-    const root = tmpRoot();
-    try {
-      const path = writeConfigExample(root);
-      expect(readFileSync(path, 'utf8')).toBe(generateConfigExample());
-    } finally {
-      rmSync(root, { recursive: true, force: true });
+describe('syncGroupConfigs / writeConfigsReadme — the tracked team files', () => {
+  let root: string;
+  beforeEach(() => {
+    root = tmpRoot();
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('onboard writes one commented file per group; everything still resolves to defaults', () => {
+    const written = syncGroupConfigs(root);
+    expect(written).toHaveLength(4);
+    for (const file of Object.values(CONFIG_GROUP_FILES)) {
+      expect(existsSync(join(root, '.paqad', 'configs', file))).toBe(true);
     }
+    // All keys are commented out, so the resolved config equals the code defaults.
+    expect(resolveFrameworkConfig(root, {})).toEqual(DEFAULT_FRAMEWORK_CONFIG);
+  });
+
+  it('is idempotent: a second sync changes nothing', () => {
+    syncGroupConfigs(root);
+    expect(syncGroupConfigs(root)).toEqual([]);
+  });
+
+  it('appends a newly-introduced key (commented) to an existing file, preserving edits', () => {
+    // An older/hand-edited file: a custom comment + an active override, missing
+    // most of the app-group keys.
+    writeConfigsFile(root, '.config.app', '# our team header\nenterprise=true\n');
+    syncGroupConfigs(root);
+    const app = readFileSync(join(root, '.paqad', 'configs', '.config.app'), 'utf8');
+    expect(app).toContain('# our team header'); // custom comment preserved
+    expect(app).toContain('enterprise=true'); // active override preserved (not reset)
+    expect(app).toMatch(/^# auto_update=true$/m); // a missing app-group key appended, commented
   });
 
   it('writes .paqad/configs/README.md matching generateConfigsReadme()', () => {
-    const root = tmpRoot();
-    try {
-      const path = writeConfigsReadme(root);
-      expect(readFileSync(path, 'utf8')).toBe(generateConfigsReadme());
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+    const path = writeConfigsReadme(root);
+    expect(readFileSync(path, 'utf8')).toBe(generateConfigsReadme());
   });
 });
 

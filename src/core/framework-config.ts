@@ -10,20 +10,20 @@
 //   - `.paqad/configs/.config.*` (tracked, merged) ... team-shared overrides
 //   - `.paqad/.config` (git-ignored, flat KEY=VALUE)  dev-local overrides
 //   - `PAQAD_*` env vars ............................. per-run escape hatch
-//   - `.paqad/.config.example` (tracked, commented) . the catalog, NEVER read
 //
-// Resolution precedence, lowest to highest (LOCAL WINS over team):
+// Onboarding writes one self-documenting `configs/.config.*` file per group, with
+// every knob commented out at its default (the discoverability surface). Resolution
+// precedence, lowest to highest (LOCAL WINS over team):
 //   defaults → configs/.config.* (merged) → .config → PAQAD_* env → overrides
 //
 // HARD CUTOVER: framework knobs are sourced ONLY from the surfaces above. Any
 // such keys still sitting in an existing `project-profile.yaml` are ignored on
-// read and stripped on write. `.config.example` is the discoverability surface
-// and is NEVER read at runtime.
+// read and stripped on write.
 //
 // A single `FRAMEWORK_CONFIG_SPECS` table (the knob registry) is the one source
 // of truth: it drives the defaults, the parser, the layered resolver, the
-// generated example file, the env mapping, and the reconcile/prune pass, so they
-// can never drift (tests assert the example round-trips and the registry is
+// generated group files, the env mapping, and the reconcile/prune pass, so they
+// can never drift (tests assert the group files round-trip and the registry is
 // internally consistent).
 
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -59,7 +59,7 @@ type ConfigValueType = 'boolean' | 'number' | 'string' | 'enum';
 
 /** The coarse logical group a knob belongs to — the suggested `configs/.config.*`
  *  file it lives in. Purely organizational: every config file is globbed and
- *  merged, so a key works in any file. Drives the example layout and the README. */
+ *  merged, so a key works in any file. Drives the group-file layout and the README. */
 export type ConfigGroup = 'app' | 'rag' | 'models' | 'policy';
 
 /** The suggested `configs/` filename for each group (the resolver ignores the
@@ -72,7 +72,7 @@ export const CONFIG_GROUP_FILES: Record<ConfigGroup, string> = {
 };
 
 export interface FrameworkConfigSpec {
-  /** Flat, bare, readable KEY as written in a config file / `.config.example`. */
+  /** Flat, bare, readable KEY as written in a `configs/.config.*` file. */
   key: string;
   /** The `PAQAD_*` environment-variable escape hatch for this knob. */
   env: string;
@@ -83,18 +83,16 @@ export interface FrameworkConfigSpec {
   enumValues?: readonly string[];
   /** When true, an unset/empty value resolves to `undefined`, not the default. */
   optional?: boolean;
-  /** The coarse `configs/` group this knob belongs to. */
+  /** The coarse `configs/` group this knob belongs to (its `configs/.config.*` file). */
   group: ConfigGroup;
-  /** Section header this key is grouped under in `.config.example`. */
+  /** Section sub-header this key is grouped under in its group file. */
   section: string;
-  /** One-line explanation rendered as a comment in `.config.example`. */
+  /** One-line explanation rendered as a comment above the key in its group file. */
   comment: string;
-  /** Render the example line commented-out (for optional, default-unset keys). */
-  exampleCommented?: boolean;
 }
 
 // ── The one source of truth (the knob registry) ────────────────────────────
-// Order here is the order rendered into `.config.example`. Keys are bare and
+// Order here is the order rendered into each group file. Keys are bare and
 // readable; each maps to a `PAQAD_*` env var for the per-run escape hatch.
 export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
   // ── app group ──────────────────────────────────────────────────────────
@@ -225,7 +223,6 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     enumValues: EMBEDDING_PROVIDERS,
     default: undefined,
     optional: true,
-    exampleCommented: true,
     group: 'rag',
     section: 'Intelligence / RAG',
     comment: 'local | openai | voyageai. Unset uses the local model.',
@@ -236,7 +233,6 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     type: 'string',
     default: undefined,
     optional: true,
-    exampleCommented: true,
     group: 'rag',
     section: 'Intelligence / RAG',
     comment: 'Override the embedding model id. Unset = provider default.',
@@ -423,9 +419,9 @@ export const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set(
   FRAMEWORK_CONFIG_SPECS.map((spec) => spec.key),
 );
 
-// Framework-internal efficiency tuning (Bucket C): never surfaced in
-// `.config.example`, never team-tuned. Lives here so the in-memory profile is
-// complete for readers; overridable only via the escape hatch below.
+// Framework-internal efficiency tuning (Bucket C): never surfaced in a group
+// file, never team-tuned. Lives here so the in-memory profile is complete for
+// readers; overridable only via the escape hatch below.
 const DEFAULT_EFFICIENCY_TUNING = {
   context_hit_rate_target: 0.7,
   skill_caching: true,
@@ -504,8 +500,8 @@ export function readDotConfig(projectRoot: string): Map<string, string> {
 }
 
 /** The absolute paths of the team `configs/.config.*` files, sorted by filename
- *  for deterministic last-wins merge. The `.config.example` template lives in
- *  `.paqad/`, not here, so it can never be swept in. */
+ *  for deterministic last-wins merge. A legacy `.paqad/.config.example` (from an
+ *  older version) lives in the parent dir and is excluded defensively. */
 export function listConfigsFiles(projectRoot: string): string[] {
   const dir = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR);
   let entries: string[];
@@ -898,39 +894,72 @@ export function stripFrameworkConfigFromProfile<T extends Partial<ProjectProfile
   return clone as Partial<ProjectProfile>;
 }
 
-// ── `.config.example` + `configs/README` generation ────────────────────────
+// ── `configs/.config.*` group-file + `configs/README` generation ───────────
 
-function exampleValue(spec: FrameworkConfigSpec): string {
-  if (spec.default === undefined) {
-    return '';
-  }
-  return String(spec.default);
+/** One-line title for each group's file header. */
+const CONFIG_GROUP_TITLES: Record<ConfigGroup, string> = {
+  app: 'Application, version, enterprise, and feature flags',
+  rag: 'Intelligence / RAG',
+  models: 'Research depth and model routing',
+  policy: 'Quality, escalation, and decision policy',
+};
+
+/** Intro prose for each group's file header (what this file controls). */
+const CONFIG_GROUP_INTROS: Record<ConfigGroup, string[]> = {
+  app: [
+    'The framework master switch, the background version/update policy, the licensed',
+    'enterprise/governance switches, and the planning feature flags.',
+  ],
+  rag: [
+    'Retrieval-augmented context loading: whether it is on, the embedding provider and',
+    'model, and the retrieval tuning (similarity threshold, top-N, file-size limit).',
+  ],
+  models: [
+    'How deep research goes, and which models handle routine, heavy-reasoning, and',
+    'fast/cheap work.',
+  ],
+  policy: [
+    'Strictness gates (adversarial review, stale-doc blocking, DB-migration review),',
+    'escalation modes for risky operations, and decision-pause tuning.',
+  ],
+};
+
+function renderDefault(spec: FrameworkConfigSpec): string {
+  return spec.default === undefined ? '' : String(spec.default);
+}
+
+/** True when `text` already contains `key` in any form (active or commented). */
+function fileHasKey(text: string, key: string): boolean {
+  return new RegExp(`^\\s*#?\\s*(?:export\\s+)?${escapeRegExp(key)}\\s*=`, 'mu').test(text);
 }
 
 /**
- * Render the tracked, commented `.config.example` catalog. Driven entirely by
- * `FRAMEWORK_CONFIG_SPECS`, so it always matches the resolver (asserted by test).
- * This file documents every knob and is NEVER read at runtime.
+ * Render one tracked `configs/.config.<group>` file: an intro header explaining
+ * what the group controls, then every knob in that group as a COMMENTED-OUT
+ * assignment at its default, preceded by a one-line explanation and its `PAQAD_*`
+ * env equivalent. Because every line is commented, the file is inert until a line
+ * is uncommented, so a freshly-onboarded project runs entirely on code defaults.
+ * `overrides` re-emits the team's already-active (uncommented) values when the
+ * file is refreshed.
  */
-export function generateConfigExample(): string {
+export function generateGroupConfig(
+  group: ConfigGroup,
+  overrides: Map<string, string> = new Map(),
+): string {
   const lines: string[] = [
-    '# paqad framework configuration — the catalog (.paqad/.config.example)',
+    `# .paqad/configs/${CONFIG_GROUP_FILES[group]} — ${CONFIG_GROUP_TITLES[group]}`,
     '#',
-    '# This file documents every framework knob and its built-in default. It is a',
-    '# reference only and is NEVER read at runtime. To override a knob, copy the',
-    '# line into one of the override surfaces (highest precedence wins):',
+    ...CONFIG_GROUP_INTROS[group].map((l) => `# ${l}`),
     '#',
-    '#   1. configs/.config.*   tracked, shared with the team (e.g. .config.app)',
-    '#   2. .config             git-ignored, your local machine (LOCAL WINS)',
-    '#   3. PAQAD_* env var      a single per-run override (e.g. PAQAD_ENTERPRISE=true)',
-    '#',
-    '# Every key also has a PAQAD_* env equivalent, shown per line below. A project',
-    '# with no override surface runs entirely on the code defaults shown here.',
+    '# Every key below is COMMENTED OUT, so paqad uses its built-in default until you',
+    '# uncomment a line to override it. Precedence, highest first: PAQAD_* env var >',
+    '# your local ../.config > these tracked team files > code default. This file is',
+    '# tracked; `paqad-ai update` refreshes it and keeps every value you uncommented.',
     '',
   ];
 
   let currentSection = '';
-  for (const spec of FRAMEWORK_CONFIG_SPECS) {
+  for (const spec of FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === group)) {
     if (spec.section !== currentSection) {
       if (currentSection !== '') {
         lines.push('');
@@ -939,53 +968,89 @@ export function generateConfigExample(): string {
       currentSection = spec.section;
     }
     lines.push(`# ${spec.comment} (env: ${spec.env})`);
-    const assignment = `${spec.key}=${exampleValue(spec)}`;
-    lines.push(spec.exampleCommented ? `# ${assignment}` : assignment);
+    const override = overrides.get(spec.key);
+    lines.push(
+      override !== undefined ? `${spec.key}=${override}` : `# ${spec.key}=${renderDefault(spec)}`,
+    );
   }
 
   lines.push('');
   return lines.join('\n');
 }
 
-/** Write the tracked `.paqad/.config.example` catalog. Always refreshed (like
- *  Laravel's `.env.example`) so newly-shipped keys appear after an update. */
-export function writeConfigExample(projectRoot: string): string {
-  const path = join(projectRoot, PATHS.PROJECT_CONFIG_EXAMPLE);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, generateConfigExample(), 'utf8');
-  return path;
+/**
+ * Write/refresh the tracked `configs/.config.*` group files. Absent files (a
+ * fresh onboard, or a project upgrading from before this feature) are generated
+ * fully, with every key commented out. Existing files are left in place and only
+ * GAIN newly-introduced keys (appended, commented) — every line the team has,
+ * including the values they uncommented, is preserved verbatim. Removal of
+ * obsolete keys is handled by {@link reconcileConfigOverrides}. Returns the file
+ * paths that were created or appended to.
+ */
+export function syncGroupConfigs(projectRoot: string): string[] {
+  const written: string[] = [];
+  for (const group of Object.keys(CONFIG_GROUP_FILES) as ConfigGroup[]) {
+    const file = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, CONFIG_GROUP_FILES[group]);
+    let existing: string | null;
+    try {
+      existing = readFileSync(file, 'utf8');
+    } catch {
+      existing = null;
+    }
+    mkdirSync(dirname(file), { recursive: true });
+
+    if (existing === null) {
+      writeFileSync(file, generateGroupConfig(group), 'utf8');
+      written.push(file);
+      continue;
+    }
+
+    const missing = FRAMEWORK_CONFIG_SPECS.filter(
+      (s) => s.group === group && !fileHasKey(existing as string, s.key),
+    );
+    if (missing.length === 0) {
+      continue; // byte-identical: never rewrite a file we did not change
+    }
+    const additions = ['', `# ── Added in a newer paqad version ${'─'.repeat(28)}`];
+    for (const spec of missing) {
+      additions.push(`# ${spec.comment} (env: ${spec.env})`);
+      additions.push(`# ${spec.key}=${renderDefault(spec)}`);
+    }
+    writeFileSync(file, `${existing.replace(/\n+$/u, '')}\n${additions.join('\n')}\n`, 'utf8');
+    written.push(file);
+  }
+  return written;
 }
 
 /** Render the tracked `configs/README` explaining the team-override convention. */
 export function generateConfigsReadme(): string {
-  const groupLines = (Object.keys(CONFIG_GROUP_FILES) as ConfigGroup[]).map((group) => {
-    const sections = [
-      ...new Set(FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === group).map((s) => s.section)),
-    ];
-    return `- \`${CONFIG_GROUP_FILES[group]}\` — ${sections.join(', ')}`;
-  });
+  const groupLines = (Object.keys(CONFIG_GROUP_FILES) as ConfigGroup[]).map(
+    (group) => `- \`${CONFIG_GROUP_FILES[group]}\` — ${CONFIG_GROUP_TITLES[group]}`,
+  );
   return [
     '# paqad team configuration (`.paqad/configs/`)',
     '',
-    'Tracked, team-shared framework overrides. Every `.config.*` file in this',
-    'directory is merged into one map and read at runtime, so the split is purely',
-    'organizational — a key works in any file. Suggested grouping:',
+    'Tracked, team-shared framework overrides. Onboarding writes one file per group,',
+    'each pre-filled with every knob in that group, commented out and documented:',
     '',
     ...groupLines,
     '',
-    '## Rules',
+    'Every file in this directory is merged into one map and read at runtime, so the',
+    'split is purely organizational — a key works in any file.',
     '',
-    '- Flat `KEY=VALUE`, one per line, bare lowercase keys (e.g. `enterprise=true`).',
-    '- Copy the keys you want to override out of `../.config.example` (the catalog).',
-    '- Keys must be globally unique across these files. The same key in two files is',
-    '  a collision: the alphabetically-last filename wins and `paqad-ai onboard`/',
-    '  `update` reports it.',
+    '## How to use',
+    '',
+    '- Uncomment a line to override that knob. While a key stays commented (or absent),',
+    '  paqad uses its built-in code default, so an untouched project runs entirely on',
+    '  defaults.',
+    '- Keys must be globally unique across these files. The same key uncommented in two',
+    '  files is a collision: the alphabetically-last filename wins, and `paqad-ai',
+    '  onboard`/`update` reports it.',
     '- A teammate’s local `../.config` (git-ignored) overrides anything here, and a',
     '  `PAQAD_*` env var overrides everything.',
-    '- `onboard`/`update` only ever PRUNE keys this version no longer knows from your',
-    '  files; they never reset a value you set or add keys you did not ask for.',
-    '',
-    'A project with no files here runs entirely on the framework code defaults.',
+    '- `paqad-ai update` refreshes these files: it appends knobs added in a new version',
+    '  (commented) and prunes knobs a new version removed, but never changes a value you',
+    '  uncommented. It never resets your settings to defaults.',
     '',
   ].join('\n');
 }
@@ -1041,11 +1106,11 @@ export function pruneUnknownKeysFromText(
 /**
  * Reconcile the team/local override files against the current knob registry.
  * Runs during `onboard`/`update` only. For `.config` and every `configs/.config.*`
- * file, it PRUNES keys this version no longer knows and leaves everything else
- * untouched — it never resets a value, never converts a file to defaults, and
- * never injects newly-added keys (those are documented in the refreshed
- * `.config.example` and default in code until the team adopts them). Returns the
- * per-file report of what was pruned (empty when nothing changed).
+ * file, it PRUNES uncommented keys this version no longer knows and leaves
+ * everything else untouched — it never resets a value, never converts a file to
+ * defaults, and never injects new keys here (newly-added keys are appended to
+ * their group file, commented, by {@link syncGroupConfigs}). Returns the per-file
+ * report of what was pruned (empty when nothing changed).
  */
 export function reconcileConfigOverrides(projectRoot: string): ReconciledConfigFile[] {
   const report: ReconciledConfigFile[] = [];

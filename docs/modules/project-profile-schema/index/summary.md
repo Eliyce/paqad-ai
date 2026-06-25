@@ -14,9 +14,9 @@ the project's own `commands`, `mcp.servers`, the detection-derived
 Framework knobs (paqad on/off, enterprise, RAG, strictness, escalation, features,
 research depth, model routing, decision tuning, version/update) no longer live
 here. They come from code defaults in `src/core/framework-config.ts`, overridable
-through the config layer — tracked team `.paqad/configs/.config.*`, git-ignored
-local `.paqad/.config` (local wins), `PAQAD_*` env — and documented in the tracked
-`.paqad/.config.example` catalog. See
+through the config layer — tracked team `.paqad/configs/.config.*` (one
+self-documenting file per group, every knob commented out at its default),
+git-ignored local `.paqad/.config` (local wins), and `PAQAD_*` env. See
 [`config-visibility`](../../../instructions/rules/coding/config-visibility.md).
 
 ## Source Footprint
