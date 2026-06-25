@@ -31,6 +31,7 @@ import {
   syncFrameworkConfig,
   writeConfigExample,
   writeConfigsReadme,
+  writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
@@ -738,5 +739,62 @@ describe('writeConfigExample / writeConfigsReadme — write the tracked template
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe('edge paths — graceful handling of malformed input', () => {
+  let root: string;
+  beforeEach(() => {
+    root = tmpRoot();
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('parseDotConfig ignores an assignment with an empty key', () => {
+    const m = parseDotConfig('=novalue\nrag_top_n=3');
+    expect(m.size).toBe(1);
+    expect(m.get('rag_top_n')).toBe('3');
+  });
+
+  it('readConfigsDir skips a configs entry it cannot read (e.g. a directory)', () => {
+    // A directory named like a config file matches the glob; reading it throws
+    // and must be skipped, not crash, while sibling files still resolve.
+    mkdirSync(join(root, '.paqad', 'configs', '.config.dir'), { recursive: true });
+    writeConfigsFile(root, '.config.app', 'enterprise=true\n');
+    const { merged } = readConfigsDir(root);
+    expect(merged.get('enterprise')).toBe('true');
+  });
+
+  it('an out-of-enum optional embedding provider resolves to undefined', () => {
+    const c = resolveFrameworkConfigFromMap(parseDotConfig('rag_embedding_provider=bogus'));
+    expect(c.intelligence.embedding_provider).toBeUndefined();
+  });
+
+  it('pruneUnknownKeysFromText preserves a non-assignment, non-comment line', () => {
+    const text = 'enterprise=true\nthis line has no equals sign\nrag_top_n=9\n';
+    const { text: out, removed } = pruneUnknownKeysFromText(text);
+    expect(removed).toEqual([]); // nothing pruned (the prose line is not an assignment)
+    expect(out).toBe(text); // byte-identical
+  });
+
+  it('detectFlippedFrameworkValues returns [] for malformed or non-object YAML', () => {
+    const p = join(root, '.paqad', 'project-profile.yaml');
+    writeFileSync(p, ':\n: : not valid yaml ][', 'utf8');
+    expect(detectFlippedFrameworkValues(root)).toEqual([]);
+    writeFileSync(p, 'just a scalar string', 'utf8'); // parses to a non-object
+    expect(detectFlippedFrameworkValues(root)).toEqual([]);
+  });
+
+  it('writeFrameworkOverridesToConfig writes only the non-default keys it was given', () => {
+    const written = writeFrameworkOverridesToConfig(root, {
+      enterprise: {
+        enabled: true,
+        evidence_ledger: false,
+        ai_bom: false,
+        compliance_citations: false,
+      },
+    } as Partial<ProjectProfile>);
+    expect(written).toEqual(['enterprise']);
+    expect(readFileSync(join(root, '.paqad', '.config'), 'utf8')).toMatch(/^enterprise=true$/m);
   });
 });
