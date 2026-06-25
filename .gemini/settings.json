@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.paqad-ai/current/hooks/verification-record.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

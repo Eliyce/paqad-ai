@@ -11,74 +11,13 @@ commands:
   format: pnpm format
   migrate: echo "configure migrate command"
   build: pnpm build
-strictness:
-  full_lane_default: false
-  require_adversarial_review: true
-  block_on_stale_docs: true
-  require_db_review_for_migrations: true
 compliance_packs: []
-features:
-  spec_only_mode: false
-  market_research: false
-  design_research: false
-  team_agents: true
-enterprise:
-  enabled: false
-  evidence_ledger: false
-  ai_bom: false
-  compliance_citations: false
 mcp:
   servers: []
-model_routing:
-  default_model: gpt-5
-  reasoning_model: gpt-5
-  fast_model: gpt-5-mini
-research:
-  depth: standard
-intelligence:
-  rag_enabled: false
-  rag_similarity_threshold: 0.75
-  rag_top_n: 20
-  rag_max_file_size: 153600
-  benchmark_gates:
-    hit_at_5_improvement_pct: 20
-    task_success_rate_improvement_pct: 10
-    correction_turn_reduction_pct: 15
-    prompt_token_increase_limit_pct: 10
-    prompt_token_override_success_improvement_pct: 15
-  benchmark_eval:
-    model_graded:
-      enabled: false
-  adaptive_retrieval:
-    enabled: true
-    thresholds:
-      min_useful_chunks: 3
-  reranking:
-    enabled: false
-    backend: local
-    candidate_pool_size: 50
-  metadata_filters:
-    enabled: true
-  action_routing:
-    enabled: false
-efficiency:
-  context_hit_rate_target: 0.7
-  skill_caching: true
-  differential_refresh: true
-  mcp_first: true
-escalation:
-  destructive_operations: block
-  risky_migrations: warn
-  security_findings: block
-  db_row_threshold: 10000
 custom:
   classification_dimensions: []
   verification_plugins: []
   escalation_rules: []
-  decisions:
-    ask_threshold: balanced
-    max_screens_per_task: 3
-    idle_timeout_minutes: 30
 active_capabilities:
   - content
   - coding

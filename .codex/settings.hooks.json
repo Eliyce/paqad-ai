@@ -27,6 +27,12 @@
     "source": "hooks/lib/agent-entry-sentinel.sh"
   },
   {
+    "source": "hooks/lib/paqad-disabled.mjs"
+  },
+  {
+    "source": "hooks/lib/paqad-disabled.sh"
+  },
+  {
     "source": "hooks/module-health-sync.sh"
   },
   {

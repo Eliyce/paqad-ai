@@ -1,0 +1,37 @@
+# .paqad/configs/.config.policy — Quality, escalation, and decision policy
+#
+# Strictness gates (adversarial review, stale-doc blocking, DB-migration review),
+# escalation modes for risky operations, and decision-pause tuning.
+#
+# Every key below is COMMENTED OUT, so paqad uses its built-in default until you
+# uncomment a line to override it. Precedence, highest first: PAQAD_* env var >
+# your local ../.config > these tracked team files > code default. This file is
+# tracked; `paqad-ai update` refreshes it and keeps every value you uncommented.
+
+# ── Strictness / quality gates ──────────────────────────────
+# Route every task through the full (heaviest) lane by default. (env: PAQAD_FULL_LANE_DEFAULT)
+# full_lane_default=false
+# Require an adversarial review pass before delivery. (env: PAQAD_REQUIRE_ADVERSARIAL_REVIEW)
+# require_adversarial_review=true
+# Block delivery when canonical docs are out of date. (env: PAQAD_BLOCK_ON_STALE_DOCS)
+# block_on_stale_docs=true
+# Require a database review when a change includes migrations. (env: PAQAD_REQUIRE_DB_REVIEW_FOR_MIGRATIONS)
+# require_db_review_for_migrations=true
+
+# ── Escalation policy ───────────────────────────────────────
+# block | require_approval | warn — for destructive operations. (env: PAQAD_ESCALATE_DESTRUCTIVE_OPERATIONS)
+# escalate_destructive_operations=block
+# block | require_approval | warn — for risky migrations. (env: PAQAD_ESCALATE_RISKY_MIGRATIONS)
+# escalate_risky_migrations=warn
+# block | require_approval | warn — for security findings. (env: PAQAD_ESCALATE_SECURITY_FINDINGS)
+# escalate_security_findings=block
+# Row count above which a data operation escalates. (env: PAQAD_ESCALATE_DB_ROW_THRESHOLD)
+# escalate_db_row_threshold=10000
+
+# ── Decisions (pause-contract tuning) ───────────────────────
+# strict | balanced | permissive — how eagerly to pause and ask. (env: PAQAD_DECISIONS_ASK_THRESHOLD)
+# decisions_ask_threshold=balanced
+# Max decision screens surfaced per task. (env: PAQAD_DECISIONS_MAX_SCREENS_PER_TASK)
+# decisions_max_screens_per_task=3
+# Auto-resolve a pending decision after this idle window. (env: PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES)
+# decisions_idle_timeout_minutes=30
