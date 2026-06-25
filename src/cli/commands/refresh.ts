@@ -10,8 +10,7 @@ import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.
 import { Detector } from '@/detection/detector.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
-import { writeDecisionPauseContractDocument } from '@/onboarding/decision-pause-contract-writer.js';
-import { writeNarrationContractDocument } from '@/onboarding/narration-contract-writer.js';
+import { removeObsoleteContractDocs } from '@/onboarding/obsolete-cleanup.js';
 import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
 import { refreshProjectRules, type RulesRefreshReport } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
@@ -196,8 +195,10 @@ function printRulesReport(report: RulesRefreshReport): void {
 }
 
 async function refreshProviderEntries(projectRoot: string): Promise<void> {
-  writeDecisionPauseContractDocument(projectRoot);
-  writeNarrationContractDocument(projectRoot);
+  // Issue #229 — the contracts live in the install bootstrap now, not the
+  // project. Prune any stale pre-#229 project-level copies and re-render the
+  // (lean) entry files.
+  removeObsoleteContractDocs(projectRoot);
 
   // Re-render entry files for every adapter that already has its config file
   // present. Untouched adapters stay untouched — refresh should not silently

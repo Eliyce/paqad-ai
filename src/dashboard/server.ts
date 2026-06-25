@@ -21,7 +21,6 @@ import {
   resolvePauseDecision,
 } from './approvals.js';
 import { readAuditFeed } from './audit-feed.js';
-import { getDecisionContract, putDecisionContract } from './config-decision-contract.js';
 import {
   DeliveryPolicyValidationError,
   getDeliveryPolicyConfig,
@@ -690,23 +689,6 @@ export async function startDashboardServer(
       await handleMutation(req, res, async () => {
         const body = (await readJsonBody(req)) as { intelligence?: unknown };
         return putRagConfig(options.projectRoot, body.intelligence);
-      });
-      return;
-    }
-    if (pathname === '/api/config/decision-contract' && req.method === 'GET') {
-      writeJson(res, req, getDecisionContract(options.projectRoot));
-      return;
-    }
-    if (pathname === '/api/config/decision-contract' && req.method === 'PUT') {
-      await handleMutation(req, res, async () => {
-        const body = (await readJsonBody(req)) as { content?: unknown; baseHash?: unknown };
-        if (typeof body.content !== 'string') {
-          throw new Error('Body must include the contract `content` as a string.');
-        }
-        return putDecisionContract(options.projectRoot, {
-          content: body.content,
-          baseHash: typeof body.baseHash === 'string' ? body.baseHash : null,
-        });
       });
       return;
     }

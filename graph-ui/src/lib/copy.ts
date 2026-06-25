@@ -65,11 +65,6 @@ export const WHY_DRAWER: Record<string, WhyDrawerCopy> = {
     benefit: 'A living map of what exists, what it does and how it connects.',
     without: 'Changes land in the wrong place and the architecture quietly erodes.',
   },
-  'decision-contract': {
-    problem: 'Agents guess when they should ask.',
-    benefit: 'Risky calls pause and wait for you, the rest keep moving.',
-    without: 'You find out about big decisions after they are made.',
-  },
   profile: {
     problem: 'Advice that ignores what your project is becomes noise.',
     benefit: 'Paqad tunes its checks to the shape of your project.',

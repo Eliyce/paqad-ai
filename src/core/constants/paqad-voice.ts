@@ -3,8 +3,8 @@
  * the glyphs, verdict words, and status-block frame paqad speaks in across
  * every surface it appears on (issue #158):
  *
- *   - the in-chat narration contract baked into provider entry files
- *     (`src/adapters/shared/narration-contract.ts`),
+ *   - the in-chat narration contract carried by the framework bootstrap
+ *     (`src/onboarding/narration-contract-writer.ts`),
  *   - the PR evidence comment (`src/verification/evidence-markdown.ts`),
  *   - the dashboard markdown (`src/dashboard/markdown.ts`).
  *

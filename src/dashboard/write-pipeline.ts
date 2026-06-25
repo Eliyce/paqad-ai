@@ -55,11 +55,7 @@ export class PathNotAllowedError extends Error {
  * Exact-file allowlist entries beyond `docs/instructions/**`. Named config
  * files only — evidence and ledgers have no mutation routes at all.
  */
-const ALLOWED_FILES: readonly string[] = [
-  PATHS.PROJECT_PROFILE,
-  PATHS.DECISION_PAUSE_CONTRACT,
-  PATHS.RAG_IGNORE_CONFIG,
-];
+const ALLOWED_FILES: readonly string[] = [PATHS.PROJECT_PROFILE, PATHS.RAG_IGNORE_CONFIG];
 
 const ALLOWED_EXTENSIONS = ['.md', '.yml', '.yaml', '.json'];
 

@@ -1,10 +1,13 @@
 import type { AdapterType } from '@/core/types/adapter.js';
 
 /**
- * One-sentence interactive-UI note rendered into each provider's entry file under
- * the Decision Pause Contract section. The note tells the agent which UI primitive
- * its host exposes for surfacing pending packets — the rest of the contract is
- * provider-agnostic and lives in the managed `.paqad/decision-pause-contract.md`.
+ * One-sentence interactive-UI note for each provider — the UI primitive its host
+ * exposes for surfacing a pending decision packet (e.g. the Claude Code
+ * `AskUserQuestion` "tray"). The notes are rendered into the per-adapter UI table
+ * of the Decision Pause Contract, which is carried inline by the framework
+ * bootstrap (`AGENT-BOOTSTRAP.md`). The agent uses the row matching the
+ * `Adapter:` footer in the lean entry file that pointed it to the bootstrap
+ * (issue #229).
  */
 export const DECISION_PAUSE_UI_NOTES: Record<AdapterType, string> = {
   'claude-code':

@@ -599,23 +599,33 @@ describe('startDashboardServer', () => {
       expect(toggled.result.active).toContain('planning');
     });
 
-    it('serves module-map, rag, decision-contract, and design-tokens configs', async () => {
+    it('serves module-map, rag, and design-tokens configs', async () => {
       bootstrap(root);
-      writeFileSync(
-        join(root, '.paqad/decision-pause-contract.md'),
-        '# Decision Pause Contract\n\nBody.\n',
-      );
       await startServer();
 
       for (const endpoint of [
         '/api/config/module-map',
         '/api/config/rag',
-        '/api/config/decision-contract',
         '/api/config/design-tokens',
       ]) {
         const res = await fetch(`${server!.url}${endpoint}`);
         expect(res.status, endpoint).toBe(200);
       }
+    });
+
+    it('404s the retired decision-contract config endpoint', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const get = await fetch(`${server!.url}/api/config/decision-contract`);
+      expect(get.status).toBe(404);
+
+      const put = await fetch(`${server!.url}/api/config/decision-contract`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: '# Decision Pause Contract\n', baseHash: null }),
+      });
+      expect(put.status).toBe(404);
     });
 
     it('starts an ops job, reports it, and streams completion to the report', async () => {
@@ -670,10 +680,6 @@ describe('startDashboardServer', () => {
 
     it('accepts every config PUT over HTTP through the pipeline', async () => {
       bootstrap(root);
-      writeFileSync(
-        join(root, '.paqad/decision-pause-contract.md'),
-        '# Decision Pause Contract\n\nOriginal.\n',
-      );
       await startServer();
 
       const profileGet = await fetch(`${server!.url}/api/config/profile`);
@@ -709,18 +715,6 @@ describe('startDashboardServer', () => {
       });
       expect(ragPut.status).toBe(200);
 
-      const contractGet = await fetch(`${server!.url}/api/config/decision-contract`);
-      const contract = (await contractGet.json()) as { hash: string };
-      const contractPut = await fetch(`${server!.url}/api/config/decision-contract`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          content: '# Decision Pause Contract\n\nUpdated.\n',
-          baseHash: contract.hash,
-        }),
-      });
-      expect(contractPut.status).toBe(200);
-
       const tokensPut = await fetch(`${server!.url}/api/config/design-tokens`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -741,7 +735,6 @@ describe('startDashboardServer', () => {
       expect(audit).toContain('dashboard.config.profile.write');
       expect(audit).toContain('dashboard.config.module-map.write');
       expect(audit).toContain('dashboard.config.rag.write');
-      expect(audit).toContain('dashboard.config.decision-contract.write');
     });
 
     it('covers packs listing, ops job lookups, audit paging, and packet formats', async () => {

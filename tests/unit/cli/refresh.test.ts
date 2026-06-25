@@ -10,6 +10,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { DifferentialRefresh } from '@/context/differential-refresh.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
 import { DesignTokenService } from '@/design-tokens/service.js';
+import { buildDecisionPauseContractDocument } from '@/onboarding/decision-pause-contract-writer.js';
 import { Detector } from '@/detection/detector.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
@@ -311,15 +312,21 @@ describe('refresh command', () => {
     ).rejects.toThrow(/unknown option/i);
   });
 
-  it('writes the canonical decision-pause-contract doc when --providers is passed', async () => {
+  it('prunes a pre-existing managed contract doc and never re-writes it when --providers is passed', async () => {
+    // Issue #229 — the decision-pause + narration contracts moved into the
+    // framework install (carried by AGENT-BOOTSTRAP.md). A project onboarded
+    // before #229 still has the managed copy on disk; refresh --providers must
+    // delete it and must NOT regenerate a project-level copy.
+    const contractPath = join(projectRoot, '.paqad/decision-pause-contract.md');
+    writeFileSync(contractPath, buildDecisionPauseContractDocument());
+
     const command = createRefreshCommand();
     await command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--providers'], {
       from: 'node',
     });
 
-    const doc = readFileSync(join(projectRoot, '.paqad/decision-pause-contract.md'), 'utf8');
-    expect(doc).toContain('## Resolution flow');
-    expect(doc).toContain('## Fallback');
+    // The stale managed copy is pruned and not re-created.
+    expect(existsSync(contractPath)).toBe(false);
     // --providers should not trigger stack/design refresh
     expect(writeStackArtifacts).not.toHaveBeenCalled();
     expect(DesignTokenService.prototype.writeDocs).not.toHaveBeenCalled();
@@ -336,9 +343,14 @@ describe('refresh command', () => {
     });
 
     const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
-    expect(claudeMd).toContain('## Decision Pause Contract');
-    expect(claudeMd).toContain('.paqad/decision-pause-contract.md');
-    expect(claudeMd).toContain('AskUserQuestion');
+    // Issue #229 — the rendered entry file is now a lean stub: it only points at
+    // the framework bootstrap and carries no inline contracts or load steps.
+    expect(claudeMd).toContain('.paqad/framework-path.txt');
+    expect(claudeMd).toContain('AGENT-BOOTSTRAP.md');
+    expect(claudeMd).not.toContain('## Decision Pause Contract');
+    expect(claudeMd).not.toContain('.paqad/decision-pause-contract.md');
+    expect(claudeMd).not.toContain('docs/instructions');
+    expect(claudeMd).not.toContain('## ');
     // The previously-absent AGENTS.md should still be absent: refresh must not
     // silently onboard new providers.
     expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);

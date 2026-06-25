@@ -2,17 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { AdapterFactory } from '@/adapters/factory.js';
-import { ADAPTER_TYPES } from '@/core/types/adapter.js';
+import { buildFrameworkFallbackClause } from '@/adapters/shared/framework-fallback-clause.js';
 import { PATHS } from '@/core/constants/paths.js';
-import {
-  buildNarrationContractSection,
-  extractNarrationContractSection,
-} from '@/adapters/shared/narration-contract.js';
-import {
-  buildDecisionPauseContractSection,
-  extractDecisionPauseContractSection,
-  normalizeProviderEntryContract,
-} from '@/adapters/shared/provider-entry-contract.js';
+import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 
 export interface ProviderEntryContractCheckResult {
   status: 'pass' | 'warning' | 'fail';
@@ -20,153 +12,115 @@ export interface ProviderEntryContractCheckResult {
   remediation: string;
 }
 
-export function inspectProviderEntryDecisionPauseContracts(
+const REMEDIATION = 'Re-run `paqad refresh --providers` to regenerate the lean entry stubs.';
+
+/**
+ * Section markers a pre-#229 "fat" entry file carried. Issue #229 moved the load
+ * order and BOTH contracts into the install bootstrap, so a lean stub must inline
+ * none of these.
+ */
+const STALE_FAT_MARKERS: readonly string[] = [
+  '## Decision Pause Contract',
+  '# Decision Pause Contract',
+  '## paqad in your chat',
+  '# paqad narration contract',
+];
+
+interface PresentEntryFile {
+  relativePath: string;
+  content: string;
+}
+
+function presentEntryFiles(projectRoot: string): PresentEntryFile[] {
+  return ADAPTER_TYPES.map((type) => join(projectRoot, AdapterFactory.create(type).getConfigPath()))
+    .filter((path) => existsSync(path))
+    .map((path) => ({
+      relativePath: relative(projectRoot, path),
+      content: readFileSync(path, 'utf8'),
+    }));
+}
+
+function noEntryFiles(kind: string): ProviderEntryContractCheckResult {
+  return {
+    status: 'warning',
+    detail: 'No adapter config files were found to check',
+    remediation: `Generate at least one adapter config before checking the ${kind}.`,
+  };
+}
+
+/**
+ * Issue #229 — every provider entry file must be a LEAN stub: it points to the
+ * framework bootstrap via `.paqad/framework-path.txt` and inlines NO contract.
+ * A stale pre-#229 fat entry file (still carrying a `## Decision Pause Contract`
+ * or `## paqad in your chat` section) is flagged so a refresh restores the lean
+ * shape. The contracts themselves now live in the install bootstrap, not the
+ * project, so there is no per-project contract doc to check.
+ */
+export function inspectProviderEntryBootstrapPointer(
   projectRoot: string,
 ): ProviderEntryContractCheckResult {
-  const configPaths = ADAPTER_TYPES.map((type) => ({
-    type,
-    path: join(projectRoot, AdapterFactory.create(type).getConfigPath()),
-  }));
-  const existing = configPaths.filter(({ path }) => existsSync(path));
-
-  if (existing.length === 0) {
-    return {
-      status: 'warning',
-      detail: 'No adapter config files were found to check',
-      remediation:
-        'Generate at least one adapter config before checking the decision pause contract.',
-    };
+  const entries = presentEntryFiles(projectRoot);
+  if (entries.length === 0) {
+    return noEntryFiles('bootstrap pointer');
   }
 
-  const missing: string[] = [];
-  const drifted: string[] = [];
-
-  for (const { type, path } of existing) {
-    const current = readFileSync(path, 'utf8');
-    const section = extractDecisionPauseContractSection(current);
-
-    if (section === null) {
-      missing.push(relative(projectRoot, path));
-      continue;
-    }
-
-    const expected = normalizeProviderEntryContract(buildDecisionPauseContractSection(type));
-    if (normalizeProviderEntryContract(section) !== expected) {
-      drifted.push(relative(projectRoot, path));
-    }
-  }
-
-  const remediation =
-    'Re-run `paqad refresh --providers` to restore the decision pause pointer and managed doc.';
-
-  if (missing.length > 0) {
+  const missingPointer = entries
+    .filter((entry) => !entry.content.includes(PATHS.FRAMEWORK_PATH))
+    .map((entry) => entry.relativePath);
+  if (missingPointer.length > 0) {
     return {
       status: 'fail',
-      detail: `Decision pause contract missing from: ${missing.join(', ')}`,
-      remediation,
+      detail: `Bootstrap pointer (${PATHS.FRAMEWORK_PATH}) missing from: ${missingPointer.join(', ')}`,
+      remediation: REMEDIATION,
     };
   }
 
-  if (drifted.length > 0) {
+  const stillFat = entries
+    .filter((entry) => STALE_FAT_MARKERS.some((marker) => entry.content.includes(marker)))
+    .map((entry) => entry.relativePath);
+  if (stillFat.length > 0) {
     return {
       status: 'warning',
-      detail: `Decision pause contract drift detected in: ${drifted.join(', ')}`,
-      remediation,
-    };
-  }
-
-  // Also flag a missing canonical doc as drift (warning, not fail — the entry
-  // file pointer is still useful even if the managed doc isn't there yet).
-  const canonicalPath = join(projectRoot, PATHS.DECISION_PAUSE_CONTRACT);
-  if (!existsSync(canonicalPath)) {
-    return {
-      status: 'warning',
-      detail: `Canonical decision pause contract document is missing at ${relative(projectRoot, canonicalPath)}`,
-      remediation,
+      detail: `Stale (pre-#229) entry file still inlines a contract section in: ${stillFat.join(', ')}`,
+      remediation: REMEDIATION,
     };
   }
 
   return {
     status: 'pass',
-    detail:
-      'Generated adapter config files point at the canonical decision pause contract and the managed doc is present.',
+    detail: 'Every generated entry file is a lean stub pointing to the framework bootstrap.',
     remediation: 'No action needed.',
   };
 }
 
 /**
- * Checks that every present provider entry file carries the issue #158
- * narration contract, that it matches the canonical section (no drift), and
- * that the managed `.paqad/narration-contract.md` doc exists. Mirrors the
- * decision-pause check above.
+ * Issue #220/#229 — every provider entry file must carry the core-owned
+ * graceful-degradation fallback clause (byte-identical across hosts), so a
+ * missing or disabled paqad never hard-fails the host.
  */
-export function inspectProviderEntryNarrationContracts(
+export function inspectProviderEntryFallbackClause(
   projectRoot: string,
 ): ProviderEntryContractCheckResult {
-  const configPaths = ADAPTER_TYPES.map((type) => ({
-    type,
-    path: join(projectRoot, AdapterFactory.create(type).getConfigPath()),
-  }));
-  const existing = configPaths.filter(({ path }) => existsSync(path));
-
-  if (existing.length === 0) {
-    return {
-      status: 'warning',
-      detail: 'No adapter config files were found to check',
-      remediation: 'Generate at least one adapter config before checking the narration contract.',
-    };
+  const entries = presentEntryFiles(projectRoot);
+  if (entries.length === 0) {
+    return noEntryFiles('fallback clause');
   }
 
-  const expected = normalizeProviderEntryContract(buildNarrationContractSection());
-  const missing: string[] = [];
-  const drifted: string[] = [];
-
-  for (const { path } of existing) {
-    const current = readFileSync(path, 'utf8');
-    const section = extractNarrationContractSection(current);
-
-    if (section === null) {
-      missing.push(relative(projectRoot, path));
-      continue;
-    }
-
-    if (normalizeProviderEntryContract(section) !== expected) {
-      drifted.push(relative(projectRoot, path));
-    }
-  }
-
-  const remediation =
-    'Re-run `paqad refresh --providers` to restore the narration contract and managed doc.';
-
+  const clause = buildFrameworkFallbackClause();
+  const missing = entries
+    .filter((entry) => !entry.content.includes(clause))
+    .map((entry) => entry.relativePath);
   if (missing.length > 0) {
     return {
       status: 'fail',
-      detail: `Narration contract missing from: ${missing.join(', ')}`,
-      remediation,
-    };
-  }
-
-  if (drifted.length > 0) {
-    return {
-      status: 'warning',
-      detail: `Narration contract drift detected in: ${drifted.join(', ')}`,
-      remediation,
-    };
-  }
-
-  const canonicalPath = join(projectRoot, PATHS.NARRATION_CONTRACT);
-  if (!existsSync(canonicalPath)) {
-    return {
-      status: 'warning',
-      detail: `Canonical narration contract document is missing at ${relative(projectRoot, canonicalPath)}`,
-      remediation,
+      detail: `Graceful-degradation fallback clause missing from: ${missing.join(', ')}`,
+      remediation: REMEDIATION,
     };
   }
 
   return {
     status: 'pass',
-    detail:
-      'Generated adapter config files carry the narration contract and the managed doc is present.',
+    detail: 'Every generated entry file carries the graceful-degradation fallback clause.',
     remediation: 'No action needed.',
   };
 }

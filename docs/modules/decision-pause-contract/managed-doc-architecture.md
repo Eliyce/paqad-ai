@@ -1,82 +1,91 @@
-# Decision Pause Contract — managed-doc architecture
+# Decision Pause Contract — where the contract lives
 
-> **Status:** stable since #37 &nbsp;·&nbsp; **Owner:** framework-internals
+> **Status:** relocated to the framework bootstrap in #229 (was a managed project doc, #37) &nbsp;·&nbsp; **Owner:** framework-internals
 
-## Why a managed external doc
+## Why the contract lives in the framework install
 
 Every provider entry file (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/…`,
-`.windsurf/rules/…`, `.continue/…`, `GEMINI.md`, `.junie/AGENTS.md`,
+`.windsurfrules`, `.continue/…`, `GEMINI.md`, `.junie/AGENTS.md`,
 `ANTIGRAVITY.md`, `.github/copilot-instructions.md`, the Aider config) is
-loaded into every agent session, so any prose we inline there competes
-with the host's own system prompt for the model's limited
-instruction-following budget. Inlining the full Decision Pause
-resolution flow into all ten entry files burns budget *and* fragments
-the source of truth across ten paths.
+auto-injected into every agent session, so any prose inlined there competes with
+the host's own system prompt for the model's instruction-following budget — and,
+critically, is loaded **whether or not paqad is enabled**.
 
-The architecture introduced in #37 splits the contract into:
+Issue #229 makes every entry file a **lean stub**: a one-line pointer to the
+framework bootstrap plus the graceful-degradation fallback clause and the
+`Adapter:` footer. The Decision Pause Contract (and the narration contract, and
+the load order) moved **out of the project entirely** and into one framework-owned
+file in the install.
 
-1. **One canonical, managed file** at
-   [`.paqad/decision-pause-contract.md`](../../../.paqad/decision-pause-contract.md).
-   Written by onboarding and re-rendered by `paqad refresh --providers`.
-   It carries a `<!-- managed by paqad-ai — do not edit -->` header and
-   re-runs are byte-identical when the canonical content has not
-   changed (see
-   [`writeMarkdownIfChanged`](../../../src/onboarding/decision-pause-contract-writer.ts)).
+## The architecture
 
-2. **A thin pointer** rendered into every provider entry file by
-   [`buildDecisionPauseContractSection(adapter)`](../../../src/adapters/shared/provider-entry-contract.ts).
-   The pointer body is identical across adapters; only a one-sentence
-   per-adapter UI note differs.
+1. **One framework-owned bootstrap** at `runtime/AGENT-BOOTSTRAP.md`, shipped in
+   the install (`~/.paqad-ai/current`, the directory `.paqad/framework-path.txt`
+   resolves to). Its **first instruction is an enablement check**; only when paqad
+   is enabled does it list the load order and inline the full contracts. It is
+   assembled by
+   [`buildAgentBootstrapDocument()`](../../../src/onboarding/agent-bootstrap-writer.ts)
+   and kept byte-identical to the committed file by a golden test
+   (`tests/unit/onboarding/agent-bootstrap-writer.test.ts`). It is **never written
+   into a project** — it is reached via the install symlink.
+
+2. **The contract body** is built by
+   [`buildDecisionPauseContractBody()`](../../../src/onboarding/decision-pause-contract-writer.ts)
+   and inlined into the bootstrap, including the per-adapter UI table. The agent
+   selects the row matching the `Adapter:` footer in the lean entry file that
+   pointed it to the bootstrap (e.g. `AskUserQuestion` — the Claude Code decision
+   "tray" — for `claude-code`).
 
 3. **A per-adapter UI shim** at
    [`src/adapters/shared/decision-pause-ui-shim.ts`](../../../src/adapters/shared/decision-pause-ui-shim.ts)
-   that maps each `AdapterType` to the interactive UI primitive its host
-   exposes (`AskUserQuestion` for Claude Code, `/ask` mode for Aider,
-   inline prompts for the CLI agents, chat for Cursor / Copilot /
-   Windsurf / Continue). Unknown adapters fall back to the file-wait
-   fallback documented in the canonical doc.
+   maps each `AdapterType` to the interactive UI primitive its host exposes.
+   Unknown adapters fall back to the file-wait fallback documented in the contract.
+
+The project-level `.paqad/decision-pause-contract.md` is **no longer written**.
+Onboarding and `paqad refresh --providers` prune any stale pre-#229 copy via
+[`removeObsoleteContractDocs`](../../../src/onboarding/obsolete-cleanup.ts).
 
 ## Single source of truth for categories
 
-The `## Categories` block in the canonical doc is generated from
+The `## Categories` block in the contract body is generated from
 `DECISION_CATEGORIES` in
-[`src/planning/decision-packet.ts`](../../../src/planning/decision-packet.ts).
-A unit test asserts that the doc lists every member of the enum, so the
-doc cannot drift from the runtime as new categories are added.
+[`src/planning/decision-packet.ts`](../../../src/planning/decision-packet.ts). The
+bootstrap golden test asserts the rendered bootstrap lists every member, so the
+contract cannot drift from the runtime as categories are added.
 
 ## Drift detection
 
-[`inspectProviderEntryDecisionPauseContracts`](../../../src/health/provider-entry-contract.ts)
-compares each existing provider entry file against its adapter's expected
-rendering (pointer + correct UI note) and warns when the canonical doc
-is missing. The remediation hint always points at
+[`inspectProviderEntryBootstrapPointer`](../../../src/health/provider-entry-contract.ts)
+checks that every present entry file is a lean stub that points to the bootstrap
+(and warns if a stale pre-#229 entry file still inlines a contract section);
+[`inspectProviderEntryFallbackClause`](../../../src/health/provider-entry-contract.ts)
+checks the fallback clause is present. The remediation hint points at
 `paqad refresh --providers`.
 
 ## Refresh contract
 
 `paqad refresh --providers`:
 
-- Re-renders entry files for adapters whose config file is already
+- Re-renders the lean entry files for adapters whose config file is already
   present on disk. It will not silently onboard new providers.
-- Rewrites `.paqad/decision-pause-contract.md` unconditionally — the
-  managed file is canonical-only and any drift is intentional drift
-  back to canonical.
+- Prunes any obsolete project-level contract copy (it never writes one).
 
-When the contract text or per-adapter UI notes change in a framework
-release, projects pick up the change on their next `paqad refresh
---providers`. No project YAML edits are required.
+When the contract text or per-adapter UI notes change in a framework release,
+projects pick up the change automatically: the bootstrap ships in the install, so
+there is nothing per-project to refresh for the contract itself.
 
 ## What to change when
 
 | Change | Edit |
 | --- | --- |
-| Add a new Decision category | [`src/planning/decision-packet.ts`](../../../src/planning/decision-packet.ts) — the doc updates on next refresh. |
-| Reword the resolution flow | [`src/onboarding/decision-pause-contract-writer.ts`](../../../src/onboarding/decision-pause-contract-writer.ts). |
+| Add a new Decision category | [`src/planning/decision-packet.ts`](../../../src/planning/decision-packet.ts) — the bootstrap updates on next golden-test regen. |
+| Reword the resolution flow | [`src/onboarding/decision-pause-contract-writer.ts`](../../../src/onboarding/decision-pause-contract-writer.ts), then regenerate the bootstrap. |
 | Adjust a per-adapter UI note | [`src/adapters/shared/decision-pause-ui-shim.ts`](../../../src/adapters/shared/decision-pause-ui-shim.ts). |
-| Change the entry-file pointer shape | [`src/adapters/shared/provider-entry-contract.ts`](../../../src/adapters/shared/provider-entry-contract.ts). |
+| Change the bootstrap structure | [`src/onboarding/agent-bootstrap-writer.ts`](../../../src/onboarding/agent-bootstrap-writer.ts) (regenerate `runtime/AGENT-BOOTSTRAP.md` with `pnpm vitest run agent-bootstrap-writer -u`). |
+| Change the lean entry-file shape | [`runtime/templates/agent-configs/*.md.hbs`](../../../runtime/templates/agent-configs/) — kept lean per `docs/instructions/rules/coding/agent-entry-files.md`. |
 
 ## Related
 
 - [Decision Pause Contract module summary](./index/summary.md)
-- [`src/adapters/shared/`](../../../src/adapters/shared/)
+- [`src/onboarding/agent-bootstrap-writer.ts`](../../../src/onboarding/agent-bootstrap-writer.ts)
 - [`src/onboarding/decision-pause-contract-writer.ts`](../../../src/onboarding/decision-pause-contract-writer.ts)

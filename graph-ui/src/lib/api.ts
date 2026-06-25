@@ -230,21 +230,6 @@ export async function putRagConfig(
   return mutate('/api/config/rag', 'PUT', { intelligence });
 }
 
-/* Decision contract */
-
-export async function fetchDecisionContract(): Promise<ManagedFileInfo> {
-  const res = await fetch('/api/config/decision-contract');
-  if (!res.ok) throw new Error(await errorMessage(res));
-  return (await res.json()) as ManagedFileInfo;
-}
-
-export async function putDecisionContract(input: {
-  content: string;
-  baseHash: string | null;
-}): Promise<MutationOutcome<PutManagedFileResult>> {
-  return mutate('/api/config/decision-contract', 'PUT', input);
-}
-
 /* Design tokens */
 
 export async function fetchDesignTokensConfig(): Promise<DesignTokensConfigResponse> {

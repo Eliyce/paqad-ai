@@ -1,6 +1,3 @@
-import { join } from 'node:path';
-
-import { PATHS } from '@/core/constants/paths.js';
 import {
   PAQAD_STATUS_GLYPH,
   PAQAD_STATUS_LABEL,
@@ -10,20 +7,22 @@ import {
   type PaqadStatusKind,
 } from '@/core/constants/paqad-voice.js';
 
-import { MANAGED_HEADER, writeMarkdownIfChanged } from './decision-pause-contract-writer.js';
+import { MANAGED_HEADER } from './decision-pause-contract-writer.js';
 
 /**
- * Builds the canonical narration-contract markdown that lives at
- * `.paqad/narration-contract.md` (issue #158). This is the full spec for how
- * paqad speaks in the live agent chat; every provider entry file carries a
- * one-line pointer back here (see
- * `src/adapters/shared/narration-contract.ts`), not a copy of the rules.
+ * Builds the narration-contract BODY (issue #158) — the full spec for how paqad
+ * speaks in the live agent chat, WITHOUT the managed header. This body is the
+ * single source of truth for the contract: the framework bootstrap
+ * (`runtime/AGENT-BOOTSTRAP.md`, assembled by
+ * `src/onboarding/agent-bootstrap-writer.ts`) inlines it so the contract ships
+ * inside the framework install and is loaded from there — it is no longer copied
+ * into every project's `.paqad/` (issue #229).
  *
  * The glyphs, verdict words, status-block frame, and term translations are all
- * sourced from the canonical `paqad-voice` spec, so this document, the entry
- * files, the PR evidence comment, and the dashboard can never drift apart.
+ * sourced from the canonical `paqad-voice` spec, so this body, the PR evidence
+ * comment, and the dashboard can never drift apart.
  */
-export function buildNarrationContractDocument(): string {
+export function buildNarrationContractBody(): string {
   const glyphRows = (Object.keys(PAQAD_STATUS_GLYPH) as PaqadStatusKind[])
     .map((kind) => `| ${PAQAD_STATUS_GLYPH[kind]} | ${PAQAD_STATUS_LABEL[kind]} |`)
     .join('\n');
@@ -32,13 +31,11 @@ export function buildNarrationContractDocument(): string {
     '\n',
   );
 
-  return `${MANAGED_HEADER}
-
-# paqad narration contract
+  return `# paqad narration contract
 
 paqad runs the orchestration behind the coding agent — classifying the request, routing it to a lane, deriving requirements, running the verification gates, holding the quality ratchet, writing the evidence ledger. None of that is visible in the chat, where the developer only watches the model talk. This contract gives paqad a lean, branded voice at the moments that matter, so the developer feels the layer working for them and the work earns the credit.
 
-This is the canonical, full spec. Every provider entry file carries a one-line pointer to this document; the complete detail lives here.
+This is the canonical, full spec. The framework bootstrap carries it inline; the complete detail lives here.
 
 ## When paqad speaks (cadence)
 
@@ -98,11 +95,10 @@ ${translationRows}
 }
 
 /**
- * Writes the canonical contract to `<projectRoot>/.paqad/narration-contract.md`.
- * Returns true if the file was written/updated, false if it was already up to
- * date (re-onboarding produces a byte-identical file).
+ * The narration contract as a standalone managed document (header + body). Kept
+ * for callers/tests that want the document form; the project-level `.paqad/`
+ * copy is no longer written (issue #229).
  */
-export function writeNarrationContractDocument(projectRoot: string): boolean {
-  const path = join(projectRoot, PATHS.NARRATION_CONTRACT);
-  return writeMarkdownIfChanged(path, buildNarrationContractDocument());
+export function buildNarrationContractDocument(): string {
+  return `${MANAGED_HEADER}\n\n${buildNarrationContractBody()}`;
 }

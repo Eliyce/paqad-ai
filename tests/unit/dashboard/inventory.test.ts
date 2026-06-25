@@ -40,7 +40,9 @@ describe('buildInventory', () => {
     expect(new Set(keys).size).toBe(keys.length);
 
     const byClass = (cls: string) => report.items.filter((item) => item.class === cls);
-    expect(byClass('web').length).toBe(13);
+    // decision-contract retired (#229): the dashboard editor was removed, so the
+    // web class drops from 13 to 12.
+    expect(byClass('web').length).toBe(12);
     expect(byClass('prompt').length).toBe(5);
     expect(byClass('evidence').length).toBe(12);
     expect(byClass('operation').length).toBe(1);

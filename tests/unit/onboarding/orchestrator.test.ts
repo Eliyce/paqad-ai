@@ -19,6 +19,7 @@ import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { getRuntimeRoot } from '@/core/runtime-paths';
 import { OnboardingOrchestrator } from '@/onboarding';
 import { readOnboardingCheckpoint, writeOnboardingCheckpoint } from '@/onboarding/checkpoint.js';
+import { MANAGED_HEADER } from '@/onboarding/decision-pause-contract-writer.js';
 import { RagService } from '@/rag/service.js';
 
 const PROJECT_SKILL_DIRS = [
@@ -861,10 +862,18 @@ describe('OnboardingOrchestrator', () => {
       await new OnboardingOrchestrator().run({ projectRoot, selections });
       expect(readFileSync(claudePath, 'utf8')).toBe('# user-customised entry\n');
 
-      // forceOverwrite regenerates it.
+      // forceOverwrite regenerates it. Issue #229 — the entry file is now a lean
+      // bootstrap stub, so we assert on the bootstrap pointer it must carry rather
+      // than the workflow prose (which moved to AGENT-BOOTSTRAP.md).
       await new OnboardingOrchestrator().run({ projectRoot, selections, forceOverwrite: true });
-      expect(readFileSync(claudePath, 'utf8')).not.toBe('# user-customised entry\n');
-      expect(readFileSync(claudePath, 'utf8')).toContain('create documentation');
+      const regenerated = readFileSync(claudePath, 'utf8');
+      expect(regenerated).not.toBe('# user-customised entry\n');
+      expect(regenerated).toContain('.paqad/framework-path.txt');
+      expect(regenerated).toContain('AGENT-BOOTSTRAP.md');
+      // The lean stub no longer inlines the workflow prose or the contracts.
+      expect(regenerated).not.toContain('create documentation');
+      expect(regenerated).not.toContain('docs/instructions');
+      expect(regenerated).not.toContain('## Decision Pause Contract');
     });
 
     it('resumes from a checkpoint, skipping already-written files and producing the remainder', async () => {
@@ -1333,6 +1342,9 @@ describe('OnboardingOrchestrator', () => {
   // prompt with file writes, so a parked inquirer handle on "No, skip" silently truncated
   // onboarding. The invariants below pin the architecture so that class of bug cannot return.
   describe('phase 1 / phase 2 invariants (regression guard for #62)', () => {
+    // Issue #229 — the decision-pause / narration contracts moved out of every
+    // project's `.paqad/` and into the framework bootstrap (`AGENT-BOOTSTRAP.md`).
+    // They are no longer Phase-1 artifacts, so they are not listed here.
     const CORE_PHASE1_ARTIFACTS = [
       '.paqad/project-profile.yaml',
       '.paqad/detection-report.json',
@@ -1340,7 +1352,6 @@ describe('OnboardingOrchestrator', () => {
       '.paqad/framework-path.txt',
       '.paqad/onboarding-manifest.json',
       '.paqad/compiled-rules.json',
-      '.paqad/decision-pause-contract.md',
       'CLAUDE.md',
     ];
 
@@ -1409,6 +1420,50 @@ describe('OnboardingOrchestrator', () => {
       for (const artifact of CORE_PHASE1_ARTIFACTS) {
         expect(existsSync(join(projectRoot, artifact))).toBe(true);
       }
+    });
+
+    // Issue #229 — onboarding no longer writes the managed contract docs into the
+    // project's `.paqad/`; they live in the framework bootstrap now.
+    it('does not write the decision-pause or narration contract docs into the project', async () => {
+      const output = await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+      });
+
+      expect(existsSync(join(projectRoot, '.paqad/decision-pause-contract.md'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/narration-contract.md'))).toBe(false);
+      expect(output.generated_files).not.toContain('.paqad/decision-pause-contract.md');
+      expect(output.generated_files).not.toContain('.paqad/narration-contract.md');
+    });
+
+    // Issue #229 — a project onboarded before #229 still carries the managed copies
+    // on disk. Onboarding calls `removeObsoleteContractDocs`, which prunes only a
+    // file that begins with paqad's `MANAGED_HEADER`.
+    it('prunes a pre-existing managed decision-pause contract doc on re-onboard', async () => {
+      const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      const contractPath = join(projectRoot, '.paqad/decision-pause-contract.md');
+      writeFileSync(contractPath, `${MANAGED_HEADER}\n\n# Decision Pause Contract\n`);
+      expect(existsSync(contractPath)).toBe(true);
+
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      expect(existsSync(contractPath)).toBe(false);
+    });
+
+    // The cleanup is conservative: a file a team repurposed (no managed header) is
+    // left untouched.
+    it('leaves a non-managed file at the contract path untouched on re-onboard', async () => {
+      const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      const contractPath = join(projectRoot, '.paqad/decision-pause-contract.md');
+      writeFileSync(contractPath, '# team-owned notes, not paqad managed\n');
+
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+
+      expect(readFileSync(contractPath, 'utf8')).toBe('# team-owned notes, not paqad managed\n');
     });
   });
 });

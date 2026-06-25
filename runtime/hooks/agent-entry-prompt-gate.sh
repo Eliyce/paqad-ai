@@ -58,7 +58,7 @@ emit_message() {
     echo "[paqad] Reason: ${reason}."
     echo "[paqad] Required steps, in order, before any other tool call or response:"
     echo "[paqad]   1. Read ${paqad_entry_file}"
-    echo "[paqad]   2. Resolve .paqad/framework-path.txt and load the framework entry"
+    echo "[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)"
     echo "[paqad]   3. Load docs/instructions/{rules,stack,design-system}"
     echo "[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path"
     echo "[paqad] Only after step 4 may you address the user's prompt."

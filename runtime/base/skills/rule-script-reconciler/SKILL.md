@@ -75,4 +75,4 @@ Any code except `RS-CACHE-INVALID` blocks `feature-development` per the project'
 - `runtime/base/skills/rule-script-reconciler/references/drift-codes.md` — the RS-\* vocabulary + resolution map.
 - `runtime/base/skills/rule-script-reconciler/agents/openai.yaml` — agent interface metadata.
 - `src/rule-scripts/reconciler.ts` — the drift-detection engine.
-- `.paqad/decision-pause-contract.md` — packet semantics.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics.

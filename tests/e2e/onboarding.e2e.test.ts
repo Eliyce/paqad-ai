@@ -110,22 +110,30 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, '.junie/hooks.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.junie/cache.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.junie/memory.json'))).toBe(false);
-    expect(readFileSync(join(projectRoot, 'AGENTS.md'), 'utf8')).toContain(
-      'docs/instructions/stack',
-    );
-    expect(readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')).toContain(
-      'docs/instructions/stack',
-    );
-    expect(readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')).toContain('create documentation');
-    expect(readFileSync(join(projectRoot, 'GEMINI.md'), 'utf8')).toContain(
-      'docs/instructions/stack',
-    );
-    expect(readFileSync(join(projectRoot, 'ANTIGRAVITY.md'), 'utf8')).toContain(
-      'docs/instructions/stack',
-    );
-    expect(readFileSync(join(projectRoot, '.junie/AGENTS.md'), 'utf8')).toContain(
-      'docs/instructions/stack',
-    );
+    // Entry files are now lean stubs (issue #229): they only carry a one-line
+    // bootstrap pointer to `.paqad/framework-path.txt` + `AGENT-BOOTSTRAP.md`,
+    // the graceful-degradation fallback clause, and the `Adapter:` footer. The
+    // load steps + workflow prose moved into runtime/AGENT-BOOTSTRAP.md, so the
+    // old contents (`docs/instructions`, `create documentation`, `## ` sections)
+    // no longer live in the entry files.
+    for (const entryFile of [
+      'AGENTS.md',
+      'CLAUDE.md',
+      'GEMINI.md',
+      'ANTIGRAVITY.md',
+      '.junie/AGENTS.md',
+    ]) {
+      const entry = readFileSync(join(projectRoot, entryFile), 'utf8');
+      expect(entry).toContain('.paqad/framework-path.txt');
+      expect(entry).toContain('AGENT-BOOTSTRAP.md');
+      expect(entry).toContain(
+        'proceed as a normal assistant with no paqad behavior. Do not block.',
+      );
+      expect(entry).toContain('Adapter:');
+      expect(entry).not.toContain('docs/instructions');
+      expect(entry).not.toContain('create documentation');
+      expect(entry).not.toContain('## ');
+    }
     expect(readFileSync(join(projectRoot, 'AGENTS.md'), 'utf8')).not.toContain('silent-update.sh');
     expect(readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')).not.toContain('silent-update.sh');
     expect(readFileSync(join(projectRoot, 'ANTIGRAVITY.md'), 'utf8')).not.toContain(

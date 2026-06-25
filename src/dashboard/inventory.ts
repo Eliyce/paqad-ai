@@ -248,21 +248,6 @@ export function buildInventory(
       state: counted(moduleCount, 'module', 'modules', 'No module map yet'),
     },
     {
-      key: 'decision-contract',
-      name: 'Decision pause contract',
-      why: 'The AI stops and asks before anything risky.',
-      class: 'web',
-      managedBy: 'you',
-      area: 'setup',
-      route: '#/setup',
-      source: PATHS.DECISION_PAUSE_CONTRACT,
-      state: presence(
-        existsSync(at(PATHS.DECISION_PAUSE_CONTRACT)),
-        'Contract present',
-        'Not generated yet',
-      ),
-    },
-    {
       key: 'profile',
       name: 'Project profile',
       why: 'The central configuration every workflow reads.',

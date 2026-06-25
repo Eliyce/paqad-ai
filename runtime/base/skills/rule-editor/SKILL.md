@@ -72,4 +72,4 @@ Owns the mutation cascade so adding, editing, or removing a rule recomputes only
 - `runtime/base/skills/rule-editor/agents/openai.yaml` — agent interface metadata.
 - `src/rule-scripts/editor.ts` — markdown add/edit/remove mechanics.
 - `src/rule-scripts/mutate.ts` — per-rule map mutations.
-- `.paqad/decision-pause-contract.md` — packet semantics for edit diffs + conflicts.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics for edit diffs + conflicts.

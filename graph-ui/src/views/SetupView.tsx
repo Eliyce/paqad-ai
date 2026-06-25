@@ -516,7 +516,7 @@ export function SetupView() {
         // chrome placeholders are fine
       });
     // Keys with a dedicated section above; everything else in the setup
-    // area (decision contract, providers, evidence) keeps its card.
+    // area (providers, evidence) keeps its card.
     const sectioned = new Set(['profile', 'capabilities', 'packs']);
     fetchInventory()
       .then((report) => {

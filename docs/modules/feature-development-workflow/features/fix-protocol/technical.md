@@ -65,7 +65,7 @@ prevent path traversal. The committed test stays in the suite (permanence); the 
 call and whose fingerprint is keyed by *kind* (not the specific defect). A later same-kind case is
 matched by the shipped `DecisionStore.findReusableDecision()` (exact fingerprint or fuzzy option overlap
 ≥ 0.8), reusing the saved answer and emitting `decision-reused` — it does not build a second memory. The
-category is documented in `.paqad/decision-pause-contract.md`.
+category is documented in the Decision Pause Contract, carried by the framework bootstrap (`AGENT-BOOTSTRAP.md`).
 
 ## Honest dependency
 
