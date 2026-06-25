@@ -4,6 +4,7 @@ node_modules
 .codex-tracker
 .codex
 .claude
+.gemini
 .paqad
 docs
 runtime/templates
