@@ -8,6 +8,17 @@ The shape, defaults, and writers for `.paqad/project-profile.yaml`,
 `.paqad/onboarding-manifest.json`, and the resolved
 `project-intelligence` context that every other module reads.
 
+The profile is now **lean — project facts only**: project name / id / description,
+the project's own `commands`, `mcp.servers`, the detection-derived
+`active_capabilities` and `stack_profile`, and the project-owned `custom` arrays.
+Framework knobs (paqad on/off, enterprise, RAG, strictness, escalation, features,
+research depth, model routing, decision tuning, version/update) no longer live
+here. They come from code defaults in `src/core/framework-config.ts`, overridable
+through the config layer — tracked team `.paqad/configs/.config.*` (one
+self-documenting file per group, every knob commented out at its default),
+git-ignored local `.paqad/.config` (local wins), and `PAQAD_*` env. See
+[`config-visibility`](../../../instructions/rules/coding/config-visibility.md).
+
 ## Source Footprint
 
 - `src/core/project-profile.ts`

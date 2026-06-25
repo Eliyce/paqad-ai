@@ -37,7 +37,7 @@ Grade `docs/instructions/design-system/` before any other step runs. The `design
 | **Missing**  | Directory absent, or all six contract files empty                           | **Stop.** Decision-pause packet via `AskUserQuestion`: "Run `create documentation` for the design system first?" Offers inline invocation of `documentation-update` workflow, then resume.               |
 | **Bare**     | Tokens partial; no component inventory; no a11y matrix                      | Warn + prompt. Run in exploratory mode, findings flagged `confidence: low`. Also emit `DT-DS-XXXX` findings listing gaps in the contract itself.                                                         |
 | **Adequate** | Tokens + components + a11y + at least one of {patterns, motion, responsive} | Proceed with normal scoring.                                                                                                                                                                             |
-| **Strong**   | All six contract files populated                                            | Proceed; if `design_test.strict: true` is set in `paqad.config.{json,yaml}` or `project-profile.yaml`, DT-blocker findings gate the dev workflow. Strict mode never auto-engages — explicit opt-in only. |
+| **Strong**   | All six contract files populated                                            | Proceed; if `design_test.strict: true` is set in `project-profile.yaml`, DT-blocker findings gate the dev workflow. Strict mode never auto-engages — explicit opt-in only. |
 
 ### Step 1 — collect-context
 
@@ -108,7 +108,7 @@ test('button bg = color.primary.500', async ({ page }) => {
 
 ### Step 3 — live-validation (Playwright phase)
 
-Equivalent of pentest's live-validation step. The runner brings up the app via `design_test.dev_command` (from `paqad.config.*` or `project-profile.yaml`) and walks it. It **reuses the project's `playwright.config.ts`** (browsers, projects, baseURL) — overridable through the `design_test` config block.
+Equivalent of pentest's live-validation step. The runner brings up the app via `design_test.dev_command` (from the `design_test` block in `project-profile.yaml`) and walks it. It **reuses the project's `playwright.config.ts`** (browsers, projects, baseURL) — overridable through the `design_test` config block.
 
 - **Surface walk** — visit every route from the inventory; screenshot at declared breakpoints
 - **Token diff** — inspect computed styles (color, font-family, font-size, line-height, radius, spacing, shadow) at each route; diff against `tokens.md`. One finding per mismatched property. This is the padding/margin/font/color/border check, mechanized.
@@ -178,7 +178,7 @@ Reuse `finding-normalizer`; the DT category vocabulary lives in its `assets/voca
 **Project-tunable, via declarative inputs only:**
 
 - The contract itself: `docs/instructions/design-system/*.md`
-- A bounded config block (schema-validated) in `paqad.config.{json,yaml}` or `project-profile.yaml`:
+- A bounded `design_test` config block (schema-validated) in `project-profile.yaml`:
   - `design_test.strict: true|false` (default false — advisory unless opted in)
   - `design_test.app_url`
   - `design_test.dev_command`

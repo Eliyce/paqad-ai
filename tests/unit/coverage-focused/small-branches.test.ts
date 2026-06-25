@@ -82,6 +82,42 @@ describe('coverage small branches', () => {
       rmSync(root, { recursive: true, force: true });
     });
 
+    it('prints the no-migration safety-net notice when framework values reverted', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'paqad-onboard-'));
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      mockOnboardingRun.mockImplementationOnce(
+        async (options: { onPhase1Complete?: () => void }) => {
+          options.onPhase1Complete?.();
+          return {
+            warnings: [],
+            reverted_framework_values: ['enterprise=true', 'research_depth=cutting-edge'],
+          };
+        },
+      );
+
+      await createOnboardCommand().parseAsync(['node', 'onboard', '--project-root', root], {
+        from: 'node',
+      });
+
+      const printed = warn.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(printed).toContain('enterprise=true');
+      expect(printed).toContain('research_depth=cutting-edge');
+      warn.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('prints nothing extra for a clean onboard (no reverted values)', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'paqad-onboard-'));
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      // Default mock resolves undefined; the command must tolerate it and print no notice.
+      await createOnboardCommand().parseAsync(['node', 'onboard', '--project-root', root], {
+        from: 'node',
+      });
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    });
+
     it('passes explicit stack, capability, and providers through to the orchestrator', async () => {
       const root = mkdtempSync(join(tmpdir(), 'paqad-onboard-'));
       const command = createOnboardCommand();

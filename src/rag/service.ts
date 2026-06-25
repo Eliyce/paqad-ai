@@ -13,6 +13,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { CancelledError, isCancelledError } from '@/core/errors/cancelled-error.js';
 import { appendRunCancelledEvent } from '@/module-decisions/events.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
+import { setConfigValue, syncFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
 import { PatternVectorService } from '@/patterns/pattern-rag.js';
@@ -180,6 +181,8 @@ export class RagService {
     await this.rebuild({ intelligence, onProgress });
     profile.intelligence = intelligence;
     writeProjectProfile(this.projectRoot, profile);
+    // RAG is a framework knob: persist it to `.paqad/.config`, not the lean profile.
+    syncFrameworkConfig(this.projectRoot, { intelligence });
     await this.patternVectors.refresh(this.projectRoot, (message) =>
       onProgress?.({ phase: 'build', message }),
     );
@@ -329,6 +332,8 @@ export class RagService {
         rag_enabled: false,
       };
       writeProjectProfile(this.projectRoot, profile);
+      // Mirror the disable into `.paqad/.config` (the source of truth for RAG state).
+      setConfigValue(this.projectRoot, 'rag_enabled', 'false');
     }
     await this.vectorIndex.clear(this.projectRoot);
     appendRagAudit(this.projectRoot, 'INFO', 'rag-cleared');

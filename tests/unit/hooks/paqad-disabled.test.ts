@@ -12,20 +12,14 @@ const MJS = resolve(__dirname, '../../../runtime/hooks/lib/paqad-disabled.mjs');
 
 const itPosix = process.platform === 'win32' ? it.skip : it;
 
-const MINIMAL_PROFILE = `project:
-  name: demo
-active_capabilities:
-  - content
-`;
-
 function makeRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-disabled-prim-'));
   mkdirSync(join(root, '.paqad'), { recursive: true });
   return root;
 }
 
-function writeProfile(root: string, yaml: string): void {
-  writeFileSync(join(root, '.paqad', 'project-profile.yaml'), yaml);
+function writeConfig(root: string, body: string): void {
+  writeFileSync(join(root, '.paqad', '.config'), body);
 }
 
 /** Source the shell primitive and report whether it considers paqad disabled. */
@@ -61,41 +55,41 @@ describe('paqad-disabled primitives (.sh + .mjs agree)', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('.mjs: default ON when no profile and no env', async () => {
+  it('.mjs: default ON when no .config and no env', async () => {
     expect(await mjsDisabled(root)).toBe(false);
   });
 
-  it('.mjs: OFF when paqad.enabled: false', async () => {
-    writeProfile(root, `${MINIMAL_PROFILE}paqad:\n  enabled: false\n`);
+  it('.mjs: OFF when paqad_enable=false in .config', async () => {
+    writeConfig(root, 'paqad_enable=false\n');
     expect(await mjsDisabled(root)).toBe(true);
   });
 
-  it('.mjs: does not trip on enterprise.enabled: false', async () => {
-    writeProfile(root, `${MINIMAL_PROFILE}enterprise:\n  enabled: false\n`);
+  it('.mjs: does not trip on a different falsy key (enterprise=false)', async () => {
+    writeConfig(root, 'enterprise=false\n');
     expect(await mjsDisabled(root)).toBe(false);
   });
 
-  it('.mjs: env override wins over an enabled profile', async () => {
-    writeProfile(root, `${MINIMAL_PROFILE}paqad:\n  enabled: true\n`);
+  it('.mjs: env override wins over an enabled .config', async () => {
+    writeConfig(root, 'paqad_enable=true\n');
     expect(await mjsDisabled(root, { PAQAD_DISABLED: '1' })).toBe(true);
   });
 
-  itPosix('.sh: default ON when no profile and no env', () => {
+  itPosix('.sh: default ON when no .config and no env', () => {
     expect(shDisabled(root)).toBe(false);
   });
 
-  itPosix('.sh: OFF when paqad.enabled: false', () => {
-    writeProfile(root, `${MINIMAL_PROFILE}paqad:\n  enabled: false\n`);
+  itPosix('.sh: OFF when paqad_enable=false in .config', () => {
+    writeConfig(root, 'paqad_enable=false\n');
     expect(shDisabled(root)).toBe(true);
   });
 
-  itPosix('.sh: does not trip on enterprise.enabled: false', () => {
-    writeProfile(root, `${MINIMAL_PROFILE}enterprise:\n  enabled: false\n`);
+  itPosix('.sh: does not trip on a different falsy key (enterprise=false)', () => {
+    writeConfig(root, 'enterprise=false\n');
     expect(shDisabled(root)).toBe(false);
   });
 
-  itPosix('.sh: env override wins over an enabled profile', () => {
-    writeProfile(root, `${MINIMAL_PROFILE}paqad:\n  enabled: true\n`);
+  itPosix('.sh: env override wins over an enabled .config', () => {
+    writeConfig(root, 'paqad_enable=true\n');
     expect(shDisabled(root, { PAQAD_DISABLED: 'yes' })).toBe(true);
   });
 });

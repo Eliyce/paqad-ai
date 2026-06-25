@@ -4,6 +4,16 @@ import { dirname, join } from 'node:path';
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { FrameworkError, ValidationError } from '@/core/errors/index.js';
+import {
+  DEFAULT_FRAMEWORK_CONFIG,
+  detectFlippedFrameworkValues,
+  readConfigsDir,
+  reconcileConfigOverrides,
+  setConfigValue,
+  syncGroupConfigs,
+  writeConfigsReadme,
+  writeFrameworkOverridesToConfig,
+} from '@/core/framework-config.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
@@ -222,6 +232,11 @@ export class OnboardingOrchestrator {
       .filter((file) => !completed.has(toPosixPath(file.path)));
 
     const onboardingWarnings: string[] = [];
+    // The no-migration safety net result (non-default framework values a legacy
+    // fat profile carried that the strip reverted). Assigned in the write batch
+    // below (the catch always rethrows, so it is definitely set by the return),
+    // surfaced as a dedicated, prominently-printed field.
+    let revertedFrameworkValues: string[];
     let writeResult: ReturnType<typeof writeGeneratedFiles>;
     let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;
     // AC (disk-full) — translate a raw ENOSPC from any core write into a clean,
@@ -239,7 +254,37 @@ export class OnboardingOrchestrator {
         previousSnapshot,
         { writeHumanDocs: false },
       );
+      // The no-migration safety net: capture framework knobs a legacy fat
+      // profile still carries that differ from defaults BEFORE the strip reverts
+      // them, so a silent revert becomes a one-time visible notice (returned as a
+      // dedicated field and printed prominently by the CLI).
+      revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
+      // Framework knobs live in the `.config` layer, not the (lean) profile.
+      // Write the tracked, self-documenting team config files (one per group,
+      // every knob commented out at its default) plus the `configs/README`, then
+      // persist only explicitly passed overrides (desktop/tests) into the
+      // git-ignored `.config`. A plain CLI onboard passes none, and the group
+      // files are all-commented, so every knob resolves to its code default.
+      syncGroupConfigs(options.projectRoot);
+      writeConfigsReadme(options.projectRoot);
+      if (options.profileOverrides) {
+        writeFrameworkOverridesToConfig(options.projectRoot, options.profileOverrides);
+      }
+      // Reconcile the team/local override files against the current knob
+      // registry: prune ONLY keys this version no longer knows, preserving every
+      // value the team set (never reset-to-default). Surface what changed and any
+      // multi-file key collision.
+      for (const file of reconcileConfigOverrides(options.projectRoot)) {
+        onboardingWarnings.push(
+          `Pruned obsolete config key(s) from ${file.path}: ${file.removed.join(', ')}.`,
+        );
+      }
+      for (const collision of readConfigsDir(options.projectRoot).collisions) {
+        onboardingWarnings.push(
+          `Config key "${collision.key}" is set in multiple .paqad/configs/ files; the last filename wins — keep it in one file.`,
+        );
+      }
       writeGitignore(options.projectRoot);
       writeDetectionReport(options.projectRoot, detection);
       writeFrameworkMetadata(options.projectRoot, VERSION);
@@ -325,6 +370,7 @@ export class OnboardingOrchestrator {
       runtime_root: toPosixPath(runtimeRoot),
       manifest_path: toPosixPath(manifestPath),
       warnings: [...writeResult.skipped, ...drift.review_targets, ...onboardingWarnings],
+      reverted_framework_values: revertedFrameworkValues,
     };
 
     // Phase 1 is complete and durable on disk. Signal success before the optional RAG phase
@@ -336,6 +382,8 @@ export class OnboardingOrchestrator {
     if (ragSelection) {
       profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
       writeProjectProfile(options.projectRoot, profile);
+      // RAG is a framework knob: persist it to `.config`, not the lean profile.
+      persistRagConfig(options.projectRoot, profile.intelligence);
     }
 
     if (ragSelection?.enabled && ragSelection.provider) {
@@ -344,6 +392,8 @@ export class OnboardingOrchestrator {
       } catch (error) {
         profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
         writeProjectProfile(options.projectRoot, profile);
+        // Reset is an explicit default-write so any earlier rag_enabled=true clears.
+        setConfigValue(options.projectRoot, 'rag_enabled', 'false');
         onboardingWarnings.push(
           `RAG setup failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}. Onboarding completed with RAG disabled.`,
         );
@@ -516,6 +566,18 @@ function mergeProfileOverrides(
   return { ...(existing ?? {}), ...(explicit ?? {}) };
 }
 
+/** Persist the resolved RAG/intelligence selection into `.paqad/.config`. The
+ *  profile YAML stays lean; RAG state is a framework knob like the rest. */
+function persistRagConfig(projectRoot: string, intelligence: ProjectProfile['intelligence']): void {
+  setConfigValue(projectRoot, 'rag_enabled', String(intelligence.rag_enabled));
+  if (intelligence.embedding_provider) {
+    setConfigValue(projectRoot, 'rag_embedding_provider', intelligence.embedding_provider);
+  }
+  if (intelligence.embedding_model) {
+    setConfigValue(projectRoot, 'rag_embedding_model', intelligence.embedding_model);
+  }
+}
+
 function buildProjectProfile(
   selections: {
     domain: 'coding' | 'content';
@@ -574,12 +636,11 @@ function buildProjectProfile(
     },
     research: overrides?.research ?? { depth: 'standard' },
     intelligence: overrides?.intelligence ?? defaultIntelligenceConfig(),
-    efficiency: overrides?.efficiency ?? {
-      context_hit_rate_target: 0.7,
-      skill_caching: true,
-      differential_refresh: true,
-      mcp_first: true,
-    },
+    // Source from the canonical default so the in-memory profile (recorded in the
+    // onboarding manifest) matches what a re-onboard's `.config` overlay feeds
+    // back — otherwise the manifest's efficiency block drifts and onboarding is
+    // no longer idempotent. The block is stripped from the YAML on write anyway.
+    efficiency: overrides?.efficiency ?? DEFAULT_FRAMEWORK_CONFIG.efficiency,
     escalation: overrides?.escalation ?? {
       destructive_operations: 'block',
       risky_migrations: 'warn',

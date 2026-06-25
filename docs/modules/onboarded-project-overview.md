@@ -66,9 +66,15 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
 - **Shared, language-neutral context** — `docs/instructions/rules` (project-owned,
   never clobbered), `docs/instructions/stack`, `docs/modules` scaffolds.
 - **`.paqad/` metadata** — `framework-path.txt` (one pointer to the shared
-  `~/.paqad-ai/current` install), `project-profile.yaml` (stack + the project's
-  own test/build/lint commands + strictness + active capabilities), the
-  onboarding manifest ([`project-profile-schema`](project-profile-schema/index/summary.md)).
+  `~/.paqad-ai/current` install), `project-profile.yaml` (project facts only:
+  stack + the project's own test/build/lint commands + active capabilities), the
+  framework knobs in the four-surface config layer (strictness, RAG, enterprise,
+  escalation, features, model routing, …) — defaults in
+  `src/core/framework-config.ts`, tracked team overrides in
+  `.paqad/configs/.config.*` (onboarding writes one self-documenting file per
+  group, every knob commented out at its default), a git-ignored local
+  `.paqad/.config` (local wins), and `PAQAD_*` env — and the onboarding manifest
+  ([`project-profile-schema`](project-profile-schema/index/summary.md)).
 
 ### 1b. Every session loads the contract before it can edit
 

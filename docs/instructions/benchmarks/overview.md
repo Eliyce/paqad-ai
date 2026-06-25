@@ -1,6 +1,10 @@
 # Benchmarks
 
-Configured in `.paqad/project-profile.yaml › intelligence.benchmark_gates`.
+The benchmark gates below are framework-internal defaults that live in code, not
+user-configured settings. The user-tunable retrieval knobs (provider, similarity
+threshold, top-N, max file size) are framework knobs set in the config layer
+(`rag_embedding_provider`, `rag_similarity_threshold`, `rag_top_n`,
+`rag_max_file_size`); the rest of the values here are fixed by the framework.
 
 ## RAG Quality Gates
 
@@ -25,7 +29,7 @@ Configured in `.paqad/project-profile.yaml › intelligence.benchmark_gates`.
 
 ## Model-Graded Eval
 
-- Disabled (`intelligence.benchmark_eval.model_graded.enabled: false`). Enable explicitly per-run when measuring regressions.
+- Disabled by default (a framework-internal gate). Enable explicitly per-run when measuring regressions.
 
 ## Test / Build Gates
 

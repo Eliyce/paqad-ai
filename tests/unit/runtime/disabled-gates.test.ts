@@ -5,22 +5,17 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// Issue #220 — when paqad is disabled (PAQAD_DISABLED=1 or paqad.enabled: false),
-// every shell gate must be a pure no-op: exit 0, never block, and the prompt
-// gate must NOT inject its `[paqad]` reminder on stdout (which would contaminate
-// the OFF arm of an A/B comparison).
+// Issue #220 — when paqad is disabled (PAQAD_DISABLED=1 or paqad_enable=false in
+// .paqad/.config), every shell gate must be a pure no-op: exit 0, never block, and
+// the prompt gate must NOT inject its `[paqad]` reminder on stdout (which would
+// contaminate the OFF arm of an A/B comparison).
 
 const ENTRY_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.sh');
 const PROMPT_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.sh');
 const DECISION_GATE = resolve(__dirname, '../../../runtime/hooks/decision-pause-gate.sh');
 
-const DISABLED_PROFILE = `project:
-  name: demo
-active_capabilities:
-  - content
-paqad:
-  enabled: false
-`;
+/** The durable local off-signal: paqad_enable=false in `.paqad/.config`. */
+const DISABLED_CONFIG = 'paqad_enable=false\n';
 
 interface RunResult {
   status: number;
@@ -72,8 +67,8 @@ describe('shell gates are a no-op when paqad is disabled', () => {
     expect(result.stderr).toBe('');
   });
 
-  it('entry gate exits 0 with paqad.enabled: false', () => {
-    writeFileSync(join(root, '.paqad/project-profile.yaml'), DISABLED_PROFILE);
+  it('entry gate exits 0 with paqad_enable=false in .config', () => {
+    writeFileSync(join(root, '.paqad/.config'), DISABLED_CONFIG);
     const result = run(ENTRY_GATE, root);
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
@@ -84,10 +79,10 @@ describe('shell gates are a no-op when paqad is disabled', () => {
     expect(viaEnv.status).toBe(0);
     expect(viaEnv.stdout).toBe('');
 
-    writeFileSync(join(root, '.paqad/project-profile.yaml'), DISABLED_PROFILE);
-    const viaProfile = run(PROMPT_GATE, root);
-    expect(viaProfile.status).toBe(0);
-    expect(viaProfile.stdout).toBe('');
+    writeFileSync(join(root, '.paqad/.config'), DISABLED_CONFIG);
+    const viaConfig = run(PROMPT_GATE, root);
+    expect(viaConfig.status).toBe(0);
+    expect(viaConfig.stdout).toBe('');
   });
 
   it('prompt gate (hard) exits 0 and stays silent when disabled', () => {

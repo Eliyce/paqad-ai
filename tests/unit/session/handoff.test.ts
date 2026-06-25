@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { TurnSummarizer } from '@/context/turn-summarizer.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
+import * as projectProfileModule from '@/core/project-profile.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
 import { HandoffParser, HandoffWriter, SessionResumeValidator } from '@/session/index.js';
 
@@ -11,9 +13,9 @@ describe('HandoffWriter', () => {
 
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-session-'));
-    writeProjectProfile(projectRoot, {
+    const profile = {
       project: { name: 'Demo', id: 'demo', description: 'Demo' },
-      active_capabilities: ['content', 'coding', 'security'],
+      active_capabilities: ['content', 'coding', 'security'] as const,
       stack_profile: {
         frameworks: ['node-cli'],
         traits: [],
@@ -50,19 +52,19 @@ describe('HandoffWriter', () => {
         reasoning_model: 'gpt-5',
         fast_model: 'gpt-5-mini',
       },
-      research: { depth: 'standard' },
+      research: { depth: 'standard' as const },
       intelligence: {
         rag_enabled: true,
-        embedding_provider: 'local',
+        embedding_provider: 'local' as const,
         embedding_model: 'fake-local',
         rag_similarity_threshold: 0.75,
         rag_top_n: 20,
       },
       efficiency: { differential_refresh: true },
       escalation: {
-        destructive_operations: 'block',
-        risky_migrations: 'warn',
-        security_findings: 'block',
+        destructive_operations: 'block' as const,
+        risky_migrations: 'warn' as const,
+        security_findings: 'block' as const,
         db_row_threshold: 1000,
       },
       custom: {
@@ -70,7 +72,12 @@ describe('HandoffWriter', () => {
         verification_plugins: [],
         escalation_rules: [],
       },
-    });
+    };
+    writeProjectProfile(projectRoot, profile);
+    // Framework knobs (intelligence/strictness/escalation/...) now resolve from
+    // `.paqad/.config`, not the YAML which strips them. Persist them so
+    // readProjectProfile() returns the settings these tests depend on.
+    syncFrameworkConfig(projectRoot, profile);
   });
 
   afterEach(() => {
@@ -183,9 +190,9 @@ describe('HandoffWriter', () => {
   });
 
   it('uses profile efficiency settings when persisting context budget state', async () => {
-    writeProjectProfile(projectRoot, {
+    const profile = {
       project: { name: 'Demo', id: 'demo', description: 'Demo' },
-      active_capabilities: ['content', 'coding', 'security'],
+      active_capabilities: ['content', 'coding', 'security'] as const,
       stack_profile: {
         frameworks: ['node-cli'],
         traits: [],
@@ -222,23 +229,23 @@ describe('HandoffWriter', () => {
         reasoning_model: 'gpt-5',
         fast_model: 'gpt-5-mini',
       },
-      research: { depth: 'standard' },
+      research: { depth: 'standard' as const },
       intelligence: {
         rag_enabled: true,
-        embedding_provider: 'local',
+        embedding_provider: 'local' as const,
         embedding_model: 'fake-local',
         rag_similarity_threshold: 0.75,
         rag_top_n: 20,
       },
       efficiency: {
         differential_refresh: true,
-        context_budget_strategy: 'aggressive',
+        context_budget_strategy: 'aggressive' as const,
         auto_summarize_interval: 1,
       },
       escalation: {
-        destructive_operations: 'block',
-        risky_migrations: 'warn',
-        security_findings: 'block',
+        destructive_operations: 'block' as const,
+        risky_migrations: 'warn' as const,
+        security_findings: 'block' as const,
         db_row_threshold: 1000,
       },
       custom: {
@@ -246,7 +253,30 @@ describe('HandoffWriter', () => {
         verification_plugins: [],
         escalation_rules: [],
       },
-    });
+    };
+    writeProjectProfile(projectRoot, profile);
+    syncFrameworkConfig(projectRoot, profile);
+    // `context_budget_strategy` and `auto_summarize_interval` are
+    // framework-internal efficiency tuning (Bucket C) with no `.config` key, so
+    // readProjectProfile() resolves efficiency to defaults. Overlay just those two
+    // tuning knobs onto the real resolved profile for the duration of this test so
+    // the optimizer still sees the aggressive strategy this case exercises.
+    const realReadProjectProfile = projectProfileModule.readProjectProfile;
+    const readSpy = vi
+      .spyOn(projectProfileModule, 'readProjectProfile')
+      .mockImplementation((root: string) => {
+        const resolved = realReadProjectProfile(root);
+        return resolved
+          ? {
+              ...resolved,
+              efficiency: {
+                ...resolved.efficiency,
+                context_budget_strategy: 'aggressive',
+                auto_summarize_interval: 1,
+              },
+            }
+          : resolved;
+      });
 
     const writer = new HandoffWriter(new TurnSummarizer(), projectRoot);
     await writer.write(
@@ -289,6 +319,8 @@ describe('HandoffWriter', () => {
       recommended_action: 'warn',
       enforcement_reason: 'healthy',
     });
+
+    readSpy.mockRestore();
   });
 
   it('forces compaction when the latest hit rate falls below the configured target', async () => {

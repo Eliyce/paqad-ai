@@ -2,21 +2,8 @@
   "$id": "project-profile",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "project",
-    "active_capabilities",
-    "commands",
-    "strictness",
-    "compliance_packs",
-    "features",
-    "mcp",
-    "model_routing",
-    "research",
-    "intelligence",
-    "efficiency",
-    "escalation",
-    "custom"
-  ],
+  "$comment": "Framework knobs (strictness, features, model_routing, research, intelligence, efficiency, escalation, enterprise, paqad, custom.decisions) moved to `.paqad/.config`. Their property schemas are kept OPTIONAL here so a legacy fat profile still validates; they are no longer required and a lean profile omits them.",
+  "required": ["project", "active_capabilities", "commands", "compliance_packs", "mcp", "custom"],
   "properties": {
     "project": {
       "type": "object",
@@ -323,6 +310,8 @@
         "skill_caching": { "type": "boolean" },
         "differential_refresh": { "type": "boolean" },
         "mcp_first": { "type": "boolean" },
+        "auto_update": { "type": "boolean" },
+        "minimum_version": { "type": "string" },
         "skip_version_check": { "type": "boolean" },
         "version_check_interval_hours": { "type": "number" }
       }
@@ -363,6 +352,7 @@
               "enum": ["strict", "balanced", "permissive"]
             },
             "max_screens_per_task": { "type": "integer", "minimum": 1 },
+            "max_pending": { "type": "integer", "minimum": 1 },
             "idle_timeout_minutes": { "type": "integer", "minimum": 1 },
             "ttl_overrides_days": {
               "type": "object",

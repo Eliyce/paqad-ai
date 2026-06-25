@@ -26,7 +26,7 @@ export function createOnboardCommand(): Command {
         printBanner();
 
         const orchestrator = new OnboardingOrchestrator();
-        await orchestrator.run({
+        const result = await orchestrator.run({
           projectRoot: options.projectRoot,
           selections:
             options.stack || options.capability || options.providers
@@ -43,6 +43,20 @@ export function createOnboardCommand(): Command {
             printNextSteps();
           },
         });
+
+        // No-migration safety net: if a legacy fat profile carried non-default
+        // framework values, the hard-cutover strip just reverted them to code
+        // defaults. Print a one-time, prominent notice so the revert is never
+        // silent. A clean onboard reverts nothing, so this stays quiet.
+        const reverted = result?.reverted_framework_values ?? [];
+        if (reverted.length > 0) {
+          console.warn(
+            `\n⚠ Framework settings now live in the .config layer. These non-default values in ` +
+              `project-profile.yaml were not migrated and now use code defaults until you set them ` +
+              `in .paqad/configs/.config.* or .paqad/.config:\n    ${reverted.join('\n    ')}\n` +
+              `  See the .paqad/configs/ files (every option is listed there, commented out).`,
+          );
+        }
       },
     );
 }

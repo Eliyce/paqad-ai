@@ -57,10 +57,11 @@ graph-ui/  →  separate Vite + React 19 SPA, consumes graph data exported by th
    `src/audit`) — The gate bank (#117) that decides whether a change lands, the unified evidence ledger +
    per-change provenance receipt (#118/#120), bidirectional promise↔code↔test traceability, the quality
    ratchet, and the read-only SIEM exporter (#121). The evidence ledger is an **opt-in enterprise
-   capability, off by default** (#187): with no `enterprise` block in `project-profile.yaml`, a
-   verification run writes no `.paqad/ledger/` files and resolves no compliance citations (the
-   token-spending path). `src/core/enterprise-policy.ts` is the single resolver — and the seam a future
-   license/token check slots behind.
+   capability, off by default** (#187): with the `enterprise` knobs unset (their default is off in
+   `src/core/framework-config.ts`, overridable via `.paqad/.config`), a verification run writes no
+   `.paqad/ledger/` files and resolves no compliance citations (the token-spending path).
+   `src/core/enterprise-policy.ts` is the single resolver — and the seam a future license/token check
+   slots behind.
 10. **Delivery** (`src/delivery`, `src/providers`) — Provider-agnostic delivery automation (#42) behind the
     `TicketProvider` (Jira) and `HostProvider` (GitHub) contracts, conventions detected from git history.
 11. **Dashboard** (`src/dashboard`) — Local web view + one-shot `status` report; shares the `graph-ui` bundle
@@ -105,5 +106,14 @@ detection-report.json   onboarding-manifest.json
 - **OpenAI API** — default reasoning model (`gpt-5`), fast model (`gpt-5-mini`).
 - **VoyageAI** — cloud embedding provider (optional).
 - **Local embeddings** — `Xenova/all-MiniLM-L6-v2` via `@xenova/transformers` (default when
-  `intelligence.embedding_provider: local`).
-- **MCP servers** — none configured (`mcp.servers: []`).
+  `rag_embedding_provider=local`, a framework knob in the config layer).
+- **MCP servers** — none configured (`mcp.servers: []` in `project-profile.yaml`).
+
+> Framework knobs (RAG, model routing, strictness, enterprise, escalation,
+> features) are **not** in `project-profile.yaml`. They come from code defaults in
+> `src/core/framework-config.ts`, overridable through the config layer — tracked
+> team `.paqad/configs/.config.*`, git-ignored local `.paqad/.config` (local wins),
+> and `PAQAD_*` env — with every knob documented (commented out at its default) in
+> the tracked `.paqad/configs/.config.*` files. The profile holds only
+> project facts (name, commands, `mcp.servers`, detected `stack_profile` /
+> `active_capabilities`, and the project-owned `custom` arrays).

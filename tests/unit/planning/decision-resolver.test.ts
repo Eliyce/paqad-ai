@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
+import * as projectProfileModule from '@/core/project-profile.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import {
   askThresholdForProject,
@@ -307,14 +309,40 @@ describe('decision resolver', () => {
 
   it('uses a preferred option from project profile when one is configured', async () => {
     writeProfile(root, 'balanced', { 'create-vs-reuse': 'make-new' });
+    // `preferred_option_keys` is a project decision preference with no `.config`
+    // key, and readProjectProfile() now replaces `custom.decisions` from
+    // config+defaults. Overlay just this preference onto the real resolved profile
+    // so the resolver still honours it.
+    const realReadProjectProfile = projectProfileModule.readProjectProfile;
+    const readSpy = vi
+      .spyOn(projectProfileModule, 'readProjectProfile')
+      .mockImplementation((projectRoot: string) => {
+        const resolved = realReadProjectProfile(projectRoot);
+        return resolved
+          ? {
+              ...resolved,
+              custom: {
+                ...resolved.custom,
+                decisions: {
+                  ...resolved.custom?.decisions,
+                  preferred_option_keys: { 'create-vs-reuse': 'make-new' },
+                },
+              },
+            }
+          : resolved;
+      });
 
-    const result = await resolveDecisionPacket(root, makePacket({ confidence: 0.2 }));
+    try {
+      const result = await resolveDecisionPacket(root, makePacket({ confidence: 0.2 }));
 
-    expect(result).toEqual({
-      source: 'profile',
-      option_key: 'make-new',
-      reason: 'Project profile prefers make-new.',
-    });
+      expect(result).toEqual({
+        source: 'profile',
+        option_key: 'make-new',
+        reason: 'Project profile prefers make-new.',
+      });
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 
   it('tolerates unreadable design-system files and wildcard compiled rules', async () => {
@@ -515,4 +543,8 @@ function writeProfile(
 
   mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(join(root, PATHS.PROJECT_PROFILE), YAML.stringify(profile), 'utf8');
+  // The decision `ask_threshold` is a framework knob: it now resolves from
+  // `.paqad/.config`, not the YAML. Persist it so askThresholdForProject() and
+  // the resolver see the threshold this test configured.
+  syncFrameworkConfig(root, profile);
 }
