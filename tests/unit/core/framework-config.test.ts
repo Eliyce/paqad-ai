@@ -232,6 +232,18 @@ describe('layeredConfigMap — four surfaces, LOCAL WINS', () => {
     expect(layeredConfigMap(root, { PAQAD_RAG_TOP_N: '   ' }).get('rag_top_n')).toBe('9');
   });
 
+  it('a present configs file picks up framework defaults for empty or absent keys', () => {
+    // The mere existence of a configs file forces nothing: a key set to an empty
+    // value, and a key not present at all, both resolve to the code default. Only
+    // an explicit, non-empty, recognised value overrides.
+    writeConfigsFile(root, '.config.app', 'enterprise=true\nrag_top_n=\nmodel_default=\n');
+    const c = resolveFrameworkConfig(root, {});
+    expect(c.enterprise.enabled).toBe(true); // the one explicit value overrides
+    expect(c.intelligence.rag_top_n).toBe(20); // empty value -> default
+    expect(c.model_routing.default_model).toBe('gpt-5'); // empty value -> default
+    expect(c.research.depth).toBe('standard'); // absent key -> default
+  });
+
   it('resolveFrameworkConfig threads env through the full precedence', () => {
     writeConfigsFile(root, '.config.policy', 'research_depth=conservative\n');
     expect(resolveFrameworkConfig(root, {}).research.depth).toBe('conservative');
