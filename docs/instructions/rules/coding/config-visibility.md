@@ -57,6 +57,12 @@ one-line explanation and its `PAQAD_*` env equivalent. The files are all globbed
 and merged, so a key works in any file and must be globally unique (a collision
 warns, last filename wins).
 
+Onboarding also writes a single `.paqad/.config.example` — a tracked catalog of
+**every** knob (all groups in one file), commented out, the same copy-paste
+reference Laravel's `.env.example` provides. It is **never read at runtime**; copy
+a line from it into a `configs/.config.*` file or `.config`, uncomment, and set a
+value.
+
 ## Rules
 
 - **The group files are self-documenting and inert until edited.** Onboarding

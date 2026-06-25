@@ -13,6 +13,7 @@ theme/
 scripts/rules/.cache/
 scripts/rules/.history/
 onboarding-checkpoint.json
+.config
 # per-machine runtime state (regenerated locally)
 logs/
 audit.log

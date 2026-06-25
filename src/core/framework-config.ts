@@ -1038,6 +1038,9 @@ export function generateConfigsReadme(): string {
     'Every file in this directory is merged into one map and read at runtime, so the',
     'split is purely organizational — a key works in any file.',
     '',
+    'For a single copy-paste reference listing every knob in one place, see',
+    '`../.config.example` (tracked, never read at runtime).',
+    '',
     '## How to use',
     '',
     '- Uncomment a line to override that knob. While a key stays commented (or absent),',
@@ -1060,6 +1063,55 @@ export function writeConfigsReadme(projectRoot: string): string {
   const path = join(projectRoot, PATHS.PROJECT_CONFIGS_README);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, generateConfigsReadme(), 'utf8');
+  return path;
+}
+
+/**
+ * Render the single `.config.example` catalog: every framework knob (across all
+ * groups), commented out at its default, with its one-line explanation and its
+ * `PAQAD_*` env equivalent. A copy-paste reference so a team never has to guess a
+ * variable name. Like Laravel's `.env.example`, it is tracked but **never read at
+ * runtime** — copy a line into a `configs/.config.*` (team) or `.config` (local)
+ * file, uncomment it, and set the value.
+ */
+export function generateConfigExample(): string {
+  const lines: string[] = [
+    '# paqad framework configuration — catalog of every knob (.paqad/.config.example)',
+    '#',
+    '# A copy-paste reference: every framework knob, with its default, a one-line',
+    '# explanation, and its PAQAD_* env equivalent. This file is NEVER read at',
+    '# runtime. To override a knob, copy its line into a tracked configs/.config.*',
+    '# file (team) or your git-ignored .config (local), uncomment it, and set a value.',
+    '#',
+    '# Precedence, highest first: PAQAD_* env var > .config (local) > configs/.config.*',
+    '# (team) > code default. With nothing uncommented anywhere, every knob is at the',
+    '# default shown below — identical to a fresh install.',
+    '',
+  ];
+
+  let currentSection = '';
+  for (const spec of FRAMEWORK_CONFIG_SPECS) {
+    if (spec.section !== currentSection) {
+      if (currentSection !== '') {
+        lines.push('');
+      }
+      lines.push(`# ── ${spec.section} ${'─'.repeat(Math.max(0, 56 - spec.section.length))}`);
+      currentSection = spec.section;
+    }
+    lines.push(`# ${spec.comment} (env: ${spec.env})`);
+    lines.push(`# ${spec.key}=${renderDefault(spec)}`);
+  }
+
+  lines.push('');
+  return lines.join('\n');
+}
+
+/** Write the tracked `.paqad/.config.example` catalog. Always refreshed (like
+ *  Laravel's `.env.example`) so newly-shipped keys appear after an update. */
+export function writeConfigExample(projectRoot: string): string {
+  const path = join(projectRoot, PATHS.PROJECT_CONFIG_EXAMPLE);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, generateConfigExample(), 'utf8');
   return path;
 }
 

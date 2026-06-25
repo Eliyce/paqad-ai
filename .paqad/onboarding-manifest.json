@@ -111,6 +111,9 @@
       "ai_bom": false,
       "compliance_citations": false
     },
+    "paqad": {
+      "enabled": true
+    },
     "mcp": {
       "servers": []
     },
@@ -161,7 +164,10 @@
       "context_hit_rate_target": 0.7,
       "skill_caching": true,
       "differential_refresh": true,
-      "mcp_first": true
+      "mcp_first": true,
+      "auto_update": true,
+      "minimum_version": "latest",
+      "version_check_interval_hours": 12
     },
     "escalation": {
       "destructive_operations": "block",
@@ -301,7 +307,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-23T11:26:50.029Z",
+    "timestamp": "2026-06-25T15:47:09.450Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -401,7 +407,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-23T11:26:55.593Z",
+  "generated_at": "2026-06-25T15:47:44.942Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -449,6 +455,30 @@
     },
     {
       "path": ".claude/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": "GEMINI.md",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/settings.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/settings.hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/memory.json",
       "auto_update": true
     },
     {

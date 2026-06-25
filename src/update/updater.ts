@@ -8,6 +8,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import {
   reconcileConfigOverrides,
   syncGroupConfigs,
+  writeConfigExample,
   writeConfigsReadme,
 } from '@/core/framework-config.js';
 import { toPosixPath } from '@/core/path-utils.js';
@@ -96,6 +97,7 @@ export class FrameworkUpdater {
     // add/remove evolution path — added keys surface in the group files, removed
     // keys are pruned here and reported.
     writeConfigsReadme(projectRoot);
+    writeConfigExample(projectRoot);
     syncGroupConfigs(projectRoot);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 

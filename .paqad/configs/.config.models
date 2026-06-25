@@ -1,0 +1,19 @@
+# .paqad/configs/.config.models — Research depth and model routing
+#
+# How deep research goes, and which models handle routine, heavy-reasoning, and
+# fast/cheap work.
+#
+# Every key below is COMMENTED OUT, so paqad uses its built-in default until you
+# uncomment a line to override it. Precedence, highest first: PAQAD_* env var >
+# your local ../.config > these tracked team files > code default. This file is
+# tracked; `paqad-ai update` refreshes it and keeps every value you uncommented.
+
+# ── Research & model routing ────────────────────────────────
+# cutting-edge | standard | conservative. (env: PAQAD_RESEARCH_DEPTH)
+# research_depth=standard
+# Default model for routine work. (env: PAQAD_MODEL_DEFAULT)
+# model_default=gpt-5
+# Model for heavy reasoning / planning. (env: PAQAD_MODEL_REASONING)
+# model_reasoning=gpt-5
+# Cheap/fast model for lightweight steps. (env: PAQAD_MODEL_FAST)
+# model_fast=gpt-5-mini

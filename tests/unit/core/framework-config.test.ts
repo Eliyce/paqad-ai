@@ -14,6 +14,7 @@ import {
   configSaysPaqadDisabled,
   detectFlippedFrameworkValues,
   frameworkOverridesToFlat,
+  generateConfigExample,
   generateConfigsReadme,
   generateGroupConfig,
   layeredConfigMap,
@@ -30,6 +31,7 @@ import {
   stripFrameworkConfigFromProfile,
   syncFrameworkConfig,
   syncGroupConfigs,
+  writeConfigExample,
   writeConfigsReadme,
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
@@ -406,6 +408,42 @@ describe('generateGroupConfig — self-documenting group files, defaults by defa
     const text = generateGroupConfig('app', new Map([['enterprise', 'true']]));
     expect(text).toMatch(/^enterprise=true$/m); // active
     expect(text).not.toMatch(/^# enterprise=/m); // not the commented default
+  });
+});
+
+describe('generateConfigExample — the single copy-paste catalog', () => {
+  const example = generateConfigExample();
+
+  it('documents every knob and its env equivalent, all commented out', () => {
+    for (const spec of FRAMEWORK_CONFIG_SPECS) {
+      expect(example).toContain(spec.env);
+      expect(example).toMatch(new RegExp(`^# ${spec.key}=`, 'm')); // present, commented
+      expect(example).not.toMatch(new RegExp(`^${spec.key}=`, 'm')); // never active
+    }
+  });
+
+  it('is byte-stable across re-runs (idempotent onboarding/update)', () => {
+    expect(generateConfigExample()).toBe(example);
+  });
+
+  it('round-trips: uncommenting every knob line resolves back to the code defaults', () => {
+    const uncommented = example.replace(/^# ([a-z0-9_]+=.*)$/gm, '$1');
+    expect(resolveFrameworkConfigFromMap(parseDotConfig(uncommented))).toEqual(
+      DEFAULT_FRAMEWORK_CONFIG,
+    );
+  });
+
+  it('writeConfigExample writes .paqad/.config.example matching the generator', () => {
+    const root = tmpRoot();
+    try {
+      const path = writeConfigExample(root);
+      expect(existsSync(path)).toBe(true);
+      expect(readFileSync(path, 'utf8')).toBe(generateConfigExample());
+      // It is never read, so it never changes resolution.
+      expect(resolveFrameworkConfig(root, {})).toEqual(DEFAULT_FRAMEWORK_CONFIG);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

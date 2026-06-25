@@ -1,0 +1,23 @@
+# .paqad/configs/.config.rag — Intelligence / RAG
+#
+# Retrieval-augmented context loading: whether it is on, the embedding provider and
+# model, and the retrieval tuning (similarity threshold, top-N, file-size limit).
+#
+# Every key below is COMMENTED OUT, so paqad uses its built-in default until you
+# uncomment a line to override it. Precedence, highest first: PAQAD_* env var >
+# your local ../.config > these tracked team files > code default. This file is
+# tracked; `paqad-ai update` refreshes it and keeps every value you uncommented.
+
+# ── Intelligence / RAG ──────────────────────────────────────
+# Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
+# rag_enabled=false
+# local | openai | voyageai. Unset uses the local model. (env: PAQAD_RAG_EMBEDDING_PROVIDER)
+# rag_embedding_provider=
+# Override the embedding model id. Unset = provider default. (env: PAQAD_RAG_EMBEDDING_MODEL)
+# rag_embedding_model=
+# Minimum cosine similarity for a chunk to be retrieved. (env: PAQAD_RAG_SIMILARITY_THRESHOLD)
+# rag_similarity_threshold=0.75
+# Max chunks retrieved per query. (env: PAQAD_RAG_TOP_N)
+# rag_top_n=20
+# Skip indexing files larger than this many bytes. (env: PAQAD_RAG_MAX_FILE_SIZE)
+# rag_max_file_size=153600
