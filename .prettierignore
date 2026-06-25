@@ -14,6 +14,10 @@ CLAUDE.md
 GEMINI.md
 .junie
 
+# Generated framework bootstrap — byte-identical to its builder (golden test),
+# regenerated with `pnpm vitest run agent-bootstrap-writer -u`, not hand-formatted.
+runtime/AGENT-BOOTSTRAP.md
+
 # pnpm manages its own lockfile format — don't fight it.
 pnpm-lock.yaml
 graph-ui/pnpm-lock.yaml

@@ -102,4 +102,4 @@ Deterministic plumbing — do **not** re-derive these in the LLM layer.
 - `src/module-decisions/schema.ts` — MD-XXXX state machine.
 - `src/module-decisions/apply.ts` — atomic apply path.
 - `runtime/base/skills/module-attribution-extractor/SKILL.md` — first half of the Attribution Gate.
-- `.paqad/decision-pause-contract.md` — packet semantics.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics.

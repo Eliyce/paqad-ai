@@ -95,4 +95,4 @@ Deterministic plumbing — do **not** re-derive these in the LLM layer.
 - `src/module-decisions/extractor.ts` — pattern set + classification.
 - `src/module-decisions/schema.ts` — MD-XXXX state machine.
 - `src/module-decisions/apply.ts` — atomic apply path (only writer of `module-map.yml`).
-- `.paqad/decision-pause-contract.md` — packet semantics.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics.

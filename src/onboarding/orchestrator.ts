@@ -48,9 +48,8 @@ import {
   readOnboardingCheckpoint,
   writeOnboardingCheckpoint,
 } from './checkpoint.js';
-import { writeDecisionPauseContractDocument } from './decision-pause-contract-writer.js';
-import { writeNarrationContractDocument } from './narration-contract-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
+import { removeObsoleteContractDocs } from './obsolete-cleanup.js';
 import { writeGitignore } from './gitignore-writer.js';
 import {
   readExistingOnboardingManifest,
@@ -297,26 +296,12 @@ export class OnboardingOrchestrator {
     }
     bootstrapFramework(options.projectRoot);
     new DecisionStore(options.projectRoot).initialize();
-    try {
-      const wrote = writeDecisionPauseContractDocument(options.projectRoot);
-      if (wrote) {
-        writeResult.written.push(PATHS.DECISION_PAUSE_CONTRACT);
-      }
-    } catch (error) {
-      onboardingWarnings.push(
-        `Decision Pause Contract doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
-    try {
-      const wrote = writeNarrationContractDocument(options.projectRoot);
-      if (wrote) {
-        writeResult.written.push(PATHS.NARRATION_CONTRACT);
-      }
-    } catch (error) {
-      onboardingWarnings.push(
-        `Narration Contract doc write failed: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
+    // Issue #229 — the narration + decision-pause contracts are no longer copied
+    // into the project's `.paqad/`. They are framework-owned content carried by
+    // the install bootstrap (`AGENT-BOOTSTRAP.md`), loaded from there behind the
+    // enablement check. Any stale project-level copies from a pre-#229 onboard are
+    // pruned below (see `removeObsoleteContractDocs`).
+    removeObsoleteContractDocs(options.projectRoot);
     let compiledRulesPath = join(options.projectRoot, PATHS.COMPILED_RULES);
     try {
       if (await isCompiledRulesStale(options.projectRoot)) {

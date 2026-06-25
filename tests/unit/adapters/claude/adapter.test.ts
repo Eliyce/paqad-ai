@@ -13,10 +13,11 @@ describe('ClaudeCodeAdapter', () => {
     });
     expect(files[0]?.path).toBe('CLAUDE.md');
     expect(files[0]?.content.split('\n').length).toBeLessThan(80);
-    expect(files[0]?.content).toContain('docs/instructions/stack');
-    expect(files[0]?.content).toContain('docs/instructions/rules');
-    expect(files[0]?.content).toContain('create documentation');
-    expect(files[0]?.content).toContain('Do not ask the user to choose a document type');
+    expect(files[0]?.content).toContain('.paqad/framework-path.txt');
+    expect(files[0]?.content).toContain('AGENT-BOOTSTRAP.md');
+    expect(files[0]?.content).toContain('Adapter:');
+    expect(files[0]?.content).not.toContain('docs/instructions');
+    expect(files[0]?.content).not.toContain('create documentation');
   });
 
   it('places skills in the Claude directory', async () => {

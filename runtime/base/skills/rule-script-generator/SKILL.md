@@ -82,4 +82,4 @@ No `.sh` scripts are ever produced. See `references/script-authoring.md` for the
 - `src/rule-scripts/fixture-runner.ts` — the fixture gate.
 - `src/rule-scripts/guard.ts` — the over-flagging guard.
 - `src/rule-scripts/prune.ts` — orphan-script pruning (end-of-cycle).
-- `.paqad/decision-pause-contract.md` — packet semantics for rejected scripts.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics for rejected scripts.

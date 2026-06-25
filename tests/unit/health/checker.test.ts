@@ -235,7 +235,10 @@ describe('HealthChecker', () => {
     );
   });
 
-  it('fails when a generated adapter file is missing the Decision Pause Contract section', async () => {
+  it('passes the provider-entry bootstrap-pointer and fallback-clause checks on lean entry files', async () => {
+    // Issue #229 — a freshly onboarded entry file is a lean stub that points to
+    // the framework bootstrap (`.paqad/framework-path.txt`) and carries the
+    // graceful-degradation fallback clause, inlining no contract sections.
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['claude-code'],
@@ -246,25 +249,29 @@ describe('HealthChecker', () => {
       },
     });
 
-    writeFileSync(
-      join(projectRoot, 'CLAUDE.md'),
-      readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8').replace(
-        /## Decision Pause Contract[\s\S]*?Adapter:\nclaude-code/,
-        'Adapter:\nclaude-code',
-      ),
-    );
-
     const report = await new HealthChecker().run(projectRoot);
 
-    expect(report.checks.find((check) => check.name === 'Decision pause contract present')).toEqual(
+    expect(
+      report.checks.find((check) => check.name === 'Entry files point to the framework bootstrap'),
+    ).toEqual(
       expect.objectContaining({
-        status: 'fail',
-        detail: 'Decision pause contract missing from: CLAUDE.md',
+        status: 'pass',
+        detail: 'Every generated entry file is a lean stub pointing to the framework bootstrap.',
+      }),
+    );
+    expect(
+      report.checks.find(
+        (check) => check.name === 'Entry files carry the graceful-degradation fallback clause',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        status: 'pass',
+        detail: 'Every generated entry file carries the graceful-degradation fallback clause.',
       }),
     );
   });
 
-  it('warns when a generated adapter file drifts from the canonical Decision Pause Contract', async () => {
+  it('fails the bootstrap-pointer check when an entry file drops the framework-path pointer', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['claude-code'],
@@ -275,20 +282,90 @@ describe('HealthChecker', () => {
       },
     });
 
+    // Strip the `.paqad/framework-path.txt` bootstrap pointer so the entry file
+    // no longer hands the agent off to the framework bootstrap.
     writeFileSync(
       join(projectRoot, 'CLAUDE.md'),
-      readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8').replace(
-        '## Decision Pause Contract',
-        '## Decision Pause Contract\n\nUNEXPECTED EXTRA LINE',
+      readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8').replaceAll(
+        '.paqad/framework-path.txt',
+        'MISSING-POINTER',
       ),
     );
 
     const report = await new HealthChecker().run(projectRoot);
 
-    expect(report.checks.find((check) => check.name === 'Decision pause contract present')).toEqual(
+    expect(
+      report.checks.find((check) => check.name === 'Entry files point to the framework bootstrap'),
+    ).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        detail: 'Bootstrap pointer (.paqad/framework-path.txt) missing from: CLAUDE.md',
+      }),
+    );
+  });
+
+  it('warns when a stale (pre-#229) entry file still inlines a Decision Pause Contract section', async () => {
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      adapters: ['claude-code'],
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+      },
+    });
+
+    // Re-inline a fat contract section to simulate a pre-#229 entry file that a
+    // refresh has not yet leaned out. The pointer is still present, so this is a
+    // warning (lean-out needed), not a failure.
+    writeFileSync(
+      join(projectRoot, 'CLAUDE.md'),
+      `${readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')}\n## Decision Pause Contract\n\nStale inlined contract prose.\n`,
+    );
+
+    const report = await new HealthChecker().run(projectRoot);
+
+    expect(
+      report.checks.find((check) => check.name === 'Entry files point to the framework bootstrap'),
+    ).toEqual(
       expect.objectContaining({
         status: 'warning',
-        detail: 'Decision pause contract drift detected in: CLAUDE.md',
+        detail: 'Stale (pre-#229) entry file still inlines a contract section in: CLAUDE.md',
+      }),
+    );
+  });
+
+  it('fails the fallback-clause check when an entry file drops the graceful-degradation clause', async () => {
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      adapters: ['claude-code'],
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+      },
+    });
+
+    // Remove the byte-identical fallback clause so an absent/disabled paqad could
+    // hard-fail the host.
+    writeFileSync(
+      join(projectRoot, 'CLAUDE.md'),
+      readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8').replace(
+        'proceed as a normal assistant with no paqad behavior. Do not block.',
+        'BLOCK EVERYTHING.',
+      ),
+    );
+
+    const report = await new HealthChecker().run(projectRoot);
+
+    expect(
+      report.checks.find(
+        (check) => check.name === 'Entry files carry the graceful-degradation fallback clause',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        status: 'fail',
+        detail: 'Graceful-degradation fallback clause missing from: CLAUDE.md',
       }),
     );
   });

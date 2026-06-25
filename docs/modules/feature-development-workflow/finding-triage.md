@@ -86,5 +86,5 @@ ambiguous findings share one verdict.
 ## Related
 
 - [Decision Pause Contract](../decision-pause-contract/index/summary.md) — the reused settle-once memory.
-- [`.paqad/decision-pause-contract.md`](../../../.paqad/decision-pause-contract.md) — lists the
-  `finding.triage` category.
+- The Decision Pause Contract, carried by the framework bootstrap
+  (`AGENT-BOOTSTRAP.md`), lists the `finding.triage` category.

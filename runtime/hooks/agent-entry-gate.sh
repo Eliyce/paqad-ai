@@ -28,7 +28,7 @@ print_block() {
   echo "[paqad] Blocked: load the paqad framework before editing." 1>&2
   echo "[paqad] Required steps:" 1>&2
   echo "[paqad]   1. Read ${paqad_entry_file}" 1>&2
-  echo "[paqad]   2. Resolve .paqad/framework-path.txt and load the framework entry" 1>&2
+  echo "[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)" 1>&2
   echo "[paqad]   3. Load docs/instructions/{rules,stack,design-system}" 1>&2
   echo "[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path" 1>&2
   exit 2

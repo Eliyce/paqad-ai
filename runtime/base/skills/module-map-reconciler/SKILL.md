@@ -109,4 +109,4 @@ Deterministic plumbing — do **not** re-derive these in the LLM layer.
 - `src/module-map/reconciler.ts` — detection engine.
 - `src/module-decisions/apply.ts` — atomic apply path (only writer of `module-map.yml`).
 - `runtime/base/skills/documentation-workflow/scripts/list-orphan-module-dirs.sh` — back-compat orphan detector promoted into `MM-DOC-ORPHAN`.
-- `.paqad/decision-pause-contract.md` — packet semantics.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics.

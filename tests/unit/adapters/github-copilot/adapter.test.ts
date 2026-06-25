@@ -5,15 +5,19 @@ import { fixtureProfile } from '../shared.fixture';
 describe('GithubCopilotAdapter', () => {
   const adapter = new GithubCopilotAdapter();
 
-  it('generates .github/copilot-instructions.md', async () => {
+  it('generates a lean .github/copilot-instructions.md stub', async () => {
     const files = await adapter.generateConfig({
       frameworkPath: '.paqad/framework-path.txt',
       rulesPath: 'docs/instructions/rules',
       projectRoot: '/tmp/project',
     });
     expect(files[0]?.path).toBe('.github/copilot-instructions.md');
-    expect(files[0]?.content).toContain('docs/instructions/stack');
-    expect(files[0]?.content).toContain('docs/instructions/rules');
+    expect(files[0]?.content).toContain('.paqad/framework-path.txt');
+    expect(files[0]?.content).toContain('AGENT-BOOTSTRAP.md');
+    expect(files[0]?.content).toContain('Adapter:');
+    expect(files[0]?.content).not.toContain('docs/instructions');
+    expect(files[0]?.content).not.toContain('create documentation');
+    expect(files[0]?.content).not.toContain('## ');
   });
 
   it('writes mcp config to .vscode/mcp.json', async () => {

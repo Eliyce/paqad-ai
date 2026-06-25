@@ -39,7 +39,18 @@ describe('dashboard write pipeline', () => {
         resolveManagedPath(root, 'docs/instructions/workflows/delivery-policy.yaml'),
       ).not.toThrow();
       expect(() => resolveManagedPath(root, '.paqad/project-profile.yaml')).not.toThrow();
-      expect(() => resolveManagedPath(root, '.paqad/decision-pause-contract.md')).not.toThrow();
+      expect(() => resolveManagedPath(root, '.paqad/rag.ignore.yaml')).not.toThrow();
+    });
+
+    it('rejects the retired decision-pause contract path (editor removed)', () => {
+      // #229 retired the dashboard decision-contract editor: the path is no
+      // longer on the named-file allowlist, so the dotfile rule rejects it.
+      expect(() => resolveManagedPath(root, '.paqad/decision-pause-contract.md')).toThrow(
+        PathNotAllowedError,
+      );
+      expect(() => resolveManagedPath(root, '.paqad/decision-pause-contract.md')).toThrow(
+        /dotfiles/,
+      );
     });
 
     it('rejects traversal, dotfiles, foreign roots, and uneditable extensions', () => {

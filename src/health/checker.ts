@@ -27,8 +27,8 @@ import type {
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { SchemaValidator } from '@/validators/validator.js';
 import {
-  inspectProviderEntryDecisionPauseContracts,
-  inspectProviderEntryNarrationContracts,
+  inspectProviderEntryBootstrapPointer,
+  inspectProviderEntryFallbackClause,
 } from './provider-entry-contract.js';
 
 const STALENESS_WINDOW_MS = 1000 * 60 * 60 * 24 * 7;
@@ -51,8 +51,8 @@ export class HealthChecker {
       this.checkInstructionCopies(projectRoot, profile),
       this.checkIndexesCurrent(projectRoot),
       this.checkAdapterConfig(projectRoot),
-      this.checkDecisionPauseContract(projectRoot),
-      this.checkNarrationContract(projectRoot),
+      this.checkProviderEntryBootstrapPointer(projectRoot),
+      this.checkProviderEntryFallbackClause(projectRoot),
       this.checkStackCommands(profile),
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
@@ -395,32 +395,34 @@ export class HealthChecker {
         );
   }
 
-  private checkDecisionPauseContract(projectRoot: string): HealthCheckResult {
-    const result = inspectProviderEntryDecisionPauseContracts(projectRoot);
+  private checkProviderEntryBootstrapPointer(projectRoot: string): HealthCheckResult {
+    const result = inspectProviderEntryBootstrapPointer(projectRoot);
+    const label = 'Entry files point to the framework bootstrap';
 
     if (result.status === 'pass') {
-      return pass('Decision pause contract present', result.detail);
+      return pass(label, result.detail);
     }
 
     if (result.status === 'warning') {
-      return warn('Decision pause contract present', result.detail, result.remediation);
+      return warn(label, result.detail, result.remediation);
     }
 
-    return fail('Decision pause contract present', result.detail, result.remediation);
+    return fail(label, result.detail, result.remediation);
   }
 
-  private checkNarrationContract(projectRoot: string): HealthCheckResult {
-    const result = inspectProviderEntryNarrationContracts(projectRoot);
+  private checkProviderEntryFallbackClause(projectRoot: string): HealthCheckResult {
+    const result = inspectProviderEntryFallbackClause(projectRoot);
+    const label = 'Entry files carry the graceful-degradation fallback clause';
 
     if (result.status === 'pass') {
-      return pass('Narration contract present', result.detail);
+      return pass(label, result.detail);
     }
 
     if (result.status === 'warning') {
-      return warn('Narration contract present', result.detail, result.remediation);
+      return warn(label, result.detail, result.remediation);
     }
 
-    return fail('Narration contract present', result.detail, result.remediation);
+    return fail(label, result.detail, result.remediation);
   }
 
   private checkStackCommands(profile: ProjectProfile | null): HealthCheckResult {

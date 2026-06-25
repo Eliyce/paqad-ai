@@ -5,11 +5,6 @@ import { GeminiCliAdapter } from '@/adapters/gemini/gemini-adapter.js';
 import { JunieAdapter } from '@/adapters/junie/junie-adapter.js';
 import { AdapterFactory } from '@/adapters/index.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
-import {
-  buildDecisionPauseContractSection,
-  extractDecisionPauseContractSection,
-  normalizeProviderEntryContract,
-} from '@/adapters/shared/provider-entry-contract.js';
 
 const CONFIG_CONTEXT = {
   frameworkPath: '.paqad/framework-path.txt',
@@ -77,26 +72,44 @@ describe('Generated agent entry files', () => {
     }
   });
 
-  it('includes the canonical decision pause contract pointer in every generated provider entry file', async () => {
+  it('keeps rendered markdown entry files free of hook script references', async () => {
     for (const adapterType of ADAPTER_TYPES) {
       const adapter = AdapterFactory.create(adapterType);
-      const [file] = await adapter.generateConfig(CONFIG_CONTEXT);
-      const section = extractDecisionPauseContractSection(file?.content ?? '');
-
-      expect(section).not.toBeNull();
-      expect(normalizeProviderEntryContract(section!)).toBe(
-        normalizeProviderEntryContract(buildDecisionPauseContractSection(adapterType)),
-      );
+      // The markdown entry file is the first generated file for every adapter;
+      // later files (e.g. .claude/settings.json) legitimately wire the live
+      // session-start hooks and are not entry-file prose.
+      const [entry] = await adapter.generateConfig(CONFIG_CONTEXT);
+      const content = entry?.content ?? '';
+      expect(content).not.toContain('silent-update.sh');
+      expect(content).not.toContain('silent-update.mjs');
+      expect(content).not.toContain('.paqad/hooks/');
+      expect(content).not.toContain('verification-record');
     }
   });
 
-  it('returns null when a provider entry file has no decision pause contract section', () => {
-    expect(extractDecisionPauseContractSection('# Heading\n\nNo contract here')).toBeNull();
-  });
+  it('renders every provider entry file as a lean bootstrap stub', async () => {
+    for (const adapterType of ADAPTER_TYPES) {
+      const adapter = AdapterFactory.create(adapterType);
+      const [entry] = await adapter.generateConfig(CONFIG_CONTEXT);
+      const content = entry?.content ?? '';
 
-  it('extracts the decision pause contract even when the section reaches end-of-file', () => {
-    const content = `${buildDecisionPauseContractSection()}\n`;
+      // The lean stub points at the framework bootstrap instead of inlining the
+      // load order, workflow prose, or either managed contract.
+      expect(content).toContain('.paqad/framework-path.txt');
+      expect(content).toContain('AGENT-BOOTSTRAP.md');
 
-    expect(extractDecisionPauseContractSection(content)).toBe(buildDecisionPauseContractSection());
+      // Bootstrap prose, workflow prose, and both contracts now live in
+      // AGENT-BOOTSTRAP.md, never in the entry file itself.
+      expect(content).not.toContain('docs/instructions');
+      expect(content).not.toContain('docs/modules');
+      expect(content).not.toContain('create documentation');
+      expect(content).not.toContain('Do not ask the user to choose a document type');
+      expect(content).not.toContain('## paqad in your chat');
+      expect(content).not.toContain('## Decision Pause Contract');
+      expect(content).not.toContain('Decision Pause Contract');
+
+      // A lean stub has no `## ` headings at all.
+      expect(content).not.toMatch(/^## /m);
+    }
   });
 });

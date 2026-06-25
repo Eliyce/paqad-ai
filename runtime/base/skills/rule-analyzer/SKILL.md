@@ -82,4 +82,4 @@ It writes a draft `docs/instructions/rules/rule-script-map.yml`. **The user revi
 - `runtime/base/skills/rule-analyzer/agents/openai.yaml` — agent interface metadata.
 - `src/rule-scripts/analyzer.ts` — scan + embed + assemble engine.
 - `src/rule-scripts/apply.ts` — atomic single writer of `rule-script-map.yml`.
-- `.paqad/decision-pause-contract.md` — packet semantics for conflicts.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics for conflicts.

@@ -340,7 +340,7 @@ export type MutationOutcome<T> =
       conflict: { content: string | null; hash: string | null };
     };
 
-/** PUT result for plain managed files (decision contract, instructions). */
+/** PUT result for plain managed files (instructions, design tokens). */
 export interface PutManagedFileResult {
   path: string;
   hash: string;

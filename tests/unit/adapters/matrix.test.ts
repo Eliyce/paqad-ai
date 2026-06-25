@@ -82,14 +82,16 @@ describe('adapter stack matrix', () => {
           expect(files.map((file) => file.path).some((path) => path.includes('.json'))).toBe(true);
         }
 
-        // The config file is always files[0] regardless of its extension or path
+        // The config file is always files[0] regardless of its extension or path.
+        // Entry files are now lean bootstrap stubs: a one-line pointer to the
+        // framework bootstrap and the Adapter footer, with no load steps,
+        // workflow prose, or embedded contracts.
         const configFile = files[0];
-        expect(configFile?.content).toContain('docs/instructions/stack');
         expect(configFile?.content).toContain('.paqad/framework-path.txt');
-        expect(configFile?.content).toContain('create documentation');
-        expect(configFile?.content).toContain(
-          'Do not ask the user to choose a document type when a Paqad workflow already matches the request.',
-        );
+        expect(configFile?.content).toContain('AGENT-BOOTSTRAP.md');
+        expect(configFile?.content).toContain('Adapter:');
+        expect(configFile?.content).not.toContain('docs/instructions');
+        expect(configFile?.content).not.toContain('create documentation');
       });
     }
   }

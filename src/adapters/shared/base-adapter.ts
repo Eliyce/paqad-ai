@@ -8,8 +8,6 @@ import { McpConfigManager } from '@/mcp/config-manager.js';
 import { TemplateEngine } from '@/templates/engine.js';
 
 import { buildFrameworkFallbackClause } from './framework-fallback-clause.js';
-import { buildNarrationContractSection } from './narration-contract.js';
-import { buildDecisionPauseContractSection } from './provider-entry-contract.js';
 
 import type {
   AdapterCapabilities,
@@ -55,12 +53,14 @@ export abstract class BaseAdapter implements AdapterInterface {
         content: await this.engine.render(
           join(getRuntimeTemplatesRoot(), 'agent-configs', this.configTemplateName()),
           {
+            // Issue #229 — the entry file is now a lean stub: a pointer to the
+            // framework bootstrap (`AGENT-BOOTSTRAP.md` in the install) plus the
+            // graceful-degradation fallback clause and the `Adapter:` footer. The
+            // load order and BOTH contracts (narration + decision-pause) live only
+            // in the bootstrap, behind its enablement check — never inlined here.
             adapter: this.type,
             frameworkPath: context.frameworkPath,
-            rulesPath: context.rulesPath,
             frameworkFallback: buildFrameworkFallbackClause(),
-            narrationContract: buildNarrationContractSection(),
-            decisionPauseContract: buildDecisionPauseContractSection(this.type),
           },
         ),
         autoUpdate: true,

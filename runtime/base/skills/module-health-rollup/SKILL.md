@@ -103,4 +103,4 @@ Deterministic plumbing — do **not** re-derive these in the LLM layer.
 - `src/module-health/parsers/` — the nine framework-shipped parsers.
 - `src/validators/schemas/stack-pack.schema.json` — closed enum for `coverage_format` / `test_report_format`.
 - `runtime/base/skills/module-map-reconciler/SKILL.md` — sibling skill that consumes `unattributed_files` as `MM-ADD` candidates.
-- `.paqad/decision-pause-contract.md` — packet semantics.
+- the Decision Pause Contract (in the framework bootstrap) — packet semantics.
