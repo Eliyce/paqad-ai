@@ -23,6 +23,10 @@ function writeProfile(root: string, yaml: string): void {
   writeFileSync(join(root, '.paqad', 'project-profile.yaml'), yaml);
 }
 
+function writeConfig(root: string, contents: string): void {
+  writeFileSync(join(root, '.paqad', '.config'), contents);
+}
+
 function seedDir(root: string): void {
   mkdirSync(join(root, '.paqad'), { recursive: true });
 }
@@ -80,39 +84,36 @@ describe('isFrameworkEnabledForRoot (dist-less raw read)', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('defaults ON when the profile is absent', () => {
-    rmSync(join(root, '.paqad', 'project-profile.yaml'), { force: true });
+  it('defaults ON when the .config is absent', () => {
+    rmSync(join(root, '.paqad', '.config'), { force: true });
     expect(isFrameworkEnabledForRoot(root, NO_ENV)).toBe(true);
   });
 
-  it('reads paqad.enabled: false scoped to the top-level paqad block', () => {
-    writeProfile(
-      root,
-      `${MINIMAL_PROFILE}paqad:\n  enabled: false\nenterprise:\n  enabled: true\n`,
-    );
+  it('reads PAQAD_ENABLED=false from .paqad/.config', () => {
+    writeConfig(root, 'PAQAD_ENABLED=false\nENTERPRISE_ENABLED=true\n');
     expect(isFrameworkEnabledForRoot(root, NO_ENV)).toBe(false);
     expect(isFrameworkDisabledForRoot(root, NO_ENV)).toBe(true);
   });
 
-  it('does NOT trip on enabled: false under a different block (enterprise)', () => {
-    writeProfile(root, `${MINIMAL_PROFILE}enterprise:\n  enabled: false\n`);
+  it('does NOT trip on a falsy value under a different key (ENTERPRISE_ENABLED)', () => {
+    writeConfig(root, 'ENTERPRISE_ENABLED=false\n');
     expect(isFrameworkEnabledForRoot(root, NO_ENV)).toBe(true);
   });
 
-  it('stays ON for paqad.enabled: true', () => {
-    writeProfile(root, `${MINIMAL_PROFILE}paqad:\n  enabled: true\n`);
+  it('stays ON for PAQAD_ENABLED=true', () => {
+    writeConfig(root, 'PAQAD_ENABLED=true\n');
     expect(isFrameworkEnabledForRoot(root, NO_ENV)).toBe(true);
   });
 
-  it('honors the env override even when the profile says enabled', () => {
-    writeProfile(root, `${MINIMAL_PROFILE}paqad:\n  enabled: true\n`);
+  it('honors the env override even when .config says enabled', () => {
+    writeConfig(root, 'PAQAD_ENABLED=true\n');
     expect(isFrameworkEnabledForRoot(root, { PAQAD_DISABLED: '1' } as NodeJS.ProcessEnv)).toBe(
       false,
     );
   });
 
   it('is side-effect-free — reading the off-signal writes nothing', () => {
-    writeProfile(root, `${MINIMAL_PROFILE}paqad:\n  enabled: false\n`);
+    writeConfig(root, 'PAQAD_ENABLED=false\n');
     const before = readdirSync(join(root, '.paqad')).sort();
     isFrameworkEnabledForRoot(root, NO_ENV);
     isFrameworkDisabledForRoot(root, NO_ENV);
@@ -137,13 +138,13 @@ describe('setFrameworkEnabled', () => {
     expect(() => setFrameworkEnabled(root, false)).toThrow(/not onboarded/);
   });
 
-  it('flips paqad.enabled to false then back to true', () => {
+  it('flips PAQAD_ENABLED to false then back to true', () => {
     writeProfile(root, MINIMAL_PROFILE);
 
     const disabled = setFrameworkEnabled(root, false);
     expect(disabled.enabled).toBe(false);
     expect(isFrameworkEnabledForRoot(root, NO_ENV)).toBe(false);
-    expect(readFileSync(disabled.profile_path, 'utf8')).toMatch(/paqad:\s*\n\s*enabled:\s*false/);
+    expect(readFileSync(disabled.config_path, 'utf8')).toMatch(/^PAQAD_ENABLED=false$/m);
 
     const enabled = setFrameworkEnabled(root, true);
     expect(enabled.enabled).toBe(true);

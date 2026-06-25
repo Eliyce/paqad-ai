@@ -4,6 +4,12 @@ import { dirname, join } from 'node:path';
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { FrameworkError, ValidationError } from '@/core/errors/index.js';
+import {
+  DEFAULT_FRAMEWORK_CONFIG,
+  setConfigValue,
+  writeConfigExample,
+  writeFrameworkOverridesToConfig,
+} from '@/core/framework-config.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
@@ -240,6 +246,14 @@ export class OnboardingOrchestrator {
         { writeHumanDocs: false },
       );
       writeProjectProfile(options.projectRoot, profile);
+      // Framework knobs live in `.paqad/.config`, not the (lean) profile. Always
+      // refresh the tracked `.config.example` template; persist only explicitly
+      // passed overrides (desktop/tests) into the git-ignored `.config`. A plain
+      // CLI onboard passes none, so `.config` stays absent and defaults apply.
+      writeConfigExample(options.projectRoot);
+      if (options.profileOverrides) {
+        writeFrameworkOverridesToConfig(options.projectRoot, options.profileOverrides);
+      }
       writeGitignore(options.projectRoot);
       writeDetectionReport(options.projectRoot, detection);
       writeFrameworkMetadata(options.projectRoot, VERSION);
@@ -336,6 +350,8 @@ export class OnboardingOrchestrator {
     if (ragSelection) {
       profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
       writeProjectProfile(options.projectRoot, profile);
+      // RAG is a framework knob: persist it to `.config`, not the lean profile.
+      persistRagConfig(options.projectRoot, profile.intelligence);
     }
 
     if (ragSelection?.enabled && ragSelection.provider) {
@@ -344,6 +360,8 @@ export class OnboardingOrchestrator {
       } catch (error) {
         profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
         writeProjectProfile(options.projectRoot, profile);
+        // Reset is an explicit default-write so any earlier RAG_ENABLED=true clears.
+        setConfigValue(options.projectRoot, 'RAG_ENABLED', 'false');
         onboardingWarnings.push(
           `RAG setup failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}. Onboarding completed with RAG disabled.`,
         );
@@ -516,6 +534,18 @@ function mergeProfileOverrides(
   return { ...(existing ?? {}), ...(explicit ?? {}) };
 }
 
+/** Persist the resolved RAG/intelligence selection into `.paqad/.config`. The
+ *  profile YAML stays lean; RAG state is a framework knob like the rest. */
+function persistRagConfig(projectRoot: string, intelligence: ProjectProfile['intelligence']): void {
+  setConfigValue(projectRoot, 'RAG_ENABLED', String(intelligence.rag_enabled));
+  if (intelligence.embedding_provider) {
+    setConfigValue(projectRoot, 'RAG_EMBEDDING_PROVIDER', intelligence.embedding_provider);
+  }
+  if (intelligence.embedding_model) {
+    setConfigValue(projectRoot, 'RAG_EMBEDDING_MODEL', intelligence.embedding_model);
+  }
+}
+
 function buildProjectProfile(
   selections: {
     domain: 'coding' | 'content';
@@ -574,12 +604,11 @@ function buildProjectProfile(
     },
     research: overrides?.research ?? { depth: 'standard' },
     intelligence: overrides?.intelligence ?? defaultIntelligenceConfig(),
-    efficiency: overrides?.efficiency ?? {
-      context_hit_rate_target: 0.7,
-      skill_caching: true,
-      differential_refresh: true,
-      mcp_first: true,
-    },
+    // Source from the canonical default so the in-memory profile (recorded in the
+    // onboarding manifest) matches what a re-onboard's `.config` overlay feeds
+    // back — otherwise the manifest's efficiency block drifts and onboarding is
+    // no longer idempotent. The block is stripped from the YAML on write anyway.
+    efficiency: overrides?.efficiency ?? DEFAULT_FRAMEWORK_CONFIG.efficiency,
     escalation: overrides?.escalation ?? {
       destructive_operations: 'block',
       risky_migrations: 'warn',

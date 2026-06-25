@@ -3,6 +3,14 @@ export const PATHS = {
   AGENCY_CACHE_DIR: '.paqad/cache',
   AGENCY_SESSION_DIR: '.paqad/session',
   PROJECT_PROFILE: '.paqad/project-profile.yaml',
+  // Laravel-style framework config: defaults live in code
+  // (`DEFAULT_FRAMEWORK_CONFIG`), `.config` is the git-ignored local override
+  // (flat KEY=VALUE), `.config.example` is the tracked, commented template that
+  // is the discoverability surface and is NEVER read at runtime. Framework knobs
+  // (paqad/enterprise/RAG/strictness/escalation/features/research/model_routing/
+  // decisions + version/update) are resolved through these, not the profile.
+  PROJECT_CONFIG: '.paqad/.config',
+  PROJECT_CONFIG_EXAMPLE: '.paqad/.config.example',
   DETECTION_REPORT: '.paqad/detection-report.json',
   ONBOARDING_MANIFEST: '.paqad/onboarding-manifest.json',
   RAG_IGNORE_CONFIG: '.paqad/rag.ignore.yaml',

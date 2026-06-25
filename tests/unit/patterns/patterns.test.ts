@@ -4,6 +4,7 @@ import { posix } from 'node:path';
 
 const { join } = posix;
 
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import type { Pattern } from '@/patterns/index.js';
 import type { EmbeddingProvider } from '@/rag/types.js';
 
@@ -310,6 +311,17 @@ describe('patterns', () => {
         escalation_rules: [],
       },
     });
+    // Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
+    // not the profile YAML; persist them so pattern RAG sees the enabled config.
+    syncFrameworkConfig(projectRoot, {
+      intelligence: {
+        rag_enabled: true,
+        embedding_provider: 'local',
+        embedding_model: 'fake-local',
+        rag_similarity_threshold: 0.75,
+        rag_top_n: 20,
+      },
+    });
 
     const vectors = new PatternVectorService(store, providerFactory as never);
     const suggester = await vectors.createSuggester(projectRoot, 0.2);
@@ -419,6 +431,15 @@ describe('patterns', () => {
         escalation_rules: [],
       },
     });
+    syncFrameworkConfig(projectRoot, {
+      intelligence: {
+        rag_enabled: true,
+        embedding_provider: 'local',
+        embedding_model: 'fake-local',
+        rag_similarity_threshold: 0.75,
+        rag_top_n: 3,
+      },
+    });
 
     const vectors = new PatternVectorService(store, providerFactory as never);
     const suggester = await vectors.createSuggester(projectRoot, 0.2);
@@ -512,6 +533,15 @@ describe('patterns', () => {
         classification_dimensions: [],
         verification_plugins: [],
         escalation_rules: [],
+      },
+    });
+    syncFrameworkConfig(projectRoot, {
+      intelligence: {
+        rag_enabled: true,
+        embedding_provider: 'local',
+        embedding_model: 'expected-model',
+        rag_similarity_threshold: 0.75,
+        rag_top_n: 20,
       },
     });
 
@@ -634,6 +664,15 @@ describe('patterns', () => {
         escalation_rules: [],
       },
     });
+    syncFrameworkConfig(projectRoot, {
+      intelligence: {
+        rag_enabled: true,
+        embedding_provider: 'local',
+        embedding_model: 'fake-local',
+        rag_similarity_threshold: 0.75,
+        rag_top_n: 20,
+      },
+    });
 
     const vectors = new PatternVectorService(store, providerFactory);
     await vectors.rebuild(projectRoot);
@@ -742,6 +781,15 @@ describe('patterns', () => {
           classification_dimensions: [],
           verification_plugins: [],
           escalation_rules: [],
+        },
+      });
+      syncFrameworkConfig(projectRoot, {
+        intelligence: {
+          rag_enabled: true,
+          embedding_provider: 'local',
+          embedding_model: model,
+          rag_similarity_threshold: 0.75,
+          rag_top_n: 20,
         },
       });
     }
@@ -1003,6 +1051,15 @@ describe('patterns', () => {
         classification_dimensions: [],
         verification_plugins: [],
         escalation_rules: [],
+      },
+    });
+    syncFrameworkConfig(projectRoot, {
+      intelligence: {
+        rag_enabled: true,
+        embedding_provider: 'local',
+        embedding_model: 'fake-local',
+        rag_similarity_threshold: 0.75,
+        rag_top_n: 20,
       },
     });
 

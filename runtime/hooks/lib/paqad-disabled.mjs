@@ -8,10 +8,10 @@
 // Precedence (must match runtime/hooks/lib/paqad-disabled.sh and the TS
 // predicate src/core/framework-enabled.ts):
 //   1. PAQAD_DISABLED env override (truthy ⇒ off) wins over everything.
-//   2. paqad.enabled: false in .paqad/project-profile.yaml ⇒ off.
+//   2. PAQAD_ENABLED=false in .paqad/.config ⇒ off (git-ignored local toggle).
 //   3. absent ⇒ on (default-on; existing behavior unchanged).
 //
-// Deliberately dist-less and dependency-free (a raw read, no YAML parser) so a
+// Deliberately dist-less and dependency-free (a raw read, no parser import) so a
 // disabled-and-uninstalled project can still evaluate its own toggle.
 
 import { readFileSync } from 'node:fs';
@@ -33,30 +33,46 @@ export function resolveProjectRoot(env = process.env) {
 
 /**
  * True when paqad is disabled for the given project root. Env override wins;
- * otherwise read `paqad.enabled: false` raw from the profile. Absent ⇒ enabled.
+ * otherwise read `PAQAD_ENABLED=false` raw from `.paqad/.config`. Absent ⇒ enabled.
  */
 export function isPaqadDisabled(projectRoot = resolveProjectRoot(), env = process.env) {
   if (isEnvDisabled(env)) {
     return true;
   }
-  return profileSaysDisabled(projectRoot);
+  return configSaysDisabled(projectRoot);
 }
 
 /**
- * Raw read of `paqad.enabled: false`. `enabled:` is not unique across the
- * profile, so scope the match to the top-level `paqad:` block before checking
- * its indented body.
+ * Raw read of the off-signal from `.paqad/.config`. Scans for the last
+ * uncommented `PAQAD_ENABLED=` assignment, strips quotes / inline comment, and
+ * reports disabled iff the value is a falsy token (`false`/`0`/`no`/`off`).
  */
-function profileSaysDisabled(projectRoot) {
+function configSaysDisabled(projectRoot) {
   let raw;
   try {
-    raw = readFileSync(join(projectRoot, '.paqad', 'project-profile.yaml'), 'utf8');
+    raw = readFileSync(join(projectRoot, '.paqad', '.config'), 'utf8');
   } catch {
     return false; // absent/unreadable ⇒ default-on
   }
-  const block = raw.match(/^paqad:\s*\n((?:[ \t]+.*\n?)*)/m);
-  if (!block) {
+  let value;
+  for (const line of raw.split(/\r?\n/)) {
+    const m = line.match(/^\s*(?:export\s+)?PAQAD_ENABLED\s*=(.*)$/);
+    if (m) {
+      value = m[1];
+    }
+  }
+  if (value === undefined) {
     return false;
   }
-  return /^[ \t]+enabled:\s*false\b/m.test(block[1]);
+  let v = value.trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1);
+  } else {
+    const hash = v.search(/\s#/);
+    if (hash !== -1) {
+      v = v.slice(0, hash).trim();
+    }
+  }
+  v = v.trim().toLowerCase();
+  return v === 'false' || v === '0' || v === 'no' || v === 'off';
 }

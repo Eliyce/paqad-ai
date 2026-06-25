@@ -54,6 +54,10 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'scripts/rules/.cache/',
   'scripts/rules/.history/',
   'onboarding-checkpoint.json',
+  // Laravel-style framework config. `.config` is the local override file (may
+  // hold secrets like RAG api keys) — git-ignored, shared out of band. The
+  // pattern matches only `.config`, never the tracked `.config.example` template.
+  '.config',
   '# per-machine runtime state (regenerated locally)',
   'logs/',
   'audit.log',

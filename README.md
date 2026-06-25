@@ -401,7 +401,9 @@ your-project/
 │   └── pentest/          security workflow output
 │
 └── .paqad/               framework metadata, machine-managed
-    ├── project-profile.yaml, stack-snapshot.json, stack-drift.json, onboarding-manifest.json
+    ├── project-profile.yaml   project facts: stack, commands, capabilities
+    ├── .config.example        every framework knob, commented; copy lines into .config (git-ignored) to override
+    ├── stack-snapshot.json, stack-drift.json, onboarding-manifest.json
     ├── compliance/        spec obligations
     ├── decisions/         human decision records
     ├── audit.log          append-only event log

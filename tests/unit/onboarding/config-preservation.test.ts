@@ -4,12 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
+import { readProjectProfile } from '@/core/project-profile.js';
 import { OnboardingOrchestrator } from '@/onboarding';
 
 // Config-visibility / preservation (issue #220 follow-up): a re-onboard is a
-// refresh, not a reset. It must keep every user-set section and always
-// materialize paqad.enabled (default true). See
+// refresh, not a reset. Framework knobs live in `.paqad/.config`, which onboard
+// never touches, so a team's customizations persist across a re-onboard. paqad
+// resolves to enabled by default. See
 // docs/instructions/rules/coding/config-visibility.md.
 
 describe('onboarding preserves user config and materializes paqad.enabled', () => {
@@ -47,14 +49,13 @@ describe('onboarding preserves user config and materializes paqad.enabled', () =
     expect(profile?.paqad).toEqual({ enabled: true });
   });
 
-  it('preserves enterprise, RAG, and paqad.enabled across a re-onboard', async () => {
+  it('preserves enterprise, RAG, and paqad.enabled (in .config) across a re-onboard', async () => {
     await onboard();
 
-    // The team customizes their config on disk.
+    // The team customizes their framework config in `.paqad/.config`.
     const profile = readProjectProfile(projectRoot);
     expect(profile).not.toBeNull();
-    writeProjectProfile(projectRoot, {
-      ...profile!,
+    syncFrameworkConfig(projectRoot, {
       enterprise: {
         enabled: true,
         evidence_ledger: true,
@@ -65,7 +66,7 @@ describe('onboarding preserves user config and materializes paqad.enabled', () =
       paqad: { enabled: false },
     });
 
-    // A refresh must not reset any of it.
+    // A refresh must not touch `.config`, so none of it is reset.
     await onboard();
 
     const after = readProjectProfile(projectRoot);

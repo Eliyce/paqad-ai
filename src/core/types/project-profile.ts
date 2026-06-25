@@ -135,6 +135,19 @@ export interface EfficiencyConfig {
   context_budget_strategy?: 'aggressive' | 'balanced' | 'conservative';
   /** Model tier preference for rolling-summary inference (PQD-169). @since 1.10.0 */
   summary_model_preference?: 'local' | 'cheapest' | 'default';
+  /**
+   * Canonical auto-update switch, resolved from `.paqad/.config` (`AUTO_UPDATE`).
+   * When false, the SessionStart silent-update never spawns a background install.
+   * Supersedes {@link skip_version_check}, which remains a tolerated alias.
+   */
+  auto_update?: boolean;
+  /**
+   * Framework-version floor, resolved from `.paqad/.config` (`MINIMUM_VERSION`).
+   * `'latest'` (default) = no fixed floor, track newest (soft, network-driven).
+   * A pinned `x.y.z` = hard local floor enforced before a session proceeds.
+   */
+  minimum_version?: string;
+  /** @deprecated alias of `auto_update: false`; still honored if present. */
   skip_version_check?: boolean;
   version_check_interval_hours?: number;
 }

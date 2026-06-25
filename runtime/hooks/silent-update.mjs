@@ -20,6 +20,16 @@
 //     major) is recorded as a FORCED update so the gap is visible. The action is
 //     identical (always background, never blocking) but classified.
 //
+// Config (read from `.paqad/.config`, the Laravel-style framework config):
+//   - AUTO_UPDATE (default on; `SKIP_VERSION_CHECK` is a tolerated deprecated
+//     alias). When off, no background install ever runs.
+//   - MINIMUM_VERSION (default `latest`). `latest` = track newest (the routine
+//     policy above). A pinned `x.y.z` is a hard floor: when the installed
+//     version is below it, the update is forced immediately, bypassing the
+//     interval throttle, so the floor is reached as fast as possible. This hook
+//     never blocks, so an unsatisfiable floor is logged, not enforced.
+//   - VERSION_CHECK_INTERVAL_HOURS (default 12).
+//
 // Project root is resolved from the host-provided env vars (CLAUDE_PROJECT_DIR /
 // PAQAD_PROJECT_ROOT), falling back to the current working directory, so the
 // single global copy under ~/.paqad-ai/current/hooks/ operates on whichever
@@ -58,7 +68,6 @@ function main() {
   }
 
   const versionFile = join(projectRoot, '.paqad', 'framework-version.txt');
-  const profileFile = join(projectRoot, '.paqad', 'project-profile.yaml');
   const logsDir = join(projectRoot, '.paqad', 'logs');
 
   // ── Step 1: read local version (self-heal when missing) ────────────────────
@@ -75,25 +84,48 @@ function main() {
   const current = readVersionField(versionFile, 'version');
   if (!current) return;
 
-  // ── Step 2: skip conditions ────────────────────────────────────────────────
-  const profile = readFileSafe(profileFile);
-  if (profile && /skip_version_check:\s*true/.test(profile)) return; // 2a — opt-out flag
+  // ── Step 2: resolve update policy from `.paqad/.config` ─────────────────────
+  // AUTO_UPDATE is the canonical switch (default on); `SKIP_VERSION_CHECK` is a
+  // tolerated deprecated alias. When off, do nothing — but still record an unmet
+  // hard MINIMUM_VERSION floor so the gap stays visible in the audit log.
+  if (!autoUpdateEnabled(projectRoot)) {
+    noteUnmetFloorWhileDisabled(projectRoot, current, logsDir);
+    return;
+  }
 
-  const intervalHours = resolveIntervalHours(profile); // 2b — interval window
-  if (withinInterval(readVersionField(versionFile, 'updated_at'), intervalHours)) return;
+  // A pinned MINIMUM_VERSION the install doesn't meet forces an immediate check,
+  // bypassing the interval throttle so the floor is reached as fast as possible.
+  const minVersion = resolveMinimumVersion(projectRoot);
+  const floorUnmet = isPinned(minVersion) && isBehindVersion(current, minVersion);
+
+  const intervalHours = resolveIntervalHours(projectRoot); // interval window
+  if (!floorUnmet && withinInterval(readVersionField(versionFile, 'updated_at'), intervalHours)) {
+    return;
+  }
 
   // ── Step 3: fetch latest version from npm (5s timeout) ──────────────────────
   const latest = fetchLatestVersion();
   if (!latest) return;
 
-  // ── Step 4: classify against the two-minor policy ───────────────────────────
-  const decision = classify(current, latest);
+  // ── Step 4: classify (or force, when a pinned floor is unmet) ───────────────
   const nowIso = new Date().toISOString();
-  if (decision === 'current') {
+  const baseDecision = classify(current, latest);
+  if (baseDecision === 'current' && !floorUnmet) {
     // Already up to date — reset the interval window.
     touchUpdatedAt(versionFile, current, nowIso);
     return;
   }
+  if (floorUnmet && isBehindVersion(latest, minVersion)) {
+    // Even the newest published version is below the floor — unsatisfiable.
+    mkdirSync(logsDir, { recursive: true });
+    appendLine(
+      join(logsDir, 'auto-update.log'),
+      `[${nowIso}] WARN silent-update MINIMUM_VERSION ${minVersion} exceeds latest published ${latest}; cannot satisfy floor`,
+    );
+    touchUpdatedAt(versionFile, current, nowIso);
+    return;
+  }
+  const decision = floorUnmet ? 'forced-minimum' : baseDecision;
 
   // ── Step 5: acquire lock and spawn background global self-update ─────────────
   const lockDir = acquireLock(projectRoot);
@@ -148,10 +180,80 @@ function readVersionField(file, field) {
   return match ? match[1].trim() : null;
 }
 
-function resolveIntervalHours(profile) {
-  if (!profile) return DEFAULT_INTERVAL_HOURS;
-  const match = profile.match(/version_check_interval_hours:\s*(\d+)/);
-  return match ? Number(match[1]) : DEFAULT_INTERVAL_HOURS;
+// ── `.paqad/.config` policy reads (raw, dist-less; mirrors framework-config.ts) ──
+
+const CONFIG_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+const CONFIG_FALSY = new Set(['0', 'false', 'no', 'off']);
+
+/** Read the last uncommented `KEY=` value from `.paqad/.config`, or null. */
+function readDotConfigValue(projectRoot, key) {
+  const content = readFileSafe(join(projectRoot, '.paqad', '.config'));
+  if (!content) return null;
+  let value;
+  for (const line of content.split(/\r?\n/)) {
+    const m = line.match(new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=(.*)$`));
+    if (m) value = m[1];
+  }
+  if (value === undefined) return null;
+  let v = value.trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1);
+  } else {
+    const hash = v.search(/\s#/);
+    if (hash !== -1) v = v.slice(0, hash).trim();
+  }
+  return v.trim();
+}
+
+/** AUTO_UPDATE (default on); `SKIP_VERSION_CHECK` truthy is a deprecated off-alias. */
+function autoUpdateEnabled(projectRoot) {
+  const auto = readDotConfigValue(projectRoot, 'AUTO_UPDATE');
+  if (auto !== null && CONFIG_FALSY.has(auto.toLowerCase())) return false;
+  const skip = readDotConfigValue(projectRoot, 'SKIP_VERSION_CHECK');
+  if (skip !== null && CONFIG_TRUTHY.has(skip.toLowerCase())) return false;
+  return true;
+}
+
+/** MINIMUM_VERSION (default `latest`). */
+function resolveMinimumVersion(projectRoot) {
+  return readDotConfigValue(projectRoot, 'MINIMUM_VERSION') || 'latest';
+}
+
+/** A pinned floor is any non-empty value other than the `latest` sentinel. */
+function isPinned(value) {
+  return (
+    typeof value === 'string' && value.trim() !== '' && value.trim().toLowerCase() !== 'latest'
+  );
+}
+
+/** True when version `a` is strictly older than version `b` (major.minor.patch). */
+function isBehindVersion(a, b) {
+  const [amaj, amin, apat] = parseVersion(a);
+  const [bmaj, bmin, bpat] = parseVersion(b);
+  return (
+    amaj < bmaj || (amaj === bmaj && amin < bmin) || (amaj === bmaj && amin === bmin && apat < bpat)
+  );
+}
+
+/** When AUTO_UPDATE is off but a pinned floor is unmet, leave an audit breadcrumb. */
+function noteUnmetFloorWhileDisabled(projectRoot, current, logsDir) {
+  const minVersion = resolveMinimumVersion(projectRoot);
+  if (!isPinned(minVersion) || !isBehindVersion(current, minVersion)) return;
+  try {
+    mkdirSync(logsDir, { recursive: true });
+    appendLine(
+      join(logsDir, 'auto-update.log'),
+      `[${new Date().toISOString()}] WARN silent-update installed ${current} is below MINIMUM_VERSION ${minVersion}, but AUTO_UPDATE is off — not updating`,
+    );
+  } catch {
+    // best-effort
+  }
+}
+
+function resolveIntervalHours(projectRoot) {
+  const raw = readDotConfigValue(projectRoot, 'VERSION_CHECK_INTERVAL_HOURS');
+  const n = raw === null ? Number.NaN : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_INTERVAL_HOURS;
 }
 
 function withinInterval(updatedAt, intervalHours) {

@@ -96,7 +96,7 @@ stages:
       - Run the project command checks after implementation and before finalizing the feature.
       - Verify test coverage is 100%
       - "Module-health rollup (issue #80, Phase 3): after format / test / build pass, invoke `paqad-ai module-health rollup` (or `module-health sync --from-report <path>` when CI has already produced a report). The rollup parses the active stack pack's coverage + test reports, attributes rows to module slugs via module-map.yml, and writes .paqad/module-health/<slug>.json with blocked_metrics populated. Surface any rollup-blocked metrics to the user as informational warnings — they're configuration gaps, not decision packets."
-      - "Design-test (issue #76): invoke the design-test runner diff-scoped — only UI files in the diff + routes whose components changed (1-level transitive closure). If contract files (docs/instructions/design-system/*) changed, escalate to whole-app. Block on DT-blocker findings; non-blockers surface as warnings. Strict mode (design_test.strict in paqad.config.{json,yaml}) is explicit opt-in only — never auto-engaged at Strong tier."
+      - "Design-test (issue #76): invoke the design-test runner diff-scoped — only UI files in the diff + routes whose components changed (1-level transitive closure). If contract files (docs/instructions/design-system/*) changed, escalate to whole-app. Block on DT-blocker findings; non-blockers surface as warnings. Strict mode (design_test.strict in project-profile.yaml) is explicit opt-in only — never auto-engaged at Strong tier."
     required_inputs:
       - working tree diff
     strictness:

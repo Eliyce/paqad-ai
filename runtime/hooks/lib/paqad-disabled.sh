@@ -12,10 +12,10 @@
 # Precedence (must match runtime/hooks/lib/paqad-disabled.mjs and the TS
 # predicate src/core/framework-enabled.ts):
 #   1. PAQAD_DISABLED env override (truthy ⇒ off) wins over everything.
-#   2. paqad.enabled: false in .paqad/project-profile.yaml ⇒ off.
+#   2. PAQAD_ENABLED=false in .paqad/.config ⇒ off (git-ignored local toggle).
 #   3. absent ⇒ on (default-on; existing behavior unchanged).
 #
-# Deliberately dist-less: a raw read with no YAML parser and no node, so a
+# Deliberately dist-less: a raw read with no parser and no node, so a
 # disabled-and-uninstalled project can still evaluate its own toggle.
 
 # 0 = disabled, 1 = enabled. No args.
@@ -27,21 +27,22 @@ paqad_is_disabled() {
       ;;
   esac
 
-  # 2. profile flag. `enabled:` is not unique across the profile, so scope the
-  #    match to the top-level `paqad:` block: enter it on a `paqad:` line and
-  #    leave it at the next column-0 key, checking only its indented body.
-  local root profile
+  # 2. .config flag. Take the last uncommented `PAQAD_ENABLED=` assignment,
+  #    strip the key, an inline comment, surrounding quotes and whitespace, then
+  #    lowercase. A falsy token means off.
+  local root config val
   root="${CLAUDE_PROJECT_DIR:-${PAQAD_PROJECT_ROOT:-$(pwd)}}"
-  profile="${root}/.paqad/project-profile.yaml"
-  if [ -f "${profile}" ]; then
-    if awk '
-      /^paqad:[[:space:]]*$/ { inblock = 1; next }
-      /^[^[:space:]#]/        { inblock = 0 }
-      inblock && /^[[:space:]]+enabled:[[:space:]]*false([[:space:]]|$)/ { found = 1 }
-      END { exit(found ? 0 : 1) }
-    ' "${profile}"; then
-      return 0
-    fi
+  config="${root}/.paqad/.config"
+  if [ -f "${config}" ]; then
+    val=$(grep -E '^[[:space:]]*(export[[:space:]]+)?PAQAD_ENABLED[[:space:]]*=' "${config}" 2>/dev/null \
+      | tail -n1 \
+      | sed -E 's/^[^=]*=//; s/[[:space:]]#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' \
+      | tr '[:upper:]' '[:lower:]')
+    case "${val}" in
+      false | 0 | no | off)
+        return 0
+        ;;
+    esac
   fi
 
   # 3. default-on.

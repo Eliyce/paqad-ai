@@ -11,21 +11,8 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 // verification-evidence, module-health, ledger, audit.log, or session
 // artifacts). `git status` after a disabled turn must be clean.
 
-const DISABLED_PROFILE = `project:
-  name: demo
-active_capabilities:
-  - content
-paqad:
-  enabled: false
-`;
-
-const ENABLED_PROFILE = `project:
-  name: demo
-active_capabilities:
-  - content
-paqad:
-  enabled: true
-`;
+/** The durable local off-signal: PAQAD_ENABLED=false in `.paqad/.config`. */
+const DISABLED_CONFIG = 'PAQAD_ENABLED=false\n';
 
 /** Recursively list every file under a directory (relative paths), sorted. */
 function listFiles(dir: string): string[] {
@@ -68,8 +55,8 @@ describe('runRepositoryVerification is a clean no-op when disabled', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('returns an ok "disabled" verdict and writes nothing (profile flag)', async () => {
-    writeFileSync(join(root, '.paqad/project-profile.yaml'), DISABLED_PROFILE);
+  it('returns an ok "disabled" verdict and writes nothing (.config flag)', async () => {
+    writeFileSync(join(root, '.paqad/.config'), DISABLED_CONFIG);
     const before = listFiles(join(root, '.paqad'));
 
     const verdict = await runRepositoryVerification({
@@ -88,7 +75,6 @@ describe('runRepositoryVerification is a clean no-op when disabled', () => {
   });
 
   it('returns an ok "disabled" verdict and writes nothing (PAQAD_DISABLED env)', async () => {
-    writeFileSync(join(root, '.paqad/project-profile.yaml'), ENABLED_PROFILE);
     process.env.PAQAD_DISABLED = '1';
     const before = listFiles(join(root, '.paqad'));
 

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import * as projectProfileModule from '@/core/project-profile.js';
 import {
   buildDecisionPacket,
   computePacketConfidence,
@@ -127,30 +128,57 @@ describe('decision packet builder', () => {
       token_budget: 5000,
     };
 
-    const packet = buildDecisionPacket({
-      projectRoot: root,
-      requestedBy: 'codex-cli',
-      taskSessionId: manifest.slug,
-      decisionId: 'D-2',
-      category: 'create-vs-reuse',
-      detectorConfidence: 0.92,
-      context,
-      manifest,
-    });
+    // `ttl_overrides_days` is a project decision preference with no `.config`
+    // key, and readProjectProfile() now replaces `custom.decisions` from
+    // config+defaults. Overlay just this override onto the real resolved profile
+    // so the packet builder still applies the 10-day TTL.
+    const realReadProjectProfile = projectProfileModule.readProjectProfile;
+    const readSpy = vi
+      .spyOn(projectProfileModule, 'readProjectProfile')
+      .mockImplementation((projectRoot: string) => {
+        const resolved = realReadProjectProfile(projectRoot);
+        return resolved
+          ? {
+              ...resolved,
+              custom: {
+                ...resolved.custom,
+                decisions: {
+                  ...resolved.custom?.decisions,
+                  ttl_overrides_days: { 'create-vs-reuse': 10 },
+                },
+              },
+            }
+          : resolved;
+      });
 
-    expect(packet.recommendation).toBe('reuse-existing');
-    expect(packet.confidence).toBeGreaterThan(0.85);
-    expect(packet.options[0]?.evidence).toMatchObject({
-      file: 'src/planning/index.ts',
-      callers: 1,
-      similarity: 0.91,
-    });
-    expect(packet.options[1]?.evidence.evidence_partial).toBe(true);
-    expect(
-      Math.round(
-        (Date.parse(packet.ttl_until) - Date.parse(packet.created_at)) / (24 * 60 * 60 * 1000),
-      ),
-    ).toBe(10);
+    try {
+      const packet = buildDecisionPacket({
+        projectRoot: root,
+        requestedBy: 'codex-cli',
+        taskSessionId: manifest.slug,
+        decisionId: 'D-2',
+        category: 'create-vs-reuse',
+        detectorConfidence: 0.92,
+        context,
+        manifest,
+      });
+
+      expect(packet.recommendation).toBe('reuse-existing');
+      expect(packet.confidence).toBeGreaterThan(0.85);
+      expect(packet.options[0]?.evidence).toMatchObject({
+        file: 'src/planning/index.ts',
+        callers: 1,
+        similarity: 0.91,
+      });
+      expect(packet.options[1]?.evidence.evidence_partial).toBe(true);
+      expect(
+        Math.round(
+          (Date.parse(packet.ttl_until) - Date.parse(packet.created_at)) / (24 * 60 * 60 * 1000),
+        ),
+      ).toBe(10);
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 
   it('covers helper branches for questions, options, and confidence scoring', () => {
