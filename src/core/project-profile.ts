@@ -4,7 +4,11 @@ import { dirname, join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from './constants/paths.js';
-import { normalizeIntelligenceConfig } from './project-intelligence.js';
+import {
+  applyFrameworkConfigToProfile,
+  resolveFrameworkConfig,
+  stripFrameworkConfigFromProfile,
+} from './framework-config.js';
 import { ACTIVE_CAPABILITIES, type ActiveCapability, type Domain } from './types/domain.js';
 import type { DetectedStackProfile } from './types/introspection.js';
 import type { ProjectProfile } from './types/project-profile.js';
@@ -48,7 +52,10 @@ export function readProjectProfile(projectRoot: string): ProjectProfile | null {
       writeProjectProfile(projectRoot, migration.profile, migration.audit_message);
     }
 
-    return migration.profile;
+    // HARD CUTOVER: framework knobs are sourced from defaults + `.paqad/.config`,
+    // never the YAML. Overlay them onto the (project-fact) profile, replacing
+    // any stale framework keys an older profile may still carry on disk.
+    return applyFrameworkConfigToProfile(migration.profile, resolveFrameworkConfig(projectRoot));
   } catch {
     return null;
   }
@@ -63,7 +70,10 @@ export function writeProjectProfile(
   const path = join(projectRoot, PATHS.PROJECT_PROFILE);
 
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, YAML.stringify(migration.profile));
+  // Persist project facts only. Framework knobs live in `.paqad/.config`; strip
+  // them here so the YAML can never become a second source of truth, regardless
+  // of which caller (onboarding, dashboard, enable/disable) passed them in.
+  writeFileSync(path, YAML.stringify(stripFrameworkConfigFromProfile(migration.profile)));
 
   if (auditMessage ?? migration.audit_message) {
     appendAuditLog(projectRoot, auditMessage ?? migration.audit_message ?? '');
@@ -95,7 +105,6 @@ export function migrateProjectProfile(input: ProjectProfileLike | ProjectProfile
     ...rest,
     active_capabilities: activeCapabilities,
     stack_profile: stackProfile,
-    intelligence: normalizeIntelligenceConfig(legacy.intelligence),
   };
 
   // `migrated` must be true only when the canonical form differs from the
@@ -109,7 +118,6 @@ export function migrateProjectProfile(input: ProjectProfileLike | ProjectProfile
     legacy.routing !== undefined ||
     legacy.stack_profile?.domain !== undefined ||
     JSON.stringify(legacy.active_capabilities ?? []) !== JSON.stringify(activeCapabilities) ||
-    JSON.stringify(legacy.intelligence ?? null) !== JSON.stringify(profile.intelligence) ||
     JSON.stringify(legacy.stack_profile ?? null) !== JSON.stringify(stackProfile ?? null);
 
   const audit_message = migrated

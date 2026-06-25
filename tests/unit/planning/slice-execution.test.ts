@@ -39,7 +39,9 @@ import {
   verifySlicePreconditions,
 } from '@/planning/index.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import type { SliceExecutionEvent } from '@/core/types/planning.js';
+import type { ProjectProfile } from '@/core/types/project-profile.js';
 
 import { createManifest } from './fixtures.js';
 
@@ -1887,11 +1889,12 @@ describe('slice execution helpers', () => {
       mkdirSync(join(root, 'src/planning'), { recursive: true });
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, 'src/planning/index.ts'), 'export const ok = true;\n', 'utf8');
-      writeFileSync(
-        join(root, PATHS.PROJECT_PROFILE),
-        YAML.stringify(makeDecisionProfile('permissive')),
-        'utf8',
-      );
+      const decisionProfile = makeDecisionProfile('permissive');
+      writeFileSync(join(root, PATHS.PROJECT_PROFILE), YAML.stringify(decisionProfile), 'utf8');
+      // The decision `ask_threshold` is a framework knob sourced from
+      // `.paqad/.config`, not the YAML. Persist it so the fast-lane fork pauses
+      // at the permissive threshold this test configures.
+      syncFrameworkConfig(root, decisionProfile as Partial<ProjectProfile>);
 
       const manifest = createManifest({
         slug: 'fast-decision',

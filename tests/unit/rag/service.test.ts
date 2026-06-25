@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 
 import { writeProjectProfile } from '@/core/project-profile.js';
 import * as projectProfile from '@/core/project-profile.js';
+import { setConfigValue, syncFrameworkConfig } from '@/core/framework-config.js';
 import * as projectPacks from '@/packs/project-packs.js';
 import { PatternVectorService } from '@/patterns/pattern-rag.js';
 import type { IntelligenceConfig } from '@/core/types/project-profile.js';
@@ -107,6 +108,14 @@ function fakeProviderFactory(): ProviderFactory {
   return async () => provider;
 }
 
+// Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
+// not the profile YAML. `configureAndBuild`/`writeProjectProfile` no longer
+// persist them there, so seed `.config` directly whenever a later
+// `readProjectProfile`/`getStatus` needs to observe the enabled RAG state.
+function persistIntelligence(root: string, intelligence: Partial<IntelligenceConfig>): void {
+  syncFrameworkConfig(root, { intelligence: baseProfile(intelligence).intelligence });
+}
+
 describe('RagService', () => {
   let projectRoot: string;
 
@@ -140,6 +149,11 @@ describe('RagService', () => {
       embedding_provider: 'local',
       embedding_model: 'fake-local',
     });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
 
     const status = await service.getStatus();
     expect(status.enabled).toBe(true);
@@ -161,6 +175,9 @@ describe('RagService', () => {
     expect(sync.added_files.some((file) => file.endsWith('billing.ts'))).toBe(true);
 
     await service.clear();
+    // `clear()` disables RAG on the (now framework-stripped) profile; mirror that
+    // into `.config`, the source of truth getStatus() reads.
+    setConfigValue(projectRoot, 'RAG_ENABLED', 'false');
     expect((await service.getStatus()).enabled).toBe(false);
     expect((await service.getStatus()).index_present).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad', 'vectors'))).toBe(false);
@@ -175,6 +192,11 @@ describe('RagService', () => {
         embedding_model: 'fake-local',
       }),
     );
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
 
     const service = new RagService(projectRoot, fakeProviderFactory());
     const sync = await service.refreshContext();
@@ -223,6 +245,11 @@ describe('RagService', () => {
       embedding_provider: 'local',
       embedding_model: 'fake-local',
     });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
 
     const sync = await service.refreshContext();
     const retrieval = await service.retrieve(sync, {
@@ -251,6 +278,12 @@ describe('RagService', () => {
         rag_similarity_threshold: 1.01,
       }),
     );
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+      rag_similarity_threshold: 1.01,
+    });
 
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.rebuild({
@@ -274,6 +307,11 @@ describe('RagService', () => {
   it('refreshes and retrieves through retrieveForEval', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
       rag_enabled: true,
       embedding_provider: 'local',
       embedding_model: 'fake-local',
@@ -319,7 +357,9 @@ describe('RagService', () => {
       embedding_model: 'fake-local',
     });
 
-    // Now switch profile to a different provider and disable RAG
+    // Now switch profile to a different provider and disable RAG. RAG state lives
+    // in `.paqad/.config`, so the switch is persisted there (the build above wrote
+    // local/enabled; this authoritatively resets to openai/disabled).
     writeProjectProfile(
       projectRoot,
       baseProfile({
@@ -328,6 +368,11 @@ describe('RagService', () => {
         embedding_model: 'text-embedding-3-small',
       }),
     );
+    persistIntelligence(projectRoot, {
+      rag_enabled: false,
+      embedding_provider: 'openai',
+      embedding_model: 'text-embedding-3-small',
+    });
 
     const status = await service.getStatus();
     expect(status.enabled).toBe(false);
@@ -352,6 +397,11 @@ describe('RagService', () => {
         embedding_model: 'text-embedding-3-small',
       }),
     );
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'openai',
+      embedding_model: 'text-embedding-3-small',
+    });
 
     const sync = await service.refreshContext();
     const retrieval = await service.retrieve(sync, {
@@ -367,6 +417,11 @@ describe('RagService', () => {
   it('falls back cleanly when the stored vector payload is corrupt', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
       rag_enabled: true,
       embedding_provider: 'local',
       embedding_model: 'fake-local',
@@ -388,6 +443,11 @@ describe('RagService', () => {
   it('warns once when resumed retrieval sees a stale handoff-backed RAG index', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
       rag_enabled: true,
       embedding_provider: 'local',
       embedding_model: 'fake-local',
@@ -479,6 +539,11 @@ describe('RagService', () => {
         embedding_model: 'text-embedding-3-small',
       }),
     );
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'openai',
+      embedding_model: 'text-embedding-3-small',
+    });
 
     const service = new RagService(projectRoot, expiringProviderFactory);
     await service.rebuild({
@@ -503,6 +568,11 @@ describe('RagService', () => {
   it('keeps retrieval working when resume validation itself fails', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
       rag_enabled: true,
       embedding_provider: 'local',
       embedding_model: 'fake-local',
@@ -628,6 +698,10 @@ describe('RagService', () => {
   it('fills in the default embedding model when configureAndBuild omits one', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+    });
+    persistIntelligence(projectRoot, {
       rag_enabled: true,
       embedding_provider: 'local',
     });
@@ -900,6 +974,11 @@ describe('RagService', () => {
       embedding_provider: 'local',
       embedding_model: 'fake-local',
     });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
 
     const sync = await service.refreshContext();
     const retrieval = await service.retrieve(sync, {
@@ -941,6 +1020,11 @@ describe('RagService', () => {
         embedding_model: 'fake-local',
       }),
     );
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
     const service = new RagService(projectRoot, fakeProviderFactory());
     vi.spyOn(service, 'getStatus').mockResolvedValueOnce({
       enabled: true,
@@ -968,6 +1052,11 @@ describe('RagService', () => {
         embedding_model: 'fake-local',
       }),
     );
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
     const service = new RagService(projectRoot, fakeProviderFactory());
     const sync = await service.refreshContext();
     vi.spyOn(service, 'getStatus').mockResolvedValueOnce({
@@ -992,6 +1081,11 @@ describe('RagService', () => {
   it('retrieves successfully when symbolReferences are omitted', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
       rag_enabled: true,
       embedding_provider: 'local',
       embedding_model: 'fake-local',

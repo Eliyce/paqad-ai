@@ -1,3 +1,4 @@
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { ACTIVE_CAPABILITIES, type ActiveCapability } from '@/core/types/domain.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import {
@@ -75,6 +76,10 @@ export function putProfile(projectRoot: string, candidate: unknown): PutProfileR
   }
 
   const path = writeProjectProfile(projectRoot, migrated.profile);
+  // The submitted form is the complete desired state. The YAML keeps only
+  // project facts (writeProjectProfile strips the rest); the framework knobs are
+  // synced authoritatively into `.paqad/.config` so a toggle-to-default clears.
+  syncFrameworkConfig(projectRoot, migrated.profile);
   appendDashboardAudit(projectRoot, 'dashboard.config.profile.write', {
     path: '.paqad/project-profile.yaml',
   });

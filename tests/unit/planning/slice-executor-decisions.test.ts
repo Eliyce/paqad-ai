@@ -25,6 +25,7 @@ vi.mock('@/cli/ui/decision-screen.js', () => ({
 }));
 
 import { PATHS } from '@/core/constants/paths.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { EngineEventBus, type EngineEvent } from '@/event-bus/index.js';
 import { DecisionStore, readDecisionAuditEvents, SliceExecutor } from '@/planning/index.js';
@@ -1401,4 +1402,8 @@ function writeProfile(
 
   mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(join(root, PATHS.PROJECT_PROFILE), YAML.stringify(profile), 'utf8');
+  // The decision knobs (ask_threshold, idle_timeout_minutes, max_screens_per_task)
+  // are framework config: they now resolve from `.paqad/.config`, not the YAML.
+  // Persist them so the slice executor sees the tuning these tests configured.
+  syncFrameworkConfig(root, profile);
 }

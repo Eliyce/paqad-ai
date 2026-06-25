@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isCancelledError } from '@/core/errors/cancelled-error.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { readModuleMapEvents } from '@/module-decisions/events.js';
 import { PatternVectorService } from '@/patterns/pattern-rag.js';
 import { RagService } from '@/rag/service.js';
@@ -106,14 +107,15 @@ describe('RagService.rebuild consumer cancellation (PQD-104)', () => {
     ).join('\n\n');
     writeFileSync(join(projectRoot, 'src/auth.ts'), `${body}\n`);
     vi.spyOn(PatternVectorService.prototype, 'refresh').mockResolvedValue();
-    writeProjectProfile(
-      projectRoot,
-      baseProfile({
-        rag_enabled: true,
-        embedding_provider: 'local',
-        embedding_model: 'fake-local',
-      }),
-    );
+    const profile = baseProfile({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    writeProjectProfile(projectRoot, profile);
+    // Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
+    // not the profile YAML; persist them so rebuild() sees RAG enabled.
+    syncFrameworkConfig(projectRoot, profile);
   });
 
   afterEach(() => {

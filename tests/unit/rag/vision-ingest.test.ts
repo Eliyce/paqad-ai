@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { vi } from 'vitest';
 
 import { writeProjectProfile } from '@/core/project-profile.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { PatternVectorService } from '@/patterns/pattern-rag.js';
 import type { IntelligenceConfig } from '@/core/types/project-profile.js';
 import { RagService } from '@/rag/service.js';
@@ -112,6 +113,17 @@ async function buildService(projectRoot: string): Promise<RagService> {
     rag_enabled: true,
     embedding_provider: 'local',
     embedding_model: 'fake-local',
+  });
+  // Framework knobs (the RAG/`intelligence` block) live in `.paqad/.config`, not
+  // the profile YAML; configureAndBuild no longer persists them there. Seed
+  // `.config` so the ingest precondition (readProjectProfile → rag_enabled +
+  // provider) observes the enabled RAG state.
+  syncFrameworkConfig(projectRoot, {
+    intelligence: baseProfile({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    }).intelligence,
   });
   return service;
 }
@@ -360,6 +372,9 @@ describe('RagService.ingestExtractedText', () => {
       projectRoot,
       baseProfile({ rag_enabled: true, embedding_provider: undefined }),
     );
+    syncFrameworkConfig(projectRoot, {
+      intelligence: baseProfile({ rag_enabled: true, embedding_provider: undefined }).intelligence,
+    });
     const service = new RagService(projectRoot, fakeProviderFactory());
     await expect(
       service.ingestExtractedText({

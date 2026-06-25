@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { HealthChecker } from '@/health/checker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { DocumentationWorkflow } from '@/document/workflow.js';
 import { OnboardingOrchestrator } from '@/onboarding/index.js';
@@ -349,6 +350,10 @@ describe('HealthChecker', () => {
       embedding_model: 'fake-local',
     };
     writeProjectProfile(projectRoot, profile);
+    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
+    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
+    // reflects the enabled state via its overlay.
+    syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
 
     const report = await new HealthChecker().run(projectRoot);
 
@@ -408,6 +413,10 @@ describe('HealthChecker', () => {
       embedding_model: 'fake-local',
     };
     writeProjectProfile(projectRoot, profile);
+    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
+    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
+    // reflects the enabled state via its overlay.
+    syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
       configured_provider: 'local',
@@ -445,6 +454,10 @@ describe('HealthChecker', () => {
       embedding_model: 'Xenova/all-MiniLM-L6-v2',
     };
     writeProjectProfile(projectRoot, profile);
+    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
+    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
+    // reflects the enabled state via its overlay.
+    syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
       configured_provider: 'local',
@@ -481,6 +494,10 @@ describe('HealthChecker', () => {
       embedding_model: 'text-embedding-3-small',
     };
     writeProjectProfile(projectRoot, profile);
+    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
+    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
+    // reflects the enabled state via its overlay.
+    syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     const secretsPath = join(projectRoot, '.paqad', 'secrets.env');
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
     writeFileSync(secretsPath, 'OPENAI_API_KEY=sk-test\n');
@@ -520,6 +537,10 @@ describe('HealthChecker', () => {
       embedding_model: 'text-embedding-3-small',
     };
     writeProjectProfile(projectRoot, profile);
+    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
+    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
+    // reflects the enabled state via its overlay.
+    syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
       configured_provider: 'openai',
@@ -556,6 +577,10 @@ describe('HealthChecker', () => {
       embedding_model: 'fake-local',
     };
     writeProjectProfile(projectRoot, profile);
+    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
+    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
+    // reflects the enabled state via its overlay.
+    syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
       configured_provider: 'local',

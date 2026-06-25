@@ -5,10 +5,18 @@ import { join } from 'node:path';
 import { vi } from 'vitest';
 
 import { SemanticLoader } from '@/context/semantic-loader.js';
-import { writeProjectProfile } from '@/core/project-profile.js';
+import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
+import * as projectProfile from '@/core/project-profile.js';
+import type { ProjectProfile } from '@/core/types/project-profile.js';
 
+// The advanced RAG internals (reranking, adaptive_retrieval, …) are framework
+// tuning that resolves from code defaults, not project config. To exercise the
+// reranking engine with a non-default config we inject the resolved profile via
+// the read path (the same approach the semantic-loader unit tests use), rather
+// than persisting it to `project-profile.yaml`.
 function makeProfile(projectRoot: string, rerankingEnabled: boolean) {
-  writeProjectProfile(projectRoot, {
+  void projectRoot;
+  const profile = {
     project: { name: 'Demo', id: 'demo', description: 'Demo' },
     active_capabilities: ['coding'],
     commands: {
@@ -37,14 +45,14 @@ function makeProfile(projectRoot: string, rerankingEnabled: boolean) {
     mcp: { servers: [] },
     model_routing: { default_model: 'gpt-5', reasoning_model: 'gpt-5', fast_model: 'gpt-5-mini' },
     research: { depth: 'standard' },
-    intelligence: {
+    intelligence: normalizeIntelligenceConfig({
       rag_enabled: false,
       rag_similarity_threshold: 0.75,
       rag_top_n: 20,
       reranking: rerankingEnabled
         ? { enabled: true, backend: 'passthrough', candidate_pool_size: 10 }
         : { enabled: false, backend: 'passthrough' },
-    },
+    }),
     efficiency: {},
     escalation: {
       destructive_operations: 'warn',
@@ -53,7 +61,8 @@ function makeProfile(projectRoot: string, rerankingEnabled: boolean) {
       db_row_threshold: 1000,
     },
     custom: { classification_dimensions: [], verification_plugins: [], escalation_rules: [] },
-  });
+  } as ProjectProfile;
+  vi.spyOn(projectProfile, 'readProjectProfile').mockReturnValue(profile);
 }
 
 describe('Reranking — end-to-end', () => {

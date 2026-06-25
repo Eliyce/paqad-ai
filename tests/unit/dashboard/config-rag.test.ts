@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 
+import { syncFrameworkConfig } from '@/core/framework-config.js';
+import { readProjectProfile } from '@/core/project-profile.js';
 import { getRagConfig, putRagConfig, RagValidationError } from '@/dashboard/config-rag.js';
 
 function baseProfile(): Record<string, unknown> {
@@ -74,15 +76,17 @@ describe('rag config endpoint logic', () => {
     });
 
     it('reports profile flags plus index presence and age without any provider call', () => {
-      const profile = baseProfile();
-      profile['intelligence'] = {
+      const intelligence = {
         rag_enabled: true,
-        embedding_provider: 'openai',
+        embedding_provider: 'openai' as const,
         embedding_model: 'text-embedding-3-small',
         rag_similarity_threshold: 0.75,
         rag_top_n: 20,
       };
-      writeFileSync(join(root, '.paqad/project-profile.yaml'), YAML.stringify(profile));
+      writeFileSync(join(root, '.paqad/project-profile.yaml'), YAML.stringify(baseProfile()));
+      // RAG/intelligence is a framework knob: it resolves from `.paqad/.config`
+      // (overlaid onto the lean YAML), not the profile YAML, so configure it there.
+      syncFrameworkConfig(root, { intelligence });
       mkdirSync(join(root, '.paqad/vectors'), { recursive: true });
       writeFileSync(join(root, '.paqad/vectors/meta.json'), '{}');
 
@@ -113,10 +117,20 @@ describe('rag config endpoint logic', () => {
       // Untouched settings keep the normalized defaults.
       expect(result.intelligence.rag_similarity_threshold).toBe(0.75);
 
+      // RAG is a framework knob now: the YAML stays lean (no intelligence
+      // section), while the values are persisted to `.paqad/.config` and read
+      // back via readProjectProfile's overlay.
       const onDisk = YAML.parse(
         readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8'),
       ) as Record<string, Record<string, unknown>>;
-      expect(onDisk['intelligence']).toMatchObject({ rag_enabled: true, rag_top_n: 10 });
+      expect(onDisk['intelligence']).toBeUndefined();
+
+      const config = readFileSync(join(root, '.paqad/.config'), 'utf8');
+      expect(config).toContain('rag_enabled=true');
+      expect(config).toContain('rag_top_n=10');
+
+      const reread = readProjectProfile(root);
+      expect(reread?.intelligence).toMatchObject({ rag_enabled: true, rag_top_n: 10 });
 
       const audit = readFileSync(join(root, '.paqad/audit.log'), 'utf8');
       expect(audit).toContain('dashboard.config.rag.write');

@@ -37,6 +37,13 @@ export interface OnboardingOutput {
   runtime_root: string;
   manifest_path: string;
   warnings: string[];
+  /**
+   * The no-migration safety net: framework knobs a legacy fat `project-profile.yaml`
+   * carried at a non-default value that the hard-cutover strip reverted to the code
+   * default (as `key=value` strings). Empty for a clean onboard. The CLI prints
+   * these prominently so a revert is never silent.
+   */
+  reverted_framework_values: string[];
 }
 
 /**

@@ -34,12 +34,6 @@ function writeVersionFile(root: string, version: string, updatedAt?: string): vo
   writeFileSync(join(dir, 'framework-version.txt'), `version=${version}\n${updatedAtLine}\n`);
 }
 
-function writeProfile(root: string, yaml: string): void {
-  const dir = join(root, '.paqad');
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'project-profile.yaml'), yaml);
-}
-
 /** Create a fake `npm` shim that exits 0 but produces no output. */
 function writeFakeNpm(dir: string): void {
   const fakePath = join(dir, 'npm');
@@ -129,7 +123,10 @@ describe('silent-update.mjs', () => {
     const root = makeRoot();
     try {
       writeVersionFile(root, '0.1.0', new Date().toISOString());
-      writeProfile(root, 'efficiency:\n  version_check_interval_hours: 12\n');
+      // The interval throttle now reads version_check_interval_hours from
+      // `.paqad/.config` (no longer efficiency.version_check_interval_hours).
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+      writeFileSync(join(root, '.paqad', '.config'), 'version_check_interval_hours=12\n');
 
       const result = await execa('node', [SCRIPT], { reject: false, cwd: root });
       expect(result.exitCode).toBe(0);
@@ -140,11 +137,14 @@ describe('silent-update.mjs', () => {
     }
   });
 
-  it('exits 0 when skip_version_check is true', async () => {
+  it('exits 0 when auto-update is opted out in .config', async () => {
     const root = makeRoot();
     try {
       writeVersionFile(root, '0.1.0', STALE);
-      writeProfile(root, 'efficiency:\n  skip_version_check: true\n');
+      // The opt-out moved from the profile's `skip_version_check` to
+      // `auto_update=false` in `.paqad/.config`, which the hook now reads.
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+      writeFileSync(join(root, '.paqad', '.config'), 'auto_update=false\n');
 
       const result = await execa('node', [SCRIPT], { reject: false, cwd: root });
       expect(result.exitCode).toBe(0);
@@ -157,16 +157,28 @@ describe('silent-update.mjs', () => {
   // Issue #220 — a disabled install must never seed a version file, run a
   // version check, or spawn `npm install -g`. It does nothing, leaving the
   // install exactly as the user left it.
-  it('does nothing when paqad.enabled: false (no seed, no spawn)', async () => {
+  it('does nothing when disabled via .config (no seed, no spawn)', async () => {
     const root = makeRoot();
     try {
-      // No framework-version.txt: an ENABLED hook would self-heal and seed one.
-      writeProfile(root, 'paqad:\n  enabled: false\n');
+      // The disable signal moved from the profile's `paqad.enabled: false` to
+      // `paqad_enable=false` in `.paqad/.config`, which the hook reads.
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+      writeFileSync(join(root, '.paqad', '.config'), 'paqad_enable=false\n');
+
+      // No framework-version.txt, but point the framework home at a fake install
+      // carrying a version: an ENABLED hook would self-heal and seed one. A
+      // disabled hook must leave the install untouched.
+      const frameworkHome = join(root, 'framework-home');
+      mkdirSync(frameworkHome, { recursive: true });
+      writeFileSync(
+        join(frameworkHome, 'package.json'),
+        JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
+      );
 
       const result = await execa('node', [SCRIPT], {
         reject: false,
         cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: frameworkHome },
       });
 
       expect(result.exitCode).toBe(0);

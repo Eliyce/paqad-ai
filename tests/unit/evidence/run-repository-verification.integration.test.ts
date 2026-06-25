@@ -1,18 +1,41 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
+import type { EnterpriseConfig } from '@/core/types/project-profile.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
 import { readEvidenceLedger } from '@/evidence/ledger.js';
 import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
 
-import {
-  createVerificationContext,
-  writeEnterpriseProfile,
-} from '../verification/shared.fixture.js';
+import { createVerificationContext } from '../verification/shared.fixture.js';
+
+/**
+ * Issue #187/#220 — the enterprise block moved out of `project-profile.yaml` into
+ * `.paqad/.config` (flat KEY=VALUE), so opt the ledger on by syncing the
+ * `enterprise` section into `.config`. A lean `project-profile.yaml` (project
+ * facts only) must still exist so `readProjectProfile` returns a profile for the
+ * `.config` overlay to apply onto. Defaults turn on the full ledger write set
+ * (enabled + evidence_ledger + ai_bom); pass overrides to exercise sub-flags.
+ */
+function enableEnterprise(projectRoot: string, enterprise: Partial<EnterpriseConfig> = {}): void {
+  const block: EnterpriseConfig = {
+    enabled: true,
+    evidence_ledger: true,
+    ai_bom: true,
+    compliance_citations: false,
+    ...enterprise,
+  };
+  mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  writeFileSync(
+    join(projectRoot, '.paqad', 'project-profile.yaml'),
+    'project:\n  name: demo\nactive_capabilities:\n  - content\n',
+  );
+  syncFrameworkConfig(projectRoot, { enterprise: block });
+}
 
 describe('runRepositoryVerification — evidence ledger + receipt (issue #118)', () => {
   it('fans gate results into the ledger and projects a verifiable receipt', async () => {
@@ -23,7 +46,7 @@ describe('runRepositoryVerification — evidence ledger + receipt (issue #118)',
       changed_files_source: 'git-status',
     });
     // Issue #187 — the ledger is opt-in; enable it for this assertion.
-    writeEnterpriseProfile(context.project_root, { evidence_ledger: true, ai_bom: true });
+    enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: true });
 
     await runRepositoryVerification({
       projectRoot: context.project_root,
@@ -60,7 +83,7 @@ describe('runRepositoryVerification — evidence ledger + receipt (issue #118)',
 
   it('never blocks verification when no files changed (empty subject still receipts)', async () => {
     const context = createVerificationContext({ changed_files: [] });
-    writeEnterpriseProfile(context.project_root, { evidence_ledger: true });
+    enableEnterprise(context.project_root, { evidence_ledger: true });
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,
       origin: 'hook-completion',
@@ -111,7 +134,7 @@ describe('runRepositoryVerification — enterprise ledger gating (issue #187)', 
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git-status',
     });
-    writeEnterpriseProfile(context.project_root, {
+    enableEnterprise(context.project_root, {
       enabled: false,
       evidence_ledger: true,
       ai_bom: true,
@@ -131,7 +154,7 @@ describe('runRepositoryVerification — enterprise ledger gating (issue #187)', 
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git-status',
     });
-    writeEnterpriseProfile(context.project_root, {
+    enableEnterprise(context.project_root, {
       enabled: true,
       evidence_ledger: false,
       ai_bom: true,
@@ -151,7 +174,7 @@ describe('runRepositoryVerification — enterprise ledger gating (issue #187)', 
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git-status',
     });
-    writeEnterpriseProfile(context.project_root, {
+    enableEnterprise(context.project_root, {
       enabled: true,
       evidence_ledger: true,
       compliance_citations: false,

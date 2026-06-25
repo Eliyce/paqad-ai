@@ -9,10 +9,31 @@ import { SemanticLoader } from '@/context/semantic-loader.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { RelevanceScorer } from '@/context/relevance-scorer.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
+import * as projectProfile from '@/core/project-profile.js';
+import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
+import type { IntelligenceConfig } from '@/core/types/project-profile.js';
 import { RagService } from '@/rag/service.js';
 import * as projectPacks from '@/packs/project-packs.js';
 
 type FrameworkPack = ReturnType<typeof projectPacks.getPacksForFrameworks>[number];
+
+// The RAG/`intelligence` block resolves from `.paqad/.config` + defaults, never
+// the profile YAML. `.config` only carries the flat RAG knobs (enabled,
+// provider, model, threshold, top_n, max_file_size) — the nested sub-objects
+// (`adaptive_retrieval`, `reranking`, `action_routing`, `metadata_filters`) have
+// no `.config` representation. To exercise those, overlay the desired
+// intelligence onto the real (stack-bearing) profile read, the same way prod
+// resolves it. Restored via vi.restoreAllMocks() in afterEach.
+function overrideIntelligence(intelligence: Partial<IntelligenceConfig>): void {
+  const original = projectProfile.readProjectProfile;
+  vi.spyOn(projectProfile, 'readProjectProfile').mockImplementation((root: string) => {
+    const base = original(root);
+    if (!base) {
+      return base;
+    }
+    return { ...base, intelligence: normalizeIntelligenceConfig(intelligence) };
+  });
+}
 
 describe('SemanticLoader', () => {
   let projectRoot: string;
@@ -31,6 +52,7 @@ describe('SemanticLoader', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
@@ -90,14 +112,12 @@ describe('SemanticLoader', () => {
   });
 
   it('uses standard depth when adaptive retrieval is disabled', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: true,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        adaptive_retrieval: { enabled: false, thresholds: { min_useful_chunks: 99 } },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: true,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      adaptive_retrieval: { enabled: false, thresholds: { min_useful_chunks: 99 } },
     });
 
     const result = await new SemanticLoader({
@@ -383,13 +403,11 @@ describe('SemanticLoader', () => {
   });
 
   it('keeps chunks with invalid chunk-index timestamps when recency filtering cannot evaluate them', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: true,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: true,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
     });
 
     vi.spyOn(ChunkIndexManager.prototype, 'sync').mockResolvedValueOnce({
@@ -478,14 +496,12 @@ describe('SemanticLoader', () => {
   });
 
   it('returns action recommendations when action routing is enabled and a workflow matches', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: false,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        action_routing: { enabled: true },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: false,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      action_routing: { enabled: true },
     });
     mkdirSync(join(projectRoot, 'docs', 'instructions', 'workflows'), { recursive: true });
     writeFileSync(
@@ -608,14 +624,12 @@ describe('SemanticLoader', () => {
   });
 
   it('records reranking stats when reranking is enabled with passthrough backend', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: false,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        reranking: { enabled: true, backend: 'passthrough', candidate_pool_size: 5 },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: false,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      reranking: { enabled: true, backend: 'passthrough', candidate_pool_size: 5 },
     });
 
     const result = await new SemanticLoader({
@@ -634,14 +648,12 @@ describe('SemanticLoader', () => {
   });
 
   it('defaults reranking candidate_pool_size to 50 when omitted', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: false,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        reranking: { enabled: true, backend: 'passthrough' },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: false,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      reranking: { enabled: true, backend: 'passthrough' },
     });
 
     const result = await new SemanticLoader({
@@ -659,14 +671,12 @@ describe('SemanticLoader', () => {
   });
 
   it('re-scores against escalated retrieved chunks when the second-stage retrieval returns ids', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: true,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        adaptive_retrieval: { enabled: true, thresholds: { min_useful_chunks: 99 } },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: true,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      adaptive_retrieval: { enabled: true, thresholds: { min_useful_chunks: 99 } },
     });
 
     vi.spyOn(RagService.prototype, 'retrieve')
@@ -771,14 +781,12 @@ describe('SemanticLoader', () => {
   });
 
   it('escalates retrieval depth once when ranked evidence is below the useful threshold', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: true,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        adaptive_retrieval: { enabled: true, thresholds: { min_useful_chunks: 99 } },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: true,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      adaptive_retrieval: { enabled: true, thresholds: { min_useful_chunks: 99 } },
     });
 
     const result = await new SemanticLoader({
@@ -799,14 +807,12 @@ describe('SemanticLoader', () => {
   });
 
   it('returns no action recommendations when routing is enabled but nothing matches', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: false,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        action_routing: { enabled: true },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: false,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      action_routing: { enabled: true },
     });
     mkdirSync(join(projectRoot, 'docs', 'instructions', 'workflows'), { recursive: true });
     writeFileSync(
@@ -830,14 +836,12 @@ describe('SemanticLoader', () => {
   });
 
   it('returns no action recommendations when routing is enabled but no workflows are registered', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(undefined),
-      intelligence: {
-        rag_enabled: false,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        action_routing: { enabled: true },
-      },
+    writeProjectProfile(projectRoot, baseProfile(undefined));
+    overrideIntelligence({
+      rag_enabled: false,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      action_routing: { enabled: true },
     });
 
     const result = await new SemanticLoader({
@@ -862,14 +866,12 @@ describe('SemanticLoader', () => {
   });
 
   it('skips metadata filter extraction when metadata filters are disabled', async () => {
-    writeProjectProfile(projectRoot, {
-      ...baseProfile(['vue']),
-      intelligence: {
-        rag_enabled: false,
-        rag_similarity_threshold: 0.75,
-        rag_top_n: 20,
-        metadata_filters: { enabled: false },
-      },
+    writeProjectProfile(projectRoot, baseProfile(['vue']));
+    overrideIntelligence({
+      rag_enabled: false,
+      rag_similarity_threshold: 0.75,
+      rag_top_n: 20,
+      metadata_filters: { enabled: false },
     });
 
     const result = await new SemanticLoader({

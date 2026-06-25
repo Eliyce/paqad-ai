@@ -3,6 +3,17 @@ export const PATHS = {
   AGENCY_CACHE_DIR: '.paqad/cache',
   AGENCY_SESSION_DIR: '.paqad/session',
   PROJECT_PROFILE: '.paqad/project-profile.yaml',
+  // Laravel-style framework config — four surfaces (precedence low→high, LOCAL
+  // WINS): code defaults (`DEFAULT_FRAMEWORK_CONFIG`) < `configs/.config.*`
+  // (tracked, team-shared, merged) < `.config` (git-ignored, dev-local) <
+  // `PAQAD_*` env. `.config.example` is the tracked, commented catalog — the
+  // discoverability surface, NEVER read at runtime. Framework knobs (paqad/
+  // enterprise/RAG/strictness/escalation/features/research/model_routing/
+  // decisions + version/update) are resolved through these, not the profile.
+  PROJECT_CONFIG: '.paqad/.config',
+  PROJECT_CONFIG_EXAMPLE: '.paqad/.config.example',
+  PROJECT_CONFIGS_DIR: '.paqad/configs',
+  PROJECT_CONFIGS_README: '.paqad/configs/README.md',
   DETECTION_REPORT: '.paqad/detection-report.json',
   ONBOARDING_MANIFEST: '.paqad/onboarding-manifest.json',
   RAG_IGNORE_CONFIG: '.paqad/rag.ignore.yaml',

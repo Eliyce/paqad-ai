@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { rmSync, readFileSync } from 'node:fs';
 
 import { PATHS } from '@/core/constants/paths.js';
+import * as projectProfileModule from '@/core/project-profile.js';
 import {
   DecisionCapExceededError,
   DecisionStore,
@@ -23,6 +24,7 @@ describe('DecisionStore', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
@@ -905,6 +907,23 @@ function writeProfileMaxPending(projectRoot: string, maxPending: number): void {
     join(projectRoot, '.paqad', 'project-profile.yaml'),
     `custom:\n  decisions:\n    max_pending: ${maxPending}\n`,
   );
+  // `max_pending` is a project decision preference with no `.config` key, and
+  // readProjectProfile() now replaces `custom.decisions` from config+defaults.
+  // Overlay just this cap onto the real resolved profile so the store still
+  // enforces it. The spy is cleared by the suite's afterEach.
+  const realReadProjectProfile = projectProfileModule.readProjectProfile;
+  vi.spyOn(projectProfileModule, 'readProjectProfile').mockImplementation((root: string) => {
+    const resolved = realReadProjectProfile(root);
+    return resolved
+      ? {
+          ...resolved,
+          custom: {
+            ...resolved.custom,
+            decisions: { ...resolved.custom?.decisions, max_pending: maxPending },
+          },
+        }
+      : resolved;
+  });
 }
 
 function makePacket(overrides: Partial<DecisionPacket> = {}): DecisionPacket {

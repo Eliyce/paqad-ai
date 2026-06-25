@@ -46,4 +46,4 @@ For each hit emitted by `scan-tokens.sh`, decide whether it is a token leak (a h
 - `src/design-tokens/**` (token source definitions)
 - `tailwind.config.*` (the declaration file)
 
-If a finding lands inside one of these paths, drop it silently. If a project legitimately needs additional exemptions, that is a `paqad.config` change (`design_test.token_exemptions`), not a scanner tweak.
+If a finding lands inside one of these paths, drop it silently. If a project legitimately needs additional exemptions, that is a `design_test.token_exemptions` change in `project-profile.yaml`, not a scanner tweak.

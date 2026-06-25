@@ -117,21 +117,61 @@ describe('OnboardingOrchestrator', () => {
     );
   });
 
-  it('emits the enterprise block (all-off) in the generated profile', async () => {
-    // Issue #187 — onboarding must surface the opt-in evidence-ledger / AI-BOM /
-    // compliance-citation switches so they are visible and toggleable, even
-    // though they all default off (a normal user pays zero tokens).
+  it('documents the enterprise switches in .config.example and keeps the profile lean', async () => {
+    // Issue #187 + the `.config` cutover — the opt-in evidence-ledger / AI-BOM /
+    // compliance-citation switches are surfaced in the tracked `.config.example`
+    // (the discoverability surface), not the profile. They default off (a normal
+    // user pays zero tokens) and live in code defaults until overridden in
+    // `.paqad/.config`, so the generated profile carries no `enterprise:` block.
     await new OnboardingOrchestrator().run({
       projectRoot,
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
     });
 
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
-    expect(profile).toContain('enterprise:');
-    expect(profile).toContain('  enabled: false');
-    expect(profile).toContain('  evidence_ledger: false');
-    expect(profile).toContain('  ai_bom: false');
-    expect(profile).toContain('  compliance_citations: false');
+    expect(profile).not.toContain('enterprise:');
+
+    const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
+    expect(example).toContain('enterprise=false');
+    expect(example).toContain('enterprise_evidence_ledger=false');
+    expect(example).toContain('enterprise_ai_bom=false');
+    expect(example).toContain('enterprise_compliance_citations=false');
+  });
+
+  it('returns the no-migration safety net: framework values a legacy fat profile reverted', async () => {
+    // First onboard produces a lean profile.
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+    // Simulate a team that hand-edited non-default framework values back into the
+    // (now legacy) profile. The hard-cutover strip reverts them on re-onboard.
+    const profilePath = join(projectRoot, '.paqad/project-profile.yaml');
+    writeFileSync(
+      profilePath,
+      `${readFileSync(profilePath, 'utf8')}\nenterprise:\n  enabled: true\n  evidence_ledger: false\n  ai_bom: false\n  compliance_citations: false\nresearch:\n  depth: cutting-edge\n`,
+    );
+
+    const result = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+
+    expect(result.reverted_framework_values.sort()).toEqual([
+      'enterprise=true',
+      'research_depth=cutting-edge',
+    ]);
+    // The strip reverts them; with no `.config`/`configs/` set, they are at defaults.
+    expect(readFileSync(profilePath, 'utf8')).not.toContain('enterprise:');
+    expect(existsSync(join(projectRoot, '.paqad/.config'))).toBe(false);
+  });
+
+  it('returns an empty safety net for a clean onboard (nothing reverted)', async () => {
+    const result = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+    expect(result.reverted_framework_values).toEqual([]);
   });
 
   it('reports decision pause support for every generated adapter', async () => {
@@ -237,8 +277,10 @@ describe('OnboardingOrchestrator', () => {
       }),
       expect.any(Function),
     );
-    expect(readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8')).toContain(
-      'rag_enabled: true',
+    // RAG is a framework knob: it persists to `.paqad/.config`, not the lean profile.
+    expect(readFileSync(join(projectRoot, '.paqad/.config'), 'utf8')).toContain('rag_enabled=true');
+    expect(readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8')).not.toContain(
+      'rag_enabled',
     );
   });
 
@@ -260,8 +302,12 @@ describe('OnboardingOrchestrator', () => {
       },
     });
 
+    // The failure path resets RAG to disabled in `.paqad/.config`; the profile
+    // stays lean and never carries the embedding provider.
+    const config = readFileSync(join(projectRoot, '.paqad/.config'), 'utf8');
+    expect(config).toContain('rag_enabled=false');
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
-    expect(profile).toContain('rag_enabled: false');
+    expect(profile).not.toContain('rag_enabled');
     expect(profile).not.toContain('embedding_provider: local');
     expect(existsSync(join(projectRoot, '.paqad/detection-report.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/framework-version.txt'))).toBe(true);

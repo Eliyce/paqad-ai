@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import type { IntelligenceConfig } from '@/core/types/project-profile.js';
@@ -152,8 +153,12 @@ export function putRagConfig(projectRoot: string, candidate: unknown): PutRagCon
   }
 
   const path = writeProjectProfile(projectRoot, updated);
+  // RAG is a framework knob: persist the intelligence section authoritatively to
+  // `.paqad/.config` (the YAML write above keeps only project facts). Scoped to
+  // `{ intelligence }` so unrelated `.config` keys are never touched.
+  syncFrameworkConfig(projectRoot, { intelligence });
   appendDashboardAudit(projectRoot, 'dashboard.config.rag.write', {
-    path: PATHS.PROJECT_PROFILE,
+    path: PATHS.PROJECT_CONFIG,
   });
   return { path, intelligence };
 }
