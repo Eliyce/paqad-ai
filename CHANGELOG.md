@@ -1,5 +1,13 @@
 # paqad-ai
 
+## 1.29.1
+
+### Patch Changes
+
+- [#231](https://github.com/Eliyce/paqad-ai/pull/231) [`a873dd5`](https://github.com/Eliyce/paqad-ai/commit/a873dd574f2b1b5f8a48869d91a42f22034efd6a) Thanks [@HLasani](https://github.com/HLasani)! - Onboarding (and `update`) now also write a single `.paqad/.config.example` catalog alongside the per-group `configs/.config.*` files.
+
+  `.config.example` lists every framework knob in one file, commented out at its default, with a one-line explanation and its `PAQAD_*` env equivalent — the same copy-paste reference Laravel's `.env.example` provides, so you never have to guess a variable name. It is tracked but never read at runtime; copy a line into a `configs/.config.*` (team) or `.config` (local) file, uncomment it, and set a value. The per-group files are unchanged.
+
 ## 1.29.0
 
 ### Minor Changes
