@@ -72,6 +72,8 @@ describe('runtime/hooks/agent-entry-gate.sh', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('CLAUDE.md');
     expect(result.stderr).toContain('.paqad/framework-path.txt');
+    // The load step must name the workflows dir, not just rules/stack/design-system.
+    expect(result.stderr).toContain('docs/instructions/{rules,stack,design-system,workflows}');
   });
 
   it('allows the call when the sentinel exists and is fresh', () => {
@@ -126,6 +128,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.sh', () => {
     expect(result.stdout).toContain('MUST load the paqad framework');
     expect(result.stdout).toContain('CLAUDE.md');
     expect(result.stdout).toContain('.paqad/framework-path.txt');
+    expect(result.stdout).toContain('docs/instructions/{rules,stack,design-system,workflows}');
   });
 
   it('hard mode exits 2 with a blocking message on stderr when the sentinel is missing', () => {

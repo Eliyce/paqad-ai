@@ -4,7 +4,7 @@
 # Fires on every user prompt — including read-only Q&A — so the agent cannot
 # answer in an onboarded project without first loading its provider entry file
 # (CLAUDE.md, AGENTS.md, ...) plus the framework and
-# docs/instructions/{rules,stack,design-system}.
+# docs/instructions/{rules,stack,design-system,workflows}.
 #
 # This complements the PreToolUse gate (agent-entry-gate.sh), which only fires
 # on code-mutating tool calls and therefore does not gate answer-only turns.
@@ -59,7 +59,7 @@ emit_message() {
     echo "[paqad] Required steps, in order, before any other tool call or response:"
     echo "[paqad]   1. Read ${paqad_entry_file}"
     echo "[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)"
-    echo "[paqad]   3. Load docs/instructions/{rules,stack,design-system}"
+    echo "[paqad]   3. Load docs/instructions/{rules,stack,design-system,workflows}"
     echo "[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path"
     echo "[paqad] Only after step 4 may you address the user's prompt."
   } >&"${stream}"

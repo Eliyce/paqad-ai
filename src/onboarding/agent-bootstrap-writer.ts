@@ -17,8 +17,8 @@ import { buildNarrationContractBody } from './narration-contract-writer.js';
  *     shell/TS/.mjs primitives use, and halts before loading anything when paqad
  *     is off — so a disabled project loads zero `docs/instructions` and zero
  *     `docs/modules` on every provider.
- *  2. The framework load order (rules / stack / design-system) and the
- *     workflow-handling note — formerly inlined into every entry file.
+ *  2. The framework load order (rules / stack / design-system / workflows) and
+ *     the workflow-handling note — formerly inlined into every entry file.
  *  3. The sentinel write.
  *  4. The FULL narration contract and the FULL decision-pause contract inline
  *     (including the per-adapter UI table — its `claude-code` row is what keeps
@@ -65,6 +65,7 @@ Load these and treat them as the canonical contract for workflow routing, docume
 - \`docs/instructions/rules\`
 - \`docs/instructions/stack\`
 - \`docs/instructions/design-system\`
+- \`docs/instructions/workflows\` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)
 
 When you work inside a specific module, also load that module's documentation under \`docs/modules/\` as those rules direct.
 
