@@ -3,8 +3,8 @@
 #
 # Blocks any code-mutating tool call until the agent has loaded its provider
 # entry file (CLAUDE.md, AGENTS.md, ...) plus the framework entry and
-# docs/instructions/{rules,stack,design-system}, and written the per-session
-# sentinel at .paqad/.agent-entry-loaded.
+# docs/instructions/{rules,stack,design-system,workflows}, and written the
+# per-session sentinel at .paqad/.agent-entry-loaded.
 #
 # Sentinel-freshness logic is shared with agent-entry-prompt-gate.sh via
 # lib/agent-entry-sentinel.sh so the two gates cannot drift.
@@ -29,7 +29,7 @@ print_block() {
   echo "[paqad] Required steps:" 1>&2
   echo "[paqad]   1. Read ${paqad_entry_file}" 1>&2
   echo "[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)" 1>&2
-  echo "[paqad]   3. Load docs/instructions/{rules,stack,design-system}" 1>&2
+  echo "[paqad]   3. Load docs/instructions/{rules,stack,design-system,workflows}" 1>&2
   echo "[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path" 1>&2
   exit 2
 }

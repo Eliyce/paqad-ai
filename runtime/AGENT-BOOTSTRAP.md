@@ -27,6 +27,7 @@ Load these and treat them as the canonical contract for workflow routing, docume
 - `docs/instructions/rules`
 - `docs/instructions/stack`
 - `docs/instructions/design-system`
+- `docs/instructions/workflows` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)
 
 When you work inside a specific module, also load that module's documentation under `docs/modules/` as those rules direct.
 
