@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.30.1
+
+### Patch Changes
+
+- [#237](https://github.com/Eliyce/paqad-ai/pull/237) [`a0f527f`](https://github.com/Eliyce/paqad-ai/commit/a0f527ff27c8f1a1dfda26cc0c672806f51a90a9) Thanks [@HLasani](https://github.com/HLasani)! - Fix stale documentation references that pointed the workflow-policy files at `.paqad/workflows/` instead of their real home, `docs/instructions/workflows/`. The `rounds:` round-cap override is configured in `docs/instructions/workflows/feature-development.yaml` (`.paqad/workflows/` is the per-run records directory, a different thing). Adds a regression guard so a workflow-policy YAML can never again be referenced under `.paqad/workflows/`.
+
 ## 1.30.0
 
 ### Minor Changes
