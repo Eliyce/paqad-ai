@@ -46,6 +46,22 @@ describe('agent bootstrap document', () => {
     expect(doc).toMatch(/act as a normal assistant/);
   });
 
+  it('loads the workflow policies as part of the project contract', () => {
+    // Regression guard: the feature-development + delivery-policy workflows must
+    // be in the canonical load list alongside rules/stack/design-system. Without
+    // this the agent never loads the workflow policies and they stay decorative
+    // YAML that nothing reads.
+    const doc = buildAgentBootstrapDocument();
+    const loadSection = doc.slice(
+      doc.indexOf('## 2. Load the project contract'),
+      doc.indexOf('### Workflow handling'),
+    );
+    expect(loadSection).toContain('`docs/instructions/rules`');
+    expect(loadSection).toContain('`docs/instructions/stack`');
+    expect(loadSection).toContain('`docs/instructions/design-system`');
+    expect(loadSection).toContain('`docs/instructions/workflows`');
+  });
+
   it('preserves the workflow-handling trigger (create documentation / feature workflows)', () => {
     // Relocated verbatim from the entry-file templates (issue #229). Without this,
     // an enabled agent would stop treating `create documentation` as a Paqad
