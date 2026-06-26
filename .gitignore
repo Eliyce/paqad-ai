@@ -11,3 +11,27 @@ scripts/__pycache__/
 
 docs/tracker/
 .test-plan-log.json
+
+# paqad-generated provider efficiency stubs — written from the project profile on
+# adapter sync (src/adapters/shared/base-adapter.ts), never read back from git, and
+# regenerated on onboard/update. Pure generated artifacts; don't track them.
+.claude/cache.json
+.claude/memory.json
+.codex/cache.json
+.codex/memory.json
+.gemini/cache.json
+.gemini/memory.json
+.cursor/cache.json
+.cursor/memory.json
+.antigravity/cache.json
+.antigravity/memory.json
+.windsurf/cache.json
+.windsurf/memory.json
+.continue/cache.json
+.continue/memory.json
+.junie/cache.json
+.junie/memory.json
+.aider/cache.json
+.aider/memory.json
+.github/cache.json
+.github/memory.json
