@@ -16,6 +16,7 @@ const RUNTIME = join(process.cwd(), 'runtime');
 const WORKFLOW_SPEC_ALLOWLIST = [
   'capabilities/coding/rules/design-test.md',
   'capabilities/coding/rules/design-retest.md',
+  'capabilities/coding/rules/feature-development.md',
   'capabilities/security/rules/pentest.md',
 ];
 
