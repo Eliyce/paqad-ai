@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.31.0
+
+### Minor Changes
+
+- [#243](https://github.com/Eliyce/paqad-ai/pull/243) [`4f30a09`](https://github.com/Eliyce/paqad-ai/commit/4f30a09f0713822a303c5ebfdb88fe995491fb24) Thanks [@HLasani](https://github.com/HLasani)! - Load the workflow policies as part of the canonical project contract. The framework bootstrap and the agent-entry hooks now instruct the agent to load `docs/instructions/workflows` (the feature-development and delivery-policy workflows) alongside `rules`, `stack`, and `design-system`. Previously the workflow policy files shipped but were never named by anything the agent loads, so they were never read. Regression guards assert the workflows dir stays in the load list in both the bootstrap and the entry-gate hooks.
+
 ## 1.30.1
 
 ### Patch Changes
