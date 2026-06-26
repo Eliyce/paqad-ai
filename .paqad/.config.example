@@ -1,0 +1,94 @@
+# paqad framework configuration — catalog of every knob (.paqad/.config.example)
+#
+# A copy-paste reference: every framework knob, with its default, a one-line
+# explanation, and its PAQAD_* env equivalent. This file is NEVER read at
+# runtime. To override a knob, copy its line into a tracked configs/.config.*
+# file (team) or your git-ignored .config (local), uncomment it, and set a value.
+#
+# Precedence, highest first: PAQAD_* env var > .config (local) > configs/.config.*
+# (team) > code default. With nothing uncommented anywhere, every knob is at the
+# default shown below — identical to a fresh install.
+
+# ── Framework master switch ─────────────────────────────────
+# Turn paqad off entirely (vanilla mode). Absent/true = on. (env: PAQAD_ENABLE)
+# paqad_enable=true
+
+# ── Version & updates ───────────────────────────────────────
+# Pull newer framework versions in the background on session start. (env: PAQAD_AUTO_UPDATE)
+# auto_update=true
+# Refuse to run below this version. "latest" = no fixed floor, track newest. Or pin e.g. 1.28.1. (env: PAQAD_MINIMUM_VERSION)
+# minimum_version=latest
+# How often the background version check runs. (env: PAQAD_VERSION_CHECK_INTERVAL_HOURS)
+# version_check_interval_hours=12
+
+# ── Enterprise / governance (licensed, off by default) ──────
+# Master switch for the enterprise/governance capabilities. (env: PAQAD_ENTERPRISE)
+# enterprise=false
+# Write the receipt + evidence ledger set under .paqad/ledger/. (env: PAQAD_ENTERPRISE_EVIDENCE_LEDGER)
+# enterprise_evidence_ledger=false
+# Write the CycloneDX ai-bom.json view. (env: PAQAD_ENTERPRISE_AI_BOM)
+# enterprise_ai_bom=false
+# Resolve framework citations into the receipt (token-spending path). (env: PAQAD_ENTERPRISE_COMPLIANCE_CITATIONS)
+# enterprise_compliance_citations=false
+
+# ── Feature flags ───────────────────────────────────────────
+# Stop after the spec phase; do not implement. (env: PAQAD_SPEC_ONLY_MODE)
+# spec_only_mode=false
+# Enable the market-research agent in planning. (env: PAQAD_MARKET_RESEARCH)
+# market_research=false
+# Enable the design-research agent in planning. (env: PAQAD_DESIGN_RESEARCH)
+# design_research=false
+# Use the multi-agent team for full-lane work. (env: PAQAD_TEAM_AGENTS)
+# team_agents=true
+
+# ── Intelligence / RAG ──────────────────────────────────────
+# Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
+# rag_enabled=false
+# local | openai | voyageai. Unset uses the local model. (env: PAQAD_RAG_EMBEDDING_PROVIDER)
+# rag_embedding_provider=
+# Override the embedding model id. Unset = provider default. (env: PAQAD_RAG_EMBEDDING_MODEL)
+# rag_embedding_model=
+# Minimum cosine similarity for a chunk to be retrieved. (env: PAQAD_RAG_SIMILARITY_THRESHOLD)
+# rag_similarity_threshold=0.75
+# Max chunks retrieved per query. (env: PAQAD_RAG_TOP_N)
+# rag_top_n=20
+# Skip indexing files larger than this many bytes. (env: PAQAD_RAG_MAX_FILE_SIZE)
+# rag_max_file_size=153600
+
+# ── Research & model routing ────────────────────────────────
+# cutting-edge | standard | conservative. (env: PAQAD_RESEARCH_DEPTH)
+# research_depth=standard
+# Default model for routine work. (env: PAQAD_MODEL_DEFAULT)
+# model_default=gpt-5
+# Model for heavy reasoning / planning. (env: PAQAD_MODEL_REASONING)
+# model_reasoning=gpt-5
+# Cheap/fast model for lightweight steps. (env: PAQAD_MODEL_FAST)
+# model_fast=gpt-5-mini
+
+# ── Strictness / quality gates ──────────────────────────────
+# Route every task through the full (heaviest) lane by default. (env: PAQAD_FULL_LANE_DEFAULT)
+# full_lane_default=false
+# Require an adversarial review pass before delivery. (env: PAQAD_REQUIRE_ADVERSARIAL_REVIEW)
+# require_adversarial_review=true
+# Block delivery when canonical docs are out of date. (env: PAQAD_BLOCK_ON_STALE_DOCS)
+# block_on_stale_docs=true
+# Require a database review when a change includes migrations. (env: PAQAD_REQUIRE_DB_REVIEW_FOR_MIGRATIONS)
+# require_db_review_for_migrations=true
+
+# ── Escalation policy ───────────────────────────────────────
+# block | require_approval | warn — for destructive operations. (env: PAQAD_ESCALATE_DESTRUCTIVE_OPERATIONS)
+# escalate_destructive_operations=block
+# block | require_approval | warn — for risky migrations. (env: PAQAD_ESCALATE_RISKY_MIGRATIONS)
+# escalate_risky_migrations=warn
+# block | require_approval | warn — for security findings. (env: PAQAD_ESCALATE_SECURITY_FINDINGS)
+# escalate_security_findings=block
+# Row count above which a data operation escalates. (env: PAQAD_ESCALATE_DB_ROW_THRESHOLD)
+# escalate_db_row_threshold=10000
+
+# ── Decisions (pause-contract tuning) ───────────────────────
+# strict | balanced | permissive — how eagerly to pause and ask. (env: PAQAD_DECISIONS_ASK_THRESHOLD)
+# decisions_ask_threshold=balanced
+# Max decision screens surfaced per task. (env: PAQAD_DECISIONS_MAX_SCREENS_PER_TASK)
+# decisions_max_screens_per_task=3
+# Auto-resolve a pending decision after this idle window. (env: PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES)
+# decisions_idle_timeout_minutes=30
