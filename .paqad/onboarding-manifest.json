@@ -307,14 +307,12 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-25T15:47:09.450Z",
+    "timestamp": "2026-06-26T08:45:56.784Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
       "ignored_paths": [
         ".git",
-        "coverage",
-        "dist",
         "graph-ui/node_modules",
         "node_modules",
         "tests/fixtures",
@@ -363,8 +361,6 @@
     "scan_max_depth": 5,
     "ignored_paths": [
       ".git",
-      "coverage",
-      "dist",
       "graph-ui/node_modules",
       "node_modules",
       "tests/fixtures",
@@ -407,7 +403,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-25T15:47:44.942Z",
+  "generated_at": "2026-06-26T08:46:08.010Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -431,6 +427,26 @@
     },
     {
       "path": ".codex/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": "ANTIGRAVITY.md",
+      "auto_update": true
+    },
+    {
+      "path": ".antigravity/hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".antigravity/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".antigravity/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".antigravity/memory.json",
       "auto_update": true
     },
     {
@@ -479,6 +495,66 @@
     },
     {
       "path": ".gemini/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": ".junie/AGENTS.md",
+      "auto_update": true
+    },
+    {
+      "path": ".junie/mcp/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".cursor/rules/paqad.mdc",
+      "auto_update": true
+    },
+    {
+      "path": ".cursor/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".cursor/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".cursor/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "auto_update": true
+    },
+    {
+      "path": ".vscode/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".windsurfrules",
+      "auto_update": true
+    },
+    {
+      "path": ".windsurf/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".windsurf/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".windsurf/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": ".continue/rules/paqad.md",
+      "auto_update": true
+    },
+    {
+      "path": ".continue/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": "CONVENTIONS.md",
       "auto_update": true
     },
     {

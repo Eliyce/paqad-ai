@@ -14,6 +14,14 @@ CLAUDE.md
 GEMINI.md
 .junie
 
+# Generated adapter assets for the newer providers — same origin as the entries
+# above (onboarding/update writers), not hand-formatted.
+.cursor
+.antigravity
+.windsurf
+.continue
+.vscode/mcp.json
+
 # Generated framework bootstrap — byte-identical to its builder (golden test),
 # regenerated with `pnpm vitest run agent-bootstrap-writer -u`, not hand-formatted.
 runtime/AGENT-BOOTSTRAP.md

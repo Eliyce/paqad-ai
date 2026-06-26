@@ -9,7 +9,7 @@ export const BUILD_CHECK_FIX_ROUNDS_SCHEMA_VERSION = '1.0.0';
 /**
  * Lane-scaled default round caps (open decision #1 — taking the issue's
  * recommendation: `fast` lowest, `full` highest). Project-tunable via the
- * `rounds:` block in `.paqad/workflows/feature-development.yaml`.
+ * `rounds:` block in `docs/instructions/workflows/feature-development.yaml`.
  */
 export const DEFAULT_MAX_ROUNDS_BY_LANE: Record<Lane, number> = {
   fast: 2,

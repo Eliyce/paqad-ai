@@ -11,6 +11,9 @@ each pre-filled with every knob in that group, commented out and documented:
 Every file in this directory is merged into one map and read at runtime, so the
 split is purely organizational — a key works in any file.
 
+For a single copy-paste reference listing every knob in one place, see
+`../.config.example` (tracked, never read at runtime).
+
 ## How to use
 
 - Uncomment a line to override that knob. While a key stays commented (or absent),

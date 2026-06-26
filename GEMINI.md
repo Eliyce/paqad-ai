@@ -2,26 +2,9 @@
 
 Use this file as the repository entrypoint for Gemini CLI.
 
-Before handling repository work:
-1. Open `.paqad/framework-path.txt`.
-2. Resolve the reference inside that file and load the framework entry it points to.
-3. Load `docs/instructions/rules`, `docs/instructions/stack`, and `docs/instructions/design-system`.
-4. Treat those sources as the canonical project contract for workflow routing, documentation, and implementation behavior.
+Before any repository work, open `.paqad/framework-path.txt`, resolve the reference inside it to the paqad install directory, and load and follow the framework bootstrap it points to (`AGENT-BOOTSTRAP.md` in that directory). That bootstrap decides — based on whether paqad is enabled — what to load and how to behave.
 
-Workflow handling:
-- Interpret short Paqad workflow prompts such as `create documentation` as workflow invocations.
-- Do not ask the user to choose a document type when a Paqad workflow already matches the request.
-- Generate or update the canonical project documentation and registries defined by Paqad instead of defaulting to generic templates.
-
-## paqad in your chat
-
-See `.paqad/narration-contract.md` for the full voice spec, cadence detail, and the plain-English translation of every internal term.
-
-## Decision Pause Contract
-
-See `.paqad/decision-pause-contract.md` for the full rule, categories, resolution flow, and fallback.
-
-In Gemini CLI, prompt the user and wait for a reply before continuing.
+**Fallback:** if `.paqad/framework-path.txt` is missing or cannot be resolved, or paqad is disabled, proceed as a normal assistant with no paqad behavior. Do not block.
 
 Adapter:
 gemini-cli
