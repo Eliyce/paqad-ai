@@ -226,6 +226,37 @@ describe('RagService', () => {
     });
   });
 
+  it('F10: a configured rag_base_branch is honoured in the index meta', async () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] });
+    g('init', '-q');
+    g('config', 'user.email', 't@example.com');
+    g('config', 'user.name', 'Test');
+    g('checkout', '-q', '-b', 'main');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'seed');
+    g('checkout', '-q', '-b', 'release/2.x');
+    g('commit', '-q', '--allow-empty', '-m', 'release');
+    g('checkout', '-q', '-b', 'feat/w');
+
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+      rag_base_branch: 'release/2.x',
+    });
+
+    const meta = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad', 'vectors', 'meta.json'), 'utf8'),
+    );
+    expect(meta.branch).toBe('feat/w');
+    expect(meta.base_branch).toBe('release/2.x');
+    expect(meta.base_commit).toBe(
+      execFileSync('git', ['rev-parse', 'release/2.x'], { cwd: projectRoot }).toString().trim(),
+    );
+  });
+
   it('F9: a branch switch self-heals the index branch metadata', async () => {
     const g = (...args: string[]) =>
       execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] });

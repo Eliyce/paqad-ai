@@ -237,6 +237,7 @@
         "rag_similarity_threshold": { "type": "number" },
         "rag_top_n": { "type": "integer", "minimum": 1 },
         "rag_max_file_size": { "type": "integer", "minimum": 1 },
+        "rag_base_branch": { "type": "string" },
         "benchmark_gates": {
           "type": "object",
           "additionalProperties": false,

@@ -263,10 +263,15 @@ export class RagService {
           partialChunks: items,
         } as Record<string, unknown>);
       }
-      await this.vectorIndex.replaceAll(this.projectRoot, items, {
-        provider: provider.name,
-        model: provider.model,
-      });
+      await this.vectorIndex.replaceAll(
+        this.projectRoot,
+        items,
+        {
+          provider: provider.name,
+          model: provider.model,
+        },
+        intelligence.rag_base_branch,
+      );
       await this.patternVectors.refresh(this.projectRoot, (message) =>
         options?.onProgress?.({ phase: 'build', message }),
       );
@@ -948,10 +953,15 @@ export class RagService {
       .flatMap((entry) => entry.chunks);
 
     const embedded = await this.embedChunks(provider, changedChunks);
-    await this.vectorIndex.replaceAll(this.projectRoot, [...unchanged, ...embedded], {
-      provider: provider.name,
-      model: provider.model,
-    });
+    await this.vectorIndex.replaceAll(
+      this.projectRoot,
+      [...unchanged, ...embedded],
+      {
+        provider: provider.name,
+        model: provider.model,
+      },
+      intelligence.rag_base_branch,
+    );
     appendRagAudit(this.projectRoot, 'INFO', 'rag-incremental-update', {
       changed_files: [...changedSources].length,
       deleted_files: syncResult.deleted_files.length,

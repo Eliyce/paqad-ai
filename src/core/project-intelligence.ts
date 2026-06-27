@@ -89,6 +89,7 @@ export function normalizeIntelligenceConfig(
     rag_similarity_threshold: input.rag_similarity_threshold ?? defaults.rag_similarity_threshold,
     rag_top_n: input.rag_top_n ?? defaults.rag_top_n,
     rag_max_file_size: input.rag_max_file_size ?? defaults.rag_max_file_size,
+    rag_base_branch: input.rag_base_branch ?? defaults.rag_base_branch,
     benchmark_gates: {
       ...DEFAULT_BENCHMARK_GATES,
       ...(input.benchmark_gates ?? {}),
