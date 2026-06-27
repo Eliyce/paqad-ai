@@ -86,6 +86,32 @@ describe('composeRuleContext', () => {
     expect(md).toContain('paqad rule manifest');
     expect(md).not.toContain('## Loaded rule text');
   });
+
+  it('falls back to the summary when a rule has no raw_text, with no options', () => {
+    // No options ⇒ changedPaths defaults to []; raw_text undefined ⇒ ruleTextBlock uses summary.
+    const md = composeRuleContext(
+      store([
+        rule({
+          rule_id: 'ALWAYS',
+          trigger_patterns: ['**'],
+          raw_text: undefined,
+          summary: 'FALLBACK SUMMARY',
+        }),
+      ]),
+    );
+    expect(md).toContain('## Loaded rule text');
+    expect(md).toContain('FALLBACK SUMMARY');
+  });
+
+  it('tolerates a store with no rules array', () => {
+    const md = composeRuleContext({
+      schema_version: 1,
+      generated_at: 'now',
+      source_hash: 'sha256:x',
+    } as CompiledRulesStore);
+    expect(md).toContain('paqad rule manifest');
+    expect(md).not.toContain('## Loaded rule text');
+  });
 });
 
 describe('refreshRuleContext', () => {
@@ -155,5 +181,16 @@ describe('refreshRuleContext', () => {
     });
     expect(target).toBe(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT));
     expect(readFileSync(target as string, 'utf8')).toContain('MEMORY ONLY');
+  });
+
+  it('appends the F27 base-drift section last, after the rule text', async () => {
+    writeCompiled([rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'ALWAYS TEXT' })]);
+    const target = await refreshRuleContext(projectRoot, {
+      driftSection: '## Base drift\nDRIFT HEADS-UP',
+    });
+    const written = readFileSync(target as string, 'utf8');
+    expect(written).toContain('ALWAYS TEXT');
+    expect(written).toContain('DRIFT HEADS-UP');
+    expect(written.indexOf('ALWAYS TEXT')).toBeLessThan(written.indexOf('DRIFT HEADS-UP'));
   });
 });

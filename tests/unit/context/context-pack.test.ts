@@ -29,6 +29,17 @@ describe('locateLineRange', () => {
   it('returns undefined for blank chunk content', () => {
     expect(locateLineRange(FILE, '   \n  ')).toBeUndefined();
   });
+
+  it('skips a match whose computed start would be before the file start', () => {
+    // The anchor's first meaningful line is preceded by blank lines (anchorIndex > 0),
+    // but the only file match is on line 0 → start < 0 → skipped → undefined.
+    expect(locateLineRange('foo\nbar', '\n\nfoo')).toBeUndefined();
+  });
+
+  it('stops extending when the chunk runs past the end of the file', () => {
+    // Anchor matches the last file line; the chunk has more lines than remain.
+    expect(locateLineRange('x\nfoo', 'foo\nbar\nbaz')).toEqual({ start: 2, end: 2 });
+  });
 });
 
 describe('distillSlices', () => {
@@ -61,6 +72,19 @@ describe('distillSlices', () => {
     );
     expect(distillSlices(many)).toHaveLength(MAX_CONTEXT_PACK_ENTRIES);
     expect(distillSlices(many, { maxEntries: 3 })).toHaveLength(3);
+  });
+
+  it('yields an empty hint for a blank-only slice', () => {
+    const pack = distillSlices([slice({ source_file: 'src/blank.ts', content: '   \n\t\n  ' })]);
+    expect(pack).toHaveLength(1);
+    expect(pack[0].hint).toBe('');
+  });
+
+  it('truncates a very long first line in the hint', () => {
+    const longLine = `const x = '${'y'.repeat(200)}';`;
+    const pack = distillSlices([slice({ source_file: 'src/long.ts', content: longLine })]);
+    expect(pack[0].hint.endsWith('…')).toBe(true);
+    expect(pack[0].hint.length).toBeLessThan(longLine.length);
   });
 
   it('never throws when the reader throws', () => {
@@ -102,5 +126,15 @@ describe('composeContextPack', () => {
     const section = composeContextPack([{ source_file: 'src/a.ts', hint: 'export const a = 1;' }]);
     expect(section).toContain('`src/a.ts`');
     expect(section).not.toContain(':L');
+  });
+
+  it('uses the plural noun and omits the hint dash for a hint-less entry', () => {
+    const section = composeContextPack([
+      { source_file: 'src/a.ts', hint: 'first' },
+      { source_file: 'src/b.ts', hint: '' },
+    ]);
+    expect(section).toContain('2 pointers');
+    // The hint-less entry renders no " — " suffix.
+    expect(section).toContain('`src/b.ts`\n');
   });
 });

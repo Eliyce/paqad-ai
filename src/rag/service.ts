@@ -1096,24 +1096,24 @@ export class RagService {
   private async embedChunks(
     provider: EmbeddingProvider,
     chunks: Chunk[],
-    options?: {
+    options: {
       onProgress?: BuildIndexOptions['onProgress'];
       signal?: AbortSignal;
       /**
        * RAG buildout F24 — maps a chunk to the text actually embedded (and used as the
-       * cache key). Defaults to the raw content; the build/sync paths pass a
-       * contextualiser that prepends the deterministic blurb.
+       * cache key). The build/sync paths pass a contextualiser that prepends the
+       * deterministic blurb; required so the index and cache key always agree.
        */
-      embedTextOf?: (chunk: Chunk) => string;
+      embedTextOf: (chunk: Chunk) => string;
     },
   ): Promise<StoredVectorChunk[]> {
     if (chunks.length === 0) {
       return [];
     }
 
-    const onProgress = options?.onProgress;
-    const signal = options?.signal;
-    const embedTextOf = options?.embedTextOf ?? ((chunk: Chunk) => chunk.content);
+    const onProgress = options.onProgress;
+    const signal = options.signal;
+    const embedTextOf = options.embedTextOf;
 
     // RAG buildout F8 — consult the content-addressed cache before embedding.
     // Only chunks whose text is not already cached for this model hit the
@@ -1251,7 +1251,13 @@ interface DenseHit {
  * the content, so exact identifiers and paths the bare body omits are matchable. Falls
  * back to bare content when the chunk carries no source path (e.g. a vision chunk).
  */
-function lexicalDocumentText(item: DenseHit['item']): string {
+export function lexicalDocumentText(item: {
+  id: string;
+  content: string;
+  source_file?: string;
+  ast_node_path?: string;
+  exported_symbols?: string[];
+}): string {
   if (!item.source_file) {
     return item.content;
   }
