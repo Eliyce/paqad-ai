@@ -688,6 +688,8 @@ modules:
         name: Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)
       - slug: context-pack
         name: Context Pack (distilled path:line pointers for long workflows)
+      - slug: base-drift
+        name: Base-Drift Awareness (debounced origin/<base> heads-up, off-path)
 
   - slug: background-harness
     name: Background-Worker Harness

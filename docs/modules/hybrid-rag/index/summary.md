@@ -32,6 +32,7 @@ to the side.
 - [cAST Chunking (split-then-merge, chunker-versioned index)](../features/cast-chunking/business.md)
 - [Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)](../features/contextual-blurbs/business.md)
 - [Context Pack (distilled path:line pointers for long workflows)](../features/context-pack/business.md)
+- [Base-Drift Awareness (debounced origin/base heads-up, off-path)](../features/base-drift/business.md)
 
 ## Authority
 
