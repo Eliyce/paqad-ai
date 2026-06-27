@@ -673,6 +673,8 @@ modules:
         name: Branch-Aware Index (branch/commit/base metadata)
       - slug: embedding-cache
         name: Embedding Cache (content-addressed, model-scoped)
+      - slug: incremental-sync
+        name: Incremental Sync (working-tree-following, background)
 
   - slug: background-harness
     name: Background-Worker Harness

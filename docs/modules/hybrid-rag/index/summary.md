@@ -25,6 +25,7 @@ to the side.
 - [Eval Gates (hit@5, success, correction turns)](../features/eval-gates/business.md)
 - [Branch-Aware Index (branch/commit/base metadata)](../features/branch-aware-index/business.md)
 - [Embedding Cache (content-addressed, model-scoped)](../features/embedding-cache/business.md)
+- [Incremental Sync (working-tree-following, background)](../features/incremental-sync/business.md)
 
 ## Authority
 
