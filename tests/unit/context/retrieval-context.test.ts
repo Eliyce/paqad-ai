@@ -14,6 +14,7 @@ import {
   filterToScope,
   gatherWorkingSetSlices,
   isDocScopedPath,
+  scopeForWorkflow,
   type RetrievalSlice,
   type RetrievalSource,
 } from '@/context/retrieval-context.js';
@@ -108,6 +109,16 @@ describe('scope routing (F13)', () => {
     expect(isDocScopedPath('docs/architecture/notes.md')).toBe(false);
   });
 
+  it('routes code-changing workflows to all, others to docs (F19)', () => {
+    expect(scopeForWorkflow('feature-development')).toBe('all');
+    expect(scopeForWorkflow('bug-fix')).toBe('all');
+    expect(scopeForWorkflow('refactor')).toBe('all');
+    expect(scopeForWorkflow('documentation-update')).toBe('docs');
+    expect(scopeForWorkflow('writing')).toBe('docs');
+    expect(scopeForWorkflow(null)).toBe('docs');
+    expect(scopeForWorkflow(undefined)).toBe('docs');
+  });
+
   it('docs scope keeps only doc slices; code scope keeps only code slices', () => {
     const slices = [
       slice({ source_file: 'docs/instructions/rules/a.md' }),
@@ -177,6 +188,23 @@ describe('gatherWorkingSetSlices', () => {
       scope: 'all',
     });
     expect(all).toHaveLength(1);
+  });
+
+  it('a feature-dev workflow routes to code slices (F19)', async () => {
+    const result: RagRetrievalResult = {
+      vector_scores: new Map([['c1', 0.95]]),
+      chunks_retrieved: 1,
+      retrieved_chunk_ids: ['c1'],
+      retrieved_source_files: ['src/app.ts'],
+      retrieved_chunks: [{ id: 'c1', source_file: 'src/app.ts', content: 'function f() {}' }],
+    };
+    const slices = await gatherWorkingSetSlices('/proj', {
+      service: source(result),
+      changedPaths: ['src/app.ts'],
+      routing: { workflow: 'feature-development' },
+    });
+    expect(slices).toHaveLength(1);
+    expect(slices[0].source_file).toBe('src/app.ts');
   });
 
   it('returns the retrieved chunks as slices, scored', async () => {

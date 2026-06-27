@@ -27,7 +27,7 @@
  */
 import { basename } from 'node:path';
 
-import type { ClassificationScope } from '@/core/types/classification.js';
+import type { ClassificationScope, ClassificationWorkflow } from '@/core/types/classification.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { gateRetrieval } from '@/context/retrieval-depth-router.js';
@@ -75,6 +75,38 @@ export function isDocScopedPath(path: string): boolean {
     DOC_SCOPE_PREFIXES.some((prefix) => normalized.startsWith(prefix)) ||
     normalized.endsWith('module-map.yml')
   );
+}
+
+/**
+ * Workflows that touch code and so should receive function-level code slices on top
+ * of docs (RAG buildout F19). Feature-dev stages (plan / implement / verify) and the
+ * other code-changing workflows route to scope `all`; documentation, writing, and
+ * question workflows stay docs-only (F13). The chunks are already AST-node-level, so
+ * "send a function, not a file" falls out of the existing chunker.
+ */
+const CODE_WORKFLOWS: ReadonlySet<ClassificationWorkflow> = new Set([
+  'feature-development',
+  'bug-fix',
+  'refactor',
+  'migration',
+  'test-improvement',
+  'architecture-change',
+  'schema-change',
+  'query-optimization',
+  'root-cause-analysis',
+  'cleanup',
+  'investigation',
+  'pentest',
+  'pentest-retest',
+]);
+
+/**
+ * Pick the retrieval scope for a workflow (RAG buildout F19). Code-changing workflows
+ * get `all` (docs + function-level code slices); everything else, and the no-workflow
+ * background default, stays docs-only — the safest content and the F13 default.
+ */
+export function scopeForWorkflow(workflow?: ClassificationWorkflow | null): RetrievalScope {
+  return workflow && CODE_WORKFLOWS.has(workflow) ? 'all' : 'docs';
 }
 
 /** Keep only the slices that belong to `scope` (F13). `all` is a passthrough. */
@@ -181,8 +213,9 @@ export interface GatherOptions {
    */
   precisionFloor?: number;
   /**
-   * Retrieval scope (F13). Defaults to `docs` — docs/instructions + module-map +
-   * module-doc slices only. Code retrieval is a later extension (F19).
+   * Retrieval scope (F13/F19). When unset, it is routed by `routing.workflow`:
+   * code-changing workflows get `all` (docs + code), others stay docs-only. Set this
+   * explicitly to force a scope.
    */
   scope?: RetrievalScope;
   /**
@@ -283,8 +316,10 @@ export async function gatherWorkingSetSlices(
   const floor = options.precisionFloor ?? intelligence.rag_similarity_threshold;
   const aboveFloor = applyPrecisionFloor(slices, floor);
 
-  // F13 — scope to paqad docs first (the safest, highest-ROI content); code slices
-  // arrive in F19. Default `docs`: a code-only working set with no matching doc
-  // slice yields nothing here and the agent stays on grep, exactly as today.
-  return filterToScope(aboveFloor, options.scope ?? 'docs');
+  // F13 + F19 — scope routing. An explicit scope wins; otherwise route by workflow:
+  // code-changing stages (feature-dev plan/implement/verify, bug-fix, refactor, …) get
+  // `all` (docs + function-level code slices, F19), while doc/writing/question stages
+  // and the no-workflow background default stay docs-only (F13, the safest content).
+  const scope = options.scope ?? scopeForWorkflow(options.routing?.workflow);
+  return filterToScope(aboveFloor, scope);
 }
