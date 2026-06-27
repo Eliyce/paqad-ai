@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 
 import { confirm, input, select } from '@inquirer/prompts';
 import { Command } from 'commander';
@@ -12,8 +13,13 @@ import {
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
 import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
+import { composeContextPack, distillSlices } from '@/context/context-pack.js';
 import { refreshRuleContext } from '@/context/rule-context.js';
-import { composeRetrievalSection, gatherWorkingSetSlices } from '@/context/retrieval-context.js';
+import {
+  MAX_RETRIEVAL_SLICES,
+  composeRetrievalSection,
+  gatherWorkingSetSlices,
+} from '@/context/retrieval-context.js';
 import { backgroundIndexSync } from '@/rag/background-sync.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { compareConfigurations } from '@/rag/benchmark-gates.js';
@@ -314,7 +320,27 @@ export function createRagCommand(): Command {
     .action(async (options: { projectRoot: string; quiet?: boolean }) => {
       const sync = await backgroundIndexSync(options.projectRoot);
       const slices = await gatherWorkingSetSlices(options.projectRoot);
-      const retrievalSection = composeRetrievalSection(slices);
+      // F26 — when the working set pulls more slices than the slice-display cap, the
+      // workflow is broad; distil to a lean context PACK (path:Lstart-Lend pointers,
+      // read the live file) instead of injecting many bodies. Narrow sets keep full
+      // slices. Line ranges are located against the live files (best-effort reader).
+      const retrievalSection =
+        slices.length > MAX_RETRIEVAL_SLICES
+          ? composeContextPack(
+              distillSlices(slices, {
+                readFile: (path) => {
+                  try {
+                    return readFileSync(
+                      isAbsolute(path) ? path : join(options.projectRoot, path),
+                      'utf8',
+                    );
+                  } catch {
+                    return undefined;
+                  }
+                },
+              }),
+            )
+          : composeRetrievalSection(slices);
       // F21 — durable codebase memory, deterministic and embedding-free (no provider
       // call), gathered from the on-disk store and injected ahead of the slices.
       const memorySection = gatherCodebaseMemory(options.projectRoot);
