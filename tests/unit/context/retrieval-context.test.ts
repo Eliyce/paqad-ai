@@ -10,7 +10,9 @@ import {
   MAX_SLICE_CHARS,
   applyPrecisionFloor,
   composeRetrievalSection,
+  filterToScope,
   gatherWorkingSetSlices,
+  isDocScopedPath,
   type RetrievalSlice,
   type RetrievalSource,
 } from '@/context/retrieval-context.js';
@@ -96,24 +98,70 @@ describe('applyPrecisionFloor (F12)', () => {
   });
 });
 
+describe('scope routing (F13)', () => {
+  it('classifies docs/instructions, docs/modules, and the module-map as doc-scoped', () => {
+    expect(isDocScopedPath('docs/instructions/rules/coding.md')).toBe(true);
+    expect(isDocScopedPath('docs/modules/hybrid-rag/index/summary.md')).toBe(true);
+    expect(isDocScopedPath('./docs/instructions/rules/module-map.yml')).toBe(true);
+    expect(isDocScopedPath('src/context/retrieval-context.ts')).toBe(false);
+    expect(isDocScopedPath('docs/architecture/notes.md')).toBe(false);
+  });
+
+  it('docs scope keeps only doc slices; code scope keeps only code slices', () => {
+    const slices = [
+      slice({ source_file: 'docs/instructions/rules/a.md' }),
+      slice({ source_file: 'src/app.ts' }),
+    ];
+    expect(filterToScope(slices, 'docs').map((s) => s.source_file)).toEqual([
+      'docs/instructions/rules/a.md',
+    ]);
+    expect(filterToScope(slices, 'code').map((s) => s.source_file)).toEqual(['src/app.ts']);
+    expect(filterToScope(slices, 'all')).toHaveLength(2);
+  });
+});
+
 describe('gatherWorkingSetSlices', () => {
   function source(result: RagRetrievalResult): RetrievalSource {
     return { retrieveForEval: async () => result };
   }
+
+  it('defaults to docs scope: a code slice is dropped (F13, code deferred to F19)', async () => {
+    const result: RagRetrievalResult = {
+      vector_scores: new Map([['c1', 0.95]]),
+      chunks_retrieved: 1,
+      retrieved_chunk_ids: ['c1'],
+      retrieved_source_files: ['src/app.ts'],
+      retrieved_chunks: [{ id: 'c1', source_file: 'src/app.ts', content: 'code chunk' }],
+    };
+    const docsDefault = await gatherWorkingSetSlices('/proj', {
+      service: source(result),
+      changedPaths: ['src/app.ts'],
+    });
+    expect(docsDefault).toEqual([]);
+    // Explicit scope:'all' lets the same code slice through.
+    const all = await gatherWorkingSetSlices('/proj', {
+      service: source(result),
+      changedPaths: ['src/app.ts'],
+      scope: 'all',
+    });
+    expect(all).toHaveLength(1);
+  });
 
   it('returns the retrieved chunks as slices, scored', async () => {
     const result: RagRetrievalResult = {
       vector_scores: new Map([['c1', 0.91]]),
       chunks_retrieved: 1,
       retrieved_chunk_ids: ['c1'],
-      retrieved_source_files: ['docs/a.md'],
-      retrieved_chunks: [{ id: 'c1', source_file: 'docs/a.md', content: 'doc slice' }],
+      retrieved_source_files: ['docs/instructions/a.md'],
+      retrieved_chunks: [{ id: 'c1', source_file: 'docs/instructions/a.md', content: 'doc slice' }],
     };
     const slices = await gatherWorkingSetSlices('/proj', {
       service: source(result),
       changedPaths: ['src/app.ts'],
     });
-    expect(slices).toEqual([{ source_file: 'docs/a.md', content: 'doc slice', score: 0.91 }]);
+    expect(slices).toEqual([
+      { source_file: 'docs/instructions/a.md', content: 'doc slice', score: 0.91 },
+    ]);
   });
 
   it('returns [] when nothing is in play (no working set)', async () => {
@@ -155,8 +203,10 @@ describe('gatherWorkingSetSlices', () => {
       vector_scores: new Map([['c1', 0.6]]),
       chunks_retrieved: 1,
       retrieved_chunk_ids: ['c1'],
-      retrieved_source_files: ['docs/a.md'],
-      retrieved_chunks: [{ id: 'c1', source_file: 'docs/a.md', content: 'weak match' }],
+      retrieved_source_files: ['docs/instructions/a.md'],
+      retrieved_chunks: [
+        { id: 'c1', source_file: 'docs/instructions/a.md', content: 'weak match' },
+      ],
     };
     const slices = await gatherWorkingSetSlices('/proj', {
       service: source(result),
@@ -171,8 +221,10 @@ describe('gatherWorkingSetSlices', () => {
       vector_scores: new Map([['c1', 0.9]]),
       chunks_retrieved: 1,
       retrieved_chunk_ids: ['c1'],
-      retrieved_source_files: ['docs/a.md'],
-      retrieved_chunks: [{ id: 'c1', source_file: 'docs/a.md', content: 'strong match' }],
+      retrieved_source_files: ['docs/instructions/a.md'],
+      retrieved_chunks: [
+        { id: 'c1', source_file: 'docs/instructions/a.md', content: 'strong match' },
+      ],
     };
     const slices = await gatherWorkingSetSlices('/proj', {
       service: source(result),
@@ -180,7 +232,7 @@ describe('gatherWorkingSetSlices', () => {
       precisionFloor: 0.75,
     });
     expect(slices).toHaveLength(1);
-    expect(slices[0].source_file).toBe('docs/a.md');
+    expect(slices[0].source_file).toBe('docs/instructions/a.md');
   });
 
   it('forwards the topN cap to the retrieval source', async () => {

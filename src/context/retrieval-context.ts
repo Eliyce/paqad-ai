@@ -46,6 +46,46 @@ export interface RetrievalSlice {
 /** Hard cap on slices injected into the artifact (token guard, not a quality bar). */
 export const MAX_RETRIEVAL_SLICES = 5;
 
+/**
+ * Retrieval scope (RAG buildout F13). Docs first: the highest-ROI, safest content
+ * and the biggest token win (today whole docs/modules can load ~20-40K; a handful
+ * of slices is ~1-2K). Code retrieval is deliberately deferred to F19, after the
+ * eval gate (F15) proves docs retrieval helps.
+ *
+ *   docs — only paqad doc/instruction/module-map slices (the F13 default).
+ *   code — only non-doc (code) slices (the F19 extension surface).
+ *   all  — everything (used by evals / explicit callers).
+ */
+export type RetrievalScope = 'docs' | 'code' | 'all';
+
+/** Path prefixes that count as paqad documentation for the `docs` scope. */
+export const DOC_SCOPE_PREFIXES = ['docs/instructions/', 'docs/modules/'] as const;
+
+/**
+ * Whether a source path is paqad documentation (docs/instructions, docs/modules, or
+ * the module-map) and so belongs to the `docs` retrieval scope. Posix-normalised and
+ * tolerant of a leading `./`.
+ */
+export function isDocScopedPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/').replace(/^\.\//, '');
+  return (
+    DOC_SCOPE_PREFIXES.some((prefix) => normalized.startsWith(prefix)) ||
+    normalized.endsWith('module-map.yml')
+  );
+}
+
+/** Keep only the slices that belong to `scope` (F13). `all` is a passthrough. */
+export function filterToScope(
+  slices: readonly RetrievalSlice[],
+  scope: RetrievalScope,
+): RetrievalSlice[] {
+  if (scope === 'all') {
+    return [...slices];
+  }
+  const wantDoc = scope === 'docs';
+  return slices.filter((slice) => isDocScopedPath(slice.source_file) === wantDoc);
+}
+
 /** Per-slice character ceiling; a longer chunk is truncated with a visible marker. */
 export const MAX_SLICE_CHARS = 1200;
 
@@ -137,6 +177,11 @@ export interface GatherOptions {
    * `rag_similarity_threshold` (0.75) — the single tuned, documented threshold.
    */
   precisionFloor?: number;
+  /**
+   * Retrieval scope (F13). Defaults to `docs` — docs/instructions + module-map +
+   * module-doc slices only. Code retrieval is a later extension (F19).
+   */
+  scope?: RetrievalScope;
 }
 
 /**
@@ -197,5 +242,10 @@ export async function gatherWorkingSetSlices(
   // confident-but-wrong (or unscored) slice never reaches the model. Below floor ⇒
   // [] ⇒ empty section ⇒ the agent falls back to grep on the live files.
   const floor = options.precisionFloor ?? resolvePrecisionFloor(projectRoot);
-  return applyPrecisionFloor(slices, floor);
+  const aboveFloor = applyPrecisionFloor(slices, floor);
+
+  // F13 — scope to paqad docs first (the safest, highest-ROI content); code slices
+  // arrive in F19. Default `docs`: a code-only working set with no matching doc
+  // slice yields nothing here and the agent stays on grep, exactly as today.
+  return filterToScope(aboveFloor, options.scope ?? 'docs');
 }
