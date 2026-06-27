@@ -24,6 +24,7 @@ to the side.
 - [Pattern Vectors](../features/pattern-vectors/business.md)
 - [Eval Gates (hit@5, success, correction turns)](../features/eval-gates/business.md)
 - [Branch-Aware Index (branch/commit/base metadata)](../features/branch-aware-index/business.md)
+- [Embedding Cache (content-addressed, model-scoped)](../features/embedding-cache/business.md)
 
 ## Authority
 

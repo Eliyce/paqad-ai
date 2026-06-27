@@ -671,6 +671,8 @@ modules:
         name: Eval Gates (hit@5, success, correction turns)
       - slug: branch-aware-index
         name: Branch-Aware Index (branch/commit/base metadata)
+      - slug: embedding-cache
+        name: Embedding Cache (content-addressed, model-scoped)
 
   - slug: background-harness
     name: Background-Worker Harness
