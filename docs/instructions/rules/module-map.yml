@@ -721,6 +721,25 @@ modules:
       - slug: context-block-emit
         name: Context Block Emit ([paqad-context] + hook wiring)
 
+  - slug: smart-rule-loading
+    name: Smart Rule Loading
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Replace "load all ~50K of rule text every session" with a
+      deterministic, token-lean scheme (RAG buildout Phase 2). The model
+      always knows every rule exists and when it applies, while a rule's
+      full text is deferred until its declared triggers match what is being
+      touched, and script-enforced rules stay enforced regardless of context.
+      Deliberately deterministic (declared triggers + scripts), never an
+      embedding-RAG guess — omitting a rule is a correctness failure. Rides
+      the context-seam for delivery and the background harness for freshness.
+    sources:
+      - src/context/rule-manifest.ts
+    features:
+      - slug: rule-manifest
+        name: Rule Manifest (always-resident index of every rule)
+
   - slug: mcp-config
     name: MCP Configuration
     layer: framework-internals
