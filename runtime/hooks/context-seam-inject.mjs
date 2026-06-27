@@ -24,8 +24,8 @@
 
 import process from 'node:process';
 
-import { buildInjection } from '../scripts/context-seam.mjs';
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { buildInjection, isRagEnabledValue } from '../scripts/context-seam.mjs';
+import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 function emitContext() {
   try {
@@ -33,6 +33,15 @@ function emitContext() {
     // Issue #220: when paqad is disabled the seam is a pure no-op — emitting a
     // `[paqad-context]` line would contaminate the OFF arm of an A/B comparison.
     if (isPaqadDisabled(projectRoot)) return;
+
+    // RAG buildout F3 — disabled/cold-start == today's behavior. The injection
+    // accelerator is OFF by default (honest grep/agentic default); only an
+    // explicit `rag_enabled` truthy value turns it on. When off we emit nothing,
+    // converging disabled == missing == baseline, even if a stale artifact from a
+    // previously-enabled run still sits on disk.
+    if (!isRagEnabledValue(readLayeredKey(projectRoot, 'rag_enabled', 'PAQAD_RAG_ENABLED'))) {
+      return;
+    }
 
     const block = buildInjection(projectRoot);
     if (block) process.stdout.write(`${block}\n`);

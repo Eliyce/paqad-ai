@@ -29,6 +29,10 @@
 - Project root: `resolveProjectRoot()` from `lib/paqad-disabled.mjs`
   (CLAUDE_PROJECT_DIR / PAQAD_PROJECT_ROOT / cwd).
 - Disabled check: `isPaqadDisabled(projectRoot)` → emit nothing.
+- F3 master switch: `isRagEnabledValue(readLayeredKey(projectRoot, 'rag_enabled',
+  'PAQAD_RAG_ENABLED'))` → emit nothing when off. Default off mirrors the
+  `FRAMEWORK_CONFIG_SPECS` `rag_enabled` default (`false`); only an explicit
+  truthy token (`true`/`1`/`yes`/`on`) enables injection.
 - The bash gate calls `node context-seam-inject.mjs </dev/null` after its own
   disabled short-circuit and before the load reminder, swallowing all output
   errors (`2>/dev/null || true`). `</dev/null` gives the hook an immediate stdin

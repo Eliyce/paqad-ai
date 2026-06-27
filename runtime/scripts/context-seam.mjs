@@ -46,6 +46,24 @@ export const DEFAULT_MAX_BYTES = 128 * 1024;
 export const BLOCK_OPEN = '[paqad-context]';
 export const BLOCK_CLOSE = '[/paqad-context]';
 
+/** `rag_enabled` tokens that mean ON (mirrors the framework-config boolean parse). */
+const RAG_TRUTHY = new Set(['true', '1', 'yes', 'on']);
+
+/**
+ * Interpret a raw layered `rag_enabled` value (RAG buildout F3 — the master
+ * switch for the injection accelerator). Default is OFF: paqad ships the honest
+ * grep/agentic default (`FRAMEWORK_CONFIG_SPECS` `rag_enabled` default = false),
+ * so an unset value emits nothing and the agent behaves exactly as today. Only an
+ * explicit truthy token turns injection on.
+ *
+ * @param {string | undefined} raw the value resolved across the config layers.
+ * @returns {boolean}
+ */
+export function isRagEnabledValue(raw) {
+  if (raw === undefined || raw === null) return false;
+  return RAG_TRUTHY.has(String(raw).trim().toLowerCase());
+}
+
 /**
  * Resolve where the precomputed context artifact lives.
  *

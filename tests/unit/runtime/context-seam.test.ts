@@ -13,6 +13,7 @@ import {
   CONTEXT_ARTIFACT_RELPATH,
   buildInjection,
   formatContextBlock,
+  isRagEnabledValue,
   readContextUnderBudget,
   resolveContextArtifactPath,
   // @ts-expect-error — runtime .mjs has no type declarations.
@@ -133,6 +134,25 @@ describe('readContextUnderBudget', () => {
     });
     expect(out).toContain('truncated at 10 bytes');
     expect(out?.startsWith('aaaaaaaaaa')).toBe(true);
+  });
+});
+
+describe('isRagEnabledValue (F3 master switch)', () => {
+  it('defaults to off when unset (honest grep default)', () => {
+    expect(isRagEnabledValue(undefined)).toBe(false);
+    expect(isRagEnabledValue(null)).toBe(false);
+  });
+
+  it('treats true/1/yes/on (any case) as on', () => {
+    for (const v of ['true', '1', 'yes', 'on', 'TRUE', ' On ']) {
+      expect(isRagEnabledValue(v)).toBe(true);
+    }
+  });
+
+  it('treats false/0/no/off and junk as off', () => {
+    for (const v of ['false', '0', 'no', 'off', '', 'maybe']) {
+      expect(isRagEnabledValue(v)).toBe(false);
+    }
   });
 });
 
