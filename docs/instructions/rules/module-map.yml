@@ -738,11 +738,14 @@ modules:
       - src/context/rule-manifest.ts
       - src/context/rule-context.ts
       - src/pipeline/rule-trigger-matcher.ts
+      - src/rule-scripts/enforce.ts
     features:
       - slug: rule-manifest
         name: Rule Manifest (always-resident index of every rule)
       - slug: trigger-load
         name: Trigger-Load (full rule text for the files in play)
+      - slug: script-enforcement
+        name: Script Enforcement (scripted rules enforced regardless of context)
 
   - slug: mcp-config
     name: MCP Configuration

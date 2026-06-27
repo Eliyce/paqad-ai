@@ -20,11 +20,13 @@ and the background-worker harness for freshness.
 - `src/context/rule-manifest.ts`
 - `src/context/rule-context.ts`
 - `src/pipeline/rule-trigger-matcher.ts`
+- `src/rule-scripts/enforce.ts`
 
 ## Features
 
 - [Rule Manifest (always-resident index of every rule)](../features/rule-manifest/business.md)
 - [Trigger-Load (full rule text for the files in play)](../features/trigger-load/business.md)
+- [Script Enforcement (scripted rules enforced regardless of context)](../features/script-enforcement/business.md)
 
 ## Authority
 
