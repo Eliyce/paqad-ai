@@ -14,6 +14,9 @@
   base_branch?, base_commit? }`.
 - `FileVectorIndex.replaceAll(projectRoot, items, metaInput, baseBranch?)` —
   stamps the state into the persisted `RagIndexMeta`.
+- Config (RAG buildout F10): `rag_base_branch` (`FRAMEWORK_CONFIG_SPECS`, group
+  `rag`, env `PAQAD_RAG_BASE_BRANCH`, default unset → auto-detect). `RagService`
+  threads `intelligence.rag_base_branch` into the working-tree index builds.
 
 ## Data Model / Schema
 

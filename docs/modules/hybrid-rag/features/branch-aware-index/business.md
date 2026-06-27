@@ -29,7 +29,8 @@ technical contract lives at [`technical.md`](./technical.md).
 
 ## Business Rules
 
-- The base branch is auto-detected (`main`, then `master`) unless configured.
+- The base branch is auto-detected (`main`, then `master`) unless configured via
+  `rag_base_branch` (team/local/env config layers; release branches honoured).
 - Every git field is best-effort: a non-git directory, a detached HEAD, or a
   missing base leaves that field unset rather than failing the build.
 - The git state is read-only — building the index never mutates the repo.
