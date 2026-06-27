@@ -35,4 +35,31 @@ describe('module-health/parsers/jacoco', () => {
       { file: 'x/Y.java', lines_total: 0, lines_covered: 0 },
     ]);
   });
+
+  it('falls back when a sourcefile has no name and no LINE counter (joins to the package)', () => {
+    // package has a name, sourcefile has none, no LINE counter → file = package, 0/0.
+    const xml = `
+<report>
+  <package name="pkg">
+    <sourcefile>
+      <counter type="INSTRUCTION" missed="1" covered="1"/>
+    </sourcefile>
+  </package>
+</report>`;
+    expect(parseReport(xml).coverage).toEqual([{ file: 'pkg', lines_total: 0, lines_covered: 0 }]);
+  });
+
+  it('falls back to the sourcefile name when the package has no name', () => {
+    const xml = `
+<report>
+  <package>
+    <sourcefile name="Solo.java">
+      <counter type="LINE" missed="1" covered="1"/>
+    </sourcefile>
+  </package>
+</report>`;
+    expect(parseReport(xml).coverage).toEqual([
+      { file: 'Solo.java', lines_total: 2, lines_covered: 1 },
+    ]);
+  });
 });
