@@ -133,6 +133,11 @@ export const PATHS = {
   // artifact. The runtime seam (runtime/scripts/context-seam.mjs) hardcodes the
   // same relative path; keep the two in sync.
   CONTEXT_SESSION_ARTIFACT: '.paqad/context/session-context.md',
+  // RAG buildout F21 — the deterministic codebase-memory store (cross-session
+  // repo facts, decisions, recurring failures, style). Lives under the already-
+  // ignored crs/ root (per-machine, regenerable), disjoint from the desktop's
+  // PQD-415 CRS collection subdirectories. A single JSON file, never a directory.
+  CODEBASE_MEMORY: '.paqad/crs/codebase-memory.json',
   // Feature 3 - Context Budget Optimizer
   CONTEXT_BUDGET_STATE: '.paqad/session/context-budget.json',
   CONTEXT_SAVINGS: '.paqad/session/context-savings.json',

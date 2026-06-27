@@ -135,4 +135,25 @@ describe('refreshRuleContext', () => {
     expect(stdout).toContain('paqad rule manifest');
     expect(stdout).toContain('ALWAYS TEXT');
   });
+
+  it('threads the F21 memory section into the artifact, ahead of retrieval', async () => {
+    writeCompiled([rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'ALWAYS TEXT' })]);
+    await refreshRuleContext(projectRoot, {
+      memorySection: '## Codebase memory — 1 remembered fact\nMEMORY BODY',
+      retrievalSection: '## Retrieved context — 1 slice\nRETRIEVAL BODY',
+    });
+    const written = readFileSync(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT), 'utf8');
+    expect(written).toContain('MEMORY BODY');
+    expect(written).toContain('RETRIEVAL BODY');
+    // Durable memory sits ahead of the ephemeral retrieval slices.
+    expect(written.indexOf('MEMORY BODY')).toBeLessThan(written.indexOf('RETRIEVAL BODY'));
+  });
+
+  it('writes a memory-only artifact when there are no compiled rules', async () => {
+    const target = await refreshRuleContext(projectRoot, {
+      memorySection: '## Codebase memory — 1 remembered fact\nMEMORY ONLY',
+    });
+    expect(target).toBe(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT));
+    expect(readFileSync(target as string, 'utf8')).toContain('MEMORY ONLY');
+  });
 });

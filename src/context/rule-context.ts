@@ -96,6 +96,12 @@ export function composeRuleContext(
 
 export interface WriteRuleContextOptions {
   /**
+   * The composed codebase-memory slice (RAG buildout F21), appended after the rule
+   * slice (durable facts sit with the rules, ahead of the ephemeral retrieval slices).
+   * Empty/absent ⇒ omitted, so the artifact stays byte-identical to before F21.
+   */
+  memorySection?: string;
+  /**
    * The composed retrieval slice (RAG buildout F11), appended after the rule slice
    * to form the single session-context artifact. Empty/absent ⇒ rule-only output,
    * byte-identical to the pre-F11 artifact (the disabled/cold-start == today path).
@@ -116,8 +122,9 @@ export async function writeRuleContext(
   options: WriteRuleContextOptions = {},
 ): Promise<string | null> {
   const store = await readCompiledRules(projectRoot);
+  const memorySection = options.memorySection?.trim() ?? '';
   const retrievalSection = options.retrievalSection?.trim() ?? '';
-  if (!store && !retrievalSection) return null;
+  if (!store && !memorySection && !retrievalSection) return null;
 
   let markdown = '';
   if (store) {
@@ -125,8 +132,11 @@ export async function writeRuleContext(
     const scriptedPaths = scriptedSourcePaths(loadRuleScriptMap(projectRoot));
     markdown = composeRuleContext(store, { changedPaths, scriptedPaths });
   }
-  if (retrievalSection) {
-    markdown = markdown ? `${markdown}\n${retrievalSection}\n` : `${retrievalSection}\n`;
+  // Durable codebase memory (F21) sits ahead of the ephemeral retrieval slices.
+  for (const section of [memorySection, retrievalSection]) {
+    if (section) {
+      markdown = markdown ? `${markdown}\n${section}\n` : `${section}\n`;
+    }
   }
 
   const target = join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT);

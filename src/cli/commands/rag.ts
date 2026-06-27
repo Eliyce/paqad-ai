@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import { EMBEDDING_PROVIDERS, getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
+import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
 import { refreshRuleContext } from '@/context/rule-context.js';
 import { composeRetrievalSection, gatherWorkingSetSlices } from '@/context/retrieval-context.js';
 import { backgroundIndexSync } from '@/rag/background-sync.js';
@@ -282,7 +283,13 @@ export function createRagCommand(): Command {
       const sync = await backgroundIndexSync(options.projectRoot);
       const slices = await gatherWorkingSetSlices(options.projectRoot);
       const retrievalSection = composeRetrievalSection(slices);
-      const target = await refreshRuleContext(options.projectRoot, { retrievalSection });
+      // F21 — durable codebase memory, deterministic and embedding-free (no provider
+      // call), gathered from the on-disk store and injected ahead of the slices.
+      const memorySection = gatherCodebaseMemory(options.projectRoot);
+      const target = await refreshRuleContext(options.projectRoot, {
+        memorySection,
+        retrievalSection,
+      });
       if (!options.quiet) {
         process.stdout.write(
           `${target ? `wrote ${target}` : 'nothing to compose'}; index sync: ${
