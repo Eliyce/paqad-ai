@@ -21,6 +21,7 @@ import { SessionResumeValidator } from '@/session/resume-validator.js';
 
 import { appendRagAudit } from './audit.js';
 import { CrsBacklogQueue } from './crs-backlog.js';
+import { EmbeddingCache } from './embedding-cache.js';
 import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
 import { createEmbeddingProvider } from './providers.js';
@@ -1002,40 +1003,74 @@ export class RagService {
 
     const onProgress = options?.onProgress;
     const signal = options?.signal;
-    const results: StoredVectorChunk[] = [];
+
+    // RAG buildout F8 — consult the content-addressed cache before embedding.
+    // Only chunks whose text is not already cached for this model hit the
+    // provider; unchanged chunks (and a previously-seen branch's chunks) are free.
+    const cache = EmbeddingCache.load(this.projectRoot, provider.model);
+    const missIndices: number[] = [];
+    for (let index = 0; index < chunks.length; index++) {
+      if (!cache.has(chunks[index].content)) {
+        missIndices.push(index);
+      }
+    }
+
+    // Assemble the stored chunks from whatever is currently cached (used for the
+    // success result and for the partial-checkpoint on cancellation).
+    const assemble = (): StoredVectorChunk[] =>
+      chunks
+        .map((chunk) => {
+          const vector = cache.get(chunk.content);
+          return vector ? { ...chunk, vector } : null;
+        })
+        .filter((item): item is StoredVectorChunk => item !== null);
+
+    const cachedCount = chunks.length - missIndices.length;
     const batchSize = 32;
     const start = Date.now();
-    for (let offset = 0; offset < chunks.length; offset += batchSize) {
-      // Per-batch cancellation boundary: surface the chunks embedded so far so
-      // the caller can persist them as a resumable partial checkpoint (PQD-104).
+    for (let offset = 0; offset < missIndices.length; offset += batchSize) {
+      // Per-batch cancellation boundary: persist what we have embedded so far and
+      // surface it as a resumable partial checkpoint (PQD-104).
       if (signal?.aborted) {
+        await cache.flush();
         throw new CancelledError('RAG rebuild cancelled by consumer', {
-          partialChunks: results,
+          partialChunks: assemble(),
         } as Record<string, unknown>);
       }
-      const batch = chunks.slice(offset, offset + batchSize);
-      const vectors = await provider.embed(batch.map((chunk) => chunk.content));
-      for (let index = 0; index < batch.length; index++) {
-        results.push({
-          ...batch[index],
-          vector: vectors[index],
-        });
+      const batchIndices = missIndices.slice(offset, offset + batchSize);
+      const vectors = await provider.embed(batchIndices.map((index) => chunks[index].content));
+      for (let position = 0; position < batchIndices.length; position++) {
+        cache.set(chunks[batchIndices[position]].content, vectors[position]);
       }
-      const loaded = Math.min(offset + batch.length, chunks.length);
-      const percent = Math.round((loaded / chunks.length) * 100);
+      const embeddedMisses = Math.min(offset + batchIndices.length, missIndices.length);
+      const loaded = cachedCount + embeddedMisses;
       onProgress?.({
         phase: 'build',
-        message: `Embedded ${loaded}/${chunks.length} chunks with ${provider.model} (ETA ${estimateEtaSeconds(
+        message: `Embedded ${loaded}/${chunks.length} chunks with ${provider.model} (${cachedCount} cached, ETA ${estimateEtaSeconds(
           start,
-          loaded,
-          chunks.length,
+          embeddedMisses,
+          missIndices.length,
         )}s)`,
         loaded,
         total: chunks.length,
-        percent,
+        percent: Math.round((loaded / chunks.length) * 100),
       });
     }
-    return results;
+
+    // Everything cached up front: report a single completed tick so progress
+    // consumers still see a build event.
+    if (missIndices.length === 0) {
+      onProgress?.({
+        phase: 'build',
+        message: `Embedded ${chunks.length}/${chunks.length} chunks with ${provider.model} (all cached)`,
+        loaded: chunks.length,
+        total: chunks.length,
+        percent: 100,
+      });
+    }
+
+    await cache.flush();
+    return assemble();
   }
 
   private async discoverSourceFiles(

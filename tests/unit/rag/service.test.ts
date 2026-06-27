@@ -108,6 +108,27 @@ function fakeProviderFactory(): ProviderFactory {
   return async () => provider;
 }
 
+/** A provider that counts how many texts it is asked to embed (RAG F8). */
+function countingProviderFactory(model = 'fake-local'): {
+  factory: ProviderFactory;
+  calls: { embeddedTexts: number };
+} {
+  const calls = { embeddedTexts: 0 };
+  const provider: EmbeddingProvider = {
+    name: 'local',
+    model,
+    async validate() {
+      return;
+    },
+    async embed(input: string | string[]) {
+      const batch = Array.isArray(input) ? input : [input];
+      calls.embeddedTexts += batch.length;
+      return batch.map(() => [0.5, 0.5]);
+    },
+  };
+  return { factory: async () => provider, calls };
+}
+
 // Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
 // not the profile YAML. `configureAndBuild`/`writeProjectProfile` no longer
 // persist them there, so seed `.config` directly whenever a later
@@ -140,6 +161,46 @@ describe('RagService', () => {
     vi.restoreAllMocks();
     clearEngineLogger();
     rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('F8: a rebuild re-embeds nothing when chunks are unchanged (cache hit)', async () => {
+    const { factory, calls } = countingProviderFactory();
+    const service = new RagService(projectRoot, factory);
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    const firstBuildEmbeds = calls.embeddedTexts;
+    expect(firstBuildEmbeds).toBeGreaterThan(0);
+    expect(existsSync(join(projectRoot, '.paqad', 'vectors', 'embedding-cache.json'))).toBe(true);
+
+    // A full rebuild over the same (unchanged) sources hits the cache for every
+    // chunk — the provider is never called again. A previously-seen branch is the
+    // same case: its chunk text is already cached.
+    await service.rebuild();
+    expect(calls.embeddedTexts).toBe(firstBuildEmbeds);
+  });
+
+  it('F8: a model change invalidates the cache and re-embeds', async () => {
+    const first = countingProviderFactory('model-a');
+    const serviceA = new RagService(projectRoot, first.factory);
+    await serviceA.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'model-a',
+    });
+    expect(first.calls.embeddedTexts).toBeGreaterThan(0);
+
+    const second = countingProviderFactory('model-b');
+    const serviceB = new RagService(projectRoot, second.factory);
+    await serviceB.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'model-b',
+    });
+    // Different model → cache keys are a different namespace → full re-embed.
+    expect(second.calls.embeddedTexts).toBeGreaterThan(0);
   });
 
   it('builds, reports status, refreshes, and clears a project vector index', async () => {
