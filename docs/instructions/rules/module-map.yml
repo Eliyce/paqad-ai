@@ -697,6 +697,30 @@ modules:
       - slug: atomic-artifact-swap
         name: Atomic Artifact Swap (build-to-temp + rename)
 
+  - slug: context-seam
+    name: Context Injection Seam
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The session-time delivery channel for everything paqad wants in front
+      of the model (RAG buildout F2). A `UserPromptSubmit` hook reads a
+      precomputed context artifact off disk and emits it as a
+      `[paqad-context]` block on stdout, so the host injects it into the
+      model context before the turn. The seam does no heavy work — only a
+      stat + read of a finished artifact under a hard time budget (the
+      background harness keeps the artifact fresh). Smart rule loading,
+      wired retrieval, stage gating, and the codebase-memory tier all ride
+      on this one channel. A missing, empty, disabled, or too-slow artifact
+      emits nothing, so the agent falls back to grep/read exactly as today.
+    sources:
+      - runtime/scripts/context-seam.mjs
+      - runtime/hooks/context-seam-inject.mjs
+    features:
+      - slug: budgeted-read
+        name: Budgeted Artifact Read (resolve + read + ceiling)
+      - slug: context-block-emit
+        name: Context Block Emit ([paqad-context] + hook wiring)
+
   - slug: mcp-config
     name: MCP Configuration
     layer: framework-internals
