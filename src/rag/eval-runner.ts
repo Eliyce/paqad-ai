@@ -1,3 +1,6 @@
+import { compareConfigurations } from './benchmark-gates.js';
+import type { ConfigurationComparisonResult, RagBenchmarkSnapshot } from './benchmark-gates.js';
+import type { BenchmarkGateConfig } from '@/core/types/project-profile.js';
 import type {
   ComparisonMode,
   EvalDatasetItem,
@@ -81,6 +84,65 @@ export function computeCorrectionTurns(dataset: EvalDatasetItem[], traces: EvalT
 
 export function computePromptTokensSent(traces: EvalTrace[]): number {
   return traces.reduce((sum, trace) => sum + (trace.packed_token_count ?? 0), 0);
+}
+
+/**
+ * Roll the four gated metrics up into a {@link RagBenchmarkSnapshot} (RAG buildout
+ * F15). Pure: given a dataset and its traces, produces the snapshot the benchmark
+ * gates compare.
+ */
+export function snapshotFromTraces(
+  dataset: EvalDatasetItem[],
+  traces: EvalTrace[],
+): RagBenchmarkSnapshot {
+  return {
+    hit_at_5: computeHitAtK(dataset, traces, 5),
+    task_success_rate: computeTaskSuccessRate(dataset, traces),
+    correction_turns: computeCorrectionTurns(dataset, traces),
+    prompt_tokens_sent: computePromptTokensSent(traces),
+    task_count: dataset.length,
+  };
+}
+
+/**
+ * The feature-OFF arm of the A/B gate (RAG buildout F15): retrieval disabled, so
+ * every item has an empty trace at depth `none` and zero injected tokens. This is
+ * the honest baseline — exactly today's grep/agentic behaviour with no slices
+ * injected. should-skip items still "succeed" off (skipping is correct), so the ON
+ * arm must beat OFF on real retrieval to clear the gate.
+ */
+export function buildFeatureOffTraces(dataset: EvalDatasetItem[]): EvalTrace[] {
+  return dataset.map((item) => ({
+    item_id: item.id,
+    retrieval_depth: 'none',
+    first_stage_chunk_ids: [],
+    packed_chunk_ids: [],
+    packed_token_count: 0,
+  }));
+}
+
+export interface FeatureOffVsOnResult {
+  off: RagBenchmarkSnapshot;
+  on: RagBenchmarkSnapshot;
+  comparison: ConfigurationComparisonResult;
+}
+
+/**
+ * Run the on/off A/B merge gate (RAG buildout F15). Builds the feature-OFF snapshot
+ * deterministically and the feature-ON snapshot from real retrieval traces, then
+ * evaluates the benchmark gates (quality must not drop; injected tokens are only
+ * justified by a task-success improvement). The caller fails the merge when
+ * `comparison.evaluation.passed` is false.
+ */
+export function runFeatureOffVsOnGate(
+  dataset: EvalDatasetItem[],
+  onTraces: EvalTrace[],
+  gates?: BenchmarkGateConfig,
+): FeatureOffVsOnResult {
+  const off = snapshotFromTraces(dataset, buildFeatureOffTraces(dataset));
+  const on = snapshotFromTraces(dataset, onTraces);
+  const comparison = compareConfigurations(off, on, 'feature-off-vs-on', gates);
+  return { off, on, comparison };
 }
 
 export interface ModelGrader {

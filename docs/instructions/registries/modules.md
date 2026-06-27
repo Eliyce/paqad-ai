@@ -51,6 +51,9 @@ paqad-ai's modules live in three layers:
 | template-engine            | Template Engine                        | [↗](../../modules/template-engine/index/summary.md) |
 | context-intelligence       | Context Intelligence                   | [↗](../../modules/context-intelligence/index/summary.md) |
 | hybrid-rag                 | Hybrid RAG Runtime                     | [↗](../../modules/hybrid-rag/index/summary.md) |
+| background-harness         | Background-Worker Harness              | [↗](../../modules/background-harness/index/summary.md) |
+| context-seam               | Context Injection Seam                 | [↗](../../modules/context-seam/index/summary.md) |
+| smart-rule-loading         | Smart Rule Loading                     | [↗](../../modules/smart-rule-loading/index/summary.md) |
 | mcp-config                 | MCP Configuration                      | [↗](../../modules/mcp-config/index/summary.md) |
 | module-map-engine          | Module Map Engine                      | [↗](../../modules/module-map-engine/index/summary.md) |
 | module-health-ledger       | Module Health Ledger                   | [↗](../../modules/module-health-ledger/index/summary.md) |

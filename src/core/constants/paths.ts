@@ -129,6 +129,21 @@ export const PATHS = {
   MODULE_HEALTH_LOG: '.paqad/logs/module-health.log',
   COMPILED_RULES: '.paqad/compiled-rules.json',
   PLANNING_COSTS: '.paqad/cache/planning-costs.json',
+  // RAG buildout F2/F4 — the session-time injection seam's precomputed context
+  // artifact. The runtime seam (runtime/scripts/context-seam.mjs) hardcodes the
+  // same relative path; keep the two in sync.
+  CONTEXT_SESSION_ARTIFACT: '.paqad/context/session-context.md',
+  // RAG buildout F21 — the deterministic codebase-memory store (cross-session
+  // repo facts, decisions, recurring failures, style). Lives under the already-
+  // ignored crs/ root (per-machine, regenerable), disjoint from the desktop's
+  // PQD-415 CRS collection subdirectories. A single JSON file, never a directory.
+  CODEBASE_MEMORY: '.paqad/crs/codebase-memory.json',
+  // RAG buildout F27 — base-drift awareness. The persisted drift snapshot (read on
+  // the prompt path, no network), the debounce marker that floors the background
+  // git fetch to one per interval, and its single-flight lock.
+  BASE_DRIFT_STATE: '.paqad/session/base-drift.json',
+  BASE_DRIFT_MARKER: '.paqad/session/base-drift.marker',
+  BASE_DRIFT_LOCK: '.paqad/locks/base-drift.lock',
   // Feature 3 - Context Budget Optimizer
   CONTEXT_BUDGET_STATE: '.paqad/session/context-budget.json',
   CONTEXT_SAVINGS: '.paqad/session/context-savings.json',

@@ -14,6 +14,10 @@ const AGENT_ENTRY_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-
 // lives only in the framework install (never copied into the project) and is now
 // a cross-platform Node script.
 const SILENT_UPDATE_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/silent-update.mjs';
+// RAG buildout F6 — live rule-script enforcement. Registered for both PreToolUse
+// (Edit/Write/NotebookEdit) and Stop so scripted-rule violations are caught from
+// the working tree even when the rule text is not loaded into context.
+const RULE_SCRIPT_ENFORCE_SCRIPT = '~/.paqad-ai/current/hooks/rule-script-enforce.mjs';
 
 // Hook commands paqad used to generate but no longer does. Pruned from an
 // existing settings.json on re-onboard so a renamed/removed hook does not leave
@@ -112,6 +116,10 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
         hooks: [{ type: 'command', command: AGENT_ENTRY_GATE_SCRIPT }],
       },
       ...preToolMutation,
+      {
+        matcher: 'Edit|Write|NotebookEdit',
+        hooks: [{ type: 'command', command: RULE_SCRIPT_ENFORCE_SCRIPT }],
+      },
     ]),
     UserPromptSubmit: mergeHookList(hooks.UserPromptSubmit, [
       {
@@ -126,7 +134,10 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
         hooks: [{ type: 'command', command: SILENT_UPDATE_SESSION_START_SCRIPT }],
       },
     ]),
-    Stop: mergeHookList(hooks.Stop, completion),
+    Stop: mergeHookList(hooks.Stop, [
+      ...completion,
+      { hooks: [{ type: 'command', command: RULE_SCRIPT_ENFORCE_SCRIPT }] },
+    ]),
   };
   return next;
 }

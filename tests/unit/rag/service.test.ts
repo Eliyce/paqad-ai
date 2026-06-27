@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +13,8 @@ import { PatternVectorService } from '@/patterns/pattern-rag.js';
 import type { IntelligenceConfig } from '@/core/types/project-profile.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 import type { EmbeddingProvider, ProviderFactory } from '@/rag/types.js';
-import { RagService } from '@/rag/service.js';
+import { RagService, lexicalDocumentText } from '@/rag/service.js';
+import { backgroundIndexSync } from '@/rag/background-sync.js';
 import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
 import type { EngineLogEntry } from '@/core/types/logger.js';
 
@@ -108,6 +110,27 @@ function fakeProviderFactory(): ProviderFactory {
   return async () => provider;
 }
 
+/** A provider that counts how many texts it is asked to embed (RAG F8). */
+function countingProviderFactory(model = 'fake-local'): {
+  factory: ProviderFactory;
+  calls: { embeddedTexts: number };
+} {
+  const calls = { embeddedTexts: 0 };
+  const provider: EmbeddingProvider = {
+    name: 'local',
+    model,
+    async validate() {
+      return;
+    },
+    async embed(input: string | string[]) {
+      const batch = Array.isArray(input) ? input : [input];
+      calls.embeddedTexts += batch.length;
+      return batch.map(() => [0.5, 0.5]);
+    },
+  };
+  return { factory: async () => provider, calls };
+}
+
 // Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
 // not the profile YAML. `configureAndBuild`/`writeProjectProfile` no longer
 // persist them there, so seed `.config` directly whenever a later
@@ -140,6 +163,217 @@ describe('RagService', () => {
     vi.restoreAllMocks();
     clearEngineLogger();
     rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('F9: backgroundIndexSync re-embeds only the changed file (incremental, cache-backed)', async () => {
+    const { factory, calls } = countingProviderFactory();
+    const service = new RagService(projectRoot, factory);
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    const afterBuild = calls.embeddedTexts;
+
+    // Touch only auth.ts; a background sync should re-embed just its chunk(s).
+    writeFileSync(
+      join(projectRoot, 'src/auth.ts'),
+      [
+        'export function canAccessAuth() {',
+        "  const authContext = 'auth policy CHANGED validation for protected routes and sessions';",
+        '  return authContext.length > 1;',
+        '}',
+        '',
+      ].join('\n'),
+    );
+
+    const result = await backgroundIndexSync(projectRoot, factory);
+    expect(result).toEqual({ synced: true });
+    const delta = calls.embeddedTexts - afterBuild;
+    expect(delta).toBeGreaterThan(0); // the changed file was re-embedded
+    expect(delta).toBeLessThanOrEqual(2); // but only it, not the whole tree
+  });
+
+  it('F9: backgroundIndexSync reports no-index when nothing is built yet', async () => {
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'no-index',
+    });
+  });
+
+  it('F9: backgroundIndexSync reports disabled when rag is off', async () => {
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'disabled',
+    });
+  });
+
+  it('F9: backgroundIndexSync no-ops (in-flight) when the sync lock is held', async () => {
+    mkdirSync(join(projectRoot, '.paqad', 'locks', 'rag-sync.lock'), { recursive: true });
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'in-flight',
+    });
+  });
+
+  it('F10: a configured rag_base_branch is honoured in the index meta', async () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] });
+    g('init', '-q');
+    g('config', 'user.email', 't@example.com');
+    g('config', 'user.name', 'Test');
+    g('checkout', '-q', '-b', 'main');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'seed');
+    g('checkout', '-q', '-b', 'release/2.x');
+    g('commit', '-q', '--allow-empty', '-m', 'release');
+    g('checkout', '-q', '-b', 'feat/w');
+
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+      rag_base_branch: 'release/2.x',
+    });
+
+    const meta = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad', 'vectors', 'meta.json'), 'utf8'),
+    );
+    expect(meta.branch).toBe('feat/w');
+    expect(meta.base_branch).toBe('release/2.x');
+    expect(meta.base_commit).toBe(
+      execFileSync('git', ['rev-parse', 'release/2.x'], { cwd: projectRoot }).toString().trim(),
+    );
+  });
+
+  it('F22: the index meta records the chunker version it was built with', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    const meta = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad', 'vectors', 'meta.json'), 'utf8'),
+    );
+    expect(meta.chunker_version).toBe('cast-blurb-v1');
+  });
+
+  it('F22: an index built by a different chunker is invalid (forces a full rebuild)', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    expect((await service.getStatus()).valid).toBe(true);
+
+    // Simulate an index built by an older/different chunker (e.g. pre-F22 = no version).
+    const metaPath = join(projectRoot, '.paqad', 'vectors', 'meta.json');
+    const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+    delete meta.chunker_version;
+    writeFileSync(metaPath, JSON.stringify(meta));
+
+    const status = await service.getStatus();
+    expect(status.valid).toBe(false);
+    expect(status.reason).toContain('chunker');
+    // A mismatched index is never incrementally synced — the guard against mixing.
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'no-index',
+    });
+  });
+
+  it('F9: a branch switch self-heals the index branch metadata', async () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] });
+    g('init', '-q');
+    g('config', 'user.email', 't@example.com');
+    g('config', 'user.name', 'Test');
+    g('checkout', '-q', '-b', 'main');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'seed');
+
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+
+    const metaPath = join(projectRoot, '.paqad', 'vectors', 'meta.json');
+    expect(JSON.parse(readFileSync(metaPath, 'utf8')).branch).toBe('main');
+
+    // Switch to a feature branch and change a file, then background-sync.
+    g('checkout', '-q', '-b', 'feat/z');
+    writeFileSync(
+      join(projectRoot, 'src/auth.ts'),
+      'export const authChanged = "auth policy revised for the feature branch";\n',
+    );
+    const result = await backgroundIndexSync(projectRoot, fakeProviderFactory());
+    expect(result).toEqual({ synced: true });
+    expect(JSON.parse(readFileSync(metaPath, 'utf8')).branch).toBe('feat/z');
+  });
+
+  it('F8: a rebuild re-embeds nothing when chunks are unchanged (cache hit)', async () => {
+    const { factory, calls } = countingProviderFactory();
+    const service = new RagService(projectRoot, factory);
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    const firstBuildEmbeds = calls.embeddedTexts;
+    expect(firstBuildEmbeds).toBeGreaterThan(0);
+    expect(existsSync(join(projectRoot, '.paqad', 'vectors', 'embedding-cache.json'))).toBe(true);
+
+    // A full rebuild over the same (unchanged) sources hits the cache for every
+    // chunk — the provider is never called again. A previously-seen branch is the
+    // same case: its chunk text is already cached.
+    await service.rebuild();
+    expect(calls.embeddedTexts).toBe(firstBuildEmbeds);
+  });
+
+  it('F8: a model change invalidates the cache and re-embeds', async () => {
+    const first = countingProviderFactory('model-a');
+    const serviceA = new RagService(projectRoot, first.factory);
+    await serviceA.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'model-a',
+    });
+    expect(first.calls.embeddedTexts).toBeGreaterThan(0);
+
+    const second = countingProviderFactory('model-b');
+    const serviceB = new RagService(projectRoot, second.factory);
+    await serviceB.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'model-b',
+    });
+    // Different model → cache keys are a different namespace → full re-embed.
+    expect(second.calls.embeddedTexts).toBeGreaterThan(0);
   });
 
   it('builds, reports status, refreshes, and clears a project vector index', async () => {
@@ -905,16 +1139,160 @@ describe('RagService', () => {
               total: number;
               percent: number;
             }) => void;
+            embedTextOf: (chunk: { content: string }) => string;
           },
         ) => Promise<Array<{ vector: number[] }>>;
       }
-    ).embedChunks(provider, chunks, { onProgress: progress });
+    ).embedChunks(provider, chunks, {
+      onProgress: progress,
+      embedTextOf: (chunk) => chunk.content,
+    });
 
     expect(embedded).toHaveLength(40);
     expect(progress).toHaveBeenCalledTimes(2);
     expect(progress.mock.calls[0]?.[0]).toMatchObject({ loaded: 32, total: 40, percent: 80 });
     expect(progress.mock.calls[0]?.[0].message).toContain('ETA');
     expect(progress.mock.calls[1]?.[0]).toMatchObject({ loaded: 40, total: 40, percent: 100 });
+  });
+
+  it('emits a single all-cached progress tick when every chunk is already embedded (F8)', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    const provider = await fakeProviderFactory()();
+    const chunks = [
+      {
+        id: 'cached-1',
+        source_file: join(projectRoot, 'src/cached.ts'),
+        ast_node_type: 'function',
+        ast_node_path: 'cached',
+        exported_symbols: [],
+        content: 'export const cached = 1;',
+        char_count: 10,
+        content_hash: 'cached-hash',
+      },
+    ];
+    const cast = service as unknown as {
+      embedChunks: (
+        provider: EmbeddingProvider,
+        chunks: typeof chunks,
+        options: {
+          onProgress?: (update: { message: string; percent: number }) => void;
+          embedTextOf: (chunk: { content: string }) => string;
+        },
+      ) => Promise<unknown[]>;
+    };
+    const embedTextOf = (chunk: { content: string }) => chunk.content;
+    // First call warms (and flushes) the content-addressed cache.
+    await cast.embedChunks(provider, chunks, { embedTextOf });
+    // Second call finds everything cached → the single all-cached tick.
+    const progress = vi.fn();
+    await cast.embedChunks(provider, chunks, { onProgress: progress, embedTextOf });
+    expect(progress).toHaveBeenCalledTimes(1);
+    expect(progress.mock.calls[0]?.[0].message).toContain('all cached');
+    expect(progress.mock.calls[0]?.[0].percent).toBe(100);
+  });
+
+  it('checkpoints and throws when the abort signal fires between embed batches (F8/PQD-104)', async () => {
+    const controller = new AbortController();
+    let calls = 0;
+    const provider: EmbeddingProvider = {
+      name: 'local',
+      model: 'fake-local',
+      async validate() {
+        return;
+      },
+      async embed(input: string | string[]) {
+        calls++;
+        // Abort after the first batch so the next loop iteration trips the guard.
+        if (calls === 1) {
+          controller.abort();
+        }
+        return (Array.isArray(input) ? input : [input]).map(() => [0.5, 0.5]);
+      },
+    };
+    const service = new RagService(projectRoot, async () => provider);
+    const chunks = Array.from({ length: 40 }, (_, index) => ({
+      id: `abort-${index}`,
+      source_file: join(projectRoot, `src/abort-${index}.ts`),
+      ast_node_type: 'function',
+      ast_node_path: `fn-${index}`,
+      exported_symbols: [],
+      content: `export const abortValue${index} = ${index};`,
+      char_count: 10,
+      content_hash: `abort-hash-${index}`,
+    }));
+    const cast = service as unknown as {
+      embedChunks: (
+        provider: EmbeddingProvider,
+        chunks: typeof chunks,
+        options: { signal: AbortSignal; embedTextOf: (chunk: { content: string }) => string },
+      ) => Promise<unknown[]>;
+    };
+    await expect(
+      cast.embedChunks(provider, chunks, {
+        signal: controller.signal,
+        embedTextOf: (chunk) => chunk.content,
+      }),
+    ).rejects.toThrow(/cancelled/i);
+  });
+
+  it('getStatus tolerates a corrupt vision meta (still reports the file index)', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    const visionIndex = (
+      service as unknown as { visionVectorIndex: { loadMeta: () => Promise<unknown> } }
+    ).visionVectorIndex;
+    vi.spyOn(visionIndex, 'loadMeta').mockRejectedValueOnce(new Error('corrupt vision meta'));
+    const status = await service.getStatus();
+    expect(status.vision_chunk_count).toBeUndefined();
+  });
+
+  it('applyReranking reorders via the configured reranker when enabled (F18)', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    const hits = [
+      { item: { id: 'a', content: 'alpha' }, score: 0.9 },
+      { item: { id: 'b', content: 'beta' }, score: 0.8 },
+    ];
+    const cast = service as unknown as {
+      applyReranking: (
+        query: string,
+        hits: typeof hits,
+        config: { enabled: boolean; backend: string; candidate_pool_size: number },
+      ) => Promise<typeof hits>;
+    };
+    // A passthrough reranker needs no model — exercises the enabled try/return path.
+    const reranked = await cast.applyReranking('q', hits, {
+      enabled: true,
+      backend: 'passthrough',
+      candidate_pool_size: 50,
+    });
+    expect(reranked.map((hit) => hit.item.id).sort()).toEqual(['a', 'b']);
+  });
+
+  it('applyReranking falls back to the input order when the reranker throws (F18)', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    const hits = [
+      { item: { id: 'a', content: 'alpha' }, score: 0.9 },
+      { item: { id: 'b', content: 'beta' }, score: 0.8 },
+    ];
+    const cast = service as unknown as {
+      applyReranking: (
+        query: string,
+        hits: typeof hits,
+        config: {
+          enabled: boolean;
+          backend: string;
+          candidate_pool_size: number;
+          api_key?: string;
+        },
+      ) => Promise<typeof hits>;
+    };
+    // Cohere backend with no usable key throws inside rerank → audited fallback to input order.
+    const reranked = await cast.applyReranking('q', hits, {
+      enabled: true,
+      backend: 'cohere',
+      candidate_pool_size: 50,
+      api_key: '',
+    });
+    expect(reranked).toHaveLength(2);
   });
 
   it('returns early from syncVectorIndex when embedding provider is unavailable', async () => {
@@ -1229,5 +1607,32 @@ describe('RagService', () => {
     const audit = readFileSync(join(projectRoot, '.paqad/audit.log'), 'utf8');
     expect(audit).toContain('rag-api-key-validation-failed');
     expect(audit).toContain('rag-build-failed');
+  });
+});
+
+describe('lexicalDocumentText (F24 BM25 contextualisation)', () => {
+  it('prepends the blurb for a code chunk with a source path', () => {
+    const text = lexicalDocumentText({
+      id: '1',
+      content: 'return a + b;',
+      source_file: 'src/math.ts',
+      ast_node_path: 'add',
+      exported_symbols: ['add'],
+    });
+    expect(text).toContain('[src/math.ts');
+    expect(text).toContain('› add');
+    expect(text).toContain('exports add');
+    expect(text.endsWith('return a + b;')).toBe(true);
+  });
+
+  it('falls back to bare content when the chunk has no source path (e.g. a vision chunk)', () => {
+    const text = lexicalDocumentText({ id: '2', content: 'OCR TEXT' });
+    expect(text).toBe('OCR TEXT');
+  });
+
+  it('tolerates a chunk missing ast_node_path and exported_symbols', () => {
+    const text = lexicalDocumentText({ id: '3', content: 'body', source_file: 'src/a.ts' });
+    expect(text).toContain('[src/a.ts]');
+    expect(text.endsWith('body')).toBe(true);
   });
 });

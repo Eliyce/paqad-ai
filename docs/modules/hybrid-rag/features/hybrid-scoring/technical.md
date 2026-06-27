@@ -14,6 +14,16 @@ Source directories owned by this feature:
 ## Entry Points
 
 - Imported by other paqad-ai modules — see the source list above for the public surface.
+- BM25 + RRF fusion (RAG buildout F17): `src/rag/lexical-bm25.ts` (`Bm25Index`,
+  `tokenize` — camelCase/snake_case/dotted splitting so identifiers and prose share
+  terms) + `src/rag/rrf-fusion.ts` (`reciprocalRankFusion`, k=60). `RagService.retrieve`
+  over-fetches a dense pool (`limit * 4`), builds a BM25 ranking over those candidates,
+  and RRF-fuses the two before trimming to `limit`. This recovers exact-identifier
+  chunks that cosine ranked just outside the cut. Safe by construction: cosine scores
+  are preserved, so the F12 precision floor and the below-threshold fallback are
+  unchanged — fusion only reorders/recalls within the floor-passing set, never injects
+  a below-floor chunk and never increases the injected token cap. A purely-semantic
+  query with no lexical overlap leaves the dense order untouched. Eval-gated (F15).
 
 ## Data Model / Schema
 

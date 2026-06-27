@@ -92,6 +92,9 @@ describe('rag command', () => {
       rmSync(tempProjectRoot, { recursive: true, force: true });
     }
     tempProjectRoot = null;
+    // `rag eval --mode feature-off-vs-on` sets a non-zero exit code on a failed
+    // gate; reset it so it never leaks into the vitest process exit (F15).
+    process.exitCode = 0;
     vi.restoreAllMocks();
   });
 
@@ -121,6 +124,29 @@ describe('rag command', () => {
     );
     expect(readFileSync(join(projectRoot(tempProjectRoot), '.paqad/.gitignore'), 'utf8')).toContain(
       'vectors/',
+    );
+  });
+
+  it('F23: lets the user opt into the code-tuned local model interactively', async () => {
+    setInteractive(true);
+    // provider picker -> local, then the local-model picker -> code-tuned jina.
+    promptSelect
+      .mockResolvedValueOnce('local')
+      .mockResolvedValueOnce('Xenova/jina-embeddings-v2-base-code');
+
+    const createRagCommand = await loadCreateRagCommand();
+    const command = createRagCommand();
+    await command.parseAsync(
+      ['node', 'rag', 'init', '--project-root', projectRoot(tempProjectRoot), '--yes'],
+      { from: 'node' },
+    );
+
+    expect(RagService.prototype.configureAndBuild).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embedding_provider: 'local',
+        embedding_model: 'Xenova/jina-embeddings-v2-base-code',
+      }),
+      expect.any(Function),
     );
   });
 
@@ -481,7 +507,7 @@ describe('rag command', () => {
     expect(RagService.prototype.clear).toHaveBeenCalled();
   });
 
-  it('runs eval against real retrieval and emits eval_run + candidate_snapshot in output', async () => {
+  it('runs the on/off A/B gate and emits off/on snapshots + gate verdict (F15)', async () => {
     const createRagCommand = await loadCreateRagCommand();
     const command = createRagCommand();
     await command.parseAsync(['node', 'rag', 'eval', '--mode', 'feature-off-vs-on'], {
@@ -493,8 +519,14 @@ describe('rag command', () => {
     const output = vi.mocked(process.stdout.write).mock.calls[0]?.[0] as string;
     const parsed = JSON.parse(output) as Record<string, unknown>;
     expect(parsed).toHaveProperty('eval_run');
-    expect(parsed).toHaveProperty('candidate_snapshot');
+    expect(parsed).toHaveProperty('feature_off_snapshot');
+    expect(parsed).toHaveProperty('feature_on_snapshot');
+    expect(parsed).toHaveProperty('gate_passed');
     expect((parsed.eval_run as Record<string, unknown>)['mode']).toBe('feature-off-vs-on');
+    // The mocked retrieval returns no hits, so feature-ON does not beat OFF: the
+    // gate fails and the merge is blocked via a non-zero exit code.
+    expect(parsed.gate_passed).toBe(false);
+    expect(process.exitCode).toBe(1);
   });
 
   it('includes comparison in output when --baseline is provided', async () => {
@@ -891,7 +923,11 @@ describe('rag command', () => {
         size_bytes: 123,
       });
     promptInput.mockResolvedValueOnce('sk-bad');
-    promptSelect.mockResolvedValueOnce('switch-provider').mockResolvedValueOnce('local');
+    // switch-provider -> pick local -> then the F23 local-model picker (MiniLM floor).
+    promptSelect
+      .mockResolvedValueOnce('switch-provider')
+      .mockResolvedValueOnce('local')
+      .mockResolvedValueOnce('Xenova/all-MiniLM-L6-v2');
 
     const createRagCommand = await loadCreateRagCommand();
     const command = createRagCommand();

@@ -69,7 +69,7 @@ export const DOCS_PAGES = {
           },
           {
             term: 'RAG',
-            def: 'Retrieval-Augmented Generation. An optional upgrade that indexes your codebase into a vector store so agents receive only the most relevant context for each task instead of loading everything.',
+            def: 'Retrieval-Augmented Generation. An optional accelerator on top of the normal grep-and-read default, off until you enable it. When on, it indexes your codebase and feeds a few relevant, verify-first slices into the prompt, and falls back to plain grep whenever it is off, cold, or unsure.',
           },
         ],
       },
@@ -912,7 +912,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'rag' },
       {
         type: 'p',
-        text: 'The `rag` command manages the optional Retrieval-Augmented Generation layer. When enabled, paqad-ai indexes your codebase and documentation into a vector store, allowing agents to retrieve only the most relevant context for each task.',
+        text: 'The `rag` command manages the optional Retrieval-Augmented Generation layer, an accelerator on top of the normal grep-and-read default. When enabled, paqad-ai indexes your codebase and documentation and feeds a few relevant, verify-first slices into the prompt. It stays off until you turn it on, and falls back to plain grep whenever it is off or cold.',
       },
       { type: 'h2', id: 'init', text: 'rag init' },
       {

@@ -656,6 +656,7 @@ modules:
     sources:
       - src/rag
       - src/project-knowledge
+      - src/context/retrieval-context.ts
     features:
       - slug: vector-index
         name: Vector Index
@@ -669,6 +670,103 @@ modules:
         name: Pattern Vectors
       - slug: eval-gates
         name: Eval Gates (hit@5, success, correction turns)
+      - slug: branch-aware-index
+        name: Branch-Aware Index (branch/commit/base metadata)
+      - slug: embedding-cache
+        name: Embedding Cache (content-addressed, model-scoped)
+      - slug: incremental-sync
+        name: Incremental Sync (working-tree-following, background)
+      - slug: session-retrieval
+        name: Session Retrieval (top-k slices injected on the seam)
+      - slug: repo-map
+        name: Structural Repo-Map (embedding-free PageRank skeleton)
+      - slug: codebase-memory
+        name: Codebase Memory (deterministic cross-session repo facts)
+      - slug: cast-chunking
+        name: cAST Chunking (split-then-merge, chunker-versioned index)
+      - slug: contextual-blurbs
+        name: Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)
+      - slug: context-pack
+        name: Context Pack (distilled path:line pointers for long workflows)
+      - slug: base-drift
+        name: Base-Drift Awareness (debounced origin/<base> heads-up, off-path)
+
+  - slug: background-harness
+    name: Background-Worker Harness
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The "never block coding" keystone (RAG buildout F1). One reusable
+      mechanism to keep any precomputed artifact fresh in a detached worker
+      while the prompt path only ever reads the finished artifact: a
+      debounce marker that coalesces a burst of prompts, a single-flight
+      `mkdir` lock that serialises workers and reclaims a crashed worker's
+      stale lock, a detached `spawn`/`unref` that returns in well under the
+      hook time budget, and a build-to-temp + atomic-rename swap so a reader
+      never sees a half-written artifact. Smart rule loading, the
+      branch-aware vector index sync, and the codebase-memory tier all ride
+      on it.
+    sources:
+      - src/background
+    features:
+      - slug: trigger-refresh
+        name: Trigger Refresh (debounce → single-flight → detached spawn)
+      - slug: single-flight-lock
+        name: Single-Flight Lock (mkdir + stale reclaim)
+      - slug: debounce-marker
+        name: Debounce Marker (burst coalescing)
+      - slug: atomic-artifact-swap
+        name: Atomic Artifact Swap (build-to-temp + rename)
+
+  - slug: context-seam
+    name: Context Injection Seam
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The session-time delivery channel for everything paqad wants in front
+      of the model (RAG buildout F2). A `UserPromptSubmit` hook reads a
+      precomputed context artifact off disk and emits it as a
+      `[paqad-context]` block on stdout, so the host injects it into the
+      model context before the turn. The seam does no heavy work — only a
+      stat + read of a finished artifact under a hard time budget (the
+      background harness keeps the artifact fresh). Smart rule loading,
+      wired retrieval, stage gating, and the codebase-memory tier all ride
+      on this one channel. A missing, empty, disabled, or too-slow artifact
+      emits nothing, so the agent falls back to grep/read exactly as today.
+    sources:
+      - runtime/scripts/context-seam.mjs
+      - runtime/hooks/context-seam-inject.mjs
+    features:
+      - slug: budgeted-read
+        name: Budgeted Artifact Read (resolve + read + ceiling)
+      - slug: context-block-emit
+        name: Context Block Emit ([paqad-context] + hook wiring)
+
+  - slug: smart-rule-loading
+    name: Smart Rule Loading
+    layer: framework-internals
+    confidence: high
+    summary: |
+      Replace "load all ~50K of rule text every session" with a
+      deterministic, token-lean scheme (RAG buildout Phase 2). The model
+      always knows every rule exists and when it applies, while a rule's
+      full text is deferred until its declared triggers match what is being
+      touched, and script-enforced rules stay enforced regardless of context.
+      Deliberately deterministic (declared triggers + scripts), never an
+      embedding-RAG guess — omitting a rule is a correctness failure. Rides
+      the context-seam for delivery and the background harness for freshness.
+    sources:
+      - src/context/rule-manifest.ts
+      - src/context/rule-context.ts
+      - src/pipeline/rule-trigger-matcher.ts
+      - src/rule-scripts/enforce.ts
+    features:
+      - slug: rule-manifest
+        name: Rule Manifest (always-resident index of every rule)
+      - slug: trigger-load
+        name: Trigger-Load (full rule text for the files in play)
+      - slug: script-enforcement
+        name: Script Enforcement (scripted rules enforced regardless of context)
 
   - slug: mcp-config
     name: MCP Configuration
@@ -728,9 +826,12 @@ modules:
       flagged choice the agent writes a Decision Packet to
       `.paqad/decisions/pending/D-{id}.json` and stops until the resolved
       packet exists. Routed through the interactive question UI when
-      available.
+      available. On a new pause, the packet context is enriched with the top
+      similar prior resolved decisions (deterministic, embedding-free) so the
+      developer sees the precedents they already set (RAG buildout F25).
     sources:
       - .paqad/decisions
+      - src/planning/decision-precedents.ts
 
   - slug: pattern-library
     name: Cross-Project Pattern Library

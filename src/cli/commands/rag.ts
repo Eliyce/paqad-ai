@@ -1,22 +1,32 @@
 import { readFileSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 
 import { confirm, input, select } from '@inquirer/prompts';
 import { Command } from 'commander';
 
-import { EMBEDDING_PROVIDERS, getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
+import {
+  DEFAULT_LOCAL_EMBEDDING_MODEL,
+  EMBEDDING_PROVIDERS,
+  LOCAL_EMBEDDING_MODELS,
+  getDefaultEmbeddingModel,
+} from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
+import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
+import { composeContextPack, distillSlices } from '@/context/context-pack.js';
+import { refreshRuleContext } from '@/context/rule-context.js';
+import {
+  MAX_RETRIEVAL_SLICES,
+  composeRetrievalSection,
+  gatherWorkingSetSlices,
+} from '@/context/retrieval-context.js';
+import { backgroundIndexSync } from '@/rag/background-sync.js';
+import { composeBaseDriftSection, loadBaseDrift, refreshBaseDrift } from '@/rag/base-drift.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { compareConfigurations } from '@/rag/benchmark-gates.js';
 import type { ConfigurationComparisonResult, RagBenchmarkSnapshot } from '@/rag/benchmark-gates.js';
 import { EVAL_DATASET } from '@/rag/eval-dataset.js';
-import {
-  EvalRunner,
-  computeCorrectionTurns,
-  computeHitAtK,
-  computePromptTokensSent,
-  computeTaskSuccessRate,
-} from '@/rag/eval-runner.js';
+import { EvalRunner, runFeatureOffVsOnGate, snapshotFromTraces } from '@/rag/eval-runner.js';
 import { RagService } from '@/rag/service.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 import type { ComparisonMode, EvalTrace } from '@/rag/types.js';
@@ -63,6 +73,27 @@ async function resolveProvider(
         description: 'Uses voyage-code-3 for remote code embeddings',
       },
     ],
+  });
+}
+
+/**
+ * Pick the local embedding model (RAG buildout F23). Non-interactive runs (and any
+ * caller that doesn't choose) keep the MiniLM floor; interactively, the user may opt into
+ * the code-tuned model. Returns the model id to build with.
+ */
+async function resolveLocalModel(current?: string): Promise<string> {
+  const fallback = current ?? DEFAULT_LOCAL_EMBEDDING_MODEL;
+  if (!isInteractive()) {
+    return fallback;
+  }
+  return select<string>({
+    message: 'Which local embedding model?',
+    default: fallback,
+    choices: LOCAL_EMBEDDING_MODELS.map((model) => ({
+      value: model.id,
+      name: model.label,
+      description: model.description,
+    })),
   });
 }
 
@@ -116,10 +147,16 @@ async function buildWithRecovery(
 
   for (;;) {
     await maybePromptApiKey(service, provider);
-    const model =
+    const carriedModel =
       explicitModel ??
-      (current.configured_provider === provider ? current.configured_model : undefined) ??
-      getDefaultEmbeddingModel(provider);
+      (current.configured_provider === provider ? current.configured_model : undefined);
+    // F23 — for the local provider, offer the MiniLM floor vs the opt-in code-tuned
+    // model when nothing is already chosen. Other providers keep their single default.
+    const model =
+      carriedModel ??
+      (provider === 'local'
+        ? await resolveLocalModel(DEFAULT_LOCAL_EMBEDDING_MODEL)
+        : getDefaultEmbeddingModel(provider));
 
     try {
       return await service.configureAndBuild(
@@ -265,6 +302,68 @@ export function createRagCommand(): Command {
       process.stdout.write(`${JSON.stringify(await service.getStatus(), null, 2)}\n`);
     });
 
+  // RAG buildout F5/F9/F11 — the background "refresh session context" worker the
+  // prompt-time trigger spawns detached. It (1) incrementally syncs the vector index
+  // to the working tree (F9, only when an index already exists), (2) retrieves the
+  // top-k slices relevant to the files in play over that fresh index (F11), and
+  // (3) recomposes the session-context artifact = rule slice (F5) + retrieval slice
+  // (F11). Sync runs first so retrieval queries the up-to-date index. Everything is
+  // single-flight-locked and never blocks. Quiet by default so a detached run
+  // produces no stray output. When rag is off / there is no index, the retrieval
+  // gather returns nothing and the artifact stays rule-only (disabled == today).
+  command
+    .command('refresh-context')
+    .description(
+      'Sync the index, retrieve slices, and recompose session context (background worker)',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--quiet', 'Suppress output (used by the background trigger)')
+    .action(async (options: { projectRoot: string; quiet?: boolean }) => {
+      const sync = await backgroundIndexSync(options.projectRoot);
+      const slices = await gatherWorkingSetSlices(options.projectRoot);
+      // F26 — when the working set pulls more slices than the slice-display cap, the
+      // workflow is broad; distil to a lean context PACK (path:Lstart-Lend pointers,
+      // read the live file) instead of injecting many bodies. Narrow sets keep full
+      // slices. Line ranges are located against the live files (best-effort reader).
+      const retrievalSection =
+        slices.length > MAX_RETRIEVAL_SLICES
+          ? composeContextPack(
+              distillSlices(slices, {
+                readFile: (path) => {
+                  try {
+                    return readFileSync(
+                      isAbsolute(path) ? path : join(options.projectRoot, path),
+                      'utf8',
+                    );
+                  } catch {
+                    return undefined;
+                  }
+                },
+              }),
+            )
+          : composeRetrievalSection(slices);
+      // F21 — durable codebase memory, deterministic and embedding-free (no provider
+      // call), gathered from the on-disk store and injected ahead of the slices.
+      const memorySection = gatherCodebaseMemory(options.projectRoot);
+      // F27 — base-drift. The network fetch is debounced (≈10 min) + single-flight here in
+      // the detached worker, so the prompt path never waits on it; we then read the
+      // persisted snapshot (no network) and inject it as a secondary heads-up layer.
+      await refreshBaseDrift(options.projectRoot);
+      const driftSection = composeBaseDriftSection(loadBaseDrift(options.projectRoot));
+      const target = await refreshRuleContext(options.projectRoot, {
+        memorySection,
+        retrievalSection,
+        driftSection,
+      });
+      if (!options.quiet) {
+        process.stdout.write(
+          `${target ? `wrote ${target}` : 'nothing to compose'}; index sync: ${
+            sync.synced ? 'done' : sync.reason
+          }; slices: ${slices.length}\n`,
+        );
+      }
+    });
+
   command
     .command('eval')
     .description('Run deterministic RAG evals against the project index and compare configurations')
@@ -324,16 +423,36 @@ export function createRagCommand(): Command {
           result.model_graded = await runner.runModelGraded(EVAL_DATASET, traces);
         }
 
-        // Derive candidate snapshot from real traces.
-        const candidateSnapshot: RagBenchmarkSnapshot = {
-          hit_at_5: computeHitAtK(EVAL_DATASET, traces, 5),
-          task_success_rate: computeTaskSuccessRate(EVAL_DATASET, traces),
-          correction_turns: computeCorrectionTurns(EVAL_DATASET, traces),
-          prompt_tokens_sent: computePromptTokensSent(traces),
-          task_count: EVAL_DATASET.length,
-        };
+        // Derive candidate (feature-ON) snapshot from real traces.
+        const candidateSnapshot = snapshotFromTraces(EVAL_DATASET, traces);
 
         let comparison: ConfigurationComparisonResult | undefined;
+        // F15 — the on/off A/B merge gate. In feature-off-vs-on mode we self-generate
+        // the feature-OFF baseline (no retrieval) and gate ON against it, no external
+        // baseline file required. A failed gate (quality down, or tokens up without a
+        // task-success improvement) sets a non-zero exit so CI blocks the merge.
+        if (mode === 'feature-off-vs-on') {
+          const ab = runFeatureOffVsOnGate(EVAL_DATASET, traces);
+          comparison = ab.comparison;
+          if (!comparison.evaluation.passed) {
+            process.exitCode = 1;
+          }
+          process.stdout.write(
+            `${JSON.stringify(
+              {
+                eval_run: result,
+                feature_off_snapshot: ab.off,
+                feature_on_snapshot: ab.on,
+                comparison,
+                gate_passed: comparison.evaluation.passed,
+              },
+              null,
+              2,
+            )}\n`,
+          );
+          return;
+        }
+
         if (options.baseline) {
           const baselineSnapshot = JSON.parse(
             readFileSync(options.baseline, 'utf8'),

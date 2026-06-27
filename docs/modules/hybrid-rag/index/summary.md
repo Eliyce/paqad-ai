@@ -23,6 +23,16 @@ to the side.
 - [Reranking](../features/reranking/business.md)
 - [Pattern Vectors](../features/pattern-vectors/business.md)
 - [Eval Gates (hit@5, success, correction turns)](../features/eval-gates/business.md)
+- [Branch-Aware Index (branch/commit/base metadata)](../features/branch-aware-index/business.md)
+- [Embedding Cache (content-addressed, model-scoped)](../features/embedding-cache/business.md)
+- [Incremental Sync (working-tree-following, background)](../features/incremental-sync/business.md)
+- [Session Retrieval (top-k slices injected on the seam)](../features/session-retrieval/business.md)
+- [Structural Repo-Map (embedding-free PageRank skeleton)](../features/repo-map/business.md)
+- [Codebase Memory (deterministic cross-session repo facts)](../features/codebase-memory/business.md)
+- [cAST Chunking (split-then-merge, chunker-versioned index)](../features/cast-chunking/business.md)
+- [Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)](../features/contextual-blurbs/business.md)
+- [Context Pack (distilled path:line pointers for long workflows)](../features/context-pack/business.md)
+- [Base-Drift Awareness (debounced origin/base heads-up, off-path)](../features/base-drift/business.md)
 
 ## Authority
 

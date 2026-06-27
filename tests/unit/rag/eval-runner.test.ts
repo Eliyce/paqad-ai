@@ -1,9 +1,12 @@
 import {
   EvalRunner,
+  buildFeatureOffTraces,
   computeCorrectionTurns,
   computeHitAtK,
   computePromptTokensSent,
   computeTaskSuccessRate,
+  runFeatureOffVsOnGate,
+  snapshotFromTraces,
 } from '@/rag/eval-runner.js';
 import type { ModelGrader } from '@/rag/eval-runner.js';
 import type { ComparisonMode, EvalDatasetItem, EvalTrace } from '@/rag/types.js';
@@ -501,5 +504,72 @@ describe('deterministic eval metrics', () => {
     ];
 
     expect(computeTaskSuccessRate(dataset, traces)).toBe(1);
+  });
+});
+
+describe('on/off A/B gate (F15)', () => {
+  const dataset: EvalDatasetItem[] = [
+    {
+      id: 'hit',
+      query_class: 'simple-lexical',
+      task_description: 'auth gate',
+      keywords: ['auth'],
+      expected_file: 'src/security/auth-gates.ts',
+    },
+    {
+      id: 'skip',
+      query_class: 'negative',
+      task_description: 'say hello',
+      keywords: [],
+      should_skip_retrieval: true,
+    },
+  ];
+
+  it('buildFeatureOffTraces produces empty, depth-none traces with zero tokens', () => {
+    const off = buildFeatureOffTraces(dataset);
+    expect(off).toHaveLength(2);
+    for (const trace of off) {
+      expect(trace.retrieval_depth).toBe('none');
+      expect(trace.first_stage_chunk_ids).toEqual([]);
+      expect(trace.packed_chunk_ids).toEqual([]);
+      expect(trace.packed_token_count).toBe(0);
+    }
+  });
+
+  it('snapshotFromTraces rolls the four gated metrics into a snapshot', () => {
+    const snapshot = snapshotFromTraces(dataset, buildFeatureOffTraces(dataset));
+    expect(snapshot.task_count).toBe(2);
+    expect(snapshot.hit_at_5).toBe(0); // no chunks off
+    expect(snapshot.prompt_tokens_sent).toBe(0);
+  });
+
+  it('passes the gate when feature-ON beats OFF on hit + success without runaway tokens', () => {
+    const onTraces: EvalTrace[] = [
+      {
+        item_id: 'hit',
+        retrieval_depth: 'standard',
+        first_stage_chunk_ids: ['src/security/auth-gates.ts'],
+        packed_chunk_ids: ['src/security/auth-gates.ts'],
+        packed_token_count: 80,
+      },
+      {
+        item_id: 'skip',
+        retrieval_depth: 'none',
+        first_stage_chunk_ids: [],
+        packed_chunk_ids: [],
+        packed_token_count: 0,
+      },
+    ];
+    const { off, on, comparison } = runFeatureOffVsOnGate(dataset, onTraces);
+    expect(off.hit_at_5).toBe(0);
+    expect(on.hit_at_5).toBe(1);
+    expect(comparison.mode).toBe('feature-off-vs-on');
+    expect(comparison.evaluation.passed).toBe(true);
+  });
+
+  it('fails the gate when feature-ON adds no retrieval value (regression blocked)', () => {
+    const onTraces = buildFeatureOffTraces(dataset); // ON == OFF: no improvement
+    const { comparison } = runFeatureOffVsOnGate(dataset, onTraces);
+    expect(comparison.evaluation.passed).toBe(false);
   });
 });

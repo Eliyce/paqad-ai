@@ -117,6 +117,9 @@ export interface IntelligenceConfig {
   rag_similarity_threshold: number;
   rag_top_n: number;
   rag_max_file_size?: number;
+  // RAG buildout F10 — base branch for branch-aware RAG (F7). Unset = auto-detect
+  // main->master.
+  rag_base_branch?: string;
   benchmark_gates?: BenchmarkGateConfig;
   benchmark_eval?: BenchmarkEvalConfig;
   adaptive_retrieval?: AdaptiveRetrievalConfig;

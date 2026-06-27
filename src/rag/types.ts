@@ -32,6 +32,19 @@ export interface RagIndexMeta {
   built_at: string;
   chunk_count: number;
   embedding_dimensions: number;
+  // RAG buildout F7 — branch/git-state the index reflects. All optional: a
+  // non-git project (or detached HEAD / missing base) leaves them undefined, and
+  // an index built before F7 simply has none. Drives branch self-heal (F9) and
+  // base-drift awareness (F27).
+  branch?: string;
+  base_branch?: string;
+  base_commit?: string;
+  head_commit?: string;
+  // RAG buildout F22 — the chunking strategy the index was built with (e.g.
+  // `cast-v1`). Optional: an index built before F22 has none, which reads as a
+  // mismatch and forces a clean rebuild rather than a strategy-mixing incremental
+  // sync. Set only for the AST-chunked file index, not vision/CRS collections.
+  chunker_version?: string;
 }
 
 export interface StoredVectorItem {

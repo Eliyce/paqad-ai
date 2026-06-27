@@ -89,6 +89,7 @@ const FIELD_CHECKS: Record<string, (value: unknown) => string | null> = {
     typeof value === 'number' && Number.isInteger(value) && value > 0
       ? null
       : 'Expected a positive integer.',
+  rag_base_branch: (value) => (typeof value === 'string' ? null : 'Expected a string.'),
 };
 
 export function putRagConfig(projectRoot: string, candidate: unknown): PutRagConfigResult {

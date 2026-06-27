@@ -29,6 +29,11 @@ import {
 } from './decision-events.js';
 import { scoreDecisionOptionOverlap } from './decision-fingerprint.js';
 import {
+  PRECEDENT_BLOCK_HEADING,
+  findDecisionPrecedents,
+  formatDecisionPrecedents,
+} from './decision-precedents.js';
+import {
   isDecisionPacket,
   validateDecisionPacket,
   type DecisionHumanResponse,
@@ -165,11 +170,40 @@ export class DecisionStore {
     }
     this.enforcePendingCap(packet.decision_id);
     this.assertWritablePacket(packet);
-    const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, packet.decision_id);
-    atomicWriteJson(path, packet);
-    this.appendAudit('decision-pending-written', packet);
-    this.emit(decisionPausedEvent(packet, this.relativePendingPath(packet.decision_id)));
+    // F25 — enrich only after the packet is validated (a malformed packet must still
+    // fail validation, not the precedent lookup). The enriched context stays valid.
+    const enriched = this.enrichWithPrecedents(packet);
+    const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, enriched.decision_id);
+    atomicWriteJson(path, enriched);
+    this.appendAudit('decision-pending-written', enriched);
+    this.emit(decisionPausedEvent(enriched, this.relativePendingPath(enriched.decision_id)));
     return path;
+  }
+
+  /**
+   * RAG buildout F25 — surface the top similar prior resolved decisions in the packet's
+   * context, so the developer sees the precedents they already set when answering. Pure
+   * deterministic ranking (same category + question/context token overlap), capped and
+   * best-effort: any failure (or no precedents) returns the packet unchanged, and the
+   * block is appended at most once.
+   */
+  private enrichWithPrecedents(packet: DecisionPacket): DecisionPacket {
+    if (packet.context.includes(PRECEDENT_BLOCK_HEADING)) {
+      return packet;
+    }
+    try {
+      const precedents = findDecisionPrecedents(this.projectRoot, {
+        decision_id: packet.decision_id,
+        fingerprint: packet.fingerprint,
+        category: packet.category,
+        question: packet.question,
+        context: packet.context,
+      });
+      const block = formatDecisionPrecedents(precedents);
+      return block ? { ...packet, context: `${packet.context}\n\n${block}` } : packet;
+    } catch {
+      return packet;
+    }
   }
 
   /**

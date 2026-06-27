@@ -41,6 +41,7 @@ import {
   writeCompiledRules,
 } from '@/planning/index.js';
 
+import { writeRuleContext } from '@/context/rule-context.js';
 import { bootstrapFramework } from '@/install/bootstrap.js';
 
 import {
@@ -311,6 +312,18 @@ export class OnboardingOrchestrator {
     } catch (error) {
       onboardingWarnings.push(
         `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
+      );
+    }
+    // RAG buildout F4/F5 — (re)generate the rule slice of the session-context
+    // artifact (always-resident manifest + full text of any rules that apply to
+    // the files in play) so it tracks the rules we just (re)compiled. Generation
+    // is cheap and machine-local; the seam decides whether to inject it
+    // (rag_enabled). Non-fatal: a failure only means it is not refreshed this run.
+    try {
+      await writeRuleContext(options.projectRoot);
+    } catch (error) {
+      onboardingWarnings.push(
+        `Rule context generation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
     // Module-health profiles are no longer eagerly seeded at onboard: an all-null

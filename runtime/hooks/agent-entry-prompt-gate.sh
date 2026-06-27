@@ -32,6 +32,24 @@ if paqad_is_disabled; then
   exit 0
 fi
 
+# RAG buildout F2 — session-time injection seam. Emit the precomputed
+# [paqad-context] block (read-only, budgeted) so the host injects it before the
+# turn. This runs on EVERY enabled prompt, independent of sentinel freshness, and
+# its failure can never break the gate: stdin is /dev/null'd so the helper sees
+# immediate EOF, and any error is swallowed.
+context_seam="$(dirname "$0")/context-seam-inject.mjs"
+if [ -f "${context_seam}" ]; then
+  node "${context_seam}" </dev/null 2>/dev/null || true
+fi
+
+# RAG buildout F5 — fire a debounced, detached background refresh of the rule
+# context so it tracks the files in play. Returns immediately; the refresh lands
+# on the next prompt (the always-resident manifest covers this one). Never blocks.
+context_refresh="$(dirname "$0")/context-refresh-trigger.mjs"
+if [ -f "${context_refresh}" ]; then
+  node "${context_refresh}" </dev/null >/dev/null 2>&1 || true
+fi
+
 mode="${PAQAD_AGENT_ENTRY_MODE:-soft}"
 
 state=$(paqad_sentinel_state)

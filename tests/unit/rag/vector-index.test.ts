@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -117,5 +118,37 @@ describe('FileVectorIndex', () => {
 
     expect(existsSync(legacyPath)).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad', 'vectors', 'index.json'))).toBe(true);
+  });
+
+  it('stamps branch/git-state into the meta when building inside a git repo (F7)', async () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] });
+    g('init', '-q');
+    g('config', 'user.email', 't@example.com');
+    g('config', 'user.name', 'Test');
+    g('checkout', '-q', '-b', 'main');
+    writeFileSync(join(projectRoot, 'seed.txt'), 'seed');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'seed');
+    const headSha = g('rev-parse', 'HEAD').toString().trim();
+
+    await index.replaceAll(projectRoot, [item('auth', [1, 0])], {
+      provider: 'local',
+      model: 'fake',
+    });
+
+    const meta = await index.loadMeta(projectRoot);
+    expect(meta?.branch).toBe('main');
+    expect(meta?.head_commit).toBe(headSha);
+  });
+
+  it('leaves git-state fields undefined when building outside a git repo (F7)', async () => {
+    await index.replaceAll(projectRoot, [item('auth', [1, 0])], {
+      provider: 'local',
+      model: 'fake',
+    });
+    const meta = await index.loadMeta(projectRoot);
+    expect(meta?.branch).toBeUndefined();
+    expect(meta?.head_commit).toBeUndefined();
   });
 });

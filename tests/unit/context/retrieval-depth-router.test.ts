@@ -1,6 +1,7 @@
 import {
   selectRetrievalDepth,
   escalateDepth,
+  gateRetrieval,
   topNForDepth,
 } from '@/context/retrieval-depth-router.js';
 import type { DepthRoutingInput } from '@/context/retrieval-depth-router.js';
@@ -127,5 +128,28 @@ describe('topNForDepth', () => {
     expect(topNForDepth('deep', 10)).toBe(30);
     expect(topNForDepth('standard', 5)).toBe(5);
     expect(topNForDepth('none', 100)).toBe(0);
+  });
+});
+
+describe('gateRetrieval (F14)', () => {
+  it('skips retrieval for a self-contained stage (trivial single-file)', () => {
+    const gate = gateRetrieval({ complexity: 'trivial', scope: 'single-file', baseTopN: 20 });
+    expect(gate.depth).toBe('none');
+    expect(gate.topN).toBe(0);
+    expect(gate.skip).toBe(true);
+  });
+
+  it('uses standard depth for an ordinary stage', () => {
+    const gate = gateRetrieval({ complexity: 'medium', scope: 'single-module', baseTopN: 20 });
+    expect(gate.depth).toBe('standard');
+    expect(gate.topN).toBe(20);
+    expect(gate.skip).toBe(false);
+  });
+
+  it('expands the candidate pool for a system-wide / high-risk stage', () => {
+    const gate = gateRetrieval({ scope: 'system-wide', baseTopN: 20 });
+    expect(gate.depth).toBe('deep');
+    expect(gate.topN).toBe(60);
+    expect(gate.skip).toBe(false);
   });
 });

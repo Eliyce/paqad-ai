@@ -264,6 +264,16 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Intelligence / RAG',
     comment: 'Skip indexing files larger than this many bytes.',
   },
+  {
+    key: 'rag_base_branch',
+    env: 'PAQAD_RAG_BASE_BRANCH',
+    type: 'string',
+    default: undefined,
+    optional: true,
+    group: 'rag',
+    section: 'Intelligence / RAG',
+    comment: 'Base branch for branch-aware RAG. Unset auto-detects main->master.',
+  },
 
   // ── models group ───────────────────────────────────────────────────────
   {
@@ -718,6 +728,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
     rag_similarity_threshold: rn('rag_similarity_threshold'),
     rag_top_n: rn('rag_top_n'),
     rag_max_file_size: rn('rag_max_file_size'),
+    rag_base_branch: raw.get('rag_base_branch')?.trim() || undefined,
   });
 
   return {
@@ -1258,6 +1269,7 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
     );
     put('rag_top_n', i.rag_top_n, d.intelligence.rag_top_n);
     put('rag_max_file_size', i.rag_max_file_size, d.intelligence.rag_max_file_size);
+    put('rag_base_branch', i.rag_base_branch, d.intelligence.rag_base_branch);
   }
   if (overrides.strictness) {
     const s = overrides.strictness;
@@ -1392,6 +1404,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'rag_similarity_threshold',
       'rag_top_n',
       'rag_max_file_size',
+      'rag_base_branch',
     ],
   },
   {

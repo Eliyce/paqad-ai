@@ -60,7 +60,15 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(preToolCommands.some((command) => command.includes('decision-pause-gate.sh'))).toBe(
       true,
     );
+    // RAG F6 — live rule-script enforcement on both PreToolUse and Stop.
+    expect(preToolCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(
+      true,
+    );
     expect(parsed.hooks.Stop[0].hooks[0].command).toContain('verification-completion.mjs');
+    const stopCommands = parsed.hooks.Stop.flatMap((entry) =>
+      entry.hooks.map((hook) => hook.command),
+    );
+    expect(stopCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(true);
   });
 
   it('preserves existing settings.json keys and existing hook entries when merging', async () => {
@@ -97,11 +105,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     };
 
     expect(parsed.permissions.allow).toEqual(['Bash(ls:*)']);
-    // existing hook + agent-entry gate + decision-pause gate (#117 C-5).
-    expect(parsed.hooks.PreToolUse).toHaveLength(3);
+    // existing hook + agent-entry gate + decision-pause gate (#117 C-5) +
+    // rule-script enforce (RAG F6).
+    expect(parsed.hooks.PreToolUse).toHaveLength(4);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
     expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.sh');
     expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('decision-pause-gate.sh');
+    expect(parsed.hooks.PreToolUse[3].hooks[0].command).toContain('rule-script-enforce.mjs');
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
       'agent-entry-prompt-gate.sh',
@@ -199,11 +209,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         Stop: unknown[];
       };
     };
-    // agent-entry gate + decision-pause gate, no duplicates after re-run.
-    expect(parsed.hooks.PreToolUse).toHaveLength(2);
+    // agent-entry gate + decision-pause gate + rule-script enforce (RAG F6),
+    // no duplicates after re-run.
+    expect(parsed.hooks.PreToolUse).toHaveLength(3);
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     // agent-entry session-start + background self-update, no duplicates.
     expect(parsed.hooks.SessionStart).toHaveLength(2);
-    expect(parsed.hooks.Stop).toHaveLength(1);
+    // verification-completion + rule-script enforce (RAG F6).
+    expect(parsed.hooks.Stop).toHaveLength(2);
   });
 });

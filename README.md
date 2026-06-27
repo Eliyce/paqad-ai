@@ -279,12 +279,12 @@ Your agent does not need your whole repo. It needs the right files. And since ev
 
 <br>
 
-When you want deeper recall, paqad-ai can build a local search index over your code and docs.
+Retrieval is an accelerator on top of the normal grep-and-read default, never a replacement. When you turn it on, paqad-ai builds a local search index over your code and docs and feeds the relevant slices into the prompt for you.
 
+- It complements coding and never blocks it. The index is kept fresh in a background worker, so the prompt only ever reads a precomputed bundle. When retrieval is off, cold, or unsure, you fall back to exactly today's grep-and-read behavior.
+- It sends slices, not whole files. Retrieval is scoped to your docs and module map first (the safest, highest-value content), capped to a handful of slices, and each one is marked as a hint to verify against the live file.
 - Embeddings run locally by default. You can switch to OpenAI or Voyage if you prefer.
-- Scoring blends meaning, keywords, symbols, and file paths, with optional reranking.
-- Retrieval depth adapts to how hard the task is.
-- Built-in evals measure whether retrieval actually helps, tracking hit rate, task success, correction turns, and tokens sent.
+- Built-in evals decide whether it ships. An on/off comparison tracks hit rate, task success, correction turns, and tokens sent, and blocks any change that drops quality or spends tokens it does not earn back.
 
 Run `paqad-ai rag init --provider local` to start. It stays off until you turn it on.
 

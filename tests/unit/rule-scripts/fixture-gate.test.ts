@@ -239,6 +239,29 @@ process.stdout.write(JSON.stringify({ rule_id: 'RL-7f3a', kind: 'deterministic',
     expect(result.rate).toBe(1);
     expect(result.exceeded).toBe(true);
   });
+
+  it('does not flag a well-behaved script and stays under the threshold', () => {
+    const root = createRoot();
+    const scriptPath = join(root, 'no-debugger.mjs');
+    write(scriptPath, NO_DEBUGGER_SCRIPT);
+    for (const f of ['a.ts', 'b.ts']) {
+      write(join(root, f), 'const ok = 1;\n');
+    }
+    const result = checkOverFlag(scriptPath, 'deterministic', root, ['a.ts', 'b.ts']);
+    expect(result.files_flagged).toBe(0);
+    expect(result.rate).toBe(0);
+    expect(result.exceeded).toBe(false);
+  });
+
+  it('reports a zero rate when there are no in-scope files', () => {
+    const root = createRoot();
+    const scriptPath = join(root, 'no-debugger.mjs');
+    write(scriptPath, NO_DEBUGGER_SCRIPT);
+    const result = checkOverFlag(scriptPath, 'heuristic', root, []);
+    expect(result.files_checked).toBe(0);
+    expect(result.rate).toBe(0);
+    expect(result.exceeded).toBe(false);
+  });
 });
 
 describe('missingBinaries', () => {

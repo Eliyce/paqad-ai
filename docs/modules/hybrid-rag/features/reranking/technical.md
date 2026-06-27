@@ -14,6 +14,16 @@ Source directories owned by this feature:
 ## Entry Points
 
 - Imported by other paqad-ai modules — see the source list above for the public surface.
+- Live-path activation (RAG buildout F18): `RagService.retrieve` now reranks via
+  `RagService.applyReranking` → `createReranker(intelligence.reranking)`, reattaching
+  the reranked order onto the fused hits with `reorderByRankedIds` (`src/rag/rerank-order.ts`).
+  Previously the reranker only ran in the (unused) semantic-loader path. Default is
+  OFF (`DEFAULT_RERANKING.enabled = false`) — reranking is contested for code and must
+  clear the F15 eval gate before a team turns it on, so the default stays passthrough
+  and no cross-encoder model loads unless opted in. Safe by construction: reranking
+  only reorders, leaving cosine scores, the precision floor, and the token cap intact;
+  any reranker error falls back to the fused order (audited `rag-rerank-fallback`,
+  never blocks). `candidate_pool_size` (default 50) bounds latency.
 
 ## Data Model / Schema
 

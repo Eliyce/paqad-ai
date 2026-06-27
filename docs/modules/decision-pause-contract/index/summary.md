@@ -10,9 +10,21 @@ flagged choice the agent writes a Decision Packet to
 packet exists. Routed through the interactive question UI when
 available.
 
+### Decision-precedent enrichment (RAG buildout F25)
+
+When a pause opens, `DecisionStore.writePending` enriches the packet's context with the
+top few SIMILAR prior resolved decisions (read from `.paqad/decisions/resolved/**`), so
+the developer sees the precedents they already set when answering. Ranking is
+deterministic — same category plus question/context token overlap (`src/planning/decision-precedents.ts`,
+`findDecisionPrecedents` / `formatDecisionPrecedents`) — with no embeddings and no LLM
+call, capped to keep the token cost low and best-effort so a missing/corrupt store never
+breaks the pause. It complements `findReusableDecision` (which auto-reuses an exact-kind
+match) by only ADVISING on related-but-not-identical precedents the human still decides.
+
 ## Source Footprint
 
 - `.paqad/decisions`
+- `src/planning/decision-precedents.ts`
 
 ## Features
 

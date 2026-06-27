@@ -4,8 +4,11 @@ import { mkdir, readdir, rename, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
 
-import { AstChunker } from '@/context/ast-chunker.js';
+import { AstChunker, CHUNKER_VERSION } from '@/context/ast-chunker.js';
+import { buildModuleRoleResolver, contextualizeChunkText } from '@/rag/contextual-blurb.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
+import { createReranker } from '@/context/reranker.js';
+import type { RerankingConfig } from '@/context/reranker.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { engineLog } from '@/core/logger-registry.js';
@@ -21,6 +24,10 @@ import { SessionResumeValidator } from '@/session/resume-validator.js';
 
 import { appendRagAudit } from './audit.js';
 import { CrsBacklogQueue } from './crs-backlog.js';
+import { EmbeddingCache } from './embedding-cache.js';
+import { Bm25Index } from './lexical-bm25.js';
+import { reorderByRankedIds } from './rerank-order.js';
+import { reciprocalRankFusion } from './rrf-fusion.js';
 import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
 import { createEmbeddingProvider } from './providers.js';
@@ -56,6 +63,13 @@ const VISION_MAX_CHUNK_CHARS = 2000;
 
 /** Embedding batch size for CRS writes/reindex (PQD-415). */
 const CRS_EMBED_BATCH_SIZE = 32;
+
+/**
+ * How much wider than `limit` to fetch the dense candidate pool before BM25+RRF
+ * fusion (RAG buildout F17). A wider pool lets the lexical leg recover an exact-match
+ * chunk that cosine ranked below the cut; fusion then trims back to `limit`.
+ */
+const HYBRID_FUSION_POOL_MULTIPLIER = 4;
 
 /** How long a retired CRS index is kept under a `.revert.<ms>` suffix (24 hours). */
 const CRS_REVERT_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -125,15 +139,24 @@ export class RagService {
       : undefined;
     const providerModelMatch =
       meta?.provider === intelligence.embedding_provider && meta?.model === expectedModel;
+    // RAG buildout F22 — an index built by a different chunking strategy must be fully
+    // rebuilt, never incrementally synced (mixing chunk boundaries corrupts retrieval).
+    // A pre-F22 index has no chunker_version, which reads as a mismatch and forces the
+    // rebuild. Only gates when RAG is on, mirroring the provider/model check.
+    const chunkerMatch = meta?.chunker_version === CHUNKER_VERSION;
     // Index is stale whenever a stored index exists but its provider/model doesn't match the
     // current configuration — regardless of whether RAG is currently enabled.
     const staleMetadata = Boolean(meta) && !providerModelMatch;
     const valid =
-      Boolean(meta) && !status.corrupt && (!intelligence.rag_enabled || providerModelMatch);
+      Boolean(meta) &&
+      !status.corrupt &&
+      (!intelligence.rag_enabled || (providerModelMatch && chunkerMatch));
 
     let reason = status.reason;
     if (!reason && status.present && meta && !providerModelMatch) {
       reason = 'configured provider/model does not match stored vector metadata';
+    } else if (!reason && status.present && meta && !chunkerMatch && intelligence.rag_enabled) {
+      reason = 'stored index was built with a different chunker; a full rebuild is needed';
     }
 
     let visionChunkCount: number | undefined;
@@ -254,6 +277,7 @@ export class RagService {
       const items = await this.embedChunks(provider, flattenChunks(chunkIndex), {
         onProgress: options?.onProgress,
         signal,
+        embedTextOf: this.buildEmbedContextualizer(),
       });
       // Final boundary: an abort landing between embedding and the index write
       // still cancels — the embedded chunks become the partial checkpoint.
@@ -262,10 +286,16 @@ export class RagService {
           partialChunks: items,
         } as Record<string, unknown>);
       }
-      await this.vectorIndex.replaceAll(this.projectRoot, items, {
-        provider: provider.name,
-        model: provider.model,
-      });
+      await this.vectorIndex.replaceAll(
+        this.projectRoot,
+        items,
+        {
+          provider: provider.name,
+          model: provider.model,
+          chunker_version: CHUNKER_VERSION,
+        },
+        intelligence.rag_base_branch,
+      );
       await this.patternVectors.refresh(this.projectRoot, (message) =>
         options?.onProgress?.({ phase: 'build', message }),
       );
@@ -465,16 +495,36 @@ export class RagService {
         ),
       );
       const limit = topN ?? intelligence.rag_top_n;
+      // F17 — over-fetch a wider dense candidate pool so the lexical (BM25) leg can
+      // lift an exact-identifier chunk that cosine ranked just outside the top-N. The
+      // pool only widens the in-memory query (no extra embedding), then fusion cuts
+      // back to `limit`. Cosine scores are preserved, so the precision floor (F12) and
+      // the fallback behaviour below are unchanged — fusion can only reorder/recall
+      // within the floor-passing set, never inject a below-floor chunk.
+      const pool = limit * HYBRID_FUSION_POOL_MULTIPLIER;
       const [fileResults, visionResults] = await Promise.all([
-        this.vectorIndex.query(this.projectRoot, queryVector, limit),
-        this.visionVectorIndex.query(this.projectRoot, queryVector, limit),
+        this.vectorIndex.query(this.projectRoot, queryVector, pool),
+        this.visionVectorIndex.query(this.projectRoot, queryVector, pool),
       ]);
-      // Merge file- and vision-derived hits, re-rank by score, then apply the
-      // top-N cutoff so neither source crowds the other out. Vision chunks
+      // Merge file- and vision-derived hits and re-rank by cosine. Vision chunks
       // conform to the same retrieval shape; callers identify them by extension.
-      const results = [...fileResults, ...visionResults]
-        .sort((left, right) => right.score - left.score)
-        .slice(0, limit);
+      const dense = [...fileResults, ...visionResults].sort(
+        (left, right) => right.score - left.score,
+      );
+      const queryText = queryTextFromTask(
+        input.taskDescription,
+        input.keywords,
+        input.targetFilePath,
+        input.symbolReferences ?? [],
+      );
+      const fused = fuseHybridRanking(dense, queryText);
+      // F18 — reranking. When configured on, a cross-encoder reorders the fused pool
+      // for precision; default-off, so this is a no-op unless a team opts in (it is
+      // contested for code and must clear the eval gate first). Reranking only changes
+      // order: cosine scores, the precision floor, and the token cap are untouched, and
+      // any reranker failure falls back to the fused order (never blocks).
+      const reranked = await this.applyReranking(queryText, fused, intelligence.reranking);
+      const results = reranked.slice(0, limit);
       const filtered = results.filter(
         (result) => result.score >= intelligence.rag_similarity_threshold,
       );
@@ -917,6 +967,38 @@ export class RagService {
     }
   }
 
+  /**
+   * Reorder the fused hits with the configured reranker (RAG buildout F18). A fast
+   * path returns the hits untouched when reranking is disabled (the default), so no
+   * cross-encoder model is loaded unless a team opts in. The reranker only reorders:
+   * the original hit objects (and their cosine scores) are reattached via
+   * {@link reorderByRankedIds}. Any reranker error falls back to the input order so
+   * retrieval never blocks on it.
+   */
+  private async applyReranking<T extends { item: { id: string; content: string } }>(
+    query: string,
+    hits: readonly T[],
+    config?: RerankingConfig,
+  ): Promise<T[]> {
+    if (!config?.enabled || hits.length <= 1) {
+      return [...hits];
+    }
+    try {
+      const reranker = createReranker(config);
+      const { post_rerank_ids } = await reranker.rerank(
+        query,
+        hits.map((hit) => hit.item as Chunk),
+        config.candidate_pool_size,
+      );
+      return reorderByRankedIds(hits, (hit) => hit.item.id, post_rerank_ids);
+    } catch (error) {
+      appendRagAudit(this.projectRoot, 'WARN', 'rag-rerank-fallback', {
+        reason: error instanceof Error ? error.message : 'unknown-error',
+      });
+      return [...hits];
+    }
+  }
+
   private async syncVectorIndex(
     syncResult: ChunkIndexSyncResult,
     intelligence = normalizeIntelligenceConfig(readProjectProfile(this.projectRoot)?.intelligence),
@@ -946,11 +1028,19 @@ export class RagService {
       .filter((entry) => changedSources.has(entry.source_file))
       .flatMap((entry) => entry.chunks);
 
-    const embedded = await this.embedChunks(provider, changedChunks);
-    await this.vectorIndex.replaceAll(this.projectRoot, [...unchanged, ...embedded], {
-      provider: provider.name,
-      model: provider.model,
+    const embedded = await this.embedChunks(provider, changedChunks, {
+      embedTextOf: this.buildEmbedContextualizer(),
     });
+    await this.vectorIndex.replaceAll(
+      this.projectRoot,
+      [...unchanged, ...embedded],
+      {
+        provider: provider.name,
+        model: provider.model,
+        chunker_version: CHUNKER_VERSION,
+      },
+      intelligence.rag_base_branch,
+    );
     appendRagAudit(this.projectRoot, 'INFO', 'rag-incremental-update', {
       changed_files: [...changedSources].length,
       deleted_files: syncResult.deleted_files.length,
@@ -991,51 +1081,109 @@ export class RagService {
     }
   }
 
+  /**
+   * Build the F24 contextualiser: a function that prepends the deterministic blurb
+   * (path + enclosing signature + exported symbols + module-map role) to a chunk's
+   * content. The module-role resolver is built once from the module map here, so the
+   * per-chunk cost is a lookup, not a parse.
+   */
+  private buildEmbedContextualizer(): (chunk: Chunk) => string {
+    const roleOf = buildModuleRoleResolver(this.projectRoot);
+    return (chunk: Chunk) =>
+      contextualizeChunkText(chunk, { moduleRole: roleOf(chunk.source_file) });
+  }
+
   private async embedChunks(
     provider: EmbeddingProvider,
     chunks: Chunk[],
-    options?: { onProgress?: BuildIndexOptions['onProgress']; signal?: AbortSignal },
+    options: {
+      onProgress?: BuildIndexOptions['onProgress'];
+      signal?: AbortSignal;
+      /**
+       * RAG buildout F24 — maps a chunk to the text actually embedded (and used as the
+       * cache key). The build/sync paths pass a contextualiser that prepends the
+       * deterministic blurb; required so the index and cache key always agree.
+       */
+      embedTextOf: (chunk: Chunk) => string;
+    },
   ): Promise<StoredVectorChunk[]> {
     if (chunks.length === 0) {
       return [];
     }
 
-    const onProgress = options?.onProgress;
-    const signal = options?.signal;
-    const results: StoredVectorChunk[] = [];
+    const onProgress = options.onProgress;
+    const signal = options.signal;
+    const embedTextOf = options.embedTextOf;
+
+    // RAG buildout F8 — consult the content-addressed cache before embedding.
+    // Only chunks whose text is not already cached for this model hit the
+    // provider; unchanged chunks (and a previously-seen branch's chunks) are free.
+    // The cache key is the EMBEDDED text (F24: blurb + content), so a blurb change
+    // invalidates the entry and re-embeds, exactly like a content change.
+    const cache = EmbeddingCache.load(this.projectRoot, provider.model);
+    const missIndices: number[] = [];
+    for (let index = 0; index < chunks.length; index++) {
+      if (!cache.has(embedTextOf(chunks[index]))) {
+        missIndices.push(index);
+      }
+    }
+
+    // Assemble the stored chunks from whatever is currently cached (used for the
+    // success result and for the partial-checkpoint on cancellation).
+    const assemble = (): StoredVectorChunk[] =>
+      chunks
+        .map((chunk) => {
+          const vector = cache.get(embedTextOf(chunk));
+          return vector ? { ...chunk, vector } : null;
+        })
+        .filter((item): item is StoredVectorChunk => item !== null);
+
+    const cachedCount = chunks.length - missIndices.length;
     const batchSize = 32;
     const start = Date.now();
-    for (let offset = 0; offset < chunks.length; offset += batchSize) {
-      // Per-batch cancellation boundary: surface the chunks embedded so far so
-      // the caller can persist them as a resumable partial checkpoint (PQD-104).
+    for (let offset = 0; offset < missIndices.length; offset += batchSize) {
+      // Per-batch cancellation boundary: persist what we have embedded so far and
+      // surface it as a resumable partial checkpoint (PQD-104).
       if (signal?.aborted) {
+        await cache.flush();
         throw new CancelledError('RAG rebuild cancelled by consumer', {
-          partialChunks: results,
+          partialChunks: assemble(),
         } as Record<string, unknown>);
       }
-      const batch = chunks.slice(offset, offset + batchSize);
-      const vectors = await provider.embed(batch.map((chunk) => chunk.content));
-      for (let index = 0; index < batch.length; index++) {
-        results.push({
-          ...batch[index],
-          vector: vectors[index],
-        });
+      const batchIndices = missIndices.slice(offset, offset + batchSize);
+      const vectors = await provider.embed(batchIndices.map((index) => embedTextOf(chunks[index])));
+      for (let position = 0; position < batchIndices.length; position++) {
+        cache.set(embedTextOf(chunks[batchIndices[position]]), vectors[position]);
       }
-      const loaded = Math.min(offset + batch.length, chunks.length);
-      const percent = Math.round((loaded / chunks.length) * 100);
+      const embeddedMisses = Math.min(offset + batchIndices.length, missIndices.length);
+      const loaded = cachedCount + embeddedMisses;
       onProgress?.({
         phase: 'build',
-        message: `Embedded ${loaded}/${chunks.length} chunks with ${provider.model} (ETA ${estimateEtaSeconds(
+        message: `Embedded ${loaded}/${chunks.length} chunks with ${provider.model} (${cachedCount} cached, ETA ${estimateEtaSeconds(
           start,
-          loaded,
-          chunks.length,
+          embeddedMisses,
+          missIndices.length,
         )}s)`,
         loaded,
         total: chunks.length,
-        percent,
+        percent: Math.round((loaded / chunks.length) * 100),
       });
     }
-    return results;
+
+    // Everything cached up front: report a single completed tick so progress
+    // consumers still see a build event.
+    if (missIndices.length === 0) {
+      onProgress?.({
+        phase: 'build',
+        message: `Embedded ${chunks.length}/${chunks.length} chunks with ${provider.model} (all cached)`,
+        loaded: chunks.length,
+        total: chunks.length,
+        percent: 100,
+      });
+    }
+
+    await cache.flush();
+    return assemble();
   }
 
   private async discoverSourceFiles(
@@ -1081,4 +1229,73 @@ export class RagService {
 
 function flattenChunks(index: ChunkIndex): Chunk[] {
   return index.entries.flatMap((entry) => entry.chunks);
+}
+
+/** The fields fusion needs from a dense query result. */
+interface DenseHit {
+  // The blurb fields are optional here (vision chunks lack a code signature); the
+  // lexical document falls back to bare content when they are absent (F24).
+  item: {
+    id: string;
+    content: string;
+    source_file?: string;
+    ast_node_path?: string;
+    exported_symbols?: string[];
+  };
+  score: number;
+}
+
+/**
+ * The text BM25 indexes for a candidate (RAG buildout F24): the deterministic blurb
+ * (path + signature + exported symbols, no module-map lookup at query time) prepended to
+ * the content, so exact identifiers and paths the bare body omits are matchable. Falls
+ * back to bare content when the chunk carries no source path (e.g. a vision chunk).
+ */
+export function lexicalDocumentText(item: {
+  id: string;
+  content: string;
+  source_file?: string;
+  ast_node_path?: string;
+  exported_symbols?: string[];
+}): string {
+  if (!item.source_file) {
+    return item.content;
+  }
+  return contextualizeChunkText({
+    source_file: item.source_file,
+    ast_node_path: item.ast_node_path ?? '',
+    exported_symbols: item.exported_symbols ?? [],
+    content: item.content,
+  });
+}
+
+/**
+ * Fuse the dense (cosine) ranking with a BM25 lexical ranking via RRF (RAG buildout
+ * F17), returning the same result objects reordered. When the query has no lexical
+ * overlap with any candidate (BM25 empty), the dense order is returned unchanged, so
+ * this is a no-op for purely-semantic queries. Cosine scores on the results are left
+ * intact for the precision floor and the calibrated match annotation.
+ */
+function fuseHybridRanking<T extends DenseHit>(dense: readonly T[], queryText: string): T[] {
+  if (dense.length <= 1) {
+    return [...dense];
+  }
+  const lexical = new Bm25Index(
+    // RAG buildout F24 — index the contextualised text (path + signature + exported
+    // symbols prepended) so BM25 can match on identifiers/paths the bare body omits.
+    // Built from the stored chunk fields; the module-map role is index-time only.
+    dense.map((hit) => ({
+      id: hit.item.id,
+      content: lexicalDocumentText(hit.item),
+    })),
+  )
+    .search(queryText)
+    .map((hit) => hit.id);
+  if (lexical.length === 0) {
+    return [...dense];
+  }
+  const denseOrder = dense.map((hit) => hit.item.id);
+  const byId = new Map(dense.map((hit) => [hit.item.id, hit]));
+  const fused = reciprocalRankFusion([denseOrder, lexical]);
+  return fused.map((entry) => byId.get(entry.id)).filter((hit): hit is T => hit !== undefined);
 }

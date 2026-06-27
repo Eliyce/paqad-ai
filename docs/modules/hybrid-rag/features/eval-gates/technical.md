@@ -14,6 +14,15 @@ Source directories owned by this feature:
 ## Entry Points
 
 - Imported by other paqad-ai modules — see the source list above for the public surface.
+- On/off A/B merge gate (RAG buildout F15): `runFeatureOffVsOnGate(dataset, onTraces,
+  gates?)` builds the feature-OFF snapshot (`buildFeatureOffTraces` — no retrieval,
+  zero injected tokens) and the feature-ON snapshot (`snapshotFromTraces` over real
+  traces), then evaluates the benchmark gates. `rag eval --mode feature-off-vs-on`
+  self-generates both arms (no `--baseline` needed) and exits non-zero when the gate
+  fails — quality must not drop, and injected tokens are justified only by a
+  task-success improvement (the prompt-token success-override). The golden dataset
+  (`EVAL_DATASET`) spans all `EvalQueryClass` categories incl. negative/should-skip.
+  From F15 on, every later retrieval/precision change (F17-F27) must clear this gate.
 
 ## Data Model / Schema
 

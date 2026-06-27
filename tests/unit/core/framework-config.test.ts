@@ -155,6 +155,21 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
     expect(c.research.depth).toBe('cutting-edge');
   });
 
+  it('F10: rag_base_branch is unset by default (auto-detect main->master)', () => {
+    expect(DEFAULT_FRAMEWORK_CONFIG.intelligence.rag_base_branch).toBeUndefined();
+    expect(
+      resolveFrameworkConfigFromMap(parseDotConfig('rag_enabled=true')).intelligence
+        .rag_base_branch,
+    ).toBeUndefined();
+  });
+
+  it('F10: rag_base_branch honours a configured release branch', () => {
+    const c = resolveFrameworkConfigFromMap(
+      parseDotConfig('rag_enabled=true\nrag_base_branch=release/2.x'),
+    );
+    expect(c.intelligence.rag_base_branch).toBe('release/2.x');
+  });
+
   it.each(['1', 'true', 'TRUE', 'yes', 'on', 'On'])('coerces %s to boolean true', (v) => {
     expect(
       resolveFrameworkConfigFromMap(parseDotConfig(`rag_enabled=${v}`)).intelligence.rag_enabled,

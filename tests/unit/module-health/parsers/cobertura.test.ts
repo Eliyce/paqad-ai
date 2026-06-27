@@ -37,4 +37,15 @@ describe('module-health/parsers/cobertura', () => {
   it('returns empty coverage when no class elements exist', () => {
     expect(parseReport('<coverage/>').coverage).toEqual([]);
   });
+
+  it('skips a class with no filename attribute', () => {
+    const xml = `
+<coverage>
+  <class name="anon"><lines><line number="1" hits="1"/></lines></class>
+  <class name="real" filename="src/a.ts"><lines><line number="1" hits="1"/></lines></class>
+</coverage>`;
+    expect(parseReport(xml).coverage).toEqual([
+      { file: 'src/a.ts', lines_total: 1, lines_covered: 1 },
+    ]);
+  });
 });
