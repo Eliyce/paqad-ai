@@ -40,6 +40,11 @@ export interface RagIndexMeta {
   base_branch?: string;
   base_commit?: string;
   head_commit?: string;
+  // RAG buildout F22 — the chunking strategy the index was built with (e.g.
+  // `cast-v1`). Optional: an index built before F22 has none, which reads as a
+  // mismatch and forces a clean rebuild rather than a strategy-mixing incremental
+  // sync. Set only for the AST-chunked file index, not vision/CRS collections.
+  chunker_version?: string;
 }
 
 export interface StoredVectorItem {

@@ -1,10 +1,43 @@
 import { createHash } from 'node:crypto';
 import type { Chunk } from './types.js';
 
-export class AstChunker {
-  constructor(private readonly maxChunkChars = 2000) {}
+/**
+ * Identifies the chunking STRATEGY an index was built with (RAG buildout F22). It is
+ * stamped into `RagIndexMeta.chunker_version` on every (re)build and compared on every
+ * status check: an index built by a different chunker is treated as invalid, so it is
+ * never incrementally synced (which would mix old and new chunk boundaries — corrupt)
+ * and is fully rebuilt instead. Bump this whenever the chunking behaviour changes
+ * (e.g. swapping the boundary detector for a tree-sitter parser).
+ *
+ * `cast-v1` = regex boundary detection + the cAST split-then-merge pass below.
+ */
+export const CHUNKER_VERSION = 'cast-v1';
 
+export class AstChunker {
+  /**
+   * @param maxChunkChars per-chunk non-whitespace budget; also the cAST merge target.
+   * @param merge when true (default) the cAST split-then-merge pass coalesces small
+   *   adjacent same-file chunks up to the budget (RAG buildout F22). Disable for the
+   *   raw boundary-only chunks (used by tests / the legacy `regex` strategy).
+   */
+  constructor(
+    private readonly maxChunkChars = 2000,
+    private readonly merge = true,
+  ) {}
+
+  /**
+   * Chunk a file into AST-node-level slices, then (when enabled) apply the cAST
+   * split-then-merge refinement so tiny adjacent symbols ride together up to the
+   * budget instead of becoming one-line fragments. The boundary detection is the
+   * "split"; {@link castMerge} is the "merge".
+   */
   chunk(filePath: string, content: string): Chunk[] {
+    const raw = this.chunkRaw(filePath, content);
+    return this.merge ? castMerge(raw, this.maxChunkChars) : raw;
+  }
+
+  /** Boundary-only chunking (the "split" half of cAST), per detected language. */
+  private chunkRaw(filePath: string, content: string): Chunk[] {
     const lang = this.detectLanguage(filePath);
     try {
       switch (lang) {
@@ -192,4 +225,71 @@ export class AstChunker {
     }
     return symbols;
   }
+}
+
+/**
+ * The cAST "merge" pass (RAG buildout F22). Boundary detection produces one chunk per
+ * symbol, which leaves many tiny one-line chunks (a re-export, a small constant, a
+ * two-line helper). cAST coalesces a run of ADJACENT chunks FROM THE SAME FILE into one
+ * chunk as long as the combined non-whitespace size stays within `targetChars`, so the
+ * model receives a coherent slice rather than a fragment, and the index holds fewer,
+ * better-filled chunks.
+ *
+ * Safe-by-construction: it only ever joins chunks that were already adjacent within one
+ * file, never crosses a file boundary, never drops or reorders content, and passes an
+ * already-oversize chunk through untouched (the boundary splitter already shrank it as
+ * far as it could). A single chunk is returned verbatim — no needless re-hash.
+ */
+export function castMerge(chunks: readonly Chunk[], targetChars: number): Chunk[] {
+  const result: Chunk[] = [];
+  let buffer: Chunk[] = [];
+  let bufferChars = 0;
+
+  const flush = (): void => {
+    if (buffer.length === 0) {
+      return;
+    }
+    result.push(buffer.length === 1 ? buffer[0] : mergeChunks(buffer));
+    buffer = [];
+    bufferChars = 0;
+  };
+
+  for (const chunk of chunks) {
+    const breaksRun =
+      buffer.length > 0 &&
+      (chunk.source_file !== buffer[0].source_file || bufferChars + chunk.char_count > targetChars);
+    if (breaksRun) {
+      flush();
+    }
+    buffer.push(chunk);
+    bufferChars += chunk.char_count;
+  }
+  flush();
+  return result;
+}
+
+/** Combine an adjacent same-file run of chunks into a single re-hashed chunk. */
+function mergeChunks(chunks: Chunk[]): Chunk {
+  const source_file = chunks[0].source_file;
+  const content = chunks.map((c) => c.content).join('\n\n');
+  const ast_node_path = chunks.map((c) => c.ast_node_path).join('+');
+  const exported_symbols = [...new Set(chunks.flatMap((c) => c.exported_symbols))];
+  const char_count = chunks.reduce((sum, c) => sum + c.char_count, 0);
+  const modified_at_ms = chunks.reduce<number | undefined>(
+    (max, c) => (c.modified_at_ms === undefined ? max : Math.max(max ?? 0, c.modified_at_ms)),
+    undefined,
+  );
+  return {
+    id: createHash('sha256').update(`${source_file}:${ast_node_path}:${content}`).digest('hex'),
+    source_file,
+    // The merged slice is rooted at its first node's kind; a precise "merged" tag would
+    // mean widening the closed Chunk union, which is not worth it for an advisory field.
+    ast_node_type: chunks[0].ast_node_type,
+    ast_node_path,
+    exported_symbols,
+    content,
+    char_count,
+    content_hash: createHash('sha256').update(content).digest('hex'),
+    ...(modified_at_ms === undefined ? {} : { modified_at_ms }),
+  };
 }

@@ -4,7 +4,7 @@ import { mkdir, readdir, rename, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
 
-import { AstChunker } from '@/context/ast-chunker.js';
+import { AstChunker, CHUNKER_VERSION } from '@/context/ast-chunker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { createReranker } from '@/context/reranker.js';
 import type { RerankingConfig } from '@/context/reranker.js';
@@ -138,15 +138,24 @@ export class RagService {
       : undefined;
     const providerModelMatch =
       meta?.provider === intelligence.embedding_provider && meta?.model === expectedModel;
+    // RAG buildout F22 — an index built by a different chunking strategy must be fully
+    // rebuilt, never incrementally synced (mixing chunk boundaries corrupts retrieval).
+    // A pre-F22 index has no chunker_version, which reads as a mismatch and forces the
+    // rebuild. Only gates when RAG is on, mirroring the provider/model check.
+    const chunkerMatch = meta?.chunker_version === CHUNKER_VERSION;
     // Index is stale whenever a stored index exists but its provider/model doesn't match the
     // current configuration — regardless of whether RAG is currently enabled.
     const staleMetadata = Boolean(meta) && !providerModelMatch;
     const valid =
-      Boolean(meta) && !status.corrupt && (!intelligence.rag_enabled || providerModelMatch);
+      Boolean(meta) &&
+      !status.corrupt &&
+      (!intelligence.rag_enabled || (providerModelMatch && chunkerMatch));
 
     let reason = status.reason;
     if (!reason && status.present && meta && !providerModelMatch) {
       reason = 'configured provider/model does not match stored vector metadata';
+    } else if (!reason && status.present && meta && !chunkerMatch && intelligence.rag_enabled) {
+      reason = 'stored index was built with a different chunker; a full rebuild is needed';
     }
 
     let visionChunkCount: number | undefined;
@@ -281,6 +290,7 @@ export class RagService {
         {
           provider: provider.name,
           model: provider.model,
+          chunker_version: CHUNKER_VERSION,
         },
         intelligence.rag_base_branch,
       );
@@ -1023,6 +1033,7 @@ export class RagService {
       {
         provider: provider.name,
         model: provider.model,
+        chunker_version: CHUNKER_VERSION,
       },
       intelligence.rag_base_branch,
     );

@@ -241,6 +241,9 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
       built_at: new Date().toISOString(),
       chunk_count: items.length,
       embedding_dimensions: dimensions,
+      // RAG buildout F22 — record the chunking strategy when the caller supplies it
+      // (the AST-chunked file index does; vision/CRS collections leave it undefined).
+      ...(metaInput.chunker_version ? { chunker_version: metaInput.chunker_version } : {}),
       // RAG buildout F7 — stamp the branch/commit/base this index reflects.
       // Best-effort: a non-git project leaves these undefined. F10 threads the
       // configured base branch through `baseBranch`.

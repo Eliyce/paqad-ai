@@ -257,6 +257,49 @@ describe('RagService', () => {
     );
   });
 
+  it('F22: the index meta records the chunker version it was built with', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    const meta = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad', 'vectors', 'meta.json'), 'utf8'),
+    );
+    expect(meta.chunker_version).toBe('cast-v1');
+  });
+
+  it('F22: an index built by a different chunker is invalid (forces a full rebuild)', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    expect((await service.getStatus()).valid).toBe(true);
+
+    // Simulate an index built by an older/different chunker (e.g. pre-F22 = no version).
+    const metaPath = join(projectRoot, '.paqad', 'vectors', 'meta.json');
+    const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+    delete meta.chunker_version;
+    writeFileSync(metaPath, JSON.stringify(meta));
+
+    const status = await service.getStatus();
+    expect(status.valid).toBe(false);
+    expect(status.reason).toContain('chunker');
+    // A mismatched index is never incrementally synced — the guard against mixing.
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'no-index',
+    });
+  });
+
   it('F9: a branch switch self-heals the index branch metadata', async () => {
     const g = (...args: string[]) =>
       execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] });
