@@ -6,6 +6,7 @@ import { dirname } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 
 import { crsCollectionDir, crsCollectionPaths } from './crs-paths.js';
+import { readGitState } from './git-state.js';
 import type {
   CrsChunk,
   CrsCollectionId,
@@ -217,7 +218,20 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
   async replaceAll(
     projectRoot: string,
     items: T[],
-    metaInput: Omit<RagIndexMeta, 'version' | 'chunk_count' | 'built_at' | 'embedding_dimensions'>,
+    metaInput: Omit<
+      RagIndexMeta,
+      | 'version'
+      | 'chunk_count'
+      | 'built_at'
+      | 'embedding_dimensions'
+      | 'branch'
+      | 'base_branch'
+      | 'base_commit'
+      | 'head_commit'
+    >,
+    // RAG buildout F7/F10 — optional base branch override; auto-detects main→master
+    // when omitted.
+    baseBranch?: string,
   ): Promise<RagIndexMeta> {
     const dimensions = items[0]?.vector.length ?? 0;
     const meta: RagIndexMeta = {
@@ -227,6 +241,10 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
       built_at: new Date().toISOString(),
       chunk_count: items.length,
       embedding_dimensions: dimensions,
+      // RAG buildout F7 — stamp the branch/commit/base this index reflects.
+      // Best-effort: a non-git project leaves these undefined. F10 threads the
+      // configured base branch through `baseBranch`.
+      ...readGitState(projectRoot, baseBranch ? { baseBranch } : {}),
     };
     const payload: VectorIndexPayload<T> = { version: 1, dimensions, items };
     await this.save(projectRoot, payload, meta);
