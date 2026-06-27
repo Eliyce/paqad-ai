@@ -15,6 +15,7 @@ export * from './fixture-runner.js';
 export * from './guard.js';
 export * from './mutate.js';
 export * from './runner.js';
+export * from './enforce.js';
 export * from './reconciler.js';
 export * from './editor.js';
 export * from './prune.js';
