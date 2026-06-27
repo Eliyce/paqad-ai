@@ -669,6 +669,8 @@ modules:
         name: Pattern Vectors
       - slug: eval-gates
         name: Eval Gates (hit@5, success, correction turns)
+      - slug: branch-aware-index
+        name: Branch-Aware Index (branch/commit/base metadata)
 
   - slug: background-harness
     name: Background-Worker Harness
