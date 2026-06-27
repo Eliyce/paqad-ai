@@ -11,6 +11,59 @@ import type {
 
 export const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
 
+/**
+ * A selectable local (transformers.js) embedding model (RAG buildout F23). Every entry
+ * runs fully offline after a one-time shared download under `~/.paqad/models`. MiniLM is
+ * the default FLOOR — small, fast, general-purpose; the code-tuned model is an opt-in
+ * upgrade that closes the code-retrieval gap for offline / no-API-key users.
+ */
+export interface LocalEmbeddingModel {
+  /** transformers.js model id (also the cache directory name). */
+  id: string;
+  /** Short menu label. */
+  label: string;
+  /** One-line description shown in the picker. */
+  description: string;
+  /** True for code-tuned models (vs the general-purpose floor). */
+  codeTuned: boolean;
+  /** True for the default floor model. Exactly one entry sets this. */
+  isDefault?: boolean;
+}
+
+/**
+ * The curated local embedding models. MiniLM stays the default floor; the code-tuned
+ * model is opt-in and must clear the eval gate before it is recommended (the local
+ * counterpart to the remote `voyage-code-3` option). Adding a model here surfaces it in
+ * the `rag` setup picker — the local provider downloads any transformers.js
+ * feature-extraction model, so the list is a curated, supported subset, not a hard limit.
+ */
+export const LOCAL_EMBEDDING_MODELS: readonly LocalEmbeddingModel[] = [
+  {
+    id: 'Xenova/all-MiniLM-L6-v2',
+    label: 'MiniLM (default, smallest)',
+    description:
+      'General-purpose 384-dim model. Small, fast, fully offline after a one-time shared download.',
+    codeTuned: false,
+    isDefault: true,
+  },
+  {
+    id: 'Xenova/jina-embeddings-v2-base-code',
+    label: 'Jina code (code-tuned, larger)',
+    description:
+      'Code-tuned 768-dim model for stronger code retrieval. Opt-in: a larger one-time download, still fully offline afterwards.',
+    codeTuned: true,
+  },
+];
+
+/** The default local model (the floor). Single source of truth for `getDefaultEmbeddingModel`. */
+export const DEFAULT_LOCAL_EMBEDDING_MODEL =
+  LOCAL_EMBEDDING_MODELS.find((model) => model.isDefault)?.id ?? 'Xenova/all-MiniLM-L6-v2';
+
+/** Whether `model` is one of the curated code-tuned local models (RAG buildout F23). */
+export function isCodeTunedLocalModel(model: string | undefined): boolean {
+  return LOCAL_EMBEDDING_MODELS.some((entry) => entry.id === model && entry.codeTuned);
+}
+
 export const DEFAULT_BENCHMARK_EVAL: BenchmarkEvalConfig = {
   model_graded: { enabled: false },
 };
@@ -50,7 +103,7 @@ export function getDefaultEmbeddingModel(provider: EmbeddingProviderName): strin
       return 'voyage-code-3';
     case 'local':
     default:
-      return 'Xenova/all-MiniLM-L6-v2';
+      return DEFAULT_LOCAL_EMBEDDING_MODEL;
   }
 }
 

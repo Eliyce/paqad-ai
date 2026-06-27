@@ -3,7 +3,12 @@ import { readFileSync } from 'node:fs';
 import { confirm, input, select } from '@inquirer/prompts';
 import { Command } from 'commander';
 
-import { EMBEDDING_PROVIDERS, getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
+import {
+  DEFAULT_LOCAL_EMBEDDING_MODEL,
+  EMBEDDING_PROVIDERS,
+  LOCAL_EMBEDDING_MODELS,
+  getDefaultEmbeddingModel,
+} from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
 import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
@@ -64,6 +69,27 @@ async function resolveProvider(
   });
 }
 
+/**
+ * Pick the local embedding model (RAG buildout F23). Non-interactive runs (and any
+ * caller that doesn't choose) keep the MiniLM floor; interactively, the user may opt into
+ * the code-tuned model. Returns the model id to build with.
+ */
+async function resolveLocalModel(current?: string): Promise<string> {
+  const fallback = current ?? DEFAULT_LOCAL_EMBEDDING_MODEL;
+  if (!isInteractive()) {
+    return fallback;
+  }
+  return select<string>({
+    message: 'Which local embedding model?',
+    default: fallback,
+    choices: LOCAL_EMBEDDING_MODELS.map((model) => ({
+      value: model.id,
+      name: model.label,
+      description: model.description,
+    })),
+  });
+}
+
 async function maybePromptApiKey(
   service: RagService,
   provider: EmbeddingProviderName,
@@ -114,10 +140,16 @@ async function buildWithRecovery(
 
   for (;;) {
     await maybePromptApiKey(service, provider);
-    const model =
+    const carriedModel =
       explicitModel ??
-      (current.configured_provider === provider ? current.configured_model : undefined) ??
-      getDefaultEmbeddingModel(provider);
+      (current.configured_provider === provider ? current.configured_model : undefined);
+    // F23 — for the local provider, offer the MiniLM floor vs the opt-in code-tuned
+    // model when nothing is already chosen. Other providers keep their single default.
+    const model =
+      carriedModel ??
+      (provider === 'local'
+        ? await resolveLocalModel(DEFAULT_LOCAL_EMBEDDING_MODEL)
+        : getDefaultEmbeddingModel(provider));
 
     try {
       return await service.configureAndBuild(

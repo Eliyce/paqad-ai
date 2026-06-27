@@ -127,6 +127,29 @@ describe('rag command', () => {
     );
   });
 
+  it('F23: lets the user opt into the code-tuned local model interactively', async () => {
+    setInteractive(true);
+    // provider picker -> local, then the local-model picker -> code-tuned jina.
+    promptSelect
+      .mockResolvedValueOnce('local')
+      .mockResolvedValueOnce('Xenova/jina-embeddings-v2-base-code');
+
+    const createRagCommand = await loadCreateRagCommand();
+    const command = createRagCommand();
+    await command.parseAsync(
+      ['node', 'rag', 'init', '--project-root', projectRoot(tempProjectRoot), '--yes'],
+      { from: 'node' },
+    );
+
+    expect(RagService.prototype.configureAndBuild).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embedding_provider: 'local',
+        embedding_model: 'Xenova/jina-embeddings-v2-base-code',
+      }),
+      expect.any(Function),
+    );
+  });
+
   it('prompts for provider interactively when none is specified', async () => {
     setInteractive(true);
     promptSelect.mockResolvedValueOnce('voyageai');
@@ -900,7 +923,11 @@ describe('rag command', () => {
         size_bytes: 123,
       });
     promptInput.mockResolvedValueOnce('sk-bad');
-    promptSelect.mockResolvedValueOnce('switch-provider').mockResolvedValueOnce('local');
+    // switch-provider -> pick local -> then the F23 local-model picker (MiniLM floor).
+    promptSelect
+      .mockResolvedValueOnce('switch-provider')
+      .mockResolvedValueOnce('local')
+      .mockResolvedValueOnce('Xenova/all-MiniLM-L6-v2');
 
     const createRagCommand = await loadCreateRagCommand();
     const command = createRagCommand();

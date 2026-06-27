@@ -3,10 +3,13 @@ import {
   DEFAULT_ADAPTIVE_RETRIEVAL,
   DEFAULT_BENCHMARK_EVAL,
   DEFAULT_BENCHMARK_GATES,
+  DEFAULT_LOCAL_EMBEDDING_MODEL,
   DEFAULT_METADATA_FILTERS,
   DEFAULT_RERANKING,
+  LOCAL_EMBEDDING_MODELS,
   defaultIntelligenceConfig,
   getDefaultEmbeddingModel,
+  isCodeTunedLocalModel,
   normalizeIntelligenceConfig,
 } from '@/core/project-intelligence.js';
 
@@ -15,6 +18,28 @@ describe('project intelligence defaults', () => {
     expect(getDefaultEmbeddingModel('local')).toBe('Xenova/all-MiniLM-L6-v2');
     expect(getDefaultEmbeddingModel('openai')).toBe('text-embedding-3-small');
     expect(getDefaultEmbeddingModel('voyageai')).toBe('voyage-code-3');
+  });
+
+  describe('local embedding models (F23)', () => {
+    it('keeps MiniLM as the default floor', () => {
+      expect(DEFAULT_LOCAL_EMBEDDING_MODEL).toBe('Xenova/all-MiniLM-L6-v2');
+      expect(getDefaultEmbeddingModel('local')).toBe(DEFAULT_LOCAL_EMBEDDING_MODEL);
+      const floor = LOCAL_EMBEDDING_MODELS.find((m) => m.isDefault);
+      expect(floor?.id).toBe(DEFAULT_LOCAL_EMBEDDING_MODEL);
+      expect(floor?.codeTuned).toBe(false);
+    });
+
+    it('offers exactly one default and at least one opt-in code-tuned model', () => {
+      expect(LOCAL_EMBEDDING_MODELS.filter((m) => m.isDefault)).toHaveLength(1);
+      expect(LOCAL_EMBEDDING_MODELS.some((m) => m.codeTuned)).toBe(true);
+    });
+
+    it('identifies code-tuned models, not the floor or unknown ids', () => {
+      expect(isCodeTunedLocalModel('Xenova/jina-embeddings-v2-base-code')).toBe(true);
+      expect(isCodeTunedLocalModel('Xenova/all-MiniLM-L6-v2')).toBe(false);
+      expect(isCodeTunedLocalModel('something/unknown')).toBe(false);
+      expect(isCodeTunedLocalModel(undefined)).toBe(false);
+    });
   });
 
   it('provides a stable disabled-by-default intelligence config', () => {
