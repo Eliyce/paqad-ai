@@ -13,13 +13,7 @@ import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { compareConfigurations } from '@/rag/benchmark-gates.js';
 import type { ConfigurationComparisonResult, RagBenchmarkSnapshot } from '@/rag/benchmark-gates.js';
 import { EVAL_DATASET } from '@/rag/eval-dataset.js';
-import {
-  EvalRunner,
-  computeCorrectionTurns,
-  computeHitAtK,
-  computePromptTokensSent,
-  computeTaskSuccessRate,
-} from '@/rag/eval-runner.js';
+import { EvalRunner, runFeatureOffVsOnGate, snapshotFromTraces } from '@/rag/eval-runner.js';
 import { RagService } from '@/rag/service.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 import type { ComparisonMode, EvalTrace } from '@/rag/types.js';
@@ -357,16 +351,36 @@ export function createRagCommand(): Command {
           result.model_graded = await runner.runModelGraded(EVAL_DATASET, traces);
         }
 
-        // Derive candidate snapshot from real traces.
-        const candidateSnapshot: RagBenchmarkSnapshot = {
-          hit_at_5: computeHitAtK(EVAL_DATASET, traces, 5),
-          task_success_rate: computeTaskSuccessRate(EVAL_DATASET, traces),
-          correction_turns: computeCorrectionTurns(EVAL_DATASET, traces),
-          prompt_tokens_sent: computePromptTokensSent(traces),
-          task_count: EVAL_DATASET.length,
-        };
+        // Derive candidate (feature-ON) snapshot from real traces.
+        const candidateSnapshot = snapshotFromTraces(EVAL_DATASET, traces);
 
         let comparison: ConfigurationComparisonResult | undefined;
+        // F15 — the on/off A/B merge gate. In feature-off-vs-on mode we self-generate
+        // the feature-OFF baseline (no retrieval) and gate ON against it, no external
+        // baseline file required. A failed gate (quality down, or tokens up without a
+        // task-success improvement) sets a non-zero exit so CI blocks the merge.
+        if (mode === 'feature-off-vs-on') {
+          const ab = runFeatureOffVsOnGate(EVAL_DATASET, traces);
+          comparison = ab.comparison;
+          if (!comparison.evaluation.passed) {
+            process.exitCode = 1;
+          }
+          process.stdout.write(
+            `${JSON.stringify(
+              {
+                eval_run: result,
+                feature_off_snapshot: ab.off,
+                feature_on_snapshot: ab.on,
+                comparison,
+                gate_passed: comparison.evaluation.passed,
+              },
+              null,
+              2,
+            )}\n`,
+          );
+          return;
+        }
+
         if (options.baseline) {
           const baselineSnapshot = JSON.parse(
             readFileSync(options.baseline, 'utf8'),
