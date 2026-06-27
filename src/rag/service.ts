@@ -6,6 +6,8 @@ import { extname, join, resolve, sep } from 'node:path';
 
 import { AstChunker } from '@/context/ast-chunker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
+import { createReranker } from '@/context/reranker.js';
+import type { RerankingConfig } from '@/context/reranker.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { engineLog } from '@/core/logger-registry.js';
@@ -23,6 +25,7 @@ import { appendRagAudit } from './audit.js';
 import { CrsBacklogQueue } from './crs-backlog.js';
 import { EmbeddingCache } from './embedding-cache.js';
 import { Bm25Index } from './lexical-bm25.js';
+import { reorderByRankedIds } from './rerank-order.js';
 import { reciprocalRankFusion } from './rrf-fusion.js';
 import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
@@ -502,7 +505,14 @@ export class RagService {
         input.targetFilePath,
         input.symbolReferences ?? [],
       );
-      const results = fuseHybridRanking(dense, queryText).slice(0, limit);
+      const fused = fuseHybridRanking(dense, queryText);
+      // F18 — reranking. When configured on, a cross-encoder reorders the fused pool
+      // for precision; default-off, so this is a no-op unless a team opts in (it is
+      // contested for code and must clear the eval gate first). Reranking only changes
+      // order: cosine scores, the precision floor, and the token cap are untouched, and
+      // any reranker failure falls back to the fused order (never blocks).
+      const reranked = await this.applyReranking(queryText, fused, intelligence.reranking);
+      const results = reranked.slice(0, limit);
       const filtered = results.filter(
         (result) => result.score >= intelligence.rag_similarity_threshold,
       );
@@ -942,6 +952,38 @@ export class RagService {
       if (now - stampedAt > CRS_REVERT_RETENTION_MS) {
         await rm(join(crsRootAbs, entry), { recursive: true, force: true });
       }
+    }
+  }
+
+  /**
+   * Reorder the fused hits with the configured reranker (RAG buildout F18). A fast
+   * path returns the hits untouched when reranking is disabled (the default), so no
+   * cross-encoder model is loaded unless a team opts in. The reranker only reorders:
+   * the original hit objects (and their cosine scores) are reattached via
+   * {@link reorderByRankedIds}. Any reranker error falls back to the input order so
+   * retrieval never blocks on it.
+   */
+  private async applyReranking<T extends { item: { id: string; content: string } }>(
+    query: string,
+    hits: readonly T[],
+    config?: RerankingConfig,
+  ): Promise<T[]> {
+    if (!config?.enabled || hits.length <= 1) {
+      return [...hits];
+    }
+    try {
+      const reranker = createReranker(config);
+      const { post_rerank_ids } = await reranker.rerank(
+        query,
+        hits.map((hit) => hit.item as Chunk),
+        config.candidate_pool_size,
+      );
+      return reorderByRankedIds(hits, (hit) => hit.item.id, post_rerank_ids);
+    } catch (error) {
+      appendRagAudit(this.projectRoot, 'WARN', 'rag-rerank-fallback', {
+        reason: error instanceof Error ? error.message : 'unknown-error',
+      });
+      return [...hits];
     }
   }
 
