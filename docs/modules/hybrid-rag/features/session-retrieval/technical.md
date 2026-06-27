@@ -23,11 +23,18 @@
   user's prompt — the artifact is precomputed in the background (SWR).
 - Slices are the `retrieved_chunks` of `RagRetrievalResult`, scored from
   `vector_scores`.
+- Scope (F13): `RetrievalScope = 'docs' | 'code' | 'all'`. `isDocScopedPath` marks
+  `docs/instructions/`, `docs/modules/`, and the module-map as docs. Default is
+  `docs` — module docs become on-demand relevance slices (~1-2K tokens) instead of
+  the wholesale ~20-40K whole-doc load. `filterToScope` drops out-of-scope slices.
 
 ## API / Interface Contract
 
 - Capped at `MAX_RETRIEVAL_SLICES` (5); each body truncated at `MAX_SLICE_CHARS`
   (1200) — a slice, never a whole file.
+- Scope-first (F13): retrieval is routed over docs only by default; a code-only
+  working set with no matching doc slice injects nothing and the agent stays on
+  grep. Code slices are the F19 extension.
 - Section is appended AFTER the rule slice (F5) so the seam injects one artifact.
 - Precision floor (F12): `applyPrecisionFloor(slices, floor)` drops any slice below
   the floor OR without a score before injection. The floor is the project's
