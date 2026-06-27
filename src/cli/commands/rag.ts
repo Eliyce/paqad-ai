@@ -6,6 +6,7 @@ import { Command } from 'commander';
 import { EMBEDDING_PROVIDERS, getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
+import { refreshRuleContext } from '@/context/rule-context.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { compareConfigurations } from '@/rag/benchmark-gates.js';
 import type { ConfigurationComparisonResult, RagBenchmarkSnapshot } from '@/rag/benchmark-gates.js';
@@ -263,6 +264,23 @@ export function createRagCommand(): Command {
     .action(async (options: { projectRoot: string }) => {
       const service = new RagService(options.projectRoot);
       process.stdout.write(`${JSON.stringify(await service.getStatus(), null, 2)}\n`);
+    });
+
+  // RAG buildout F5 — recompose the rule slice of the session-context artifact
+  // (manifest + trigger-loaded full rule text) from the current working set. This
+  // is the worker the prompt-time refresh trigger spawns in the background; it is
+  // single-flight-locked and never blocks. Quiet by default so a detached run
+  // produces no stray output.
+  command
+    .command('refresh-context')
+    .description('Recompose the rule slice of the session-context artifact')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--quiet', 'Suppress output (used by the background trigger)')
+    .action(async (options: { projectRoot: string; quiet?: boolean }) => {
+      const target = await refreshRuleContext(options.projectRoot);
+      if (!options.quiet) {
+        process.stdout.write(`${target ? `wrote ${target}` : 'no rules to compose'}\n`);
+      }
     });
 
   command

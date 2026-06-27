@@ -1,16 +1,6 @@
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import {
-  generateRuleManifest,
-  scriptedSourcePaths,
-  writeRuleManifest,
-} from '@/context/rule-manifest.js';
-import { PATHS } from '@/core/constants/paths.js';
+import { generateRuleManifest, scriptedSourcePaths } from '@/context/rule-manifest.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
 import type { RuleScriptMap } from '@/rule-scripts/types.js';
 
@@ -82,7 +72,6 @@ describe('generateRuleManifest', () => {
     const line = md.split('\n').find((l) => l.includes('RULE-4'))!;
     expect(line).toContain('…');
     expect(line).not.toContain('\n- word'); // flattened, no leading bullet
-    // The summary segment after the em dash is within the cap.
     const summarySeg = line.split(' — ')[1];
     expect(summarySeg.length).toBeLessThanOrEqual(30);
   });
@@ -128,52 +117,5 @@ describe('scriptedSourcePaths', () => {
 
   it('degrades to an empty set for a null map', () => {
     expect(scriptedSourcePaths(null).size).toBe(0);
-  });
-});
-
-describe('writeRuleManifest', () => {
-  let projectRoot: string;
-
-  beforeEach(() => {
-    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-manifest-'));
-    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
-  });
-
-  it('writes the manifest to the seam artifact from compiled-rules.json', async () => {
-    writeFileSync(
-      join(projectRoot, PATHS.COMPILED_RULES),
-      JSON.stringify(store([rule({ rule_id: 'RULE-1', title: 'Canonical Docs' })])),
-    );
-    const target = await writeRuleManifest(projectRoot);
-    expect(target).toBe(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT));
-    const written = readFileSync(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT), 'utf8');
-    expect(written).toContain('paqad rule manifest');
-    expect(written).toContain('RULE-1');
-  });
-
-  it('returns null and writes nothing when there are no compiled rules', async () => {
-    const target = await writeRuleManifest(projectRoot);
-    expect(target).toBeNull();
-  });
-
-  it('appears in session context via the seam hook (end-to-end, rag on)', async () => {
-    writeFileSync(
-      join(projectRoot, PATHS.COMPILED_RULES),
-      JSON.stringify(store([rule({ rule_id: 'RULE-1', title: 'Canonical Docs' })])),
-    );
-    await writeRuleManifest(projectRoot);
-
-    const hook = resolve(__dirname, '../../../runtime/hooks/context-seam-inject.mjs');
-    const stdout = execFileSync('node', [hook], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot, PAQAD_RAG_ENABLED: 'true' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).toString('utf8');
-    expect(stdout).toContain('[paqad-context]');
-    expect(stdout).toContain('paqad rule manifest');
-    expect(stdout).toContain('RULE-1');
   });
 });

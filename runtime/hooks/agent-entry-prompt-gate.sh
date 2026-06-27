@@ -42,6 +42,14 @@ if [ -f "${context_seam}" ]; then
   node "${context_seam}" </dev/null 2>/dev/null || true
 fi
 
+# RAG buildout F5 — fire a debounced, detached background refresh of the rule
+# context so it tracks the files in play. Returns immediately; the refresh lands
+# on the next prompt (the always-resident manifest covers this one). Never blocks.
+context_refresh="$(dirname "$0")/context-refresh-trigger.mjs"
+if [ -f "${context_refresh}" ]; then
+  node "${context_refresh}" </dev/null >/dev/null 2>&1 || true
+fi
+
 mode="${PAQAD_AGENT_ENTRY_MODE:-soft}"
 
 state=$(paqad_sentinel_state)

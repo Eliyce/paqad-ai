@@ -20,13 +20,7 @@
  * refresh), so it tracks `compiled-rules.json`. The artifact is machine-local
  * (`.paqad/context/` is gitignored).
  */
-import { join } from 'node:path';
-
-import { atomicWriteFile } from '@/background/atomic-artifact.js';
-import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
-import { readCompiledRules } from '@/planning/rule-compiler.js';
-import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 import type { RuleScriptMap } from '@/rule-scripts/types.js';
 
 /** Glyph marking a script-enforced rule in the manifest. */
@@ -102,24 +96,4 @@ export function generateRuleManifest(
 
   const lines = rules.map((rule) => manifestLine(rule, scripted, maxChars));
   return `${header}\n${intro}\n\n${lines.join('\n')}\n`;
-}
-
-/**
- * Regenerate the rule manifest from the project's compiled rules and write it to
- * the seam artifact. Returns the artifact path on success, or `null` when there
- * are no compiled rules to describe (nothing written — the seam then injects
- * nothing for rules, today's behavior).
- *
- * Generation is unconditional (cheap, machine-local); whether the artifact is
- * actually injected is the seam's `rag_enabled` decision, so flipping the
- * accelerator on makes an already-fresh manifest available immediately.
- */
-export async function writeRuleManifest(projectRoot: string): Promise<string | null> {
-  const store = await readCompiledRules(projectRoot);
-  if (!store) return null;
-  const scripted = scriptedSourcePaths(loadRuleScriptMap(projectRoot));
-  const markdown = generateRuleManifest(store, { scriptedSourcePaths: scripted });
-  const target = join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT);
-  await atomicWriteFile(target, markdown);
-  return target;
 }
