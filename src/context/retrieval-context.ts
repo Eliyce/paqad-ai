@@ -27,6 +27,8 @@
  */
 import { basename } from 'node:path';
 
+import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
+import { readProjectProfile } from '@/core/project-profile.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { RagService } from '@/rag/service.js';
 import type { RagRetrievalResult } from '@/rag/types.js';
@@ -56,6 +58,30 @@ function truncateSlice(content: string): string {
 }
 
 /**
+ * Consumer-side precision floor (RAG buildout F12). A confident-but-wrong slice is
+ * worse than grep, so only slices with a known score at or above `floor` are kept;
+ * a slice without a score is dropped (we never inject something we can't vouch for).
+ * `RagService` already filters at the same `rag_similarity_threshold` during
+ * retrieval; applying it again here makes the injection boundary self-defending —
+ * any slice reaching the artifact is independently above the floor, regardless of
+ * how it was retrieved.
+ */
+export function applyPrecisionFloor(
+  slices: readonly RetrievalSlice[],
+  floor: number,
+): RetrievalSlice[] {
+  return slices.filter((slice) => typeof slice.score === 'number' && slice.score >= floor);
+}
+
+/** Calibrated trust annotation — shows match strength so the model can weigh a slice. */
+function formatScore(score?: number): string {
+  if (typeof score !== 'number') {
+    return '';
+  }
+  return ` · match ${Math.round(score * 100)}%`;
+}
+
+/**
  * Compose the retrieval slice of the session-context artifact. Returns `''` when
  * there is nothing to inject (no slices) so the caller can append it unconditionally
  * without changing the rule-only output. Slices are capped at
@@ -71,12 +97,17 @@ export function composeRetrievalSection(slices: readonly RetrievalSlice[]): stri
   }
   const capped = slices.slice(0, MAX_RETRIEVAL_SLICES);
   const blocks = capped
-    .map((slice) => `### ${slice.source_file}\n\`\`\`\n${truncateSlice(slice.content)}\n\`\`\``)
+    .map(
+      (slice) =>
+        `### ${slice.source_file}${formatScore(slice.score)}\n\`\`\`\n${truncateSlice(
+          slice.content,
+        )}\n\`\`\``,
+    )
     .join('\n\n');
   const noun = capped.length === 1 ? 'slice' : 'slices';
   return (
     `## Retrieved context — ${capped.length} ${noun} relevant to the files in play\n` +
-    `> Advisory hints retrieved from the index. Re-read the live files before relying on them.\n\n` +
+    `> Advisory hints retrieved from the index, not ground truth. Re-read the live files before relying on them; the match % is the index's confidence, not correctness.\n\n` +
     `${blocks}\n`
   );
 }
@@ -101,6 +132,21 @@ export interface GatherOptions {
   changedPaths?: readonly string[];
   /** Override the top-k cap passed to retrieval. */
   topN?: number;
+  /**
+   * Override the injection precision floor (F12). Defaults to the project's
+   * `rag_similarity_threshold` (0.75) — the single tuned, documented threshold.
+   */
+  precisionFloor?: number;
+}
+
+/**
+ * Resolve the injection precision floor for a project: the configured
+ * `rag_similarity_threshold` (default 0.75). One threshold governs both retrieval
+ * and injection, so there is a single number to tune and document.
+ */
+function resolvePrecisionFloor(projectRoot: string): number {
+  return normalizeIntelligenceConfig(readProjectProfile(projectRoot)?.intelligence)
+    .rag_similarity_threshold;
 }
 
 /**
@@ -141,9 +187,15 @@ export async function gatherWorkingSetSlices(
     return [];
   }
 
-  return result.retrieved_chunks.map((chunk) => ({
+  const slices = result.retrieved_chunks.map((chunk) => ({
     source_file: chunk.source_file,
     content: chunk.content,
     score: result.vector_scores.get(chunk.id),
   }));
+
+  // F12 — drop anything below the injection floor at the consumer boundary, so a
+  // confident-but-wrong (or unscored) slice never reaches the model. Below floor ⇒
+  // [] ⇒ empty section ⇒ the agent falls back to grep on the live files.
+  const floor = options.precisionFloor ?? resolvePrecisionFloor(projectRoot);
+  return applyPrecisionFloor(slices, floor);
 }

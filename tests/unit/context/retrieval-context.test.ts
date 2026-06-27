@@ -8,6 +8,7 @@ import { refreshRuleContext } from '@/context/rule-context.js';
 import {
   MAX_RETRIEVAL_SLICES,
   MAX_SLICE_CHARS,
+  applyPrecisionFloor,
   composeRetrievalSection,
   gatherWorkingSetSlices,
   type RetrievalSlice,
@@ -61,6 +62,37 @@ describe('composeRetrievalSection', () => {
     const md = composeRetrievalSection([slice({ source_file: 'src/big.ts', content: big })]);
     expect(md).toContain('slice truncated at');
     expect(md.length).toBeLessThan(big.length);
+  });
+
+  it('annotates each slice with its calibrated match strength (F12)', () => {
+    const md = composeRetrievalSection([slice({ source_file: 'src/a.ts', score: 0.912 })]);
+    expect(md).toContain('### src/a.ts · match 91%');
+  });
+
+  it('omits the match annotation when a slice has no score', () => {
+    const md = composeRetrievalSection([slice({ source_file: 'src/a.ts' })]);
+    const heading = md.split('\n').find((line) => line.startsWith('### '));
+    expect(heading).toBe('### src/a.ts');
+  });
+});
+
+describe('applyPrecisionFloor (F12)', () => {
+  it('keeps slices at or above the floor', () => {
+    const kept = applyPrecisionFloor(
+      [slice({ source_file: 'a', score: 0.8 }), slice({ source_file: 'b', score: 0.75 })],
+      0.75,
+    );
+    expect(kept.map((s) => s.source_file)).toEqual(['a', 'b']);
+  });
+
+  it('drops slices below the floor (confident-but-wrong is worse than grep)', () => {
+    const kept = applyPrecisionFloor([slice({ source_file: 'low', score: 0.6 })], 0.75);
+    expect(kept).toEqual([]);
+  });
+
+  it('drops slices with no score (never inject what we cannot vouch for)', () => {
+    const kept = applyPrecisionFloor([slice({ source_file: 'unscored' })], 0.75);
+    expect(kept).toEqual([]);
   });
 });
 
@@ -116,6 +148,39 @@ describe('gatherWorkingSetSlices', () => {
       changedPaths: ['src/app.ts'],
     });
     expect(slices).toEqual([]);
+  });
+
+  it('drops a below-floor slice at the consumer boundary (F12)', async () => {
+    const result: RagRetrievalResult = {
+      vector_scores: new Map([['c1', 0.6]]),
+      chunks_retrieved: 1,
+      retrieved_chunk_ids: ['c1'],
+      retrieved_source_files: ['docs/a.md'],
+      retrieved_chunks: [{ id: 'c1', source_file: 'docs/a.md', content: 'weak match' }],
+    };
+    const slices = await gatherWorkingSetSlices('/proj', {
+      service: source(result),
+      changedPaths: ['src/app.ts'],
+      precisionFloor: 0.75,
+    });
+    expect(slices).toEqual([]);
+  });
+
+  it('keeps an above-floor slice (F12)', async () => {
+    const result: RagRetrievalResult = {
+      vector_scores: new Map([['c1', 0.9]]),
+      chunks_retrieved: 1,
+      retrieved_chunk_ids: ['c1'],
+      retrieved_source_files: ['docs/a.md'],
+      retrieved_chunks: [{ id: 'c1', source_file: 'docs/a.md', content: 'strong match' }],
+    };
+    const slices = await gatherWorkingSetSlices('/proj', {
+      service: source(result),
+      changedPaths: ['src/app.ts'],
+      precisionFloor: 0.75,
+    });
+    expect(slices).toHaveLength(1);
+    expect(slices[0].source_file).toBe('docs/a.md');
   });
 
   it('forwards the topN cap to the retrieval source', async () => {
