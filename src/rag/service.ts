@@ -22,6 +22,8 @@ import { SessionResumeValidator } from '@/session/resume-validator.js';
 import { appendRagAudit } from './audit.js';
 import { CrsBacklogQueue } from './crs-backlog.js';
 import { EmbeddingCache } from './embedding-cache.js';
+import { Bm25Index } from './lexical-bm25.js';
+import { reciprocalRankFusion } from './rrf-fusion.js';
 import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
 import { createEmbeddingProvider } from './providers.js';
@@ -57,6 +59,13 @@ const VISION_MAX_CHUNK_CHARS = 2000;
 
 /** Embedding batch size for CRS writes/reindex (PQD-415). */
 const CRS_EMBED_BATCH_SIZE = 32;
+
+/**
+ * How much wider than `limit` to fetch the dense candidate pool before BM25+RRF
+ * fusion (RAG buildout F17). A wider pool lets the lexical leg recover an exact-match
+ * chunk that cosine ranked below the cut; fusion then trims back to `limit`.
+ */
+const HYBRID_FUSION_POOL_MULTIPLIER = 4;
 
 /** How long a retired CRS index is kept under a `.revert.<ms>` suffix (24 hours). */
 const CRS_REVERT_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -471,16 +480,29 @@ export class RagService {
         ),
       );
       const limit = topN ?? intelligence.rag_top_n;
+      // F17 — over-fetch a wider dense candidate pool so the lexical (BM25) leg can
+      // lift an exact-identifier chunk that cosine ranked just outside the top-N. The
+      // pool only widens the in-memory query (no extra embedding), then fusion cuts
+      // back to `limit`. Cosine scores are preserved, so the precision floor (F12) and
+      // the fallback behaviour below are unchanged — fusion can only reorder/recall
+      // within the floor-passing set, never inject a below-floor chunk.
+      const pool = limit * HYBRID_FUSION_POOL_MULTIPLIER;
       const [fileResults, visionResults] = await Promise.all([
-        this.vectorIndex.query(this.projectRoot, queryVector, limit),
-        this.visionVectorIndex.query(this.projectRoot, queryVector, limit),
+        this.vectorIndex.query(this.projectRoot, queryVector, pool),
+        this.visionVectorIndex.query(this.projectRoot, queryVector, pool),
       ]);
-      // Merge file- and vision-derived hits, re-rank by score, then apply the
-      // top-N cutoff so neither source crowds the other out. Vision chunks
+      // Merge file- and vision-derived hits and re-rank by cosine. Vision chunks
       // conform to the same retrieval shape; callers identify them by extension.
-      const results = [...fileResults, ...visionResults]
-        .sort((left, right) => right.score - left.score)
-        .slice(0, limit);
+      const dense = [...fileResults, ...visionResults].sort(
+        (left, right) => right.score - left.score,
+      );
+      const queryText = queryTextFromTask(
+        input.taskDescription,
+        input.keywords,
+        input.targetFilePath,
+        input.symbolReferences ?? [],
+      );
+      const results = fuseHybridRanking(dense, queryText).slice(0, limit);
       const filtered = results.filter(
         (result) => result.score >= intelligence.rag_similarity_threshold,
       );
@@ -1126,4 +1148,35 @@ export class RagService {
 
 function flattenChunks(index: ChunkIndex): Chunk[] {
   return index.entries.flatMap((entry) => entry.chunks);
+}
+
+/** The fields fusion needs from a dense query result. */
+interface DenseHit {
+  item: { id: string; content: string };
+  score: number;
+}
+
+/**
+ * Fuse the dense (cosine) ranking with a BM25 lexical ranking via RRF (RAG buildout
+ * F17), returning the same result objects reordered. When the query has no lexical
+ * overlap with any candidate (BM25 empty), the dense order is returned unchanged, so
+ * this is a no-op for purely-semantic queries. Cosine scores on the results are left
+ * intact for the precision floor and the calibrated match annotation.
+ */
+function fuseHybridRanking<T extends DenseHit>(dense: readonly T[], queryText: string): T[] {
+  if (dense.length <= 1) {
+    return [...dense];
+  }
+  const lexical = new Bm25Index(
+    dense.map((hit) => ({ id: hit.item.id, content: hit.item.content })),
+  )
+    .search(queryText)
+    .map((hit) => hit.id);
+  if (lexical.length === 0) {
+    return [...dense];
+  }
+  const denseOrder = dense.map((hit) => hit.item.id);
+  const byId = new Map(dense.map((hit) => [hit.item.id, hit]));
+  const fused = reciprocalRankFusion([denseOrder, lexical]);
+  return fused.map((entry) => byId.get(entry.id)).filter((hit): hit is T => hit !== undefined);
 }
