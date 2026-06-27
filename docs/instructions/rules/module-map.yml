@@ -684,6 +684,8 @@ modules:
         name: Codebase Memory (deterministic cross-session repo facts)
       - slug: cast-chunking
         name: cAST Chunking (split-then-merge, chunker-versioned index)
+      - slug: contextual-blurbs
+        name: Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)
 
   - slug: background-harness
     name: Background-Worker Harness

@@ -30,6 +30,7 @@ to the side.
 - [Structural Repo-Map (embedding-free PageRank skeleton)](../features/repo-map/business.md)
 - [Codebase Memory (deterministic cross-session repo facts)](../features/codebase-memory/business.md)
 - [cAST Chunking (split-then-merge, chunker-versioned index)](../features/cast-chunking/business.md)
+- [Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)](../features/contextual-blurbs/business.md)
 
 ## Authority
 
