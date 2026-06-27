@@ -26,6 +26,7 @@ to the side.
 - [Branch-Aware Index (branch/commit/base metadata)](../features/branch-aware-index/business.md)
 - [Embedding Cache (content-addressed, model-scoped)](../features/embedding-cache/business.md)
 - [Incremental Sync (working-tree-following, background)](../features/incremental-sync/business.md)
+- [Session Retrieval (top-k slices injected on the seam)](../features/session-retrieval/business.md)
 
 ## Authority
 

@@ -656,6 +656,7 @@ modules:
     sources:
       - src/rag
       - src/project-knowledge
+      - src/context/retrieval-context.ts
     features:
       - slug: vector-index
         name: Vector Index
@@ -675,6 +676,8 @@ modules:
         name: Embedding Cache (content-addressed, model-scoped)
       - slug: incremental-sync
         name: Incremental Sync (working-tree-following, background)
+      - slug: session-retrieval
+        name: Session Retrieval (top-k slices injected on the seam)
 
   - slug: background-harness
     name: Background-Worker Harness
