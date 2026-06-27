@@ -107,6 +107,11 @@ export interface WriteRuleContextOptions {
    * byte-identical to the pre-F11 artifact (the disabled/cold-start == today path).
    */
   retrievalSection?: string;
+  /**
+   * The base-drift secondary context layer (RAG buildout F27), appended last as an
+   * advisory heads-up. Empty/absent ⇒ omitted (the common no-drift case).
+   */
+  driftSection?: string;
 }
 
 /**
@@ -124,7 +129,8 @@ export async function writeRuleContext(
   const store = await readCompiledRules(projectRoot);
   const memorySection = options.memorySection?.trim() ?? '';
   const retrievalSection = options.retrievalSection?.trim() ?? '';
-  if (!store && !memorySection && !retrievalSection) return null;
+  const driftSection = options.driftSection?.trim() ?? '';
+  if (!store && !memorySection && !retrievalSection && !driftSection) return null;
 
   let markdown = '';
   if (store) {
@@ -132,8 +138,8 @@ export async function writeRuleContext(
     const scriptedPaths = scriptedSourcePaths(loadRuleScriptMap(projectRoot));
     markdown = composeRuleContext(store, { changedPaths, scriptedPaths });
   }
-  // Durable codebase memory (F21) sits ahead of the ephemeral retrieval slices.
-  for (const section of [memorySection, retrievalSection]) {
+  // Durable memory (F21) → ephemeral retrieval slices (F11) → base-drift heads-up (F27).
+  for (const section of [memorySection, retrievalSection, driftSection]) {
     if (section) {
       markdown = markdown ? `${markdown}\n${section}\n` : `${section}\n`;
     }

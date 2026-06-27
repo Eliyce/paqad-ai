@@ -21,6 +21,7 @@ import {
   gatherWorkingSetSlices,
 } from '@/context/retrieval-context.js';
 import { backgroundIndexSync } from '@/rag/background-sync.js';
+import { composeBaseDriftSection, loadBaseDrift, refreshBaseDrift } from '@/rag/base-drift.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { compareConfigurations } from '@/rag/benchmark-gates.js';
 import type { ConfigurationComparisonResult, RagBenchmarkSnapshot } from '@/rag/benchmark-gates.js';
@@ -344,9 +345,15 @@ export function createRagCommand(): Command {
       // F21 — durable codebase memory, deterministic and embedding-free (no provider
       // call), gathered from the on-disk store and injected ahead of the slices.
       const memorySection = gatherCodebaseMemory(options.projectRoot);
+      // F27 — base-drift. The network fetch is debounced (≈10 min) + single-flight here in
+      // the detached worker, so the prompt path never waits on it; we then read the
+      // persisted snapshot (no network) and inject it as a secondary heads-up layer.
+      await refreshBaseDrift(options.projectRoot);
+      const driftSection = composeBaseDriftSection(loadBaseDrift(options.projectRoot));
       const target = await refreshRuleContext(options.projectRoot, {
         memorySection,
         retrievalSection,
+        driftSection,
       });
       if (!options.quiet) {
         process.stdout.write(
