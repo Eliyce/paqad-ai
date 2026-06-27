@@ -686,6 +686,8 @@ modules:
         name: cAST Chunking (split-then-merge, chunker-versioned index)
       - slug: contextual-blurbs
         name: Contextual Blurbs (deterministic path/signature/role prefix before embed+BM25)
+      - slug: context-pack
+        name: Context Pack (distilled path:line pointers for long workflows)
 
   - slug: background-harness
     name: Background-Worker Harness
