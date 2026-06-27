@@ -4,17 +4,15 @@
 
 ## Module Boundaries
 
-- `src/context/rule-manifest.ts` — `generateRuleManifest`, `scriptedSourcePaths`,
-  `writeRuleManifest`.
+- `src/context/rule-manifest.ts` — `generateRuleManifest`, `scriptedSourcePaths`.
 
 ## Entry Points
 
 - `generateRuleManifest(store, options?)` → compact manifest markdown for a
-  `CompiledRulesStore` (pure).
+  `CompiledRulesStore` (pure). Composed into the artifact by the trigger-load
+  feature's `composeRuleContext` / `writeRuleContext`.
 - `scriptedSourcePaths(map)` → set of rule source files with ≥1 script, from a
   `RuleScriptMap` (null → empty set).
-- `writeRuleManifest(projectRoot)` → reads `compiled-rules.json` + the rule-script
-  map, generates, atomic-writes the seam artifact; returns the path or `null`.
 
 ## Data Model / Schema
 

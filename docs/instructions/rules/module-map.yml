@@ -736,9 +736,13 @@ modules:
       the context-seam for delivery and the background harness for freshness.
     sources:
       - src/context/rule-manifest.ts
+      - src/context/rule-context.ts
+      - src/pipeline/rule-trigger-matcher.ts
     features:
       - slug: rule-manifest
         name: Rule Manifest (always-resident index of every rule)
+      - slug: trigger-load
+        name: Trigger-Load (full rule text for the files in play)
 
   - slug: mcp-config
     name: MCP Configuration
