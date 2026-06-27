@@ -185,6 +185,7 @@ describe('buildInjection (filesystem)', () => {
   });
 
   it('exports a stable module path so the hook can import it', () => {
-    expect(SEAM_PATH).toMatch(/runtime\/scripts\/context-seam\.mjs$/);
+    // Normalise separators so the assertion holds on Windows (backslash paths) too.
+    expect(SEAM_PATH.replace(/\\/g, '/')).toMatch(/runtime\/scripts\/context-seam\.mjs$/);
   });
 });
