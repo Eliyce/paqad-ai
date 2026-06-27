@@ -129,6 +129,10 @@ export const PATHS = {
   MODULE_HEALTH_LOG: '.paqad/logs/module-health.log',
   COMPILED_RULES: '.paqad/compiled-rules.json',
   PLANNING_COSTS: '.paqad/cache/planning-costs.json',
+  // RAG buildout F2/F4 — the session-time injection seam's precomputed context
+  // artifact. The runtime seam (runtime/scripts/context-seam.mjs) hardcodes the
+  // same relative path; keep the two in sync.
+  CONTEXT_SESSION_ARTIFACT: '.paqad/context/session-context.md',
   // Feature 3 - Context Budget Optimizer
   CONTEXT_BUDGET_STATE: '.paqad/session/context-budget.json',
   CONTEXT_SAVINGS: '.paqad/session/context-savings.json',

@@ -41,6 +41,7 @@ import {
   writeCompiledRules,
 } from '@/planning/index.js';
 
+import { writeRuleManifest } from '@/context/rule-manifest.js';
 import { bootstrapFramework } from '@/install/bootstrap.js';
 
 import {
@@ -311,6 +312,18 @@ export class OnboardingOrchestrator {
     } catch (error) {
       onboardingWarnings.push(
         `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
+      );
+    }
+    // RAG buildout F4 — (re)generate the always-resident rule manifest into the
+    // session-time injection seam's artifact, so it tracks the rules we just
+    // (re)compiled. Generation is unconditional and cheap; the seam decides
+    // whether to inject it (rag_enabled). Non-fatal: a failure only means the
+    // manifest is not refreshed this run.
+    try {
+      await writeRuleManifest(options.projectRoot);
+    } catch (error) {
+      onboardingWarnings.push(
+        `Rule manifest generation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
     // Module-health profiles are no longer eagerly seeded at onboard: an all-null
