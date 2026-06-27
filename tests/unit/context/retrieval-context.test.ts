@@ -10,6 +10,7 @@ import {
   MAX_SLICE_CHARS,
   applyPrecisionFloor,
   composeRetrievalSection,
+  deriveScopeFromWorkingSet,
   filterToScope,
   gatherWorkingSetSlices,
   isDocScopedPath,
@@ -120,10 +121,41 @@ describe('scope routing (F13)', () => {
   });
 });
 
+describe('deriveScopeFromWorkingSet (F14)', () => {
+  it('maps working-set breadth to a classification scope', () => {
+    expect(deriveScopeFromWorkingSet([])).toBe('single-file');
+    expect(deriveScopeFromWorkingSet(['src/a.ts'])).toBe('single-file');
+    expect(deriveScopeFromWorkingSet(['src/context/a.ts', 'src/context/b.ts'])).toBe(
+      'single-module',
+    );
+    expect(deriveScopeFromWorkingSet(['src/context/a.ts', 'src/rag/b.ts'])).toBe('multi-module');
+    expect(
+      deriveScopeFromWorkingSet(['src/a/x.ts', 'src/b/x.ts', 'src/c/x.ts', 'src/d/x.ts']),
+    ).toBe('system-wide');
+  });
+});
+
 describe('gatherWorkingSetSlices', () => {
   function source(result: RagRetrievalResult): RetrievalSource {
     return { retrieveForEval: async () => result };
   }
+
+  it('skips retrieval entirely for a self-contained stage (F14, no query)', async () => {
+    let called = false;
+    const service: RetrievalSource = {
+      retrieveForEval: async () => {
+        called = true;
+        return emptyResult();
+      },
+    };
+    const slices = await gatherWorkingSetSlices('/proj', {
+      service,
+      changedPaths: ['src/app.ts'],
+      routing: { workflow: 'investigation', complexity: 'trivial' },
+    });
+    expect(slices).toEqual([]);
+    expect(called).toBe(false);
+  });
 
   it('defaults to docs scope: a code slice is dropped (F13, code deferred to F19)', async () => {
     const result: RagRetrievalResult = {

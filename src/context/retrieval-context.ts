@@ -27,8 +27,11 @@
  */
 import { basename } from 'node:path';
 
+import type { ClassificationScope } from '@/core/types/classification.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile } from '@/core/project-profile.js';
+import { gateRetrieval } from '@/context/retrieval-depth-router.js';
+import type { DepthRoutingInput } from '@/context/retrieval-depth-router.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { RagService } from '@/rag/service.js';
 import type { RagRetrievalResult } from '@/rag/types.js';
@@ -182,16 +185,37 @@ export interface GatherOptions {
    * module-doc slices only. Code retrieval is a later extension (F19).
    */
   scope?: RetrievalScope;
+  /**
+   * Stage classification signals (F14). When present, retrieval depth is gated by
+   * stage: a self-contained stage skips retrieval entirely; a system-wide stage
+   * pulls a deeper candidate pool. When absent, depth is derived from the working
+   * set (a wider working set ⇒ deeper retrieval). An explicit `topN` overrides the
+   * gate.
+   */
+  routing?: DepthRoutingInput;
 }
 
 /**
- * Resolve the injection precision floor for a project: the configured
- * `rag_similarity_threshold` (default 0.75). One threshold governs both retrieval
- * and injection, so there is a single number to tune and document.
+ * Derive a classification scope from the working-set paths (F14). With no live
+ * classification (the background worker never sees the prompt), the breadth of the
+ * change is the honest signal: one file is single-file, one module single-module,
+ * a few modules multi-module, many system-wide. A "module" is the first two path
+ * segments (e.g. `src/context`).
  */
-function resolvePrecisionFloor(projectRoot: string): number {
-  return normalizeIntelligenceConfig(readProjectProfile(projectRoot)?.intelligence)
-    .rag_similarity_threshold;
+export function deriveScopeFromWorkingSet(paths: readonly string[]): ClassificationScope {
+  if (paths.length <= 1) {
+    return 'single-file';
+  }
+  const modules = new Set(
+    paths.map((path) => path.replace(/\\/g, '/').split('/').slice(0, 2).join('/')),
+  );
+  if (modules.size <= 1) {
+    return 'single-module';
+  }
+  if (modules.size <= 3) {
+    return 'multi-module';
+  }
+  return 'system-wide';
 }
 
 /**
@@ -223,10 +247,25 @@ export async function gatherWorkingSetSlices(
     return [];
   }
 
+  const intelligence = normalizeIntelligenceConfig(readProjectProfile(projectRoot)?.intelligence);
+
+  // F14 — stage-aware gating. An explicit topN wins (test/eval hook); otherwise gate
+  // depth by the stage (or, with no live classification, by the working-set breadth).
+  // A self-contained stage skips retrieval entirely — no embed, no query.
+  let effectiveTopN = options.topN;
+  if (effectiveTopN === undefined) {
+    const routing = options.routing ?? { scope: deriveScopeFromWorkingSet(changedPaths) };
+    const gate = gateRetrieval({ ...routing, baseTopN: intelligence.rag_top_n });
+    if (gate.skip) {
+      return [];
+    }
+    effectiveTopN = gate.topN;
+  }
+
   const service = options.service ?? new RagService(projectRoot);
   let result: RagRetrievalResult;
   try {
-    result = await service.retrieveForEval(buildWorkingSetQuery(changedPaths), options.topN);
+    result = await service.retrieveForEval(buildWorkingSetQuery(changedPaths), effectiveTopN);
   } catch {
     // Retrieval is an accelerator on top of grep; any failure falls back silently.
     return [];
@@ -241,7 +280,7 @@ export async function gatherWorkingSetSlices(
   // F12 — drop anything below the injection floor at the consumer boundary, so a
   // confident-but-wrong (or unscored) slice never reaches the model. Below floor ⇒
   // [] ⇒ empty section ⇒ the agent falls back to grep on the live files.
-  const floor = options.precisionFloor ?? resolvePrecisionFloor(projectRoot);
+  const floor = options.precisionFloor ?? intelligence.rag_similarity_threshold;
   const aboveFloor = applyPrecisionFloor(slices, floor);
 
   // F13 — scope to paqad docs first (the safest, highest-ROI content); code slices

@@ -64,3 +64,26 @@ export function topNForDepth(depth: RetrievalDepth, baseTopN: number): number {
   if (depth === 'deep') return baseTopN * 3;
   return baseTopN;
 }
+
+export interface RetrievalGate {
+  /** The selected depth. */
+  depth: RetrievalDepth;
+  /** The effective top-k for retrieval (0 when skipping). */
+  topN: number;
+  /** True when the stage needs no retrieval at all (depth 'none'); callers skip the query. */
+  skip: boolean;
+}
+
+/**
+ * Stage-aware retrieval gate (RAG buildout F14). Combines {@link selectRetrievalDepth}
+ * and {@link topNForDepth} into the decision a retrieval consumer needs: how many
+ * candidates to pull, and whether to skip retrieval entirely. A stage that is
+ * self-contained (e.g. a trivial single-file cleanup, or a trivial investigation)
+ * resolves to `skip: true` so no embedding/query work happens at all — retrieval is
+ * only paid for when the stage can actually use it.
+ */
+export function gateRetrieval(input: DepthRoutingInput & { baseTopN: number }): RetrievalGate {
+  const depth = selectRetrievalDepth(input);
+  const topN = topNForDepth(depth, input.baseTopN);
+  return { depth, topN, skip: topN === 0 };
+}
