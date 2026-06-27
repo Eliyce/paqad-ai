@@ -27,6 +27,7 @@ to the side.
 - [Embedding Cache (content-addressed, model-scoped)](../features/embedding-cache/business.md)
 - [Incremental Sync (working-tree-following, background)](../features/incremental-sync/business.md)
 - [Session Retrieval (top-k slices injected on the seam)](../features/session-retrieval/business.md)
+- [Structural Repo-Map (embedding-free PageRank skeleton)](../features/repo-map/business.md)
 
 ## Authority
 

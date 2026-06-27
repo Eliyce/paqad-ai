@@ -678,6 +678,8 @@ modules:
         name: Incremental Sync (working-tree-following, background)
       - slug: session-retrieval
         name: Session Retrieval (top-k slices injected on the seam)
+      - slug: repo-map
+        name: Structural Repo-Map (embedding-free PageRank skeleton)
 
   - slug: background-harness
     name: Background-Worker Harness
