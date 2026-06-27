@@ -28,6 +28,7 @@ to the side.
 - [Incremental Sync (working-tree-following, background)](../features/incremental-sync/business.md)
 - [Session Retrieval (top-k slices injected on the seam)](../features/session-retrieval/business.md)
 - [Structural Repo-Map (embedding-free PageRank skeleton)](../features/repo-map/business.md)
+- [Codebase Memory (deterministic cross-session repo facts)](../features/codebase-memory/business.md)
 
 ## Authority
 

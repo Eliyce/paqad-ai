@@ -680,6 +680,8 @@ modules:
         name: Session Retrieval (top-k slices injected on the seam)
       - slug: repo-map
         name: Structural Repo-Map (embedding-free PageRank skeleton)
+      - slug: codebase-memory
+        name: Codebase Memory (deterministic cross-session repo facts)
 
   - slug: background-harness
     name: Background-Worker Harness
