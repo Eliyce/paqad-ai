@@ -26,9 +26,27 @@ Honor every stage's escalation flag through the Decision Pause Contract:
 - `ask` → ask the user and wait for the answer.
 - `warn` → surface a note and continue.
 
+## Announce each stage
+
+Make the workflow visible. As you enter each stage, tell the developer where you are, in the paqad voice defined by the narration contract (loaded with the framework). Emit one compact `▸ paqad` status line as you begin each stage, in plain language. Translate the stage into something a person understands; never print the internal stage key.
+
+This is required, for two reasons: the developer sees the framework working for them, and the running commentary is the live signal that the workflow is actually being followed, stage by stage.
+
+The wording is yours; the cadence is fixed (one line as you start each stage, never a paragraph, never on every action inside a stage). For example:
+
+- planning → `▸ paqad · planning this out, checking which module it touches`
+- specification → `▸ paqad · writing the spec before any code`
+- development → `▸ paqad · building it to the spec`
+- review → `▸ paqad · reviewing the change for regressions`
+- checks → `▸ paqad · running the gates: format, tests, build, rules`
+- documentation_sync → `▸ paqad · syncing the docs this change touched`
+- delivery → `▸ paqad · delivering per the branch and PR conventions`
+
+Follow the narration contract's plain-English translations and glyph meanings. When a stage hits a `stop` or `ask` escalation, surface it through the Decision Pause Contract (a pause is its own narration moment), not a status line.
+
 ## Workflow Stages
 
-Run these in order. Depth scales with the change (a trivial change has a one-line spec and a quick review), but no stage is omitted.
+Run these in order. Depth scales with the change (a trivial change has a one-line spec and a quick review), but no stage is omitted. Announce each stage as you enter it (see "Announce each stage" above).
 
 ### Stage 1 — planning
 
