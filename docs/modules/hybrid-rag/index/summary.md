@@ -29,6 +29,7 @@ to the side.
 - [Session Retrieval (top-k slices injected on the seam)](../features/session-retrieval/business.md)
 - [Structural Repo-Map (embedding-free PageRank skeleton)](../features/repo-map/business.md)
 - [Codebase Memory (deterministic cross-session repo facts)](../features/codebase-memory/business.md)
+- [cAST Chunking (split-then-merge, chunker-versioned index)](../features/cast-chunking/business.md)
 
 ## Authority
 

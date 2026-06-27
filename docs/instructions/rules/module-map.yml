@@ -682,6 +682,8 @@ modules:
         name: Structural Repo-Map (embedding-free PageRank skeleton)
       - slug: codebase-memory
         name: Codebase Memory (deterministic cross-session repo facts)
+      - slug: cast-chunking
+        name: cAST Chunking (split-then-merge, chunker-versioned index)
 
   - slug: background-harness
     name: Background-Worker Harness
