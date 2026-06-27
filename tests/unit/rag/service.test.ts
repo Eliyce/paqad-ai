@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +14,7 @@ import type { IntelligenceConfig } from '@/core/types/project-profile.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 import type { EmbeddingProvider, ProviderFactory } from '@/rag/types.js';
 import { RagService } from '@/rag/service.js';
+import { backgroundIndexSync } from '@/rag/background-sync.js';
 import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
 import type { EngineLogEntry } from '@/core/types/logger.js';
 
@@ -161,6 +163,103 @@ describe('RagService', () => {
     vi.restoreAllMocks();
     clearEngineLogger();
     rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('F9: backgroundIndexSync re-embeds only the changed file (incremental, cache-backed)', async () => {
+    const { factory, calls } = countingProviderFactory();
+    const service = new RagService(projectRoot, factory);
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    const afterBuild = calls.embeddedTexts;
+
+    // Touch only auth.ts; a background sync should re-embed just its chunk(s).
+    writeFileSync(
+      join(projectRoot, 'src/auth.ts'),
+      [
+        'export function canAccessAuth() {',
+        "  const authContext = 'auth policy CHANGED validation for protected routes and sessions';",
+        '  return authContext.length > 1;',
+        '}',
+        '',
+      ].join('\n'),
+    );
+
+    const result = await backgroundIndexSync(projectRoot, factory);
+    expect(result).toEqual({ synced: true });
+    const delta = calls.embeddedTexts - afterBuild;
+    expect(delta).toBeGreaterThan(0); // the changed file was re-embedded
+    expect(delta).toBeLessThanOrEqual(2); // but only it, not the whole tree
+  });
+
+  it('F9: backgroundIndexSync reports no-index when nothing is built yet', async () => {
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'no-index',
+    });
+  });
+
+  it('F9: backgroundIndexSync reports disabled when rag is off', async () => {
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'disabled',
+    });
+  });
+
+  it('F9: backgroundIndexSync no-ops (in-flight) when the sync lock is held', async () => {
+    mkdirSync(join(projectRoot, '.paqad', 'locks', 'rag-sync.lock'), { recursive: true });
+    expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
+      synced: false,
+      reason: 'in-flight',
+    });
+  });
+
+  it('F9: a branch switch self-heals the index branch metadata', async () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] });
+    g('init', '-q');
+    g('config', 'user.email', 't@example.com');
+    g('config', 'user.name', 'Test');
+    g('checkout', '-q', '-b', 'main');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'seed');
+
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+
+    const metaPath = join(projectRoot, '.paqad', 'vectors', 'meta.json');
+    expect(JSON.parse(readFileSync(metaPath, 'utf8')).branch).toBe('main');
+
+    // Switch to a feature branch and change a file, then background-sync.
+    g('checkout', '-q', '-b', 'feat/z');
+    writeFileSync(
+      join(projectRoot, 'src/auth.ts'),
+      'export const authChanged = "auth policy revised for the feature branch";\n',
+    );
+    const result = await backgroundIndexSync(projectRoot, fakeProviderFactory());
+    expect(result).toEqual({ synced: true });
+    expect(JSON.parse(readFileSync(metaPath, 'utf8')).branch).toBe('feat/z');
   });
 
   it('F8: a rebuild re-embeds nothing when chunks are unchanged (cache hit)', async () => {
