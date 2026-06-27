@@ -822,9 +822,12 @@ modules:
       flagged choice the agent writes a Decision Packet to
       `.paqad/decisions/pending/D-{id}.json` and stops until the resolved
       packet exists. Routed through the interactive question UI when
-      available.
+      available. On a new pause, the packet context is enriched with the top
+      similar prior resolved decisions (deterministic, embedding-free) so the
+      developer sees the precedents they already set (RAG buildout F25).
     sources:
       - .paqad/decisions
+      - src/planning/decision-precedents.ts
 
   - slug: pattern-library
     name: Cross-Project Pattern Library
