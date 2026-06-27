@@ -5,6 +5,7 @@
 ## Module Boundaries
 
 - `src/context/retrieval-context.ts` — `gatherWorkingSetSlices`, `composeRetrievalSection`.
+- `src/context/retrieval-depth-router.ts` — `gateRetrieval` (stage → depth/topN/skip).
 - `src/context/rule-context.ts` — `writeRuleContext` / `refreshRuleContext` append
   the retrieval section to the single session-context artifact.
 - `src/rag/service.ts` — `RagService.retrieveForEval` (the actual query).
@@ -35,6 +36,12 @@
 - Scope-first (F13): retrieval is routed over docs only by default; a code-only
   working set with no matching doc slice injects nothing and the agent stays on
   grep. Code slices are the F19 extension.
+- Stage gating (F14): `gateRetrieval` turns stage signals into `{ depth, topN,
+  skip }`. A self-contained stage (trivial single-file / trivial investigation)
+  skips retrieval entirely — no embed, no query. A system-wide / high-risk stage
+  pulls a deeper candidate pool. With no live classification, the gate derives
+  scope from working-set breadth (`deriveScopeFromWorkingSet`). An explicit `topN`
+  overrides the gate (eval/test hook).
 - Section is appended AFTER the rule slice (F5) so the seam injects one artifact.
 - Precision floor (F12): `applyPrecisionFloor(slices, floor)` drops any slice below
   the floor OR without a score before injection. The floor is the project's
