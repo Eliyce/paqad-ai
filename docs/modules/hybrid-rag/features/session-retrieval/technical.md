@@ -24,10 +24,14 @@
   user's prompt — the artifact is precomputed in the background (SWR).
 - Slices are the `retrieved_chunks` of `RagRetrievalResult`, scored from
   `vector_scores`.
-- Scope (F13): `RetrievalScope = 'docs' | 'code' | 'all'`. `isDocScopedPath` marks
-  `docs/instructions/`, `docs/modules/`, and the module-map as docs. Default is
-  `docs` — module docs become on-demand relevance slices (~1-2K tokens) instead of
-  the wholesale ~20-40K whole-doc load. `filterToScope` drops out-of-scope slices.
+- Scope (F13/F19): `RetrievalScope = 'docs' | 'code' | 'all'`. `isDocScopedPath` marks
+  `docs/instructions/`, `docs/modules/`, and the module-map as docs. `filterToScope`
+  drops out-of-scope slices. When `scope` is unset, `scopeForWorkflow` routes by stage
+  (F19): code-changing workflows (feature-dev plan/implement/verify, bug-fix, refactor,
+  migration, …) get `all` (docs + function-level code slices — chunks are already
+  AST-node-level, so it sends a function, not a file), while doc/writing/question
+  workflows and the no-workflow background default stay `docs`. Docs slices are
+  on-demand relevance (~1-2K tokens) vs the wholesale ~20-40K whole-doc load.
 
 ## API / Interface Contract
 
