@@ -6,6 +6,11 @@
 
 Optional vector index under `.paqad/vectors/`, hybrid scoring (vector
 
+For the local (free, offline) provider, paqad offers a small choice of models: a small
+general-purpose default (MiniLM) and an opt-in code-tuned model for stronger code search,
+both running fully offline after a one-time download. MiniLM stays the default floor; the
+code-tuned model is proven by the eval gate before it is recommended (RAG buildout F23).
+
 This page describes **Embedding Providers (local / openai / voyageai)** from a business / user-facing perspective.
 The technical contract lives at [`technical.md`](./technical.md).
 

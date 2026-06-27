@@ -21,6 +21,22 @@ Source directories owned by this feature:
 - For `framework-internals` modules, this usually means the file shape under `.paqad/` or
   the validated input/output contract.
 
+### Local embedding models (RAG buildout F23)
+
+- `LOCAL_EMBEDDING_MODELS` (`src/core/project-intelligence.ts`) is the curated set of
+  selectable local (transformers.js) models. Each runs fully offline after a one-time
+  shared download under `~/.paqad/models`.
+- **MiniLM (`Xenova/all-MiniLM-L6-v2`) is the default FLOOR** — `getDefaultEmbeddingModel('local')`
+  and `DEFAULT_LOCAL_EMBEDDING_MODEL` both resolve to it.
+- A **code-tuned** model (`Xenova/jina-embeddings-v2-base-code`) is the opt-in upgrade for
+  stronger code retrieval offline (the local counterpart to the remote `voyage-code-3`).
+  `isCodeTunedLocalModel(id)` reports membership.
+- The list is a curated, supported subset, not a hard limit — the local provider
+  downloads any transformers.js feature-extraction model. The code-tuned model is opt-in
+  and must clear the F15 eval gate before it is recommended; MiniLM stays the default.
+- The `rag` setup flow (`src/cli/commands/rag.ts`, `resolveLocalModel`) offers the picker
+  interactively (defaulting to MiniLM); non-interactive runs keep the floor.
+
 ## API / Interface Contract
 
 - Public functions exported from the source files above.
