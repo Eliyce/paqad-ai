@@ -9,9 +9,12 @@ import type { Chunk } from './types.js';
  * and is fully rebuilt instead. Bump this whenever the chunking behaviour changes
  * (e.g. swapping the boundary detector for a tree-sitter parser).
  *
- * `cast-v1` = regex boundary detection + the cAST split-then-merge pass below.
+ * `cast-blurb-v1` = regex boundary detection + the cAST split-then-merge pass below
+ * (F22) + deterministic contextual blurbs prepended before embedding/BM25 (F24). The
+ * version covers the whole index-build strategy (how a file becomes index entries AND
+ * what text those entries carry), so changing either half forces a clean rebuild.
  */
-export const CHUNKER_VERSION = 'cast-v1';
+export const CHUNKER_VERSION = 'cast-blurb-v1';
 
 export class AstChunker {
   /**

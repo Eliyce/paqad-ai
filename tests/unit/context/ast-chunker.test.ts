@@ -121,6 +121,7 @@ describe('AstChunker (cAST integration)', () => {
   });
 
   it('exposes a stable chunker version string', () => {
-    expect(CHUNKER_VERSION).toBe('cast-v1');
+    // Covers the whole index-build strategy: cAST chunking (F22) + contextual blurbs (F24).
+    expect(CHUNKER_VERSION).toBe('cast-blurb-v1');
   });
 });

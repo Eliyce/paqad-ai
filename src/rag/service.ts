@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
 
 import { AstChunker, CHUNKER_VERSION } from '@/context/ast-chunker.js';
+import { buildModuleRoleResolver, contextualizeChunkText } from '@/rag/contextual-blurb.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { createReranker } from '@/context/reranker.js';
 import type { RerankingConfig } from '@/context/reranker.js';
@@ -276,6 +277,7 @@ export class RagService {
       const items = await this.embedChunks(provider, flattenChunks(chunkIndex), {
         onProgress: options?.onProgress,
         signal,
+        embedTextOf: this.buildEmbedContextualizer(),
       });
       // Final boundary: an abort landing between embedding and the index write
       // still cancels — the embedded chunks become the partial checkpoint.
@@ -1026,7 +1028,9 @@ export class RagService {
       .filter((entry) => changedSources.has(entry.source_file))
       .flatMap((entry) => entry.chunks);
 
-    const embedded = await this.embedChunks(provider, changedChunks);
+    const embedded = await this.embedChunks(provider, changedChunks, {
+      embedTextOf: this.buildEmbedContextualizer(),
+    });
     await this.vectorIndex.replaceAll(
       this.projectRoot,
       [...unchanged, ...embedded],
@@ -1077,10 +1081,31 @@ export class RagService {
     }
   }
 
+  /**
+   * Build the F24 contextualiser: a function that prepends the deterministic blurb
+   * (path + enclosing signature + exported symbols + module-map role) to a chunk's
+   * content. The module-role resolver is built once from the module map here, so the
+   * per-chunk cost is a lookup, not a parse.
+   */
+  private buildEmbedContextualizer(): (chunk: Chunk) => string {
+    const roleOf = buildModuleRoleResolver(this.projectRoot);
+    return (chunk: Chunk) =>
+      contextualizeChunkText(chunk, { moduleRole: roleOf(chunk.source_file) });
+  }
+
   private async embedChunks(
     provider: EmbeddingProvider,
     chunks: Chunk[],
-    options?: { onProgress?: BuildIndexOptions['onProgress']; signal?: AbortSignal },
+    options?: {
+      onProgress?: BuildIndexOptions['onProgress'];
+      signal?: AbortSignal;
+      /**
+       * RAG buildout F24 — maps a chunk to the text actually embedded (and used as the
+       * cache key). Defaults to the raw content; the build/sync paths pass a
+       * contextualiser that prepends the deterministic blurb.
+       */
+      embedTextOf?: (chunk: Chunk) => string;
+    },
   ): Promise<StoredVectorChunk[]> {
     if (chunks.length === 0) {
       return [];
@@ -1088,14 +1113,17 @@ export class RagService {
 
     const onProgress = options?.onProgress;
     const signal = options?.signal;
+    const embedTextOf = options?.embedTextOf ?? ((chunk: Chunk) => chunk.content);
 
     // RAG buildout F8 — consult the content-addressed cache before embedding.
     // Only chunks whose text is not already cached for this model hit the
     // provider; unchanged chunks (and a previously-seen branch's chunks) are free.
+    // The cache key is the EMBEDDED text (F24: blurb + content), so a blurb change
+    // invalidates the entry and re-embeds, exactly like a content change.
     const cache = EmbeddingCache.load(this.projectRoot, provider.model);
     const missIndices: number[] = [];
     for (let index = 0; index < chunks.length; index++) {
-      if (!cache.has(chunks[index].content)) {
+      if (!cache.has(embedTextOf(chunks[index]))) {
         missIndices.push(index);
       }
     }
@@ -1105,7 +1133,7 @@ export class RagService {
     const assemble = (): StoredVectorChunk[] =>
       chunks
         .map((chunk) => {
-          const vector = cache.get(chunk.content);
+          const vector = cache.get(embedTextOf(chunk));
           return vector ? { ...chunk, vector } : null;
         })
         .filter((item): item is StoredVectorChunk => item !== null);
@@ -1123,9 +1151,9 @@ export class RagService {
         } as Record<string, unknown>);
       }
       const batchIndices = missIndices.slice(offset, offset + batchSize);
-      const vectors = await provider.embed(batchIndices.map((index) => chunks[index].content));
+      const vectors = await provider.embed(batchIndices.map((index) => embedTextOf(chunks[index])));
       for (let position = 0; position < batchIndices.length; position++) {
-        cache.set(chunks[batchIndices[position]].content, vectors[position]);
+        cache.set(embedTextOf(chunks[batchIndices[position]]), vectors[position]);
       }
       const embeddedMisses = Math.min(offset + batchIndices.length, missIndices.length);
       const loaded = cachedCount + embeddedMisses;
@@ -1205,8 +1233,34 @@ function flattenChunks(index: ChunkIndex): Chunk[] {
 
 /** The fields fusion needs from a dense query result. */
 interface DenseHit {
-  item: { id: string; content: string };
+  // The blurb fields are optional here (vision chunks lack a code signature); the
+  // lexical document falls back to bare content when they are absent (F24).
+  item: {
+    id: string;
+    content: string;
+    source_file?: string;
+    ast_node_path?: string;
+    exported_symbols?: string[];
+  };
   score: number;
+}
+
+/**
+ * The text BM25 indexes for a candidate (RAG buildout F24): the deterministic blurb
+ * (path + signature + exported symbols, no module-map lookup at query time) prepended to
+ * the content, so exact identifiers and paths the bare body omits are matchable. Falls
+ * back to bare content when the chunk carries no source path (e.g. a vision chunk).
+ */
+function lexicalDocumentText(item: DenseHit['item']): string {
+  if (!item.source_file) {
+    return item.content;
+  }
+  return contextualizeChunkText({
+    source_file: item.source_file,
+    ast_node_path: item.ast_node_path ?? '',
+    exported_symbols: item.exported_symbols ?? [],
+    content: item.content,
+  });
 }
 
 /**
@@ -1221,7 +1275,13 @@ function fuseHybridRanking<T extends DenseHit>(dense: readonly T[], queryText: s
     return [...dense];
   }
   const lexical = new Bm25Index(
-    dense.map((hit) => ({ id: hit.item.id, content: hit.item.content })),
+    // RAG buildout F24 — index the contextualised text (path + signature + exported
+    // symbols prepended) so BM25 can match on identifiers/paths the bare body omits.
+    // Built from the stored chunk fields; the module-map role is index-time only.
+    dense.map((hit) => ({
+      id: hit.item.id,
+      content: lexicalDocumentText(hit.item),
+    })),
   )
     .search(queryText)
     .map((hit) => hit.id);

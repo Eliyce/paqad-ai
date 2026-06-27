@@ -267,7 +267,7 @@ describe('RagService', () => {
     const meta = JSON.parse(
       readFileSync(join(projectRoot, '.paqad', 'vectors', 'meta.json'), 'utf8'),
     );
-    expect(meta.chunker_version).toBe('cast-v1');
+    expect(meta.chunker_version).toBe('cast-blurb-v1');
   });
 
   it('F22: an index built by a different chunker is invalid (forces a full rebuild)', async () => {
