@@ -94,19 +94,41 @@ export function composeRuleContext(
   return `${manifest}\n${heading}\n\n${blocks}\n`;
 }
 
+export interface WriteRuleContextOptions {
+  /**
+   * The composed retrieval slice (RAG buildout F11), appended after the rule slice
+   * to form the single session-context artifact. Empty/absent ⇒ rule-only output,
+   * byte-identical to the pre-F11 artifact (the disabled/cold-start == today path).
+   */
+  retrievalSection?: string;
+}
+
 /**
- * Compose the rule-context artifact from the project's compiled rules and the
- * current working-set files and atomic-write it. Returns the artifact path, or
- * `null` when there are no compiled rules. This is the lock-free core: callers
- * with no concurrency (onboarding) use it directly; the background path uses
- * {@link refreshRuleContext} to serialise concurrent refreshes.
+ * Compose the session-context artifact — the rule slice (manifest + trigger-loaded
+ * full text) plus the optional retrieval slice — and atomic-write it. Returns the
+ * artifact path, or `null` when there is nothing to write (no compiled rules AND no
+ * retrieval section). This is the lock-free core: callers with no concurrency
+ * (onboarding) use it directly; the background path uses {@link refreshRuleContext}
+ * to serialise concurrent refreshes so a single artifact never has two writers.
  */
-export async function writeRuleContext(projectRoot: string): Promise<string | null> {
+export async function writeRuleContext(
+  projectRoot: string,
+  options: WriteRuleContextOptions = {},
+): Promise<string | null> {
   const store = await readCompiledRules(projectRoot);
-  if (!store) return null;
-  const changedPaths = (await loadChangeEvidence(projectRoot)).files;
-  const scriptedPaths = scriptedSourcePaths(loadRuleScriptMap(projectRoot));
-  const markdown = composeRuleContext(store, { changedPaths, scriptedPaths });
+  const retrievalSection = options.retrievalSection?.trim() ?? '';
+  if (!store && !retrievalSection) return null;
+
+  let markdown = '';
+  if (store) {
+    const changedPaths = (await loadChangeEvidence(projectRoot)).files;
+    const scriptedPaths = scriptedSourcePaths(loadRuleScriptMap(projectRoot));
+    markdown = composeRuleContext(store, { changedPaths, scriptedPaths });
+  }
+  if (retrievalSection) {
+    markdown = markdown ? `${markdown}\n${retrievalSection}\n` : `${retrievalSection}\n`;
+  }
+
   const target = join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT);
   await atomicWriteFile(target, markdown);
   return target;
@@ -119,14 +141,17 @@ export async function writeRuleContext(projectRoot: string): Promise<string | nu
  * lock. The lock dir is removed on completion; its parent `.paqad/locks` is shared
  * with other lock users, so it is intentionally left in place.
  */
-export async function refreshRuleContext(projectRoot: string): Promise<string | null> {
+export async function refreshRuleContext(
+  projectRoot: string,
+  options: WriteRuleContextOptions = {},
+): Promise<string | null> {
   const lockDir = join(projectRoot, PATHS.LOCKS_DIR, 'rule-context.lock');
   const lock = tryAcquireLock(lockDir, { staleLockMs: STALE_LOCK_MS });
   if (!lock.acquired) {
     return null;
   }
   try {
-    return await writeRuleContext(projectRoot);
+    return await writeRuleContext(projectRoot, options);
   } finally {
     releaseLock(lockDir);
   }

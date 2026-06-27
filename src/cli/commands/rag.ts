@@ -7,6 +7,7 @@ import { EMBEDDING_PROVIDERS, getDefaultEmbeddingModel } from '@/core/project-in
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
 import { refreshRuleContext } from '@/context/rule-context.js';
+import { composeRetrievalSection, gatherWorkingSetSlices } from '@/context/retrieval-context.js';
 import { backgroundIndexSync } from '@/rag/background-sync.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { compareConfigurations } from '@/rag/benchmark-gates.js';
@@ -267,25 +268,32 @@ export function createRagCommand(): Command {
       process.stdout.write(`${JSON.stringify(await service.getStatus(), null, 2)}\n`);
     });
 
-  // RAG buildout F5/F9 — the background "refresh session context" worker the
-  // prompt-time trigger spawns detached. It recomposes the rule slice of the
-  // session-context artifact (F5) AND incrementally syncs the vector index to the
-  // working tree (F9, only when an index already exists). Both are single-flight-
-  // locked and never block. Quiet by default so a detached run produces no stray
-  // output.
+  // RAG buildout F5/F9/F11 — the background "refresh session context" worker the
+  // prompt-time trigger spawns detached. It (1) incrementally syncs the vector index
+  // to the working tree (F9, only when an index already exists), (2) retrieves the
+  // top-k slices relevant to the files in play over that fresh index (F11), and
+  // (3) recomposes the session-context artifact = rule slice (F5) + retrieval slice
+  // (F11). Sync runs first so retrieval queries the up-to-date index. Everything is
+  // single-flight-locked and never blocks. Quiet by default so a detached run
+  // produces no stray output. When rag is off / there is no index, the retrieval
+  // gather returns nothing and the artifact stays rule-only (disabled == today).
   command
     .command('refresh-context')
-    .description('Recompose the rule context and incrementally sync the index (background worker)')
+    .description(
+      'Sync the index, retrieve slices, and recompose session context (background worker)',
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--quiet', 'Suppress output (used by the background trigger)')
     .action(async (options: { projectRoot: string; quiet?: boolean }) => {
-      const target = await refreshRuleContext(options.projectRoot);
       const sync = await backgroundIndexSync(options.projectRoot);
+      const slices = await gatherWorkingSetSlices(options.projectRoot);
+      const retrievalSection = composeRetrievalSection(slices);
+      const target = await refreshRuleContext(options.projectRoot, { retrievalSection });
       if (!options.quiet) {
         process.stdout.write(
-          `${target ? `wrote ${target}` : 'no rules to compose'}; index sync: ${
+          `${target ? `wrote ${target}` : 'nothing to compose'}; index sync: ${
             sync.synced ? 'done' : sync.reason
-          }\n`,
+          }; slices: ${slices.length}\n`,
         );
       }
     });
