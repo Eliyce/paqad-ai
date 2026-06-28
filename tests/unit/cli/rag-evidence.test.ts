@@ -102,4 +102,22 @@ describe('rag-evidence CLI', () => {
     await run(root, ['show', '--session', 'ses_x', '--format', 'xml']);
     expect(process.exitCode).toBe(2);
   });
+
+  it('rejects malformed --json on record', async () => {
+    await run(root, ['record', 'used', '--session', 'ses_x', '--json', 'not json{']);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('records with default adapter and no --open (rides current/auto ordinal)', async () => {
+    await run(root, [
+      'record',
+      'refreshed',
+      '--session',
+      'ses_auto',
+      '--json',
+      '{"refresh_kind":"rule-context"}',
+    ]);
+    const rows = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_auto');
+    expect(rows.some((r) => r.kind === 'refreshed')).toBe(true);
+  });
 });

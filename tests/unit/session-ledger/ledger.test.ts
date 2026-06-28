@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,6 +15,7 @@ import {
   readSessionDoc,
   readSessionUnit,
   sessionLedgerPath,
+  sessionOpenPointerPath,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 
@@ -161,5 +162,25 @@ describe('session-ledger substrate (#249 P0)', () => {
     expect(readSessionDoc(root, DOC, 'ses_missing')).toEqual([]);
     expect(readSessionUnit(root, DOC, 'ses_missing', 1)).toEqual([]);
     expect(existsSync(join(root, sessionLedgerPath(DOC, 'ses_missing', 1)))).toBe(false);
+  });
+
+  it('currentOrdinal is 0 when the .open pointer is non-integer', () => {
+    allocateOrdinal(root, DOC, SESSION);
+    writeFileSync(join(root, sessionOpenPointerPath(DOC, SESSION)), 'not-a-number', 'utf8');
+    expect(currentOrdinal(root, DOC, SESSION)).toBe(0);
+  });
+
+  it('drops a JSON line that is not a ledger row (e.g. a bare value)', () => {
+    const ordinal = allocateOrdinal(root, DOC, SESSION);
+    appendSessionEvent(
+      root,
+      DOC,
+      SESSION,
+      ordinal,
+      { kind: 'used', conversation_ordinal: ordinal },
+      { now: clock },
+    );
+    appendFileSync(join(root, sessionLedgerPath(DOC, SESSION, ordinal)), '42\n', 'utf8');
+    expect(readSessionUnit(root, DOC, SESSION, ordinal)).toHaveLength(1);
   });
 });
