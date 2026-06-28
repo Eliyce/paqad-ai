@@ -10,7 +10,12 @@ import { readProjectProfile } from '@/core/project-profile.js';
 import { isFrameworkEnabledForRoot } from '@/core/framework-enabled.js';
 import { resolveEnterprisePolicy, writesLedger } from '@/core/enterprise-policy.js';
 import type { EngineEventBus } from '@/event-bus/engine-event-bus.js';
-import type { VerificationContext } from '@/core/types/verification.js';
+import type {
+  VerificationContext,
+  VerificationGate,
+  VerificationOrigin,
+} from '@/core/types/verification.js';
+import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
 import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
 import {
   appendEvidenceRows,
@@ -24,6 +29,7 @@ import {
   resolveComplianceCitations,
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
+import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '../evidence.js';
@@ -164,26 +170,23 @@ export async function runRepositoryVerification(
     completed_at: completedAt,
   });
 
-  let evidencePath: string | null = null;
-  try {
-    evidencePath = await writeVerificationEvidence(evidence, {
-      project_root: context.project_root,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    engineLog('warn', `paqad: could not write verification-evidence.json (${message})`);
-  }
-
-  // Issue #247 — always-on stage-evidence finalization. The end-of-change gate
-  // fires here, automatically, on every hook-capable provider (Claude Stop,
-  // Codex/Gemini completion): verify the change the agent recorded, or write a
-  // single inferred-git backstop record for an untracked code diff. Placed AFTER
-  // the global enabled-check and BEFORE the enterprise block below, so it runs
-  // regardless of the enterprise/AI-BOM flags (C1). Best-effort — a failure here
-  // never changes the verdict.
+  // Issue #247 — stage-evidence finalization + enforcement. The end-of-change gate
+  // fires here (Claude Stop / git backstop / CI), reading the ledger files
+  // deterministically (never an LLM claim). Placed AFTER the global enabled-check
+  // and BEFORE the enterprise block below, so it runs regardless of the
+  // enterprise/AI-BOM flags (C1). Best-effort — a failure never throws.
+  //
+  // The gate hard-FAILS only when the workflow was started but left incomplete
+  // (live marks exist + a mandatory stage missing) at a LOCAL origin. When the
+  // workflow was never marked, or on CI (no committed local ledger), it is
+  // informational (`skipped`), so it can never break a project that has not adopted
+  // stage marking, nor a fresh CI checkout. Added to `evidence.gates` BEFORE the
+  // artifact is written so the receipt and the verdict agree.
+  const origin = context.verification_origin ?? options.origin;
+  let stageResult: VerifyResult | null = null;
   try {
     const stageFileDigests = await computeFileDigests(context.project_root, context.changed_files);
-    finalizeStageEvidence(context.project_root, {
+    stageResult = finalizeStageEvidence(context.project_root, {
       adapter: 'backstop',
       changedFilesCount: context.changed_files.length,
       subjectDigest: computeChangeSubjectDigest(stageFileDigests),
@@ -192,6 +195,23 @@ export async function runRepositoryVerification(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     engineLog('warn', `paqad: stage-evidence finalize skipped (${message})`);
+  }
+  const stageGate = stageEvidenceGate(stageResult, origin, context.changed_files.length);
+  if (stageGate) {
+    evidence.gates.push(stageGate);
+    if (stageGate.status === 'fail') {
+      evidence.overall_status = 'fail';
+    }
+  }
+
+  let evidencePath: string | null = null;
+  try {
+    evidencePath = await writeVerificationEvidence(evidence, {
+      project_root: context.project_root,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: could not write verification-evidence.json (${message})`);
   }
 
   // Issue #118 — fan the graded gate (and ratchet measure) results into the
@@ -276,4 +296,66 @@ export async function runRepositoryVerification(
   }
 
   return verdict;
+}
+
+/** Local origins (the agent's own machine) where the stage-evidence ledger is
+ *  present, so its incompleteness can be enforced as a hard failure. `ci-backstop`
+ *  is excluded: a fresh CI checkout has no committed ledger. */
+const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
+  'hook-completion',
+  'git-backstop',
+]);
+
+/**
+ * Map the deterministic stage-evidence verdict to a verification gate (issue #247
+ * enforcement). The gate's `name` is set to the `stage-evidence` marker; it is
+ * appended to the evidence after the formal gate framework, so it never has to be
+ * a registered `VERIFICATION_GATES` member.
+ *
+ * - No result, or no code diff → no gate (the gate is code-change-only).
+ * - `complete` / `recovered` → `pass`.
+ * - Incomplete/blocked, the workflow was actually in use (`live_marked`), at a
+ *   LOCAL origin → `fail` (the deterministic teeth: started the workflow, left it
+ *   incomplete).
+ * - Otherwise (never marked, or on CI) → `skipped` (informational; never breaks a
+ *   project that has not adopted stage marking, nor a fresh CI checkout).
+ */
+export function stageEvidenceGate(
+  result: VerifyResult | null,
+  origin: VerificationOrigin,
+  changedFileCount: number,
+): VerificationEvidenceGate | null {
+  if (!result || changedFileCount <= 0) {
+    return null;
+  }
+  const name = 'stage-evidence' as VerificationGate;
+  if (result.ok) {
+    return {
+      name,
+      status: 'pass',
+      detail: `Every mandatory feature-development stage was recorded in order (${result.verdict}).`,
+      remediation: null,
+      failures: [],
+    };
+  }
+  const missing = result.missing_stages.join(', ');
+  if (result.live_marked && STAGE_EVIDENCE_HARD_ORIGINS.has(origin)) {
+    return {
+      name,
+      status: 'fail',
+      detail: `Feature-development workflow left incomplete — missing stage(s): [${missing}].`,
+      remediation:
+        'Run each missing stage and record it (open/start/end), or resolve the redo via the Decision Pause Contract.',
+      failures: [],
+    };
+  }
+  return {
+    name,
+    status: 'skipped',
+    detail: result.live_marked
+      ? `Stage-evidence incomplete (missing [${missing}]) — informational here; the local ledger is not committed for CI.`
+      : `Feature-development stages were not recorded for this change (informational). Missing: [${missing}].`,
+    remediation: null,
+    failures: [],
+  };
 }

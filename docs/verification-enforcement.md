@@ -36,6 +36,23 @@ pass `--no-verify` to CI, and CI applies to every agent and to humans.
   inputs (C-2), runs the gates the backstop can genuinely evaluate, writes the
   evidence artifact, and returns one machine-readable trust verdict (C-6).
 
+### Stage-evidence enforcement (issue #247)
+
+On every code change, `runRepositoryVerification` also folds the stage-evidence
+ledger (`.paqad/ledger/paqad.stage-evidence/`) into a deterministic
+`stage-evidence` gate — read from the ledger files on disk, never from an LLM
+claim. The gate is **code-change-only** and scoped so it cannot break a project
+that has not adopted stage marking:
+
+- Every mandatory stage recorded (`complete`/`recovered`) → **pass**.
+- The workflow was started but left incomplete (the agent live-marked at least one
+  stage; a mandatory stage is missing) at a **local** origin (`hook-completion` /
+  `git-backstop`) → **fail** (flips the trust verdict; the git backstop blocks the
+  commit). This is the deterministic teeth: start the workflow, you must finish it.
+- The workflow was never marked, or the run is on **CI** (a fresh checkout has no
+  committed local ledger) → **skipped** (informational). The committed-receipt path
+  that would let CI enforce stage-completeness is deferred.
+
 The completion hook **soft-fails** on infrastructure errors (a missing build, an
 import failure) so a broken install never wedges the agent. On hosts other than
 Claude Code the completion hook is **record-only** (`verification-record.mjs`):
