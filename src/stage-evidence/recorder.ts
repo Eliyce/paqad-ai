@@ -6,7 +6,7 @@
 // script (the script clock + real on-disk bytes), never supplied by the LLM.
 
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -172,7 +172,8 @@ function hashArtifacts(projectRoot: string, artifactPaths: readonly string[]): s
     const abs = join(projectRoot, rel);
     let bytes: Buffer;
     try {
-      statSync(abs);
+      // Single read + catch — never stat-then-read, which is the TOCTOU file-system
+      // race CodeQL flags (js/file-system-race). readFileSync throws ENOENT itself.
       bytes = readFileSync(abs);
     } catch {
       // A named-but-missing artifact hashes its path, so it can't masquerade as real.
