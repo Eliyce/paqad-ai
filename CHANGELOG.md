@@ -1,5 +1,33 @@
 # paqad-ai
 
+## 1.32.0
+
+### Minor Changes
+
+- 7812cb8: Activate the feature-development workflow so an LLM actually runs it. Adds `feature-development.md` as a canonical coding-capability rule (mirroring `pentest.md`/`design-test.md`): on any intent to create or change code, the agent must run the feature-development workflow's stages in order — planning, specification, development, review, checks, documentation_sync — honoring each stage's flags and escalations via the Decision Pause Contract, and following `delivery-policy.yaml` on delivery. Previously the stages were declarative YAML that nothing told the agent to execute, so the workflow was never followed on the prompt path (the only seam common to every provider). Every stage is mandatory; the lane sets depth, never omission. A regression guard asserts the rule ships, mirrors into the contract, and keeps every mandatory stage and the do-not-improvise framing.
+- 08ee215: Add the RAG-evidence ledger and harden the release workflow (issue #249).
+
+  - **Release fix:** `changeset version` no longer hard-fails on a transient GitHub GraphQL flake. A resilient changelog adapter keeps the rich GitHub changelog when the API is healthy and falls back to a git-style line on any error.
+  - **Session-ledger substrate (#249 P0):** a reusable, script-written, session-scoped append-only JSONL primitive (atomic ordinal allocation, `.open` pointer, script-clock `ts` + identity `content_hash`, tolerant reader, injectable validator) under `.paqad/ledger/`, consumable by the stage-evidence ledger (#247) too. Imports no enterprise code (always-on, AI-BOM-independent).
+  - **RAG-evidence ledger (#249 P1–P3):** a per-(session, conversation) record of what RAG actually did — `refreshed` / `called` / `used` / `fallback` — recorded from the real seams (background worker + prompt hook); `appendRagAudit` dual-writes into the structured ledger so it is the queryable source of truth with no event lost. AJV-validated, script-only (the LLM never hand-authors a row). `paqad-ai rag-evidence show` folds a session into a use-rate / fallback rollup. Honest by design: proof of occurrence, never of benefit.
+
+- 5d742f0: Wire paqad's built-but-unused RAG + smart-rule machinery into live sessions as an optional, eval-gated accelerator on top of the grep/agentic default — never blocking, token-saving, deterministic-first, and honest (27 features, F1–F27).
+
+  - **Non-blocking spine (F1–F3):** a detached background-worker harness (atomic swap, single-flight lock, debounce) and a `UserPromptSubmit` seam that injects a precomputed context artifact under a hard time budget. Disabled / cold-start / `rag_enabled=false` emits nothing — byte-identical to today's behavior.
+  - **Smart rule loading (F4–F6):** an always-resident rule manifest plus deterministic trigger-loaded full rule text (no embeddings for rules), and live `PreToolUse`/`Stop` rule-script enforcement so lazy rule text stays safe.
+  - **Branch-aware index substrate (F7–F10):** branch/commit/base metadata, a content-addressed embedding cache (idempotent re-embeds, zero-cost branch switch-back), background incremental working-tree sync, and a `rag_base_branch` config knob.
+  - **Retrieval wired into sessions (F11–F14):** top-k slices injected on the seam, a precision floor with live-file-verify framing, docs/module-map-first scope, and stage-aware gating.
+  - **Prove + honest (F15–F16):** an on/off A/B eval gate (hit@k, task-success, prompt-tokens) that blocks regressions, and README/docs copy corrected to match what actually ships.
+  - **Code retrieval + precision (F17–F19):** hybrid BM25 + RRF fusion, an opt-in reranker, and stage-routed function-level code slices — all safe-by-construction and eval-gated.
+  - **Higher structure (F20–F21):** an embedding-free structural repo-map (import-graph PageRank skeleton) and a deterministic cross-session codebase-memory tier (supersede-by-key, token-budgeted).
+  - **Polish (F22–F27):** cAST split-then-merge chunking with a chunker-versioned index (clean rebuild on strategy change), an opt-in code-tuned local embedding model (MiniLM stays the default floor), deterministic contextual blurbs before embed + BM25, decision-precedent enrichment on the decision pause, a distilling context pack (path:line pointers, not dumps) for long workflows, and proactive base-drift awareness (debounced off-path `origin/<base>` heads-up).
+
+  All retrieval/precision changes are gated by the F15 eval; retrieval stays off until `rag_enabled` is set, and every path falls back cleanly to grep when disabled, cold, or below the similarity floor.
+
+### Patch Changes
+
+- d6a5495: Have paqad announce each feature-development stage as it runs it. The feature-development workflow rule now instructs the agent to emit one compact `▸ paqad` status line, in the existing narration-contract voice, as it enters each stage (planning, specification, development, review, checks, documentation_sync, delivery). This makes the workflow visible to the developer and gives a live, stage-by-stage signal that the workflow is actually being followed.
+
 ## 1.31.0
 
 ### Minor Changes
