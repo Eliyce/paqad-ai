@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'pathe';
 
 import type { GeneratedFile } from '../adapter.interface.js';
-import { PAQAD_COMPLETION_RECORD_SCRIPT } from './paqad-hooks.js';
+import { completionRecordCommand, PAQAD_RUNTIME_PREFIX } from './paqad-hooks.js';
+
+/** The retired bare-path invocation of the record hook (relied on a shebang +
+ *  executable bit, which Windows ignores). Pruned from an existing host config on
+ *  re-onboard so the cross-platform `node "<abs>"` command replaces it cleanly
+ *  rather than sitting alongside it (issue #240). */
+const LEGACY_COMPLETION_COMMANDS = new Set([
+  `${PAQAD_RUNTIME_PREFIX}/hooks/verification-record.mjs`,
+]);
 
 /**
  * Render paqad's verification-completion hook into a host's *native* hook
@@ -46,7 +54,7 @@ type HookEvents = Record<string, HookMatcher[]>;
 
 export function buildNativeCompletionHookFile(options: NativeCompletionHookOptions): GeneratedFile {
   const { projectRoot, settingsPath, completionEvent } = options;
-  const command = PAQAD_COMPLETION_RECORD_SCRIPT;
+  const command = completionRecordCommand();
 
   const existing = readJsonObject(join(projectRoot, settingsPath));
   const hooks: HookEvents =
@@ -54,7 +62,14 @@ export function buildNativeCompletionHookFile(options: NativeCompletionHookOptio
       ? (existing.hooks as HookEvents)
       : {};
 
-  const eventGroups = Array.isArray(hooks[completionEvent]) ? hooks[completionEvent] : [];
+  // Drop the retired bare-path command (Windows-broken) before merging, then
+  // remove any matcher group left empty by the prune — clean cutover, no migration.
+  const eventGroups = (Array.isArray(hooks[completionEvent]) ? hooks[completionEvent] : [])
+    .map((group) => ({
+      ...group,
+      hooks: (group?.hooks ?? []).filter((hook) => !LEGACY_COMPLETION_COMMANDS.has(hook.command)),
+    }))
+    .filter((group) => group.hooks.length > 0);
   const alreadyPresent = eventGroups.some((group) =>
     group?.hooks?.some((hook) => hook.command === command),
   );

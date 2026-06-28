@@ -1,0 +1,32 @@
+# Feature-development stage registry (issue #247).
+#
+# The ordered universe of feature-development stages and which are MANDATORY for an
+# applicable code change. This file is the tracked, human-readable mirror of the
+# canonical source — `STAGE_ORDER` in src/pipeline/feature-development-policy.ts —
+# from which the stage-evidence ledger derives its ordering checks. A test
+# (tests/unit/stage-evidence/registry-drift.test.ts) fails if the two ever drift.
+#
+# The stage-evidence ledger is always-on and independent of any enterprise /
+# AI-BOM flag: it records, in order, the start and end datetime of each stage, and
+# an end-of-change gate fails when a mandatory stage is missing.
+schema_version: "1"
+
+# In canonical order, lowest first. `ticket_intake` (intake-only) and `delivery`
+# (post-merge) are optional bookends; the rest are mandatory for a code change.
+stages:
+  - id: ticket_intake
+    mandatory: false
+  - id: planning
+    mandatory: true
+  - id: specification
+    mandatory: true
+  - id: development
+    mandatory: true
+  - id: review
+    mandatory: true
+  - id: checks
+    mandatory: true
+  - id: documentation_sync
+    mandatory: true
+  - id: delivery
+    mandatory: false

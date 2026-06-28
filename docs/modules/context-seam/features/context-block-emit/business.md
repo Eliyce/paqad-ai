@@ -21,8 +21,10 @@ The technical contract lives at [`technical.md`](./technical.md).
 
 ## User Flows
 
-- **Emit on prompt:** `agent-entry-prompt-gate.sh` invokes the seam hook on every
-  enabled prompt, ahead of the framework-load reminder.
+- **Emit on prompt:** `agent-entry-prompt-gate.mjs` calls the seam emit in-process
+  on every enabled prompt, but ONLY once the framework is loaded (sentinel fresh).
+  Until then it emits only the framework-load directive and suppresses the context
+  block, so the directive is never buried under it (#240).
   - paqad disabled → the hook is a pure no-op (no block, no contamination of an
     A/B OFF arm).
   - `rag_enabled` off (the default) → nothing is written; the agent gets today's

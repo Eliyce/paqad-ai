@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { buildNativeCompletionHookFile } from '@/adapters/shared/native-completion-hook.js';
-import { PAQAD_COMPLETION_RECORD_SCRIPT } from '@/adapters/shared/paqad-hooks.js';
+import { completionRecordCommand, PAQAD_RUNTIME_PREFIX } from '@/adapters/shared/paqad-hooks.js';
 
 function tempProject(): string {
   return mkdtempSync(join(tmpdir(), 'paqad-native-hook-'));
@@ -44,7 +44,7 @@ describe('buildNativeCompletionHookFile', () => {
     expect(json.hooks.Stop).toHaveLength(1);
     expect(json.hooks.Stop[0].hooks[0]).toEqual({
       type: 'command',
-      command: PAQAD_COMPLETION_RECORD_SCRIPT,
+      command: completionRecordCommand(),
     });
     // The command is the record-only hook, never the blocking Claude variant.
     expect(file.content).toContain('verification-record.mjs');
@@ -54,7 +54,7 @@ describe('buildNativeCompletionHookFile', () => {
   it('uses the host-specific event name (Gemini AfterAgent)', () => {
     const root = tempProject();
     const { json } = render(root, '.gemini/settings.json', 'AfterAgent');
-    expect(json.hooks.AfterAgent[0].hooks[0].command).toBe(PAQAD_COMPLETION_RECORD_SCRIPT);
+    expect(json.hooks.AfterAgent[0].hooks[0].command).toBe(completionRecordCommand());
     expect(json.hooks.Stop).toBeUndefined();
   });
 
@@ -92,13 +92,43 @@ describe('buildNativeCompletionHookFile', () => {
       group.hooks.map((hook) => hook.command),
     );
     expect(commands).toContain('echo user-hook');
-    expect(commands).toContain(PAQAD_COMPLETION_RECORD_SCRIPT);
+    expect(commands).toContain(completionRecordCommand());
   });
 
   it('tolerates an unparseable existing file by treating it as empty', () => {
     const root = tempProject();
     seedExisting(root, '.codex/hooks.json', 'not json {{{');
     const { json } = render(root, '.codex/hooks.json', 'Stop');
-    expect(json.hooks.Stop[0].hooks[0].command).toBe(PAQAD_COMPLETION_RECORD_SCRIPT);
+    expect(json.hooks.Stop[0].hooks[0].command).toBe(completionRecordCommand());
+  });
+
+  it('prunes the retired bare-path record command on re-onboard (#240)', () => {
+    const root = tempProject();
+    // An earlier onboard wired the Windows-broken bare `.mjs` invocation.
+    seedExisting(
+      root,
+      '.codex/hooks.json',
+      JSON.stringify({
+        hooks: {
+          Stop: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: `${PAQAD_RUNTIME_PREFIX}/hooks/verification-record.mjs`,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    const { json } = render(root, '.codex/hooks.json', 'Stop');
+    const commands = json.hooks.Stop.flatMap((group) => group.hooks.map((hook) => hook.command));
+    // The bare path is gone; the cross-platform `node "<abs>"` command replaces it once.
+    expect(commands).not.toContain(`${PAQAD_RUNTIME_PREFIX}/hooks/verification-record.mjs`);
+    expect(commands.filter((command) => command === completionRecordCommand())).toHaveLength(1);
+    expect(commands.some((command) => command.includes('~'))).toBe(false);
   });
 });

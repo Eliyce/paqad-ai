@@ -127,6 +127,8 @@
     },
     "intelligence": {
       "rag_enabled": false,
+      "embedding_provider": "local",
+      "embedding_model": "Xenova/all-MiniLM-L6-v2",
       "rag_similarity_threshold": 0.75,
       "rag_top_n": 20,
       "rag_max_file_size": 153600,
@@ -307,12 +309,14 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-26T08:45:56.784Z",
+    "timestamp": "2026-06-28T17:28:46.927Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
       "ignored_paths": [
         ".git",
+        "coverage",
+        "dist",
         "graph-ui/node_modules",
         "node_modules",
         "tests/fixtures",
@@ -361,6 +365,8 @@
     "scan_max_depth": 5,
     "ignored_paths": [
       ".git",
+      "coverage",
+      "dist",
       "graph-ui/node_modules",
       "node_modules",
       "tests/fixtures",
@@ -403,7 +409,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-26T08:46:08.010Z",
+  "generated_at": "2026-06-28T17:28:59.616Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -627,6 +633,10 @@
     },
     {
       "path": "docs/instructions/rules/coding/design-test.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/feature-development.md",
       "auto_update": false
     },
     {

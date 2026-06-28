@@ -38,6 +38,13 @@ export class GeminiCliAdapter extends BaseAdapter {
     return '.gemini/memory.json';
   }
 
+  // `.gemini/settings.json` is the file Gemini executes hooks from; it now carries
+  // the absolute, machine-specific `node "<abs>"` record-hook command, so it is
+  // per-machine.
+  protected override executedHookConfigFiles(): string[] {
+    return ['settings.json'];
+  }
+
   // Render Gemini's native `AfterAgent` hook so the verification-completion run
   // (which writes the evidence ledger) fires out of the box — the same coverage
   // Claude Code gets, with no change to GEMINI.md. The base entry file is untouched.

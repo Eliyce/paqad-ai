@@ -54,13 +54,14 @@ describe('adapter stack matrix', () => {
           files.push(...(await adapter.configureMemory(profile)));
         }
 
-        // Some adapters emit an extra native-config file from generateConfig
-        // alongside their entry file: Claude Code writes .claude/settings.json
-        // (agent-entry gate); Codex and Gemini write their native completion-hook
-        // file (.codex/hooks.json / .gemini/settings.json) so the evidence ledger
-        // fires on every host, not Claude Code alone.
+        // Some adapters emit extra files from generateConfig alongside their entry
+        // file: Claude Code writes .claude/settings.json (agent-entry gate); Codex
+        // and Gemini write their native completion-hook file (.codex/hooks.json /
+        // .gemini/settings.json) so the evidence ledger fires on every host. Each of
+        // these three ALSO emits a nested .gitignore marking that per-machine hook
+        // config git-ignored (issue #240) — so two extra files, not one.
         const adaptersWithExtraConfigFile = ['claude-code', 'codex-cli', 'gemini-cli'];
-        const extraConfigFiles = adaptersWithExtraConfigFile.includes(adapterType) ? 1 : 0;
+        const extraConfigFiles = adaptersWithExtraConfigFile.includes(adapterType) ? 2 : 0;
         const expectedLength =
           1 +
           extraConfigFiles +

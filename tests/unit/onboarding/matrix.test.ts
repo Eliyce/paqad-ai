@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { OnboardingOrchestrator } from '@/onboarding/index.js';
@@ -94,6 +94,12 @@ function collectAbsolutePathLeaks(projectRoot: string): string[] {
     if (!existsSync(root)) continue;
     walkFiles(root, (filePath) => {
       if (!/\.(json|ya?ml|md|txt)$/.test(filePath)) return;
+      // Files paqad itself marks git-ignored (e.g. the per-machine
+      // `.claude/settings.json` whose hook command carries an absolute install
+      // path, issue #240) are never committed, so an absolute path there is
+      // intentional, not a portability leak. Exempt anything listed in a sibling
+      // `.gitignore` paqad wrote.
+      if (isGitignoredInDir(filePath)) return;
       const content = readFileSync(filePath, 'utf8');
       const relPath = filePath.slice(projectRoot.length + 1);
 
@@ -115,6 +121,19 @@ function collectAbsolutePathLeaks(projectRoot: string): string[] {
     });
   }
   return violations;
+}
+
+/** True when a sibling `.gitignore` lists this file's basename (paqad's per-machine
+ *  exemption — the file is never committed, so an absolute path in it is fine). */
+function isGitignoredInDir(filePath: string): boolean {
+  try {
+    const patterns = readFileSync(join(dirname(filePath), '.gitignore'), 'utf8')
+      .split('\n')
+      .map((line) => line.trim());
+    return patterns.includes(basename(filePath));
+  } catch {
+    return false;
+  }
 }
 
 function walkFiles(dir: string, visit: (path: string) => void): void {

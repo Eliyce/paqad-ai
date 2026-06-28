@@ -39,6 +39,12 @@ export class CodexCliAdapter extends BaseAdapter {
     return '.codex/memory.json';
   }
 
+  // `.codex/hooks.json` is the file Codex executes; it now carries the absolute,
+  // machine-specific `node "<abs>"` record-hook command, so it is per-machine.
+  protected override executedHookConfigFiles(): string[] {
+    return ['hooks.json'];
+  }
+
   // Render Codex's native `Stop` hook so the verification-completion run (which
   // writes the evidence ledger) fires out of the box — the same coverage Claude
   // Code gets, with no change to AGENTS.md. The base entry file is untouched.

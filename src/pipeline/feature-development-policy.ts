@@ -24,7 +24,12 @@ type RawFeatureDevelopmentPolicy = {
   rounds?: FeatureDevelopmentRoundsPolicy;
 };
 
-const STAGE_ORDER: FeatureDevelopmentStageName[] = [
+/**
+ * The canonical feature-development stage order. Exported so the stage-evidence
+ * ledger (issue #247) derives its ordered registry from THIS single source and the
+ * two can never drift. Do not reorder without updating the ledger's expectations.
+ */
+export const STAGE_ORDER: FeatureDevelopmentStageName[] = [
   'ticket_intake',
   'planning',
   'specification',

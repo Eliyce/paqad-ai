@@ -23,6 +23,7 @@ import {
   resolveChangeAuthorship,
   resolveComplianceCitations,
 } from '@/evidence/index.js';
+import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '../evidence.js';
@@ -171,6 +172,26 @@ export async function runRepositoryVerification(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     engineLog('warn', `paqad: could not write verification-evidence.json (${message})`);
+  }
+
+  // Issue #247 — always-on stage-evidence finalization. The end-of-change gate
+  // fires here, automatically, on every hook-capable provider (Claude Stop,
+  // Codex/Gemini completion): verify the change the agent recorded, or write a
+  // single inferred-git backstop record for an untracked code diff. Placed AFTER
+  // the global enabled-check and BEFORE the enterprise block below, so it runs
+  // regardless of the enterprise/AI-BOM flags (C1). Best-effort — a failure here
+  // never changes the verdict.
+  try {
+    const stageFileDigests = await computeFileDigests(context.project_root, context.changed_files);
+    finalizeStageEvidence(context.project_root, {
+      adapter: 'backstop',
+      changedFilesCount: context.changed_files.length,
+      subjectDigest: computeChangeSubjectDigest(stageFileDigests),
+      now: () => new Date(completedAt),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: stage-evidence finalize skipped (${message})`);
   }
 
   // Issue #118 — fan the graded gate (and ratchet measure) results into the

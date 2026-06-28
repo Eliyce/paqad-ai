@@ -6,9 +6,15 @@
 
 - `runtime/scripts/context-seam.mjs` — `formatContextBlock`, `buildInjection`,
   and the `BLOCK_OPEN` / `BLOCK_CLOSE` markers.
-- `runtime/hooks/context-seam-inject.mjs` — the `UserPromptSubmit` hook entry.
-- `runtime/hooks/agent-entry-prompt-gate.sh` — invokes the hook on every enabled
-  prompt.
+- `runtime/hooks/lib/context-seam-emit.mjs` — `emitContext`, the side-effect-free
+  emit logic (extracted so the prompt gate can reuse it in-process).
+- `runtime/hooks/context-seam-inject.mjs` — a thin `UserPromptSubmit` hook entry
+  that reads stdin then calls `emitContext`.
+- `runtime/hooks/agent-entry-prompt-gate.mjs` — the cross-platform (`.mjs`) gate
+  that imports `emitContext` and calls it in-process. It emits the block ONLY when
+  the framework is loaded (sentinel fresh); until then it emits only the load
+  directive, so the directive can never be buried under the context block (#240 /
+  the always-load fix).
 
 ## Entry Points
 
@@ -33,10 +39,12 @@
   'PAQAD_RAG_ENABLED'))` → emit nothing when off. Default off mirrors the
   `FRAMEWORK_CONFIG_SPECS` `rag_enabled` default (`false`); only an explicit
   truthy token (`true`/`1`/`yes`/`on`) enables injection.
-- The bash gate calls `node context-seam-inject.mjs </dev/null` after its own
-  disabled short-circuit and before the load reminder, swallowing all output
-  errors (`2>/dev/null || true`). `</dev/null` gives the hook an immediate stdin
-  EOF so it never hangs.
+- The prompt gate (`agent-entry-prompt-gate.mjs`) imports `emitContext` and calls
+  it in-process, but ONLY when the sentinel is fresh (framework loaded). When the
+  framework is not loaded it emits the load directive alone and suppresses the
+  context block, so the directive owns the top of context (#240). The standalone
+  `context-seam-inject.mjs` entry stays available and behaves identically when run
+  directly.
 
 ## State Management
 
@@ -55,5 +63,6 @@
   `buildInjection` emits a block when present and `''` when absent.
 - `tests/unit/runtime/context-seam-inject.test.ts` — the hook emits the block on
   an existing artifact, nothing when absent, a pure no-op when disabled, and
-  honours `PAQAD_CONTEXT_ARTIFACT`; the bash gate emits the block ahead of the
-  load reminder and stays a no-op when disabled.
+  honours `PAQAD_CONTEXT_ARTIFACT`; the `.mjs` gate suppresses the block and emits
+  only the load directive when the framework is not loaded, injects the block once
+  the sentinel is fresh, and stays a no-op when disabled.
