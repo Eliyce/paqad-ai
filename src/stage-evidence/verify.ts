@@ -35,6 +35,11 @@ export interface VerifyResult {
   ok: boolean;
   /** True when the redo cap was hit — escalate to the Decision Pause Contract. */
   blocked: boolean;
+  /** True when the agent actually marked at least one stage live (`live-mark`),
+   *  i.e. the workflow was in use. Distinguishes "started the workflow but left it
+   *  incomplete" (a hard failure) from "never marked anything" (informational, so
+   *  the gate cannot break a project that has not adopted stage marking yet). */
+  live_marked: boolean;
   missing_stages: string[];
   ordering_violations: OrderingViolation[];
   redo_attempts: number;
@@ -57,12 +62,11 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
   const ordinal = ctx.ordinal ?? currentOrdinalOrThrow(projectRoot, sessionId);
   const fold = foldChange(projectRoot, sessionId, ordinal);
 
-  const priorFailures = readSessionUnit(
-    projectRoot,
-    STAGE_EVIDENCE_DOC_TYPE,
-    sessionId,
-    ordinal,
-  ).filter((row) => row.kind === 'verify' && row.event_status === 'failed').length;
+  const unit = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
+  const priorFailures = unit.filter(
+    (row) => row.kind === 'verify' && row.event_status === 'failed',
+  ).length;
+  const liveMarked = unit.some((row) => row.evidence_source === 'live-mark');
 
   let verdict = fold.completeness.verdict;
   if (verdict === 'incomplete' && priorFailures >= REDO_CAP) {
@@ -94,6 +98,7 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
     verdict,
     ok,
     blocked,
+    live_marked: liveMarked,
     missing_stages: fold.completeness.missing_stages,
     ordering_violations: fold.completeness.ordering_violations,
     redo_attempts: priorFailures,
