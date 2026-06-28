@@ -108,6 +108,10 @@ export const PATHS = {
   // envelope per line); EVIDENCE_RECEIPT/EVIDENCE_AI_BOM are the latest snapshots.
   EVIDENCE_LEDGER_DIR: '.paqad/ledger',
   EVIDENCE_LEDGER: '.paqad/ledger/evidence.jsonl',
+  // Issue #249 - the lazily-minted, per-machine session id shared by the
+  // session-scoped evidence ledgers (rag-evidence #249, stage-evidence #247) when
+  // the host provides no session id of its own. `ses_<ulid>`, cached here.
+  LEDGER_SESSION_ID: '.paqad/session/ledger-session-id',
   EVIDENCE_RECEIPT: '.paqad/ledger/receipt.dsse.json',
   EVIDENCE_RECEIPT_CHAIN: '.paqad/ledger/receipts.jsonl',
   EVIDENCE_AI_BOM: '.paqad/ledger/ai-bom.json',
