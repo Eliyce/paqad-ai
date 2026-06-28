@@ -19,7 +19,7 @@ grep/read exactly as today.
 
 - `runtime/scripts/context-seam.mjs`
 - `runtime/hooks/context-seam-inject.mjs`
-- `runtime/hooks/agent-entry-prompt-gate.sh`
+- `runtime/hooks/agent-entry-prompt-gate.mjs`
 
 ## Features
 
