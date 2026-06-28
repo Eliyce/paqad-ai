@@ -947,6 +947,50 @@ modules:
         name: Compliance Citations on the Receipt
         sources: [src/evidence/compliance]
 
+  - slug: session-ledger
+    name: Session-Scoped Evidence Substrate
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The reusable script-written, session-scoped, append-only JSONL evidence
+      primitive (issue #249 P0) under `.paqad/ledger/<docType>/<session>/<ordinal>.jsonl`:
+      atomic ordinal allocation (exclusive-create, race-safe across the background
+      worker and the prompt seam), an `.open` pointer, a script-clock `ts` + identity
+      `content_hash` stamped on every row, a tolerant reader, and an injectable
+      per-row validator. The RAG-evidence ledger (#249) and the stage-evidence ledger
+      (#247) both consume this instead of duplicating it. Imports no enterprise code —
+      always-on, AI-BOM-independent.
+    sources:
+      - src/session-ledger
+
+  - slug: rag-evidence-ledger
+    name: RAG-Evidence Ledger
+    layer: framework-internals
+    confidence: high
+    summary: |
+      A script-written, per-(session, conversation) record of what the RAG layer
+      actually did at runtime (issue #249): when the index was REFRESHED, when
+      retrieval was CALLED, when the precomputed context was USED (injected into a
+      prompt), and when it FELL BACK to grep. Built on the session-ledger substrate;
+      validated by an AJV schema. The seams (background worker, prompt hook) record it;
+      the LLM never hand-authors a row. `appendRagAudit` dual-writes into it so the
+      structured ledger is the queryable source of truth without losing an event.
+      Honest by design: proof of OCCURRENCE (a slice was injected), never of benefit.
+      `rag-evidence show` folds a session into a use-rate / fallback rollup.
+    sources:
+      - src/rag-ledger
+      - runtime/scripts/rag-evidence-record.mjs
+    features:
+      - slug: rag-evidence-recorder
+        name: Recorder + AJV schema (open/refreshed/called/used/fallback)
+        sources: [src/rag-ledger/recorder.ts, src/rag-ledger/schema.ts, src/rag-ledger/types.ts]
+      - slug: rag-evidence-audit-bridge
+        name: appendRagAudit → structured-ledger bridge
+        sources: [src/rag-ledger/audit-bridge.ts]
+      - slug: rag-evidence-show
+        name: rag-evidence show (use-rate / fallback fold)
+        sources: [src/rag-ledger/fold.ts, src/cli/commands/rag-evidence.ts]
+
   - slug: delivery-workflow
     name: Provider-Agnostic Delivery Workflow
     layer: framework-internals
