@@ -35,6 +35,7 @@ import type { DepthRoutingInput } from '@/context/retrieval-depth-router.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { RagService } from '@/rag/service.js';
 import type { RagRetrievalResult } from '@/rag/types.js';
+import { recordRagEvidence } from '@/rag-ledger/recorder.js';
 
 /** A single retrieved slice destined for the session-context artifact. */
 export interface RetrievalSlice {
@@ -226,6 +227,12 @@ export interface GatherOptions {
    * gate.
    */
   routing?: DepthRoutingInput;
+  /**
+   * RAG-evidence (#249): when set, record a `called` event for the retrieval query that
+   * is actually issued (scope / top-n / candidate count). Off for evals/tests so they
+   * never write the ledger; the live background worker passes it.
+   */
+  recordEvidence?: { sessionId?: string; adapter?: string };
 }
 
 /**
@@ -321,5 +328,25 @@ export async function gatherWorkingSetSlices(
   // `all` (docs + function-level code slices, F19), while doc/writing/question stages
   // and the no-workflow background default stay docs-only (F13, the safest content).
   const scope = options.scope ?? scopeForWorkflow(options.routing?.workflow);
+
+  // #249 — a retrieval query WAS issued: record the `called` event (scope / top-n /
+  // candidate pool). Best-effort and opt-in (only the live worker passes recordEvidence).
+  if (options.recordEvidence) {
+    recordRagEvidence(
+      projectRoot,
+      'called',
+      {
+        query_scope: scope === 'all' ? 'all' : scope === 'code' ? 'code' : 'docs',
+        top_n: effectiveTopN,
+        candidates: result.retrieved_chunks.length,
+      },
+      {
+        ragEnabled: true,
+        adapter: options.recordEvidence.adapter ?? 'engine',
+        sessionId: options.recordEvidence.sessionId,
+      },
+    );
+  }
+
   return filterToScope(aboveFloor, scope);
 }
