@@ -55,6 +55,14 @@ describe('agent entry files stay lean', () => {
       expect(content).not.toContain('docs/modules');
       expect(content).not.toContain('Decision Pause Contract');
       expect(content).not.toContain('narration contract');
+
+      // Carries no "Use this file as the … entrypoint …" decoration line — the
+      // host already auto-injects the file, so restating its purpose is dead
+      // weight a lean stub must not carry.
+      expect(
+        content,
+        `${type} entry file must not restate that it is the entrypoint — the host injects it already.`,
+      ).not.toMatch(/Use this file as the .*entrypoint/i);
     });
   }
 });
