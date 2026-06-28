@@ -35,3 +35,4 @@ export {
 } from './recorder.js';
 export { foldChange, foldRows } from './fold.js';
 export { verifyChange, REDO_CAP, type VerifyResult, type VerifyContext } from './verify.js';
+export { finalizeStageEvidence, type FinalizeStageEvidenceInput } from './finalize.js';
