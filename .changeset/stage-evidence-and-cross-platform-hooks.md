@@ -1,5 +1,5 @@
 ---
-"paqad-ai": minor
+'paqad-ai': minor
 ---
 
 Cross-platform hooks, always-load entry gate, and two new evidence ledgers.
