@@ -8,6 +8,7 @@ import {
   changeKey,
   endStage,
   foldChange,
+  foldRows,
   isMandatoryStage,
   openStageEvidence,
   STAGE_EVIDENCE_DOC_TYPE,
@@ -16,7 +17,7 @@ import {
   validateStageEvidenceRow,
   verifyChange,
 } from '@/stage-evidence/index.js';
-import { readSessionDoc } from '@/session-ledger/ledger.js';
+import { readSessionDoc, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 /** A clock that advances `stepMs` on each call, for deterministic durations. */
 function clock(startMs = 1_000_000, stepMs = 1000): () => Date {
@@ -169,7 +170,153 @@ describe('stage-evidence ledger (#247)', () => {
     expect(lines.length).toBeGreaterThanOrEqual(3); // open + start + end
     expect(JSON.parse(lines[0]).kind).toBe('open');
   });
+
+  it('rejects an unknown stage on end as well as start', () => {
+    expect(() => endStage(root, 'bogus', {}, { sessionId: 'ses_e', adapter: ADAPTER })).toThrow(
+      /unknown stage/i,
+    );
+  });
+
+  it('hashes a named-but-missing artifact to an absent marker, never a false digest', () => {
+    const sessionId = 'ses_absent';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
+    startStage(root, 'planning', { sessionId, ordinal, adapter: ADAPTER });
+    const a = endStage(
+      root,
+      'planning',
+      { artifactPaths: ['nope.md'] },
+      { sessionId, ordinal, adapter: ADAPTER },
+    );
+    const b = endStage(
+      root,
+      'specification',
+      { artifactPaths: ['also-missing.md'] },
+      { sessionId, ordinal, adapter: ADAPTER },
+    );
+    // Both hash a real (absent) fact, but to DIFFERENT digests (path is folded in).
+    expect(a.artifact_digest).toMatch(/^sha256-/);
+    expect(a.artifact_digest).not.toBe(b.artifact_digest);
+  });
+
+  it('verify resolves the open change when no ordinal is passed, and throws when none is open', () => {
+    expect(() => verifyChange(root, { sessionId: 'ses_v0', adapter: ADAPTER })).toThrow(
+      /no open stage-evidence change/i,
+    );
+    run(['planning'], clock(), 'ses_v1');
+    // No ordinal passed → resolves via the .open pointer.
+    const result = verifyChange(root, { sessionId: 'ses_v1', adapter: ADAPTER });
+    expect(result.verdict).toBe('incomplete'); // only planning ran
+  });
+
+  it('auto-opens a change when a stage is started without an explicit open', () => {
+    // No openStageEvidence call and no ordinal — the recorder opens one itself.
+    const row = startStage(root, 'planning', { sessionId: 'ses_auto', adapter: ADAPTER });
+    expect(row.conversation_ordinal).toBe(1);
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses_auto');
+    expect(rows[0].kind).toBe('open');
+    expect(rows.some((r) => r.kind === 'stage_start')).toBe(true);
+  });
 });
+
+describe('foldRows edge cases (#247)', () => {
+  const row = (partial: Partial<SessionLedgerRow>): SessionLedgerRow =>
+    ({
+      schema_version: 1,
+      doc_type: STAGE_EVIDENCE_DOC_TYPE,
+      session_id: 'ses',
+      conversation_ordinal: 1,
+      ts: new Date(0).toISOString(),
+      content_hash: 'x',
+      ...partial,
+    }) as SessionLedgerRow;
+
+  it('returns cannot-verify for an empty change', () => {
+    const fold = foldRows([], 'ses', 1);
+    expect(fold.completeness.verdict).toBe('cannot-verify');
+  });
+
+  it('returns incomplete when every mandatory stage ran but ordering is violated', () => {
+    const mandatory = STAGE_EVIDENCE_STAGES.filter(isMandatoryStage);
+    const rows: SessionLedgerRow[] = [];
+    let t = 1000;
+    for (const stage of mandatory) {
+      rows.push(row({ kind: 'stage_start', stage, event_status: 'started', ts: iso(t) }));
+      rows.push(row({ kind: 'stage_end', stage, event_status: 'completed', ts: iso(t + 100) }));
+      t += 200;
+    }
+    // Inject an overlap: re-end `planning` long AFTER `specification` started.
+    rows.push(
+      row({ kind: 'stage_start', stage: 'planning', event_status: 'started', ts: iso(900) }),
+    );
+    rows.push(
+      row({ kind: 'stage_end', stage: 'planning', event_status: 'completed', ts: iso(5000) }),
+    );
+
+    const fold = foldRows(rows, 'ses', 1);
+    expect(fold.completeness.missing_stages).toEqual([]);
+    expect(fold.completeness.ordering_violations.length).toBeGreaterThan(0);
+    expect(fold.completeness.verdict).toBe('incomplete');
+  });
+
+  it('clamps a negative duration and flags it unreliable', () => {
+    const rows = [
+      row({ kind: 'stage_start', stage: 'planning', event_status: 'started', ts: iso(5000) }),
+      row({ kind: 'stage_end', stage: 'planning', event_status: 'completed', ts: iso(1000) }),
+    ];
+    const planning = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'planning')!;
+    expect(planning.duration_ms).toBe(0);
+    expect(planning.duration_unreliable).toBe(true);
+  });
+
+  it('marks a skipped stage skipped', () => {
+    const rows = [row({ kind: 'stage_end', stage: 'review', event_status: 'skipped', ts: iso(1) })];
+    const review = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'review')!;
+    expect(review.state).toBe('skipped');
+  });
+
+  it('derives failed, running, and redone stage states', () => {
+    const failed = foldRows(
+      [row({ kind: 'stage_end', stage: 'checks', event_status: 'failed', ts: iso(1) })],
+      'ses',
+      1,
+    ).stages.find((s) => s.stage === 'checks')!;
+    expect(failed.state).toBe('failed');
+
+    const running = foldRows(
+      [row({ kind: 'stage_start', stage: 'development', event_status: 'started', ts: iso(1) })],
+      'ses',
+      1,
+    ).stages.find((s) => s.stage === 'development')!;
+    expect(running.state).toBe('running');
+
+    const redone = foldRows(
+      [
+        row({ kind: 'stage_start', stage: 'review', event_status: 'redone', ts: iso(1) }),
+        row({ kind: 'stage_end', stage: 'review', event_status: 'completed', ts: iso(2) }),
+      ],
+      'ses',
+      1,
+    ).stages.find((s) => s.stage === 'review')!;
+    expect(redone.state).toBe('redone');
+  });
+
+  it('returns recovered when all mandatory stages completed after a redo', () => {
+    const mandatory = STAGE_EVIDENCE_STAGES.filter(isMandatoryStage);
+    const rows: SessionLedgerRow[] = [];
+    let t = 1000;
+    for (const stage of mandatory) {
+      const status = stage === 'review' ? 'redone' : 'started';
+      rows.push(row({ kind: 'stage_start', stage, event_status: status, ts: iso(t) }));
+      rows.push(row({ kind: 'stage_end', stage, event_status: 'completed', ts: iso(t + 100) }));
+      t += 200;
+    }
+    expect(foldRows(rows, 'ses', 1).completeness.verdict).toBe('recovered');
+  });
+});
+
+function iso(ms: number): string {
+  return new Date(ms).toISOString();
+}
 
 /** Append a raw stage_start/stage_end with a fixed clock instant (for overlap tests). */
 function startStageRaw(

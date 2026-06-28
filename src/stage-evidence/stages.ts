@@ -39,15 +39,3 @@ export function isMandatoryStage(stage: string): boolean {
 export function stageIndex(stage: string): number {
   return STAGE_EVIDENCE_STAGES.indexOf(stage);
 }
-
-/**
- * The stages that must come strictly before `stage` in the canonical order — used
- * to reject an out-of-order `start` and to flag ordering violations in the fold.
- */
-export function stagesBefore(stage: string): StageId[] {
-  const index = stageIndex(stage);
-  if (index <= 0) {
-    return [];
-  }
-  return STAGE_EVIDENCE_STAGES.slice(0, index) as StageId[];
-}

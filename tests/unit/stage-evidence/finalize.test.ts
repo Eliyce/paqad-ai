@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -68,6 +68,19 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     const inferred = rows.find((row) => row.evidence_source === 'inferred-git');
     expect(inferred).toBeDefined();
     expect(inferred?.subject_digest).toBe('deadbeef');
+  });
+
+  it('swallows errors and returns null (best-effort, never breaks verification)', () => {
+    // A projectRoot that is a FILE makes the ledger mkdir fail — finalize must
+    // catch it and return null rather than throw into the verification backstop.
+    const filePath = join(root, 'not-a-dir');
+    writeFileSync(filePath, 'x');
+    const result = finalizeStageEvidence(filePath, {
+      adapter: ADAPTER,
+      sessionId: 'ses_err',
+      changedFilesCount: 1,
+    });
+    expect(result).toBeNull();
   });
 
   it('does not re-verify a change that already has a verify row (verify-once)', () => {

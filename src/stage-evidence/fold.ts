@@ -36,9 +36,12 @@ export function foldRows(
   const orderingViolations = computeOrderingViolations(stages);
 
   const required = stages.filter((stage) => isMandatoryStage(stage.stage));
-  const passed = required.filter((stage) => stage.state === 'complete');
+  // A `redone` stage that reached an end counts as done — it was re-run to
+  // completion. The redo itself is tracked separately (hadRedo → `recovered`).
+  const isDone = (stage: FoldedStage) => stage.state === 'complete' || stage.state === 'redone';
+  const passed = required.filter(isDone);
   const missing = required
-    .filter((stage) => stage.state !== 'complete' && stage.state !== 'not-applicable')
+    .filter((stage) => !isDone(stage) && stage.state !== 'not-applicable')
     .map((stage) => stage.stage);
   const hadRedo = stages.some((stage) => stage.state === 'redone');
 

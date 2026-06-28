@@ -82,4 +82,33 @@ describe('decision-reuse ledger', () => {
     );
     expect(row?.adapter).toBe('unknown');
   });
+
+  it('nulls every absent optional field, and keeps a supplied note', () => {
+    const bare = recordDecisionReuse(
+      root,
+      { decisionId: 'D-bare', matchKind: 'exact' },
+      {
+        sessionId: 'ses_bare',
+      },
+    );
+    expect(bare?.category).toBeNull();
+    expect(bare?.chosen_option_key).toBeNull();
+    expect(bare?.source_path).toBeNull();
+    expect(bare?.note).toBeNull();
+
+    const full = recordDecisionReuse(
+      root,
+      {
+        decisionId: 'D-full',
+        category: 'architecture-path',
+        chosenOptionKey: 'option-b',
+        matchKind: 'fingerprint',
+        sourcePath: '.paqad/decisions/resolved/D-full.json',
+        note: 'reused from a near-identical prior',
+      },
+      { sessionId: 'ses_bare' },
+    );
+    expect(full?.note).toBe('reused from a near-identical prior');
+    expect(full?.match_kind).toBe('fingerprint');
+  });
 });
