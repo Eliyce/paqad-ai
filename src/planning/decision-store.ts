@@ -14,6 +14,8 @@ import { PATHS } from '@/core/constants/paths.js';
 import { ulid } from '@/core/ids/ulid.js';
 import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
 import { readProjectProfile } from '@/core/project-profile.js';
+import { recordDecisionReuse } from '@/decision-reuse/index.js';
+import type { DecisionReuseMatch } from '@/decision-reuse/types.js';
 
 import {
   appendDecisionAuditEvent,
@@ -299,6 +301,7 @@ export class DecisionStore {
       const exactMatch = this.readReusableDecision(exactDecisionId);
       if (exactMatch) {
         this.appendAudit('decision-reused', exactMatch);
+        this.recordReuseToLedger(exactMatch, 'exact');
         return exactDecisionId;
       }
       delete index.fingerprints[packet.fingerprint];
@@ -328,9 +331,29 @@ export class DecisionStore {
       const resolved = this.readResolved(bestMatch.id);
       if (resolved) {
         this.appendAudit('decision-reused', resolved);
+        this.recordReuseToLedger(resolved, 'fingerprint');
       }
     }
     return bestMatch?.id ?? null;
+  }
+
+  /**
+   * Mirror a reuse into the git-ignored decision-reuse ledger (the same substrate
+   * as the rag/stage evidence ledgers). Best-effort — the recorder swallows its own
+   * errors, so a ledger failure can never disrupt decision resolution.
+   */
+  private recordReuseToLedger(packet: DecisionPacket, matchKind: DecisionReuseMatch): void {
+    recordDecisionReuse(
+      this.projectRoot,
+      {
+        decisionId: packet.decision_id,
+        category: packet.category,
+        chosenOptionKey: packet.human_response?.chosen_option_key ?? null,
+        matchKind,
+        sourcePath: join(PATHS.DECISIONS_RESOLVED_DIR, `${packet.decision_id}.json`),
+      },
+      {},
+    );
   }
 
   readPending(decisionId: string): DecisionPacket | null {

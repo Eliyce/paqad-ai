@@ -12,6 +12,9 @@ import {
   type DecisionPacket,
   type DecisionPauseEvent,
 } from '@/planning/index.js';
+import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
+import { readSessionDoc } from '@/session-ledger/ledger.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 /** A `D-` id whose body is a 26-char Crockford-base32 ULID (issue #184). */
 const ULID_DECISION_ID = /^D-[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -98,6 +101,16 @@ describe('DecisionStore', () => {
 
     expect(existsSync(resolvedPath)).toBe(true);
     expect(store.findReusableDecision(packet)).toBe(packet.decision_id);
+
+    // The reuse is also mirrored into the git-ignored decision-reuse ledger
+    // (the #247/#249 sibling) — one record per reuse, on the shared substrate.
+    const reuseSession = resolveSessionId(projectRoot);
+    const reuseRows = readSessionDoc(projectRoot, DECISION_REUSE_DOC_TYPE, reuseSession).filter(
+      (row) => row.kind === 'reuse',
+    );
+    expect(reuseRows.map((row) => row.decision_id)).toContain(packet.decision_id);
+    expect(reuseRows[0]?.match_kind).toBe('exact');
+
     expect(readDecisionAuditEvents(projectRoot)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
