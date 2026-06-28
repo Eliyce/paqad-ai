@@ -9,7 +9,7 @@
 //
 // Best-effort and silent — recording must never break a prompt turn.
 
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   appendFileSync,
   closeSync,
@@ -49,7 +49,8 @@ export function resolveSeamSessionId(projectRoot, hint) {
   } catch {
     /* mint below */
   }
-  const minted = `ses_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  // crypto random (not Math.random) — id minting is treated as a security context.
+  const minted = `ses_${Date.now().toString(36)}${randomBytes(6).toString('hex')}`;
   try {
     mkdirSync(join(projectRoot, '.paqad', 'session'), { recursive: true });
     writeFileSync(cachePath, minted, 'utf8');
