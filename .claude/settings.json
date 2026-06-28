@@ -18,6 +18,15 @@
             "command": "~/.paqad-ai/current/hooks/decision-pause-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.paqad-ai/current/hooks/rule-script-enforce.mjs"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -54,6 +63,14 @@
           {
             "type": "command",
             "command": "~/.paqad-ai/current/hooks/verification-completion.mjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.paqad-ai/current/hooks/rule-script-enforce.mjs"
           }
         ]
       }
