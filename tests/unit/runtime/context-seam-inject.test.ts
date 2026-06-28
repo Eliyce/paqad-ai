@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const INJECT_HOOK = resolve(__dirname, '../../../runtime/hooks/context-seam-inject.mjs');
-const PROMPT_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.sh');
+const PROMPT_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
 const ARTIFACT_REL = '.paqad/context/session-context.md';
 
 interface RunResult {
@@ -44,7 +44,7 @@ const RAG_ON: NodeJS.ProcessEnv = { PAQAD_RAG_ENABLED: 'true' };
 const runHook = (projectRoot: string, env: NodeJS.ProcessEnv = {}) =>
   run('node', [INJECT_HOOK], projectRoot, env);
 const runGate = (projectRoot: string, env: NodeJS.ProcessEnv = {}) =>
-  run('bash', [PROMPT_GATE], projectRoot, env);
+  run('node', [PROMPT_GATE], projectRoot, env);
 
 describe('runtime/hooks/context-seam-inject.mjs', () => {
   let projectRoot: string;
@@ -94,7 +94,7 @@ describe('runtime/hooks/context-seam-inject.mjs', () => {
   });
 });
 
-describe('agent-entry-prompt-gate.sh injects context (wiring)', () => {
+describe('agent-entry-prompt-gate.mjs orders the load directive before context (wiring)', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -109,15 +109,32 @@ describe('agent-entry-prompt-gate.sh injects context (wiring)', () => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
-  it('emits the context block ahead of the load reminder (sentinel missing, rag on)', () => {
+  // Always-load fix (Part 0): when the framework is NOT loaded yet, the gate emits
+  // ONLY the load directive — the [paqad-context] dump is withheld so the one
+  // instruction that must be obeyed first can never be buried under it.
+  it('suppresses the context block and emits only the load directive when not loaded (sentinel missing, rag on)', () => {
     mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
     writeFileSync(join(projectRoot, ARTIFACT_REL), '- injected slice');
     const result = runGate(projectRoot, RAG_ON);
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[paqad] You MUST load the paqad framework');
+    expect(result.stdout).not.toContain('[paqad-context]');
+    expect(result.stdout).not.toContain('- injected slice');
+  });
+
+  // Once the framework IS loaded (sentinel fresh), the context block is injected
+  // exactly as before, and the load directive is gone.
+  it('injects the context block once loaded, with no load directive (sentinel fresh, rag on)', () => {
+    mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
+    writeFileSync(join(projectRoot, ARTIFACT_REL), '- injected slice');
+    writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{}');
+    const future = new Date(Date.now() + 60_000);
+    utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), future, future);
+    const result = runGate(projectRoot, RAG_ON);
+    expect(result.status).toBe(0);
     expect(result.stdout).toContain('[paqad-context]');
     expect(result.stdout).toContain('- injected slice');
-    // The seam block precedes the framework-load reminder.
-    expect(result.stdout.indexOf('[paqad-context]')).toBeLessThan(result.stdout.indexOf('[paqad]'));
+    expect(result.stdout).not.toContain('You MUST load');
   });
 
   it('stays a pure no-op when paqad is disabled (no context, no reminder)', () => {

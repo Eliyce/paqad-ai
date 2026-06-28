@@ -3,26 +3,41 @@ import { join } from 'node:path';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
-import { PAQAD_LIVE_HOOKS } from '../shared/paqad-hooks.js';
+import { hookCommand, PAQAD_LIVE_HOOKS, PAQAD_RUNTIME_PREFIX } from '../shared/paqad-hooks.js';
 
-const AGENT_ENTRY_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-gate.sh';
-const AGENT_ENTRY_PROMPT_GATE_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-prompt-gate.sh';
-const AGENT_ENTRY_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/agent-entry-session-start.sh';
-// Background, non-blocking forced self-update on every session start. Resolves
-// the project root from CLAUDE_PROJECT_DIR/pwd, so the single global copy under
-// ~/.paqad-ai/current operates on whichever project the session is in. The hook
-// lives only in the framework install (never copied into the project) and is now
-// a cross-platform Node script.
-const SILENT_UPDATE_SESSION_START_SCRIPT = '~/.paqad-ai/current/hooks/silent-update.mjs';
-// RAG buildout F6 — live rule-script enforcement. Registered for both PreToolUse
-// (Edit/Write/NotebookEdit) and Stop so scripted-rule violations are caught from
+// Hook file basenames. Each is rendered to a cross-platform
+// `node "<abs>/hooks/<file>"` command via hookCommand() at generate time, so the
+// wired command runs on Windows as well as POSIX (issue #240). The hooks live
+// only in the framework install (never copied into the project); the single
+// global copy resolves the project root from CLAUDE_PROJECT_DIR/pwd.
+const AGENT_ENTRY_GATE_HOOK = 'agent-entry-gate.mjs';
+const AGENT_ENTRY_PROMPT_GATE_HOOK = 'agent-entry-prompt-gate.mjs';
+const AGENT_ENTRY_SESSION_START_HOOK = 'agent-entry-session-start.mjs';
+// Background, non-blocking forced self-update on every session start.
+const SILENT_UPDATE_HOOK = 'silent-update.mjs';
+// RAG buildout F6 — live rule-script enforcement on both PreToolUse
+// (Edit/Write/NotebookEdit) and Stop, so scripted-rule violations are caught from
 // the working tree even when the rule text is not loaded into context.
-const RULE_SCRIPT_ENFORCE_SCRIPT = '~/.paqad-ai/current/hooks/rule-script-enforce.mjs';
+const RULE_SCRIPT_ENFORCE_HOOK = 'rule-script-enforce.mjs';
 
-// Hook commands paqad used to generate but no longer does. Pruned from an
-// existing settings.json on re-onboard so a renamed/removed hook does not leave
-// a dangling SessionStart entry that fails every session.
-const LEGACY_HOOK_COMMANDS = new Set(['~/.paqad-ai/current/hooks/silent-update.sh']);
+// Hook commands paqad used to generate but no longer does: the POSIX-only `.sh`
+// gates, and the bare-path `.mjs` invocations that relied on a shebang/exec-bit
+// (both Windows-broken, issue #240). Pruned from an existing settings.json on
+// re-onboard so a retired command never lingers beside its `node "<abs>"`
+// replacement — a clean cutover with no migration step.
+const LEGACY_HOOK_COMMANDS = new Set(
+  [
+    'agent-entry-gate.sh',
+    'agent-entry-prompt-gate.sh',
+    'agent-entry-session-start.sh',
+    'decision-pause-gate.sh',
+    'silent-update.sh',
+    'silent-update.mjs',
+    'rule-script-enforce.mjs',
+    'verification-completion.mjs',
+    'verification-record.mjs',
+  ].map((file) => `${PAQAD_RUNTIME_PREFIX}/hooks/${file}`),
+);
 
 export class ClaudeCodeAdapter extends BaseAdapter {
   readonly type = 'claude-code' as const;
@@ -50,6 +65,12 @@ export class ClaudeCodeAdapter extends BaseAdapter {
   }
   protected memoryOutputPath() {
     return '.claude/memory.json';
+  }
+
+  // `.claude/settings.json` is the file Claude executes hooks from; it now carries
+  // the absolute, machine-specific `node "<abs>"` command, so it is per-machine.
+  protected executedHookConfigFiles(): string[] {
+    return ['settings.json'];
   }
 
   async generateConfig(context: AdapterContext): Promise<GeneratedFile[]> {
@@ -101,42 +122,44 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
   const preToolMutation = PAQAD_LIVE_HOOKS.filter((hook) => hook.event === 'pre-tool-mutation').map(
     (hook) => ({
       matcher: hook.mutatingToolMatcher,
-      hooks: [{ type: 'command', command: hook.script }],
+      hooks: [{ type: 'command', command: hookCommand(hook.hookFile) }],
     }),
   );
   const completion = PAQAD_LIVE_HOOKS.filter((hook) => hook.event === 'completion').map((hook) => ({
-    hooks: [{ type: 'command', command: hook.script }],
+    hooks: [{ type: 'command', command: hookCommand(hook.hookFile) }],
   }));
 
+  // Legacy bare/`.sh` commands are pruned from EVERY event (not just SessionStart)
+  // so re-onboarding cleanly replaces the Windows-broken invocations everywhere.
   next.hooks = {
     ...hooks,
-    PreToolUse: mergeHookList(hooks.PreToolUse, [
+    PreToolUse: mergeHookList(pruneLegacyHooks(hooks.PreToolUse), [
       {
         matcher: 'Edit|Write|NotebookEdit',
-        hooks: [{ type: 'command', command: AGENT_ENTRY_GATE_SCRIPT }],
+        hooks: [{ type: 'command', command: hookCommand(AGENT_ENTRY_GATE_HOOK) }],
       },
       ...preToolMutation,
       {
         matcher: 'Edit|Write|NotebookEdit',
-        hooks: [{ type: 'command', command: RULE_SCRIPT_ENFORCE_SCRIPT }],
+        hooks: [{ type: 'command', command: hookCommand(RULE_SCRIPT_ENFORCE_HOOK) }],
       },
     ]),
-    UserPromptSubmit: mergeHookList(hooks.UserPromptSubmit, [
+    UserPromptSubmit: mergeHookList(pruneLegacyHooks(hooks.UserPromptSubmit), [
       {
-        hooks: [{ type: 'command', command: AGENT_ENTRY_PROMPT_GATE_SCRIPT }],
+        hooks: [{ type: 'command', command: hookCommand(AGENT_ENTRY_PROMPT_GATE_HOOK) }],
       },
     ]),
     SessionStart: mergeHookList(pruneLegacyHooks(hooks.SessionStart), [
       {
-        hooks: [{ type: 'command', command: AGENT_ENTRY_SESSION_START_SCRIPT }],
+        hooks: [{ type: 'command', command: hookCommand(AGENT_ENTRY_SESSION_START_HOOK) }],
       },
       {
-        hooks: [{ type: 'command', command: SILENT_UPDATE_SESSION_START_SCRIPT }],
+        hooks: [{ type: 'command', command: hookCommand(SILENT_UPDATE_HOOK) }],
       },
     ]),
-    Stop: mergeHookList(hooks.Stop, [
+    Stop: mergeHookList(pruneLegacyHooks(hooks.Stop), [
       ...completion,
-      { hooks: [{ type: 'command', command: RULE_SCRIPT_ENFORCE_SCRIPT }] },
+      { hooks: [{ type: 'command', command: hookCommand(RULE_SCRIPT_ENFORCE_HOOK) }] },
     ]),
   };
   return next;

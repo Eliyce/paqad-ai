@@ -10,9 +10,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 // the prompt gate must NOT inject its `[paqad]` reminder on stdout (which would
 // contaminate the OFF arm of an A/B comparison).
 
-const ENTRY_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.sh');
-const PROMPT_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.sh');
-const DECISION_GATE = resolve(__dirname, '../../../runtime/hooks/decision-pause-gate.sh');
+const ENTRY_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.mjs');
+const PROMPT_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
+const DECISION_GATE = resolve(__dirname, '../../../runtime/hooks/decision-pause-gate.mjs');
 
 /** The durable local off-signal: paqad_enable=false in `.paqad/.config`. */
 const DISABLED_CONFIG = 'paqad_enable=false\n';
@@ -25,7 +25,7 @@ interface RunResult {
 
 function run(script: string, root: string, extraEnv: Record<string, string> = {}): RunResult {
   try {
-    const stdout = execFileSync('bash', [script], {
+    const stdout = execFileSync('node', [script], {
       cwd: root,
       env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...extraEnv },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -41,7 +41,7 @@ function run(script: string, root: string, extraEnv: Record<string, string> = {}
   }
 }
 
-describe('shell gates are a no-op when paqad is disabled', () => {
+describe('gates are a no-op when paqad is disabled', () => {
   let root: string;
 
   beforeEach(() => {

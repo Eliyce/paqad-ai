@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-const GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.sh');
-const PROMPT_GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.sh');
-const RESET_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-session-start.sh');
+const GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.mjs');
+const PROMPT_GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
+const RESET_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-session-start.mjs');
 
 interface RunResult {
   status: number;
@@ -17,7 +17,7 @@ interface RunResult {
 
 function runGate(projectRoot: string): RunResult {
   try {
-    const stdout = execFileSync('bash', [GATE_SCRIPT], {
+    const stdout = execFileSync('node', [GATE_SCRIPT], {
       env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -37,7 +37,7 @@ function runPromptGate(projectRoot: string, mode?: 'soft' | 'hard'): RunResult {
   if (mode) env.PAQAD_AGENT_ENTRY_MODE = mode;
   else delete env.PAQAD_AGENT_ENTRY_MODE;
   try {
-    const stdout = execFileSync('bash', [PROMPT_GATE_SCRIPT], {
+    const stdout = execFileSync('node', [PROMPT_GATE_SCRIPT], {
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -52,7 +52,7 @@ function runPromptGate(projectRoot: string, mode?: 'soft' | 'hard'): RunResult {
   }
 }
 
-describe('runtime/hooks/agent-entry-gate.sh', () => {
+describe('runtime/hooks/agent-entry-gate.mjs', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -106,7 +106,7 @@ describe('runtime/hooks/agent-entry-gate.sh', () => {
   });
 });
 
-describe('runtime/hooks/agent-entry-prompt-gate.sh', () => {
+describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -178,13 +178,13 @@ describe('runtime/hooks/agent-entry-prompt-gate.sh', () => {
   });
 });
 
-describe('runtime/hooks/agent-entry-session-start.sh', () => {
+describe('runtime/hooks/agent-entry-session-start.mjs', () => {
   it('deletes the sentinel so every session starts ungated', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-gate-'));
     try {
       mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
       writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{}');
-      execFileSync('bash', [RESET_SCRIPT], {
+      execFileSync('node', [RESET_SCRIPT], {
         env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
         stdio: 'ignore',
       });

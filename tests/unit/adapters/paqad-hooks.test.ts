@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   HOOK_COVERAGE_MATRIX,
+  hookCommand,
   PAQAD_LIVE_HOOKS,
   isLiveHookCapable,
 } from '@/adapters/shared/paqad-hooks.js';
@@ -15,11 +16,28 @@ describe('paqad live hook definition (#117 C-5)', () => {
     const preTool = PAQAD_LIVE_HOOKS.find((hook) => hook.id === 'decision-pause-gate');
     expect(preTool?.event).toBe('pre-tool-mutation');
     expect(preTool?.mutatingToolMatcher).toBe('Edit|Write|NotebookEdit');
-    expect(preTool?.script).toContain('decision-pause-gate.sh');
+    // Cross-platform: a `.mjs` hook file, never the retired `.sh` (issue #240).
+    expect(preTool?.hookFile).toBe('decision-pause-gate.mjs');
 
     const completion = PAQAD_LIVE_HOOKS.find((hook) => hook.id === 'verification-completion');
     expect(completion?.event).toBe('completion');
-    expect(completion?.script).toContain('verification-completion.mjs');
+    expect(completion?.hookFile).toBe('verification-completion.mjs');
+  });
+
+  it('renders cross-platform commands: node + absolute path, no `~`, no `.sh` (#240)', () => {
+    const command = hookCommand('agent-entry-gate.mjs', {
+      PAQAD_FRAMEWORK_HOME: '/home/runner/.paqad-ai/current',
+    } as NodeJS.ProcessEnv);
+    expect(command).toBe('node "/home/runner/.paqad-ai/current/hooks/agent-entry-gate.mjs"');
+    // No bare `~` (Windows shells don't expand it) and no `.sh`.
+    expect(command).not.toContain('~');
+    expect(command).not.toContain('.sh');
+    expect(command.startsWith('node ')).toBe(true);
+    // Windows-style home is normalised to forward slashes node accepts everywhere.
+    const win = hookCommand('x.mjs', {
+      PAQAD_FRAMEWORK_HOME: 'C:\\Users\\me\\.paqad-ai\\current',
+    } as NodeJS.ProcessEnv);
+    expect(win).toBe('node "C:/Users/me/.paqad-ai/current/hooks/x.mjs"');
   });
 
   it('marks the hook-capable adapters live+backstop and aider/antigravity backstop-only', () => {

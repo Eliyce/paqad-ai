@@ -35,11 +35,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
       };
     };
     expect(parsed.hooks.PreToolUse[0].matcher).toBe('Edit|Write|NotebookEdit');
-    expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain('agent-entry-gate.sh');
+    expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain('agent-entry-gate.mjs');
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
-      'agent-entry-prompt-gate.sh',
+      'agent-entry-prompt-gate.mjs',
     );
-    expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain('agent-entry-session-start.sh');
+    expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain(
+      'agent-entry-session-start.mjs',
+    );
     // The background forced-self-update hook (decision D-2) must be wired into
     // SessionStart, otherwise the installed CLI never auto-updates.
     const sessionStartCommands = parsed.hooks.SessionStart.flatMap((entry) =>
@@ -57,7 +59,7 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     const preToolCommands = parsed.hooks.PreToolUse.flatMap((entry) =>
       entry.hooks.map((hook) => hook.command),
     );
-    expect(preToolCommands.some((command) => command.includes('decision-pause-gate.sh'))).toBe(
+    expect(preToolCommands.some((command) => command.includes('decision-pause-gate.mjs'))).toBe(
       true,
     );
     // RAG F6 — live rule-script enforcement on both PreToolUse and Stop.
@@ -109,12 +111,12 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     // rule-script enforce (RAG F6).
     expect(parsed.hooks.PreToolUse).toHaveLength(4);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
-    expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.sh');
-    expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('decision-pause-gate.sh');
+    expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.mjs');
+    expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('decision-pause-gate.mjs');
     expect(parsed.hooks.PreToolUse[3].hooks[0].command).toContain('rule-script-enforce.mjs');
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
-      'agent-entry-prompt-gate.sh',
+      'agent-entry-prompt-gate.mjs',
     );
     // agent-entry session-start + background self-update (decision D-2).
     expect(parsed.hooks.SessionStart).toHaveLength(2);
@@ -177,7 +179,9 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     const commands = parsed.hooks.SessionStart.flatMap((entry) =>
       (entry.hooks ?? []).map((hook) => hook.command),
     );
-    expect(commands.some((command) => command.includes('agent-entry-session-start.sh'))).toBe(true);
+    expect(commands.some((command) => command.includes('agent-entry-session-start.mjs'))).toBe(
+      true,
+    );
     expect(commands.some((command) => command.includes('silent-update.mjs'))).toBe(true);
   });
 
