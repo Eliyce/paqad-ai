@@ -21,6 +21,7 @@ import { createPlanCommand } from './commands/plan.js';
 import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
 import { createRagCommand } from './commands/rag.js';
+import { createRagEvidenceCommand } from './commands/rag-evidence.js';
 import { createRefreshCommand } from './commands/refresh.js';
 import { createStatusCommand } from './commands/status.js';
 import { createUpdateCommand } from './commands/update.js';
@@ -53,6 +54,7 @@ export function createProgram(): Command {
   program.addCommand(createDisableCommand());
   program.addCommand(createRefreshCommand());
   program.addCommand(createRagCommand());
+  program.addCommand(createRagEvidenceCommand());
   program.addCommand(createUpdateCommand());
   program.addCommand(createPatternsCommand());
   program.addCommand(createPlanCommand());

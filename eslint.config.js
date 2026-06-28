@@ -39,6 +39,10 @@ export default tseslint.config(
         ...globals.node,
       },
     },
+    rules: {
+      // CommonJS modules legitimately use require()/module.exports.
+      '@typescript-eslint/no-require-imports': 'off',
+    },
   },
   {
     files: ['website/**/*.js'],

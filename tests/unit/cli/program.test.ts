@@ -32,6 +32,7 @@ describe('createProgram', () => {
       'disable',
       'refresh',
       'rag',
+      'rag-evidence',
       'update',
       'patterns',
       'plan',

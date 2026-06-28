@@ -320,7 +320,10 @@ export function createRagCommand(): Command {
     .option('--quiet', 'Suppress output (used by the background trigger)')
     .action(async (options: { projectRoot: string; quiet?: boolean }) => {
       const sync = await backgroundIndexSync(options.projectRoot);
-      const slices = await gatherWorkingSetSlices(options.projectRoot);
+      // #249 — the live background worker records the `called` retrieval event.
+      const slices = await gatherWorkingSetSlices(options.projectRoot, {
+        recordEvidence: { adapter: 'engine' },
+      });
       // F26 — when the working set pulls more slices than the slice-display cap, the
       // workflow is broad; distil to a lean context PACK (path:Lstart-Lend pointers,
       // read the live file) instead of injecting many bodies. Narrow sets keep full

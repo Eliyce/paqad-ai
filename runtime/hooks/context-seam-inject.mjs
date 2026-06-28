@@ -25,9 +25,25 @@
 import process from 'node:process';
 
 import { buildInjection, isRagEnabledValue } from '../scripts/context-seam.mjs';
+import {
+  recordSeamOutcome,
+  resolveSeamSessionId,
+  sectionsFromBlock,
+} from '../scripts/rag-evidence-record.mjs';
 import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
-function emitContext() {
+/** Best-effort session id from the host hook stdin payload (Claude passes session_id). */
+function sessionIdFromStdin(stdin) {
+  try {
+    const parsed = JSON.parse(stdin);
+    if (parsed && typeof parsed.session_id === 'string') return parsed.session_id;
+  } catch {
+    // Not JSON / no session id — fall back to the cached/minted local id.
+  }
+  return undefined;
+}
+
+function emitContext(stdin) {
   try {
     const projectRoot = resolveProjectRoot();
     // Issue #220: when paqad is disabled the seam is a pure no-op — emitting a
@@ -44,23 +60,60 @@ function emitContext() {
     }
 
     const block = buildInjection(projectRoot);
-    if (block) process.stdout.write(`${block}\n`);
+    if (block) {
+      process.stdout.write(`${block}\n`);
+    }
+
+    // Issue #249 — record what happened on THIS prompt: `used` when a block was
+    // injected (with the sections + bytes the script observed), else `fallback` (RAG was
+    // on but produced nothing this turn). Best-effort; never affects the block above.
+    try {
+      const sessionId = resolveSeamSessionId(projectRoot, sessionIdFromStdin(stdin));
+      if (block) {
+        recordSeamOutcome(projectRoot, {
+          sessionId,
+          ragEnabled: true,
+          adapter: 'claude-code',
+          kind: 'used',
+          fields: {
+            injected: true,
+            injected_sections: sectionsFromBlock(block),
+            bytes_injected: Buffer.byteLength(block, 'utf8'),
+          },
+        });
+      } else {
+        recordSeamOutcome(projectRoot, {
+          sessionId,
+          ragEnabled: true,
+          adapter: 'claude-code',
+          kind: 'fallback',
+          fields: {
+            injected: false,
+            fallback_reason: 'cold',
+            note: 'seam: no precomputed context',
+          },
+        });
+      }
+    } catch {
+      // Evidence recording is best-effort; never break a turn over it.
+    }
   } catch {
     // Never let the seam break a turn. Emit nothing on any failure.
   }
 }
 
-// The host pipes the prompt payload to our stdin; we do not need it. Drain it so
-// the process never hangs on the pipe, then emit. When invoked with stdin
-// redirected from /dev/null (the bash gate does this) EOF fires immediately.
+// The host pipes the prompt payload to our stdin; we capture it (for the session id)
+// then emit. When invoked with stdin redirected from /dev/null (the bash gate does
+// this) EOF fires immediately with an empty payload.
 let done = false;
+const chunks = [];
 const run = () => {
   if (done) return;
   done = true;
-  emitContext();
+  emitContext(Buffer.concat(chunks).toString('utf8'));
 };
 
-process.stdin.on('data', () => {});
+process.stdin.on('data', (chunk) => chunks.push(chunk));
 process.stdin.on('end', run);
 process.stdin.on('error', run);
 process.stdin.resume();

@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "Eliyce/paqad-ai" }],
+  "changelog": ["./.changeset/changelog-resilient.cjs", { "repo": "Eliyce/paqad-ai" }],
   "commit": false,
   "fixed": [],
   "linked": [],
