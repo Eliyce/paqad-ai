@@ -26,7 +26,14 @@ export async function loadPaqadApi() {
   return import(distUrl.href);
 }
 
-export async function runVerificationBackstop({ origin, softFail, projectRoot, stdout, stderr }) {
+export async function runVerificationBackstop({
+  origin,
+  softFail,
+  projectRoot,
+  hostSessionId,
+  stdout,
+  stderr,
+}) {
   const out = stdout ?? process.stdout;
   const err = stderr ?? process.stderr;
   // Issue #220 — when paqad is disabled (or env-overridden off, or the package
@@ -39,7 +46,13 @@ export async function runVerificationBackstop({ origin, softFail, projectRoot, s
   }
   try {
     const api = await loadPaqadApi();
-    const verdict = await api.runRepositoryVerification({ projectRoot, origin });
+    // Thread the host session id (buildout F5b, #5) so stage-evidence finalization
+    // keys on the live session, not a stale cache. Undefined on hosts/CI with no id.
+    const verdict = await api.runRepositoryVerification({
+      projectRoot,
+      origin,
+      hostSessionId: hostSessionId ?? null,
+    });
     out.write(`${verdict.summary}\n`);
     return verdict.ok ? 0 : 2;
   } catch (error) {

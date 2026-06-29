@@ -100,6 +100,12 @@ export interface RunRepositoryVerificationOptions extends BuildRepositoryVerific
   /** Pre-built context, for tests/callers that already have one. When omitted
    *  the context is built from repository reality. */
   prebuiltContext?: { context: VerificationContext; escalations: string[] };
+  /** The host session id (Claude passes one on the Stop-hook stdin). Threaded to
+   *  stage-evidence finalization so the completion seam writes under the SAME id
+   *  as the live session's other ledgers — instead of falling back to a stale
+   *  single-slot cache and fragmenting one session into two subdirs (buildout F5b,
+   *  bug #5). Absent on hosts that supply no id (the cached/minted id is used). */
+  hostSessionId?: string | null;
   now?: () => string;
 }
 
@@ -189,6 +195,10 @@ export async function runRepositoryVerification(
     const stageFileDigests = await computeFileDigests(context.project_root, context.changed_files);
     stageResult = finalizeStageEvidence(context.project_root, {
       adapter: 'backstop',
+      // Buildout F5b (#5) — use the live host session id when the hook supplied
+      // one, so the completion seam writes under the same session as the prompt
+      // seam instead of a stale cached id. Null falls back to the cache as before.
+      sessionId: options.hostSessionId ?? null,
       changedFilesCount: context.changed_files.length,
       subjectDigest: computeChangeSubjectDigest(stageFileDigests),
       now: () => new Date(completedAt),

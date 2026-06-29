@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -77,6 +77,20 @@ describe('resolveSessionId', () => {
 
   it('returns the host hint verbatim', () => {
     expect(resolveSessionId(root, 'ses_host_123')).toBe('ses_host_123');
+  });
+
+  it('persists the host hint so a later no-hint reader aligns (buildout F5b, #5)', () => {
+    // A stale cache from a prior/engine run.
+    mkdirSync(dirname(join(root, PATHS.LEDGER_SESSION_ID)), { recursive: true });
+    writeFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'ses_stale_engine_run');
+
+    // The live session resolves with the host id — and refreshes the cache.
+    expect(resolveSessionId(root, 'ses_live_4fc6')).toBe('ses_live_4fc6');
+    expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe('ses_live_4fc6');
+
+    // The completion seam (called with NO hint) now resolves the SAME live id,
+    // instead of the stale engine id — one session, one ledger subdir.
+    expect(resolveSessionId(root)).toBe('ses_live_4fc6');
   });
 
   it('mints and caches a ses_<ulid> when no hint', () => {
