@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   HOOK_COVERAGE_MATRIX,
   hookCommand,
+  hasPreMutationBlock,
   PAQAD_LIVE_HOOKS,
   isLiveHookCapable,
 } from '@/adapters/shared/paqad-hooks.js';
+import { AdapterFactory } from '@/adapters/factory.js';
+import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 
 describe('paqad live hook definition (#117 C-5)', () => {
   it('defines a decision-pause pre-tool gate and a completion hook from one source', () => {
@@ -40,17 +43,49 @@ describe('paqad live hook definition (#117 C-5)', () => {
     expect(win).toBe('node "C:/Users/me/.paqad-ai/current/hooks/x.mjs"');
   });
 
-  it('marks the hook-capable adapters live+backstop and aider/antigravity backstop-only', () => {
-    expect(HOOK_COVERAGE_MATRIX['claude-code']).toBe('live+backstop');
-    expect(HOOK_COVERAGE_MATRIX['codex-cli']).toBe('live+backstop');
-    expect(HOOK_COVERAGE_MATRIX['gemini-cli']).toBe('live+backstop');
-    expect(HOOK_COVERAGE_MATRIX.cursor).toBe('live+backstop');
-    expect(HOOK_COVERAGE_MATRIX.windsurf).toBe('live+backstop');
-    expect(HOOK_COVERAGE_MATRIX.aider).toBe('backstop-only');
-    expect(HOOK_COVERAGE_MATRIX.antigravity).toBe('backstop-only');
+  it('tiers coverage honestly: only claude/codex/gemini are live (buildout F7b)', () => {
+    expect(HOOK_COVERAGE_MATRIX['claude-code']).toBe('live-pre-and-completion');
+    expect(HOOK_COVERAGE_MATRIX['codex-cli']).toBe('live-completion-only');
+    expect(HOOK_COVERAGE_MATRIX['gemini-cli']).toBe('live-completion-only');
+    // The previously-mislabelled hosts are advisory — no executed host hook.
+    for (const advisory of [
+      'cursor',
+      'windsurf',
+      'continue',
+      'github-copilot',
+      'junie',
+      'aider',
+      'antigravity',
+    ]) {
+      expect(HOOK_COVERAGE_MATRIX[advisory], advisory).toBe('advisory');
+    }
 
     expect(isLiveHookCapable('claude-code')).toBe(true);
-    expect(isLiveHookCapable('aider')).toBe(false);
+    expect(isLiveHookCapable('codex-cli')).toBe(true);
+    expect(isLiveHookCapable('cursor')).toBe(false);
     expect(isLiveHookCapable('unknown-host')).toBe(false);
+
+    // Pre-mutation blocking is Claude-only (the sole PreToolUse-capable host).
+    expect(hasPreMutationBlock('claude-code')).toBe(true);
+    expect(hasPreMutationBlock('codex-cli')).toBe(false);
+    expect(hasPreMutationBlock('cursor')).toBe(false);
+  });
+
+  it('every adapter has a coverage entry, and advisory == no native hooks (grounded, anti-drift)', () => {
+    for (const type of ADAPTER_TYPES) {
+      const coverage = HOOK_COVERAGE_MATRIX[type];
+      expect(coverage, type).toBeDefined();
+      // The matrix must match the adapter's real capability: a `live` tier
+      // requires capabilities.hooks; an advisory tier must NOT claim a hook the
+      // host never wires. This catches a future re-mislabel (the #117 C-5 bug).
+      const adapter = AdapterFactory.create(type);
+      if (coverage === 'advisory') {
+        // Advisory hosts either declare no hook capability, or (antigravity)
+        // wire no executed native hook despite the base default.
+        expect(isLiveHookCapable(type), type).toBe(false);
+      } else {
+        expect(adapter.capabilities.hooks, type).toBe(true);
+      }
+    }
   });
 });
