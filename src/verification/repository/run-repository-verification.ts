@@ -29,6 +29,7 @@ import {
   resolveComplianceCitations,
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
+import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -196,7 +197,13 @@ export async function runRepositoryVerification(
     const message = error instanceof Error ? error.message : String(error);
     engineLog('warn', `paqad: stage-evidence finalize skipped (${message})`);
   }
-  const stageGate = stageEvidenceGate(stageResult, origin, context.changed_files.length);
+  const stagesMode = resolveStagesMode(context.project_root);
+  const stageGate = stageEvidenceGate(
+    stageResult,
+    origin,
+    context.changed_files.length,
+    stagesMode,
+  );
   if (stageGate) {
     evidence.gates.push(stageGate);
     if (stageGate.status === 'fail') {
@@ -307,23 +314,29 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
 ]);
 
 /**
- * Map the deterministic stage-evidence verdict to a verification gate (issue #247
- * enforcement). The gate's `name` is set to the `stage-evidence` marker; it is
- * appended to the evidence after the formal gate framework, so it never has to be
- * a registered `VERIFICATION_GATES` member.
+ * Map the deterministic stage-evidence verdict to a verification gate (issue #247,
+ * buildout F4 — the RCA closure). The gate's `name` is the `stage-evidence`
+ * marker; it is appended to the evidence after the formal gate framework, so it
+ * never has to be a registered `VERIFICATION_GATES` member.
+ *
+ * The decision is mode-gated (`stages_mode`, default `strict` per decision D3),
+ * NO LONGER conditioned on `result.live_marked` — that condition was structurally
+ * always false (no live-mark writer has a caller) and is exactly why a
+ * `cannot-verify` change used to ship. `live_marked` now only flavours the
+ * message (started-but-incomplete vs never-recorded).
  *
  * - No result, or no code diff → no gate (the gate is code-change-only).
  * - `complete` / `recovered` → `pass`.
- * - Incomplete/blocked, the workflow was actually in use (`live_marked`), at a
- *   LOCAL origin → `fail` (the deterministic teeth: started the workflow, left it
- *   incomplete).
- * - Otherwise (never marked, or on CI) → `skipped` (informational; never breaks a
- *   project that has not adopted stage marking, nor a fresh CI checkout).
+ * - Incomplete/blocked at a LOCAL origin in `strict` → `fail` (the real teeth).
+ * - `off` (escape hatch), `warn`, or any non-local origin (CI has no committed
+ *   ledger) → `skipped` (informational; never breaks a fresh CI checkout, and
+ *   `off`/`warn` let a team adopt the workflow before turning the teeth on).
  */
 export function stageEvidenceGate(
   result: VerifyResult | null,
   origin: VerificationOrigin,
   changedFileCount: number,
+  mode: StagesMode = 'strict',
 ): VerificationEvidenceGate | null {
   if (!result || changedFileCount <= 0) {
     return null;
@@ -339,23 +352,45 @@ export function stageEvidenceGate(
     };
   }
   const missing = result.missing_stages.join(', ');
-  if (result.live_marked && STAGE_EVIDENCE_HARD_ORIGINS.has(origin)) {
+  if (mode === 'strict' && STAGE_EVIDENCE_HARD_ORIGINS.has(origin)) {
+    const lead = result.live_marked
+      ? 'Feature-development workflow left incomplete'
+      : 'Feature-development stages were not recorded for this change';
     return {
       name,
       status: 'fail',
-      detail: `Feature-development workflow left incomplete — missing stage(s): [${missing}].`,
+      detail: `${lead} — missing stage(s): [${missing}].`,
       remediation:
-        'Run each missing stage and record it (open/start/end), or resolve the redo via the Decision Pause Contract.',
+        'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
+        '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
+        'via the Decision Pause Contract.',
       failures: [],
     };
   }
   return {
     name,
     status: 'skipped',
-    detail: result.live_marked
-      ? `Stage-evidence incomplete (missing [${missing}]) — informational here; the local ledger is not committed for CI.`
-      : `Feature-development stages were not recorded for this change (informational). Missing: [${missing}].`,
+    detail: skippedDetail(mode, origin, missing, result.live_marked),
     remediation: null,
     failures: [],
   };
+}
+
+/** Compose the informational `skipped` detail, explaining WHY the gate did not bite. */
+function skippedDetail(
+  mode: StagesMode,
+  origin: VerificationOrigin,
+  missing: string,
+  liveMarked: boolean,
+): string {
+  if (mode === 'off') {
+    return `Stage-evidence enforcement is disabled (stages_mode=off). Missing: [${missing}].`;
+  }
+  if (mode === 'warn') {
+    return `Feature-development stages incomplete (missing [${missing}]) — warning only (stages_mode=warn).`;
+  }
+  // strict, but a non-local origin (CI) where the local ledger is not committed.
+  return liveMarked
+    ? `Stage-evidence incomplete (missing [${missing}]) — informational here; the local ledger is not committed for CI.`
+    : `Feature-development stages were not recorded for this change (informational on ${origin}). Missing: [${missing}].`;
 }
