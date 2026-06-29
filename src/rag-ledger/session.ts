@@ -23,6 +23,7 @@ export function resolveSessionId(projectRoot: string, hint?: string | null): str
     try {
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, cleaned, 'utf8');
+      /* v8 ignore next 3 -- best-effort cache write; a fs failure is not reproduced in tests */
     } catch {
       // Best-effort cache refresh; resolution still returns the host id.
     }
@@ -40,6 +41,7 @@ export function resolveSessionId(projectRoot: string, hint?: string | null): str
   try {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, minted, 'utf8');
+    /* v8 ignore next 3 -- best-effort cache write; a fs failure is not reproduced in tests */
   } catch {
     // Best-effort cache; a write failure just means the next call re-mints.
   }
