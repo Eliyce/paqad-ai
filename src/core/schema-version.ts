@@ -32,6 +32,7 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema.js';
 import { SchemaVersionError } from '@/core/errors/schema-version-error.js';
+import { runSchemaMigrators, type SchemaMigrator } from '@/core/schema-migrators.js';
 import type {
   PaqadSchemaMarker,
   SchemaCompatibility,
@@ -234,6 +235,7 @@ function delay(ms: number): Promise<void> {
 export async function checkAndMigrateSchema(
   projectRoot: string,
   engineVersion: string,
+  options: { migrators?: readonly SchemaMigrator[] } = {},
 ): Promise<PaqadSchemaMarker> {
   const markerFile = schemaMarkerPath(projectRoot);
 
@@ -288,9 +290,19 @@ export async function checkAndMigrateSchema(
       return current;
     }
     const fromVersion = current?.paqad_schema_version ?? marker.paqad_schema_version;
-    // v1.0.0 is the baseline: forward migration is just updating the marker.
-    // Future versions add format-specific migration steps here, before the
-    // marker is rewritten and the record appended.
+    // Run the per-artifact forward migrators (buildout F1) BEFORE the marker is
+    // advanced, so a migrator that throws leaves the project at the old version
+    // to be retried rather than sealed half-migrated. Empty registry (the 1.0.0
+    // baseline) => no notes, recorded exactly as a plain marker bump always was.
+    const notes = await runSchemaMigrators(
+      {
+        projectRoot,
+        fromVersion,
+        toVersion: PAQAD_SCHEMA_VERSION,
+        engineVersion,
+      },
+      options.migrators,
+    );
     const written = await writeSchemaMarker(projectRoot, engineVersion);
     await appendMigrationRecord(projectRoot, {
       from_version: fromVersion,
@@ -298,6 +310,7 @@ export async function checkAndMigrateSchema(
       migrated_at: new Date().toISOString(),
       engine_version: engineVersion,
       file: PATHS.SCHEMA_MARKER,
+      ...(notes.length > 0 ? { notes } : {}),
     });
     return written;
   });

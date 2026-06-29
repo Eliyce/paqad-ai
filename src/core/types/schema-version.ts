@@ -33,6 +33,12 @@ export interface SchemaMigrationRecord {
   engine_version: string;
   /** The `.paqad/`-relative path of the file that was migrated. */
   file: string;
+  /**
+   * One note per per-artifact migrator that ran during this migration (buildout
+   * F1). Absent when no migrator applied to the transition — so a baseline
+   * marker-only bump records exactly as it did before this field existed.
+   */
+  notes?: string[];
 }
 
 /** Outcome of comparing a marker's version against the running engine. */
