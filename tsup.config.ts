@@ -11,6 +11,10 @@ export default defineConfig({
     // Subpath export consumed by the rules-as-scripts skill .mjs wrappers
     // (issue #89) via `import 'paqad-ai/rule-scripts'` self-reference.
     'rule-scripts/index': 'src/rule-scripts/index.ts',
+    // Capability Kernel executor (buildout F3) — imported by the
+    // runtime/hooks/capability-gate.mjs host hook as a dist-built bundle, the
+    // same dedicated-entry pattern the rule-scripts hook wrapper uses.
+    'kernel/gate': 'src/kernel/gate.ts',
   },
   format: ['esm'],
   dts: true,

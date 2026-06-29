@@ -55,6 +55,19 @@ export function hookCommand(hookFile: string, env: NodeJS.ProcessEnv = process.e
 }
 
 /**
+ * The Capability Kernel host-seam command (buildout F3). `capability-gate.mjs`
+ * runs every kernel-bound capability registered at a seam; the seam is passed as
+ * the first argv (`pre-mutation` for a PreToolUse mutation gate, `completion` for
+ * a Stop/AfterAgent gate). Replaces the single-purpose rule-script-enforce.mjs.
+ */
+export function capabilityGateCommand(
+  seam: 'pre-mutation' | 'completion',
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return `${hookCommand('capability-gate.mjs', env)} ${seam}`;
+}
+
+/**
  * The record-only completion hook command hosts other than Claude Code bind to
  * (Codex CLI's `Stop`, Gemini CLI's `AfterAgent`, …). It runs the same
  * verification backstop as Claude's `Stop` hook — producing the evidence ledger

@@ -3,7 +3,12 @@ import { join } from 'node:path';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
-import { hookCommand, PAQAD_LIVE_HOOKS, PAQAD_RUNTIME_PREFIX } from '../shared/paqad-hooks.js';
+import {
+  capabilityGateCommand,
+  hookCommand,
+  PAQAD_LIVE_HOOKS,
+  PAQAD_RUNTIME_PREFIX,
+} from '../shared/paqad-hooks.js';
 
 // Hook file basenames. Each is rendered to a cross-platform
 // `node "<abs>/hooks/<file>"` command via hookCommand() at generate time, so the
@@ -15,10 +20,6 @@ const AGENT_ENTRY_PROMPT_GATE_HOOK = 'agent-entry-prompt-gate.mjs';
 const AGENT_ENTRY_SESSION_START_HOOK = 'agent-entry-session-start.mjs';
 // Background, non-blocking forced self-update on every session start.
 const SILENT_UPDATE_HOOK = 'silent-update.mjs';
-// RAG buildout F6 — live rule-script enforcement on both PreToolUse
-// (Edit/Write/NotebookEdit) and Stop, so scripted-rule violations are caught from
-// the working tree even when the rule text is not loaded into context.
-const RULE_SCRIPT_ENFORCE_HOOK = 'rule-script-enforce.mjs';
 
 // Hook commands paqad used to generate but no longer does: the POSIX-only `.sh`
 // gates, and the bare-path `.mjs` invocations that relied on a shebang/exec-bit
@@ -38,6 +39,15 @@ const LEGACY_HOOK_COMMANDS = new Set(
     'verification-record.mjs',
   ].map((file) => `${PAQAD_RUNTIME_PREFIX}/hooks/${file}`),
 );
+
+// Hook FILES paqad has fully retired (the capability-kernel replacement, F3).
+// Unlike LEGACY_HOOK_COMMANDS — which prunes the bare `~` #240 forms of hooks
+// that still ship under a `node "<abs>"` command — these have NO replacement
+// command, so an existing config may carry the retired hook in its absolute
+// `node "<abs>/hooks/<file>"` form. We prune by basename so re-onboard removes it
+// in EITHER form and the replacement (capability-gate.mjs) never double-fires
+// beside it. rule-script-enforce.mjs is now subsumed by capability-gate.mjs.
+const RETIRED_HOOK_FILES = ['rule-script-enforce.mjs'];
 
 export class ClaudeCodeAdapter extends BaseAdapter {
   readonly type = 'claude-code' as const;
@@ -141,7 +151,7 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
       ...preToolMutation,
       {
         matcher: 'Edit|Write|NotebookEdit',
-        hooks: [{ type: 'command', command: hookCommand(RULE_SCRIPT_ENFORCE_HOOK) }],
+        hooks: [{ type: 'command', command: capabilityGateCommand('pre-mutation') }],
       },
     ]),
     UserPromptSubmit: mergeHookList(pruneLegacyHooks(hooks.UserPromptSubmit), [
@@ -159,7 +169,7 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
     ]),
     Stop: mergeHookList(pruneLegacyHooks(hooks.Stop), [
       ...completion,
-      { hooks: [{ type: 'command', command: hookCommand(RULE_SCRIPT_ENFORCE_HOOK) }] },
+      { hooks: [{ type: 'command', command: capabilityGateCommand('completion') }] },
     ]),
   };
   return next;
@@ -167,9 +177,9 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
 
 /**
  * Drop any hook whose command paqad has retired (e.g. the old `.sh` silent-update
- * path replaced by the `.mjs` one), removing matchers left empty by the prune.
- * Keeps re-onboard from leaving a dangling SessionStart entry pointing at a hook
- * the framework no longer ships.
+ * path replaced by the `.mjs` one, or a fully-retired hook subsumed by the
+ * capability kernel), removing matchers left empty by the prune. Keeps re-onboard
+ * from leaving a dangling entry pointing at a hook the framework no longer ships.
  */
 function pruneLegacyHooks(list: HookMatcher[] | undefined): HookMatcher[] {
   if (!list) {
@@ -178,9 +188,22 @@ function pruneLegacyHooks(list: HookMatcher[] | undefined): HookMatcher[] {
   return list
     .map((matcher) => ({
       ...matcher,
-      hooks: (matcher.hooks ?? []).filter((hook) => !LEGACY_HOOK_COMMANDS.has(hook.command)),
+      hooks: (matcher.hooks ?? []).filter((hook) => !isRetiredCommand(hook.command)),
     }))
     .filter((matcher) => matcher.hooks.length > 0);
+}
+
+/**
+ * True when a hook command should be pruned on re-onboard: either an exact #240
+ * bare-form match, or any command (bare OR absolute `node "<abs>"`) that targets a
+ * fully-retired hook file. The latter has no replacement command sharing its
+ * basename, so a substring match is safe and removes it in every form.
+ */
+function isRetiredCommand(command: string): boolean {
+  if (LEGACY_HOOK_COMMANDS.has(command)) {
+    return true;
+  }
+  return RETIRED_HOOK_FILES.some((file) => command.includes(file));
 }
 
 function mergeHookList(

@@ -12,7 +12,8 @@
 // is a floor and the local `.config` / `PAQAD_STAGES_MODE` env may only RAISE
 // strictness, never lower it (the C2 clamp, decision D1). It is a registered
 // FRAMEWORK_CONFIG_SPEC, so it is discoverable in the team config files and never
-// pruned. The same clamp applies to `rule_compliance` in rule-script-enforce.mjs.
+// pruned. The same clamp applies to `rule_compliance` in the rule-scripts
+// capability (src/kernel/capability.ts), run through the capability-gate.mjs seam.
 
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
