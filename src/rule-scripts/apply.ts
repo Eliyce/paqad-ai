@@ -21,7 +21,9 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
+import { writeCapabilityDigest } from '@/kernel/capability-lock.js';
 
+import { computeRuleScriptsDigest } from './integrity.js';
 import { ruleScriptMapPath, serializeRuleScriptMap } from './map.js';
 import type { RuleScriptMap } from './types.js';
 
@@ -105,5 +107,13 @@ export function applyRuleScriptMap(opts: ApplyRuleScriptMapOptions): ApplyRuleSc
     via: opts.via,
     ...opts.event,
   });
+  // Buildout F5 (decision D1, audit) — bless the new state in the capability lock
+  // so the enforcement seam can later detect a hand-edit. Computed from the
+  // just-written map + its referenced scripts (the on-disk blessed state). A
+  // null digest (no map after write) is impossible here but skipped defensively.
+  const digest = computeRuleScriptsDigest(opts.projectRoot);
+  if (digest !== null) {
+    writeCapabilityDigest(opts.projectRoot, 'rule-scripts', digest, now);
+  }
   return { snapshot_path: snapshot, applied_at: now.toISOString() };
 }

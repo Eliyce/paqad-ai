@@ -17,8 +17,10 @@
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
+import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 
+import { readCapabilityDigest } from './capability-lock.js';
 import type { CapabilityDescriptor, CapabilitySeam } from './registry.js';
 
 /** What a capability sees when it evaluates at a host seam. */
@@ -78,20 +80,86 @@ export function resolveRuleComplianceMode(
   );
 }
 
+/** Integrity of the rule-script bindings vs the engine-blessed lock (F5). */
+type IntegrityStatus =
+  // Live bindings match the blessed lock (or there is no map → nothing to verify).
+  | 'ok'
+  // Lock present but the live digest differs — bindings hand-edited outside the
+  // engine. Their result cannot be trusted (a binding may have been weakened).
+  | 'tampered'
+  // Map present but no lock yet (a pre-F5 engine, or a hand-created map). The
+  // bindings still run, but their integrity is not yet attested.
+  | 'unverified';
+
+/**
+ * Compare the live rule-script bindings against the engine-blessed digest in the
+ * capability lock (buildout F5, decision D1). Cheap and hash-only — never executes
+ * a script — so it is safe on the per-edit enforcement seam.
+ */
+function verifyRuleScriptsIntegrity(projectRoot: string): IntegrityStatus {
+  const digest = computeRuleScriptsDigest(projectRoot);
+  if (digest === null) {
+    return 'ok'; // No map → no bindings to verify; enforce handles the no-map case.
+  }
+  const locked = readCapabilityDigest(projectRoot, 'rule-scripts');
+  if (locked === null) {
+    return 'unverified';
+  }
+  return locked === digest ? 'ok' : 'tampered';
+}
+
+/** Tamper verdict: a hand-edited map cannot be trusted, so strict blocks. */
+function formatTamperSummary(mode: RuleComplianceMode): string {
+  const blocking = mode === 'strict';
+  const verb = blocking ? 'Needs your attention' : 'Heads up';
+  const glyph = blocking ? '🔴' : '🟡';
+  const tail = blocking ? '' : ' (warn mode, not blocking)';
+  return (
+    `**▸ paqad** · scripted-rule bindings changed outside the engine\n` +
+    `> ${glyph} ${verb} — your rule-script bindings were edited outside paqad, so I can't trust ` +
+    `this check; a binding may have been weakened. Re-bless them with \`analyze rules\` / ` +
+    `\`generate rule scripts\`, then commit the updated lock.${tail}`
+  );
+}
+
+/** Advisory note: bindings run, but their integrity is not yet attested. */
+function formatUnverifiedSummary(): string {
+  return (
+    `**▸ paqad** · scripted-rule bindings not yet attested\n` +
+    `> 🟡 Heads up — your rule-script bindings have no integrity lock yet, so I can't attest ` +
+    `they are unchanged. Re-run \`generate rule scripts\` to bless them. (advisory, not blocking)`
+  );
+}
+
 /**
  * The scripted-rule capability — the first contract folded into the kernel seam.
  * Wraps the already-shipped `enforceRuleScripts` (which itself fast-skips when the
- * mode is `off` or no rule-script map exists), so behaviour is identical to the
- * retired rule-script-enforce.mjs: a strict deterministic violation blocks; a warn
- * finding surfaces but allows.
+ * mode is `off` or no rule-script map exists), so a strict deterministic violation
+ * blocks and a warn finding surfaces but allows.
+ *
+ * Buildout F5 adds the integrity gate ahead of enforcement (decision D1, audit): a
+ * tampered map (edited outside the engine) cannot be trusted — its "all clear" may
+ * be a silent weakening — so strict blocks on tamper; an unverified map (no lock
+ * yet) still enforces but surfaces an advisory so a binding is never trusted blind.
  */
 const ruleScriptsCapability: Capability = {
   id: 'rule-scripts',
   async evaluate({ projectRoot, env }): Promise<CapabilityOutcome> {
     const mode = resolveRuleComplianceMode(projectRoot, env);
+    if (mode === 'off') {
+      return NO_OP;
+    }
+    const integrity = verifyRuleScriptsIntegrity(projectRoot);
+    if (integrity === 'tampered') {
+      // Do not run the (untrustworthy) enforcement — the tamper IS the verdict.
+      return { ran: true, blocking: mode === 'strict', summary: formatTamperSummary(mode) };
+    }
     const result = await enforceRuleScripts({ projectRoot, mode });
     if (!result.ran || result.violations.length === 0) {
-      return NO_OP;
+      // No violations, but if the bindings are unverified surface that (never block).
+      return integrity === 'unverified'
+        ? { ran: true, blocking: false, summary: formatUnverifiedSummary() }
+        : NO_OP;
     }
     return { ran: true, blocking: result.blocking, summary: result.summary };
   },

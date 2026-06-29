@@ -235,6 +235,11 @@ export const PATHS = {
   RULE_SCRIPTS_DRIFT: '.paqad/scripts/rules/.cache/drift.json',
   RULE_SCRIPT_MAP_HISTORY_DIR: '.paqad/scripts/rules/.history',
   RULE_SCRIPT_MAP_EVENTS_LOG: '.paqad/scripts/rules/.history/events.jsonl',
+  // Capability Kernel integrity lock (buildout F5). Engine-owned, tracked: the
+  // engine writes a per-capability digest of its blessed state here; the
+  // enforcement seam verifies the live state against it, so a hand-edit that
+  // weakens a binding outside the engine is caught as tamper (decision D1, audit).
+  CAPABILITY_LOCK: '.paqad/capability-lock.json',
 } as const;
 
 export const REGISTRIES = [

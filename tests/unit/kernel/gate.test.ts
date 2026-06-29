@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -8,6 +15,10 @@ import { runCapabilityGate } from '@/kernel/gate.js';
 import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
+
+const MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
+const SCRIPT_REL = '.paqad/scripts/rules/coding/q/001-no-debugger.mjs';
+const LOCK_REL = '.paqad/capability-lock.json';
 
 // Buildout F3 — the capability-kernel executor. These tests drive a REAL
 // rule-script map through runCapabilityGate (the rule-scripts capability is the
@@ -130,5 +141,57 @@ describe('runCapabilityGate', () => {
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
+  });
+
+  // Buildout F5 (decision D1, audit) — the integrity lock catches a binding
+  // edited outside the engine, so a weakening can't pass silently.
+
+  it('writes the capability lock when the engine applies the map', () => {
+    const root = setup('strict', 'export const x = 1;\n');
+    const lock = JSON.parse(readFileSync(join(root, LOCK_REL), 'utf8')) as {
+      capabilities: Record<string, { digest: string }>;
+    };
+    expect(typeof lock.capabilities['rule-scripts'].digest).toBe('string');
+    expect(lock.capabilities['rule-scripts'].digest.length).toBeGreaterThan(0);
+  });
+
+  it('blocks under strict when a script is hand-edited outside the engine (tamper)', async () => {
+    const root = setup('strict', 'export const x = 1.0;\n'); // clean: a neutered script would pass
+    // Hand-edit the script WITHOUT going through the engine → lock goes stale.
+    appendFileSync(join(root, SCRIPT_REL), '\n// hand-edit that the engine never blessed\n');
+    const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('changed outside the engine');
+  });
+
+  it('surfaces tamper without blocking under warn (map hand-edited)', async () => {
+    const root = setup('warn', 'export const x = 1;\n');
+    // A semantic map edit that bypasses the single-writer (engine) path.
+    const mapPath = join(root, MAP_REL);
+    writeFileSync(
+      mapPath,
+      readFileSync(mapPath, 'utf8').replace('fixtures_passed: true', 'fixtures_passed: false'),
+    );
+    const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+    expect(result.block).toBe(false);
+    expect(result.summary).toContain('changed outside the engine');
+    expect(result.summary).toContain('warn mode');
+  });
+
+  it('surfaces an advisory (never blocks) when the bindings have no lock yet', async () => {
+    const root = setup('strict', 'export const x = 1;\n'); // clean code → no real violation
+    rmSync(join(root, LOCK_REL), { force: true }); // simulate a pre-F5 map (no lock)
+    const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+    expect(result.block).toBe(false);
+    expect(result.summary).toContain('not yet attested');
+  });
+
+  it('a real violation still blocks when the lock is intact (no false tamper)', async () => {
+    const root = setup('strict', 'debugger;\n');
+    const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+    expect(result.block).toBe(true);
+    // The real violation verdict, not the tamper one.
+    expect(result.summary).toContain('Needs your attention');
+    expect(result.summary).not.toContain('changed outside the engine');
   });
 });
