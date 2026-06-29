@@ -852,15 +852,27 @@ describe('OnboardingOrchestrator', () => {
       ).rejects.toMatchObject({ code: 'REGISTRY_CORRUPTED' });
     });
 
-    it('does not overwrite an existing CLAUDE.md on a re-run, but does with forceOverwrite', async () => {
+    it('wires a managed entry stub into a pre-existing CLAUDE.md on a re-run, but forceOverwrite regenerates it', async () => {
       await new OnboardingOrchestrator().run({ projectRoot, selections });
 
       const claudePath = join(projectRoot, 'CLAUDE.md');
       writeFileSync(claudePath, '# user-customised entry\n');
 
-      // Default re-run leaves the project-owned entry file untouched.
+      // Issue #242 — a default re-run preserves the project-owned content and
+      // appends paqad's lean stub as a marker-fenced managed block (rather than
+      // silently leaving the entry file unwired).
       await new OnboardingOrchestrator().run({ projectRoot, selections });
-      expect(readFileSync(claudePath, 'utf8')).toBe('# user-customised entry\n');
+      const rewired = readFileSync(claudePath, 'utf8');
+      expect(rewired).toContain('# user-customised entry');
+      expect(rewired).toContain('paqad-ai managed entry stub');
+      expect(rewired).toContain('.paqad/framework-path.txt');
+      expect(rewired).toContain('AGENT-BOOTSTRAP.md');
+
+      // A second re-run is idempotent: the managed block is not duplicated.
+      await new OnboardingOrchestrator().run({ projectRoot, selections });
+      const reonboarded = readFileSync(claudePath, 'utf8');
+      expect(reonboarded).toBe(rewired);
+      expect(reonboarded.split('paqad-ai managed entry stub (do').length - 1).toBe(1);
 
       // forceOverwrite regenerates it. Issue #229 — the entry file is now a lean
       // bootstrap stub, so we assert on the bootstrap pointer it must carry rather
@@ -874,6 +886,24 @@ describe('OnboardingOrchestrator', () => {
       expect(regenerated).not.toContain('create documentation');
       expect(regenerated).not.toContain('docs/instructions');
       expect(regenerated).not.toContain('## Decision Pause Contract');
+    });
+
+    it('does not wire an entry stub into a pre-existing entry file when paqad is disabled (#242 AC4)', async () => {
+      const claudePath = join(projectRoot, 'CLAUDE.md');
+      writeFileSync(claudePath, '# Laravel Boost\n\nBoost-authored content.\n');
+
+      await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections,
+        profileOverrides: { paqad: { enabled: false } },
+      });
+
+      // Disabled ⇒ the existing entry file is left exactly as it was: no managed
+      // block, no paqad pointer (consistent with #229/#220).
+      const after = readFileSync(claudePath, 'utf8');
+      expect(after).toBe('# Laravel Boost\n\nBoost-authored content.\n');
+      expect(after).not.toContain('paqad-ai managed entry stub');
+      expect(after).not.toContain('.paqad/framework-path.txt');
     });
 
     it('resumes from a checkpoint, skipping already-written files and producing the remainder', async () => {

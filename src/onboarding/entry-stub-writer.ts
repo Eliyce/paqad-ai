@@ -67,7 +67,10 @@ export function wireEntryStubs(projectRoot: string, stubs: EntryStub[]): EntrySt
     // Missing file: the bare lean stub is created by the generateConfig write
     // path. Already wired by a bare stub (the pointer is present, no markers):
     // leave it so the contract is not duplicated.
-    if (existing === '' || (!existing.includes(MANAGED_BEGIN) && existing.includes(PATHS.FRAMEWORK_PATH))) {
+    if (
+      existing === '' ||
+      (!existing.includes(MANAGED_BEGIN) && existing.includes(PATHS.FRAMEWORK_PATH))
+    ) {
       continue;
     }
 
