@@ -15,6 +15,10 @@ export default defineConfig({
     // runtime/hooks/capability-gate.mjs host hook as a dist-built bundle, the
     // same dedicated-entry pattern the rule-scripts hook wrapper uses.
     'kernel/gate': 'src/kernel/gate.ts',
+    // Disabled-session audit recorder (buildout F2b) — lazy-imported by
+    // verify-backstop.mjs's disabled branch as a small dist bundle, so the
+    // disabled path stays light (no full dist/index.js load).
+    'session-ledger/disabled-audit': 'src/session-ledger/disabled-audit.ts',
   },
   format: ['esm'],
   dts: true,
