@@ -50,6 +50,8 @@ import { ESCALATION_MODES, RESEARCH_DEPTHS } from './types/project-profile.js';
 
 const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
 const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
+/** Enforced capability-mode values, weakest → strictest (buildout F2). */
+const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
 
 /** Tokens that mean boolean true / false in a config value (case-insensitive). */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
@@ -417,6 +419,29 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Decisions (pause-contract tuning)',
     comment: 'Auto-resolve a pending decision after this idle window.',
+  },
+  // Enforced capability-mode knobs (buildout F2). These are FLOORED: the value
+  // here (team-tracked) is a floor; the local `.config` / `PAQAD_*` env may only
+  // RAISE strictness above it, never lower it (the C2 clamp, decision D1).
+  {
+    key: 'stages_mode',
+    env: 'PAQAD_STAGES_MODE',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'strict',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment: 'off | warn | strict — feature-development stage-completeness gate (default strict).',
+  },
+  {
+    key: 'rule_compliance',
+    env: 'PAQAD_RULE_COMPLIANCE',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment: 'off | warn | strict — scripted-rule enforcement from the working tree.',
   },
 ] as const;
 
@@ -1446,6 +1471,12 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
     present: (p) => p.efficiency !== undefined,
     keys: ['auto_update', 'minimum_version', 'version_check_interval_hours'],
   },
+  // Enforced capability-mode knobs (buildout F2). Config-only — they are NOT
+  // derived from any profile section, so they are never profile-synced (present:
+  // false); a developer sets them only via the config layers, clamped by the
+  // floor in resolveFlooredMode. Listed here so the registry-coverage invariant
+  // (every spec key appears in exactly one section) holds.
+  { present: () => false, keys: ['stages_mode', 'rule_compliance'] },
 ];
 
 /**

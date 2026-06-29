@@ -57,10 +57,12 @@ describe('runtime/hooks/rule-script-enforce.mjs (gating fast-paths)', () => {
     expect(result.status).toBe(0);
   });
 
-  it('exits 0 when rule_compliance is off', () => {
+  it('exits 0 when the team sets rule_compliance off (the committed disable path)', () => {
     mkdirSync(join(projectRoot, 'docs/instructions/rules'), { recursive: true });
     writeFileSync(join(projectRoot, MAP_REL), 'schema_version: 1\nrules: []\n');
-    const result = run(projectRoot, { PAQAD_RULE_COMPLIANCE: 'off' });
+    mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/configs/.config.policy'), 'rule_compliance=off\n');
+    const result = run(projectRoot);
     expect(result.status).toBe(0);
   });
 });

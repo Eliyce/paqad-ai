@@ -22,15 +22,23 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
-import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, readFlooredMode, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 // Mirrors PATHS.RULE_SCRIPT_MAP — kept in sync by hand (runtime mjs has no dist).
 const RULE_SCRIPT_MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
+const RULE_COMPLIANCE_MODES = ['off', 'warn', 'strict'];
 
+// Buildout F2 (C2 clamp): rule_compliance is FLOORED — the team value is a floor
+// and the local `.config` / `PAQAD_RULE_COMPLIANCE` env may only RAISE strictness,
+// never lower it (so a dev cannot locally disable scripted-rule enforcement).
 function resolveMode(projectRoot) {
-  const raw = readLayeredKey(projectRoot, 'rule_compliance', 'PAQAD_RULE_COMPLIANCE');
-  const value = (raw ?? 'warn').trim().toLowerCase();
-  return value === 'off' || value === 'strict' ? value : 'warn';
+  return readFlooredMode(
+    projectRoot,
+    'rule_compliance',
+    'PAQAD_RULE_COMPLIANCE',
+    RULE_COMPLIANCE_MODES,
+    'warn',
+  );
 }
 
 async function main() {
