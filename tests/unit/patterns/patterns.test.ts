@@ -171,7 +171,10 @@ describe('patterns', () => {
     const { PatternSuggester } = await importPatternModules(homeDir);
     const fresh = makePattern({
       id: 'pattern-fresh',
-      created_at: '2026-01-01T00:00:00.000Z',
+      // Relative to real now (well within the 180-day staleness window) so the
+      // fixture is ALWAYS fresh — a fixed date silently tips over the threshold as
+      // wall-clock time advances (it did on 2026-06-30, 180 days after 2026-01-01).
+      created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
       problem: 'Improve React list rendering speed with virtualization.',
       tags: ['react', 'virtualization'],
     });
