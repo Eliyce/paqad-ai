@@ -16,6 +16,7 @@ import {
   writeFrameworkOverridesToConfig,
 } from '@/core/framework-config.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
+import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile } from '@/core/project-profile.js';
@@ -49,6 +50,7 @@ import {
   readOnboardingCheckpoint,
   writeOnboardingCheckpoint,
 } from './checkpoint.js';
+import { type EntryStub, wireEntryStubs } from './entry-stub-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { removeObsoleteContractDocs } from './obsolete-cleanup.js';
 import { writeGitignore } from './gitignore-writer.js';
@@ -182,17 +184,25 @@ export class OnboardingOrchestrator {
     // below — without touching the adapter's `autoUpdate` flag, so the manifest
     // policy and `paqad-ai update`'s entry-file refresh stay exactly as before.
     const entryFilePaths = new Set<string>();
+    // Issue #242 — the lean entry-stub body each provider renders, kept so a
+    // pre-existing (Boost-authored) entry file can be wired with the bootstrap
+    // contract as a managed block after the main write batch.
+    const entryStubs: EntryStub[] = [];
 
     for (const adapterType of adapters) {
       const adapter = AdapterFactory.create(adapterType);
-      entryFilePaths.add(adapter.getConfigPath());
-      generatedFiles.push(
-        ...(await adapter.generateConfig({
-          frameworkPath: PATHS.FRAMEWORK_PATH,
-          rulesPath: PATHS.RULES_DIR,
-          projectRoot: options.projectRoot,
-        })),
-      );
+      const configPath = adapter.getConfigPath();
+      entryFilePaths.add(configPath);
+      const configFiles = await adapter.generateConfig({
+        frameworkPath: PATHS.FRAMEWORK_PATH,
+        rulesPath: PATHS.RULES_DIR,
+        projectRoot: options.projectRoot,
+      });
+      const entryFile = configFiles.find((file) => file.path === configPath);
+      if (entryFile) {
+        entryStubs.push({ path: configPath, content: entryFile.content });
+      }
+      generatedFiles.push(...configFiles);
 
       if (adapter.capabilities.hooks) {
         generatedFiles.push(...(await adapter.installHooks(resolved.hooks)));
@@ -246,6 +256,17 @@ export class OnboardingOrchestrator {
       writeResult = writeGeneratedFiles(options.projectRoot, filesToWrite, {
         forceOverwrite: options.forceOverwrite,
       });
+      // Issue #242 — a pre-existing provider entry file (a Boost-authored
+      // CLAUDE.md/AGENTS.md, say) was demoted to skip-if-present above and left
+      // unwired by the write batch. Append paqad's lean stub as a marker-fenced
+      // managed block so the documented entry-file contract is established, with
+      // the prior content preserved. Skipped under `forceOverwrite` (that path
+      // fully regenerates the bare stub) and when paqad is disabled (#220/#229).
+      // A bare stub a fresh onboard just wrote is detected as already-wired, so
+      // this is a no-op there.
+      if (!options.forceOverwrite && isFrameworkEnabled(profile)) {
+        writeResult.written.push(...wireEntryStubs(options.projectRoot, entryStubs).wired);
+      }
       // Persist progress the moment the main batch is durable, so an interrupt
       // after this point resumes with only the remainder.
       writeOnboardingCheckpoint(options.projectRoot, [...completed, ...writeResult.written]);

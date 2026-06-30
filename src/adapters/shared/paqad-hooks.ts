@@ -55,6 +55,19 @@ export function hookCommand(hookFile: string, env: NodeJS.ProcessEnv = process.e
 }
 
 /**
+ * The Capability Kernel host-seam command (buildout F3). `capability-gate.mjs`
+ * runs every kernel-bound capability registered at a seam; the seam is passed as
+ * the first argv (`pre-mutation` for a PreToolUse mutation gate, `completion` for
+ * a Stop/AfterAgent gate). Replaces the single-purpose rule-script-enforce.mjs.
+ */
+export function capabilityGateCommand(
+  seam: 'pre-mutation' | 'completion',
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return `${hookCommand('capability-gate.mjs', env)} ${seam}`;
+}
+
+/**
  * The record-only completion hook command hosts other than Claude Code bind to
  * (Codex CLI's `Stop`, Gemini CLI's `AfterAgent`, …). It runs the same
  * verification backstop as Claude's `Stop` hook — producing the evidence ledger
@@ -90,24 +103,47 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
 ];
 
 /**
- * How each adapter is covered (issue #117 C-5). `live+backstop` adapters get the
- * live in-session hooks above *and* the git/CI backstop; `backstop-only`
- * adapters are instruction-only or have an unreliable gate, so they are covered
- * solely by the provider-independent git/CI backstop (verify-backstop.mjs).
+ * How each adapter is ACTUALLY covered, grounded in which adapters wire an
+ * executed native host hook (buildout F7b — the honesty fix for the decision-B
+ * tiered guarantee). Only three adapters override `generateConfig` to emit an
+ * executed hook: claude-code (PreToolUse + Stop), codex-cli and gemini-cli
+ * (Stop only). Every other adapter ships an entry-file contract the model is
+ * asked to follow, with no host seam to bind it — so it is `advisory`.
+ *
+ * The previous matrix mislabelled cursor/windsurf as live and omitted
+ * continue/copilot/junie entirely, implying a binding those hosts never receive.
+ * There is no git/CI backstop in this taxonomy (it is not installed, and is out
+ * of scope per the no-git/no-CI mandate); the enforcement seam is the host hook
+ * alone, tiered honestly:
+ *   - `live-pre-and-completion`: blocks before a mutating edit AND verifies at
+ *     turn end (claude-code only — the only PreToolUse-capable host).
+ *   - `live-completion-only`: verifies at turn end; no in-turn pre-mutation block
+ *     (codex-cli, gemini-cli).
+ *   - `advisory`: no executed host hook; the entry-file contract only (the 7
+ *     remaining adapters). Stated plainly, never implied to bind.
  */
-export type AdapterHookCoverage = 'live+backstop' | 'backstop-only';
+export type AdapterHookCoverage = 'live-pre-and-completion' | 'live-completion-only' | 'advisory';
 
 export const HOOK_COVERAGE_MATRIX: Readonly<Record<string, AdapterHookCoverage>> = {
-  'claude-code': 'live+backstop',
-  'codex-cli': 'live+backstop',
-  'gemini-cli': 'live+backstop',
-  cursor: 'live+backstop',
-  windsurf: 'live+backstop',
-  aider: 'backstop-only',
-  antigravity: 'backstop-only',
+  'claude-code': 'live-pre-and-completion',
+  'codex-cli': 'live-completion-only',
+  'gemini-cli': 'live-completion-only',
+  cursor: 'advisory',
+  windsurf: 'advisory',
+  continue: 'advisory',
+  'github-copilot': 'advisory',
+  junie: 'advisory',
+  aider: 'advisory',
+  antigravity: 'advisory',
 };
 
-/** True iff the host exposes native pre-tool/stop hooks paqad can bind to. */
+/** True iff the host exposes a native hook paqad actually wires (claude/codex/gemini). */
 export function isLiveHookCapable(adapterType: string): boolean {
-  return HOOK_COVERAGE_MATRIX[adapterType] === 'live+backstop';
+  const coverage = HOOK_COVERAGE_MATRIX[adapterType];
+  return coverage === 'live-pre-and-completion' || coverage === 'live-completion-only';
+}
+
+/** True iff the host can BLOCK before a mutating edit (a PreToolUse seam) — Claude only. */
+export function hasPreMutationBlock(adapterType: string): boolean {
+  return HOOK_COVERAGE_MATRIX[adapterType] === 'live-pre-and-completion';
 }

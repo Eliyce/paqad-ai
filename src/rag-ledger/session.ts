@@ -13,11 +13,22 @@ import { ulid } from '@/core/ids/ulid.js';
 
 /** Resolve a session id: the host hint when present, else the cached/minted local id. */
 export function resolveSessionId(projectRoot: string, hint?: string | null): string {
+  const path = join(projectRoot, PATHS.LEDGER_SESSION_ID);
   const cleaned = hint?.trim();
   if (cleaned) {
+    // Persist the host id to the single-slot cache so a later no-hint reader (the
+    // completion-seam fallback) resolves the SAME id instead of a stale one from a
+    // prior/engine run — parity with the .mjs `resolveSeamSessionId` (buildout F5b,
+    // bug #5). Best-effort: a write failure just means the next call re-reads.
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, cleaned, 'utf8');
+      /* v8 ignore next 3 -- best-effort cache write; a fs failure is not reproduced in tests */
+    } catch {
+      // Best-effort cache refresh; resolution still returns the host id.
+    }
     return cleaned;
   }
-  const path = join(projectRoot, PATHS.LEDGER_SESSION_ID);
   try {
     const existing = readFileSync(path, 'utf8').trim();
     if (existing) {
@@ -30,6 +41,7 @@ export function resolveSessionId(projectRoot: string, hint?: string | null): str
   try {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, minted, 'utf8');
+    /* v8 ignore next 3 -- best-effort cache write; a fs failure is not reproduced in tests */
   } catch {
     // Best-effort cache; a write failure just means the next call re-mints.
   }

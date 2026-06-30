@@ -20,6 +20,15 @@ The RAG-evidence ledger (#249) and the stage-evidence ledger (#247) both consume
 one primitive instead of duplicating it. It imports no enterprise code, so it is
 always-on and independent of any AI-BOM / enterprise flag.
 
+The **disabled-session audit** (buildout F2b, decision D1) also rides this substrate
+under the `disabled-session` doc type: when a session completes while paqad is
+disabled, `recordDisabledSession` (in `src/session-ledger/disabled-audit.ts`) writes
+ONE row so the bypass is visible in the dashboard / SIEM. It is recorded by
+`verify-backstop.mjs`'s disabled branch (best-effort, lazy `dist` import, only for the
+`hook-completion` origin) — the enforcement contract (no gates when disabled) is
+untouched; the audit is a hook-layer concern, so the `runRepositoryVerification` API
+stays a pure no-op when disabled.
+
 ## Source Footprint
 
 - `src/session-ledger`
@@ -39,3 +48,5 @@ If anything here disagrees with the map, the **map wins**.
 ## Tests
 
 - `tests/unit/session-ledger/ledger.test.ts`
+- `tests/unit/session-ledger/disabled-audit.test.ts` — the F2b disabled-session
+  audit row (records once per session, idempotent, best-effort).

@@ -62,15 +62,20 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(preToolCommands.some((command) => command.includes('decision-pause-gate.mjs'))).toBe(
       true,
     );
-    // RAG F6 — live rule-script enforcement on both PreToolUse and Stop.
+    // Buildout F3 — the capability-kernel seam runs on both PreToolUse
+    // (pre-mutation) and Stop (completion), replacing rule-script-enforce.mjs. The
+    // seam is the hook's argv, so it trails the quoted path: `node "…" pre-mutation`.
+    expect(preToolCommands.some((command) => isCapabilityGate(command, 'pre-mutation'))).toBe(true);
+    // The retired single-purpose hook is never wired in.
     expect(preToolCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(
-      true,
+      false,
     );
     expect(parsed.hooks.Stop[0].hooks[0].command).toContain('verification-completion.mjs');
     const stopCommands = parsed.hooks.Stop.flatMap((entry) =>
       entry.hooks.map((hook) => hook.command),
     );
-    expect(stopCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(true);
+    expect(stopCommands.some((command) => isCapabilityGate(command, 'completion'))).toBe(true);
+    expect(stopCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(false);
   });
 
   it('preserves existing settings.json keys and existing hook entries when merging', async () => {
@@ -108,12 +113,14 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
 
     expect(parsed.permissions.allow).toEqual(['Bash(ls:*)']);
     // existing hook + agent-entry gate + decision-pause gate (#117 C-5) +
-    // rule-script enforce (RAG F6).
+    // capability-kernel seam (buildout F3).
     expect(parsed.hooks.PreToolUse).toHaveLength(4);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
     expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.mjs');
     expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('decision-pause-gate.mjs');
-    expect(parsed.hooks.PreToolUse[3].hooks[0].command).toContain('rule-script-enforce.mjs');
+    expect(isCapabilityGate(parsed.hooks.PreToolUse[3].hooks[0].command, 'pre-mutation')).toBe(
+      true,
+    );
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
       'agent-entry-prompt-gate.mjs',
@@ -213,13 +220,84 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         Stop: unknown[];
       };
     };
-    // agent-entry gate + decision-pause gate + rule-script enforce (RAG F6),
+    // agent-entry gate + decision-pause gate + capability-kernel seam (F3),
     // no duplicates after re-run.
     expect(parsed.hooks.PreToolUse).toHaveLength(3);
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     // agent-entry session-start + background self-update, no duplicates.
     expect(parsed.hooks.SessionStart).toHaveLength(2);
-    // verification-completion + rule-script enforce (RAG F6).
+    // verification-completion + capability-kernel seam (F3).
     expect(parsed.hooks.Stop).toHaveLength(2);
   });
+
+  it('prunes the retired rule-script-enforce hook on re-onboard (no double-fire, F3)', async () => {
+    // An earlier onboarding wired the now-retired rule-script-enforce.mjs in its
+    // absolute `node "<abs>"` form on both PreToolUse and Stop. The capability
+    // kernel subsumes it, so re-onboard must remove it — otherwise both the old
+    // hook and capability-gate.mjs would enforce scripted rules (a double-fire).
+    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.claude/settings.json'),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: 'Edit|Write|NotebookEdit',
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'node "/Users/x/.paqad-ai/current/hooks/rule-script-enforce.mjs"',
+                },
+              ],
+            },
+          ],
+          Stop: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: 'node "/Users/x/.paqad-ai/current/hooks/rule-script-enforce.mjs"',
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    const adapter = new ClaudeCodeAdapter();
+    const files = await adapter.generateConfig({
+      frameworkPath: '.paqad/framework-path.txt',
+      rulesPath: 'docs/instructions/rules',
+      projectRoot,
+    });
+    const parsed = JSON.parse(
+      files.find((file) => file.path === '.claude/settings.json')!.content,
+    ) as {
+      hooks: {
+        PreToolUse: Array<{ hooks: Array<{ command: string }> }>;
+        Stop: Array<{ hooks: Array<{ command: string }> }>;
+      };
+    };
+    const allCommands = [...parsed.hooks.PreToolUse, ...parsed.hooks.Stop].flatMap((entry) =>
+      entry.hooks.map((hook) => hook.command),
+    );
+    // The retired hook is gone everywhere; the kernel seam is wired exactly once
+    // per seam.
+    expect(allCommands.filter((command) => command.includes('rule-script-enforce.mjs'))).toEqual(
+      [],
+    );
+    expect(allCommands.filter((command) => isCapabilityGate(command, 'pre-mutation'))).toHaveLength(
+      1,
+    );
+    expect(allCommands.filter((command) => isCapabilityGate(command, 'completion'))).toHaveLength(
+      1,
+    );
+  });
 });
+
+/** True when `command` launches the capability-gate hook at the given seam. The
+ *  seam is the hook's argv, so it trails the quoted path: `node "…/x.mjs" <seam>`. */
+function isCapabilityGate(command: string, seam: 'pre-mutation' | 'completion'): boolean {
+  return command.includes('capability-gate.mjs') && command.endsWith(` ${seam}`);
+}

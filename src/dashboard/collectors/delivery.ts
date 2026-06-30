@@ -1,5 +1,5 @@
 import { readProjectProfile } from '@/core/project-profile.js';
-import { readDetection } from '@/delivery/detection-store.js';
+import { readLatestDeliveryEvidence } from '@/delivery/delivery-ledger.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { resolveTicketProvider } from '@/providers/registry.js';
 
@@ -25,7 +25,10 @@ export function collectDelivery(projectRoot: string): {
 } {
   const { policy } = loadDeliveryPolicy(projectRoot);
   const profile = readProjectProfile(projectRoot);
-  const detection = readDetection(projectRoot);
+  // Buildout F6 (hard cutover, D1) — the dashboard reads delivery evidence from
+  // the session-ledger, not the legacy file. The file remains the operational
+  // source the policy loader overlays; both are written together by writeDetection.
+  const detection = readLatestDeliveryEvidence(projectRoot);
 
   if (!policy.enabled) {
     return {

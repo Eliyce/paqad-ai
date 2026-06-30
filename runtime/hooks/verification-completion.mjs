@@ -12,10 +12,13 @@
 
 import process from 'node:process';
 
+import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
 
-// Drain stdin (the host passes a Stop-hook JSON payload we do not need) so the
-// process does not hang waiting on the pipe, then run the verification.
+// Read the Stop-hook JSON payload: the host (Claude) puts the session_id here, and
+// we thread it to verification so stage-evidence finalization keys on the LIVE
+// session instead of a stale single-slot cache (buildout F5b, bug #5 — two ledger
+// subdirs for one session). Draining stdin also keeps the process from hanging.
 let input = '';
 process.stdin.on('data', (chunk) => {
   input += chunk;
@@ -27,11 +30,11 @@ process.stdin.on('end', () => {
 process.stdin.resume();
 
 async function main() {
-  void input;
   const code = await runVerificationBackstop({
     origin: 'hook-completion',
     softFail: true,
     projectRoot: process.cwd(),
+    hostSessionId: sessionIdFromStdin(input),
   });
   process.exit(code);
 }

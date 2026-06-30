@@ -11,7 +11,9 @@ import {
   computeSessionRowHash,
   currentOrdinal,
   foldByOrdinal,
+  listSessionIds,
   openSessionDoc,
+  readAllSessionRows,
   readSessionDoc,
   readSessionUnit,
   sessionLedgerPath,
@@ -182,5 +184,30 @@ describe('session-ledger substrate (#249 P0)', () => {
     );
     appendFileSync(join(root, sessionLedgerPath(DOC, SESSION, ordinal)), '42\n', 'utf8');
     expect(readSessionUnit(root, DOC, SESSION, ordinal)).toHaveLength(1);
+  });
+
+  // Cross-session readers (buildout F6 — the SIEM fold needs every session's rows).
+  it('lists no sessions and reads no rows for an absent doc type', () => {
+    expect(listSessionIds(root, 'paqad.missing')).toEqual([]);
+    expect(readAllSessionRows(root, 'paqad.missing')).toEqual([]);
+  });
+
+  it('enumerates sessions sorted, and reads every session’s rows in id order', () => {
+    for (const session of ['ses_b', 'ses_a']) {
+      const ordinal = openSessionDoc(root, DOC, session, { kind: 'open' }, { now: clock }).ordinal;
+      appendSessionEvent(
+        root,
+        DOC,
+        session,
+        ordinal,
+        { kind: 'used', who: session },
+        { now: clock },
+      );
+    }
+    expect(listSessionIds(root, DOC)).toEqual(['ses_a', 'ses_b']);
+    const whos = readAllSessionRows(root, DOC)
+      .filter((r) => r.kind === 'used')
+      .map((r) => r.who);
+    expect(whos).toEqual(['ses_a', 'ses_b']);
   });
 });

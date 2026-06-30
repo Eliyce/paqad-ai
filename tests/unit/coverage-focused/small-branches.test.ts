@@ -9,8 +9,6 @@ import { HandoffWriter } from '@/session/handoff-writer.js';
 import { checkBooleanGate, createFail, createPass, identity } from '@/verification/gates/shared.js';
 import { ParallelExecutor } from '@/workflows/parallel-executor.js';
 import { WorkflowTemplateValidator } from '@/workflows/template-validator.js';
-import { ProjectQuestionPhase } from '@/pipeline/phases/question-answering.js';
-import { RootCauseAnalysisPhase } from '@/pipeline/phases/root-cause-analysis.js';
 
 const { mockOnboardingRun, mockPrintBanner, mockPrintNextSteps } = vi.hoisted(() => ({
   // The CLI hands phase-1 completion back via `onPhase1Complete` so the banner
@@ -330,60 +328,6 @@ describe('coverage small branches', () => {
       ).resolves.toEqual({
         results: [{ skill: 'unknown', status: 'failed', error: 'thrown' }],
         overall: 'skipped',
-      });
-    });
-  });
-
-  describe('pipeline phases', () => {
-    it('handles project-question workflow and root-cause-analysis success/failure', async () => {
-      const questionPhase = new ProjectQuestionPhase();
-      await expect(
-        questionPhase.execute({
-          classification: { workflow: 'feature-development' },
-          phases: [],
-        } as never),
-      ).resolves.toMatchObject({ summary: 'No project-question workflow requested' });
-      await expect(
-        questionPhase.execute({
-          classification: { workflow: 'project-question' },
-          phases: [],
-          project_root: '/tmp/nonexistent',
-        } as never),
-      ).resolves.toMatchObject({
-        status: 'pass',
-        phase: 'question-answering',
-      });
-
-      const rcaPhase = new RootCauseAnalysisPhase();
-      const rcaPhaseWithWorkflow = rcaPhase as RootCauseAnalysisPhase & {
-        workflow: { run: ReturnType<typeof vi.fn> };
-      };
-      rcaPhaseWithWorkflow.workflow = {
-        run: vi.fn().mockResolvedValue({ output_path: 'docs/rca.md' }),
-      };
-      await expect(
-        rcaPhase.execute({
-          project_root: '/repo',
-          classification: { workflow: 'root-cause-analysis' },
-          phases: [],
-        } as never),
-      ).resolves.toMatchObject({
-        status: 'pass',
-        artifacts: ['docs/rca.md'],
-      });
-
-      rcaPhaseWithWorkflow.workflow = {
-        run: vi.fn().mockRejectedValue(new Error('rca failed')),
-      };
-      await expect(
-        rcaPhase.execute({
-          project_root: '/repo',
-          classification: { workflow: 'root-cause-analysis' },
-          phases: [],
-        } as never),
-      ).resolves.toMatchObject({
-        status: 'fail',
-        summary: 'rca failed',
       });
     });
   });

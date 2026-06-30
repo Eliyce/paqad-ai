@@ -16,7 +16,6 @@ import {
   writeModuleMap,
 } from '@/onboarding/registry-generator.js';
 import { InstructionsDocsStructureGate } from '@/verification/gates/instructions-docs-structure.js';
-import { fixtureClassification } from '../pipeline/shared.fixture.js';
 import { createVerificationContext } from '../verification/shared.fixture.js';
 
 function tempRoot(prefix: string): string {
@@ -27,19 +26,6 @@ function writeFile(root: string, relativePath: string, content = ''): void {
   const target = join(root, ...relativePath.split('/'));
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, content);
-}
-
-function createPhaseContext(overrides: Record<string, unknown> = {}) {
-  return {
-    project_root: '/tmp/phase-project',
-    lane: 'standard',
-    classification: fixtureClassification(),
-    started_at: new Date().toISOString(),
-    phases: [],
-    feature_policy: null,
-    policy_warnings: [],
-    ...overrides,
-  };
 }
 
 function moduleMapYaml(overrides: Record<string, unknown> = {}): string {
@@ -71,75 +57,6 @@ describe('CI coverage gaps', () => {
   afterEach(() => {
     vi.doUnmock('@/document/workflow.js');
     vi.resetModules();
-  });
-
-  it('covers module-documentation phase skip, success, orphan, and failure branches', async () => {
-    vi.doMock('@/document/workflow.js', () => ({
-      DocumentationWorkflow: vi.fn(() => ({
-        run: vi
-          .fn()
-          .mockResolvedValueOnce({
-            steps: ['map', 'write'],
-            generated: ['docs/modules/billing/index/summary.md'],
-            orphaned_module_dirs: [],
-          })
-          .mockResolvedValueOnce({
-            steps: ['map'],
-            generated: ['docs/modules/billing/index/summary.md'],
-            orphaned_module_dirs: ['docs/modules/old'],
-          })
-          .mockRejectedValueOnce(new Error('module docs failed'))
-          .mockRejectedValueOnce('unknown failure'),
-      })),
-    }));
-
-    const { ModuleDocumentationPhase } = await import('@/pipeline/phases/module-doc.js');
-    const phase = new ModuleDocumentationPhase();
-
-    await expect(phase.execute(createPhaseContext())).resolves.toMatchObject({
-      phase: 'module-documentation',
-      status: 'pass',
-      summary: 'Not a module-documentation request — skipped',
-    });
-    await expect(
-      phase.execute(
-        createPhaseContext({
-          classification: fixtureClassification({ workflow: 'module-documentation' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      summary: 'Module documentation generated in 2 step(s)',
-      artifacts: ['docs/modules/billing/index/summary.md'],
-    });
-    await expect(
-      phase.execute(
-        createPhaseContext({
-          classification: fixtureClassification({ workflow: 'module-documentation' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      summary: 'Module documentation generated. Orphaned dirs not deleted: docs/modules/old',
-    });
-    await expect(
-      phase.execute(
-        createPhaseContext({
-          classification: fixtureClassification({ workflow: 'module-documentation' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      status: 'fail',
-      summary: 'module docs failed',
-    });
-    await expect(
-      phase.execute(
-        createPhaseContext({
-          classification: fixtureClassification({ workflow: 'module-documentation' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      status: 'fail',
-      summary: 'Module documentation workflow failed',
-    });
   });
 
   it('covers registry discovery signal, package, locked, and parse fallback branches', async () => {

@@ -126,7 +126,7 @@
       "depth": "standard"
     },
     "intelligence": {
-      "rag_enabled": false,
+      "rag_enabled": true,
       "embedding_provider": "local",
       "embedding_model": "Xenova/all-MiniLM-L6-v2",
       "rag_similarity_threshold": 0.75,
@@ -309,7 +309,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-28T17:28:46.927Z",
+    "timestamp": "2026-06-29T13:19:03.646Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -409,10 +409,14 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-28T17:28:59.616Z",
+  "generated_at": "2026-06-29T13:19:10.931Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
+      "auto_update": true
+    },
+    {
+      "path": ".codex/.gitignore",
       "auto_update": true
     },
     {
@@ -460,6 +464,10 @@
       "auto_update": true
     },
     {
+      "path": ".claude/.gitignore",
+      "auto_update": true
+    },
+    {
       "path": ".claude/settings.json",
       "auto_update": true
     },
@@ -481,6 +489,10 @@
     },
     {
       "path": "GEMINI.md",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/.gitignore",
       "auto_update": true
     },
     {

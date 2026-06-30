@@ -19,4 +19,11 @@ describe('module-health/parsers/gocover', () => {
   it('skips the mode header and blank lines', () => {
     expect(parseReport('mode: count\n\n').coverage).toEqual([]);
   });
+
+  it('skips lines that do not match the coverage-profile shape', () => {
+    const profile = ['mode: set', 'not a coverage line', 'app/x.go:1.1,2.2 1 1'].join('\n');
+    expect(parseReport(profile).coverage).toEqual([
+      { file: 'app/x.go', lines_total: 1, lines_covered: 1 },
+    ]);
+  });
 });

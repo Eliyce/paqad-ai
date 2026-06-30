@@ -69,6 +69,11 @@ export function toCef(event: SiemEvent, productVersion: string): string {
     }
   }
 
+  // #249 session-ledger fold — carry the doc type as the producing service and the
+  // session id as the correlation id, both standard CEF keys (only set when present).
+  pushPair(ext, 'sourceServiceName', event.doc_type);
+  pushPair(ext, 'externalId', event.session_id);
+
   const human = event.authorship?.accepting_human;
   pushPair(ext, 'suser', human?.email ?? human?.name);
   pushPair(ext, 'msg', event.detail);

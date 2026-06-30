@@ -63,23 +63,30 @@ exit non-zero.
 
 ## Per-adapter coverage matrix (C-5)
 
-The live hooks (layers 1 and 2) are generated for hook-capable hosts from one
-definition (`src/adapters/shared/paqad-hooks.ts`). Hosts without reliable
-pre-tool/stop hooks are covered by the git/CI backstop only.
+The live hooks are generated from one definition
+(`src/adapters/shared/paqad-hooks.ts`, `HOOK_COVERAGE_MATRIX`). Coverage is
+tiered honestly by the host seam each adapter actually wires. Only three adapters
+override `generateConfig` to emit an executed native hook; the other seven ship
+an entry-file contract the model is asked to follow, with no host seam to bind it
+(`capabilities.hooks:false`).
 
-| Adapter | Live (layers 1–2) | Backstop (layer 3) | Notes |
+| Adapter | Coverage | Binds | Notes |
 | --- | --- | --- | --- |
-| claude-code | yes (wired) | yes | Reference host; `settings.json` PreToolUse + Stop |
-| codex-cli | yes (wired) | yes | `.codex/hooks.json` `Stop` → record-only completion hook |
-| gemini-cli | yes (wired) | yes | `.gemini/settings.json` `AfterAgent` → record-only completion hook |
-| cursor | host-capable | yes | Native hooks not yet wired; backstop-only today |
-| windsurf | host-capable | yes | Native hooks not yet wired; backstop-only today |
-| aider | no | yes | Conventions are instruction-only |
-| antigravity | no | yes | Gate unreliable |
+| claude-code | `live-pre-and-completion` | block before edit + verify at end | `settings.json` PreToolUse + Stop (only PreToolUse-capable host) |
+| codex-cli | `live-completion-only` | verify at turn end | `.codex/hooks.json` `Stop`; no in-turn pre-mutation block |
+| gemini-cli | `live-completion-only` | verify at turn end | `.gemini/settings.json` `AfterAgent`; no in-turn pre-mutation block |
+| cursor | `advisory` | nothing in-session | entry-file contract only |
+| windsurf | `advisory` | nothing in-session | entry-file contract only |
+| continue | `advisory` | nothing in-session | entry-file contract only |
+| github-copilot | `advisory` | nothing in-session | entry-file contract only |
+| junie | `advisory` | nothing in-session | entry-file contract only |
+| aider | `advisory` | nothing in-session | instruction-only conventions |
+| antigravity | `advisory` | nothing in-session | wires no executed native hook |
 
-"host-capable" means the host exposes the hook surface and renders from the
-shared spec; the non-negotiable enforcement for those hosts today is the git/CI
-backstop. claude-code is the fully live-wired reference.
+`advisory` is stated plainly, never implied to bind. claude-code is the only host
+with an in-turn pre-mutation block; codex-cli and gemini-cli bind one turn late at
+completion. The previous matrix mislabelled cursor/windsurf as live and omitted
+continue/copilot/junie — corrected in buildout F7b.
 
 ## What the backstop computes vs. skips
 

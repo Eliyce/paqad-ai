@@ -154,6 +154,47 @@ describe('extractGraph', () => {
     expect(graph.meta.overlays_available.complexity_correction).toBe(true);
   });
 
+  it('builds import edges between scanned source files', async () => {
+    bootstrapProject();
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src/a.ts'), "import { b } from './b.js';\nexport const a = b;\n");
+    writeFileSync(join(root, 'src/b.ts'), 'export const b = 1;\n');
+    const chunk = (file: string, id: string, hash: string) => ({
+      id,
+      source_file: file,
+      ast_node_type: 'fallback',
+      ast_node_path: 'p',
+      exported_symbols: [],
+      content: '',
+      char_count: 0,
+      content_hash: hash,
+    });
+    writeJson(join(root, '.paqad/context/chunk-index.json'), {
+      version: 1,
+      generated_at: new Date().toISOString(),
+      entries: [
+        {
+          source_file: join(root, 'src/a.ts'),
+          source_file_hash: 'ha',
+          modified_at: new Date().toISOString(),
+          chunks: [chunk(join(root, 'src/a.ts'), 'ca', 'cha')],
+        },
+        {
+          source_file: join(root, 'src/b.ts'),
+          source_file_hash: 'hb',
+          modified_at: new Date().toISOString(),
+          chunks: [chunk(join(root, 'src/b.ts'), 'cb', 'chb')],
+        },
+      ],
+    });
+
+    const graph = await extractGraph({ projectRoot: root });
+    expect(graph.meta.counts.imports).toBeGreaterThanOrEqual(1);
+    const importEdge = graph.edges.find((e) => e.type === 'imports');
+    expect(importEdge?.source).toBe('file:src/a.ts');
+    expect(importEdge?.target).toBe('file:src/b.ts');
+  });
+
   it('flags similarity edges as available when vector meta exists', async () => {
     bootstrapProject();
     writeJson(join(root, '.paqad/vectors/meta.json'), {

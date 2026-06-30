@@ -29,4 +29,9 @@ describe('module-health/parsers/junit-xml', () => {
       { file: 'com.foo.BarTest', passing: 1, failing: 0, total: 1 },
     ]);
   });
+
+  it('emits an empty file when neither file nor classname is present', () => {
+    const xml = `<testsuite><testcase name="orphan"/></testsuite>`;
+    expect(parseReport(xml).tests).toEqual([{ file: '', passing: 1, failing: 0, total: 1 }]);
+  });
 });

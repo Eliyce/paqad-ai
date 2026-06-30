@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { exportAuditEvents } from '@/audit/export';
 import type { SiemFormat } from '@/audit/types';
 import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger';
+import { recordDecisionOpened } from '@/planning/decision-ledger';
 
 function row(code: string, ts: string, detail?: string) {
   return buildEvidenceRow({
@@ -57,6 +58,43 @@ describe('exportAuditEvents', () => {
     expect(parsed.kind).toBe('evidence');
     expect(parsed.code).toBe('mutation-testing');
     expect(parsed.detail).toBe('d');
+  });
+
+  it('exports a #249 session-ledger event with its doc type + session id (jsonl)', () => {
+    recordDecisionOpened(root, {
+      decisionId: 'D-1',
+      category: 'scope',
+      title: 'Reuse?',
+      createdAt: '2026-06-20T00:00:00.000Z',
+    });
+    const result = exportAuditEvents(root, { format: 'jsonl', productVersion: '1.0.0' });
+    const events = result.output
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const opened = events.find((e) => e.kind === 'session' && e.verdict === 'opened');
+    expect(opened?.doc_type).toBe('decision-evidence');
+    expect(opened?.session_id).toBe('_project');
+    expect(opened?.detail).toBe('opened D-1');
+  });
+
+  it('--redact blanks a session event detail too', () => {
+    recordDecisionOpened(root, {
+      decisionId: 'D-secret',
+      category: 'scope',
+      title: 'Reuse?',
+      createdAt: '2026-06-20T00:00:00.000Z',
+    });
+    const result = exportAuditEvents(root, {
+      format: 'jsonl',
+      redact: true,
+      productVersion: '1.0.0',
+    });
+    expect(result.output).not.toContain('D-secret');
+    const opened = result.output
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .find((e) => e.kind === 'session' && e.verdict === 'opened');
+    expect(opened?.detail).toBe('[REDACTED]');
   });
 
   it('--since keeps only events at or after the cutoff and drops undated ones', () => {

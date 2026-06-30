@@ -13,8 +13,11 @@ export const SIEM_FORMATS = ['ocsf', 'ecs', 'cef', 'jsonl'] as const;
 export type SiemFormat = (typeof SIEM_FORMATS)[number];
 
 /** An evidence row records a graded verification verdict on a change; an
- *  attestation is a signed/hash-chained receipt over a change. */
-export type SiemEventKind = 'evidence' | 'attestation';
+ *  attestation is a signed/hash-chained receipt over a change; a session event is
+ *  a row from the always-on #249 session-ledger (decision/delivery/rule/stage
+ *  lifecycle + disabled-session audit), folded in so the SIEM sees the same
+ *  governance feed the dashboard does. */
+export type SiemEventKind = 'evidence' | 'attestation' | 'session';
 
 /** A changed file attested by a receipt — an in-toto subject. */
 export interface SiemSubject {
@@ -60,6 +63,12 @@ export interface SiemEvent {
   content_hash?: string;
   /** Human-readable detail. Redactable (may carry filenames / error strings). */
   detail?: string;
+
+  // ── session-ledger-only (#249 fold) ────────────────────────────────────────
+  /** The session-ledger doc type a `session` event came from (e.g. `decision-evidence`). */
+  doc_type?: string;
+  /** The originating session id, or the `_project` sentinel for project-scoped folds. */
+  session_id?: string;
 
   // ── attestation-only ──────────────────────────────────────────────────────
   /** Position in the receipt chain (0 = genesis). */

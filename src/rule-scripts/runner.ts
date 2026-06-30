@@ -19,6 +19,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { executeRuleScript, missingBinaries, type Finding } from './execute.js';
 import { parseScriptHeader } from './header.js';
 import { loadRuleScriptMap } from './map.js';
+import { recordRuleFindings } from './rule-ledger.js';
 import type { RuleScriptMap, ScriptEntry } from './types.js';
 
 export type RuleComplianceMode = 'off' | 'warn' | 'strict';
@@ -74,7 +75,7 @@ function hashFiles(projectRoot: string, files: string[]): string {
   return `sha256-${sha256(parts.join('\n'))}`;
 }
 
-function scriptFilesHash(projectRoot: string, map: RuleScriptMap): string {
+export function scriptFilesHash(projectRoot: string, map: RuleScriptMap): string {
   const paths = map.rules.flatMap((r) => r.scripts.map((s) => s.path)).sort();
   return hashFiles(projectRoot, paths);
 }
@@ -213,6 +214,11 @@ export function runRuleScripts(opts: RunOptions): RunReport {
   };
 
   writeReport(opts.projectRoot, report);
+  // Evidence sink (buildout F6) — record the finding counts on the session-ledger
+  // so the dashboard + SIEM fold-view read them there. report.json stays as the
+  // engine's hash-cache. Only fresh runs reach here (a cache hit returned above),
+  // so the latest row always reflects the latest real run.
+  recordRuleFindings(opts.projectRoot, { counts: report.counts, blocking: report.blocking });
   return report;
 }
 

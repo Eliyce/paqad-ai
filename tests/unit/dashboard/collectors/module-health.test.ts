@@ -133,4 +133,15 @@ describe('collectModuleHealth', () => {
     // 'wobbly' falls through to 'unknown' which weighs 0.
     expect(section.score).toBe(50);
   });
+
+  it('skips a malformed entry and dates an entry without updated_at by mtime', () => {
+    writeHealth(root, 'a', 'stable', 1);
+    const dir = join(root, '.paqad/module-health');
+    writeFileSync(join(dir, 'bad.json'), '{bad json'); // unparseable → skipped
+    writeFileSync(join(dir, 'c.json'), JSON.stringify({ module: 'c', tier: 'stable' })); // no updated_at → mtime
+    const { section } = collectModuleHealth(root, NOW);
+    // 'a' + 'c' counted (both stable), 'bad' skipped → still a real score.
+    expect(section.score).toBe(100);
+    expect(section.metrics.find((m) => m.label === 'stable')?.value).toBe('2');
+  });
 });

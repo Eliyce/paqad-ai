@@ -22,13 +22,13 @@
 
 # ── Enterprise / governance (licensed, off by default) ──────
 # Master switch for the enterprise/governance capabilities. (env: PAQAD_ENTERPRISE)
-# enterprise=false
+enterprise=true
 # Write the receipt + evidence ledger set under .paqad/ledger/. (env: PAQAD_ENTERPRISE_EVIDENCE_LEDGER)
-# enterprise_evidence_ledger=false
+enterprise_evidence_ledger=true
 # Write the CycloneDX ai-bom.json view. (env: PAQAD_ENTERPRISE_AI_BOM)
-# enterprise_ai_bom=false
+enterprise_ai_bom=true
 # Resolve framework citations into the receipt (token-spending path). (env: PAQAD_ENTERPRISE_COMPLIANCE_CITATIONS)
-# enterprise_compliance_citations=false
+enterprise_compliance_citations=true
 
 # ── Feature flags ───────────────────────────────────────────
 # Stop after the spec phase; do not implement. (env: PAQAD_SPEC_ONLY_MODE)

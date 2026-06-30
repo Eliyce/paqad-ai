@@ -76,6 +76,32 @@ export function readLayeredKey(projectRoot, key, envName, env = process.env) {
   return value;
 }
 
+/**
+ * Resolve an ENFORCED capability-mode knob with the team value as a FLOOR
+ * (buildout F2, decision D1 — the C2 clamp). Mirrors the TS `resolveFlooredMode`:
+ * the tracked `configs/.config.*` value is the floor; the local `.config` and the
+ * `envName` env var may only RAISE strictness above it, never lower it. `order`
+ * lists modes weakest → strictest. Unrecognised values are ignored. With nothing
+ * set the `def` applies and is itself the floor (a lone dev cannot drop below it).
+ */
+export function readFlooredMode(projectRoot, key, envName, order, def, env = process.env) {
+  const norm = (raw) => {
+    if (raw === undefined || raw === null) return undefined;
+    const v = String(raw).trim().toLowerCase();
+    return order.includes(v) ? v : undefined;
+  };
+  const team = norm(readKeyFromConfigsDir(projectRoot, key));
+  const local = norm(readKeyFromFile(join(projectRoot, '.paqad', '.config'), key));
+  const fromEnv = norm(env[envName]);
+  let rank = order.indexOf(team ?? def);
+  for (const raising of [local, fromEnv]) {
+    if (raising !== undefined) {
+      rank = Math.max(rank, order.indexOf(raising));
+    }
+  }
+  return order[rank];
+}
+
 /** Last uncommented `key=` value in a flat config file (quotes/inline-comment
  *  stripped), or undefined. Absent/unreadable file ⇒ undefined. */
 function readKeyFromFile(path, key) {

@@ -13,6 +13,7 @@ import {
 } from '@/core/framework-config.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
+import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { VERSION } from '@/index.js';
 import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
@@ -49,6 +50,15 @@ export class FrameworkUpdater {
   constructor(private readonly options: FrameworkUpdaterOptions = {}) {}
 
   async run(projectRoot: string): Promise<UpdateReport> {
+    // Buildout F1 — migrate the project's `.paqad/` layout forward BEFORE
+    // regenerating artifacts or reconciling config. Onboarding already does this
+    // (orchestrator.run), but `update` / `update --silent` never did, so an
+    // already-onboarded project advanced its code via silent-update yet never
+    // migrated its on-disk records (the verified C4 gap). A future-schema project
+    // refuses here via SchemaVersionError — the correct "upgrade paqad-ai" refusal
+    // rather than operating on a layout newer than this engine understands.
+    await checkAndMigrateSchema(projectRoot, VERSION);
+
     const previousVersion = readText(join(projectRoot, PATHS.FRAMEWORK_VERSION));
     const manifest = readManifest(projectRoot);
     const artifactPolicy = new Map(

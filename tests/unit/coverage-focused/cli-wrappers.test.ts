@@ -15,7 +15,6 @@ const {
   mockUpdaterRun,
   mockAppendAuditLog,
   mockAppendAuditLogFailure,
-  mockResumePlanExecution,
   mockConfirm,
   mockSelect,
   mockCheckbox,
@@ -40,7 +39,6 @@ const {
   mockUpdaterRun: vi.fn(),
   mockAppendAuditLog: vi.fn(),
   mockAppendAuditLogFailure: vi.fn(),
-  mockResumePlanExecution: vi.fn(),
   mockConfirm: vi.fn(),
   mockSelect: vi.fn(),
   mockCheckbox: vi.fn(),
@@ -88,10 +86,6 @@ vi.mock('@/update/audit.js', () => ({
   appendAuditLogFailure: mockAppendAuditLogFailure,
 }));
 
-vi.mock('@/cli/plan-resume.js', () => ({
-  resumePlanExecution: mockResumePlanExecution,
-}));
-
 vi.mock('@inquirer/prompts', () => ({
   confirm: mockConfirm,
   select: mockSelect,
@@ -101,7 +95,6 @@ vi.mock('@inquirer/prompts', () => ({
 import { createCapabilitiesCommand } from '@/cli/commands/capabilities.js';
 import { createDoctorCommand } from '@/cli/commands/doctor.js';
 import { createInstallCommand } from '@/cli/commands/install.js';
-import { createPlanCommand } from '@/cli/commands/plan.js';
 import { createPatternsCommand } from '@/cli/commands/patterns.js';
 import { createUpdateCommand } from '@/cli/commands/update.js';
 import { checkboxPrompt, confirmPrompt, selectPrompt } from '@/cli/ui/prompts.js';
@@ -122,12 +115,6 @@ describe('coverage cli wrappers', () => {
     mockUpdaterRun.mockResolvedValue({
       previous_version: '0.1.0',
       target_version: '0.2.2',
-    });
-    mockResumePlanExecution.mockResolvedValue({
-      trackerPath: '/repo/.paqad/specs/demo.execution.json',
-      resetSliceIds: ['SL-2'],
-      currentSliceId: 'SL-2',
-      warnings: [],
     });
     mockConfirm.mockResolvedValue(true);
     mockSelect.mockResolvedValue('codex-cli');
@@ -231,16 +218,6 @@ describe('coverage cli wrappers', () => {
       'yaml',
     ]);
     expect(mockPatternExport).toHaveBeenLastCalledWith('/tmp/patterns.json', 'json');
-  });
-
-  it('routes plan resume through the slice-resume helper', async () => {
-    const command = createPlanCommand();
-
-    await command.parseAsync(['node', 'plan', 'resume', 'demo', '--project-root', '/repo']);
-    expect(mockResumePlanExecution).toHaveBeenCalledWith('/repo', 'demo');
-    expect(logSpy).toHaveBeenLastCalledWith(
-      '{\n  "trackerPath": "/repo/.paqad/specs/demo.execution.json",\n  "resetSliceIds": [\n    "SL-2"\n  ],\n  "currentSliceId": "SL-2",\n  "warnings": []\n}',
-    );
   });
 
   it('handles update silent and error branches without leaking output', async () => {

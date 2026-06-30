@@ -33,4 +33,27 @@ describe('module-health/parsers/opencover', () => {
       { file: 'C:/src/Foo.cs', lines_total: 2, lines_covered: 1 },
     ]);
   });
+
+  it('skips file tags missing uid/fullPath and points with no/unmatched fileid', () => {
+    const xml = `
+<CoverageSession><Modules><Module>
+  <Files>
+    <File uid="1" fullPath="C:\\src\\A.cs"/>
+    <File uid="2"/>
+    <File fullPath="C:\\src\\NoUid.cs"/>
+  </Files>
+  <SequencePoints>
+    <SequencePoint fileid="1" vc="1"/>
+    <SequencePoint vc="5"/>
+    <SequencePoint fileid="99" vc="1"/>
+  </SequencePoints>
+</Module></Modules></CoverageSession>`;
+    expect(parseReport(xml).coverage).toEqual([
+      { file: 'C:/src/A.cs', lines_total: 1, lines_covered: 1 },
+    ]);
+  });
+
+  it('returns empty coverage when there are no modules', () => {
+    expect(parseReport('<CoverageSession></CoverageSession>').coverage).toEqual([]);
+  });
 });

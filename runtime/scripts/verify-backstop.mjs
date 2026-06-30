@@ -17,6 +17,23 @@ import { pathToFileURL } from 'node:url';
 
 import { isPaqadDisabled } from '../hooks/lib/paqad-disabled.mjs';
 
+/**
+ * Record a disabled-session audit row, best-effort (buildout F2b). Lazy-imports
+ * the small dist recorder; any failure (uninstalled package → no dist, fs error)
+ * is swallowed so the disable path can never break. Mirrors how capability-gate
+ * resolves its dist bundle relative to the module URL.
+ */
+async function recordDisabledSessionSafe(projectRoot, hostSessionId, origin) {
+  try {
+    const distUrl = new URL('../../dist/session-ledger/disabled-audit.js', import.meta.url);
+    const { recordDisabledSession } = await import(distUrl.href);
+    recordDisabledSession(projectRoot, { sessionId: hostSessionId ?? null, origin });
+  } catch {
+    // Disabled + uninstalled (no dist) or any error → skip; auditing must never
+    // disrupt a disabled session.
+  }
+}
+
 export async function loadPaqadApi() {
   // This script ships inside the paqad-ai package (runtime/scripts/...), so its
   // built entry sits two levels up at dist/index.js. Resolving relative to the
@@ -26,20 +43,40 @@ export async function loadPaqadApi() {
   return import(distUrl.href);
 }
 
-export async function runVerificationBackstop({ origin, softFail, projectRoot, stdout, stderr }) {
+export async function runVerificationBackstop({
+  origin,
+  softFail,
+  projectRoot,
+  hostSessionId,
+  stdout,
+  stderr,
+}) {
   const out = stdout ?? process.stdout;
   const err = stderr ?? process.stderr;
   // Issue #220 — when paqad is disabled (or env-overridden off, or the package
   // is uninstalled so the off-signal can't be confirmed on either side), the
-  // backstop is a pure no-op: allow, write nothing, load no dist. This is a
-  // distinct short-circuit from `softFail` (which only catches infra errors) so
-  // the git/CI backstop allows BEFORE running any gate when off.
+  // backstop runs NO gate: allow BEFORE running anything. This is a distinct
+  // short-circuit from `softFail` (which only catches infra errors).
   if (isPaqadDisabled(projectRoot)) {
+    // Buildout F2b (decision D1) — the disable escape hatch stays, but a real
+    // agent completion while disabled is AUDITED: record one disabled-session row
+    // so the bypass is visible in the dashboard/SIEM. Best-effort and lazy — if
+    // the package is uninstalled the dist import simply throws and we skip, so the
+    // "no enforcement when disabled" contract is untouched.
+    if (origin === 'hook-completion') {
+      await recordDisabledSessionSafe(projectRoot, hostSessionId, origin);
+    }
     return 0;
   }
   try {
     const api = await loadPaqadApi();
-    const verdict = await api.runRepositoryVerification({ projectRoot, origin });
+    // Thread the host session id (buildout F5b, #5) so stage-evidence finalization
+    // keys on the live session, not a stale cache. Undefined on hosts/CI with no id.
+    const verdict = await api.runRepositoryVerification({
+      projectRoot,
+      origin,
+      hostSessionId: hostSessionId ?? null,
+    });
     out.write(`${verdict.summary}\n`);
     return verdict.ok ? 0 : 2;
   } catch (error) {

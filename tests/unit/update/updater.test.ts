@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { VERSION } from '@/index.js';
+import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema.js';
+import { schemaMarkerPath, schemaMigrationLogPath } from '@/core/schema-version.js';
 import { FrameworkUpdater } from '@/update/index.js';
 
 describe('FrameworkUpdater', () => {
@@ -119,6 +121,45 @@ describe('FrameworkUpdater', () => {
     expect(versionFileContent).toMatch(/^version=/m);
     expect(versionFileContent).toContain(`version=${VERSION}`);
     expect(versionFileContent).toMatch(/^updated_at=/m);
+  });
+
+  it('migrates an already-onboarded project schema forward on update (buildout F1, C4)', async () => {
+    // An older-marker project: update must advance its `.paqad/` schema, which it
+    // never did before F1 (migration ran only at onboard).
+    writeFileSync(
+      schemaMarkerPath(projectRoot),
+      JSON.stringify({
+        paqad_schema_version: '0.9.0',
+        written_at: '2025-01-01T00:00:00.000Z',
+        written_by_engine_version: '0.9.0',
+      }),
+    );
+
+    const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
+    await updater.run(projectRoot);
+
+    const marker = JSON.parse(readFileSync(schemaMarkerPath(projectRoot), 'utf8'));
+    expect(marker.paqad_schema_version).toBe(PAQAD_SCHEMA_VERSION);
+    const log = readFileSync(schemaMigrationLogPath(projectRoot), 'utf8').trim().split('\n');
+    expect(log).toHaveLength(1);
+    expect(JSON.parse(log[0])).toMatchObject({
+      from_version: '0.9.0',
+      to_version: PAQAD_SCHEMA_VERSION,
+    });
+  });
+
+  it('refuses to update a project whose schema is newer than this engine (D2 refuse)', async () => {
+    writeFileSync(
+      schemaMarkerPath(projectRoot),
+      JSON.stringify({
+        paqad_schema_version: '2.0.0',
+        written_at: '2027-01-01T00:00:00.000Z',
+        written_by_engine_version: '2.0.0',
+      }),
+    );
+
+    const updater = new FrameworkUpdater({ generateCandidates: async () => [] });
+    await expect(updater.run(projectRoot)).rejects.toThrow(/newer than this engine/);
   });
 
   it('skips user-managed artifacts and produces a diff report', async () => {

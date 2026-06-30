@@ -1,18 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readDecisionEvidence } from '@/planning/decision-ledger.js';
 
 import { ageInDays, bandForScore } from '../scoring/index.js';
 import type { AttentionItem, SectionData } from '../types.js';
-import { scanDirectory } from './fs-helpers.js';
-
-interface DecisionPacket {
-  id?: string;
-  title?: string;
-  category?: string;
-  created_at?: string;
-}
 
 interface PacketWithAge {
   id: string;
@@ -24,38 +17,6 @@ const HELPER = {
   what: 'The Decision Pause Contract surfaces every flagged scope/security/architecture choice as a packet in .paqad/decisions/pending/. Agents must wait for resolution before continuing.',
   goodLooksLike: 'Zero pending packets, or pending packets resolved within a couple of days.',
 } as const;
-
-function readPacket(absPath: string): DecisionPacket | null {
-  try {
-    return JSON.parse(readFileSync(absPath, 'utf8')) as DecisionPacket;
-  } catch {
-    return null;
-  }
-}
-
-function collectPending(projectRoot: string, now: number): PacketWithAge[] {
-  const dir = join(projectRoot, PATHS.DECISIONS_PENDING_DIR);
-  if (!existsSync(dir)) return [];
-  const out: PacketWithAge[] = [];
-  for (const entry of scanDirectory(dir, { maxDepth: 1, fileFilter: (n) => n.endsWith('.json') })) {
-    const packet = readPacket(entry.absPath);
-    if (packet === null) continue;
-    const createdAt = packet.created_at !== undefined ? Date.parse(packet.created_at) : NaN;
-    const refMs = Number.isFinite(createdAt) ? createdAt : entry.mtimeMs;
-    out.push({
-      id: packet.id ?? entry.relPath,
-      title: packet.title ?? entry.relPath,
-      ageDays: ageInDays(refMs, now) ?? 0,
-    });
-  }
-  return out.sort((a, b) => b.ageDays - a.ageDays);
-}
-
-function countJson(projectRoot: string, rel: string): number {
-  const dir = join(projectRoot, rel);
-  if (!existsSync(dir)) return 0;
-  return scanDirectory(dir, { maxDepth: 1, fileFilter: (n) => n.endsWith('.json') }).length;
-}
 
 /**
  * Score the decisions section. Algorithm:
@@ -100,9 +61,23 @@ export function collectDecisions(projectRoot: string, now: number = Date.now()):
     };
   }
 
-  const pending = collectPending(projectRoot, now);
-  const resolved = countJson(projectRoot, PATHS.DECISIONS_RESOLVED_DIR);
-  const expired = countJson(projectRoot, PATHS.DECISIONS_EXPIRED_DIR);
+  // Buildout F6 (hard cutover, D1) — the dashboard reads decision lifecycle evidence
+  // from the session-ledger, not by scanning the packet buckets. The directories stay
+  // as the gate's operational teeth; the DecisionStore writes both together so they
+  // never drift. The dir's existence above is only the "contract in use" signal.
+  const evidence = readDecisionEvidence(projectRoot);
+  const pending: PacketWithAge[] = evidence.pending
+    .map((p) => {
+      const createdAt = p.createdAt !== null ? Date.parse(p.createdAt) : NaN;
+      return {
+        id: p.id,
+        title: p.title,
+        ageDays: ageInDays(Number.isFinite(createdAt) ? createdAt : now, now) ?? 0,
+      };
+    })
+    .sort((a, b) => b.ageDays - a.ageDays);
+  const resolved = evidence.resolvedCount;
+  const expired = evidence.expiredCount;
 
   const score = scorePending(pending);
   const oldest = pending[0] ?? null;

@@ -13,6 +13,7 @@ import {
   type DecisionPauseEvent,
 } from '@/planning/index.js';
 import { DECISION_REUSE_DOC_TYPE } from '@/decision-reuse/index.js';
+import { readDecisionEvidence } from '@/planning/decision-ledger.js';
 import { readSessionDoc } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
@@ -131,6 +132,48 @@ describe('DecisionStore', () => {
         }),
       ]),
     );
+  });
+
+  // Buildout F6 — the store dual-sinks every lifecycle transition onto the
+  // session-ledger as `decision-evidence`, so the evidence consumers see the
+  // current state from the ledger (the packet files stay as the gate's teeth).
+  it('folds lifecycle transitions onto the decision-evidence ledger', () => {
+    const store = new DecisionStore(projectRoot);
+    store.initialize();
+
+    const pendingPacket = makePacket({ decision_id: 'D-1', task_session_id: 'session-a' });
+    const resolvedPacket = makePacket({
+      decision_id: 'D-2',
+      task_session_id: 'session-b',
+      fingerprint: 'sha256:other',
+    });
+    store.writePending(pendingPacket);
+    store.writePending(resolvedPacket);
+
+    // Both opened → both pending.
+    expect(
+      readDecisionEvidence(projectRoot)
+        .pending.map((p) => p.id)
+        .sort(),
+    ).toEqual(['D-1', 'D-2']);
+
+    store.resolve({
+      decisionId: 'D-2',
+      humanResponse: {
+        chosen_option_key: 'reuse-button',
+        intent: 'explicit',
+        explanation_rounds_used: 0,
+        responded_at: '2026-04-27T12:01:00Z',
+        responded_by: 'haider',
+        carry_over_scope: 'none',
+      },
+    });
+
+    const evidence = readDecisionEvidence(projectRoot);
+    expect(evidence.pending.map((p) => p.id)).toEqual(['D-1']);
+    expect(evidence.pending[0]?.title).toBe('Use the Button we have?');
+    expect(evidence.resolvedCount).toBe(1);
+    expect(evidence.expiredCount).toBe(0);
   });
 
   it('marks resolved decisions stale when watched files change', () => {

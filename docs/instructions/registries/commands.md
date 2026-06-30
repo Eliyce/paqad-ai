@@ -7,7 +7,6 @@ Source: `src/cli/commands/*.ts`. Regenerate when adding/removing commands.
 | Command         | File                              | Purpose                                        |
 | --------------- | --------------------------------- | ---------------------------------------------- |
 | `onboard`       | `src/cli/commands/onboard.ts`     | Detect stack, write `.paqad/` and rules        |
-| `plan`          | `src/cli/commands/plan.ts`        | Build / resume an execution plan               |
 | `refresh`       | `src/cli/commands/refresh.ts`     | Refresh detection + profile                    |
 | `update`        | `src/cli/commands/update.ts`      | Update framework assets                        |
 | `install`       | `src/cli/commands/install.ts`     | Install/relink runtime                         |

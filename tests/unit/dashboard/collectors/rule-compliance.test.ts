@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 
 import { collectRuleCompliance } from '@/dashboard/collectors/rule-compliance.js';
+import { recordRuleDrift } from '@/rule-scripts/rule-ledger.js';
 import { RULE_SCRIPT_MAP_SCHEMA_VERSION, type RuleScriptMap } from '@/rule-scripts/types.js';
 
 const roots: string[] = [];
@@ -116,24 +117,34 @@ describe('collectRuleCompliance', () => {
         }),
       ]),
     );
-    write(
-      join(root, '.paqad/scripts/rules/.cache/drift.json'),
-      JSON.stringify({
-        generated_at: '2026-05-29T00:00:00Z',
-        findings: [],
-        counts: {
-          'RS-RULE-ADDED': 0,
-          'RS-RULE-EDITED': 1,
-          'RS-RULE-REMOVED': 0,
-          'RS-SCRIPT-STALE': 1,
-          'RS-FIXTURE-FAIL': 0,
-          'RS-CACHE-INVALID': 0,
-        },
-        blocked: true,
-      }),
-    );
+    // Buildout F6 — the dashboard reads drift evidence from the session-ledger,
+    // not the legacy drift.json cache. Seed it via the recorder.
+    recordRuleDrift(root, {
+      blocked: true,
+      counts: {
+        'RS-RULE-ADDED': 0,
+        'RS-RULE-EDITED': 1,
+        'RS-RULE-REMOVED': 0,
+        'RS-SCRIPT-STALE': 1,
+        'RS-FIXTURE-FAIL': 0,
+        'RS-CACHE-INVALID': 0,
+      },
+    });
     const { section, attention } = collectRuleCompliance(root);
     expect(section.band).toBe('red');
     expect(attention.some((a) => a.message.includes('generate rule scripts'))).toBe(true);
+  });
+
+  it('reads drift evidence from the ledger, not the legacy cache file (F6 cutover)', () => {
+    const root = createRoot();
+    writeMap(root, baseMap([ruleEntry('RL-aaaa')]));
+    // A blocking drift report that exists ONLY in the legacy cache file must be
+    // invisible — the evidence read cut over to the ledger.
+    write(
+      join(root, '.paqad/scripts/rules/.cache/drift.json'),
+      JSON.stringify({ generated_at: 'x', findings: [], counts: {}, blocked: true }),
+    );
+    const { section } = collectRuleCompliance(root);
+    expect(section.band).not.toBe('red'); // file-only drift ignored
   });
 });

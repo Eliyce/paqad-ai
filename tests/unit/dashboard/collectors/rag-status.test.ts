@@ -68,4 +68,18 @@ describe('collectRagStatus', () => {
     expect(section.score).toBe(60); // provider 30 + index present 30 + freshness 0
     expect(section.band).toBe('amber');
   });
+
+  it('treats a malformed project profile as unknown', () => {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad/project-profile.yaml'), '[invalid');
+    expect(collectRagStatus(root, NOW).band).toBe('unknown');
+  });
+
+  it('notes a missing embedding provider when enabled with an index present', () => {
+    writeProfile(root, { intelligence: { rag_enabled: true } }); // no embedding_provider
+    writeIndex(root, 2);
+    const section = collectRagStatus(root, NOW);
+    expect(section.summary).toMatch(/no embedding provider/i);
+    expect(section.metrics.find((m) => m.label === 'provider')?.value).toBe('—');
+  });
 });

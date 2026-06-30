@@ -18,51 +18,68 @@ function result(over: Partial<VerifyResult>): VerifyResult {
   };
 }
 
-describe('stageEvidenceGate — deterministic stage enforcement (#247)', () => {
-  it('AC3: returns null when there is no code diff (only on code change)', () => {
-    expect(stageEvidenceGate(result({}), 'hook-completion', 0)).toBeNull();
+describe('stageEvidenceGate — mode-gated stage enforcement (buildout F4, RCA closure)', () => {
+  it('returns null when there is no code diff (only on code change)', () => {
+    expect(stageEvidenceGate(result({}), 'hook-completion', 0, 'strict')).toBeNull();
   });
 
   it('returns null when there is no stage result', () => {
-    expect(stageEvidenceGate(null, 'hook-completion', 5)).toBeNull();
+    expect(stageEvidenceGate(null, 'hook-completion', 5, 'strict')).toBeNull();
   });
 
-  it('AC2: passes when every mandatory stage was recorded (complete)', () => {
-    const gate = stageEvidenceGate(
-      result({ verdict: 'complete', ok: true, live_marked: true }),
-      'hook-completion',
-      3,
-    );
-    expect(gate?.status).toBe('pass');
+  it('passes when every mandatory stage was recorded (complete), any mode', () => {
+    for (const mode of ['off', 'warn', 'strict'] as const) {
+      const gate = stageEvidenceGate(
+        result({ verdict: 'complete', ok: true }),
+        'hook-completion',
+        3,
+        mode,
+      );
+      expect(gate?.status, mode).toBe('pass');
+    }
   });
 
-  it('AC1: hard-FAILS when the workflow was started but left incomplete, at a local origin', () => {
+  // THE FIX: strict fails an incomplete change at a local origin REGARDLESS of
+  // live_marked. Before F4 this returned `skipped` (live_marked was always false),
+  // which is exactly how a cannot-verify change shipped.
+  it('strict: hard-FAILS an incomplete change at a local origin even when never live-marked', () => {
     for (const origin of ['hook-completion', 'git-backstop'] as const) {
-      const gate = stageEvidenceGate(result({ live_marked: true }), origin, 4);
+      const gate = stageEvidenceGate(result({ live_marked: false }), origin, 4, 'strict');
       expect(gate?.status, origin).toBe('fail');
       expect(gate?.detail).toContain('review');
       expect(gate?.remediation).toBeTruthy();
     }
   });
 
-  it('AC4: stays informational (skipped) on CI, even when incomplete', () => {
-    const gate = stageEvidenceGate(result({ live_marked: true }), 'ci-backstop', 4);
-    expect(gate?.status).toBe('skipped');
-  });
-
-  it('never hard-fails when the workflow was never marked (informational only)', () => {
-    // A project that has not adopted stage marking must not be broken by the gate.
+  it('strict is the DEFAULT mode (omitted arg behaves as strict)', () => {
     const gate = stageEvidenceGate(result({ live_marked: false }), 'hook-completion', 4);
-    expect(gate?.status).toBe('skipped');
-    expect(gate?.detail).toContain('not recorded');
+    expect(gate?.status).toBe('fail');
   });
 
-  it('blocked verdict at a local origin also hard-fails', () => {
+  it('strict: a blocked verdict at a local origin also hard-fails', () => {
     const gate = stageEvidenceGate(
-      result({ verdict: 'blocked', blocked: true, live_marked: true }),
+      result({ verdict: 'blocked', blocked: true }),
       'git-backstop',
       2,
+      'strict',
     );
     expect(gate?.status).toBe('fail');
+  });
+
+  it('strict: stays informational (skipped) on CI — no committed local ledger', () => {
+    const gate = stageEvidenceGate(result({ live_marked: true }), 'ci-backstop', 4, 'strict');
+    expect(gate?.status).toBe('skipped');
+  });
+
+  it('warn: never fails — surfaces the incompleteness as a warning only', () => {
+    const gate = stageEvidenceGate(result({ live_marked: false }), 'hook-completion', 4, 'warn');
+    expect(gate?.status).toBe('skipped');
+    expect(gate?.detail).toContain('stages_mode=warn');
+  });
+
+  it('off: disabled escape hatch — never fails even at a local origin', () => {
+    const gate = stageEvidenceGate(result({ live_marked: false }), 'git-backstop', 4, 'off');
+    expect(gate?.status).toBe('skipped');
+    expect(gate?.detail).toContain('stages_mode=off');
   });
 });
