@@ -57,4 +57,12 @@ describe('collectSession', () => {
     const section = collectSession(root, NOW);
     expect(section.summary).toMatch(/md \+ json/);
   });
+
+  it('marks handoff.md absent when only the json handoff exists', () => {
+    writeHandoff(root, 'handoff.json', 1);
+    const section = collectSession(root, NOW);
+    expect(section.metrics.find((m) => m.label === 'handoff.md')?.value).toBe('—');
+    expect(section.metrics.find((m) => m.label === 'handoff.json')?.value).toBe('✓');
+    expect(section.summary).not.toMatch(/md \+ json/);
+  });
 });

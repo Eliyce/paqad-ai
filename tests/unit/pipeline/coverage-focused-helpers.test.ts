@@ -15,7 +15,6 @@ import { PreClassifier } from '@/pipeline/pre-classifier.js';
 import { matchRuleTriggers } from '@/pipeline/rule-trigger-matcher.js';
 import * as ruleTriggerMatcher from '@/pipeline/rule-trigger-matcher.js';
 import { resolveScope } from '@/pipeline/scope-resolver.js';
-import { ClassifyPhase } from '@/pipeline/phases/classify.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { RagService } from '@/rag/service.js';
 import { readAllModuleHealth } from '@/planning/module-health.js';
@@ -676,45 +675,6 @@ describe('pipeline helper coverage', () => {
       scope: 'multi-module',
       scope_graph_depth: 0,
     });
-
-    const legacy = await new ClassifyPhase().execute({
-      classification: {},
-      phases: [],
-    } as never);
-    expect(legacy.summary).toContain('legacy');
-
-    const low = await new ClassifyPhase().execute({
-      classification: { classification_confidence: 0.2 },
-      phases: [],
-    } as never);
-    expect(low.summary).toContain('tentative');
-
-    const guessed = await new ClassifyPhase().execute({
-      classification: {
-        classification_confidence: 0.9,
-        resolution_map: { risk: 'llm-guessed' },
-      },
-      phases: [],
-    } as never);
-    expect(guessed.summary).toContain('tentative');
-
-    const confirmed = await new ClassifyPhase().execute({
-      classification: {
-        classification_confidence: 0.9,
-        resolution_map: {},
-      },
-      phases: [],
-    } as never);
-    expect(confirmed.summary).toBe('Classification confirmed');
-
-    const confirmedWithoutMap = await new ClassifyPhase().execute({
-      classification: {
-        classification_confidence: 0.9,
-      },
-      phases: [],
-    } as never);
-    expect(confirmedWithoutMap.summary).toBe('Classification confirmed');
-
     const badHealthRoot = mkdtempSync(join(tmpdir(), 'paqad-health-extra-'));
     mkdirSync(join(badHealthRoot, '.paqad/module-health'), { recursive: true });
     writeFileSync(join(badHealthRoot, '.paqad/module-health/bad.json'), '{bad');

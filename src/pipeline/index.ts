@@ -11,5 +11,4 @@ export * from './router.js';
 export * from './rule-trigger-matcher.js';
 export * from './scope-resolver.js';
 export * from './workflow-router.js';
-export * from './phases/phase.interface.js';
 export * from './stream-truncator.js';

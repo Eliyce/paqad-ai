@@ -2,24 +2,9 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
-import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
-import { fixtureClassification } from '../pipeline/shared.fixture.js';
-
-function createPhaseContext(overrides: Record<string, unknown> = {}) {
-  return {
-    project_root: '/tmp/phase-project',
-    lane: 'standard',
-    classification: fixtureClassification(),
-    started_at: new Date().toISOString(),
-    phases: [],
-    feature_policy: null,
-    policy_warnings: [],
-    ...overrides,
-  };
-}
 
 describe('coverage smoke imports', () => {
   it('loads type and interface modules at runtime', async () => {
@@ -37,13 +22,12 @@ describe('coverage smoke imports', () => {
       import('@/core/types/template.js'),
       import('@/introspection/ecosystems/types.js'),
       import('@/patterns/types.js'),
-      import('@/pipeline/phases/phase.interface.js'),
       import('@/session/types.js'),
       import('@/verification/gates/gate.interface.js'),
       import('@/workflows/types.js'),
     ]);
 
-    expect(modules).toHaveLength(17);
+    expect(modules).toHaveLength(16);
     expect(modules.every((module) => typeof module === 'object')).toBe(true);
   });
 });
@@ -91,211 +75,5 @@ describe('registry generation', () => {
       content: '# feature-registry.md\n\n',
       autoUpdate: false,
     });
-  });
-});
-
-describe('pipeline phase fallbacks', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('covers the summary and fallback branches for lightweight phases', async () => {
-    const { SpecWritingPhase } = await import('@/pipeline/phases/spec-writing.js');
-    const { StoryPlanningPhase } = await import('@/pipeline/phases/story-planning.js');
-    const { ImplementationReviewPhase, selectReviewMode } =
-      await import('@/pipeline/phases/impl-review.js');
-
-    const policy = defaultFeatureDevelopmentPolicy();
-
-    await expect(new SpecWritingPhase().execute(createPhaseContext())).resolves.toMatchObject({
-      phase: 'specification',
-      summary: 'Specification written',
-    });
-    await expect(
-      new SpecWritingPhase().execute(createPhaseContext({ feature_policy: policy })),
-    ).resolves.toMatchObject({
-      summary:
-        'Specification written (2 instruction(s), 1 required input(s), 2 expected artifact(s))',
-    });
-
-    await expect(new StoryPlanningPhase().execute(createPhaseContext())).resolves.toMatchObject({
-      phase: 'sequence-planning',
-      summary: 'Story sequence planned',
-    });
-    await expect(
-      new StoryPlanningPhase().execute(createPhaseContext({ feature_policy: policy })),
-    ).resolves.toMatchObject({
-      summary:
-        'Story sequence planned (reads 2 path(s), 3 instruction(s), 2 required input(s), 1 expected artifact(s))',
-    });
-
-    await expect(
-      new ImplementationReviewPhase().execute(createPhaseContext({ lane: 'slow' })),
-    ).resolves.toMatchObject({
-      phase: 'implementation-review',
-      summary: 'Implementation review passed (full, fresh)',
-    });
-    await expect(
-      new ImplementationReviewPhase().execute(
-        createPhaseContext({ feature_policy: policy, lane: 'graduated' }),
-      ),
-    ).resolves.toMatchObject({
-      summary: expect.stringContaining('standard, fresh;'),
-    });
-
-    expect(selectReviewMode(true, 0.2)).toBe('diff');
-    expect(selectReviewMode(true, 0.7)).toBe('fresh');
-  });
-
-  it('covers verification phase pass and failure branches', async () => {
-    const projectRoot = await mkdtemp(join(tmpdir(), 'paqad-verification-'));
-    const { VerificationPhase } = await import('@/pipeline/phases/verification.js');
-    const { writeProjectProfile } = await import('@/core/project-profile.js');
-
-    const policy = defaultFeatureDevelopmentPolicy();
-
-    writeProjectProfile(projectRoot, {
-      active_capabilities: ['content'],
-      commands: {
-        lint: 'pnpm lint',
-      },
-    });
-
-    await expect(
-      new VerificationPhase().execute(
-        createPhaseContext({
-          project_root: projectRoot,
-          feature_policy: policy,
-        }),
-      ),
-    ).resolves.toMatchObject({
-      phase: 'verification-gates',
-      status: 'fail',
-      summary: expect.stringContaining('Verification blocked'),
-    });
-
-    writeProjectProfile(projectRoot, {
-      active_capabilities: ['content'],
-      commands: {
-        format: 'pnpm format',
-        test: 'pnpm test',
-        build: 'pnpm build',
-      },
-    });
-
-    await expect(
-      new VerificationPhase().execute(
-        createPhaseContext({
-          project_root: projectRoot,
-          feature_policy: policy,
-        }),
-      ),
-    ).resolves.toMatchObject({
-      phase: 'verification-gates',
-      status: 'pass',
-      summary: expect.stringContaining('commands: pnpm format; pnpm test; pnpm build'),
-    });
-  });
-
-  it('covers documentation update success, failure, and onboarding-aware feature branch', async () => {
-    vi.resetModules();
-    const run = vi.fn();
-    const DocumentationWorkflow = vi.fn(() => ({ run }));
-    const readProjectProfile = vi.fn();
-
-    vi.doMock('@/document/workflow.js', () => ({
-      DocumentationWorkflow,
-    }));
-    vi.doMock('@/core/project-profile.js', () => ({
-      readProjectProfile,
-    }));
-
-    const { DocumentationUpdatePhase } = await import('@/pipeline/phases/doc-update.js');
-
-    readProjectProfile.mockReturnValue({ project: { name: 'demo' } });
-    run.mockResolvedValueOnce({
-      steps: ['scan', 'write'],
-      generated: ['docs/modules/core/spec.md'],
-      module_docs_pending_map_review: false,
-      module_map_path: null,
-      module_map_low_confidence_modules: [],
-      orphaned_module_dirs: [],
-    });
-    await expect(
-      new DocumentationUpdatePhase().execute(
-        createPhaseContext({
-          classification: fixtureClassification({ workflow: 'documentation-update' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      phase: 'documentation-update',
-      status: 'pass',
-      summary: 'Documentation workflow completed in 2 step(s)',
-      artifacts: ['docs/modules/core/spec.md'],
-    });
-
-    readProjectProfile.mockReturnValue({ project: { name: 'demo' } });
-    run.mockRejectedValueOnce(new Error('boom'));
-    await expect(
-      new DocumentationUpdatePhase().execute(
-        createPhaseContext({
-          classification: fixtureClassification({ output_type: 'documentation' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      phase: 'documentation-update',
-      status: 'fail',
-      summary: 'boom',
-    });
-
-    readProjectProfile.mockReturnValue({ project: { name: 'demo' } });
-    run.mockRejectedValueOnce('not-an-error');
-    await expect(
-      new DocumentationUpdatePhase().execute(
-        createPhaseContext({
-          classification: fixtureClassification({ workflow: 'documentation-update' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      phase: 'documentation-update',
-      status: 'fail',
-      summary: 'Documentation workflow failed',
-    });
-
-    readProjectProfile.mockReturnValue({ project: { name: 'demo' } });
-    run.mockResolvedValueOnce({
-      steps: ['scan', 'write', 'sync'],
-      generated: ['docs/modules/billing/features/payments/technical.md'],
-      module_docs_pending_map_review: false,
-      module_map_path: null,
-      module_map_low_confidence_modules: [],
-      orphaned_module_dirs: [],
-    });
-    await expect(
-      new DocumentationUpdatePhase().execute(
-        createPhaseContext({
-          project_root: '/tmp/onboarded-project',
-          classification: fixtureClassification({ workflow: 'feature-development' }),
-        }),
-      ),
-    ).resolves.toMatchObject({
-      phase: 'documentation-update',
-      status: 'pass',
-      summary: 'Documentation workflow completed in 3 step(s)',
-      artifacts: ['docs/modules/billing/features/payments/technical.md'],
-    });
-
-    readProjectProfile.mockReturnValue(null);
-    await expect(
-      new DocumentationUpdatePhase().execute(createPhaseContext()),
-    ).resolves.toMatchObject({
-      phase: 'documentation-update',
-      status: 'pass',
-      summary: 'Canonical docs updated',
-    });
-
-    vi.doUnmock('@/document/workflow.js');
-    vi.doUnmock('@/core/project-profile.js');
-    vi.resetModules();
   });
 });

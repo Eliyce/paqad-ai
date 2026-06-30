@@ -69,4 +69,29 @@ describe('collectStackDrift', () => {
     expect(section.band).toBe('red');
     expect(attention[0]?.severity).toBe('critical');
   });
+
+  it('treats a malformed drift report as no report (unknown)', () => {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad/stack-drift.json'), '{bad json');
+    const { section } = collectStackDrift(root, NOW);
+    expect(section.band).toBe('unknown');
+  });
+
+  it('points at the missing drift report when a snapshot exists but no drift', () => {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad/stack-snapshot.json'), '{}');
+    const { section } = collectStackDrift(root, NOW);
+    expect(section.band).toBe('unknown');
+    expect(section.summary).toMatch(/No stack-drift\.json/);
+  });
+
+  it('uses the singular noun for a single material change', () => {
+    writeDrift(root, {
+      generated_at: new Date(NOW - 86_400_000).toISOString(),
+      status: 'drift-detected',
+      material_changes: [{ type: 'framework-added', key: 'react' }],
+    });
+    const { attention } = collectStackDrift(root, NOW);
+    expect(attention[0]?.message).toMatch(/1 change\)/); // singular, no trailing 's'
+  });
 });
