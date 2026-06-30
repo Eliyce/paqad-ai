@@ -60,8 +60,13 @@ nudge.
 
 Precedence at load time (`loadDeliveryPolicy`):
 **framework defaults < detection overlay (auto sections only) < project YAML.**
-Detection is persisted to a side artifact (`.paqad/delivery-detection.json`) so
-the commented `delivery-policy.yaml` is never rewritten.
+`writeDetection` persists each run to TWO sinks together (so they never drift): the
+side artifact (`.paqad/delivery-detection.json`) the loader overlays + the
+documentation workflow reports, and a `delivery-evidence` row on the session-ledger
+(`src/delivery/delivery-ledger.ts`, a project-scoped doc). Buildout F6 (decision D1
+hard cutover): the **dashboard** reads the current detection from the ledger
+exclusively — a file present without a ledger row is invisible to it — while the
+loader keeps reading the file (operational).
 
 ## Stages — `ticket_intake` and `delivery`
 
@@ -85,12 +90,14 @@ the provider layer, not a stage registry.
 | Path | What |
 | ---- | ---- |
 | `docs/instructions/workflows/delivery-policy.yaml` | the policy (project-owned, onboard-written) |
-| `.paqad/delivery-detection.json` | detected conventions + evidence (overlay source) |
+| `.paqad/delivery-detection.json` | detected conventions + evidence (operational overlay source, loader-read) |
+| `.paqad/ledger/delivery-evidence/_project/` | session-ledger doc the dashboard/SIEM read (F6) |
 | `.paqad/templates/pr-body.md` | PR body template referenced by `pr.body_template_path` |
 
 The **Delivery Workflow** dashboard section (`src/dashboard/collectors/delivery.ts`)
 shows configured/active state and the resolved provider connections
-(GitHub ✓ / Jira ✗), also surfaced in `paqad-ai status`.
+(GitHub ✓ / Jira ✗), also surfaced in `paqad-ai status`. It reads the current
+detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
 
 ## Boundaries
 

@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { collectDelivery } from '@/dashboard/collectors/delivery.js';
-import { writeDetection } from '@/delivery/detection-store.js';
+import { detectionPath, writeDetection } from '@/delivery/detection-store.js';
 import { detectDelivery } from '@/delivery/detection.js';
 
 function repo(): string {
@@ -67,6 +67,37 @@ describe('delivery dashboard collector', () => {
       expect(section.summary).toContain('GitHub ✓');
       expect(section.summary).toContain('Jira ✓');
       expect(attention).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('reads detection from the ledger, not the legacy file (F6 hard cutover)', () => {
+    const root = repo();
+    try {
+      writeProfile(root, '[{ name: atlassian, enabled: true, kind: jira }]');
+      // A detection that exists ONLY in the legacy file (not the ledger) must be
+      // invisible to the dashboard — the evidence read cut over to the ledger.
+      const path = detectionPath(root);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(
+        path,
+        `${JSON.stringify(
+          detectDelivery({
+            remoteUrl: 'git@github.com:o/r.git',
+            defaultBranch: 'origin/main',
+            branchNames: ['feat/a'],
+            recentCommitSubjects: ['feat: a'],
+          }),
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+      const { section } = collectDelivery(root);
+      // No ledger row → host shows as not detected despite the file present.
+      expect(section.summary).toContain('✗');
+      expect((section.details as { host: { detected: boolean } }).host.detected).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
