@@ -10,7 +10,9 @@
 // CURRENT detection from here, and the SIEM fold-view will union it. The legacy
 // `.paqad/delivery-detection.json` file stays as the OPERATIONAL source the
 // delivery-policy loader overlays and the documentation workflow reports — both
-// are written together by `writeDetection`, so they never drift.
+// are written in the same `writeDetection` call (the ledger row best-effort), so
+// they stay in lockstep on the normal path; the loader reads the file, so a missed
+// ledger write degrades dashboard visibility, never the operational behaviour.
 
 import { readLatestProjectEvent, recordProjectEvent } from '@/session-ledger/project-ledger.js';
 
