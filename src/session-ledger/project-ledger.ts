@@ -45,6 +45,15 @@ export function recordProjectEvent(
   }
 }
 
+/**
+ * All rows in a project-scoped doc, in append (chronological) order. Use this when
+ * the current state is a per-key fold of the full history (e.g. decision lifecycle
+ * transitions keyed by decision id) rather than a single latest-wins snapshot.
+ */
+export function readProjectEvents(projectRoot: string, docType: string): SessionLedgerRow[] {
+  return readSessionDoc(projectRoot, docType, PROJECT_SESSION);
+}
+
 /** The latest row in a project-scoped doc matching `match`, or null when none. */
 export function readLatestProjectEvent(
   projectRoot: string,

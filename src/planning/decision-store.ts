@@ -18,6 +18,14 @@ import { recordDecisionReuse } from '@/decision-reuse/index.js';
 import type { DecisionReuseMatch } from '@/decision-reuse/types.js';
 
 import {
+  recordDecisionDiscarded,
+  recordDecisionExpired,
+  recordDecisionOpened,
+  recordDecisionResolved,
+  recordDecisionSuperseded,
+} from './decision-ledger.js';
+
+import {
   appendDecisionAuditEvent,
   ensureDecisionAuditLog,
   type DecisionAuditEventType,
@@ -178,6 +186,14 @@ export class DecisionStore {
     const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, enriched.decision_id);
     atomicWriteJson(path, enriched);
     this.appendAudit('decision-pending-written', enriched);
+    // Buildout F6 (hard cutover, D1) — fold the OPEN event onto the session-ledger
+    // for the evidence consumers; the pending packet file stays as the gate's teeth.
+    recordDecisionOpened(this.projectRoot, {
+      decisionId: enriched.decision_id,
+      category: enriched.category,
+      title: enriched.question,
+      createdAt: enriched.created_at,
+    });
     this.emit(decisionPausedEvent(enriched, this.relativePendingPath(enriched.decision_id)));
     return path;
   }
@@ -249,6 +265,7 @@ export class DecisionStore {
     const packet = result.packet;
     this.deletePending(input.decisionId);
     this.appendAudit('decision-discarded', packet);
+    recordDecisionDiscarded(this.projectRoot, packet.decision_id, input.reason);
     this.emit(decisionDiscardedEvent(packet.decision_id, input.reason));
     return packet;
   }
@@ -426,6 +443,7 @@ export class DecisionStore {
     }
     this.writeIndex(index);
     this.appendAudit('decision-expired', expired);
+    recordDecisionExpired(this.projectRoot, expired.decision_id);
     return target;
   }
 
@@ -574,6 +592,12 @@ export class DecisionStore {
     };
     this.writeIndex(index);
     this.appendAudit(input.event, resolved, input.respondedByProvider);
+    recordDecisionResolved(
+      this.projectRoot,
+      resolved.decision_id,
+      resolved.status,
+      resolverFromAuditEvent(input.event),
+    );
     this.emit(decisionResolvedEvent(resolved, resolverFromAuditEvent(input.event)));
     return resolved;
   }
@@ -602,6 +626,7 @@ export class DecisionStore {
     };
     this.writeIndex(index);
     this.appendAudit('decision-superseded', superseded);
+    recordDecisionSuperseded(this.projectRoot, existingDecisionId);
   }
 }
 
