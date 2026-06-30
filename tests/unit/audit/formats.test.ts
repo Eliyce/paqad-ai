@@ -246,3 +246,54 @@ describe('CEF formatter', () => {
     expect(line).not.toContain('fileHash=');
   });
 });
+
+// Buildout F6 — a #249 session-ledger fold event must render in every format with
+// its doc type + session id surfaced, not silently dropped.
+const session: SiemEvent = {
+  kind: 'session',
+  ts: '2026-06-20T00:00:00.000Z',
+  code: 'decision-evidence',
+  doc_type: 'decision-evidence',
+  session_id: '_project',
+  verdict: 'opened',
+  content_hash: 'dhash-1',
+  detail: 'opened D-1',
+};
+
+describe('session-ledger fold across formatters', () => {
+  it('OCSF maps a session event to a Session activity with doc_type + session_id', () => {
+    const rec = toOcsfRecord(session, VER);
+    expect(rec.activity_name).toBe('Session');
+    expect(rec.severity_id).toBe(0); // lifecycle event → informational/unknown
+    const paqad = (rec.unmapped as Record<string, unknown>).paqad as Record<string, unknown>;
+    expect(paqad.doc_type).toBe('decision-evidence');
+    expect(paqad.session_id).toBe('_project');
+    expect(paqad.detail).toBe('opened D-1');
+    expect(rec.message).toBe('decision-evidence: opened D-1');
+  });
+
+  it('ECS carries doc_type + session_id as labels and detail as reason', () => {
+    const rec = toEcsRecord(session, VER);
+    const labels = rec.labels as Record<string, string>;
+    expect(labels.paqad_kind).toBe('session');
+    expect(labels.paqad_doc_type).toBe('decision-evidence');
+    expect(labels.paqad_session_id).toBe('_project');
+    expect((rec.event as Record<string, unknown>).reason).toBe('opened D-1');
+    expect(rec.tags).toEqual(['paqad', 'session']);
+  });
+
+  it('CEF carries doc_type as sourceServiceName and session id as externalId', () => {
+    const line = toCef(session, VER);
+    expect(line).toContain('sourceServiceName=decision-evidence');
+    expect(line).toContain('externalId=_project');
+    expect(line).toContain('msg=opened D-1');
+    expect(line).toContain('|session decision-evidence opened|'); // header name
+  });
+
+  it('falls back to verdict + code in the message when a session event lacks detail/doc_type', () => {
+    const sparse: SiemEvent = { ...session, detail: undefined, doc_type: undefined };
+    // source falls back from doc_type to code; no detail → verdict tail.
+    expect(toOcsfRecord(sparse, VER).message).toBe('decision-evidence: opened');
+    expect((toEcsRecord(sparse, VER).event as Record<string, unknown>).reason).toBeUndefined();
+  });
+});

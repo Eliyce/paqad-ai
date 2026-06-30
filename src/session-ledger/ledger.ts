@@ -247,6 +247,30 @@ export function readSessionDoc(
   return ordinals.flatMap((ordinal) => readSessionUnit(projectRoot, docType, sessionId, ordinal));
 }
 
+/** Every session id holding at least one unit for `docType`, sorted for determinism. */
+export function listSessionIds(projectRoot: string, docType: string): string[] {
+  const dir = join(projectRoot, PATHS.EVIDENCE_LEDGER_DIR, docType);
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Every row for `docType` across all sessions, each session's rows in ordinal order
+ * and sessions in id order. Use this when a consumer (e.g. the SIEM fold-view) needs
+ * the whole history of a doc type, not one session's slice.
+ */
+export function readAllSessionRows(projectRoot: string, docType: string): SessionLedgerRow[] {
+  return listSessionIds(projectRoot, docType).flatMap((sessionId) =>
+    readSessionDoc(projectRoot, docType, sessionId),
+  );
+}
+
 /** Group a session's rows by their `conversation_ordinal` (ascending). */
 export function foldByOrdinal(rows: readonly SessionLedgerRow[]): Map<number, SessionLedgerRow[]> {
   const byOrdinal = new Map<number, SessionLedgerRow[]>();

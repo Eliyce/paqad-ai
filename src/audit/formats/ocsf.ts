@@ -23,6 +23,18 @@ function statusLabel(statusId: number): string {
   return 'Unknown';
 }
 
+/** OCSF `activity_name` for a paqad event kind. */
+function activityName(kind: SiemEvent['kind']): string {
+  switch (kind) {
+    case 'attestation':
+      return 'Attestation';
+    case 'session':
+      return 'Session';
+    default:
+      return 'Evidence';
+  }
+}
+
 /** Build the OCSF record (a plain object; the orchestrator serializes it). */
 export function toOcsfRecord(event: SiemEvent, productVersion: string): Record<string, unknown> {
   const statusId = ocsfStatusId(event.verdict);
@@ -31,6 +43,9 @@ export function toOcsfRecord(event: SiemEvent, productVersion: string): Record<s
     kind: event.kind,
     code: event.code,
     verdict: event.verdict,
+    ...(event.doc_type !== undefined ? { doc_type: event.doc_type } : {}),
+    ...(event.session_id !== undefined ? { session_id: event.session_id } : {}),
+    ...(event.detail !== undefined ? { detail: event.detail } : {}),
     ...(event.engine !== undefined ? { engine: event.engine } : {}),
     ...(event.subject_digest !== undefined ? { subject_digest: event.subject_digest } : {}),
     ...(event.strength_class !== undefined ? { strength_class: event.strength_class } : {}),
@@ -46,7 +61,7 @@ export function toOcsfRecord(event: SiemEvent, productVersion: string): Record<s
 
   const record: Record<string, unknown> = {
     activity_id: ACTIVITY_ID,
-    activity_name: event.kind === 'attestation' ? 'Attestation' : 'Evidence',
+    activity_name: activityName(event.kind),
     category_uid: CATEGORY_UID,
     category_name: 'Application Activity',
     class_uid: CLASS_UID,

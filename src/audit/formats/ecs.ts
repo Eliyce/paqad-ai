@@ -15,6 +15,8 @@ export const ECS_VERSION = '8.11.0';
 function labels(event: SiemEvent): Record<string, string> {
   return {
     paqad_kind: event.kind,
+    ...(event.doc_type !== undefined ? { paqad_doc_type: event.doc_type } : {}),
+    ...(event.session_id !== undefined ? { paqad_session_id: event.session_id } : {}),
     ...(event.engine !== undefined ? { paqad_engine: event.engine } : {}),
     paqad_verdict: event.verdict,
     ...(event.strength_class !== undefined ? { paqad_strength_class: event.strength_class } : {}),

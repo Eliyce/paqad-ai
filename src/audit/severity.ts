@@ -78,6 +78,12 @@ export function eventMessage(event: SiemEvent): string {
     const seal = event.sealed ? 'sealed' : 'BROKEN-chain';
     return `receipt ${event.verdict} (${seal}, ${event.signing_mode ?? 'unsigned'})`;
   }
+  if (event.kind === 'session') {
+    const source = event.doc_type ?? event.code;
+    return event.detail !== undefined
+      ? `${source}: ${event.detail}`
+      : `${source}: ${event.verdict}`;
+  }
   const engine = event.engine ? `${event.engine} ` : '';
   const grade = event.strength_class ? ` [${event.strength_class}]` : '';
   return `${engine}${event.code}: ${event.verdict}${grade}`;

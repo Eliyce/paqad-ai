@@ -12,6 +12,12 @@ import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
 import { readEvidenceLedger } from '@/evidence/ledger.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
 import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
+import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
+import { DECISION_EVIDENCE_DOC_TYPE } from '@/planning/decision-ledger.js';
+import { RULE_EVIDENCE_DOC_TYPE } from '@/rule-scripts/rule-ledger.js';
+import { readAllSessionRows, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { DISABLED_SESSION_DOC_TYPE } from '@/session-ledger/disabled-audit.js';
+import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import type { SiemAuthorship, SiemEvent } from './types.js';
 
@@ -90,12 +96,89 @@ function summarizeReceipt(result: 'PASSED' | 'FAILED', sealed: boolean): string 
   return `verification ${result}; chain ${sealed ? 'sealed' : 'BROKEN'}`;
 }
 
+// ── #249 session-ledger fold ──────────────────────────────────────────────────
+// The always-on session-ledger carries the governance feed the dashboard reads
+// (decision lifecycle, delivery detection, rule compliance, stage evidence, plus
+// the disabled-session audit). Union it into the SIEM stream so an external SOC
+// sees the same evidence — not just the enterprise-gated #118 ledger. These doc
+// types are the same five the dashboard collectors consume after the F6 cutover.
+const SESSION_LEDGER_DOC_TYPES = [
+  DECISION_EVIDENCE_DOC_TYPE,
+  DELIVERY_EVIDENCE_DOC_TYPE,
+  RULE_EVIDENCE_DOC_TYPE,
+  STAGE_EVIDENCE_DOC_TYPE,
+  DISABLED_SESSION_DOC_TYPE,
+] as const;
+
+/**
+ * Grade a session-ledger row into the SIEM verdict vocabulary the formatters
+ * already understand. A blocking/failed row is a finding a SOC wants surfaced
+ * (graded severity); a lifecycle event (opened/resolved/detected/disabled) is
+ * informational provenance and falls through to its `kind` (Unknown severity).
+ */
+function sessionVerdict(row: SessionLedgerRow): string {
+  if (row.doc_type === DISABLED_SESSION_DOC_TYPE) return 'disabled';
+  if (row.blocking === true || row.blocked === true) return 'blocked';
+  if (row.event_status === 'failed') return 'fail';
+  if (row.event_status === 'completed') return 'pass';
+  if (typeof row.event_status === 'string') return row.event_status;
+  return typeof row.kind === 'string' ? row.kind : 'recorded';
+}
+
+/** A short, redactable human summary of a session-ledger row, per doc type. */
+function sessionDetail(row: SessionLedgerRow): string {
+  const kind = typeof row.kind === 'string' ? row.kind : 'record';
+  switch (row.doc_type) {
+    case DECISION_EVIDENCE_DOC_TYPE:
+      return typeof row.decision_id === 'string' ? `${kind} ${row.decision_id}` : kind;
+    case DELIVERY_EVIDENCE_DOC_TYPE: {
+      const host = (row.detected as { host?: { value?: string } } | undefined)?.host?.value;
+      return host !== undefined ? `detected host=${host}` : kind;
+    }
+    case RULE_EVIDENCE_DOC_TYPE:
+      if (kind === 'drift') return `drift ${row.blocked === true ? 'blocked' : 'clean'}`;
+      if (kind === 'findings') return `findings ${row.blocking === true ? 'blocking' : 'clean'}`;
+      return kind;
+    case STAGE_EVIDENCE_DOC_TYPE:
+      return typeof row.stage === 'string' ? `${kind} stage=${row.stage}` : kind;
+    case DISABLED_SESSION_DOC_TYPE:
+      return typeof row.reason === 'string' ? `disabled (${row.reason})` : 'disabled';
+    default:
+      return kind;
+  }
+}
+
+/** Project one session-ledger row into a `session` SiemEvent. */
+function sessionEvent(row: SessionLedgerRow): SiemEvent {
+  return {
+    kind: 'session',
+    ts: row.ts,
+    code: row.doc_type,
+    doc_type: row.doc_type,
+    session_id: row.session_id,
+    verdict: sessionVerdict(row),
+    content_hash: row.content_hash,
+    detail: sessionDetail(row),
+  };
+}
+
+/** Every session-ledger row across the folded doc types → one `session` event each. */
+function sessionLedgerEvents(projectRoot: string): SiemEvent[] {
+  return SESSION_LEDGER_DOC_TYPES.flatMap((docType) =>
+    readAllSessionRows(projectRoot, docType).map(sessionEvent),
+  );
+}
+
 /**
  * Read the ledger and the receipt chain and merge them into one chronological
  * stream (oldest first), so a SIEM ingests events in the order they occurred.
  * Events with an unparseable/empty `ts` sort to the front deterministically.
  */
 export function aggregateSiemEvents(projectRoot: string): SiemEvent[] {
-  const events = [...evidenceEvents(projectRoot), ...attestationEvents(projectRoot)];
+  const events = [
+    ...evidenceEvents(projectRoot),
+    ...attestationEvents(projectRoot),
+    ...sessionLedgerEvents(projectRoot),
+  ];
   return events.sort((a, b) => a.ts.localeCompare(b.ts));
 }
