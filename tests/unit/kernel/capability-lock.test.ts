@@ -8,8 +8,10 @@ import {
   capabilityLockPath,
   readCapabilityDigest,
   readCapabilityLock,
+  readCapabilityVersions,
   writeCapabilityDigest,
 } from '@/kernel/capability-lock.js';
+import { getCapability } from '@/kernel/registry.js';
 
 // Buildout F5 — the engine-owned integrity lock. Read is null-safe; write merges
 // so one capability's blessing never clobbers another's.
@@ -71,5 +73,39 @@ describe('capability-lock', () => {
     writeCapabilityDigest(root, 'rule-scripts', 'old');
     writeCapabilityDigest(root, 'rule-scripts', 'new');
     expect(readCapabilityDigest(root, 'rule-scripts')).toBe('new');
+  });
+
+  // Buildout F7 — the bless stamps the install's current schema versions.
+  it('stamps the registry version vector at bless time', () => {
+    const root = tempRoot();
+    writeCapabilityDigest(root, 'rule-scripts', 'abc');
+    const descriptor = getCapability('rule-scripts');
+    expect(readCapabilityVersions(root, 'rule-scripts')).toEqual({
+      policy: descriptor.policySchemaVersion,
+      record: descriptor.recordSchemaVersion,
+    });
+  });
+
+  it('reads null versions for a capability not in the registry', () => {
+    const root = tempRoot();
+    writeCapabilityDigest(root, 'not-a-real-capability', 'abc');
+    expect(readCapabilityDigest(root, 'not-a-real-capability')).toBe('abc');
+    expect(readCapabilityVersions(root, 'not-a-real-capability')).toBeNull();
+  });
+
+  it('reads null versions from a pre-F7 lock that only has a digest', () => {
+    const root = tempRoot();
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      capabilityLockPath(root),
+      JSON.stringify({
+        schema_version: 1,
+        generated_at: '2026-01-01T00:00:00.000Z',
+        capabilities: { 'rule-scripts': { digest: 'legacy' } },
+      }),
+      'utf8',
+    );
+    expect(readCapabilityDigest(root, 'rule-scripts')).toBe('legacy');
+    expect(readCapabilityVersions(root, 'rule-scripts')).toBeNull();
   });
 });

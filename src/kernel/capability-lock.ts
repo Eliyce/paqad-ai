@@ -21,12 +21,25 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
+import { CAPABILITY_REGISTRY } from './registry.js';
+
 export const CAPABILITY_LOCK_SCHEMA_VERSION = 1 as const;
 
 /** One capability's blessed-state record. */
 export interface CapabilityLockEntry {
   /** Hex digest of the capability's blessed on-disk state. */
   digest: string;
+  /** The capability's policy-schema version at bless time (F7 version vector).
+   *  Absent on pre-F7 locks — treated as "unversioned" by the compat check. */
+  policy_version?: number;
+  /** The capability's record-schema version at bless time (F7 version vector). */
+  record_version?: number;
+}
+
+/** The per-capability schema versions recorded in the lock. */
+export interface CapabilityVersions {
+  policy: number;
+  record: number;
 }
 
 export interface CapabilityLock {
@@ -62,10 +75,34 @@ export function readCapabilityDigest(projectRoot: string, capabilityId: string):
 }
 
 /**
+ * The per-capability schema versions blessed into the lock, or null when none were
+ * recorded (a pre-F7 lock, or a capability the engine never blessed). The compat
+ * check (F7) compares these against the install's registry versions.
+ */
+export function readCapabilityVersions(
+  projectRoot: string,
+  capabilityId: string,
+): CapabilityVersions | null {
+  const entry = readCapabilityLock(projectRoot)?.capabilities?.[capabilityId];
+  if (
+    !entry ||
+    typeof entry.policy_version !== 'number' ||
+    typeof entry.record_version !== 'number'
+  ) {
+    return null;
+  }
+  return { policy: entry.policy_version, record: entry.record_version };
+}
+
+/**
  * Record one capability's blessed digest, MERGING into the existing lock so other
  * capabilities' entries are preserved (and forward-compat fields a newer engine
  * wrote are not clobbered). Engine-only — called from a capability's single-writer
  * path, never from the enforcement seam.
+ *
+ * Buildout F7: the blessing also stamps the capability's CURRENT schema versions
+ * from the install's registry (the version vector). The compat check later reads
+ * these back to detect an old install meeting a project blessed by a newer one.
  */
 export function writeCapabilityDigest(
   projectRoot: string,
@@ -74,12 +111,19 @@ export function writeCapabilityDigest(
   now: Date = new Date(),
 ): void {
   const existing = readCapabilityLock(projectRoot);
+  const descriptor = CAPABILITY_REGISTRY.find((capability) => capability.id === capabilityId);
+  const versions = descriptor
+    ? {
+        policy_version: descriptor.policySchemaVersion,
+        record_version: descriptor.recordSchemaVersion,
+      }
+    : {};
   const lock: CapabilityLock = {
     schema_version: CAPABILITY_LOCK_SCHEMA_VERSION,
     generated_at: now.toISOString(),
     capabilities: {
       ...(existing?.capabilities ?? {}),
-      [capabilityId]: { ...(existing?.capabilities?.[capabilityId] ?? {}), digest },
+      [capabilityId]: { ...(existing?.capabilities?.[capabilityId] ?? {}), digest, ...versions },
     },
   };
   const path = capabilityLockPath(projectRoot);
