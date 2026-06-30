@@ -4,13 +4,8 @@
 // to derive a band + the exact prompt the user should type next. `unknown`
 // until `analyze rules` has produced a map (onboarding plants the prompt).
 
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import { PATHS } from '@/core/constants/paths.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
-import type { RuleScriptDriftReport } from '@/rule-scripts/reconciler.js';
-import type { RunReport } from '@/rule-scripts/runner.js';
+import { readLatestRuleDrift, readLatestRuleFindings } from '@/rule-scripts/rule-ledger.js';
 
 import type { AttentionItem, SectionData } from '../types.js';
 
@@ -19,17 +14,6 @@ const HELPER = {
   goodLooksLike:
     'Every verifiable rule covered by a passing script, no drift, findings report fresh.',
 } as const;
-
-function readJson<T>(path: string): T | null {
-  if (!existsSync(path)) {
-    return null;
-  }
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as T;
-  } catch {
-    return null;
-  }
-}
 
 export function collectRuleCompliance(projectRoot: string): {
   section: SectionData;
@@ -68,11 +52,14 @@ export function collectRuleCompliance(projectRoot: string): {
   const covered = verifiable.filter((r) => r.scripts.length > 0).length;
   const uncovered = verifiable.length - covered;
 
-  const drift = readJson<RuleScriptDriftReport>(join(projectRoot, PATHS.RULE_SCRIPTS_DRIFT));
-  const report = readJson<RunReport>(join(projectRoot, PATHS.RULE_SCRIPTS_REPORT));
+  // Buildout F6 (hard cutover, D1) — read compliance evidence from the
+  // session-ledger, not the engine cache files. report.json / drift.json remain
+  // the engine's own caches; the dashboard + SIEM read the folded rows.
+  const drift = readLatestRuleDrift(projectRoot);
+  const findings = readLatestRuleFindings(projectRoot);
 
   const driftBlocking = drift?.blocked ?? false;
-  const deterministicFindings = report?.counts.deterministic ?? 0;
+  const deterministicFindings = findings?.counts.deterministic ?? 0;
 
   // Band: red on blocking drift or deterministic findings; amber on uncovered
   // verifiable rules; green when everything is covered and clean.

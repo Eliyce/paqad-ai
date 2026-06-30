@@ -16,6 +16,14 @@
   shared kernel seam; replaces the retired single-purpose
   `rule-script-enforce.mjs`).
 - `src/adapters/claude/claude-adapter.ts` — registers the hook.
+- `src/rule-scripts/rule-ledger.ts` — rule-compliance evidence on the
+  session-ledger (buildout F6, decision D1 hard cutover). The runner records a
+  `findings` row (mirrors `report.json`'s counts) and the reconciler a `drift` row
+  (mirrors `drift.json`'s `blocked` + counts) to a project-scoped `rule-evidence`
+  doc; the dashboard `collectRuleCompliance` reads them from the ledger, not the
+  cache files. The `report.json` / `drift.json` caches STAY (the engine reads them
+  for cache validity); the ledger is the evidence read for the dashboard + SIEM.
+  Shared substrate helper: `src/session-ledger/project-ledger.ts`.
 
 ## Entry Points
 

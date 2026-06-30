@@ -12,28 +12,12 @@
 // delivery-policy loader overlays and the documentation workflow reports — both
 // are written together by `writeDetection`, so they never drift.
 
-import {
-  appendSessionEvent,
-  currentOrdinal,
-  openSessionDoc,
-  readSessionDoc,
-} from '@/session-ledger/ledger.js';
+import { readLatestProjectEvent, recordProjectEvent } from '@/session-ledger/project-ledger.js';
 
 import type { DetectedDelivery } from './detection.js';
 
 export const DELIVERY_EVIDENCE_DOC_TYPE = 'delivery-evidence';
-export const DELIVERY_EVIDENCE_SCHEMA_VERSION = 1 as const;
-/** Project sentinel — delivery detection is project-scoped, not session-scoped. */
-const PROJECT_SESSION = '_project';
-
-/** The session's single delivery-evidence unit, opening it on first record. */
-function ensureUnit(projectRoot: string): number {
-  const current = currentOrdinal(projectRoot, DELIVERY_EVIDENCE_DOC_TYPE, PROJECT_SESSION);
-  if (current > 0) {
-    return current;
-  }
-  return openSessionDoc(projectRoot, DELIVERY_EVIDENCE_DOC_TYPE, PROJECT_SESSION, {}).ordinal;
-}
+export const DELIVERY_EVIDENCE_SCHEMA_VERSION = 1;
 
 /**
  * Append the detected delivery conventions as a `delivery-evidence` row. Appended
@@ -41,29 +25,20 @@ function ensureUnit(projectRoot: string): number {
  * the current state. Best-effort — recording evidence must never break detection.
  */
 export function recordDeliveryEvidence(projectRoot: string, detected: DetectedDelivery): void {
-  try {
-    const ordinal = ensureUnit(projectRoot);
-    appendSessionEvent(
-      projectRoot,
-      DELIVERY_EVIDENCE_DOC_TYPE,
-      PROJECT_SESSION,
-      ordinal,
-      { kind: 'detected', detected },
-      { schemaVersion: DELIVERY_EVIDENCE_SCHEMA_VERSION },
-    );
-  } catch {
-    // Best-effort evidence write; detection itself is unaffected.
-  }
+  recordProjectEvent(
+    projectRoot,
+    DELIVERY_EVIDENCE_DOC_TYPE,
+    { kind: 'detected', detected },
+    DELIVERY_EVIDENCE_SCHEMA_VERSION,
+  );
 }
 
 /** The current detected delivery conventions from the ledger, or null when none. */
 export function readLatestDeliveryEvidence(projectRoot: string): DetectedDelivery | null {
-  const rows = readSessionDoc(projectRoot, DELIVERY_EVIDENCE_DOC_TYPE, PROJECT_SESSION);
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const row = rows[i];
-    if (row.kind === 'detected' && row.detected) {
-      return row.detected as DetectedDelivery;
-    }
-  }
-  return null;
+  const row = readLatestProjectEvent(
+    projectRoot,
+    DELIVERY_EVIDENCE_DOC_TYPE,
+    (r) => r.kind === 'detected' && Boolean(r.detected),
+  );
+  return row ? (row.detected as DetectedDelivery) : null;
 }
