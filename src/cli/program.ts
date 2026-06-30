@@ -17,7 +17,6 @@ import { createModuleEventsCommand } from './commands/module-events.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
 import { createModuleMapCommand } from './commands/module-map.js';
 import { createOnboardCommand } from './commands/onboard.js';
-import { createPlanCommand } from './commands/plan.js';
 import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
 import { createRagCommand } from './commands/rag.js';
@@ -57,7 +56,6 @@ export function createProgram(): Command {
   program.addCommand(createRagEvidenceCommand());
   program.addCommand(createUpdateCommand());
   program.addCommand(createPatternsCommand());
-  program.addCommand(createPlanCommand());
   program.addCommand(createStatusCommand());
 
   return program;

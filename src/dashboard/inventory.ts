@@ -377,21 +377,6 @@ export function buildInventory(
       ),
     },
     {
-      key: 'plan-resume',
-      name: 'Plan execution and resume',
-      why: 'Long work survives interruptions.',
-      class: 'prompt',
-      managedBy: 'paqad',
-      area: 'automation',
-      route: '#/automation',
-      source: PATHS.ACTIVE_IMPLEMENTATION_SESSION,
-      state: presence(
-        existsSync(at(PATHS.ACTIVE_IMPLEMENTATION_SESSION)),
-        'A plan is in flight',
-        'No active plan',
-      ),
-    },
-    {
       key: 'specs',
       name: 'Spec authoring',
       why: 'Specs drive obligations and plans.',

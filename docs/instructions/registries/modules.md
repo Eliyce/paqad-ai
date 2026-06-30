@@ -24,7 +24,6 @@ paqad-ai's modules live in three layers:
 | cli-compliance      | Spec Compliance Commands                     | [↗](../../modules/cli-compliance/index/summary.md) | extract, check, review, skeleton, doctor, boundary, patterns |
 | cli-audit           | Trust Export Commands (audit + evidence)     | [↗](../../modules/cli-audit/index/summary.md) | audit export (OCSF/ECS/CEF/JSONL), evidence PR comment |
 | cli-module-map      | Module Map Inspection Commands               | [↗](../../modules/cli-module-map/index/summary.md) | module-map reconcile, module-decisions, module-events |
-| cli-plan            | Resumable Plan Command                       | [↗](../../modules/cli-plan/index/summary.md) | plan resume |
 | adapter-onboarding  | Adapter Onboarding (LLM platform entry files)| [↗](../../modules/adapter-onboarding/index/summary.md) | claude-code, codex-cli, antigravity, gemini-cli, junie, cursor, github-copilot, windsurf, continue, aider |
 
 ## Layer 2 — Agent Workflows (LLM-facing surface)

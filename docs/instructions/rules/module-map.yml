@@ -332,20 +332,6 @@ modules:
         name: module-events (list / since / for-module)
         sources: [src/cli/commands/module-events.ts]
 
-  - slug: cli-plan
-    name: Resumable Plan Command
-    layer: cli-commands
-    confidence: high
-    summary: |
-      Resume a structured planning manifest at the last incomplete slice.
-    sources:
-      - src/cli/commands/plan.ts
-      - src/cli/plan-resume.ts
-      - src/planning
-    features:
-      - slug: plan-resume
-        name: plan resume <slug>
-
   - slug: adapter-onboarding
     name: Adapter Onboarding (LLM platform entry files)
     layer: cli-commands

@@ -43,7 +43,9 @@ describe('buildInventory', () => {
     // decision-contract retired (#229): the dashboard editor was removed, so the
     // web class drops from 13 to 12.
     expect(byClass('web').length).toBe(12);
-    expect(byClass('prompt').length).toBe(5);
+    // plan-resume prompt item retired (F8): the slice-execution engine + `plan
+    // resume` CLI were deleted, so the prompt class drops from 5 to 4.
+    expect(byClass('prompt').length).toBe(4);
     expect(byClass('evidence').length).toBe(12);
     expect(byClass('operation').length).toBe(1);
 

@@ -3,7 +3,6 @@ export * from './confidence-scorer.js';
 export * from './context-budget-estimator.js';
 export * from './delta-detector.js';
 export * from './impact-resolver.js';
-export * from './lane-runner.js';
 export * from './llm-skip-evaluator.js';
 export * from './module-resolver.js';
 export * from './post-classifier.js';
