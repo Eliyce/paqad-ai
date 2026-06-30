@@ -21,7 +21,8 @@ import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 
 import { readCapabilityDigest } from './capability-lock.js';
-import type { CapabilityDescriptor, CapabilitySeam } from './registry.js';
+import { evaluateCapabilityCompat, isRefusedByCompat } from './compat.js';
+import { getCapability, type CapabilityDescriptor, type CapabilitySeam } from './registry.js';
 
 /** What a capability sees when it evaluates at a host seam. */
 export interface CapabilityContext {
@@ -131,6 +132,17 @@ function formatUnverifiedSummary(): string {
   );
 }
 
+/** Clean-refuse note (D2): this install predates the project's blessed schema, so it
+ *  declines to enforce rather than misread a newer format. Never blocks. */
+function formatCompatRefusalSummary(): string {
+  return (
+    `**▸ paqad** · scripted-rule enforcement paused — framework update pending\n` +
+    `> 🟡 Heads up — this project's rule-script bindings were blessed by a newer paqad than ` +
+    `the one installed here, so I'm holding off enforcing them rather than risk misreading a ` +
+    `newer format. The framework self-heals on update, then I'll resume. (advisory, not blocking)`
+  );
+}
+
 /**
  * The scripted-rule capability — the first contract folded into the kernel seam.
  * Wraps the already-shipped `enforceRuleScripts` (which itself fast-skips when the
@@ -148,6 +160,11 @@ const ruleScriptsCapability: Capability = {
     const mode = resolveRuleComplianceMode(projectRoot, env);
     if (mode === 'off') {
       return NO_OP;
+    }
+    // D2 (F7) — an install older than the schema the project was blessed under must
+    // refuse cleanly: do not enforce a format this engine may misread. Never blocks.
+    if (isRefusedByCompat(evaluateCapabilityCompat(projectRoot, getCapability('rule-scripts')))) {
+      return { ran: true, blocking: false, summary: formatCompatRefusalSummary() };
     }
     const integrity = verifyRuleScriptsIntegrity(projectRoot);
     if (integrity === 'tampered') {

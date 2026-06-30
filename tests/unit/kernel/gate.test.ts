@@ -194,4 +194,22 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toContain('Needs your attention');
     expect(result.summary).not.toContain('changed outside the engine');
   });
+
+  // Buildout F7 (decision D2) — an install older than the schema the project was
+  // blessed under refuses to enforce rather than misread it: clean, never blocking.
+  it('refuses cleanly (no block) when the project was blessed by a newer paqad', async () => {
+    const root = setup('strict', 'debugger;\n'); // a real violation that WOULD block at parity
+    // Simulate a project blessed by a newer install: bump the locked policy version
+    // above this install's registry version.
+    const lockPath = join(root, LOCK_REL);
+    const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as {
+      capabilities: Record<string, { policy_version: number }>;
+    };
+    lock.capabilities['rule-scripts'].policy_version += 1;
+    writeFileSync(lockPath, JSON.stringify(lock), 'utf8');
+
+    const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+    expect(result.block).toBe(false);
+    expect(result.summary).toContain('framework update pending');
+  });
 });
