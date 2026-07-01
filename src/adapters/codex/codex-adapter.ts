@@ -56,6 +56,7 @@ export class CodexCliAdapter extends BaseAdapter {
         projectRoot: context.projectRoot,
         settingsPath: CODEX_HOOKS_FILE,
         completionEvent: CODEX_COMPLETION_EVENT,
+        adapterType: this.type,
       }),
     ];
   }

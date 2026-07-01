@@ -56,6 +56,7 @@ export class GeminiCliAdapter extends BaseAdapter {
         projectRoot: context.projectRoot,
         settingsPath: GEMINI_SETTINGS_FILE,
         completionEvent: GEMINI_COMPLETION_EVENT,
+        adapterType: this.type,
       }),
     ];
   }

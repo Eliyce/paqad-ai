@@ -24,6 +24,11 @@ export interface MarkerParseInput {
    *  pure/fs-free so the dts bundle stays clean). */
   transcriptText?: string;
   sessionId?: string | null;
+  /** Provider whose completion hook is parsing (`claude-code`, `codex-cli`,
+   *  `gemini-cli`). Threaded onto every recorded row so a cross-provider ledger
+   *  attributes each stage to the host that ran it (issue #265). Absent → the
+   *  recorder defaults to `claude-code`, preserving the original Stop path. */
+  adapter?: string;
   now?: () => Date;
 }
 
@@ -114,7 +119,15 @@ export function parseAndRecordMarkers(input: MarkerParseInput): number {
     for (const { stage, phase } of markers) {
       const key = `${stage}:${phase}`;
       if (seen.has(key)) continue;
-      if (recordMarkedStage(input.projectRoot, { sessionId, stage, phase, now: input.now })) {
+      if (
+        recordMarkedStage(input.projectRoot, {
+          sessionId,
+          stage,
+          phase,
+          adapter: input.adapter,
+          now: input.now,
+        })
+      ) {
         seen.add(key);
         recorded += 1;
       }

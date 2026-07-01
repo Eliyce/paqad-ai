@@ -29,8 +29,18 @@ interface ParsedSettings {
   model?: string;
 }
 
-function render(projectRoot: string, settingsPath: string, completionEvent: string) {
-  const file = buildNativeCompletionHookFile({ projectRoot, settingsPath, completionEvent });
+function render(
+  projectRoot: string,
+  settingsPath: string,
+  completionEvent: string,
+  adapterType?: string,
+) {
+  const file = buildNativeCompletionHookFile({
+    projectRoot,
+    settingsPath,
+    completionEvent,
+    adapterType,
+  });
   return { file, json: JSON.parse(file.content) as ParsedSettings };
 }
 
@@ -130,5 +140,37 @@ describe('buildNativeCompletionHookFile', () => {
     expect(commands).not.toContain(`${PAQAD_RUNTIME_PREFIX}/hooks/verification-record.mjs`);
     expect(commands.filter((command) => command === completionRecordCommand())).toHaveLength(1);
     expect(commands.some((command) => command.includes('~'))).toBe(false);
+  });
+
+  it('carries the host adapter type as an argv on the record command (#265)', () => {
+    const root = tempProject();
+    const { json } = render(root, '.codex/hooks.json', 'Stop', 'codex-cli');
+    expect(json.hooks.Stop[0].hooks[0].command).toBe(completionRecordCommand('codex-cli'));
+    // The argv is appended after the quoted hook path, so the row attributes to Codex.
+    expect(json.hooks.Stop[0].hooks[0].command).toContain('verification-record.mjs" codex-cli');
+  });
+
+  it('cleanly cuts over the pre-#265 no-argv absolute form to the arg-carrying one', () => {
+    const root = tempProject();
+    // An earlier onboard wired the no-argv absolute `node "<abs>"` record command.
+    seedExisting(
+      root,
+      '.gemini/settings.json',
+      JSON.stringify({
+        hooks: {
+          AfterAgent: [{ hooks: [{ type: 'command', command: completionRecordCommand() }] }],
+        },
+      }),
+    );
+
+    const { json } = render(root, '.gemini/settings.json', 'AfterAgent', 'gemini-cli');
+    const commands = json.hooks.AfterAgent.flatMap((group) =>
+      group.hooks.map((hook) => hook.command),
+    );
+    // The no-argv form is gone; the arg-carrying command replaces it exactly once.
+    expect(commands).not.toContain(completionRecordCommand());
+    expect(
+      commands.filter((command) => command === completionRecordCommand('gemini-cli')),
+    ).toHaveLength(1);
   });
 });

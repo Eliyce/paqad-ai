@@ -180,6 +180,11 @@ export interface MarkedStageInput {
   stage: string;
   phase: MarkedStagePhase;
   artifactPaths?: string[];
+  /** Provider that emitted the marker (`claude-code`, `codex-cli`, `gemini-cli`).
+   *  Recorded verbatim on the row so a cross-provider ledger attributes each stage
+   *  to the host that actually ran it (issue #265). Defaults to `claude-code` for
+   *  the original Claude Stop path that predates the arg. */
+  adapter?: string;
   now?: () => Date;
 }
 
@@ -193,7 +198,11 @@ export interface MarkedStageInput {
  */
 export function recordMarkedStage(projectRoot: string, input: MarkedStageInput): boolean {
   if (!isKnownStage(input.stage)) return false;
-  const ctx = { sessionId: input.sessionId, adapter: 'claude-code' as const, now: input.now };
+  const ctx = {
+    sessionId: input.sessionId,
+    adapter: input.adapter ?? 'claude-code',
+    now: input.now,
+  };
   try {
     if (input.phase === 'start') {
       startStage(projectRoot, input.stage, ctx);

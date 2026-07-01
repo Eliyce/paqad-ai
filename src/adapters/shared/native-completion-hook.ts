@@ -2,15 +2,21 @@ import { readFileSync } from 'node:fs';
 import { join } from 'pathe';
 
 import type { GeneratedFile } from '../adapter.interface.js';
-import { completionRecordCommand, PAQAD_RUNTIME_PREFIX } from './paqad-hooks.js';
+import { completionRecordCommand } from './paqad-hooks.js';
 
-/** The retired bare-path invocation of the record hook (relied on a shebang +
- *  executable bit, which Windows ignores). Pruned from an existing host config on
- *  re-onboard so the cross-platform `node "<abs>"` command replaces it cleanly
- *  rather than sitting alongside it (issue #240). */
-const LEGACY_COMPLETION_COMMANDS = new Set([
-  `${PAQAD_RUNTIME_PREFIX}/hooks/verification-record.mjs`,
-]);
+/** The record hook's basename. Any prior form of its command — the Windows-broken
+ *  bare-path `~/.paqad-ai/...` invocation (issue #240) OR the earlier no-argv
+ *  absolute form that predates the per-host adapter argv (issue #265) — is pruned
+ *  from an existing host config on re-onboard, so the current
+ *  `node "<abs>" <adapter>` command replaces it cleanly rather than sitting
+ *  alongside it. A clean cutover, no migration. Matched by basename because the
+ *  argv change means the old command string is no longer an exact-string match. */
+const RECORD_HOOK_BASENAME = 'verification-record.mjs';
+
+/** True for any command that invokes the record hook, in any historical form. */
+function isRecordHookCommand(command: string): boolean {
+  return command.includes(RECORD_HOOK_BASENAME);
+}
 
 /**
  * Render paqad's verification-completion hook into a host's *native* hook
@@ -38,6 +44,11 @@ export interface NativeCompletionHookOptions {
   /** The host's native event that fires when the agent finishes a turn (Codex:
    *  `Stop`; Gemini: `AfterAgent`). Verified per host against its own docs. */
   completionEvent: string;
+  /** The host adapter type (`codex-cli`, `gemini-cli`), passed to the record hook
+   *  as an argv so the per-stage marker rows it writes are attributed to this host
+   *  (issue #265). Omitted → the bare record command (attribution defaults to
+   *  `claude-code`). */
+  adapterType?: string;
 }
 
 interface HookEntry {
@@ -53,8 +64,8 @@ interface HookMatcher {
 type HookEvents = Record<string, HookMatcher[]>;
 
 export function buildNativeCompletionHookFile(options: NativeCompletionHookOptions): GeneratedFile {
-  const { projectRoot, settingsPath, completionEvent } = options;
-  const command = completionRecordCommand();
+  const { projectRoot, settingsPath, completionEvent, adapterType } = options;
+  const command = completionRecordCommand(adapterType);
 
   const existing = readJsonObject(join(projectRoot, settingsPath));
   const hooks: HookEvents =
@@ -62,20 +73,20 @@ export function buildNativeCompletionHookFile(options: NativeCompletionHookOptio
       ? (existing.hooks as HookEvents)
       : {};
 
-  // Drop the retired bare-path command (Windows-broken) before merging, then
-  // remove any matcher group left empty by the prune — clean cutover, no migration.
+  // Drop any prior form of the record hook command (Windows-broken bare path, or
+  // the pre-#265 no-argv absolute form) before merging, then remove any matcher
+  // group left empty by the prune — clean cutover, no migration.
   const eventGroups = (Array.isArray(hooks[completionEvent]) ? hooks[completionEvent] : [])
     .map((group) => ({
       ...group,
-      hooks: (group?.hooks ?? []).filter((hook) => !LEGACY_COMPLETION_COMMANDS.has(hook.command)),
+      hooks: (group?.hooks ?? []).filter((hook) => !isRecordHookCommand(hook.command)),
     }))
     .filter((group) => group.hooks.length > 0);
-  const alreadyPresent = eventGroups.some((group) =>
-    group?.hooks?.some((hook) => hook.command === command),
-  );
-  const nextGroups = alreadyPresent
-    ? eventGroups
-    : [...eventGroups, { hooks: [{ type: 'command', command }] }];
+  // The prune removed every prior form of the record hook, so it is never present
+  // now — append the current command exactly once. Re-rendering prunes then
+  // re-adds, so it stays idempotent (one record hook) while a user's own hooks for
+  // the same event survive untouched.
+  const nextGroups = [...eventGroups, { hooks: [{ type: 'command', command }] }];
 
   const next = {
     ...existing,

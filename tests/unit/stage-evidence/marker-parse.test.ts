@@ -126,4 +126,44 @@ describe('parseAndRecordMarkers', () => {
     });
     expect(n).toBe(2);
   });
+
+  // Issue #265 — the recorded row is attributed to the host that ran, so a
+  // cross-provider ledger does not mislabel a Codex/Gemini stage as claude-code.
+  it('defaults row attribution to claude-code when no adapter is passed', () => {
+    parseAndRecordMarkers({
+      projectRoot: root,
+      transcriptText: msg('assistant', 'paqad:stage planning start'),
+      sessionId: SES,
+    });
+    expect(rows().every((r) => r.adapter === 'claude-code')).toBe(true);
+  });
+
+  it('records a Codex-shaped JSONL transcript, attributing rows to codex-cli', () => {
+    const transcript = [
+      msg('assistant', 'Planning.\npaqad:stage planning start'),
+      msg('assistant', 'Done.\npaqad:stage planning end'),
+    ].join('\n');
+    const n = parseAndRecordMarkers({
+      projectRoot: root,
+      transcriptText: transcript,
+      sessionId: SES,
+      adapter: 'codex-cli',
+    });
+    expect(n).toBe(2);
+    expect(rows().length).toBeGreaterThan(0);
+    expect(rows().every((r) => r.adapter === 'codex-cli')).toBe(true);
+  });
+
+  it('records a Gemini inline prompt_response (plain text), attributing rows to gemini-cli', () => {
+    // Gemini's transcript_path is stubbed empty; the record hook falls back to the
+    // inline final-message text, which the parser scans as raw text.
+    const n = parseAndRecordMarkers({
+      projectRoot: root,
+      transcriptText: 'Final answer.\npaqad:stage review start\npaqad:stage review end',
+      sessionId: SES,
+      adapter: 'gemini-cli',
+    });
+    expect(n).toBe(2);
+    expect(rows().every((r) => r.adapter === 'gemini-cli')).toBe(true);
+  });
 });
