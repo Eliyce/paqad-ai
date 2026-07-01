@@ -19,6 +19,10 @@ export default defineConfig({
     // runtime/hooks/stage-writer.mjs PreToolUse hook as a dedicated dist bundle,
     // the same pattern as kernel/gate, so the writer path stays light.
     'stage-evidence/live-writer': 'src/stage-evidence/live-writer.ts',
+    // Stage-entry narration (RCA Step 5a) — lazy-imported by the
+    // runtime/hooks/stage-writer.mjs PreToolUse hook to print the "▸ paqad · <stage>"
+    // line the first time a change enters a stage (Claude systemMessage channel).
+    'stage-evidence/narration': 'src/stage-evidence/narration.ts',
     // Stage-marker parser (RCA fix, Step 3) — lazy-imported by the
     // runtime/hooks/stage-marker-parse.mjs Stop hook to record the non-mutation
     // stage markers from the transcript.

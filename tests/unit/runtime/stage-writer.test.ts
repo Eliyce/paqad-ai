@@ -59,3 +59,42 @@ describe('runtime/hooks/stage-writer.mjs (non-blocking writer guards)', () => {
     expect(result.status).toBe(0);
   });
 });
+
+// Step 5a — the on-entry narration line. Needs the dist bundle the hook lazy-imports,
+// so it is gated on the build (CI builds before running the suite; a bare `vitest run`
+// without a build skips it). The narration LOGIC is covered src-side in
+// tests/unit/stage-evidence/narration.test.ts.
+const DIST_NARRATION = resolve(__dirname, '../../../dist/stage-evidence/narration.js');
+const hasDist = existsSync(DIST_NARRATION);
+
+describe.skipIf(!hasDist)('runtime/hooks/stage-writer.mjs — on-entry narration (Step 5a)', () => {
+  let projectRoot: string;
+  const SES = 'ses_narr_hook';
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-stage-writer-narr-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(projectRoot, { recursive: true, force: true }));
+
+  function edit(path: string) {
+    return run(projectRoot, {
+      session_id: SES,
+      tool_name: 'Edit',
+      tool_input: { file_path: join(projectRoot, path) },
+    });
+  }
+
+  it('prints "▸ paqad · <stage>" the first time a change enters a stage, exit 0', () => {
+    const result = edit('src/a.ts');
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('building it to the spec');
+    expect(result.stdout).toContain('systemMessage');
+  });
+
+  it('does not re-print within the same stage (idempotent)', () => {
+    edit('src/a.ts'); // records development + prints
+    const second = edit('src/b.ts'); // same stage → no new line
+    expect(second.status).toBe(0);
+    expect(second.stdout).not.toContain('building it to the spec');
+  });
+});

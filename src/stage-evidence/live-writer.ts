@@ -94,8 +94,10 @@ export interface LiveWriteInput {
   now?: () => Date;
 }
 
-/** The highest canonical index among stages already started in this change. */
-function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
+/** The highest canonical index among stages already started in this change. Exported
+ *  so the narration predicate (narration.ts) reuses the SAME entry decision the writer
+ *  makes, rather than re-deriving it and risking drift. */
+export function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
   let highest = -1;
   for (const row of rows) {
     if (row.kind === 'stage_start' && typeof row.stage === 'string') {
@@ -105,7 +107,9 @@ function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
   return highest;
 }
 
-function stagesWithKind(rows: readonly SessionLedgerRow[], kind: string): Set<string> {
+/** The set of stage ids that carry a row of `kind` in this change. Exported for the
+ *  narration predicate (see `highestStartedIndex`). */
+export function stagesWithKind(rows: readonly SessionLedgerRow[], kind: string): Set<string> {
   const set = new Set<string>();
   for (const row of rows) {
     if (row.kind === kind && typeof row.stage === 'string') set.add(row.stage);

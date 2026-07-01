@@ -31,15 +31,25 @@ async function main(input) {
     const toolInput = payload?.tool_input ?? {};
     const targetPath = toolInput.file_path ?? toolInput.notebook_path;
     if (!toolName || !targetPath) return 0;
+    const sessionId = payload?.session_id ?? null;
 
-    const distUrl = new URL('../../dist/stage-evidence/live-writer.js', import.meta.url);
-    const { recordLiveStageEdit } = await import(distUrl.href);
-    recordLiveStageEdit({
-      projectRoot,
-      sessionId: payload?.session_id ?? null,
-      toolName,
-      targetPath,
-    });
+    const liveUrl = new URL('../../dist/stage-evidence/live-writer.js', import.meta.url);
+    const narrationUrl = new URL('../../dist/stage-evidence/narration.js', import.meta.url);
+    const [{ recordLiveStageEdit }, { narrateStageEntry }] = await Promise.all([
+      import(liveUrl.href),
+      import(narrationUrl.href),
+    ]);
+
+    // On-entry narration (Step 5a): compute the "▸ paqad · <stage>" line BEFORE
+    // recording, so the first-entry check reads the pre-edit ledger state, then print
+    // it as a user-visible line via Claude's `systemMessage` hook channel. Null when
+    // this edit does not newly enter a stage (idempotent / out-of-order / non-source).
+    const line = narrateStageEntry({ projectRoot, sessionId, targetPath });
+    if (line) {
+      process.stdout.write(`${JSON.stringify({ systemMessage: line })}\n`);
+    }
+
+    recordLiveStageEdit({ projectRoot, sessionId, toolName, targetPath });
     return 0;
   } catch {
     // Soft-fail: a writer must never wedge the agent. The completion gate still
