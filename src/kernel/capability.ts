@@ -17,6 +17,7 @@
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
+import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
 import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
@@ -29,7 +30,12 @@ import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import { readCapabilityDigest } from './capability-lock.js';
 import { evaluateCapabilityCompat, isRefusedByCompat } from './compat.js';
-import { getCapability, type CapabilityDescriptor, type CapabilitySeam } from './registry.js';
+import {
+  getCapability,
+  type CapabilityDescriptor,
+  type CapabilityPayload,
+  type CapabilitySeam,
+} from './registry.js';
 
 /** What a capability sees when it evaluates at a host seam. */
 export interface CapabilityContext {
@@ -37,6 +43,9 @@ export interface CapabilityContext {
   /** The host lifecycle point being evaluated. */
   seam: CapabilitySeam;
   env: NodeJS.ProcessEnv;
+  /** The host tool/turn payload, when the seam parsed one from stdin. Most
+   *  capabilities ignore it; the decision-pause self-arm reads it. */
+  payload?: CapabilityPayload;
 }
 
 /** A capability's block/allow decision for one evaluation. */
@@ -275,6 +284,22 @@ const deliveryCapability: Capability = {
 };
 
 /**
+ * Decision-pause self-arm (RCA Step 5c) — the minter the Decision Pause Contract never
+ * had. At the pre-mutation seam, when opted in (OFF by default), it reads the recent
+ * prompt from the turn transcript and, on a high-confidence create-vs-reuse fork with no
+ * decision pending or already made, script-writes ONE pending packet so the existing
+ * decision-pause gate blocks the NEXT edit. It only MINTS — never blocks — so the
+ * current edit is never interrupted mid-flight. Behaviour lives in `runDecisionSelfArm`
+ * (transcript reader injected for tests); here it reads the real payload.
+ */
+const decisionPauseSelfArmCapability: Capability = {
+  id: 'decision-pause',
+  async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
+    return runDecisionSelfArm({ projectRoot, seam, env, payload });
+  },
+};
+
+/**
  * The capabilities CURRENTLY executing through the kernel seam, keyed by id. The
  * gate runs only descriptors present here; a registry row without an impl stays on
  * its legacy path until a later slice folds it in (and removes that path).
@@ -283,4 +308,5 @@ export const CAPABILITY_IMPLS: ReadonlyMap<CapabilityDescriptor['id'], Capabilit
   [ruleScriptsCapability.id, ruleScriptsCapability],
   [stagesCapability.id, stagesCapability],
   [deliveryCapability.id, deliveryCapability],
+  [decisionPauseSelfArmCapability.id, decisionPauseSelfArmCapability],
 ]);

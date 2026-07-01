@@ -25,6 +25,22 @@ export type EnforcementFloor = 'block' | 'warn' | 'observe' | 'unbindable';
  *  host (Claude Stop, Codex/Gemini completion). */
 export type CapabilitySeam = 'pre-mutation' | 'completion';
 
+/** The host tool/turn payload a capability may inspect, parsed from the hook's stdin
+ *  by the host seam (`capability-gate.mjs`). All fields optional: most capabilities
+ *  ignore it (they scan the working tree / ledger), and a payload-less invocation is
+ *  valid. Used by the decision-pause self-arm, which needs the pending edit's target
+ *  and the transcript to read the recent prompt. */
+export interface CapabilityPayload {
+  /** The mutating tool name (Edit/Write/NotebookEdit). */
+  toolName?: string;
+  /** The file the pending edit targets. */
+  targetPath?: string;
+  /** Absolute path to the turn transcript (JSONL), when the host provides one. */
+  transcriptPath?: string;
+  /** The host session id, when provided. */
+  sessionId?: string;
+}
+
 export interface CapabilityDescriptor {
   /** Stable id — NEVER renamed (an alias map handles a rename; a bare rename
    *  orphans the project's lock + config and resets the team's value). */

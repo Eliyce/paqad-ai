@@ -15,12 +15,15 @@
 // "could not run", never a false "all clear").
 
 import { CAPABILITY_IMPLS, type CapabilityOutcome } from './capability.js';
-import { capabilitiesForSeam, type CapabilitySeam } from './registry.js';
+import { capabilitiesForSeam, type CapabilityPayload, type CapabilitySeam } from './registry.js';
 
 export interface CapabilityGateInput {
   projectRoot: string;
   seam: CapabilitySeam;
   env?: NodeJS.ProcessEnv;
+  /** The host tool/turn payload (parsed from stdin by the seam). Passed through to
+   *  each capability; most ignore it. Optional so a payload-less call is valid. */
+  payload?: CapabilityPayload;
 }
 
 export interface CapabilityGateResult {
@@ -37,14 +40,14 @@ export interface CapabilityGateResult {
  * skipped (they still bind through their legacy path until folded in here).
  */
 export async function runCapabilityGate(input: CapabilityGateInput): Promise<CapabilityGateResult> {
-  const { projectRoot, seam, env = process.env } = input;
+  const { projectRoot, seam, env = process.env, payload } = input;
   const outcomes: CapabilityOutcome[] = [];
   for (const descriptor of capabilitiesForSeam(seam)) {
     const capability = CAPABILITY_IMPLS.get(descriptor.id);
     if (!capability) {
       continue;
     }
-    const outcome = await capability.evaluate({ projectRoot, seam, env });
+    const outcome = await capability.evaluate({ projectRoot, seam, env, payload });
     if (outcome.ran && outcome.summary) {
       outcomes.push(outcome);
     }

@@ -68,7 +68,29 @@ function seamHasWork(projectRoot) {
   return mode !== 'off';
 }
 
-async function main() {
+/**
+ * Parse the host PreToolUse/Stop stdin payload into the kernel `CapabilityPayload`
+ * (tool name, edit target, transcript path, session id). Best-effort: a missing or
+ * malformed payload yields `undefined`, and every capability treats that as "no
+ * payload" — only the decision-pause self-arm reads it. Never throws.
+ */
+function parsePayload(input) {
+  try {
+    const payload = JSON.parse(input);
+    const toolInput = payload?.tool_input ?? {};
+    return {
+      toolName: payload?.tool_name,
+      targetPath: toolInput.file_path ?? toolInput.notebook_path,
+      transcriptPath: payload?.transcript_path,
+      sessionId: payload?.session_id,
+    };
+  } catch {
+    /* v8 ignore next 2 */
+    return undefined;
+  }
+}
+
+async function main(input) {
   try {
     const projectRoot = resolveProjectRoot();
     if (isPaqadDisabled(projectRoot)) return 0;
@@ -80,7 +102,7 @@ async function main() {
     const distUrl = new URL('../../dist/kernel/gate.js', import.meta.url);
     const { runCapabilityGate } = await import(distUrl.href);
 
-    const result = await runCapabilityGate({ projectRoot, seam: SEAM });
+    const result = await runCapabilityGate({ projectRoot, seam: SEAM, payload: parsePayload(input) });
     if (result.block) {
       process.stderr.write(`${result.summary}\n`);
       return 2;
@@ -96,13 +118,13 @@ async function main() {
   }
 }
 
-// Drain stdin (the host pipes a tool/Stop payload we do not need) then enforce.
+// Drain stdin (the host pipes the tool/Stop payload) then enforce. The payload is
+// parsed lazily inside main() and only the decision-pause self-arm reads it.
 let input = '';
 process.stdin.on('data', (chunk) => {
   input += chunk;
 });
 process.stdin.on('end', () => {
-  void input;
-  main().then((code) => process.exit(code));
+  main(input).then((code) => process.exit(code));
 });
 process.stdin.resume();
