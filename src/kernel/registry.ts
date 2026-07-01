@@ -58,7 +58,10 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freez
     title: 'Feature-development stages',
     modeKey: 'stages_mode',
     enforcementFloor: 'block',
-    seam: ['completion'],
+    // Block-forward runs at pre-mutation (refuse an edit until the prior stages are
+    // recorded, RCA fix B); the completion seam stays the finalize/verify path. The
+    // impl no-ops at completion so the two never double-fire.
+    seam: ['pre-mutation', 'completion'],
     ledgerDocType: 'stage-evidence',
     policySchemaVersion: 1,
     recordSchemaVersion: 1,

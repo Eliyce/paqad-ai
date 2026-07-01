@@ -87,6 +87,16 @@ export function completionRecordCommand(env: NodeJS.ProcessEnv = process.env): s
  */
 export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
   {
+    id: 'stage-writer',
+    event: 'pre-tool-mutation',
+    hookFile: 'stage-writer.mjs',
+    mutatingToolMatcher: PAQAD_MUTATING_TOOL_MATCHER,
+    // A non-blocking WRITER, not a gate. Ordered first so a live-mark stage row
+    // exists on disk before the decision-pause / capability gates read the change
+    // (RCA fix A — gives the stage-evidence recorder its production caller).
+    description: 'Script-mint per-stage live-mark rows on every mutating edit (RCA fix A).',
+  },
+  {
     id: 'decision-pause-gate',
     event: 'pre-tool-mutation',
     hookFile: 'decision-pause-gate.mjs',

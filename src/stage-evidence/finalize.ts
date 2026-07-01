@@ -21,7 +21,7 @@ import {
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 
-import { openStageEvidence } from './recorder.js';
+import { endStage, openStageEvidence } from './recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { validateStageEvidenceRow } from './schema.js';
 import { STAGE_EVIDENCE_DOC_TYPE, STAGE_EVIDENCE_SCHEMA_VERSION } from './types.js';
@@ -60,6 +60,11 @@ export function finalizeStageEvidence(
       if (existing.some((row) => row.kind === 'verify')) {
         return null;
       }
+      // Turn-boundary end (fix A partner): the PreToolUse live writer leaves the
+      // last started stage open — there is no "last edit" signal pre-mutation. End
+      // any still-open live-mark stage_start now, stamping ended_at from the
+      // completion clock, so no started stage lacks an end time (R5) before folding.
+      endDanglingLiveStages(projectRoot, sessionId, ordinal, existing, input);
     }
 
     if (ordinal === 0) {
@@ -104,5 +109,44 @@ export function finalizeStageEvidence(
   } catch {
     // Best-effort: never let stage-evidence finalization break verification.
     return null;
+  }
+}
+
+/**
+ * End every live-mark stage that was started but not ended this change (the
+ * PreToolUse writer's last open stage), stamping ended_at from the completion
+ * clock. Best-effort per stage — a recorder error never breaks finalization.
+ */
+function endDanglingLiveStages(
+  projectRoot: string,
+  sessionId: string,
+  ordinal: number,
+  rows: readonly SessionLedgerRow[],
+  input: FinalizeStageEvidenceInput,
+): void {
+  const started = new Set<string>();
+  const ended = new Set<string>();
+  for (const row of rows) {
+    if (typeof row.stage !== 'string') continue;
+    if (row.kind === 'stage_start' && row.evidence_source === 'live-mark') started.add(row.stage);
+    if (row.kind === 'stage_end') ended.add(row.stage);
+  }
+  for (const stage of started) {
+    if (ended.has(stage)) continue;
+    try {
+      endStage(
+        projectRoot,
+        stage,
+        {},
+        {
+          sessionId,
+          ordinal,
+          adapter: input.adapter,
+          now: input.now,
+        },
+      );
+    } catch {
+      /* best-effort: one stage failing to close never breaks the fold */
+    }
   }
 }

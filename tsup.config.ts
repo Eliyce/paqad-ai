@@ -15,6 +15,10 @@ export default defineConfig({
     // runtime/hooks/capability-gate.mjs host hook as a dist-built bundle, the
     // same dedicated-entry pattern the rule-scripts hook wrapper uses.
     'kernel/gate': 'src/kernel/gate.ts',
+    // Stage-evidence live writer (RCA fix A) — lazy-imported by the
+    // runtime/hooks/stage-writer.mjs PreToolUse hook as a dedicated dist bundle,
+    // the same pattern as kernel/gate, so the writer path stays light.
+    'stage-evidence/live-writer': 'src/stage-evidence/live-writer.ts',
     // Disabled-session audit recorder (buildout F2b) — lazy-imported by
     // verify-backstop.mjs's disabled branch as a small dist bundle, so the
     // disabled path stays light (no full dist/index.js load).

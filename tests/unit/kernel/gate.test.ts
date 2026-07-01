@@ -80,7 +80,9 @@ function setup(mode: 'off' | 'warn' | 'strict', targetBody: string): string {
     event: { action: 'generate', rule_ids: [ruleId] },
   });
   // The team-tracked floor sets the mode (the C2 clamp); no local override raises it.
-  write(join(root, '.paqad/configs/.config.policy'), `rule_compliance=${mode}\n`);
+  // stages_mode=off isolates these rule-scripts tests from the block-forward stages
+  // capability (also pre-mutation, default strict) — stage-evidence has its own suite.
+  write(join(root, '.paqad/configs/.config.policy'), `rule_compliance=${mode}\nstages_mode=off\n`);
   write(join(root, 'src/app.ts'), targetBody);
   return root;
 }
@@ -138,6 +140,9 @@ describe('runCapabilityGate', () => {
   it('is a clean no-op when the project has no rule-script map', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-kernel-gate-nomap-'));
     roots.push(root);
+    // Isolate rule-scripts: without stages_mode=off the block-forward gate would
+    // fire (no ledger → missing planning) on this bare project.
+    write(join(root, '.paqad/configs/.config.policy'), 'stages_mode=off\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');

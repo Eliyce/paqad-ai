@@ -77,8 +77,16 @@ export async function runVerificationBackstop({
       origin,
       hostSessionId: hostSessionId ?? null,
     });
-    out.write(`${verdict.summary}\n`);
-    return verdict.ok ? 0 : 2;
+    if (verdict.ok) {
+      out.write(`${verdict.summary}\n`);
+      return 0;
+    }
+    // Stop-hook contract: on a block (exit 2) the host surfaces only STDERR to
+    // the model — STDOUT is transcript-only. Writing the verdict to stdout made
+    // the block invisible ("No stderr output"). Mirror capability-gate.mjs so the
+    // failing verdict summary reaches the model. Exit code (2) is unchanged.
+    err.write(`${verdict.summary}\n`);
+    return 2;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     err.write(`[paqad] verification backstop could not run: ${message}\n`);

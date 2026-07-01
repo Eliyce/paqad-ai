@@ -50,6 +50,7 @@ describe('CAPABILITY_REGISTRY (buildout F3 — the unifying data model)', () => 
     const pre = capabilitiesForSeam('pre-mutation').map((c) => c.id);
     expect(pre).toContain('rule-scripts');
     expect(pre).toContain('decision-pause');
+    expect(pre).toContain('stages'); // block-forward runs pre-mutation (RCA fix B)
     expect(pre).not.toContain('narration');
 
     const completion = capabilitiesForSeam('completion').map((c) => c.id);

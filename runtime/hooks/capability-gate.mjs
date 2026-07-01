@@ -29,6 +29,7 @@ import { isPaqadDisabled, readFlooredMode, resolveProjectRoot } from './lib/paqa
 // Mirrors PATHS.RULE_SCRIPT_MAP — kept in sync by hand (runtime mjs has no dist).
 const RULE_SCRIPT_MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
 const RULE_COMPLIANCE_MODES = ['off', 'warn', 'strict'];
+const STAGES_MODES = ['off', 'warn', 'strict'];
 
 // The host seam this invocation evaluates. Defaults to pre-mutation; the adapter
 // wires `completion` explicitly on the Stop seam.
@@ -36,11 +37,24 @@ const SEAM = process.argv[2] === 'completion' ? 'completion' : 'pre-mutation';
 
 /**
  * Cheap, dist-less check for whether this seam has any kernel work to do, so the
- * common edit pays no dist-import cost. Today the only kernel-bound capability is
- * rule-scripts: it has work only when a rule-script map exists AND rule_compliance
- * is not floored to off (the team value is a floor; local/env may only RAISE).
+ * common edit pays no dist-import cost. Two kernel-bound capabilities today:
+ *   - stages (RCA fix B) — block-forward runs on EVERY enabled project by default
+ *     (stages_mode defaults to strict), independent of any rule-script map, so the
+ *     executor must load whenever stages is not floored off.
+ *   - rule-scripts — has work only when a rule-script map exists AND rule_compliance
+ *     is not floored to off (the team value is a floor; local/env may only RAISE).
  */
 function seamHasWork(projectRoot) {
+  const stagesMode = readFlooredMode(
+    projectRoot,
+    'stages_mode',
+    'PAQAD_STAGES_MODE',
+    STAGES_MODES,
+    'strict',
+  );
+  if (stagesMode !== 'off') {
+    return true;
+  }
   if (!existsSync(join(projectRoot, RULE_SCRIPT_MAP_REL))) {
     return false;
   }
