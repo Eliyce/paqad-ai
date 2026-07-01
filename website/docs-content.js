@@ -1285,7 +1285,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'AI Agent Adapters' },
       {
         type: 'p',
-        text: "An adapter is the bridge between paqad-ai's shared documentation bundle and a specific AI coding tool. paqad-ai supports ten adapters, each of which writes the entry file(s) that the tool looks for when it opens your project.",
+        text: "An adapter is the bridge between paqad-ai's shared documentation bundle and a specific AI coding tool. paqad-ai supports eleven adapters, each of which writes the entry file(s) that the tool looks for when it opens your project.",
       },
       { type: 'h2', id: 'how-adapters-work', text: 'How adapters work' },
       {
@@ -1307,6 +1307,7 @@ export const DOCS_PAGES = {
           ['antigravity', 'ANTIGRAVITY.md', '.antigravity/mcp.json', 'Hooks, cache, memory'],
           ['junie', '.junie/AGENTS.md', '.junie/mcp/mcp.json', ', '],
           ['aider', '.aider.conf.yml', ', ', 'Conventions only'],
+          ['aiassistant', '.aiassistant/rules/guidelines.md', ', ', 'Rules only'],
         ],
       },
       { type: 'h2', id: 'selecting-adapters', text: 'Selecting adapters' },

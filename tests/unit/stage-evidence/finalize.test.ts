@@ -83,6 +83,23 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     expect(result).toBeNull();
   });
 
+  it('AC-5: ends a live-mark stage the writer left open (turn-boundary end) and writes no inferred row', () => {
+    const sessionId = 'ses_dangling';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    // The PreToolUse writer started development but the turn ended before any later
+    // stage closed it — a dangling live-mark stage_start with no matching end.
+    startStage(root, 'development', { sessionId, ordinal, adapter: 'claude-code' });
+
+    finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const devEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'development');
+    expect(devEnd, 'the dangling stage should be closed at the turn boundary').toBeDefined();
+    expect(devEnd?.evidence_source).toBe('live-mark');
+    // Real live rows exist → the inferred-git backstop must NOT also fire (AC-4).
+    expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
+  });
+
   it('does not re-verify a change that already has a verify row (verify-once)', () => {
     const sessionId = 'ses_once';
     const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });

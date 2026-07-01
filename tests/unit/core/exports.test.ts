@@ -197,6 +197,7 @@ describe('core export surface', () => {
       'windsurf',
       'continue',
       'aider',
+      'aiassistant',
     ]);
     expect(HOOK_TRIGGERS).toContain('pre-compact');
     expect(HOOK_EXIT_CODES).toEqual({ ALLOW: 0, ERROR: 1, BLOCK: 2 });

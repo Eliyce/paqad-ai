@@ -1,5 +1,6 @@
 export * from './adapter.interface.js';
 export * from './shared/paqad-hooks.js';
+export * from './aiassistant/aiassistant-adapter.js';
 export * from './aider/aider-adapter.js';
 export * from './antigravity/antigravity-adapter.js';
 export * from './claude/claude-adapter.js';

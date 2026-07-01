@@ -88,7 +88,7 @@ The provenance is honestly graded:
 
 | Field | Source | Trust |
 | ----- | ------ | ----- |
-| `agent` | the onboarded adapter (one of the 10 `AdapterType` values) | a **known fact** from the manifest |
+| `agent` | the onboarded adapter (one of the 11 `AdapterType` values) | a **known fact** from the manifest |
 | `model` / `provider` / `model_id` | declared via env (`PAQAD_MODEL_ID` = `provider/model`, or `PAQAD_AGENT_MODEL` / `PAQAD_AGENT_PROVIDER`) | **declared**, not self-verified — an adapter knows it is "cursor" but Cursor routes to many models; `provenance: 'declared'` says so |
 | `accepting_human` | git identity (`user.name` / `user.email`) | the same name/email git already records; suppressible with `PAQAD_NO_HUMAN_ATTESTATION=1` |
 

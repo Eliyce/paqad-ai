@@ -15,6 +15,18 @@ export default defineConfig({
     // runtime/hooks/capability-gate.mjs host hook as a dist-built bundle, the
     // same dedicated-entry pattern the rule-scripts hook wrapper uses.
     'kernel/gate': 'src/kernel/gate.ts',
+    // Stage-evidence live writer (RCA fix A) — lazy-imported by the
+    // runtime/hooks/stage-writer.mjs PreToolUse hook as a dedicated dist bundle,
+    // the same pattern as kernel/gate, so the writer path stays light.
+    'stage-evidence/live-writer': 'src/stage-evidence/live-writer.ts',
+    // Stage-entry narration (RCA Step 5a) — lazy-imported by the
+    // runtime/hooks/stage-writer.mjs PreToolUse hook to print the "▸ paqad · <stage>"
+    // line the first time a change enters a stage (Claude systemMessage channel).
+    'stage-evidence/narration': 'src/stage-evidence/narration.ts',
+    // Stage-marker parser (RCA fix, Step 3) — lazy-imported by the
+    // runtime/hooks/stage-marker-parse.mjs Stop hook to record the non-mutation
+    // stage markers from the transcript.
+    'stage-evidence/marker-parse': 'src/stage-evidence/marker-parse.ts',
     // Disabled-session audit recorder (buildout F2b) — lazy-imported by
     // verify-backstop.mjs's disabled branch as a small dist bundle, so the
     // disabled path stays light (no full dist/index.js load).

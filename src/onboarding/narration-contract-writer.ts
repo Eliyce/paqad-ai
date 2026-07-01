@@ -84,6 +84,20 @@ Fixed, reserved meaning, never decoration. Always paired with a word:
 | --- | --- |
 ${glyphRows}
 
+## Marking feature-development stages
+
+When you run the feature-development workflow, record each stage as you enter and finish it, so the stage-evidence ledger proves the workflow actually ran (not just that you said it did). Stages that touch files are recorded for you automatically as you edit — \`development\` (a source edit), \`checks\` (a test edit), \`documentation_sync\` (a doc edit), \`specification\` (a spec/contract edit). The stages that produce no file change — **planning**, **specification** (when it is thinking, not a written spec), and **review** — you mark with a control line on its own line, in exactly this form:
+
+\`\`\`
+paqad:stage planning start
+… planning work …
+paqad:stage planning end
+\`\`\`
+
+Emit the \`start\` marker as you begin the stage and the \`end\` marker as you finish it (\`paqad:stage <stage> <start|end>\`). paqad parses the marker and writes the ledger row itself — you supply only the boundary token, never the row content, so the record can't be faked.
+
+**Code edits are gated on this.** Until \`planning\` and \`specification\` each carry a recorded start and end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage (the markers above, or run \`scripts/se-mark.ts start <stage>\` / \`end <stage>\` for an immediate mark that clears the block in the same turn) and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the \`▸ paqad\` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
+
 ## Plain-English translations
 
 Say the right-hand phrasing, never the internal term:

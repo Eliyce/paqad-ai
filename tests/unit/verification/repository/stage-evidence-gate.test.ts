@@ -19,11 +19,17 @@ function result(over: Partial<VerifyResult>): VerifyResult {
 }
 
 describe('stageEvidenceGate — mode-gated stage enforcement (buildout F4, RCA closure)', () => {
-  it('returns null when there is no code diff (only on code change)', () => {
-    expect(stageEvidenceGate(result({}), 'hook-completion', 0, 'strict')).toBeNull();
+  // N1 fix: the working-tree diff count no longer gates. A committed change has a
+  // clean tree (changedFileCount === 0) yet, if incomplete, must STILL fail —
+  // otherwise the gate vacuously passes the moment the agent commits. The
+  // empty-turn guard is a null result (from finalizeStageEvidence), not a zero diff.
+  it('N1: fails a committed (zero-diff) incomplete change instead of vacuously passing', () => {
+    const gate = stageEvidenceGate(result({}), 'hook-completion', 0, 'strict');
+    expect(gate?.status).toBe('fail');
+    expect(gate?.detail).toContain('review');
   });
 
-  it('returns null when there is no stage result', () => {
+  it('returns null when there is no stage result (genuine no-op / read-only turn)', () => {
     expect(stageEvidenceGate(null, 'hook-completion', 5, 'strict')).toBeNull();
   });
 

@@ -43,7 +43,11 @@ describe('runtime/hooks/capability-gate.mjs (gating fast-paths)', () => {
 
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-capgate-hook-'));
-    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+    // These assert the rule-scripts DIST-LESS fast-skip. The stages capability is
+    // also pre-mutation and default-strict, which would make seamHasWork true (and
+    // import dist), so float it off here — stages has its own suite.
+    writeFileSync(join(projectRoot, '.paqad/configs/.config.policy'), 'stages_mode=off\n');
   });
 
   afterEach(() => {
@@ -69,7 +73,10 @@ describe('runtime/hooks/capability-gate.mjs (gating fast-paths)', () => {
       mkdirSync(join(projectRoot, 'docs/instructions/rules'), { recursive: true });
       writeFileSync(join(projectRoot, MAP_REL), 'schema_version: 1\nrules: []\n');
       mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
-      writeFileSync(join(projectRoot, '.paqad/configs/.config.policy'), 'rule_compliance=off\n');
+      writeFileSync(
+        join(projectRoot, '.paqad/configs/.config.policy'),
+        'rule_compliance=off\nstages_mode=off\n',
+      );
       const result = run(projectRoot, seam);
       expect(result.status).toBe(0);
     });

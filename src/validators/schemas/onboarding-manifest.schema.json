@@ -15,7 +15,19 @@
     "framework_version": { "type": "string" },
     "adapter": {
       "type": "string",
-      "enum": ["claude-code", "codex-cli", "antigravity", "gemini-cli", "junie"]
+      "enum": [
+        "claude-code",
+        "codex-cli",
+        "antigravity",
+        "gemini-cli",
+        "junie",
+        "cursor",
+        "github-copilot",
+        "windsurf",
+        "continue",
+        "aider",
+        "aiassistant"
+      ]
     },
     "project_root": { "type": "string" },
     "profile": { "$ref": "project-profile" },

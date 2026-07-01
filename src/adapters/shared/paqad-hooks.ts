@@ -87,11 +87,30 @@ export function completionRecordCommand(env: NodeJS.ProcessEnv = process.env): s
  */
 export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
   {
+    id: 'stage-writer',
+    event: 'pre-tool-mutation',
+    hookFile: 'stage-writer.mjs',
+    mutatingToolMatcher: PAQAD_MUTATING_TOOL_MATCHER,
+    // A non-blocking WRITER, not a gate. Ordered first so a live-mark stage row
+    // exists on disk before the decision-pause / capability gates read the change
+    // (RCA fix A — gives the stage-evidence recorder its production caller).
+    description: 'Script-mint per-stage live-mark rows on every mutating edit (RCA fix A).',
+  },
+  {
     id: 'decision-pause-gate',
     event: 'pre-tool-mutation',
     hookFile: 'decision-pause-gate.mjs',
     mutatingToolMatcher: PAQAD_MUTATING_TOOL_MATCHER,
     description: 'Block mutating tools while a decision packet is unresolved (#117 C-3).',
+  },
+  {
+    id: 'stage-marker-parse',
+    event: 'completion',
+    hookFile: 'stage-marker-parse.mjs',
+    // Ordered before verification-completion so the non-mutation stage markers
+    // (planning/specification/review) are in the ledger when the completion
+    // backstop folds the change (RCA fix, Step 3). Non-blocking, best-effort.
+    description: 'Record the agent’s paqad:stage markers from the transcript on completion.',
   },
   {
     id: 'verification-completion',
@@ -119,7 +138,7 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
  *     turn end (claude-code only — the only PreToolUse-capable host).
  *   - `live-completion-only`: verifies at turn end; no in-turn pre-mutation block
  *     (codex-cli, gemini-cli).
- *   - `advisory`: no executed host hook; the entry-file contract only (the 7
+ *   - `advisory`: no executed host hook; the entry-file contract only (the 8
  *     remaining adapters). Stated plainly, never implied to bind.
  */
 export type AdapterHookCoverage = 'live-pre-and-completion' | 'live-completion-only' | 'advisory';
@@ -135,6 +154,7 @@ export const HOOK_COVERAGE_MATRIX: Readonly<Record<string, AdapterHookCoverage>>
   junie: 'advisory',
   aider: 'advisory',
   antigravity: 'advisory',
+  aiassistant: 'advisory',
 };
 
 /** True iff the host exposes a native hook paqad actually wires (claude/codex/gemini). */

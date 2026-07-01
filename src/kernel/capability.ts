@@ -16,13 +16,26 @@
 
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
+import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
 import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
+import { currentOrdinal } from '@/session-ledger/ledger.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { foldChange } from '@/stage-evidence/fold.js';
+import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
+import { MANDATORY_STAGES } from '@/stage-evidence/stages.js';
+import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import { readCapabilityDigest } from './capability-lock.js';
 import { evaluateCapabilityCompat, isRefusedByCompat } from './compat.js';
-import { getCapability, type CapabilityDescriptor, type CapabilitySeam } from './registry.js';
+import {
+  getCapability,
+  type CapabilityDescriptor,
+  type CapabilityPayload,
+  type CapabilitySeam,
+} from './registry.js';
 
 /** What a capability sees when it evaluates at a host seam. */
 export interface CapabilityContext {
@@ -30,6 +43,9 @@ export interface CapabilityContext {
   /** The host lifecycle point being evaluated. */
   seam: CapabilitySeam;
   env: NodeJS.ProcessEnv;
+  /** The host tool/turn payload, when the seam parsed one from stdin. Most
+   *  capabilities ignore it; the decision-pause self-arm reads it. */
+  payload?: CapabilityPayload;
 }
 
 /** A capability's block/allow decision for one evaluation. */
@@ -183,10 +199,114 @@ const ruleScriptsCapability: Capability = {
 };
 
 /**
+ * Block-forward summary: the pre-development stage `stage` has no recorded
+ * start+end pair, so a code edit is refused until it is run. Strict blocks; warn
+ * surfaces and allows. The remediation points at the recorder verbs (via se-mark,
+ * a Bash script the PreToolUse matcher does NOT gate — the non-wedging escape hatch).
+ */
+function formatMissingStageSummary(stage: string, mode: StagesMode): string {
+  const blocking = mode === 'strict';
+  const verb = blocking ? 'Needs your attention' : 'Heads up';
+  const glyph = blocking ? '🔴' : '🟡';
+  const tail = blocking ? '' : ' (warn mode, not blocking)';
+  return (
+    `**▸ paqad** · run ${stage} before you change code\n` +
+    `> ${glyph} ${verb} — the feature-development workflow needs the **${stage}** stage recorded ` +
+    `before this edit. Mark it: \`SE_SESSION= npx tsx scripts/se-mark.ts start ${stage}\` then ` +
+    `\`… end ${stage}\` (or emit the \`paqad:stage ${stage} start\`/\`end\` markers). Set ` +
+    `stages_mode=warn/off in .paqad/configs/.config.policy to adopt the workflow before ` +
+    `enforcing.${tail}`
+  );
+}
+
+/**
+ * Feature-development stages — block-forward (RCA fix B). At the pre-mutation seam,
+ * refuse a code edit until every MANDATORY stage that precedes `development`
+ * (planning, specification) carries a recorded start+end pair in the stage-evidence
+ * ledger. `development` IS the edit; review/checks/documentation_sync are
+ * post-development and stay on the completion (finalize/verify) path, so the impl
+ * no-ops at the completion seam (no double-fire). Reads the LEDGER, never a git
+ * delta, so it is structurally immune to the committed-clean-tree nullifier that
+ * guts the Stop path (R3/R6).
+ */
+const stagesCapability: Capability = {
+  id: 'stages',
+  async evaluate({ projectRoot, seam, env }): Promise<CapabilityOutcome> {
+    if (seam !== 'pre-mutation') return NO_OP;
+    const mode = resolveStagesMode(projectRoot, env);
+    if (mode === 'off') return NO_OP;
+    const blocking = mode === 'strict';
+
+    const sessionId = resolveSessionId(projectRoot, env.CLAUDE_SESSION_ID ?? null);
+    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+
+    // The mandatory stages that must exist BEFORE code is written.
+    const prefix = MANDATORY_STAGES.slice(0, MANDATORY_STAGES.indexOf('development'));
+
+    if (ordinal <= 0) {
+      // No change opened yet → the first required stage is missing.
+      return {
+        ran: true,
+        blocking,
+        summary: formatMissingStageSummary(prefix[0] ?? 'planning', mode),
+      };
+    }
+
+    const fold = foldChange(projectRoot, sessionId, ordinal);
+    const byStage = new Map(fold.stages.map((stage) => [stage.stage, stage]));
+    for (const stage of prefix) {
+      const folded = byStage.get(stage);
+      const hasPair = Boolean(folded?.started_at && folded?.ended_at);
+      if (!hasPair) {
+        return { ran: true, blocking, summary: formatMissingStageSummary(stage, mode) };
+      }
+    }
+    // planning + specification recorded — allow (this edit IS development).
+    return NO_OP;
+  },
+};
+
+/**
+ * Delivery policy — the completion-seam consumer the `delivery-policy.yaml` never had
+ * (RCA Step 5b). At Stop it reads HEAD branch/commit and (when `gh` can answer) the
+ * PR/CI state, WARNS on a convention deviation, and appends a `delivery-evidence` row.
+ * Warn-floor by design: delivery is `mandatory:false`, so a deviation is surfaced but
+ * never blocks (a bad push is caught one turn late, never pre-push — the no-git/CI
+ * mandate). No-ops at the pre-mutation seam (the block-forward path owns that). The
+ * behaviour lives in `runDeliveryCapability` (runner injected for deterministic tests);
+ * here it is bound to the real execa-backed runner.
+ */
+const deliveryCapability: Capability = {
+  id: 'delivery',
+  evaluate({ projectRoot, seam }): Promise<CapabilityOutcome> {
+    return runDeliveryCapability(projectRoot, seam, execaCommandRunner);
+  },
+};
+
+/**
+ * Decision-pause self-arm (RCA Step 5c) — the minter the Decision Pause Contract never
+ * had. At the pre-mutation seam, when opted in (OFF by default), it reads the recent
+ * prompt from the turn transcript and, on a high-confidence create-vs-reuse fork with no
+ * decision pending or already made, script-writes ONE pending packet so the existing
+ * decision-pause gate blocks the NEXT edit. It only MINTS — never blocks — so the
+ * current edit is never interrupted mid-flight. Behaviour lives in `runDecisionSelfArm`
+ * (transcript reader injected for tests); here it reads the real payload.
+ */
+const decisionPauseSelfArmCapability: Capability = {
+  id: 'decision-pause',
+  async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
+    return runDecisionSelfArm({ projectRoot, seam, env, payload });
+  },
+};
+
+/**
  * The capabilities CURRENTLY executing through the kernel seam, keyed by id. The
  * gate runs only descriptors present here; a registry row without an impl stays on
  * its legacy path until a later slice folds it in (and removes that path).
  */
 export const CAPABILITY_IMPLS: ReadonlyMap<CapabilityDescriptor['id'], Capability> = new Map([
   [ruleScriptsCapability.id, ruleScriptsCapability],
+  [stagesCapability.id, stagesCapability],
+  [deliveryCapability.id, deliveryCapability],
+  [decisionPauseSelfArmCapability.id, decisionPauseSelfArmCapability],
 ]);

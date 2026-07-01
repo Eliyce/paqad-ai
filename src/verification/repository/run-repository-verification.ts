@@ -335,7 +335,12 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
  * `cannot-verify` change used to ship. `live_marked` now only flavours the
  * message (started-but-incomplete vs never-recorded).
  *
- * - No result, or no code diff → no gate (the gate is code-change-only).
+ * - No change record this session (`stageResult === null`) → no gate. The
+ *   empty-turn guard is the ledger record itself (supplied by
+ *   `finalizeStageEvidence`: null on a genuine no-op/read-only turn), NOT the
+ *   working-tree diff count — a committed-but-incomplete change has a clean tree
+ *   yet must still fail, so the old `changedFileCount <= 0` short-circuit (which
+ *   let a committed incomplete change ship a vacuous pass) is gone.
  * - `complete` / `recovered` → `pass`.
  * - Incomplete/blocked at a LOCAL origin in `strict` → `fail` (the real teeth).
  * - `off` (escape hatch), `warn`, or any non-local origin (CI has no committed
@@ -345,10 +350,14 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
 export function stageEvidenceGate(
   result: VerifyResult | null,
   origin: VerificationOrigin,
-  changedFileCount: number,
+  // Retained for signature/call-site stability. No longer gates: the gate now
+  // triggers on the presence of a stage-evidence change record (`result`), not
+  // the working-tree diff count, so a committed (clean-tree) incomplete change
+  // still fails instead of vacuously passing.
+  _changedFileCount: number,
   mode: StagesMode = 'strict',
 ): VerificationEvidenceGate | null {
-  if (!result || changedFileCount <= 0) {
+  if (!result) {
     return null;
   }
   const name = 'stage-evidence' as VerificationGate;

@@ -16,6 +16,7 @@ const ADAPTER_OUTPUT_PATHS: Record<AdapterType, string> = {
   windsurf: '.windsurf/mcp.json',
   continue: '.continue/mcp.json',
   aider: 'aider.mcp.json', // unreachable; capabilities.mcp = false
+  aiassistant: '.aiassistant/mcp.json', // unreachable; capabilities.mcp = false
 };
 
 export class McpConfigManager {

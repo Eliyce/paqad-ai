@@ -1,5 +1,6 @@
 import {
   AdapterFactory,
+  AiAssistantAdapter,
   AiderAdapter,
   AntigravityAdapter,
   ClaudeCodeAdapter,
@@ -24,6 +25,7 @@ describe('AdapterFactory', () => {
     expect(AdapterFactory.create('windsurf')).toBeInstanceOf(WindsurfAdapter);
     expect(AdapterFactory.create('continue')).toBeInstanceOf(ContinueAdapter);
     expect(AdapterFactory.create('aider')).toBeInstanceOf(AiderAdapter);
+    expect(AdapterFactory.create('aiassistant')).toBeInstanceOf(AiAssistantAdapter);
   });
 
   it('throws a clear error for an unknown adapter type at runtime', () => {

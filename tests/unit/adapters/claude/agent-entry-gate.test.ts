@@ -62,6 +62,9 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(preToolCommands.some((command) => command.includes('decision-pause-gate.mjs'))).toBe(
       true,
     );
+    // RCA fix A — the stage-evidence live writer runs on PreToolUse (Claude only),
+    // ordered before the gates so a stage row exists when they read the change.
+    expect(preToolCommands.some((command) => command.includes('stage-writer.mjs'))).toBe(true);
     // Buildout F3 — the capability-kernel seam runs on both PreToolUse
     // (pre-mutation) and Stop (completion), replacing rule-script-enforce.mjs. The
     // seam is the hook's argv, so it trails the quoted path: `node "…" pre-mutation`.
@@ -70,9 +73,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(preToolCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(
       false,
     );
-    expect(parsed.hooks.Stop[0].hooks[0].command).toContain('verification-completion.mjs');
     const stopCommands = parsed.hooks.Stop.flatMap((entry) =>
       entry.hooks.map((hook) => hook.command),
+    );
+    // The stage-marker parser runs first (records markers before the backstop folds).
+    expect(stopCommands[0]).toContain('stage-marker-parse.mjs');
+    expect(stopCommands.some((command) => command.includes('verification-completion.mjs'))).toBe(
+      true,
     );
     expect(stopCommands.some((command) => isCapabilityGate(command, 'completion'))).toBe(true);
     expect(stopCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(false);
@@ -112,13 +119,14 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     };
 
     expect(parsed.permissions.allow).toEqual(['Bash(ls:*)']);
-    // existing hook + agent-entry gate + decision-pause gate (#117 C-5) +
-    // capability-kernel seam (buildout F3).
-    expect(parsed.hooks.PreToolUse).toHaveLength(4);
+    // existing hook + agent-entry gate + stage-writer (RCA fix A) + decision-pause
+    // gate (#117 C-5) + capability-kernel seam (buildout F3).
+    expect(parsed.hooks.PreToolUse).toHaveLength(5);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
     expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.mjs');
-    expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('decision-pause-gate.mjs');
-    expect(isCapabilityGate(parsed.hooks.PreToolUse[3].hooks[0].command, 'pre-mutation')).toBe(
+    expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('stage-writer.mjs');
+    expect(parsed.hooks.PreToolUse[3].hooks[0].command).toContain('decision-pause-gate.mjs');
+    expect(isCapabilityGate(parsed.hooks.PreToolUse[4].hooks[0].command, 'pre-mutation')).toBe(
       true,
     );
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
@@ -220,14 +228,14 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         Stop: unknown[];
       };
     };
-    // agent-entry gate + decision-pause gate + capability-kernel seam (F3),
-    // no duplicates after re-run.
-    expect(parsed.hooks.PreToolUse).toHaveLength(3);
+    // agent-entry gate + stage-writer (RCA fix A) + decision-pause gate +
+    // capability-kernel seam (F3), no duplicates after re-run.
+    expect(parsed.hooks.PreToolUse).toHaveLength(4);
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     // agent-entry session-start + background self-update, no duplicates.
     expect(parsed.hooks.SessionStart).toHaveLength(2);
-    // verification-completion + capability-kernel seam (F3).
-    expect(parsed.hooks.Stop).toHaveLength(2);
+    // stage-marker-parse + verification-completion + capability-kernel seam (F3).
+    expect(parsed.hooks.Stop).toHaveLength(3);
   });
 
   it('prunes the retired rule-script-enforce hook on re-onboard (no double-fire, F3)', async () => {

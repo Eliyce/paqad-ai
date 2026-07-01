@@ -1,6 +1,7 @@
 import type { AdapterType } from '@/core/types/adapter.js';
 
 import type { AdapterInterface } from './adapter.interface.js';
+import { AiAssistantAdapter } from './aiassistant/aiassistant-adapter.js';
 import { AiderAdapter } from './aider/aider-adapter.js';
 import { AntigravityAdapter } from './antigravity/antigravity-adapter.js';
 import { ClaudeCodeAdapter } from './claude/claude-adapter.js';
@@ -39,6 +40,8 @@ export class AdapterFactory {
         return new ContinueAdapter();
       case 'aider':
         return new AiderAdapter();
+      case 'aiassistant':
+        return new AiAssistantAdapter();
       default:
         return assertUnreachableAdapter(type);
     }
