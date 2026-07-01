@@ -1,0 +1,26 @@
+{
+  "id": "D-01KWF47XSPQAH4KC4B3YYXC7CT",
+  "category": "architecture-path",
+  "title": "How to make the mandatory review stage recordable when it happens after checks/docs (issue #270)",
+  "context": "The canonical stage order is planning → specification → development → review → checks → documentation_sync. `review` is edit-less (produces no artifact), so it can only enter the ledger via a paqad:stage marker. But `checks` (test edits) and `documentation_sync` (doc edits) are stamped by the PreToolUse live writer DURING the build, before the explicit review pass over the finished diff. So when review is marked at turn end, two enforcement points reject it: (1) recorder.startStage throws 'Out-of-order stage' because a later stage already started, and recordMarkedStage silently swallows it — the review row is never written; (2) even if written, fold.computeOrderingViolations sees checks.started_at < review.ended_at and computeVerdict returns 'incomplete'. Result: an honest late review reads identically to a skipped one (missing [review]). The hook order already runs stage-marker-parse BEFORE the completion verify, so a late review marker is in the ledger when the gate folds — the fix only needs the recorder + fold to accept it.",
+  "options": [
+    {
+      "option_key": "exempt-review-ordering",
+      "label": "Exempt review from strict forward-ordering (Recommended)",
+      "detail": "Model review as a cross-cutting stage recordable at any point up to completion. Add a single ORDER_EXEMPT_STAGES source in stages.ts ({review}); recorder.startStage skips the out-of-order throw for it, and fold.computeOrderingViolations skips pairs involving it. Honesty floor holds: an unmarked review is still 'missing' → incomplete. Directly relaxes both enforcement points the issue names. Smallest, data-driven, testable."
+    },
+    {
+      "option_key": "fold-into-completion",
+      "label": "Record review from the completion seam",
+      "detail": "Fold a 'final review' into finalize/verify rather than requiring a pre-checks marker. Problem: the completion seam cannot know review genuinely happened without a marker, so it either fabricates the row (dishonest) or still relies on the late marker — which still trips the ordering check unless combined with option 1. Doesn't stand alone."
+    },
+    {
+      "option_key": "recovered-verdict",
+      "label": "Count a late review as 'recovered'",
+      "detail": "Treat an out-of-order review as 'recovered' instead of missing/incomplete. But 'recovered' semantics = a stage redone with a fresh in-window artifact, which an edit-less review can't produce — needs its own bespoke handling and overloads the recovered meaning, muddying the verdict vocabulary."
+    }
+  ],
+  "chosen": "fold-into-completion",
+  "rationale": "User chose 'Record from completion seam'. Implemented as: review is modeled as a COMPLETION-ANCHORED stage — its canonical position is the completion boundary (after the edit-bearing checks/documentation_sync stages the live writer stamps during the build). It is recorded from the agent's honest paqad:stage review marker and confirmed/anchored at the completion (finalize) seam, never subject to forward-ordering. Recorder no longer throws out-of-order for a completion-anchored stage; fold no longer flags an ordering violation involving one; finalize anchors an open review at the completion clock. Honesty floor holds: an unmarked review is still 'missing' -> incomplete.",
+  "resolved_at": "2026-07-01T14:48:07Z"
+}

@@ -9,7 +9,12 @@
 import { readSessionUnit, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { changeKey } from './recorder.js';
-import { isMandatoryStage, STAGE_EVIDENCE_STAGES, stageIndex } from './stages.js';
+import {
+  isCompletionAnchoredStage,
+  isMandatoryStage,
+  STAGE_EVIDENCE_STAGES,
+  stageIndex,
+} from './stages.js';
 import {
   STAGE_EVIDENCE_DOC_TYPE,
   type FoldedChange,
@@ -115,12 +120,24 @@ function deriveState(
   return 'missing';
 }
 
-/** For each ordered pair A before B that both ran, flag when B started before A ended. */
+/**
+ * For each ordered pair A before B that both ran, flag when B started before A ended.
+ *
+ * A completion-anchored stage (`review`, issue #270) participates in no ordering
+ * constraint: its canonical position is the completion boundary, so it legitimately
+ * ends after later-indexed stages (`checks`, `documentation_sync`) have started. A
+ * pair with such a stage on either side is skipped, never a violation. This forgives
+ * a late review's ordering only — completeness (was review recorded at all?) is
+ * decided separately, so an unmarked review is still missing.
+ */
 function computeOrderingViolations(stages: readonly FoldedStage[]): OrderingViolation[] {
   const violations: OrderingViolation[] = [];
   const ran = stages.filter((stage) => stage.started_at);
   for (const a of ran) {
     for (const b of ran) {
+      if (isCompletionAnchoredStage(a.stage) || isCompletionAnchoredStage(b.stage)) {
+        continue;
+      }
       if (stageIndex(a.stage) < stageIndex(b.stage) && a.ended_at && b.started_at) {
         if (Date.parse(b.started_at) < Date.parse(a.ended_at)) {
           violations.push({ before: a.stage, after: b.stage });

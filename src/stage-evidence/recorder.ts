@@ -19,7 +19,7 @@ import {
 
 import { validateStageEvidenceRow } from './schema.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { isKnownStage, stageIndex } from './stages.js';
+import { isCompletionAnchoredStage, isKnownStage, stageIndex } from './stages.js';
 import {
   STAGE_EVIDENCE_DOC_TYPE,
   STAGE_EVIDENCE_SCHEMA_VERSION,
@@ -95,7 +95,11 @@ function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
  * Record the START of a stage. Rejects an unknown stage, and rejects a stage that
  * is out of order relative to the canonical registry — you cannot start an earlier
  * stage after a later one has already begun (re-starting the SAME stage is a redo
- * and is allowed). The script stamps `started_at` (`ts`).
+ * and is allowed). A completion-anchored stage (`review`, issue #270) is exempt from
+ * that check: its natural slot is the completion boundary, so it is never "out of
+ * order" — an honest review of the finished diff legitimately starts after `checks`
+ * and `documentation_sync` were stamped during the build. The script stamps
+ * `started_at` (`ts`).
  */
 export function startStage(
   projectRoot: string,
@@ -110,7 +114,7 @@ export function startStage(
   const rows = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
   const highest = highestStartedIndex(rows);
   const index = stageIndex(stage);
-  if (highest >= 0 && index < highest) {
+  if (!isCompletionAnchoredStage(stage) && highest >= 0 && index < highest) {
     throw new Error(
       `Out-of-order stage "${stage}": a later stage already started. Stages must run in registry order.`,
     );

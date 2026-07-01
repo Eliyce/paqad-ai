@@ -25,9 +25,34 @@ export const MANDATORY_STAGES: readonly StageId[] = [
   'documentation_sync',
 ];
 
+/**
+ * Completion-anchored stages (issue #270). A stage whose canonical position is the
+ * completion boundary — recorded from the agent's `paqad:stage` marker and confirmed
+ * at the completion (finalize) seam, never subject to forward-ordering.
+ *
+ * `review` is the sole member: it is edit-less (the live writer can never stamp it)
+ * AND canonically precedes the edit-bearing stages (`checks`, `documentation_sync`)
+ * that the live writer DOES stamp during the build. So an honest review of the
+ * finished diff necessarily lands after them in wall-clock time. Anchoring it to
+ * completion — rather than a fixed slot before `checks` — is what lets a truthful
+ * late review record and pass. The honesty floor is untouched: a review that is
+ * never marked is still `missing` (see fold's completeness check), so this forgives
+ * ordering, never absence.
+ */
+export const COMPLETION_ANCHORED_STAGES: readonly StageId[] = ['review'];
+
 /** True when `stage` is a known stage id. */
 export function isKnownStage(stage: string): stage is StageId {
   return (STAGE_EVIDENCE_STAGES as readonly string[]).includes(stage);
+}
+
+/**
+ * True when `stage` is completion-anchored (see {@link COMPLETION_ANCHORED_STAGES}):
+ * exempt from forward-ordering because its natural position is the completion
+ * boundary, after every edit-bearing stage.
+ */
+export function isCompletionAnchoredStage(stage: string): boolean {
+  return (COMPLETION_ANCHORED_STAGES as readonly string[]).includes(stage);
 }
 
 /** True when `stage` is mandatory for an applicable code change. */

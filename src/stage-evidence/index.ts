@@ -19,8 +19,10 @@ export {
 export {
   STAGE_EVIDENCE_STAGES,
   MANDATORY_STAGES,
+  COMPLETION_ANCHORED_STAGES,
   isKnownStage,
   isMandatoryStage,
+  isCompletionAnchoredStage,
   stageIndex,
   type StageId,
 } from './stages.js';
