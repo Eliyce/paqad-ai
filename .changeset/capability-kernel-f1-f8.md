@@ -1,5 +1,5 @@
 ---
-"paqad-ai": minor
+'paqad-ai': minor
 ---
 
 Capability Kernel (F1–F8): unify the five enforcement contracts under one framework-owned, versioned kernel.
