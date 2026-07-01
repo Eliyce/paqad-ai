@@ -104,6 +104,15 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     description: 'Block mutating tools while a decision packet is unresolved (#117 C-3).',
   },
   {
+    id: 'stage-marker-parse',
+    event: 'completion',
+    hookFile: 'stage-marker-parse.mjs',
+    // Ordered before verification-completion so the non-mutation stage markers
+    // (planning/specification/review) are in the ledger when the completion
+    // backstop folds the change (RCA fix, Step 3). Non-blocking, best-effort.
+    description: 'Record the agent’s paqad:stage markers from the transcript on completion.',
+  },
+  {
     id: 'verification-completion',
     event: 'completion',
     hookFile: 'verification-completion.mjs',

@@ -73,9 +73,13 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(preToolCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(
       false,
     );
-    expect(parsed.hooks.Stop[0].hooks[0].command).toContain('verification-completion.mjs');
     const stopCommands = parsed.hooks.Stop.flatMap((entry) =>
       entry.hooks.map((hook) => hook.command),
+    );
+    // The stage-marker parser runs first (records markers before the backstop folds).
+    expect(stopCommands[0]).toContain('stage-marker-parse.mjs');
+    expect(stopCommands.some((command) => command.includes('verification-completion.mjs'))).toBe(
+      true,
     );
     expect(stopCommands.some((command) => isCapabilityGate(command, 'completion'))).toBe(true);
     expect(stopCommands.some((command) => command.includes('rule-script-enforce.mjs'))).toBe(false);
@@ -230,8 +234,8 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     // agent-entry session-start + background self-update, no duplicates.
     expect(parsed.hooks.SessionStart).toHaveLength(2);
-    // verification-completion + capability-kernel seam (F3).
-    expect(parsed.hooks.Stop).toHaveLength(2);
+    // stage-marker-parse + verification-completion + capability-kernel seam (F3).
+    expect(parsed.hooks.Stop).toHaveLength(3);
   });
 
   it('prunes the retired rule-script-enforce hook on re-onboard (no double-fire, F3)', async () => {
