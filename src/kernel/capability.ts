@@ -16,6 +16,7 @@
 
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
@@ -257,6 +258,23 @@ const stagesCapability: Capability = {
 };
 
 /**
+ * Delivery policy — the completion-seam consumer the `delivery-policy.yaml` never had
+ * (RCA Step 5b). At Stop it reads HEAD branch/commit and (when `gh` can answer) the
+ * PR/CI state, WARNS on a convention deviation, and appends a `delivery-evidence` row.
+ * Warn-floor by design: delivery is `mandatory:false`, so a deviation is surfaced but
+ * never blocks (a bad push is caught one turn late, never pre-push — the no-git/CI
+ * mandate). No-ops at the pre-mutation seam (the block-forward path owns that). The
+ * behaviour lives in `runDeliveryCapability` (runner injected for deterministic tests);
+ * here it is bound to the real execa-backed runner.
+ */
+const deliveryCapability: Capability = {
+  id: 'delivery',
+  evaluate({ projectRoot, seam }): Promise<CapabilityOutcome> {
+    return runDeliveryCapability(projectRoot, seam, execaCommandRunner);
+  },
+};
+
+/**
  * The capabilities CURRENTLY executing through the kernel seam, keyed by id. The
  * gate runs only descriptors present here; a registry row without an impl stays on
  * its legacy path until a later slice folds it in (and removes that path).
@@ -264,4 +282,5 @@ const stagesCapability: Capability = {
 export const CAPABILITY_IMPLS: ReadonlyMap<CapabilityDescriptor['id'], Capability> = new Map([
   [ruleScriptsCapability.id, ruleScriptsCapability],
   [stagesCapability.id, stagesCapability],
+  [deliveryCapability.id, deliveryCapability],
 ]);
