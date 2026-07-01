@@ -1,5 +1,36 @@
 # paqad-ai
 
+## 1.36.0
+
+### Minor Changes
+
+- 69ab154: Add a native `aiassistant` adapter for JetBrains AI Assistant (#219).
+
+  - Onboarding and `paqad-ai refresh --providers` now generate and keep in sync `.aiassistant/rules/guidelines.md`, the lean bootstrap-pointer entry file AI Assistant auto-applies from `.aiassistant/rules/`.
+  - Soft, rules-only adapter (advisory hook coverage), like `junie`: AI Assistant exposes no hook/lifecycle system, so the sentinel gate cannot bind. MCP is intentionally omitted — AI Assistant configures MCP servers in the IDE, not a project file, so no dead artifact is written.
+  - The adapter is selectable everywhere the other ten are (onboarding prompt, `--providers`, factory), carries its Decision Pause Contract UI note, and is covered by tests parallel to `junie`.
+  - Also synced the `onboarding-manifest` schema `adapter` enum to the full adapter list (it had silently drifted to five, so a `cursor`/`aider`-onboarded manifest failed health-check validation).
+
+- 69ab154: Make the feature-development stage workflow **compel, not plead** (enforcement RCA, part 1 of the fix).
+
+  The stage-evidence recorder finally has a production caller, and a code edit is now blocked until the prior stages are recorded — closing the physics gaps that let every prior fix (#117–#261) regress.
+
+  - **Deterministic per-stage writer.** A new Claude PreToolUse hook (`stage-writer.mjs` → `src/stage-evidence/live-writer.ts`) script-mints a `live-mark` stage row on every Edit/Write/NotebookEdit, with real start/end times classified from the mutated file — no model involvement. The completion finalizer closes any stage left open at the turn boundary.
+  - **Block-forward deny.** A `stages` capability folded into the kernel evaluates at the pre-mutation seam and refuses an edit (exit 2, reason on stderr) until `planning` and `specification` each carry a recorded start+end pair. It reads the ledger, not a git delta, so a committed clean tree cannot bypass it. `se-mark` (a Bash script, ungated) is the escape hatch that clears the block.
+  - **Visible, non-vacuous verdict.** The Stop backstop now writes a failing verdict to **stderr** (the host surfaces only stderr to the model on exit 2), and the stage gate no longer skips on a zero-file working-tree diff — a committed-but-incomplete change still fails instead of passing silently.
+
+  Claude-only for the hard block (the only host with a pre-mutation seam); Codex/Gemini keep completion-time recording; other adapters are unchanged. Default `stages_mode` is strict.
+
+- 69ab154: Wire the last three enforcement consumers so the framework is felt, not just recorded (enforcement RCA, part 2 of the fix).
+
+  Building on the stage writer and block-forward deny, three contracts that shipped with a policy but no live consumer now bind through the kernel:
+
+  - **Delivery policy is enforced.** A `delivery` capability at the completion (Stop) seam reads HEAD branch/commit and — when `gh` can answer — the PR/CI state, then **warns** on a convention deviation (on the base branch, an off-convention branch name, red CI under `wait_for_green`) and appends a `delivery-evidence` row. Warn-floor by design: delivery is `mandatory:false`, so it surfaces a bad push one turn late but never blocks. Degrades cleanly when `gh` is absent.
+  - **The stage is printed on entry.** The stage-writer PreToolUse hook now prints a plain-English `▸ paqad · <stage>` line (via Claude's user-visible `systemMessage` channel) the first time a change enters each stage, so the developer sees the workflow running even when the model forgets to say it. Claude-only (the sole pre-mutation host); idempotent per change.
+  - **The Decision Pause Contract self-arms.** An opt-in pre-mutation capability reads the recent prompt from the turn transcript and, on a high-confidence create-vs-reuse fork with no decision pending or already made, mints ONE pending decision packet so the existing decision-pause gate blocks the _next_ edit — closing the "nothing mints the packet" gap. **Off by default** (enable with `PAQAD_DECISION_SELFARM` or a local `.config` `decision_selfarm` line); it only mints, never blocks, so the current edit is never interrupted.
+
+  The kernel gate now threads an optional tool/turn payload (edit target, transcript path, session id) to each capability; every existing capability ignores it. Coverage stays at the 95% branch gate.
+
 ## 1.35.0
 
 ### Minor Changes
