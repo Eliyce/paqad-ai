@@ -1,0 +1,22 @@
+{
+  "id": "D-01KWFP297VVNYXDH9GV78XMG31",
+  "category": "workflow-or-tool",
+  "title": "Where should the decision-creation script live? (issue #272)",
+  "context": "Issue #272 explicitly defers whether the create/resolve script lands as a standalone scripts/ helper (parity with se-mark.ts) or a skill-bundled script under runtime/base/skills/. Surfaced to the user via AskUserQuestion.",
+  "options": [
+    {
+      "option_key": "standalone",
+      "label": "Standalone scripts/decision.ts (parity with se-mark.ts)"
+    },
+    {
+      "option_key": "skill",
+      "label": "Skill-bundled script under runtime/base/skills/decision/"
+    }
+  ],
+  "recommendation": "standalone",
+  "created_at": "2026-07-01T20:31:27.995Z",
+  "status": "resolved",
+  "chosen": "skill",
+  "rationale": "User chose the skill-bundled route: ship create.mjs/resolve.mjs under runtime/base/skills/decision/ with a SKILL.md + references, logic in src/decisions/authoring.ts.",
+  "resolved_at": "2026-07-01T20:31:28.248Z"
+}

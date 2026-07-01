@@ -13,6 +13,7 @@ export * from './cache/index.js';
 export * from './context/index.js';
 export * from './compliance/index.js';
 export * from './core/index.js';
+export * from './decisions/index.js';
 export * from './detection/index.js';
 export * from './event-bus/index.js';
 export * from './design-tokens/index.js';

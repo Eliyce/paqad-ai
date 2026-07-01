@@ -1,0 +1,26 @@
+{
+  "id": "D-01KWFP29NTZZCGBZ1WND9B0GHA",
+  "category": "workflow-or-tool",
+  "title": "Legacy D-1/D-2/D-3 fixtures: migrate, remove, or keep? (issue #272)",
+  "context": "The committed numeric fixtures teach the sequential id pattern. Issue #272 proposed migrating them to D-<ULID> or removing them. Surfaced to the user via AskUserQuestion.",
+  "options": [
+    {
+      "option_key": "migrate",
+      "label": "Migrate to D-<ULID>, preserve content"
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove them as stale examples"
+    },
+    {
+      "option_key": "keep",
+      "label": "Do nothing: no migration, no removal"
+    }
+  ],
+  "recommendation": "migrate",
+  "created_at": "2026-07-01T20:31:28.442Z",
+  "status": "resolved",
+  "chosen": "keep",
+  "rationale": "User chose to keep the legacy fixtures untouched. The reject-sequential guarantee is enforced at creation time (assertContractDecisionId) so retained fixtures are fine and no repo-wide scan is used.",
+  "resolved_at": "2026-07-01T20:31:28.693Z"
+}
