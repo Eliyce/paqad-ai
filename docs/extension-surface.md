@@ -79,6 +79,18 @@ wrappers (issue #89).
 | --- | --- | --- | --- | --- | --- | --- |
 | rule-scripts | src/rule-scripts/runner.ts | `runRuleScripts` | `runRuleScripts(opts: RunOptions): RunReport` | beta | 1.0.0 | |
 
+## Decision-authoring consumer
+
+Consumed via `import 'paqad-ai'` (the root barrel) by the Decision Pause
+`decision` skill's `create.mjs` / `resolve.mjs` wrappers (issue #272). Exempt
+from the orphan check because the only call sites are those runtime skill
+scripts, not `src/`.
+
+| Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
+| --- | --- | --- | --- | --- | --- | --- |
+| decisions | src/decisions/authoring.ts | `createPendingDecision` | `createPendingDecision(projectRoot: string, input: CreateDecisionInput): { id; path }` | beta | 1.1.0 | consumed by runtime skill scripts |
+| decisions | src/decisions/authoring.ts | `resolvePendingDecision` | `resolvePendingDecision(projectRoot: string, id: string, chosen: string, rationale?: string): { path; packet }` | beta | 1.1.0 | consumed by runtime skill scripts |
+
 ## Verification consumers
 
 | Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |

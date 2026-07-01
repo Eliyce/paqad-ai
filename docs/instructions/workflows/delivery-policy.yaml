@@ -62,6 +62,13 @@ process:
     labels: []
     link_ticket: true           # link the GitHub issue from the PR ("Closes #N")
     transition_on_open: ""       # GitHub issues have no "In Review" state
+    # Decision packets (issue #272): any Decision Pause packet resolved while
+    # producing this change is COMMITTED WITH THE PR — the resolved
+    # `.paqad/decisions/resolved/D-<ULID>.json` is staged alongside the code it
+    # justifies, never left untracked, so a reviewer and future `git blame` can
+    # see WHY. Create/resolve packets through the bundled `decision` skill
+    # (mints the `D-<ULID>` id; rejects a hand-picked sequential `D-{N}`), never
+    # by hand-authoring the JSON.
 
   ci:
     maintained: manual

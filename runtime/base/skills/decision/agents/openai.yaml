@@ -1,0 +1,5 @@
+interface:
+  display_name: Decision Pause Authoring
+  short_description: Mints a collision-free D-<ULID> id and drives the
+    pending -> resolved lifecycle of a Decision Pause packet, so the agent
+    supplies only content and never hand-authors the id, timestamps, or JSON.

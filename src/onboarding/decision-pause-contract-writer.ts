@@ -26,7 +26,7 @@ export function buildDecisionPauseContractBody(): string {
 
   return `# Decision Pause Contract
 
-Before implementing any choice that falls into one of the categories below, write a Decision Packet to \`.paqad/decisions/pending/D-{id}.json\` and stop work. Do not continue until \`.paqad/decisions/resolved/D-{id}.json\` exists. \`{id}\` is an opaque, time-sortable id the decision store allocates for you — do not hand-compute a sequential number; call the store to mint one.
+Before implementing any choice that falls into one of the categories below, write a Decision Packet to \`.paqad/decisions/pending/D-{id}.json\` and stop work. Do not continue until \`.paqad/decisions/resolved/D-{id}.json\` exists. \`{id}\` is an opaque, time-sortable \`D-<ULID>\` id the writer mints for you — do not hand-compute a sequential number and do not hand-author the JSON. Drive both the create and the resolve through the bundled \`decision\` skill, exactly as \`scripts/se-mark.ts\` drives the stage-evidence ledger.
 
 ## Categories
 
@@ -34,10 +34,12 @@ ${categoriesList}
 
 ## Resolution flow
 
-1. Write the packet to \`.paqad/decisions/pending/D-{id}.json\` (the store allocates \`{id}\`).
+1. Create the packet with the \`decision\` skill's create script — it mints the \`D-<ULID>\` id and writes \`.paqad/decisions/pending/D-{id}.json\` for you:
+   \`node runtime/base/skills/decision/scripts/create.mjs <project-root> --category <category> --title <title> --context <context> --option <key>=<label> --option <key>=<label> [--recommendation <key>]\`. It prints the minted \`id\`.
 2. Present the packet's options to the user via the host's interactive UI (see the per-adapter table below). If multiple packets are pending, ask them one at a time in creation order (ids sort chronologically). If a packet has more than 4 options, present the top 4 — the user can pick "Other" to write in an alternative.
-3. When the user answers, move the file from \`.paqad/decisions/pending/D-{id}.json\` to \`.paqad/decisions/resolved/D-{id}.json\`, adding these fields to the JSON: \`chosen\` (the selected option_key), \`rationale\` (any free-text note the user added), and \`resolved_at\` (ISO 8601 timestamp).
-4. Only after the resolved file exists may implementation continue.
+3. When the user answers, resolve with the \`decision\` skill's resolve script — it records \`chosen\` / \`rationale\` / \`resolved_at\` and moves the file to \`.paqad/decisions/resolved/D-{id}.json\`:
+   \`node runtime/base/skills/decision/scripts/resolve.mjs <project-root> <id> <chosen> [rationale]\`. A hand-picked sequential \`D-{N}\` is rejected, so parallel branches never collide.
+4. Only after the resolved file exists may implementation continue. Commit the resolved packet with the change it justifies (the delivery workflow), so a reviewer and future \`git blame\` can see why.
 
 ## Per-adapter UI
 
