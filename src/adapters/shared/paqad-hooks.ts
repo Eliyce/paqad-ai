@@ -74,9 +74,18 @@ export function capabilityGateCommand(
  * when enterprise evidence is on — but always exits 0 and stays silent, so a
  * non-Claude host's hook never halts, retries, or misreads it. See
  * `runtime/hooks/verification-record.mjs`.
+ *
+ * `adapterType` (issue #265) is passed to the hook as an argv so the per-stage
+ * marker rows it records at completion are attributed to the host that actually
+ * ran (`codex-cli` / `gemini-cli`), not a hard-coded `claude-code`. Omitted → the
+ * bare record command (the hook then defaults attribution to `claude-code`).
  */
-export function completionRecordCommand(env: NodeJS.ProcessEnv = process.env): string {
-  return hookCommand('verification-record.mjs', env);
+export function completionRecordCommand(
+  adapterType?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const base = hookCommand('verification-record.mjs', env);
+  return adapterType ? `${base} ${adapterType}` : base;
 }
 
 /**
@@ -136,8 +145,10 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
  * alone, tiered honestly:
  *   - `live-pre-and-completion`: blocks before a mutating edit AND verifies at
  *     turn end (claude-code only — the only PreToolUse-capable host).
- *   - `live-completion-only`: verifies at turn end; no in-turn pre-mutation block
- *     (codex-cli, gemini-cli).
+ *   - `live-completion-only`: at turn end records the stage-evidence ledger AND the
+ *     agent's `paqad:stage` markers, then verifies — but record-only (exit 0,
+ *     silent), with NO in-turn pre-mutation block and NO in-chat verdict
+ *     (codex-cli, gemini-cli; issue #265).
  *   - `advisory`: no executed host hook; the entry-file contract only (the 8
  *     remaining adapters). Stated plainly, never implied to bind.
  */

@@ -71,3 +71,53 @@ describe('cross-provider completion-hook parity', () => {
     });
   }
 });
+
+/**
+ * Issue #265, AC-4/AC-6 — the hard block (per-stage `stage-writer.mjs` on
+ * PreToolUse + the `capability-gate.mjs pre-mutation` deny) is a PreToolUse-only
+ * capability, so it is PRESENT for claude-code and ABSENT everywhere else. This
+ * guards the honesty invariant: Codex/Gemini get the record tier at completion but
+ * NOT a pre-edit block, and no adapter closes the gap via its entry file.
+ */
+describe('pre-mutation block is claude-only (no record-tier over-reach)', () => {
+  const PRE_MUTATION_MARKERS = ['stage-writer.mjs', 'capability-gate.mjs'];
+
+  async function generate(type: AdapterType): Promise<string> {
+    const projectRoot = mkdtempSync(join(tmpdir(), `paqad-block-${type}-`));
+    const files = await AdapterFactory.create(type).generateConfig({
+      frameworkPath: '.paqad/framework-path.txt',
+      rulesPath: 'docs/instructions/rules',
+      projectRoot,
+    });
+    return files.map((file) => file.content).join('\n');
+  }
+
+  it('claude-code wires the stage-writer AND the pre-mutation deny', async () => {
+    const all = await generate('claude-code');
+    for (const marker of PRE_MUTATION_MARKERS) {
+      expect(all, `claude-code must wire ${marker}`).toContain(marker);
+    }
+  });
+
+  const NON_CLAUDE: AdapterType[] = [
+    'codex-cli',
+    'gemini-cli',
+    'cursor',
+    'windsurf',
+    'continue',
+    'github-copilot',
+    'junie',
+    'aider',
+    'antigravity',
+    'aiassistant',
+  ];
+
+  for (const type of NON_CLAUDE) {
+    it(`${type} wires no pre-mutation block (writer/deny absent)`, async () => {
+      const all = await generate(type);
+      for (const marker of PRE_MUTATION_MARKERS) {
+        expect(all, `${type} must NOT wire ${marker}`).not.toContain(marker);
+      }
+    });
+  }
+});

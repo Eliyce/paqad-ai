@@ -56,10 +56,14 @@ that has not adopted stage marking:
 The completion hook **soft-fails** on infrastructure errors (a missing build, an
 import failure) so a broken install never wedges the agent. On hosts other than
 Claude Code the completion hook is **record-only** (`verification-record.mjs`):
-it writes the evidence ledger but always exits 0 and stays silent, so a host that
-reads a Stop-hook's exit code or stdout as a control decision is never blocked or
-retried. The CI backstop **fails hard**: infra errors and blocking verdicts both
-exit non-zero.
+it writes the evidence ledger **and records the agent's `paqad:stage` markers**
+(issue #265 — the same non-mutation stages Claude records at Stop, attributed to
+the host that ran via an adapter argv), but always exits 0 and stays silent, so a
+host that reads a Stop-hook's exit code or stdout as a control decision is never
+blocked or retried. There is **no in-chat verdict** on these hosts — Codex rejects
+plain text on `Stop` and Gemini requires pure JSON on stdout, so the only
+non-disruptive channel is the ledger itself. The CI backstop **fails hard**: infra
+errors and blocking verdicts both exit non-zero.
 
 ## Per-adapter coverage matrix (C-5)
 
@@ -73,8 +77,8 @@ an entry-file contract the model is asked to follow, with no host seam to bind i
 | Adapter | Coverage | Binds | Notes |
 | --- | --- | --- | --- |
 | claude-code | `live-pre-and-completion` | block before edit + verify at end | `settings.json` PreToolUse + Stop (only PreToolUse-capable host) |
-| codex-cli | `live-completion-only` | verify at turn end | `.codex/hooks.json` `Stop`; no in-turn pre-mutation block |
-| gemini-cli | `live-completion-only` | verify at turn end | `.gemini/settings.json` `AfterAgent`; no in-turn pre-mutation block |
+| codex-cli | `live-completion-only` | record + verify at turn end | `.codex/hooks.json` `Stop`; records `paqad:stage` markers from `transcript_path`; no pre-mutation block, no in-chat verdict |
+| gemini-cli | `live-completion-only` | record + verify at turn end | `.gemini/settings.json` `AfterAgent`; records markers from the inline `prompt_response` (its `transcript_path` is stubbed empty); no pre-mutation block, no in-chat verdict |
 | cursor | `advisory` | nothing in-session | entry-file contract only |
 | windsurf | `advisory` | nothing in-session | entry-file contract only |
 | continue | `advisory` | nothing in-session | entry-file contract only |
@@ -87,6 +91,40 @@ an entry-file contract the model is asked to follow, with no host seam to bind i
 with an in-turn pre-mutation block; codex-cli and gemini-cli bind one turn late at
 completion. The previous matrix mislabelled cursor/windsurf as live and omitted
 continue/copilot/junie — corrected in buildout F7b.
+
+### Cross-provider enforcement guarantee (issue #265)
+
+The feature-development enforcement fix (per-stage evidence + block-forward) binds
+to the extent each host's physics allow. This is the honest tier ladder — what
+actually binds per host, stated without overclaim:
+
+| Tier | Hosts | What binds | What does NOT |
+| --- | --- | --- | --- |
+| **Hard block + verdict** | claude-code | Pre-edit deny until `planning` + `specification` are recorded; per-stage writer on every edit; failing verdict on stderr at completion | — |
+| **Record + ledger** | codex-cli, gemini-cli | `paqad:stage` markers recorded to the stage-evidence ledger at turn end, attributed to the host; evidence ledger written | No pre-edit block (no pre-mutation hook); no in-chat verdict (record-only, exit 0/silent) |
+| **Advisory** | cursor, windsurf, continue, github-copilot, junie, aider, antigravity, aiassistant | Nothing in-session | No executed hook at all — the prose entry-file contract only, never implied to bind |
+
+Why the tiers differ, and why the gap is not closed with prose:
+
+- **The hard block needs a pre-mutation hook.** Only Claude Code exposes a
+  `PreToolUse` seam, so the deterministic pre-edit deny is Claude-only. Codex and
+  Gemini expose a completion hook (`Stop` / `AfterAgent`) but no pre-mutation seam,
+  so they can record one turn late but cannot block before the edit.
+- **Record-only is deliberate on Codex/Gemini.** Both hosts read the completion
+  hook's exit code and stdout as control: Codex treats plain text on `Stop` as
+  invalid and exit 2 as a block; Gemini forces a retry on `decision: deny` and
+  requires pure JSON on stdout. Surfacing an in-chat verdict would therefore either
+  halt the agent or need fragile per-host JSON, so the verdict lives in the ledger
+  (visible via the dashboard / SIEM export), never the chat.
+- **The mandate holds:** enforcement is never added through an entry-file, prompt,
+  or template edit. The advisory hosts describe the workflow in prose but the
+  contract is explicitly non-binding there.
+
+**Upstream-blocked (scope 4).** A deterministic pre-edit hard block on a non-Claude
+host is a physics-bounded limitation, not an open build item: it requires either
+that host to ship a pre-mutation hook (out of our control) or reintroducing a
+git/CI backstop (excluded by the no-git/CI mandate). Tracked as known and
+upstream-blocked; it advances only if a host adds the seam.
 
 ## What the backstop computes vs. skips
 
