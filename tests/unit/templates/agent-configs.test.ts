@@ -21,6 +21,7 @@ describe('agent config templates', () => {
     'junie.md.hbs',
     'windsurf.md.hbs',
     'aider.md.hbs',
+    'aiassistant.md.hbs',
   ])('%s is a lean stub that points to the framework bootstrap', async (file) => {
     const output = await engine.render(
       join(process.cwd(), 'runtime/templates/agent-configs', file),

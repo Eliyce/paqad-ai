@@ -12,6 +12,7 @@ const adapters = [
   'windsurf',
   'continue',
   'aider',
+  'aiassistant',
 ] as const;
 const stacks = ['laravel', 'flutter'] as const;
 

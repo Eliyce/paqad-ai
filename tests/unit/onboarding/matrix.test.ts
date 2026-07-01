@@ -73,6 +73,7 @@ const PORTABILITY_SCAN_DIRS = [
   '.antigravity',
   '.github',
   '.vscode',
+  '.aiassistant',
 ];
 
 // Strings that, if committed into project config, would break Paqad for any
@@ -233,6 +234,15 @@ describe('onboarding adapter matrix', () => {
         }
         if (adapter === 'aider') {
           expect(existsSync(join(projectRoot, 'CONVENTIONS.md'))).toBe(true);
+        }
+        if (adapter === 'aiassistant') {
+          // Soft, rules-only adapter (issue #219): a dedicated entry file under
+          // .aiassistant/rules/, no MCP/hooks/cache/memory sidecars.
+          expect(existsSync(join(projectRoot, '.aiassistant/rules/guidelines.md'))).toBe(true);
+          expect(existsSync(join(projectRoot, '.aiassistant/mcp.json'))).toBe(false);
+          expect(existsSync(join(projectRoot, '.aiassistant/hooks.json'))).toBe(false);
+          expect(existsSync(join(projectRoot, '.aiassistant/cache.json'))).toBe(false);
+          expect(existsSync(join(projectRoot, '.aiassistant/memory.json'))).toBe(false);
         }
 
         for (const relativePath of [...PROJECT_SKILL_DIRS, ...PROJECT_AGENT_DIRS]) {

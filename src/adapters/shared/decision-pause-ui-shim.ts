@@ -21,6 +21,7 @@ export const DECISION_PAUSE_UI_NOTES: Record<AdapterType, string> = {
   windsurf: 'In Windsurf Cascade, ask the user and wait for a reply before continuing.',
   continue: 'In Continue, ask the user and wait for a reply before continuing.',
   aider: 'In Aider, switch to `/ask` mode for the decision and wait for the user.',
+  aiassistant: 'In JetBrains AI Assistant, prompt the user and wait for a reply before continuing.',
 };
 
 /**

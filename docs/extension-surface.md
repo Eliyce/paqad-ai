@@ -58,8 +58,9 @@ rather than at integration (PQD-92).
 ## Coding-agent adapter consumers
 
 The coding-agent adapters (`claude-code`, `codex-cli`, `cursor`, `gemini-cli`,
-`junie`, `github-copilot`, `windsurf`, `continue`, `aider`, `antigravity`) are
-selected dynamically by adapter type and implement a shared contract.
+`junie`, `github-copilot`, `windsurf`, `continue`, `aider`, `antigravity`,
+`aiassistant`) are selected dynamically by adapter type and implement a shared
+contract.
 
 | Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
 | --- | --- | --- | --- | --- | --- | --- |

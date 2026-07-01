@@ -14,7 +14,7 @@ export function createOnboardCommand(): Command {
     .option('--capability <capability...>', 'Add one or more capabilities')
     .option(
       '--providers <provider...>',
-      'Select one or more providers (codex-cli, antigravity, claude-code, gemini-cli, junie, cursor, github-copilot, windsurf, continue, aider)',
+      'Select one or more providers (codex-cli, antigravity, claude-code, gemini-cli, junie, cursor, github-copilot, windsurf, continue, aider, aiassistant)',
     )
     .action(
       async (options: {

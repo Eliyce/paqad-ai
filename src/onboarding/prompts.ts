@@ -309,6 +309,11 @@ async function promptProviders(defaultProviders?: AdapterType[]): Promise<Adapte
         value: 'aider',
         checked: defaultProviders?.includes('aider') ?? false,
       },
+      {
+        name: 'AI Assistant (JetBrains)',
+        value: 'aiassistant',
+        checked: defaultProviders?.includes('aiassistant') ?? false,
+      },
     ],
     validate(choices) {
       if (choices.length === 0) return 'Select at least one provider.';

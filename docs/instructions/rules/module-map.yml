@@ -375,6 +375,9 @@ modules:
       - slug: aider
         name: Aider (config-only)
         outputs: [CONVENTIONS.md]
+      - slug: aiassistant
+        name: JetBrains AI Assistant (rules-only)
+        outputs: [.aiassistant/rules/guidelines.md]
 
   # ────────────────────────────────────────────────────────────────────
   # LAYER 2 — agent-workflows (LLM-facing surface)

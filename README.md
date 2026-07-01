@@ -20,7 +20,7 @@
 [![Node](https://img.shields.io/node/v/paqad-ai.svg?style=flat-square)](https://nodejs.org)
 [![website](https://img.shields.io/badge/website-paqad.ai-0A7A5C?style=flat-square)](https://paqad.ai)
 
-Works with Claude Code, Cursor, GitHub Copilot, Gemini, Codex, Windsurf, Junie, Continue, Antigravity, and Aider.
+Works with Claude Code, Cursor, GitHub Copilot, Gemini, Codex, Windsurf, Junie, Continue, Antigravity, Aider, and JetBrains AI Assistant.
 
 </div>
 
@@ -140,18 +140,19 @@ Three steps turn AI coding from a prompt you hope works into a pipeline you can 
 
 Run `paqad-ai onboard` one time. It writes a thin, native config file for each tool you use, and they all point at the same shared instruction bundle. Change a rule in one place, and every agent sees it. Switch tools next month without losing anything.
 
-| Tool                   | What it creates                                          |
-| ---------------------- | -------------------------------------------------------- |
-| **Claude Code**        | `CLAUDE.md` and MCP config                               |
-| **Codex CLI**          | `AGENTS.md` and MCP config                               |
-| **Google Antigravity** | `ANTIGRAVITY.md` and MCP config                          |
-| **Gemini CLI**         | `GEMINI.md` and MCP config                               |
-| **Junie**              | `.junie/AGENTS.md` and `.junie/mcp/mcp.json`             |
-| **Cursor**             | `.cursor/rules/paqad.mdc` plus MCP, skills, agents       |
-| **GitHub Copilot**     | `.github/copilot-instructions.md` and `.vscode/mcp.json` |
-| **Windsurf**           | `.windsurfrules` plus MCP, skills, agents                |
-| **Continue**           | `.continue/rules/paqad.md` plus MCP, prompts             |
-| **Aider**              | `CONVENTIONS.md`                                         |
+| Tool                       | What it creates                                          |
+| -------------------------- | -------------------------------------------------------- |
+| **Claude Code**            | `CLAUDE.md` and MCP config                               |
+| **Codex CLI**              | `AGENTS.md` and MCP config                               |
+| **Google Antigravity**     | `ANTIGRAVITY.md` and MCP config                          |
+| **Gemini CLI**             | `GEMINI.md` and MCP config                               |
+| **Junie**                  | `.junie/AGENTS.md` and `.junie/mcp/mcp.json`             |
+| **Cursor**                 | `.cursor/rules/paqad.mdc` plus MCP, skills, agents       |
+| **GitHub Copilot**         | `.github/copilot-instructions.md` and `.vscode/mcp.json` |
+| **Windsurf**               | `.windsurfrules` plus MCP, skills, agents                |
+| **Continue**               | `.continue/rules/paqad.md` plus MCP, prompts             |
+| **Aider**                  | `CONVENTIONS.md`                                         |
+| **JetBrains AI Assistant** | `.aiassistant/rules/guidelines.md`                       |
 
 Pick one or pick all. Onboarding is multi-select.
 

@@ -94,3 +94,9 @@
 # decisions_max_screens_per_task=3
 # Auto-resolve a pending decision after this idle window. (env: PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES)
 # decisions_idle_timeout_minutes=30
+
+# ── Enforcement (capability modes — team value is a floor) ──
+# off | warn | strict — feature-development stage-completeness gate (default strict). (env: PAQAD_STAGES_MODE)
+# stages_mode=strict
+# off | warn | strict — scripted-rule enforcement from the working tree. (env: PAQAD_RULE_COMPLIANCE)
+# rule_compliance=warn

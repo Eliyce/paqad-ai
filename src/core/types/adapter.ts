@@ -9,6 +9,7 @@ export const ADAPTER_TYPES = [
   'windsurf',
   'continue',
   'aider',
+  'aiassistant',
 ] as const;
 export type AdapterType = (typeof ADAPTER_TYPES)[number];
 

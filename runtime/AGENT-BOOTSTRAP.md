@@ -166,6 +166,7 @@ Use the row that matches the `Adapter:` value in the entry file that pointed you
 | `windsurf` | In Windsurf Cascade, ask the user and wait for a reply before continuing. |
 | `continue` | In Continue, ask the user and wait for a reply before continuing. |
 | `aider` | In Aider, switch to `/ask` mode for the decision and wait for the user. |
+| `aiassistant` | In JetBrains AI Assistant, prompt the user and wait for a reply before continuing. |
 
 ## Fallback
 
