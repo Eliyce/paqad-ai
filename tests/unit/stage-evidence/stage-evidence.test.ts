@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   changeKey,
+  COMPLETION_ANCHORED_STAGES,
   endStage,
   foldChange,
   foldRows,
+  isCompletionAnchoredStage,
   isMandatoryStage,
   openStageEvidence,
   STAGE_EVIDENCE_DOC_TYPE,
@@ -311,6 +313,97 @@ describe('foldRows edge cases (#247)', () => {
       t += 200;
     }
     expect(foldRows(rows, 'ses', 1).completeness.verdict).toBe('recovered');
+  });
+});
+
+describe('completion-anchored review (#270)', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-stage-ev-270-'));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  const BUILD_ORDER = [
+    'planning',
+    'specification',
+    'development',
+    'checks',
+    'documentation_sync',
+  ] as const;
+
+  /** Record planning→docs in build order, so `checks`/`documentation_sync` are on the
+   *  ledger before the explicit review — the exact shape issue #270 describes. */
+  function recordBuild(sessionId: string, now: () => Date): number {
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
+    const ctx = { sessionId, ordinal, adapter: ADAPTER, now };
+    for (const stage of BUILD_ORDER) {
+      startStage(root, stage, ctx);
+      endStage(root, stage, {}, ctx);
+    }
+    return ordinal;
+  }
+
+  it('marks only review as completion-anchored; every other stage stays ordered', () => {
+    expect(COMPLETION_ANCHORED_STAGES).toEqual(['review']);
+    expect(isCompletionAnchoredStage('review')).toBe(true);
+    for (const stage of BUILD_ORDER) {
+      expect(isCompletionAnchoredStage(stage)).toBe(false);
+    }
+  });
+
+  it('records a review start AFTER checks/docs already started, without an out-of-order throw', () => {
+    const now = clock();
+    const ordinal = recordBuild('ses_late_start', now);
+    const ctx = { sessionId: 'ses_late_start', ordinal, adapter: ADAPTER, now };
+    // review is canonically before checks/docs; the strict recorder would throw here.
+    expect(() => startStage(root, 'review', ctx)).not.toThrow();
+    endStage(root, 'review', {}, ctx);
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses_late_start');
+    expect(rows.some((r) => r.kind === 'stage_start' && r.stage === 'review')).toBe(true);
+    expect(rows.some((r) => r.kind === 'stage_end' && r.stage === 'review')).toBe(true);
+  });
+
+  it('AC-1/AC-4: a review recorded after checks + docs passes with no ordering violation', () => {
+    const now = clock();
+    const ordinal = recordBuild('ses_late', now);
+    const ctx = { sessionId: 'ses_late', ordinal, adapter: ADAPTER, now };
+    startStage(root, 'review', ctx);
+    endStage(root, 'review', {}, ctx);
+
+    const fold = foldChange(root, 'ses_late', ordinal);
+    expect(fold.completeness.ordering_violations).toEqual([]);
+
+    const result = verifyChange(root, { sessionId: 'ses_late', ordinal, adapter: ADAPTER });
+    expect(result.verdict).toBe('complete');
+    expect(result.ok).toBe(true);
+    expect(result.missing_stages).toEqual([]);
+  });
+
+  it('AC-2/AC-3: a review that is never marked stays missing → incomplete (honesty floor)', () => {
+    const now = clock();
+    const ordinal = recordBuild('ses_noreview', now);
+    const result = verifyChange(root, { sessionId: 'ses_noreview', ordinal, adapter: ADAPTER });
+    expect(result.ok).toBe(false);
+    expect(result.verdict).toBe('incomplete');
+    expect(result.missing_stages).toEqual(['review']);
+  });
+
+  it('still flags a genuine out-of-order overlap between two NON-anchored stages', () => {
+    // Regression guard: the exemption is scoped to review only. A checks/docs overlap
+    // (documentation_sync starts before checks ends) must still be a violation.
+    const sessionId = 'ses_realviolation';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
+    startStageRaw(root, sessionId, ordinal, 'checks', 'stage_start', 1);
+    startStageRaw(root, sessionId, ordinal, 'documentation_sync', 'stage_start', 2); // docs starts…
+    startStageRaw(root, sessionId, ordinal, 'checks', 'stage_end', 3); // …before checks ends → violation
+    startStageRaw(root, sessionId, ordinal, 'documentation_sync', 'stage_end', 4);
+    const fold = foldChange(root, sessionId, ordinal);
+    expect(fold.completeness.ordering_violations).toContainEqual({
+      before: 'checks',
+      after: 'documentation_sync',
+    });
   });
 });
 

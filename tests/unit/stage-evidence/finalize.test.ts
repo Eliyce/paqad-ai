@@ -100,6 +100,39 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
   });
 
+  it('#270: anchors a review the agent left open at the completion seam → complete', () => {
+    const sessionId = 'ses_late_review';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    // Build order: the live writer stamps checks/docs during the build…
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'checks',
+      'documentation_sync',
+    ]) {
+      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+    }
+    // …then the agent emits `paqad:stage review start` while reviewing the finished
+    // diff, but the turn ends before the `end` marker. The completion seam must
+    // anchor (close) it, not reject it — a review after checks/docs is legitimate.
+    startStage(root, 'review', { sessionId, ordinal, adapter: 'claude-code' });
+
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 1,
+    });
+
+    expect(result?.verdict).toBe('complete');
+    expect(result?.ok).toBe(true);
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const reviewEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'review');
+    expect(reviewEnd, 'finalize should anchor the open review at completion').toBeDefined();
+    expect(reviewEnd?.evidence_source).toBe('live-mark');
+  });
+
   it('does not re-verify a change that already has a verify row (verify-once)', () => {
     const sessionId = 'ses_once';
     const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });

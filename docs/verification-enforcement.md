@@ -53,6 +53,28 @@ that has not adopted stage marking:
   committed local ledger) → **skipped** (informational). The committed-receipt path
   that would let CI enforce stage-completeness is deferred.
 
+#### Completion-anchored review (issue #270)
+
+The canonical stage order is `planning → specification → development → review →
+checks → documentation_sync`, and the ledger normally rejects an earlier stage that
+starts after a later one — so the order it records can't be faked. `review` is the
+one exception. It is **edit-less** (the live writer stamps a stage from the file an
+edit mutates, and a review of the finished diff mutates nothing), yet it canonically
+precedes `checks` and `documentation_sync` — the stages the live writer *does* stamp
+from the tests and docs written during the build. So an honest review of the
+completed change necessarily lands, in wall-clock time, after `checks`/`docs` are
+already on the ledger.
+
+To keep a truthful late review from reading as a skipped one, `review` is modeled as
+a **completion-anchored** stage (`COMPLETION_ANCHORED_STAGES` in
+`src/stage-evidence/stages.ts`): its natural position is the completion boundary, and
+it is exempt from forward-ordering. Concretely — the recorder does not treat a
+completion-anchored start as out-of-order, the fold flags no ordering violation for a
+pair involving one, and the finalize seam anchors an open review at the completion
+clock. This forgives **ordering only, never absence**: a review that is never marked
+is still `missing`, so the completeness verdict remains `incomplete` and the honest
+distinction between "reviewed late" and "not reviewed" holds.
+
 The completion hook **soft-fails** on infrastructure errors (a missing build, an
 import failure) so a broken install never wedges the agent. On hosts other than
 Claude Code the completion hook is **record-only** (`verification-record.mjs`):
