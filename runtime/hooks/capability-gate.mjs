@@ -102,7 +102,11 @@ async function main(input) {
     const distUrl = new URL('../../dist/kernel/gate.js', import.meta.url);
     const { runCapabilityGate } = await import(distUrl.href);
 
-    const result = await runCapabilityGate({ projectRoot, seam: SEAM, payload: parsePayload(input) });
+    const result = await runCapabilityGate({
+      projectRoot,
+      seam: SEAM,
+      payload: parsePayload(input),
+    });
     if (result.block) {
       process.stderr.write(`${result.summary}\n`);
       return 2;

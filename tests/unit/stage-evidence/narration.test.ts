@@ -41,7 +41,9 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('narrates a non-stage-bearing edit as null', () => {
-    expect(narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'pnpm-lock.yaml' })).toBeNull();
+    expect(
+      narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'pnpm-lock.yaml' }),
+    ).toBeNull();
   });
 
   it('narrates the first edit of a change (no change opened yet)', () => {
@@ -50,19 +52,38 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
   });
 
   it('does NOT re-narrate a stage already entered this change (idempotent)', () => {
-    recordLiveStageEdit({ projectRoot: root, sessionId: SES, toolName: 'Edit', targetPath: 'src/a.ts' });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/a.ts',
+    });
     const second = narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/b.ts' });
     expect(second).toBeNull();
   });
 
   it('narrates a forward transition into a new stage (development → checks)', () => {
-    recordLiveStageEdit({ projectRoot: root, sessionId: SES, toolName: 'Edit', targetPath: 'src/a.ts' });
-    const line = narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'tests/a.test.ts' });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/a.ts',
+    });
+    const line = narrateStageEntry({
+      projectRoot: root,
+      sessionId: SES,
+      targetPath: 'tests/a.test.ts',
+    });
     expect(line).toBe(stageNarrationLine('checks'));
   });
 
   it('does NOT narrate an out-of-order edit (an earlier stage after a later one began)', () => {
-    recordLiveStageEdit({ projectRoot: root, sessionId: SES, toolName: 'Write', targetPath: 'tests/a.test.ts' });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Write',
+      targetPath: 'tests/a.test.ts',
+    });
     const line = narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/a.ts' });
     expect(line).toBeNull();
   });

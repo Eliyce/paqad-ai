@@ -18,12 +18,14 @@ import { readLatestProjectEvent } from '@/session-ledger/project-ledger.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
 
 /** A policy clone with `enabled`, `branch.base`, `branch.type_map`, `ci.gate` tweakable. */
-function policy(over: {
-  enabled?: boolean;
-  base?: string;
-  typeMap?: Record<string, string>;
-  ciGate?: 'wait_for_green' | 'warn_only' | 'off';
-} = {}): ResolvedDeliveryPolicy {
+function policy(
+  over: {
+    enabled?: boolean;
+    base?: string;
+    typeMap?: Record<string, string>;
+    ciGate?: 'wait_for_green' | 'warn_only' | 'off';
+  } = {},
+): ResolvedDeliveryPolicy {
   const base = defaultDeliveryPolicy();
   return {
     enabled: over.enabled ?? true,
@@ -123,7 +125,10 @@ describe('evaluateDelivery — convention findings', () => {
 
   it('conventional branch + gh red CI (wait_for_green) → ci-red warning with PR number', async () => {
     const gh = ok(
-      JSON.stringify({ number: 42, statusCheckRollup: [{ conclusion: 'FAILURE' }, { conclusion: 'SUCCESS' }] }),
+      JSON.stringify({
+        number: 42,
+        statusCheckRollup: [{ conclusion: 'FAILURE' }, { conclusion: 'SUCCESS' }],
+      }),
     );
     const result = await evaluateDelivery({
       projectRoot: root,
@@ -191,7 +196,13 @@ describe('evaluateDelivery — convention findings', () => {
 describe('formatDeliverySummary', () => {
   it('no findings → empty string', () => {
     expect(
-      formatDeliverySummary({ ran: true, branch: 'feat/x', commit: 's', ghAvailable: true, findings: [] }),
+      formatDeliverySummary({
+        ran: true,
+        branch: 'feat/x',
+        commit: 's',
+        ghAvailable: true,
+        findings: [],
+      }),
     ).toBe('');
   });
 
@@ -219,7 +230,11 @@ describe('runDeliveryCapability — the kernel-wired behaviour', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('no-ops at the pre-mutation seam (delivery is completion-only)', async () => {
-    const outcome = await runDeliveryCapability(root, 'pre-mutation', runner({ branch: ok('main') }));
+    const outcome = await runDeliveryCapability(
+      root,
+      'pre-mutation',
+      runner({ branch: ok('main') }),
+    );
     expect(outcome).toEqual({ ran: false, blocking: false, summary: '' });
   });
 

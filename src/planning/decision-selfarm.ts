@@ -23,7 +23,10 @@ import type { CapabilityPayload, CapabilitySeam } from '@/kernel/registry.js';
 
 import { detectDecisionForks } from './decision-detector.js';
 import { computeDecisionFingerprint } from './decision-fingerprint.js';
-import { decisionOptionsForCategory, decisionQuestionForCategory } from './decision-packet-builder.js';
+import {
+  decisionOptionsForCategory,
+  decisionQuestionForCategory,
+} from './decision-packet-builder.js';
 import type { DecisionCategory, DecisionPacket } from './decision-packet.js';
 import { DecisionStore } from './decision-store.js';
 
@@ -75,10 +78,16 @@ export function lastUserPromptFromTranscript(transcriptText: string): string {
     } catch {
       continue;
     }
-    const record = entry as { type?: unknown; role?: unknown; message?: { role?: unknown; content?: unknown } };
+    const record = entry as {
+      type?: unknown;
+      role?: unknown;
+      message?: { role?: unknown; content?: unknown };
+    };
     const role = record.message?.role ?? record.role ?? record.type;
     if (role === 'user') {
-      const text = extractText(record.message?.content ?? (record as { content?: unknown }).content);
+      const text = extractText(
+        record.message?.content ?? (record as { content?: unknown }).content,
+      );
       if (text) return text;
     }
   }
@@ -112,7 +121,13 @@ export interface SelfArmInput {
 
 export interface SelfArmResult {
   minted: string | null;
-  reason: 'minted' | 'no-fork' | 'no-session' | 'pending-exists' | 'already-decided' | 'write-failed';
+  reason:
+    | 'minted'
+    | 'no-fork'
+    | 'no-session'
+    | 'pending-exists'
+    | 'already-decided'
+    | 'write-failed';
 }
 
 /**
@@ -206,7 +221,7 @@ export function runDecisionSelfArm(input: RunSelfArmInput): SelfArmOutcome {
   const sessionId = input.payload?.sessionId ?? null;
   if (!transcriptPath || !sessionId) return NO_OP;
 
-  let promptText = '';
+  let promptText: string;
   try {
     const read = input.readTranscript ?? ((path: string) => readFileSync(path, 'utf8'));
     promptText = lastUserPromptFromTranscript(read(transcriptPath));

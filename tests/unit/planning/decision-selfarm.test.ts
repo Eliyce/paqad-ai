@@ -54,7 +54,15 @@ describe('lastUserPromptFromTranscript', () => {
   });
 
   it('flattens array content blocks', () => {
-    const t = JSON.stringify({ message: { role: 'user', content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] } });
+    const t = JSON.stringify({
+      message: {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'a' },
+          { type: 'text', text: 'b' },
+        ],
+      },
+    });
     expect(lastUserPromptFromTranscript(t)).toBe('a b');
   });
 
@@ -64,13 +72,18 @@ describe('lastUserPromptFromTranscript', () => {
   });
 
   it('skips malformed lines and returns "" when there is no user message', () => {
-    const t = ['not json', JSON.stringify({ message: { role: 'assistant', content: 'x' } })].join('\n');
+    const t = ['not json', JSON.stringify({ message: { role: 'assistant', content: 'x' } })].join(
+      '\n',
+    );
     expect(lastUserPromptFromTranscript(t)).toBe('');
   });
 
   it('ignores non-text blocks inside array content', () => {
     const t = JSON.stringify({
-      message: { role: 'user', content: [{ type: 'text', text: 'x' }, { type: 'image' }, { type: 'text', text: 'y' }] },
+      message: {
+        role: 'user',
+        content: [{ type: 'text', text: 'x' }, { type: 'image' }, { type: 'text', text: 'y' }],
+      },
     });
     const out = lastUserPromptFromTranscript(t);
     expect(out).toContain('x');
@@ -78,7 +91,9 @@ describe('lastUserPromptFromTranscript', () => {
   });
 
   it('returns "" for a user message whose content is neither string nor array', () => {
-    expect(lastUserPromptFromTranscript(JSON.stringify({ message: { role: 'user', content: 42 } }))).toBe('');
+    expect(
+      lastUserPromptFromTranscript(JSON.stringify({ message: { role: 'user', content: 42 } })),
+    ).toBe('');
   });
 });
 
@@ -91,7 +106,12 @@ describe('selfArmDecision — narrow create-vs-reuse minter', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('mints ONE pending packet for a create-vs-reuse fork', () => {
-    const result = selfArmDecision({ projectRoot: root, promptText: FORK_PROMPT, sessionId: 'ses1', targetPath: 'src/a.ts' });
+    const result = selfArmDecision({
+      projectRoot: root,
+      promptText: FORK_PROMPT,
+      sessionId: 'ses1',
+      targetPath: 'src/a.ts',
+    });
     expect(result.reason).toBe('minted');
     expect(result.minted).toMatch(/^D-/);
     expect(pendingIds(root)).toHaveLength(1);
@@ -109,7 +129,11 @@ describe('selfArmDecision — narrow create-vs-reuse minter', () => {
   });
 
   it('does nothing when there is no create-vs-reuse fork', () => {
-    const result = selfArmDecision({ projectRoot: root, promptText: 'Add a submit button', sessionId: 'ses1' });
+    const result = selfArmDecision({
+      projectRoot: root,
+      promptText: 'Add a submit button',
+      sessionId: 'ses1',
+    });
     expect(result.reason).toBe('no-fork');
     expect(pendingIds(root)).toHaveLength(0);
   });
@@ -120,14 +144,29 @@ describe('selfArmDecision — narrow create-vs-reuse minter', () => {
   });
 
   it('never piles a second pause on top of an open one', () => {
-    selfArmDecision({ projectRoot: root, promptText: FORK_PROMPT, sessionId: 'ses1', targetPath: 'src/a.ts' });
-    const second = selfArmDecision({ projectRoot: root, promptText: FORK_PROMPT, sessionId: 'ses2', targetPath: 'src/b.ts' });
+    selfArmDecision({
+      projectRoot: root,
+      promptText: FORK_PROMPT,
+      sessionId: 'ses1',
+      targetPath: 'src/a.ts',
+    });
+    const second = selfArmDecision({
+      projectRoot: root,
+      promptText: FORK_PROMPT,
+      sessionId: 'ses2',
+      targetPath: 'src/b.ts',
+    });
     expect(second.reason).toBe('pending-exists');
     expect(pendingIds(root)).toHaveLength(1);
   });
 
   it('does not re-ask a fork that was already resolved', () => {
-    const first = selfArmDecision({ projectRoot: root, promptText: FORK_PROMPT, sessionId: 'ses1', targetPath: 'src/a.ts' });
+    const first = selfArmDecision({
+      projectRoot: root,
+      promptText: FORK_PROMPT,
+      sessionId: 'ses1',
+      targetPath: 'src/a.ts',
+    });
     const store = new DecisionStore(root);
     store.resolve({
       decisionId: first.minted as string,
@@ -140,7 +179,12 @@ describe('selfArmDecision — narrow create-vs-reuse minter', () => {
         carry_over_scope: 'task',
       },
     });
-    const again = selfArmDecision({ projectRoot: root, promptText: FORK_PROMPT, sessionId: 'ses1', targetPath: 'src/a.ts' });
+    const again = selfArmDecision({
+      projectRoot: root,
+      promptText: FORK_PROMPT,
+      sessionId: 'ses1',
+      targetPath: 'src/a.ts',
+    });
     expect(again.reason).toBe('already-decided');
     expect(pendingIds(root)).toHaveLength(0);
   });
@@ -180,7 +224,13 @@ describe('runDecisionSelfArm — the capability body (transcript reader injected
   const forkTranscript = () => JSON.stringify({ message: { role: 'user', content: FORK_PROMPT } });
 
   it('no-ops at the completion seam', () => {
-    const out = runDecisionSelfArm({ projectRoot: root, seam: 'completion', env: on, payload, readTranscript: forkTranscript });
+    const out = runDecisionSelfArm({
+      projectRoot: root,
+      seam: 'completion',
+      env: on,
+      payload,
+      readTranscript: forkTranscript,
+    });
     expect(out).toEqual({ ran: false, blocking: false, summary: '' });
   });
 
@@ -202,12 +252,24 @@ describe('runDecisionSelfArm — the capability body (transcript reader injected
   });
 
   it('no-ops when the payload has no transcript path', () => {
-    const out = runDecisionSelfArm({ projectRoot: root, seam: 'pre-mutation', env: on, payload: { sessionId: 'ses1' }, readTranscript: forkTranscript });
+    const out = runDecisionSelfArm({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: on,
+      payload: { sessionId: 'ses1' },
+      readTranscript: forkTranscript,
+    });
     expect(out.ran).toBe(false);
   });
 
   it('no-ops when the payload has a transcript path but no session id', () => {
-    const out = runDecisionSelfArm({ projectRoot: root, seam: 'pre-mutation', env: on, payload: { transcriptPath: '/t.jsonl' }, readTranscript: forkTranscript });
+    const out = runDecisionSelfArm({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: on,
+      payload: { transcriptPath: '/t.jsonl' },
+      readTranscript: forkTranscript,
+    });
     expect(out.ran).toBe(false);
   });
 
@@ -224,7 +286,13 @@ describe('runDecisionSelfArm — the capability body (transcript reader injected
   });
 
   it('mints and returns a non-blocking advisory when a fork is detected', () => {
-    const out = runDecisionSelfArm({ projectRoot: root, seam: 'pre-mutation', env: on, payload, readTranscript: forkTranscript });
+    const out = runDecisionSelfArm({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: on,
+      payload,
+      readTranscript: forkTranscript,
+    });
     expect(out.blocking).toBe(false);
     expect(out.ran).toBe(true);
     expect(out.summary).toContain('▸ paqad');
