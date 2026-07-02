@@ -1,7 +1,14 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
+import {
+  extractCallSites,
+  syncAnalyticsDocs,
+  type AnalyticsCallSite,
+  type AnalyticsSyncEntry,
+} from '@/analytics/index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import type { ClassificationResult } from '@/core/types/classification.js';
@@ -207,6 +214,11 @@ export class DocumentationWorkflow {
       moduleMap.modules.map((m) => m.slug),
     );
 
+    // Analytics v2 (issue #279): when the flag is on, regenerate the per-event docs tree from
+    // the modules' call sites alongside the canonical docs. OFF (default) is silent — the block
+    // is skipped entirely, so this adds nothing to a non-analytics project.
+    const analyticsEnabled = resolveAnalyticsInstrumentation(options.projectRoot);
+
     for (const mod of moduleMap.modules) {
       const moduleName = mod.slug;
       // Fix 3: prefer authoritative source_paths from the map; fall back to slug-matching only
@@ -268,6 +280,18 @@ export class DocumentationWorkflow {
             skipped: moduleSkipped,
           });
         }
+      }
+
+      if (analyticsEnabled) {
+        const analyticsEntries = await collectAnalyticsEntries(
+          options.projectRoot,
+          moduleName,
+          features,
+        );
+        // syncAnalyticsDocs is a no-op for an empty entry list, so no guard is needed.
+        const sync = await syncAnalyticsDocs(options.projectRoot, analyticsEntries);
+        moduleGenerated.push(...sync.written);
+        moduleSkipped.push(...sync.skipped);
       }
 
       for (const definition of MODULE_DOCS) {
@@ -797,6 +821,52 @@ function resolveEffectiveRouting(
     stack,
     capabilities,
   };
+}
+
+/** Resolve the analytics_instrumentation flag; false on any config error (OFF-is-silent). */
+function resolveAnalyticsInstrumentation(projectRoot: string): boolean {
+  try {
+    return resolveFrameworkConfig(projectRoot).features.analytics_instrumentation;
+    /* v8 ignore next 3 -- defensive: a malformed config never breaks doc generation */
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read each feature's source files and extract its analytics call sites into per-feature sync
+ * entries (issue #279). Files that cannot be read are skipped; a feature with no call sites
+ * produces no entry, so a module with no instrumentation yields an empty tree.
+ */
+async function collectAnalyticsEntries(
+  projectRoot: string,
+  moduleName: string,
+  features: { name: string; files: string[] }[],
+): Promise<AnalyticsSyncEntry[]> {
+  const entries: AnalyticsSyncEntry[] = [];
+  for (const feature of features) {
+    const callSites: AnalyticsCallSite[] = [];
+    const seen = new Set<string>();
+    for (const file of feature.files) {
+      let text: string;
+      try {
+        text = await readFile(join(projectRoot, file), 'utf8');
+        /* v8 ignore next 3 -- defensive: an unreadable source file is skipped, not fatal */
+      } catch {
+        continue;
+      }
+      for (const site of extractCallSites(text)) {
+        const key = `${site.provider}:${site.eventName}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        callSites.push(site);
+      }
+    }
+    if (callSites.length > 0) {
+      entries.push({ module: moduleName, feature: feature.name, callSites });
+    }
+  }
+  return entries;
 }
 
 async function findOrphanedModuleDirs(
