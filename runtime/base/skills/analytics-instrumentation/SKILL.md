@@ -1,6 +1,6 @@
 ---
 name: analytics-instrumentation
-description: When the `analytics_instrumentation` flag is on and the classify-time gate resolved to `instrument`, this skill wires a feature's analytics the tracking-plan-as-code way (issue #279). The LLM only names the event (following the project's one consistent convention) and writes the doc body; the bundled `instrument.mjs` script computes the normalized slug and the module-owned doc path, writes the per-event doc and refreshes the per-module index via the framework's doc-tree primitives, and prints the provider tracking-call snippet to paste into the source. A brand-new event is never added silently — it goes through the `analytics.new_event` Decision Pause first. Scales to N providers by data (one doc, a section per provider), not by code.
+description: When the `analytics_instrumentation` flag is on and the classify-time gate resolved to `instrument`, this skill wires a feature's analytics the tracking-plan-as-code way (issue #279). The LLM only names the event (following the project's one consistent convention) and writes the doc body; the bundled `instrument.mjs` script computes the normalized slug and the module-owned doc path, writes the per-event doc and refreshes the per-module index via the framework's doc-tree primitives, and prints the provider tracking-call snippet. A brand-new event is never added silently — it goes through the `analytics.new_event` Decision Pause first. Scales to N providers by data (one doc, a section per provider), not by code.
 model_tier: fast
 triggers:
   - workflow:
@@ -33,40 +33,58 @@ input_schema:
 
 # Analytics instrumentation
 
-Use this skill only when analytics is enabled and the change is user-facing. It turns "add
-tracking for this feature" into the governed, documented, drift-resistant flow paqad promises.
+## What It Does
 
-## When it runs
+Turns "add tracking for this feature" into the governed, documented, drift-resistant flow paqad
+promises: it names and documents each event as a reviewed per-event doc, governs every new event
+through a Decision Pause, and emits the provider tracking-call to paste into the source.
 
-The classify-time gate writes `.paqad/planning/analytics-decision.json`. When its `status` is
-`instrument`, the feature-development stages instruct you to instrument. For each user-facing
-behavior this change adds:
+## Use This When
 
-1. **Name the event** in the project's ONE consistent convention (read
-   `docs/instructions/stack/analytics.md` and the module's `analytics/index.md` first — reuse an
-   existing event before coining a new one). Object-action + past tense is a common default, not
-   a rule; consistency is the rule. No variable data in the name.
+Analytics is enabled (`analytics_instrumentation` on) and the classify-time gate wrote
+`.paqad/planning/analytics-decision.json` with `status: instrument` — i.e. a user-facing change
+in a project with a detected provider. Skip entirely when analytics is off or the change is not
+user-facing.
+
+## Inputs
+
+- `project_root` — resolves the docs tree and the analytics decision sidecar.
+- `module`, `feature` — the module and feature slugs the event belongs to (from the module map).
+- `event` — the exact event name, in the project's ONE consistent convention.
+- `provider` — one or more analytics provider ids the event fires to.
+
+## Procedure
+
+1. **Name the event** in the project's one consistent convention. Read
+   `docs/instructions/stack/analytics.md` and the module's `analytics/index.md` first, and reuse
+   an existing event before coining a new one. Object-action + past tense is a common default,
+   not a rule; consistency is the rule, and no variable data goes in the name.
 2. **Govern a new event.** If the event does not already exist, open a Decision Pause packet in
    the `analytics.new_event` category (who proposed it, why, with the name/casing/taxonomy/PII
    surfaced) via the `decision` skill and wait for the answer. Never add a new event silently.
 3. **Instrument + document.** Run the bundled script to write the per-event doc and get the
-   provider call snippet, then paste the snippet into the source and fill in the doc body (what
-   the event means, its properties, and the PII/consent section).
+   provider call snippet:
+   `node scripts/instrument.mjs <project-root> --module <m> --feature <f> --event <name> --provider <p> [--provider <p> ...]`.
+   Paste the printed snippet at the call site, then fill in the doc body — what the event means,
+   its properties, and the PII/consent section.
 
-## What the script does
+## Output Contract
 
-`node scripts/instrument.mjs <project-root> --module <m> --feature <f> --event <name> --provider <p> [--provider <p> ...]`
+The script prints JSON `{ docPath, written, snippet }` on stdout: `docPath` is the module-owned
+per-event doc, `written` lists the files created or refreshed (the doc + the per-module
+`analytics/index.md`), and `snippet` is the provider tracking call(s) to paste. The doc's
+existence is what the `off | warn | strict` completeness gate checks at Done.
 
-- Computes the normalized slug and the module-owned path
-  `docs/modules/{module}/analytics/{feature}/{event}.md` (casing variants collapse to one doc).
-- Writes the per-event doc (a section per provider, the exact event string inside) and refreshes
-  the per-module `analytics/index.md`, using the framework's own doc-tree primitives — you never
-  hand-compute a path or a slug.
-- Prints JSON `{ docPath, written, snippet }`; `snippet` is the provider tracking call to paste.
+## Escalate / Stop Conditions
 
-You then write the human prose in the doc body and place the snippet at the call site. The
-doc's existence is what the `off | warn | strict` completeness gate checks at Done.
+- A brand-new event, or any name/casing/taxonomy/PII concern: STOP and open the
+  `analytics.new_event` (or the matching `analytics.*`) Decision Pause; do not instrument until
+  it resolves.
+- Analytics off or a non-`instrument` sidecar: do nothing (INV-1 keeps a non-analytics run
+  silent).
 
 ## Resources
 
 - `scripts/instrument.mjs` — writes the per-event doc + index and prints the provider snippet.
+- `references/analytics-tracking-plan-contract.md` — the tracking-plan-as-code contract this
+  skill implements.
