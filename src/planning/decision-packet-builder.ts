@@ -133,6 +133,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'Analytics is on but no provider is wired up — set one up, or stay dormant?';
     case 'analytics.architecture_conflict':
       return 'Your module docs say tracking belongs elsewhere than this change — where should it go?';
+    case 'analytics.new_event':
+      return 'This adds a new tracked event — approve the name, rename it, or skip tracking?';
   }
 }
 
@@ -290,6 +292,7 @@ export function decisionOptionsForCategory(
     case 'analytics.pii_consent':
     case 'analytics.no_provider_flag':
     case 'analytics.architecture_conflict':
+    case 'analytics.new_event':
       return { options: [] };
   }
 }

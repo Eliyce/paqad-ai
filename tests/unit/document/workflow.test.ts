@@ -242,6 +242,59 @@ describe('DocumentationWorkflow', () => {
     expect(existsSync(join(root, 'docs/modules/users/index/summary.md'))).toBe(true);
   });
 
+  it('module-docs mode generates the per-event analytics tree when the flag is on (issue #279)', async () => {
+    writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n');
+    mkdirSync(join(root, 'app/Analytics'), { recursive: true });
+    writeFileSync(
+      join(root, 'app/Analytics/Track.php'),
+      "<?php posthog.capture('checkout_started');",
+    );
+
+    await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
+
+    const map = await loadModuleMap(root);
+    map!.modules = [
+      {
+        name: 'Checkout',
+        slug: 'checkout',
+        auto_update_module_name: false,
+        derivation: 'user',
+        confidence: 'high',
+        source_paths: ['app/Analytics/Track.php'],
+        evidence: {},
+        features: [
+          {
+            name: 'Cart',
+            slug: 'cart',
+            auto_update_feature_name: false,
+            source_paths: ['app/Analytics/Track.php'],
+            evidence: {},
+          },
+          {
+            // A feature with no analytics call sites yields no event doc (covers the
+            // "feature has zero call sites" path).
+            name: 'Browse',
+            slug: 'browse',
+            auto_update_feature_name: false,
+            source_paths: ['app/Http/Controllers/UserController.php'],
+            evidence: {},
+          },
+        ],
+      },
+    ];
+    writeFileSync(join(root, PATHS.MODULE_MAP), serializeModuleMap(map!));
+
+    const result = await new DocumentationWorkflow().run({
+      projectRoot: root,
+      mode: 'module-docs',
+    });
+
+    const eventDoc = 'docs/modules/checkout/analytics/cart/checkout-started.md';
+    expect(result.generated).toContain(eventDoc);
+    expect(result.generated).toContain('docs/modules/checkout/analytics/index.md');
+    expect(readFileSync(join(root, eventDoc), 'utf8')).toContain('checkout_started');
+  });
+
   it('module-docs mode reads only from the map and does not re-run discovery', async () => {
     // Stage 1
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });

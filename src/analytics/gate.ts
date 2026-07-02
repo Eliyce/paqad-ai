@@ -7,7 +7,7 @@
 // All three are resolvable at classify time. OFF is free AND silent: when the flag is off we
 // do not even run detection.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { AnalyticsGateStatus } from '@/core/types/classification.js';
@@ -65,6 +65,20 @@ export function resolveAnalyticsGate(input: AnalyticsGateInput): AnalyticsGateDe
     confidence: detection.confidence,
     resolved_at,
   };
+}
+
+/**
+ * Read the persisted analytics decision sidecar, or null when it is absent or unreadable. The
+ * later feature-development stages read this instead of re-deriving the gate (issue #279).
+ */
+export function readAnalyticsDecision(projectRoot: string): AnalyticsGateDecision | null {
+  try {
+    return JSON.parse(
+      readFileSync(join(projectRoot, ANALYTICS_DECISION_PATH), 'utf8'),
+    ) as AnalyticsGateDecision;
+  } catch {
+    return null;
+  }
 }
 
 /**

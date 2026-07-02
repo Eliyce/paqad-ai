@@ -1,0 +1,7 @@
+interface:
+  display_name: Analytics Instrumentation
+  short_description: Instruments a feature's analytics the tracking-plan-as-code way —
+    the agent names the event and writes the doc body, while the bundled instrument.mjs
+    computes the slug and module-owned path, writes the per-event doc and per-module index
+    via the framework doc-tree primitives, and prints the provider tracking-call snippet.
+    A brand-new event is governed through the analytics.new_event Decision Pause first.

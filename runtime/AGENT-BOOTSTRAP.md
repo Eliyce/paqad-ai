@@ -161,6 +161,7 @@ Before implementing any choice that falls into one of the categories below, writ
 - `analytics.pii_consent`
 - `analytics.no_provider_flag`
 - `analytics.architecture_conflict`
+- `analytics.new_event`
 
 ## Resolution flow
 

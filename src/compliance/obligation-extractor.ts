@@ -294,7 +294,7 @@ function selectPassCriteriaColumn(headerCells: string[], rowCells: string[]): st
 
 function extractLeadingExplicitId(line: string): string | null {
   const match =
-    /^\s*(?:#{1,6}\s+|[-*+]\s+)?(?:\*\*)?(?<id>(?:FR|NFR)-\d+(?:\.\d+)?(?:-T\d+)?|AC-\d+|EC-\d+(?:-T\d+)?)(?:\*\*)?(?=\b|:|\s)/.exec(
+    /^\s*(?:#{1,6}\s+|[-*+]\s+)?(?:\*\*)?(?<id>(?:FR|NFR)-\d+(?:\.\d+)?(?:-T\d+)?|AC-(?:TRACK-[A-Za-z0-9-]+|\d+)|EC-\d+(?:-T\d+)?)(?:\*\*)?(?=\b|:|\s)/.exec(
       line,
     );
   if (match?.groups?.id) {

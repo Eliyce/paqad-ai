@@ -119,15 +119,14 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     };
 
     expect(parsed.permissions.allow).toEqual(['Bash(ls:*)']);
-    // existing hook + agent-entry gate + stage-writer (RCA fix A) + analytics-tag-writer
-    // (#241) + decision-pause gate (#117 C-5) + capability-kernel seam (buildout F3).
-    expect(parsed.hooks.PreToolUse).toHaveLength(6);
+    // existing hook + agent-entry gate + stage-writer (RCA fix A) + decision-pause gate
+    // (#117 C-5) + capability-kernel seam (buildout F3).
+    expect(parsed.hooks.PreToolUse).toHaveLength(5);
     expect(parsed.hooks.PreToolUse[0].hooks[0].command).toBe('/usr/local/bin/my-existing-hook');
     expect(parsed.hooks.PreToolUse[1].hooks[0].command).toContain('agent-entry-gate.mjs');
     expect(parsed.hooks.PreToolUse[2].hooks[0].command).toContain('stage-writer.mjs');
-    expect(parsed.hooks.PreToolUse[3].hooks[0].command).toContain('analytics-tag-writer.mjs');
-    expect(parsed.hooks.PreToolUse[4].hooks[0].command).toContain('decision-pause-gate.mjs');
-    expect(isCapabilityGate(parsed.hooks.PreToolUse[5].hooks[0].command, 'pre-mutation')).toBe(
+    expect(parsed.hooks.PreToolUse[3].hooks[0].command).toContain('decision-pause-gate.mjs');
+    expect(isCapabilityGate(parsed.hooks.PreToolUse[4].hooks[0].command, 'pre-mutation')).toBe(
       true,
     );
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
@@ -229,15 +228,14 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         Stop: unknown[];
       };
     };
-    // agent-entry gate + stage-writer (RCA fix A) + analytics-tag-writer (#241) +
-    // decision-pause gate + capability-kernel seam (F3), no duplicates after re-run.
-    expect(parsed.hooks.PreToolUse).toHaveLength(5);
+    // agent-entry gate + stage-writer (RCA fix A) + decision-pause gate +
+    // capability-kernel seam (F3), no duplicates after re-run.
+    expect(parsed.hooks.PreToolUse).toHaveLength(4);
     expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
     // agent-entry session-start + background self-update, no duplicates.
     expect(parsed.hooks.SessionStart).toHaveLength(2);
-    // stage-marker-parse + analytics-tag-marker-parse (#241) + verification-completion +
-    // capability-kernel seam (F3).
-    expect(parsed.hooks.Stop).toHaveLength(4);
+    // stage-marker-parse + verification-completion + capability-kernel seam (F3).
+    expect(parsed.hooks.Stop).toHaveLength(3);
   });
 
   it('prunes the retired rule-script-enforce hook on re-onboard (no double-fire, F3)', async () => {

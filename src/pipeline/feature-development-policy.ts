@@ -3,7 +3,9 @@ import { join } from 'node:path';
 
 import YAML from 'yaml';
 
+import { readAnalyticsDecision } from '@/analytics/gate.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import type {
   FeatureDevelopmentChecksPolicy,
   FeatureDevelopmentLogicalCommand,
@@ -11,6 +13,7 @@ import type {
   FeatureDevelopmentPolicyLoadResult,
   FeatureDevelopmentRoundsPolicy,
   FeatureDevelopmentStageName,
+  FeatureDevelopmentStagePolicy,
   ResolvedFeatureDevelopmentCheckCommand,
 } from '@/core/types/feature-development-policy.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
@@ -218,7 +221,7 @@ export function loadFeatureDevelopmentPolicy(
   const defaults = defaultFeatureDevelopmentPolicy();
   const path = featureDevelopmentPolicyPath(projectRoot);
   if (!existsSync(path)) {
-    return { policy: defaults, warnings: [] };
+    return { policy: injectAnalyticsStageInstructions(defaults, projectRoot), warnings: [] };
   }
 
   let parsed: RawFeatureDevelopmentPolicy;
@@ -251,8 +254,63 @@ export function loadFeatureDevelopmentPolicy(
     profile === null ? [] : validateRequiredCommands(merged.stages.checks.checks, profile);
 
   return {
-    policy: merged,
+    policy: injectAnalyticsStageInstructions(merged, projectRoot),
     warnings: commandWarnings,
+  };
+}
+
+/**
+ * Analytics v2 (issue #279): when the flag is on AND the classify-time gate resolved to
+ * `instrument`, append analytics instructions to the planning, specification, and development
+ * stages so the model reads the tracking plan first and instruments the change. OFF, or any
+ * non-`instrument` sidecar (dormant / not_applicable / off / absent), leaves the policy
+ * untouched — INV-1 keeps a non-analytics run silent.
+ */
+function injectAnalyticsStageInstructions(
+  policy: FeatureDevelopmentPolicy,
+  projectRoot: string,
+): FeatureDevelopmentPolicy {
+  let flagOn: boolean;
+  try {
+    flagOn = resolveFrameworkConfig(projectRoot).features.analytics_instrumentation;
+    /* v8 ignore next 3 -- defensive: a malformed config never breaks policy loading */
+  } catch {
+    flagOn = false;
+  }
+  if (!flagOn) {
+    return policy;
+  }
+  const decision = readAnalyticsDecision(projectRoot);
+  if (decision?.status !== 'instrument') {
+    return policy;
+  }
+
+  const provider = decision.providerDisplay ?? 'the detected provider';
+  const extend = (
+    stage: FeatureDevelopmentStagePolicy,
+    line: string,
+  ): FeatureDevelopmentStagePolicy => ({
+    ...stage,
+    instructions: [...stage.instructions, line],
+  });
+
+  return {
+    ...policy,
+    stages: {
+      ...policy.stages,
+      planning: extend(
+        policy.stages.planning,
+        `Analytics (${provider}) is on: read the module's \`analytics/index.md\` tracking plan before planning, and plan which events this change instruments — reuse an existing event before coining a new one.`,
+      ),
+      specification: extend(
+        policy.stages.specification,
+        'Analytics is on: for each user-facing behavior, declare the event(s) to track (name + provider). A brand-new event must go through the Decision Pause (`analytics.new_event`) before it lands.',
+      ),
+      development: extend(
+        policy.stages.development,
+        `Analytics is on: instrument the planned events using ${provider} and the project's naming convention, and document each at \`docs/modules/{module}/analytics/{feature}/{event}.md\`.`,
+      ),
+    },
   };
 }
 
