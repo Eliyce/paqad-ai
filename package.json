@@ -1,6 +1,6 @@
 {
   "name": "paqad-ai",
-  "version": "1.41.0",
+  "version": "1.41.1",
   "description": "Spec-driven development framework — AI agents that think before they type",
   "type": "module",
   "license": "MIT",
