@@ -33,6 +33,25 @@ describe('extractObligationIndex', () => {
     expect(index.obligations[0]!.source_section).toBe('Spec > Functional Requirements');
   });
 
+  it('recognizes an AC-TRACK-<slug> analytics tracking id as an explicit obligation (issue #279)', () => {
+    const markdown = [
+      '# Spec',
+      '',
+      '## Acceptance Criteria',
+      '',
+      'AC-TRACK-song-played: a song_played event is tracked when a song plays.',
+      '',
+    ].join('\n');
+
+    const index = extractObligationIndex({
+      spec_file: 'docs/spec.md',
+      spec_markdown: markdown,
+      extracted_at: '2026-04-07T00:00:00.000Z',
+    });
+
+    expect(index.obligations.map((o) => o.obligation_id)).toContain('AC-TRACK-song-played');
+  });
+
   it('generates deterministic IDs for numbered list obligations without explicit IDs', () => {
     const markdown = [
       '# Spec',

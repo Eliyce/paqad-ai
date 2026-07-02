@@ -454,6 +454,18 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Enforcement (capability modes — team value is a floor)',
     comment: 'off | warn | strict — scripted-rule enforcement from the working tree.',
   },
+  {
+    key: 'analytics_strictness',
+    env: 'PAQAD_ANALYTICS_STRICTNESS',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'off | warn | strict — analytics instrumentation completeness (issue #279). ' +
+      'warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated.',
+  },
 ] as const;
 
 const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
@@ -1499,7 +1511,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   // false); a developer sets them only via the config layers, clamped by the
   // floor in resolveFlooredMode. Listed here so the registry-coverage invariant
   // (every spec key appears in exactly one section) holds.
-  { present: () => false, keys: ['stages_mode', 'rule_compliance'] },
+  { present: () => false, keys: ['stages_mode', 'rule_compliance', 'analytics_strictness'] },
 ];
 
 /**

@@ -74,7 +74,11 @@ function criterionFromObligation(
   description: string,
   sequence: number,
 ): VerificationCriterion {
-  const criterionId = /^AC-\d+$/.test(obligationId) ? obligationId : `AC-${sequence}`;
+  // Preserve a plain `AC-<n>` id or an analytics tracking id `AC-TRACK-<slug>` (issue #279),
+  // so the 1:1 event↔AC-TRACK↔doc promise survives into freeze and traceability.
+  const criterionId = /^AC-(?:TRACK-[A-Za-z0-9-]+|\d+)$/.test(obligationId)
+    ? obligationId
+    : `AC-${sequence}`;
   const { given, when, then } = parseGivenWhenThen(description);
 
   return {
@@ -91,7 +95,9 @@ function criterionFromObligation(
 
 /** Strips a leading requirement/criterion id (e.g. `FR-1:`, `AC-2 -`) from a line. */
 function stripLeadingId(text: string): string {
-  return text.replace(/^(?:FR|NFR|AC|EC)-\d+(?:\.\d+)?\s*[:.)-]\s*/i, '').trim();
+  return text
+    .replace(/^(?:(?:FR|NFR|EC)-\d+(?:\.\d+)?|AC-(?:TRACK-[A-Za-z0-9-]+|\d+))\s*[:.)-]\s*/i, '')
+    .trim();
 }
 
 function parseGivenWhenThen(text: string): { given: string; when: string; then: string } {

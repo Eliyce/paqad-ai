@@ -65,6 +65,21 @@ describe('buildFeatureSpec', () => {
     expect(second!.proof_type).toBe('manual');
   });
 
+  it('preserves an AC-TRACK-<slug> analytics tracking id (issue #279)', () => {
+    const spec = buildFeatureSpec({
+      spec_id: 'S-279',
+      spec_file: '.paqad/specs/S-279.md',
+      spec_markdown: `## Acceptance Criteria\nAC-TRACK-song-played: Given a listener, when a song plays, then a song_played event is tracked.\n`,
+    });
+
+    expect(spec.acceptance_criteria).toHaveLength(1);
+    expect(spec.acceptance_criteria[0]).toMatchObject({
+      criterion_id: 'AC-TRACK-song-played',
+      then: 'a song_played event is tracked',
+      proof_type: 'automated',
+    });
+  });
+
   it('collects authored invariants and stamps them unconfirmed', () => {
     const spec = buildFeatureSpec({
       spec_id: 'S-102',
