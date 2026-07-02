@@ -195,4 +195,74 @@ describe('feature development policy', () => {
     ]);
     expect(resolved.warnings).toEqual([]);
   });
+
+  describe('analytics stage injection (issue #279)', () => {
+    function seedProject(options: { flagOn: boolean; sidecar?: unknown }): string {
+      const root = mkdtempSync(join(tmpdir(), 'paqad-analytics-policy-'));
+      mkdirSync(join(root, '.paqad', 'planning'), { recursive: true });
+      if (options.flagOn) {
+        writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n');
+      }
+      if (options.sidecar !== undefined) {
+        writeFileSync(
+          join(root, '.paqad', 'planning', 'analytics-decision.json'),
+          JSON.stringify(options.sidecar),
+        );
+      }
+      return root;
+    }
+
+    const instrumentSidecar = {
+      status: 'instrument',
+      provider: 'posthog',
+      providerDisplay: 'PostHog',
+      convention: 'snake_case',
+      confidence: 'high',
+      resolved_at: '2026-07-02T00:00:00.000Z',
+    };
+
+    it('appends analytics instructions to planning, spec, and development when on + instrument', () => {
+      const root = seedProject({ flagOn: true, sidecar: instrumentSidecar });
+
+      const { policy } = loadFeatureDevelopmentPolicy(root);
+
+      expect(
+        policy.stages.planning.instructions.some((i) => i.includes('analytics/index.md')),
+      ).toBe(true);
+      expect(policy.stages.planning.instructions.some((i) => i.includes('PostHog'))).toBe(true);
+      expect(
+        policy.stages.specification.instructions.some((i) => i.includes('analytics.new_event')),
+      ).toBe(true);
+      expect(policy.stages.development.instructions.some((i) => i.includes('docs/modules/'))).toBe(
+        true,
+      );
+    });
+
+    it('leaves the policy untouched when the flag is off', () => {
+      const root = seedProject({ flagOn: false, sidecar: instrumentSidecar });
+
+      const { policy } = loadFeatureDevelopmentPolicy(root);
+
+      expect(policy).toEqual(defaultFeatureDevelopmentPolicy());
+    });
+
+    it('does not inject when the flag is on but no decision sidecar exists', () => {
+      const root = seedProject({ flagOn: true });
+
+      const { policy } = loadFeatureDevelopmentPolicy(root);
+
+      expect(policy).toEqual(defaultFeatureDevelopmentPolicy());
+    });
+
+    it('does not inject when the flag is on but the gate is dormant', () => {
+      const root = seedProject({
+        flagOn: true,
+        sidecar: { status: 'dormant', resolved_at: '2026-07-02T00:00:00.000Z' },
+      });
+
+      const { policy } = loadFeatureDevelopmentPolicy(root);
+
+      expect(policy).toEqual(defaultFeatureDevelopmentPolicy());
+    });
+  });
 });

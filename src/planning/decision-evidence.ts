@@ -120,6 +120,7 @@ export function defaultSimilarityFor(
     case 'analytics.pii_consent':
     case 'analytics.no_provider_flag':
     case 'analytics.architecture_conflict':
+    case 'analytics.new_event':
       return 0.5;
   }
 }

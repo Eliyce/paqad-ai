@@ -225,6 +225,14 @@ describe('decision packet builder', () => {
       'utf8',
     );
 
+    // Analytics v2 (#279): a new event is governed by a decision packet with no file options.
+    expect(decisionQuestionForCategory('analytics.new_event')).toBe(
+      'This adds a new tracked event — approve the name, rename it, or skip tracking?',
+    );
+    expect(decisionOptionsForCategory(root, 'analytics.new_event', 'src/track.ts').options).toEqual(
+      [],
+    );
+
     expect(decisionQuestionForCategory('component-reuse')).toBe('Reuse the component or make new?');
     expect(decisionQuestionForCategory('create-vs-reuse')).toBe('Use what exists or make new?');
     expect(decisionQuestionForCategory('shared-abstraction')).toBe('Keep this local or share it?');

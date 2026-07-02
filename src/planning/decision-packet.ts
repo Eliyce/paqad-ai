@@ -25,6 +25,9 @@ export const DECISION_CATEGORIES = [
   'analytics.pii_consent',
   'analytics.no_provider_flag',
   'analytics.architecture_conflict',
+  // Analytics v2 (issue #279): every NEW event is a decision, not a silent addition — the
+  // packet captures who proposed it and why, with name/casing/taxonomy/PII surfaced.
+  'analytics.new_event',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -154,6 +157,8 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'analytics.pii_consent': { create_new: false, reversibility: 'hard', ttl_days: 7 },
   'analytics.no_provider_flag': { create_new: false, reversibility: 'easy', ttl_days: 7 },
   'analytics.architecture_conflict': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  // A new event names a stable identifier a whole team depends on; renaming it later is hard.
+  'analytics.new_event': { create_new: true, reversibility: 'hard', ttl_days: 14 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {
