@@ -1584,14 +1584,19 @@ function basenameWithoutExtension(path: string): string {
  * expand to all source files that live under that directory tree.
  */
 function resolveSourcePaths(mappedPaths: string[], sourceFiles: string[]): string[] {
+  // Compare on POSIX separators so a posix `source_paths` entry from the module map matches the
+  // discovered files on every platform (on Windows `gatherSourceFiles` emits `\`-separated
+  // relative paths, so a raw compare against `/`-separated map entries silently returns empty).
   const result: string[] = [];
-  for (const p of mappedPaths) {
-    if (sourceFiles.includes(p)) {
+  const posixSources = sourceFiles.map(toPosixPath);
+  for (const raw of mappedPaths) {
+    const p = toPosixPath(raw);
+    if (posixSources.includes(p)) {
       result.push(p);
     } else {
       // Treat as a directory prefix: include every source file whose path starts with <p>/
       const prefix = p.endsWith('/') ? p : `${p}/`;
-      result.push(...sourceFiles.filter((f) => f.startsWith(prefix)));
+      result.push(...posixSources.filter((f) => f.startsWith(prefix)));
     }
   }
   return result;
