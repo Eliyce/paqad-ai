@@ -19,6 +19,9 @@ import { computeClassificationConfidence } from './confidence-scorer.js';
 import { PostClassifier } from './post-classifier.js';
 import { PreClassifier } from './pre-classifier.js';
 import { shouldSkipLlm } from './llm-skip-evaluator.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { resolveAnalyticsGate } from '@/analytics/gate.js';
+import type { AnalyticsGateStatus } from '@/core/types/classification.js';
 
 export interface ClassifierInput {
   request: string;
@@ -76,8 +79,14 @@ export class RequestClassifier {
       resolutionMap,
     );
 
+    // Complementary analytics gate (issue #241), resolved cheapest-first: the flag check is
+    // one config read, and OFF short-circuits BEFORE any detection — so with analytics off
+    // (the default) this adds no field and does no filesystem scan.
+    const analyticsTag = this.resolveAnalyticsTag(baseClassification.workflow);
+
     return {
       ...baseClassification,
+      ...(analyticsTag ? { analytics_tag: analyticsTag } : {}),
       complexity: adjustments.complexity,
       risk: adjustments.risk,
       classification_confidence: enrichedConfidence,
@@ -100,6 +109,34 @@ export class RequestClassifier {
       resume_lane: baseClassification.resume_lane,
       workflow_continuity_reason: baseClassification.workflow_continuity_reason,
     };
+  }
+
+  /**
+   * Resolve the analytics tag (issue #241). Returns undefined (no field, no fs scan) when
+   * there is no project root or the `analytics_instrumentation` flag is off — the common
+   * case. Only when the flag is on do we run the gate (which then detects a provider).
+   * Best-effort: any config/detection failure yields undefined, never a thrown classify.
+   */
+  private resolveAnalyticsTag(
+    workflow: ClassificationWorkflow | null,
+  ): AnalyticsGateStatus | undefined {
+    if (!this.projectRoot) {
+      return undefined;
+    }
+    try {
+      const flagEnabled = resolveFrameworkConfig(this.projectRoot).features
+        .analytics_instrumentation;
+      if (!flagEnabled) {
+        return undefined;
+      }
+      return resolveAnalyticsGate({
+        projectRoot: this.projectRoot,
+        flagEnabled: true,
+        changeIsFeatureShaped: workflow === 'feature-development',
+      }).status;
+    } catch {
+      return undefined;
+    }
   }
 }
 

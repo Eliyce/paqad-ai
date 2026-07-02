@@ -123,6 +123,16 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'Which pile does this finding belong in?';
     case 'quality.ratchet_exception':
       return 'A quality measure would worsen — approve a legitimate exception or hold the line?';
+    case 'analytics.provider_version_mismatch':
+      return "I'm not sure which analytics tool (or version) this project uses — which is right?";
+    case 'analytics.taxonomy_violation':
+      return 'This event name breaks your naming convention — keep mine or rename?';
+    case 'analytics.pii_consent':
+      return "This property looks like personal data — I won't auto-track it. Track it anyway?";
+    case 'analytics.no_provider_flag':
+      return 'Analytics is on but no provider is wired up — set one up, or stay dormant?';
+    case 'analytics.architecture_conflict':
+      return 'Your module docs say tracking belongs elsewhere than this change — where should it go?';
   }
 }
 
@@ -275,6 +285,11 @@ export function decisionOptionsForCategory(
     case 'test.flaky_judgement':
     case 'finding.triage':
     case 'quality.ratchet_exception':
+    case 'analytics.provider_version_mismatch':
+    case 'analytics.taxonomy_violation':
+    case 'analytics.pii_consent':
+    case 'analytics.no_provider_flag':
+    case 'analytics.architecture_conflict':
       return { options: [] };
   }
 }

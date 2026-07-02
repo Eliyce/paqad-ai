@@ -156,6 +156,11 @@ Before implementing any choice that falls into one of the categories below, writ
 - `test.flaky_judgement`
 - `finding.triage`
 - `quality.ratchet_exception`
+- `analytics.provider_version_mismatch`
+- `analytics.taxonomy_violation`
+- `analytics.pii_consent`
+- `analytics.no_provider_flag`
+- `analytics.architecture_conflict`
 
 ## Resolution flow
 

@@ -25,8 +25,20 @@
 import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
+
+const ANALYTICS_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+
+/** True iff `analytics_instrumentation` resolves on across the config layers. */
+function analyticsEnabled(projectRoot) {
+  const raw = readLayeredKey(
+    projectRoot,
+    'analytics_instrumentation',
+    'PAQAD_ANALYTICS_INSTRUMENTATION',
+  );
+  return typeof raw === 'string' && ANALYTICS_TRUTHY.has(raw.trim().toLowerCase());
+}
 
 // The host adapter type, passed as argv by the generated hook command so recorded
 // stage rows are honestly attributed (issue #265). Absent → undefined, and the
@@ -91,6 +103,29 @@ async function recordMarkers(projectRoot, rawInput) {
   }
 }
 
+/** Best-effort analytics-tag marker recording (issue #241). Parses the transcript for
+ *  `paqad:analytics-tag <name> …` control lines and mints the ledger rows on Codex/Gemini
+ *  completion, attributed to the host. No-op when analytics instrumentation is disabled. */
+async function recordAnalyticsMarkers(projectRoot, rawInput) {
+  try {
+    if (!analyticsEnabled(projectRoot)) return;
+    const payload = JSON.parse(rawInput);
+    const transcriptText = resolveTranscriptText(payload);
+    if (!transcriptText) return;
+    const distUrl = new URL('../../dist/analytics-tag/marker-parse.js', import.meta.url);
+    const { parseAndRecordAnalyticsTags } = await import(distUrl.href);
+    parseAndRecordAnalyticsTags({
+      projectRoot,
+      transcriptText,
+      sessionId: payload?.session_id ?? null,
+      adapter: ADAPTER_TYPE,
+      analyticsEnabled: true,
+    });
+  } catch {
+    // Record-only: never a thrown or non-zero-exiting hook.
+  }
+}
+
 async function main(rawInput) {
   // One resolved root for both the marker rows and the backstop fold, so they can
   // never key on different projects (honors PAQAD_PROJECT_ROOT, cwd fallback).
@@ -100,6 +135,7 @@ async function main(rawInput) {
   // disabled-session audit row, so it is still invoked below.
   if (!isPaqadDisabled(projectRoot)) {
     await recordMarkers(projectRoot, rawInput);
+    await recordAnalyticsMarkers(projectRoot, rawInput);
   }
   try {
     await runVerificationBackstop({

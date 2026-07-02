@@ -115,6 +115,11 @@ export function defaultSimilarityFor(
     case 'test.flaky_judgement':
     case 'finding.triage':
     case 'quality.ratchet_exception':
+    case 'analytics.provider_version_mismatch':
+    case 'analytics.taxonomy_violation':
+    case 'analytics.pii_consent':
+    case 'analytics.no_provider_flag':
+    case 'analytics.architecture_conflict':
       return 0.5;
   }
 }

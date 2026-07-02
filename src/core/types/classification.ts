@@ -163,4 +163,18 @@ export interface ClassificationResult {
   resumed_from_session?: boolean;
   resume_lane?: Lane | null;
   workflow_continuity_reason?: string | null;
+  /**
+   * The complementary analytics-instrumentation decision (issue #241), resolved
+   * cheapest-first at classify time and carried forward so no later stage re-derives it.
+   * Optional and additive: classifiers that do not set it leave it `undefined` (treated as
+   * `off`). See `resolveAnalyticsGate`.
+   */
+  analytics_tag?: AnalyticsGateStatus;
 }
+
+/**
+ * The net analytics gate outcome (issue #241): `off` (flag disabled — do not even detect),
+ * `not_applicable` (not a feature-shaped change), `dormant` (enabled but no provider wired),
+ * or `instrument` (enabled + feature-shaped + provider detected).
+ */
+export type AnalyticsGateStatus = 'off' | 'not_applicable' | 'dormant' | 'instrument';

@@ -3,6 +3,7 @@ export * from './detector.js';
 export * from './language-map.js';
 export * from './report.js';
 export * from './types.js';
+export * from './signals/analytics-provider.js';
 export * from './signals/flutter.js';
 export * from './signals/laravel.js';
 export * from './signals/react.js';

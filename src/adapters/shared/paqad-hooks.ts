@@ -106,6 +106,15 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     description: 'Script-mint per-stage live-mark rows on every mutating edit (RCA fix A).',
   },
   {
+    id: 'analytics-tag-writer',
+    event: 'pre-tool-mutation',
+    hookFile: 'analytics-tag-writer.mjs',
+    mutatingToolMatcher: PAQAD_MUTATING_TOOL_MATCHER,
+    // A non-blocking WRITER (issue #241), gated on the analytics flag. Records a tag row
+    // when an edit introduces an analytics call site. Never blocks — analytics is a 🟡.
+    description: 'Script-mint an analytics-tag row when an edit adds a tracking call (#241).',
+  },
+  {
     id: 'decision-pause-gate',
     event: 'pre-tool-mutation',
     hookFile: 'decision-pause-gate.mjs',
@@ -120,6 +129,14 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     // (planning/specification/review) are in the ledger when the completion
     // backstop folds the change (RCA fix, Step 3). Non-blocking, best-effort.
     description: 'Record the agent’s paqad:stage markers from the transcript on completion.',
+  },
+  {
+    id: 'analytics-tag-marker-parse',
+    event: 'completion',
+    hookFile: 'analytics-tag-marker-parse.mjs',
+    // Claude completion backstop for the analytics live writer (#241): records
+    // paqad:analytics-tag markers. Gated on the analytics flag, non-blocking, best-effort.
+    description: 'Record the agent’s paqad:analytics-tag markers from the transcript (#241).',
   },
   {
     id: 'verification-completion',
