@@ -18,6 +18,13 @@ export const DECISION_CATEGORIES = [
   'test.flaky_judgement',
   'finding.triage',
   'quality.ratchet_exception',
+  // Complementary analytics-instrumentation conflicts (issue #241). A closed list so the
+  // pause neither never-fires nor constantly-fires; everything else is instrument-and-show.
+  'analytics.provider_version_mismatch',
+  'analytics.taxonomy_violation',
+  'analytics.pii_consent',
+  'analytics.no_provider_flag',
+  'analytics.architecture_conflict',
 ] as const;
 
 export const DECISION_STATUSES = [
@@ -135,6 +142,18 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   // `findReusableDecision`. Reversible: the agent can re-ask if the approval
   // stops fitting.
   'quality.ratchet_exception': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
+  // Analytics conflicts (issue #241). Instrumentation would rather ask one clear question
+  // than ship a confident guess. PII/consent + taxonomy are hard (a wrong tag ships bad
+  // data); provider/version + architecture are moderate; a flag-on-no-provider offer is easy.
+  'analytics.provider_version_mismatch': {
+    create_new: false,
+    reversibility: 'moderate',
+    ttl_days: 30,
+  },
+  'analytics.taxonomy_violation': { create_new: false, reversibility: 'hard', ttl_days: 14 },
+  'analytics.pii_consent': { create_new: false, reversibility: 'hard', ttl_days: 7 },
+  'analytics.no_provider_flag': { create_new: false, reversibility: 'easy', ttl_days: 7 },
+  'analytics.architecture_conflict': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
 };
 
 export function isDecisionPacket(value: unknown): value is DecisionPacket {

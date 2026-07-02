@@ -42,6 +42,8 @@ export interface ProjectFeatureFlags {
   market_research: boolean;
   design_research: boolean;
   team_agents: boolean;
+  /** Issue #241 — opt in to the complementary analytics-instrumentation agent. */
+  analytics_instrumentation: boolean;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;

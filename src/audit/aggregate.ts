@@ -18,6 +18,7 @@ import { RULE_EVIDENCE_DOC_TYPE } from '@/rule-scripts/rule-ledger.js';
 import { readAllSessionRows, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { DISABLED_SESSION_DOC_TYPE } from '@/session-ledger/disabled-audit.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
+import { ANALYTICS_TAG_DOC_TYPE } from '@/analytics-tag/types.js';
 
 import type { SiemAuthorship, SiemEvent } from './types.js';
 
@@ -108,6 +109,9 @@ const SESSION_LEDGER_DOC_TYPES = [
   RULE_EVIDENCE_DOC_TYPE,
   STAGE_EVIDENCE_DOC_TYPE,
   DISABLED_SESSION_DOC_TYPE,
+  // Issue #241 — analytics tag writes are audit-relevant (a tag lands ⇒ a row lands),
+  // unlike rag-evidence / decision-reuse, which are deliberately excluded.
+  ANALYTICS_TAG_DOC_TYPE,
 ] as const;
 
 /**
@@ -141,6 +145,8 @@ function sessionDetail(row: SessionLedgerRow): string {
       return kind;
     case STAGE_EVIDENCE_DOC_TYPE:
       return typeof row.stage === 'string' ? `${kind} stage=${row.stage}` : kind;
+    case ANALYTICS_TAG_DOC_TYPE:
+      return typeof row.tag_name === 'string' ? `tag ${row.tag_name}` : kind;
     case DISABLED_SESSION_DOC_TYPE:
       return typeof row.reason === 'string' ? `disabled (${row.reason})` : 'disabled';
     default:

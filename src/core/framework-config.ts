@@ -207,6 +207,17 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Feature flags',
     comment: 'Use the multi-agent team for full-lane work.',
   },
+  {
+    key: 'analytics_instrumentation',
+    env: 'PAQAD_ANALYTICS_INSTRUMENTATION',
+    type: 'boolean',
+    default: false,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Opt in to complementary analytics instrumentation (issue #241). ' +
+      'OFF (default) is silent; ON authorizes wiring tracking + recording each tag to the ledger.',
+  },
 
   // ── rag group ──────────────────────────────────────────────────────────
   {
@@ -794,6 +805,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       market_research: rb('market_research'),
       design_research: rb('design_research'),
       team_agents: rb('team_agents'),
+      analytics_instrumentation: rb('analytics_instrumentation'),
     },
     research: {
       depth: asEnum(
@@ -1328,6 +1340,11 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
     put('market_research', f.market_research, d.features.market_research);
     put('design_research', f.design_research, d.features.design_research);
     put('team_agents', f.team_agents, d.features.team_agents);
+    put(
+      'analytics_instrumentation',
+      f.analytics_instrumentation,
+      d.features.analytics_instrumentation,
+    );
   }
   if (overrides.research) {
     put('research_depth', overrides.research.depth, d.research.depth);
@@ -1452,7 +1469,13 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   },
   {
     present: (p) => p.features !== undefined,
-    keys: ['spec_only_mode', 'market_research', 'design_research', 'team_agents'],
+    keys: [
+      'spec_only_mode',
+      'market_research',
+      'design_research',
+      'team_agents',
+      'analytics_instrumentation',
+    ],
   },
   { present: (p) => p.research !== undefined, keys: ['research_depth'] },
   {
