@@ -1,0 +1,26 @@
+{
+  "id": "D-01KWH3ZWR0ZQG57Q41E4YR95F7",
+  "category": "architecture-path",
+  "title": "Analytics v2 enforcement strictness default",
+  "context": "issue #279 analytics-v2 adds an analytics_strictness knob (off|warn|strict) modeled on rule_compliance.mode. Choosing the shipped default. Analytics is coding-first and must never block a correct build by default.",
+  "options": [
+    {
+      "option_key": "warn",
+      "label": "warn — 🟡 at completion, never blocks (coding-first, strict opt-in)"
+    },
+    {
+      "option_key": "off",
+      "label": "off — total silence unless opted in"
+    },
+    {
+      "option_key": "strict",
+      "label": "strict — blocks on Done by default"
+    }
+  ],
+  "recommendation": "warn",
+  "created_at": "2026-07-02T09:54:04.160Z",
+  "status": "resolved",
+  "chosen": "warn",
+  "rationale": "Haider chose warn via AskUserQuestion 2026-07-02: analytics never blocks a correct build; strict stays opt-in and is never auto-escalated.",
+  "resolved_at": "2026-07-02T09:54:11.723Z"
+}

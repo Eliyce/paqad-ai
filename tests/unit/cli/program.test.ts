@@ -22,7 +22,6 @@ describe('createProgram', () => {
       'doctor',
       'evidence',
       'audit',
-      'analytics',
       'graph',
       'module-decisions',
       'module-events',

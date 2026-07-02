@@ -2,7 +2,6 @@ import { Command } from 'commander';
 
 import { VERSION } from '@/index.js';
 
-import { createAnalyticsCommand } from './commands/analytics.js';
 import { createAuditCommand } from './commands/audit.js';
 import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createComplianceCommand } from './commands/compliance.js';
@@ -43,7 +42,6 @@ export function createProgram(): Command {
   program.addCommand(createDoctorCommand());
   program.addCommand(createEvidenceCommand());
   program.addCommand(createAuditCommand());
-  program.addCommand(createAnalyticsCommand());
   // Hidden deprecated alias (issue #159): the graph is now a dashboard area.
   program.addCommand(createGraphCommand(), { hidden: true });
   program.addCommand(createModuleDecisionsCommand());

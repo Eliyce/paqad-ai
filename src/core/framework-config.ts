@@ -215,8 +215,8 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Opt in to complementary analytics instrumentation (issue #241). ' +
-      'OFF (default) is silent; ON authorizes wiring tracking + recording each tag to the ledger.',
+      'Opt in to complementary analytics instrumentation (issue #241, refined #279). ' +
+      'OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc.',
   },
 
   // ── rag group ──────────────────────────────────────────────────────────

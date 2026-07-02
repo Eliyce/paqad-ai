@@ -40,4 +40,3 @@ Source: `src/cli/commands/*.ts`. Regenerate when adding/removing commands.
 | `patterns`      | `src/cli/commands/patterns.ts`    | Inspect detection patterns                     |
 | `evidence`      | `src/cli/commands/evidence.ts`    | Render verification evidence as a scannable PR comment (Markdown or JSON) |
 | `audit`         | `src/cli/commands/audit.ts`       | Export the evidence ledger to your own SIEM — OCSF/ECS/CEF/JSONL, read-only, local-first (`export`) |
-| `analytics`     | `src/cli/commands/analytics.ts`   | Read / reconcile / record the script-written analytics-tag ledger (`show`/`map`/`record`) — issue #241 |
