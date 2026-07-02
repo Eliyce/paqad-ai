@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -134,6 +135,43 @@ describe('runRuleScripts', () => {
     const report = runRuleScripts({ projectRoot: root, mode: 'strict' });
     expect(report.results).toHaveLength(0);
     expect(report.blocking).toBe(false);
+  });
+
+  it('excludes git-ignored generated/vendored code from the whole-tree scan', () => {
+    // A whole-tree script must not read files the team gitignores (build output,
+    // vendored deps, generated code) — otherwise deterministic findings in code
+    // the developer cannot hand-fix block the strict gate. Regression for the
+    // v1.41.0 scanner reading gitignored build/vendor code.
+    const { root } = setup('export const x = 1;\n', 'whole-tree');
+    write(join(root, '.gitignore'), 'generated/\n');
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    // The only violation lives in gitignored generated output.
+    write(join(root, 'generated/out.js'), 'debugger;\n');
+
+    const report = runRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: ['src/app.ts'],
+    });
+    expect(report.counts.deterministic).toBe(0);
+    expect(report.blocking).toBe(false);
+  });
+
+  it('falls back to scanning when git cannot resolve ignores (not a repo)', () => {
+    // Same layout, but no `git init` — `git check-ignore` cannot run, so the
+    // scanner keeps its best-effort static-ignore behaviour and still reads the
+    // file. Proves the git filter is what excludes it above, not the glob list.
+    const { root } = setup('export const x = 1;\n', 'whole-tree');
+    write(join(root, '.gitignore'), 'generated/\n');
+    write(join(root, 'generated/out.js'), 'debugger;\n');
+
+    const report = runRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: ['src/app.ts'],
+    });
+    expect(report.counts.deterministic).toBe(1);
+    expect(report.blocking).toBe(true);
   });
 
   it('invalidates the cache for whole-tree scripts when an unrelated file changes (BUG-3)', () => {

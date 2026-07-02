@@ -75,6 +75,14 @@
 
 - No rule-script map / mode off → `ran: false`, no enforcement (fast no-op).
 - Infra error in the hook → soft-fail exit 0; git/CI backstop still enforces.
+- Whole-tree scan honours `.gitignore`. `runner.ts` enumerates the tree with a
+  static ignore list (`node_modules`, `dist`, `.paqad`, `build`, `vendor`) and
+  then drops git-ignored paths via a single batched `git check-ignore`, so
+  gitignored build output / vendored deps / generated code are never scanned and
+  can't raise `deterministic` findings that block the strict gate on files the
+  developer can't hand-fix. Best-effort: git missing or not-a-repo falls back to
+  the static list alone. `check-ignore` respects the index, so tracked source
+  that merely matches an ignore pattern is still scanned.
 
 ## Tests
 
