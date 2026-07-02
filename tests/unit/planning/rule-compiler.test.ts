@@ -93,4 +93,39 @@ describe('rule-compiler and injection', () => {
     await expect(readCompiledRules(join(root, 'missing'))).resolves.toBeNull();
     await expect(isCompiledRulesStale(join(root, 'missing'))).resolves.toBe(true);
   });
+
+  it('excludes a `gate:`-tagged rule when its flag is off — zero bytes compiled (issue #279)', async () => {
+    writeFileSync(
+      join(root, 'docs/instructions/rules/coding/architecture.md'),
+      '# Architecture\n\nYou must update `src/planning` safely.\n',
+    );
+    writeFileSync(
+      join(root, 'docs/instructions/rules/coding/analytics-instrumentation.md'),
+      '<!--gate: analytics_instrumentation-->\n# Analytics Instrumentation\n\nInstrument every `event`.\n',
+    );
+
+    const compiled = await compileRules(root);
+
+    const titles = compiled.rules.map((rule) => rule.title);
+    expect(titles).toContain('Architecture');
+    expect(titles).not.toContain('Analytics Instrumentation');
+    const serialized = JSON.stringify(compiled);
+    expect(serialized).not.toContain('Instrument every');
+    expect(serialized).not.toContain('analytics_instrumentation');
+    // rule_ids stay contiguous after the gated rule is filtered out.
+    expect(compiled.rules.map((rule) => rule.rule_id)).toEqual(['RULE-1']);
+  });
+
+  it('compiles the `gate:`-tagged rule when its flag is on (issue #279)', async () => {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n');
+    writeFileSync(
+      join(root, 'docs/instructions/rules/coding/analytics-instrumentation.md'),
+      '<!--gate: analytics_instrumentation-->\n# Analytics Instrumentation\n\nInstrument every `event`.\n',
+    );
+
+    const compiled = await compileRules(root);
+
+    expect(compiled.rules.map((rule) => rule.title)).toContain('Analytics Instrumentation');
+  });
 });
