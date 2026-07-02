@@ -28,11 +28,14 @@ export function analyticsIndexPath(module: string): string {
  * casing conflict caught at write time instead of silently splitting the data.
  */
 export function normalizeEventSlug(eventName: string): string {
+  // The `[^a-z0-9]+` collapse leaves at most a single leading/trailing dash, so a plain anchored
+  // `-` trims it — no `-+` quantifier, which CodeQL flags as a polynomial-ReDoS shape (js/polynomial-redos).
   return eventName
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/^-/, '')
+    .replace(/-$/, '');
 }
 
 /** Repo-relative per-event doc path. */
