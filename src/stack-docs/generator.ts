@@ -1,7 +1,9 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { detectAnalyticsProvider } from '@/analytics/detect.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { compareStackProfiles, summarizeStack } from '@/core/stack-profile.js';
 import type { StackDriftReport, StackSnapshot } from '@/core/types/introspection.js';
 import { sanitizeStackSnapshotRepository } from '@/onboarding/manifest-writer.js';
@@ -41,8 +43,85 @@ export async function writeStackArtifacts(
   await writeFile(join(stackDir, 'version-rules.md'), buildVersionRules(snapshot, drift));
   await writeFile(join(stackDir, 'sources.md'), buildSources(snapshot));
   await writeFile(join(stackDir, 'drift-report.md'), buildDriftReport(drift));
+  await writeAnalyticsDoc(projectRoot, stackDir);
 
   return drift;
+}
+
+/**
+ * Analytics v2 (issue #279): when the `analytics_instrumentation` flag is ON, write the
+ * `analytics.md` stack doc — the human-readable home for the detected provider + convention
+ * and the tracking-plan-as-code contract. When the flag is OFF, INV-1 (OFF is silent) holds:
+ * we write nothing and remove any stale doc a previously-enabled onboard left behind.
+ */
+async function writeAnalyticsDoc(projectRoot: string, stackDir: string): Promise<void> {
+  const docPath = join(stackDir, 'analytics.md');
+  let flagEnabled: boolean;
+  try {
+    flagEnabled = resolveFrameworkConfig(projectRoot).features.analytics_instrumentation;
+    /* v8 ignore next 3 -- defensive: a malformed config never breaks doc generation */
+  } catch {
+    flagEnabled = false;
+  }
+  if (!flagEnabled) {
+    try {
+      await rm(docPath, { force: true });
+      /* v8 ignore next 3 -- defensive: rm(force) only throws on rare fs errors */
+    } catch {
+      // Best-effort stale cleanup; a failure here must never break onboarding.
+    }
+    return;
+  }
+  await writeFile(docPath, buildAnalytics(projectRoot));
+}
+
+/** Render the analytics tracking-plan stack doc from read-only provider detection. */
+export function buildAnalytics(projectRoot: string): string {
+  const detection = detectAnalyticsProvider(projectRoot);
+  const detectionLines = detection
+    ? [
+        `- Provider: **${detection.providerDisplay}** (\`${detection.provider}\`)`,
+        `- Confidence: \`${detection.confidence}\``,
+        `- Observed naming convention: ${
+          detection.convention ? `\`${detection.convention}\`` : '_none observed yet_'
+        }`,
+      ].join('\n')
+    : '- No analytics provider detected yet. Add one and re-run onboarding to populate this.';
+  return `# Analytics
+
+Analytics instrumentation is **enabled** for this project (\`analytics_instrumentation\`).
+paqad treats analytics as a **tracking plan as code**: every feature instruments its events,
+each event is documented as a reviewed, versioned per-event doc, and every new event is
+governed through a Decision Pause packet — so the team keeps a shared, attributed record of
+what is tracked and why, reviewed in the normal PR.
+
+## Detected provider
+
+${detectionLines}
+
+## How events are governed
+
+Every tracked event carries a governance triple:
+
+1. **Decision packet** (who / why) — every new event opens a Decision Pause packet capturing
+   the proposed name + normalized slug, provider(s), feature, and rationale, resolved and
+   committed with the PR.
+2. **Per-event doc** (what it means) — \`docs/modules/{module}/analytics/{feature}/{event}.md\`,
+   one doc per event with a section per provider. The filename is a normalized slug; the exact
+   event string is recorded inside, so casing-variant duplicates collapse to one doc.
+3. **AC + traceability** (proof) — one \`AC-TRACK\` per event, proven against the delivering
+   code and its doc; an unproven event surfaces as \`TR-UNTESTED-PROMISE\`.
+
+## Convention
+
+Pick one naming convention and be 100% consistent (object-action and past tense are common
+defaults, not rigid rules). No variable data in event names — dynamic values are properties.
+
+## Honest limits
+
+This is PR/review-time governance via doc + AC existence. It is **not** type-safe codegen, not
+ingestion-time or real-time blocking, and not PII redaction at capture — those live at your CDP.
+`;
 }
 
 async function readExistingDrift(projectRoot: string): Promise<StackDriftReport | null> {

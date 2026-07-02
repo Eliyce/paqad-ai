@@ -137,6 +137,45 @@ describe('writeStackArtifacts', () => {
     expect(driftDoc).toContain('- Previous: none');
     expect(driftDoc).toContain('## Review Targets');
   });
+
+  it('keeps OFF silent — writes no analytics.md and removes a stale one (issue #279)', async () => {
+    const analyticsDoc = join(root, PATHS.FRAMEWORK_STACK_DIR, 'analytics.md');
+    mkdirSync(join(root, PATHS.FRAMEWORK_STACK_DIR), { recursive: true });
+    writeFileSync(analyticsDoc, '# stale analytics doc from a previously-enabled onboard\n');
+
+    await writeStackArtifacts(root, buildSnapshot(), null, { writeHumanDocs: true });
+
+    expect(existsSync(analyticsDoc)).toBe(false);
+  });
+
+  it('writes the tracking-plan analytics.md when the flag is on, no provider yet (issue #279)', async () => {
+    writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n', 'utf8');
+
+    await writeStackArtifacts(root, buildSnapshot(), null, { writeHumanDocs: true });
+
+    const doc = readFileSync(join(root, PATHS.FRAMEWORK_STACK_DIR, 'analytics.md'), 'utf8');
+    expect(doc).toContain('tracking plan as code');
+    expect(doc).toContain('No analytics provider detected yet');
+    expect(doc).toContain('Decision Pause packet');
+    expect(doc).toContain('not** type-safe codegen');
+  });
+
+  it('renders the detected provider and convention in analytics.md (issue #279)', async () => {
+    writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n', 'utf8');
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ dependencies: { 'posthog-js': '^1.0.0' } }),
+    );
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'track.ts'), "posthog.capture('checkout_started');\n");
+
+    await writeStackArtifacts(root, buildSnapshot(), null, { writeHumanDocs: true });
+
+    const doc = readFileSync(join(root, PATHS.FRAMEWORK_STACK_DIR, 'analytics.md'), 'utf8');
+    expect(doc).toContain('PostHog');
+    expect(doc).toContain('`posthog`');
+    expect(doc).toContain('Observed naming convention');
+  });
 });
 
 function buildSnapshot(input?: {
