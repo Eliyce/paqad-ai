@@ -7,19 +7,23 @@
 // it never hand-computes a path or a slug, so casing-variant duplicates cannot diverge.
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 
 import type { AnalyticsCallSite } from './call-sites.js';
 import { findProvider, type AnalyticsProviderId } from './providers.js';
 
+// Repo-relative doc paths are always POSIX-separated (the codebase convention for identifiers
+// stored in reports/git), so they are stable across platforms; `join(projectRoot, rel)` at the
+// filesystem boundary re-normalizes them to the OS separator.
+
 /** Repo-relative root, module-owned so it never trips the top-level module-doc orphan walk. */
 export function analyticsFeatureDir(module: string, feature: string): string {
-  return join('docs', 'modules', module, 'analytics', feature);
+  return posix.join('docs', 'modules', module, 'analytics', feature);
 }
 
 /** Repo-relative per-module analytics index path. */
 export function analyticsIndexPath(module: string): string {
-  return join('docs', 'modules', module, 'analytics', 'index.md');
+  return posix.join('docs', 'modules', module, 'analytics', 'index.md');
 }
 
 /**
@@ -40,7 +44,7 @@ export function normalizeEventSlug(eventName: string): string {
 
 /** Repo-relative per-event doc path. */
 export function analyticsEventDocPath(module: string, feature: string, eventName: string): string {
-  return join(analyticsFeatureDir(module, feature), `${normalizeEventSlug(eventName)}.md`);
+  return posix.join(analyticsFeatureDir(module, feature), `${normalizeEventSlug(eventName)}.md`);
 }
 
 export interface EventGroup {
@@ -183,7 +187,7 @@ export async function syncAnalyticsDocs(
 
   for (const entry of entries) {
     for (const group of groupBySlug(entry.callSites)) {
-      const rel = join(analyticsFeatureDir(entry.module, entry.feature), `${group.slug}.md`);
+      const rel = posix.join(analyticsFeatureDir(entry.module, entry.feature), `${group.slug}.md`);
       await writeIfChanged(projectRoot, rel, buildEventDoc({ ...entry, group }), result);
       if (group.variants.length > 1) {
         result.conflicts.push({ path: rel, variants: group.variants });

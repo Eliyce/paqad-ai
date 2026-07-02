@@ -22,13 +22,11 @@ describe('analytics doc-tree (issue #279)', () => {
     expect(normalizeEventSlug('  Checkout--Started!! ')).toBe('checkout-started');
   });
 
-  it('builds a module-owned, feature-nested doc path', () => {
+  it('builds a module-owned, feature-nested doc path (posix, cross-platform)', () => {
     expect(analyticsEventDocPath('users', 'playback', 'Song Played')).toBe(
-      join('docs', 'modules', 'users', 'analytics', 'playback', 'song-played.md'),
+      'docs/modules/users/analytics/playback/song-played.md',
     );
-    expect(analyticsIndexPath('users')).toBe(
-      join('docs', 'modules', 'users', 'analytics', 'index.md'),
-    );
+    expect(analyticsIndexPath('users')).toBe('docs/modules/users/analytics/index.md');
   });
 
   it('collapses casing variants to one group and flags the conflict', () => {
@@ -112,9 +110,7 @@ describe('analytics doc-tree (issue #279)', () => {
         },
       ];
       const first = await syncAnalyticsDocs(root, entries);
-      expect(first.written).toContain(
-        join('docs', 'modules', 'checkout', 'analytics', 'cart', 'checkout-started.md'),
-      );
+      expect(first.written).toContain('docs/modules/checkout/analytics/cart/checkout-started.md');
       expect(first.written).toContain(analyticsIndexPath('checkout'));
       expect(first.conflicts).toHaveLength(0);
       expect(
@@ -140,7 +136,7 @@ describe('analytics doc-tree (issue #279)', () => {
           ],
         },
       ]);
-      const docPath = join('docs', 'modules', 'users', 'analytics', 'playback', 'song-played.md');
+      const docPath = 'docs/modules/users/analytics/playback/song-played.md';
       expect(result.written).toContain(docPath);
       expect(result.conflicts).toEqual([
         { path: docPath, variants: ['Song Played', 'song played'] },
@@ -160,7 +156,7 @@ describe('analytics doc-tree (issue #279)', () => {
           callSites: [{ provider: 'posthog', eventName: 'e' }],
         },
       ]);
-      expect(result.written).toContain(join('docs', 'modules', 'm', 'analytics', 'f', 'e.md'));
+      expect(result.written).toContain('docs/modules/m/analytics/f/e.md');
     });
   });
 });

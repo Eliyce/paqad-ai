@@ -30,7 +30,7 @@ describe('analytics enforcement (issue #279)', () => {
       });
       expect(result.verdict).toBe('warn');
       expect(result.missingDocs).toEqual([
-        join('docs', 'modules', 'checkout', 'analytics', 'cart', 'checkout-started.md'),
+        'docs/modules/checkout/analytics/cart/checkout-started.md',
       ]);
     });
 
