@@ -6,6 +6,10 @@
 //
 // package.json alone is a trap — GA4 is often just a gtag.js script tag with no npm dep — so
 // each provider carries multiple orthogonal signal kinds and the highest-confidence one wins.
+//
+// Host/URL signals are plain substrings matched with `String.includes` (this is content
+// DETECTION, not URL sanitization — a substring match is exactly the intent, and it avoids
+// the unanchored-hostname regex hazard). Only real id shapes (G-…, GTM-…) need a regex.
 
 export type AnalyticsProviderId =
   | 'ga4'
@@ -24,8 +28,10 @@ export interface AnalyticsProvider {
   packages: string[];
   /** Env-key name patterns (e.g. NEXT_PUBLIC_POSTHOG_KEY). */
   envKeyPatterns: RegExp[];
-  /** HTML / entry-file signals (script tags, measurement / container ids). */
-  entryPatterns: RegExp[];
+  /** HTML / entry-file host or URL fragments, matched as plain substrings. */
+  entrySubstrings: string[];
+  /** Measurement / container id shapes (e.g. G-XXXXXX). Anchored on both sides. */
+  entryIdPatterns: RegExp[];
   /** Call-site patterns; capture group 1 is the event name. Stored WITHOUT the global
    *  flag — the extractor clones each with `g` so shared state is never mutated. */
   callSitePatterns: RegExp[];
@@ -37,7 +43,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'Google Analytics 4',
     packages: ['react-ga4', 'ga-4-react'],
     envKeyPatterns: [/(?:^|_)GA_?MEASUREMENT_?ID/i, /(?:NEXT_PUBLIC_)?GA4?_/i],
-    entryPatterns: [/googletagmanager\.com\/gtag/, /\bG-[A-Z0-9]{6,}\b/],
+    entrySubstrings: ['googletagmanager.com/gtag'],
+    entryIdPatterns: [/\bG-[A-Z0-9]{6,}\b/],
     callSitePatterns: [/gtag\(\s*['"]event['"]\s*,\s*['"]([^'"]+)['"]/],
   },
   {
@@ -45,7 +52,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'Google Tag Manager',
     packages: ['@types/gtag.js'],
     envKeyPatterns: [/(?:^|_)GTM_?(?:ID|CONTAINER)/i],
-    entryPatterns: [/googletagmanager\.com\/gtm/, /\bGTM-[A-Z0-9]{4,}\b/],
+    entrySubstrings: ['googletagmanager.com/gtm'],
+    entryIdPatterns: [/\bGTM-[A-Z0-9]{4,}\b/],
     callSitePatterns: [/dataLayer\.push\(\s*\{\s*['"]?event['"]?\s*:\s*['"]([^'"]+)['"]/],
   },
   {
@@ -53,7 +61,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'Segment',
     packages: ['@segment/analytics-next', 'analytics-node', 'analytics'],
     envKeyPatterns: [/SEGMENT_(?:WRITE_)?KEY/i],
-    entryPatterns: [/cdn\.segment\.com\/analytics\.js/],
+    entrySubstrings: ['cdn.segment.com/analytics.js'],
+    entryIdPatterns: [],
     callSitePatterns: [/\banalytics\.track\(\s*['"]([^'"]+)['"]/],
   },
   {
@@ -61,7 +70,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'PostHog',
     packages: ['posthog-js', 'posthog-node'],
     envKeyPatterns: [/POSTHOG(?:_KEY|_API_KEY|_HOST)?/i],
-    entryPatterns: [/app\.posthog\.com/],
+    entrySubstrings: ['app.posthog.com'],
+    entryIdPatterns: [],
     callSitePatterns: [/\bposthog\.capture\(\s*['"]([^'"]+)['"]/],
   },
   {
@@ -69,7 +79,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'Mixpanel',
     packages: ['mixpanel-browser', 'mixpanel'],
     envKeyPatterns: [/MIXPANEL(?:_TOKEN|_KEY)?/i],
-    entryPatterns: [/cdn\.mxpnl\.com/],
+    entrySubstrings: ['cdn.mxpnl.com'],
+    entryIdPatterns: [],
     callSitePatterns: [/\bmixpanel\.track\(\s*['"]([^'"]+)['"]/],
   },
   {
@@ -77,7 +88,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'Amplitude',
     packages: ['@amplitude/analytics-browser', 'amplitude-js'],
     envKeyPatterns: [/AMPLITUDE(?:_API_KEY|_KEY)?/i],
-    entryPatterns: [/cdn\.amplitude\.com/],
+    entrySubstrings: ['cdn.amplitude.com'],
+    entryIdPatterns: [],
     callSitePatterns: [/\bamplitude[\w.()]*\.(?:track|logEvent)\(\s*['"]([^'"]+)['"]/],
   },
   {
@@ -85,7 +97,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'Vercel Analytics',
     packages: ['@vercel/analytics'],
     envKeyPatterns: [/VERCEL_ANALYTICS/i],
-    entryPatterns: [/\/_vercel\/insights/],
+    entrySubstrings: ['/_vercel/insights'],
+    entryIdPatterns: [],
     callSitePatterns: [/\bva\.track\(\s*['"]([^'"]+)['"]/],
   },
   {
@@ -93,7 +106,8 @@ export const ANALYTICS_PROVIDERS: readonly AnalyticsProvider[] = [
     displayName: 'Plausible',
     packages: ['plausible-tracker', 'next-plausible'],
     envKeyPatterns: [/PLAUSIBLE_/i],
-    entryPatterns: [/plausible\.io\/js/],
+    entrySubstrings: ['plausible.io/js'],
+    entryIdPatterns: [],
     callSitePatterns: [/\bplausible\(\s*['"]([^'"]+)['"]/],
   },
 ] as const;

@@ -103,11 +103,22 @@ function evidenceFor(
       });
     }
   }
-  for (const pattern of provider.entryPatterns) {
+  for (const fragment of provider.entrySubstrings) {
+    if (ctx.entryText.includes(fragment)) {
+      score += WEIGHT.entry;
+      signals.push({
+        signal: `entry/script signal ${fragment}`,
+        file: 'index.html',
+        implies: provider.id,
+        confidence: 'high',
+      });
+    }
+  }
+  for (const pattern of provider.entryIdPatterns) {
     if (pattern.test(ctx.entryText)) {
       score += WEIGHT.entry;
       signals.push({
-        signal: `entry/script signal ${pattern.source}`,
+        signal: `entry id ${pattern.source}`,
         file: 'index.html',
         implies: provider.id,
         confidence: 'high',

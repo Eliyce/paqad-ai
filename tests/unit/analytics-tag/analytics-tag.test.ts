@@ -319,6 +319,16 @@ describe('tracking-map registry', () => {
     expect(renderAnalyticsMapTable(root)).toContain('no tags recorded yet');
   });
 
+  it('escapes backslashes, pipes and newlines in generated cells', () => {
+    recordAnalyticsTag(
+      root,
+      { tagName: 'weird', tagProvider: 'ga4', sourcePath: 'a\\b|c\nd' },
+      CTX(),
+    );
+    const table = renderAnalyticsMapTable(root);
+    expect(table).toContain('a\\\\b\\|c d');
+  });
+
   it('composeAnalyticsMap escapes pipes in cells', () => {
     const table = composeAnalyticsMap('pre', '| a\\|b |');
     expect(table).toContain('a\\|b');
