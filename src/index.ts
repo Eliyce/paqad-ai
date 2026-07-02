@@ -9,6 +9,7 @@ export function getFrameworkName(): string {
 }
 
 export * from './adapters/index.js';
+export * from './analytics/index.js';
 export * from './cache/index.js';
 export * from './context/index.js';
 export * from './compliance/index.js';
