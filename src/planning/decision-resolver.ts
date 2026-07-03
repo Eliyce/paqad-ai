@@ -50,7 +50,7 @@ export async function resolveDecisionPacket(
 
 export function askThresholdForProject(projectRoot: string): number {
   const askThreshold =
-    readProjectProfile(projectRoot)?.custom?.decisions?.ask_threshold ?? 'balanced';
+    readProjectProfile(projectRoot)?.custom?.decisions?.ask_threshold ?? 'strict';
   switch (askThreshold) {
     case 'strict':
       return 0.95;

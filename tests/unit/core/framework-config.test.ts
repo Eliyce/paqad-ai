@@ -137,7 +137,7 @@ describe('resolveFrameworkConfigFromMap — coercion + precedence', () => {
     expect(c.features.team_agents).toBe(true);
     expect(c.research.depth).toBe('standard');
     expect(c.model_routing.default_model).toBe('gpt-5');
-    expect(c.decisions.ask_threshold).toBe('balanced');
+    expect(c.decisions.ask_threshold).toBe('strict');
     expect(c.efficiency.auto_update).toBe(true);
     expect(c.efficiency.minimum_version).toBe('latest');
     expect(c.efficiency.version_check_interval_hours).toBe(12);
@@ -311,7 +311,7 @@ describe('applyFrameworkConfigToProfile — overlay + hard cutover', () => {
     expect(profile.intelligence.rag_enabled).toBe(true);
     expect(profile.enterprise?.enabled).toBe(true);
     expect(profile.strictness.block_on_stale_docs).toBe(true);
-    expect(profile.custom.decisions?.ask_threshold).toBe('balanced');
+    expect(profile.custom.decisions?.ask_threshold).toBe('strict');
   });
 
   it('replaces stale framework keys carried on the base (hard cutover)', () => {
@@ -331,12 +331,12 @@ describe('applyFrameworkConfigToProfile — overlay + hard cutover', () => {
         classification_dimensions: [{ name: 'risk' }],
         verification_plugins: [],
         escalation_rules: [],
-        decisions: { ask_threshold: 'strict' },
+        decisions: { ask_threshold: 'permissive' },
       },
     } as Partial<ProjectProfile>);
     const profile = applyFrameworkConfigToProfile(withCustom, DEFAULT_FRAMEWORK_CONFIG);
     expect(profile.custom.classification_dimensions).toHaveLength(1);
-    expect(profile.custom.decisions?.ask_threshold).toBe('balanced'); // overlaid, not YAML's 'strict'
+    expect(profile.custom.decisions?.ask_threshold).toBe('strict'); // overlaid, not YAML's 'permissive'
   });
 });
 
@@ -755,7 +755,7 @@ describe('decision sub-keys — simple knobs move, project-specific ones are pre
           verification_plugins: [],
           escalation_rules: [],
           decisions: {
-            ask_threshold: 'strict',
+            ask_threshold: 'permissive',
             max_pending: 7,
             ttl_overrides_days: { 'spec.change': 5 },
           },
@@ -763,7 +763,7 @@ describe('decision sub-keys — simple knobs move, project-specific ones are pre
       } as Partial<ProjectProfile>),
       DEFAULT_FRAMEWORK_CONFIG,
     );
-    expect(profile.custom.decisions?.ask_threshold).toBe('balanced');
+    expect(profile.custom.decisions?.ask_threshold).toBe('strict');
     expect(profile.custom.decisions?.max_pending).toBe(7);
 
     const lean = stripFrameworkConfigFromProfile(profile) as Record<string, unknown>;

@@ -420,7 +420,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     env: 'PAQAD_DECISIONS_ASK_THRESHOLD',
     type: 'enum',
     enumValues: ASK_THRESHOLDS,
-    default: 'balanced',
+    default: 'strict',
     group: 'policy',
     section: 'Decisions (pause-contract tuning)',
     comment: 'strict | balanced | permissive — how eagerly to pause and ask.',
