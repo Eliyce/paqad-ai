@@ -72,8 +72,10 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('CLAUDE.md');
     expect(result.stderr).toContain('.paqad/framework-path.txt');
-    // The load step must name the workflows dir, not just rules/stack/design-system.
-    expect(result.stderr).toContain('docs/instructions/{rules,stack,design-system,workflows}');
+    // Issue #284 — the rules step is artifact-first (session-context.md, else full
+    // rules); stack/design-system/workflows still load in full.
+    expect(result.stderr).toContain('.paqad/context/session-context.md');
+    expect(result.stderr).toContain('docs/instructions/{stack,design-system,workflows}');
   });
 
   it('allows the call when the sentinel exists and is fresh', () => {
@@ -128,7 +130,9 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
     expect(result.stdout).toContain('MUST load the paqad framework');
     expect(result.stdout).toContain('CLAUDE.md');
     expect(result.stdout).toContain('.paqad/framework-path.txt');
-    expect(result.stdout).toContain('docs/instructions/{rules,stack,design-system,workflows}');
+    // Issue #284 — artifact-first rules directive.
+    expect(result.stdout).toContain('.paqad/context/session-context.md');
+    expect(result.stdout).toContain('docs/instructions/{stack,design-system,workflows}');
   });
 
   it('hard mode exits 2 with a blocking message on stderr when the sentinel is missing', () => {

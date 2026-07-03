@@ -41,3 +41,7 @@
 # stages_mode=strict
 # off | warn | strict — scripted-rule enforcement from the working tree. (env: PAQAD_RULE_COMPLIANCE)
 # rule_compliance=warn
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict — analytics instrumentation completeness (issue #279). warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated. (env: PAQAD_ANALYTICS_STRICTNESS)
+# analytics_strictness=warn

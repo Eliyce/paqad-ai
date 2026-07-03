@@ -12,6 +12,7 @@ import {
 } from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
 import { composeContextPack, distillSlices } from '@/context/context-pack.js';
 import { refreshRuleContext } from '@/context/rule-context.js';
@@ -319,6 +320,21 @@ export function createRagCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--quiet', 'Suppress output (used by the background trigger)')
     .action(async (options: { projectRoot: string; quiet?: boolean }) => {
+      // Issue #284 — the lean (rag-off) path recomposes the rule slice ONLY: no index
+      // sync, no retrieval, no codebase-memory, no base-drift network fetch. This is
+      // what keeps the token-neutral default provider-free and the artifact rule-only.
+      // `rag_enabled` on restores the full compose (retrieval/memory/drift), unchanged.
+      const ragEnabled = resolveFrameworkConfig(options.projectRoot).intelligence.rag_enabled;
+      if (!ragEnabled) {
+        const target = await refreshRuleContext(options.projectRoot, {});
+        if (!options.quiet) {
+          process.stdout.write(
+            `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (rag off)\n`,
+          );
+        }
+        return;
+      }
+
       const sync = await backgroundIndexSync(options.projectRoot);
       // #249 — the live background worker records the `called` retrieval event.
       const slices = await gatherWorkingSetSlices(options.projectRoot, {

@@ -13,6 +13,7 @@ import {
   CONTEXT_ARTIFACT_RELPATH,
   buildInjection,
   formatContextBlock,
+  isLeanRulesEnabledValue,
   isRagEnabledValue,
   readContextUnderBudget,
   resolveContextArtifactPath,
@@ -152,6 +153,25 @@ describe('isRagEnabledValue (F3 master switch)', () => {
   it('treats false/0/no/off and junk as off', () => {
     for (const v of ['false', '0', 'no', 'off', '', 'maybe']) {
       expect(isRagEnabledValue(v)).toBe(false);
+    }
+  });
+});
+
+describe('isLeanRulesEnabledValue (issue #284 — default ON)', () => {
+  it('defaults to ON when unset (token-neutral is the default delivery path)', () => {
+    expect(isLeanRulesEnabledValue(undefined)).toBe(true);
+    expect(isLeanRulesEnabledValue(null)).toBe(true);
+  });
+
+  it('treats only false/0/no/off (any case) as OFF', () => {
+    for (const v of ['false', '0', 'no', 'off', 'FALSE', ' Off ']) {
+      expect(isLeanRulesEnabledValue(v)).toBe(false);
+    }
+  });
+
+  it('treats true/1/yes/on and any unrecognized value as ON', () => {
+    for (const v of ['true', '1', 'yes', 'on', 'maybe', '']) {
+      expect(isLeanRulesEnabledValue(v)).toBe(true);
     }
   });
 });

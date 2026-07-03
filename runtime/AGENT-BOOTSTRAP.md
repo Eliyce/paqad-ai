@@ -24,7 +24,7 @@ A value of `false`, `0`, `no`, or `off` (case-insensitive) means **OFF**. `true`
 
 Load these and treat them as the canonical contract for workflow routing, documentation, and implementation behavior:
 
-- `docs/instructions/rules`
+- **Rules — artifact-first (issue #284).** When `.paqad/context/session-context.md` exists, read it as the rule contract: it is the lean, token-neutral slice — an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play. Load `docs/instructions/rules` in full ONLY when that artifact is missing (the fallback that guarantees rule coverage is never silently lost). Script-enforced rules fire whether or not their text is loaded, and the manifest lists every rule, so deferral is safe.
 - `docs/instructions/stack`
 - `docs/instructions/design-system`
 - `docs/instructions/workflows` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)

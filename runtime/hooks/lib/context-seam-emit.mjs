@@ -9,7 +9,11 @@
 // PAQAD_PROJECT_ROOT, falling back to cwd) via the shared helper, so the single
 // global copy under the install operates on whichever project the session is in.
 
-import { buildInjection, isRagEnabledValue } from '../../scripts/context-seam.mjs';
+import {
+  buildInjection,
+  isLeanRulesEnabledValue,
+  isRagEnabledValue,
+} from '../../scripts/context-seam.mjs';
 import {
   recordSeamOutcome,
   resolveSeamSessionId,
@@ -41,12 +45,20 @@ export function emitContext(stdin, projectRoot = resolveProjectRoot()) {
     // `[paqad-context]` line would contaminate the OFF arm of an A/B comparison.
     if (isPaqadDisabled(projectRoot)) return;
 
-    // RAG buildout F3 — disabled/cold-start == today's behavior. The injection
-    // accelerator is OFF by default (honest grep/agentic default); only an
-    // explicit `rag_enabled` truthy value turns it on. When off we emit nothing,
-    // converging disabled == missing == baseline, even if a stale artifact from a
-    // previously-enabled run still sits on disk.
-    if (!isRagEnabledValue(readLayeredKey(projectRoot, 'rag_enabled', 'PAQAD_RAG_ENABLED'))) {
+    // Issue #284 — artifact-first, token-neutral by default. The lean rule contract
+    // (manifest + trigger-loaded applicable rule text) is now the default delivery
+    // path, so the seam injects the precomputed artifact whenever `lean_rules` is on
+    // (its default) OR the RAG accelerator is on. `rag_enabled` still governs only
+    // what gets composed INTO the artifact (retrieval/memory/drift), not whether the
+    // rule slice is injected. When BOTH are off (`lean_rules=false` + rag off) the
+    // seam emits nothing — byte-identical to today's disabled/cold-start behaviour.
+    const ragEnabled = isRagEnabledValue(
+      readLayeredKey(projectRoot, 'rag_enabled', 'PAQAD_RAG_ENABLED'),
+    );
+    const leanEnabled = isLeanRulesEnabledValue(
+      readLayeredKey(projectRoot, 'lean_rules', 'PAQAD_LEAN_RULES'),
+    );
+    if (!ragEnabled && !leanEnabled) {
       return;
     }
 
@@ -63,7 +75,7 @@ export function emitContext(stdin, projectRoot = resolveProjectRoot()) {
       if (block) {
         recordSeamOutcome(projectRoot, {
           sessionId,
-          ragEnabled: true,
+          ragEnabled,
           adapter: 'claude-code',
           kind: 'used',
           fields: {
@@ -75,7 +87,7 @@ export function emitContext(stdin, projectRoot = resolveProjectRoot()) {
       } else {
         recordSeamOutcome(projectRoot, {
           sessionId,
-          ragEnabled: true,
+          ragEnabled,
           adapter: 'claude-code',
           kind: 'fallback',
           fields: {

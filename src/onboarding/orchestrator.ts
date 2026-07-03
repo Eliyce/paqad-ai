@@ -635,6 +635,7 @@ function buildProjectProfile(
       design_research: false,
       team_agents: true,
       analytics_instrumentation: false,
+      lean_rules: true,
     },
     // Issue #187 — emit the enterprise block at onboarding so the opt-in
     // evidence-ledger / AI-BOM / compliance-citation switches are visible and

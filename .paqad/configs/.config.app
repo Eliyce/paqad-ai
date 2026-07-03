@@ -34,8 +34,12 @@ enterprise_compliance_citations=true
 # Stop after the spec phase; do not implement. (env: PAQAD_SPEC_ONLY_MODE)
 # spec_only_mode=false
 # Enable the market-research agent in planning. (env: PAQAD_MARKET_RESEARCH)
-# market_research=false
+market_research=true
 # Enable the design-research agent in planning. (env: PAQAD_DESIGN_RESEARCH)
 # design_research=false
 # Use the multi-agent team for full-lane work. (env: PAQAD_TEAM_AGENTS)
 # team_agents=true
+
+# ── Added in a newer paqad version ────────────────────────────
+# Opt in to complementary analytics instrumentation (issue #241, refined #279). OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc. (env: PAQAD_ANALYTICS_INSTRUMENTATION)
+# analytics_instrumentation=false
