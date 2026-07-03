@@ -9,7 +9,7 @@
 // docs/instructions is loaded on demand, not at session start, and is reported as
 // such so no on-demand area is counted toward the resident number.
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 /** docs/instructions areas the bootstrap loads at session start (RULE-17 contract). */
@@ -42,15 +42,32 @@ export const ENTRY_FILE_CANDIDATES = [
 /** Project-relative path to the docs/instructions root. */
 const INSTRUCTIONS_DIR = join('docs', 'instructions');
 
-/** Recursively collect every file under `dir` (absolute paths), or [] when absent. */
-function walkFiles(dir) {
-  if (!existsSync(dir)) {
+/** Directory entries, sorted; [] when the path is missing or not a directory. No pre-stat. */
+function readDirSorted(dir) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    // Missing dir or not a directory — nothing to contribute.
     return [];
   }
+  return entries.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** File text, or null when the path is missing, is a directory, or is unreadable. No pre-stat. */
+function readTextOrNull(abs) {
+  try {
+    return readFileSync(abs, 'utf8');
+  } catch {
+    // Read-and-catch instead of exists-then-read: avoids a check-then-use filesystem race.
+    return null;
+  }
+}
+
+/** Recursively collect every file under `dir` (absolute paths), or [] when absent. */
+function walkFiles(dir) {
   const out = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  )) {
+  for (const entry of readDirSorted(dir)) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...walkFiles(full));
@@ -72,16 +89,11 @@ function walkFiles(dir) {
 export function discoverFootprintFiles(projectRoot) {
   const records = [];
 
-  // Host entry file (one, whichever adapter's file exists first).
+  // Host entry file (one, whichever adapter's file reads first).
   for (const candidate of ENTRY_FILE_CANDIDATES) {
-    const abs = join(projectRoot, candidate);
-    if (existsSync(abs) && statSync(abs).isFile()) {
-      records.push({
-        area: 'entry',
-        kind: 'entry',
-        path: candidate,
-        text: readFileSync(abs, 'utf8'),
-      });
+    const text = readTextOrNull(join(projectRoot, candidate));
+    if (text !== null) {
+      records.push({ area: 'entry', kind: 'entry', path: candidate, text });
       break;
     }
   }
@@ -89,10 +101,9 @@ export function discoverFootprintFiles(projectRoot) {
   // Lean rule slice (#284) is the resident rule contract when present. Split it into
   // the always-resident manifest and the task-varying loaded rule text so only the
   // stable manifest floor counts toward the resident headline.
-  const sliceAbs = join(projectRoot, RULE_SLICE_PATH);
-  const hasSlice = existsSync(sliceAbs) && statSync(sliceAbs).isFile();
+  const slice = readTextOrNull(join(projectRoot, RULE_SLICE_PATH));
+  const hasSlice = slice !== null;
   if (hasSlice) {
-    const slice = readFileSync(sliceAbs, 'utf8');
     const markerAt = slice.indexOf(RULE_LOADED_TEXT_MARKER);
     const manifest = markerAt >= 0 ? slice.slice(0, markerAt) : slice;
     const loaded = markerAt >= 0 ? slice.slice(markerAt) : '';
@@ -116,28 +127,22 @@ export function discoverFootprintFiles(projectRoot) {
   // (the slice replaces the full rule tree); the other named areas are always resident;
   // everything else is on-demand.
   const instructionsAbs = join(projectRoot, INSTRUCTIONS_DIR);
-  if (existsSync(instructionsAbs)) {
-    for (const entry of readdirSync(instructionsAbs, { withFileTypes: true }).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    )) {
-      const areaAbs = join(instructionsAbs, entry.name);
-      const files = entry.isDirectory() ? walkFiles(areaAbs) : [areaAbs];
-      const isNamedResident = RESIDENT_AREAS.includes(entry.name);
-      const kind =
-        entry.name === 'rules'
-          ? hasSlice
-            ? 'on-demand'
-            : 'resident'
-          : isNamedResident
-            ? 'resident'
-            : 'on-demand';
-      for (const file of files) {
-        records.push({
-          area: entry.name,
-          kind,
-          path: relative(projectRoot, file),
-          text: readFileSync(file, 'utf8'),
-        });
+  for (const entry of readDirSorted(instructionsAbs)) {
+    const areaAbs = join(instructionsAbs, entry.name);
+    const files = entry.isDirectory() ? walkFiles(areaAbs) : [areaAbs];
+    const isNamedResident = RESIDENT_AREAS.includes(entry.name);
+    const kind =
+      entry.name === 'rules'
+        ? hasSlice
+          ? 'on-demand'
+          : 'resident'
+        : isNamedResident
+          ? 'resident'
+          : 'on-demand';
+    for (const file of files) {
+      const text = readTextOrNull(file);
+      if (text !== null) {
+        records.push({ area: entry.name, kind, path: relative(projectRoot, file), text });
       }
     }
   }
