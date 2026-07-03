@@ -40,6 +40,8 @@
 # design_research=false
 # Use the multi-agent team for full-lane work. (env: PAQAD_TEAM_AGENTS)
 # team_agents=true
+# Opt in to complementary analytics instrumentation (issue #241, refined #279). OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc. (env: PAQAD_ANALYTICS_INSTRUMENTATION)
+# analytics_instrumentation=false
 
 # ── Intelligence / RAG ──────────────────────────────────────
 # Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
@@ -100,3 +102,5 @@
 # stages_mode=strict
 # off | warn | strict — scripted-rule enforcement from the working tree. (env: PAQAD_RULE_COMPLIANCE)
 # rule_compliance=warn
+# off | warn | strict — analytics instrumentation completeness (issue #279). warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated. (env: PAQAD_ANALYTICS_STRICTNESS)
+# analytics_strictness=warn
