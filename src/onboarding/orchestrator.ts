@@ -677,7 +677,7 @@ function buildProjectProfile(
       verification_plugins: [],
       escalation_rules: [],
       decisions: {
-        ask_threshold: 'balanced',
+        ask_threshold: 'strict',
         max_screens_per_task: 3,
         idle_timeout_minutes: 30,
       },

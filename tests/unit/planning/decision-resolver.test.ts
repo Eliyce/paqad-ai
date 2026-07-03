@@ -195,14 +195,24 @@ describe('decision resolver', () => {
     expect(result).toEqual({ source: 'ask' });
   });
 
-  it('uses the balanced threshold by default and asks when recommendation is missing', async () => {
+  it('uses the strict threshold by default and asks when recommendation is missing', async () => {
     const result = await resolveDecisionPacket(
       root,
       makePacket({ confidence: 0.9, recommendation: undefined }),
     );
 
     expect(result).toEqual({ source: 'ask' });
-    expect(askThresholdForProject(root)).toBe(0.85);
+    expect(askThresholdForProject(root)).toBe(0.95);
+  });
+
+  it('surfaces a mid-confidence packet (0.90) to the human under the strict default instead of auto-resolving', async () => {
+    // No profile written → an unset ask_threshold resolves to the strict
+    // default (0.95). A recommendation at 0.90 confidence sits in the
+    // 0.85–0.94 band that `balanced` would have auto-resolved; strict asks.
+    const result = await resolveDecisionPacket(root, makePacket({ confidence: 0.9 }));
+
+    expect(result).toEqual({ source: 'ask' });
+    expect(askThresholdForProject(root)).toBe(0.95);
   });
 
   it('falls back to packet confidence when no option has similarity data', async () => {

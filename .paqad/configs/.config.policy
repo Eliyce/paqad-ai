@@ -30,7 +30,7 @@
 
 # ── Decisions (pause-contract tuning) ───────────────────────
 # strict | balanced | permissive — how eagerly to pause and ask. (env: PAQAD_DECISIONS_ASK_THRESHOLD)
-# decisions_ask_threshold=balanced
+# decisions_ask_threshold=strict
 # Max decision screens surfaced per task. (env: PAQAD_DECISIONS_MAX_SCREENS_PER_TASK)
 # decisions_max_screens_per_task=3
 # Auto-resolve a pending decision after this idle window. (env: PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES)
