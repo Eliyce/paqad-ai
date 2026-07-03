@@ -31,6 +31,11 @@ export default defineConfig({
     // verify-backstop.mjs's disabled branch as a small dist bundle, so the
     // disabled path stays light (no full dist/index.js load).
     'session-ledger/disabled-audit': 'src/session-ledger/disabled-audit.ts',
+    // Repo-internal benchmark tooling (issue #285) — the scripts/*.mjs footprint and
+    // findings-stats CLIs import these two primitives from dist, the same dedicated-entry
+    // pattern the runtime hooks use, so no tokenizer/ledger logic is re-implemented.
+    'context/tokenizer-cache': 'src/context/tokenizer-cache.ts',
+    'session-ledger/project-ledger': 'src/session-ledger/project-ledger.ts',
   },
   format: ['esm'],
   dts: true,
