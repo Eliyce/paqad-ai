@@ -52,16 +52,16 @@ No account, no API key, no subscription. Prefer not to install anything? Run `np
 
 ## What you get, at a glance
 
-| Area                         | What it means for you                                                            |
-| ---------------------------- | -------------------------------------------------------------------------------- |
-| **One setup, every tool**    | Configure Claude, Cursor, Copilot, Gemini, and the rest from one source of truth |
-| **Workflows, not prompts**   | Your team's process runs the same way every time, instead of being re-typed      |
-| **Proof, not promises**      | Automatic checks confirm tests, specs, docs, and security before "done" counts   |
-| **Security as a workflow**   | A full OWASP pentest pass, with retests, built in                                |
-| **Design as a workflow**     | Your UI audited against your own design system                                   |
-| **Docs that stay current**   | The framework keeps your documentation in sync with the code                     |
-| **Fewer tokens, on purpose** | Loads the right files, not the whole repo, cutting token use by 60-85%           |
-| **Runs locally**             | Your code stays on your machine, with an audit trail you can keep                |
+| Area                         | What it means for you                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| **One setup, every tool**    | Configure Claude, Cursor, Copilot, Gemini, and the rest from one source of truth       |
+| **Workflows, not prompts**   | Your team's process runs the same way every time, instead of being re-typed            |
+| **Proof, not promises**      | Automatic checks confirm tests, specs, docs, and security before "done" counts         |
+| **Security as a workflow**   | A full OWASP pentest pass, with retests, built in                                      |
+| **Design as a workflow**     | Your UI audited against your own design system                                         |
+| **Docs that stay current**   | The framework keeps your documentation in sync with the code                           |
+| **Fewer tokens, on purpose** | Loads a lean resident slice, not the whole repo. Measured 49-61% smaller resident load |
+| **Runs locally**             | Your code stays on your machine, with an audit trail you can keep                      |
 
 The rest of this page walks through each of these. The [full docs](https://paqad.ai/docs.html) go deeper on every command and concept.
 
@@ -267,7 +267,13 @@ Documentation is a real output here, not an afterthought you maintain by hand. A
 
 ## The right context, with fewer tokens
 
-Your agent does not need your whole repo. It needs the right files. And since every model gets worse on a bloated context, loading less is not just cheaper, it makes the answers better. paqad-ai cuts token use by **60-85%** through careful context loading.
+Your agent does not need your whole repo. It needs the right files. And since every model gets worse on a bloated context, loading less is not just cheaper, it makes the answers better.
+
+paqad-ai keeps the session-start load lean: a rule manifest plus the files a task actually touches, instead of the whole rule tree. Measured across two projects, that resident load is **49-61% smaller** than loading everything (paqad-ai's own repo: 61%; a fresh React onboard: 49%). Both used the char/4 heuristic tokenizer, so treat them as an honest floor, not a marketing ceiling. The method, the per-project numbers, and the caveats are in [`docs/instructions/benchmarks/measured.md`](docs/instructions/benchmarks/measured.md), and you can reproduce them in your own repo:
+
+```
+node scripts/measure-footprint.mjs --project .
+```
 
 - It splits files at natural boundaries (functions and classes), not at arbitrary line counts.
 - It ranks each piece by five signals: meaning, keywords, the symbols involved, how close the file is to the task, and how deeply nested it is.

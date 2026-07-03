@@ -1,5 +1,8 @@
 # Benchmarks
 
+Measured results (real numbers, methodology, and caveats) live in the sibling
+[`measured.md`](./measured.md). This file holds the fixed gate thresholds.
+
 The benchmark gates below are framework-internal defaults that live in code, not
 user-configured settings. The user-tunable retrieval knobs (provider, similarity
 threshold, top-N, max file size) are framework knobs set in the config layer
