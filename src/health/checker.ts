@@ -64,6 +64,7 @@ export class HealthChecker {
       this.checkMcp(projectRoot, profile),
       this.checkSkillCache(projectRoot),
       this.checkContextHitRate(projectRoot, profile),
+      this.checkLeanRuleFootprint(projectRoot),
       this.checkClassificationOverrideRate(projectRoot),
       ...(await this.checkRag(projectRoot, profile)),
     ];
@@ -789,6 +790,46 @@ export class HealthChecker {
       skill_cache_hit_rate: skillCacheHitRate,
       mcp_usage_rate: 0,
     };
+  }
+
+  /**
+   * Issue #284 — the resident rule-footprint readout. Reports how many bytes the lean
+   * session-context artifact carries versus loading the full `docs/instructions/rules`
+   * tree, computed per project (no hard-coded sizes). A present, smaller artifact is a
+   * pass with the savings; an artifact that is not smaller than the full rule set warns
+   * (lean loading is not paying off). A missing artifact is a pass: full-load is the
+   * documented fallback and the artifact regenerates on the next refresh/onboard.
+   */
+  private checkLeanRuleFootprint(projectRoot: string): HealthCheckResult {
+    const name = 'Lean rule footprint acceptable';
+    const rulesRoot = join(projectRoot, PATHS.RULES_DIR);
+    if (!existsSync(rulesRoot)) {
+      return pass(name, 'No rules directory to load — nothing to slim');
+    }
+
+    const fullRulesBytes = walk(rulesRoot)
+      .filter((file) => file.endsWith('.md'))
+      .reduce((sum, file) => sum + statSync(file).size, 0);
+
+    const artifactPath = join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT);
+    if (!existsSync(artifactPath)) {
+      return pass(
+        name,
+        'Lean rule artifact not generated yet — full rule load is the fallback until the next refresh',
+      );
+    }
+
+    const residentBytes = statSync(artifactPath).size;
+    const pct = fullRulesBytes > 0 ? Math.round((residentBytes / fullRulesBytes) * 100) : 0;
+    const detail = `Resident rule context is ${residentBytes} bytes vs ${fullRulesBytes} bytes for the full rule set (${pct}% of full)`;
+
+    return residentBytes < fullRulesBytes || fullRulesBytes === 0
+      ? pass(name, detail)
+      : warn(
+          name,
+          `${detail} — lean loading is not reducing the resident footprint`,
+          'Ensure lean_rules is on and re-run `paqad-ai rag refresh-context` to recompose the lean artifact.',
+        );
   }
 
   private checkClassificationOverrideRate(projectRoot: string): HealthCheckResult {

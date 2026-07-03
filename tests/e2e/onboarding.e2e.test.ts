@@ -148,6 +148,14 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/README.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/boost.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/testing.md'))).toBe(true);
+    // Issue #284 (AC1) — token-neutral by default. After a default onboard the lean
+    // rule-context artifact is written unconditionally (no flags, no RAG index), and
+    // the tracked app config documents the `lean_rules` knob at its default (on).
+    expect(existsSync(join(projectRoot, '.paqad/context/session-context.md'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.paqad/vectors'))).toBe(false);
+    const appConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
+    expect(appConfig).toContain('# lean_rules=true');
+    expect(appConfig).toContain('PAQAD_LEAN_RULES');
     assertNoProjectLocalSkillsOrAgents(projectRoot);
     expect(existsSync(join(projectRoot, 'scripts/health-check.sh'))).toBe(false);
     // next-steps.md is no longer written to disk; the guidance is printed to the

@@ -44,6 +44,8 @@ export interface ProjectFeatureFlags {
   team_agents: boolean;
   /** Issue #241 — opt in to the complementary analytics-instrumentation agent. */
   analytics_instrumentation: boolean;
+  /** Issue #284 — token-neutral rule loading (lean rule contract + lifted full-load mandate). */
+  lean_rules: boolean;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;

@@ -37,8 +37,15 @@ describe('runtime/hooks/context-refresh-trigger.mjs', () => {
     expect(existsSync(join(projectRoot, MARKER_REL))).toBe(true);
   });
 
-  it('is a no-op (no marker) when rag is off by default', () => {
+  // Issue #284 — lean rule loading is on by default, so the trigger now fires (to
+  // refresh the rule slice) even with rag off, unless BOTH are turned off.
+  it('fires by default (lean on) even when rag is off', () => {
     expect(run(projectRoot)).toBe(0);
+    expect(existsSync(join(projectRoot, MARKER_REL))).toBe(true);
+  });
+
+  it('is a no-op (no marker) only when both lean_rules and rag are off', () => {
+    expect(run(projectRoot, { PAQAD_LEAN_RULES: 'false', PAQAD_RAG_ENABLED: 'false' })).toBe(0);
     expect(existsSync(join(projectRoot, MARKER_REL))).toBe(false);
   });
 

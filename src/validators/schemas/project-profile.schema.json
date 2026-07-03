@@ -160,7 +160,8 @@
         "market_research": { "type": "boolean" },
         "design_research": { "type": "boolean" },
         "team_agents": { "type": "boolean" },
-        "analytics_instrumentation": { "type": "boolean" }
+        "analytics_instrumentation": { "type": "boolean" },
+        "lean_rules": { "type": "boolean" }
       }
     },
     "enterprise": {

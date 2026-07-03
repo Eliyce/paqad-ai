@@ -40,7 +40,7 @@ function main() {
       '[paqad] Required steps:',
       `[paqad]   1. Read ${ef}`,
       '[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)',
-      '[paqad]   3. Load docs/instructions/{rules,stack,design-system,workflows}',
+      '[paqad]   3. Load the rule contract artifact-first: read .paqad/context/session-context.md if it exists, else docs/instructions/rules in full; plus docs/instructions/{stack,design-system,workflows}',
       '[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path',
       '',
     ].join('\n'),

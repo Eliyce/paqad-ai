@@ -29,6 +29,18 @@ import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 /** A lock older than this (10 min) is treated as a crashed worker and reclaimed. */
 const STALE_LOCK_MS = 10 * 60 * 1000;
 
+/**
+ * The product gate (issue #284): the resident rule footprint paqad adds to every
+ * session — the manifest plus the always-load rule text, with NO files in play — must
+ * stay under this byte budget. At ~4 bytes/token this is ≈4K tokens, the "paqad adds
+ * at most N resident tokens" ceiling. It is a documented constant, deliberately NOT a
+ * snapshot of any one project's live artifact: the committed budget test asserts a
+ * representative rule fixture composes under it, and `paqad-ai doctor` reports each
+ * project's actual footprint against its own full rule set. Trigger-loaded rule text
+ * for the files in play rides on top and is bounded by the work, not by this budget.
+ */
+export const LEAN_RULE_CONTEXT_BUDGET_BYTES = 16_384;
+
 export interface RuleSelection {
   /** Rules that apply to every change (`**` / untriggered). */
   alwaysLoad: CompiledRule[];

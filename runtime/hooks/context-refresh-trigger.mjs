@@ -19,7 +19,7 @@ import { mkdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
-import { isRagEnabledValue } from '../scripts/context-seam.mjs';
+import { isLeanRulesEnabledValue, isRagEnabledValue } from '../scripts/context-seam.mjs';
 
 // Coalesce a burst of prompts: at most one refresh spawn per this window.
 const DEBOUNCE_MS = 20_000;
@@ -51,7 +51,18 @@ function main() {
   try {
     const projectRoot = resolveProjectRoot();
     if (isPaqadDisabled(projectRoot)) return;
-    if (!isRagEnabledValue(readLayeredKey(projectRoot, 'rag_enabled', 'PAQAD_RAG_ENABLED'))) {
+    // Issue #284 — refresh the rule slice on every install where lean loading is on
+    // (its default) OR the RAG accelerator is on, so the artifact tracks the files in
+    // play. With `lean_rules=false` AND rag off the trigger stays inert (today's
+    // behaviour). The spawned worker no-ops the index/retrieval/drift parts when rag
+    // is off, recomposing rule-only — no embedding, index, or provider call.
+    const ragEnabled = isRagEnabledValue(
+      readLayeredKey(projectRoot, 'rag_enabled', 'PAQAD_RAG_ENABLED'),
+    );
+    const leanEnabled = isLeanRulesEnabledValue(
+      readLayeredKey(projectRoot, 'lean_rules', 'PAQAD_LEAN_RULES'),
+    );
+    if (!ragEnabled && !leanEnabled) {
       return;
     }
 

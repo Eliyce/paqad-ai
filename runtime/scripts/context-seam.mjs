@@ -49,6 +49,24 @@ export const BLOCK_CLOSE = '[/paqad-context]';
 /** `rag_enabled` tokens that mean ON (mirrors the framework-config boolean parse). */
 const RAG_TRUTHY = new Set(['true', '1', 'yes', 'on']);
 
+/** `lean_rules` tokens that mean OFF (mirrors the framework-config boolean parse). */
+const LEAN_RULES_FALSY = new Set(['false', '0', 'no', 'off']);
+
+/**
+ * Interpret a raw layered `lean_rules` value (issue #284 — token-neutral rule
+ * loading). Unlike `rag_enabled`, the default is ON: paqad ships the lean rule
+ * contract (manifest + trigger-loaded applicable rule text) as the default delivery
+ * path, so an unset value resolves to `true`. Only an explicit falsy token
+ * (`false`/`0`/`no`/`off`) turns it off and restores the full-load behaviour.
+ *
+ * @param {string | undefined} raw the value resolved across the config layers.
+ * @returns {boolean}
+ */
+export function isLeanRulesEnabledValue(raw) {
+  if (raw === undefined || raw === null) return true;
+  return !LEAN_RULES_FALSY.has(String(raw).trim().toLowerCase());
+}
+
 /**
  * Interpret a raw layered `rag_enabled` value (RAG buildout F3 — the master
  * switch for the injection accelerator). Default is OFF: paqad ships the honest

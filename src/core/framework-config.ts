@@ -218,6 +218,18 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'Opt in to complementary analytics instrumentation (issue #241, refined #279). ' +
       'OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc.',
   },
+  {
+    key: 'lean_rules',
+    env: 'PAQAD_LEAN_RULES',
+    type: 'boolean',
+    default: true,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract ' +
+      '(manifest + only the rule text that applies to the files in play) and lifts the full-load ' +
+      'mandate. OFF restores loading docs/instructions/rules in full every session.',
+  },
 
   // ── rag group ──────────────────────────────────────────────────────────
   {
@@ -818,6 +830,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       design_research: rb('design_research'),
       team_agents: rb('team_agents'),
       analytics_instrumentation: rb('analytics_instrumentation'),
+      lean_rules: rb('lean_rules'),
     },
     research: {
       depth: asEnum(
@@ -1357,6 +1370,7 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
       f.analytics_instrumentation,
       d.features.analytics_instrumentation,
     );
+    put('lean_rules', f.lean_rules, d.features.lean_rules);
   }
   if (overrides.research) {
     put('research_depth', overrides.research.depth, d.research.depth);
@@ -1487,6 +1501,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'design_research',
       'team_agents',
       'analytics_instrumentation',
+      'lean_rules',
     ],
   },
   { present: (p) => p.research !== undefined, keys: ['research_depth'] },

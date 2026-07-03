@@ -127,6 +127,30 @@ describe('rag command', () => {
     );
   });
 
+  it('refresh-context recomposes rule-only when rag is off (issue #284, no provider work)', async () => {
+    const writes: string[] = [];
+    (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (chunk: unknown) => {
+        writes.push(String(chunk));
+        return true;
+      },
+    );
+    const refreshContext = vi.spyOn(RagService.prototype, 'refreshContext');
+    const retrieve = vi.spyOn(RagService.prototype, 'retrieveForEval');
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      ['node', 'rag', 'refresh-context', '--project-root', projectRoot(tempProjectRoot)],
+      { from: 'node' },
+    );
+
+    // The lean (rag-off) path recomposes rule-only and never touches the index or
+    // retrieval — no embedding/index/provider call happens.
+    expect(writes.join('')).toContain('rule-only (rag off)');
+    expect(refreshContext).not.toHaveBeenCalled();
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
   it('F23: lets the user opt into the code-tuned local model interactively', async () => {
     setInteractive(true);
     // provider picker -> local, then the local-model picker -> code-tuned jina.

@@ -74,6 +74,54 @@ describe('HealthChecker', () => {
     ).toBe('pass');
   });
 
+  it('lean footprint passes when there is no rules directory (issue #284)', async () => {
+    // A bare project (no docs/instructions/rules) has nothing to slim.
+    const report = await new HealthChecker().run(projectRoot);
+    const check = report.checks.find((c) => c.name === 'Lean rule footprint acceptable');
+    expect(check?.status).toBe('pass');
+    expect(check?.detail).toContain('No rules directory');
+  });
+
+  it('lean footprint warns when the artifact is not smaller than the full rule set', async () => {
+    mkdirSync(join(projectRoot, PATHS.RULES_DIR), { recursive: true });
+    writeFileSync(join(projectRoot, PATHS.RULES_DIR, 'a.md'), 'small');
+    mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
+    writeFileSync(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT), 'x'.repeat(10_000));
+
+    const report = await new HealthChecker().run(projectRoot);
+    const check = report.checks.find((c) => c.name === 'Lean rule footprint acceptable');
+    expect(check?.status).toBe('warning');
+    expect(check?.detail).toContain('not reducing the resident footprint');
+  });
+
+  it('reports the lean rule footprint against the full rule set (issue #284)', async () => {
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+
+    const report = await new HealthChecker().run(projectRoot);
+    const check = report.checks.find((c) => c.name === 'Lean rule footprint acceptable');
+    // Onboarding writes the lean artifact unconditionally, so the footprint is
+    // reported and passes (the lean slice is smaller than the full rule tree).
+    expect(check?.status).toBe('pass');
+    expect(check?.detail).toMatch(/Resident rule context is \d+ bytes vs \d+ bytes/);
+  });
+
+  it('lean footprint check passes (fallback) when the artifact is absent', async () => {
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+    const artifact = join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT);
+    if (existsSync(artifact)) unlinkSync(artifact);
+
+    const report = await new HealthChecker().run(projectRoot);
+    const check = report.checks.find((c) => c.name === 'Lean rule footprint acceptable');
+    expect(check?.status).toBe('pass');
+    expect(check?.detail).toContain('fallback');
+  });
+
   it('treats the decision workspace as ready without the git-ignored audit log', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,

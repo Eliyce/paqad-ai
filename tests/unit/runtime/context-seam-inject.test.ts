@@ -37,9 +37,12 @@ function run(
   }
 }
 
-// F3: the injection accelerator is OFF by default, so emission tests must turn
-// rag on explicitly. Tests that exercise the OFF path leave it unset.
+// F3 + issue #284: the RAG accelerator is OFF by default, but lean rule loading is
+// ON by default, so the seam now injects the artifact whenever EITHER is on. Tests
+// that exercise the true OFF baseline (byte-identical to today) must set BOTH off.
 const RAG_ON: NodeJS.ProcessEnv = { PAQAD_RAG_ENABLED: 'true' };
+// The only way to reach today's "emit nothing even with an artifact on disk" path.
+const ALL_OFF: NodeJS.ProcessEnv = { PAQAD_RAG_ENABLED: 'false', PAQAD_LEAN_RULES: 'false' };
 
 const runHook = (projectRoot: string, env: NodeJS.ProcessEnv = {}) =>
   run('node', [INJECT_HOOK], projectRoot, env);
@@ -147,7 +150,7 @@ describe('agent-entry-prompt-gate.mjs orders the load directive before context (
   });
 });
 
-describe('F3 — disabled / cold-start == today (on/off equivalence)', () => {
+describe('F3 + #284 — the true OFF arm needs BOTH lean and rag off', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -162,45 +165,75 @@ describe('F3 — disabled / cold-start == today (on/off equivalence)', () => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
-  it('emits nothing when rag is unset (default off == baseline)', () => {
+  it('emits nothing when both lean_rules and rag are off (baseline)', () => {
+    const result = runHook(projectRoot, ALL_OFF);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+  });
+
+  it('emits nothing when both are off in team config (converges with missing)', () => {
+    writeFileSync(join(projectRoot, '.paqad/.config'), 'rag_enabled=false\nlean_rules=false\n');
     const result = runHook(projectRoot);
     expect(result.status).toBe(0);
     expect(result.stdout).toBe('');
   });
 
-  it('emits nothing when rag_enabled=false in team config (converges with missing)', () => {
-    writeFileSync(join(projectRoot, '.paqad/.config'), 'rag_enabled=false\n');
-    const result = runHook(projectRoot);
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe('');
-  });
-
-  it('PAQAD_RAG_ENABLED=false env overrides an on-disk artifact', () => {
-    const result = runHook(projectRoot, { PAQAD_RAG_ENABLED: 'false' });
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe('');
-  });
-
-  it('byte-identical OFF arm: rag-off output equals the no-artifact baseline', () => {
-    const offWithArtifact = runHook(projectRoot).stdout;
+  it('byte-identical OFF arm: all-off output equals the no-artifact baseline', () => {
+    const offWithArtifact = runHook(projectRoot, ALL_OFF).stdout;
     rmSync(join(projectRoot, ARTIFACT_REL), { force: true });
     const baselineNoArtifact = runHook(projectRoot, RAG_ON).stdout;
     expect(offWithArtifact).toBe(baselineNoArtifact);
     expect(offWithArtifact).toBe('');
   });
 
-  it('flips to emitting only once rag is explicitly turned on', () => {
-    expect(runHook(projectRoot).stdout).toBe('');
-    const on = runHook(projectRoot, RAG_ON);
-    expect(on.stdout).toContain('[paqad-context]');
-    expect(on.stdout).toContain('- would-be slice');
-  });
-
-  it('never errors when the index/artifact is absent and rag is on (cold start)', () => {
+  it('never errors when the artifact is absent and rag is on (cold start)', () => {
     rmSync(join(projectRoot, ARTIFACT_REL), { force: true });
     const result = runHook(projectRoot, RAG_ON);
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
+    expect(result.stdout).toBe('');
+  });
+});
+
+describe('issue #284 — lean rule loading injects the artifact by default', () => {
+  let projectRoot: string;
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-seam-lean-'));
+    mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
+    writeFileSync(join(projectRoot, ARTIFACT_REL), '- lean rule slice');
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('injects the artifact with all flags unset (lean default on, rag off)', () => {
+    const result = runHook(projectRoot);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[paqad-context]');
+    expect(result.stdout).toContain('- lean rule slice');
+  });
+
+  it('injects when lean is on but rag is explicitly off', () => {
+    const result = runHook(projectRoot, { PAQAD_LEAN_RULES: 'true', PAQAD_RAG_ENABLED: 'false' });
+    expect(result.stdout).toContain('[paqad-context]');
+  });
+
+  it('lean_rules=false + rag off suppresses injection (opt back into full-load)', () => {
+    const result = runHook(projectRoot, ALL_OFF);
+    expect(result.stdout).toBe('');
+  });
+
+  it('lean_rules=false but rag on still injects (the rag path is unaffected)', () => {
+    const result = runHook(projectRoot, { PAQAD_LEAN_RULES: 'false', ...RAG_ON });
+    expect(result.stdout).toContain('[paqad-context]');
+    expect(result.stdout).toContain('- lean rule slice');
+  });
+
+  it('stays a pure no-op when paqad is disabled, even with lean on', () => {
+    writeFileSync(join(projectRoot, '.paqad/.config'), 'paqad_enable=false\n');
+    const result = runHook(projectRoot);
     expect(result.stdout).toBe('');
   });
 });
