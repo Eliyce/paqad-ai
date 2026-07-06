@@ -20,11 +20,13 @@
 // capability currently folded into the seam (rule-scripts); as F6 folds in
 // stages/decision-pause/delivery, this pre-check generalises per-capability.
 
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import { isPaqadDisabled, readFlooredMode, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 
 // Mirrors PATHS.RULE_SCRIPT_MAP — kept in sync by hand (runtime mjs has no dist).
 const RULE_SCRIPT_MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
@@ -90,7 +92,7 @@ function parsePayload(input) {
   }
 }
 
-async function main(input) {
+export async function main(input, seam = SEAM) {
   try {
     const projectRoot = resolveProjectRoot();
     if (isPaqadDisabled(projectRoot)) return 0;
@@ -104,11 +106,24 @@ async function main(input) {
 
     const result = await runCapabilityGate({
       projectRoot,
-      seam: SEAM,
+      seam,
       payload: parsePayload(input),
     });
     if (result.block) {
       process.stderr.write(`${result.summary}\n`);
+      // Loop guard (fix #2) — the completion (Stop) seam is the only one the host
+      // re-runs after forcing a continuation. When Claude marks this Stop as a
+      // continuation of a prior block (`stop_hook_active`), the gate has already
+      // bitten once, so blocking again would loop on an unresolvable outcome:
+      // surface the summary (above) but exit non-blocking. The pre-mutation seam
+      // is a PreToolUse deny, not a Stop loop, so it always keeps its teeth. git/CI
+      // remain the hard, non-bypassable layer.
+      if (seam === 'completion' && stopHookActiveFromStdin(input)) {
+        process.stderr.write(
+          '[paqad] already surfaced this turn — not blocking again so the session can end (git/CI remains the hard gate).\n',
+        );
+        return 0;
+      }
       return 2;
     }
     if (result.summary) {
@@ -123,12 +138,30 @@ async function main(input) {
 }
 
 // Drain stdin (the host pipes the tool/Stop payload) then enforce. The payload is
-// parsed lazily inside main() and only the decision-pause self-arm reads it.
-let input = '';
-process.stdin.on('data', (chunk) => {
-  input += chunk;
-});
-process.stdin.on('end', () => {
-  main(input).then((code) => process.exit(code));
-});
-process.stdin.resume();
+// parsed lazily inside main() and only the decision-pause self-arm reads it. Guarded
+// so importing this module for tests runs nothing. The guard resolves the entry
+// path with realpathSync: the host invokes this hook through the symlinked install
+// (~/.paqad-ai/current → the package runtime), and macOS also aliases /tmp →
+// /private/tmp, so a raw argv[1] compare would MISS the match and silently no-op
+// the whole gate. Comparing realpaths is symlink-safe.
+if (isDirectEntry()) {
+  let input = '';
+  process.stdin.on('data', (chunk) => {
+    input += chunk;
+  });
+  process.stdin.on('end', () => {
+    main(input).then((code) => process.exit(code));
+  });
+  process.stdin.resume();
+}
+
+/** True when this module is the process entry point, symlink-safe (see above). */
+function isDirectEntry() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(entry)).href;
+  } catch {
+    return false;
+  }
+}
