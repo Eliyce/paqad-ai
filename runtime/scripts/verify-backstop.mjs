@@ -50,6 +50,7 @@ export async function runVerificationBackstop({
   hostSessionId,
   stdout,
   stderr,
+  loopActive,
 }) {
   const out = stdout ?? process.stdout;
   const err = stderr ?? process.stderr;
@@ -84,8 +85,21 @@ export async function runVerificationBackstop({
     // Stop-hook contract: on a block (exit 2) the host surfaces only STDERR to
     // the model — STDOUT is transcript-only. Writing the verdict to stdout made
     // the block invisible ("No stderr output"). Mirror capability-gate.mjs so the
-    // failing verdict summary reaches the model. Exit code (2) is unchanged.
+    // failing verdict summary reaches the model.
     err.write(`${verdict.summary}\n`);
+    // Loop guard (fix #2) — when the host says we are already inside a Stop-hook
+    // continuation (`loopActive`, set only by the completion hook from Claude's
+    // `stop_hook_active`), the gate has already bitten once this turn. Blocking
+    // again would loop forever on an unresolvable verdict, so we step aside: the
+    // summary is surfaced (above) but the exit is a non-blocking 0. git/CI stay the
+    // hard, non-bypassable layer. Never reached by the git/CI backstop, which
+    // never sets loopActive.
+    if (loopActive) {
+      err.write(
+        '[paqad] already surfaced this turn — not blocking again so the session can end (git/CI remains the hard gate).\n',
+      );
+      return 0;
+    }
     return 2;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

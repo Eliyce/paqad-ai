@@ -56,6 +56,58 @@ describe('runtime/scripts/verify-backstop.mjs — verdict stream routing', () =>
     expect(out.read()).toBe('');
   });
 
+  it('AC-3 (loop guard): loopActive downgrades a FAIL from exit 2 to exit 0, still surfacing the summary on STDERR', async () => {
+    vi.doMock(DIST, () => ({
+      runRepositoryVerification: async () => ({
+        ok: false,
+        summary: '✗ verification blocked — 1/3 gates failed.',
+      }),
+    }));
+    const { runVerificationBackstop } =
+      await import('../../../runtime/scripts/verify-backstop.mjs');
+    const out = capture();
+    const err = capture();
+
+    const code = await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      loopActive: true,
+      stdout: out.stream,
+      stderr: err.stream,
+    });
+
+    // The gate has already bitten once this turn, so a second block would loop —
+    // we step aside (exit 0) but the verdict + the step-aside note are on STDERR.
+    expect(code).toBe(0);
+    expect(err.read()).toContain('✗ verification blocked');
+    expect(err.read()).toContain('not blocking again');
+    expect(out.read()).toBe('');
+  });
+
+  it('AC-2b (loop guard off): without loopActive a FAIL still hard-blocks (exit 2)', async () => {
+    vi.doMock(DIST, () => ({
+      runRepositoryVerification: async () => ({
+        ok: false,
+        summary: '✗ verification blocked — 1/3 gates failed.',
+      }),
+    }));
+    const { runVerificationBackstop } =
+      await import('../../../runtime/scripts/verify-backstop.mjs');
+    const err = capture();
+
+    const code = await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      loopActive: false,
+      stderr: err.stream,
+    });
+
+    expect(code).toBe(2);
+    expect(err.read()).not.toContain('not blocking again');
+  });
+
   it('AC-2: a PASS verdict is written to STDOUT (not stderr) and exits 0', async () => {
     vi.doMock(DIST, () => ({
       runRepositoryVerification: async () => ({

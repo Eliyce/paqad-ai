@@ -13,6 +13,8 @@
 import process from 'node:process';
 
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
+import { resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
 
 // Read the Stop-hook JSON payload: the host (Claude) puts the session_id here, and
@@ -33,8 +35,16 @@ async function main() {
   const code = await runVerificationBackstop({
     origin: 'hook-completion',
     softFail: true,
-    projectRoot: process.cwd(),
+    // Fix #1 — resolve the project root the host is operating on (CLAUDE_PROJECT_DIR
+    // / PAQAD_PROJECT_ROOT, cwd fallback) via the shared helper, matching the sibling
+    // Stop hooks. Raw process.cwd() missed the disable flag stored in the project's
+    // .paqad/.config whenever the host launched the hook from a subdirectory, so an
+    // OFF project still got blocked.
+    projectRoot: resolveProjectRoot(),
     hostSessionId: sessionIdFromStdin(input),
+    // Fix #2 — pass Claude's `stop_hook_active` so a block downgrades to advisory
+    // once we are already inside a Stop-hook continuation loop (see loop-guard.mjs).
+    loopActive: stopHookActiveFromStdin(input),
   });
   process.exit(code);
 }

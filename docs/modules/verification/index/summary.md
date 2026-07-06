@@ -23,6 +23,26 @@ or inconclusive gate downgrades the run; it never hides inside a pass total. The
 strength of each verdict (deterministic vs LLM-judged) is graded downstream by the
 evidence ledger, never pooled.
 
+## How the completion (Stop) hook stays safe
+
+The Claude Stop-hook layer (`runtime/hooks/verification-completion.mjs` →
+`runtime/scripts/verify-backstop.mjs`) is a **fast-feedback** layer, not the
+binding one — the git/CI backstop is the non-bypassable teeth. Two rules keep it
+from turning into a nuisance:
+
+- **It reads the flag from the right place.** The hook resolves the project root
+  via `CLAUDE_PROJECT_DIR` / `PAQAD_PROJECT_ROOT` (cwd fallback), the same shared
+  helper the sibling Stop hooks use — so a project set to `paqad_enable=false` is
+  honored even when the host launched the hook from a subdirectory (fix #1).
+- **It bites once, never loops.** A blocking verdict exits 2 so the host surfaces
+  it to the model and gives it a turn to fix. If the next Stop is a continuation
+  of that block (Claude's `stop_hook_active`), the gate steps aside — it surfaces
+  the summary but exits 0, so an unresolvable verdict (a missing canonical doc, an
+  unrecordable stage) can never wedge the session in an infinite Stop loop (fix
+  #2, `runtime/hooks/lib/loop-guard.mjs`). The same guard covers the
+  capability-gate completion seam. The hard, non-bypassable check remains at
+  git/CI.
+
 ## The gate bank
 
 The gates under `src/verification/gates/` cover correctness, completeness, quality,
