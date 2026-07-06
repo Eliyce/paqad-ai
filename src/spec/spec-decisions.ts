@@ -20,20 +20,24 @@ const DEFAULT_REQUESTED_BY = 'spec-stage';
  * never drift quietly (issue #102 Settled decision).
  */
 export function buildSpecChangePacket(input: SpecDecisionInput): DecisionPacket {
+  // Copy conforms to lintDecisionCopy so the packet can be written through
+  // DecisionStore.writePending (#300): option labels start with an approved verb and
+  // avoid banned words; previews start with "If you pick this,"; trade-offs with
+  // "You give up:"; no em dashes.
   return buildPacket('spec.change', input, {
     question: 'The goal changed mid-build. Update the frozen spec and re-freeze, or keep it as-is?',
     options: [
       {
         option_key: 'update-and-refreeze',
-        label: 'Update spec and re-freeze',
-        one_line_preview: `We will amend ${input.spec_file}, re-confirm invariants, and re-freeze.`,
-        trade_off: 'You give up: the original frozen target — the new goal becomes the bar.',
+        label: 'Take the new goal',
+        one_line_preview: `If you pick this, we will update ${input.spec_file} to the new goal and re-freeze it.`,
+        trade_off: 'You give up: the first frozen goal, so the new one becomes the bar.',
       },
       {
         option_key: 'keep-current-spec',
-        label: 'Keep the current frozen spec',
-        one_line_preview: 'We will keep building to the spec already frozen.',
-        trade_off: 'You give up: capturing the new goal — the change is deferred.',
+        label: 'Keep the current spec',
+        one_line_preview: 'If you pick this, we will keep building to the spec already frozen.',
+        trade_off: 'You give up: capturing the new goal, so the change waits.',
       },
     ],
     recommendation: 'update-and-refreeze',

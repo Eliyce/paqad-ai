@@ -135,6 +135,30 @@ describe('selfArmDecision — narrow create-vs-reuse minter', () => {
       sessionId: 'ses1',
     });
     expect(result.reason).toBe('no-fork');
+    expect(result.category).toBeNull();
+    expect(pendingIds(root)).toHaveLength(0);
+  });
+
+  it('mints an architecture-path packet on the tight explicit-path-fork (#300)', () => {
+    const result = selfArmDecision({
+      projectRoot: root,
+      promptText: 'Should this live in src/ui/Button.tsx or src/components/Button.tsx?',
+      sessionId: 'ses1',
+      targetPath: 'src/ui/Button.tsx',
+    });
+    expect(result.reason).toBe('minted');
+    expect(result.category).toBe('architecture-path');
+    expect(pendingIds(root)).toHaveLength(1);
+  });
+
+  it('does NOT arm on a broad "or" that only trips the low-confidence architecture-path signal', () => {
+    const result = selfArmDecision({
+      projectRoot: root,
+      promptText: 'Add a toggle or a switch to the settings panel',
+      sessionId: 'ses1',
+      targetPath: 'src/settings.ts',
+    });
+    expect(result.reason).toBe('no-fork');
     expect(pendingIds(root)).toHaveLength(0);
   });
 
@@ -282,6 +306,26 @@ describe('runDecisionSelfArm — the capability body (transcript reader injected
       readTranscript: forkTranscript,
     });
     expect(out.ran).toBe(true);
+    expect(pendingIds(root)).toHaveLength(1);
+  });
+
+  it('mints an architecture-path pause and words the advisory as a which-path choice', () => {
+    const archTranscript = () =>
+      JSON.stringify({
+        message: {
+          role: 'user',
+          content: 'Should this live in src/ui/Button.tsx or src/components/Button.tsx?',
+        },
+      });
+    const out = runDecisionSelfArm({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: on,
+      payload,
+      readTranscript: archTranscript,
+    });
+    expect(out.ran).toBe(true);
+    expect(out.summary).toContain('which-path');
     expect(pendingIds(root)).toHaveLength(1);
   });
 

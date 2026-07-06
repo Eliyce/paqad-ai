@@ -18,6 +18,7 @@ import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
+import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
 import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
@@ -284,18 +285,24 @@ const deliveryCapability: Capability = {
 };
 
 /**
- * Decision-pause self-arm (RCA Step 5c) — the minter the Decision Pause Contract never
- * had. At the pre-mutation seam, when opted in (OFF by default), it reads the recent
- * prompt from the turn transcript and, on a high-confidence create-vs-reuse fork with no
- * decision pending or already made, script-writes ONE pending packet so the existing
- * decision-pause gate blocks the NEXT edit. It only MINTS — never blocks — so the
- * current edit is never interrupted mid-flight. Behaviour lives in `runDecisionSelfArm`
- * (transcript reader injected for tests); here it reads the real payload.
+ * Decision-pause minters (RCA Step 5c; #300) — the minters the Decision Pause Contract
+ * never had. At the pre-mutation seam this runs two, both MINT-only (never block — the
+ * existing decision-pause gate blocks the NEXT edit):
+ *   1. Self-arm (opt-in, OFF by default): reads the recent prompt from the transcript
+ *      and, on a high-confidence create-vs-reuse OR tight architecture-path fork with no
+ *      decision pending/made, writes ONE pending packet.
+ *   2. Spec-change guard (deterministic, always-on, inert until a spec is frozen): mints
+ *      a `spec.change` pause when a persisted frozen spec's source markdown has moved.
+ * Self-arm runs first; the guard only runs when self-arm did not mint (one pause per
+ * turn — and either way the gate blocks the next edit). Behaviour lives in
+ * `runDecisionSelfArm` / `runSpecChangeGuard` (readers injected for tests).
  */
 const decisionPauseSelfArmCapability: Capability = {
   id: 'decision-pause',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
-    return runDecisionSelfArm({ projectRoot, seam, env, payload });
+    const selfArm = runDecisionSelfArm({ projectRoot, seam, env, payload });
+    if (selfArm.ran) return selfArm;
+    return runSpecChangeGuard({ projectRoot, seam, sessionId: payload?.sessionId ?? null });
   },
 };
 
