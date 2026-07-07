@@ -52,6 +52,11 @@ export function createStageCommand(): Command {
       }
       const line = markerNarrationLine(stage, phase);
       if (line) console.log(line);
-      console.log(JSON.stringify({ recorded: true, stage, phase, session_id: sessionId }));
+      // Machine-readable confirmation of the recording. Deliberately omits the
+      // resolved session id: it is derived from the environment (SE_SESSION /
+      // CLAUDE_SESSION_ID) and echoing environment-tainted data to stdout is
+      // flagged as clear-text logging of sensitive information (CodeQL
+      // js/clear-text-logging). The caller already knows its own session.
+      console.log(JSON.stringify({ recorded: true, stage, phase }));
     });
 }
