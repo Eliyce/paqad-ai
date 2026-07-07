@@ -1,0 +1,26 @@
+{
+  "id": "D-01KWY1B3APDQFZA0R1FMYHW231",
+  "category": "architecture-path",
+  "title": "Issue #307: canonical same-turn stage-unblock mechanism",
+  "context": "The stages block message points at scripts/se-mark.ts which is never published (package files excludes scripts/) nor seeded; inline paqad:stage markers only parse at Stop so the first turn can never unblock itself; the sentinel write itself is blocked by both agent-entry-gate and the stages gate (turn-one deadlock). All options include: exempting .paqad/.agent-entry-loaded from both gates, fixing every message/doc to reference only mechanisms that exist, and a packaging-truth guardrail test suite with 100% coverage on the stages gate.",
+  "options": [
+    {
+      "option_key": "markers-pretooluse",
+      "label": "Parse paqad:stage markers at the pre-mutation seam too (capability-gate already gets transcript_path) so markers emitted earlier in the SAME turn clear the block; plus add CLI verb 'paqad-ai stage start|end <stage>' as the shell path; drop the se-mark.ts reference from messages"
+    },
+    {
+      "option_key": "cli-verb-only",
+      "label": "Add CLI verb 'paqad-ai stage start|end <stage>' and repoint the block message + bootstrap to it; markers stay Stop-only (same-turn unblock via shell only)"
+    },
+    {
+      "option_key": "seed-script",
+      "label": "Publish se-mark and seed it into every onboarded project's scripts/ at onboarding so the current message becomes true (churns project dirs, against the light-dir principle)"
+    }
+  ],
+  "recommendation": "markers-pretooluse",
+  "created_at": "2026-07-07T10:17:53.238Z",
+  "status": "resolved",
+  "chosen": "markers-pretooluse",
+  "rationale": "Same-turn unblock must not depend on shell access; capability-gate already receives transcript_path at PreToolUse. CLI verb added as the shell-path complement. Chosen by Haider 2026-07-07.",
+  "resolved_at": "2026-07-07T10:21:40.818Z"
+}

@@ -89,6 +89,16 @@ export async function buildRepositoryVerificationContext(
   if (specReviewSignal.inconclusive) {
     escalations.push(`spec-review: ${specReviewSignal.detail}`);
   }
+  // Test-evidence strength cannot be proven agent-independently: this backstop
+  // never collects structured test results, so a code change's test evidence is
+  // inconclusive here (enforced in-session and by CI, not by the roll-up block).
+  // Surface it as an escalation rather than a silent pass or a false block.
+  if (codeChanged) {
+    escalations.push(
+      'test-evidence: structured test results are not collected by the backstop — ' +
+        'test-evidence strength is unproven here; it is enforced in-session and by CI.',
+    );
+  }
 
   const qualityRatchetResult = await runQualityRatchetGate({
     projectRoot,

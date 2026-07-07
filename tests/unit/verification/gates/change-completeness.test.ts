@@ -1,4 +1,4 @@
-import { rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -170,12 +170,42 @@ describe('ChangeCompletenessGate', () => {
     expect(result.detail).toContain('Only weak test evidence recorded for changed code');
   });
 
-  it('includes unresolved stale doc targets as incomplete work', async () => {
+  it('includes unresolved stale doc targets as incomplete work when the drift doc exists', async () => {
+    const context = createVerificationContext({
+      code_changed: true,
+      test_files_changed: true,
+      changed_files: ['src/pipeline/router.ts'],
+      stale_doc_targets: [
+        {
+          target_path: 'docs/maintainers/architecture-map.md',
+          ownership_kind: 'implementation-drift',
+          owners: ['src/pipeline/router.ts'],
+          reason: 'Routing changes can stale architecture ownership mappings.',
+        },
+      ],
+    });
+    // The drift doc EXISTS, so a code change legitimately flags it for review.
+    mkdirSync(join(context.project_root, 'docs/maintainers'), { recursive: true });
+    writeFileSync(join(context.project_root, 'docs/maintainers/architecture-map.md'), '# Map\n');
+
+    const result = await gate.check(context);
+
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain('Change completeness: incomplete');
+    expect(result.detail).toContain('Canonical docs not updated for changed code');
+    expect(result.detail).toContain('src/pipeline/router.ts');
+  });
+
+  it('does not flag a framework-assumed drift doc that the project never created', async () => {
+    // docs/maintainers/architecture-map.md is NOT on disk (onboarding never seeds it)
+    // and the diff did not create it — a code change cannot stale an uncreated doc, so
+    // it is not blocking incomplete work. Weak test evidence still blocks in-session.
     const result = await gate.check(
       createVerificationContext({
         code_changed: true,
-        test_files_changed: true,
+        test_files_changed: false,
         changed_files: ['src/pipeline/router.ts'],
+        structured_test_results: [],
         stale_doc_targets: [
           {
             target_path: 'docs/maintainers/architecture-map.md',
@@ -187,10 +217,40 @@ describe('ChangeCompletenessGate', () => {
       }),
     );
 
+    expect(result.detail).not.toContain('Canonical docs not updated');
+  });
+
+  // Issue #307 dogfood — test-evidence strength is a provider-workflow concern the
+  // agent-independent backstop cannot collect. It escalates there (see
+  // repository-context), so change-completeness must NOT hard-block on it.
+  it('does not block on missing test evidence at a backstop origin (hook-completion)', async () => {
+    const result = await gate.check(
+      createVerificationContext({
+        verification_origin: 'hook-completion',
+        code_changed: true,
+        test_files_changed: true,
+        changed_files: ['src/service.ts', 'tests/unit/service.test.ts'],
+        structured_test_results: [],
+      }),
+    );
+
+    expect(result.passed).toBe(true);
+    expect(result.detail).not.toContain('weak test evidence');
+  });
+
+  it('still blocks on missing test evidence in-session (provider-workflow origin)', async () => {
+    const result = await gate.check(
+      createVerificationContext({
+        verification_origin: 'provider-workflow',
+        code_changed: true,
+        test_files_changed: true,
+        changed_files: ['src/service.ts', 'tests/unit/service.test.ts'],
+        structured_test_results: [],
+      }),
+    );
+
     expect(result.passed).toBe(false);
-    expect(result.detail).toContain('Change completeness: incomplete');
-    expect(result.detail).toContain('Canonical docs not updated for changed code');
-    expect(result.detail).toContain('src/pipeline/router.ts');
+    expect(result.detail).toContain('Only weak test evidence recorded for changed code');
   });
 
   it('reports blockers before remaining incomplete work', async () => {

@@ -1,0 +1,26 @@
+{
+  "id": "D-01KWYDTDZ24CV802R2HGDS4RH4",
+  "category": "architecture-path",
+  "title": "Issue #307 dogfood: agent-independent backstop over-block on docs + test evidence",
+  "context": "The completion backstop (hook-completion/git/CI origins) false-blocks every code change two ways, surfaced dogfooding #307. (1) The stale-doc detector emits framework-assumed drift owners docs/maintainers/architecture-map.md + docs/modules/README.md for ANY src/runtime/tests change, but onboarding seeds neither, so the change-completeness + documentation-freshness gates demand their CREATION on every code change — blocking every onboarded repo that never authored them. (2) The agent-independent backstop never collects structured_test_results, so assessTestEvidence always returns weak/none and change-completeness hard-blocks — demanding evidence the backstop structurally cannot produce, unlike code-tests-lint which the backstop already delegates. Both affect all users, not just self-host.",
+  "options": [
+    {
+      "option_key": "existing-docs-plus-escalate",
+      "label": "Drift = existing docs only: an implementation-drift canonical doc that does not exist on disk is not an unresolved obligation (a code change cannot stale an uncreated doc); existing drift docs are still flagged, and genuinely-required per-module docs stay enforced via expected-modules. AND treat test-evidence strength as a provider-workflow concern the backstop cannot judge: at backstop origins with no structured results it ESCALATES (visible) instead of hard-blocking; in-session + CI still enforce it."
+    },
+    {
+      "option_key": "create-the-two-docs",
+      "label": "Hand-author architecture-map.md + modules/README.md for the self-host repo only. Non-durable: the next code change re-blocks (drift, not directly edited), and the test-evidence block still fires. Does not fix the general product bug."
+    },
+    {
+      "option_key": "wire-structured-test-recording",
+      "label": "Build structured test-result recording into the backstop (parse test output into StructuredTestResult with evidence_scope, load in repository-context). Durable but large, needs scope-mapping design, and does not address the phantom-docs block."
+    }
+  ],
+  "recommendation": "existing-docs-plus-escalate",
+  "created_at": "2026-07-07T13:55:58.562Z",
+  "status": "resolved",
+  "chosen": "existing-docs-plus-escalate",
+  "rationale": "Both are correctness fixes to the agent-independent backstop, aligned with the existing pattern (backstop delegates provider-workflow concerns like code-tests-lint; STAGE_EVIDENCE_HARD_ORIGINS gates hard/skip by origin; escalations surface inconclusive signals). No enforcement is weakened: in-session + CI still enforce test evidence, existing drift docs still flag, required per-module docs unaffected. Chosen by Haider 2026-07-07 (fix the gate in the #307 PR).",
+  "resolved_at": "2026-07-07T13:55:58.563Z"
+}

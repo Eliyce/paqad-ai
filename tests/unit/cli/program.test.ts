@@ -35,6 +35,7 @@ describe('createProgram', () => {
       'rag-evidence',
       'update',
       'patterns',
+      'stage',
       'status',
     ]);
   });

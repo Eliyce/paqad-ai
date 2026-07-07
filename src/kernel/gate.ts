@@ -32,6 +32,11 @@ export interface CapabilityGateResult {
   /** Findings to surface: the blocking ones when `block`, else the advisory ones.
    *  Empty when no capability reported anything. */
   summary: string;
+  /** User-visible `▸ paqad` narration for side-effect work capabilities did during
+   *  evaluation (e.g. stage markers recorded to the ledger). Surfaced through the
+   *  host's user-message channel independent of block/allow — narration and ledger
+   *  are both non-negotiable (issue #307). Empty when there is nothing to narrate. */
+  narration: string;
 }
 
 /**
@@ -42,19 +47,32 @@ export interface CapabilityGateResult {
 export async function runCapabilityGate(input: CapabilityGateInput): Promise<CapabilityGateResult> {
   const { projectRoot, seam, env = process.env, payload } = input;
   const outcomes: CapabilityOutcome[] = [];
+  const narrations: string[] = [];
   for (const descriptor of capabilitiesForSeam(seam)) {
     const capability = CAPABILITY_IMPLS.get(descriptor.id);
     if (!capability) {
       continue;
     }
     const outcome = await capability.evaluate({ projectRoot, seam, env, payload });
+    if (outcome.narration) {
+      narrations.push(outcome.narration);
+    }
     if (outcome.ran && outcome.summary) {
       outcomes.push(outcome);
     }
   }
+  const narration = narrations.join('\n');
   const blocking = outcomes.filter((outcome) => outcome.blocking);
   if (blocking.length > 0) {
-    return { block: true, summary: blocking.map((outcome) => outcome.summary).join('\n') };
+    return {
+      block: true,
+      summary: blocking.map((outcome) => outcome.summary).join('\n'),
+      narration,
+    };
   }
-  return { block: false, summary: outcomes.map((outcome) => outcome.summary).join('\n') };
+  return {
+    block: false,
+    summary: outcomes.map((outcome) => outcome.summary).join('\n'),
+    narration,
+  };
 }

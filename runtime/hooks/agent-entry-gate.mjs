@@ -14,12 +14,29 @@
 //   0  → allow the tool call
 //   2  → block the tool call (the host surfaces stderr to the model)
 
+import { realpathSync } from 'node:fs';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
-function main() {
+/** True when the pending tool call writes the agent-entry sentinel itself. The
+ *  bootstrap's final step IS a Write of `.paqad/.agent-entry-loaded` — gating it
+ *  deadlocks turn one (issue #307): this gate's own remediation says "Write the
+ *  sentinel" while blocking exactly that Write. Bookkeeping, never a code change. */
+export function isSentinelWrite(input) {
+  try {
+    const payload = JSON.parse(input);
+    const toolInput = payload?.tool_input ?? {};
+    const target = toolInput.file_path ?? toolInput.notebook_path ?? '';
+    return target.replace(/\\/g, '/').endsWith('.paqad/.agent-entry-loaded');
+  } catch {
+    return false;
+  }
+}
+
+export function main(input) {
   const projectRoot = resolveProjectRoot();
 
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
@@ -30,6 +47,10 @@ function main() {
   }
 
   if (sentinelState(projectRoot) === 'fresh') {
+    return 0;
+  }
+
+  if (isSentinelWrite(input)) {
     return 0;
   }
 
@@ -48,4 +69,30 @@ function main() {
   return 2;
 }
 
-process.exit(main());
+// Drain stdin (the host pipes the PreToolUse payload; the sentinel-write exemption
+// reads the pending edit's target from it) then gate. Guarded so importing this
+// module for tests runs nothing. The guard resolves the entry path with
+// realpathSync (the host invokes hooks through the symlinked install, and macOS
+// aliases /tmp → /private/tmp) — a raw argv[1] compare would MISS and silently
+// no-op the gate (the #303 gotcha).
+if (isDirectEntry()) {
+  let input = '';
+  process.stdin.on('data', (chunk) => {
+    input += chunk;
+  });
+  process.stdin.on('end', () => {
+    process.exit(main(input));
+  });
+  process.stdin.resume();
+}
+
+/** True when this module is the process entry point, symlink-safe (see above). */
+function isDirectEntry() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(entry)).href;
+  } catch {
+    return false;
+  }
+}

@@ -13,12 +13,19 @@ import {
 import { createVerificationContext } from '../shared.fixture.js';
 
 describe('documentation checks helpers', () => {
-  it('filters out stale doc targets that were already updated in the diff', async () => {
+  it('filters out stale doc targets that were already updated in the diff, keeping existing drift docs', async () => {
     const context = createVerificationContext();
     mkdirSync(join(context.project_root, 'docs/maintainers'), { recursive: true });
     writeFileSync(
       join(context.project_root, 'docs/maintainers/architecture-map.md'),
       '# Architecture Map\n',
+    );
+    // The implementation-drift doc EXISTS on disk, so a code change legitimately
+    // flags it for review — a project that maintains this doc is still reminded.
+    mkdirSync(join(context.project_root, 'docs/modules/verification/index'), { recursive: true });
+    writeFileSync(
+      join(context.project_root, 'docs/modules/verification/index/summary.md'),
+      '# Verification\n',
     );
 
     await expect(
@@ -48,6 +55,33 @@ describe('documentation checks helpers', () => {
         reason: 'Verification implementation changed.',
       },
     ]);
+  });
+
+  it('drops an implementation-drift doc that does not exist (cannot stale an uncreated doc)', async () => {
+    const context = createVerificationContext();
+    // The framework-assumed drift owner (never seeded by onboarding) does not exist,
+    // and the diff did not create it. A code change cannot stale a doc the project
+    // never authored, so it is NOT an unresolved obligation (issue #307 dogfood).
+    await expect(
+      collectUnresolvedDocTargets(
+        context.project_root,
+        ['src/kernel/capability.ts'],
+        [
+          {
+            target_path: 'docs/maintainers/architecture-map.md',
+            ownership_kind: 'implementation-drift',
+            owners: ['src/kernel/capability.ts'],
+            reason: 'Implementation change can stale architecture ownership mappings.',
+          },
+          {
+            target_path: 'docs/modules/README.md',
+            ownership_kind: 'implementation-drift',
+            owners: ['src/kernel/capability.ts'],
+            reason: 'Implementation change can stale module-level canonical summaries.',
+          },
+        ],
+      ),
+    ).resolves.toEqual([]);
   });
 
   it('treats null and invalid registry timestamps as stale', () => {

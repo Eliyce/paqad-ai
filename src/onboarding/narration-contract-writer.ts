@@ -94,9 +94,9 @@ paqad:stage planning start
 paqad:stage planning end
 \`\`\`
 
-Emit the \`start\` marker as you begin the stage and the \`end\` marker as you finish it (\`paqad:stage <stage> <start|end>\`). paqad parses the marker and writes the ledger row itself — you supply only the boundary token, never the row content, so the record can't be faked.
+Emit the \`start\` marker as you begin the stage and the \`end\` marker as you finish it (\`paqad:stage <stage> <start|end>\`). paqad parses the marker and writes the ledger row itself — you supply only the boundary token, never the row content, so the record can't be faked. Every row paqad records this way is also narrated back to the developer as a \`▸ paqad\` line — the ledger write is never silent.
 
-**Code edits are gated on this.** Until \`planning\` and \`specification\` each carry a recorded start and end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage (the markers above, or run \`scripts/se-mark.ts start <stage>\` / \`end <stage>\` for an immediate mark that clears the block in the same turn) and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the \`▸ paqad\` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
+**Code edits are gated on this.** Until \`planning\` and \`specification\` each carry a recorded start and end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, \`npx paqad-ai stage start <stage>\` / \`npx paqad-ai stage end <stage>\` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the \`▸ paqad\` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 
 ## Plain-English translations
 

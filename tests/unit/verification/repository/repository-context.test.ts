@@ -187,4 +187,32 @@ describe('buildRepositoryVerificationContext', () => {
     expect(context.spec_review_passed).toBe(true);
     expect(escalations.join('\n')).toContain('spec-review');
   });
+
+  it('escalates test-evidence when code changed (backstop cannot collect structured results)', async () => {
+    // The agent-independent backstop never populates structured_test_results, so
+    // test-evidence strength is unprovable here. It must surface as an escalation
+    // (visible), not a false "incomplete" block. (issue #307 dogfood)
+    const root = makeProject();
+    setChangedFiles(root, ['src/feature.ts']);
+
+    const { context, escalations } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+    });
+
+    expect(context.structured_test_results).toBeUndefined();
+    expect(escalations.join('\n')).toContain('test-evidence');
+  });
+
+  it('does not escalate test-evidence when no code changed', async () => {
+    const root = makeProject();
+    setChangedFiles(root, ['docs/modules/feature/index/summary.md']);
+
+    const { escalations } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+    });
+
+    expect(escalations.join('\n')).not.toContain('test-evidence');
+  });
 });
