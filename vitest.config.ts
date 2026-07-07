@@ -152,6 +152,15 @@ export default defineConfig({
         functions: 95,
         lines: 95,
         statements: 95,
+        // The stages workflow is the delivery-critical spine (issue #307): the
+        // block-forward gate, marker parse, live writer and narration must never
+        // regress unseen, so stage-evidence holds a 100% floor, not the repo's 95%.
+        'src/stage-evidence/**': {
+          branches: 100,
+          functions: 100,
+          lines: 100,
+          statements: 100,
+        },
       },
     },
   },

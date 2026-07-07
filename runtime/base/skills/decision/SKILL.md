@@ -1,6 +1,6 @@
 ---
 name: decision
-description: Authors the small, human-facing Decision Pause packet described by the Decision Pause Contract (in the framework bootstrap AGENT-BOOTSTRAP.md) without the agent hand-authoring the id, timestamps, or JSON. `create` mints a collision-free `D-<ULID>` id and writes the pending packet; `resolve` records the chosen option and rationale and moves it to resolved. A hand-picked sequential `D-{N}` is rejected, so two developers on parallel branches never collide (issue #272). The writer lives in `src/decisions/authoring.ts`; this skill is the agent-side wrapper that invokes the bundled `create.mjs` / `resolve.mjs` scripts, the exact counterpart to `scripts/se-mark.ts` on the stage-evidence ledger.
+description: Authors the small, human-facing Decision Pause packet described by the Decision Pause Contract (in the framework bootstrap AGENT-BOOTSTRAP.md) without the agent hand-authoring the id, timestamps, or JSON. `create` mints a collision-free `D-<ULID>` id and writes the pending packet; `resolve` records the chosen option and rationale and moves it to resolved. A hand-picked sequential `D-{N}` is rejected, so two developers on parallel branches never collide (issue #272). The writer lives in `src/decisions/authoring.ts`; this skill is the agent-side wrapper that invokes the bundled `create.mjs` / `resolve.mjs` scripts, the exact counterpart to `paqad-ai stage` on the stage-evidence ledger.
 model_tier: fast
 triggers:
   - workflow:

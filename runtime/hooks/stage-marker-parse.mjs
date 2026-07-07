@@ -39,12 +39,22 @@ async function main(input) {
     }
 
     const distUrl = new URL('../../dist/stage-evidence/marker-parse.js', import.meta.url);
-    const { parseAndRecordMarkers } = await import(distUrl.href);
-    parseAndRecordMarkers({
+    const narrationUrl = new URL('../../dist/stage-evidence/narration.js', import.meta.url);
+    const [{ parseAndRecordMarkers }, { markerBatchNarration }] = await Promise.all([
+      import(distUrl.href),
+      import(narrationUrl.href),
+    ]);
+    const recorded = parseAndRecordMarkers({
       projectRoot,
       transcriptText,
       sessionId: payload?.session_id ?? null,
     });
+    // Narration and ledger are both non-negotiable (issue #307): every row this
+    // parse just minted is shown to the user via the host's user-message channel.
+    const narration = markerBatchNarration(recorded);
+    if (narration) {
+      process.stdout.write(`${JSON.stringify({ systemMessage: narration })}\n`);
+    }
     return 0;
   } catch {
     /* v8 ignore next */

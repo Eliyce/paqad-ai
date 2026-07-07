@@ -82,3 +82,26 @@ export function narrateStageEntry(input: NarrateStageInput): string | null {
     return null;
   }
 }
+
+/**
+ * The visible line for a marker-recorded stage boundary (issue #307 — narration and
+ * ledger are both non-negotiable: a ledger write must never be silent). `start`
+ * reuses the canonical stage phrasing; `end` confirms the evidence landed. '' for an
+ * unknown stage id, mirroring `stageNarrationLine`.
+ */
+export function markerNarrationLine(stage: string, phase: 'start' | 'end'): string {
+  if (!STAGE_NARRATION[stage as StageId]) return '';
+  if (phase === 'start') return stageNarrationLine(stage);
+  return `▸ paqad · ${stage.replace(/_/g, ' ')} done — evidence recorded in the ledger`;
+}
+
+/** One user-visible narration block for a batch of just-recorded markers, or ''
+ *  when nothing was recorded. Order follows the recording order. */
+export function markerBatchNarration(markers: readonly { stage: string; phase: string }[]): string {
+  const lines: string[] = [];
+  for (const marker of markers) {
+    const line = markerNarrationLine(marker.stage, marker.phase === 'start' ? 'start' : 'end');
+    if (line) lines.push(line);
+  }
+  return lines.join('\n');
+}

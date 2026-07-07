@@ -12,7 +12,7 @@
 // These helpers are the writer the contract lacked: they mint the ULID id, build
 // and validate the packet, and drive the pending -> resolved lifecycle, so the
 // agent supplies only content (never the id, the timestamps, or the JSON
-// plumbing). They are the exact counterpart to `scripts/se-mark.ts` on the
+// plumbing). They are the exact counterpart to `paqad-ai stage` on the
 // stage-evidence ledger, and are surfaced to the agent through the bundled
 // `decision` skill's `create` / `resolve` scripts.
 //

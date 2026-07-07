@@ -59,13 +59,19 @@ function validator(): ValidateFunction {
   return compiled;
 }
 
+/** One human-readable line for a validation error. Exported so the fallback arms
+ *  (root-level path, ajv omitting a message) stay directly testable. */
+export function formatValidationError(error: { instancePath?: string; message?: string }): string {
+  return `${error.instancePath || '(root)'} ${error.message ?? 'invalid'}`;
+}
+
 /** Returns `[]` when the row is a valid `paqad.stage-evidence` row, else error strings. */
 export function validateStageEvidenceRow(row: unknown): string[] {
   const validate = validator();
   if (validate(row)) {
     return [];
   }
-  return (validate.errors ?? []).map(
-    (error) => `${error.instancePath || '(root)'} ${error.message ?? 'invalid'}`,
-  );
+  // ajv's contract: a false return always populates `errors` — no fallback branch.
+  const errors = validate.errors as NonNullable<typeof validate.errors>;
+  return errors.map(formatValidationError);
 }

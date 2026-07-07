@@ -32,6 +32,34 @@ describe('DocumentationFreshnessGate', () => {
   });
 
   it('fails when the diff implies stale canonical docs that were not updated', async () => {
+    const context = createVerificationContext({
+      changed_files: ['src/pipeline/router.ts'],
+      changed_files_source: 'session-artifact',
+      code_changed: true,
+      stale_doc_targets: [
+        {
+          target_path: 'docs/maintainers/architecture-map.md',
+          ownership_kind: 'implementation-drift',
+          owners: ['src/pipeline/router.ts'],
+          reason: 'Routing changes can stale architecture ownership mappings.',
+        },
+      ],
+    });
+    // The drift doc EXISTS, so the code change legitimately flags it for review. A
+    // framework-assumed doc the project never created can't be staled (issue #307).
+    mkdirSync(join(context.project_root, 'docs/maintainers'), { recursive: true });
+    writeFileSync(join(context.project_root, 'docs/maintainers/architecture-map.md'), '# Map\n');
+
+    const result = await gate.check(context);
+
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain('Canonical docs not updated');
+    expect(result.detail).toContain('docs/maintainers/architecture-map.md');
+    expect(result.detail).toContain('src/pipeline/router.ts');
+    expect(result.detail).toContain('Routing changes can stale architecture ownership mappings.');
+  });
+
+  it('does not flag a framework-assumed drift doc that does not exist on disk', async () => {
     const result = await gate.check(
       createVerificationContext({
         changed_files: ['src/pipeline/router.ts'],
@@ -48,11 +76,7 @@ describe('DocumentationFreshnessGate', () => {
       }),
     );
 
-    expect(result.passed).toBe(false);
-    expect(result.detail).toContain('Canonical docs not updated');
-    expect(result.detail).toContain('docs/maintainers/architecture-map.md');
-    expect(result.detail).toContain('src/pipeline/router.ts');
-    expect(result.detail).toContain('Routing changes can stale architecture ownership mappings.');
+    expect(result.detail).not.toContain('Canonical docs not updated');
   });
 
   it('fails when a directly edited stale canonical target is still invalid', async () => {

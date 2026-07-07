@@ -32,7 +32,7 @@ export interface MarkerParseInput {
   now?: () => Date;
 }
 
-interface Marker {
+export interface Marker {
   stage: string;
   phase: MarkedStagePhase;
 }
@@ -93,14 +93,16 @@ export function extractMarkers(text: string): Marker[] {
 
 /**
  * Parse the transcript and record every not-yet-recorded stage marker. Returns the
- * number of new rows written. Never throws (best-effort at the Stop seam).
+ * markers a new row was written for — the caller narrates them to the user (the
+ * ledger write must never be silent; issue #307 scope). Never throws (best-effort
+ * at both the Stop and pre-mutation seams).
  */
-export function parseAndRecordMarkers(input: MarkerParseInput): number {
+export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
   try {
     const raw = input.transcriptText;
-    if (!raw) return 0;
+    if (!raw) return [];
     const markers = extractMarkers(extractAssistantText(raw));
-    if (markers.length === 0) return 0;
+    if (markers.length === 0) return [];
 
     const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
     const ordinal = currentOrdinal(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
@@ -115,7 +117,7 @@ export function parseAndRecordMarkers(input: MarkerParseInput): number {
       if (row.kind === 'stage_end') seen.add(`${row.stage}:end`);
     }
 
-    let recorded = 0;
+    const recorded: Marker[] = [];
     for (const { stage, phase } of markers) {
       const key = `${stage}:${phase}`;
       if (seen.has(key)) continue;
@@ -129,11 +131,11 @@ export function parseAndRecordMarkers(input: MarkerParseInput): number {
         })
       ) {
         seen.add(key);
-        recorded += 1;
+        recorded.push({ stage, phase });
       }
     }
     return recorded;
   } catch {
-    return 0;
+    return [];
   }
 }

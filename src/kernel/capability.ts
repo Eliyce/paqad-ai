@@ -14,6 +14,8 @@
 // delivery still bind through the completion verification run, decision-pause
 // through its own gate, until F6 folds them here.
 
+import { readFileSync } from 'node:fs';
+
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
@@ -25,6 +27,8 @@ import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { currentOrdinal } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { foldChange } from '@/stage-evidence/fold.js';
+import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
+import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { MANDATORY_STAGES } from '@/stage-evidence/stages.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
@@ -57,6 +61,12 @@ export interface CapabilityOutcome {
   blocking: boolean;
   /** paqad-voice summary of the finding, or empty when nothing to report. */
   summary: string;
+  /** User-visible `▸ paqad` narration for work done as a side effect of the
+   *  evaluation (e.g. stage markers recorded to the ledger), independent of the
+   *  block/allow verdict. Narration and ledger are both non-negotiable (issue
+   *  #307): a ledger write must never be silent, so the host surfaces this via
+   *  its user-message channel even when nothing blocks. */
+  narration?: string;
 }
 
 /** A neutral, no-work outcome — the common fast-skip result. */
@@ -202,8 +212,9 @@ const ruleScriptsCapability: Capability = {
 /**
  * Block-forward summary: the pre-development stage `stage` has no recorded
  * start+end pair, so a code edit is refused until it is run. Strict blocks; warn
- * surfaces and allows. The remediation points at the recorder verbs (via se-mark,
- * a Bash script the PreToolUse matcher does NOT gate — the non-wedging escape hatch).
+ * surfaces and allows. Both remediations it names clear the block in the SAME
+ * turn: inline markers are parsed at this seam (issue #307), and `paqad-ai stage`
+ * resolves from the installed package on every onboarded project.
  */
 function formatMissingStageSummary(stage: string, mode: StagesMode): string {
   const blocking = mode === 'strict';
@@ -213,11 +224,42 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
   return (
     `**▸ paqad** · run ${stage} before you change code\n` +
     `> ${glyph} ${verb} — the feature-development workflow needs the **${stage}** stage recorded ` +
-    `before this edit. Mark it: \`SE_SESSION= npx tsx scripts/se-mark.ts start ${stage}\` then ` +
-    `\`… end ${stage}\` (or emit the \`paqad:stage ${stage} start\`/\`end\` markers). Set ` +
+    `before this edit. Mark it: emit \`paqad:stage ${stage} start\` and \`paqad:stage ${stage} end\` ` +
+    `each on its own line (parsed before the next edit, so they clear this block in the same turn), ` +
+    `or run \`npx paqad-ai stage start ${stage}\` then \`npx paqad-ai stage end ${stage}\`. Set ` +
     `stages_mode=warn/off in .paqad/configs/.config.policy to adopt the workflow before ` +
     `enforcing.${tail}`
   );
+}
+
+/** True when the pending edit targets the agent-entry sentinel — framework
+ *  bootstrap bookkeeping, not a code change. Blocking it wedges turn one: the
+ *  bootstrap cannot write the sentinel that the gates key on (issue #307). */
+function isSentinelWrite(targetPath: string | undefined): boolean {
+  if (!targetPath) return false;
+  return targetPath.replace(/\\/g, '/').endsWith('.paqad/.agent-entry-loaded');
+}
+
+/** Best-effort same-turn marker sweep (issue #307): before the block-forward
+ *  check reads the ledger, parse the turn transcript for `paqad:stage` markers
+ *  the agent emitted EARLIER IN THIS TURN and record them. The parse is the same
+ *  idempotent routine the Stop hook runs, so the later Stop re-parse never
+ *  double-records. Without this, a marker can only take effect at end of turn
+ *  and the first mutation of a session is unclearable in-turn. */
+function sweepSameTurnMarkers(
+  projectRoot: string,
+  transcriptPath: string | undefined,
+  sessionId: string,
+): string {
+  if (!transcriptPath) return '';
+  let transcriptText: string;
+  try {
+    transcriptText = readFileSync(transcriptPath, 'utf8');
+  } catch {
+    return ''; // no transcript to sweep — the ledger check proceeds on what exists
+  }
+  const recorded = parseAndRecordMarkers({ projectRoot, transcriptText, sessionId });
+  return markerBatchNarration(recorded);
 }
 
 /**
@@ -232,24 +274,41 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
  */
 const stagesCapability: Capability = {
   id: 'stages',
-  async evaluate({ projectRoot, seam, env }): Promise<CapabilityOutcome> {
+  async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
     if (seam !== 'pre-mutation') return NO_OP;
     const mode = resolveStagesMode(projectRoot, env);
     if (mode === 'off') return NO_OP;
+    // The agent-entry sentinel is bootstrap bookkeeping, not a code change —
+    // gating it deadlocks turn one (issue #307).
+    if (isSentinelWrite(payload?.targetPath)) return NO_OP;
     const blocking = mode === 'strict';
 
-    const sessionId = resolveSessionId(projectRoot, env.CLAUDE_SESSION_ID ?? null);
+    const sessionId = resolveSessionId(
+      projectRoot,
+      payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null,
+    );
+
+    // Same-turn markers (issue #307): record any `paqad:stage` markers already
+    // emitted this turn BEFORE reading the ledger, so the remediation the block
+    // message names actually clears the block within the turn. The narration for
+    // every recorded marker rides on the outcome — the ledger write is never silent.
+    const narration = sweepSameTurnMarkers(projectRoot, payload?.transcriptPath, sessionId);
     const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
 
     // The mandatory stages that must exist BEFORE code is written.
     const prefix = MANDATORY_STAGES.slice(0, MANDATORY_STAGES.indexOf('development'));
 
     if (ordinal <= 0) {
-      // No change opened yet → the first required stage is missing.
+      // No change opened yet → the first required stage is missing. `prefix` always
+      // opens with 'planning' (MANDATORY_STAGES is a compile-time constant); the ??
+      // is a type-satisfying floor for a future reorder, never hit today.
+      /* c8 ignore next -- defensive floor: prefix[0] is always 'planning' under the current MANDATORY_STAGES */
+      const firstRequired = prefix[0] ?? 'planning';
       return {
         ran: true,
         blocking,
-        summary: formatMissingStageSummary(prefix[0] ?? 'planning', mode),
+        summary: formatMissingStageSummary(firstRequired, mode),
+        narration,
       };
     }
 
@@ -259,11 +318,11 @@ const stagesCapability: Capability = {
       const folded = byStage.get(stage);
       const hasPair = Boolean(folded?.started_at && folded?.ended_at);
       if (!hasPair) {
-        return { ran: true, blocking, summary: formatMissingStageSummary(stage, mode) };
+        return { ran: true, blocking, summary: formatMissingStageSummary(stage, mode), narration };
       }
     }
     // planning + specification recorded — allow (this edit IS development).
-    return NO_OP;
+    return { ran: true, blocking: false, summary: '', narration };
   },
 };
 

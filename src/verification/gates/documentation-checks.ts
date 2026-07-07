@@ -15,6 +15,19 @@ export async function collectUnresolvedDocTargets(
   const unresolvedTargets = await Promise.all(
     staleDocTargets.map(async (target) => {
       if (!changedFiles.includes(target.target_path)) {
+        // Implementation drift: the doc was NOT edited in this diff, so it is only a
+        // real obligation if it already EXISTS — a code change cannot stale a
+        // canonical doc the project never created. The detector emits framework-
+        // assumed owners (docs/maintainers/architecture-map.md, docs/modules/README.md)
+        // for any src/runtime/tests change, but onboarding seeds neither, so demanding
+        // their *creation* on every code change false-blocks every onboarded repo that
+        // has not authored them. An existing drift doc is still returned (flagged), so a
+        // project that DOES maintain these docs is reminded to review them; genuinely
+        // required per-module docs are enforced separately by the expected-modules
+        // checks, which are unaffected. (issue #307, decision D-DOC-DRIFT-EXISTING)
+        if (!existsSync(join(projectRoot, target.target_path))) {
+          return null;
+        }
         return target;
       }
 

@@ -26,7 +26,7 @@ export function buildDecisionPauseContractBody(): string {
 
   return `# Decision Pause Contract
 
-Before implementing any choice that falls into one of the categories below, write a Decision Packet to \`.paqad/decisions/pending/D-{id}.json\` and stop work. Do not continue until \`.paqad/decisions/resolved/D-{id}.json\` exists. \`{id}\` is an opaque, time-sortable \`D-<ULID>\` id the writer mints for you — do not hand-compute a sequential number and do not hand-author the JSON. Drive both the create and the resolve through the bundled \`decision\` skill, exactly as \`scripts/se-mark.ts\` drives the stage-evidence ledger.
+Before implementing any choice that falls into one of the categories below, write a Decision Packet to \`.paqad/decisions/pending/D-{id}.json\` and stop work. Do not continue until \`.paqad/decisions/resolved/D-{id}.json\` exists. \`{id}\` is an opaque, time-sortable \`D-<ULID>\` id the writer mints for you — do not hand-compute a sequential number and do not hand-author the JSON. Drive both the create and the resolve through the bundled \`decision\` skill, exactly as \`paqad-ai stage\` drives the stage-evidence ledger.
 
 ## Categories
 

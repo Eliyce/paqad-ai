@@ -93,4 +93,88 @@ describe('stages capability — block-forward at pre-mutation', () => {
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
   });
+
+  // Issue #307 — the same-turn unblock path. Markers the agent emitted EARLIER in
+  // the current turn are parsed at this seam, so the remediation the block message
+  // names works within the turn that follows it (not only after Stop).
+  describe('same-turn markers (issue #307)', () => {
+    /** A Claude-shaped JSONL transcript with one assistant message per text. */
+    function transcript(...texts: string[]): string {
+      const path = join(root, 'transcript.jsonl');
+      writeFileSync(
+        path,
+        texts
+          .map((text) =>
+            JSON.stringify({
+              type: 'assistant',
+              message: { role: 'assistant', content: [{ type: 'text', text }] },
+            }),
+          )
+          .join('\n'),
+      );
+      return path;
+    }
+
+    it('ALLOWS the edit when the turn transcript already carries planning+specification pairs', async () => {
+      const transcriptPath = transcript(
+        'paqad:stage planning start\nplanning…\npaqad:stage planning end',
+        'paqad:stage specification start\nspec…\npaqad:stage specification end',
+      );
+      const result = await runCapabilityGate({
+        projectRoot: root,
+        seam: 'pre-mutation',
+        payload: { transcriptPath, sessionId: SES },
+      });
+      expect(result.block).toBe(false);
+      // Narration and ledger are both non-negotiable: the rows minted from the
+      // markers are narrated back to the user.
+      expect(result.narration).toContain('▸ paqad');
+      expect(result.narration).toContain('planning');
+      expect(result.narration).toContain('specification');
+    });
+
+    it('still BLOCKS on specification when the transcript only carries planning, narrating what it recorded', async () => {
+      const transcriptPath = transcript(
+        'paqad:stage planning start\nplanning…\npaqad:stage planning end',
+      );
+      const result = await runCapabilityGate({
+        projectRoot: root,
+        seam: 'pre-mutation',
+        payload: { transcriptPath, sessionId: SES },
+      });
+      expect(result.block).toBe(true);
+      expect(result.summary).toContain('specification');
+      expect(result.narration).toContain('planning');
+    });
+
+    it('blocks unchanged when the transcript path is unreadable (best-effort sweep)', async () => {
+      const result = await runCapabilityGate({
+        projectRoot: root,
+        seam: 'pre-mutation',
+        payload: { transcriptPath: join(root, 'missing.jsonl'), sessionId: SES },
+      });
+      expect(result.block).toBe(true);
+      expect(result.narration).toBe('');
+    });
+
+    it('the block message names only remediations that exist on an onboarded project', async () => {
+      const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+      expect(result.summary).toContain('paqad:stage planning start');
+      expect(result.summary).toContain('npx paqad-ai stage start planning');
+      expect(result.summary).not.toContain('se-mark');
+    });
+  });
+
+  // Issue #307 — the sentinel write is bootstrap bookkeeping, never a code change:
+  // gating it deadlocks turn one (the stages gate blocked the very Write the
+  // bootstrap needs to finish).
+  it('exempts the agent-entry sentinel write from the block-forward gate', async () => {
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      payload: { targetPath: join(root, '.paqad/.agent-entry-loaded') },
+    });
+    expect(result.block).toBe(false);
+    expect(result.summary).toBe('');
+  });
 });

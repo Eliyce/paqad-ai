@@ -1,4 +1,5 @@
 import type { StructuredTestResult } from '@/core/types/test-output.js';
+import { isBackstopVerificationOrigin } from '@/core/types/verification.js';
 import { assessTestEvidence } from '@/verification/test-evidence.js';
 
 import type { Gate } from './gate.interface.js';
@@ -53,7 +54,18 @@ async function collectIncompleteReasons(context: Parameters<Gate['check']>[0]): 
     structured_test_results: context.structured_test_results,
   });
 
-  if (context.code_changed && testEvidence.strength !== 'strong') {
+  // Test-evidence STRENGTH is a provider-workflow concern: it needs structured test
+  // results, which only the in-session agent records. The agent-independent backstop
+  // (hook-completion / git-backstop / ci-backstop) never collects them, so it cannot
+  // prove strength either way — exactly like code-tests-lint, which the backstop
+  // omits rather than hard-blocking on. At a backstop origin with no structured
+  // results, this is surfaced as an ESCALATION by repository-context (not a silent
+  // pass) instead of a false "incomplete" block. In-session (provider-workflow) and
+  // any run that DID collect structured results still block on weak evidence.
+  const backstopCannotProve =
+    isBackstopVerificationOrigin(context.verification_origin) &&
+    (context.structured_test_results?.length ?? 0) === 0;
+  if (context.code_changed && testEvidence.strength !== 'strong' && !backstopCannotProve) {
     reasons.push(testEvidence.detail);
   }
 

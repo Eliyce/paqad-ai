@@ -110,7 +110,11 @@ export async function main(input, seam = SEAM) {
       payload: parsePayload(input),
     });
     if (result.block) {
-      process.stderr.write(`${result.summary}\n`);
+      // Narration rides ahead of the block reason: work already done for the user
+      // (e.g. stage markers recorded to the ledger) stays visible even when the
+      // edit is refused (issue #307 — a ledger write is never silent).
+      const message = result.narration ? `${result.narration}\n${result.summary}` : result.summary;
+      process.stderr.write(`${message}\n`);
       // Loop guard (fix #2) — the completion (Stop) seam is the only one the host
       // re-runs after forcing a continuation. When Claude marks this Stop as a
       // continuation of a prior block (`stop_hook_active`), the gate has already
@@ -126,8 +130,12 @@ export async function main(input, seam = SEAM) {
       }
       return 2;
     }
-    if (result.summary) {
-      process.stdout.write(`${result.summary}\n`);
+    // Allow path: surface narration + advisory findings through the host's
+    // user-message channel (`systemMessage`), not bare stdout — bare stdout is
+    // only visible in verbose mode, and narration is non-negotiable (issue #307).
+    const visible = [result.narration, result.summary].filter(Boolean).join('\n');
+    if (visible) {
+      process.stdout.write(`${JSON.stringify({ systemMessage: visible })}\n`);
     }
     return 0;
   } catch {

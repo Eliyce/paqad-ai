@@ -54,7 +54,7 @@ describe('parseAndRecordMarkers', () => {
       transcriptText: transcript,
       sessionId: SES,
     });
-    expect(n).toBe(2);
+    expect(n).toHaveLength(2);
     const start = rows().find((r) => r.kind === 'stage_start' && r.stage === 'planning');
     expect(start?.evidence_source).toBe('live-mark');
     expect(rows().some((r) => r.kind === 'stage_end' && r.stage === 'planning')).toBe(true);
@@ -67,7 +67,7 @@ describe('parseAndRecordMarkers', () => {
     ].join('\n');
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES }),
-    ).toBe(0);
+    ).toEqual([]);
     expect(rows()).toHaveLength(0);
   });
 
@@ -75,27 +75,27 @@ describe('parseAndRecordMarkers', () => {
     const transcript = msg('assistant', 'paqad:stage planning start\npaqad:stage planning end');
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES }),
-    ).toBe(2);
+    ).toHaveLength(2);
     // A later Stop re-parses the same (plus more) transcript → the already-recorded
     // markers are skipped.
     const grown = transcript + '\n' + msg('assistant', 'paqad:stage planning start');
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: grown, sessionId: SES }),
-    ).toBe(0);
+    ).toEqual([]);
   });
 
   it('ignores an unknown stage token', () => {
     const transcript = msg('assistant', 'paqad:stage bogus start');
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES }),
-    ).toBe(0);
+    ).toEqual([]);
   });
 
-  it('returns 0 for an empty / missing transcript', () => {
-    expect(parseAndRecordMarkers({ projectRoot: root, transcriptText: '', sessionId: SES })).toBe(
-      0,
-    );
-    expect(parseAndRecordMarkers({ projectRoot: root, sessionId: SES })).toBe(0);
+  it('returns no markers for an empty / missing transcript', () => {
+    expect(
+      parseAndRecordMarkers({ projectRoot: root, transcriptText: '', sessionId: SES }),
+    ).toEqual([]);
+    expect(parseAndRecordMarkers({ projectRoot: root, sessionId: SES })).toEqual([]);
   });
 
   it('skips a malformed JSON line and still reads later assistant markers', () => {
@@ -105,7 +105,7 @@ describe('parseAndRecordMarkers', () => {
     ].join('\n');
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES }),
-    ).toBe(2);
+    ).toHaveLength(2);
   });
 
   it('tolerates an assistant block with no text (e.g. a tool_use block)', () => {
@@ -115,7 +115,7 @@ describe('parseAndRecordMarkers', () => {
     });
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES }),
-    ).toBe(0);
+    ).toEqual([]);
   });
 
   it('falls back to raw text when the transcript is not JSONL', () => {
@@ -124,7 +124,7 @@ describe('parseAndRecordMarkers', () => {
       transcriptText: 'plain text transcript\npaqad:stage planning start\npaqad:stage planning end',
       sessionId: SES,
     });
-    expect(n).toBe(2);
+    expect(n).toHaveLength(2);
   });
 
   // Issue #265 — the recorded row is attributed to the host that ran, so a
@@ -149,7 +149,7 @@ describe('parseAndRecordMarkers', () => {
       sessionId: SES,
       adapter: 'codex-cli',
     });
-    expect(n).toBe(2);
+    expect(n).toHaveLength(2);
     expect(rows().length).toBeGreaterThan(0);
     expect(rows().every((r) => r.adapter === 'codex-cli')).toBe(true);
   });
@@ -163,7 +163,7 @@ describe('parseAndRecordMarkers', () => {
       sessionId: SES,
       adapter: 'gemini-cli',
     });
-    expect(n).toBe(2);
+    expect(n).toHaveLength(2);
     expect(rows().every((r) => r.adapter === 'gemini-cli')).toBe(true);
   });
 });

@@ -10,11 +10,15 @@ import { defaultSimilarityFor } from '@/planning/decision-evidence.js';
 import { DecisionStore, readDecisionAuditEvents } from '@/planning/index.js';
 import { buildFixProofMethodPacket } from '@/fix-protocol/fix-proof-method-decision.js';
 
+// created_at is relative to the wall clock: the reuse path checks the packet's
+// ttl_until (created_at + 30d) against Date.now(), so a fixed date rots — the
+// original 2026-06-07 fixture started failing the day its TTL lapsed.
+const CREATED_AT = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const BASE = {
   defect_id: 'DEF-1',
   kind: 'visual-appearance',
   task_session_id: 'sess-1',
-  created_at: '2026-06-07T00:00:00Z',
+  created_at: CREATED_AT.toISOString(),
 };
 
 describe('buildFixProofMethodPacket', () => {
@@ -33,7 +37,9 @@ describe('buildFixProofMethodPacket', () => {
       'measured-threshold',
     ]);
     // ttl_days for fix.proof_method is 30.
-    expect(packet.ttl_until).toBe('2026-07-07T00:00:00.000Z');
+    expect(packet.ttl_until).toBe(
+      new Date(CREATED_AT.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    );
   });
 
   it('fingerprints by kind so the same kind shares a fingerprint regardless of detail', () => {

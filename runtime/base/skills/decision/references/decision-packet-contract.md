@@ -57,5 +57,5 @@ The resolved packet is the pending packet plus:
   `label`. A `recommendation`, when present, must reference one of them.
 - **`chosen` must reference an `option_key`** of the packet being resolved.
 - **Never hand-edit the JSON, the timestamps, or the pending/resolved move** —
-  drive every transition through the scripts, exactly as `scripts/se-mark.ts`
+  drive every transition through the scripts, exactly as `paqad-ai stage`
   drives the stage-evidence ledger.

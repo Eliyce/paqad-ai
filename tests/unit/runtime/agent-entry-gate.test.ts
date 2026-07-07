@@ -15,11 +15,11 @@ interface RunResult {
   stderr: string;
 }
 
-function runGate(projectRoot: string): RunResult {
+function runGate(projectRoot: string, input?: string): RunResult {
   try {
     const stdout = execFileSync('node', [GATE_SCRIPT], {
       env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      ...(input === undefined ? { stdio: ['ignore', 'pipe', 'pipe'] as const } : { input }),
     });
     return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
   } catch (error) {
@@ -105,6 +105,40 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     writeFileSync(join(projectRoot, 'docs/instructions/rules.md'), '# rules');
     const result = runGate(projectRoot);
     expect(result.status).toBe(2);
+  });
+
+  // Issue #307 — the bootstrap's final step IS a Write of the sentinel; gating it
+  // deadlocked turn one (the gate's own remediation says "Write the sentinel"
+  // while blocking exactly that Write).
+  it('allows the Write of the sentinel itself while the sentinel is missing', () => {
+    const payload = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: join(projectRoot, '.paqad/.agent-entry-loaded') },
+    });
+    const result = runGate(projectRoot, payload);
+    expect(result.status).toBe(0);
+  });
+
+  it('allows a Windows-separator sentinel write (path normalised before matching)', () => {
+    const payload = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: 'C:\\proj\\.paqad\\.agent-entry-loaded' },
+    });
+    expect(runGate(projectRoot, payload).status).toBe(0);
+  });
+
+  it('still blocks a non-sentinel write when a payload is present', () => {
+    const payload = JSON.stringify({
+      tool_name: 'Write',
+      tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+    });
+    const result = runGate(projectRoot, payload);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('load the paqad framework');
+  });
+
+  it('still blocks on a malformed stdin payload (exemption is fail-closed)', () => {
+    expect(runGate(projectRoot, '{not json').status).toBe(2);
   });
 });
 
