@@ -12,6 +12,7 @@ import fg from 'fast-glob';
 
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
+import { readChecksReport } from '@/checks/report-store.js';
 import { readTraceabilityMap } from '@/traceability/index.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewDefect, SpecReviewReport } from '@/compliance/types.js';
@@ -85,18 +86,23 @@ export async function buildRepositoryVerificationContext(
 
   const specBoundary = deriveSpecBoundary(traceabilityMap);
 
+  // Real test/build/format evidence (issue #318): the deterministic check runner
+  // (`paqad-ai checks run`) persists a structured report the agent produces
+  // mid-turn. When present, the backstop consumes it so its verdict PROVES the
+  // checks ran instead of assuming they passed. When absent, test-evidence stays
+  // unproven here (Inconclusive), never a silent pass or a false block.
+  const checksReport = readChecksReport(projectRoot);
+  const structuredTestResults =
+    checksReport && checksReport.results.length > 0 ? checksReport.results : undefined;
+
   const escalations: string[] = [];
   if (specReviewSignal.inconclusive) {
     escalations.push(`spec-review: ${specReviewSignal.detail}`);
   }
-  // Test-evidence strength cannot be proven agent-independently: this backstop
-  // never collects structured test results, so a code change's test evidence is
-  // inconclusive here (enforced in-session and by CI, not by the roll-up block).
-  // Surface it as an escalation rather than a silent pass or a false block.
-  if (codeChanged) {
+  if (codeChanged && !structuredTestResults) {
     escalations.push(
-      'test-evidence: structured test results are not collected by the backstop — ' +
-        'test-evidence strength is unproven here; it is enforced in-session and by CI.',
+      'test-evidence: no check report on record (`paqad-ai checks run` was not run this ' +
+        'change) — test-evidence strength is Inconclusive here; run the checks or rely on CI.',
     );
   }
 
@@ -121,6 +127,7 @@ export async function buildRepositoryVerificationContext(
     test_files_changed: changedFiles.some((filePath) => isTestFile(filePath)),
     documentation_files_changed: changedFiles.some((filePath) => isDocumentationFile(filePath)),
     stale_doc_targets: staleDocTargets,
+    structured_test_results: structuredTestResults,
     // Computed judgment signals (issue #117 C-2).
     ac_test_mapping_passed: acMapping.passed,
     ac_test_mapping_detail: acMapping.detail,
@@ -135,7 +142,11 @@ export async function buildRepositoryVerificationContext(
     requirements_complete: true,
     story_quality_passed: true,
     architecture_compliant: true,
-    code_tests_lint_passed: true,
+    // Derived from the persisted check report (issue #318), no longer a hardcoded
+    // `true`. Absent report ⇒ the neutral in-session default; the backstop verdict
+    // itself is driven by `structured_test_results` via the appended check gate, so
+    // an absent report reads as Inconclusive there rather than a vacuous pass.
+    code_tests_lint_passed: checksReport ? checksReport.passed : true,
     behavioral_correctness_passed: true,
     database_quality_passed: true,
     quality_ratchet_result: qualityRatchetResult,

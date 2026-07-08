@@ -59,6 +59,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 
 - Write or refine the feature specification **before** implementation. The spec carries the behavior, acceptance criteria (AC-n, given/when/then, proof type), and confirmed invariants.
 - On graduated/full lanes the spec must be **frozen and signed off** before development (`require_spec_signoff`, framework-owned, cannot be downgraded by a project override). A mid-build goal change or a work-vs-spec contradiction escalates via the Decision Pause Contract (`spec.change` / `spec.contradiction`).
+- Freeze it with `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants`: it evaluates the freeze blockers, writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`) that later stages check against, and refuses to freeze over open questions, missing acceptance criteria, or unconfirmed invariants.
 - Escalations: `missing_spec: stop`, `missing_spec_signoff: stop`.
 
 ### Stage 3 — development
@@ -73,9 +74,9 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 
 ### Stage 5 — checks
 
-- Run the project command checks: `format`, `test`, `build` (use the project profile's mapped commands). `block_on_failure` is true — a failing gate stops forward progress; fix it before continuing.
+- Run the project command checks: `format`, `test`, `build` (use the project profile's mapped commands). `block_on_failure` is true — a failing gate stops forward progress; fix it before continuing. Run them deterministically with `npx paqad-ai checks run`: it executes the mapped commands, exits non-zero on any red, and persists a structured report the completion gate reads so success is proven, not assumed.
 - Verify test coverage meets the project bar.
-- Run the `rule_compliance` gate (registered rule scripts, `mode: strict`, scope `changed-files`); deterministic findings escalate `stop`.
+- Run the `rule_compliance` gate (registered rule scripts, `mode: strict`, scope `changed-files`); deterministic findings escalate `stop`. The gate needs `rule-script-map.yml`, generated at onboarding and refreshable with `npx paqad-ai rules compile`; without it enforcement fast-skips. Strictness is the stricter of the tracked `configs/.config.*` `rule_compliance` value and this workflow's `checks.rule_compliance.mode` — both are real inputs (issue #319).
 - Run the `module-health` rollup; rollup-blocked metrics are informational `warn`.
 
 ### Stage 6 — documentation_sync

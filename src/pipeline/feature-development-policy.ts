@@ -12,6 +12,7 @@ import type {
   FeatureDevelopmentPolicy,
   FeatureDevelopmentPolicyLoadResult,
   FeatureDevelopmentRoundsPolicy,
+  FeatureDevelopmentRuleCompliancePolicy,
   FeatureDevelopmentStageName,
   FeatureDevelopmentStagePolicy,
   ResolvedFeatureDevelopmentCheckCommand,
@@ -53,6 +54,26 @@ const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Reco
 
 export function featureDevelopmentPolicyPath(projectRoot: string): string {
   return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
+}
+
+/**
+ * The `checks.rule_compliance.mode` a project has EXPLICITLY committed in its own
+ * `feature-development.yaml` (issue #319), or undefined when there is no file or it
+ * does not set the field. Deliberately reads the raw on-disk file, NOT the merged
+ * policy — the merged policy injects the framework default (`strict`), so reading it
+ * would flip strict on universally rather than honouring an explicit team decision.
+ * Best-effort: a missing or unparseable file yields undefined.
+ */
+export function readProjectRuleComplianceModeOverride(projectRoot: string): string | undefined {
+  const path = featureDevelopmentPolicyPath(projectRoot);
+  if (!existsSync(path)) return undefined;
+  try {
+    const parsed = YAML.parse(readFileSync(path, 'utf8')) as RawFeatureDevelopmentPolicy | null;
+    const mode = parsed?.stages?.checks?.rule_compliance?.mode;
+    return typeof mode === 'string' ? mode : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
@@ -101,6 +122,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Write or refine the feature specification before implementation when the lane includes specification.',
           'Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
+          'Freeze the spec before writing code on graduated/full lanes: run `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`) that development builds against and the spec-change guard checks for drift.',
         ],
         required_inputs: ['approved spec boundary'],
         strictness: {
@@ -148,6 +170,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Run the project command checks after implementation and before finalizing the feature.',
+          'Run them deterministically with `npx paqad-ai checks run`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is `Needs your attention` — fix it before finalizing.',
         ],
         required_inputs: ['working tree diff'],
         strictness: {
@@ -404,6 +427,19 @@ function mergeFeatureDevelopmentPolicy(
                 defaultChecks?.block_on_failure === true ||
                 defaultStage.strictness.block_on_failure === true,
             },
+      // Preserve the rules-as-scripts gate config through the merge (issue #319).
+      // The old merge rebuilt only `checks` and silently dropped `rule_compliance`
+      // when a project supplied its own feature-development.yaml — so the strictness
+      // a team declared in the workflow file never reached the resolver. Field-merge
+      // it (project fields win over the default) so the yaml knob is a real input.
+      ...(defaultStage.rule_compliance || rawStage.rule_compliance
+        ? {
+            rule_compliance: {
+              ...defaultStage.rule_compliance,
+              ...(rawStage.rule_compliance ?? {}),
+            } as FeatureDevelopmentRuleCompliancePolicy,
+          }
+        : {}),
     };
   }
 
@@ -549,6 +585,7 @@ stages:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
       - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
+      - "Freeze the spec before writing code on graduated/full lanes: run \`npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants\` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen sidecar (\`.paqad/specs/<id>.frozen.json\`) that development builds against and the spec-change guard checks for drift."
     required_inputs:
       - approved spec boundary
     strictness:
@@ -590,6 +627,7 @@ stages:
   checks:
     instructions:
       - Run the project command checks after implementation and before finalizing the feature.
+      - "Run them deterministically with \`npx paqad-ai checks run\`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is \`Needs your attention\` — fix it before finalizing."
     required_inputs:
       - working tree diff
     strictness:

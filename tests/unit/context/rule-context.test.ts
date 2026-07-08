@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  RULES_MISSING_FALLBACK_MARKER,
   composeRuleContext,
   refreshRuleContext,
   selectTriggeredRules,
@@ -181,6 +182,59 @@ describe('refreshRuleContext', () => {
     });
     expect(target).toBe(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT));
     expect(readFileSync(target as string, 'utf8')).toContain('MEMORY ONLY');
+  });
+
+  // Fail-safe (issue #316): a written artifact with no rule manifest must never look
+  // like a valid "rules loaded" contract, or a bootstrap-obedient agent silently drops
+  // every project rule (the exact drift-only bug this repo shipped).
+  describe('rules-less fail-safe (#316)', () => {
+    it('prepends the fallback marker to a drift-only artifact (no compiled rules)', async () => {
+      const target = await refreshRuleContext(projectRoot, {
+        driftSection: '## Base drift\nDRIFT HEADS-UP',
+      });
+      const written = readFileSync(target as string, 'utf8');
+      // The marker must lead the file so a reader sees it before the drift note.
+      expect(written.startsWith(RULES_MISSING_FALLBACK_MARKER)).toBe(true);
+      expect(written).toContain('DRIFT HEADS-UP');
+    });
+
+    it('prepends the fallback marker to a memory-only artifact', async () => {
+      const target = await refreshRuleContext(projectRoot, {
+        memorySection: '## Codebase memory — 1 remembered fact\nMEMORY ONLY',
+      });
+      expect(readFileSync(target as string, 'utf8')).toContain(RULES_MISSING_FALLBACK_MARKER);
+    });
+
+    it('prepends the fallback marker when the store is present but has zero rules', async () => {
+      writeFileSync(join(projectRoot, PATHS.COMPILED_RULES), JSON.stringify(store([])));
+      const target = await refreshRuleContext(projectRoot, {
+        driftSection: '## Base drift\nDRIFT HEADS-UP',
+      });
+      const written = readFileSync(target as string, 'utf8');
+      expect(written).toContain(RULES_MISSING_FALLBACK_MARKER);
+      // The zero-rule manifest is still emitted after the marker.
+      expect(written).toContain('paqad rule manifest — 0 rules');
+    });
+
+    it('returns null (writes NO file) when there are no rules and no sections', async () => {
+      // The bootstrap "load full rules when missing" clause handles this — never a
+      // rules-less file the reader would trust.
+      expect(await refreshRuleContext(projectRoot)).toBeNull();
+    });
+
+    it('does NOT prepend the marker when the store carries at least one rule', async () => {
+      writeCompiled([
+        rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'ALWAYS TEXT' }),
+      ]);
+      const target = await refreshRuleContext(projectRoot, {
+        driftSection: '## Base drift\nDRIFT HEADS-UP',
+      });
+      const written = readFileSync(target as string, 'utf8');
+      expect(written).not.toContain(RULES_MISSING_FALLBACK_MARKER);
+      // Byte-identical composition: manifest leads, rule text and drift follow.
+      expect(written.startsWith('## paqad rule manifest')).toBe(true);
+      expect(written).toContain('ALWAYS TEXT');
+    });
   });
 
   it('appends the F27 base-drift section last, after the rule text', async () => {

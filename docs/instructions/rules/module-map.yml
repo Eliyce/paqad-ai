@@ -749,6 +749,8 @@ modules:
       - src/context/rule-context.ts
       - src/pipeline/rule-trigger-matcher.ts
       - src/rule-scripts/enforce.ts
+      - src/rule-scripts/compile.ts
+      - src/cli/commands/rules.ts
     features:
       - slug: rule-manifest
         name: Rule Manifest (always-resident index of every rule)
@@ -756,6 +758,8 @@ modules:
         name: Trigger-Load (full rule text for the files in play)
       - slug: script-enforcement
         name: Script Enforcement (scripted rules enforced regardless of context)
+        sources:
+          [src/rule-scripts/enforce.ts, src/rule-scripts/compile.ts, src/cli/commands/rules.ts]
 
   - slug: mcp-config
     name: MCP Configuration
@@ -894,6 +898,7 @@ modules:
       - src/verification
       - src/verification/gates
       - src/verification/repository
+      - src/checks
     features:
       - slug: gate-runner
         name: Gate Runner & Verdict Aggregation
@@ -904,6 +909,9 @@ modules:
       - slug: verification-evidence
         name: Evidence Emission (markdown + structured)
         sources: [src/verification/evidence.ts, src/verification/evidence-markdown.ts]
+      - slug: check-runner
+        name: Deterministic Check Runner (format/test/build → structured results)
+        sources: [src/checks/run-checks.ts, src/checks/report-store.ts, src/cli/commands/checks.ts]
 
   - slug: evidence-ledger
     name: Evidence Ledger & Provenance Receipt

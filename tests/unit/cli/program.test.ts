@@ -16,6 +16,7 @@ describe('createProgram', () => {
     expect(program.commands.map((command) => command.name())).toEqual([
       'install',
       'capabilities',
+      'checks',
       'packs',
       'compliance',
       'dashboard',
@@ -31,10 +32,12 @@ describe('createProgram', () => {
       'enable',
       'disable',
       'refresh',
+      'rules',
       'rag',
       'rag-evidence',
       'update',
       'patterns',
+      'spec',
       'stage',
       'status',
     ]);

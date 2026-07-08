@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readProjectRuleComplianceModeOverride } from '@/pipeline/feature-development-policy.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
 import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
@@ -91,8 +92,16 @@ const DEFAULT_RULE_COMPLIANCE: RuleComplianceMode = 'warn';
 
 /**
  * Resolve the floored `rule_compliance` mode (the same clamp `stages_mode` uses):
- * the tracked `configs/.config.*` value is the floor; the local `.config` and the
+ * the tracked value is the floor; the local `.config` and the
  * `PAQAD_RULE_COMPLIANCE` env may only raise strictness above it.
+ *
+ * Issue #319 — the workflow yaml's `checks.rule_compliance.mode` is now a REAL
+ * input, not a placebo. It used to be read into the policy object and ignored here
+ * (the resolver looked only at `.config`), so a team that set `strict` in
+ * `feature-development.yaml` silently got the `warn` default. Both surfaces are
+ * team-tracked, so the floor is the STRICTER of the two — a team asking for strict
+ * on either surface gets strict, and lowering below the floor still requires a
+ * visible, committed change (never a silent local override).
  */
 export function resolveRuleComplianceMode(
   projectRoot: string,
@@ -100,13 +109,31 @@ export function resolveRuleComplianceMode(
 ): RuleComplianceMode {
   return resolveFlooredMode(
     {
-      team: readConfigsDir(projectRoot).merged.get('rule_compliance'),
+      team: stricterTeamFloor(
+        readConfigsDir(projectRoot).merged.get('rule_compliance'),
+        readProjectRuleComplianceModeOverride(projectRoot),
+      ),
       local: readDotConfig(projectRoot).get('rule_compliance'),
       env: env.PAQAD_RULE_COMPLIANCE,
     },
     RULE_COMPLIANCE_MODES,
     DEFAULT_RULE_COMPLIANCE,
   );
+}
+
+/**
+ * Pick the stricter of two team-tracked floor candidates (either may be absent).
+ * Unrecognised values are ignored so a typo never silently weakens the floor.
+ */
+function stricterTeamFloor(a: string | undefined, b: string | undefined): string | undefined {
+  const rank = (raw: string | undefined): number =>
+    raw === undefined
+      ? -1
+      : RULE_COMPLIANCE_MODES.indexOf(raw.trim().toLowerCase() as RuleComplianceMode);
+  const rankA = rank(a);
+  const rankB = rank(b);
+  const winner = Math.max(rankA, rankB);
+  return winner < 0 ? undefined : RULE_COMPLIANCE_MODES[winner];
 }
 
 /** Integrity of the rule-script bindings vs the engine-blessed lock (F5). */

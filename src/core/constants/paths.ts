@@ -94,6 +94,12 @@ export const PATHS = {
   TRANSITION_LOG: '.paqad/cache/transition-log.json',
   CACHE_METRICS: '.paqad/cache/metrics.json',
   PLANNING_SPECS_DIR: '.paqad/specs',
+  // Issue #318 — the deterministic check runner's persisted report. `paqad-ai
+  // checks run` writes the structured format/test/build results here; the
+  // agent-independent completion backstop reads it so the verdict proves the
+  // checks ran instead of assuming they passed.
+  CHECKS_DIR: '.paqad/checks',
+  CHECKS_REPORT: '.paqad/checks/last-run.json',
   // Issue #103 - persisted regression guards (one sidecar per defect_id)
   REGRESSION_GUARDS_DIR: '.paqad/regression-guards',
   // Issue #106 - flaky-test registry / quarantine list

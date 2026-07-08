@@ -4,6 +4,7 @@ import { VERSION } from '@/index.js';
 
 import { createAuditCommand } from './commands/audit.js';
 import { createCapabilitiesCommand } from './commands/capabilities.js';
+import { createChecksCommand } from './commands/checks.js';
 import { createComplianceCommand } from './commands/compliance.js';
 import { createDashboardCommand } from './commands/dashboard.js';
 import { createDisableCommand } from './commands/disable.js';
@@ -22,6 +23,8 @@ import { createPacksCommand } from './commands/packs.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRagEvidenceCommand } from './commands/rag-evidence.js';
 import { createRefreshCommand } from './commands/refresh.js';
+import { createRulesCommand } from './commands/rules.js';
+import { createSpecCommand } from './commands/spec.js';
 import { createStageCommand } from './commands/stage.js';
 import { createStatusCommand } from './commands/status.js';
 import { createUpdateCommand } from './commands/update.js';
@@ -37,6 +40,7 @@ export function createProgram(): Command {
 
   program.addCommand(createInstallCommand());
   program.addCommand(createCapabilitiesCommand());
+  program.addCommand(createChecksCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());
@@ -53,10 +57,12 @@ export function createProgram(): Command {
   program.addCommand(createEnableCommand());
   program.addCommand(createDisableCommand());
   program.addCommand(createRefreshCommand());
+  program.addCommand(createRulesCommand());
   program.addCommand(createRagCommand());
   program.addCommand(createRagEvidenceCommand());
   program.addCommand(createUpdateCommand());
   program.addCommand(createPatternsCommand());
+  program.addCommand(createSpecCommand());
   program.addCommand(createStageCommand());
   program.addCommand(createStatusCommand());
 
