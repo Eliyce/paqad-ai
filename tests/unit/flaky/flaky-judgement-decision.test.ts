@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isDecisionPacket, validateDecisionPacket } from '@/planning/decision-packet.js';
 import { decisionQuestionForCategory } from '@/planning/decision-packet-builder.js';
@@ -57,10 +57,16 @@ describe('test.flaky_judgement reuse by kind', () => {
   let projectRoot: string;
 
   beforeEach(() => {
+    // Freeze the clock inside the packet's 30-day TTL window (created_at 2026-06-08)
+    // so reuse is deterministic regardless of the real date — otherwise the fixture
+    // rots the day its TTL lapses. Only Date is faked, so fs/timers are untouched.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-15T00:00:00.000Z'));
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-flaky-judge-'));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     rmSync(projectRoot, { recursive: true, force: true });
   });
 

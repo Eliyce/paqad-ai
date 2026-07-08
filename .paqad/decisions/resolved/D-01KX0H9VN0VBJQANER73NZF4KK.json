@@ -1,0 +1,22 @@
+{
+  "id": "D-01KX0H9VN0VBJQANER73NZF4KK",
+  "category": "architecture-path",
+  "title": "Fix #310: pre-mutation stage-gate scope (exclude-docs, cross-language)",
+  "context": "Onboarded projects can be any stack (Laravel app/*.php, Python, Go). Allowlisting src/+tests under-gates non-JS code. Instead the gate fires for any edit whose target is NOT documentation (docs/**, *.md) or framework-internal (.paqad/**). Docs-only / non-feature-dev work (questions, RCA, pentest, design-test) does not fire the code stages.",
+  "options": [
+    {
+      "option_key": "exclude_docs",
+      "label": "Fire for any non-docs, non-.paqad edit (language-agnostic, fail-closed for code)"
+    },
+    {
+      "option_key": "allowlist_src_tests",
+      "label": "Allowlist src/+tests (JS-centric; under-gates other stacks)"
+    }
+  ],
+  "recommendation": "exclude_docs",
+  "created_at": "2026-07-08T09:35:18.688Z",
+  "status": "resolved",
+  "chosen": "exclude_docs",
+  "rationale": "Cross-language onboarded projects; gate fires for any non-docs, non-.paqad edit. Deterministic + fail-closed for code. Prompt/lane-based skip (RCA/pentest/question) deferred as a larger non-deterministic follow-up.",
+  "resolved_at": "2026-07-08T09:35:30.221Z"
+}

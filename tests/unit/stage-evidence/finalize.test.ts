@@ -133,6 +133,92 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     expect(reviewEnd?.evidence_source).toBe('live-mark');
   });
 
+  it('#310: a documentation-only change is a no-op (isFeatureDevChange=false) — code stages do not apply', () => {
+    const sessionId = 'ses_docs_only';
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 2,
+      isFeatureDevChange: false,
+    });
+    // No feature being built → no gate, no inferred backstop record.
+    expect(result).toBeNull();
+    expect(readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId)).toEqual([]);
+  });
+
+  it('#310: backfills an inferred development row when planning+spec were recorded but no development mark exists', () => {
+    const sessionId = 'ses_backfill';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    // planning + specification recorded (markers/CLI); the sole same-turn edit had its
+    // development mark deferred by the live writer, so no development row exists.
+    for (const stage of ['planning', 'specification']) {
+      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+    }
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 1,
+      subjectDigest: 'sha256-abc',
+      isFeatureDevChange: true,
+    });
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const dev = rows.find((r) => r.stage === 'development' && r.evidence_source === 'inferred-git');
+    expect(dev, 'a real code change must show a development stage').toBeDefined();
+    expect(dev?.subject_digest).toBe('sha256-abc');
+    // development is now present → it is no longer reported missing (only the later
+    // unrecorded stages are).
+    expect(result?.missing_stages).not.toContain('development');
+  });
+
+  it('#310: does NOT backfill development when a development row already exists (even an orphan end)', () => {
+    // hasDevelopment is satisfied by a development row of EITHER kind. Here the only
+    // development row is an orphan stage_end (no matching start) — the backfill must
+    // still see development as present and add no inferred-git row, so a real change is
+    // never double-marked. Exercises the stage_end arm of the presence check.
+    const sessionId = 'ses_backfill_orphan_end';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    for (const stage of ['planning', 'specification']) {
+      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+    }
+    // An END with no START — the only development row present.
+    endStage(root, 'development', {}, { sessionId, ordinal, adapter: 'claude-code' });
+
+    finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 1,
+      subjectDigest: 'sha256-orphan',
+      isFeatureDevChange: true,
+    });
+
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    // No inferred-git development row was added — the existing end already counts.
+    expect(
+      rows.some((r) => r.stage === 'development' && r.evidence_source === 'inferred-git'),
+    ).toBe(false);
+  });
+
+  it('#310: does NOT infer a development row for a clean-tree change (no diff to anchor to)', () => {
+    const sessionId = 'ses_backfill_clean';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    for (const stage of ['planning', 'specification']) {
+      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+    }
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 0,
+      isFeatureDevChange: true,
+    });
+    // No working-tree delta → nothing honest to infer development from.
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    expect(rows.some((r) => r.evidence_source === 'inferred-git')).toBe(false);
+    expect(result?.missing_stages).toContain('development');
+  });
+
   it('does not re-verify a change that already has a verify row (verify-once)', () => {
     const sessionId = 'ses_once';
     const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });

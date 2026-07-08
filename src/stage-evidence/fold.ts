@@ -115,7 +115,16 @@ function deriveState(
   if (status === 'skipped') return 'skipped';
   if (status === 'failed') return 'failed';
   if (events.some((event) => event.event_status === 'redone')) return 'redone';
-  if (end) return 'complete';
+  if (end) {
+    // An end with no matching start is an orphan — the #310 signature (the old
+    // recorder rejected the out-of-order start but accepted any end, so a stage could
+    // carry an end alone). It is inconclusive, never silently `complete`, so the
+    // completion fold and the pre-mutation gate (which requires a start+end pair)
+    // agree a stage needs a start. The inferred-git backstop is exempt: it
+    // deliberately writes an end-only `development` row to represent an untracked diff.
+    if (!start && end.evidence_source !== 'inferred-git') return 'inconclusive';
+    return 'complete';
+  }
   if (start) return 'running';
   return 'missing';
 }

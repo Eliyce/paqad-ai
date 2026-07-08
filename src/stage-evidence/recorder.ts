@@ -13,13 +13,12 @@ import {
   appendSessionEvent,
   currentOrdinal,
   openSessionDoc,
-  readSessionUnit,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 
 import { validateStageEvidenceRow } from './schema.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { isCompletionAnchoredStage, isKnownStage, stageIndex } from './stages.js';
+import { isKnownStage } from './stages.js';
 import {
   STAGE_EVIDENCE_DOC_TYPE,
   STAGE_EVIDENCE_SCHEMA_VERSION,
@@ -80,26 +79,15 @@ function resolveOrdinal(projectRoot: string, sessionId: string, ctx: StageEviden
   return openStageEvidence(projectRoot, ctx).ordinal;
 }
 
-/** The highest canonical index among stages already started in this change. */
-function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
-  let highest = -1;
-  for (const row of rows) {
-    if (row.kind === 'stage_start' && typeof row.stage === 'string') {
-      highest = Math.max(highest, stageIndex(row.stage));
-    }
-  }
-  return highest;
-}
-
 /**
- * Record the START of a stage. Rejects an unknown stage, and rejects a stage that
- * is out of order relative to the canonical registry — you cannot start an earlier
- * stage after a later one has already begun (re-starting the SAME stage is a redo
- * and is allowed). A completion-anchored stage (`review`, issue #270) is exempt from
- * that check: its natural slot is the completion boundary, so it is never "out of
- * order" — an honest review of the finished diff legitimately starts after `checks`
- * and `documentation_sync` were stamped during the build. The script stamps
- * `started_at` (`ts`).
+ * Record the START of a stage. Rejects only an UNKNOWN stage. It no longer rejects an
+ * out-of-order boundary (issue #310): forbidding an earlier stage after a later one
+ * had already started made the pre-code stages (planning/specification) unrecordable
+ * once a later stage was recorded — the deadlock — with no way to clear the gate. The
+ * gate must always be clearable, so a start is always recorded; ordering is judged
+ * (non-destructively) by the fold's `computeOrderingViolations` at completion, which
+ * remains the single source of the ordering verdict. Re-starting the SAME stage is a
+ * redo and is allowed. The script stamps `started_at` (`ts`).
  */
 export function startStage(
   projectRoot: string,
@@ -111,14 +99,6 @@ export function startStage(
   }
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
   const ordinal = resolveOrdinal(projectRoot, sessionId, ctx);
-  const rows = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
-  const highest = highestStartedIndex(rows);
-  const index = stageIndex(stage);
-  if (!isCompletionAnchoredStage(stage) && highest >= 0 && index < highest) {
-    throw new Error(
-      `Out-of-order stage "${stage}": a later stage already started. Stages must run in registry order.`,
-    );
-  }
   return append(projectRoot, sessionId, ordinal, ctx, {
     kind: 'stage_start',
     stage,

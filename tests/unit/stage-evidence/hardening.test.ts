@@ -86,6 +86,10 @@ describe('stage-evidence hardening edges', () => {
 
   it('the live writer survives a forged open stage the recorder cannot close', () => {
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    // Pre-code stages recorded (issue #310): the writer defers until planning +
+    // specification are on the ledger, so seed them before the edit.
+    startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
+    startStage(root, 'specification', { sessionId: SES, ordinal, adapter: 'claude-code' });
     // A forged, registry-unknown stage_start with no end: the forward-close loop's
     // endStage throws for it — the writer must swallow that and still start the
     // real stage for the edit.

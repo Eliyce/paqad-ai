@@ -122,7 +122,7 @@ actually binds per host, stated without overclaim:
 
 | Tier | Hosts | What binds | What does NOT |
 | --- | --- | --- | --- |
-| **Hard block + verdict** | claude-code | Pre-edit deny until `planning` + `specification` are recorded; per-stage writer on every edit; failing verdict on stderr at completion | — |
+| **Hard block + verdict** | claude-code | Pre-edit deny on a feature-development edit until `planning` + `specification` are recorded; per-stage writer on every code edit; failing verdict on stderr at completion | Docs-only and framework-internal (`.paqad/**`) edits are out of scope — not gated, no stages demanded (#310) |
 | **Record + ledger** | codex-cli, gemini-cli | `paqad:stage` markers recorded to the stage-evidence ledger at turn end, attributed to the host; evidence ledger written | No pre-edit block (no pre-mutation hook); no in-chat verdict (record-only, exit 0/silent) |
 | **Advisory** | cursor, windsurf, continue, github-copilot, junie, aider, antigravity, aiassistant | Nothing in-session | No executed hook at all — the prose entry-file contract only, never implied to bind |
 

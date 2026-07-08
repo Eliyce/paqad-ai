@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { validateDecisionPacket, type DecisionHumanResponse } from '@/planning/decision-packet.js';
 import { DecisionStore } from '@/planning/decision-store.js';
@@ -42,6 +42,18 @@ function approval(): DecisionHumanResponse {
 }
 
 describe('quality.ratchet_exception decision', () => {
+  beforeEach(() => {
+    // Freeze the clock inside the packet's TTL window (created_at NOW = 2026-06-08)
+    // so decision-reuse is deterministic regardless of the real date — otherwise the
+    // fixture rots the day its TTL lapses. Only Date is faked, so fs/timers are intact.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(NOW));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('builds a valid Decision Packet that defaults to holding the line', () => {
     const packet = buildRatchetExceptionPacket(input());
     expect(validateDecisionPacket(packet)).toEqual([]);

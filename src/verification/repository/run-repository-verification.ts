@@ -30,6 +30,7 @@ import {
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
+import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -201,6 +202,10 @@ export async function runRepositoryVerification(
       sessionId: options.hostSessionId ?? null,
       changedFilesCount: context.changed_files.length,
       subjectDigest: computeChangeSubjectDigest(stageFileDigests),
+      // Scope (issue #310): the feature-development completeness gate applies only to
+      // a feature-development change. A documentation-only / framework-internal diff
+      // is not a feature being built, so it is not held to the code-stage workflow.
+      isFeatureDevChange: changeIsFeatureDev(context.changed_files, context.project_root),
       now: () => new Date(completedAt),
     });
   } catch (error) {

@@ -16,8 +16,8 @@ import { isAbsolute, relative } from 'pathe';
 import { currentOrdinal, readSessionUnit, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-import { endStage, openStageEvidence, startStage } from './recorder.js';
-import { isKnownStage, stageIndex, type StageId } from './stages.js';
+import { endStage, startStage } from './recorder.js';
+import { isKnownStage, PRE_CODE_STAGES, stageIndex, type StageId } from './stages.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from './types.js';
 
 /** Normalise a hook-supplied path to a project-relative posix path for globbing. */
@@ -118,6 +118,19 @@ export function stagesWithKind(rows: readonly SessionLedgerRow[], kind: string):
 }
 
 /**
+ * True when the mandatory pre-code stages (planning, specification) each carry a
+ * recorded start in this change — the same precondition the pre-mutation gate
+ * enforces (capability.ts), so the writer and the gate agree on when the workflow has
+ * entered its code phase. Until then a file edit records NO stage (issue #310):
+ * stamping a stage before planning/specification poisons ordering and is dishonest.
+ * Exported so the on-entry narration reuses the SAME defer decision (narration.ts).
+ */
+export function preCodeStagesRecorded(rows: readonly SessionLedgerRow[]): boolean {
+  const started = stagesWithKind(rows, 'stage_start');
+  return PRE_CODE_STAGES.every((stage) => started.has(stage));
+}
+
+/**
  * Record a stage transition for one mutating edit. Deterministic and best-effort:
  * classifies the target, opens the change once, ends any earlier still-open stage
  * when a later stage begins, then starts the new stage — all via the recorder
@@ -132,12 +145,21 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
 
   try {
     const sessionId = resolveSessionId(projectRoot, input.sessionId);
-    let ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-    if (ordinal <= 0) {
-      ordinal = openStageEvidence(projectRoot, { sessionId, adapter: 'claude-code', now }).ordinal;
-    }
+    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const rows =
+      ordinal > 0 ? readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal) : [];
+    // F2 (issue #310): a file edit records NO stage evidence until the workflow's
+    // pre-code stages (planning, specification) are on the ledger. Stamping a later
+    // stage (development/checks/documentation_sync) before them is both dishonest
+    // ("developing" before planning) and poisons stage ordering — it advances the
+    // ordering pointer so the pre-code starts become unrecordable, which is the #310
+    // deadlock. planning/specification are marked deterministically (paqad:stage
+    // markers or `paqad-ai stage`), never inferred from an edit, so deferring loses
+    // nothing; a real code change whose development row never gets live-marked is
+    // backfilled at completion (finalizeStageEvidence). No change is even opened until
+    // the pre-code stages exist — which means `ordinal > 0` past this guard.
+    if (!preCodeStagesRecorded(rows)) return null;
     const ctx = { sessionId, ordinal, adapter: 'claude-code' as const, now };
-    const rows = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
 
     const started = stagesWithKind(rows, 'stage_start');
     const ended = stagesWithKind(rows, 'stage_end');
