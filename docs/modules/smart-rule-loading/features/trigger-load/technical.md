@@ -47,7 +47,13 @@
 ## Failure Modes
 
 - Lock held by another refresh → `refreshRuleContext` returns `null` (no clobber).
-- No compiled rules → `null`, nothing written.
+- No compiled rules AND no other section → `null`, nothing written (the bootstrap's
+  "load full rules when the artifact is missing" clause then applies).
+- Rules-less but a section is written (drift / memory / retrieval present, store
+  absent or empty) → the artifact is prepended with `RULES_MISSING_FALLBACK_MARKER`
+  (issue #316) so a bootstrap-obedient reader never mistakes a rules-less file for a
+  "rules loaded" contract and always loads `docs/instructions/rules/` in full. A
+  populated store keeps its manifest and is byte-identical to before.
 - `paqad-ai` missing on PATH → the trigger's spawn errors are swallowed.
 
 ## Tests

@@ -41,6 +41,19 @@ const STALE_LOCK_MS = 10 * 60 * 1000;
  */
 export const LEAN_RULE_CONTEXT_BUDGET_BYTES = 16_384;
 
+/**
+ * The fail-safe marker (issue #316) prepended to any written session-context artifact
+ * that does NOT carry a real rule manifest with at least one rule. The framework
+ * bootstrap tells the agent to treat this artifact as *the* rule contract and only
+ * load the full `docs/instructions/rules/` tree when the file is MISSING. Without this
+ * marker a drift/memory/retrieval-only artifact (compiled-rules store absent or empty)
+ * looks like a valid "rules loaded" contract, so a bootstrap-obedient agent silently
+ * loses every project rule. The marker makes that impossible: a rules-less artifact
+ * always tells the reader to load the full rules tree before relying on rules.
+ */
+export const RULES_MISSING_FALLBACK_MARKER =
+  '> ⚠️ No compiled rules in this artifact — load `docs/instructions/rules/` in full before relying on rules.';
+
 export interface RuleSelection {
   /** Rules that apply to every change (`**` / untriggered). */
   alwaysLoad: CompiledRule[];
@@ -155,6 +168,17 @@ export async function writeRuleContext(
     if (section) {
       markdown = markdown ? `${markdown}\n${section}\n` : `${section}\n`;
     }
+  }
+
+  // Fail-safe (issue #316): the bootstrap only loads the full rules tree when this
+  // artifact is MISSING, so a written artifact without a real rule manifest would be
+  // mistaken for a "rules loaded" contract and silently drop every project rule. When
+  // no compiled rule made it in — the store is absent, or present but empty — prepend
+  // the fallback marker so a bootstrap-obedient reader always knows to load the rules
+  // in full. A populated store keeps its manifest and stays byte-identical to before.
+  const hasRules = (store?.rules?.length ?? 0) > 0;
+  if (!hasRules) {
+    markdown = `${RULES_MISSING_FALLBACK_MARKER}\n\n${markdown}`;
   }
 
   const target = join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT);
