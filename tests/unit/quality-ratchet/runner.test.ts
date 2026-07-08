@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DecisionStore } from '@/planning/decision-store.js';
 import { readQualityBaseline } from '@/quality-ratchet/baseline.js';
@@ -38,6 +38,19 @@ function baseRun(root: string, lane: 'fast' | 'graduated' | 'full' = 'full') {
 }
 
 describe('runQualityRatchetGate', () => {
+  beforeEach(() => {
+    // Freeze the clock to the fixtures' NOW (2026-06-08) so the decision-reuse expiry
+    // check (which reads the real wall clock, not the injected `now`) stays inside the
+    // approved exception's TTL window — otherwise the reuse test rots once the TTL
+    // lapses. Only Date is faked, so fs and the injected `now` are untouched.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(NOW()));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('captures the baseline on the first run and passes (day-one reality)', async () => {
     const root = project(true);
     const result = await runQualityRatchetGate(baseRun(root));
