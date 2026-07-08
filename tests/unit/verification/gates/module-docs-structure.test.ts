@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -154,6 +155,68 @@ describe('ModuleDocsStructureGate', () => {
       remediation: 'Add at least one markdown heading before completing the provider request.',
     });
   });
+
+  // #313 finding 2 (#310 family): a doc-sync that edits a flat feature doc which
+  // is the repo's established convention must NOT be forced to revert.
+  it('passes when a touched flat feature doc is the pre-existing repo-wide convention', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/modules/user/features/profile.md'],
+      documentation_files_changed: true,
+    });
+    // Pre-existing flat siblings NOT in the change set — proof the flat layout is
+    // the repo convention, so touching profile.md did not introduce it.
+    writeFlatFeatureDoc(context.project_root, 'user', 'api-tokens.md');
+    writeFlatFeatureDoc(context.project_root, 'user', 'two-factor.md');
+    writeFlatFeatureDoc(context.project_root, 'user', 'profile.md');
+
+    const result = await new ModuleDocsStructureGate().check(context);
+
+    expect(result.passed).toBe(true);
+  });
+
+  it('still fails a lone flat feature doc introduced into a repo with no flat siblings', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/modules/user/features/profile.md'],
+      documentation_files_changed: true,
+    });
+    // The only flat doc on disk is the one being changed → not pre-existing.
+    writeFlatFeatureDoc(context.project_root, 'user', 'profile.md');
+
+    const result = await new ModuleDocsStructureGate().check(context);
+
+    expect(result.passed).toBe(false);
+    expect(result.detail).toContain(
+      'docs/modules/user/features/profile.md is outside docs/modules/{module}/features/{feature}/',
+    );
+  });
+
+  it('still fails a flat feature doc when the repo has no docs/modules tree at all', async () => {
+    const emptyRoot = mkdtempSync(join(tmpdir(), 'paqad-module-docs-empty-'));
+    const context = createVerificationContext({
+      project_root: emptyRoot,
+      changed_files: ['docs/modules/user/features/profile.md'],
+      documentation_files_changed: true,
+    });
+
+    const result = await new ModuleDocsStructureGate().check(context);
+
+    expect(result.passed).toBe(false);
+  });
+
+  it('tolerates a module directory that has no features subdir while detecting flat siblings elsewhere', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/modules/user/features/profile.md'],
+      documentation_files_changed: true,
+    });
+    writeFlatFeatureDoc(context.project_root, 'user', 'profile.md');
+    writeFlatFeatureDoc(context.project_root, 'billing', 'invoices.md');
+    // A module with no `features/` subdir — readdir throws and is skipped.
+    mkdirSync(join(context.project_root, 'docs/modules/orphan'), { recursive: true });
+
+    const result = await new ModuleDocsStructureGate().check(context);
+
+    expect(result.passed).toBe(true);
+  });
 });
 
 function writeFeatureDocTriplet(
@@ -176,4 +239,15 @@ function writeFeatureDocTriplet(
 
 function featureRootPath(featureRoot: string, filename: string): string {
   return join(featureRoot, filename);
+}
+
+function writeFlatFeatureDoc(
+  projectRoot: string,
+  moduleName: string,
+  filename: string,
+  content = `# ${filename.replace('.md', '')}\n`,
+): void {
+  const featuresDir = join(projectRoot, 'docs/modules', moduleName, 'features');
+  mkdirSync(featuresDir, { recursive: true });
+  writeFileSync(join(featuresDir, filename), content);
 }

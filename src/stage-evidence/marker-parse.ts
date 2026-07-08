@@ -57,11 +57,17 @@ function extractAssistantText(raw: string): string {
     const record = obj as {
       type?: string;
       role?: string;
+      content?: unknown;
+      // Claude Code nests the turn under `message`; Codex rollout jsonl nests it
+      // under `payload` (`{type:'response_item', payload:{type:'message',
+      // role:'assistant', content:[{type:'output_text', text}]}}`, issue #313).
       message?: { role?: string; content?: unknown };
+      payload?: { role?: string; content?: unknown };
     };
-    const role = record.message?.role ?? record.role ?? record.type;
+    const container = record.message ?? record.payload;
+    const role = container?.role ?? record.role ?? record.type;
     if (role !== 'assistant') continue;
-    const content = record.message?.content ?? (record as { content?: unknown }).content;
+    const content = container?.content ?? record.content;
     parts.push(collectText(content));
   }
   return sawJson ? parts.join('\n') : raw;
