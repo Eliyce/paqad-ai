@@ -35,7 +35,7 @@ import { getPackTestRunners } from '@/packs/project-packs.js';
 import { Resolver } from '@/resolver/resolver.js';
 import { writeStackArtifacts } from '@/stack-docs/generator.js';
 import { SchemaValidator } from '@/validators/validator.js';
-import { compileRuleScripts } from '@/rule-scripts/compile.js';
+import { compileRuleScripts, isRuleScriptMapStale } from '@/rule-scripts/compile.js';
 import {
   compileRules,
   DecisionStore,
@@ -325,6 +325,23 @@ export class OnboardingOrchestrator {
     // enablement check. Any stale project-level copies from a pre-#229 onboard are
     // pruned below (see `removeObsoleteContractDocs`).
     removeObsoleteContractDocs(options.projectRoot);
+    // Issue #319 — arm the rules-as-scripts gate FIRST. Generate `rule-script-map.yml`
+    // from the freshly written rule tree so the enforcement seam has a map to run
+    // (without it, enforcement fast-skips and the deterministic gate is disarmed).
+    // This runs BEFORE the planning-rule compile below because it embeds stable
+    // `@rule` ids into the rule markdown; doing it first means compiled-rules.json is
+    // built from the already-embedded files, so a re-onboard sees an unchanged source
+    // hash and both compiles skip — onboarding stays byte-idempotent. Non-fatal and
+    // staleness-guarded: a failure only leaves the gate disarmed this run.
+    try {
+      if (isRuleScriptMapStale(options.projectRoot)) {
+        compileRuleScripts(options.projectRoot);
+      }
+    } catch (error) {
+      onboardingWarnings.push(
+        `Rule-script map compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
+      );
+    }
     let compiledRulesPath = join(options.projectRoot, PATHS.COMPILED_RULES);
     try {
       if (await isCompiledRulesStale(options.projectRoot)) {
@@ -334,19 +351,6 @@ export class OnboardingOrchestrator {
     } catch (error) {
       onboardingWarnings.push(
         `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
-      );
-    }
-    // Issue #319 — arm the rules-as-scripts gate. Generate `rule-script-map.yml`
-    // from the freshly written rule tree so the enforcement seam has a map to run
-    // (without it, enforcement fast-skips and the deterministic gate is disarmed).
-    // Runs after the rule tree is on disk and BEFORE the rule-context write below,
-    // so the manifest correctly marks script-enforced rules. Non-fatal: a failure
-    // only leaves the gate disarmed this run, never blocks onboarding.
-    try {
-      compileRuleScripts(options.projectRoot);
-    } catch (error) {
-      onboardingWarnings.push(
-        `Rule-script map compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
     // RAG buildout F4/F5 — (re)generate the rule slice of the session-context

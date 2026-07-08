@@ -14,10 +14,29 @@
 // runs, and any scripts the skill later binds are honoured. Scripts already bound
 // in a prior map carry over for rules whose text is unchanged.
 
-import { assembleMap, scanAndEmbedIds } from './analyzer.js';
+import {
+  assembleMap,
+  collectRuleFiles,
+  computeRuleFilesHash,
+  scanAndEmbedIds,
+} from './analyzer.js';
 import { applyRuleScriptMap } from './apply.js';
 import { loadRuleScriptMap } from './map.js';
 import type { RuleScriptMap } from './types.js';
+
+/**
+ * Whether `rule-script-map.yml` is missing or out of sync with the rule tree
+ * (issue #319). True when there is no map, or the map's `rule_files_hash` no longer
+ * matches the current rule files — the only conditions under which onboarding needs
+ * to (re)compile. Guarding on this keeps a re-onboard over an UNCHANGED rule tree a
+ * pure no-op: no fresh `generated_at` timestamp, no history snapshot, no events-log
+ * append — so onboarding stays byte-idempotent (the e2e idempotency contract).
+ */
+export function isRuleScriptMapStale(projectRoot: string): boolean {
+  const map = loadRuleScriptMap(projectRoot);
+  if (!map) return true;
+  return map.rule_files_hash !== computeRuleFilesHash(projectRoot, collectRuleFiles(projectRoot));
+}
 
 export interface CompileRuleScriptsResult {
   map: RuleScriptMap;
