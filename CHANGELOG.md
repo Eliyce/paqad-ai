@@ -1,5 +1,61 @@
 # paqad-ai
 
+## 1.47.0
+
+### Minor Changes
+
+- 49db0e3: Make the session-context rule contract fail-safe (#316). `writeRuleContext` could
+  write a drift-, memory-, or retrieval-only artifact with zero rules when the compiled
+  rules store was absent or empty. Because the framework bootstrap only loads the full
+  `docs/instructions/rules/` tree when the artifact is _missing_, a rules-less file was
+  silently treated as the rule contract and every project rule vanished from context.
+  The writer now prepends an explicit fallback marker to any written artifact that
+  carries no rule manifest, so a bootstrap-obedient agent always knows to load the rules
+  in full. A populated store is unchanged (byte-identical).
+- 49db0e3: Ship `paqad-ai spec freeze` and activate the built-but-dead spec sign-off engine
+  (#317). The `src/spec/` freeze machinery (build → evaluate → freeze → write frozen
+  sidecar) was fully implemented and tested but had no caller and no instruction naming
+  it, so the "spec frozen and signed off before code" promise was enforced by nothing.
+  The new `spec freeze <spec-file>` verb wires the existing engine end to end: it prints
+  every freeze blocker and exits non-zero (nothing written) when the spec is not
+  freezable, and on a clean spec writes the frozen sidecar at `.paqad/specs/<id>.frozen.json`.
+  The specification-stage instructions and the feature-development rule now name the
+  command so the agent runs it. No freeze logic is reimplemented.
+- 49db0e3: Build the deterministic check runner and stop assuming tests passed (#318). The
+  `checks` stage is meant to be 100% deterministic — run format/test/build and block
+  on red — but nothing executed the commands: the resolver had no caller and the
+  completion backstop hardcoded `code_tests_lint_passed: true`, so a change with
+  failing tests could still be reported green by the framework layer.
+
+  New `paqad-ai checks run` verb resolves the project's mapped commands, executes
+  them, and persists one `StructuredTestResult` per command (the shape the
+  `code-tests-lint` gate already consumes) to `.paqad/checks/last-run.json`; it exits
+  non-zero on any red. The completion backstop now reads that report: it populates
+  `structured_test_results`, derives `code_tests_lint_passed` from real execution (no
+  longer a hardcoded `true`), and replaces the `code-tests-lint` gate's skipped
+  placeholder with the report-driven verdict — a red report blocks the completion
+  verdict, a green one passes, and an absent report reads as Inconclusive rather than
+  a vacuous green. Deterministic throughout: a command's exit code is the verdict.
+
+- 49db0e3: Arm the rule-scripts gate by generating the rule-script map at onboarding (#319).
+  paqad's deterministic, no-LLM rule enforcement engine was live but disarmed on every
+  fresh project: `rule-script-map.yml` — the map linking rules to their compiled
+  scripts — was produced by no code path, so the enforcement seam fast-skipped on the
+  missing map and the gate passed by default. And the strictness a team set in
+  `feature-development.yaml` (`checks.rule_compliance.mode`) was read from a different
+  surface at runtime (`.config`, default `warn`), so a team asking for `strict` silently
+  got `warn`.
+
+  New `paqad-ai rules compile` verb (and `compileRuleScripts`) generates the map from
+  the rule tree — embedding stable rule ids and listing every rule via the existing
+  analyzer + atomic-writer, carrying over any bound scripts — and the onboarding
+  orchestrator now runs it after the rule refresh, so a fresh project is armed. The
+  strictness resolver now folds the project's on-disk `feature-development.yaml`
+  `rule_compliance.mode` as a real, team-tracked floor (stricter of it and `.config`
+  wins; local/env may only raise), and the policy merge no longer silently drops
+  `rule_compliance` when a project supplies its own workflow file. No enforcement or
+  atomic-apply logic is reimplemented.
+
 ## 1.46.2
 
 ### Patch Changes
