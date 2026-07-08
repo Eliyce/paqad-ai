@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -33,7 +33,19 @@ export class ModuleDocsStructureGate implements Gate {
       return createPass(this.gate, 'No module feature documentation changes detected');
     }
 
-    const invalidFeatureDoc = moduleDocPaths.find((filePath) => isInvalidFeatureDocPath(filePath));
+    // #313 finding 2 (same family as #310): a flat `docs/modules/{module}/
+    // features/{feature}.md` layout is a legitimate repo-wide convention. When it
+    // already exists on disk, this change did NOT introduce the non-compliant
+    // path — it merely touched a pre-existing file — so blocking here would force
+    // the agent to REVERT a correct doc-sync. Scope the structure check to the
+    // paths this change is responsible for: ignore flat feature docs once the flat
+    // convention is established repo-wide. A lone flat doc introduced into an
+    // otherwise-nested repo still fails.
+    const scopedPaths = hasPreexistingFlatFeatureDocs(context.project_root, new Set(changedFiles))
+      ? moduleDocPaths.filter((filePath) => !isFlatFeatureDoc(filePath))
+      : moduleDocPaths;
+
+    const invalidFeatureDoc = scopedPaths.find((filePath) => isInvalidFeatureDocPath(filePath));
     if (invalidFeatureDoc) {
       return createFail(
         this.gate,
@@ -42,7 +54,7 @@ export class ModuleDocsStructureGate implements Gate {
       );
     }
 
-    const scopes = collectTouchedFeatureScopes(moduleDocPaths);
+    const scopes = collectTouchedFeatureScopes(scopedPaths);
     if (scopes.length === 0) {
       return createPass(this.gate, 'No module feature documentation changes detected');
     }
@@ -88,6 +100,67 @@ function normalizePath(filePath: string): string {
 
 function isUnderPath(filePath: string, prefix: string): boolean {
   return filePath === prefix.slice(0, -1) || filePath.startsWith(prefix);
+}
+
+/**
+ * True for a flat feature doc `docs/modules/{module}/features/{feature}.md`
+ * (5 segments) — the alternative to the nested `features/{feature}/{business,
+ * technical,api}.md` layout.
+ */
+function isFlatFeatureDoc(filePath: string): boolean {
+  const segments = filePath.split('/');
+  return (
+    segments.length === 5 &&
+    segments[0] === 'docs' &&
+    segments[1] === 'modules' &&
+    segments[2].length > 0 &&
+    segments[3] === 'features' &&
+    segments[4].length > '.md'.length &&
+    segments[4].endsWith('.md')
+  );
+}
+
+/**
+ * True when at least one flat feature doc already exists on disk under
+ * `docs/modules/{module}/features/` that is NOT part of the current change
+ * (`changedSet`) — evidence the flat layout is the repo's established convention,
+ * not something this change introduced. Best-effort: any fs error → false.
+ */
+function hasPreexistingFlatFeatureDocs(projectRoot: string, changedSet: Set<string>): boolean {
+  const modulesRoot = join(projectRoot, 'docs', 'modules');
+  if (!existsSync(modulesRoot)) {
+    return false;
+  }
+  let moduleEntries: string[];
+  try {
+    moduleEntries = readdirSync(modulesRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    // Defensive: existsSync already guards absence; a docs/modules that exists but
+    // is unreadable (permission flip / not a directory) is not reachable through
+    // the test fixture, which always creates it as a readable directory.
+    /* v8 ignore next 2 */
+  } catch {
+    return false;
+  }
+  for (const moduleName of moduleEntries) {
+    const featuresDir = join(modulesRoot, moduleName, 'features');
+    let featureEntries: string[];
+    try {
+      featureEntries = readdirSync(featuresDir, { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+        .map((entry) => entry.name);
+    } catch {
+      continue;
+    }
+    for (const filename of featureEntries) {
+      const relativePath = `docs/modules/${moduleName}/features/${filename}`;
+      if (!changedSet.has(relativePath)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function isInvalidFeatureDocPath(filePath: string): boolean {
