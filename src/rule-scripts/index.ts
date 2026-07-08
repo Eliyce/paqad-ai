@@ -8,6 +8,7 @@ export * from './rule-file.js';
 export * from './map.js';
 export * from './apply.js';
 export * from './analyzer.js';
+export * from './compile.js';
 export * from './validate.js';
 export * from './header.js';
 export * from './execute.js';

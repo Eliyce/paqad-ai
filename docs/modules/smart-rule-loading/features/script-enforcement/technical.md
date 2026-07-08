@@ -37,8 +37,15 @@
 - `RuleViolation { rule_id, script, file, line?, message, severity }` — the
   flattened deterministic findings.
 - `blocking = mode === 'strict' && deterministic findings > 0` (from the runner).
-- Mode resolved by the hook from layered `rule_compliance` / `PAQAD_RULE_COMPLIANCE`
-  (default `warn`), floored — the team value is a floor; local/env may only RAISE.
+- Mode resolved by `resolveRuleComplianceMode` from layered, floored surfaces
+  (default `warn`; local `.config` / `PAQAD_RULE_COMPLIANCE` may only RAISE). The
+  team FLOOR is the stricter of the merged `configs/.config.*` `rule_compliance`
+  value and the project's own `feature-development.yaml`
+  `checks.rule_compliance.mode` (issue #319). The workflow-yaml knob used to be a
+  placebo — read into the policy object but ignored by the resolver — so a team that
+  set `strict` there silently got `warn`; it is now a real input. The resolver reads
+  the RAW on-disk workflow file (an explicit team decision), not the merged policy,
+  so the framework default is not force-flipped to strict.
 - **Integrity (buildout F5, decision D1 audit).** The engine writes a digest of the
   blessed map + scripts into `.paqad/capability-lock.json` at apply time (the
   single-writer path in `apply.ts`). Before enforcing, the rule-scripts capability
@@ -66,6 +73,22 @@
   `pre-mutation` seam) and `Stop` (`completion` seam). `PAQAD_LIVE_HOOKS` is
   intentionally untouched (cross-provider rollout of the kernel seam is a
   follow-up).
+
+## Map generation (issue #319)
+
+- `src/rule-scripts/compile.ts` — `compileRuleScripts(projectRoot)` GENERATES the
+  `rule-script-map.yml` the whole engine depends on. It reuses the analyzer's
+  deterministic mechanics (`scanAndEmbedIds` to embed stable rule ids,
+  `assembleMap` to list every rule) and the atomic writer (`applyRuleScriptMap`).
+  It authors no scripts and makes no judgement (that is the rule-analyzer skill);
+  scripts already bound carry over for rules whose text is unchanged. Idempotent.
+- `src/cli/commands/rules.ts` — `paqad-ai rules compile`, the verb the agent runs
+  mid-turn / re-runs on rule changes.
+- The onboarding orchestrator invokes `compileRuleScripts` after the rule tree is
+  written and before the rule-context write, so a fresh project ships with the map
+  and the gate is ARMED. Previously nothing produced the map, so enforcement
+  fast-skipped on the missing map and the gate passed by default — the engine was
+  built but disarmed.
 
 ## State Management
 

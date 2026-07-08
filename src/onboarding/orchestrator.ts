@@ -35,6 +35,7 @@ import { getPackTestRunners } from '@/packs/project-packs.js';
 import { Resolver } from '@/resolver/resolver.js';
 import { writeStackArtifacts } from '@/stack-docs/generator.js';
 import { SchemaValidator } from '@/validators/validator.js';
+import { compileRuleScripts } from '@/rule-scripts/compile.js';
 import {
   compileRules,
   DecisionStore,
@@ -333,6 +334,19 @@ export class OnboardingOrchestrator {
     } catch (error) {
       onboardingWarnings.push(
         `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
+      );
+    }
+    // Issue #319 — arm the rules-as-scripts gate. Generate `rule-script-map.yml`
+    // from the freshly written rule tree so the enforcement seam has a map to run
+    // (without it, enforcement fast-skips and the deterministic gate is disarmed).
+    // Runs after the rule tree is on disk and BEFORE the rule-context write below,
+    // so the manifest correctly marks script-enforced rules. Non-fatal: a failure
+    // only leaves the gate disarmed this run, never blocks onboarding.
+    try {
+      compileRuleScripts(options.projectRoot);
+    } catch (error) {
+      onboardingWarnings.push(
+        `Rule-script map compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
     // RAG buildout F4/F5 — (re)generate the rule slice of the session-context

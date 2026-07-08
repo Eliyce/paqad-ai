@@ -103,6 +103,9 @@ describe('OnboardingOrchestrator', () => {
       existsSync(join(projectRoot, 'docs/instructions/workflows/feature-development.yaml')),
     ).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/compiled-rules.json'))).toBe(true);
+    // Issue #319 — onboarding now generates the rule-script map, arming the
+    // deterministic enforcement gate instead of leaving it disarmed on a missing map.
+    expect(existsSync(join(projectRoot, 'docs/instructions/rules/rule-script-map.yml'))).toBe(true);
     // Module-health profiles are no longer eagerly seeded; they are created on
     // demand when a module first accrues real evidence.
     expect(existsSync(join(projectRoot, '.paqad/module-health/core.json'))).toBe(false);

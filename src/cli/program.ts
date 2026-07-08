@@ -23,6 +23,7 @@ import { createPacksCommand } from './commands/packs.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRagEvidenceCommand } from './commands/rag-evidence.js';
 import { createRefreshCommand } from './commands/refresh.js';
+import { createRulesCommand } from './commands/rules.js';
 import { createSpecCommand } from './commands/spec.js';
 import { createStageCommand } from './commands/stage.js';
 import { createStatusCommand } from './commands/status.js';
@@ -56,6 +57,7 @@ export function createProgram(): Command {
   program.addCommand(createEnableCommand());
   program.addCommand(createDisableCommand());
   program.addCommand(createRefreshCommand());
+  program.addCommand(createRulesCommand());
   program.addCommand(createRagCommand());
   program.addCommand(createRagEvidenceCommand());
   program.addCommand(createUpdateCommand());

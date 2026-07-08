@@ -12,6 +12,7 @@ import type {
   FeatureDevelopmentPolicy,
   FeatureDevelopmentPolicyLoadResult,
   FeatureDevelopmentRoundsPolicy,
+  FeatureDevelopmentRuleCompliancePolicy,
   FeatureDevelopmentStageName,
   FeatureDevelopmentStagePolicy,
   ResolvedFeatureDevelopmentCheckCommand,
@@ -53,6 +54,26 @@ const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Reco
 
 export function featureDevelopmentPolicyPath(projectRoot: string): string {
   return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
+}
+
+/**
+ * The `checks.rule_compliance.mode` a project has EXPLICITLY committed in its own
+ * `feature-development.yaml` (issue #319), or undefined when there is no file or it
+ * does not set the field. Deliberately reads the raw on-disk file, NOT the merged
+ * policy — the merged policy injects the framework default (`strict`), so reading it
+ * would flip strict on universally rather than honouring an explicit team decision.
+ * Best-effort: a missing or unparseable file yields undefined.
+ */
+export function readProjectRuleComplianceModeOverride(projectRoot: string): string | undefined {
+  const path = featureDevelopmentPolicyPath(projectRoot);
+  if (!existsSync(path)) return undefined;
+  try {
+    const parsed = YAML.parse(readFileSync(path, 'utf8')) as RawFeatureDevelopmentPolicy | null;
+    const mode = parsed?.stages?.checks?.rule_compliance?.mode;
+    return typeof mode === 'string' ? mode : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
@@ -406,6 +427,19 @@ function mergeFeatureDevelopmentPolicy(
                 defaultChecks?.block_on_failure === true ||
                 defaultStage.strictness.block_on_failure === true,
             },
+      // Preserve the rules-as-scripts gate config through the merge (issue #319).
+      // The old merge rebuilt only `checks` and silently dropped `rule_compliance`
+      // when a project supplied its own feature-development.yaml — so the strictness
+      // a team declared in the workflow file never reached the resolver. Field-merge
+      // it (project fields win over the default) so the yaml knob is a real input.
+      ...(defaultStage.rule_compliance || rawStage.rule_compliance
+        ? {
+            rule_compliance: {
+              ...defaultStage.rule_compliance,
+              ...(rawStage.rule_compliance ?? {}),
+            } as FeatureDevelopmentRuleCompliancePolicy,
+          }
+        : {}),
     };
   }
 
