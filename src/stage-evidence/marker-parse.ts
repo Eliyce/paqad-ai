@@ -15,8 +15,13 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { recordMarkedStage, type MarkedStagePhase } from './live-writer.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from './types.js';
 
-/** A `paqad:stage <stage> <start|end>` line, anchored to its own line. */
-const MARKER = /^[ \t>*-]*paqad:stage\s+([a-z_]+)\s+(start|end)\s*$/gim;
+/**
+ * A `paqad:stage <stage> <start|end>` line, anchored to its own line. A stage-end may
+ * carry an artifact the recorder hashes to prove the stage produced real work (issue
+ * #320): `paqad:stage <stage> end -- <artifact-path>`. The path (group 3) is optional
+ * and only meaningful on an `end`; `start` never takes one.
+ */
+const MARKER = /^[ \t>*-]*paqad:stage\s+([a-z_]+)\s+(start|end)(?:\s+--\s+(\S+))?\s*$/gim;
 
 export interface MarkerParseInput {
   projectRoot: string;
@@ -35,6 +40,9 @@ export interface MarkerParseInput {
 export interface Marker {
   stage: string;
   phase: MarkedStagePhase;
+  /** Project-relative artifact path carried by a `... end -- <path>` marker (issue
+   *  #320). Undefined for a bare marker or any `start`. */
+  artifactPath?: string;
 }
 
 /** Pull assistant-authored text from a JSONL transcript, ignoring user/system/tool
@@ -92,7 +100,10 @@ export function extractMarkers(text: string): Marker[] {
   MARKER.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = MARKER.exec(text)) !== null) {
-    out.push({ stage: match[1], phase: match[2] as MarkedStagePhase });
+    const marker: Marker = { stage: match[1], phase: match[2] as MarkedStagePhase };
+    // An artifact path is only meaningful on an `end` — ignore one on a `start`.
+    if (marker.phase === 'end' && match[3]) marker.artifactPath = match[3];
+    out.push(marker);
   }
   return out;
 }
@@ -124,7 +135,7 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
     }
 
     const recorded: Marker[] = [];
-    for (const { stage, phase } of markers) {
+    for (const { stage, phase, artifactPath } of markers) {
       const key = `${stage}:${phase}`;
       if (seen.has(key)) continue;
       if (
@@ -132,12 +143,13 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
           sessionId,
           stage,
           phase,
+          artifactPaths: artifactPath ? [artifactPath] : undefined,
           adapter: input.adapter,
           now: input.now,
         })
       ) {
         seen.add(key);
-        recorded.push({ stage, phase });
+        recorded.push({ stage, phase, artifactPath });
       }
     }
     return recorded;

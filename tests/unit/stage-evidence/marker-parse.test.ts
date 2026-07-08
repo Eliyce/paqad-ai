@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,6 +26,22 @@ describe('extractMarkers', () => {
   it('tolerates blockquote/list prefixes but not inline mentions', () => {
     const text = '> paqad:stage review start\nplease do paqad:stage review end inline\n';
     expect(extractMarkers(text)).toEqual([{ stage: 'review', phase: 'start' }]);
+  });
+
+  it('parses an artifact path on a stage-end (`end -- <path>`) — issue #320', () => {
+    const text = 'paqad:stage planning start\npaqad:stage planning end -- .paqad/plans/320.md\n';
+    expect(extractMarkers(text)).toEqual([
+      { stage: 'planning', phase: 'start' },
+      { stage: 'planning', phase: 'end', artifactPath: '.paqad/plans/320.md' },
+    ]);
+  });
+
+  it('ignores an artifact suffix on a start (only an end carries one)', () => {
+    // A start with a trailing `-- x` is not the artifact grammar; the whole line must
+    // still match the bare-start shape, so the suffix is simply not captured.
+    expect(extractMarkers('paqad:stage planning start -- x\n')).toEqual([
+      { stage: 'planning', phase: 'start' },
+    ]);
   });
 });
 
@@ -58,6 +74,33 @@ describe('parseAndRecordMarkers', () => {
     const start = rows().find((r) => r.kind === 'stage_start' && r.stage === 'planning');
     expect(start?.evidence_source).toBe('live-mark');
     expect(rows().some((r) => r.kind === 'stage_end' && r.stage === 'planning')).toBe(true);
+  });
+
+  it('populates artifact_digest from a real file on an `end -- <path>` marker (#320)', () => {
+    writeFileSync(join(root, 'plan.md'), '# a real plan with content\n');
+    const transcript = [
+      msg('assistant', 'Planning.\npaqad:stage planning start'),
+      msg('assistant', 'Done.\npaqad:stage planning end -- plan.md'),
+    ].join('\n');
+    const recorded = parseAndRecordMarkers({
+      projectRoot: root,
+      transcriptText: transcript,
+      sessionId: SES,
+    });
+    expect(recorded).toContainEqual({ stage: 'planning', phase: 'end', artifactPath: 'plan.md' });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    expect(typeof end?.artifact_digest).toBe('string');
+    expect(end?.artifact_digest).toMatch(/^sha256-/);
+  });
+
+  it('leaves artifact_digest null when the `end -- <path>` file is missing (#320)', () => {
+    const transcript = msg(
+      'assistant',
+      'paqad:stage planning start\npaqad:stage planning end -- does-not-exist.md',
+    );
+    parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    expect(end?.artifact_digest ?? null).toBeNull();
   });
 
   it('ignores a marker quoted in a NON-assistant (user) message', () => {

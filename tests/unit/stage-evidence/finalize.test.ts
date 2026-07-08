@@ -4,16 +4,29 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { mkdirSync } from 'node:fs';
+
 import {
   endStage,
   finalizeStageEvidence,
+  isArtifactBearingStage,
   openStageEvidence,
   STAGE_EVIDENCE_DOC_TYPE,
   startStage,
+  type EndStageInput,
 } from '@/stage-evidence/index.js';
 import { readSessionDoc } from '@/session-ledger/ledger.js';
 
 const ADAPTER = 'backstop';
+
+/** End-stage args satisfying the #320 artifact requirement for a thinking stage. */
+function provenEndArgs(root: string, stage: string): EndStageInput {
+  if (!isArtifactBearingStage(stage)) return {};
+  const rel = `.paqad/artifacts/${stage}.md`;
+  mkdirSync(join(root, '.paqad', 'artifacts'), { recursive: true });
+  writeFileSync(join(root, rel), `# ${stage} artifact\n`);
+  return { artifactPaths: [rel] };
+}
 
 describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
   let root: string;
@@ -42,7 +55,11 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'documentation_sync',
     ]) {
       startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
-      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(root, stage), {
+        sessionId,
+        ordinal,
+        adapter: 'claude-code',
+      });
     }
     const result = finalizeStageEvidence(root, {
       adapter: ADAPTER,
@@ -100,7 +117,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
   });
 
-  it('#270: anchors a review the agent left open at the completion seam → complete', () => {
+  it('#270/#320: anchors a review the agent left open, but an artifact-less review is inconclusive', () => {
     const sessionId = 'ses_late_review';
     const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     // Build order: the live writer stamps checks/docs during the build…
@@ -112,11 +129,17 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'documentation_sync',
     ]) {
       startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
-      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(root, stage), {
+        sessionId,
+        ordinal,
+        adapter: 'claude-code',
+      });
     }
     // …then the agent emits `paqad:stage review start` while reviewing the finished
-    // diff, but the turn ends before the `end` marker. The completion seam must
-    // anchor (close) it, not reject it — a review after checks/docs is legitimate.
+    // diff, but the turn ends before the `end` marker. The completion seam still
+    // anchors (closes) it — #270 — but with no findings artifact the review proves no
+    // work, so #320 folds it inconclusive → the change is honestly incomplete, never a
+    // false complete. To pass, the agent must end review with a real findings file.
     startStage(root, 'review', { sessionId, ordinal, adapter: 'claude-code' });
 
     const result = finalizeStageEvidence(root, {
@@ -125,11 +148,15 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       changedFilesCount: 1,
     });
 
-    expect(result?.verdict).toBe('complete');
-    expect(result?.ok).toBe(true);
+    expect(result?.verdict).toBe('incomplete');
+    expect(result?.ok).toBe(false);
+    expect(result?.missing_stages).toContain('review');
     const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
     const reviewEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'review');
-    expect(reviewEnd, 'finalize should anchor the open review at completion').toBeDefined();
+    expect(
+      reviewEnd,
+      'finalize should still anchor the open review at completion (#270)',
+    ).toBeDefined();
     expect(reviewEnd?.evidence_source).toBe('live-mark');
   });
 

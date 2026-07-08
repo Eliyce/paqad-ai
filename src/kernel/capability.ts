@@ -32,7 +32,7 @@ import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { isFeatureDevEdit } from '@/stage-evidence/scope.js';
-import { PRE_CODE_STAGES } from '@/stage-evidence/stages.js';
+import { isArtifactBearingStage, PRE_CODE_STAGES } from '@/stage-evidence/stages.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import { readCapabilityDigest } from './capability-lock.js';
@@ -249,12 +249,21 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
   const verb = blocking ? 'Needs your attention' : 'Heads up';
   const glyph = blocking ? '🔴' : '🟡';
   const tail = blocking ? '' : ' (warn mode, not blocking)';
+  // Artifact-bearing stages (planning/specification/review) must reference a real file
+  // at the end so the recorder can hash it — a bare marker pair no longer clears the
+  // block (issue #320). Teach the `-- <path>` grammar for those; a plain end otherwise.
+  const endMarker = isArtifactBearingStage(stage)
+    ? `\`paqad:stage ${stage} end -- <artifact-path>\` (a real, non-empty file — e.g. a plan/spec/findings file)`
+    : `\`paqad:stage ${stage} end\``;
+  const endCli = isArtifactBearingStage(stage)
+    ? `\`npx paqad-ai stage end ${stage} --artifact <artifact-path>\``
+    : `\`npx paqad-ai stage end ${stage}\``;
   return (
     `**▸ paqad** · run ${stage} before you change code\n` +
     `> ${glyph} ${verb} — the feature-development workflow needs the **${stage}** stage recorded ` +
-    `before this edit. Mark it: emit \`paqad:stage ${stage} start\` and \`paqad:stage ${stage} end\` ` +
+    `before this edit. Mark it: emit \`paqad:stage ${stage} start\` and ${endMarker} ` +
     `each on its own line (parsed before the next edit, so they clear this block in the same turn), ` +
-    `or run \`npx paqad-ai stage start ${stage}\` then \`npx paqad-ai stage end ${stage}\`. Set ` +
+    `or run \`npx paqad-ai stage start ${stage}\` then ${endCli}. Set ` +
     `stages_mode=warn/off in .paqad/configs/.config.policy to adopt the workflow before ` +
     `enforcing.${tail}`
   );
@@ -345,8 +354,14 @@ const stagesCapability: Capability = {
     const byStage = new Map(fold.stages.map((stage) => [stage.stage, stage]));
     for (const stage of prefix) {
       const folded = byStage.get(stage);
+      // A recorded start+end pair is necessary but not sufficient for a thinking stage
+      // (issue #320): planning/specification are artifact-bearing, so the end must also
+      // carry a real artifact digest — a bare marker pair (or a missing/empty file, which
+      // hashes to null) does NOT unblock. The marker sweep above records an
+      // artifact-bearing end in this same turn, so remediation still clears in one turn.
       const hasPair = Boolean(folded?.started_at && folded?.ended_at);
-      if (!hasPair) {
+      const hasArtifact = !isArtifactBearingStage(stage) || Boolean(folded?.artifact_digest);
+      if (!hasPair || !hasArtifact) {
         return { ran: true, blocking, summary: formatMissingStageSummary(stage, mode), narration };
       }
     }

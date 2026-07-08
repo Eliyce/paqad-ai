@@ -10,6 +10,7 @@ import { readSessionUnit, type SessionLedgerRow } from '@/session-ledger/ledger.
 
 import { changeKey } from './recorder.js';
 import {
+  isArtifactBearingStage,
   isCompletionAnchoredStage,
   isMandatoryStage,
   STAGE_EVIDENCE_STAGES,
@@ -86,7 +87,7 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[]): FoldedStag
 
   return {
     stage,
-    state: deriveState(events, start, end),
+    state: deriveState(stage, events, start, end),
     started_at: startedAt,
     ended_at: endedAt,
     duration_ms: durationMs,
@@ -107,6 +108,7 @@ function coerceEvidenceSource(value: unknown): StageEvidenceSource {
 }
 
 function deriveState(
+  stage: string,
   events: readonly SessionLedgerRow[],
   start: SessionLedgerRow | undefined,
   end: SessionLedgerRow | undefined,
@@ -123,6 +125,13 @@ function deriveState(
     // agree a stage needs a start. The inferred-git backstop is exempt: it
     // deliberately writes an end-only `development` row to represent an untracked diff.
     if (!start && end.evidence_source !== 'inferred-git') return 'inconclusive';
+    // Artifact honesty (issue #320): a thinking stage (planning/specification/review)
+    // whose end carries no real artifact digest proves no work happened — two adjacent
+    // marker lines satisfy the pair but hash nothing. It is inconclusive, never
+    // silently `complete`. Mutation stages are exempt: the observed edit is their proof.
+    if (isArtifactBearingStage(stage) && typeof end.artifact_digest !== 'string') {
+      return 'inconclusive';
+    }
     return 'complete';
   }
   if (start) return 'running';

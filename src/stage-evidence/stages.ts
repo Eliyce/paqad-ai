@@ -52,9 +52,33 @@ export const PRE_CODE_STAGES: readonly StageId[] = MANDATORY_STAGES.slice(
  */
 export const COMPLETION_ANCHORED_STAGES: readonly StageId[] = ['review'];
 
+/**
+ * Stages whose end must reference a real, non-empty artifact to count as done (issue
+ * #320). These are the non-mutation "thinking" stages — `planning`, `specification`,
+ * `review` — whose only evidence would otherwise be a bare `paqad:stage` marker the
+ * agent prints, which two adjacent lines satisfy with no work between them. Requiring
+ * an artifact (plan file, frozen spec, findings file) whose bytes the recorder hashes
+ * turns the marker from "claimed" into "proven".
+ *
+ * The mutation stages (`development`, `checks`, `documentation_sync`) are deliberately
+ * excluded: their evidence is the OBSERVED file edit the live writer stamps, so gating
+ * them on an artifact digest would demand a second, redundant proof for a mutation the
+ * ledger already witnessed.
+ */
+export const ARTIFACT_BEARING_STAGES: readonly StageId[] = ['planning', 'specification', 'review'];
+
 /** True when `stage` is a known stage id. */
 export function isKnownStage(stage: string): stage is StageId {
   return (STAGE_EVIDENCE_STAGES as readonly string[]).includes(stage);
+}
+
+/**
+ * True when `stage`'s end must carry a real artifact to be considered complete (see
+ * {@link ARTIFACT_BEARING_STAGES}). Used by the fold (null digest → inconclusive) and
+ * the pre-code gate (a bare marker pair does not unblock).
+ */
+export function isArtifactBearingStage(stage: string): boolean {
+  return (ARTIFACT_BEARING_STAGES as readonly string[]).includes(stage);
 }
 
 /**

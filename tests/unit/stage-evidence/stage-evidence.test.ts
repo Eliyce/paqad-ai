@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,6 +10,7 @@ import {
   endStage,
   foldChange,
   foldRows,
+  isArtifactBearingStage,
   isCompletionAnchoredStage,
   isMandatoryStage,
   openStageEvidence,
@@ -18,8 +19,31 @@ import {
   startStage,
   validateStageEvidenceRow,
   verifyChange,
+  type EndStageInput,
 } from '@/stage-evidence/index.js';
 import { readSessionDoc, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+
+/**
+ * End-stage args that satisfy the #320 artifact requirement: for a thinking stage
+ * (planning/specification/review) write a real, non-empty artifact and reference it, so
+ * the stage folds to `complete` under the new contract; a mutation stage needs none.
+ */
+function provenEndArgs(root: string, stage: string): EndStageInput {
+  if (!isArtifactBearingStage(stage)) return {};
+  const rel = `.paqad/artifacts/${stage}.md`;
+  mkdirSync(join(root, '.paqad', 'artifacts'), { recursive: true });
+  writeFileSync(join(root, rel), `# ${stage} artifact\n`);
+  return { artifactPaths: [rel] };
+}
+
+/** A synthetic sha256 artifact digest for hand-built fold rows (#320). */
+const FAKE_DIGEST = `sha256-${'a'.repeat(64)}`;
+
+/** Artifact-digest field for a hand-built stage_end row: a thinking stage needs one to
+ *  fold `complete` (#320); a mutation stage leaves it null (the edit is its evidence). */
+function digestFor(stage: string): { artifact_digest?: string } {
+  return isArtifactBearingStage(stage) ? { artifact_digest: FAKE_DIGEST } : {};
+}
 
 /** A clock that advances `stepMs` on each call, for deterministic durations. */
 function clock(startMs = 1_000_000, stepMs = 1000): () => Date {
@@ -46,7 +70,12 @@ describe('stage-evidence ledger (#247)', () => {
     const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
     for (const stage of stages) {
       startStage(root, stage, { sessionId, ordinal, adapter: ADAPTER, now });
-      endStage(root, stage, {}, { sessionId, ordinal, adapter: ADAPTER, now });
+      endStage(root, stage, provenEndArgs(root, stage), {
+        sessionId,
+        ordinal,
+        adapter: ADAPTER,
+        now,
+      });
     }
     return ordinal;
   }
@@ -190,25 +219,31 @@ describe('stage-evidence ledger (#247)', () => {
     );
   });
 
-  it('hashes a named-but-missing artifact to an absent marker, never a false digest', () => {
+  it('yields a null artifact_digest for a named-but-missing or empty artifact (#320)', () => {
+    // #320 inverts the old behaviour: a missing/empty artifact must NOT produce a
+    // digest — otherwise a thinking stage could name a nonexistent file and still look
+    // proven. A null digest folds the stage `inconclusive`, never `complete`.
     const sessionId = 'ses_absent';
     const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
     startStage(root, 'planning', { sessionId, ordinal, adapter: ADAPTER });
-    const a = endStage(
+    const missing = endStage(
       root,
       'planning',
       { artifactPaths: ['nope.md'] },
       { sessionId, ordinal, adapter: ADAPTER },
     );
-    const b = endStage(
+    expect(missing.artifact_digest).toBeNull();
+
+    // An empty (0-byte) file is likewise not substantive → null.
+    writeFileSync(join(root, 'empty.md'), '');
+    startStage(root, 'specification', { sessionId, ordinal, adapter: ADAPTER });
+    const empty = endStage(
       root,
       'specification',
-      { artifactPaths: ['also-missing.md'] },
+      { artifactPaths: ['empty.md'] },
       { sessionId, ordinal, adapter: ADAPTER },
     );
-    // Both hash a real (absent) fact, but to DIFFERENT digests (path is folded in).
-    expect(a.artifact_digest).toMatch(/^sha256-/);
-    expect(a.artifact_digest).not.toBe(b.artifact_digest);
+    expect(empty.artifact_digest).toBeNull();
   });
 
   it('verify resolves the open change when no ordinal is passed, and throws when none is open', () => {
@@ -254,15 +289,31 @@ describe('foldRows edge cases (#247)', () => {
     let t = 1000;
     for (const stage of mandatory) {
       rows.push(row({ kind: 'stage_start', stage, event_status: 'started', ts: iso(t) }));
-      rows.push(row({ kind: 'stage_end', stage, event_status: 'completed', ts: iso(t + 100) }));
+      rows.push(
+        row({
+          kind: 'stage_end',
+          stage,
+          event_status: 'completed',
+          ts: iso(t + 100),
+          ...digestFor(stage),
+        }),
+      );
       t += 200;
     }
-    // Inject an overlap: re-end `planning` long AFTER `specification` started.
+    // Inject an overlap: re-end `planning` long AFTER `specification` started. The
+    // re-end is the last planning end, so it must carry a digest too (planning is
+    // artifact-bearing) or the stage would fold inconclusive and hide the ordering test.
     rows.push(
       row({ kind: 'stage_start', stage: 'planning', event_status: 'started', ts: iso(900) }),
     );
     rows.push(
-      row({ kind: 'stage_end', stage: 'planning', event_status: 'completed', ts: iso(5000) }),
+      row({
+        kind: 'stage_end',
+        stage: 'planning',
+        event_status: 'completed',
+        ts: iso(5000),
+        ...digestFor('planning'),
+      }),
     );
 
     const fold = foldRows(rows, 'ses', 1);
@@ -320,7 +371,15 @@ describe('foldRows edge cases (#247)', () => {
     for (const stage of mandatory) {
       const status = stage === 'review' ? 'redone' : 'started';
       rows.push(row({ kind: 'stage_start', stage, event_status: status, ts: iso(t) }));
-      rows.push(row({ kind: 'stage_end', stage, event_status: 'completed', ts: iso(t + 100) }));
+      rows.push(
+        row({
+          kind: 'stage_end',
+          stage,
+          event_status: 'completed',
+          ts: iso(t + 100),
+          ...digestFor(stage),
+        }),
+      );
       t += 200;
     }
     expect(foldRows(rows, 'ses', 1).completeness.verdict).toBe('recovered');
@@ -351,7 +410,7 @@ describe('completion-anchored review (#270)', () => {
     const ctx = { sessionId, ordinal, adapter: ADAPTER, now };
     for (const stage of BUILD_ORDER) {
       startStage(root, stage, ctx);
-      endStage(root, stage, {}, ctx);
+      endStage(root, stage, provenEndArgs(root, stage), ctx);
     }
     return ordinal;
   }
@@ -370,7 +429,7 @@ describe('completion-anchored review (#270)', () => {
     const ctx = { sessionId: 'ses_late_start', ordinal, adapter: ADAPTER, now };
     // review is canonically before checks/docs; the strict recorder would throw here.
     expect(() => startStage(root, 'review', ctx)).not.toThrow();
-    endStage(root, 'review', {}, ctx);
+    endStage(root, 'review', provenEndArgs(root, 'review'), ctx);
     const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses_late_start');
     expect(rows.some((r) => r.kind === 'stage_start' && r.stage === 'review')).toBe(true);
     expect(rows.some((r) => r.kind === 'stage_end' && r.stage === 'review')).toBe(true);
@@ -381,7 +440,7 @@ describe('completion-anchored review (#270)', () => {
     const ordinal = recordBuild('ses_late', now);
     const ctx = { sessionId: 'ses_late', ordinal, adapter: ADAPTER, now };
     startStage(root, 'review', ctx);
-    endStage(root, 'review', {}, ctx);
+    endStage(root, 'review', provenEndArgs(root, 'review'), ctx);
 
     const fold = foldChange(root, 'ses_late', ordinal);
     expect(fold.completeness.ordering_violations).toEqual([]);
@@ -428,6 +487,39 @@ describe('completion-anchored review (#270)', () => {
     const planning = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'planning')!;
     expect(planning.state).toBe('inconclusive');
     expect(foldRows(rows, 'ses', 1).completeness.missing_stages).toContain('planning');
+  });
+
+  it('#320: an artifact-bearing stage with a start+end but no digest is inconclusive', () => {
+    const rows = [
+      foldRow({ kind: 'stage_start', stage: 'planning', ts: iso(1) }),
+      foldRow({ kind: 'stage_end', stage: 'planning', ts: iso(2) }), // no artifact_digest
+    ];
+    const planning = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'planning')!;
+    expect(planning.state).toBe('inconclusive');
+    expect(foldRows(rows, 'ses', 1).completeness.missing_stages).toContain('planning');
+  });
+
+  it('#320: an artifact-bearing stage WITH a digest folds complete', () => {
+    const rows = [
+      foldRow({ kind: 'stage_start', stage: 'planning', ts: iso(1) }),
+      foldRow({
+        kind: 'stage_end',
+        stage: 'planning',
+        ts: iso(2),
+        artifact_digest: `sha256-${'b'.repeat(64)}`,
+      }),
+    ];
+    const planning = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'planning')!;
+    expect(planning.state).toBe('complete');
+  });
+
+  it('#320: a mutation stage (development) with a start+end but no digest stays complete', () => {
+    const rows = [
+      foldRow({ kind: 'stage_start', stage: 'development', ts: iso(1) }),
+      foldRow({ kind: 'stage_end', stage: 'development', ts: iso(2) }), // no digest, but exempt
+    ];
+    const dev = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'development')!;
+    expect(dev.state).toBe('complete');
   });
 
   it('#310: an inferred-git backstop end (no start) still counts as complete (exempt)', () => {

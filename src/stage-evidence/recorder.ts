@@ -150,8 +150,16 @@ export function endStage(
   });
 }
 
-/** SHA-256 over the real on-disk bytes of each artifact, folded order-independently. */
-function hashArtifacts(projectRoot: string, artifactPaths: readonly string[]): string {
+/**
+ * SHA-256 over the real on-disk bytes of each artifact, folded order-independently.
+ * Returns `null` when NO referenced file yields real, non-empty bytes (all absent or
+ * empty) — so a stage that names a missing or empty artifact cannot masquerade as
+ * proven (issue #320). A missing/empty file still contributes a deterministic marker
+ * (`:absent` / `:empty`) to a mixed digest, so tampering with one of several real
+ * artifacts is still detected.
+ */
+function hashArtifacts(projectRoot: string, artifactPaths: readonly string[]): string | null {
+  let anyReal = false;
   const perFile = [...artifactPaths].sort().map((rel) => {
     const abs = join(projectRoot, rel);
     let bytes: Buffer;
@@ -163,8 +171,14 @@ function hashArtifacts(projectRoot: string, artifactPaths: readonly string[]): s
       // A named-but-missing artifact hashes its path, so it can't masquerade as real.
       return `${rel}:absent`;
     }
+    if (bytes.length === 0) {
+      // An empty file is not substantive evidence — mark it so, but don't count it.
+      return `${rel}:empty`;
+    }
+    anyReal = true;
     return `${rel}:${createHash('sha256').update(bytes).digest('hex')}`;
   });
+  if (!anyReal) return null;
   return `sha256-${createHash('sha256').update(perFile.join('\n')).digest('hex')}`;
 }
 

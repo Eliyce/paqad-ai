@@ -108,12 +108,14 @@ When you run the feature-development workflow, record each stage as you enter an
 ```
 paqad:stage planning start
 … planning work …
-paqad:stage planning end
+paqad:stage planning end -- .paqad/plans/<change>.md
 ```
 
 Emit the `start` marker as you begin the stage and the `end` marker as you finish it (`paqad:stage <stage> <start|end>`). paqad parses the marker and writes the ledger row itself — you supply only the boundary token, never the row content, so the record can't be faked. Every row paqad records this way is also narrated back to the developer as a `▸ paqad` line — the ledger write is never silent.
 
-**Code edits are gated on this.** Until `planning` and `specification` each carry a recorded start and end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, `npx paqad-ai stage start <stage>` / `npx paqad-ai stage end <stage>` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the `▸ paqad` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
+**A thinking stage must point at a real artifact.** planning, specification, and review each prove their work with a file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Write the plan/spec/findings file first, then end the stage against it. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
+
+**Code edits are gated on this.** Until `planning` and `specification` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, `npx paqad-ai stage start <stage>` / `npx paqad-ai stage end <stage> --artifact <path>` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the `▸ paqad` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 
 ## Plain-English translations
 

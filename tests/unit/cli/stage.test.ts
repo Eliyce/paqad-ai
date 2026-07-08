@@ -58,6 +58,26 @@ describe('paqad-ai stage command', () => {
     expect(recorded.every((r) => !r.stage || r.evidence_source === 'live-mark')).toBe(true);
   });
 
+  it('hashes an `--artifact` on end into artifact_digest, but ignores it on start (#320)', async () => {
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(join(root, 'plan.md'), '# a real plan\n');
+    // A start ignores an artifact (only an end carries one).
+    await run('start', 'planning', '--artifact', 'plan.md');
+    await run('end', 'planning', '--artifact', 'plan.md');
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    expect(typeof end?.artifact_digest).toBe('string');
+    expect(end?.artifact_digest).toMatch(/^sha256-/);
+    const start = rows().find((r) => r.kind === 'stage_start' && r.stage === 'planning');
+    expect(start?.artifact_digest ?? null).toBeNull();
+  });
+
+  it('leaves artifact_digest null when the --artifact file is missing (#320)', async () => {
+    await run('start', 'planning');
+    await run('end', 'planning', '--artifact', 'nope.md');
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    expect(end?.artifact_digest ?? null).toBeNull();
+  });
+
   it('narrates the mark in the ▸ paqad voice (ledger writes are never silent)', async () => {
     const startLines = await run('start', 'planning');
     expect(startLines.some((line) => line.startsWith('▸ paqad'))).toBe(true);
