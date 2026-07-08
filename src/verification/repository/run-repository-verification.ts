@@ -16,6 +16,7 @@ import type {
   VerificationOrigin,
 } from '@/core/types/verification.js';
 import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
+import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
 import {
   appendEvidenceRows,
@@ -226,6 +227,27 @@ export async function runRepositoryVerification(
     }
   }
 
+  // Issue #318 — the deterministic checks verdict. `code-tests-lint` is not one of
+  // the model-judgment gates the runner replays, so the evidence builder lists it
+  // as `skipped`. When the deterministic check report is present we REPLACE that
+  // skipped placeholder with the real result (`paqad-ai checks run` produced it):
+  // a red report blocks the completion verdict ("Needs your attention"), a green
+  // one passes. An absent report leaves the placeholder skipped, so the run reads
+  // Inconclusive (via the escalation) — never a vacuous green on unrun tests.
+  const checksGate = checksEvidenceGate(context.structured_test_results);
+  if (checksGate) {
+    const existingIndex = evidence.gates.findIndex((gate) => gate.name === 'code-tests-lint');
+    if (existingIndex >= 0) {
+      evidence.gates[existingIndex] = checksGate;
+    } else {
+      evidence.gates.push(checksGate);
+    }
+    if (checksGate.status === 'fail') {
+      evidence.overall_status = 'fail';
+      evidence.first_failure_gate ??= checksGate.name;
+    }
+  }
+
   let evidencePath: string | null = null;
   try {
     evidencePath = await writeVerificationEvidence(evidence, {
@@ -395,6 +417,54 @@ export function stageEvidenceGate(
     name,
     status: 'skipped',
     detail: skippedDetail(mode, origin, missing, result.live_marked),
+    remediation: null,
+    failures: [],
+  };
+}
+
+/**
+ * Map the deterministic check report (issue #318) to the `code-tests-lint`
+ * verification gate. Appended to the evidence directly (like the stage-evidence
+ * gate) rather than run through the model-judgment gate runner, because the
+ * signal is a command's exit code, not a re-judged artifact.
+ *
+ * - No structured results (`paqad-ai checks run` was not run, or nothing was
+ *   mapped) → `null`: the gate is omitted and the run reads Inconclusive via the
+ *   context escalation. Never a vacuous pass on unrun tests.
+ * - Any result reporting a failure/error → `fail` (the completion verdict blocks).
+ * - All results passing → `pass`.
+ */
+export function checksEvidenceGate(
+  results: StructuredTestResult[] | undefined,
+): VerificationEvidenceGate | null {
+  if (!results || results.length === 0) {
+    return null;
+  }
+  const name = 'code-tests-lint' as VerificationGate;
+  const failing = results.find((result) => result.summary.failed > 0 || result.summary.errored > 0);
+  if (failing) {
+    return {
+      name,
+      status: 'fail',
+      detail:
+        `Checks failed — "${failing.summary.runner_id}" reported ` +
+        `${failing.summary.failed} failing / ${failing.summary.errored} errored.`,
+      remediation: 'Fix the failing build, test, or lint signal and re-run `paqad-ai checks run`.',
+      failures: [],
+    };
+  }
+  const totals = results.reduce(
+    (aggregate, result) => {
+      aggregate.total += result.summary.total;
+      aggregate.passed += result.summary.passed;
+      return aggregate;
+    },
+    { total: 0, passed: 0 },
+  );
+  return {
+    name,
+    status: 'pass',
+    detail: `Deterministic checks passed (${totals.passed}/${totals.total}).`,
     remediation: null,
     failures: [],
   };

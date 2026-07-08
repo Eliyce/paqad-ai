@@ -67,6 +67,9 @@ and documentation:
   the changed code and confirm the tests catch every behaviour-changing one (#105).
 - [Flaky-Test Handling — Trust in a Pass](../flaky-handling.md) — own the
   test-trust signal so a green run means green (#106).
+- [Deterministic Check Runner](../check-runner.md) — run the mapped
+  format/test/build commands and feed real structured results to `code-tests-lint`,
+  so the completion verdict proves the checks ran instead of assuming they did (#318).
 
 ## Source Footprint
 
@@ -77,6 +80,9 @@ and documentation:
 - `src/verification/evidence.ts`, `evidence-markdown.ts` — structured + Markdown
   evidence emission (also rendered by the `evidence` CLI command).
 - `src/verification/repository/**` — the repository-facing inputs the gates read.
+- `src/checks/run-checks.ts`, `src/checks/report-store.ts`, `src/cli/commands/checks.ts`
+  — the deterministic check runner (`paqad-ai checks run`) that produces the
+  structured test/build/format results `code-tests-lint` consumes (#318).
 
 ## Boundaries
 

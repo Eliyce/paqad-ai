@@ -894,6 +894,7 @@ modules:
       - src/verification
       - src/verification/gates
       - src/verification/repository
+      - src/checks
     features:
       - slug: gate-runner
         name: Gate Runner & Verdict Aggregation
@@ -904,6 +905,9 @@ modules:
       - slug: verification-evidence
         name: Evidence Emission (markdown + structured)
         sources: [src/verification/evidence.ts, src/verification/evidence-markdown.ts]
+      - slug: check-runner
+        name: Deterministic Check Runner (format/test/build → structured results)
+        sources: [src/checks/run-checks.ts, src/checks/report-store.ts, src/cli/commands/checks.ts]
 
   - slug: evidence-ledger
     name: Evidence Ledger & Provenance Receipt

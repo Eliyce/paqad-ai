@@ -149,6 +149,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Run the project command checks after implementation and before finalizing the feature.',
+          'Run them deterministically with `npx paqad-ai checks run`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is `Needs your attention` — fix it before finalizing.',
         ],
         required_inputs: ['working tree diff'],
         strictness: {
@@ -592,6 +593,7 @@ stages:
   checks:
     instructions:
       - Run the project command checks after implementation and before finalizing the feature.
+      - "Run them deterministically with \`npx paqad-ai checks run\`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is \`Needs your attention\` — fix it before finalizing."
     required_inputs:
       - working tree diff
     strictness:

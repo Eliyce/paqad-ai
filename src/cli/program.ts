@@ -4,6 +4,7 @@ import { VERSION } from '@/index.js';
 
 import { createAuditCommand } from './commands/audit.js';
 import { createCapabilitiesCommand } from './commands/capabilities.js';
+import { createChecksCommand } from './commands/checks.js';
 import { createComplianceCommand } from './commands/compliance.js';
 import { createDashboardCommand } from './commands/dashboard.js';
 import { createDisableCommand } from './commands/disable.js';
@@ -38,6 +39,7 @@ export function createProgram(): Command {
 
   program.addCommand(createInstallCommand());
   program.addCommand(createCapabilitiesCommand());
+  program.addCommand(createChecksCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());
