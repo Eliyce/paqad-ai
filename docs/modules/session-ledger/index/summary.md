@@ -10,7 +10,9 @@ and provides:
 
 - **atomic ordinal allocation** via exclusive-create (`wx`) retry, so the background
   worker and the prompt seam never share an ordinal;
-- an **`.open` pointer** to the current ordinal;
+- an **`.open` pointer** to the current ordinal, which `closeSessionOrdinal` resets to
+  `0` so the next allocation opens a FRESH ordinal (issue #321 — a passing change closes,
+  the next change gets its own unit and never free-rides on the previous one);
 - a **script-clock `ts`** and an identity **`content_hash`** (excludes `ts`/`content_hash`/
   `note`) stamped on every row;
 - a **tolerant reader** that skips malformed lines so a mid-crash write never poisons reads;

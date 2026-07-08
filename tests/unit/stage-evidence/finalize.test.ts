@@ -15,7 +15,7 @@ import {
   startStage,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
-import { readSessionDoc } from '@/session-ledger/ledger.js';
+import { currentOrdinal, readSessionDoc } from '@/session-ledger/ledger.js';
 
 const ADAPTER = 'backstop';
 
@@ -246,31 +246,102 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     expect(result?.missing_stages).toContain('development');
   });
 
-  it('does not re-verify a change that already has a verify row (verify-once)', () => {
-    const sessionId = 'ses_once';
+  it('#321: re-verifies an incomplete change at each Stop (no verify-once early return)', () => {
+    const sessionId = 'ses_reverify';
     const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     startStage(root, 'planning', { sessionId, ordinal, adapter: 'claude-code' });
-    endStage(root, 'planning', {}, { sessionId, ordinal, adapter: 'claude-code' });
+    endStage(root, 'planning', provenEndArgs(root, 'planning'), {
+      sessionId,
+      ordinal,
+      adapter: 'claude-code',
+    });
 
     const first = finalizeStageEvidence(root, {
       adapter: ADAPTER,
       sessionId,
       changedFilesCount: 1,
     });
-    expect(first).not.toBeNull();
+    expect(first?.ok).toBe(false); // planning-only → incomplete, stays open
     const verifyCountAfterFirst = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId).filter(
       (row) => row.kind === 'verify',
     ).length;
 
+    // A later Stop with no new work re-verifies (the change is still open, not closed).
     const second = finalizeStageEvidence(root, {
       adapter: ADAPTER,
       sessionId,
       changedFilesCount: 1,
     });
-    expect(second).toBeNull(); // verify-once guard
+    expect(second).not.toBeNull();
     const verifyCountAfterSecond = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId).filter(
       (row) => row.kind === 'verify',
     ).length;
-    expect(verifyCountAfterSecond).toBe(verifyCountAfterFirst);
+    expect(verifyCountAfterSecond).toBeGreaterThan(verifyCountAfterFirst);
+  });
+
+  it('#321: a passing change writes a close row, advances the pointer, and later Stops no-op', () => {
+    const sessionId = 'ses_close';
+    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'review',
+      'checks',
+      'documentation_sync',
+    ]) {
+      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(root, stage), {
+        sessionId,
+        ordinal,
+        adapter: 'claude-code',
+      });
+    }
+
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 1,
+    });
+    expect(result?.ok).toBe(true);
+    // A `close` row brackets the passing change, and the open pointer is reset.
+    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    expect(rows.some((row) => row.kind === 'close')).toBe(true);
+    expect(currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, sessionId)).toBe(0);
+
+    // A later Stop with no new change opened → nothing to finalize.
+    const after = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 0,
+    });
+    expect(after).toBeNull();
+  });
+
+  it('#321: change B opens a FRESH ordinal after A closed (no free-riding)', () => {
+    const sessionId = 'ses_two_changes';
+    // Change A: full pass → closes.
+    const { ordinal: a } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'review',
+      'checks',
+      'documentation_sync',
+    ]) {
+      startStage(root, stage, { sessionId, ordinal: a, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(root, stage), {
+        sessionId,
+        ordinal: a,
+        adapter: 'claude-code',
+      });
+    }
+    finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+    expect(currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, sessionId)).toBe(0);
+
+    // Change B: the next stage_start auto-opens a fresh ordinal (a + 1), not a.
+    const bRow = startStage(root, 'planning', { sessionId, adapter: 'claude-code' });
+    expect(bRow.conversation_ordinal).toBe(a + 1);
   });
 });

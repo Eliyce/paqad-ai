@@ -115,6 +115,23 @@ export function allocateOrdinal(projectRoot: string, docType: string, sessionId:
   }
 }
 
+/**
+ * Close the current open unit by resetting its `.open` pointer to 0, so the next
+ * `currentOrdinal` returns 0 and the next allocation opens a FRESH ordinal (issue
+ * #321). The unit's file is untouched — its rows stay on disk as the closed change's
+ * record; only the "which ordinal is open" pointer advances. Best-effort: a missing
+ * session dir is a no-op (nothing was open to close). Writing "0" (rather than
+ * deleting the file) keeps `currentOrdinal` robust and avoids an ENOENT race.
+ */
+export function closeSessionOrdinal(projectRoot: string, docType: string, sessionId: string): void {
+  const pointer = join(projectRoot, sessionOpenPointerPath(docType, sessionId));
+  try {
+    writeFileSync(pointer, '0', 'utf8');
+  } catch {
+    // No session dir / pointer → nothing open to close.
+  }
+}
+
 /** The current (latest-allocated) ordinal from the `.open` pointer, or 0 when none. */
 export function currentOrdinal(projectRoot: string, docType: string, sessionId: string): number {
   try {

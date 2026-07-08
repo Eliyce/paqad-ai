@@ -8,6 +8,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import {
   allocateOrdinal,
   appendSessionEvent,
+  closeSessionOrdinal,
   computeSessionRowHash,
   currentOrdinal,
   foldByOrdinal,
@@ -53,6 +54,21 @@ describe('session-ledger substrate (#249 P0)', () => {
   });
 
   it('currentOrdinal is 0 before anything is allocated', () => {
+    expect(currentOrdinal(root, DOC, SESSION)).toBe(0);
+  });
+
+  it('closeSessionOrdinal resets the .open pointer so the next allocation is fresh (#321)', () => {
+    expect(allocateOrdinal(root, DOC, SESSION)).toBe(1);
+    closeSessionOrdinal(root, DOC, SESSION);
+    // Pointer reset → currentOrdinal is 0, but the next allocation advances past the
+    // existing file (never reuses ordinal 1).
+    expect(currentOrdinal(root, DOC, SESSION)).toBe(0);
+    expect(allocateOrdinal(root, DOC, SESSION)).toBe(2);
+    expect(currentOrdinal(root, DOC, SESSION)).toBe(2);
+  });
+
+  it('closeSessionOrdinal is a no-op when nothing was ever opened', () => {
+    expect(() => closeSessionOrdinal(root, DOC, SESSION)).not.toThrow();
     expect(currentOrdinal(root, DOC, SESSION)).toBe(0);
   });
 

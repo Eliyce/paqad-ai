@@ -158,6 +158,20 @@ describe('stage-evidence ledger (#247)', () => {
     expect(third.blocked).toBe(true);
   });
 
+  it('#321: the redo cap resets when a new stage mutation is recorded', () => {
+    const partial = MANDATORY.filter((s) => s !== 'review');
+    const ordinal = run([...partial], clock(), 'ses_reset');
+    const ctx = { sessionId: 'ses_reset', ordinal, adapter: ADAPTER };
+    expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // failure 1
+    expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // failure 2 (cap would hit next)
+    // Fresh work: record a new stage row. This is a ledger mutation, so the redo-cap
+    // failure count resets — the next verify is incomplete again, NOT blocked.
+    startStage(root, 'review', { sessionId: 'ses_reset', ordinal, adapter: ADAPTER });
+    const afterReset = verifyChange(root, ctx);
+    expect(afterReset.verdict).toBe('incomplete');
+    expect(afterReset.blocked).toBe(false);
+  });
+
   it('flags an ordering violation when a later stage overlaps an earlier one', () => {
     // Hand-build overlapping events: development starts before specification ends.
     const sessionId = 'ses_overlap';
