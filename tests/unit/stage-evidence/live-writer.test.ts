@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -67,13 +67,39 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
   const kinds = (kind: string, stage?: string) =>
     rows().filter((r) => r.kind === kind && (stage ? r.stage === stage : true));
 
-  it('AC-1: opens a change and starts development with a script-stamped live-mark', () => {
+  /** Record the pre-code stages (planning + specification) so the writer's #310 defer
+   *  is satisfied and a following code edit records its stage. Mirrors the real flow:
+   *  planning/specification are marked (markers / CLI) before any code is written. */
+  function seedPreCode(now?: () => Date): void {
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start', now });
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end', now });
+    recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'start', now });
+    recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'end', now });
+  }
+
+  it('#310: a code edit records NOTHING until the pre-code stages are on the ledger', () => {
     const stage = recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
       toolName: 'Edit',
       targetPath: 'src/foo.ts',
       now: clock(),
+    });
+    // No planning/specification yet → the writer defers, opening no change and
+    // recording no row (stamping "development" before planning poisons ordering).
+    expect(stage).toBeNull();
+    expect(rows()).toHaveLength(0);
+  });
+
+  it('AC-1: opens a change and starts development with a script-stamped live-mark', () => {
+    const now = clock();
+    seedPreCode(now);
+    const stage = recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/foo.ts',
+      now,
     });
     expect(stage).toBe('development');
     const start = kinds('stage_start', 'development');
@@ -84,6 +110,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
 
   it('AC-2: a later stage boundary ends the earlier stage (ended_at) then starts the new one', () => {
     const now = clock();
+    seedPreCode(now);
     recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -107,6 +134,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
 
   it('is idempotent within a stage: two development edits yield one stage_start', () => {
     const now = clock();
+    seedPreCode(now);
     recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -126,6 +154,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
 
   it('AC-4: an out-of-order edit records nothing and never throws', () => {
     const now = clock();
+    seedPreCode(now);
     recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -145,6 +174,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
   });
 
   it('a non-stage-bearing edit (lockfile) records nothing', () => {
+    seedPreCode(clock());
     const stage = recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -153,7 +183,9 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
       now: clock(),
     });
     expect(stage).toBeNull();
-    expect(rows()).toHaveLength(0);
+    // Only the seeded pre-code rows exist; the lockfile edit added nothing.
+    expect(kinds('stage_start', 'development')).toHaveLength(0);
+    expect(kinds('stage_start', 'checks')).toHaveLength(0);
   });
 });
 
@@ -187,5 +219,21 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
   it('ignores an unknown stage token (no row, returns false)', () => {
     expect(recordMarkedStage(root, { sessionId: SES, stage: 'bogus', phase: 'start' })).toBe(false);
     expect(currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES)).toBe(0);
+  });
+
+  it('returns false (never throws) when the ledger write itself fails', () => {
+    // A KNOWN stage passes the registry guard and enters the record path, but the
+    // ledger append throws because the project root is a FILE, not a directory
+    // (ENOTDIR). recordMarkedStage must swallow it and report false — a junk marker
+    // can never crash the pre-mutation sweep or the Stop re-parse.
+    const fileRoot = join(tmpdir(), `paqad-marked-file-${SES}-${process.pid}`);
+    writeFileSync(fileRoot, 'not a directory');
+    expect(recordMarkedStage(fileRoot, { sessionId: SES, stage: 'planning', phase: 'start' })).toBe(
+      false,
+    );
+    expect(recordMarkedStage(fileRoot, { sessionId: SES, stage: 'planning', phase: 'end' })).toBe(
+      false,
+    );
+    rmSync(fileRoot, { force: true });
   });
 });

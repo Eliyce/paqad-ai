@@ -35,6 +35,16 @@ export interface FinalizeStageEvidenceInput {
   changedFilesCount?: number;
   /** The git working-tree delta digest, for the inferred-git backstop record. */
   subjectDigest?: string | null;
+  /**
+   * Whether the change is feature development (issue #310). The feature-development
+   * completeness gate applies only to a change that touches product source; a
+   * documentation-only / framework-internal change is not a feature being built, so
+   * `false` makes finalize a no-op (mirrors the pre-mutation gate's docs skip). When
+   * omitted (undefined) the change is treated as feature development — a fail-closed
+   * default that preserves the pre-#310 behaviour for any caller that does not
+   * classify the diff.
+   */
+  isFeatureDevChange?: boolean;
   now?: () => Date;
 }
 
@@ -48,6 +58,16 @@ export function finalizeStageEvidence(
   input: FinalizeStageEvidenceInput,
 ): VerifyResult | null {
   try {
+    // Scope (issue #310): the feature-development completeness gate applies only to a
+    // feature-development change. A documentation-only / framework-internal change
+    // (isFeatureDevChange === false) is not a feature being built — there are no code
+    // stages to verify — so finalize is a no-op, mirroring the pre-mutation gate's
+    // docs skip. undefined stays feature-dev (fail-closed) for callers that do not
+    // classify the diff.
+    if (input.isFeatureDevChange === false) {
+      return null;
+    }
+
     const sessionId = resolveSessionId(projectRoot, input.sessionId);
     let ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
 
@@ -65,6 +85,14 @@ export function finalizeStageEvidence(
       // any still-open live-mark stage_start now, stamping ended_at from the
       // completion clock, so no started stage lacks an end time (R5) before folding.
       endDanglingLiveStages(projectRoot, sessionId, ordinal, existing, input);
+      // Development backfill (issue #310): a real code change must show a development
+      // stage. When the pre-code stages were recorded (ordinal>0) but no development
+      // row exists — the live writer defers development until planning/specification
+      // exist (F2), so a single same-turn edit whose planning/spec landed via the
+      // capability-gate sweep AFTER the writer ran never gets a live development mark —
+      // infer it from the working-tree delta, so a genuine code change is never
+      // falsely 'incomplete' for a missing development row.
+      backfillMissingDevelopment(projectRoot, sessionId, ordinal, input);
     }
 
     if (ordinal === 0) {
@@ -78,26 +106,7 @@ export function finalizeStageEvidence(
         adapter: input.adapter,
         now: input.now,
       }).ordinal;
-      appendSessionEvent(
-        projectRoot,
-        STAGE_EVIDENCE_DOC_TYPE,
-        sessionId,
-        ordinal,
-        {
-          kind: 'stage_end',
-          conversation_ordinal: ordinal,
-          adapter: input.adapter,
-          stage: 'development',
-          event_status: 'inferred',
-          evidence_source: 'inferred-git',
-          subject_digest: input.subjectDigest ?? null,
-        },
-        {
-          schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-          validate: (row: SessionLedgerRow) => validateStageEvidenceRow(row),
-          now: input.now,
-        },
-      );
+      appendInferredDevelopment(projectRoot, sessionId, ordinal, input);
     }
 
     return verifyChange(projectRoot, {
@@ -149,4 +158,63 @@ function endDanglingLiveStages(
       /* best-effort: one stage failing to close never breaks the fold */
     }
   }
+}
+
+/**
+ * Backfill an inferred-git `development` row (issue #310) when a feature-development
+ * change with a real working-tree delta carries no development stage yet. The live
+ * writer defers a development mark until the pre-code stages exist (F2), so a single
+ * same-turn edit whose planning/specification landed via the capability-gate sweep
+ * AFTER the writer ran never gets a live development row. Without this, a genuine code
+ * change would fold to `incomplete` purely for a missing development row. Best-effort.
+ */
+function backfillMissingDevelopment(
+  projectRoot: string,
+  sessionId: string,
+  ordinal: number,
+  input: FinalizeStageEvidenceInput,
+): void {
+  if (!input.changedFilesCount || input.changedFilesCount <= 0) {
+    return;
+  }
+  const rows = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
+  const hasDevelopment = rows.some(
+    (row) =>
+      row.stage === 'development' && (row.kind === 'stage_start' || row.kind === 'stage_end'),
+  );
+  if (hasDevelopment) {
+    return;
+  }
+  appendInferredDevelopment(projectRoot, sessionId, ordinal, input);
+}
+
+/** Append the inferred-git `development` backstop row for an untracked code diff —
+ *  an end-only development stage anchored to the working-tree delta digest. Shared by
+ *  the no-record path and the #310 development backfill so both mint an identical row. */
+function appendInferredDevelopment(
+  projectRoot: string,
+  sessionId: string,
+  ordinal: number,
+  input: FinalizeStageEvidenceInput,
+): void {
+  appendSessionEvent(
+    projectRoot,
+    STAGE_EVIDENCE_DOC_TYPE,
+    sessionId,
+    ordinal,
+    {
+      kind: 'stage_end',
+      conversation_ordinal: ordinal,
+      adapter: input.adapter,
+      stage: 'development',
+      event_status: 'inferred',
+      evidence_source: 'inferred-git',
+      subject_digest: input.subjectDigest ?? null,
+    },
+    {
+      schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
+      validate: (row: SessionLedgerRow) => validateStageEvidenceRow(row),
+      now: input.now,
+    },
+  );
 }

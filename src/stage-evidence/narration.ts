@@ -16,7 +16,12 @@
 import { currentOrdinal, readSessionUnit } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-import { classifyStage, highestStartedIndex, stagesWithKind } from './live-writer.js';
+import {
+  classifyStage,
+  highestStartedIndex,
+  preCodeStagesRecorded,
+  stagesWithKind,
+} from './live-writer.js';
 import { stageIndex, type StageId } from './stages.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from './types.js';
 
@@ -61,12 +66,16 @@ export function narrateStageEntry(input: NarrateStageInput): string | null {
   try {
     const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
     const ordinal = currentOrdinal(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-    // No change opened yet → this edit opens it and enters `stage` for the first time.
-    if (ordinal <= 0) {
-      return stageNarrationLine(stage);
+    const rows =
+      ordinal > 0
+        ? readSessionUnit(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal)
+        : [];
+    // F2 (issue #310): mirror the live writer's defer — until the pre-code stages
+    // (planning, specification) are recorded, a file edit records no stage, so it
+    // enters none and narrates nothing (a docs-only or pre-planning edit stays quiet).
+    if (!preCodeStagesRecorded(rows)) {
+      return null;
     }
-
-    const rows = readSessionUnit(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
     // Already recording this stage → not a first entry (idempotent, prints once).
     if (stagesWithKind(rows, 'stage_start').has(stage)) {
       return null;

@@ -5,6 +5,8 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
+
 // stage-writer.mjs is a NON-BLOCKING writer: it always exits 0 and never wedges
 // the agent. These exercise the dist-less guards (paqad disabled, malformed
 // payload); the record logic itself is covered by the src-side
@@ -84,7 +86,23 @@ describe.skipIf(!hasDist)('runtime/hooks/stage-writer.mjs — on-entry narration
     });
   }
 
+  /** Record planning + specification (issue #310) so the writer no longer defers a
+   *  code edit — narration only fires once the workflow's pre-code stages exist. */
+  function seedPreCode() {
+    recordMarkedStage(projectRoot, { sessionId: SES, stage: 'planning', phase: 'start' });
+    recordMarkedStage(projectRoot, { sessionId: SES, stage: 'planning', phase: 'end' });
+    recordMarkedStage(projectRoot, { sessionId: SES, stage: 'specification', phase: 'start' });
+    recordMarkedStage(projectRoot, { sessionId: SES, stage: 'specification', phase: 'end' });
+  }
+
+  it('#310: prints nothing for a code edit before the pre-code stages are recorded (defer)', () => {
+    const result = edit('src/a.ts');
+    expect(result.status).toBe(0);
+    expect(result.stdout).not.toContain('building it to the spec');
+  });
+
   it('prints "▸ paqad · <stage>" the first time a change enters a stage, exit 0', () => {
+    seedPreCode();
     const result = edit('src/a.ts');
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('building it to the spec');
@@ -92,6 +110,7 @@ describe.skipIf(!hasDist)('runtime/hooks/stage-writer.mjs — on-entry narration
   });
 
   it('does not re-print within the same stage (idempotent)', () => {
+    seedPreCode();
     edit('src/a.ts'); // records development + prints
     const second = edit('src/b.ts'); // same stage → no new line
     expect(second.status).toBe(0);

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { recordLiveStageEdit } from '@/stage-evidence/live-writer.js';
+import { recordLiveStageEdit, recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import {
   STAGE_NARRATION,
   markerBatchNarration,
@@ -73,23 +73,43 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
   let root: string;
   const SES = 'ses_narr';
 
+  /** Seed planning + specification (issue #310) so the writer/narration defer is
+   *  satisfied — a code edit only enters (and narrates) a stage once these exist. */
+  function seedPreCode(): void {
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start' });
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end' });
+    recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'start' });
+    recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'end' });
+  }
+
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-narration-'));
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('narrates a non-stage-bearing edit as null', () => {
+    seedPreCode();
     expect(
       narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'pnpm-lock.yaml' }),
     ).toBeNull();
   });
 
-  it('narrates the first edit of a change (no change opened yet)', () => {
+  it('#310: narrates nothing before the pre-code stages are recorded (mirrors the defer)', () => {
+    // No planning/specification yet → the writer records nothing on this edit, so it
+    // enters no stage and narrates nothing.
+    expect(
+      narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/a.ts' }),
+    ).toBeNull();
+  });
+
+  it('narrates the first code edit once the pre-code stages are recorded', () => {
+    seedPreCode();
     const line = narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/a.ts' });
     expect(line).toBe('▸ paqad · building it to the spec');
   });
 
   it('does NOT re-narrate a stage already entered this change (idempotent)', () => {
+    seedPreCode();
     recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -101,6 +121,7 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
   });
 
   it('narrates a forward transition into a new stage (development → checks)', () => {
+    seedPreCode();
     recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -116,6 +137,7 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
   });
 
   it('does NOT narrate an out-of-order edit (an earlier stage after a later one began)', () => {
+    seedPreCode();
     recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,

@@ -30,7 +30,8 @@ import { foldChange } from '@/stage-evidence/fold.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
-import { MANDATORY_STAGES } from '@/stage-evidence/stages.js';
+import { isFeatureDevEdit } from '@/stage-evidence/scope.js';
+import { PRE_CODE_STAGES } from '@/stage-evidence/stages.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import { readCapabilityDigest } from './capability-lock.js';
@@ -232,14 +233,6 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
   );
 }
 
-/** True when the pending edit targets the agent-entry sentinel — framework
- *  bootstrap bookkeeping, not a code change. Blocking it wedges turn one: the
- *  bootstrap cannot write the sentinel that the gates key on (issue #307). */
-function isSentinelWrite(targetPath: string | undefined): boolean {
-  if (!targetPath) return false;
-  return targetPath.replace(/\\/g, '/').endsWith('.paqad/.agent-entry-loaded');
-}
-
 /** Best-effort same-turn marker sweep (issue #307): before the block-forward
  *  check reads the ledger, parse the turn transcript for `paqad:stage` markers
  *  the agent emitted EARLIER IN THIS TURN and record them. The parse is the same
@@ -271,6 +264,13 @@ function sweepSameTurnMarkers(
  * no-ops at the completion seam (no double-fire). Reads the LEDGER, never a git
  * delta, so it is structurally immune to the committed-clean-tree nullifier that
  * guts the Stop path (R3/R6).
+ *
+ * Scope (issue #310): the gate governs FEATURE DEVELOPMENT only. A documentation-only
+ * edit (`docs/**`, markdown) or a framework-internal edit (`.paqad/**` — the sentinel,
+ * the `.config.policy` escape hatch, the ledger) is not a feature being built, so it
+ * is skipped entirely — no planning/specification demanded. The check is
+ * language-agnostic (an exclude list, not a `src/` allowlist), so it holds for any
+ * onboarded stack; a payload-less call is fail-closed (treated as in-scope).
  */
 const stagesCapability: Capability = {
   id: 'stages',
@@ -278,9 +278,10 @@ const stagesCapability: Capability = {
     if (seam !== 'pre-mutation') return NO_OP;
     const mode = resolveStagesMode(projectRoot, env);
     if (mode === 'off') return NO_OP;
-    // The agent-entry sentinel is bootstrap bookkeeping, not a code change —
-    // gating it deadlocks turn one (issue #307).
-    if (isSentinelWrite(payload?.targetPath)) return NO_OP;
+    // Only feature-development edits are gated (issue #310). A docs-only or
+    // framework-internal edit (incl. the agent-entry sentinel and the .config.policy
+    // escape hatch) is not a feature being built — skip it, no stages demanded.
+    if (!isFeatureDevEdit(payload?.targetPath, projectRoot)) return NO_OP;
     const blocking = mode === 'strict';
 
     const sessionId = resolveSessionId(
@@ -295,12 +296,13 @@ const stagesCapability: Capability = {
     const narration = sweepSameTurnMarkers(projectRoot, payload?.transcriptPath, sessionId);
     const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
 
-    // The mandatory stages that must exist BEFORE code is written.
-    const prefix = MANDATORY_STAGES.slice(0, MANDATORY_STAGES.indexOf('development'));
+    // The mandatory stages that must exist BEFORE code is written (planning,
+    // specification) — one shared source with the live writer's defer condition.
+    const prefix = PRE_CODE_STAGES;
 
     if (ordinal <= 0) {
       // No change opened yet → the first required stage is missing. `prefix` always
-      // opens with 'planning' (MANDATORY_STAGES is a compile-time constant); the ??
+      // opens with 'planning' (PRE_CODE_STAGES is a compile-time constant); the ??
       // is a type-satisfying floor for a future reorder, never hit today.
       /* c8 ignore next -- defensive floor: prefix[0] is always 'planning' under the current MANDATORY_STAGES */
       const firstRequired = prefix[0] ?? 'planning';

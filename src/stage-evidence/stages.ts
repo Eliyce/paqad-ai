@@ -26,6 +26,17 @@ export const MANDATORY_STAGES: readonly StageId[] = [
 ];
 
 /**
+ * The mandatory stages that must run BEFORE any code is written — `planning` and
+ * `specification`. Derived from ONE place (the `development` boundary in
+ * MANDATORY_STAGES) so the block-forward gate's precondition (capability.ts) and the
+ * live writer's defer condition (live-writer.ts, issue #310) can never drift.
+ */
+export const PRE_CODE_STAGES: readonly StageId[] = MANDATORY_STAGES.slice(
+  0,
+  MANDATORY_STAGES.indexOf('development'),
+);
+
+/**
  * Completion-anchored stages (issue #270). A stage whose canonical position is the
  * completion boundary — recorded from the agent's `paqad:stage` marker and confirmed
  * at the completion (finalize) seam, never subject to forward-ordering.

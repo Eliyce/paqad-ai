@@ -1,0 +1,22 @@
+{
+  "id": "D-01KX0FV0J52BAPRKBM4NE4H59H",
+  "category": "architecture-path",
+  "title": "Fix #310: how to guarantee the gate is always clearable (no deadlock)?",
+  "context": "The deadlock exists because startStage() throws on an out-of-order earlier stage, so once a later stage is recorded (the phantom) planning can never be recorded. Two levers: F2 stop stage-writer recording a code stage before planning/spec (kills the phantom); F3 make startStage record an earlier start instead of throwing (fold still flags real ordering violations non-destructively).",
+  "options": [
+    {
+      "option_key": "both_f2_f3",
+      "label": "Adopt BOTH: kill the phantom (F2) AND make startStage tolerant (F3) — strongest guarantee, matches the issue's primary ask"
+    },
+    {
+      "option_key": "f2_only",
+      "label": "F2 only: kill the phantom, keep startStage's strict out-of-order throw"
+    }
+  ],
+  "recommendation": "both_f2_f3",
+  "created_at": "2026-07-08T09:09:43.621Z",
+  "status": "resolved",
+  "chosen": "both_f2_f3",
+  "rationale": "Kill the phantom (stage-writer defers recording until planning+spec exist) AND make startStage tolerant of an out-of-order earlier start; fold.computeOrderingViolations remains the sole non-destructive ordering judge.",
+  "resolved_at": "2026-07-08T09:35:30.406Z"
+}

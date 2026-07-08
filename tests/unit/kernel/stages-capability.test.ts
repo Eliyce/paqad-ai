@@ -177,4 +177,66 @@ describe('stages capability — block-forward at pre-mutation', () => {
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
   });
+
+  // Issue #310 — the gate governs FEATURE DEVELOPMENT only. A documentation-only or
+  // framework-internal edit is skipped (no planning/spec demanded); a code edit still
+  // blocks; and the gate must always be clearable (no deadlock).
+  describe('feature-development scope + deadlock-free (issue #310)', () => {
+    const gate = (targetPath: string, extra: Record<string, unknown> = {}) =>
+      runCapabilityGate({
+        projectRoot: root,
+        seam: 'pre-mutation',
+        payload: { targetPath: join(root, targetPath), sessionId: SES, ...extra },
+      });
+
+    it('does NOT block a documentation-only edit (no planning/spec demanded)', async () => {
+      const result = await gate('docs/inbound/README.md');
+      expect(result.block).toBe(false);
+      expect(result.summary).toBe('');
+    });
+
+    it('does NOT block a top-level markdown edit', async () => {
+      expect((await gate('README.md')).block).toBe(false);
+    });
+
+    it('does NOT block editing the .config.policy escape hatch (reachable remedy)', async () => {
+      expect((await gate('.paqad/configs/.config.policy')).block).toBe(false);
+    });
+
+    it('STILL blocks a source-code edit until planning + specification are recorded', async () => {
+      const result = await gate('src/feature.ts');
+      expect(result.block).toBe(true);
+      expect(result.summary).toContain('planning');
+    });
+
+    it('blocks a non-JS source edit too (Laravel app/*.php) — language-agnostic scope', async () => {
+      expect((await gate('app/Http/Controller.php')).block).toBe(true);
+    });
+
+    it('clears the block via same-turn markers even after a later-stage row was recorded first', async () => {
+      // Reproduce the old poison: a documentation_sync start lands before planning.
+      // The pre-mutation sweep must still record the planning + specification markers
+      // (F3 makes the recorder tolerant), so the code edit is no longer deadlocked.
+      startStage(root, 'documentation_sync', { sessionId: SES, adapter: 'claude-code' });
+      const transcriptPath = join(root, 'turn.jsonl');
+      writeFileSync(
+        transcriptPath,
+        [
+          'paqad:stage planning start\nplanning…\npaqad:stage planning end',
+          'paqad:stage specification start\nspec…\npaqad:stage specification end',
+        ]
+          .map((text) =>
+            JSON.stringify({
+              type: 'assistant',
+              message: { role: 'assistant', content: [{ type: 'text', text }] },
+            }),
+          )
+          .join('\n'),
+      );
+      const result = await gate('src/feature.ts', { transcriptPath });
+      expect(result.block).toBe(false);
+      expect(result.narration).toContain('planning');
+      expect(result.narration).toContain('specification');
+    });
+  });
 });

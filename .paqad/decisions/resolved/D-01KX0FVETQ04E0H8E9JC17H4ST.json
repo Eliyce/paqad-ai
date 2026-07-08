@@ -1,0 +1,22 @@
+{
+  "id": "D-01KX0FVETQ04E0H8E9JC17H4ST",
+  "category": "architecture-path",
+  "title": "Fix #310: scope of the escape-hatch fixes in this PR?",
+  "context": "Issue suggested fix #4/#6: a 'paqad-ai stages warn|off' CLI that writes via paqad's own writer, PAQAD_STAGES_MODE honored, no silent revert on config refresh, and reconciling the capability-gate vs a raw sed bypass. F1 already makes .config.policy editable again and F3 removes the NEED to disable, so these are lower priority. Include them now or defer to a follow-up to keep this PR focused on the two reported bugs?",
+  "options": [
+    {
+      "option_key": "defer",
+      "label": "Defer the CLI escape hatch + no-revert to a follow-up; this PR fixes the two bugs (F1-F5) only"
+    },
+    {
+      "option_key": "include",
+      "label": "Include the paqad-ai stages CLI + no-revert-on-refresh in this PR too"
+    }
+  ],
+  "recommendation": "defer",
+  "created_at": "2026-07-08T09:09:58.231Z",
+  "status": "resolved",
+  "chosen": "defer",
+  "rationale": "F1 restores .config.policy editability (2d) and F3 removes the need to disable, so the standalone paqad-ai stages CLI + no-revert is deferred to a follow-up. This PR fixes the two reported bugs end-to-end (F1-F5).",
+  "resolved_at": "2026-07-08T09:35:30.593Z"
+}

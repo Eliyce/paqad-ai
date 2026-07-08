@@ -43,8 +43,11 @@ export function createStageCommand(): Command {
       );
       const recorded = recordMarkedStage(root, { sessionId, stage, phase });
       if (!recorded) {
+        // Only an UNKNOWN stage fails now (issue #310): an out-of-order boundary is
+        // recorded, not rejected, so the pre-code stages can always be marked — the
+        // fold's ordering check is the single, non-destructive judge of order.
         console.error(
-          `could not record "${stage} ${phase}" — unknown stage or out-of-order boundary. ` +
+          `could not record "${stage} ${phase}" — unknown stage "${stage}". ` +
             `Stages, in order: ${STAGE_ORDER.join(', ')}`,
         );
         process.exitCode = 1;

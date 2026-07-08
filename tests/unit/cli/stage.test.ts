@@ -74,7 +74,7 @@ describe('paqad-ai stage command', () => {
     });
     await run('start', 'bogus');
     expect(process.exitCode).toBe(1);
-    expect(errors.join('\n')).toContain('unknown stage or out-of-order');
+    expect(errors.join('\n')).toContain('unknown stage');
     expect(rows()).toHaveLength(0);
   });
 
@@ -88,14 +88,20 @@ describe('paqad-ai stage command', () => {
     expect(errors.join('\n')).toContain("use 'start' or 'end'");
   });
 
-  it('rejects an out-of-order boundary (a later stage already began)', async () => {
+  it('records an out-of-order boundary instead of rejecting it (issue #310 — never deadlock)', async () => {
+    // A later stage already began (review); marking the earlier planning must still
+    // succeed so the pre-code block is always clearable. The old CLI rejected this
+    // with exit 1, which is exactly how a docs/first-edit session deadlocked.
     await run('start', 'review');
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((line: string) => {
       errors.push(String(line));
     });
+    process.exitCode = 0;
     await run('start', 'planning');
-    expect(process.exitCode).toBe(1);
+    expect(process.exitCode).toBe(0);
+    expect(errors).toEqual([]);
+    expect(rows().some((r) => r.kind === 'stage_start' && r.stage === 'planning')).toBe(true);
   });
 
   // stage.ts:42 — the session-id fallback chain

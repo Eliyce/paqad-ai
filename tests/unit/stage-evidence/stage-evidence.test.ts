@@ -74,14 +74,25 @@ describe('stage-evidence ledger (#247)', () => {
     expect(planning.duration_unreliable).toBe(false);
   });
 
-  it('records stages in order; an out-of-order start is rejected', () => {
+  it('records an out-of-order earlier start instead of rejecting it (issue #310)', () => {
     const now = clock();
     const { ordinal } = openStageEvidence(root, { sessionId: 'ses_o', adapter: ADAPTER, now });
     startStage(root, 'development', { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now });
-    // planning is earlier than development → starting it now is out of order.
+    endStage(root, 'development', {}, { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now });
+    // planning is earlier than development, recorded after it. The recorder used to
+    // THROW here — which made the pre-code stages unrecordable once a later stage was
+    // recorded (the #310 deadlock). It now records the start; the fold's ordering
+    // check is the single, non-destructive judge of order.
     expect(() =>
       startStage(root, 'planning', { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now }),
-    ).toThrow(/out-of-order/i);
+    ).not.toThrow();
+    endStage(root, 'planning', {}, { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now });
+    const fold = foldChange(root, 'ses_o', ordinal);
+    expect(fold.stages.find((stage) => stage.stage === 'planning')?.started_at).not.toBeNull();
+    expect(fold.completeness.ordering_violations).toContainEqual({
+      before: 'planning',
+      after: 'development',
+    });
   });
 
   it('rejects an unknown stage', () => {
@@ -405,7 +416,48 @@ describe('completion-anchored review (#270)', () => {
       after: 'documentation_sync',
     });
   });
+
+  it('#310: a live-mark end with no matching start is inconclusive, not complete', () => {
+    // The orphan-end signature of the old deadlock: the recorder rejected the
+    // out-of-order start but accepted the end, leaving a stage with an end alone.
+    // It must NOT read as `complete`, so the completion fold and the pre-mutation gate
+    // (which needs a start+end pair) agree the stage is not done.
+    const rows = [
+      foldRow({ kind: 'stage_end', stage: 'planning', evidence_source: 'live-mark', ts: iso(1) }),
+    ];
+    const planning = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'planning')!;
+    expect(planning.state).toBe('inconclusive');
+    expect(foldRows(rows, 'ses', 1).completeness.missing_stages).toContain('planning');
+  });
+
+  it('#310: an inferred-git backstop end (no start) still counts as complete (exempt)', () => {
+    const rows = [
+      foldRow({
+        kind: 'stage_end',
+        stage: 'development',
+        event_status: 'inferred',
+        evidence_source: 'inferred-git',
+        ts: iso(1),
+      }),
+    ];
+    const dev = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'development')!;
+    expect(dev.state).toBe('complete');
+  });
 });
+
+/** Build a minimal folded-input row (module-level so the #310 fold tests above are
+ *  self-contained, mirroring the local `row` helper in the fold describe block). */
+function foldRow(partial: Partial<SessionLedgerRow>): SessionLedgerRow {
+  return {
+    schema_version: 1,
+    doc_type: STAGE_EVIDENCE_DOC_TYPE,
+    session_id: 'ses',
+    conversation_ordinal: 1,
+    ts: new Date(0).toISOString(),
+    content_hash: 'x',
+    ...partial,
+  } as SessionLedgerRow;
+}
 
 function iso(ms: number): string {
   return new Date(ms).toISOString();
