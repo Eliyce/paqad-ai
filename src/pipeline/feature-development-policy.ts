@@ -101,6 +101,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Write or refine the feature specification before implementation when the lane includes specification.',
           'Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
+          'Freeze the spec before writing code on graduated/full lanes: run `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`) that development builds against and the spec-change guard checks for drift.',
         ],
         required_inputs: ['approved spec boundary'],
         strictness: {
@@ -549,6 +550,7 @@ stages:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
       - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
+      - "Freeze the spec before writing code on graduated/full lanes: run \`npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants\` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen sidecar (\`.paqad/specs/<id>.frozen.json\`) that development builds against and the spec-change guard checks for drift."
     required_inputs:
       - approved spec boundary
     strictness:

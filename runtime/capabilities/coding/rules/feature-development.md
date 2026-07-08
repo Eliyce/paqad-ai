@@ -59,6 +59,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 
 - Write or refine the feature specification **before** implementation. The spec carries the behavior, acceptance criteria (AC-n, given/when/then, proof type), and confirmed invariants.
 - On graduated/full lanes the spec must be **frozen and signed off** before development (`require_spec_signoff`, framework-owned, cannot be downgraded by a project override). A mid-build goal change or a work-vs-spec contradiction escalates via the Decision Pause Contract (`spec.change` / `spec.contradiction`).
+- Freeze it with `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants`: it evaluates the freeze blockers, writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`) that later stages check against, and refuses to freeze over open questions, missing acceptance criteria, or unconfirmed invariants.
 - Escalations: `missing_spec: stop`, `missing_spec_signoff: stop`.
 
 ### Stage 3 — development

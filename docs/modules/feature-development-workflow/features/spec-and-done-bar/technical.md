@@ -10,6 +10,8 @@
 | Spec JSON schema | `src/validators/schemas/feature-spec.schema.json` (registered as `feature-spec` in `src/validators/validator.ts`) |
 | Sidecar builder | `src/spec/feature-spec-builder.ts` |
 | Freeze gate | `src/spec/spec-freeze.ts` |
+| Frozen-spec sidecar store | `src/spec/frozen-spec-store.ts` (`writeFrozenSpec` / `readFrozenSpecs`) |
+| Freeze CLI verb | `src/cli/commands/spec.ts` (`paqad-ai spec freeze`) |
 | "Done" bar | `src/spec/definition-of-done.ts` |
 | Spec decision packets | `src/spec/spec-decisions.ts` |
 | Decision categories | `src/planning/decision-packet.ts` (`spec.change`, `spec.contradiction`) |
@@ -40,6 +42,13 @@ the source markdown changed after freeze.
 The `specification` stage carries framework-owned strictness `require_spec_signoff: true` (escalation
 `missing_spec_signoff: stop`). Like every `require_*` flag it is merge-safe — a project override cannot
 downgrade it. The `fast` lane omits the specification stage, so trivial work is unaffected.
+
+The agent runs the freeze mid-turn via the CLI (issue #317): `npx paqad-ai spec freeze <spec-file>
+--signed-off-by <name> --confirm-invariants` wires `buildFeatureSpec → evaluateSpecFreeze → freezeSpec
+→ writeFrozenSpec`. It prints every blocker and exits non-zero (nothing written) when the spec is not
+freezable; on a clean spec it writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`). The
+`--confirm-invariants` flag is the operator's sign-off act — without it, unconfirmed invariants stay
+blockers so a freeze is never implied. The verb only invokes the engine; it reimplements no freeze logic.
 
 ## The "done" bar
 
