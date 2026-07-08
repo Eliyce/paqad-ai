@@ -129,6 +129,13 @@ Both numbers apply differently across the 11 providers, matching
   12-item dataset and stays the internal merge gate for retrieval changes. No hit@5 or
   task-success number from it is published as a product claim. Run
   `paqad-ai rag eval --mode feature-off-vs-on` to see the gate; its dataset is synthetic.
+- **RAG injection is surface-dependent, not just adapter-dependent.** The `UserPromptSubmit`
+  seam that injects retrieved context only runs where the host executes that hook. The #313
+  cross-provider benchmark measured it firing on Claude Code Desktop but NOT on the Claude
+  agent in JetBrains (PhpStorm) — same `claude-code` adapter, no `paqad.rag-evidence` session
+  on the JetBrains surface. On a surface that does not run the hook, retrieval degrades to the
+  grep/read default. See `docs/modules/prompt-life-cycle.md` (Host-surface support) for the
+  per-surface table.
 
 ## Method notes
 

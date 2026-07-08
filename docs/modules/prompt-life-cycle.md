@@ -47,6 +47,29 @@ inside the agent runtime by Paqad's rules. The journey has three big arcs:
 | 19 | **Persistence side-effects**       | Adapter / Paqad                                              | Result                                                             | Files saved on disk; git stays dirty until user commits. Memory may be updated (user role, feedback, project facts). Decision Packets move pending→resolved. Session transcript stored                                                                             | Durable repo + memory state                       | working tree, `memory/**`, `.paqad/decisions/resolved/**`             |
 | 20 | **Next-turn priming**              | Adapter                                                      | Stage 19 + new user input                                          | On the next prompt, only the **delta** is sent; the cached prefix (env, rules, memory) is reused if within the 5-minute cache TTL. Otherwise the prefix is re-billed. Long sessions trigger automatic compression                                                  | Warm context for stage 7                          | prompt cache                                                          |
 
+### Host-surface support for context injection (RAG / seam)
+
+Stage 12's precomputed slices only reach the model on a host that actually
+**executes `UserPromptSubmit` hooks** and forwards their stdout — the seam has no
+other way in. Coverage is therefore per *surface*, not just per adapter id:
+
+| Surface (adapter `claude-code`)        | `UserPromptSubmit` fires? | Effect on RAG injection                        |
+|----------------------------------------|---------------------------|------------------------------------------------|
+| Claude Code Desktop / CLI              | Yes                       | Seam runs; `paqad.rag-evidence` is recorded    |
+| Claude Code in VS Code                 | Yes                       | Seam runs                                       |
+| Claude agent in JetBrains (PhpStorm / IntelliJ) | No (as measured)  | Seam never runs; agent falls back to grep/read |
+
+This is a host limitation, not a paqad wiring gap: paqad writes the hook into
+`.claude/settings.json` (not a plugin), yet the JetBrains Claude surface did not
+execute the `UserPromptSubmit` hook in the #313 cross-provider benchmark — no
+`paqad.rag-evidence` session was written at all, while the same session's `Stop`
+hook did fire. Upstream Claude Code has open bugs in the same family (hook
+execution/output not honored consistently across IDE surfaces, e.g.
+anthropics/claude-code #12151, #10225, #18547). paqad cannot force a host to run a
+hook it does not run, so on that surface retrieval degrades cleanly to the
+grep/read default rather than failing. The `Stop`-driven completion tier
+(verification + stage evidence) is unaffected and still records there.
+
 ## 3. What Determines Whether a Prompt Becomes "Development"
 
 Not every prompt produces code. The branch points are:
