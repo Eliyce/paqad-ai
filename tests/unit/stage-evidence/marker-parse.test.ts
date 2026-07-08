@@ -127,6 +127,72 @@ describe('parseAndRecordMarkers', () => {
     expect(n).toHaveLength(2);
   });
 
+  // Codex Desktop rollout jsonl nests the turn under `payload` with `output_text`
+  // blocks (issue #313, finding 1). The parser must read that shape too, or a
+  // well-behaved Codex run records zero stages and is silently scored "blocked".
+  function codexMsg(role: string, text: string): string {
+    return JSON.stringify({
+      timestamp: '2026-07-08T16:09:29.019Z',
+      type: 'response_item',
+      payload: { type: 'message', role, content: [{ type: 'output_text', text }] },
+    });
+  }
+
+  it('records markers from Codex rollout payload-nested assistant messages', () => {
+    const transcript = [
+      codexMsg('assistant', 'Planning.\npaqad:stage planning start'),
+      codexMsg('assistant', 'Done.\npaqad:stage planning end'),
+    ].join('\n');
+    expect(
+      parseAndRecordMarkers({
+        projectRoot: root,
+        transcriptText: transcript,
+        sessionId: SES,
+        adapter: 'codex-cli',
+      }),
+    ).toHaveLength(2);
+  });
+
+  it('ignores a marker quoted in a Codex user (input) message', () => {
+    const transcript = [
+      codexMsg('user', 'the contract quotes paqad:stage planning start'),
+      codexMsg('assistant', 'acknowledged, no marker'),
+    ].join('\n');
+    expect(
+      parseAndRecordMarkers({
+        projectRoot: root,
+        transcriptText: transcript,
+        sessionId: SES,
+        adapter: 'codex-cli',
+      }),
+    ).toEqual([]);
+  });
+
+  it('skips a Codex non-message payload item (reasoning) and still reads later markers', () => {
+    const transcript = [
+      JSON.stringify({ type: 'response_item', payload: { type: 'reasoning', summary: [] } }),
+      codexMsg('assistant', 'paqad:stage planning start\npaqad:stage planning end'),
+    ].join('\n');
+    expect(
+      parseAndRecordMarkers({
+        projectRoot: root,
+        transcriptText: transcript,
+        sessionId: SES,
+        adapter: 'codex-cli',
+      }),
+    ).toHaveLength(2);
+  });
+
+  it('reads a bare top-level {role,content} JSONL line (no message/payload wrapper)', () => {
+    const transcript = JSON.stringify({
+      role: 'assistant',
+      content: [{ type: 'text', text: 'paqad:stage planning start\npaqad:stage planning end' }],
+    });
+    expect(
+      parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES }),
+    ).toHaveLength(2);
+  });
+
   // Issue #265 — the recorded row is attributed to the host that ran, so a
   // cross-provider ledger does not mislabel a Codex/Gemini stage as claude-code.
   it('defaults row attribution to claude-code when no adapter is passed', () => {

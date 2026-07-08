@@ -25,6 +25,7 @@
 import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
+import { resolveCodexRolloutText } from './lib/codex-rollout.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
 
@@ -62,9 +63,19 @@ function resolveTranscriptText(payload) {
     try {
       return readFileSync(path, 'utf8');
     } catch {
-      // Fall through to the inline field — a stubbed/unreadable path is expected
-      // on some hosts and must never disrupt the record run.
+      // Fall through — a stubbed/unreadable path is expected on some hosts and
+      // must never disrupt the record run.
     }
+  }
+  // Codex Desktop's `Stop` payload carries no readable `transcript_path`, and its
+  // `paqad:stage` markers live in MID-RUN assistant messages — the inline
+  // `last_assistant_message` is the final summary only, which never carries them.
+  // Scanning only that inline field silently records a well-behaved run as
+  // "no stages / blocked" (issue #313, finding 1). So before the marker-less
+  // inline fallback, read the session's own rollout transcript off disk.
+  if (ADAPTER_TYPE === 'codex-cli') {
+    const rollout = resolveCodexRolloutText(payload?.session_id);
+    if (rollout) return rollout;
   }
   const inline = payload?.last_assistant_message ?? payload?.prompt_response;
   return typeof inline === 'string' ? inline : '';
