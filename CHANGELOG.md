@@ -1,5 +1,70 @@
 # paqad-ai
 
+## 1.49.0
+
+### Minor Changes
+
+- 93bdd54: Stage-Spine 09 (#324): record and consume the lane — scale process depth to risk.
+
+  paqad's deterministic classify→route→lane engine was fully built but never invoked
+  in a live session, so every change (a one-line typo or an auth migration) paid the
+  same full ceremony and the ledger's `lane` was always null. This wires the existing
+  engine into the prompt seam and makes the lane real:
+
+  - The prompt seam runs the deterministic classifier + router on the prompt text,
+    stashes the chosen lane, and records it on the change's open ledger row (no LLM
+    call added — path/prompt signals only).
+  - The pre-code gate scales the specification requirement to the lane: the **fast**
+    lane relaxes it (planning-only) while **graduated/full** keep the frozen-spec
+    requirement. A null lane fails safe to full.
+  - A new optional `sensitivity: high` per module in `module-map.yml` floors any change
+    touching a sensitive path back to the full lane — a cheap, deterministic risk floor.
+  - The completion backstop consumes the recorded lane instead of a hardcoded `'full'`,
+    so a small change is no longer forced through the heaviest quality measurement set.
+
+  Enforcement is tiered by host (hard-block on Claude Code; record-only on Codex/Gemini;
+  prompt-followed on advisory hosts).
+
+- 93bdd54: Stage-Spine 10 (#325): one end-of-change paqad receipt — surface the verdict, cut the noise.
+
+  paqad's most valuable narration moment (the final verdict) had no reliable visible
+  surface and didn't use the contract's own words, while the cheapest moments (per-stage
+  boundaries) were spoken twice. This inverts the cadence:
+
+  - The trust verdict now speaks the contract vocabulary — `Safe to merge` /
+    `Needs your attention` / `Inconclusive` with the fixed status glyphs, led by the
+    `▸ paqad` frame — consuming `paqad-voice.ts` (fulfilling its single-source claim).
+  - A new end-of-change **receipt** composes the verdict headline with one line per stage,
+    each carrying honest provenance: a stage that was only marked (no artifact, or a
+    near-zero duration) reads 🟡 "marked (no recorded work)", never 🟢 "done".
+  - The receipt is emitted as a visible `{systemMessage}` on the Claude completion hook
+    (was buried on stdout); the git/CI backstop keeps plain text.
+  - The duplicated per-marker END narration line is muted (the ledger write is unchanged —
+    only the second spoken line is dropped).
+  - The generated narration contract now states, per host, who narrates: Claude Code's
+    hooks speak for you, but on Codex/Gemini the record hook is silent so the model must
+    narrate its own markers — it no longer claims hook-driven ledger narration there.
+
+- 93bdd54: Stage-Spine 11 (#326): truth tooling — `paqad-ai config effective` and a real `decision` CLI verb.
+
+  Two small commands that make the framework honest and self-explaining:
+
+  - **`paqad-ai config effective`** prints, per knob, the value that actually binds, the
+    surface it came from (env → local `.paqad/.config` → tracked `configs/.config.*` →
+    default), and the gate that consumes it. A knob shown `consumed by: NOTHING` is a
+    placebo — a setting a team can change with no effect. The scan flags 12 verified
+    placebos (the strictness/escalation/decision-threshold/research knobs). `rule_compliance`
+    and `stages_mode` are shown through their real floored resolvers so the yaml-as-real-input
+    truth (#319) is visible. Strictly read-only.
+  - **`paqad-ai decision create|resolve|list`** is a real, install-resolved CLI verb for the
+    Decision Pause Contract, replacing the `node runtime/base/skills/decision/scripts/*.mjs`
+    path the contract named — which ENOENTs in a real onboarded project (the scripts only
+    exist in the dev repo). It wraps the existing engine (`createPendingDecision` /
+    `resolvePendingDecision` — same ULID mint, same packet format, no fork), validates the
+    category with a nearest-match suggestion, supports `--other "<text>"` write-ins on
+    resolve, and lists pending/resolved packets. The generated Decision Pause Contract now
+    names `npx paqad-ai decision …`.
+
 ## 1.48.0
 
 ### Minor Changes
