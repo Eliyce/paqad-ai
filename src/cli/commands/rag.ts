@@ -21,6 +21,7 @@ import {
   composeRetrievalSection,
   gatherWorkingSetSlices,
 } from '@/context/retrieval-context.js';
+import { compositionForRoute, readSessionRoute } from '@/pipeline/session-route.js';
 import { backgroundIndexSync } from '@/rag/background-sync.js';
 import { composeBaseDriftSection, loadBaseDrift, refreshBaseDrift } from '@/rag/base-drift.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
@@ -320,13 +321,20 @@ export function createRagCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--quiet', 'Suppress output (used by the background trigger)')
     .action(async (options: { projectRoot: string; quiet?: boolean }) => {
+      // Issue #336 — the routed workflow (from the prompt seam) decides what the
+      // artifact carries. Rules load only for feature-development; no-workflow retrieves
+      // nothing. With no pointer yet (first prompt), fall back to today's behaviour:
+      // load rules and retrieve, so nothing regresses before routing kicks in.
+      const route = readSessionRoute(options.projectRoot);
+      const { loadRules, retrieves } = compositionForRoute(route);
+
       // Issue #284 — the lean (rag-off) path recomposes the rule slice ONLY: no index
       // sync, no retrieval, no codebase-memory, no base-drift network fetch. This is
       // what keeps the token-neutral default provider-free and the artifact rule-only.
       // `rag_enabled` on restores the full compose (retrieval/memory/drift), unchanged.
       const ragEnabled = resolveFrameworkConfig(options.projectRoot).intelligence.rag_enabled;
       if (!ragEnabled) {
-        const target = await refreshRuleContext(options.projectRoot, {});
+        const target = await refreshRuleContext(options.projectRoot, { loadRules });
         if (!options.quiet) {
           process.stdout.write(
             `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (rag off)\n`,
@@ -336,10 +344,15 @@ export function createRagCommand(): Command {
       }
 
       const sync = await backgroundIndexSync(options.projectRoot);
-      // #249 — the live background worker records the `called` retrieval event.
-      const slices = await gatherWorkingSetSlices(options.projectRoot, {
-        recordEvidence: { adapter: 'engine' },
-      });
+      // #249 — the live background worker records the `called` retrieval event. #336 —
+      // no-workflow retrieves nothing; every real workflow seeds retrieval with the
+      // prompt (falling back to the working set when no prompt was recorded).
+      const slices = retrieves
+        ? await gatherWorkingSetSlices(options.projectRoot, {
+            recordEvidence: { adapter: 'engine' },
+            query: route?.query,
+          })
+        : [];
       // F26 — when the working set pulls more slices than the slice-display cap, the
       // workflow is broad; distil to a lean context PACK (path:Lstart-Lend pointers,
       // read the live file) instead of injecting many bodies. Narrow sets keep full
@@ -362,17 +375,22 @@ export function createRagCommand(): Command {
             )
           : composeRetrievalSection(slices);
       // F21 — durable codebase memory, deterministic and embedding-free (no provider
-      // call), gathered from the on-disk store and injected ahead of the slices.
-      const memorySection = gatherCodebaseMemory(options.projectRoot);
+      // call), gathered from the on-disk store and injected ahead of the slices. #336 —
+      // no-workflow (small talk) uses nothing, so memory + drift are skipped too.
+      const memorySection = retrieves ? gatherCodebaseMemory(options.projectRoot) : '';
       // F27 — base-drift. The network fetch is debounced (≈10 min) + single-flight here in
       // the detached worker, so the prompt path never waits on it; we then read the
       // persisted snapshot (no network) and inject it as a secondary heads-up layer.
-      await refreshBaseDrift(options.projectRoot);
-      const driftSection = composeBaseDriftSection(loadBaseDrift(options.projectRoot));
+      let driftSection = '';
+      if (retrieves) {
+        await refreshBaseDrift(options.projectRoot);
+        driftSection = composeBaseDriftSection(loadBaseDrift(options.projectRoot));
+      }
       const target = await refreshRuleContext(options.projectRoot, {
         memorySection,
         retrievalSection,
         driftSection,
+        loadRules,
       });
       if (!options.quiet) {
         process.stdout.write(

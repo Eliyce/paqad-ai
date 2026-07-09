@@ -24,6 +24,7 @@ import {
   resolveRoutedWorkflow,
   type RoutedWorkflow,
 } from './routed-workflow.js';
+import { writeSessionRoute } from './session-route.js';
 import {
   readWorkflowState,
   routeWorkflow,
@@ -150,6 +151,11 @@ export async function runPromptRouteSeam(
   if (isFeatureDevelopmentRoute(routed) && lane !== null) {
     writePendingLane(input.projectRoot, sessionId, lane);
   }
+
+  // Hand the routed workflow + prompt to the detached context worker (#336) so it
+  // loads rules only for feature-development, seeds retrieval with the prompt, and
+  // retrieves nothing for no-workflow.
+  writeSessionRoute(input.projectRoot, { workflow: routed, query: input.request });
 
   return {
     routed,

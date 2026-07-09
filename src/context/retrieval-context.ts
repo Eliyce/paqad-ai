@@ -233,6 +233,13 @@ export interface GatherOptions {
    * never write the ledger; the live background worker passes it.
    */
   recordEvidence?: { sessionId?: string; adapter?: string };
+  /**
+   * Prompt-driven retrieval seed (issue #336, the deferred F11/F14/F26 path). When
+   * set, the retrieval query is the user's PROMPT (the working-set paths ride along as
+   * keywords) instead of being derived purely from the working set — so a question
+   * with no changed files still retrieves. Absent ⇒ the working-set query, unchanged.
+   */
+  query?: string;
 }
 
 /**
@@ -283,7 +290,10 @@ export async function gatherWorkingSetSlices(
   options: GatherOptions = {},
 ): Promise<RetrievalSlice[]> {
   const changedPaths = options.changedPaths ?? (await loadChangeEvidence(projectRoot)).files;
-  if (changedPaths.length === 0) {
+  const promptQuery = options.query?.trim();
+  // Nothing to retrieve for: no working set AND no prompt seed. A prompt-driven query
+  // (#336) still retrieves when the working set is empty (e.g. a question).
+  if (changedPaths.length === 0 && !promptQuery) {
     return [];
   }
 
@@ -302,10 +312,16 @@ export async function gatherWorkingSetSlices(
     effectiveTopN = gate.topN;
   }
 
+  // #336 — a prompt seed makes the PROMPT the retrieval query (working-set paths ride
+  // along as keywords); without it the query is the working set alone, as before.
+  const retrievalInput = promptQuery
+    ? { taskDescription: promptQuery, keywords: changedPaths.map((path) => basename(path)) }
+    : buildWorkingSetQuery(changedPaths);
+
   const service = options.service ?? new RagService(projectRoot);
   let result: RagRetrievalResult;
   try {
-    result = await service.retrieveForEval(buildWorkingSetQuery(changedPaths), effectiveTopN);
+    result = await service.retrieveForEval(retrievalInput, effectiveTopN);
   } catch {
     // Retrieval is an accelerator on top of grep; any failure falls back silently.
     return [];
