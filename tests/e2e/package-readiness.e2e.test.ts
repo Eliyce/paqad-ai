@@ -8,6 +8,8 @@ import { execa } from 'execa';
 import { VERSION } from '@/index.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 
+import { parsePackManifest } from '../shared/pack-manifest.js';
+
 const cliPath = join(process.cwd(), 'dist/cli/index.js');
 const buildLockRoot = join(process.cwd(), '.tmp');
 const buildLockDir = join(process.cwd(), '.tmp', 'built-cli.lock');
@@ -81,7 +83,9 @@ describe('package publishing readiness', () => {
           npm_config_cache: npmCache,
         },
       });
-      const files = JSON.parse(pack.stdout)[0].files as Array<{ path: string }>;
+      // npm 12 changed `npm pack --json` from a top-level array to an object
+      // keyed by package name (issue #332); parsePackManifest handles both.
+      const files = parsePackManifest(pack.stdout).files;
 
       expect(version.stdout.trim()).toBe(VERSION);
       expect(help.stdout).toContain('install');
