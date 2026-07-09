@@ -17,14 +17,43 @@ describe('agent bootstrap document', () => {
     await expect(buildAgentBootstrapDocument()).toMatchFileSnapshot(COMMITTED_BOOTSTRAP);
   });
 
-  it('puts the enablement check first — before any load step', () => {
+  it('orders the steps: enablement → route → load → sentinel (#336)', () => {
     const doc = buildAgentBootstrapDocument();
     const enablement = doc.indexOf('## 1. Enablement check');
-    const load = doc.indexOf('## 2. Load the project contract');
-    const sentinel = doc.indexOf('## 3. Confirm the load');
+    const route = doc.indexOf('## 2. Route first');
+    const load = doc.indexOf('## 3. Load only what the routed workflow needs');
+    const sentinel = doc.indexOf('## 4. Confirm the load');
     expect(enablement).toBeGreaterThan(-1);
-    expect(load).toBeGreaterThan(enablement);
+    expect(route).toBeGreaterThan(enablement);
+    expect(load).toBeGreaterThan(route);
     expect(sentinel).toBeGreaterThan(load);
+  });
+
+  it('routes first: names the 9 workflows and the read-first / ask-if-torn rules (#336)', () => {
+    const doc = buildAgentBootstrapDocument();
+    const route = doc.slice(
+      doc.indexOf('## 2. Route first'),
+      doc.indexOf('## 3. Load only what the routed workflow needs'),
+    );
+    for (const workflow of [
+      'feature-development',
+      'project-question',
+      'documentation-update',
+      'module-documentation',
+      'pentest',
+      'design-test',
+      'rules-analyze',
+      'root-cause-analysis',
+      'no workflow',
+    ]) {
+      expect(route).toContain(workflow);
+    }
+    expect(route).toContain('Any code change is feature-development');
+    expect(route).toMatch(/read or fetch it first/i);
+    expect(route).toContain('AskUserQuestion');
+    // Per-message + pause/resume, never reset.
+    expect(route).toContain('Switching pauses');
+    expect(route).toContain('New work is not a resume');
   });
 
   it('encodes the exact enablement precedence + token set (no new read surface)', () => {
@@ -46,20 +75,23 @@ describe('agent bootstrap document', () => {
     expect(doc).toMatch(/act as a normal assistant/);
   });
 
-  it('loads the workflow policies as part of the project contract', () => {
-    // Regression guard: the feature-development + delivery-policy workflows must
-    // be in the canonical load list alongside rules/stack/design-system. Without
-    // this the agent never loads the workflow policies and they stay decorative
-    // YAML that nothing reads.
+  it('always-loads stack/design-system/workflows but gates rules to feature-development (#336)', () => {
+    // Regression guard: stack, design-system, and the feature-development +
+    // delivery-policy workflows stay in the always-load contract. Rules move OUT
+    // of the unconditional load — they load only on the feature-development route
+    // (issue #336) — but the section must still name the artifact-first mechanism.
     const doc = buildAgentBootstrapDocument();
     const loadSection = doc.slice(
-      doc.indexOf('## 2. Load the project contract'),
+      doc.indexOf('## 3. Load only what the routed workflow needs'),
       doc.indexOf('### Workflow handling'),
     );
-    expect(loadSection).toContain('`docs/instructions/rules`');
     expect(loadSection).toContain('`docs/instructions/stack`');
     expect(loadSection).toContain('`docs/instructions/design-system`');
     expect(loadSection).toContain('`docs/instructions/workflows`');
+    // Rules are present but explicitly feature-development-only, not unconditional.
+    expect(loadSection).toContain('Rules load only for `feature-development`');
+    expect(loadSection).toContain('`docs/instructions/rules`');
+    expect(loadSection).toContain('run **no** rule-scripts');
   });
 
   it('preserves the workflow-handling trigger (create documentation / feature workflows)', () => {
