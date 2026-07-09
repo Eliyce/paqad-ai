@@ -21,6 +21,8 @@ import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import type { Lane } from '@/core/types/routing.js';
 import { resolvePathSensitivity } from '@/module-map/sensitivity.js';
 import { readProjectRuleComplianceModeOverride } from '@/pipeline/feature-development-policy.js';
+import { isFeatureDevelopmentRoute } from '@/pipeline/routed-workflow.js';
+import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
 import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
@@ -211,9 +213,46 @@ function formatCompatRefusalSummary(): string {
  * be a silent weakening — so strict blocks on tamper; an unverified map (no lock
  * yet) still enforces but surfaces an advisory so a binding is never trusted blind.
  */
+/**
+ * Whether this session routed to feature-development at any point (issue #336) — the
+ * completion-seam signal for rule-scripts. True when the active OR any paused workflow
+ * in the per-session workflow-state is feature-development, so a change that detoured
+ * to a question as its last message still runs its end-of-change scripts. A session
+ * with no feature-development route (a question, pentest, docs task, RCA, small talk)
+ * returns false, so no rule-scripts run.
+ */
+function sessionRoutedToFeatureDevelopment(
+  projectRoot: string,
+  payload: CapabilityPayload | undefined,
+  env: NodeJS.ProcessEnv,
+): boolean {
+  const sessionId = resolveSessionId(
+    projectRoot,
+    payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null,
+  );
+  const state = readWorkflowState(projectRoot, sessionId);
+  if (state.active && isFeatureDevelopmentRoute(state.active.workflow)) {
+    return true;
+  }
+  return state.paused.some((entry) => isFeatureDevelopmentRoute(entry.workflow));
+}
+
 const ruleScriptsCapability: Capability = {
   id: 'rule-scripts',
-  async evaluate({ projectRoot, env }): Promise<CapabilityOutcome> {
+  async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
+    // Issue #336 — rule-scripts run ONLY on the feature-development route. At the
+    // pre-mutation seam that means a feature-development code edit (docs/** and
+    // .paqad/** are excluded by the same scope predicate the stages gate uses); at
+    // the completion seam it means the session actually routed to feature-development
+    // (read from the per-session workflow-state). Every other workflow — a question,
+    // a pentest, a design-test, a docs task, an RCA, a rules analysis, small talk —
+    // runs no rule-scripts.
+    if (seam === 'pre-mutation' && !isFeatureDevEdit(payload?.targetPath, projectRoot)) {
+      return NO_OP;
+    }
+    if (seam === 'completion' && !sessionRoutedToFeatureDevelopment(projectRoot, payload, env)) {
+      return NO_OP;
+    }
     const mode = resolveRuleComplianceMode(projectRoot, env);
     if (mode === 'off') {
       return NO_OP;

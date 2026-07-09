@@ -12,9 +12,20 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { runCapabilityGate } from '@/kernel/gate.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
+
+// Issue #336 — rule-scripts run only on the feature-development route. At the
+// completion seam that is signalled by the per-session workflow-state, so a
+// completion-seam test must first record a feature-development route.
+function markFeatureDevelopment(root: string, session: string): string {
+  const sessionId = resolveSessionId(root, session);
+  writeWorkflowState(root, sessionId, { active: { workflow: 'feature-development' }, paused: [] });
+  return session;
+}
 
 const MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
 const SCRIPT_REL = '.paqad/scripts/rules/coding/q/001-no-debugger.mjs';
@@ -101,11 +112,55 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toContain('Needs your attention');
   });
 
-  it('also evaluates the rule-scripts capability at the completion seam', async () => {
+  it('also evaluates the rule-scripts capability at the completion seam (feature-development route)', async () => {
     const root = setup('strict', 'debugger;\n');
-    const result = await runCapabilityGate({ projectRoot: root, seam: 'completion' });
+    const session = markFeatureDevelopment(root, 'sess-completion');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'completion',
+      payload: { sessionId: session },
+    });
     expect(result.block).toBe(true);
     expect(result.summary).toContain('Needs your attention');
+  });
+
+  it('skips rule-scripts at the completion seam when the session did not route to feature-development (#336)', async () => {
+    const root = setup('strict', 'debugger;\n');
+    const sessionId = resolveSessionId(root, 'sess-question');
+    writeWorkflowState(root, sessionId, { active: { workflow: 'project-question' }, paused: [] });
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'completion',
+      payload: { sessionId: 'sess-question' },
+    });
+    expect(result.block).toBe(false);
+    expect(result.summary).toBe('');
+  });
+
+  it('runs rule-scripts at completion when feature-development is only a paused workflow (#336)', async () => {
+    const root = setup('strict', 'debugger;\n');
+    const sessionId = resolveSessionId(root, 'sess-paused');
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'project-question' },
+      paused: [{ workflow: 'feature-development' }],
+    });
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'completion',
+      payload: { sessionId: 'sess-paused' },
+    });
+    expect(result.block).toBe(true);
+  });
+
+  it('skips rule-scripts at the pre-mutation seam for a docs-only edit (#336)', async () => {
+    const root = setup('strict', 'debugger;\n');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      payload: { targetPath: 'docs/guide.md' },
+    });
+    expect(result.block).toBe(false);
+    expect(result.summary).toBe('');
   });
 
   it('surfaces a warn finding without blocking', async () => {
