@@ -23,7 +23,14 @@ function feature() {
 }
 
 function plan() {
-  return buildPlanRecord({ issue: null, title: 't', slug: 's', ulid: ULID, summary: 'x', now: clock });
+  return buildPlanRecord({
+    issue: null,
+    title: 't',
+    slug: 's',
+    ulid: ULID,
+    summary: 'x',
+    now: clock,
+  });
 }
 
 describe('validateFeatureRecord', () => {
@@ -52,9 +59,7 @@ describe('validatePlanRecord', () => {
 
   it('rejects an unknown key and a malformed step', () => {
     expect(validatePlanRecord({ ...plan(), sneaky: 1 }).length).toBeGreaterThan(0);
-    expect(
-      validatePlanRecord({ ...plan(), steps: [{ id: 'S1' }] }).length,
-    ).toBeGreaterThan(0);
+    expect(validatePlanRecord({ ...plan(), steps: [{ id: 'S1' }] }).length).toBeGreaterThan(0);
   });
 });
 

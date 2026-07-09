@@ -79,10 +79,24 @@ export function mintFeatureDirName(input: MintFeatureDirNameInput): MintedFeatur
 
 function resolveIssue(input: MintFeatureDirNameInput): string | null {
   if (input.issue !== undefined) {
-    return input.issue;
+    return normalizeIssue(input.issue);
   }
   const refs = detectTicketRefs(input.title, input.trackerKind ?? 'generic');
-  return refs[0] ?? null;
+  return normalizeIssue(refs[0] ?? null);
+}
+
+/**
+ * Normalise a ticket ref into a dir-name-safe token. `detectTicketRefs` returns a
+ * github ref verbatim as `#45`, but the dir name (and `feature.json.issue`) carry
+ * the bare number `45` so the name stays parseable — the leading `#` is stripped.
+ * A ref that empties out (e.g. a lone `#`) becomes `null`.
+ */
+function normalizeIssue(issue: string | null): string | null {
+  if (issue === null) {
+    return null;
+  }
+  const stripped = issue.replace(/^#/, '').trim();
+  return stripped.length > 0 ? stripped : null;
 }
 
 export interface BuildFeatureRecordInput {

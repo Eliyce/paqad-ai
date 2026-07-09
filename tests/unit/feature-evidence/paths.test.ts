@@ -64,9 +64,18 @@ describe('feature-evidence path layer', () => {
     expect(() => formatFeatureDirName({ issue: null, slug: 'Bad Slug', ulid: ULID })).toThrow(
       /Unsafe feature slug/,
     );
-    expect(() =>
-      formatFeatureDirName({ issue: null, slug: 'ok', ulid: 'too-short' }),
-    ).toThrow(/Malformed feature ULID/);
+    expect(() => formatFeatureDirName({ issue: null, slug: 'ok', ulid: 'too-short' })).toThrow(
+      /Malformed feature ULID/,
+    );
+  });
+
+  it('rejects an issue ref that would not round-trip', () => {
+    expect(() => formatFeatureDirName({ issue: '#45', slug: 'ok', ulid: ULID })).toThrow(
+      /Malformed feature issue ref/,
+    );
+    expect(() => formatFeatureDirName({ issue: 'not an issue', slug: 'ok', ulid: ULID })).toThrow(
+      /Malformed feature issue ref/,
+    );
   });
 
   it('returns null / false for a non-feature dir name', () => {

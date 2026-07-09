@@ -43,6 +43,9 @@ const DIR_NAME_RE = new RegExp(
   `^(?:(${JIRA_ISSUE}|${GITHUB_ISSUE})-)?([a-z0-9]+(?:-[a-z0-9]+)*)-(${ULID_BODY})$`,
 );
 
+/** A standalone issue ref the dir name can carry (jira key or bare github number). */
+const ISSUE_RE = new RegExp(`^(?:${JIRA_ISSUE}|${GITHUB_ISSUE})$`);
+
 /** Project-relative container for every feature bundle. */
 export function featureEvidenceDir(): string {
   return PATHS.FEATURE_EVIDENCE_DIR;
@@ -84,6 +87,9 @@ export function formatFeatureDirName(parts: FeatureDirName): string {
   }
   if (!new RegExp(`^${ULID_BODY}$`).test(parts.ulid)) {
     throw new Error(`Malformed feature ULID: ${JSON.stringify(parts.ulid)}`);
+  }
+  if (parts.issue !== null && !ISSUE_RE.test(parts.issue)) {
+    throw new Error(`Malformed feature issue ref: ${JSON.stringify(parts.issue)}`);
   }
   const prefix = parts.issue ? `${parts.issue}-` : '';
   return `${prefix}${parts.slug}-${parts.ulid}`;

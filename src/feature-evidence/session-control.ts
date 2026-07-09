@@ -20,7 +20,10 @@ import {
 } from './types.js';
 
 /** A fresh, empty control for a session (no active, no paused, no lane). */
-export function emptyControl(sessionId: string, now: () => Date = () => new Date()): FeatureSessionControl {
+export function emptyControl(
+  sessionId: string,
+  now: () => Date = () => new Date(),
+): FeatureSessionControl {
   return {
     schema_version: FEATURE_EVIDENCE_SCHEMA_VERSION,
     doc_type: FEATURE_SESSION_DOC_TYPE,
@@ -54,7 +57,7 @@ export function readSessionControl(
   return emptyControl(sessionId, now);
 }
 
-/** Stamp `updated_at` and atomically write the control to disk. Returns it. */
+/** Stamp `updated_at` and write the control to disk (creating dirs). Returns it. */
 export function writeSessionControl(
   projectRoot: string,
   control: FeatureSessionControl,

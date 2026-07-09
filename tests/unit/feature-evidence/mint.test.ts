@@ -40,6 +40,25 @@ describe('mintFeatureDirName', () => {
     expect(parseFeatureDirName(minted.dirName)).not.toBeNull();
   });
 
+  it('strips a leading # from a detected github ref so the name parses back', () => {
+    const minted = mintFeatureDirName({ title: 'Fix #45 crash', ulid: ULID });
+    expect(minted.issue).toBe('45');
+    expect(minted.dirName).toBe(`45-fix-45-crash-${ULID}`);
+    expect(parseFeatureDirName(minted.dirName)).toEqual({
+      issue: '45',
+      slug: 'fix-45-crash',
+      ulid: ULID,
+    });
+  });
+
+  it('strips a leading # from an explicit github ref too', () => {
+    expect(mintFeatureDirName({ title: 'x', issue: '#9', ulid: ULID }).issue).toBe('9');
+  });
+
+  it('treats a ref that empties out as no issue', () => {
+    expect(mintFeatureDirName({ title: 'x', issue: '#', ulid: ULID }).issue).toBeNull();
+  });
+
   it('detects no issue when the title has no ticket ref', () => {
     const minted = mintFeatureDirName({ title: 'just a plain title', ulid: ULID });
     expect(minted.issue).toBeNull();
@@ -131,7 +150,12 @@ describe('record builders', () => {
 
   it('computeContentHash ignores only the volatile keys', () => {
     const h1 = computeContentHash({ a: 1, content_hash: 'x', created_at: 'y', updated_at: 'z' });
-    const h2 = computeContentHash({ a: 1, content_hash: 'DIFF', created_at: 'DIFF', updated_at: 'DIFF' });
+    const h2 = computeContentHash({
+      a: 1,
+      content_hash: 'DIFF',
+      created_at: 'DIFF',
+      updated_at: 'DIFF',
+    });
     expect(h1).toBe(h2);
   });
 });

@@ -57,7 +57,10 @@ describe('readSessionControl', () => {
 
   it('returns a fresh control when the JSON is a non-object primitive', () => {
     const root = tempRoot();
-    for (const [ses, body] of [['ses_num', '123'], ['ses_null', 'null']] as const) {
+    for (const [ses, body] of [
+      ['ses_num', '123'],
+      ['ses_null', 'null'],
+    ] as const) {
       const abs = join(root, featureSessionControlPath(ses));
       mkdirSync(dirname(abs), { recursive: true });
       writeFileSync(abs, body, 'utf8');
