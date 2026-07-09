@@ -1,0 +1,188 @@
+{
+  "schema_version": "1",
+  "spec_id": "route-first-9-workflows",
+  "spec_file": ".paqad/specs/route-first-9-workflows.md",
+  "spec_hash": "af585abdd25d75c4c09b836a4b6f02c04500f328717685b9290eddf749cf37dc",
+  "behaviour": [
+    "FR-1: - **FR-1**: Routing picks exactly one of the 9 outcomes per user message and narrates the pick in the paqad voice.",
+    "FR-2: - **FR-2**: A `resolveRoutedWorkflow()` normalizer maps every `ClassificationWorkflow` value (and null) to exactly one of the 9 outcomes; all code-change intents map to `feature-development`; small talk and non-code content intents map to `no-workflow`.",
+    "FR-3: - **FR-3**: Rules (manifest plus text) reach the model only on the `feature-development` route; other outcomes load no rules.",
+    "FR-4: - **FR-4**: Rule-scripts execute only on the `feature-development` route, at the checks stage; no other outcome triggers them.",
+    "FR-5: - **FR-5**: The lane (fast, graduated, full) is chosen only for `feature-development`; other outcomes get no lane and show no lane line.",
+    "FR-6: - **FR-6**: All 8 real outcomes use RAG retrieval when `rag_enabled`, scoped by outcome; `no-workflow` retrieves nothing; retrieval never blocks the prompt path.",
+    "FR-7: - **FR-7**: The chosen outcome is recorded per-session as evidence, and a paused-workflow stack preserves each paused outcome's resume anchors (change key, lane, frozen-spec id).",
+    "FR-8: - **FR-8**: The framework bootstrap states the route-first order, the rules-only-for-feature-development load rule, and the per-message pause and resume rule; no provider entry file is modified."
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-1",
+      "given": "paqad is on and a plain question",
+      "when": "the prompt is sent",
+      "then": "the outcome is project-question and no rules load and no rule-scripts run (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-10",
+      "given": "an active feature-development change with recorded plan and spec",
+      "when": "the user asks a question mid-way",
+      "then": "the message routes to project-question and the feature-development plan and spec and lane and stage progress are not lost or reset (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-11",
+      "given": "a paused feature-development change",
+      "when": "the user says continue",
+      "then": "paqad resumes the same change at its recorded stage and reloads its rules and does not re-plan or re-freeze (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-12",
+      "given": "a new code request during a question detour",
+      "when": "sent",
+      "then": "paqad starts a new feature-development change rather than resuming the paused one, and an ambiguous resume asks (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-2",
+      "given": "a code-change request including fix or refactor phrasing",
+      "when": "sent",
+      "then": "the outcome is feature-development and rules load and a lane is picked and rule-scripts run at checks (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-3",
+      "given": "a prompt with a Jira or GitHub URL or ticket reference",
+      "when": "sent",
+      "then": "the content is read first and the outcome is chosen from that content (proof: manual)",
+      "proof_type": "manual",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-4",
+      "given": "an ambiguous prompt between two real outcomes",
+      "when": "sent",
+      "then": "the model asks the user and offers no-workflow (proof: manual)",
+      "proof_type": "manual",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-5",
+      "given": "a pentest or design-test or docs or RCA or rules-analyze request",
+      "when": "sent",
+      "then": "it routes correctly and uses RAG if enabled and loads no rules and runs no rule-scripts (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-6",
+      "given": "small talk",
+      "when": "sent",
+      "then": "nothing loads and no RAG runs and the model just replies (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-7",
+      "given": "this change",
+      "when": "the diff is reviewed",
+      "then": "no entry file is modified (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-8",
+      "given": "a routed outcome",
+      "when": "the seam runs",
+      "then": "the outcome is recorded as evidence the same way the lane is recorded today (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    },
+    {
+      "criterion_id": "AC-9",
+      "given": "the change",
+      "when": "CI runs",
+      "then": "full CI is green including branch coverage at or above 95 percent and the Windows job (proof: automated)",
+      "proof_type": "automated",
+      "status": "uncovered",
+      "source": "planned",
+      "linked_requirement_ids": []
+    }
+  ],
+  "invariants": [
+    {
+      "invariant_id": "INV-1",
+      "statement": "The feature-development plan-and-spec-before-code gate is never weakened or removed, and the `isFeatureDevEdit` scope predicate is unchanged.",
+      "source": "authored",
+      "confirmed": true
+    },
+    {
+      "invariant_id": "INV-2",
+      "statement": "No `CLASSIFICATION_WORKFLOWS` union member is deleted; the fold is additive plus a normalizer only.",
+      "source": "authored",
+      "confirmed": true
+    },
+    {
+      "invariant_id": "INV-3",
+      "statement": "Rule-scripts execute only on the feature-development route.",
+      "source": "authored",
+      "confirmed": true
+    },
+    {
+      "invariant_id": "INV-4",
+      "statement": "RAG retrieval never blocks the prompt path, and rag-disabled or no-workflow emits nothing, byte-identical to today.",
+      "source": "authored",
+      "confirmed": true
+    },
+    {
+      "invariant_id": "INV-5",
+      "statement": "No entry file is modified; routing logic lives only in the framework bootstrap plus the hook and pipeline layer.",
+      "source": "authored",
+      "confirmed": true
+    },
+    {
+      "invariant_id": "INV-6",
+      "statement": "The session-context artifact remains the authoritative rule contract and keeps its fail-safe marker behavior; only when the rule slice is injected up front changes.",
+      "source": "authored",
+      "confirmed": true
+    },
+    {
+      "invariant_id": "INV-7",
+      "statement": "Branch coverage stays at or above 95 percent globally and 100 percent on `src/stage-evidence`.",
+      "source": "authored",
+      "confirmed": true
+    }
+  ],
+  "open_questions": [],
+  "frozen": {
+    "frozen_at": "2026-07-09T13:04:42.772Z",
+    "spec_hash": "af585abdd25d75c4c09b836a4b6f02c04500f328717685b9290eddf749cf37dc",
+    "signed_off_by": "Haider Lasani"
+  }
+}
