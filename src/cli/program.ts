@@ -7,6 +7,7 @@ import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createChecksCommand } from './commands/checks.js';
 import { createComplianceCommand } from './commands/compliance.js';
 import { createDashboardCommand } from './commands/dashboard.js';
+import { createDeliveryCommand } from './commands/delivery.js';
 import { createDisableCommand } from './commands/disable.js';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createEnableCommand } from './commands/enable.js';
@@ -66,6 +67,7 @@ export function createProgram(): Command {
   program.addCommand(createSpecCommand());
   program.addCommand(createStageCommand());
   program.addCommand(createIntakeCommand());
+  program.addCommand(createDeliveryCommand());
   program.addCommand(createStatusCommand());
 
   return program;

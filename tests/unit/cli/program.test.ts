@@ -40,6 +40,7 @@ describe('createProgram', () => {
       'spec',
       'stage',
       'intake',
+      'deliver',
       'status',
     ]);
   });
