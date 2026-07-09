@@ -170,10 +170,12 @@ describe('stages capability — block-forward at pre-mutation', () => {
       });
       expect(result.block).toBe(false);
       // Narration and ledger are both non-negotiable: the rows minted from the
-      // markers are narrated back to the user.
+      // markers are narrated back to the user. #325 mutes the per-marker END line,
+      // so the narration carries the START line of each stage (planning + the spec
+      // stage's "writing the spec" phrasing), not a second "done" line.
       expect(result.narration).toContain('▸ paqad');
       expect(result.narration).toContain('planning');
-      expect(result.narration).toContain('specification');
+      expect(result.narration).toContain('writing the spec');
     });
 
     it('still BLOCKS on specification when the transcript only carries planning, narrating what it recorded', async () => {
@@ -282,7 +284,7 @@ describe('stages capability — block-forward at pre-mutation', () => {
       const result = await gate('src/feature.ts', { transcriptPath });
       expect(result.block).toBe(false);
       expect(result.narration).toContain('planning');
-      expect(result.narration).toContain('specification');
+      expect(result.narration).toContain('writing the spec');
     });
   });
 });

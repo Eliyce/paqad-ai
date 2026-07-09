@@ -4,6 +4,7 @@
 // failures. Derived from the verification-evidence artifact so the hook, the
 // CI backstop, and the desktop event stream all report the same shape.
 
+import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import type { VerificationGate } from '@/core/types/verification.js';
 import type {
   EvidenceGateStatus,
@@ -27,6 +28,10 @@ export interface RepositoryVerificationVerdict {
   /** One-line trust verdict, the same text the hook prints and the event
    *  stream carries. */
   summary: string;
+  /** The full end-of-change receipt (issue #325): the verdict headline + per-stage
+   *  evidence + delivery state, composed at the completion seam. Falls back to
+   *  `summary` when no stage fold is available. */
+  receipt?: string;
   /** Per-gate pass/fail/inconclusive/skipped with specifics. */
   gates: RepositoryVerificationGateVerdict[];
   /** Signals that could not be proven either way and escalate without blocking
@@ -74,9 +79,16 @@ export function buildRepositoryVerificationVerdict(input: {
 }
 
 /**
- * Render the one-line (plus detail) trust verdict. On pass it states the
- * gate tally and any escalations; on failure it names each failing gate and its
- * detail so the developer reads "what's wrong" without opening the diff.
+ * Render the branded trust verdict in paqad's own vocabulary (issue #325). The
+ * headline is one of the contract's three verdict words — never an ad-hoc string —
+ * led by the `**▸ paqad** ·` frame, and every status line pairs a fixed glyph with a
+ * word so it stays legible with the emoji stripped. On a hard fail it names each
+ * failing gate; when only inconclusive signals remain it reads "Inconclusive" (an
+ * over-trust guard), and an all-clear reads "Safe to merge".
+ *
+ * Verdict vocabulary and glyphs come from `paqad-voice.ts`, fulfilling that file's
+ * single-source claim so the chat verdict, the PR comment, and the dashboard all say
+ * the same words.
  */
 export function formatVerdictSummary(input: {
   ok: boolean;
@@ -91,18 +103,26 @@ export function formatVerdictSummary(input: {
   const lines: string[] = [];
 
   if (input.ok) {
-    lines.push(`✓ verification passed — ${passed}/${ran.length} gates held.`);
-  } else {
-    lines.push(
-      `✗ verification blocked — ${failing.length + inconclusive.length}/${ran.length} gates failed.`,
-    );
+    lines.push(paqadFrameLead(PAQAD_VERDICT.pass));
+    lines.push(`> ${PAQAD_STATUS_GLYPH.good} ${passed}/${ran.length} checks held for you.`);
+  } else if (failing.length > 0) {
+    lines.push(paqadFrameLead(PAQAD_VERDICT.fail));
     for (const gate of [...failing, ...inconclusive]) {
-      lines.push(`  • ${gate.gate}: ${gate.detail}`);
+      const glyph =
+        gate.status === 'fail' ? PAQAD_STATUS_GLYPH.failed : PAQAD_STATUS_GLYPH.needsLook;
+      lines.push(`> ${glyph} ${gate.gate}: ${gate.detail}`);
+    }
+  } else {
+    // No hard failure, but at least one gate could not reach a confident result —
+    // report Inconclusive so the developer does not over-trust a green.
+    lines.push(paqadFrameLead(PAQAD_VERDICT.inconclusive));
+    for (const gate of inconclusive) {
+      lines.push(`> ${PAQAD_STATUS_GLYPH.needsLook} ${gate.gate}: ${gate.detail}`);
     }
   }
 
   for (const escalation of input.escalations) {
-    lines.push(`  ⚠ escalate — ${escalation}`);
+    lines.push(`> ${PAQAD_STATUS_GLYPH.needsLook} needs a look — ${escalation}`);
   }
 
   return lines.join('\n');

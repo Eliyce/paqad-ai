@@ -93,15 +93,17 @@ export function narrateStageEntry(input: NarrateStageInput): string | null {
 }
 
 /**
- * The visible line for a marker-recorded stage boundary (issue #307 — narration and
- * ledger are both non-negotiable: a ledger write must never be silent). `start`
- * reuses the canonical stage phrasing; `end` confirms the evidence landed. '' for an
- * unknown stage id, mirroring `stageNarrationLine`.
+ * The visible line for a marker-recorded stage boundary. Issue #325 inverts the
+ * cadence: the per-marker END line duplicated the model's own prose, and the honest
+ * end-of-change receipt now carries each stage's done-state, so the END boundary is
+ * no longer spoken (only the START — the "entering this stage" signal — narrates).
+ * The ledger write is unchanged: recording is non-negotiable, only the second spoken
+ * line is dropped. '' for an unknown stage id, mirroring `stageNarrationLine`.
  */
 export function markerNarrationLine(stage: string, phase: 'start' | 'end'): string {
   if (!STAGE_NARRATION[stage as StageId]) return '';
-  if (phase === 'start') return stageNarrationLine(stage);
-  return `▸ paqad · ${stage.replace(/_/g, ' ')} done — evidence recorded in the ledger`;
+  if (phase === 'end') return '';
+  return stageNarrationLine(stage);
 }
 
 /** One user-visible narration block for a batch of just-recorded markers, or ''

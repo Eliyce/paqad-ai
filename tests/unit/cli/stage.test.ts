@@ -82,9 +82,12 @@ describe('paqad-ai stage command', () => {
     const startLines = await run('start', 'planning');
     expect(startLines.some((line) => line.startsWith('▸ paqad'))).toBe(true);
 
+    // #325 — the end boundary is no longer spoken (muted to cut the duplicate line);
+    // the ledger write is still surfaced as the recorded confirmation, so it is never
+    // silent — only the second narration line is dropped.
     const endLines = await run('end', 'planning');
-    expect(endLines.some((line) => line.includes('evidence recorded'))).toBe(true);
     expect(endLines.some((line) => line.includes('"recorded":true'))).toBe(true);
+    expect(endLines.some((line) => line.includes('evidence recorded'))).toBe(false);
   });
 
   it('rejects an unknown stage with exit code 1 and no ledger row', async () => {

@@ -9,6 +9,8 @@ import { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { EngineEvent, VerificationVerdictEvent } from '@/event-bus/types.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 
+import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
+
 import { createVerificationContext } from '../shared.fixture.js';
 
 const roots: string[] = [];
@@ -31,6 +33,46 @@ function writeTraceabilityMap(root: string, map: TraceabilityMap): void {
 
 afterEach(() => {
   // temp dirs are left for the OS to reap; nothing to restore.
+});
+
+describe('runRepositoryVerification receipt (#325)', () => {
+  it('composes verdict.receipt with the per-stage evidence block from the fold', async () => {
+    const root = makeProject();
+    const context = createVerificationContext({
+      project_root: root,
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+    });
+    // Open a change and record a proven planning stage under a known session.
+    const SES = 'rv-receipt-sess';
+    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
+    const rel = '.paqad/artifacts/plan.md';
+    mkdirSync(join(root, '.paqad/artifacts'), { recursive: true });
+    writeFileSync(join(root, rel), '# plan\n');
+    endStage(
+      root,
+      'planning',
+      { artifactPaths: [rel] },
+      {
+        sessionId: SES,
+        ordinal,
+        adapter: 'claude-code',
+      },
+    );
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(verdict.receipt).toBeDefined();
+    expect(verdict.receipt).toContain(verdict.summary);
+    expect(verdict.receipt).toContain('planning — done');
+  });
 });
 
 describe('runRepositoryVerification (prebuilt context)', () => {
