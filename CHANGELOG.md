@@ -1,5 +1,68 @@
 # paqad-ai
 
+## 1.48.0
+
+### Minor Changes
+
+- 93e45d3: Stage-Spine 05 (#320): artifact-bearing stage markers — prove the work, not just the claim.
+
+  A stage-end marker can now carry an artifact the recorder validates over its real
+  on-disk bytes: `paqad:stage <stage> end -- <path>` (and `paqad-ai stage end <stage>
+--artifact <path>`). The thinking stages — planning, specification, review — must
+  reference a substantive (present, non-empty) artifact to count as complete. A bare
+  marker pair, a missing file, or an empty file now folds to **inconclusive**, not
+  complete, and no longer clears the pre-code gate. Mutation stages (development, checks,
+  documentation_sync) are unchanged — the observed edit is their proof. Reuses the single
+  `hashArtifacts` path (returns null when no real bytes exist) and preserves same-turn
+  remediation (#307) and the docs/`.paqad` scope exclusion (#310).
+
+- 93e45d3: Stage-Spine 06 (#321): per-change completion gate — stop later changes free-riding on the first.
+
+  The end-of-change completeness gate no longer fires only once per session. On a passing
+  verify, finalize now appends a `close` row and resets the session ledger's `.open` pointer
+  (`closeSessionOrdinal`), so the next stage/edit opens a fresh ordinal and the pre-code gate
+  re-arms — change #2+ earns its own verdict instead of inheriting change #1's markers. The
+  verify-once early return is gone (each Stop re-verifies the open change; the last verify is
+  the verdict), and the redo cap now counts only failed verifies since the last stage mutation,
+  so re-verifying never spuriously trips it while a stuck change still marches to `blocked`
+  (#303 bite-once preserved). Docs-only / `.paqad`-only changes still no-op (#310).
+
+- 93e45d3: Stage-Spine 07 (#322): deterministic ticket intake — make "do PQD-123" fetch the real ticket.
+
+  Wires the front door of the ticket → PR loop so the spec grounds in the actual ticket text
+  instead of a guess from the id:
+
+  - **`paqad-ai intake fetch <ref>`** — GitHub issues via `gh issue view` (mapped through a new
+    `GithubIssuesTicketProvider`), Jira via the Atlassian MCP in-session; prints the normalized
+    ticket and records an optional `ticket_intake` stage row. Graceful when `gh` is absent or the
+    ref is unrecognised; intake is a bookend and never blocks a change.
+  - **Prompt-seam detector** (`detectTicketRefs`) + a Claude-Code `UserPromptSubmit` arming hook:
+    a ticket ref in a prompt surfaces a `▸ paqad` line pointing at `intake fetch`. Advisory on
+    hosts without the seam.
+  - Adds an optional "Stage 0 — ticket_intake" to the feature-development rule and fixes the
+    `conventions.intake_decisions` → `process.intake_decisions` key mismatch in the policy text.
+
+- 93e45d3: Stage-Spine 08 (#323): ship `paqad-ai deliver` — wire the dead delivery engine and close the CI loop.
+
+  The ~1,900-line delivery engine (branch/commit/PR + CI wait-for-green + on-red-stop + evidence
+  comment) had no invocation path. `paqad-ai deliver` now runs the tested chain end-to-end:
+
+  - `--dry-run` renders the branch/commit/PR text without pushing.
+  - The real path asks first via a mandatory `delivery.open_pr` Decision Packet (opening a PR is
+    outward-facing and hard to reverse), then runs `renderDelivery → runDelivery → runCiGate`,
+    waits for CI (`wait_for_green` / `on_red: stop`), stops with a clear reason on red (never a
+    false success), and posts the rendered verification evidence to the PR on green.
+  - Reuses `src/delivery/*` — no hand-rolled git/gh flow.
+
+  Also fixes the delivery-policy evidence instruction that promised an auto-posted comment that
+  never happened: it now names `paqad-ai deliver` (auto-posts on green) plus the manual
+  `paqad-ai evidence --output … && gh pr comment --body-file …` fallback.
+
+  Deferred (follow-ups): a Bash `PreToolUse` deny of hand-rolled `gh pr create` / `git push` while
+  a `delivery.open_pr` packet is pending (the pause is already enforced by the verb), and adding a
+  delivery block to this repo's `feature-development.yaml` + having `paqad-ai update` append missing
+  default blocks (ties to #12).
+
 ## 1.47.0
 
 ### Minor Changes
