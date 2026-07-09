@@ -31,9 +31,17 @@ change, so the live feature-development stage spine is untouched:
   active + paused-feature stack + lane store, folding today's `.open` +
   `.pending-lane` role at feature grain (set-active pauses the prior active; resume
   pops a paused feature; mark-done clears).
+- **Feature-scoped stage ledger** (`stage-ledger.ts`, Phase 2 — additive) —
+  `resolveActiveFeature` (mints/sets-active a feature so a stage call never lands on
+  nothing), `appendFeatureStageRow` / `readFeatureStageUnit` / `foldFeature` write,
+  read, and fold a change's stage evidence at `<feature-dir>/stage-evidence.jsonl`,
+  reusing the session-ledger row primitives (`stampSessionRow` /
+  `appendStampedRowToUnit` / `readUnitFile`) and the stage-evidence `foldRowsWithKey`
+  core. Still dark — the live recorder is re-pointed onto it in the cutover.
 
-Later phases of #339 wire the stage recorder, plan/spec compile, re-homed
-sub-ledgers, native git hooks, on-demand projections, and cutover onto this base.
+Later phases of #339 wire the live recorder onto the feature ledger, plan/spec
+compile, re-homed sub-ledgers, native git hooks, on-demand projections, and cutover
+onto this base.
 
 ## Source Footprint
 
@@ -51,4 +59,5 @@ If anything here disagrees with the map, the **map wins**.
 - `tests/unit/feature-evidence/mint.test.ts` — dir-name mint + record builders + hash.
 - `tests/unit/feature-evidence/schema.test.ts` — AJV validation (unknown-key rejection).
 - `tests/unit/feature-evidence/session-control.test.ts` — active + paused control.
+- `tests/unit/feature-evidence/stage-ledger.test.ts` — feature-scoped stage ledger.
 - `tests/unit/feature-evidence/index.test.ts` — barrel surface.

@@ -21,6 +21,12 @@ change, so the live feature-development stage spine is untouched.
 - A per-session control (`_session/<sessionId>.json`) holding one active feature plus a
   paused-feature stack and the pending lane, folding today's `.open` + `.pending-lane`
   role at feature grain.
+- Path-agnostic session-ledger row primitives (`stampSessionRow` /
+  `appendStampedRowToUnit` / `readUnitFile`) plus an additive feature-scoped
+  stage-evidence ledger (`resolveActiveFeature` / `appendFeatureStageRow` /
+  `foldFeature`) that reuses them and the stage-evidence fold core, so a change's stage
+  rows can live at `<feature-dir>/stage-evidence.jsonl`. `appendSessionEvent` /
+  `readSessionUnit` / `foldRows` / `foldChange` keep identical behaviour.
 
-Nothing writes to these paths yet; wiring the recorder, plan/spec compile, git hooks,
-projections, and cutover follow in later phases of #339.
+Nothing writes to these paths yet; wiring the live recorder onto the feature ledger,
+plan/spec compile, git hooks, projections, and cutover follow in later phases of #339.
