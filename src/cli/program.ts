@@ -22,6 +22,8 @@ import { createModuleMapCommand } from './commands/module-map.js';
 import { createOnboardCommand } from './commands/onboard.js';
 import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
+import { createConfigCommand } from './commands/config.js';
+import { createDecisionCommand } from './commands/decision.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRagEvidenceCommand } from './commands/rag-evidence.js';
 import { createRefreshCommand } from './commands/refresh.js';
@@ -66,6 +68,8 @@ export function createProgram(): Command {
   program.addCommand(createPatternsCommand());
   program.addCommand(createSpecCommand());
   program.addCommand(createStageCommand());
+  program.addCommand(createDecisionCommand());
+  program.addCommand(createConfigCommand());
   program.addCommand(createIntakeCommand());
   program.addCommand(createDeliveryCommand());
   program.addCommand(createStatusCommand());
