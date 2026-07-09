@@ -970,6 +970,25 @@ modules:
     sources:
       - src/session-ledger
 
+  - slug: feature-evidence
+    name: Per-Feature Evidence Bundle
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The per-feature evidence bundle (issue #339) — one directory per feature at
+      `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` holding its whole
+      workflow record plus its compliance bundle. Phase 1 lays the dark, unwired
+      foundation: a path layer that resolves the layout, the `_session` control,
+      and the `_chat` home and round-trips a dir name to its `{issue, slug, ulid}`
+      parts; rigid framework-owned AJV schemas for `feature.json` and `plan.json`
+      (unknown keys rejected) with content-hashed record builders (`specification.json`
+      reuses the existing FeatureSpec shape); and the per-session active +
+      paused-feature control that folds today's `.open` + `.pending-lane` at feature
+      grain. Nothing writes here until later #339 phases wire the recorder in, so the
+      live stage spine is untouched.
+    sources:
+      - src/feature-evidence
+
   - slug: rag-evidence-ledger
     name: RAG-Evidence Ledger
     layer: framework-internals
