@@ -33,12 +33,37 @@ export function foldChange(projectRoot: string, sessionId: string, ordinal: numb
   return foldRows(rows, sessionId, ordinal);
 }
 
-/** Fold an in-memory set of rows (the testable core). */
+/** Fold an in-memory set of rows keyed on the legacy `<session>#<ordinal>` change key. */
 export function foldRows(
   rows: readonly SessionLedgerRow[],
   sessionId: string,
   ordinal: number,
 ): FoldedChange {
+  return foldRowsWithKey(rows, {
+    sessionId,
+    changeKey: changeKey(sessionId, ordinal),
+    promptOrdinal: ordinal,
+  });
+}
+
+/** Identity a fold is keyed under — the legacy `<session>#<ordinal>` or a feature dir. */
+export interface FoldIdentity {
+  sessionId: string;
+  changeKey: string;
+  promptOrdinal: number;
+}
+
+/**
+ * Fold an in-memory set of rows into the per-change view (the testable core). The
+ * change identity is supplied by the caller so the SAME folding logic serves both the
+ * legacy session/ordinal key and the per-feature dir-name key (issue #339) without
+ * duplicating the state machine.
+ */
+export function foldRowsWithKey(
+  rows: readonly SessionLedgerRow[],
+  identity: FoldIdentity,
+): FoldedChange {
+  const { sessionId, changeKey: change_key, promptOrdinal: ordinal } = identity;
   const stages = STAGE_EVIDENCE_STAGES.map((stage) => foldStage(stage, rows));
   const orderingViolations = computeOrderingViolations(stages);
 
@@ -56,7 +81,7 @@ export function foldRows(
 
   return {
     session_id: sessionId,
-    change_key: changeKey(sessionId, ordinal),
+    change_key,
     prompt_ordinal: ordinal,
     stages,
     lane: readRecordedLane(rows),
