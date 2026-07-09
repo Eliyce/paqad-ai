@@ -13,6 +13,7 @@ import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
+import { createIntakeCommand } from './commands/intake.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
@@ -64,6 +65,7 @@ export function createProgram(): Command {
   program.addCommand(createPatternsCommand());
   program.addCommand(createSpecCommand());
   program.addCommand(createStageCommand());
+  program.addCommand(createIntakeCommand());
   program.addCommand(createStatusCommand());
 
   return program;

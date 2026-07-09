@@ -27,6 +27,13 @@ export {
   extractAcceptanceCriteria,
 } from './jira-ticket-provider.js';
 export type { JiraMcpInvoke } from './jira-ticket-provider.js';
+export {
+  GithubIssuesTicketProvider,
+  GITHUB_ISSUE_JSON_FIELDS,
+  normalizeGithubIssue,
+  normalizeIssueNumber,
+} from './github-issues-ticket-provider.js';
+export type { GhInvoke } from './github-issues-ticket-provider.js';
 export { resolveTicketProvider, resolveHostProvider } from './registry.js';
 export type {
   TicketProviderResolution,

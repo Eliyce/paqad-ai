@@ -17,6 +17,8 @@ import {
 // global copy resolves the project root from CLAUDE_PROJECT_DIR/pwd.
 const AGENT_ENTRY_GATE_HOOK = 'agent-entry-gate.mjs';
 const AGENT_ENTRY_PROMPT_GATE_HOOK = 'agent-entry-prompt-gate.mjs';
+// Issue #322 — arms deterministic ticket intake when a prompt names a tracker ref.
+const TICKET_INTAKE_PROMPT_HOOK = 'ticket-intake-prompt.mjs';
 const AGENT_ENTRY_SESSION_START_HOOK = 'agent-entry-session-start.mjs';
 // Background, non-blocking forced self-update on every session start.
 const SILENT_UPDATE_HOOK = 'silent-update.mjs';
@@ -157,6 +159,9 @@ function mergeAgentEntryGate(existing: Record<string, unknown>): Record<string, 
     UserPromptSubmit: mergeHookList(pruneLegacyHooks(hooks.UserPromptSubmit), [
       {
         hooks: [{ type: 'command', command: hookCommand(AGENT_ENTRY_PROMPT_GATE_HOOK) }],
+      },
+      {
+        hooks: [{ type: 'command', command: hookCommand(TICKET_INTAKE_PROMPT_HOOK) }],
       },
     ]),
     SessionStart: mergeHookList(pruneLegacyHooks(hooks.SessionStart), [

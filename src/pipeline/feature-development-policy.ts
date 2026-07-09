@@ -86,7 +86,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'When a ticket provider MCP is configured and the request references a ticket, fetch it and ground the refinement in repo rules, stack, design-system, and prior resolved decisions.',
           'Detect implicit choices the ticket leaves open and resolve them priors-first (matching index.json fingerprints), then rules-second (rules/stack/design-system), then ask the user.',
-          'Auto-resolved decisions must be surfaced for confirmation per conventions.intake_decisions.confirm_auto_resolutions; never bypass the user silently.',
+          'Auto-resolved decisions must be surfaced for confirmation per process.intake_decisions.confirm_auto_resolutions; never bypass the user silently.',
         ],
         required_inputs: ['ticket ref or natural-language request'],
         strictness: {},
@@ -549,7 +549,7 @@ stages:
     instructions:
       - When a ticket provider MCP is configured and the request references a ticket, fetch it and ground the refinement in repo rules, stack, design-system, and prior resolved decisions.
       - Detect implicit choices the ticket leaves open and resolve them priors-first (matching index.json fingerprints), then rules-second (rules/stack/design-system), then ask the user.
-      - Auto-resolved decisions must be surfaced for confirmation per conventions.intake_decisions.confirm_auto_resolutions; never bypass the user silently.
+      - Auto-resolved decisions must be surfaced for confirmation per process.intake_decisions.confirm_auto_resolutions; never bypass the user silently.
     required_inputs:
       - ticket ref or natural-language request
     escalation:

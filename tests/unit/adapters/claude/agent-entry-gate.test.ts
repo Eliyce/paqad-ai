@@ -129,10 +129,12 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     expect(isCapabilityGate(parsed.hooks.PreToolUse[4].hooks[0].command, 'pre-mutation')).toBe(
       true,
     );
-    expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
+    // agent-entry prompt gate + ticket-intake arming hook (issue #322).
+    expect(parsed.hooks.UserPromptSubmit).toHaveLength(2);
     expect(parsed.hooks.UserPromptSubmit[0].hooks[0].command).toContain(
       'agent-entry-prompt-gate.mjs',
     );
+    expect(parsed.hooks.UserPromptSubmit[1].hooks[0].command).toContain('ticket-intake-prompt.mjs');
     // agent-entry session-start + background self-update (decision D-2).
     expect(parsed.hooks.SessionStart).toHaveLength(2);
   });
@@ -231,7 +233,8 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
     // agent-entry gate + stage-writer (RCA fix A) + decision-pause gate +
     // capability-kernel seam (F3), no duplicates after re-run.
     expect(parsed.hooks.PreToolUse).toHaveLength(4);
-    expect(parsed.hooks.UserPromptSubmit).toHaveLength(1);
+    // agent-entry prompt gate + ticket-intake arming hook (#322), no duplicates.
+    expect(parsed.hooks.UserPromptSubmit).toHaveLength(2);
     // agent-entry session-start + background self-update, no duplicates.
     expect(parsed.hooks.SessionStart).toHaveLength(2);
     // stage-marker-parse + verification-completion + capability-kernel seam (F3).
