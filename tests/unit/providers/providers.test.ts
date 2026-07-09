@@ -12,6 +12,12 @@ import {
   normalizeJiraTransitions,
   extractAcceptanceCriteria,
 } from '@/providers/jira-ticket-provider.js';
+import {
+  GithubIssuesTicketProvider,
+  GITHUB_ISSUE_JSON_FIELDS,
+  normalizeGithubIssue,
+  normalizeIssueNumber,
+} from '@/providers/github-issues-ticket-provider.js';
 import { resolveTicketProvider, resolveHostProvider } from '@/providers/registry.js';
 import { defaultDeliveryProcess } from '@/pipeline/delivery-policy.js';
 import type { ProjectMcpServer } from '@/core/types/project-profile.js';
@@ -226,5 +232,55 @@ describe('provider registry', () => {
     expect(resolveHostProvider(host, { remoteHost: null, cliAvailable: true }).connected).toBe(
       false,
     );
+  });
+});
+
+describe('GithubIssuesTicketProvider (#322)', () => {
+  const payload = JSON.stringify({
+    number: 45,
+    title: 'Add retries',
+    body: 'Do the thing.\n- returns 200\n- logs on failure',
+    labels: [{ name: 'type: feature' }, { name: 'p1' }],
+    state: 'OPEN',
+    url: 'https://github.com/o/r/issues/45',
+  });
+
+  it('maps a gh issue view payload onto NormalizedTicket', async () => {
+    const calls: string[][] = [];
+    const provider = new GithubIssuesTicketProvider(async (args) => {
+      calls.push(args);
+      return payload;
+    });
+    const ticket = await provider.fetchTicket('#45');
+    expect(ticket.id).toBe('#45');
+    expect(ticket.title).toBe('Add retries');
+    expect(ticket.type).toBe('feature'); // from the `type:` label
+    expect(ticket.acceptance_criteria).toEqual(['returns 200', 'logs on failure']);
+    expect(ticket.status).toBe('OPEN');
+    expect(ticket.url).toBe('https://github.com/o/r/issues/45');
+    // The `#` is stripped before `gh issue view <number>`.
+    expect(calls[0]).toEqual(['issue', 'view', '45', '--json', GITHUB_ISSUE_JSON_FIELDS.join(',')]);
+  });
+
+  it('normalizeGithubIssue tolerates a missing/garbage payload', () => {
+    const t = normalizeGithubIssue({}, '#7');
+    expect(t.id).toBe('#7');
+    expect(t.type).toBe('Issue');
+    expect(t.status).toBe('OPEN');
+    expect(t.acceptance_criteria).toEqual([]);
+  });
+
+  it('normalizeIssueNumber strips # and gh- prefixes', () => {
+    expect(normalizeIssueNumber('#45')).toBe('45');
+    expect(normalizeIssueNumber('GH-12')).toBe('12');
+    expect(normalizeIssueNumber('9')).toBe('9');
+  });
+
+  it('write operations reject (read-only intake adapter)', async () => {
+    const provider = new GithubIssuesTicketProvider(async () => payload);
+    await expect(provider.transition()).rejects.toThrow(/read-only/);
+    await expect(provider.addComment()).rejects.toThrow(/read-only/);
+    await expect(provider.updateFields('#1', {})).rejects.toThrow(/read-only/);
+    expect(await provider.listTransitions()).toEqual([]);
   });
 });

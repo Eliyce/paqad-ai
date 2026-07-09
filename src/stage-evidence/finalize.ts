@@ -16,6 +16,7 @@
 
 import {
   appendSessionEvent,
+  closeSessionOrdinal,
   currentOrdinal,
   readSessionUnit,
   type SessionLedgerRow,
@@ -71,15 +72,15 @@ export function finalizeStageEvidence(
     const sessionId = resolveSessionId(projectRoot, input.sessionId);
     let ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
 
-    // Verify-once: the backstop fires on every completion, but the agent owns the
-    // redo loop (its explicit `verify` calls). If the open change already carries a
-    // verify row, leave it — don't auto-stack verifies (which would trip the redo
-    // cap spuriously).
+    // Re-verify each completion (issue #321): the backstop fires on every Stop and
+    // each change earns its OWN verdict. There is no verify-once early return — a
+    // passing change is CLOSED below (its `.open` pointer reset), so a later Stop sees
+    // ordinal 0 and no-ops rather than re-stacking verifies; an open (incomplete)
+    // change is legitimately re-verified as the agent runs its redo loop. The redo cap
+    // (verify.ts) counts only failures since the last stage mutation, so re-verifying
+    // never spuriously trips it.
     if (ordinal > 0) {
       const existing = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
-      if (existing.some((row) => row.kind === 'verify')) {
-        return null;
-      }
       // Turn-boundary end (fix A partner): the PreToolUse live writer leaves the
       // last started stage open — there is no "last edit" signal pre-mutation. End
       // any still-open live-mark stage_start now, stamping ended_at from the
@@ -109,16 +110,57 @@ export function finalizeStageEvidence(
       appendInferredDevelopment(projectRoot, sessionId, ordinal, input);
     }
 
-    return verifyChange(projectRoot, {
+    const result = verifyChange(projectRoot, {
       sessionId,
       ordinal,
       adapter: input.adapter,
       now: input.now,
     });
+
+    // Close on pass (issue #321): a passing change has earned its verdict, so record a
+    // `close` row and reset the `.open` pointer. The next stage/edit then opens a FRESH
+    // ordinal — so change #2+ in a session no longer free-rides on change #1's markers,
+    // and the pre-code gate re-arms for each change. An incomplete/blocked change stays
+    // open for the agent's redo loop (re-verified next Stop).
+    if (result.ok) {
+      appendClose(projectRoot, sessionId, ordinal, input, result.verdict);
+      closeSessionOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    }
+    return result;
   } catch {
     // Best-effort: never let stage-evidence finalization break verification.
     return null;
   }
+}
+
+/** Append the `kind:'close'` row that brackets a passing change (issue #321). It marks
+ *  the change complete on the ledger before the `.open` pointer advances, so the
+ *  open…close bracket is inspectable (one per change). Best-effort caller-side. */
+function appendClose(
+  projectRoot: string,
+  sessionId: string,
+  ordinal: number,
+  input: FinalizeStageEvidenceInput,
+  verdict: string,
+): void {
+  appendSessionEvent(
+    projectRoot,
+    STAGE_EVIDENCE_DOC_TYPE,
+    sessionId,
+    ordinal,
+    {
+      kind: 'close',
+      conversation_ordinal: ordinal,
+      adapter: input.adapter,
+      event_status: 'completed',
+      note: `closed; verdict=${verdict}`,
+    },
+    {
+      schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
+      validate: (row: SessionLedgerRow) => validateStageEvidenceRow(row),
+      now: input.now,
+    },
+  );
 }
 
 /**

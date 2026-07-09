@@ -48,6 +48,14 @@ Follow the narration contract's plain-English translations and glyph meanings. W
 
 Run these in order. Depth scales with the change (a trivial change has a one-line spec and a quick review), but no stage is omitted. Announce each stage as you enter it (see "Announce each stage" above).
 
+### Stage 0 — ticket_intake (optional bookend)
+
+- Runs only when the request references a tracker ticket (Jira `PROJ-123`, GitHub `#123`). It is an **optional bookend** — a change that did not start from a ticket skips it and is never blocked.
+- **Fetch the real ticket deterministically**, don't guess from the id: `npx paqad-ai intake fetch <ref>` pulls the actual title, body, acceptance notes, and labels (GitHub via `gh`; Jira via the Atlassian MCP in-session). Ground the specification in that real text so each acceptance criterion traces back to the ticket.
+- Detect implicit choices the ticket leaves open and resolve them priors-first, then rules-second, then ask. Auto-resolved decisions must be surfaced for confirmation per `process.intake_decisions.confirm_auto_resolutions`; never bypass the user silently.
+- Requirement confirmation is a genuine user decision — route it through the Decision Pause Contract (`intake.requirement`), never auto-accept.
+- Escalations: `missing_ticket: warn`, `unresolved_decisions: stop`.
+
 ### Stage 1 — planning
 
 - Load the canonical module and instruction docs for the area before planning (`docs/modules/**`, `docs/instructions/**`).

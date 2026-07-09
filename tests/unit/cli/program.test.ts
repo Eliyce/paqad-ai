@@ -39,6 +39,8 @@ describe('createProgram', () => {
       'patterns',
       'spec',
       'stage',
+      'intake',
+      'deliver',
       'status',
     ]);
   });

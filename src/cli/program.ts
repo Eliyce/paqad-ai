@@ -7,12 +7,14 @@ import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createChecksCommand } from './commands/checks.js';
 import { createComplianceCommand } from './commands/compliance.js';
 import { createDashboardCommand } from './commands/dashboard.js';
+import { createDeliveryCommand } from './commands/delivery.js';
 import { createDisableCommand } from './commands/disable.js';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
+import { createIntakeCommand } from './commands/intake.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
@@ -64,6 +66,8 @@ export function createProgram(): Command {
   program.addCommand(createPatternsCommand());
   program.addCommand(createSpecCommand());
   program.addCommand(createStageCommand());
+  program.addCommand(createIntakeCommand());
+  program.addCommand(createDeliveryCommand());
   program.addCommand(createStatusCommand());
 
   return program;

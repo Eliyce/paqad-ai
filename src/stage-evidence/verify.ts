@@ -63,9 +63,15 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
   const fold = foldChange(projectRoot, sessionId, ordinal);
 
   const unit = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
-  const priorFailures = unit.filter(
-    (row) => row.kind === 'verify' && row.event_status === 'failed',
-  ).length;
+  // Redo cap counts only failed verifies SINCE the last ledger mutation (issue #321):
+  // a new stage row (open / stage_start / stage_end) is fresh work, so it resets the
+  // count. This makes the cap meaningful across a re-verified change — the agent that
+  // actually re-runs the missing stage is not punished by earlier failures — and keeps
+  // #303 bite-once (repeated Stops with no new work still march toward `blocked`).
+  const lastMutationIdx = lastIndexOfMutation(unit);
+  const priorFailures = unit
+    .slice(lastMutationIdx + 1)
+    .filter((row) => row.kind === 'verify' && row.event_status === 'failed').length;
   const liveMarked = unit.some((row) => row.evidence_source === 'live-mark');
 
   let verdict = fold.completeness.verdict;
@@ -104,6 +110,17 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
     redo_attempts: priorFailures,
     change_key: fold.change_key,
   };
+}
+
+/** Index of the last stage-mutation row (open / stage_start / stage_end) in the unit,
+ *  or -1 when none — the boundary after which redo-cap failures are counted (#321). */
+function lastIndexOfMutation(unit: readonly SessionLedgerRow[]): number {
+  let idx = -1;
+  for (let i = 0; i < unit.length; i++) {
+    const kind = unit[i].kind;
+    if (kind === 'open' || kind === 'stage_start' || kind === 'stage_end') idx = i;
+  }
+  return idx;
 }
 
 function currentOrdinalOrThrow(projectRoot: string, sessionId: string): number {

@@ -5,7 +5,13 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runCapabilityGate } from '@/kernel/gate.js';
-import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
+import {
+  endStage,
+  isArtifactBearingStage,
+  openStageEvidence,
+  startStage,
+  type EndStageInput,
+} from '@/stage-evidence/index.js';
 
 // Block-forward (RCA fix B): the stages capability refuses a code edit at the
 // pre-mutation seam until planning + specification carry a start+end pair in the
@@ -21,12 +27,26 @@ describe('stages capability — block-forward at pre-mutation', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  /** Record a full start+end pair for each stage, in order, under the shared session. */
+  /** End-stage args that satisfy the #320 artifact requirement for a thinking stage. */
+  function provenEndArgs(stage: string): EndStageInput {
+    if (!isArtifactBearingStage(stage)) return {};
+    const rel = `.paqad/artifacts/${stage}.md`;
+    mkdirSync(join(root, '.paqad', 'artifacts'), { recursive: true });
+    writeFileSync(join(root, rel), `# ${stage} artifact\n`);
+    return { artifactPaths: [rel] };
+  }
+
+  /** Record a full start+end pair for each stage, in order, under the shared session.
+   *  Thinking stages get a real artifact so the #320 gate unblocks. */
   function record(stages: string[]): void {
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
     for (const stage of stages) {
       startStage(root, stage, { sessionId: SES, ordinal, adapter: 'claude-code' });
-      endStage(root, stage, {}, { sessionId: SES, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(stage), {
+        sessionId: SES,
+        ordinal,
+        adapter: 'claude-code',
+      });
     }
   }
 
@@ -54,6 +74,25 @@ describe('stages capability — block-forward at pre-mutation', () => {
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
+  });
+
+  // Issue #320 — a bare marker pair (no artifact) no longer clears the gate for a
+  // thinking stage; the end must reference a real, non-empty artifact.
+  it('#320: BLOCKS when planning+specification have pairs but NO artifact digest', async () => {
+    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    for (const stage of ['planning', 'specification']) {
+      startStage(root, stage, { sessionId: SES, ordinal, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId: SES, ordinal, adapter: 'claude-code' }); // bare, no artifact
+    }
+    const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('planning');
+  });
+
+  it('#320: the planning block message teaches the `-- <artifact-path>` grammar', async () => {
+    const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
+    expect(result.summary).toContain('paqad:stage planning end -- <artifact-path>');
+    expect(result.summary).toContain('--artifact <artifact-path>');
   });
 
   it('does NOT block a planning stage that started but never ended (no pair yet)', async () => {
@@ -116,9 +155,13 @@ describe('stages capability — block-forward at pre-mutation', () => {
     }
 
     it('ALLOWS the edit when the turn transcript already carries planning+specification pairs', async () => {
+      // #320: the thinking-stage ends must reference a real artifact, so the markers
+      // carry `-- <path>` and the files exist.
+      writeFileSync(join(root, 'plan.md'), '# plan\n');
+      writeFileSync(join(root, 'spec.md'), '# spec\n');
       const transcriptPath = transcript(
-        'paqad:stage planning start\nplanning…\npaqad:stage planning end',
-        'paqad:stage specification start\nspec…\npaqad:stage specification end',
+        'paqad:stage planning start\nplanning…\npaqad:stage planning end -- plan.md',
+        'paqad:stage specification start\nspec…\npaqad:stage specification end -- spec.md',
       );
       const result = await runCapabilityGate({
         projectRoot: root,
@@ -134,8 +177,9 @@ describe('stages capability — block-forward at pre-mutation', () => {
     });
 
     it('still BLOCKS on specification when the transcript only carries planning, narrating what it recorded', async () => {
+      writeFileSync(join(root, 'plan.md'), '# plan\n');
       const transcriptPath = transcript(
-        'paqad:stage planning start\nplanning…\npaqad:stage planning end',
+        'paqad:stage planning start\nplanning…\npaqad:stage planning end -- plan.md',
       );
       const result = await runCapabilityGate({
         projectRoot: root,
@@ -218,12 +262,14 @@ describe('stages capability — block-forward at pre-mutation', () => {
       // The pre-mutation sweep must still record the planning + specification markers
       // (F3 makes the recorder tolerant), so the code edit is no longer deadlocked.
       startStage(root, 'documentation_sync', { sessionId: SES, adapter: 'claude-code' });
+      writeFileSync(join(root, 'plan.md'), '# plan\n');
+      writeFileSync(join(root, 'spec.md'), '# spec\n');
       const transcriptPath = join(root, 'turn.jsonl');
       writeFileSync(
         transcriptPath,
         [
-          'paqad:stage planning start\nplanning…\npaqad:stage planning end',
-          'paqad:stage specification start\nspec…\npaqad:stage specification end',
+          'paqad:stage planning start\nplanning…\npaqad:stage planning end -- plan.md',
+          'paqad:stage specification start\nspec…\npaqad:stage specification end -- spec.md',
         ]
           .map((text) =>
             JSON.stringify({
