@@ -45,8 +45,12 @@ jobs:
       - name: Install graph-ui dependencies
         run: pnpm --dir graph-ui install --frozen-lockfile
 
+      # Pin to the 11.x line: Trusted Publishing needs npm >= 11.5.1, but a
+      # moving @latest let npm 12 in, which changed `npm pack --json` output
+      # and crashed the publish-time E2E (issue #332). A range floor keeps
+      # provenance/OIDC working while excluding surprise breaking majors.
       - name: Upgrade npm (Trusted Publishing needs npm >= 11.5.1)
-        run: npm install -g npm@latest
+        run: npm install -g "npm@>=11.5.1 <12"
 
       - name: Build
         run: pnpm run build
