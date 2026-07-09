@@ -19,8 +19,7 @@ import {
 
 /** The open_pr choice, or a pause when the delivery.open_pr decision is unresolved. */
 export type OpenPrDecision =
-  | { status: 'resolved'; choice: 'yes' | 'draft' | 'no' }
-  | { status: 'paused'; message: string };
+  { status: 'resolved'; choice: 'yes' | 'draft' | 'no' } | { status: 'paused'; message: string };
 
 export interface DeliverDeps {
   projectRoot: string;

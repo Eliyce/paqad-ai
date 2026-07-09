@@ -40,13 +40,7 @@ export interface StructuredHandoff {
     completed_slices: string[];
     current_slice: string | null;
     current_slice_status:
-      | 'pending'
-      | 'in-progress'
-      | 'completed'
-      | 'failed'
-      | 'escalated'
-      | 'blocked'
-      | null;
+      'pending' | 'in-progress' | 'completed' | 'failed' | 'escalated' | 'blocked' | null;
     pending_slices: string[];
     escalated_slices: string[];
   };

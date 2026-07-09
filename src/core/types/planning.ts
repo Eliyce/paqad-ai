@@ -12,25 +12,12 @@ export type RollbackClass = 'safe' | 'needs-migration' | 'destructive';
 export type PlanMode = 'full' | 'delta';
 export type PlanningLane = 'fast' | 'graduated' | 'full';
 export type SliceExecutionStatus =
-  | 'pending'
-  | 'in-progress'
-  | 'completed'
-  | 'failed'
-  | 'escalated'
-  | 'blocked';
+  'pending' | 'in-progress' | 'completed' | 'failed' | 'escalated' | 'blocked';
 export type SliceEscalationReason = 'retry_failed' | 'circuit_breaker' | 'protected_scope';
 export type ExecutionTrackerStatus =
-  | 'not-started'
-  | 'in-progress'
-  | 'completed'
-  | 'partial'
-  | 'failed';
+  'not-started' | 'in-progress' | 'completed' | 'partial' | 'failed';
 export type CriterionSource =
-  | 'planned'
-  | 'compiled-rule'
-  | 'defect-pattern'
-  | 'contract-boundary'
-  | 'inherited';
+  'planned' | 'compiled-rule' | 'defect-pattern' | 'contract-boundary' | 'inherited';
 export type DocTargetStatus = 'pending' | 'updated' | 'skipped';
 export type RegressionStatus = 'pending' | 'passing' | 'failing';
 export type ManifestComplexity = 'trivial' | 'low' | 'medium' | 'high' | 'very-high';

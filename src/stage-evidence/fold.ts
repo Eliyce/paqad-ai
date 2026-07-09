@@ -23,6 +23,7 @@ import {
   type OrderingViolation,
   type StageCompletenessVerdict,
   type StageEvidenceSource,
+  type StageLane,
   type StageState,
 } from './types.js';
 
@@ -58,6 +59,7 @@ export function foldRows(
     change_key: changeKey(sessionId, ordinal),
     prompt_ordinal: ordinal,
     stages,
+    lane: readRecordedLane(rows),
     completeness: {
       verdict,
       missing_stages: missing,
@@ -95,6 +97,18 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[]): FoldedStag
     evidence_source: coerceEvidenceSource((end ?? start)?.evidence_source),
     artifact_digest: typeof end?.artifact_digest === 'string' ? end.artifact_digest : null,
   };
+}
+
+/**
+ * The recorded lane for the change (issue #324): the `lane` stamped on the open row.
+ * The open row is authoritative — it is written once with the lane the prompt seam
+ * picked. An absent open row, or an unrecognised value, folds to null (consumers fail
+ * safe to `full`).
+ */
+function readRecordedLane(rows: readonly SessionLedgerRow[]): StageLane {
+  const openRow = rows.find((row) => row.kind === 'open');
+  const value = openRow?.lane;
+  return value === 'fast' || value === 'graduated' || value === 'full' ? value : null;
 }
 
 /** Narrow the substrate's `unknown` evidence_source field to the typed union. */

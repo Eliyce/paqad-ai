@@ -160,8 +160,7 @@ export function buildDetectedStackProfile(input: {
 
 export function getPrimaryStack(
   profile:
-    | Partial<Pick<ProjectProfile, 'active_capabilities' | 'routing' | 'stack_profile'>>
-    | undefined,
+    Partial<Pick<ProjectProfile, 'active_capabilities' | 'routing' | 'stack_profile'>> | undefined,
 ): Stack {
   const frameworks = Array.isArray(profile?.stack_profile?.frameworks)
     ? profile.stack_profile.frameworks

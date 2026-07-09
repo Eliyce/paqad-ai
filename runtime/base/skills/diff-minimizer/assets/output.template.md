@@ -2,9 +2,9 @@
 
 ### Step Map
 
-| #   | Step     | Classification  | Mapped AC       | Action      |
+| # | Step | Classification | Mapped AC | Action |
 | --- | -------- | --------------- | --------------- | ----------- | ------------ | ------------------------- | ------ | --------------- |
-| 1   | {{step}} | {{ac-satisfying | necessary-setup | scaffolding | over-build}} | {{AC-1.1 or — or step 4}} | {{keep | drop — reason}} |
+| 1 | {{step}} | {{ac-satisfying | necessary-setup | scaffolding | over-build}} | {{AC-1.1 or — or step 4}} | {{keep | drop — reason}} |
 
 ### Recommended Drops
 

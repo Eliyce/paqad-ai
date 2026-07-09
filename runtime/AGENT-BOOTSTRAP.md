@@ -111,7 +111,11 @@ paqad:stage planning start
 paqad:stage planning end -- .paqad/plans/<change>.md
 ```
 
-Emit the `start` marker as you begin the stage and the `end` marker as you finish it (`paqad:stage <stage> <start|end>`). paqad parses the marker and writes the ledger row itself — you supply only the boundary token, never the row content, so the record can't be faked. Every row paqad records this way is also narrated back to the developer as a `▸ paqad` line — the ledger write is never silent.
+Emit the `start` marker as you begin the stage and the `end` marker as you finish it (`paqad:stage <stage> <start|end>`). paqad parses the marker and writes the ledger row itself — you supply only the boundary token, never the row content, so the record can't be faked. paqad narrates a `▸ paqad` line as you ENTER each stage; the end boundary is not spoken separately — the one end-of-change receipt (below) reports each stage's final state, so a boundary is never announced twice.
+
+**One end-of-change receipt.** At the end of a change paqad surfaces a single receipt: the verdict in the contract words (Safe to merge / Needs your attention / Inconclusive), then one line per stage with a fixed glyph and its honest evidence state. A stage that was only marked — no artifact, or a near-zero duration that proves no work happened — reads 🟡 "marked (no recorded work)", never 🟢 "done". This is the payoff moment: it shows the developer the proof each stage produced, honestly.
+
+**Per host — who speaks.** On **Claude Code** the stage hooks fire on your edits and at turn end, so the entry lines and the end-of-change receipt are surfaced for you. On **Codex** and **Gemini** the record hook is deliberately record-only — it writes the ledger at turn end but says nothing in chat — so there YOU must narrate your own `▸ paqad` stage lines and speak the end-of-change verdict in prose. On **advisory hosts** (JetBrains AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) no native hook fires at all: narrate every stage and the verdict yourself. Never rely on a hook-spoken line on a non-Claude host.
 
 **A thinking stage must point at a real artifact.** planning, specification, and review each prove their work with a file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Write the plan/spec/findings file first, then end the stage against it. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
 
@@ -167,11 +171,11 @@ Before implementing any choice that falls into one of the categories below, writ
 
 ## Resolution flow
 
-1. Create the packet with the `decision` skill's create script — it mints the `D-<ULID>` id and writes `.paqad/decisions/pending/D-{id}.json` for you:
-   `node runtime/base/skills/decision/scripts/create.mjs <project-root> --category <category> --title <title> --context <context> --option <key>=<label> --option <key>=<label> [--recommendation <key>]`. It prints the minted `id`.
-2. Present the packet's options to the user via the host's interactive UI (see the per-adapter table below). If multiple packets are pending, ask them one at a time in creation order (ids sort chronologically). If a packet has more than 4 options, present the top 4 — the user can pick "Other" to write in an alternative.
-3. When the user answers, resolve with the `decision` skill's resolve script — it records `chosen` / `rationale` / `resolved_at` and moves the file to `.paqad/decisions/resolved/D-{id}.json`:
-   `node runtime/base/skills/decision/scripts/resolve.mjs <project-root> <id> <chosen> [rationale]`. A hand-picked sequential `D-{N}` is rejected, so parallel branches never collide.
+1. Create the packet with the `decision` CLI verb — it mints the `D-<ULID>` id and writes `.paqad/decisions/pending/D-{id}.json` for you (resolved from the installed package on every onboarded project, so it never ENOENTs like a repo-local script):
+   `npx paqad-ai decision create --category <category> --title <title> --context <context> --option <key>=<label> --option <key>=<label> [--recommendation <key>]`. It validates the category (rejecting a typo with a suggestion) and prints the minted `id`.
+2. Present the packet's options to the user via the host's interactive UI (see the per-adapter table below). If multiple packets are pending, ask them one at a time in creation order (ids sort chronologically). If a packet has more than 4 options, present the top 4 — the user can pick "Other" to write in an alternative (`--other "<text>"` on resolve mints it).
+3. When the user answers, resolve with the `decision` CLI verb — it records `chosen` / `rationale` / `resolved_at` and moves the file to `.paqad/decisions/resolved/D-{id}.json`:
+   `npx paqad-ai decision resolve <id> <chosen> [rationale]` (or `--other "<text>"` for a write-in). A hand-picked sequential `D-{N}` is rejected, so parallel branches never collide.
 4. Only after the resolved file exists may implementation continue. Commit the resolved packet with the change it justifies (the delivery workflow), so a reviewer and future `git blame` can see why.
 
 ## Per-adapter UI

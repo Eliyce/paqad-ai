@@ -47,8 +47,7 @@ export interface WorkerCommand {
 
 /** Why {@link triggerRefresh} did or did not spawn a worker. */
 export type TriggerResult =
-  | { spawned: true }
-  | { spawned: false; reason: 'debounced' | 'in-flight' };
+  { spawned: true } | { spawned: false; reason: 'debounced' | 'in-flight' };
 
 /** Outcome of a single-flight lock acquisition attempt. */
 export type LockOutcome = { acquired: true; reclaimedStale: boolean } | { acquired: false };

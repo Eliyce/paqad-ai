@@ -12,14 +12,7 @@
 // the unanchored-hostname regex hazard). Only real id shapes (G-…, GTM-…) need a regex.
 
 export type AnalyticsProviderId =
-  | 'ga4'
-  | 'gtm'
-  | 'segment'
-  | 'posthog'
-  | 'mixpanel'
-  | 'amplitude'
-  | 'vercel'
-  | 'plausible';
+  'ga4' | 'gtm' | 'segment' | 'posthog' | 'mixpanel' | 'amplitude' | 'vercel' | 'plausible';
 
 export interface AnalyticsProvider {
   id: AnalyticsProviderId;

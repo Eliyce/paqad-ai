@@ -3,11 +3,7 @@ import { FrameworkError } from '@/core/errors/framework-error.js';
 import type { EmbeddingProviderName, IntelligenceConfig } from '@/core/types/project-profile.js';
 
 export type EmbeddingProviderErrorCode =
-  | 'missing_api_key'
-  | 'invalid_api_key'
-  | 'rate_limited'
-  | 'download_failed'
-  | 'provider_error';
+  'missing_api_key' | 'invalid_api_key' | 'rate_limited' | 'download_failed' | 'provider_error';
 
 export class EmbeddingProviderError extends Error {
   constructor(

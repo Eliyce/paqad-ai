@@ -15,7 +15,9 @@ export {
   type StageCompleteness,
   type StageCompletenessVerdict,
   type OrderingViolation,
+  type StageLane,
 } from './types.js';
+export { readPendingLane, writePendingLane } from './pending-lane.js';
 export {
   STAGE_EVIDENCE_STAGES,
   MANDATORY_STAGES,

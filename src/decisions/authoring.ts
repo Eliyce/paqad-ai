@@ -26,6 +26,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   renameSync,
   unlinkSync,
   writeFileSync,
@@ -206,6 +207,72 @@ export function resolvePendingDecision(
   atomicWriteJson(resolvedPath, resolved);
   unlinkSync(pendingPath);
   return { path: resolvedPath, packet: resolved };
+}
+
+/** A compact listing row for `paqad-ai decision list`. */
+export interface ContractDecisionListEntry {
+  id: string;
+  category: string;
+  title: string;
+  status: 'pending' | 'resolved';
+}
+
+/**
+ * List every decision packet (pending first, then resolved), for `paqad-ai decision
+ * list`. Tolerant: a missing dir yields no rows and a malformed packet is skipped, so
+ * a partial store never throws.
+ */
+export function listContractDecisions(projectRoot: string): ContractDecisionListEntry[] {
+  const rows: ContractDecisionListEntry[] = [];
+  const sources = [
+    [PATHS.DECISIONS_PENDING_DIR, 'pending'],
+    [PATHS.DECISIONS_RESOLVED_DIR, 'resolved'],
+  ] as const;
+  for (const [relativeDir, status] of sources) {
+    const abs = join(projectRoot, relativeDir);
+    let files: string[];
+    try {
+      files = readdirSync(abs);
+    } catch {
+      continue;
+    }
+    for (const file of files.filter((name) => name.endsWith('.json')).sort()) {
+      try {
+        const packet = JSON.parse(readFileSync(join(abs, file), 'utf8')) as PendingContractDecision;
+        rows.push({ id: packet.id, category: packet.category, title: packet.title, status });
+      } catch {
+        // Skip a malformed packet — a broken file never breaks the listing.
+      }
+    }
+  }
+  return rows;
+}
+
+/**
+ * Append a write-in option to a pending packet and return its minted key. Honors the
+ * Decision Pause Contract's "Other" flow without hand-editing the JSON: the user
+ * picked a write-in answer, so the option is added to the packet before it resolves to
+ * it. The key is `other` (or `other-2`, … on collision), never a duplicate.
+ */
+export function addWriteInOption(projectRoot: string, id: string, label: string): string {
+  assertContractDecisionId(id);
+  if (label.trim().length === 0) {
+    throw new Error('A write-in option needs a non-empty label.');
+  }
+  const pendingPath = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
+  if (!existsSync(pendingPath)) {
+    throw new Error(`Pending decision ${id} not found at ${pendingPath}.`);
+  }
+  const pending = JSON.parse(readFileSync(pendingPath, 'utf8')) as PendingContractDecision;
+  const existing = new Set(pending.options.map((option) => option.option_key));
+  let key = 'other';
+  let suffix = 2;
+  while (existing.has(key)) {
+    key = `other-${suffix++}`;
+  }
+  pending.options = [...pending.options, { option_key: key, label }];
+  atomicWriteJson(pendingPath, pending);
+  return key;
 }
 
 function packetPath(projectRoot: string, relativeDir: string, id: string): string {

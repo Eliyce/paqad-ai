@@ -132,12 +132,7 @@ export interface SelfArmInput {
 export interface SelfArmResult {
   minted: string | null;
   reason:
-    | 'minted'
-    | 'no-fork'
-    | 'no-session'
-    | 'pending-exists'
-    | 'already-decided'
-    | 'write-failed';
+    'minted' | 'no-fork' | 'no-session' | 'pending-exists' | 'already-decided' | 'write-failed';
   /** The armed fork's category once a fork cleared the confidence bar; null otherwise. */
   category: DecisionCategory | null;
 }

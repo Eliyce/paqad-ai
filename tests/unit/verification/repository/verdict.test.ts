@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 import {
   buildRepositoryVerificationVerdict,
   formatVerdictSummary,
@@ -46,7 +47,7 @@ describe('buildRepositoryVerificationVerdict', () => {
     });
     expect(verdict.ok).toBe(true);
     expect(verdict.evidence_path).toBe('/tmp/evidence.json');
-    expect(verdict.summary).toMatch(/verification passed/);
+    expect(verdict.summary).toContain(PAQAD_VERDICT.pass);
   });
 
   it('is not ok and names the failing gate when a gate fails', () => {
@@ -60,6 +61,7 @@ describe('buildRepositoryVerificationVerdict', () => {
       evidencePath: null,
     });
     expect(verdict.ok).toBe(false);
+    expect(verdict.summary).toContain(PAQAD_VERDICT.fail);
     expect(verdict.summary).toContain('ac-test-mapping');
     expect(verdict.summary).toContain('AC-2 unproven');
     expect(verdict.evidence_path).toBeNull();
@@ -75,6 +77,7 @@ describe('buildRepositoryVerificationVerdict', () => {
       evidencePath: null,
     });
     expect(verdict.ok).toBe(false);
+    expect(verdict.summary).toContain(PAQAD_VERDICT.inconclusive);
   });
 
   it('surfaces escalations in the summary even when ok', () => {
@@ -85,7 +88,7 @@ describe('buildRepositoryVerificationVerdict', () => {
       evidencePath: null,
     });
     expect(verdict.ok).toBe(true);
-    expect(verdict.summary).toContain('escalate');
+    expect(verdict.summary).toContain('needs a look');
     expect(verdict.summary).toContain('no frozen spec');
   });
 });
@@ -100,6 +103,38 @@ describe('formatVerdictSummary', () => {
       ],
       escalations: [],
     });
-    expect(summary).toContain('1/1 gates held');
+    expect(summary).toContain(PAQAD_VERDICT.pass);
+    expect(summary).toContain('1/1 checks held');
+  });
+
+  it('names both failing and inconclusive gates under "Needs your attention"', () => {
+    const summary = formatVerdictSummary({
+      ok: false,
+      gates: [
+        { gate: 'ac-test-mapping', status: 'fail', detail: 'AC-2 unproven', remediation: null },
+        {
+          gate: 'spec-review',
+          status: 'inconclusive',
+          detail: 'no frozen spec',
+          remediation: null,
+        },
+      ],
+      escalations: [],
+    });
+    expect(summary).toContain(PAQAD_VERDICT.fail);
+    expect(summary).toContain('ac-test-mapping');
+    expect(summary).toContain('spec-review');
+  });
+
+  it('reads "Inconclusive" when only inconclusive gates ran', () => {
+    const summary = formatVerdictSummary({
+      ok: false,
+      gates: [
+        { gate: 'spec-review', status: 'inconclusive', detail: 'unknown', remediation: null },
+      ],
+      escalations: [],
+    });
+    expect(summary).toContain(PAQAD_VERDICT.inconclusive);
+    expect(summary).toContain('spec-review');
   });
 });

@@ -40,11 +40,11 @@ describe('markerNarrationLine + markerBatchNarration', () => {
     expect(markerNarrationLine('planning', 'start')).toBe(stageNarrationLine('planning'));
   });
 
-  it('end confirms the evidence landed, in plain English', () => {
-    const line = markerNarrationLine('documentation_sync', 'end');
-    expect(line).toContain('▸ paqad');
-    expect(line).toContain('documentation sync done');
-    expect(line).toContain('evidence recorded');
+  it('#325: the end boundary is no longer spoken (muted — the receipt carries it)', () => {
+    // Issue #325 inverts the cadence: the per-marker END line duplicated the model's
+    // prose, so only the START narrates; the end-of-change receipt reports done-state.
+    expect(markerNarrationLine('documentation_sync', 'end')).toBe('');
+    expect(markerNarrationLine('planning', 'end')).toBe('');
   });
 
   it('returns an empty string for an unknown stage id', () => {
@@ -52,16 +52,17 @@ describe('markerNarrationLine + markerBatchNarration', () => {
     expect(markerNarrationLine('bogus', 'end')).toBe('');
   });
 
-  it('joins a batch in recording order, skipping unknown stages', () => {
+  it('joins a batch in recording order, skipping unknown stages and muted end lines', () => {
     const block = markerBatchNarration([
       { stage: 'planning', phase: 'start' },
       { stage: 'bogus', phase: 'start' },
-      { stage: 'planning', phase: 'end' },
+      { stage: 'planning', phase: 'end' }, // #325 — muted, contributes no line
+      { stage: 'specification', phase: 'start' },
     ]);
     const lines = block.split('\n');
     expect(lines).toHaveLength(2);
     expect(lines[0]).toBe(stageNarrationLine('planning'));
-    expect(lines[1]).toContain('planning done');
+    expect(lines[1]).toBe(stageNarrationLine('specification'));
   });
 
   it('returns an empty string for an empty batch', () => {

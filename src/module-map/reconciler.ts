@@ -59,20 +59,26 @@ export interface ReconcilerOptions {
   writeReport?: boolean;
 }
 
-interface RawFeature {
+/** A module's change-sensitivity (issue #324). `high` floors any change touching
+ *  the module's paths to the full lane; `normal` (the default) does not. */
+export type ModuleSensitivity = 'high' | 'normal';
+
+export interface RawFeature {
   slug: string;
   name: string;
   sources: string[];
 }
 
-interface RawModule {
+export interface RawModule {
   slug: string;
   name: string;
   sources: string[];
   features: RawFeature[];
+  /** Change-sensitivity floor (issue #324). Defaults to `normal`. */
+  sensitivity: ModuleSensitivity;
 }
 
-interface RawMap {
+export interface RawMap {
   modules: RawModule[];
 }
 
@@ -125,6 +131,7 @@ export function readRawModuleMap(projectRoot: string): RawMap | null {
       name: String(mod['name'] ?? ''),
       sources,
       features,
+      sensitivity: mod['sensitivity'] === 'high' ? 'high' : 'normal',
     };
   });
   return { modules };

@@ -6,13 +6,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import {
+  addWriteInOption,
   assertContractDecisionId,
   createPendingDecision,
   isContractDecisionId,
+  listContractDecisions,
   mintDecisionId,
   resolvePendingDecision,
   type CreateDecisionInput,
 } from '@/decisions/authoring.js';
+import { writeFileSync } from 'node:fs';
 
 let root: string;
 
@@ -188,5 +191,52 @@ describe('resolvePendingDecision', () => {
 
   it('throws when the pending packet does not exist', () => {
     expect(() => resolvePendingDecision(root, mintDecisionId(), 'skill')).toThrow(/not found/u);
+  });
+});
+
+describe('listContractDecisions (#326)', () => {
+  it('is empty for a project with no decisions dir', () => {
+    expect(listContractDecisions(root)).toEqual([]);
+  });
+
+  it('lists pending then resolved packets, skipping malformed files', () => {
+    const pending = createPendingDecision(root, validInput()).id;
+    const resolveMe = createPendingDecision(root, validInput()).id;
+    resolvePendingDecision(root, resolveMe, 'skill');
+    // A malformed pending file must not break the listing.
+    writeFileSync(join(root, PATHS.DECISIONS_PENDING_DIR, 'junk.json'), '{ not json');
+
+    const rows = listContractDecisions(root);
+    expect(rows.find((r) => r.id === pending)?.status).toBe('pending');
+    expect(rows.find((r) => r.id === resolveMe)?.status).toBe('resolved');
+  });
+});
+
+describe('addWriteInOption (#326)', () => {
+  it('appends a write-in option and returns its key', () => {
+    const { id } = createPendingDecision(root, validInput());
+    expect(addWriteInOption(root, id, 'A third way')).toBe('other');
+    const { packet } = resolvePendingDecision(root, id, 'other');
+    expect(packet.options.some((o) => o.option_key === 'other' && o.label === 'A third way')).toBe(
+      true,
+    );
+  });
+
+  it('mints a non-colliding key when "other" already exists', () => {
+    const { id } = createPendingDecision(root, {
+      ...validInput(),
+      options: [
+        { option_key: 'other', label: 'Existing other' },
+        { option_key: 'skill', label: 'Skill' },
+      ],
+    });
+    expect(addWriteInOption(root, id, 'Another')).toBe('other-2');
+  });
+
+  it('rejects an empty label and a missing/invalid packet', () => {
+    const { id } = createPendingDecision(root, validInput());
+    expect(() => addWriteInOption(root, id, '  ')).toThrow(/non-empty label/u);
+    expect(() => addWriteInOption(root, 'D-4', 'x')).toThrow(/D-<ULID>/u);
+    expect(() => addWriteInOption(root, mintDecisionId(), 'x')).toThrow(/not found/u);
   });
 });

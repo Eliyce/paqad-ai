@@ -20,11 +20,7 @@ export const EVIDENCE_LEDGER_SCHEMA_VERSION = 1 as const;
 
 /** Which engine produced a ledger row. */
 export type EvidenceEngine =
-  | 'verification-gate'
-  | 'quality-ratchet'
-  | 'traceability'
-  | 'pentest'
-  | 'triage';
+  'verification-gate' | 'quality-ratchet' | 'traceability' | 'pentest' | 'triage';
 
 /**
  * The outcome a row records. `blocked` is distinct from `inconclusive`: blocked

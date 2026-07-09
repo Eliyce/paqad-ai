@@ -20,20 +20,11 @@ export type StageEvidenceKind = 'open' | 'stage_start' | 'stage_end' | 'verify' 
 
 /** How a stage event resolved. */
 export type StageEventStatus =
-  | 'started'
-  | 'completed'
-  | 'skipped'
-  | 'failed'
-  | 'redone'
-  | 'inferred';
+  'started' | 'completed' | 'skipped' | 'failed' | 'redone' | 'inferred';
 
 /** Where a stage's evidence came from (honest grading — never dressed up). */
 export type StageEvidenceSource =
-  | 'live-mark'
-  | 'inferred-artifact'
-  | 'inferred-git'
-  | 'redo'
-  | null;
+  'live-mark' | 'inferred-artifact' | 'inferred-git' | 'redo' | null;
 
 export type StageLane = 'fast' | 'graduated' | 'full' | null;
 
@@ -65,11 +56,7 @@ export interface StageEvidenceRow {
 
 /** The completeness verdict the verify gate computes for a change. */
 export type StageCompletenessVerdict =
-  | 'complete'
-  | 'incomplete'
-  | 'recovered'
-  | 'blocked'
-  | 'cannot-verify';
+  'complete' | 'incomplete' | 'recovered' | 'blocked' | 'cannot-verify';
 
 /** The folded state of a single stage within a change. */
 export type StageState =
@@ -116,4 +103,7 @@ export interface FoldedChange {
   prompt_ordinal: number;
   stages: FoldedStage[];
   completeness: StageCompleteness;
+  /** The recorded lane for this change (from the open row), or null when unset
+   *  (issue #324). Consumers fail safe to `full` on null — never a silent relax. */
+  lane: StageLane;
 }

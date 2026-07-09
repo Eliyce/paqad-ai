@@ -34,11 +34,11 @@ ${categoriesList}
 
 ## Resolution flow
 
-1. Create the packet with the \`decision\` skill's create script — it mints the \`D-<ULID>\` id and writes \`.paqad/decisions/pending/D-{id}.json\` for you:
-   \`node runtime/base/skills/decision/scripts/create.mjs <project-root> --category <category> --title <title> --context <context> --option <key>=<label> --option <key>=<label> [--recommendation <key>]\`. It prints the minted \`id\`.
-2. Present the packet's options to the user via the host's interactive UI (see the per-adapter table below). If multiple packets are pending, ask them one at a time in creation order (ids sort chronologically). If a packet has more than 4 options, present the top 4 — the user can pick "Other" to write in an alternative.
-3. When the user answers, resolve with the \`decision\` skill's resolve script — it records \`chosen\` / \`rationale\` / \`resolved_at\` and moves the file to \`.paqad/decisions/resolved/D-{id}.json\`:
-   \`node runtime/base/skills/decision/scripts/resolve.mjs <project-root> <id> <chosen> [rationale]\`. A hand-picked sequential \`D-{N}\` is rejected, so parallel branches never collide.
+1. Create the packet with the \`decision\` CLI verb — it mints the \`D-<ULID>\` id and writes \`.paqad/decisions/pending/D-{id}.json\` for you (resolved from the installed package on every onboarded project, so it never ENOENTs like a repo-local script):
+   \`npx paqad-ai decision create --category <category> --title <title> --context <context> --option <key>=<label> --option <key>=<label> [--recommendation <key>]\`. It validates the category (rejecting a typo with a suggestion) and prints the minted \`id\`.
+2. Present the packet's options to the user via the host's interactive UI (see the per-adapter table below). If multiple packets are pending, ask them one at a time in creation order (ids sort chronologically). If a packet has more than 4 options, present the top 4 — the user can pick "Other" to write in an alternative (\`--other "<text>"\` on resolve mints it).
+3. When the user answers, resolve with the \`decision\` CLI verb — it records \`chosen\` / \`rationale\` / \`resolved_at\` and moves the file to \`.paqad/decisions/resolved/D-{id}.json\`:
+   \`npx paqad-ai decision resolve <id> <chosen> [rationale]\` (or \`--other "<text>"\` for a write-in). A hand-picked sequential \`D-{N}\` is rejected, so parallel branches never collide.
 4. Only after the resolved file exists may implementation continue. Commit the resolved packet with the change it justifies (the delivery workflow), so a reviewer and future \`git blame\` can see why.
 
 ## Per-adapter UI

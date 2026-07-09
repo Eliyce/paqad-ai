@@ -814,6 +814,8 @@ modules:
     name: Decision Pause Contract
     layer: framework-internals
     confidence: high
+    # Enforcement spine (issue #324): human-decision gate — floor to full.
+    sensitivity: high
     summary: |
       Agent-side contract enforced by `CLAUDE.md` / `AGENTS.md`: before any
       flagged choice the agent writes a Decision Packet to
@@ -866,6 +868,8 @@ modules:
     name: Quality Ratchet
     layer: framework-internals
     confidence: high
+    # Enforcement spine (issue #324): a change here floors the lane to full.
+    sensitivity: high
     summary: |
       Records four quality measures at the project's real level today
       (`.paqad/quality-baseline.json`) and from then on only allows a change
@@ -883,6 +887,8 @@ modules:
     name: Verification Gates
     layer: framework-internals
     confidence: high
+    # Enforcement spine (issue #324): the gates decide what lands — floor to full.
+    sensitivity: high
     summary: |
       The gate runner and the bank of verification gates (issue #117) that
       decide whether a change is allowed to land. Each gate under
@@ -917,6 +923,8 @@ modules:
     name: Evidence Ledger & Provenance Receipt
     layer: framework-internals
     confidence: high
+    # Enforcement spine (issue #324): the append-only trust record — floor to full.
+    sensitivity: high
     summary: |
       One unified, append-only evidence ledger (issues #118, #120) that every
       verification gate and correctness engine writes to, plus the per-change
@@ -948,6 +956,8 @@ modules:
     name: Session-Scoped Evidence Substrate
     layer: framework-internals
     confidence: high
+    # Enforcement spine (issue #324): the shared evidence substrate — floor to full.
+    sensitivity: high
     summary: |
       The reusable script-written, session-scoped, append-only JSONL evidence
       primitive (issue #249 P0) under `.paqad/ledger/<docType>/<session>/<ordinal>.jsonl`:

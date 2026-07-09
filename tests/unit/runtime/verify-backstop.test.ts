@@ -132,4 +132,44 @@ describe('runtime/scripts/verify-backstop.mjs — verdict stream routing', () =>
     expect(out.read()).toContain('✓ verification passed');
     expect(err.read()).toBe('');
   });
+
+  it('#325: a PASS on the Stop hook emits the receipt as a visible {systemMessage}', async () => {
+    const receipt = '**▸ paqad** · Safe to merge\n> 🟢 planning — done';
+    vi.doMock(DIST, () => ({
+      runRepositoryVerification: async () => ({ ok: true, summary: 'ignored', receipt }),
+    }));
+    const { runVerificationBackstop } =
+      await import('../../../runtime/scripts/verify-backstop.mjs');
+    const out = capture();
+    const code = await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      stdout: out.stream,
+      stderr: capture().stream,
+    });
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out.read());
+    expect(parsed.systemMessage).toBe(receipt);
+  });
+
+  it('#325: a PASS on the git backstop stays plain text (terminal), not a systemMessage', async () => {
+    const receipt = '**▸ paqad** · Safe to merge\n> 🟢 planning — done';
+    vi.doMock(DIST, () => ({
+      runRepositoryVerification: async () => ({ ok: true, summary: 'ignored', receipt }),
+    }));
+    const { runVerificationBackstop } =
+      await import('../../../runtime/scripts/verify-backstop.mjs');
+    const out = capture();
+    const code = await runVerificationBackstop({
+      origin: 'git-backstop',
+      softFail: true,
+      projectRoot,
+      stdout: out.stream,
+      stderr: capture().stream,
+    });
+    expect(code).toBe(0);
+    expect(out.read().trim()).toBe(receipt);
+    expect(out.read()).not.toContain('systemMessage');
+  });
 });

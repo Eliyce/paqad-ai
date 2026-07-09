@@ -78,15 +78,26 @@ export async function runVerificationBackstop({
       origin,
       hostSessionId: hostSessionId ?? null,
     });
+    // Issue #325 — surface the ONE end-of-change receipt (verdict headline in
+    // contract words + per-stage evidence). Fall back to the plain summary if no
+    // receipt was composed.
+    const message = verdict.receipt ?? verdict.summary;
     if (verdict.ok) {
-      out.write(`${verdict.summary}\n`);
+      // On the Claude Stop hook, emit the receipt as a visible `{systemMessage}` so
+      // the developer actually sees the verdict (bare stdout is transcript-only). On
+      // the git/CI backstop (a terminal), plain text reads better.
+      if (origin === 'hook-completion') {
+        out.write(`${JSON.stringify({ systemMessage: message })}\n`);
+      } else {
+        out.write(`${message}\n`);
+      }
       return 0;
     }
     // Stop-hook contract: on a block (exit 2) the host surfaces only STDERR to
     // the model — STDOUT is transcript-only. Writing the verdict to stdout made
     // the block invisible ("No stderr output"). Mirror capability-gate.mjs so the
-    // failing verdict summary reaches the model.
-    err.write(`${verdict.summary}\n`);
+    // failing receipt reaches the model.
+    err.write(`${message}\n`);
     // Loop guard (fix #2) — when the host says we are already inside a Stop-hook
     // continuation (`loopActive`, set only by the completion hook from Claude's
     // `stop_hook_active`), the gate has already bitten once this turn. Blocking

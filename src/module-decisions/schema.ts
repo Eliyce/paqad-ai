@@ -2,21 +2,14 @@
 // Issue #80, Phase 1. Stored under .paqad/decisions/module-decisions/<id>.yml.
 
 export type ModuleDecisionState =
-  | 'draft'
-  | 'proposed'
-  | 'accepted'
-  | 'rejected'
-  | 'expired'
-  | 'superseded';
+  'draft' | 'proposed' | 'accepted' | 'rejected' | 'expired' | 'superseded';
 
 export type ModuleDecisionLayer = 'cli-commands' | 'agent-workflows' | 'framework-internals';
 
 export type ModuleDecisionConfidence = 'low' | 'medium' | 'high';
 
 export type ModuleDecisionSourceType =
-  | 'pasted-ticket'
-  | 'inferred-from-prompt'
-  | 'explicit-user-name';
+  'pasted-ticket' | 'inferred-from-prompt' | 'explicit-user-name';
 
 export interface ModuleDecisionFeatureDraft {
   slug: string;

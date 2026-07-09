@@ -30,8 +30,12 @@ import {
   resolveComplianceCitations,
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
+import { foldChange } from '@/stage-evidence/fold.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { currentOrdinal } from '@/session-ledger/ledger.js';
+import { STAGE_EVIDENCE_DOC_TYPE, type FoldedChange } from '@/stage-evidence/types.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -61,6 +65,7 @@ import {
   buildRepositoryVerificationContext,
   type BuildRepositoryVerificationContextOptions,
 } from './repository-context.js';
+import { composeChangeReceipt } from './receipt.js';
 import {
   buildRepositoryVerificationVerdict,
   type RepositoryVerificationVerdict,
@@ -323,6 +328,14 @@ export async function runRepositoryVerification(
     evidencePath,
   });
 
+  // Issue #325 — compose the ONE end-of-change receipt: the branded verdict headline
+  // plus the per-stage evidence block (with honest provenance). Best-effort — if the
+  // fold cannot be read the receipt is just the verdict summary, never a throw.
+  verdict.receipt = composeChangeReceipt({
+    verdictSummary: verdict.summary,
+    fold: readChangeFold(context.project_root, options.hostSessionId ?? null),
+  });
+
   if (options.eventBus) {
     options.eventBus.emit({
       kind: 'verification-verdict',
@@ -340,6 +353,24 @@ export async function runRepositoryVerification(
   }
 
   return verdict;
+}
+
+/**
+ * Read the folded stage evidence for the current change (issue #325 receipt), or
+ * null when no change is open or it cannot be read. Best-effort — the receipt
+ * degrades to the verdict summary alone rather than throwing.
+ */
+function readChangeFold(projectRoot: string, hostSessionId: string | null): FoldedChange | null {
+  try {
+    const sessionId = resolveSessionId(projectRoot, hostSessionId);
+    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    if (ordinal <= 0) {
+      return null;
+    }
+    return foldChange(projectRoot, sessionId, ordinal);
+  } catch {
+    return null;
+  }
 }
 
 /** Local origins (the agent's own machine) where the stage-evidence ledger is

@@ -18,6 +18,7 @@ import {
 
 import { validateStageEvidenceRow } from './schema.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readPendingLane } from './pending-lane.js';
 import { isKnownStage } from './stages.js';
 import {
   STAGE_EVIDENCE_DOC_TYPE,
@@ -56,11 +57,16 @@ export function openStageEvidence(
   ctx: StageEvidenceContext,
 ): { sessionId: string; ordinal: number; changeKey: string } {
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
+  // Issue #324 — stamp the recorded lane on the open row. An explicit `ctx.lane`
+  // (even null) wins; otherwise fall back to the lane the prompt seam stashed for
+  // this session, so the change opened by the first edit/marker carries the lane
+  // the classifier picked (no longer always null).
+  const lane = ctx.lane !== undefined ? ctx.lane : readPendingLane(projectRoot, sessionId);
   const { ordinal } = openSessionDoc(
     projectRoot,
     STAGE_EVIDENCE_DOC_TYPE,
     sessionId,
-    { adapter: ctx.adapter, lane: ctx.lane ?? null },
+    { adapter: ctx.adapter, lane: lane ?? null },
     APPEND_OPTS(ctx.now),
   );
   return { sessionId, ordinal, changeKey: changeKey(sessionId, ordinal) };
