@@ -13,6 +13,11 @@ import fg from 'fast-glob';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { readChecksReport } from '@/checks/report-store.js';
+import type { Lane } from '@/core/types/routing.js';
+import { currentOrdinal } from '@/session-ledger/ledger.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { foldChange } from '@/stage-evidence/fold.js';
+import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 import { readTraceabilityMap } from '@/traceability/index.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewDefect, SpecReviewReport } from '@/compliance/types.js';
@@ -106,10 +111,16 @@ export async function buildRepositoryVerificationContext(
     );
   }
 
+  // Issue #324 — consume the recorded lane instead of a hardcoded `'full'`. The fast
+  // lane collects only strictness (the ratchet skips the heavy complexity/dead-code
+  // measures), so a small change is no longer forced through the full measurement set.
+  // A null/unreadable lane fails safe to `full`.
+  const recordedLane = readRecordedLane(projectRoot);
+
   const qualityRatchetResult = await runQualityRatchetGate({
     projectRoot,
     changedFiles,
-    lane: 'full',
+    lane: recordedLane,
     stackProfile: null,
     deadCodeFiles: readDeadCodeFiles(traceabilityMap),
     decisionStore: new DecisionStore(projectRoot),
@@ -150,7 +161,7 @@ export async function buildRepositoryVerificationContext(
     behavioral_correctness_passed: true,
     database_quality_passed: true,
     quality_ratchet_result: qualityRatchetResult,
-    lane: 'full',
+    lane: recordedLane,
     expected_ui_modules: [],
     expected_api_modules: [],
     expected_integration_modules: [],
@@ -160,6 +171,25 @@ export async function buildRepositoryVerificationContext(
   };
 
   return { context, escalations };
+}
+
+/**
+ * The lane recorded on the current change's open ledger row (issue #324). Resolves
+ * the session from the host env (the completion hook runs under `CLAUDE_SESSION_ID`)
+ * and reads the open change's folded lane. Fails safe to `full` when no change is
+ * open, the lane is unset, or anything throws — never a silent relaxation.
+ */
+function readRecordedLane(projectRoot: string): Lane {
+  try {
+    const sessionId = resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
+    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    if (ordinal <= 0) {
+      return 'full';
+    }
+    return foldChange(projectRoot, sessionId, ordinal).lane ?? 'full';
+  } catch {
+    return 'full';
+  }
 }
 
 async function readTraceabilityMapSafely(projectRoot: string): Promise<TraceabilityMap | null> {

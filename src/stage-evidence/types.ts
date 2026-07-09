@@ -103,4 +103,7 @@ export interface FoldedChange {
   prompt_ordinal: number;
   stages: FoldedStage[];
   completeness: StageCompleteness;
+  /** The recorded lane for this change (from the open row), or null when unset
+   *  (issue #324). Consumers fail safe to `full` on null — never a silent relax. */
+  lane: StageLane;
 }
