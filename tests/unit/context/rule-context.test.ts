@@ -184,6 +184,41 @@ describe('refreshRuleContext', () => {
     expect(readFileSync(target as string, 'utf8')).toContain('MEMORY ONLY');
   });
 
+  // Rules load only on the feature-development route (issue #336): the worker passes
+  // loadRules:false for every other workflow, so the rule slice is not composed and
+  // the #316 fallback marker does NOT fire (the rules are deliberately absent).
+  describe('loadRules gate (#336)', () => {
+    it('omits the rule slice AND the #316 marker when loadRules is false', async () => {
+      writeCompiled([
+        rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'ALWAYS TEXT' }),
+      ]);
+      const target = await refreshRuleContext(projectRoot, {
+        loadRules: false,
+        retrievalSection: '## Retrieved context — 1 slice\nRETRIEVAL BODY',
+      });
+      const written = readFileSync(target as string, 'utf8');
+      expect(written).toContain('RETRIEVAL BODY');
+      expect(written).not.toContain('paqad rule manifest');
+      expect(written).not.toContain('ALWAYS TEXT');
+      expect(written).not.toContain(RULES_MISSING_FALLBACK_MARKER);
+    });
+
+    it('composes nothing (null) when loadRules is false and there is no other section', async () => {
+      writeCompiled([rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'] })]);
+      expect(await refreshRuleContext(projectRoot, { loadRules: false })).toBeNull();
+    });
+
+    it('keeps the rule slice when loadRules defaults to true (feature-development)', async () => {
+      writeCompiled([
+        rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'ALWAYS TEXT' }),
+      ]);
+      const target = await refreshRuleContext(projectRoot, {});
+      const written = readFileSync(target as string, 'utf8');
+      expect(written).toContain('paqad rule manifest');
+      expect(written).toContain('ALWAYS TEXT');
+    });
+  });
+
   // Fail-safe (issue #316): a written artifact with no rule manifest must never look
   // like a valid "rules loaded" contract, or a bootstrap-obedient agent silently drops
   // every project rule (the exact drift-only bug this repo shipped).

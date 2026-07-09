@@ -237,6 +237,33 @@ describe('gatherWorkingSetSlices', () => {
     expect(called).toBe(false);
   });
 
+  it('retrieves from a prompt seed even with an empty working set (#336)', async () => {
+    // A question has no changed files; the prompt-driven query still retrieves.
+    const captured: { input?: { taskDescription?: string; keywords: string[] } } = {};
+    const service: RetrievalSource = {
+      retrieveForEval: async (input) => {
+        captured.input = input;
+        return {
+          vector_scores: new Map([['c1', 0.91]]),
+          chunks_retrieved: 1,
+          retrieved_chunk_ids: ['c1'],
+          retrieved_source_files: ['docs/instructions/a.md'],
+          retrieved_chunks: [
+            { id: 'c1', source_file: 'docs/instructions/a.md', content: 'doc slice' },
+          ],
+        };
+      },
+    };
+    const slices = await gatherWorkingSetSlices('/proj', {
+      service,
+      changedPaths: [],
+      query: 'how does the router work',
+    });
+    expect(slices).toHaveLength(1);
+    // The prompt is the retrieval query (not a working-set-derived description).
+    expect(captured.input?.taskDescription).toBe('how does the router work');
+  });
+
   it('returns [] when retrieval falls back (empty result)', async () => {
     const slices = await gatherWorkingSetSlices('/proj', {
       service: source(emptyResult()),

@@ -58,14 +58,44 @@ A value of \`false\`, \`0\`, \`no\`, or \`off\` (case-insensitive) means **OFF**
 
 **If paqad resolves to ON:** continue.
 
-## 2. Load the project contract
+## 2. Route first — pick one workflow, then load only what it needs
 
-Load these and treat them as the canonical contract for workflow routing, documentation, and implementation behavior:
+Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 9 workflows by intent, and narrate the pick in one \`▸ paqad\` line (see the narration contract):
 
-- **Rules — artifact-first (issue #284).** When \`.paqad/context/session-context.md\` exists, read it as the rule contract: it is the lean, token-neutral slice — an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play. Load \`docs/instructions/rules\` in full ONLY when that artifact is missing (the fallback that guarantees rule coverage is never silently lost). Script-enforced rules fire whether or not their text is loaded, and the manifest lists every rule, so deferral is safe.
+1. **feature-development** — any change to code. This includes bug fixes, refactors, cleanups, and migrations; the name is just "development". Scope is every code change **except** the \`docs/\` directory.
+2. **project-question** — answer a question about the project. Check \`docs/\` first, then the code. No code change.
+3. **documentation-update** — the "create documentation" foundation stage.
+4. **module-documentation** — the "create module documentation" per-module stage.
+5. **pentest** — a full security test (backed by **pentest-retest** for re-runs).
+6. **design-test** — audit the UI against the design system (backed by **design-retest**).
+7. **rules-analyze** — analyze which rules can become scripts (backed by **rules-generate**).
+8. **root-cause-analysis** — post-incident analysis.
+9. **no workflow** — small talk or anything that is not one of the above. Load nothing, no RAG; just reply.
+
+How to decide:
+
+- **Read first, then decide.** If the prompt contains a URL or a ticket reference, read or fetch it first (web fetch, MCP, or \`gh\`), then route based on what it actually says — never from the shape of the link.
+- **Any code change is feature-development**, however it is phrased.
+- **Understand intent, not keywords.** "run a security review", "let's do a pentest", and "check the app for vulnerabilities" all mean pentest. Typos do not matter.
+- **Ask only when genuinely torn.** If two real workflows are equally likely, ask the user (via \`AskUserQuestion\` on Claude Code, inline on other hosts) and offer "no workflow".
+
+Routing runs on **every** message, and it is stateful — it does not reset:
+
+- **Switching pauses, it does not reset.** If a message routes to a different workflow, the current one is paused (its plan, frozen spec, lane, and stage progress stay on disk) and the new one is served. Say you are switching.
+- **Resuming continues.** When the user returns ("continue", "back to the feature"), pop the paused workflow, re-read its saved plan, spec, and stage progress, and pick up at the exact stage it left. Do not re-plan or re-write the spec. For feature-development, reload the rules at this point.
+- **New work is not a resume.** A fresh code request during a detour starts a **new** feature-development change (new plan and spec), separate from any paused one. If "continue" is ambiguous about which change it means, ask.
+
+## 3. Load only what the routed workflow needs
+
+Always load these and treat them as the canonical contract for documentation and implementation behavior:
+
 - \`docs/instructions/stack\`
 - \`docs/instructions/design-system\`
 - \`docs/instructions/workflows\` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)
+
+**Rules load only for \`feature-development\` (issue #336).** When (and only when) you routed to feature-development, load the rules — artifact-first (issue #284): when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 8 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
+
+**RAG** (when \`rag_enabled\`): all 8 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
 
 When you work inside a specific module, also load that module's documentation under \`docs/modules/\` as those rules direct.
 
@@ -75,9 +105,9 @@ When you work inside a specific module, also load that module's documentation un
 - Do not ask the user to choose a document type when a Paqad workflow already matches the request.
 - Generate or update the canonical project documentation and registries defined by Paqad instead of defaulting to generic templates.
 
-## 3. Confirm the load (sentinel)
+## 4. Confirm the load (sentinel)
 
-Once steps 1–2 are complete, write \`.paqad/.agent-entry-loaded\` with a JSON payload of \`{ "loaded_at": "<ISO timestamp>", "entry_file": "<the entry file you were given, e.g. CLAUDE.md>", "framework_version": "<resolved version>" }\`. On Claude Code the PreToolUse gate blocks Edit/Write/NotebookEdit until this sentinel exists; read-only tools stay available so you can finish steps 1–2 first.
+Once steps 1–3 are complete, write \`.paqad/.agent-entry-loaded\` with a JSON payload of \`{ "loaded_at": "<ISO timestamp>", "entry_file": "<the entry file you were given, e.g. CLAUDE.md>", "framework_version": "<resolved version>" }\`. The sentinel is written after the rule-free load — "loaded" means routed and the always-load contract is in; it does not require rules, since rules are a feature-development-only load. On Claude Code the PreToolUse gate blocks Edit/Write/NotebookEdit until this sentinel exists; read-only tools stay available so you can finish steps 1–3 first. Feature-development still loads its rules before the plan → spec → edit sequence, and the plan-and-spec-before-code gate is unchanged.
 
 The sentinel is invalidated automatically if the entry file, \`.paqad/framework-path.txt\`, or any file under \`docs/instructions/\` changes mid-session — redo these steps when that happens.
 

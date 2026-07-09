@@ -58,7 +58,7 @@ function directive(state, ef) {
     '[paqad] Required steps, in order, before any other tool call or response:',
     `[paqad]   1. Read ${ef}`,
     '[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)',
-    '[paqad]   3. Load the rule contract artifact-first: read .paqad/context/session-context.md if it exists, else docs/instructions/rules in full; plus docs/instructions/{stack,design-system,workflows}',
+    '[paqad]   3. Route the message to one of the 9 workflows, then load docs/instructions/{stack,design-system,workflows}; load the rule contract (.paqad/context/session-context.md, else docs/instructions/rules) ONLY for feature-development',
     '[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path',
     '[paqad] Only after step 4 may you address the prompt.',
     '',
@@ -81,13 +81,14 @@ function fireContextRefresh() {
   }
 }
 
-// Issue #324 — decide the lane for THIS prompt with the deterministic classifier,
-// stash it for the next change-open (so the ledger records it), and emit ONE lean
-// `[paqad]` line naming the lane. Thin by contract: all logic lives in
+// Issues #324, #336 — route THIS prompt to one of the 9 workflow outcomes with the
+// deterministic classifier, record it in the per-session workflow-state (pause/resume),
+// stash the lane for the next change-open (feature-development only), and emit ONE lean
+// `[paqad]` line naming the outcome. Thin by contract: all logic lives in
 // dist/pipeline/prompt-lane.js so it is coverage-counted; the hook only parses the
 // prompt, lazy-imports, and prints. Best-effort — never breaks or delays a turn on
-// failure, and a non-code prompt (lane null) prints nothing.
-async function emitLane(stdin, projectRoot) {
+// failure, and a `no-workflow` prompt (small talk) prints nothing.
+async function emitRoute(stdin, projectRoot) {
   try {
     const parsed = JSON.parse(stdin);
     const request = typeof parsed?.prompt === 'string' ? parsed.prompt : '';
@@ -96,8 +97,8 @@ async function emitLane(stdin, projectRoot) {
     }
     const sessionId = typeof parsed?.session_id === 'string' ? parsed.session_id : null;
     const distUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
-    const { runPromptLaneSeam } = await import(distUrl.href);
-    const { narration } = await runPromptLaneSeam({
+    const { runPromptRouteSeam } = await import(distUrl.href);
+    const { narration } = await runPromptRouteSeam({
       projectRoot,
       request,
       sessionId,
@@ -107,7 +108,7 @@ async function emitLane(stdin, projectRoot) {
       process.stdout.write(`${narration}\n`);
     }
   } catch {
-    // Best-effort — a broken build or an unparseable prompt just skips the lane line.
+    // Best-effort — a broken build or an unparseable prompt just skips the route line.
   }
 }
 
@@ -138,9 +139,9 @@ async function main(stdin) {
   }
 
   // Fresh: the framework is loaded — now it is safe to inject the precomputed
-  // [paqad-context] block (F2), exactly as before, then decide + record the lane.
+  // [paqad-context] block (F2), then route THIS prompt + record the outcome.
   emitContext(stdin, projectRoot);
-  await emitLane(stdin, projectRoot);
+  await emitRoute(stdin, projectRoot);
   return 0;
 }
 

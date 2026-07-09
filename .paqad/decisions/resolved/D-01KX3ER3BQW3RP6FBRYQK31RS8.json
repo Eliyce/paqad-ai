@@ -1,0 +1,22 @@
+{
+  "id": "D-01KX3ER3BQW3RP6FBRYQK31RS8",
+  "category": "architecture-path",
+  "title": "How to fold routing targets down to the 9 workflows (#336 area 3)",
+  "context": "The dependency sweep found the folded workflow names (bug-fix/refactor/migration/cleanup/investigation) are NOT truly redundant: they are wired into the 24-member CLASSIFICATION_WORKFLOWS union, a JSON-schema mirror, and 7 behavior/lane/budget/retrieval sets (router.ts, post-classifier.ts, llm-skip-evaluator.ts, retrieval-context.ts, active-implementation.ts, context-budget-estimator.ts, retrieval-depth-router.ts), plus ~15 keyed test files. 4 of the target-9 (design-test, design-retest, rules-analyze, rules-generate) are not even in the union. AC-2 only requires that code-change intents ROUTE to feature-development, not that the fine-grained tags be deleted. Your non-negotiable is 'do not break feature-development workflows and stages.'",
+  "options": [
+    {
+      "option_key": "reroute",
+      "label": "Reroute layer: keep the union + internal behavior sets intact; add a resolveRoutedWorkflow() normalizer that collapses the fine-grained classification to exactly one of the 9 routing OUTCOMES (evidence/state/RAG/lane gating). Lowest risk, preserves lane/budget nuance, minimal test churn."
+    },
+    {
+      "option_key": "hard_delete",
+      "label": "Hard-delete: remove bug-fix/refactor/migration/cleanup/investigation from the union + mirror + all 7 sets + 3 routing tables + rewrite ~15 tests. Cleaner end-state, but high risk, large coverage/CI churn, and can break feature-dev lane selection."
+    }
+  ],
+  "recommendation": "reroute",
+  "created_at": "2026-07-09T12:48:22.903Z",
+  "status": "resolved",
+  "chosen": "reroute",
+  "rationale": "Dependency sweep proved the folded names carry internal lane/budget/retrieval behavior (7 sets + 15 tests); AC-2 only requires routing OUTCOME=feature-development. Reroute layer preserves internals and best honors the non-negotiable 'do not break feature-development workflows and stages'.",
+  "resolved_at": "2026-07-09T12:53:05.268Z"
+}

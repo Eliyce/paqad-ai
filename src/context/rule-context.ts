@@ -137,6 +137,17 @@ export interface WriteRuleContextOptions {
    * advisory heads-up. Empty/absent ⇒ omitted (the common no-drift case).
    */
   driftSection?: string;
+  /**
+   * Whether to compose the rule slice at all (issue #336). Defaults to `true` — the
+   * artifact-first rule contract, unchanged for every existing caller. The prompt-time
+   * worker passes `false` when the routed workflow is NOT feature-development: rules
+   * (and rule-scripts) load only on the feature-development route, so a question /
+   * pentest / docs / RCA / rules-analyze session composes memory + retrieval + drift
+   * with NO rule manifest and NO #316 fallback marker (the rules are deliberately
+   * absent, not accidentally missing). Feature-development keeps the full rule slice
+   * and the fallback marker.
+   */
+  loadRules?: boolean;
 }
 
 /**
@@ -151,7 +162,10 @@ export async function writeRuleContext(
   projectRoot: string,
   options: WriteRuleContextOptions = {},
 ): Promise<string | null> {
-  const store = await readCompiledRules(projectRoot);
+  // #336 — rules load only on the feature-development route. When the worker passes
+  // loadRules:false (any other routed workflow) the rule slice is not composed at all.
+  const loadRules = options.loadRules ?? true;
+  const store = loadRules ? await readCompiledRules(projectRoot) : null;
   const memorySection = options.memorySection?.trim() ?? '';
   const retrievalSection = options.retrievalSection?.trim() ?? '';
   const driftSection = options.driftSection?.trim() ?? '';
@@ -176,8 +190,12 @@ export async function writeRuleContext(
   // no compiled rule made it in — the store is absent, or present but empty — prepend
   // the fallback marker so a bootstrap-obedient reader always knows to load the rules
   // in full. A populated store keeps its manifest and stays byte-identical to before.
+  //
+  // #336 refinement: the marker fires ONLY when rules were EXPECTED (loadRules) but
+  // none made it in. On a non-feature-development route (loadRules:false) the rules
+  // are deliberately absent — the reader must NOT be told to load them — so no marker.
   const hasRules = (store?.rules?.length ?? 0) > 0;
-  if (!hasRules) {
+  if (loadRules && !hasRules) {
     markdown = `${RULES_MISSING_FALLBACK_MARKER}\n\n${markdown}`;
   }
 
