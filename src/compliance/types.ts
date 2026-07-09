@@ -1,9 +1,5 @@
 export type ObligationCategory =
-  | 'functional'
-  | 'edge-case'
-  | 'acceptance'
-  | 'non-functional'
-  | 'unclassified';
+  'functional' | 'edge-case' | 'acceptance' | 'non-functional' | 'unclassified';
 
 export type ComplianceState = 'covered' | 'partial' | 'uncovered' | 'indeterminate';
 export type SpecDefectSeverity = 'critical' | 'major' | 'minor';

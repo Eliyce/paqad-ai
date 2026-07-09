@@ -2,13 +2,7 @@ import type { ProjectProfile } from '@/core/types/project-profile';
 
 export function scriptProfile(
   stack:
-    | 'laravel'
-    | 'flutter'
-    | 'dotnet'
-    | 'nextjs'
-    | 'flask'
-    | 'nestjs'
-    | 'kotlin-android' = 'laravel',
+    'laravel' | 'flutter' | 'dotnet' | 'nextjs' | 'flask' | 'nestjs' | 'kotlin-android' = 'laravel',
 ): ProjectProfile {
   return {
     project: { name: 'demo-project', id: 'demo', description: 'Demo' },

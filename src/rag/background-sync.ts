@@ -24,8 +24,7 @@ import { RagService } from '@/rag/service.js';
 const STALE_LOCK_MS = 10 * 60 * 1000;
 
 export type BackgroundSyncResult =
-  | { synced: true }
-  | { synced: false; reason: 'in-flight' | 'disabled' | 'no-index' | 'error' };
+  { synced: true } | { synced: false; reason: 'in-flight' | 'disabled' | 'no-index' | 'error' };
 
 /**
  * Single-flight incremental sync of the vector index for `projectRoot`. Returns

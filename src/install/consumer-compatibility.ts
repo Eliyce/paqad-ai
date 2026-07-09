@@ -21,10 +21,7 @@ import { VERSION_UNKNOWN, type EngineVersionReport } from './version-report.js';
  * - `'engine-version-unknown'` — the engine reported no usable version (AC5).
  */
 export type ConsumerCompatibility =
-  | 'ok'
-  | 'engine-too-new'
-  | 'engine-too-old'
-  | 'engine-version-unknown';
+  'ok' | 'engine-too-new' | 'engine-too-old' | 'engine-version-unknown';
 
 // Parse the leading major-version integer from a semver string, tolerating an
 // optional leading `v` and any `-prerelease`/`+build` suffix. Returns NaN when no

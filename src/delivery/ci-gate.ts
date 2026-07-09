@@ -13,12 +13,7 @@ import type { ChecksState, HostProvider } from '@/providers/host-provider.js';
  * real waiting.
  */
 export type CiGateAction =
-  | 'passed'
-  | 'failed_stop'
-  | 'failed_comment_and_stop'
-  | 'timed_out'
-  | 'warned'
-  | 'skipped';
+  'passed' | 'failed_stop' | 'failed_comment_and_stop' | 'timed_out' | 'warned' | 'skipped';
 
 export interface CiGateResult {
   action: CiGateAction;

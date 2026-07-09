@@ -161,14 +161,7 @@ export interface ReceiptFeed {
 export type InventoryClass = 'web' | 'prompt' | 'evidence' | 'operation';
 export type InventoryOwner = 'you' | 'paqad' | 'shared';
 export type DashboardArea =
-  | 'pulse'
-  | 'approvals'
-  | 'trust'
-  | 'build'
-  | 'graph'
-  | 'automation'
-  | 'knowledge'
-  | 'setup';
+  'pulse' | 'approvals' | 'trust' | 'build' | 'graph' | 'automation' | 'knowledge' | 'setup';
 
 export interface InventoryItemState {
   /** True when the source of truth exists on disk. */

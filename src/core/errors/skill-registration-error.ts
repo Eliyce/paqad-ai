@@ -2,10 +2,7 @@ import { FrameworkError } from './framework-error.js';
 
 /** Why a runtime skill registration or removal was refused. */
 export type SkillRegistrationErrorKind =
-  | 'malformed'
-  | 'duplicate'
-  | 'not-found'
-  | 'built-in-protected';
+  'malformed' | 'duplicate' | 'not-found' | 'built-in-protected';
 
 const CODE_BY_KIND: Record<SkillRegistrationErrorKind, string> = {
   malformed: 'SKILL_MALFORMED',

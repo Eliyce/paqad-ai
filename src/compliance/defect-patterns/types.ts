@@ -2,12 +2,7 @@ export const DEFECT_PATTERN_SCHEMA_VERSION = 1 as const;
 
 /** Which integrity-system component produced the raw finding. */
 export type DefectSource =
-  | 'compliance'
-  | 'audit'
-  | 'heuristic'
-  | 'test_quality'
-  | 'boundary'
-  | 'spec_review';
+  'compliance' | 'audit' | 'heuristic' | 'test_quality' | 'boundary' | 'spec_review';
 
 /** Stack context from the project profile at recording time. */
 export interface StackContext {

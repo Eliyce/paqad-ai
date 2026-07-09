@@ -2,7 +2,7 @@
 
 ### Impact Map
 
-| Surface                   | Type             | Consumer    | Severity   | Coordinated change |
+| Surface | Type | Consumer | Severity | Coordinated change |
 | ------------------------- | ---------------- | ----------- | ---------- | ------------------ | ------------ | --------------- | --------------------------------------- |
 | `{{POST /users payload}}` | {{API contract}} | {{billing}} | {{breaking | additive           | silent-shift | internal-only}} | {{minimum change required in consumer}} |
 

@@ -1,10 +1,7 @@
 import type { Chunk } from './types.js';
 
 export type MetadataFilterType =
-  | 'file_extension'
-  | 'module_path_prefix'
-  | 'framework'
-  | 'recency_cutoff_ms';
+  'file_extension' | 'module_path_prefix' | 'framework' | 'recency_cutoff_ms';
 
 export interface MetadataFilter {
   type: MetadataFilterType;

@@ -2,9 +2,9 @@
 
 ### Hazard Map
 
-| #   | Hazard                         | Path            | On hot path?   | Severity           | Remediation |
+| # | Hazard | Path | On hot path? | Severity | Remediation |
 | --- | ------------------------------ | --------------- | -------------- | ------------------ | ----------- | ------ | ----- | ---------------- |
-| 1   | {{N+1 query inside .map(...)}} | `{{file:line}}` | {{yes (GET /x) | no (nightly job)}} | {{high      | medium | low}} | {{concrete fix}} |
+| 1 | {{N+1 query inside .map(...)}} | `{{file:line}}` | {{yes (GET /x) | no (nightly job)}} | {{high      | medium | low}} | {{concrete fix}} |
 
 ### Recommended Pre-Merge Actions
 

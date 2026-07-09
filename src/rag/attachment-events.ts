@@ -13,9 +13,7 @@ import { PATHS } from '@/core/constants/paths.js';
 
 /** The three terminal outcomes an attachment-index call can record. */
 export type AttachmentEventKind =
-  | 'attachment.indexed'
-  | 'attachment.index_failed'
-  | 'attachment.format_rejected';
+  'attachment.indexed' | 'attachment.index_failed' | 'attachment.format_rejected';
 
 /** Which collection the attachment was (or would have been) written into. */
 export type AttachmentCollectionScope = 'project' | 'session';

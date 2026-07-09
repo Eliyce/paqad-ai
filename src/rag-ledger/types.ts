@@ -15,12 +15,7 @@ export const RAG_EVIDENCE_SCHEMA_VERSION = 1;
 export type RagEvidenceKind = 'open' | 'refreshed' | 'called' | 'used' | 'fallback' | 'close';
 
 export type RagRefreshKind =
-  | 'rebuild'
-  | 'incremental-sync'
-  | 'rule-context'
-  | 'vision'
-  | 'crs'
-  | 'attachment';
+  'rebuild' | 'incremental-sync' | 'rule-context' | 'vision' | 'crs' | 'attachment';
 
 export type RagQueryScope = 'docs' | 'code' | 'all';
 

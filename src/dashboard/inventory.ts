@@ -20,13 +20,7 @@ import { PATHS } from '@/core/constants/paths.js';
 export type InventoryClass = 'web' | 'prompt' | 'evidence' | 'operation';
 export type InventoryOwner = 'you' | 'paqad' | 'shared';
 export type DashboardArea =
-  | 'pulse'
-  | 'approvals'
-  | 'trust'
-  | 'build'
-  | 'automation'
-  | 'knowledge'
-  | 'setup';
+  'pulse' | 'approvals' | 'trust' | 'build' | 'automation' | 'knowledge' | 'setup';
 
 export interface InventoryItemState {
   /** True when the source of truth exists on disk. */

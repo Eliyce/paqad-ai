@@ -4,10 +4,7 @@ export const BOUNDARY_SCHEMA_VERSION = 1 as const;
  * How each spec relates to the shared type (FR-BT1.3).
  */
 export type BoundaryRelationship =
-  | 'producer_consumer'
-  | 'bidirectional'
-  | 'shared_utility'
-  | 'unanalyzable';
+  'producer_consumer' | 'bidirectional' | 'shared_utility' | 'unanalyzable';
 
 /**
  * A single shared type boundary detected via @boundary annotation or TypeScript

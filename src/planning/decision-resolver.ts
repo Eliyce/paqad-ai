@@ -8,11 +8,7 @@ import type { DecisionCategory, DecisionPacket } from './decision-packet.js';
 import { readCompiledRules } from './rule-compiler.js';
 
 export type DecisionResolutionSource =
-  | 'rule'
-  | 'design-system'
-  | 'profile'
-  | 'rag-confident'
-  | 'ask';
+  'rule' | 'design-system' | 'profile' | 'rag-confident' | 'ask';
 
 export interface DecisionResolutionResult {
   source: DecisionResolutionSource;

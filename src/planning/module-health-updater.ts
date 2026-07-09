@@ -29,11 +29,7 @@ export interface ModuleHealthEvidence {
   schema_version: 1;
   event_id: string;
   source:
-    | 'provider-hook'
-    | 'workflow-phase'
-    | 'verification-gate'
-    | 'preflight'
-    | 'session-artifact';
+    'provider-hook' | 'workflow-phase' | 'verification-gate' | 'preflight' | 'session-artifact';
   provider?: string;
   session_id?: string;
   created_at: string;
