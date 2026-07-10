@@ -14,14 +14,14 @@ meant to decide, but those values now sit in the layer that matches what they ar
 
 ## The two kinds of settings
 
-- **`project-profile.yaml` holds project facts only.** Project name / id / <!-- @rule RL-a9c3 -->
+- **`project-profile.yaml` holds project facts only.** Project name / id /
   description, the project's own `commands` (test / build / lint), `mcp.servers`,
   the detection-derived `active_capabilities` and `stack_profile`, and the
   project-owned `custom` arrays (`classification_dimensions`,
   `verification_plugins`, `escalation_rules`) plus the advanced decision sub-keys
   (`preferred_option_keys`, `ttl_overrides_days`, `max_pending`). These describe
   the repository; they are not framework behaviour.
-- **Framework knobs: defaults in code, overrides in the config layer.** The knobs <!-- @rule RL-f072 -->
+- **Framework knobs: defaults in code, overrides in the config layer.** The knobs
   that tune behaviour live in `src/core/framework-config.ts` (the
   `FRAMEWORK_CONFIG_SPECS` registry). A team or developer overrides any of them in
   the config layer below. Knobs that live here include `paqad_enable`, the whole
@@ -65,31 +65,31 @@ value.
 
 ## Rules
 
-- **The group files are self-documenting and inert until edited.** Onboarding <!-- @rule RL-c462 -->
+- **The group files are self-documenting and inert until edited.** Onboarding
   writes every knob into its group file, commented out, with its default, its
   `PAQAD_*` env equivalent, and a one-line explanation — so a team discovers a knob
   by reading the file it would change. Because every line is commented, a freshly
   onboarded project runs entirely on code defaults; a team uncomments a line to
   override. A knob that is invisible and undiscoverable is not allowed; the
   pre-filled group files are what keep every knob visible.
-- **Resolution precedence is fixed, and local wins over team.** Defaults (code) → <!-- @rule RL-0e76 -->
+- **Resolution precedence is fixed, and local wins over team.** Defaults (code) →
   `configs/.config.*` (team, merged) → `.config` (local) → `PAQAD_*` env →
   programmatic overrides (desktop / tests). A local file beats a team file; an env
   var beats both files; a programmatic override beats everything.
-- **Absent (or commented) resolves to the default.** Any knob no surface actively <!-- @rule RL-e4e3 -->
+- **Absent (or commented) resolves to the default.** Any knob no surface actively
   sets resolves to its documented code default, so a commented, missing, or
   hand-trimmed config never breaks. Every override surface is optional: with no key
   uncommented anywhere, every knob is at its default and behaviour is identical to
   a fresh install.
-- **Hard cutover: the YAML no longer carries knobs.** Framework knobs are sourced <!-- @rule RL-74f7 -->
+- **Hard cutover: the YAML no longer carries knobs.** Framework knobs are sourced
   _only_ from the four surfaces above. Any such key left over in an existing
   `project-profile.yaml` is ignored on read and stripped on write. Do not
   re-introduce a framework knob into the profile schema, and do not read one from
   the profile.
-- **Detection-derived fields are refreshed, not preserved.** `active_capabilities` <!-- @rule RL-39b5 -->
+- **Detection-derived fields are refreshed, not preserved.** `active_capabilities`
   and `stack_profile` are computed from repository reality on every run. They are
   framework-owned outputs in the profile, not team-owned config.
-- **Preserve overrides on re-onboard and update — reconcile, never reset.** <!-- @rule RL-96aa -->
+- **Preserve overrides on re-onboard and update — reconcile, never reset.**
   `paqad-ai onboard` and `paqad-ai update` are a refresh, not a reset. They sync
   the group files — creating any missing file in full, and **appending** knobs a
   new version introduced (commented) to existing files — and they **reconcile** the
