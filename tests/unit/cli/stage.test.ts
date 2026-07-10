@@ -6,8 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { createProgram } from '@/cli/program.js';
-import { currentOrdinal, readSessionUnit } from '@/session-ledger/ledger.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
+import {
+  currentFeature,
+  readFeatureStageUnit,
+  resolveFeatureRef,
+} from '@/feature-evidence/stage-ledger.js';
 
 // `paqad-ai stage <start|end> <stage>` — the shell escape hatch the block-forward
 // gate's remediation names (issue #307). Unlike the never-shipped scripts/se-mark.ts
@@ -28,8 +31,8 @@ describe('paqad-ai stage command', () => {
   });
 
   function rows() {
-    const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES);
-    return ord > 0 ? readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, ord) : [];
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
   }
 
   async function run(...args: string[]): Promise<string[]> {
@@ -111,6 +114,15 @@ describe('paqad-ai stage command', () => {
     expect(errors.join('\n')).toContain("use 'start' or 'end'");
   });
 
+  it('a --title on start opens a fresh named feature (issue #339)', async () => {
+    await run('start', 'planning', '--title', 'Route first workflows', '--issue', '339');
+    const active = currentFeature(root, SES)!;
+    expect(active.startsWith('339-route-first-workflows-')).toBe(true);
+    // The titled feature is discoverable by its ref for a later `resume`.
+    expect(resolveFeatureRef(root, SES, '339')).toBe(active);
+    expect(rows().some((r) => r.kind === 'stage_start' && r.stage === 'planning')).toBe(true);
+  });
+
   it('records an out-of-order boundary instead of rejecting it (issue #310 — never deadlock)', async () => {
     // A later stage already began (review); marking the earlier planning must still
     // succeed so the pre-code block is always clearable. The old CLI rejected this
@@ -139,8 +151,8 @@ describe('paqad-ai stage command', () => {
     }
 
     function rowsFor(session: string) {
-      const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, session);
-      return ord > 0 ? readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, session, ord) : [];
+      const dir = currentFeature(root, session);
+      return dir ? readFeatureStageUnit(root, dir) : [];
     }
 
     afterEach(() => {

@@ -10,21 +10,15 @@
 // satisfy the gate by assertion. The cap (2 failed verifies) bounds the loop.
 
 import {
-  appendSessionEvent,
-  currentOrdinal,
-  readSessionUnit,
-  type SessionLedgerRow,
-} from '@/session-ledger/ledger.js';
+  appendFeatureStageRow,
+  currentFeature,
+  foldFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
-import { foldChange } from './fold.js';
-import { validateStageEvidenceRow } from './schema.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import {
-  STAGE_EVIDENCE_DOC_TYPE,
-  STAGE_EVIDENCE_SCHEMA_VERSION,
-  type OrderingViolation,
-  type StageCompletenessVerdict,
-} from './types.js';
+import { type OrderingViolation, type StageCompletenessVerdict } from './types.js';
 
 /** Failed-verify attempts after which an incomplete change is `blocked` (escalate). */
 export const REDO_CAP = 2;
@@ -48,7 +42,8 @@ export interface VerifyResult {
 
 export interface VerifyContext {
   sessionId?: string | null;
-  ordinal?: number;
+  /** Feature dir to verify; resolved from the active `_session` control when absent. */
+  dirName?: string;
   adapter: string;
   now?: () => Date;
 }
@@ -59,10 +54,10 @@ export interface VerifyContext {
  */
 export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyResult {
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
-  const ordinal = ctx.ordinal ?? currentOrdinalOrThrow(projectRoot, sessionId);
-  const fold = foldChange(projectRoot, sessionId, ordinal);
+  const dirName = ctx.dirName ?? currentFeatureOrThrow(projectRoot, sessionId);
+  const fold = foldFeature(projectRoot, sessionId, dirName);
 
-  const unit = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
+  const unit = readFeatureStageUnit(projectRoot, dirName);
   // Redo cap counts only failed verifies SINCE the last ledger mutation (issue #321):
   // a new stage row (open / stage_start / stage_end) is fresh work, so it resets the
   // count. This makes the cap meaningful across a re-verified change — the agent that
@@ -81,23 +76,17 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
   const ok = verdict === 'complete' || verdict === 'recovered';
   const blocked = verdict === 'blocked';
 
-  appendSessionEvent(
+  appendFeatureStageRow(
     projectRoot,
-    STAGE_EVIDENCE_DOC_TYPE,
     sessionId,
-    ordinal,
+    dirName,
     {
       kind: 'verify',
-      conversation_ordinal: ordinal,
       adapter: ctx.adapter,
       event_status: ok ? 'completed' : 'failed',
       note: `verdict=${verdict}; missing=[${fold.completeness.missing_stages.join(',')}]`,
     },
-    {
-      schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-      validate: (row: SessionLedgerRow) => validateStageEvidenceRow(row),
-      now: ctx.now,
-    },
+    ctx.now,
   );
 
   return {
@@ -112,6 +101,15 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
   };
 }
 
+/** The active feature dir, or throw when none is open — verify needs a change. */
+function currentFeatureOrThrow(projectRoot: string, sessionId: string): string {
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) {
+    throw new Error('No open stage-evidence change to verify (call `open` first).');
+  }
+  return dirName;
+}
+
 /** Index of the last stage-mutation row (open / stage_start / stage_end) in the unit,
  *  or -1 when none — the boundary after which redo-cap failures are counted (#321). */
 function lastIndexOfMutation(unit: readonly SessionLedgerRow[]): number {
@@ -121,12 +119,4 @@ function lastIndexOfMutation(unit: readonly SessionLedgerRow[]): number {
     if (kind === 'open' || kind === 'stage_start' || kind === 'stage_end') idx = i;
   }
   return idx;
-}
-
-function currentOrdinalOrThrow(projectRoot: string, sessionId: string): number {
-  const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-  if (ordinal <= 0) {
-    throw new Error('No open stage-evidence change to verify (call `open` first).');
-  }
-  return ordinal;
 }

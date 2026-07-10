@@ -13,7 +13,7 @@
 // two can never drift). First-entry idempotency is keyed on the stage-evidence ledger,
 // so a second edit within the same stage prints nothing.
 
-import { currentOrdinal, readSessionUnit } from '@/session-ledger/ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import {
@@ -23,7 +23,6 @@ import {
   stagesWithKind,
 } from './live-writer.js';
 import { stageIndex, type StageId } from './stages.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from './types.js';
 
 /**
  * The plain-English line for each stage, verbatim from the narration contract's
@@ -65,11 +64,8 @@ export function narrateStageEntry(input: NarrateStageInput): string | null {
 
   try {
     const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
-    const ordinal = currentOrdinal(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-    const rows =
-      ordinal > 0
-        ? readSessionUnit(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal)
-        : [];
+    const dirName = currentFeature(input.projectRoot, sessionId);
+    const rows = dirName ? readFeatureStageUnit(input.projectRoot, dirName) : [];
     // F2 (issue #310): mirror the live writer's defer — until the pre-code stages
     // (planning, specification) are recorded, a file edit records no stage, so it
     // enters none and narrates nothing (a docs-only or pre-planning edit stays quiet).

@@ -11,11 +11,10 @@ import {
   finalizeStageEvidence,
   isArtifactBearingStage,
   openStageEvidence,
-  STAGE_EVIDENCE_DOC_TYPE,
   startStage,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
-import { currentOrdinal, readSessionDoc } from '@/session-ledger/ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 const ADAPTER = 'backstop';
 
@@ -28,6 +27,12 @@ function provenEndArgs(root: string, stage: string): EndStageInput {
   return { artifactPaths: [rel] };
 }
 
+/** Read the rows for a session's active feature, or [] when none is active. */
+function activeRows(root: string, sessionId: string) {
+  const dir = currentFeature(root, sessionId);
+  return dir ? readFeatureStageUnit(root, dir) : [];
+}
+
 describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
   let root: string;
   beforeEach(() => {
@@ -38,14 +43,18 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
   });
 
   it('is a pure no-op when there is no open change and no code diff', () => {
-    const result = finalizeStageEvidence(root, { adapter: ADAPTER, changedFilesCount: 0 });
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId: 'ses_none',
+      changedFilesCount: 0,
+    });
     expect(result).toBeNull();
-    expect(readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses_none')).toEqual([]);
+    expect(currentFeature(root, 'ses_none')).toBeNull();
   });
 
   it('verifies the open change the agent recorded', () => {
     const sessionId = 'ses_fin';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     for (const stage of [
       'planning',
       'specification',
@@ -54,10 +63,10 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'checks',
       'documentation_sync',
     ]) {
-      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
       endStage(root, stage, provenEndArgs(root, stage), {
         sessionId,
-        ordinal,
+        dirName,
         adapter: 'claude-code',
       });
     }
@@ -81,7 +90,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     // No stages were tracked → honestly incomplete, never a false complete.
     expect(result?.ok).toBe(false);
     expect(result?.verdict).toBe('incomplete');
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const rows = activeRows(root, sessionId);
     const inferred = rows.find((row) => row.evidence_source === 'inferred-git');
     expect(inferred).toBeDefined();
     expect(inferred?.subject_digest).toBe('deadbeef');
@@ -102,14 +111,14 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
 
   it('AC-5: ends a live-mark stage the writer left open (turn-boundary end) and writes no inferred row', () => {
     const sessionId = 'ses_dangling';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     // The PreToolUse writer started development but the turn ended before any later
     // stage closed it — a dangling live-mark stage_start with no matching end.
-    startStage(root, 'development', { sessionId, ordinal, adapter: 'claude-code' });
+    startStage(root, 'development', { sessionId, dirName, adapter: 'claude-code' });
 
     finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
 
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const rows = activeRows(root, sessionId);
     const devEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'development');
     expect(devEnd, 'the dangling stage should be closed at the turn boundary').toBeDefined();
     expect(devEnd?.evidence_source).toBe('live-mark');
@@ -119,7 +128,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
 
   it('#270/#320: anchors a review the agent left open, but an artifact-less review is inconclusive', () => {
     const sessionId = 'ses_late_review';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     // Build order: the live writer stamps checks/docs during the build…
     for (const stage of [
       'planning',
@@ -128,10 +137,10 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'checks',
       'documentation_sync',
     ]) {
-      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
       endStage(root, stage, provenEndArgs(root, stage), {
         sessionId,
-        ordinal,
+        dirName,
         adapter: 'claude-code',
       });
     }
@@ -140,7 +149,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     // anchors (closes) it — #270 — but with no findings artifact the review proves no
     // work, so #320 folds it inconclusive → the change is honestly incomplete, never a
     // false complete. To pass, the agent must end review with a real findings file.
-    startStage(root, 'review', { sessionId, ordinal, adapter: 'claude-code' });
+    startStage(root, 'review', { sessionId, dirName, adapter: 'claude-code' });
 
     const result = finalizeStageEvidence(root, {
       adapter: ADAPTER,
@@ -151,7 +160,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     expect(result?.verdict).toBe('incomplete');
     expect(result?.ok).toBe(false);
     expect(result?.missing_stages).toContain('review');
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const rows = readFeatureStageUnit(root, dirName);
     const reviewEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'review');
     expect(
       reviewEnd,
@@ -170,17 +179,17 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     });
     // No feature being built → no gate, no inferred backstop record.
     expect(result).toBeNull();
-    expect(readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId)).toEqual([]);
+    expect(currentFeature(root, sessionId)).toBeNull();
   });
 
   it('#310: backfills an inferred development row when planning+spec were recorded but no development mark exists', () => {
     const sessionId = 'ses_backfill';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     // planning + specification recorded (markers/CLI); the sole same-turn edit had its
     // development mark deferred by the live writer, so no development row exists.
     for (const stage of ['planning', 'specification']) {
-      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
-      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId, dirName, adapter: 'claude-code' });
     }
     const result = finalizeStageEvidence(root, {
       adapter: ADAPTER,
@@ -189,7 +198,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       subjectDigest: 'sha256-abc',
       isFeatureDevChange: true,
     });
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const rows = readFeatureStageUnit(root, dirName);
     const dev = rows.find((r) => r.stage === 'development' && r.evidence_source === 'inferred-git');
     expect(dev, 'a real code change must show a development stage').toBeDefined();
     expect(dev?.subject_digest).toBe('sha256-abc');
@@ -204,13 +213,13 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     // still see development as present and add no inferred-git row, so a real change is
     // never double-marked. Exercises the stage_end arm of the presence check.
     const sessionId = 'ses_backfill_orphan_end';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     for (const stage of ['planning', 'specification']) {
-      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
-      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId, dirName, adapter: 'claude-code' });
     }
     // An END with no START — the only development row present.
-    endStage(root, 'development', {}, { sessionId, ordinal, adapter: 'claude-code' });
+    endStage(root, 'development', {}, { sessionId, dirName, adapter: 'claude-code' });
 
     finalizeStageEvidence(root, {
       adapter: ADAPTER,
@@ -220,7 +229,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       isFeatureDevChange: true,
     });
 
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const rows = readFeatureStageUnit(root, dirName);
     // No inferred-git development row was added — the existing end already counts.
     expect(
       rows.some((r) => r.stage === 'development' && r.evidence_source === 'inferred-git'),
@@ -229,10 +238,10 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
 
   it('#310: does NOT infer a development row for a clean-tree change (no diff to anchor to)', () => {
     const sessionId = 'ses_backfill_clean';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     for (const stage of ['planning', 'specification']) {
-      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
-      endStage(root, stage, {}, { sessionId, ordinal, adapter: 'claude-code' });
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+      endStage(root, stage, {}, { sessionId, dirName, adapter: 'claude-code' });
     }
     const result = finalizeStageEvidence(root, {
       adapter: ADAPTER,
@@ -241,18 +250,18 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       isFeatureDevChange: true,
     });
     // No working-tree delta → nothing honest to infer development from.
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const rows = readFeatureStageUnit(root, dirName);
     expect(rows.some((r) => r.evidence_source === 'inferred-git')).toBe(false);
     expect(result?.missing_stages).toContain('development');
   });
 
   it('#321: re-verifies an incomplete change at each Stop (no verify-once early return)', () => {
     const sessionId = 'ses_reverify';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
-    startStage(root, 'planning', { sessionId, ordinal, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    startStage(root, 'planning', { sessionId, dirName, adapter: 'claude-code' });
     endStage(root, 'planning', provenEndArgs(root, 'planning'), {
       sessionId,
-      ordinal,
+      dirName,
       adapter: 'claude-code',
     });
 
@@ -262,7 +271,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       changedFilesCount: 1,
     });
     expect(first?.ok).toBe(false); // planning-only → incomplete, stays open
-    const verifyCountAfterFirst = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId).filter(
+    const verifyCountAfterFirst = readFeatureStageUnit(root, dirName).filter(
       (row) => row.kind === 'verify',
     ).length;
 
@@ -273,15 +282,15 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       changedFilesCount: 1,
     });
     expect(second).not.toBeNull();
-    const verifyCountAfterSecond = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId).filter(
+    const verifyCountAfterSecond = readFeatureStageUnit(root, dirName).filter(
       (row) => row.kind === 'verify',
     ).length;
     expect(verifyCountAfterSecond).toBeGreaterThan(verifyCountAfterFirst);
   });
 
-  it('#321: a passing change writes a close row, advances the pointer, and later Stops no-op', () => {
+  it('#321: a passing change writes a close row, clears the active feature, and later Stops no-op', () => {
     const sessionId = 'ses_close';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     for (const stage of [
       'planning',
       'specification',
@@ -290,10 +299,10 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'checks',
       'documentation_sync',
     ]) {
-      startStage(root, stage, { sessionId, ordinal, adapter: 'claude-code' });
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
       endStage(root, stage, provenEndArgs(root, stage), {
         sessionId,
-        ordinal,
+        dirName,
         adapter: 'claude-code',
       });
     }
@@ -304,10 +313,10 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       changedFilesCount: 1,
     });
     expect(result?.ok).toBe(true);
-    // A `close` row brackets the passing change, and the open pointer is reset.
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    // A `close` row brackets the passing change, and the active feature is cleared.
+    const rows = readFeatureStageUnit(root, dirName);
     expect(rows.some((row) => row.kind === 'close')).toBe(true);
-    expect(currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, sessionId)).toBe(0);
+    expect(currentFeature(root, sessionId)).toBeNull();
 
     // A later Stop with no new change opened → nothing to finalize.
     const after = finalizeStageEvidence(root, {
@@ -318,10 +327,10 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     expect(after).toBeNull();
   });
 
-  it('#321: change B opens a FRESH ordinal after A closed (no free-riding)', () => {
+  it('#321: change B opens a FRESH feature after A closed (no free-riding)', () => {
     const sessionId = 'ses_two_changes';
     // Change A: full pass → closes.
-    const { ordinal: a } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const { dirName: a } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     for (const stage of [
       'planning',
       'specification',
@@ -330,18 +339,20 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'checks',
       'documentation_sync',
     ]) {
-      startStage(root, stage, { sessionId, ordinal: a, adapter: 'claude-code' });
+      startStage(root, stage, { sessionId, dirName: a, adapter: 'claude-code' });
       endStage(root, stage, provenEndArgs(root, stage), {
         sessionId,
-        ordinal: a,
+        dirName: a,
         adapter: 'claude-code',
       });
     }
     finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
-    expect(currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, sessionId)).toBe(0);
+    expect(currentFeature(root, sessionId)).toBeNull();
 
-    // Change B: the next stage_start auto-opens a fresh ordinal (a + 1), not a.
-    const bRow = startStage(root, 'planning', { sessionId, adapter: 'claude-code' });
-    expect(bRow.conversation_ordinal).toBe(a + 1);
+    // Change B: the next stage_start auto-opens a FRESH feature, not A.
+    startStage(root, 'planning', { sessionId, adapter: 'claude-code' });
+    const b = currentFeature(root, sessionId);
+    expect(b).not.toBeNull();
+    expect(b).not.toBe(a);
   });
 });

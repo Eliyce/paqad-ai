@@ -14,10 +14,8 @@ import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { readChecksReport } from '@/checks/report-store.js';
 import type { Lane } from '@/core/types/routing.js';
-import { currentOrdinal } from '@/session-ledger/ledger.js';
+import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { foldChange } from '@/stage-evidence/fold.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 import { readTraceabilityMap } from '@/traceability/index.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewDefect, SpecReviewReport } from '@/compliance/types.js';
@@ -182,11 +180,11 @@ export async function buildRepositoryVerificationContext(
 function readRecordedLane(projectRoot: string): Lane {
   try {
     const sessionId = resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
-    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-    if (ordinal <= 0) {
+    const dirName = currentFeature(projectRoot, sessionId);
+    if (!dirName) {
       return 'full';
     }
-    return foldChange(projectRoot, sessionId, ordinal).lane ?? 'full';
+    return foldFeature(projectRoot, sessionId, dirName).lane ?? 'full';
   } catch {
     return 'full';
   }

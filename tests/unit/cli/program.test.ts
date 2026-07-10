@@ -22,6 +22,7 @@ describe('createProgram', () => {
       'dashboard',
       'doctor',
       'evidence',
+      'feature',
       'audit',
       'graph',
       'module-decisions',
@@ -37,12 +38,15 @@ describe('createProgram', () => {
       'rag-evidence',
       'update',
       'patterns',
+      'plan',
       'spec',
       'stage',
+      'resume',
       'decision',
       'config',
       'intake',
       'deliver',
+      'delivery-link',
       'status',
     ]);
   });

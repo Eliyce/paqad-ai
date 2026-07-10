@@ -6,6 +6,8 @@ import { Command } from 'commander';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze, freezeSpec } from '@/spec/spec-freeze.js';
 import { writeFrozenSpec } from '@/spec/frozen-spec-store.js';
+import { NoActiveFeatureError, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
 /**
@@ -47,6 +49,10 @@ export function createSpecCommand(): Command {
       'Confirm every invariant as part of this sign-off (the human freeze act)',
       false,
     )
+    .option(
+      '--session <id>',
+      'Session id whose active feature receives specification.json (issue #339)',
+    )
     .action(
       (
         specFile: string,
@@ -55,6 +61,7 @@ export function createSpecCommand(): Command {
           signedOffBy: string;
           specId?: string;
           confirmInvariants: boolean;
+          session?: string;
         },
       ) => {
         let markdown: string;
@@ -99,6 +106,24 @@ export function createSpecCommand(): Command {
         });
         const target = writeFrozenSpec(options.projectRoot, frozen);
 
+        // Issue #339 — co-locate the frozen spec in the active feature's bundle as
+        // `specification.json` (the new canonical home). Best-effort: with no active
+        // feature (e.g. a standalone freeze) the legacy sidecar above still lands, so a
+        // missing feature never fails the freeze. The legacy sidecar stays until the
+        // Phase-7 cutover repoints every frozen-spec reader.
+        let bundlePath: string | null = null;
+        try {
+          const sessionId = resolveSessionId(
+            options.projectRoot,
+            options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+          );
+          bundlePath = writeFeatureSpecification(options.projectRoot, sessionId, frozen).path;
+        } catch (error) {
+          if (!(error instanceof NoActiveFeatureError)) {
+            throw error;
+          }
+        }
+
         console.log(`▸ paqad · spec ${specId} frozen and signed off — sign-off recorded`);
         console.log(
           JSON.stringify({
@@ -106,6 +131,7 @@ export function createSpecCommand(): Command {
             spec_id: specId,
             spec_hash: frozen.spec_hash,
             sidecar: target,
+            specification: bundlePath,
           }),
         );
       },

@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSpecCommand } from '@/cli/commands/spec.js';
 import { createProgram } from '@/cli/program.js';
 import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+import { readFeatureSpecification } from '@/feature-evidence/artifacts.js';
+import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
@@ -109,6 +111,30 @@ describe('paqad-ai spec command', () => {
     // Narrated in the ▸ paqad voice + machine-readable confirmation.
     expect(out.some((line) => line.startsWith('▸ paqad'))).toBe(true);
     expect(out.some((line) => line.includes('"frozen":true'))).toBe(true);
+  });
+
+  it('also writes specification.json into the active feature bundle (#339)', async () => {
+    const SES = 'ses_spec_feature';
+    openFeatureChange(root, SES, {
+      adapter: 'claude-code',
+      title: 'Widget feature',
+      issue: '339',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    const path = writeSpec('S-4-widget.md', COMPLETE_SPEC);
+    const { out } = await run(
+      'freeze',
+      path,
+      '--signed-off-by',
+      'alice',
+      '--confirm-invariants',
+      '--session',
+      SES,
+    );
+    expect(process.exitCode).toBeUndefined();
+    const dir = currentFeature(root, SES)!;
+    expect(readFeatureSpecification(root, dir)?.frozen?.signed_off_by).toBe('alice');
+    expect(out.some((line) => line.includes('specification.json'))).toBe(true);
   });
 
   it('exits non-zero when the spec file cannot be read', async () => {

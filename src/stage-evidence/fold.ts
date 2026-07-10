@@ -6,9 +6,8 @@
 // (the script clock that stamped each `ts`); a negative/zero gap is clamped and
 // flagged `unreliable` rather than trusted.
 
-import { readSessionUnit, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
-import { changeKey } from './recorder.js';
 import {
   isArtifactBearingStage,
   isCompletionAnchoredStage,
@@ -17,7 +16,6 @@ import {
   stageIndex,
 } from './stages.js';
 import {
-  STAGE_EVIDENCE_DOC_TYPE,
   type FoldedChange,
   type FoldedStage,
   type OrderingViolation,
@@ -27,26 +25,7 @@ import {
   type StageState,
 } from './types.js';
 
-/** Read and fold one change's rows into the per-change view. */
-export function foldChange(projectRoot: string, sessionId: string, ordinal: number): FoldedChange {
-  const rows = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
-  return foldRows(rows, sessionId, ordinal);
-}
-
-/** Fold an in-memory set of rows keyed on the legacy `<session>#<ordinal>` change key. */
-export function foldRows(
-  rows: readonly SessionLedgerRow[],
-  sessionId: string,
-  ordinal: number,
-): FoldedChange {
-  return foldRowsWithKey(rows, {
-    sessionId,
-    changeKey: changeKey(sessionId, ordinal),
-    promptOrdinal: ordinal,
-  });
-}
-
-/** Identity a fold is keyed under — the legacy `<session>#<ordinal>` or a feature dir. */
+/** Identity a fold is keyed under — the per-feature dir name (issue #339). */
 export interface FoldIdentity {
   sessionId: string;
   changeKey: string;
@@ -55,9 +34,9 @@ export interface FoldIdentity {
 
 /**
  * Fold an in-memory set of rows into the per-change view (the testable core). The
- * change identity is supplied by the caller so the SAME folding logic serves both the
- * legacy session/ordinal key and the per-feature dir-name key (issue #339) without
- * duplicating the state machine.
+ * change identity is supplied by the caller (the feature dir name is the change key,
+ * issue #339); the reader that fetches a feature's rows and calls this is `foldFeature`
+ * in `feature-evidence/stage-ledger.ts`.
  */
 export function foldRowsWithKey(
   rows: readonly SessionLedgerRow[],

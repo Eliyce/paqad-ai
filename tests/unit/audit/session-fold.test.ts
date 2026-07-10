@@ -12,7 +12,7 @@ import { detectDelivery } from '@/delivery/detection';
 import { recordDecisionOpened } from '@/planning/decision-ledger';
 import { recordRuleDrift, recordRuleFindings } from '@/rule-scripts/rule-ledger';
 import { recordDisabledSession } from '@/session-ledger/disabled-audit';
-import { appendSessionEvent, openSessionDoc } from '@/session-ledger/ledger';
+import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types';
 
 // Buildout F6 (last increment) — the SIEM export unions the always-on #249
@@ -90,24 +90,26 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     expect(event.detail).toBe('disabled (paqad-disabled)');
   });
 
-  it('grades stage event_status into pass/fail', () => {
-    const { ordinal } = openSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses-s', {
-      kind: 'open',
-      adapter: 'claude-code',
-    });
-    appendSessionEvent(root, STAGE_EVIDENCE_DOC_TYPE, 'ses-s', ordinal, {
+  it('grades stage event_status into pass/fail (projected from feature bundles, #339)', () => {
+    // Stage evidence now lives in the per-feature bundle (issue #339), so the SIEM
+    // export projects it from there — seed via the feature stage ledger.
+    const dir = openFeatureChange(root, 'ses-s', { adapter: 'claude-code', ulidSeed: 1 });
+    appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_end',
       stage: 'development',
+      adapter: 'claude-code',
       event_status: 'completed',
     });
-    appendSessionEvent(root, STAGE_EVIDENCE_DOC_TYPE, 'ses-s', ordinal, {
+    appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_end',
       stage: 'verification',
+      adapter: 'claude-code',
       event_status: 'failed',
     });
-    appendSessionEvent(root, STAGE_EVIDENCE_DOC_TYPE, 'ses-s', ordinal, {
+    appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_start',
       stage: 'review',
+      adapter: 'claude-code',
       event_status: 'started',
     });
     const verdicts = bySource(aggregateSiemEvents(root), STAGE_EVIDENCE_DOC_TYPE).map(

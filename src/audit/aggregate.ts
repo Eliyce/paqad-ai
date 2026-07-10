@@ -16,6 +16,7 @@ import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
 import { DECISION_EVIDENCE_DOC_TYPE } from '@/planning/decision-ledger.js';
 import { RULE_EVIDENCE_DOC_TYPE } from '@/rule-scripts/rule-ledger.js';
 import { readAllSessionRows, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { readAllFeatureStageRows } from '@/feature-evidence/projections.js';
 import { DISABLED_SESSION_DOC_TYPE } from '@/session-ledger/disabled-audit.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
@@ -102,11 +103,13 @@ function summarizeReceipt(result: 'PASSED' | 'FAILED', sealed: boolean): string 
 // the disabled-session audit). Union it into the SIEM stream so an external SOC
 // sees the same evidence — not just the enterprise-gated #118 ledger. These doc
 // types are the same five the dashboard collectors consume after the F6 cutover.
+// Stage evidence is PROJECTED from the per-feature bundles (issue #339), not read from
+// the session-scoped ledger layout — the Phase-2 cutover moved it into the feature dirs.
+// The other four doc types stay project/session-scoped, so they are still walked here.
 const SESSION_LEDGER_DOC_TYPES = [
   DECISION_EVIDENCE_DOC_TYPE,
   DELIVERY_EVIDENCE_DOC_TYPE,
   RULE_EVIDENCE_DOC_TYPE,
-  STAGE_EVIDENCE_DOC_TYPE,
   DISABLED_SESSION_DOC_TYPE,
 ] as const;
 
@@ -162,11 +165,17 @@ function sessionEvent(row: SessionLedgerRow): SiemEvent {
   };
 }
 
-/** Every session-ledger row across the folded doc types → one `session` event each. */
+/**
+ * Every session-ledger row across the folded doc types → one `session` event each, PLUS
+ * the stage-evidence rows projected from the per-feature bundles (issue #339). Stage rows
+ * keep the same `doc_type`/shape, so the same `sessionEvent` mapper grades them.
+ */
 function sessionLedgerEvents(projectRoot: string): SiemEvent[] {
-  return SESSION_LEDGER_DOC_TYPES.flatMap((docType) =>
+  const fromLedger = SESSION_LEDGER_DOC_TYPES.flatMap((docType) =>
     readAllSessionRows(projectRoot, docType).map(sessionEvent),
   );
+  const fromFeatures = readAllFeatureStageRows(projectRoot).map(sessionEvent);
+  return [...fromLedger, ...fromFeatures];
 }
 
 /**

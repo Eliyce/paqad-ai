@@ -15,17 +15,15 @@
 // verifies that — honestly `incomplete`, never a false `complete`.
 
 import {
-  appendSessionEvent,
-  closeSessionOrdinal,
-  currentOrdinal,
-  readSessionUnit,
-  type SessionLedgerRow,
-} from '@/session-ledger/ledger.js';
+  appendFeatureStageRow,
+  closeActiveFeature,
+  currentFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { endStage, openStageEvidence } from './recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { validateStageEvidenceRow } from './schema.js';
-import { STAGE_EVIDENCE_DOC_TYPE, STAGE_EVIDENCE_SCHEMA_VERSION } from './types.js';
 import { verifyChange, type VerifyResult } from './verify.js';
 
 export interface FinalizeStageEvidenceInput {
@@ -70,61 +68,59 @@ export function finalizeStageEvidence(
     }
 
     const sessionId = resolveSessionId(projectRoot, input.sessionId);
-    let ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    let dirName = currentFeature(projectRoot, sessionId);
 
     // Re-verify each completion (issue #321): the backstop fires on every Stop and
     // each change earns its OWN verdict. There is no verify-once early return — a
-    // passing change is CLOSED below (its `.open` pointer reset), so a later Stop sees
-    // ordinal 0 and no-ops rather than re-stacking verifies; an open (incomplete)
-    // change is legitimately re-verified as the agent runs its redo loop. The redo cap
-    // (verify.ts) counts only failures since the last stage mutation, so re-verifying
-    // never spuriously trips it.
-    if (ordinal > 0) {
-      const existing = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
+    // passing change is CLOSED below (its active pointer cleared), so a later Stop sees
+    // no active feature and no-ops rather than re-stacking verifies; an open
+    // (incomplete) change is legitimately re-verified as the agent runs its redo loop.
+    // The redo cap (verify.ts) counts only failures since the last stage mutation, so
+    // re-verifying never spuriously trips it.
+    if (dirName) {
+      const existing = readFeatureStageUnit(projectRoot, dirName);
       // Turn-boundary end (fix A partner): the PreToolUse live writer leaves the
       // last started stage open — there is no "last edit" signal pre-mutation. End
       // any still-open live-mark stage_start now, stamping ended_at from the
       // completion clock, so no started stage lacks an end time (R5) before folding.
-      endDanglingLiveStages(projectRoot, sessionId, ordinal, existing, input);
+      endDanglingLiveStages(projectRoot, sessionId, dirName, existing, input);
       // Development backfill (issue #310): a real code change must show a development
-      // stage. When the pre-code stages were recorded (ordinal>0) but no development
-      // row exists — the live writer defers development until planning/specification
-      // exist (F2), so a single same-turn edit whose planning/spec landed via the
-      // capability-gate sweep AFTER the writer ran never gets a live development mark —
-      // infer it from the working-tree delta, so a genuine code change is never
-      // falsely 'incomplete' for a missing development row.
-      backfillMissingDevelopment(projectRoot, sessionId, ordinal, input);
-    }
-
-    if (ordinal === 0) {
+      // stage. When the pre-code stages were recorded (an active feature) but no
+      // development row exists — the live writer defers development until
+      // planning/specification exist (F2), so a single same-turn edit whose
+      // planning/spec landed via the capability-gate sweep AFTER the writer ran never
+      // gets a live development mark — infer it from the working-tree delta, so a
+      // genuine code change is never falsely 'incomplete' for a missing development row.
+      backfillMissingDevelopment(projectRoot, sessionId, dirName, input);
+    } else {
       // No record open. Only write a backstop record when a real code change exists;
       // otherwise there is nothing to prove (a read-only or no-op turn).
       if (!input.changedFilesCount || input.changedFilesCount <= 0) {
         return null;
       }
-      ordinal = openStageEvidence(projectRoot, {
+      dirName = openStageEvidence(projectRoot, {
         sessionId,
         adapter: input.adapter,
         now: input.now,
-      }).ordinal;
-      appendInferredDevelopment(projectRoot, sessionId, ordinal, input);
+      }).dirName;
+      appendInferredDevelopment(projectRoot, sessionId, dirName, input);
     }
 
     const result = verifyChange(projectRoot, {
       sessionId,
-      ordinal,
+      dirName,
       adapter: input.adapter,
       now: input.now,
     });
 
     // Close on pass (issue #321): a passing change has earned its verdict, so record a
-    // `close` row and reset the `.open` pointer. The next stage/edit then opens a FRESH
-    // ordinal — so change #2+ in a session no longer free-rides on change #1's markers,
+    // `close` row and clear the active feature. The next stage/edit then opens a FRESH
+    // feature — so change #2+ in a session no longer free-rides on change #1's markers,
     // and the pre-code gate re-arms for each change. An incomplete/blocked change stays
     // open for the agent's redo loop (re-verified next Stop).
     if (result.ok) {
-      appendClose(projectRoot, sessionId, ordinal, input, result.verdict);
-      closeSessionOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+      appendClose(projectRoot, sessionId, dirName, input, result.verdict);
+      closeActiveFeature(projectRoot, sessionId, input.now);
     }
     return result;
   } catch {
@@ -139,27 +135,21 @@ export function finalizeStageEvidence(
 function appendClose(
   projectRoot: string,
   sessionId: string,
-  ordinal: number,
+  dirName: string,
   input: FinalizeStageEvidenceInput,
   verdict: string,
 ): void {
-  appendSessionEvent(
+  appendFeatureStageRow(
     projectRoot,
-    STAGE_EVIDENCE_DOC_TYPE,
     sessionId,
-    ordinal,
+    dirName,
     {
       kind: 'close',
-      conversation_ordinal: ordinal,
       adapter: input.adapter,
       event_status: 'completed',
       note: `closed; verdict=${verdict}`,
     },
-    {
-      schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-      validate: (row: SessionLedgerRow) => validateStageEvidenceRow(row),
-      now: input.now,
-    },
+    input.now,
   );
 }
 
@@ -171,7 +161,7 @@ function appendClose(
 function endDanglingLiveStages(
   projectRoot: string,
   sessionId: string,
-  ordinal: number,
+  dirName: string,
   rows: readonly SessionLedgerRow[],
   input: FinalizeStageEvidenceInput,
 ): void {
@@ -191,7 +181,7 @@ function endDanglingLiveStages(
         {},
         {
           sessionId,
-          ordinal,
+          dirName,
           adapter: input.adapter,
           now: input.now,
         },
@@ -213,13 +203,13 @@ function endDanglingLiveStages(
 function backfillMissingDevelopment(
   projectRoot: string,
   sessionId: string,
-  ordinal: number,
+  dirName: string,
   input: FinalizeStageEvidenceInput,
 ): void {
   if (!input.changedFilesCount || input.changedFilesCount <= 0) {
     return;
   }
-  const rows = readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal);
+  const rows = readFeatureStageUnit(projectRoot, dirName);
   const hasDevelopment = rows.some(
     (row) =>
       row.stage === 'development' && (row.kind === 'stage_start' || row.kind === 'stage_end'),
@@ -227,7 +217,7 @@ function backfillMissingDevelopment(
   if (hasDevelopment) {
     return;
   }
-  appendInferredDevelopment(projectRoot, sessionId, ordinal, input);
+  appendInferredDevelopment(projectRoot, sessionId, dirName, input);
 }
 
 /** Append the inferred-git `development` backstop row for an untracked code diff —
@@ -236,27 +226,21 @@ function backfillMissingDevelopment(
 function appendInferredDevelopment(
   projectRoot: string,
   sessionId: string,
-  ordinal: number,
+  dirName: string,
   input: FinalizeStageEvidenceInput,
 ): void {
-  appendSessionEvent(
+  appendFeatureStageRow(
     projectRoot,
-    STAGE_EVIDENCE_DOC_TYPE,
     sessionId,
-    ordinal,
+    dirName,
     {
       kind: 'stage_end',
-      conversation_ordinal: ordinal,
       adapter: input.adapter,
       stage: 'development',
       event_status: 'inferred',
       evidence_source: 'inferred-git',
       subject_digest: input.subjectDigest ?? null,
     },
-    {
-      schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-      validate: (row: SessionLedgerRow) => validateStageEvidenceRow(row),
-      now: input.now,
-    },
+    input.now,
   );
 }

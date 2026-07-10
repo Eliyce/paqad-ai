@@ -1,88 +1,82 @@
-// Stage-evidence recorder (issue #247). Script-only — the LLM never hand-authors a
-// row; it calls these verbs (open / start / end) through the thin CLI. Unlike the
-// RAG recorder (hot path, best-effort/swallow), these are explicit agent calls, so
-// an out-of-order start or a validation failure THROWS — the CLI surfaces it as a
-// non-zero exit the agent must act on. Timestamps and digests are minted inside the
-// script (the script clock + real on-disk bytes), never supplied by the LLM.
+// Stage-evidence recorder (issue #247; re-keyed onto the feature dir, issue #339).
+// Script-only — the LLM never hand-authors a row; it calls these verbs (open / start
+// / end) through the thin CLI. Unlike the RAG recorder (hot path, best-effort/swallow),
+// these are explicit agent calls, so a validation failure THROWS — the CLI surfaces it
+// as a non-zero exit the agent must act on. Timestamps and digests are minted inside
+// the script (the script clock + real on-disk bytes), never supplied by the LLM.
+//
+// Storage moved (issue #339): a change's rows live in its per-feature bundle at
+// `.paqad/ledger/feature-evidence/<dirName>/stage-evidence.jsonl`, resolved from the
+// active feature in the `_session` control — no longer `<session>/<ordinal>.jsonl`. The
+// change key is the feature dir name. The row schema + hashing are unchanged.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  appendSessionEvent,
-  currentOrdinal,
-  openSessionDoc,
-  type SessionLedgerRow,
-} from '@/session-ledger/ledger.js';
+  appendFeatureStageRow,
+  currentFeature,
+  openFeatureChange,
+} from '@/feature-evidence/stage-ledger.js';
+import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
-import { validateStageEvidenceRow } from './schema.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { readPendingLane } from './pending-lane.js';
 import { isKnownStage } from './stages.js';
-import {
-  STAGE_EVIDENCE_DOC_TYPE,
-  STAGE_EVIDENCE_SCHEMA_VERSION,
-  type StageEvidenceRow,
-} from './types.js';
+import { type StageEvidenceRow } from './types.js';
 
 export interface StageEvidenceContext {
   /** Host session id (Claude hook stdin); resolved/minted when absent. */
   sessionId?: string | null;
-  /** Change ordinal to attach to; resolved from the `.open` pointer when absent. */
-  ordinal?: number;
+  /** Feature dir to attach to; resolved from the active `_session` control when absent. */
+  dirName?: string;
   /** Provider adapter (claude-code, codex-cli, …). */
   adapter: string;
   lane?: 'fast' | 'graduated' | 'full' | null;
+  /** Open a NEW named feature (the "new work" signal) instead of resolving the active. */
+  title?: string;
+  /** Ticket ref for a titled feature (verbatim, or null to force none). */
+  issue?: string | null;
   /** Clock seam for tests. */
   now?: () => Date;
 }
 
-const APPEND_OPTS = (now?: () => Date) => ({
-  schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-  validate: (row: SessionLedgerRow) => validateStageEvidenceRow(row),
-  now,
-});
-
-export function changeKey(sessionId: string, ordinal: number): string {
-  return `${sessionId}#${ordinal}`;
-}
-
 /**
- * Open a new code-change record for the session and return its ordinal (the
- * 1-based Nth change this session). Called as the FIRST action of any code change.
+ * Open a code-change record for the session and return its feature dir name (the change
+ * key). Called as the FIRST action of any code change. A `title` mints a NEW named
+ * feature and switches to it; otherwise the active feature is reused, or an untitled
+ * `change-<ULID>` is minted when none is active. The lane stamped on the open row is the
+ * explicit `ctx.lane` (even null) when given, else the lane the prompt seam stashed for
+ * this session (issue #324), so the first edit/marker carries the classifier's lane.
  */
 export function openStageEvidence(
   projectRoot: string,
   ctx: StageEvidenceContext,
-): { sessionId: string; ordinal: number; changeKey: string } {
+): { sessionId: string; dirName: string; changeKey: string } {
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
-  // Issue #324 — stamp the recorded lane on the open row. An explicit `ctx.lane`
-  // (even null) wins; otherwise fall back to the lane the prompt seam stashed for
-  // this session, so the change opened by the first edit/marker carries the lane
-  // the classifier picked (no longer always null).
   const lane = ctx.lane !== undefined ? ctx.lane : readPendingLane(projectRoot, sessionId);
-  const { ordinal } = openSessionDoc(
-    projectRoot,
-    STAGE_EVIDENCE_DOC_TYPE,
-    sessionId,
-    { adapter: ctx.adapter, lane: lane ?? null },
-    APPEND_OPTS(ctx.now),
-  );
-  return { sessionId, ordinal, changeKey: changeKey(sessionId, ordinal) };
+  const dirName = openFeatureChange(projectRoot, sessionId, {
+    adapter: ctx.adapter,
+    lane: lane ?? null,
+    title: ctx.title,
+    issue: ctx.issue,
+    now: ctx.now,
+  });
+  return { sessionId, dirName, changeKey: dirName };
 }
 
-/** Resolve the change ordinal to write to: explicit, else the current open one. */
-function resolveOrdinal(projectRoot: string, sessionId: string, ctx: StageEvidenceContext): number {
-  if (ctx.ordinal && ctx.ordinal > 0) {
-    return ctx.ordinal;
+/** Resolve the feature dir to write to: explicit, else the active one, else auto-open. */
+function resolveDirName(projectRoot: string, sessionId: string, ctx: StageEvidenceContext): string {
+  if (ctx.dirName) {
+    return ctx.dirName;
   }
-  const current = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-  if (current > 0) {
-    return current;
+  const active = currentFeature(projectRoot, sessionId);
+  if (active) {
+    return active;
   }
-  // No record open — auto-open one so a stage call never lands on nothing.
-  return openStageEvidence(projectRoot, ctx).ordinal;
+  // No active feature — auto-open one so a stage call never lands on nothing.
+  return openStageEvidence(projectRoot, ctx).dirName;
 }
 
 /**
@@ -104,8 +98,8 @@ export function startStage(
     throw new Error(`Unknown stage "${stage}" — not in the feature-development registry.`);
   }
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
-  const ordinal = resolveOrdinal(projectRoot, sessionId, ctx);
-  return append(projectRoot, sessionId, ordinal, ctx, {
+  const dirName = resolveDirName(projectRoot, sessionId, ctx);
+  return append(projectRoot, sessionId, dirName, ctx, {
     kind: 'stage_start',
     stage,
     event_status: 'started',
@@ -136,7 +130,7 @@ export function endStage(
     throw new Error(`Unknown stage "${stage}" — not in the feature-development registry.`);
   }
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
-  const ordinal = resolveOrdinal(projectRoot, sessionId, ctx);
+  const dirName = resolveDirName(projectRoot, sessionId, ctx);
   const artifactPaths = input.artifactPaths ?? [];
   const artifactDigest =
     artifactPaths.length > 0 ? hashArtifacts(projectRoot, artifactPaths) : null;
@@ -144,7 +138,7 @@ export function endStage(
     stage === 'development'
       ? (input.subjectDigest ?? artifactDigest)
       : (input.subjectDigest ?? null);
-  return append(projectRoot, sessionId, ordinal, ctx, {
+  return append(projectRoot, sessionId, dirName, ctx, {
     kind: 'stage_end',
     stage,
     event_status: 'completed',
@@ -191,16 +185,17 @@ function hashArtifacts(projectRoot: string, artifactPaths: readonly string[]): s
 function append(
   projectRoot: string,
   sessionId: string,
-  ordinal: number,
+  dirName: string,
   ctx: StageEvidenceContext,
   fields: Record<string, unknown>,
 ): StageEvidenceRow {
-  return appendSessionEvent(
+  return appendFeatureStageRow(
     projectRoot,
-    STAGE_EVIDENCE_DOC_TYPE,
     sessionId,
-    ordinal,
-    { conversation_ordinal: ordinal, adapter: ctx.adapter, lane: ctx.lane ?? null, ...fields },
-    APPEND_OPTS(ctx.now),
+    dirName,
+    { adapter: ctx.adapter, lane: ctx.lane ?? null, ...fields },
+    ctx.now,
   ) as unknown as StageEvidenceRow;
 }
+
+export type { SessionLedgerRow };

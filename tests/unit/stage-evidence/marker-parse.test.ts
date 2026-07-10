@@ -4,9 +4,15 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { mkdirSync } from 'node:fs';
+
 import { extractMarkers, parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
-import { currentOrdinal, readSessionUnit } from '@/session-ledger/ledger.js';
+import {
+  currentFeature,
+  featureStagePath,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { setActiveFeature } from '@/feature-evidence/session-control.js';
 
 /** One JSONL transcript line in the Claude shape. */
 function msg(role: string, text: string): string {
@@ -55,9 +61,26 @@ describe('parseAndRecordMarkers', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   function rows() {
-    const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES);
-    return ord > 0 ? readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, ord) : [];
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
   }
+
+  it('returns [] (never throws) when reading the active feature ledger fails', () => {
+    // The "never throws" contract (issue #339): make the active feature's
+    // stage-evidence.jsonl path a DIRECTORY so the tolerant reader's readFileSync throws
+    // EISDIR — parseAndRecordMarkers must swallow it and record nothing. Deterministic on
+    // every platform/Node version (vs the incidental coverage the 100% floor demands).
+    const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    setActiveFeature(root, SES, dir);
+    mkdirSync(join(root, featureStagePath(dir)), { recursive: true });
+    expect(
+      parseAndRecordMarkers({
+        projectRoot: root,
+        transcriptText: 'paqad:stage planning start',
+        sessionId: SES,
+      }),
+    ).toEqual([]);
+  });
 
   it('records markers the assistant emitted, script-minting the rows', () => {
     const transcript = [

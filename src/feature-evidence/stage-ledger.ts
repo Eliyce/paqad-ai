@@ -24,8 +24,13 @@ import {
 } from '@/stage-evidence/types.js';
 
 import { mintFeatureDirName } from './mint.js';
-import { featureFilePath } from './paths.js';
-import { readSessionControl, setActiveFeature } from './session-control.js';
+import { featureFilePath, parseFeatureDirName } from './paths.js';
+import {
+  markDone,
+  readSessionControl,
+  resumeFeature,
+  setActiveFeature,
+} from './session-control.js';
 import type { FeatureLane } from './types.js';
 
 export interface ResolveFeatureInput {
@@ -119,4 +124,116 @@ export function readFeatureStageUnit(projectRoot: string, dirName: string): Sess
 export function foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange {
   const rows = readFeatureStageUnit(projectRoot, dirName);
   return foldRowsWithKey(rows, { sessionId, changeKey: dirName, promptOrdinal: 0 });
+}
+
+/**
+ * The active feature dir name for this session, or `null` when none is active. READ
+ * ONLY — it never mints, so a reader (the pre-mutation gate, the narrator) sees "no
+ * open change" as `null` rather than accidentally creating a feature. The feature-dir
+ * analogue of the legacy `currentOrdinal(...) > 0` probe.
+ */
+export function currentFeature(projectRoot: string, sessionId: string): string | null {
+  return readSessionControl(projectRoot, sessionId).active;
+}
+
+export interface OpenFeatureChangeInput extends ResolveFeatureInput {
+  adapter: string;
+}
+
+/**
+ * Open (or resolve) the active feature for a change and guarantee its bundle carries a
+ * single `kind:'open'` row stamping the lane — the feature-dir analogue of the legacy
+ * `openSessionDoc`. A `title` mints a NEW named feature (the "new work" signal, pausing
+ * any prior active); otherwise the active feature is reused, or an untitled
+ * `change-<ULID>` is minted when none is active. The open row is written only when the
+ * resolved bundle does not already have one, so re-opening an already-open change is a
+ * no-op (idempotent) — never a duplicate open row. Returns the active dir name.
+ */
+export function openFeatureChange(
+  projectRoot: string,
+  sessionId: string,
+  input: OpenFeatureChangeInput,
+): string {
+  const dirName = resolveActiveFeature(projectRoot, sessionId, input);
+  const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
+  if (!hasOpen) {
+    appendFeatureStageRow(
+      projectRoot,
+      sessionId,
+      dirName,
+      { kind: 'open', adapter: input.adapter, lane: input.lane ?? null },
+      input.now,
+    );
+  }
+  return dirName;
+}
+
+/**
+ * Close the active feature for this session — the feature-dir analogue of
+ * `closeSessionOrdinal`. Clears `active` in the `_session` control (via `markDone`) so
+ * the NEXT stage/edit opens a fresh feature; the bundle's rows stay on disk as the
+ * closed change's record. A no-op when nothing is active.
+ */
+export function closeActiveFeature(projectRoot: string, sessionId: string, now?: () => Date): void {
+  const active = currentFeature(projectRoot, sessionId);
+  if (active) {
+    markDone(projectRoot, sessionId, active, now);
+  }
+}
+
+/**
+ * Resolve a user-supplied feature ref to a known feature dir name for this session,
+ * or `null` when nothing matches. A ref matches when it equals the full dir name, the
+ * ULID, the issue, or (as a fallback) is a substring of the slug — checked against the
+ * active feature and the paused stack (most-recently-paused first). Used by `resume`.
+ */
+export function resolveFeatureRef(
+  projectRoot: string,
+  sessionId: string,
+  ref: string,
+): string | null {
+  const control = readSessionControl(projectRoot, sessionId);
+  const candidates = [...control.paused].reverse();
+  if (control.active) {
+    candidates.push(control.active);
+  }
+  const needle = ref.trim().replace(/^#/, '');
+  for (const dirName of candidates) {
+    if (dirName === ref || dirName === needle) {
+      return dirName;
+    }
+    const parts = parseFeatureDirName(dirName);
+    if (!parts) {
+      continue;
+    }
+    if (parts.ulid === needle || parts.issue === needle || parts.slug === needle) {
+      return dirName;
+    }
+  }
+  // Fallback: a slug substring match (e.g. "route" → "route-first-workflows").
+  for (const dirName of candidates) {
+    const parts = parseFeatureDirName(dirName);
+    if (parts && parts.slug.includes(needle)) {
+      return dirName;
+    }
+  }
+  return null;
+}
+
+/**
+ * Reactivate a paused feature by ref (ULID / issue / slug / dir name) — the writer
+ * behind `paqad-ai resume --feature <ref>`. Returns the reactivated dir name, or
+ * `null` when the ref matches no known feature or the match is not resumable.
+ */
+export function resumeFeatureByRef(
+  projectRoot: string,
+  sessionId: string,
+  ref: string,
+  now?: () => Date,
+): string | null {
+  const dirName = resolveFeatureRef(projectRoot, sessionId, ref);
+  if (!dirName) {
+    return null;
+  }
+  return resumeFeature(projectRoot, sessionId, dirName, now) ? dirName : null;
 }

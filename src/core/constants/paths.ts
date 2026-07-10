@@ -114,14 +114,14 @@ export const PATHS = {
   // envelope per line); EVIDENCE_RECEIPT/EVIDENCE_AI_BOM are the latest snapshots.
   EVIDENCE_LEDGER_DIR: '.paqad/ledger',
   EVIDENCE_LEDGER: '.paqad/ledger/evidence.jsonl',
-  // Issue #339 (Phase 1, dark) - per-feature evidence bundle. Each feature gets
-  // ONE directory `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` that is
-  // its whole workflow record + compliance bundle; the dir name is the change key.
-  // `_session/<sessionId>.json` holds the per-session active + paused-feature stack
-  // and lane; `_chat/<sessionId>/` is the separate home for non-feature activity.
-  // Container inherits the `ledger/` git-ignore. Added dark in Phase 1 (path layer
-  // + schemas + session control); nothing writes here until the re-key phase wires
-  // the recorder in.
+  // Issue #339 - per-feature evidence bundle (LIVE). Each feature gets ONE directory
+  // `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` that is its whole workflow
+  // record + compliance bundle (feature/plan/specification/stage-evidence/rule-run/
+  // delivery/rag, receipt/ai-bom projected on export); the dir name is the change key.
+  // The stage recorder, gate, plan/spec compile, rule-run + RAG re-homing, and the
+  // git-linkage hooks all write here. `_session/<sessionId>.json` holds the per-session
+  // active + paused-feature stack and lane; `_chat/<sessionId>/` is the separate home
+  // for non-feature activity. Container inherits the `ledger/` git-ignore.
   FEATURE_EVIDENCE_DIR: '.paqad/ledger/feature-evidence',
   FEATURE_EVIDENCE_SESSION_DIR: '.paqad/ledger/feature-evidence/_session',
   CHAT_LEDGER_DIR: '.paqad/ledger/_chat',
