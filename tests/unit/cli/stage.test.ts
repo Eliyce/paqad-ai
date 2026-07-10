@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { createProgram } from '@/cli/program.js';
-import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import {
+  currentFeature,
+  readFeatureStageUnit,
+  resolveFeatureRef,
+} from '@/feature-evidence/stage-ledger.js';
 
 // `paqad-ai stage <start|end> <stage>` — the shell escape hatch the block-forward
 // gate's remediation names (issue #307). Unlike the never-shipped scripts/se-mark.ts
@@ -108,6 +112,15 @@ describe('paqad-ai stage command', () => {
     await run('begin', 'planning');
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain("use 'start' or 'end'");
+  });
+
+  it('a --title on start opens a fresh named feature (issue #339)', async () => {
+    await run('start', 'planning', '--title', 'Route first workflows', '--issue', '339');
+    const active = currentFeature(root, SES)!;
+    expect(active.startsWith('339-route-first-workflows-')).toBe(true);
+    // The titled feature is discoverable by its ref for a later `resume`.
+    expect(resolveFeatureRef(root, SES, '339')).toBe(active);
+    expect(rows().some((r) => r.kind === 'stage_start' && r.stage === 'planning')).toBe(true);
   });
 
   it('records an out-of-order boundary instead of rejecting it (issue #310 — never deadlock)', async () => {

@@ -14,6 +14,8 @@ interface StageOptions {
   projectRoot: string;
   session?: string;
   artifact?: string[];
+  title?: string;
+  issue?: string;
 }
 
 /**
@@ -49,6 +51,12 @@ export function createStageCommand(): Command {
         'thinking stage (planning/specification/review) proves work, not just a claim',
       collectArtifact,
     )
+    .option(
+      '--title <title>',
+      'On a `start`, open a NEW named feature for this change (the "new work" signal, ' +
+        'issue #339); pauses any active feature and mints a distinct evidence bundle',
+    )
+    .option('--issue <ref>', 'Ticket/issue ref for a titled feature (e.g. 339, PQD-123)')
     .action((phase: string, stage: string, options: StageOptions) => {
       if (phase !== 'start' && phase !== 'end') {
         console.error(`unknown phase "${phase}" — use 'start' or 'end'`);
@@ -69,6 +77,10 @@ export function createStageCommand(): Command {
         phase,
         // Artifacts are only meaningful on an `end`; a `start` ignores them.
         artifactPaths: phase === 'end' ? options.artifact : undefined,
+        // A `--title` on a start opens a fresh named feature first (issue #339);
+        // ignored on an end (the boundary attaches to the active change).
+        title: phase === 'start' ? options.title : undefined,
+        issue: options.issue,
       });
       if (!recorded) {
         // Only an UNKNOWN stage fails now (issue #310): an out-of-order boundary is

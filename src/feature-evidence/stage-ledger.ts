@@ -24,8 +24,13 @@ import {
 } from '@/stage-evidence/types.js';
 
 import { mintFeatureDirName } from './mint.js';
-import { featureFilePath } from './paths.js';
-import { markDone, readSessionControl, setActiveFeature } from './session-control.js';
+import { featureFilePath, parseFeatureDirName } from './paths.js';
+import {
+  markDone,
+  readSessionControl,
+  resumeFeature,
+  setActiveFeature,
+} from './session-control.js';
 import type { FeatureLane } from './types.js';
 
 export interface ResolveFeatureInput {
@@ -174,4 +179,61 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
   if (active) {
     markDone(projectRoot, sessionId, active, now);
   }
+}
+
+/**
+ * Resolve a user-supplied feature ref to a known feature dir name for this session,
+ * or `null` when nothing matches. A ref matches when it equals the full dir name, the
+ * ULID, the issue, or (as a fallback) is a substring of the slug — checked against the
+ * active feature and the paused stack (most-recently-paused first). Used by `resume`.
+ */
+export function resolveFeatureRef(
+  projectRoot: string,
+  sessionId: string,
+  ref: string,
+): string | null {
+  const control = readSessionControl(projectRoot, sessionId);
+  const candidates = [...control.paused].reverse();
+  if (control.active) {
+    candidates.push(control.active);
+  }
+  const needle = ref.trim().replace(/^#/, '');
+  for (const dirName of candidates) {
+    if (dirName === ref || dirName === needle) {
+      return dirName;
+    }
+    const parts = parseFeatureDirName(dirName);
+    if (!parts) {
+      continue;
+    }
+    if (parts.ulid === needle || parts.issue === needle || parts.slug === needle) {
+      return dirName;
+    }
+  }
+  // Fallback: a slug substring match (e.g. "route" → "route-first-workflows").
+  for (const dirName of candidates) {
+    const parts = parseFeatureDirName(dirName);
+    if (parts && parts.slug.includes(needle)) {
+      return dirName;
+    }
+  }
+  return null;
+}
+
+/**
+ * Reactivate a paused feature by ref (ULID / issue / slug / dir name) — the writer
+ * behind `paqad-ai resume --feature <ref>`. Returns the reactivated dir name, or
+ * `null` when the ref matches no known feature or the match is not resumable.
+ */
+export function resumeFeatureByRef(
+  projectRoot: string,
+  sessionId: string,
+  ref: string,
+  now?: () => Date,
+): string | null {
+  const dirName = resolveFeatureRef(projectRoot, sessionId, ref);
+  if (!dirName) {
+    return null;
+  }
+  return resumeFeature(projectRoot, sessionId, dirName, now) ? dirName : null;
 }

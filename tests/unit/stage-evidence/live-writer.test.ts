@@ -221,6 +221,40 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
     expect(currentFeature(root, SES)).toBeNull();
   });
 
+  it('a titled start opens a fresh named feature (issue #339 new-work signal)', () => {
+    // No title → an untitled `change-<ULID>` feature.
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start' });
+    const first = currentFeature(root, SES)!;
+    expect(first.startsWith('change-')).toBe(true);
+    // A titled start opens a DISTINCT named feature (the prior one is paused).
+    expect(
+      recordMarkedStage(root, {
+        sessionId: SES,
+        stage: 'planning',
+        phase: 'start',
+        title: 'Route first workflows',
+        issue: '339',
+      }),
+    ).toBe(true);
+    const second = currentFeature(root, SES)!;
+    expect(second).not.toBe(first);
+    expect(second.startsWith('339-route-first-workflows-')).toBe(true);
+  });
+
+  it('a title on an END is ignored (attaches to the active change, no new feature)', () => {
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start' });
+    const active = currentFeature(root, SES)!;
+    recordMarkedStage(root, {
+      sessionId: SES,
+      stage: 'planning',
+      phase: 'end',
+      title: 'ignored on end',
+      issue: null,
+    });
+    // Still the same feature — an end never opens new work.
+    expect(currentFeature(root, SES)).toBe(active);
+  });
+
   it('returns false (never throws) when the ledger write itself fails', () => {
     // A KNOWN stage passes the registry guard and enters the record path, but the
     // ledger append throws because the project root is a FILE, not a directory

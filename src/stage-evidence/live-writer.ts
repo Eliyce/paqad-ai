@@ -17,7 +17,7 @@ import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-l
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-import { endStage, startStage } from './recorder.js';
+import { endStage, openStageEvidence, startStage } from './recorder.js';
 import { isKnownStage, PRE_CODE_STAGES, stageIndex, type StageId } from './stages.js';
 
 /** Normalise a hook-supplied path to a project-relative posix path for globbing. */
@@ -158,7 +158,9 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     // backfilled at completion (finalizeStageEvidence). No change is even opened until
     // the pre-code stages exist — which means `ordinal > 0` past this guard.
     if (!preCodeStagesRecorded(rows)) return null;
-    const ctx = { sessionId, dirName: dirName ?? undefined, adapter: 'claude-code' as const, now };
+    // Past the guard `rows` is non-empty, so `dirName` was non-null (rows come from the
+    // feature; an empty read means no active feature and the guard already returned).
+    const ctx = { sessionId, dirName: dirName!, adapter: 'claude-code' as const, now };
 
     const started = stagesWithKind(rows, 'stage_start');
     const ended = stagesWithKind(rows, 'stage_end');
@@ -206,6 +208,13 @@ export interface MarkedStageInput {
    *  to the host that actually ran it (issue #265). Defaults to `claude-code` for
    *  the original Claude Stop path that predates the arg. */
   adapter?: string;
+  /** Open a NEW named feature before recording this boundary (issue #339): the "new
+   *  work" signal from `paqad-ai stage start planning --title <t>`. Mints a fresh
+   *  feature (pausing any active one) so a titled change is a distinct bundle. Only
+   *  meaningful on a `start`; ignored on an `end`. */
+  title?: string;
+  /** Ticket ref for a titled feature (verbatim, or null to force none). */
+  issue?: string | null;
   now?: () => Date;
 }
 
@@ -225,6 +234,11 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
     now: input.now,
   };
   try {
+    // A titled start opens a fresh named feature first (issue #339) so the boundary
+    // attaches to a distinct bundle rather than the currently-active change.
+    if (input.phase === 'start' && input.title !== undefined) {
+      openStageEvidence(projectRoot, { ...ctx, title: input.title, issue: input.issue });
+    }
     if (input.phase === 'start') {
       startStage(projectRoot, input.stage, ctx);
     } else {

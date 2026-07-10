@@ -27,6 +27,7 @@ import { createDecisionCommand } from './commands/decision.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRagEvidenceCommand } from './commands/rag-evidence.js';
 import { createRefreshCommand } from './commands/refresh.js';
+import { createResumeCommand } from './commands/resume.js';
 import { createRulesCommand } from './commands/rules.js';
 import { createSpecCommand } from './commands/spec.js';
 import { createStageCommand } from './commands/stage.js';
@@ -68,6 +69,7 @@ export function createProgram(): Command {
   program.addCommand(createPatternsCommand());
   program.addCommand(createSpecCommand());
   program.addCommand(createStageCommand());
+  program.addCommand(createResumeCommand());
   program.addCommand(createDecisionCommand());
   program.addCommand(createConfigCommand());
   program.addCommand(createIntakeCommand());

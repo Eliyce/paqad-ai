@@ -13,6 +13,8 @@ import {
   openFeatureChange,
   readFeatureStageUnit,
   resolveActiveFeature,
+  resolveFeatureRef,
+  resumeFeatureByRef,
 } from '@/feature-evidence/stage-ledger.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
 
@@ -184,5 +186,67 @@ describe('active-change accessor', () => {
     const root = tempRoot();
     expect(() => closeActiveFeature(root, 'ses_1')).not.toThrow();
     expect(currentFeature(root, 'ses_1')).toBeNull();
+  });
+});
+
+describe('resolveFeatureRef / resumeFeatureByRef', () => {
+  /** Open two features (A paused, B active) and return their dir names. */
+  function twoFeatures(root: string): { a: string; b: string } {
+    const a = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Route first workflows',
+      issue: '339',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    const b = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Second thing',
+      issue: 'PQD-7',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ1',
+    });
+    return { a, b };
+  }
+
+  it('matches by full dir name, ULID, issue, and slug', () => {
+    const root = tempRoot();
+    const { a } = twoFeatures(root);
+    expect(resolveFeatureRef(root, 'ses_1', a)).toBe(a);
+    expect(resolveFeatureRef(root, 'ses_1', '01JABCDEFGHJKMNPQRSTVWXYZ0')).toBe(a);
+    expect(resolveFeatureRef(root, 'ses_1', '339')).toBe(a);
+    expect(resolveFeatureRef(root, 'ses_1', 'route-first-workflows')).toBe(a);
+  });
+
+  it('matches a jira issue with the leading # stripped', () => {
+    const root = tempRoot();
+    const { b } = twoFeatures(root);
+    expect(resolveFeatureRef(root, 'ses_1', 'PQD-7')).toBe(b);
+  });
+
+  it('falls back to a slug substring match', () => {
+    const root = tempRoot();
+    const { a } = twoFeatures(root);
+    expect(resolveFeatureRef(root, 'ses_1', 'route')).toBe(a);
+  });
+
+  it('returns null for an unknown ref', () => {
+    const root = tempRoot();
+    twoFeatures(root);
+    expect(resolveFeatureRef(root, 'ses_1', 'nope')).toBeNull();
+  });
+
+  it('resumeFeatureByRef reactivates a paused feature and returns its dir', () => {
+    const root = tempRoot();
+    const { a, b } = twoFeatures(root);
+    expect(currentFeature(root, 'ses_1')).toBe(b); // B active, A paused
+    const resumed = resumeFeatureByRef(root, 'ses_1', '339');
+    expect(resumed).toBe(a);
+    expect(currentFeature(root, 'ses_1')).toBe(a);
+    expect(readSessionControl(root, 'ses_1').paused).toContain(b);
+  });
+
+  it('resumeFeatureByRef returns null when the ref matches nothing', () => {
+    const root = tempRoot();
+    twoFeatures(root);
+    expect(resumeFeatureByRef(root, 'ses_1', 'missing')).toBeNull();
   });
 });
