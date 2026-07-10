@@ -1,0 +1,3172 @@
+schema_version: 1
+generated_at: 2026-07-10T09:08:34.075Z
+rule_files_hash: sha256-7a47277cb9a516a8a9e161ee45af4db43156a490debceea37538d6f14000f046
+rules:
+  - id: RL-95d9
+    source: docs/instructions/rules/_shared/canonical-docs.md
+    text: Treat `docs/` as the authoritative description of current system behavior; when code and docs disagree, resolve the mismatch rather than ignoring it.
+    text_hash: e5bd3eb2ff5d841f58c8cd666f4f2c154f70f16074d4d522de94f05b56f8ed34
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6477
+    source: docs/instructions/rules/_shared/canonical-docs.md
+    text: Keep each module's docs scoped to that module and complete enough to act on without reading the source.
+    text_hash: ed8e841cdb80582f998bfb045562a2d15acefe54d75643817b2225ed3a13308d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6f86
+    source: docs/instructions/rules/_shared/canonical-docs.md
+    text: Update the docs that describe an area in the same change that alters its behavior.
+    text_hash: 648ae431556faa1723537804e2353ca746651c394f5d2ce194b9e5b4c8fde9bb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-787a
+    source: docs/instructions/rules/_shared/constitution.md
+    text: Before changing an area, read its module and feature docs under `docs/`; reflect any behavior change back into those docs in the same change.
+    text_hash: 08a5051bdf713e15be0b8a5b1f421e8f39ea3c5d69ea6dcc1b464ea9ecd6cd6c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b228
+    source: docs/instructions/rules/_shared/constitution.md
+    text: Change only what the request requires. Do not refactor, reformat, or rename unrelated code in the same change.
+    text_hash: 9a7b5c60dff517b581f72cb52e9bba92313e261e51221f6d25eb9b99827c48a9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7017
+    source: docs/instructions/rules/_shared/constitution.md
+    text: Preserve user-authored files and content. Do not overwrite or delete them without explicit instruction.
+    text_hash: 7bc759a926e7011dfbf7608b304e6bbe2050b1ebb4356a42585edc124096c430
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3d12
+    source: docs/instructions/rules/_shared/constitution.md
+    text: Pair every behavior change with tests, and run them before treating the work as done.
+    text_hash: b1e4a85437d8b87d776cd35662bbe9b887264c80bbd7702cd2ba9ccea1a2b36d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6352
+    source: docs/instructions/rules/_shared/constitution.md
+    text: When a requirement is ambiguous, or an action is risky or hard to reverse, stop and ask instead of guessing.
+    text_hash: ce76a78360ef85063ca16d3f563583388c596b301404beb10ccdb8a3df49200d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-513a
+    source: docs/instructions/rules/_shared/design-system.md
+    text: Before proposing any UI change (component, screen, style, layout), check whether `docs/instructions/design-system/` exists in the project.
+    text_hash: 4602874d393ba0befa990d46ccd5e61deb2eea6e68b75b9de280a4903f357372
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e370
+    source: docs/instructions/rules/_shared/design-system.md
+    text: If it exists, read `tokens.md`, `components.md`, and `patterns.md` before writing code. All colours, spacing, typography, motion, and component behaviour must align with those specifications.
+    text_hash: 3c54e83bf5b04e3d7bcf433959b178f41a4299215afe77f3b55077db059f66de
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e36e
+    source: docs/instructions/rules/_shared/design-system.md
+    text: Do not introduce design tokens, component variants, or style values that contradict the documented design system. Extend it by adding to the token files first, then implement.
+    text_hash: 399b279616b3859ed723871ef8ab5bb356480a259ec15137cb5dfbd081065f45
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e0f2
+    source: docs/instructions/rules/_shared/design-system.md
+    text: If `docs/instructions/design-system/` does not exist, follow general good-practice UI conventions and keep values consistent so they can be tokenized later.
+    text_hash: 52c67a01d6617149f50e88dcee20952e60a5800fbb223da5f54e3d45538afaa7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-47b1
+    source: docs/instructions/rules/_shared/design-system.md
+    text: "`docs/instructions/design-system/` is the single source of truth for UI design decisions; it takes precedence over ad-hoc inline styles or undocumented conventions."
+    text_hash: ebce3a2fbd410063c64723c8983712e4c6ba760d70a3d0a176faaf5af65f6398
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e6b1
+    source: docs/instructions/rules/_shared/documentation.md
+    text: "Keep `docs/` consistent with the code: update the affected module, flow, API, and error docs in the same change that alters behavior."
+    text_hash: d0006285f29a91d0a369ba5e3a539c5a4ca838a248cf4fd9f2d6a73e2f144c39
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0b31
+    source: docs/instructions/rules/_shared/documentation.md
+    text: Validate the real stack from manifests (`package.json`, `composer.json`, and equivalents) before documenting it; fix stale stack assumptions first.
+    text_hash: be840add8ce323581b35a1be401c3be34fcb081fec7f0362b4a452041d2402af
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5fb6
+    source: docs/instructions/rules/_shared/documentation.md
+    text: Document specs, flows, API contracts, integrations, and error cases together so they don't drift apart.
+    text_hash: 9b5b2a4e4aeeef71321045ba8c8f32992ae5e8a53cf6c91f20527864fb3a9f75
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e10c
+    source: docs/instructions/rules/_shared/documentation.md
+    text: Keep glossary and domain terms consistent with the language used in the code.
+    text_hash: f491b6930db6321a3b7056c44d4c69b13d340f16acdfe4a654a687bb7822c680
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6f5e
+    source: docs/instructions/rules/_shared/observability.md
+    text: Log meaningful events with enough structured context (identifiers, operation, outcome) to trace a request or job end-to-end.
+    text_hash: 86a44f851bc47f2ccaac67c3eefe227e2459b7a4f30078e44ef0e12c7bfa787f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-493d
+    source: docs/instructions/rules/_shared/observability.md
+    text: Never log secrets, credentials, or personal data.
+    text_hash: 7ef3874d73823987e0ddea9be14d6427271c5bef12ffd8738b3dc29f029b5ea0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6a20
+    source: docs/instructions/rules/_shared/observability.md
+    text: "Fail loudly: surface errors with actionable messages and do not swallow exceptions silently."
+    text_hash: 048d3d5aabd14692f7a7eeed563e7866e91c87b7fbce5462de4fcf731cb464b1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3f55
+    source: docs/instructions/rules/_shared/observability.md
+    text: Make externally observable failures diagnosable from logs and metrics alone, without reproducing locally.
+    text_hash: 575dd1f28e96cd3e2e2c76267cd60291ab58b6c489fda34e8321b63c441c75fe
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-13b7
+    source: docs/instructions/rules/_shared/onboarded-overview-maintenance.md
+    text: "[`docs/modules/onboarded-project-overview.md`](../../../modules/onboarded-project-overview.md) is the canonical map of how the framework behaves inside an onboarded project; keep it accurate whenever the *shape* of the system changes (not for every implementation detail)."
+    text_hash: 966ee56510feae2c4747ee5a6dd4bbfd1572364b309088602e982483134a0ab2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9566
+    source: docs/instructions/rules/_shared/onboarded-overview-maintenance.md
+    text: "Update it in the same change that: adds, removes, or renames a stage in `docs/instructions/workflows/feature-development.yaml`; adds, removes, or renames a skill under `runtime/**/skills/` or an agent under `runtime/**/agents/`; changes which capability gates a skill or agent; or adds or changes a whole-codebase-consciousness engine (module-map, traceability, cross-module-impact-scanner, RAG/context, verification gates, decision-pause, evidence ledger)."
+    text_hash: 44cf40eced56457c91d881317e75596f44344ab133c7c6fd24c214a9a2f8421a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-fdd5
+    source: docs/instructions/rules/_shared/onboarded-overview-maintenance.md
+    text: "It is a map, not a copy: point to the authoritative code and per-module docs rather than restating them; do not let it drift into duplicating implementation."
+    text_hash: 2b0fce3570abff23411ad28d682e474515b0c325e82d6be70d06d2ce0568aa79
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e033
+    source: docs/instructions/rules/_shared/onboarded-overview-maintenance.md
+    text: The single source of truth for module slugs and source paths remains `docs/instructions/rules/module-map.yml`; when the overview and the module-map disagree, fix the overview.
+    text_hash: 0ac515104168885efbf84b10e414c2fc028510dd6dd6fdbd59314b09bd8fadcb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-dce5
+    source: docs/instructions/rules/_shared/performance.md
+    text: "Measure before optimizing: base performance changes on a profile or benchmark, not a guess."
+    text_hash: 7a593db6bf4c9970c3d3551609bb8d97d4aea8b8f8c572db50c6b0bcfa6d9252
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3d44
+    source: docs/instructions/rules/_shared/performance.md
+    text: Avoid N+1 queries and unbounded result sets; paginate, batch, and stream large work.
+    text_hash: 605cde385ede8480c5b961c42b6e41a7b6559309fc296c516042f11d522227b5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5d76
+    source: docs/instructions/rules/_shared/performance.md
+    text: Cache only with a clear invalidation story; prefer correctness over a fragile cache.
+    text_hash: 24d9df52eb2beb6eff00e82b4df04c601d85ce431b547f889aa91b3fb5917400
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a48c
+    source: docs/instructions/rules/_shared/performance.md
+    text: Keep hot paths free of avoidable allocation and repeated I/O.
+    text_hash: f64f9c31c79c75fb74b68ccf170cd4b526c87198572c2282dda40a444ebeb62e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-363b
+    source: docs/instructions/rules/_shared/pipeline.md
+    text: Treat a change as deliverable only when format, tests, and build all pass locally.
+    text_hash: e554e247472afc2f3870cfa0fabbb2c745c2e51ce734901f53c1e88f02dbfe76
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0642
+    source: docs/instructions/rules/_shared/pipeline.md
+    text: Stop and fix on the first failing gate; do not stack new work on a broken base.
+    text_hash: 7691e711fe09bf4d99e877f56d638c7bbdc41a962afd8aa4994933204a4979c4
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-50fa
+    source: docs/instructions/rules/_shared/pipeline.md
+    text: Keep each commit scoped to one coherent step so it can be reviewed and reverted on its own.
+    text_hash: 0524f49f030fd0bc6ccc8001bab5594e12ddae7e255847ce2b83094230831de1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6c84
+    source: docs/instructions/rules/_shared/security.md
+    text: Never commit secrets, credentials, or tokens. Load them from environment variables or a secrets manager, and keep them out of logs, error messages, and docs.
+    text_hash: a29290dea0b1f7ab7fb70def73164dfa8f3e18ce43e5cc745bd0a30066f51729
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-fac9
+    source: docs/instructions/rules/_shared/security.md
+    text: Validate and sanitize all external input at the trust boundary before using it.
+    text_hash: 023e4c22b5fac952606e53940c4b9f8d3acc34ada9a1ef2b03fc1732cabe5c32
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4890
+    source: docs/instructions/rules/_shared/security.md
+    text: Use parameterized queries and prepared statements; never assemble SQL, shell commands, or HTML by concatenating untrusted input.
+    text_hash: 0811b35efa4af1bd8403f0238b42e761a78000b2e0785e48d20da583f4ed2eaf
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0c4f
+    source: docs/instructions/rules/_shared/security.md
+    text: Enforce authentication and authorization on every non-public entry point; default to deny.
+    text_hash: 2e93b019d6020f938a0f502e64bc00d2f878b4bb11475d0e40a6c842443a8645
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-fe8d
+    source: docs/instructions/rules/_shared/security.md
+    text: Apply least privilege to integrations, tokens, and file/database access.
+    text_hash: effe3a2cb19f4281d528d99619378da2f1a020ca3cde41a0476a1a9a283827af
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a1db
+    source: docs/instructions/rules/_shared/security.md
+    text: Confirm destructive or irreversible operations before running them.
+    text_hash: 7c825ef9d8a84aee3035e80d7a849e858aacbf6e1ede6f2917fde364dadbc0f7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5b7a
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Use the documented frontmatter — `name`, `description`, `model_tier`, `triggers`, `cacheable`, `cache_key_inputs`, `output_format`, `input_schema`. Mirror the shape of an existing peer skill rather than inventing new fields.
+    text_hash: 732a426195c036915e13afaa62b240c55ee9714daffbbb7d0164cef6d55cf29f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2e3a
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`name` matches the folder name. `description` is the activation hint — write it from the user's perspective (\"Detect X\", \"Verify Y\"), not the implementation's."
+    text_hash: 8bbda07dc6ec84a645318697451ef52fb56612fbe9a771311229cc8377d4ecd2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c586
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Keep `SKILL.md` under ~500 lines / ~5,000 tokens. Move detail to `references/<topic>.md` and tell the agent _when_ to load it ("Read `references/X.md` before doing Y") — never a generic "see references for details".
+    text_hash: 45adeb871f189faf6c0aaeb23e1622747a7c5343dacf5f1a3e8e1dfee84a2b0d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9077
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "The body must contain, in order: `## What It Does`, `## Use This When`, `## Inputs`, `## Procedure`, `## Output Contract`, `## Escalate / Stop Conditions`, `## Resources`."
+    text_hash: b524a823ffac0344a725dd884feaaeb115fe4e97f024a3507553543472f98799
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8a54
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Procedure steps that are deterministic (parse a file, derive an inventory, normalize a value, validate a payload, emit a diff, look up a table) **must** call a script in `scripts/` — do not re-derive the work in prose.
+    text_hash: c58a5c625bdc5cd1348c4537eee91d0501990a93996b97b90dedfa1e32ce1254
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6a0a
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: 'Procedure steps that are judgment (severity, ambiguity, whether a flagged hit is a real finding) belong in prose. Make the boundary explicit: "Run script X to get the candidates; the LLM picks severity per the checklist in `references/Y.md`."'
+    text_hash: 96892c15650fd808dabf1eb588f4960f83cd3bf016e833905a2319a27bba8a0c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-62b7
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Resources section lists every script with a one-line purpose and every referenced file. The meta-test fails if any backticked path under Resources doesn't exist.
+    text_hash: b4a33f64154e46913d6b820a74e2bb739a305c1f24c9b534ca6fabb7063b3e8b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ac27
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**One verb per script.** A script does one thing — `parse-X`, `extract-Y`, `derive-Z`, `diff-X`, `match-X-to-Y`, `propose-X`. If you find yourself naming a script `do-stuff`, split it."
+    text_hash: 019cfcec6e65bf18c2a98666415120879be52c07aed8e004b2ec097f4f8fb9de
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6ac2
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**`--help` exits 0** and documents `Usage`, accepted flags, output shape, and exit codes. Keep it terse — `--help` lands in the agent's context window every time."
+    text_hash: fd2b9b55031b37bf100585edbd5a84c8947d9b6374b1190e8b7be71bfe2df337
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-14a8
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Stdout is structured.** Default to TSV (`<col1>\\t<col2>\\t...`); use JSON when the consumer is `node`/`jq` (e.g. live-phase results). Never mix data and diagnostics on stdout."
+    text_hash: 0b4e1036c183b4d2dd9ad10df8d7b172ea201da0f380016614c9d34d918d85fd
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-89d2
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: '**Stderr carries diagnostics.** Notes, warnings, "directory not found" hints — all stderr. Stdout stays parseable.'
+    text_hash: 52fec42998c064dfa4df6507f6b7419d54fbd84b4a90c2fcd0a070493199fc40
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-dee0
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Meaningful exit codes:**"
+    text_hash: 92c3a6e434a630e321a935c916a6477a2e4d44618c11880edc961ddddb06997f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2628
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`0` — success (including \"no rows\" / \"no match\" — emit an empty result, don't error)"
+    text_hash: 359488f692add4bfe1f2a3bc93030c317e72104dc3ae22c2b17a140a23267f59
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-130b
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`1` — the operation surfaced a real failure or unrecognized input that isn't usage"
+    text_hash: 39e24e4230f65918463cc58e59f8c5c9f71144bcccd2c65c1b8084510b0a4e60
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-dc65
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`2` — usage error (missing required arg, unknown flag, file-not-found for required input)"
+    text_hash: 39efb132872ad4abc2a6390e4284d0ce93c2c0f733e87d76e7d7984123ff469e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-20bd
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: '**Helpful error messages.** "Error: X is required. Usage: ..." — never bare "error: 1". The agent reads stderr to decide the next attempt.'
+    text_hash: 7df67f0944a3a806fcba09de646b7af820c3f36f0ca2c1c668e36e6b3ec91417
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5dba
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**No interactive prompts.** All input via flags, env vars, or stdin. A script that blocks on a TTY prompt hangs the agent indefinitely."
+    text_hash: 3b59db087a4aa56cc2e5fe84f5c24554033d763facc79efa7b60cdb041dbc4b7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f12d
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: '**Idempotent.** Agents retry. "Create if not exists" is safer than "create and fail on duplicate". Re-runs on the same input produce the same output (this includes stable id sequences — see `design-system-coverage/scripts/gap-report.sh`).'
+    text_hash: 9c216811aab2b251c76d84df02ab08c618ebde37b5db7020f787ea4afeae5605
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8a2c
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Defaults over menus.** When multiple paths are reasonable, pick a sensible default and mention the alternative briefly. Don't dump a menu the agent has to pick from."
+    text_hash: 068a97911edfc571aa65848b39f861ee14896cfd915eb5b587a85037e3c97551
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3368
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Predictable output size.** If output can grow unbounded, default to a summary and accept a flag (`--out`, `--limit`) for the full version. Many agent harnesses truncate around 10–30K characters."
+    text_hash: c6eb0ee53690ef3742eac177f825b8e35357e195fc3f1e43f4d09fec30d1a4e6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c0b3
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Trust internal callers, validate at boundaries.** Reject ambiguous or out-of-range input with a clear error and `exit 2` rather than guessing."
+    text_hash: 15a129e4fe893a62eb0dad5ee5e950ced5f90b6cc5ca7b48a0a4c7a80fec3110
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e340
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**No `mapfile`.** Bash 3.2 doesn't have it. Use `while IFS= read -r line; do ... done` or write the list to a tempfile and iterate."
+    text_hash: dc1f79cc5e386b0b9e98d0e0fce4761bcf7cad308de995a1217b405237ebc7c5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-411f
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**No `\\b` in awk.** POSIX awk regex has no word-boundary metachar. Use explicit boundary character classes like `(^|[^A-Za-z0-9_-])...([^A-Za-z0-9_-]|$)`."
+    text_hash: fc5405de9fb183abc627c7f882bd3fc7ef16969cb93912022cf1af67ca103dfa
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ce49
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**BSD grep's `(^|...)` alternation is fragile.** When `(^|[^class])foo` fails to match start-of-line cases on macOS, use the `[^class]?foo` zero-or-one quantifier instead and let post-processing in awk handle the rest."
+    text_hash: 39538df0c9f01b9e4066bc41e1c2af7afb3aa7f23d7b8c523eef8a188c35f251
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-77cc
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**awk's `match()` is case-sensitive even when grep used `-i`.** If you matched case-insensitively in grep, you must lowercase both sides in awk before calling `match()`, then map `RSTART`/`RLENGTH` back onto the original casing for reporting."
+    text_hash: 48e1e5f320adb965b87fadfdc58e68d55bbbd1edbd6e1ccd6b2fbd5b2ce49252
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1458
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**`read` drops the last line when there's no trailing newline.** Always write `while IFS= ... read -r x || [ -n \"${x:-}\" ]; do ...; done` so a one-line input doesn't get silently skipped."
+    text_hash: a65d2b182cafe5d6c5e406230a9ae9337d74088803c77c7bf52ff8202eea2de0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5fcf
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**`set -euo pipefail`** at the top of every script. Pair with `|| true` on any subshell whose non-zero exit is non-fatal (e.g. `grep` that finds nothing)."
+    text_hash: cbe5fe49801fc6c61215e8181c3461726b25ad83a6a41e5ef29e008eade199f5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c666
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**`[A-Z]` / `[a-z]` ranges are locale-dependent.** On some POSIX locales (seen on GitHub's macOS runner) `[A-Z]` collates as `aBcDeF...` and matches lowercase too. When the filter is meant to be \"uppercase only\" or \"lowercase only\", use an explicit byte set (`[ABCDEFGHIJKLMNOPQRSTUVWXYZ]`). `[A-Za-z]` is safe because it already covers both cases. This applies to **both bash `case` patterns and awk regexes**."
+    text_hash: 46ffff5d97dfe25c4f60fd5c0cfa3f0879845f0bd9d40e9632a35fbef11548ea
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1122
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Don't shell out for what `awk` already does.** Each subprocess is a real cost when the agent runs the script across hundreds of files."
+    text_hash: d65cec9d83443f674e2a8edec72a38e273e448cc94020193a30cb94fd45aaf3b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e418
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Inline comments document each workaround.** If a future contributor sees `[^class]?foo` and thinks \"that's wrong, it should be `(^|[^class])foo`\", they will revert the fix and break CI. The comment is load-bearing."
+    text_hash: 0c45371013810fc8ada6eebf471619ff03ca1c8b1b8698679b24bf0f6db2a1fd
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f838
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`assets/output.template.{md,json}` — the canonical shape of the skill's output. Agents pattern-match against templates far more reliably than against prose descriptions."
+    text_hash: 238406b80691fc5f1eb7cc8e623e9fc4a906140f6111dc2e274b3bdc1cc48a7c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d178
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`assets/<vocabulary>.txt` — closed sets the script and the agent both consume (e.g. severity vocabulary, axe-rule → WCAG mapping). Keep them flat and grep-friendly."
+    text_hash: 9ce2e63c0e1d20bccef9c99b5c04ab1bf7725c66d4e741ae54d451be2079009f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2fce
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Never put logic in assets. Logic is in `scripts/`. Assets are static lookup data and templates.
+    text_hash: f93e5a2a635328dcd2f69855c057382e637bb3ed68c51365f089cbfe85dc6ca5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e188
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`references/<topic>.md` — detail the agent loads only when it needs it."
+    text_hash: 54651f7dd5b5485cd2f2ae0018c2074bdcee35146037cb1d57a281060a8046e9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-da67
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Every reference must be cited from `SKILL.md` with a load condition ("Read `references/X.md` before evaluating Y"). A reference that's never cited is dead weight.
+    text_hash: 082ae4084317da4287b45752fbf0503092c42d1dc566b29b1de6bd34be3b2476
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8853
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: References are reading material, not executable. If the document describes a procedure, that procedure becomes a script.
+    text_hash: 1555d3d899da74a3e9ca240a349ce45b950e30d31eb81917d04bab28a5ef7262
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-53ed
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**`--help` must exit 0.** First test of every `describe` block."
+    text_hash: 5374dbf0b8a233ba74a7fbb4db7193e2695da9c3607e3b99ff930f5a6b1fc04f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a69a
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Usage errors must exit 2** with stderr matching the expected guidance."
+    text_hash: b37e4123aab49f33a03fac28cb6c8a4acfc4d443e808fbbf52a5cf9ffa89feea
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-88f5
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Each documented behavior is a separate `it(...)`.** Don't bundle \"parses tokens, ignores prose, handles empty\" into one test — fail them independently so failures point at one thing."
+    text_hash: 4d834c4dc4bac93cb867d02266e2d95896d00824e5000c771338e6ffa8f70d53
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7d43
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Tests use real fixtures.** Fixture files live under `tests/fixtures/design-skills/<skill>/` (or the equivalent path for non-design skills). Inline strings via `withTempDir + writeFile` are fine for small one-offs (a CSS line, a single .tsx); anything larger goes in `tests/fixtures/`."
+    text_hash: c1ec350fef87ac4fc4665c906a136793dd4caecc8a028c49b496eac9eff5fb17
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8409
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Tests assert on structured output, not prose.** `expect(rows).toContain('color.primary.500\\t#1a73e8\\tcolor')`, not `expect(stdout).toMatch(/primary/)`."
+    text_hash: 503b13b01c73faf4ac4a4936db74a72d885cc03ecb7fed9af7a244295f9e9d46
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8f7e
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: '**Tests assert both success and failure modes.** Every script that emits findings has both "finds the expected violation" and "skips exempt files" tests. Every script with required flags has a "rejects missing flag" test.'
+    text_hash: 46f4c1e678018e9fa2a9e94ec86beba96277648302113ff30918fd134d8c070e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8ed5
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**No reliance on developer machine state.** No real `git`, no real network, no real Playwright. If the script needs a tempdir or a fixture, build it with `withTempDir`. The script must run identically on Node 22 / 24 / ubuntu / macOS."
+    text_hash: d7148abc7112c270800820e4d86aac3f1395ee4b5dc1e162dc05cd71147386d9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-68b9
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "**Test the portability workarounds explicitly.** If a script defends against missing trailing newline, write a test that feeds it a missing-trailing-newline input. The fix is silent without it."
+    text_hash: 83c0f01901bd4ba612ea214323a1c38cea5e3d7d3f0863b62a05b0601028aff3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5b36
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] `SKILL.md` has the seven required sections in order."
+    text_hash: 2fd76b5ba25ffc057bbe86f64944cf6d2ae501fc31302a3ccd4c5859b0d2b8fc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7f07
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] `description` triggers on the right prompts and not on near-misses."
+    text_hash: 92d78675c8583c21850ca563f2ed071db8ca990a45f35f89978deae3417fe028
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b4c0
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] Every deterministic procedure step calls a script in `scripts/`."
+    text_hash: 626ee11ccf207262d5dc31ebdea197f3d968757fb6c72316e5ad8d066bf67beb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-cc08
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] Every script has `--help`, structured stdout, stderr diagnostics, and meaningful exit codes."
+    text_hash: 31b07668aad40133e73928277a9e817f2d53f100bcd5169038a0bb17e65f1e89
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b124
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] Every script is referenced under `## Resources` with a one-line purpose."
+    text_hash: 4749cde3f9dd590af3ef4264f12bd0c58403973993bcd2f1db808db4f720df8d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-09f4
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] Every script has a spec file at `tests/unit/skills/<skill>.test.ts` that references it by basename."
+    text_hash: 9b64169347759b8f3cc838a8ba2645eea9affa22a88dc9721860ceddaed6b2ed
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4acb
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] Every script's documented behavior has its own `it(...)` test, including usage errors."
+    text_hash: 99447f5e38e219dbdccac9c66ea738c87a13ad493da32a3984cc70dd768d92fb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7cf3
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] Fixtures live under `tests/fixtures/design-skills/<skill>/` (or the analogous path) — not inline blobs spread through the spec."
+    text_hash: cc6f323d59057145b197e2e14253928876d4b3cfe5778e68135dae77707555df
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c04c
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] `pnpm run ci` is green locally before pushing."
+    text_hash: a04fe6c5ebf40cc22c53a6362637c1c6291c5c93f939eb733aab88f6b926e97f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1025
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "[ ] Any portability workaround is documented inline so a future contributor doesn't undo it."
+    text_hash: 1a64a8a517f248b644864d2bc5f88e819c22412a239a74732fde2fd990cfdf43
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2fcd
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Skills are the LLM-reasoning layer. Anything mechanical lives in `scripts/`.
+    text_hash: 1704280a1aeef248461b184fa684f3056dc3cb93799c33ccb10b0ca995e17593
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5c7b
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: One script per verb. Structured stdout, stderr diagnostics, `--help`, exit codes 0/1/2.
+    text_hash: 41792d595069085a47f5220db6bded4f54bb117cef9765cf39ea3f669479374e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9775
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Every script has a real test against fixtures — not a smoke check.
+    text_hash: 336b5df4b662005899a10265468d6edbaf72b8a2f75ccbae7f69eb0bb8c4210a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-667d
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: Scripts must run on bash 3.2 + BSD grep + POSIX awk. Workarounds documented inline.
+    text_hash: aec04545aa3aecd66b4a127b8f224e4ad88395451d019d80bc8eafc257fba0a2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-75bc
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: "`SKILL.md` ≤ ~500 lines. Detail goes in `references/` with explicit load triggers."
+    text_hash: aa032bc8ed97d4d805959b483641b0ccfd553be07822f49664fc70f4e7f5def5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4e6d
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: The meta-test (`coverage-completeness`) is the enforcement; do not bypass it.
+    text_hash: 09a45fbf77112ef890e3143d4e7af588d0e752d6ab892eb8bff43d55ae589a8b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-fe34
+    source: docs/instructions/rules/_shared/skill-authoring.md
+    text: When in doubt, copy the shape of an existing peer skill rather than inventing a new one.
+    text_hash: 91231c75af2fc09929bfa0c11556feee10e4681b6117fcffca9bcdd555e11fc1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3143
+    source: docs/instructions/rules/_shared/testing.md
+    text: Add or update tests for every behavior change, in the same change.
+    text_hash: 018b895ef62971e31fd49da4c05d3d8ed01adfdbc01ad7d7d1cf56455850a5fe
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-365a
+    source: docs/instructions/rules/_shared/testing.md
+    text: Cover failure and edge paths, not just the happy path.
+    text_hash: 4fc1fcb69f2f94e86b02e9c3aa325191c4f59519367c8728474aa825e929be53
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2efa
+    source: docs/instructions/rules/_shared/testing.md
+    text: "Keep tests deterministic and isolated: no reliance on network, real clocks, shared state, or test execution order."
+    text_hash: 226085c4461f7a2bc3272021946b993f0c3bf875929faf44bcc5f514a6d7a93a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-83fd
+    source: docs/instructions/rules/_shared/testing.md
+    text: Assert on observable behavior and outputs, not private implementation details.
+    text_hash: 69d6b76b227f32c9fa06533aa20313a6734617faebbf30aad754377f0620c615
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6d7a
+    source: docs/instructions/rules/_shared/testing.md
+    text: When code resolves real shipped resources (packs, templates, runtime roots, bundled assets), add a test that loads the real resource and asserts a non-empty, expected result. A wrong path must fail the suite loudly, not yield an empty set that looks like a valid "nothing here".
+    text_hash: d859193b790580b8e234302a62197bb9401b8b946f57d4139236ed5546fe2b55
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a754
+    source: docs/instructions/rules/_shared/testing.md
+    text: Run the narrowest relevant suite while iterating, then the full gate before treating the work as done; maintain the project's coverage bar.
+    text_hash: 65f9a6804ffbb0b69f9c9c847db374bd5507f2fac8b9c6c94ff0a4858bbdb0ce
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5acb
+    source: docs/instructions/rules/coding/agent-entry-files.md
+    text: "a one-line **bootstrap pointer**: open `.paqad/framework-path.txt`, resolve it"
+    text_hash: e49c4c55d362c8ff9bdc35f97afaba86e7bc6dbf873219a174582f1319eac67e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2e5e
+    source: docs/instructions/rules/coding/agent-entry-files.md
+    text: 'the core-owned **graceful-degradation clause** (issue #220): "if'
+    text_hash: 814204153e4db6b61a692d3a5548c69d96e61e1cf48f34a4082999f24842f7f4
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ca76
+    source: docs/instructions/rules/coding/agent-entry-files.md
+    text: "the `Adapter:` footer — load-bearing: the bootstrap's per-adapter UI table"
+    text_hash: 81d3067233ca016b3f457aacd80fcbe363dd338147df4bbe3e72eb418c8b3dc4
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-974c
+    source: docs/instructions/rules/coding/agent-entry-files.md
+    text: "**An entry file may NEVER name a `docs/instructions` or `docs/modules` load"
+    text_hash: 8c4aee439c8549e03f4346058e7e8059cd17390b1fd62a3f70001d5058de1266
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a14f
+    source: docs/instructions/rules/coding/agent-entry-files.md
+    text: "**An entry file may NEVER inline a contract** (the narration contract, the"
+    text_hash: a72991ff323a09f56fa33e9f3c1874fff3e65fa80953c4371f2053c5e83c802d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-518a
+    source: docs/instructions/rules/coding/agent-entry-files.md
+    text: "**An entry file may NEVER carry a per-feature or per-capability instruction.**"
+    text_hash: 26c90ceef186547d0b79642b0a70986fde7ff57d49af566ed378a21a3a6724f2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-331d
+    source: docs/instructions/rules/coding/analytics-instrumentation.md
+    text: Instrument every feature. When you build a user-facing behavior, add the analytics event(s)
+    text_hash: dc1b0bbcb1fb7529ae5d74622b50b9d5ae5113fcd3a557195237e7cfaa46c8df
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-239a
+    source: docs/instructions/rules/coding/analytics-instrumentation.md
+    text: One convention, 100% consistent. Follow the naming convention already observed in the
+    text_hash: 9be86a032a6c6dc7e85df6ac243570e2925678ee6b87860231888e82d02c6e6c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-37ee
+    source: docs/instructions/rules/coding/analytics-instrumentation.md
+    text: No variable data in event names. Names are stable identifiers; dynamic values are properties.
+    text_hash: 43c0a55afb28bcab36411918e781bc5795b2dbed17dd6f8a68ed2eeac777acb4
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-43e8
+    source: docs/instructions/rules/coding/analytics-instrumentation.md
+    text: Document each event. Every event has one per-event doc at
+    text_hash: 56fa0873859e6f4d7bf3395e4e21a7d522a1a27d237b1046401494b58ed784f3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e311
+    source: docs/instructions/rules/coding/analytics-instrumentation.md
+    text: "Govern every new event. A brand-new event is a decision, not a silent addition: it must go"
+    text_hash: 857f56a60d6e83dcf6f421a59bc13e8d581a61c337d7398cc7ff65a2afa42efc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bb96
+    source: docs/instructions/rules/coding/analytics-instrumentation.md
+    text: Never invent PII capture silently. If an event or property would carry personal data, flag it
+    text_hash: 3648f176047c99c133997dfcf9d2c1acdaced12a3bf2589f2b295a2f376e13db
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bf3f
+    source: docs/instructions/rules/coding/code-quality.md
+    text: Match the surrounding code's style, naming, and structure; read neighboring files before adding new ones.
+    text_hash: bcb2e8d01a11db7761c14fe14defb54e33a8a3369ade947e4dbfad1ec8c582a6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-46d7
+    source: docs/instructions/rules/coding/code-quality.md
+    text: Keep functions small and single-purpose; avoid abstractions not required by the current change.
+    text_hash: 498486e343d3c3d99a7b29c65236d8e4859c0cc026a7f64da8c0a0fe1bba3e33
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f953
+    source: docs/instructions/rules/coding/code-quality.md
+    text: Handle errors explicitly and propagate them with context; no silent catches.
+    text_hash: e5556580ed2c6b224a242f3d4ce72deffbed2df324926afb4132ee724610454d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-564a
+    source: docs/instructions/rules/coding/code-quality.md
+    text: Do not leave dead code, commented-out blocks, or unused imports you introduced.
+    text_hash: 4cc86e4cb4dbec19a1272db35d5b694e7d9181b3f9c0a30cbde2ea3703399cee
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-04a1
+    source: docs/instructions/rules/coding/code-quality.md
+    text: "Resolve any shared value (filesystem paths, runtime/package roots, config, clients) through the one canonical helper. Never re-derive or hand-copy that logic locally: a divergent copy is a latent bug that ships silently. If no helper exists, add one and route all callers through it. Before writing a path/root resolver, grep for an existing one."
+    text_hash: bb0200fcb5f9bb03fa5cf5f37011f4a8493ff06c0e5435fc966c1955a70846f4
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3697
+    source: docs/instructions/rules/coding/code-quality.md
+    text: Avoid silent last-resort fallbacks (returning a guessed default when resolution fails, or treating an empty result as success). If a lookup that should yield results yields none, surface it as an error instead of degrading quietly.
+    text_hash: 9de4ccee1b087af8d516231c1791633fff7147050328e6bd701f82bd73c118ea
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b71c
+    source: docs/instructions/rules/coding/code-review.md
+    text: Prioritize correctness, regressions, and verification gaps over style nits.
+    text_hash: c7d017b3f50db3b75ec5f5eeb905c54b89ac7bc5ca532d4e2932f457f1a02471
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-66f6
+    source: docs/instructions/rules/coding/code-review.md
+    text: Call out rollback and data-integrity risk explicitly.
+    text_hash: d328d8622290ea0251339a08b6020ca11f11b1dea0e3797fe5c98d349d197c46
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-73cb
+    source: docs/instructions/rules/coding/code-review.md
+    text: Treat missing, skipped, or weakened tests as blocking findings.
+    text_hash: d8d44128a5c7b552f18b985c6df2f4f989b1a5592ab48948c8d72dcb733aa855
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3b88
+    source: docs/instructions/rules/coding/code-review.md
+    text: Confirm the change does only what the request asked; flag scope creep and unrelated edits.
+    text_hash: 264157d9f0e7ebf83fb203aeeb4d8da56872ee8084a133c640e1b9ce52d1a69e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8ea0
+    source: docs/instructions/rules/coding/code-review.md
+    text: Block any locally re-derived value that a shared helper already resolves (paths, roots, config); require the canonical helper. When two ways to compute the same thing exist, that is the bug.
+    text_hash: bcc6a926c0054cb991df5b3db36f1fd444f1a66e12f495e8309b5820297f8d17
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a9c3
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**`project-profile.yaml` holds project facts only.** Project name / id /"
+    text_hash: aa27177b9c6ca00e1bf11adaf16845a333d27de42d4e8b8fdd9683a9408cf473
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f072
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**Framework knobs: defaults in code, overrides in the config layer.** The knobs"
+    text_hash: 8d8ff358e338698e7f940244b64e88fd732315d17382c20c548e9ef0b5f1a4b3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c462
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**The group files are self-documenting and inert until edited.** Onboarding"
+    text_hash: 64366e50fb870d2e1bc3961d9397466b64bc2ef897fcdbd36274adac949131a3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0e76
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**Resolution precedence is fixed, and local wins over team.** Defaults (code) →"
+    text_hash: fcfefdbb7be1d052b40455f748b433d118f2e74fdcc21283c5261ca978baf5fe
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e4e3
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**Absent (or commented) resolves to the default.** Any knob no surface actively"
+    text_hash: 580b171ed34450fb323004b5146b2d5769363741c5eaf2d9964ca3f148119016
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-74f7
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**Hard cutover: the YAML no longer carries knobs.** Framework knobs are sourced"
+    text_hash: b25cf0a5f92890cca6be92d46e178b294100032109a6f3ce7263a9d9e4faaf6f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-39b5
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**Detection-derived fields are refreshed, not preserved.** `active_capabilities`"
+    text_hash: fbf8361a7ba82b73f10cf0e1fed880d4294a0e2173880203264d9256c259eab7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-96aa
+    source: docs/instructions/rules/coding/config-visibility.md
+    text: "**Preserve overrides on re-onboard and update — reconcile, never reset.**"
+    text_hash: 101d8e121f677351963484932527c8035c5b11757d36fd35a67f5106ee8a9ec5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0235
+    source: docs/instructions/rules/coding/cross-platform-hooks.md
+    text: "**No new `.sh` hook may be wired into a generated host config.** New hooks are"
+    text_hash: f98131c4c061887f1e44389b24d8e35bc5b1066a51d0d33296599e6530741dea
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c6c2
+    source: docs/instructions/rules/coding/cross-platform-hooks.md
+    text: "**Every wired hook command launches through an explicit interpreter with an"
+    text_hash: a4df17716de447ecf922f8b11d5bae107f9d878c796e301a304d515e3df81488
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e88d
+    source: docs/instructions/rules/coding/cross-platform-hooks.md
+    text: "**The absolute path is recomputed from the local home dir at generate time**, so"
+    text_hash: 8f75563154dbf1bbb5d78c1379143ad397e23025a74719d261f3abfe6a6ba9cf
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b07e
+    source: docs/instructions/rules/coding/cross-platform-hooks.md
+    text: "**Retired commands are pruned on re-onboard** (a clean cutover, no migration):"
+    text_hash: 92ebf53783e7a8bf0f6171031a66f33d2245c0bf008afaadc4818d964ecd4267
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ef6b
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: "**Two tiers, in this order.** (1) **Provider-native first:** use the host's own"
+    text_hash: 5795bebe93891fac50dd9344445f13dd4f72274f5f1f7d4203d165194021c60b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8619
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: Render host-triggered behaviour into each host's **native** config, not one
+    text_hash: 158e020ddea6af8d56420ea260b867b76a489dd16c891e1cc1db41beda154797
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-96cf
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: Verify each host's hook surface against that host's own documentation before
+    text_hash: 4ba028edbedc2b2d436943cfef9daba9ba63fde0b910acabfb6b4fbf946d901c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c23e
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: Do not close a host-trigger gap by editing the prose entry file
+    text_hash: 27bbb618df320412c7f19fe7cb5bebeb3ea5b6361d537e128a853f6ce08fc81a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a10c
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: Point a non-Claude completion hook at the record-only script
+    text_hash: b1bbf3d67c310a6a954e461dfa226bde551e548d7e63676d392ea3b404bdf347
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4396
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: When an adapter overrides `generateConfig`/`installHooks` to emit a host config
+    text_hash: 71dbdea77a31c4a3b261e80b8904c7388ac76754a64fb4683205ecd908086464
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-86c7
+    source: docs/instructions/rules/coding/cross-provider-parity.md
+    text: Prove parity with a test that asserts every hook-wired host emits the hook in
+    text_hash: 4afef0f2853671d098341027de403ad2512f628aee707dad5a406938f4ecd79e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2306
+    source: docs/instructions/rules/coding/design-retest.md
+    text: '"design retest", "design-retest", "retest design", "retest design findings"'
+    text_hash: 3a7950e5c19533df10c87d99d55c507ca94ec050b0bf0bf754ac372f396f2c5f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0199
+    source: docs/instructions/rules/coding/design-retest.md
+    text: The source `docs/design-test/<timestamp>.json` sidecar (the machine-readable companion of a prior design-test report).
+    text_hash: 327a0409f8ee96b4958038ffef93ddfd4f66510973bb4472b161bf00e5952461
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-94d2
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`docs/instructions/design-system/**` (contract — may have changed since the original run)."
+    text_hash: 08b4670e4754584b85f5ba1605beacb5ce87d35ae2712a8daddb41133681a7e5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1c53
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "Fresh evidence: AST scan + Playwright walk against the current working tree."
+    text_hash: 8a7ee64a2469b86b2fd07bfda225b352f9d19fd9e56ba7a2a7a2f820a17e2a45
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ff75
+    source: docs/instructions/rules/coding/design-retest.md
+    text: Read the source sidecar. Validate against the design-test finding schema (same one `finding-normalizer` enforces).
+    text_hash: bba750d3d27793d06b16a0fbd6fe3fa595f1cab409a3030516f7427b4f9fd669
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a5b2
+    source: docs/instructions/rules/coding/design-retest.md
+    text: Build an in-memory index keyed by `DT-XXXX` id.
+    text_hash: 9377e8770470f7fe1cb1ef5dec51e927a9d97875c1784f0d89c10df681ad2e53
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-245a
+    source: docs/instructions/rules/coding/design-retest.md
+    text: Preserve every finding's original `severity`, `category`, `contract_ref`, and `playbook_ref` — retest does **not** re-derive these.
+    text_hash: 24fd805d3eda7dacd047a6c2297a707b1c62270f91e2ddc279986b80d7873ad3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-dede
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`category: token` / `component` → re-run `scan-tokens.sh` and `scan-overrides.sh` over the file referenced in `evidence`; check whether the offending literal still exists at `file:line` (or has moved, in which case search the file)."
+    text_hash: a45a4afbd23672c1fce4e3a1626dba9d9e1d2e688649abef17cce09af7340ea3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e89e
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`category: state` / `a11y` / `responsive` / `motion` → re-run the relevant Playwright snippet from the original playbook (`playbook_ref`)."
+    text_hash: 3fa51cf7ee8b7efa60cd72e8aaa8122ddeaf2a854f3ed2a08c68e18ca104a128
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a877
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`category: documentation-drift` → re-read the referenced `docs/modules/*/ui/**` file and the contract clause; check whether they now agree."
+    text_hash: 929f37e28161f5fe3fbfe860c972d1e092e99cbf3b9d9315ac1d7b6595be2b2d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a002
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`category: performance` → re-run the perf budget probe."
+    text_hash: 4cdde99e488a8160498f815e087cb463a34ab8f5e9b13076c80fab3dd26ba75e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7849
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`fixed` — the offending evidence is gone AND the contract clause is now satisfied."
+    text_hash: 9ae106bc6e1e1dd0faec8dc3ad5078c7356e112fe5f5053d801bf555ce08f6bc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3b0f
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`still-open` — the offending evidence remains."
+    text_hash: 4fe1eed742195c336480b2b8e1122e67f248ad74a07fe9d8f91e5d107677fcc0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e86a
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`needs-manual-verification` — automated evidence is inconclusive (e.g., a visual-regression diff that requires a human eye)."
+    text_hash: 6eb04049c8b6cba43dbf3e71ba8b1e391f199fb8b4a405a2957ad83d78ec3031
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0aa2
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`docs/design-test/<original-timestamp>-retest-<retest-timestamp>.md` — human report"
+    text_hash: 425e24eda37d1670dee919444a26d523214c94be5e909ac371d1a0d4d00914ca
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e2ef
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "`docs/design-test/<original-timestamp>-retest-<retest-timestamp>.json` — machine sidecar with the same `DT-XXXX` ids and the new `status` field"
+    text_hash: a3089c46bb67fe26faeab3135659f53bd9f636a5854f8587a64de4c0e662ee09
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-74ea
+    source: docs/instructions/rules/coding/design-retest.md
+    text: "Summary block at the top: `fixed: N | still-open: N | needs-manual-verification: N | contract-removed: N`"
+    text_hash: f71e2558a13a02b5ffa308f9c354e46de37e32e4fb45a1fac8aa6f3874cae382
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2ece
+    source: docs/instructions/rules/coding/design-retest.md
+    text: Never invent new `DT-XXXX` ids during a retest. New findings discovered during retest are out of scope — run a fresh `design-test` for those.
+    text_hash: 3da7d89b6885b473f4e617fa138e9aff18206520508ebbc878f26b55b943a6a1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9be7
+    source: docs/instructions/rules/coding/design-retest.md
+    text: Never lower a finding's severity during retest. Severity is a property of the source report; retest only updates `status`.
+    text_hash: 281a332e421280bc875720e690f7d78b390ced735340f9e9cfd71b3da05e6e6e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-27d2
+    source: docs/instructions/rules/coding/design-retest.md
+    text: If the source sidecar is missing or malformed, stop and ask the user to point at a valid sidecar.
+    text_hash: 9428f673701022d2352c18c656a16f7d962e61bb6f3274ef8b20623069053a9e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ea01
+    source: docs/instructions/rules/coding/design-retest.md
+    text: Always write both the `.md` and `.json` retest outputs.
+    text_hash: 0a775b42a5df0b8e4fbd5cbd4736e535c9dfe0fa57c8a36e678e0cc1e7011219
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-35ce
+    source: docs/instructions/rules/coding/design-test.md
+    text: '"run design test", "design check", "design audit", "ui audit", "design-system audit", "check design system", "validate the ui", "validate design"'
+    text_hash: 90ce54826cff0ef2b1f2f83870ea64b61f960b93495c6b6b0d6100e499929ab0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4fd3
+    source: docs/instructions/rules/coding/design-test.md
+    text: Load `docs/instructions/design-system/**` → the contract.
+    text_hash: 2f88e88d0607e850075cd72bb92660035a91482f0014d939046e77142802df49
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5d67
+    source: docs/instructions/rules/coding/design-test.md
+    text: Derive component inventory from **AST scan of `src/components/**`** + Storybook stories if present. **Do not derive from `docs/modules/\*/ui/**`** — instead audit those docs against the derived inventory.
+    text_hash: 8144d0730d136737c0440fd091ccf9a64eb22021bdeb4a7f90e6a258113dee0c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-76bd
+    source: docs/instructions/rules/coding/design-test.md
+    text: "Load UI source: theme/style files, Tailwind config (`tailwind.config.*`), design-token sources (`src/design-tokens/`), CSS modules / CSS-in-JS."
+    text_hash: 95f8c41bf658706502428341599d796e001eed9a6297cc939e58432d3bc9178b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ecfe
+    source: docs/instructions/rules/coding/design-test.md
+    text: Load Playwright tests as coverage evidence.
+    text_hash: 59a66baf4d1776a27b085ecb3567656bf987c51abb6beb9e9ad5ef2879b62bf6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6bcf
+    source: docs/instructions/rules/coding/design-test.md
+    text: Emit `contract-summary.json`, `surface-summary.json`, `test-summary.json` to `.paqad/design-test/runs/<run_id>/artifacts/`.
+    text_hash: b2a9d2669f5f201c6787831902e802d10d04f2443b66c277786af360372b2455
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3d12b
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**Surface walk** — visit every route from the inventory; screenshot at declared breakpoints"
+    text_hash: 07451f0e668bf62f741e8ee741852971a77bc4b908c32c472385fc5e47ffa252
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e872
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**Token diff** — inspect computed styles (color, font-family, font-size, line-height, radius, spacing, shadow) at each route; diff against `tokens.md`. One finding per mismatched property. This is the padding/margin/font/color/border check, mechanized."
+    text_hash: 3016718ed07a8fa93f61b2bd91ed4a72a3cde58f4c3acb7c067ddabc1ae188ab
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6b2c
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**State sweep** — for every component in the inventory, drive its declared states via Playwright"
+    text_hash: f4113d73d875b7c3e5e955ae522b458891922e61fb94dd3842839c759e9a9258
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bf14
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**A11y dynamic** — `@axe-core/playwright` against each route in default + dark-mode + reduced-motion + RTL (if declared)"
+    text_hash: f6e10b2d044aaa6c4a16a906e8ed84a3e93ed5c2cdb818c84d29c68ed5534953
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b19e
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**Visual regression** — first run creates a baseline in `.paqad/design-test/baselines/` (git-ignored); subsequent runs diff; `paqad design accept-baseline` action promotes approved diffs to a tracked path"
+    text_hash: c6e613eea32c859ebc36548988239d92b178d9eabae925d9bf5f17926e8b9f8b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4980
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**Asset budget** — fonts loaded match `tokens.md`; no extra families"
+    text_hash: b961170d4a660f36bb39752a59b2fc00e21db2d5ed7bffeb3e1cf38f611956b2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-976e
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**Performance budget** — LCP / CLS / INP vs declared budgets (only if `patterns.md` has a perf budget)"
+    text_hash: 886435413b8ed897381593e3ed2a515c379d76d0e3e35e3436abebec4920e4a8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1c1d
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`severity`: blocker / high / medium / low / nit"
+    text_hash: 86fbaaf4a03e75b827341e59c0a5c7815390521136851c8f95916862dec06f2e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b09e
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`category`: token / component / state / a11y / responsive / motion / copy / performance / **documentation-drift**"
+    text_hash: 77aafeb92dfdf1006817622fd4cefb365c1232000f6ae51bc8a62e1f04b3a5ec
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-61b3
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`surface`: screen + component"
+    text_hash: 990a0344a09cb0b83991fcacfb3c4ac009a3abcbed656d880cfd87b3bcbe31bc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5795
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`contract_ref`: clause in `docs/instructions/design-system/*.md` violated"
+    text_hash: 7ed49f4927fa7ec796f124a74f2293874ea49e35c6def83b391beb2d1daa5cc4
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9292
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`evidence`: `file:line` for static; screenshot + selector for live"
+    text_hash: 57f05c3a55a9ba72760cf606dedd2788455949da33be9256b4ba3f328c0db54d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8d84
+    source: docs/instructions/rules/coding/design-test.md
+    text: '`resolution`: concrete fix (e.g. "replace `#1a73e8` at `Button.tsx:42` with `color.primary.500` from `tokens.md`") so an LLM can resolve without re-deriving context'
+    text_hash: 7596c20fd5553b04031f86e72dd148d24bfbe9a50886d73d5dfe726d3cb90969
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c1c2
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`status`: open / accepted / waived (with reason) / fixed"
+    text_hash: 2f156598b2a458322119433f9fcf5bb79561cdf0ec204174d20375c9022a4f84
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7713
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`playbook_ref`: link to playbook snippet that reproduces it"
+    text_hash: ab8bc8d822b76b8bc21636a8336489464c6087b99b8555d17145a7899a4a5ff5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-08b6
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`docs/design-test/<timestamp>.md` — human report"
+    text_hash: 795fa9011219103e8ec6baa51384b6091476846b30f2c53181dc57736e4c775a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-77ab
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`docs/design-test/<timestamp>.json` — machine sidecar (so `design-retest` preserves IDs)"
+    text_hash: 1138e0a10f425f46e2b3b57e35b43eb204c90edd945b441b2ab29b51cce42ad6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-24fa
+    source: docs/instructions/rules/coding/design-test.md
+    text: "**DS-COV Coverage Matrix** — every contract clause × every route → covered/blocked (analog of WSTG matrix)"
+    text_hash: 9748cd898b1b0001dfb9ed66f7875a31a24fe990bcbddcb54b1019200fc77ce1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-02a5
+    source: docs/instructions/rules/coding/design-test.md
+    text: Ordered findings (blocker → nit), remediation priorities, link to playbook
+    text_hash: 3da49034694ad900b0330121c9aa844a463b3ed1ca43c30a17971c27fe6b1c77
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bbcc
+    source: docs/instructions/rules/coding/design-test.md
+    text: All runners (scan-tokens, scan-overrides, enumerate-surface, axe-static, coverage, runtime-checks, retest) live inside paqad-ai under `runtime/scripts/design/`.
+    text_hash: 4a6614a5d671e4308d9e75a7563cbf7759a3a11d332afa59541edf0c04fd3fad
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5b4d
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`runtime-checks.ts` is a `.ts` file (Playwright is a Node API), run via `tsx` shipped as a paqad-ai dep."
+    text_hash: 2ba81fb68d00a170c42cbe60cf7011190c32233cffa2d42f89096f4fb0b4a5e8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5d56
+    source: docs/instructions/rules/coding/design-test.md
+    text: Stack-specific behavior is **framework code** inside the runners — they read the project's `package.json`, `playwright.config.ts`, `tailwind.config.*`, CSS-in-JS imports — and branch internally. One runner, many stacks.
+    text_hash: 489640f2679f743c161f14571b6a91a5950c005493fcd18b812df0f518374001
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bb26
+    source: docs/instructions/rules/coding/design-test.md
+    text: Outputs land in the project (`docs/design-test/*`, `.paqad/design-test/runs/*`) — work products, not infrastructure. Same pattern as pentest.
+    text_hash: ead7eab04294f27ad7869366abaaa73e582692559bf721de9628ad616b5075a6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0678
+    source: docs/instructions/rules/coding/design-test.md
+    text: This workflow rule and `design-retest.md`
+    text_hash: 79bc1bc24a382ef469363f161ca11c7e6dc5846f0ab9c64ca9733bbd506bc8bf
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-20a0
+    source: docs/instructions/rules/coding/design-test.md
+    text: All 9 skills (the 8 review skills + `design-system-sync`)
+    text_hash: b534c82d8211489cf82076f4ab4ba5f5dcdcfae43bffb663af3cd29d6d4cbdba
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a1d2
+    source: docs/instructions/rules/coding/design-test.md
+    text: Runners under `runtime/scripts/design/`
+    text_hash: a9523e01ff7d3ebf8e9c616f8764e71ef7f66e6f8ea86e9c8769142bd44c909b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-eb3c
+    source: docs/instructions/rules/coding/design-test.md
+    text: Routing rules
+    text_hash: c2b4c04ac81d1ea0161b01fdd16eae58e6b3d36409f585c599fc17206c9972d2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5e21
+    source: docs/instructions/rules/coding/design-test.md
+    text: Finding schema and severity vocabulary
+    text_hash: 59a2df2f2ecb9d9416fdfd38b706fe03c131de013c8498842dfcc76edca97a6d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d6cd
+    source: docs/instructions/rules/coding/design-test.md
+    text: "The contract itself: `docs/instructions/design-system/*.md`"
+    text_hash: 2723c26e83660168968ffb056e1bb4f9cd0c615f23cc36ef8feaf7c6ec7cfcf5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6e87
+    source: docs/instructions/rules/coding/design-test.md
+    text: "A bounded `design_test` config block (schema-validated) in `project-profile.yaml`:"
+    text_hash: 8bbd641d0f632b9320685f8100d64d23d1540d759b80c4f0deb3b86cff0f5001
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3069
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`design_test.strict: true|false` (default false — advisory unless opted in)"
+    text_hash: 6db586f41582d0a4af5780529a79cc48a9d76b397b54047ece5b1c02b62423e8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e5c8
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`design_test.app_url`"
+    text_hash: 6f20679cbbf53d93c44dfeca4fdf61931b7b22ba96e46197250c0e8ff06af832
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6559
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`design_test.dev_command`"
+    text_hash: fd525d866a51070d603e6410228a4df1a72fff591cb08cb4164e807daf0c7526
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-32bb
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`design_test.routes_include` / `routes_exclude`"
+    text_hash: acddc7547487bc89e59b06ae124e249377a692b8c07eb47d0c37887be4a35288
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8c37
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`design_test.baselines_path`"
+    text_hash: a64c96d0c91173eb8ea6a4da5e491bb72e22a85afcfbb7199212436df7ec546a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e0c0
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`design_test.budgets` (schema framework-defined; values project-supplied)"
+    text_hash: 835403ba2facfeb89b93b79b3abb1d61d79b5ffc065bf9b6461ab547fa79bb0c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-27c5
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`design_test.with: [visual-regression, dark-mode-parity, rtl-parity, i18n-width]` (optional checks)"
+    text_hash: a9c0a3040ef0e984cfc908681f28c1f3d98a9997ce421f5aaa0121bb94c6cd04
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d1f5
+    source: docs/instructions/rules/coding/design-test.md
+    text: Project-side plugins loaded by the runner
+    text_hash: be168ead87b2523ca8c5b4f0e640a779ae37c76df50581b9b773d50487c427d6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-24f3
+    source: docs/instructions/rules/coding/design-test.md
+    text: Project-side scripts the workflow shells out to
+    text_hash: 10fea40af76b663e29c57c597b8bb2ba1983c97c01a62f587c95c56f3d6bea86
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-08a1
+    source: docs/instructions/rules/coding/design-test.md
+    text: Project-overridable thresholds outside the declared schema
+    text_hash: b7e7dcd8a0cd3eae7ce15663993036af19d321f67d3e6e501ec8942d2c40755d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-70ea
+    source: docs/instructions/rules/coding/design-test.md
+    text: Swapping a framework skill for a project-custom one
+    text_hash: a7c7d5a3c8cd987776346853fa31b88b24e7d28d0c8cfd7f6cecd0d47cfaf525
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-da85
+    source: docs/instructions/rules/coding/design-test.md
+    text: Editing this workflow rule in the project
+    text_hash: 75712659adccb91bdaca365382dc9842b3cd6cdf8f786ffe615826f6e0211041
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-06c9
+    source: docs/instructions/rules/coding/design-test.md
+    text: Never skip steps. If a script is unavailable, record it in `blocked_checks` and proceed.
+    text_hash: 800dee6c9d18e5e557a59819adad595b54ac8c48a50df147191425980ca1c84c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-eaec
+    source: docs/instructions/rules/coding/design-test.md
+    text: Do not run destructive operations (no writes to the live database, no mutations via the API). The Playwright walk is read-only.
+    text_hash: 6aaa5df797b70210cf8f3082094be624ebfe679dc809cc48e399d144edb3a8d3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e17d
+    source: docs/instructions/rules/coding/design-test.md
+    text: Always write both the `.md` report and the `.json` sidecar; the `design-retest` workflow depends on the sidecar to preserve `DT-XXXX` IDs.
+    text_hash: 4fd69cfac61112d9c73a6251b838213cf2de45d2f2c7abe784227114704cdaeb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f2f2
+    source: docs/instructions/rules/coding/design-test.md
+    text: The local design playbook (Step 2.5) is **generated only** — never execute it automatically.
+    text_hash: 10dd3781711888b1bc09b9aff1aae1762255dad0bfcb423068d469c6f41b4795
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c0dd
+    source: docs/instructions/rules/coding/design-test.md
+    text: "`docs/modules/*/ui/**` is never evidence; any disagreement with the AST-derived inventory produces a `documentation-drift` finding."
+    text_hash: 3b7cd27edbdd5533960d20fe87aa9464d3a15e1b777385b8005d9cc642be09f1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b216
+    source: docs/instructions/rules/coding/design-test.md
+    text: Hard-coded design values (hex, raw px/rem, ad-hoc font stacks) are never acceptable when a token exists. `token` findings default to high severity.
+    text_hash: a9b111c0148331d42e97a963299204d61b55d5e776b8d7589743230dbe10630a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7c89
+    source: docs/instructions/rules/coding/feature-development.md
+    text: '"build X", "make X", "create X", "add X", "implement X", "wire up X"'
+    text_hash: ee1b833a421beefa032da70507cd1c7f4322f68813e9f0bdd841f6622371ea36
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7a94
+    source: docs/instructions/rules/coding/feature-development.md
+    text: '"fix X", "change X", "update X", "refactor X", "rework X", "rename X"'
+    text_hash: 3fadd18d4aa328de895c38bf9432ebffb15e5034b626b76a7b4eb14871ae573a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-50f4
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "\"let's do X\", \"can you do X\", \"get X working\", and any equivalent"
+    text_hash: 953a4c0fdc973cb26f0435fd0d367f29797e5ce750219581b7853a5f324cfa11
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-113d
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "`stop` → write a Decision Packet and wait for the user before continuing."
+    text_hash: 0c25d520d2cdb98f24cb4091dfcf78432b7474211acce830d6029f6029691c0e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0cb1
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "`ask` → ask the user and wait for the answer."
+    text_hash: db3080c21988e40a706b48db3ac6438919acdebdb620e8363c1de19aba38cf79
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3caf
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "`warn` → surface a note and continue."
+    text_hash: 174e4e8e927076431364f118b02aa47be3860ed68a6fc4c4ea4bfdde71935b6b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-65d6
+    source: docs/instructions/rules/coding/feature-development.md
+    text: planning → `▸ paqad · planning this out, checking which module it touches`
+    text_hash: aafe7252f36df5fac8614beba09c5bc35112b8c5c8e8b63d9b334e4221e068e0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-04cc
+    source: docs/instructions/rules/coding/feature-development.md
+    text: specification → `▸ paqad · writing the spec before any code`
+    text_hash: d7b114f799b0082624ec6586c644d733b3d69154474b22284d929a4a8c3759b8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a3a4
+    source: docs/instructions/rules/coding/feature-development.md
+    text: development → `▸ paqad · building it to the spec`
+    text_hash: e69df6980a04a8415d56dc94bb677ce17528eb1aa02512f6da6cb98a5eae4154
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e055
+    source: docs/instructions/rules/coding/feature-development.md
+    text: review → `▸ paqad · reviewing the change for regressions`
+    text_hash: 54b7476c51b3a4f58e0d5026141bb554430a4c60f62e1fa37c5163cf027a9b2d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d8ea
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "checks → `▸ paqad · running the gates: format, tests, build, rules`"
+    text_hash: f0f2ebb69606af122c9726a1ea6229178a05aa32b347e697d8293a5528a2a1e2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f91e
+    source: docs/instructions/rules/coding/feature-development.md
+    text: documentation_sync → `▸ paqad · syncing the docs this change touched`
+    text_hash: f5a28ed6f9c3218bc0e214bf44279cdc4a65bf6cbb07dbab0aa71d74ecc91ea6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c799
+    source: docs/instructions/rules/coding/feature-development.md
+    text: delivery → `▸ paqad · delivering per the branch and PR conventions`
+    text_hash: dccf9d1dd958df858b38e5b39c91c9568dd1f704f0436169688fba4694dac78d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-264a
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Runs only when the request references a tracker ticket (Jira `PROJ-123`, GitHub `#123`). It is an **optional bookend** — a change that did not start from a ticket skips it and is never blocked.
+    text_hash: f842b2254ec49f7bddd485901f4406489d407a48a6d876aaeda68a04cdf1733c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6fd0
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "**Fetch the real ticket deterministically**, don't guess from the id: `npx paqad-ai intake fetch <ref>` pulls the actual title, body, acceptance notes, and labels (GitHub via `gh`; Jira via the Atlassian MCP in-session). Ground the specification in that real text so each acceptance criterion traces back to the ticket."
+    text_hash: 323a589b17ed5b6002b7f052467347118ff2ac2f26967270f3655e8e1eb3b795
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-496d
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Detect implicit choices the ticket leaves open and resolve them priors-first, then rules-second, then ask. Auto-resolved decisions must be surfaced for confirmation per `process.intake_decisions.confirm_auto_resolutions`; never bypass the user silently.
+    text_hash: 8f3eadde39ac994f0215d31fbf5372a0dc9f8f559eac81eaa671298c76264608
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-33a4
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Requirement confirmation is a genuine user decision — route it through the Decision Pause Contract (`intake.requirement`), never auto-accept.
+    text_hash: 3a1300fd0f92a46c7382eb020b8b396baab6b36f12c434fb4ba936c2930185ec
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1091
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Escalations: `missing_ticket: warn`, `unresolved_decisions: stop`."
+    text_hash: 3f167ea381d7ad56efbe649223f1df8501806855f0a925e3b79f7432db250b97
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-48b3
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Load the canonical module and instruction docs for the area before planning (`docs/modules/**`, `docs/instructions/**`).
+    text_hash: c9f48268c799032477e54876fa67dbd68f65046e5f8c9bba68e41da1cc907113
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7919
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Run the **attribution gate**: identify which module(s) the change belongs to (the `module-attribution-extractor` then `module-attribution-inferencer` skills). If attribution is unresolved, escalate `attribution_pending: stop` via a Decision Packet — never guess silently."
+    text_hash: c1f120903ecb1552e141b9f35234ea2ef3a73a6c2a21adc2872af62ddfb0bab7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2f27
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Produce the implementation sequence scoped to the request and the current repository state.
+    text_hash: cec5d7069981b6cd25c55f6050ca667835f129444443bdad3b71733bf13447fb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4da7
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Escalations: `attribution_pending: stop`, `rule_scripts_stale: ask`, missing docs/design-system: `warn`."
+    text_hash: 904f19f1d78adb4efb66d8f25b3e6d330c8b5736328254fbd60e302a60cb39e9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e575
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Write or refine the feature specification **before** implementation. The spec carries the behavior, acceptance criteria (AC-n, given/when/then, proof type), and confirmed invariants.
+    text_hash: b1bb91a99ef88e060ae138b558055390d9839820b968144d767fe3cff6204a80
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0ca2
+    source: docs/instructions/rules/coding/feature-development.md
+    text: On graduated/full lanes the spec must be **frozen and signed off** before development (`require_spec_signoff`, framework-owned, cannot be downgraded by a project override). A mid-build goal change or a work-vs-spec contradiction escalates via the Decision Pause Contract (`spec.change` / `spec.contradiction`).
+    text_hash: f9f60c0df4a4a4eb6e0151775a080ae416aaaa7a31b8ab85019164fee06ea99e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9321
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Freeze it with `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants`: it evaluates the freeze blockers, writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`) that later stages check against, and refuses to freeze over open questions, missing acceptance criteria, or unconfirmed invariants."
+    text_hash: df605c4e354dbd9860f73ead62969bfcba2c0367f5c8d60a513d5fec4dfc7ee2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c174
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Escalations: `missing_spec: stop`, `missing_spec_signoff: stop`."
+    text_hash: a858b38a2778cc030b8b102ac20acaca80bbc2ffe73f0569d291d9fb253c61e3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e1aa
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Implement only the requested behavior. Do not refactor, reformat, or rename unrelated code in the same change.
+    text_hash: 2716ab943a06f5ef0d670cce631833943228fdbc5ccf0f4b3dfc7c858bcd0bf5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f03e
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "If scope grows beyond the spec, escalate `scope_expansion: ask` before expanding."
+    text_hash: 048645f3ae0c174221eb36bb0fa2828e83d72f31f819c5bc941061eb31974b28
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2e65
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Review the change against correctness, regressions, and rollback risk before treating it as complete.
+    text_hash: d747c93f72d9e7e0a638af87c44ad512f5b23e01eda225a983c73d66e6145ad1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e522
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Blocking findings escalate `review_findings: stop`."
+    text_hash: 7fd76342ba35bddd87a7afd78f7fd98ae101b27a5ce68aad25792386548b7999
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0e8d
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Run the project command checks: `format`, `test`, `build` (use the project profile's mapped commands). `block_on_failure` is true — a failing gate stops forward progress; fix it before continuing. Run them deterministically with `npx paqad-ai checks run`: it executes the mapped commands, exits non-zero on any red, and persists a structured report the completion gate reads so success is proven, not assumed."
+    text_hash: 7105f546bfbbf12702863f531dcd0ba28188baa0e274e73e3945d57245ec84c2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-18bd
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Verify test coverage meets the project bar.
+    text_hash: a8296e803927d523d07c1f1790db8fa362faadcbd3cc1f05f006cb3bfa1df9b8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c543
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Run the `rule_compliance` gate (registered rule scripts, `mode: strict`, scope `changed-files`); deterministic findings escalate `stop`. The gate needs `rule-script-map.yml`, generated at onboarding and refreshable with `npx paqad-ai rules compile`; without it enforcement fast-skips. Strictness is the stricter of the tracked `configs/.config.*` `rule_compliance` value and this workflow's `checks.rule_compliance.mode` — both are real inputs (issue #319)."
+    text_hash: 6e335c2ba2b753ebb8f1ac1b0691c79df4a936ada442ae359efef87bad327364
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4789
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Run the `module-health` rollup; rollup-blocked metrics are informational `warn`.
+    text_hash: 1d516669538c677f776424c5ffdcc2c2b3cbc5ce0746d5cf3be854decb4a2ff9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0b14
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Sync the canonical docs affected by the change after verification passes (module docs, registries, design-system contract as the diff requires).
+    text_hash: 7435add4fe085c0580e9e7bf7bff9a0dfb617c39a09732e88e5a7fb98c4177a3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ede8
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Stale or missing doc updates escalate `stop`.
+    text_hash: 452a8b01b088e8fc7c5633dd1480e1e8859fee850e0a9c86800d9932a332c116
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f1af
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "**Never skip a stage.** Every stage runs, in order, on every code change. A trivial change runs the stages lightly; it does not skip them."
+    text_hash: 00f7b59f04362c4bec839e629c889860f76ae82ae9ca94928ab6890295e6484f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2a31
+    source: docs/instructions/rules/coding/feature-development.md
+    text: The mandatory safety stages (specification sign-off, checks, documentation_sync) are framework-owned and cannot be downgraded by a project override.
+    text_hash: 7d9698ea312106a0da60982cbf393382ade69863eb741279c4089f8dd18b01bb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e8aa
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Consult the workflow to decide the **lane** (how deep each stage goes), never to **omit** a stage.
+    text_hash: e472c61a2965334cf0d42116c324524f1e026128cc09d6a7a99990224aba8a84
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2684
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Point at the project's copy of the workflow files and follow them; never inline a frozen copy of the steps that ignores project overrides.
+    text_hash: ff5a621a4ed25c5ada9d4a6b926d541f4b243495d2d49da67ac1633b96a44b5d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-791a
+    source: docs/instructions/rules/coding/feature-development.md
+    text: Honor every escalation through the Decision Pause Contract — never resolve a `stop` silently.
+    text_hash: 68fc6f7e1bbbcee04fba8024e70308a82ed8a808839b378757eea1bad213fc8f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8b30
+    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
+    text: Prefer additive, backward-compatible changes; deprecate before removing a field or endpoint, and version when a break is unavoidable.
+    text_hash: 360f8ae223d7a40cca67a6b988643bbfe8002f21e63653c7da06bbf1db02c3c7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d041
+    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
+    text: Validate every request payload at the boundary and reject unknown fields where the contract is closed.
+    text_hash: 4879588521d7307092fe5095a5216c90eb4d82c1c07b52b4df313eaccbce83f0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-72a8
+    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
+    text: Document request shape, response shape, status codes, and error format together for each endpoint.
+    text_hash: 53cb7c8be27e6859757ae84613f901021cdc04f7fcdc2e6736cece6ff2bb4b37
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-04c4
+    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
+    text: Keep resource naming, pagination, and error envelopes consistent across endpoints.
+    text_hash: 443c065a722b5d0cf4e4531d23b8fe659d194385e0421698bc70a36c9fe47b1e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c5f0
+    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
+    text: CI must run the same format, lint, test, and build gates that block local delivery.
+    text_hash: b81e6ba51c901773dfc1ed922ea5585f1aeb1355f1dcbee9287cefbf2d6009a8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c17c
+    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
+    text: Keep the pipeline green; do not merge on red.
+    text_hash: 99160f3ca0d952ea6bfbbd5689d0c3cc397d9259d6b2013769adf5eda82f9a25
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3d8c
+    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
+    text: Commit the lockfile and pin tool versions so CI and local environments resolve the same dependencies.
+    text_hash: 386eb388c4890a41eddd232bc6ae81a5ec4afa733ebadabc806e62afacb98061
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a9d3
+    source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
+    text: Fail the build on high or critical dependency advisories.
+    text_hash: 1b9876ba230ea6a99d5c45173a67e284842e08fb56d2104c17df7b7dadf7fc9a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c1df
+    source: docs/instructions/rules/coding/stacks/_shared/git.md
+    text: Commit one coherent change at a time, with a message that explains why, not just what.
+    text_hash: d9b4233487b64bc84d4ca38df8bcaed6ca63c500149fbb91c49604fb47ee8e20
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6fcb
+    source: docs/instructions/rules/coding/stacks/_shared/git.md
+    text: Do not rewrite or force-push published history without explicit instruction.
+    text_hash: 7cad803aec3d8716fd209aaab53063870dac1f65c8d6086050db02db2efbcd18
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ea76
+    source: docs/instructions/rules/coding/stacks/_shared/git.md
+    text: Keep build artifacts, dependencies, and secrets out of commits via `.gitignore`.
+    text_hash: eb27210e0cf63e94bd8297b22f0b437713419f1aab6467cf0166bb95519c915b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-dca9
+    source: docs/instructions/rules/coding/stacks/react/architecture.md
+    text: Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml`; treat that file as the source of truth for which feature owns which directory, and do not invent a parallel folder taxonomy.
+    text_hash: 0b45d5e40ef1e9693224fd7479b7e15f2ea9a1578df05e058ba4f22c50f17827
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b142
+    source: docs/instructions/rules/coding/stacks/react/architecture.md
+    text: "Keep components pure during render: do not mutate props, state, or module-level variables, perform `fetch`, or read `Date.now()`/`Math.random()` in the component body. Put side effects in event handlers or `useEffect`."
+    text_hash: 7f0727f9283db18e7f8a3c82ff1b4db235d8b55b74f9271f5978071cd8fce84d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7443
+    source: docs/instructions/rules/coding/stacks/react/architecture.md
+    text: Co-locate a feature's components, hooks, and tests; import across features only through each feature's public entry module, never deep-import another feature's internal files.
+    text_hash: b3baf87e22e23598865a219dfc47d607adb7ea6fd186c993eb0f20f4504625d5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-eeb8
+    source: docs/instructions/rules/coding/stacks/react/architecture.md
+    text: Define one canonical module per concern — the API/HTTP client, the router config, and shared UI primitives — and import from it rather than re-instantiating clients or re-declaring route paths per feature.
+    text_hash: 9cbeb2f4a88d9ef5bad33dab8a6eb6e895c33cfb80c1aa00726af963f7644b60
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7c3b
+    source: docs/instructions/rules/coding/stacks/react/architecture.md
+    text: In codebases using React Server Components, only files marked `'use client'` may use hooks (`useState`, `useEffect`), browser APIs, or event handler props; keep data fetching and secrets in server components and pass plain serializable props across the boundary.
+    text_hash: 702e6dd217072a395170bc0f31b9d9c59005ad6e10572e77b5f90dce145abaf8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ff60
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: "Keep app bootstrapping in one entry (`main.tsx`): mount with `createRoot`, and wrap the tree in routers/providers there rather than scattering provider setup across components."
+    text_hash: 64302f178c893509d2653cee9c7158f144771d6c76afc3a1405f06944c7b2a21
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-081e
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: Expose browser env vars only via the `VITE_` prefix and read them through `import.meta.env` in one typed config module; unprefixed vars are not bundled and must never hold secrets.
+    text_hash: c2391cabafcea2a28f880d660ebe98ce866a388e46f90b35ce236d8bde88395d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-17bf
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: A Vite SPA ships no server — keep all secrets and privileged calls behind a separate backend/API; never embed API keys in the bundle.
+    text_hash: ac82fd323cf4237e49899738ae68af3cc34886be533bf74f54ca4fde66bb3056
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e3ec
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: Code-split routes and heavy dependencies with dynamic `import()` + `React.lazy`/`<Suspense>` so the initial chunk stays small; rely on Vite/Rollup automatic chunking and only configure `manualChunks` for measured wins.
+    text_hash: a0163cf370df74557c7f166687f521500cf78497de6df59e7e7a3aab0ed1e4c5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-681b
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: Reference static assets via `import` or the `public/` directory so Vite fingerprints and rewrites their URLs; do not hard-code `/src/...` paths that break in the production build.
+    text_hash: f0cf26d40d636acfe43451030931798c8b02dc9fedb622cb1ceccfe2a4961460
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5e07
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: Configure path aliases once in `vite.config.ts` and mirror them in `tsconfig` `paths`; do not maintain divergent alias sets.
+    text_hash: c0d96a40f7dba6b0e9f31ae1b45f8ca64798eb7893844affe07e8afb4f82420d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7988
+    source: docs/instructions/rules/coding/stacks/react/capabilities/vite-spa/vite-spa.md
+    text: Verify changes against the production build (`vite build` + `vite preview`), not just the dev server, when touching plugins, aliases, or asset handling — dev and prod resolve modules differently.
+    text_hash: 888be04e7cf95c8e660cfe8e6f8d85b889c5b3f665309418cf0d9d012509c8e2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ad83
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Name components in `PascalCase` and hooks `useX`; only functions whose name starts with `use` may call other hooks.
+    text_hash: 1f571be7dfaa39c9d5c3af7f27a7ea2b25a0e5910a19c8126a70fe09fc78d86e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3f9b
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Call hooks unconditionally at the top level of a component or custom hook — never inside conditions, loops, `try/catch`, or after an early `return`.
+    text_hash: 11b790a6b25b936533d22da7a8f427f886514df9a246f8660880c78cccf165ae
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-502e
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Type component props with an explicit `interface`/`type`; do not use `React.FC` (it is discouraged and implies an unwanted `children` prop). Type children as `ReactNode` when needed.
+    text_hash: 6e9001cecf5d8a298a55b7c3dd5046af1235a4dc26e0194aef1996424da45304
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3d1e
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Provide a stable, domain-derived `key` on list items (an entity id), never the array index for lists that can reorder, insert, or delete.
+    text_hash: 01d7bb8657656cb297d70047ea9e7fc1d4a47568efed811224386945050b2ecc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a01a
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Pass `useEffect` a dependency array listing every reactive value it reads; do not disable `react-hooks/exhaustive-deps` to silence a missing dependency — fix the dependency instead.
+    text_hash: 714a894a36bdc5c9e4e684eb6f3085ee02b152c5cf807774272b930b88c1feea
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a409
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: Prefer derived values computed during render over storing redundant copies in state that must be kept in sync via effects.
+    text_hash: 7423250d30f19715df82d2d2acf3f5ea1b7c464906c6761f24b9abfd53adfbf0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6315
+    source: docs/instructions/rules/coding/stacks/react/conventions.md
+    text: "Treat state as immutable: produce new objects/arrays (spread, `map`, `filter`) instead of mutating the existing value before `setState`."
+    text_hash: c007117984a3b2ae3a70a4e245870c0c8ea625cb7670cc21eaf541aebcbaf7d3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7876
+    source: docs/instructions/rules/coding/stacks/react/documentation.md
+    text: When a change adds, removes, or renames a route, update the route table in the owning module's docs under `docs/modules/<module>/` so the documented route list matches the router config.
+    text_hash: 856856e13b97389ae4770cc4d2e66aac033d188940ec0de753942faa51089dca
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8d96
+    source: docs/instructions/rules/coding/stacks/react/documentation.md
+    text: Document non-obvious component contracts (required providers/context, required props, side effects) in a comment or the module doc, not just in the prop types.
+    text_hash: bdb964a92b4c256220843bdc3b93e79a38323093f197e48899535b1cc09b7166
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-32f1
+    source: docs/instructions/rules/coding/stacks/react/documentation.md
+    text: Keep `README`/setup docs accurate for the commands they name (dev server, build, test); update them when scripts in `package.json` change.
+    text_hash: d4db65bc3a941d6cc61fee5d7d24651c57b4be73709dda83bf44c84d0d4fb993
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d2fe
+    source: docs/instructions/rules/coding/stacks/react/documentation.md
+    text: Prefer linking to the canonical module doc over duplicating the same explanation across multiple component files.
+    text_hash: da7ade52d25c5ccdec4da5d3fe25d148fa380f0ea5c67b38328dd4ae5db0057a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a854
+    source: docs/instructions/rules/coding/stacks/react/environment.md
+    text: Read environment values through one typed config module that validates them at startup (e.g. with `zod`), not scattered `import.meta.env`/`process.env` reads across components.
+    text_hash: bf4be75429332b3bf67efdcfa29b899be044d356905343238939fb83d08763a5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5ca2
+    source: docs/instructions/rules/coding/stacks/react/environment.md
+    text: "Only expose variables intended for the browser: under Vite they must be prefixed `VITE_`; under Next.js they must be prefixed `NEXT_PUBLIC_`. Never reference an unprefixed secret in client code — it will not be defined and risks leaking if mis-prefixed."
+    text_hash: 79346a2c5be2c5b2ca37d6f1a069753cf5828ef2f9e5cf840c878e84b3c4444d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-077f
+    source: docs/instructions/rules/coding/stacks/react/environment.md
+    text: Keep server-only secrets (API keys, DB URLs) out of any module that can be imported by a client component or the browser bundle.
+    text_hash: 3503f27688002ee4294a73ffa56f626f84e18eea9f2d21ae8752f2999f617201
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-207a
+    source: docs/instructions/rules/coding/stacks/react/environment.md
+    text: Fail fast at boot when a required variable is missing, with an error naming the variable, rather than letting `undefined` propagate into requests.
+    text_hash: 00df293149b8049c23abc80d6f2035de365819d0b2a9b616896c3d8b0b5d073e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d5f6
+    source: docs/instructions/rules/coding/stacks/react/environment.md
+    text: Do not commit `.env*` files containing real secrets; commit a `.env.example` listing the required keys with placeholder values.
+    text_hash: 013c080e7b60343fde11798f60d2625808674d64234e4ee059cf605ef104399f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1b5c
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Use the project's existing router, data-fetching, and state libraries (e.g. React Router/TanStack Router, TanStack Query, Redux Toolkit, Zustand) instead of hand-rolling caching, routing, or global stores.
+    text_hash: 6436b6b55b99cb7df89c404e29940a720919fede23ce9151f0438d8a57d66ea5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3fcd
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Reach for `useState`/`useReducer` for local state and Context only for low-frequency shared values (theme, auth user); do not use Context as a high-frequency global store — every consumer re-renders on each change.
+    text_hash: bea9151104fefaf84009ec14d4485e4ac3e3b42bb703b18a8943411de493e929
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d482
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Read external/changing values that are not React state with `useSyncExternalStore` rather than subscribing manually in `useEffect`.
+    text_hash: 8535f6869612c77a0cb41bca51eb457c60880290f94fc5992f3a29b8b2a7f3b6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9e72
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Manage controlled inputs with React state; do not mix uncontrolled DOM reads (`ref.current.value`) with a controlled `value` prop on the same input.
+    text_hash: 6ed246ce2de2d458a1d4ef3be70ba417184eb1c2987a2c688ad251d3e002b17e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5322
+    source: docs/instructions/rules/coding/stacks/react/foundation.md
+    text: Prefer composition (passing `children`/render props) over deep prop drilling or premature higher-order-component abstractions.
+    text_hash: 9171f4a8e9f3fd22d1e9f4b3f2c14ac057ae0600edb9d95274ae49e2f8d4cf29
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-dc8a
+    source: docs/instructions/rules/coding/stacks/react/localization.md
+    text: Render user-facing copy through the project's i18n library (`react-i18next`, `react-intl`, `next-intl`, etc.) via translation keys; do not hard-code display strings in JSX.
+    text_hash: 9b8d3c94ce6a6841ce3bba1c0ad114bfe06ab532582bbae4a8fde899c8fd6c3b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-88a1
+    source: docs/instructions/rules/coding/stacks/react/localization.md
+    text: Build plurals and interpolated values with the i18n API's plural/format features, not string concatenation, so grammar stays correct per locale.
+    text_hash: 08b24af584343abdea61a4d16d47291fa83ce1c504b78db0fe314fa0a3f5602a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-66d9
+    source: docs/instructions/rules/coding/stacks/react/localization.md
+    text: Format dates, numbers, and currency with `Intl.DateTimeFormat`/`Intl.NumberFormat` (or the i18n library's formatter) bound to the active locale, not manual formatting.
+    text_hash: 2d575a36848231a7958442e39f506744f169317b53a4bd0ab0145b9f3668bb71
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9466
+    source: docs/instructions/rules/coding/stacks/react/localization.md
+    text: In tests, assert on translation keys or test ids rather than translated literals so copy edits do not break tests.
+    text_hash: dfa56e78854ff63dddc75b23eaa80d0bfafe9ec0ac92fdc87676ae01d47c5a45
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-635e
+    source: docs/instructions/rules/coding/stacks/react/localization.md
+    text: Centralize enum-to-label and status-to-copy mapping in one module keyed by translation key, instead of re-deriving labels per component.
+    text_hash: 9b4967e9f9d91f0d6a6544f3c58c50da202933b9e0ea887c4f3a38a2e8c53f54
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bef4
+    source: docs/instructions/rules/coding/stacks/react/modules.md
+    text: Module ownership and boundaries are defined per-project in `docs/instructions/rules/module-map.yml`. Treat it as the source of truth for which feature owns which paths; do not introduce a new top-level feature folder without a corresponding entry there.
+    text_hash: 8406f37b3d5f1ffaebbfba924c02fb328ed7af49a62b7c7a1c83110632d65c56
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-274e
+    source: docs/instructions/rules/coding/stacks/react/modules.md
+    text: Import another feature only through its declared public entry module; do not deep-import its internal components, hooks, or stores.
+    text_hash: bdf1f20c5ea765465dbaa2aa9c645361ea2484770dcac7ba470fbff20c119d7f
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b6ed
+    source: docs/instructions/rules/coding/stacks/react/modules.md
+    text: Keep shared cross-feature code (UI primitives, the API client, utilities) in the shared/common module the map designates, not duplicated inside individual features.
+    text_hash: c6bf597ccf0518c9068b99b131fe5476f6ec9c0230f10d9769746c6116c6b476
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7329
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: Optimize only re-renders you have confirmed are expensive (via the React DevTools Profiler); do not sprinkle `memo`/`useMemo`/`useCallback` speculatively.
+    text_hash: 72b25975737574dd9cfbc5b1895f065d98b85becc71e10bc1345e2d3a6a86987
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-61ce
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: If the project has React Compiler enabled, do not add manual `memo`/`useMemo`/`useCallback` — let the compiler memoize. Without the compiler, wrap a child in `React.memo` only when it re-renders often with unchanged props, and pass it stable callbacks/objects via `useCallback`/`useMemo`.
+    text_hash: 4f6a6029424593a4c8b849dd88295c37df49de08c620ad8f1dce1ac9af4a33a6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e1cc
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: Code-split heavy or rarely used routes/components with `React.lazy` + `<Suspense>` (or the framework's route-level lazy loading) instead of shipping everything in the initial bundle.
+    text_hash: 05613494fec1d34316a09bb5f74379fbb7454b354f136552d04d4197804194fb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a60d
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: Give every `<Suspense>` a meaningful `fallback`, and place boundaries so a slow section does not block unrelated UI.
+    text_hash: b23c2b531a57cc294e5b98303983f444f170167fd0548184374ade5481a3f85b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a12f
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: "Avoid request waterfalls: start independent fetches in parallel (`Promise.all` or parallel queries) rather than awaiting them sequentially; let the data library dedupe and cache."
+    text_hash: 11f47bfa49320bc6f9f54873f9d6e7c69085f06346751aa5605ccf55b559c5d2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-db9c
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: Virtualize long lists (`@tanstack/react-virtual` or similar) instead of rendering thousands of DOM nodes.
+    text_hash: d93b3f480e79144a5879037af60189ff2168549f0ee1b56c441fddf56ce0d0c1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6285
+    source: docs/instructions/rules/coding/stacks/react/performance.md
+    text: Use the `key` prop to reset component state intentionally; avoid changing keys on every render, which forces full remounts.
+    text_hash: 369b00e212bc4b3aa7955373bf4461554745b5118f8b961f38518d06ddcd9ab0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8fc9
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: Do not pass unsanitized or user-controlled HTML to `dangerouslySetInnerHTML`; if you must render HTML, sanitize it first with `DOMPurify`. Prefer rendering text as children (React escapes it).
+    text_hash: 2972c778cd6db62bf112f9c7a2a9bf9811da37e91c4e7aeee9cb92483faa65bf
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ef16
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: Never build `href`/`src` from user input without validating the scheme — reject `javascript:` and `data:` URLs to prevent script execution on click.
+    text_hash: c859c73b4d432d6e15b8ff80183c6992593e0bebf0e909a9d68a42ad3e410205
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8d95
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: "Treat the client as untrusted: enforce authentication and authorization on the server/API for every mutation; client-side route guards are UX only, not a security boundary."
+    text_hash: 7bc5a1901a10bb89bc630f41e60c3740310eba2217492fc0af179af881600aba
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5ab2
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: Keep secrets and privileged API calls server-side (server components, route handlers, or a backend); anything in client code or a browser-exposed env var is public.
+    text_hash: 21e90f0586e76d915766190daa3285c8237e8ad63daaa3fe8a1e9ac4b2d41bcc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0743
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: Store auth tokens in `HttpOnly`, `Secure`, `SameSite` cookies rather than `localStorage`, which is readable by any injected script.
+    text_hash: 069e7d69a5116f7f7e82b9c271c009dbed80e9f1e15ad1e4e8c2d9504c19fcc9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-faf7
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: Add `rel="noopener noreferrer"` to any `target="_blank"` link to external origins to prevent reverse-tabnabbing.
+    text_hash: 24bcb816fe72d68175ff60311c34888ee631b25945297626cbf2389d4796da34
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c31e
+    source: docs/instructions/rules/coding/stacks/react/security.md
+    text: Validate and type all data crossing a trust boundary (API responses, URL params, `postMessage`) with a schema validator before use; do not assume response shapes.
+    text_hash: f3e1928012830c7c9ef4894f9390a9a2dcf36e4c8c33dd11ebae50f64e13b626
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1d01
+    source: docs/instructions/rules/coding/stacks/react/testing.md
+    text: Write component tests with React Testing Library on Vitest or Jest; render the component and assert on what the user sees and does, not on internal state or implementation details.
+    text_hash: cd6b6d778a01f16509f0743a3e09ce20b40a8e9b8a99e822a4da916a20976034
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ad5c
+    source: docs/instructions/rules/coding/stacks/react/testing.md
+    text: Query by accessible role/label/text (`getByRole`, `getByLabelText`, `findByText`); avoid `container.querySelector` and test-id queries except as a last resort.
+    text_hash: e9f76ee33e69b3cf73787e564cb88f72a830ef6ab90866f15662f0462bf23478
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7891
+    source: docs/instructions/rules/coding/stacks/react/testing.md
+    text: Drive interactions with `@testing-library/user-event` (not raw `fireEvent`) so events match real browser sequences (focus, keydown, input).
+    text_hash: 9d7f16b6333233dd1a675c494a1ba503861b208cb8026cacfb7f463333c7896b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5f71
+    source: docs/instructions/rules/coding/stacks/react/testing.md
+    text: Await async UI with `findBy*` / `waitFor`; wrap state-updating interactions so no "act(...)" warnings appear — treat those warnings as test failures to fix.
+    text_hash: 8d3033bbcbef30c50f80caa8ba0b392459ceeb789252e6ac8dc1c00af9869d48
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1250
+    source: docs/instructions/rules/coding/stacks/react/testing.md
+    text: Mock network at the boundary with MSW rather than stubbing `fetch` or the data-library hooks, so tests exercise real request/response handling.
+    text_hash: 5bd600282037135ac3925f4c7a1efd0094f403c0fe165de1899b2136a079bafa
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9412
+    source: docs/instructions/rules/coding/stacks/react/testing.md
+    text: Cover the meaningful branches of changed behavior — success, loading, empty, and error states — not just the happy path.
+    text_hash: e051b0a4703cb6342f2591b28c17b7faaa66d0b8ed2dab701412a3ee6136c3cc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-eb09
+    source: docs/instructions/rules/coding/stacks/react/testing.md
+    text: Reserve end-to-end browser tests (Playwright/Cypress) for critical user journeys; do not duplicate unit-level logic there.
+    text_hash: a5ccfa01751fd02d94eb09b4fb87d5dad53a7c5c24a2554cf59fd8bc19b58e23
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4560
+    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
+    text: Every async/data-driven view must render explicit loading, empty, success, and error states; never leave a blank screen while a request is pending or after it fails.
+    text_hash: 89e29ac4bf7a51cebbba6cb7a4e66b4508131f322ee6ad9b460d9b6dbcadef62
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3205
+    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
+    text: Wrap render-time failures in an error boundary (a class component with `getDerivedStateFromError`/`componentDidCatch`, or your router's `errorElement`) so one broken subtree does not blank the whole app; effect/handler errors must be caught explicitly.
+    text_hash: e2a6ccc9ca4d51a12dccc944c1ced4420655c1d0e13fba1fa1467f048f63b76a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-23fd
+    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
+    text: Disable submit buttons and guard against duplicate submission while a mutation is in flight; re-enable on success or error.
+    text_hash: ead81e755a6e8fd5a7effa56c355e8037853a7efae73e462b74c9137f205826d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7cb6
+    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
+    text: Require explicit confirmation for destructive or irreversible actions before performing them.
+    text_hash: 7ddd9a00212956c221a396ca3f382e82469f432b583c2190c8ac7ebf89fe65b6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8dcf
+    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
+    text: "Keep interactive elements accessible: real `<button>`/`<a>` for clicks/navigation (not click-handled `<div>`s), labels associated with inputs, and visible focus states."
+    text_hash: c90b6600a38aaa50c1e129d3a20886550de8dd102b9d8a5dbe4992531d511bfb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5188
+    source: docs/instructions/rules/coding/stacks/react/ui-safety.md
+    text: "Preserve valid navigation: after a route change keep a working back path and re-apply route guards; do not strand the user on a protected or 404 route with no way out."
+    text_hash: c2fe5b4f9895e2a9b82386ece90672121c05b6a59e2fc9d54c6facbc7d2c65ff
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b022
+    source: docs/instructions/rules/content/attribution.md
+    text: Attribute externally-derived facts, metrics, and claims whenever the source is known.
+    text_hash: b4184306f1b3c58cec1b037ecef5b946a2b1ce5811e4b540d68bca222b062384
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-deee
+    source: docs/instructions/rules/content/attribution.md
+    text: Distinguish observed facts from recommendations and inference.
+    text_hash: b0a634adc97f177e79fdb122aa49f840629422f7d9d58719c372740c184d52ea
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7134
+    source: docs/instructions/rules/content/attribution.md
+    text: Do not present guessed numbers or unsupported product claims as verified.
+    text_hash: 0a4b74ba78670176bb109a9192e7ff6ed2df3dc7bf6d5a91a6219f6076022b87
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-259d
+    source: docs/instructions/rules/content/code-snippets.md
+    text: Include code only when it helps explain the content.
+    text_hash: 4f0efeb270f048ebd4db7fc7ca98b6cba8850762d6ee86611a3e2f33781e55e2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1cfc
+    source: docs/instructions/rules/content/code-snippets.md
+    text: Keep snippets short and anchored to the reader task.
+    text_hash: 81d51b5c056fa70956a399f987bc448d2e19c084ee5c420dfffe2e56cdb43eee
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-de84
+    source: docs/instructions/rules/content/code-snippets.md
+    text: Prefer paraphrase plus a focused snippet over long pasted code blocks.
+    text_hash: 397c0f74d6a0c074b803db0323d6f898cd6b384e1f655ae1123ff8aaf6c399e2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4409
+    source: docs/instructions/rules/content/code-snippets.md
+    text: When coding context is active, align code examples with the detected stack and conventions.
+    text_hash: f802faaaf83033c05976eb62669b291e36a8c99365b17bc9b947865784adf4ff
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4826
+    source: docs/instructions/rules/content/markdown.md
+    text: Use headings that reflect the reader task.
+    text_hash: 604438c50de3957983fdc686f97e0101613acfb7905563ae54158ac64d096d9c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5efa
+    source: docs/instructions/rules/content/markdown.md
+    text: Keep paragraphs short and lists flat.
+    text_hash: 3c7f5a5bb5ca6be25f1421e689b71945df53803cb39699121a8e234476406eff
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0404
+    source: docs/instructions/rules/content/markdown.md
+    text: Use tables only when they improve comparison clarity.
+    text_hash: d5b8cc5ac1255f6803db9fd6b9617c3038a6d1e657697cb4f9f783bbb4cd4ced
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3501
+    source: docs/instructions/rules/content/markdown.md
+    text: Avoid filler introductions and repetitive recap sections.
+    text_hash: 5a78f0d8db8bcb172f357cbc5aa1ecca550c6dc61363f9f61032a18f8b96d911
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2266
+    source: docs/instructions/rules/content/writing.md
+    text: Lead with the user outcome, not internal process notes.
+    text_hash: 0c76adb31b3dfa1b18369c293109642f10357840e8caf67e5818727f80d35ecc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-31b9
+    source: docs/instructions/rules/content/writing.md
+    text: Prefer short sections, scannable headings, and explicit next actions.
+    text_hash: 5c755a3e2b88025279e3451cce30b81727965100f8ca96275d3c1a09942ab25d
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-20e4
+    source: docs/instructions/rules/content/writing.md
+    text: Keep tone consistent with the project or provided style guide.
+    text_hash: 875533b9faf9c4d97651ba71f02b39b849a5b7a8fb72b2d3234f4d2aa1ae74ea
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1192
+    source: docs/instructions/rules/content/writing.md
+    text: Convert vague asks into a concrete structure before drafting.
+    text_hash: ef9035806513f9993c965545e12f2e7807a2e36df387b2a1c3d824cbba3095e2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c3ba
+    source: docs/instructions/rules/content/writing.md
+    text: If the project also has coding active, pull technical context from the stack and keep it accurate.
+    text_hash: 24e994100089011e26ad74b7ba025b0ae6ecdbd8c8d6043c7cdc114afd00aebb
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4e97
+    source: docs/instructions/rules/security/pentest.md
+    text: '"run pentest", "run a penetration test", "pentest the app", "security audit", "run security scan"'
+    text_hash: e61a3c41c12cbfc20a045c194edca63d8254f33652230a61877ea268af686d03
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-96c8
+    source: docs/instructions/rules/security/pentest.md
+    text: Load all module documentation from `docs/modules/` for the relevant modules.
+    text_hash: 9fe1f314c4b53cd46c465d9610a810453e47fd3f8f6786c5e48724281fea2498
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0f89
+    source: docs/instructions/rules/security/pentest.md
+    text: Load test files from `tests/` for the relevant modules.
+    text_hash: 18f9606fef8aff4e14424c581ffe94fc81c8e382ca949dd65bbe2b452e402827
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4563
+    source: docs/instructions/rules/security/pentest.md
+    text: Write a `docs-summary.json` and `tests-summary.json` artefact to `.paqad/pentest/runs/<run_id>/artifacts/`.
+    text_hash: d7d1344c7d7c3734c18972f133695d287d21969554dbeb3cf1e5b5de6a621d7c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0f94
+    source: docs/instructions/rules/security/pentest.md
+    text: "Skills (run **in this order** — STRIDE must run first so all other skills can reference the threat inventory):"
+    text_hash: ba0fb85b2abed95393561887eb700a36317a86a6c6beba65892ba6e809e5e35b
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-fda1
+    source: docs/instructions/rules/security/pentest.md
+    text: "Skills: `dependency-advisory-triage`"
+    text_hash: 0b3a5e067f23169b52f200de69b3b2ae2246e28b0b6d8f2871667a2fd9670527
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e88e
+    source: docs/instructions/rules/security/pentest.md
+    text: If a target URL is available (from the request text, `.env` APP_URL, or `project-profile.yaml`), run `pentest-runtime-checks.sh` against it.
+    text_hash: 8464912214625341ac41304137583393437eb9ecf2ab00f201440335ca31f6ee
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-df95
+    source: docs/instructions/rules/security/pentest.md
+    text: "The runtime checks script must cover:"
+    text_hash: 2a7f3b7e27628735f8648128cf0935ba4a4a25f73b39884f99f3f8635dc405a0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a16f
+    source: docs/instructions/rules/security/pentest.md
+    text: Base reachability (HTTP 200 on home/health)
+    text_hash: a59ef40976d19bf2fd8cf0340d0701d3de82183e60dff5d8cc18043ee335cf9c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-c4bf
+    source: docs/instructions/rules/security/pentest.md
+    text: Security header audit (HSTS, X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy)
+    text_hash: 3230499dc4cc5b224ce0345a217e647162728a8230ca5a774fb078e300a0fc7e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-464a
+    source: docs/instructions/rules/security/pentest.md
+    text: CORS header probe on at least one authenticated endpoint
+    text_hash: 2e3ef2b3cb81b9a48ffedbb08b66d75aa97590577b24979bf34066e67f11555c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8ec6
+    source: docs/instructions/rules/security/pentest.md
+    text: Error disclosure probe (trigger a 404 and a malformed request; check for stack traces in response)
+    text_hash: 4511bf7d511287bce9d73da0140ceb7f367a58bd368d6dc0f4ce649818482643
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7b89
+    source: docs/instructions/rules/security/pentest.md
+    text: Open redirect probe on known redirect/callback parameters
+    text_hash: be2ae1b73106715091f1a446a5f5b3accd98d7d1cf95567623ecad209336d514
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2c52
+    source: docs/instructions/rules/security/pentest.md
+    text: Sensitive file exposure (`/.env`, `/.git/config`, `/phpinfo.php`)
+    text_hash: 285593f0b5733c88da1fb8ce6d1f2d60cccea9a6719c8217459e24d1634677e1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5a42
+    source: docs/instructions/rules/security/pentest.md
+    text: GraphQL introspection probe (`{ __schema { types { name } } }`)
+    text_hash: 0ac96073eba4355d366a0bdcf330c53e5fe98475a87d2076c1770b35cc4e9949
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-3b87
+    source: docs/instructions/rules/security/pentest.md
+    text: Rate limit probe on login endpoint (10 rapid requests; check for 429 response)
+    text_hash: 784e5c54a092efff57f9686d71ea70829aa23a30bb5c9205378bd236150239e6
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1024
+    source: docs/instructions/rules/security/pentest.md
+    text: If no URL is found, record the check as blocked and continue.
+    text_hash: c7a417ebf8c749d327bba364cad065e2599626042f70f848f8ab54c0eb45b06c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0488
+    source: docs/instructions/rules/security/pentest.md
+    text: "Skills: `runtime-surface-probing`"
+    text_hash: d85248783657763543b94b3f78beb82118a6555e13145fece0f9bd165262edaf
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-a5d4
+    source: docs/instructions/rules/security/pentest.md
+    text: "**Dependency findings**: from lockfile audit and OSV results"
+    text_hash: 995a00fa1df38dca76e49c3e101ec522442a955325b6daeb2e190c88aff4ab6c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0277
+    source: docs/instructions/rules/security/pentest.md
+    text: "**Module findings**: from doc and test coverage gaps (all 8 skill categories)"
+    text_hash: 313b7f4ff6353dc6699b6cdaec36dd26485206e1c6e21425192358093bb15ed3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1bf4
+    source: docs/instructions/rules/security/pentest.md
+    text: "**Secret findings**: from secret scan and git history scan output"
+    text_hash: 471d0bde93b96d61edc38582de269b0a981da015ad39a60bdec9f957a9fc5096
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-b041
+    source: docs/instructions/rules/security/pentest.md
+    text: "**Runtime findings**: from live-validation results (if available)"
+    text_hash: 42b39dc886db328568576b5a0c43ca9c31fe922dfd824e7854726b23a783a44e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5fa0
+    source: docs/instructions/rules/security/pentest.md
+    text: "Skills: `finding-normalizer`"
+    text_hash: c5880b0f108a84a299e472f47c0e0110b40852e0d58a1d00a87f4c40ad3202f3
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-efbb
+    source: docs/instructions/rules/security/pentest.md
+    text: Write a Markdown report to `docs/pentest/<timestamp>.md`
+    text_hash: 15e17dff89ff92964ea2a395160a8582180ed818e3571c9ef567032590d2b6b5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-22e2
+    source: docs/instructions/rules/security/pentest.md
+    text: Write a JSON sidecar to `docs/pentest/<timestamp>.json`
+    text_hash: 2721f70174c1bc3cdc65203e3eae1f99a8be45208623f784de499a8920dc5e42
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-80eb
+    source: docs/instructions/rules/security/pentest.md
+    text: "Include:"
+    text_hash: bbb4694c05740dc4516c009bf6f7939aef251ec6289c0c593648651dbda944db
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-bafb
+    source: docs/instructions/rules/security/pentest.md
+    text: Stack summary and capability profile
+    text_hash: 45961b703711e28fab2a56e4005c4f7336a1a4fc003bdeb42d2459223ddd2b15
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-227d
+    source: docs/instructions/rules/security/pentest.md
+    text: "**OWASP WSTG Coverage Matrix** (see template below)"
+    text_hash: 1f11f4e02dfd08bb5498641b4874d0cf6340c4823f23978442916cdbd1c0002e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6484
+    source: docs/instructions/rules/security/pentest.md
+    text: Ordered findings (critical → high → medium → low)
+    text_hash: 333162786753e24841a76a53bf25785fd7570075978dc0018e9ba9deba7bbdb9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-9fcf
+    source: docs/instructions/rules/security/pentest.md
+    text: Blocked checks with explanation
+    text_hash: 12f4b65e5a2fae5f3d866a3c387b568446639bdd1f57175a3401874c4295c5d5
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-cec7
+    source: docs/instructions/rules/security/pentest.md
+    text: Remediation priorities
+    text_hash: a5972b03866d408daf98a4a5e1c4025deef4226558edc3bb3ed73bcc989a5790
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-42b0
+    source: docs/instructions/rules/security/pentest.md
+    text: Methodology notes
+    text_hash: 960ad6a538948402392e3f41eef3a30ed1d2aca8fc9bf67cb984c529523eb6cc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2cf0
+    source: docs/instructions/rules/security/pentest.md
+    text: Link to the local attack playbook generated in Step 2.5
+    text_hash: ea0a86a36d589f0ba5dc8fb511deefe6c8c2728e8add4450119af672f079ce3e
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-0499
+    source: docs/instructions/rules/security/pentest.md
+    text: Never skip steps. If a script is unavailable, record it in `blocked_checks` and proceed.
+    text_hash: 800dee6c9d18e5e557a59819adad595b54ac8c48a50df147191425980ca1c84c
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7671
+    source: docs/instructions/rules/security/pentest.md
+    text: Do not run destructive operations (no writes to the live database, no mutations via the API).
+    text_hash: 1c4af486db5d519bd9dabaf6bc343d081ecf144954ec75e41c09b97e2af3d438
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-f201
+    source: docs/instructions/rules/security/pentest.md
+    text: Always write both the `.md` report and the `.json` sidecar; downstream retest workflows depend on the sidecar.
+    text_hash: 3e9869d36fda008922111eea58b80af4c5104f00cfbcb0cc8e8e174c241a5ec8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e744
+    source: docs/instructions/rules/security/pentest.md
+    text: The local attack playbook (Step 2.5) is **generated only** — never execute it automatically.
+    text_hash: a5f6b93219cc9993345f88f1d26509e37bc32c88fe7dc5a9b629e0859fe62cc0
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-8060
+    source: docs/instructions/rules/security/pentest.md
+    text: For a retest of an existing report, use the `pentest-retest` workflow instead, referencing the original sidecar path to preserve finding IDs.
+    text_hash: 6d74e6aeb047db4e23d46699170faecc4f4db1d18b3d2f637ab995b7a0b12222
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []

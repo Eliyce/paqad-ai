@@ -43,3 +43,7 @@ market_research=true
 # ── Added in a newer paqad version ────────────────────────────
 # Opt in to complementary analytics instrumentation (issue #241, refined #279). OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc. (env: PAQAD_ANALYTICS_INSTRUMENTATION)
 # analytics_instrumentation=false
+
+# ── Added in a newer paqad version ────────────────────────────
+# Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
+# lean_rules=true

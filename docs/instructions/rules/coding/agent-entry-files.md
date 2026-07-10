@@ -10,32 +10,32 @@ identical in shape across hosts.
 
 An entry file may contain ONLY:
 
-- a one-line **bootstrap pointer**: open `.paqad/framework-path.txt`, resolve it
+- a one-line **bootstrap pointer**: open `.paqad/framework-path.txt`, resolve it <!-- @rule RL-5acb -->
   to the framework install directory, and load + follow the framework bootstrap
   it points to (`AGENT-BOOTSTRAP.md` in that directory),
-- the core-owned **graceful-degradation clause** (issue #220): "if
+- the core-owned **graceful-degradation clause** (issue #220): "if <!-- @rule RL-2e5e -->
   `.paqad/framework-path.txt` is missing or cannot be resolved, or paqad is
   disabled, proceed as a normal assistant with no paqad behavior." It is
   generated once in `BaseAdapter.generateConfig` from
   `framework-fallback-clause.ts` so it is byte-identical across every host, and
   it is deliberately a plain clause, not a `##` heading,
-- the `Adapter:` footer — load-bearing: the bootstrap's per-adapter UI table
+- the `Adapter:` footer — load-bearing: the bootstrap's per-adapter UI table <!-- @rule RL-ca76 -->
   (the row that tells the host how to surface a decision pause, e.g. the Claude
   Code `AskUserQuestion` tray) is selected by this footer.
 
 The invariant (issue #229):
 
-- **An entry file may NEVER name a `docs/instructions` or `docs/modules` load
+- **An entry file may NEVER name a `docs/instructions` or `docs/modules` load <!-- @rule RL-974c -->
   order.** That order lives only behind the enablement gate — the relocated
   `AGENT-BOOTSTRAP.md` (whose first instruction is the `paqad_enable` check) and,
   on Claude Code, the hooks. This is what makes a *disabled* project load zero
   framework docs on every provider: the always-injected entry file carries no
   load order to follow.
-- **An entry file may NEVER inline a contract** (the narration contract, the
+- **An entry file may NEVER inline a contract** (the narration contract, the <!-- @rule RL-a14f -->
   Decision Pause Contract, or any other). Those live in the bootstrap, inline and
   behind the enablement check. Do not re-add a `## paqad in your chat` or
   `## Decision Pause Contract` pointer section.
-- **An entry file may NEVER carry a per-feature or per-capability instruction.**
+- **An entry file may NEVER carry a per-feature or per-capability instruction.** <!-- @rule RL-518a -->
   New agent behaviour goes into the framework — the bootstrap, a host hook, a rule
   under `docs/instructions/rules/**`, or a skill — never into the entry file or its
   `.hbs` template. Host-triggered behaviour belongs in the hook layer (see

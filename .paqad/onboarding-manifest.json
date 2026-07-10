@@ -101,15 +101,17 @@
     "compliance_packs": [],
     "features": {
       "spec_only_mode": false,
-      "market_research": false,
+      "market_research": true,
       "design_research": false,
-      "team_agents": true
+      "team_agents": true,
+      "analytics_instrumentation": false,
+      "lean_rules": true
     },
     "enterprise": {
-      "enabled": false,
-      "evidence_ledger": false,
-      "ai_bom": false,
-      "compliance_citations": false
+      "enabled": true,
+      "evidence_ledger": true,
+      "ai_bom": true,
+      "compliance_citations": true
     },
     "paqad": {
       "enabled": true
@@ -182,7 +184,7 @@
       "verification_plugins": [],
       "escalation_rules": [],
       "decisions": {
-        "ask_threshold": "balanced",
+        "ask_threshold": "strict",
         "max_screens_per_task": 3,
         "idle_timeout_minutes": 30
       }
@@ -309,7 +311,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-06-29T13:19:03.646Z",
+    "timestamp": "2026-07-10T09:08:27.041Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -409,7 +411,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-06-29T13:19:10.931Z",
+  "generated_at": "2026-07-10T09:08:34.248Z",
   "generated_artifacts": [
     {
       "path": "AGENTS.md",
@@ -440,26 +442,6 @@
       "auto_update": true
     },
     {
-      "path": "ANTIGRAVITY.md",
-      "auto_update": true
-    },
-    {
-      "path": ".antigravity/hooks.json",
-      "auto_update": true
-    },
-    {
-      "path": ".antigravity/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".antigravity/cache.json",
-      "auto_update": true
-    },
-    {
-      "path": ".antigravity/memory.json",
-      "auto_update": true
-    },
-    {
       "path": "CLAUDE.md",
       "auto_update": true
     },
@@ -485,94 +467,6 @@
     },
     {
       "path": ".claude/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": "GEMINI.md",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/.gitignore",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/settings.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/settings.hooks.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/cache.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": ".junie/AGENTS.md",
-      "auto_update": true
-    },
-    {
-      "path": ".junie/mcp/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".cursor/rules/paqad.mdc",
-      "auto_update": true
-    },
-    {
-      "path": ".cursor/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".cursor/cache.json",
-      "auto_update": true
-    },
-    {
-      "path": ".cursor/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": ".github/copilot-instructions.md",
-      "auto_update": true
-    },
-    {
-      "path": ".vscode/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".windsurfrules",
-      "auto_update": true
-    },
-    {
-      "path": ".windsurf/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".windsurf/cache.json",
-      "auto_update": true
-    },
-    {
-      "path": ".windsurf/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": ".continue/rules/paqad.md",
-      "auto_update": true
-    },
-    {
-      "path": ".continue/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": "CONVENTIONS.md",
       "auto_update": true
     },
     {
@@ -633,6 +527,10 @@
     },
     {
       "path": "docs/instructions/rules/_shared/observability.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/analytics-instrumentation.md",
       "auto_update": false
     },
     {

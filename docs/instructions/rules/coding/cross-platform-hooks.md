@@ -15,17 +15,17 @@ is the root cause.
 
 Rules:
 
-- **No new `.sh` hook may be wired into a generated host config.** New hooks are
+- **No new `.sh` hook may be wired into a generated host config.** New hooks are <!-- @rule RL-0235 -->
   Node (`.mjs`). Mechanical work that used to live in a shell gate lives in a
   cross-platform `.mjs` instead.
-- **Every wired hook command launches through an explicit interpreter with an
+- **Every wired hook command launches through an explicit interpreter with an <!-- @rule RL-c6c2 -->
   absolute path** — `node "<abs>/hooks/<name>.mjs"`, built by
   `hookCommand()` in `src/adapters/shared/paqad-hooks.ts`. No hook command may
   rely on `~` expansion, a shebang, or the executable bit to launch.
-- **The absolute path is recomputed from the local home dir at generate time**, so
+- **The absolute path is recomputed from the local home dir at generate time**, so <!-- @rule RL-e88d -->
   it stays machine-agnostic across re-onboards rather than baking one machine's
   path into a shared file.
-- **Retired commands are pruned on re-onboard** (a clean cutover, no migration):
+- **Retired commands are pruned on re-onboard** (a clean cutover, no migration): <!-- @rule RL-b07e -->
   the old `.sh` and bare-path `.mjs` forms are removed from an existing config so
   they never linger beside their replacement.
 
