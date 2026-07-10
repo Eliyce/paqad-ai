@@ -24,7 +24,7 @@ A value of `false`, `0`, `no`, or `off` (case-insensitive) means **OFF**. `true`
 
 Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 9 workflows by intent, and narrate the pick in one `▸ paqad` line (see the narration contract):
 
-1. **feature-development** — any change to code. This includes bug fixes, refactors, cleanups, and migrations; the name is just "development". Scope is every code change **except** the `docs/` directory.
+1. **feature-development** — any change to code. This includes bug fixes, refactors, cleanups, and migrations; the name is just "development". Scope is every code change **except** a change confined to the `docs/` and `.paqad/` directories: a change that touches any other directory is feature-development even when it also edits files under `docs/` or `.paqad/`, and only a change made entirely within `docs/` and/or `.paqad/` is out of scope.
 2. **project-question** — answer a question about the project. Check `docs/` first, then the code. No code change.
 3. **documentation-update** — the "create documentation" foundation stage.
 4. **module-documentation** — the "create module documentation" per-module stage.
