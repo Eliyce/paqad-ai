@@ -13,6 +13,7 @@ import { createDisableCommand } from './commands/disable.js';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
+import { createFeatureCommand } from './commands/feature.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
@@ -53,6 +54,7 @@ export function createProgram(): Command {
   program.addCommand(createDashboardCommand());
   program.addCommand(createDoctorCommand());
   program.addCommand(createEvidenceCommand());
+  program.addCommand(createFeatureCommand());
   program.addCommand(createAuditCommand());
   // Hidden deprecated alias (issue #159): the graph is now a dashboard area.
   program.addCommand(createGraphCommand(), { hidden: true });

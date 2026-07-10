@@ -55,6 +55,7 @@ import { type EntryStub, wireEntryStubs } from './entry-stub-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { removeObsoleteContractDocs } from './obsolete-cleanup.js';
 import { writeGitignore } from './gitignore-writer.js';
+import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import {
   readExistingOnboardingManifest,
   writeDetectionReport,
@@ -312,6 +313,10 @@ export class OnboardingOrchestrator {
         );
       }
       writeGitignore(options.projectRoot);
+      // Issue #339 — install the native git-linkage hooks (post-commit/post-merge) so a
+      // feature's delivery.json gets its commit trail on every clone. Chains an existing
+      // hook, is idempotent, and no-ops on a non-git dir — safe to run every onboarding.
+      installGitHooks(options.projectRoot);
       writeDetectionReport(options.projectRoot, detection);
       writeFrameworkMetadata(options.projectRoot, VERSION);
     } catch (error) {

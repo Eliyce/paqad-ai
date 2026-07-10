@@ -1,0 +1,106 @@
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { exportFeatureBundle, pruneFeatureBundles } from '@/feature-evidence/export.js';
+import { writeFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { featureDir } from '@/feature-evidence/paths.js';
+import { pauseActive } from '@/feature-evidence/session-control.js';
+
+const roots: string[] = [];
+function tempRoot(): string {
+  const r = mkdtempSync(join(tmpdir(), 'paqad-fe-export-'));
+  roots.push(r);
+  return r;
+}
+afterEach(() => {
+  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+});
+
+const AT = '2026-07-10T00:00:00.000Z';
+
+describe('exportFeatureBundle', () => {
+  it('collects the feature bundle files into one document (json parsed, jsonl as rows)', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Route first workflows',
+      issue: '339',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    appendFeatureStageRow(root, 'ses_1', dir, {
+      kind: 'stage_start',
+      stage: 'planning',
+      adapter: 'claude-code',
+    });
+    writeFeaturePlan(root, 'ses_1', { summary: 'do the thing', now: () => new Date(AT) });
+
+    const bundle = exportFeatureBundle(root, dir, AT);
+    expect(bundle.dir_name).toBe(dir);
+    // plan.json parsed as an object.
+    expect((bundle.files.plan as { summary?: string }).summary).toBe('do the thing');
+    // stage-evidence.jsonl parsed as a row array (open + stage_start).
+    expect(Array.isArray(bundle.files.stageEvidence)).toBe(true);
+    // Absent files (receipt/ai-bom) are omitted.
+    expect(bundle.files.receipt).toBeUndefined();
+  });
+});
+
+describe('pruneFeatureBundles', () => {
+  it('keeps the N most-recent non-live bundles and removes the rest', () => {
+    const root = tempRoot();
+    // Three features, ULID order 1 < 2 < 3 (time order).
+    const a = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+      ulidSeed: 1,
+    });
+    const b = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'B',
+      issue: null,
+      ulidSeed: 2,
+    });
+    const c = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'C',
+      issue: null,
+      ulidSeed: 3,
+    });
+    // Pause all so none is "active" (else the active one is always kept).
+    pauseActive(root, 'ses_1');
+    // Clear the control entirely so a/b/c are not "live" for this retention test.
+    rmSync(join(root, '.paqad/ledger/feature-evidence/_session'), { recursive: true, force: true });
+
+    const result = pruneFeatureBundles(root, 1);
+    // Only the newest (c) is kept; a + b removed.
+    expect(result.kept).toEqual([c]);
+    expect(result.removed.sort()).toEqual([a, b].sort());
+    expect(existsSync(join(root, featureDir(a)))).toBe(false);
+    expect(existsSync(join(root, featureDir(c)))).toBe(true);
+  });
+
+  it('never removes a feature that is active or paused in a session control', () => {
+    const root = tempRoot();
+    const a = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+      ulidSeed: 1,
+    });
+    const b = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'B',
+      issue: null,
+      ulidSeed: 2,
+    });
+    // a is paused, b is active — both live.
+    const result = pruneFeatureBundles(root, 0);
+    expect(result.removed).toEqual([]);
+    expect(result.kept.sort()).toEqual([a, b].sort());
+  });
+});
