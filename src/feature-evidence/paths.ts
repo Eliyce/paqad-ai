@@ -5,7 +5,11 @@
 // session-ledger convention), so a consumer joins them onto its own project root.
 // Nothing here writes; this is the pure path/name layer the later phases build on.
 
-import { join } from 'node:path';
+// `pathe` (not node:path) so the returned project-relative paths are posix on every
+// platform — the paqad posix-everywhere path contract. These strings are stable keys
+// (the feature dir name) and are compared/persisted, so a Windows backslash would
+// diverge from the same path minted on macOS/Linux.
+import { join } from 'pathe';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { ULID_BODY } from '@/core/ids/ulid.js';
