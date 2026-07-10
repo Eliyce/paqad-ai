@@ -1,10 +1,22 @@
 # Security
 
-Baseline security expectations for every change, regardless of stack.
+Baseline security rules for every change, in every stack. These always load. A stack rule (for example `coding/stacks/react/security.md`) sharpens these with framework specifics; it does not repeat them.
 
-- Never commit secrets, credentials, or tokens. Load them from environment variables or a secrets manager, and keep them out of logs, error messages, and docs.
-- Validate and sanitize all external input at the trust boundary before using it.
-- Use parameterized queries and prepared statements; never assemble SQL, shell commands, or HTML by concatenating untrusted input.
-- Enforce authentication and authorization on every non-public entry point; default to deny.
-- Apply least privilege to integrations, tokens, and file/database access.
-- Confirm destructive or irreversible operations before running them.
+<!-- trigger: ** -->
+
+- Load secrets, credentials, and tokens from environment variables or a secrets manager. MUST NOT commit them or write them into logs, error messages, or docs.
+- Validate and sanitize every external input at the trust boundary before you use it.
+- Build SQL, shell commands, and HTML with parameterized queries, prepared statements, or a safe builder. MUST NOT concatenate untrusted input into them.
+- Enforce authentication and authorization on every non-public entry point, and default to deny when a check is missing.
+- Grant each integration, token, and file or database handle the least privilege it needs.
+- Confirm a destructive or irreversible operation with the user before you run it.
+
+## Verify
+
+```bash
+# No literal secrets staged (tune the pattern to your key formats):
+! git diff --cached | grep -iE '(api[_-]?key|secret|password|token)\s*[:=]\s*["'\''][^"'\'' ]{12,}'
+# String-built SQL to review by hand (each hit is a candidate, not a proof):
+git grep -nE '(SELECT|INSERT|UPDATE|DELETE)\b.*\+\s*[a-zA-Z_]' -- '*.ts' '*.tsx' '*.js'
+# Auth-on-every-entry-point and destructive-op confirmation are manual review against the rules above.
+```

@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/haider.lasani/.paqad-ai/current/hooks/verification-record.mjs\" gemini-cli"
+          }
+        ]
+      }
+    ]
+  }
+}

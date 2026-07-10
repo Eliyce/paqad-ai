@@ -1,9 +1,22 @@
 # React Security
 
-- Do not pass unsanitized or user-controlled HTML to `dangerouslySetInnerHTML`; if you must render HTML, sanitize it first with `DOMPurify`. Prefer rendering text as children (React escapes it).
-- Never build `href`/`src` from user input without validating the scheme — reject `javascript:` and `data:` URLs to prevent script execution on click.
-- Treat the client as untrusted: enforce authentication and authorization on the server/API for every mutation; client-side route guards are UX only, not a security boundary.
-- Keep secrets and privileged API calls server-side (server components, route handlers, or a backend); anything in client code or a browser-exposed env var is public.
-- Store auth tokens in `HttpOnly`, `Secure`, `SameSite` cookies rather than `localStorage`, which is readable by any injected script.
-- Add `rel="noopener noreferrer"` to any `target="_blank"` link to external origins to prevent reverse-tabnabbing.
-- Validate and type all data crossing a trust boundary (API responses, URL params, `postMessage`) with a schema validator before use; do not assume response shapes.
+Loads when you write React UI that handles data, links, or auth. Sharpens `_shared/security.md` with React specifics; it does not repeat the baseline.
+
+- Render user text as children so React escapes it. MUST NOT pass unsanitized HTML to `dangerouslySetInnerHTML`; when HTML is unavoidable, sanitize it with `DOMPurify` first.
+- Validate the scheme before you build an `href` or `src` from user input, and reject `javascript:` and `data:` URLs.
+- Treat client-side route guards as UX only, and enforce every mutation's authorization on the server or API. The client is untrusted.
+- Keep secrets and privileged calls server-side (server components, route handlers, or a backend); anything in client code or a browser-exposed env var is public.
+- Store auth tokens in `HttpOnly`, `Secure`, `SameSite` cookies, not `localStorage`, which any injected script can read.
+- Add `rel="noopener noreferrer"` to every `target="_blank"` link to an external origin, to prevent reverse-tabnabbing.
+- Parse data crossing a trust boundary (API responses, URL params, `postMessage`) with a schema validator before use. MUST NOT assume the shape.
+
+## Verify
+
+```bash
+# dangerouslySetInnerHTML — confirm a sanitizer wraps each hit:
+git grep -n 'dangerouslySetInnerHTML' -- '*.tsx' '*.jsx'
+# target="_blank" missing rel=noopener:
+git grep -n 'target="_blank"' -- '*.tsx' '*.jsx' | grep -v noopener
+# Auth tokens in localStorage:
+git grep -nE 'localStorage\.(set|get)Item\([^)]*(token|jwt|auth)' -- '*.ts' '*.tsx'
+```

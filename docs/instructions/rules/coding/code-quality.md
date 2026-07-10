@@ -1,8 +1,21 @@
 # Code Quality
 
-- Match the surrounding code's style, naming, and structure; read neighboring files before adding new ones.
-- Keep functions small and single-purpose; avoid abstractions not required by the current change.
-- Handle errors explicitly and propagate them with context; no silent catches.
-- Do not leave dead code, commented-out blocks, or unused imports you introduced.
-- Resolve any shared value (filesystem paths, runtime/package roots, config, clients) through the one canonical helper. Never re-derive or hand-copy that logic locally: a divergent copy is a latent bug that ships silently. If no helper exists, add one and route all callers through it. Before writing a path/root resolver, grep for an existing one.
-- Avoid silent last-resort fallbacks (returning a guessed default when resolution fails, or treating an empty result as success). If a lookup that should yield results yields none, surface it as an error instead of degrading quietly.
+How the code you add should read and behave. Loads for code changes.
+
+<!-- trigger: ** -->
+
+- Match the surrounding code's style, naming, and structure, and read the neighboring files before you add a new one.
+- Keep each function small and single-purpose, and add an abstraction only when the current change needs it.
+- Handle errors explicitly and propagate them with context. MUST NOT swallow an error in an empty `catch`.
+- Remove any dead code, commented-out block, or unused import you introduce.
+- Resolve every shared value (filesystem path, runtime or package root, config, client) through its one canonical helper; if none exists, add one and route all callers through it. MUST NOT hand-copy or re-derive that logic locally. A divergent copy ships a silent bug. Grep for an existing resolver before you write a new one.
+- Surface a failed lookup as an error. MUST NOT return a guessed default or treat an empty result as success when results were expected.
+
+## Verify
+
+```bash
+# Dead code and unused imports are caught by the linter:
+pnpm lint
+# Candidate duplicate root/path derivations to route through a helper (review each hit):
+git grep -nE '(os\.homedir\(\)|process\.cwd\(\)|__dirname)' -- 'src/**/*.ts'
+```

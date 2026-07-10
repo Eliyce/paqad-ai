@@ -1,6 +1,10 @@
 # Content Code Snippets
 
-- Include code only when it helps explain the content.
-- Keep snippets short and anchored to the reader task.
-- Prefer paraphrase plus a focused snippet over long pasted code blocks.
-- When coding context is active, align code examples with the detected stack and conventions.
+Loads for content work.
+
+<!-- trigger: ** -->
+
+- Include code only when it explains the point.
+- Keep each snippet short and anchored to the reader's task.
+- Prefer a paraphrase plus a focused snippet over a long pasted block.
+- When coding is active, match snippets to the detected stack and conventions.

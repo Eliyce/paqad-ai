@@ -1,6 +1,10 @@
 # Content Markdown
 
-- Use headings that reflect the reader task.
+Loads for content work.
+
+<!-- trigger: ** -->
+
+- Title each heading by the reader's task.
 - Keep paragraphs short and lists flat.
-- Use tables only when they improve comparison clarity.
-- Avoid filler introductions and repetitive recap sections.
+- Use a table only when it makes a comparison clearer.
+- Cut filler introductions and repeated recap sections.
