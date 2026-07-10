@@ -79,6 +79,28 @@ describe('composeRuleContext', () => {
     expect(md).not.toContain('DOCS FULL TEXT');
   });
 
+  it('preserves inline code spans in the loaded text while the manifest stays corruption-free (#345)', () => {
+    const rawWithCode =
+      '# Frontmatter\n\nUse the documented frontmatter — `name`, `description`, `license`.\n';
+    const md = composeRuleContext(
+      store([
+        rule({
+          rule_id: 'CODE',
+          title: 'Frontmatter',
+          trigger_patterns: ['**'],
+          raw_text: rawWithCode,
+          summary: 'Use the documented frontmatter — `name`, `description`.',
+        }),
+      ]),
+      { changedPaths: ['src/app.ts'] },
+    );
+    // The loaded rule text carries the rule's inline code spans verbatim (round-trip).
+    expect(md).toContain('`name`, `description`, `license`');
+    // The manifest slice (before the loaded text) never emits the corrupted sequence.
+    const manifestSlice = md.split('## Loaded rule text')[0];
+    expect(manifestSlice).not.toContain('`, `');
+  });
+
   it('drops to manifest-only when nothing applies (token floor)', () => {
     const md = composeRuleContext(
       store([rule({ rule_id: 'SCOPED-DOCS', trigger_patterns: ['docs/'] })]),

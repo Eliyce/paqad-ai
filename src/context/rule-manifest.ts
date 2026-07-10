@@ -53,9 +53,15 @@ export function scriptedSourcePaths(map: RuleScriptMap | null): Set<string> {
   return paths;
 }
 
-/** Collapse a multi-line rule summary into one compact, capped line. */
+/**
+ * Collapse a multi-line rule summary into one compact, capped, plain-text line. Backticks
+ * are stripped: the manifest summary is a skimmable teaser (the full, code-formatted rule
+ * text loads on demand), and dropping the backticks guarantees the manifest can never emit
+ * the corrupted `` `, ` `` sequence from a summary that comma-separates inline code.
+ */
 function oneLineSummary(summary: string, maxChars: number): string {
   const flattened = summary
+    .replace(/`/g, '')
     .replace(/\s+/g, ' ')
     .replace(/^[-*]\s*/, '')
     .trim();
@@ -63,9 +69,16 @@ function oneLineSummary(summary: string, maxChars: number): string {
   return `${flattened.slice(0, maxChars - 1).trimEnd()}…`;
 }
 
+/** Render one trigger pattern as a single, backtick-free code span (space is the separator). */
+function renderTrigger(pattern: string): string {
+  return `\`${pattern.replace(/`/g, '').replace(/\s+/g, '')}\``;
+}
+
 function manifestLine(rule: CompiledRule, scripted: ReadonlySet<string>, maxChars: number): string {
+  // Space-join the trigger spans (never `, `) so the manifest cannot carry the corrupted
+  // `` `, ` `` token sequence; each pattern is a single backtick-free span.
   const triggers = rule.trigger_patterns.length
-    ? rule.trigger_patterns.map((p) => `\`${p}\``).join(', ')
+    ? rule.trigger_patterns.map(renderTrigger).join(' ')
     : '`**`';
   const script = scripted.has(rule.source_path) ? ` ${SCRIPT_GLYPH}` : '';
   const summary = oneLineSummary(rule.summary, maxChars);

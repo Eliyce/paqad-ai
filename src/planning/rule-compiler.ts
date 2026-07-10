@@ -139,12 +139,45 @@ function compileRuleContent(file: string, raw: string, ordinal: number): Compile
   };
 }
 
+/**
+ * Whether a candidate string looks like a file path / glob trigger, as opposed to prose
+ * or a code fragment. A trigger is a single path-shaped token: no whitespace, drawn from
+ * the path/glob charset, length-bounded, and carrying a path signal — a separator (`/`),
+ * a glob wildcard (`*` / `?`), or a file-extension dot. This is the gate that keeps the
+ * inline-code fallback from scooping up arbitrary backtick spans (identifiers, prose, and
+ * multi-line code-fence contents) as "triggers", which previously exploded the manifest
+ * and produced the `` `, ` `` corruption when those junk patterns were comma-joined.
+ */
+export function looksLikeTriggerPattern(candidate: string): boolean {
+  if (!candidate || candidate.length > 120) return false;
+  if (/\s/.test(candidate)) return false;
+  if (!/^[A-Za-z0-9_./*?@{}[\]-]+$/.test(candidate)) return false;
+  return candidate.includes('/') || /[*?]/.test(candidate) || /\.[A-Za-z0-9]+$/.test(candidate);
+}
+
+/**
+ * Derive a rule's trigger patterns. An explicit `<!-- trigger: a, b -->` directive is
+ * authoritative and taken verbatim. Otherwise triggers are inferred from inline-code spans,
+ * but ONLY the ones that look like a path/glob ({@link looksLikeTriggerPattern}) — after
+ * stripping fenced code blocks so a ``` block's contents never leak in. A doc with no
+ * path-shaped inline code yields `[]` (the caller falls back to `**`, the safe over-include),
+ * never a dropped or corrupted trigger.
+ */
 function extractTriggerPatterns(raw: string): string[] {
   const explicitDirective = raw.match(/<!--\s*trigger:\s*([^>]+)\s*-->/i)?.[1];
-  const candidates = explicitDirective
-    ? explicitDirective.split(',').map((value) => value.trim())
-    : Array.from(raw.matchAll(/`([^`]+)`/g), (match) => match[1].trim());
-  return [...new Set(candidates.filter(Boolean))];
+  if (explicitDirective) {
+    return [
+      ...new Set(
+        explicitDirective
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    ];
+  }
+  const withoutFences = raw.replace(/```[\s\S]*?```/g, '');
+  const candidates = Array.from(withoutFences.matchAll(/`([^`]+)`/g), (match) => match[1].trim());
+  return [...new Set(candidates.filter(looksLikeTriggerPattern))];
 }
 
 function inferSeverity(raw: string): RequirementPriority {

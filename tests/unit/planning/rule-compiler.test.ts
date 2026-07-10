@@ -94,6 +94,51 @@ describe('rule-compiler and injection', () => {
     await expect(isCompiledRulesStale(join(root, 'missing'))).resolves.toBe(true);
   });
 
+  it('keeps only path/glob-shaped inline code as triggers, never prose or code fences (#345)', async () => {
+    // A doc modelled on skill-authoring.md: a real path trigger, prose inline code that is
+    // NOT a path, and a fenced code block (a directory tree) that must never leak in.
+    writeFileSync(
+      join(root, 'docs/instructions/rules/coding/skill-authoring.md'),
+      [
+        '# Skill Authoring',
+        '',
+        'Every skill in `runtime/**/skills/*` must obey this contract.',
+        '',
+        '```',
+        '<skill-name>/',
+        '├── SKILL.md          # required',
+        '└── scripts/          # optional',
+        '```',
+        '',
+        'Use the documented frontmatter — `name`, `description`. Keep `SKILL.md` lean.',
+      ].join('\n'),
+    );
+
+    const compiled = await compileRules(root);
+    const rule = compiled.rules.find((r) => r.title === 'Skill Authoring')!;
+    // The one real path glob is kept; the filename `SKILL.md` (extension dot) is kept;
+    // prose tokens (`name`, `description`) and the fenced-block contents are dropped.
+    expect(rule.trigger_patterns).toContain('runtime/**/skills/*');
+    expect(rule.trigger_patterns).toContain('SKILL.md');
+    expect(rule.trigger_patterns).not.toContain('name');
+    expect(rule.trigger_patterns).not.toContain('description');
+    // No multi-line / fenced content survived as a "trigger".
+    for (const pattern of rule.trigger_patterns) {
+      expect(pattern).not.toMatch(/\s/);
+      expect(pattern).not.toContain('skill-name');
+    }
+  });
+
+  it('falls back to ** when a doc has no path-shaped inline code (#345)', async () => {
+    writeFileSync(
+      join(root, 'docs/instructions/rules/coding/prose.md'),
+      '# Prose\n\nInstrument every `event` and log each `outcome`.\n',
+    );
+    const compiled = await compileRules(root);
+    const rule = compiled.rules.find((r) => r.title === 'Prose')!;
+    expect(rule.trigger_patterns).toEqual(['**']);
+  });
+
   it('excludes a `gate:`-tagged rule when its flag is off — zero bytes compiled (issue #279)', async () => {
     writeFileSync(
       join(root, 'docs/instructions/rules/coding/architecture.md'),
