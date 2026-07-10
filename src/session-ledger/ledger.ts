@@ -30,7 +30,7 @@ import {
   readdirSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
@@ -168,15 +168,15 @@ export interface AppendOptions {
 
 /**
  * Stamp the envelope (`schema_version` / `doc_type` / `session_id` / script-clock `ts`
- * / `content_hash`) onto a caller row, validate it, and append one JSONL line to the
- * unit's file. Returns the stamped row. Throws when the validator rejects the row (a
- * script bug, never silently swallowed).
+ * / `content_hash`) onto a caller row and validate it. Returns the stamped row without
+ * touching disk. Throws when the validator rejects the row (a script bug, never
+ * silently swallowed). Split out from {@link appendSessionEvent} so a consumer keyed on
+ * a different path (the per-feature stage ledger, issue #339) reuses the identical
+ * stamping + validation without the session/ordinal path computation.
  */
-export function appendSessionEvent(
-  projectRoot: string,
+export function stampSessionRow(
   docType: string,
   sessionId: string,
-  ordinal: number,
   row: Record<string, unknown>,
   options: AppendOptions = {},
 ): SessionLedgerRow {
@@ -199,9 +199,46 @@ export function appendSessionEvent(
       throw new Error(`Invalid ${docType} row: ${errors.join('; ')}`);
     }
   }
-  const dir = absDir(projectRoot, docType, sessionId);
-  mkdirSync(dir, { recursive: true });
-  appendFileSync(join(dir, `${ordinal}.jsonl`), `${JSON.stringify(stamped)}\n`, 'utf8');
+  return stamped;
+}
+
+/**
+ * Append a pre-stamped row as one JSONL line to an ARBITRARY project-relative unit
+ * file, creating its directory. The path-agnostic writer the per-feature stage ledger
+ * (#339) rides on: the feature bundle keeps its `stage-evidence.jsonl` inside the
+ * feature dir, not under `<docType>/<session>/<ordinal>`.
+ */
+export function appendStampedRowToUnit(
+  projectRoot: string,
+  unitRelPath: string,
+  stamped: SessionLedgerRow,
+): void {
+  const abs = join(projectRoot, unitRelPath);
+  mkdirSync(dirname(abs), { recursive: true });
+  appendFileSync(abs, `${JSON.stringify(stamped)}\n`, 'utf8');
+}
+
+/** Tolerant read of an ARBITRARY project-relative unit file (skips malformed lines). */
+export function readUnitFile(projectRoot: string, unitRelPath: string): SessionLedgerRow[] {
+  return readJsonl(join(projectRoot, unitRelPath));
+}
+
+/**
+ * Stamp the envelope (`schema_version` / `doc_type` / `session_id` / script-clock `ts`
+ * / `content_hash`) onto a caller row, validate it, and append one JSONL line to the
+ * unit's file. Returns the stamped row. Throws when the validator rejects the row (a
+ * script bug, never silently swallowed).
+ */
+export function appendSessionEvent(
+  projectRoot: string,
+  docType: string,
+  sessionId: string,
+  ordinal: number,
+  row: Record<string, unknown>,
+  options: AppendOptions = {},
+): SessionLedgerRow {
+  const stamped = stampSessionRow(docType, sessionId, row, options);
+  appendStampedRowToUnit(projectRoot, sessionLedgerPath(docType, sessionId, ordinal), stamped);
   return stamped;
 }
 

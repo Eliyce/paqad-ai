@@ -114,6 +114,17 @@ export const PATHS = {
   // envelope per line); EVIDENCE_RECEIPT/EVIDENCE_AI_BOM are the latest snapshots.
   EVIDENCE_LEDGER_DIR: '.paqad/ledger',
   EVIDENCE_LEDGER: '.paqad/ledger/evidence.jsonl',
+  // Issue #339 (Phase 1, dark) - per-feature evidence bundle. Each feature gets
+  // ONE directory `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` that is
+  // its whole workflow record + compliance bundle; the dir name is the change key.
+  // `_session/<sessionId>.json` holds the per-session active + paused-feature stack
+  // and lane; `_chat/<sessionId>/` is the separate home for non-feature activity.
+  // Container inherits the `ledger/` git-ignore. Added dark in Phase 1 (path layer
+  // + schemas + session control); nothing writes here until the re-key phase wires
+  // the recorder in.
+  FEATURE_EVIDENCE_DIR: '.paqad/ledger/feature-evidence',
+  FEATURE_EVIDENCE_SESSION_DIR: '.paqad/ledger/feature-evidence/_session',
+  CHAT_LEDGER_DIR: '.paqad/ledger/_chat',
   // Issue #249 - the lazily-minted, per-machine session id shared by the
   // session-scoped evidence ledgers (rag-evidence #249, stage-evidence #247) when
   // the host provides no session id of its own. `ses_<ulid>`, cached here.

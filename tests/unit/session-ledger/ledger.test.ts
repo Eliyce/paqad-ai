@@ -8,6 +8,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import {
   allocateOrdinal,
   appendSessionEvent,
+  appendStampedRowToUnit,
   closeSessionOrdinal,
   computeSessionRowHash,
   currentOrdinal,
@@ -17,8 +18,10 @@ import {
   readAllSessionRows,
   readSessionDoc,
   readSessionUnit,
+  readUnitFile,
   sessionLedgerPath,
   sessionOpenPointerPath,
+  stampSessionRow,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 
@@ -26,6 +29,43 @@ const DOC = 'paqad.test-doc';
 const SESSION = 'ses_abc';
 let now = 0;
 const clock = () => new Date(1_700_000_000_000 + now++ * 1000);
+
+describe('path-agnostic row primitives (#339)', () => {
+  const roots: string[] = [];
+  function root(): string {
+    const r = mkdtempSync(join(tmpdir(), 'paqad-unit-prim-'));
+    roots.push(r);
+    return r;
+  }
+  afterEach(() => {
+    while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+  });
+
+  it('stamps, appends to an arbitrary unit path, and reads it back', () => {
+    const r = root();
+    const rel =
+      '.paqad/ledger/feature-evidence/339-x-01JABCDEFGHJKMNPQRSTVWXYZ0/stage-evidence.jsonl';
+    let n = 0;
+    const clk = () => new Date(1_700_000_000_000 + n++ * 1000);
+    const stamped = stampSessionRow(DOC, SESSION, { kind: 'open', k: 1 }, { now: clk });
+    appendStampedRowToUnit(r, rel, stamped);
+    const rows = readUnitFile(r, rel);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ doc_type: DOC, session_id: SESSION, kind: 'open', k: 1 });
+    expect(typeof rows[0].content_hash).toBe('string');
+    expect(rows[0].content_hash).toBe(stamped.content_hash);
+  });
+
+  it('readUnitFile returns [] for an absent file', () => {
+    expect(readUnitFile(root(), '.paqad/ledger/nope/none.jsonl')).toEqual([]);
+  });
+
+  it('stampSessionRow throws when its validator rejects the row', () => {
+    expect(() =>
+      stampSessionRow(DOC, SESSION, { kind: 'open' }, { validate: () => ['bad row'] }),
+    ).toThrow(/Invalid paqad.test-doc row: bad row/);
+  });
+});
 
 describe('session-ledger substrate (#249 P0)', () => {
   let root: string;
