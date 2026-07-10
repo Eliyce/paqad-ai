@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  DECISION_PAUSE_REMINDER,
   RULES_MISSING_FALLBACK_MARKER,
   composeRuleContext,
   refreshRuleContext,
@@ -223,6 +224,8 @@ describe('refreshRuleContext', () => {
       expect(written).not.toContain('paqad rule manifest');
       expect(written).not.toContain('ALWAYS TEXT');
       expect(written).not.toContain(RULES_MISSING_FALLBACK_MARKER);
+      // #345 G5 — the decision-pause reminder is a feature-development-only obligation.
+      expect(written).not.toContain(DECISION_PAUSE_REMINDER);
     });
 
     it('composes nothing (null) when loadRules is false and there is no other section', async () => {
@@ -238,6 +241,8 @@ describe('refreshRuleContext', () => {
       const written = readFileSync(target as string, 'utf8');
       expect(written).toContain('paqad rule manifest');
       expect(written).toContain('ALWAYS TEXT');
+      // #345 G5 — the decision-pause reminder rides with the feature-development rule slice.
+      expect(written).toContain(DECISION_PAUSE_REMINDER);
     });
   });
 

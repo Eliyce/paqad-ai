@@ -54,6 +54,19 @@ export const LEAN_RULE_CONTEXT_BUDGET_BYTES = 16_384;
 export const RULES_MISSING_FALLBACK_MARKER =
   '> ⚠️ No compiled rules in this artifact — load `docs/instructions/rules/` in full before relying on rules.';
 
+/**
+ * The compact Decision Pause Contract reminder (issue #345 G5) injected into the
+ * feature-development rule slice so the model reliably pauses on a real fork instead of
+ * deciding it unilaterally. It rides with the rules — a feature-development-only obligation —
+ * and is never emitted on a non-feature-development route (composed only when `loadRules`).
+ * Kept to two lines: the categories that require a packet, and the one CLI verb that mints it.
+ */
+export const DECISION_PAUSE_REMINDER =
+  '## Decision pause is active\n' +
+  '> Before a create-vs-reuse, shared-abstraction, architecture-path, component-reuse, ' +
+  'workflow-or-tool, or ux-pattern choice, write a decision packet and pause for the human ' +
+  '(`npx paqad-ai decision create …`) — do not decide it unilaterally.';
+
 export interface RuleSelection {
   /** Rules that apply to every change (`**` / untriggered). */
   alwaysLoad: CompiledRule[];
@@ -176,6 +189,12 @@ export async function writeRuleContext(
     const changedPaths = (await loadChangeEvidence(projectRoot)).files;
     const scriptedPaths = scriptedSourcePaths(loadRuleScriptMap(projectRoot));
     markdown = composeRuleContext(store, { changedPaths, scriptedPaths });
+    // #345 G5 — surface the Decision Pause Contract in the feature-development rule slice
+    // (loadRules is true only on that route), so the pause instruction reliably reaches the
+    // model each turn rather than sitting past the truncation cut of the old monolith.
+    if ((store.rules?.length ?? 0) > 0) {
+      markdown = `${markdown}\n${DECISION_PAUSE_REMINDER}\n`;
+    }
   }
   // Durable memory (F21) → ephemeral retrieval slices (F11) → base-drift heads-up (F27).
   for (const section of [memorySection, retrievalSection, driftSection]) {
