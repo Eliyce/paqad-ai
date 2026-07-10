@@ -21,6 +21,8 @@ import { executeRuleScript, missingBinaries, type Finding } from './execute.js';
 import { parseScriptHeader } from './header.js';
 import { loadRuleScriptMap } from './map.js';
 import { recordRuleFindings } from './rule-ledger.js';
+import { appendRuleRun } from '@/feature-evidence/bundle-ledgers.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { RuleScriptMap, ScriptEntry } from './types.js';
 
 export type RuleComplianceMode = 'off' | 'warn' | 'strict';
@@ -243,6 +245,17 @@ export function runRuleScripts(opts: RunOptions): RunReport {
   // engine's hash-cache. Only fresh runs reach here (a cache hit returned above),
   // so the latest row always reflects the latest real run.
   recordRuleFindings(opts.projectRoot, { counts: report.counts, blocking: report.blocking });
+  // Issue #339 — also record which rules fired on THIS change in the active feature's
+  // `rule-run.jsonl` bundle file (a no-op when no feature is active). Best-effort and
+  // additive: the project-scoped rule-ledger row above is untouched.
+  appendRuleRun(
+    opts.projectRoot,
+    resolveSessionId(
+      opts.projectRoot,
+      process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+    ),
+    { kind: 'findings', counts: report.counts, blocking: report.blocking },
+  );
   return report;
 }
 

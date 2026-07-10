@@ -9,6 +9,7 @@ import {
   openSessionDoc,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
+import { mirrorRagRow } from '@/feature-evidence/bundle-ledgers.js';
 import { redactSecrets } from '@/rag/secrets.js';
 
 import { validateRagEvidenceRow } from './schema.js';
@@ -102,14 +103,19 @@ export function recordRagEvidence(
       ...fields,
       note,
     };
-    return appendSessionEvent(
+    const stamped = appendSessionEvent(
       projectRoot,
       RAG_EVIDENCE_DOC_TYPE,
       sessionId,
       ordinal,
       row,
       APPEND_OPTS(ctx.now),
-    ) as unknown as RagEvidenceRow;
+    );
+    // Issue #339 — co-locate the same row in its two-home destination (the active
+    // feature's `rag.jsonl` or `_chat`), so the retrieval that served a feature lives in
+    // its bundle. Additive + best-effort: the session-substrate write above is untouched.
+    mirrorRagRow(projectRoot, sessionId, stamped);
+    return stamped as unknown as RagEvidenceRow;
   } catch {
     // Best-effort: evidence recording must never break the runtime path.
     return null;
