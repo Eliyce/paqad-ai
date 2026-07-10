@@ -25,7 +25,7 @@ import {
 
 import { mintFeatureDirName } from './mint.js';
 import { featureFilePath } from './paths.js';
-import { readSessionControl, setActiveFeature } from './session-control.js';
+import { markDone, readSessionControl, setActiveFeature } from './session-control.js';
 import type { FeatureLane } from './types.js';
 
 export interface ResolveFeatureInput {
@@ -119,4 +119,63 @@ export function readFeatureStageUnit(projectRoot: string, dirName: string): Sess
 export function foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange {
   const rows = readFeatureStageUnit(projectRoot, dirName);
   return foldRowsWithKey(rows, { sessionId, changeKey: dirName, promptOrdinal: 0 });
+}
+
+/**
+ * The active feature dir name for this session, or `null` when none is active. READ
+ * ONLY — it never mints, so a reader (the pre-mutation gate, the narrator) sees "no
+ * open change" as `null` rather than accidentally creating a feature. The feature-dir
+ * analogue of the legacy `currentOrdinal(...) > 0` probe.
+ */
+export function currentFeature(projectRoot: string, sessionId: string): string | null {
+  return readSessionControl(projectRoot, sessionId).active;
+}
+
+export interface OpenFeatureChangeInput extends ResolveFeatureInput {
+  adapter: string;
+}
+
+/**
+ * Open (or resolve) the active feature for a change and guarantee its bundle carries a
+ * single `kind:'open'` row stamping the lane — the feature-dir analogue of the legacy
+ * `openSessionDoc`. A `title` mints a NEW named feature (the "new work" signal, pausing
+ * any prior active); otherwise the active feature is reused, or an untitled
+ * `change-<ULID>` is minted when none is active. The open row is written only when the
+ * resolved bundle does not already have one, so re-opening an already-open change is a
+ * no-op (idempotent) — never a duplicate open row. Returns the active dir name.
+ */
+export function openFeatureChange(
+  projectRoot: string,
+  sessionId: string,
+  input: OpenFeatureChangeInput,
+): string {
+  const dirName = resolveActiveFeature(projectRoot, sessionId, input);
+  const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
+  if (!hasOpen) {
+    appendFeatureStageRow(
+      projectRoot,
+      sessionId,
+      dirName,
+      { kind: 'open', adapter: input.adapter, lane: input.lane ?? null },
+      input.now,
+    );
+  }
+  return dirName;
+}
+
+/**
+ * Close the active feature for this session — the feature-dir analogue of
+ * `closeSessionOrdinal`. Clears `active` in the `_session` control (via `markDone`) so
+ * the NEXT stage/edit opens a fresh feature; the bundle's rows stay on disk as the
+ * closed change's record. A no-op when nothing is active.
+ */
+export function closeActiveFeature(
+  projectRoot: string,
+  sessionId: string,
+  now?: () => Date,
+): void {
+  const active = currentFeature(projectRoot, sessionId);
+  if (active) {
+    markDone(projectRoot, sessionId, active, now);
+  }
 }

@@ -6,8 +6,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   appendFeatureStageRow,
+  closeActiveFeature,
+  currentFeature,
   featureStagePath,
   foldFeature,
+  openFeatureChange,
   readFeatureStageUnit,
   resolveActiveFeature,
 } from '@/feature-evidence/stage-ledger.js';
@@ -119,5 +122,67 @@ describe('feature stage ledger append / read / fold', () => {
     const fold = foldFeature(tempRoot(), 'ses_1', dir);
     expect(fold.change_key).toBe(dir);
     expect(fold.completeness.verdict).toBe('cannot-verify');
+  });
+});
+
+describe('active-change accessor', () => {
+  it('currentFeature is null before any feature and never mints', () => {
+    const root = tempRoot();
+    expect(currentFeature(root, 'ses_1')).toBeNull();
+    // A read must not create a feature — the control stays empty.
+    expect(readSessionControl(root, 'ses_1').active).toBeNull();
+  });
+
+  it('openFeatureChange mints an untitled change with a single open row carrying the lane', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      lane: 'full',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ2',
+      now: clock,
+    });
+    expect(dir).toBe('change-01JABCDEFGHJKMNPQRSTVWXYZ2');
+    expect(currentFeature(root, 'ses_1')).toBe(dir);
+    const rows = readFeatureStageUnit(root, dir);
+    expect(rows.map((r) => r.kind)).toEqual(['open']);
+    expect(rows[0]).toMatchObject({ kind: 'open', lane: 'full' });
+  });
+
+  it('openFeatureChange is idempotent for an already-open change (no duplicate open row)', () => {
+    const root = tempRoot();
+    const first = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    const again = openFeatureChange(root, 'ses_1', { adapter: 'claude-code' });
+    expect(again).toBe(first);
+    expect(readFeatureStageUnit(root, first).filter((r) => r.kind === 'open')).toHaveLength(1);
+  });
+
+  it('openFeatureChange with a title opens a fresh named change with its own open row', () => {
+    const root = tempRoot();
+    const a = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    const b = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Second feature',
+      issue: null,
+      ulidSeed: 2,
+    });
+    expect(b).not.toBe(a);
+    expect(currentFeature(root, 'ses_1')).toBe(b);
+    expect(readSessionControl(root, 'ses_1').paused).toContain(a);
+    expect(readFeatureStageUnit(root, b).map((r) => r.kind)).toEqual(['open']);
+  });
+
+  it('closeActiveFeature clears the active pointer so the next open mints fresh', () => {
+    const root = tempRoot();
+    const first = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    closeActiveFeature(root, 'ses_1');
+    expect(currentFeature(root, 'ses_1')).toBeNull();
+    const second = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 2 });
+    expect(second).not.toBe(first);
+  });
+
+  it('closeActiveFeature is a no-op when nothing is active', () => {
+    const root = tempRoot();
+    expect(() => closeActiveFeature(root, 'ses_1')).not.toThrow();
+    expect(currentFeature(root, 'ses_1')).toBeNull();
   });
 });
