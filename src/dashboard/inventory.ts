@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { listFeatureDirs } from '@/feature-evidence/delivery.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 
 /**
  * Issue #146 — the functionality inventory behind `/api/inventory`.
@@ -94,6 +96,20 @@ function countEntries(dir: string, suffix?: string): number {
   } catch {
     return 0;
   }
+}
+
+/**
+ * Count feature bundles that carry a `specification.json` (issue #343 A3). The frozen spec
+ * moved out of the retired `.paqad/specs` dir into each feature bundle, so the dashboard's
+ * "specs" tile now reflects the bundle model. Best-effort: a missing feature-evidence dir
+ * counts as zero.
+ */
+function countFeatureSpecs(projectRoot: string): number {
+  let count = 0;
+  for (const dirName of listFeatureDirs(projectRoot)) {
+    if (existsSync(join(projectRoot, featureFilePath(dirName, 'specification')))) count += 1;
+  }
+  return count;
 }
 
 function countLines(file: string): number {
@@ -378,8 +394,8 @@ export function buildInventory(
       managedBy: 'paqad',
       area: 'automation',
       route: '#/automation',
-      source: PATHS.PLANNING_SPECS_DIR,
-      state: counted(countEntries(at(PATHS.PLANNING_SPECS_DIR)), 'spec', 'specs', 'No specs yet'),
+      source: PATHS.FEATURE_EVIDENCE_DIR,
+      state: counted(countFeatureSpecs(projectRoot), 'spec', 'specs', 'No specs yet'),
     },
     {
       key: 'module-proposals',

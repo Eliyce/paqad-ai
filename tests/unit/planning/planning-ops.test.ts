@@ -222,7 +222,7 @@ describe('planning operational helpers', () => {
       criteria_pass_rate_pct: 100,
     });
     await expect(writePlanVsActual(root, 'planning-manifest', diff)).resolves.toContain(
-      '.paqad/specs/planning-manifest.plan-vs-actual.json',
+      '.paqad/planning/manifests/planning-manifest.plan-vs-actual.json',
     );
   });
 

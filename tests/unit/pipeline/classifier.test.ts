@@ -13,7 +13,7 @@ describe('RequestClassifier', () => {
 
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-classifier-'));
-    mkdirSync(join(projectRoot, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(projectRoot, '.paqad/planning/manifests'), { recursive: true });
   });
 
   afterEach(() => {
@@ -305,7 +305,7 @@ describe('RequestClassifier', () => {
 
   it('applies delta metadata and health-based risk overrides', async () => {
     writeFileSync(
-      join(projectRoot, '.paqad/specs/base.yaml'),
+      join(projectRoot, '.paqad/planning/manifests/base.yaml'),
       [
         'plan_version: 1',
         'plan_mode: full',

@@ -8,12 +8,12 @@ import { PATHS } from '@/core/constants/paths.js';
 import type { PlanningManifest } from '@/core/types/planning.js';
 
 export async function loadManifest(root: string, slug: string): Promise<PlanningManifest> {
-  const raw = await readFile(join(root, PATHS.PLANNING_SPECS_DIR, `${slug}.yaml`), 'utf8');
+  const raw = await readFile(join(root, PATHS.PLANNING_MANIFESTS_DIR, `${slug}.yaml`), 'utf8');
   return YAML.parse(raw) as PlanningManifest;
 }
 
 export async function saveManifest(root: string, manifest: PlanningManifest): Promise<string> {
-  const target = join(root, PATHS.PLANNING_SPECS_DIR, `${manifest.slug}.yaml`);
+  const target = join(root, PATHS.PLANNING_MANIFESTS_DIR, `${manifest.slug}.yaml`);
   const temp = `${target}.tmp`;
   await mkdir(dirname(target), { recursive: true });
   await writeFile(temp, YAML.stringify(manifest), 'utf8');
@@ -23,7 +23,7 @@ export async function saveManifest(root: string, manifest: PlanningManifest): Pr
 
 export async function manifestExists(root: string, slug: string): Promise<boolean> {
   try {
-    await access(join(root, PATHS.PLANNING_SPECS_DIR, `${slug}.yaml`));
+    await access(join(root, PATHS.PLANNING_MANIFESTS_DIR, `${slug}.yaml`));
     return true;
   } catch {
     return false;
@@ -32,7 +32,7 @@ export async function manifestExists(root: string, slug: string): Promise<boolea
 
 export async function listManifestSlugs(root: string): Promise<string[]> {
   try {
-    const files = await readdir(join(root, PATHS.PLANNING_SPECS_DIR));
+    const files = await readdir(join(root, PATHS.PLANNING_MANIFESTS_DIR));
     return files
       .filter((file) => file.endsWith('.yaml'))
       .map((file) => file.slice(0, -'.yaml'.length))

@@ -138,7 +138,7 @@ When you run the feature-development workflow, record each stage as you enter an
 ```
 paqad:stage planning start
 … planning work …
-paqad:stage planning end -- .paqad/plans/<change>.md
+paqad:stage planning end -- <plan.json>   # compile it first with `paqad-ai plan compile`
 ```
 
 Emit the `start` marker as you begin the stage and the `end` marker as you finish it (`paqad:stage <stage> <start|end>`). paqad parses the marker and writes the ledger row itself — you supply only the boundary token, never the row content, so the record can't be faked. paqad narrates a `▸ paqad` line as you ENTER each stage; the end boundary is not spoken separately — the one end-of-change receipt (below) reports each stage's final state, so a boundary is never announced twice.
@@ -147,7 +147,7 @@ Emit the `start` marker as you begin the stage and the `end` marker as you finis
 
 **Per host — who speaks.** On **Claude Code** the stage hooks fire on your edits and at turn end, so the entry lines and the end-of-change receipt are surfaced for you. On **Codex** and **Gemini** the record hook is deliberately record-only — it writes the ledger at turn end but says nothing in chat — so there YOU must narrate your own `▸ paqad` stage lines and speak the end-of-change verdict in prose. On **advisory hosts** (JetBrains AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) no native hook fires at all: narrate every stage and the verdict yourself. Never rely on a hook-spoken line on a non-Claude host.
 
-**A thinking stage must point at a real artifact.** planning, specification, and review each prove their work with a file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Write the plan/spec/findings file first, then end the stage against it. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
+**A thinking stage must point at a real artifact.** planning, specification, and review each prove their work with a file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with `paqad-ai plan compile` and freeze the spec with `paqad-ai spec freeze` (they write `plan.json` / `specification.json` into the active feature's bundle; the legacy `.paqad/plans/*.md` and `.paqad/specs` free-writes are retired), then end the stage against that file. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
 
 **Code edits are gated on this.** Until `planning` and `specification` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, `npx paqad-ai stage start <stage>` / `npx paqad-ai stage end <stage> --artifact <path>` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the `▸ paqad` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 

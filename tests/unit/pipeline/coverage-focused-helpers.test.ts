@@ -37,9 +37,9 @@ describe('pipeline helper coverage', () => {
     ).toBe(0.01);
 
     const deltaRoot = mkdtempSync(join(tmpdir(), 'paqad-delta-extra-'));
-    mkdirSync(join(deltaRoot, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(deltaRoot, '.paqad/planning/manifests'), { recursive: true });
     writeFileSync(
-      join(deltaRoot, '.paqad/specs/empty.yaml'),
+      join(deltaRoot, '.paqad/planning/manifests/empty.yaml'),
       [
         'plan_version: 1',
         'plan_mode: full',
@@ -70,7 +70,7 @@ describe('pipeline helper coverage', () => {
       prior_criterion_count: null,
     });
     writeFileSync(
-      join(deltaRoot, '.paqad/specs/missing-affected.yaml'),
+      join(deltaRoot, '.paqad/planning/manifests/missing-affected.yaml'),
       [
         'plan_version: 1',
         'plan_mode: full',
@@ -317,17 +317,17 @@ describe('pipeline helper coverage', () => {
     ]);
 
     const postRoot = mkdtempSync(join(tmpdir(), 'paqad-post-extra-'));
-    mkdirSync(join(postRoot, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(postRoot, '.paqad/planning/manifests'), { recursive: true });
     writeFileSync(
-      join(postRoot, '.paqad/specs/over.plan-vs-actual.json'),
+      join(postRoot, '.paqad/planning/manifests/over.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 250, unplanned_files: ['src/x'] }),
     );
     writeFileSync(
-      join(postRoot, '.paqad/specs/over2.plan-vs-actual.json'),
+      join(postRoot, '.paqad/planning/manifests/over2.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 230, unplanned_files: ['src/x'] }),
     );
     writeFileSync(
-      join(postRoot, '.paqad/specs/over3.plan-vs-actual.json'),
+      join(postRoot, '.paqad/planning/manifests/over3.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 220, unplanned_files: ['src/x'] }),
     );
     vi.mocked(queryPatterns).mockRejectedValueOnce(new Error('no-store'));
@@ -362,27 +362,27 @@ describe('pipeline helper coverage', () => {
     expect(overAdjusted.lane_before_override).toBe('full');
 
     const mediumRiskRoot = mkdtempSync(join(tmpdir(), 'paqad-post-medium-'));
-    mkdirSync(join(mediumRiskRoot, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(mediumRiskRoot, '.paqad/planning/manifests'), { recursive: true });
     mkdirSync(join(mediumRiskRoot, '.paqad/cache'), { recursive: true });
-    writeFileSync(join(mediumRiskRoot, '.paqad/specs/a.plan-vs-actual.json'), '{bad');
+    writeFileSync(join(mediumRiskRoot, '.paqad/planning/manifests/a.plan-vs-actual.json'), '{bad');
     writeFileSync(
-      join(mediumRiskRoot, '.paqad/specs/b.plan-vs-actual.json'),
+      join(mediumRiskRoot, '.paqad/planning/manifests/b.plan-vs-actual.json'),
       JSON.stringify({ unplanned_files: null }),
     );
     writeFileSync(
-      join(mediumRiskRoot, '.paqad/specs/c.plan-vs-actual.json'),
+      join(mediumRiskRoot, '.paqad/planning/manifests/c.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 100, unplanned_files: ['src/other'] }),
     );
     writeFileSync(
-      join(mediumRiskRoot, '.paqad/specs/d.plan-vs-actual.json'),
+      join(mediumRiskRoot, '.paqad/planning/manifests/d.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 101, unplanned_files: ['src/medium'] }),
     );
     writeFileSync(
-      join(mediumRiskRoot, '.paqad/specs/e.plan-vs-actual.json'),
+      join(mediumRiskRoot, '.paqad/planning/manifests/e.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 101, unplanned_files: ['src/medium'] }),
     );
     writeFileSync(
-      join(mediumRiskRoot, '.paqad/specs/f.plan-vs-actual.json'),
+      join(mediumRiskRoot, '.paqad/planning/manifests/f.plan-vs-actual.json'),
       JSON.stringify({ unplanned_files: ['src/medium'] }),
     );
     writeFileSync(
@@ -466,17 +466,17 @@ describe('pipeline helper coverage', () => {
     expect(bugFixGraduated.lane_before_override).toBe('graduated');
 
     const emptyAffectedRoot = mkdtempSync(join(tmpdir(), 'paqad-post-empty-'));
-    mkdirSync(join(emptyAffectedRoot, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(emptyAffectedRoot, '.paqad/planning/manifests'), { recursive: true });
     writeFileSync(
-      join(emptyAffectedRoot, '.paqad/specs/empty-a.plan-vs-actual.json'),
+      join(emptyAffectedRoot, '.paqad/planning/manifests/empty-a.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 10 }),
     );
     writeFileSync(
-      join(emptyAffectedRoot, '.paqad/specs/empty-b.plan-vs-actual.json'),
+      join(emptyAffectedRoot, '.paqad/planning/manifests/empty-b.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 10 }),
     );
     writeFileSync(
-      join(emptyAffectedRoot, '.paqad/specs/empty-c.plan-vs-actual.json'),
+      join(emptyAffectedRoot, '.paqad/planning/manifests/empty-c.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 10 }),
     );
     vi.mocked(queryPatterns).mockResolvedValueOnce([]);

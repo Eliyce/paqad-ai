@@ -1,0 +1,26 @@
+{
+  "id": "D-01KX5RQ8MEHK596SVV92TJPKJC",
+  "category": "architecture-path",
+  "title": "Where does the .paqad/specs planning .yaml manifest go in the #343 cutover?",
+  "context": "#343 A2 retires .paqad/specs. Four readers (manifest-parser, intelligence-assembler, plan-vs-actual, post-classifier) consume the <slug>.yaml PLANNING manifest (distinct from the frozen spec already repointed in A1). The issue says: fold into plan.json OR keep a slim manifest in a new home OR retire — 'the .paqad/specs path must have no reader left at the end.'",
+  "options": [
+    {
+      "option_key": "relocate",
+      "label": "Relocate the yaml manifest to a new dedicated dir (.paqad/planning/manifests); readers keep their logic, only the path constant changes (low risk)"
+    },
+    {
+      "option_key": "fold-bundle",
+      "label": "Fold the manifest fields into the feature bundle plan.json and repoint the 4 readers to bundle projections (matches the one-home vision; higher risk)"
+    },
+    {
+      "option_key": "retire",
+      "label": "Retire the manifest readers entirely if vestigial"
+    }
+  ],
+  "recommendation": "relocate",
+  "created_at": "2026-07-10T10:21:10.158Z",
+  "status": "resolved",
+  "chosen": "relocate",
+  "rationale": "Lowest-risk cutover: readers keep their logic, only the path constant changes; satisfies 'no reader touches .paqad/specs' and removes PLANNING_SPECS_DIR without a risky data-model change to planning intelligence.",
+  "resolved_at": "2026-07-10T10:26:27.871Z"
+}
