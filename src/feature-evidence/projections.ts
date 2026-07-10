@@ -7,8 +7,10 @@
 // feature bundle's `stage-evidence.jsonl` (and `rule-run.jsonl`) and returns the merged
 // rows, so external tooling still sees one whole document while nothing double-writes.
 
+import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
+import { readFeatureSpecification } from './artifacts.js';
 import { listFeatureDirs } from './delivery.js';
 import { featureFilePath } from './paths.js';
 
@@ -28,4 +30,23 @@ export function readAllFeatureRuleRuns(projectRoot: string): SessionLedgerRow[] 
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'ruleRun')),
   );
+}
+
+/**
+ * Every FROZEN feature specification across all bundles (issue #343 A1). This is the
+ * whole-project projection of the frozen spec — the replacement for the legacy
+ * `.paqad/specs/<id>.frozen.json` sidecar scan (`readFrozenSpecs`) after the Phase-7
+ * cutover. Each `specification.json` stores an already-frozen `FeatureSpec` carrying the
+ * same `frozen`/`spec_hash` fields the spec-change guard compares against, so only the
+ * read location moves. A missing/corrupt/unfrozen bundle spec is skipped, never thrown.
+ */
+export function readAllFeatureSpecifications(projectRoot: string): FeatureSpec[] {
+  const specs: FeatureSpec[] = [];
+  for (const dirName of listFeatureDirs(projectRoot)) {
+    const spec = readFeatureSpecification(projectRoot, dirName);
+    if (spec && spec.frozen !== null && spec.frozen !== undefined) {
+      specs.push(spec);
+    }
+  }
+  return specs;
 }

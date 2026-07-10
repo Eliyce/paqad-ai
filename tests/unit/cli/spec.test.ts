@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,7 +9,6 @@ import { createProgram } from '@/cli/program.js';
 import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
 import { readFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
-import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
 // sign-off engine (issue #317). It reimplements no freeze logic; it wires
@@ -95,25 +94,22 @@ describe('paqad-ai spec command', () => {
     expect(err.join('\n')).toMatch(/INV-1 is not human-confirmed/);
   });
 
-  it('freezes a complete, confirmed spec and writes the frozen sidecar (AC-3)', async () => {
+  it('freezes a complete, confirmed spec and writes NO legacy sidecar (#343 AC-3)', async () => {
+    // With the Phase-7 cutover the frozen spec's only home is the feature bundle. A
+    // standalone freeze (no active feature) succeeds but persists no `.paqad/specs` sidecar.
     const path = writeSpec('S-3-widget.md', COMPLETE_SPEC);
     const { out } = await run('freeze', path, '--signed-off-by', 'alice', '--confirm-invariants');
 
     expect(process.exitCode).toBeUndefined();
-    const sidecar = join(root, '.paqad/specs/S-3-widget.frozen.json');
-    expect(existsSync(sidecar)).toBe(true);
-
-    const frozen = JSON.parse(readFileSync(sidecar, 'utf8')) as FeatureSpec;
-    expect(frozen.frozen).not.toBeNull();
-    expect(frozen.frozen!.signed_off_by).toBe('alice');
-    expect(frozen.frozen!.spec_hash).toBe(frozen.spec_hash);
-    expect(frozen.invariants.every((inv) => inv.confirmed)).toBe(true);
-    // Narrated in the ▸ paqad voice + machine-readable confirmation.
+    // The retired sidecar dir is never created.
+    expect(existsSync(join(root, '.paqad/specs'))).toBe(false);
+    // Narrated in the ▸ paqad voice + machine-readable confirmation; no bundle when no feature.
     expect(out.some((line) => line.startsWith('▸ paqad'))).toBe(true);
     expect(out.some((line) => line.includes('"frozen":true'))).toBe(true);
+    expect(out.some((line) => line.includes('"specification":null'))).toBe(true);
   });
 
-  it('also writes specification.json into the active feature bundle (#339)', async () => {
+  it('writes the frozen spec ONLY into the active feature bundle (#343)', async () => {
     const SES = 'ses_spec_feature';
     openFeatureChange(root, SES, {
       adapter: 'claude-code',

@@ -19,9 +19,10 @@ import type { CapabilitySeam } from '@/kernel/registry.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
+import { readAllFeatureSpecifications } from '@/feature-evidence/projections.js';
+
 import { buildSpecChangePacket } from './spec-decisions.js';
 import { isFrozenSpecStale } from './spec-freeze.js';
-import { readFrozenSpecs } from './frozen-spec-store.js';
 
 /** A non-blocking capability outcome — structurally a kernel `CapabilityOutcome`. */
 export interface SpecChangeGuardOutcome {
@@ -66,7 +67,7 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
   if (input.seam !== undefined && input.seam !== 'pre-mutation') return NO_OP;
   if (!input.sessionId) return NO_OP;
 
-  const specs = input.frozenSpecs ?? readFrozenSpecs(input.projectRoot);
+  const specs = input.frozenSpecs ?? readAllFeatureSpecifications(input.projectRoot);
   if (specs.length === 0) return NO_OP;
 
   const store = input.store ?? new DecisionStore(input.projectRoot);
