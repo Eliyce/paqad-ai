@@ -81,6 +81,23 @@ describe('generateRuleManifest', () => {
     expect(md).toContain('## paqad rule manifest — 0 rules');
     expect(md).toContain('No rules compiled yet');
   });
+
+  it('never emits the corrupted `, ` sequence, even with comma-separated inline code (#345)', () => {
+    const md = generateRuleManifest(
+      store([
+        rule({
+          rule_id: 'RULE-1',
+          title: 'Frontmatter',
+          trigger_patterns: ['runtime/**/skills/*', 'SKILL.md'],
+          summary: 'Use the documented frontmatter — `name`, `description`, `license`.',
+        }),
+      ]),
+    );
+    expect(md).not.toContain('`, `');
+    // Both triggers still render (space-separated, single backtick spans).
+    expect(md).toContain('`runtime/**/skills/*`');
+    expect(md).toContain('`SKILL.md`');
+  });
 });
 
 describe('scriptedSourcePaths', () => {

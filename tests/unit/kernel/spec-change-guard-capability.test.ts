@@ -1,13 +1,22 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hex } from '@/compliance/markdown.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
-import { writeFrozenSpec } from '@/spec/frozen-spec-store.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
+
+// Issue #343 — the frozen spec's only home is the feature bundle `specification.json`; there
+// is no `.paqad/specs` sidecar. Seed a bundle spec directly (no active-feature machinery).
+const BUNDLE_DIR = 'change-01KX5P20DVKF6DN1KC8ZSQ71Q3';
+function seedBundleSpec(root: string, spec: FeatureSpec): void {
+  const abs = join(root, featureFilePath(BUNDLE_DIR, 'specification'));
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, `${JSON.stringify(spec, null, 2)}\n`, 'utf8');
+}
 
 // Proves the KERNEL wiring: the spec-change guard runs through the decision-pause
 // capability at pre-mutation, deterministically (self-arm OFF), and mints a spec.change
@@ -20,7 +29,7 @@ describe('spec-change guard — kernel wiring (deterministic, self-arm off)', ()
     return {
       schema_version: '1',
       spec_id: 'S-102',
-      spec_file: join('.paqad', 'specs', 'S-102.md'),
+      spec_file: join('docs', 'spec-sources', 'S-102.md'),
       spec_hash: sha256Hex(FROZEN_MD),
       behaviour: ['FR-1'],
       acceptance_criteria: [],
@@ -39,7 +48,7 @@ describe('spec-change guard — kernel wiring (deterministic, self-arm off)', ()
     mkdirSync(join(root, '.paqad/configs'), { recursive: true });
     // Silence the stages block-forward so only the decision-pause minters contribute.
     writeFileSync(join(root, '.paqad/configs/.config.policy'), 'stages_mode=off\n');
-    writeFrozenSpec(root, frozenSpec());
+    seedBundleSpec(root, frozenSpec());
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -52,7 +61,8 @@ describe('spec-change guard — kernel wiring (deterministic, self-arm off)', ()
 
   it('mints a spec.change pause when the frozen spec source is stale', async () => {
     // Current markdown differs from the hash captured at freeze.
-    writeFileSync(join(root, '.paqad/specs/S-102.md'), '# S-102\n\nExport as XLSX now.\n');
+    mkdirSync(join(root, 'docs/spec-sources'), { recursive: true });
+    writeFileSync(join(root, 'docs/spec-sources/S-102.md'), '# S-102\n\nExport as XLSX now.\n');
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',
@@ -65,7 +75,8 @@ describe('spec-change guard — kernel wiring (deterministic, self-arm off)', ()
   });
 
   it('mints nothing when the frozen spec source is unchanged', async () => {
-    writeFileSync(join(root, '.paqad/specs/S-102.md'), FROZEN_MD);
+    mkdirSync(join(root, 'docs/spec-sources'), { recursive: true });
+    writeFileSync(join(root, 'docs/spec-sources/S-102.md'), FROZEN_MD);
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',

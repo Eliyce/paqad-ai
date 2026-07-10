@@ -10,6 +10,9 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 import { readEvidenceLedger } from '@/evidence/ledger.js';
 import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { createVerificationContext } from '../verification/shared.fixture.js';
 
@@ -79,6 +82,60 @@ describe('runRepositoryVerification — evidence ledger + receipt (issue #118)',
     if (authorship !== undefined) {
       expect(['declared', 'unknown']).toContain(authorship.provenance);
     }
+  });
+
+  it('projects the per-feature receipt + ai-bom into the active feature bundle (#343 B)', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/modules/core/ui/screens.md'],
+      changed_files_source: 'git-status',
+    });
+    // An active feature under a known session (the verification path resolves the same id).
+    const SES = 'rv-feature-sess';
+    const sessionId = resolveSessionId(context.project_root, SES);
+    const dir = openFeatureChange(context.project_root, sessionId, {
+      adapter: 'claude-code',
+      title: 'Feature',
+      issue: null,
+    });
+    enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: true });
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+    });
+
+    // The whole-project receipt still lands...
+    expect(existsSync(join(context.project_root, PATHS.EVIDENCE_RECEIPT))).toBe(true);
+    // ...AND the same graded rows are projected into the feature's own bundle.
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'receipt')))).toBe(true);
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'aiBom')))).toBe(true);
+  });
+
+  it('per-feature honours the enterprise gating: ai_bom-only writes only the bundle ai-bom.json (#343 B)', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/modules/core/ui/screens.md'],
+      changed_files_source: 'git-status',
+    });
+    const SES = 'rv-feature-aibom';
+    const sessionId = resolveSessionId(context.project_root, SES);
+    const dir = openFeatureChange(context.project_root, sessionId, {
+      adapter: 'claude-code',
+      title: 'Feature',
+      issue: null,
+    });
+    enableEnterprise(context.project_root, { enabled: true, evidence_ledger: false, ai_bom: true });
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+    });
+
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'aiBom')))).toBe(true);
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'receipt')))).toBe(false);
   });
 
   it('never blocks verification when no files changed (empty subject still receipts)', async () => {

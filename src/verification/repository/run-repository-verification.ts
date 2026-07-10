@@ -31,6 +31,7 @@ import {
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -314,6 +315,23 @@ export async function runRepositoryVerification(
         env: process.env,
         write: { evidenceReceipt: policy.evidence_ledger, aiBom: policy.ai_bom },
       });
+      // Issue #343 B — also project the per-feature receipt + AI-BOM into the active
+      // feature's bundle from the SAME graded rows, honouring the SAME enterprise flags
+      // (`evidence_ledger` → receipt.json, `ai_bom` → ai-bom.json). Best-effort: no active
+      // feature (a framework-internal change, or none open) simply skips the bundle write.
+      const activeFeature = currentFeature(
+        context.project_root,
+        resolveSessionId(context.project_root, options.hostSessionId ?? null),
+      );
+      if (activeFeature) {
+        projectFeatureReceipt(context.project_root, activeFeature, {
+          fileDigests,
+          rows,
+          verifierVersion: verifierVersion(),
+          timeVerified: completedAt,
+          write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: could not project evidence receipt (${message})`);

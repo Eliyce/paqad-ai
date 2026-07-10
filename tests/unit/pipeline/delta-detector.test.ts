@@ -18,9 +18,9 @@ describe('detectDeltaCandidate', () => {
 
   it('detects overlapping manifests', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-delta-'));
-    mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(root, '.paqad/planning/manifests'), { recursive: true });
     writeFileSync(
-      join(root, '.paqad/specs/base.yaml'),
+      join(root, '.paqad/planning/manifests/base.yaml'),
       [
         'plan_version: 1',
         'plan_mode: full',
@@ -54,8 +54,8 @@ describe('detectDeltaCandidate', () => {
 
   it('ignores corrupt manifests', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-delta-'));
-    mkdirSync(join(root, '.paqad/specs'), { recursive: true });
-    writeFileSync(join(root, '.paqad/specs/bad.yaml'), 'not: [valid');
+    mkdirSync(join(root, '.paqad/planning/manifests'), { recursive: true });
+    writeFileSync(join(root, '.paqad/planning/manifests/bad.yaml'), 'not: [valid');
     const result = await detectDeltaCandidate(root, ['src/a']);
     expect(result.delta_candidate).toBe(false);
   });

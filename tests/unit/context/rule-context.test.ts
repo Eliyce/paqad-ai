@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  DECISION_PAUSE_REMINDER,
   RULES_MISSING_FALLBACK_MARKER,
   composeRuleContext,
   refreshRuleContext,
@@ -77,6 +78,28 @@ describe('composeRuleContext', () => {
     expect(md).toContain('SRC FULL TEXT');
     expect(md).toContain('ALWAYS FULL TEXT');
     expect(md).not.toContain('DOCS FULL TEXT');
+  });
+
+  it('preserves inline code spans in the loaded text while the manifest stays corruption-free (#345)', () => {
+    const rawWithCode =
+      '# Frontmatter\n\nUse the documented frontmatter — `name`, `description`, `license`.\n';
+    const md = composeRuleContext(
+      store([
+        rule({
+          rule_id: 'CODE',
+          title: 'Frontmatter',
+          trigger_patterns: ['**'],
+          raw_text: rawWithCode,
+          summary: 'Use the documented frontmatter — `name`, `description`.',
+        }),
+      ]),
+      { changedPaths: ['src/app.ts'] },
+    );
+    // The loaded rule text carries the rule's inline code spans verbatim (round-trip).
+    expect(md).toContain('`name`, `description`, `license`');
+    // The manifest slice (before the loaded text) never emits the corrupted sequence.
+    const manifestSlice = md.split('## Loaded rule text')[0];
+    expect(manifestSlice).not.toContain('`, `');
   });
 
   it('drops to manifest-only when nothing applies (token floor)', () => {
@@ -201,6 +224,8 @@ describe('refreshRuleContext', () => {
       expect(written).not.toContain('paqad rule manifest');
       expect(written).not.toContain('ALWAYS TEXT');
       expect(written).not.toContain(RULES_MISSING_FALLBACK_MARKER);
+      // #345 G5 — the decision-pause reminder is a feature-development-only obligation.
+      expect(written).not.toContain(DECISION_PAUSE_REMINDER);
     });
 
     it('composes nothing (null) when loadRules is false and there is no other section', async () => {
@@ -216,6 +241,8 @@ describe('refreshRuleContext', () => {
       const written = readFileSync(target as string, 'utf8');
       expect(written).toContain('paqad rule manifest');
       expect(written).toContain('ALWAYS TEXT');
+      // #345 G5 — the decision-pause reminder rides with the feature-development rule slice.
+      expect(written).toContain(DECISION_PAUSE_REMINDER);
     });
   });
 

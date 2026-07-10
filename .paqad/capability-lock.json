@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-10T09:08:34.075Z",
+  "capabilities": {
+    "rule-scripts": {
+      "digest": "6a198f166025342eff5c3a2c600c03b4bf3390fe4fb5fc8419df50ad26116295",
+      "policy_version": 1,
+      "record_version": 1
+    }
+  }
+}

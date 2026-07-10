@@ -1,0 +1,26 @@
+{
+  "id": "D-01KX5PP0D4WBCPXDMQH03X3GSW",
+  "category": "finding.triage",
+  "title": "CI has no dependency-advisory gate (RL-a9d3)",
+  "context": "rules-generate authored and fixture-validated .paqad/scripts/rules/coding/stacks/_shared/ci-cd/003-dependency-audit-gate.mjs for RL-a9d3 ('Fail the build on high or critical dependency advisories'). Dry-run on the current tree is red: no workflow in .github/workflows runs an audit/osv/snyk step, so registering the script would arm a whole-tree gate that is immediately red. The script is validated but held unregistered.",
+  "options": [
+    {
+      "option_key": "add_audit_step",
+      "label": "Add a pnpm audit step to ci.yml, then register the script (gate arms green)"
+    },
+    {
+      "option_key": "register_red",
+      "label": "Register now and let the checks stage stay red until an audit step lands"
+    },
+    {
+      "option_key": "skip",
+      "label": "Leave RL-a9d3 unscripted for now"
+    }
+  ],
+  "recommendation": "add_audit_step",
+  "created_at": "2026-07-10T09:45:31.812Z",
+  "status": "resolved",
+  "chosen": "skip",
+  "rationale": "User chose to leave RL-a9d3 unscripted this cycle; the validated script stays on disk unregistered and can be registered once an audit step is added to CI.",
+  "resolved_at": "2026-07-10T09:46:29.819Z"
+}

@@ -43,7 +43,7 @@ export async function writePlanVsActual(
   slug: string,
   diff: PlanVsActualDiff,
 ): Promise<string> {
-  const dir = join(root, PATHS.PLANNING_SPECS_DIR);
+  const dir = join(root, PATHS.PLANNING_MANIFESTS_DIR);
   await mkdir(dir, { recursive: true });
   const filePath = join(dir, `${slug}.plan-vs-actual.json`);
   await writeFile(filePath, JSON.stringify(diff, null, 2) + '\n', 'utf8');

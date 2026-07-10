@@ -134,7 +134,7 @@ export class PostClassifier {
       return { adjustment: 0, reason: null };
     }
 
-    const specsDir = join(this.projectRoot, PATHS.PLANNING_SPECS_DIR);
+    const specsDir = join(this.projectRoot, PATHS.PLANNING_MANIFESTS_DIR);
     try {
       const files = (await readdir(specsDir)).filter((file) =>
         file.endsWith('.plan-vs-actual.json'),

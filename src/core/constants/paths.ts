@@ -93,7 +93,10 @@ export const PATHS = {
   // Feature 2 - Predictive Cache
   TRANSITION_LOG: '.paqad/cache/transition-log.json',
   CACHE_METRICS: '.paqad/cache/metrics.json',
-  PLANNING_SPECS_DIR: '.paqad/specs',
+  // Issue #343 — the planning `<slug>.yaml` manifest's home. Relocated out of the retired
+  // `.paqad/specs` dir (decision D-01KX5RQ8MEHK596SVV92TJPKJC) so nothing reads `.paqad/specs`
+  // anymore; the frozen spec now lives in the feature bundle (`specification.json`).
+  PLANNING_MANIFESTS_DIR: '.paqad/planning/manifests',
   // Issue #318 — the deterministic check runner's persisted report. `paqad-ai
   // checks run` writes the structured format/test/build results here; the
   // agent-independent completion backstop reads it so the verdict proves the

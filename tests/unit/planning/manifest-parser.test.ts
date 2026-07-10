@@ -18,7 +18,7 @@ describe('manifest-parser', () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'planning-parser-'));
-    mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(root, '.paqad/planning/manifests'), { recursive: true });
   });
 
   afterEach(() => {
@@ -27,8 +27,11 @@ describe('manifest-parser', () => {
 
   it('loads manifests, lists slugs, and checks existence', async () => {
     const manifest = createManifest();
-    writeFileSync(join(root, '.paqad/specs/planning-manifest.yaml'), YAML.stringify(manifest));
-    writeFileSync(join(root, '.paqad/specs/second.yaml'), YAML.stringify(manifest));
+    writeFileSync(
+      join(root, '.paqad/planning/manifests/planning-manifest.yaml'),
+      YAML.stringify(manifest),
+    );
+    writeFileSync(join(root, '.paqad/planning/manifests/second.yaml'), YAML.stringify(manifest));
 
     await expect(loadManifest(root, 'planning-manifest')).resolves.toMatchObject({
       feature_id: 'feat-planning-manifest',

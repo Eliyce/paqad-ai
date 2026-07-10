@@ -68,6 +68,18 @@ describe('composeRetrievalSection', () => {
     expect(md.length).toBeLessThan(big.length);
   });
 
+  it('dedupes identical slices so the same chunk is never injected twice (#345)', () => {
+    const md = composeRetrievalSection([
+      slice({ source_file: 'src/a.ts', content: 'export const A = 1;' }),
+      slice({ source_file: 'src/a.ts', content: 'export const A = 1;' }),
+      slice({ source_file: 'src/b.ts', content: 'export const B = 2;' }),
+    ]);
+    expect(md).toContain('## Retrieved context — 2 slices relevant to the files in play');
+    // The duplicated body appears exactly once.
+    expect(md.split('export const A = 1;').length - 1).toBe(1);
+    expect(md).toContain('export const B = 2;');
+  });
+
   it('annotates each slice with its calibrated match strength (F12)', () => {
     const md = composeRetrievalSection([slice({ source_file: 'src/a.ts', score: 0.912 })]);
     expect(md).toContain('### src/a.ts · match 91%');

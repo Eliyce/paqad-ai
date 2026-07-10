@@ -23,6 +23,9 @@ import { readFileSync } from 'node:fs';
 
 import { readDotConfig } from '@/core/framework-config.js';
 import type { CapabilityPayload, CapabilitySeam } from '@/kernel/registry.js';
+import { isFeatureDevelopmentRoute } from '@/pipeline/routed-workflow.js';
+import { readWorkflowState } from '@/pipeline/workflow-state.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { detectDecisionForks } from './decision-detector.js';
 import { computeDecisionFingerprint } from './decision-fingerprint.js';
@@ -59,17 +62,44 @@ function isTruthy(value: string | undefined): boolean {
 }
 
 /**
- * Whether the self-arm minter is enabled. OFF by default. `PAQAD_DECISION_SELFARM`
- * (env) wins; otherwise the local `.paqad/.config` `decision_selfarm` line. Read from
- * the local dev config only (never a tracked team file) so turning it on is an explicit,
- * per-developer opt-in while its precision is still being proven.
+ * Whether the self-arm minter is enabled. Resolution order (first match wins):
+ *   1. `PAQAD_DECISION_SELFARM` (env) — an explicit force, either direction.
+ *   2. `.paqad/.config` `decision_selfarm` — the local per-developer force.
+ *   3. Default (issue #345 G5): ON when the session routed to feature-development, OFF
+ *      everywhere else. The Decision Pause Contract is a feature-development obligation, so
+ *      the conservative minter is armed by default there — and never outside it — while an
+ *      env/config value can still force it on or off. A false `featureDevelopment` (a
+ *      question / pentest / docs / RCA / small-talk turn) keeps the pre-#345 OFF default.
  */
-export function isSelfArmEnabled(projectRoot: string, env: NodeJS.ProcessEnv): boolean {
+export function isSelfArmEnabled(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  opts: { featureDevelopment?: boolean } = {},
+): boolean {
   const envValue = env.PAQAD_DECISION_SELFARM;
   if (envValue !== undefined && envValue !== '') {
     return isTruthy(envValue);
   }
-  return isTruthy(readDotConfig(projectRoot).get('decision_selfarm'));
+  const configValue = readDotConfig(projectRoot).get('decision_selfarm');
+  if (configValue !== undefined && configValue !== '') {
+    return isTruthy(configValue);
+  }
+  return opts.featureDevelopment === true;
+}
+
+/**
+ * Whether this session is on the feature-development route (active OR paused), read from the
+ * per-session workflow-state — the same signal the rule-scripts capability uses. Absent
+ * state (no route recorded) is not feature-development, so the self-arm default stays OFF.
+ */
+export function sessionOnFeatureDevelopment(
+  projectRoot: string,
+  sessionId: string | null,
+): boolean {
+  if (!sessionId) return false;
+  const state = readWorkflowState(projectRoot, resolveSessionId(projectRoot, sessionId));
+  if (state.active && isFeatureDevelopmentRoute(state.active.workflow)) return true;
+  return state.paused.some((entry) => isFeatureDevelopmentRoute(entry.workflow));
 }
 
 /**
@@ -241,7 +271,14 @@ export interface RunSelfArmInput {
  */
 export function runDecisionSelfArm(input: RunSelfArmInput): SelfArmOutcome {
   if (input.seam !== 'pre-mutation') return NO_OP;
-  if (!isSelfArmEnabled(input.projectRoot, input.env)) return NO_OP;
+  // #345 G5 — default-on within feature-development only. Resolve the route from the same
+  // per-session workflow-state the rule-scripts capability reads; an env/config value still
+  // overrides. Outside feature-development this is false, so the self-arm stays OFF.
+  const featureDevelopment = sessionOnFeatureDevelopment(
+    input.projectRoot,
+    input.payload?.sessionId ?? input.env.CLAUDE_SESSION_ID ?? null,
+  );
+  if (!isSelfArmEnabled(input.projectRoot, input.env, { featureDevelopment })) return NO_OP;
 
   const transcriptPath = input.payload?.transcriptPath;
   const sessionId = input.payload?.sessionId ?? null;

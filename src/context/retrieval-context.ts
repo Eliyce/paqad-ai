@@ -167,11 +167,29 @@ function formatScore(score?: number): string {
  * files before relying on a slice. F12 adds the similarity floor that keeps a
  * confident-but-wrong chunk out of here in the first place.
  */
+/**
+ * Drop duplicate slices — same source file AND same chunk text — keeping the first
+ * occurrence (highest-ranked, since retrieval returns best-first). Retrieval can surface
+ * the same chunk more than once (overlapping windows, re-indexed content); injecting it
+ * twice wastes budget and reads as bloat, so the assembled section carries each slice once.
+ */
+export function dedupeSlices(slices: readonly RetrievalSlice[]): RetrievalSlice[] {
+  const seen = new Set<string>();
+  const unique: RetrievalSlice[] = [];
+  for (const slice of slices) {
+    const key = `${slice.source_file} ${slice.content}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(slice);
+  }
+  return unique;
+}
+
 export function composeRetrievalSection(slices: readonly RetrievalSlice[]): string {
   if (slices.length === 0) {
     return '';
   }
-  const capped = slices.slice(0, MAX_RETRIEVAL_SLICES);
+  const capped = dedupeSlices(slices).slice(0, MAX_RETRIEVAL_SLICES);
   const blocks = capped
     .map(
       (slice) =>

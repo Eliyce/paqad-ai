@@ -27,17 +27,17 @@ describe('PostClassifier', () => {
         updated_at: new Date().toISOString(),
       }),
     );
-    mkdirSync(join(root, '.paqad/specs'), { recursive: true });
+    mkdirSync(join(root, '.paqad/planning/manifests'), { recursive: true });
     writeFileSync(
-      join(root, '.paqad/specs/a.plan-vs-actual.json'),
+      join(root, '.paqad/planning/manifests/a.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 50, unplanned_files: ['src/components/Button'] }),
     );
     writeFileSync(
-      join(root, '.paqad/specs/b.plan-vs-actual.json'),
+      join(root, '.paqad/planning/manifests/b.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 60, unplanned_files: ['src/components/Button'] }),
     );
     writeFileSync(
-      join(root, '.paqad/specs/c.plan-vs-actual.json'),
+      join(root, '.paqad/planning/manifests/c.plan-vs-actual.json'),
       JSON.stringify({ scope_accuracy_pct: 40, unplanned_files: ['src/components/Button'] }),
     );
     vi.mocked(queryPatterns).mockResolvedValue([

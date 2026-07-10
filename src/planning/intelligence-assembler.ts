@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import fg from 'fast-glob';
 
+import { PATHS } from '@/core/constants/paths.js';
 import type { IntelligenceContext, ManifestClassification } from '@/core/types/planning.js';
 
 import { buildCoverageOverlay } from './coverage-overlay.js';
@@ -66,7 +67,7 @@ export async function assembleIntelligence(
 }
 
 async function readInheritedConstraints(root: string, modules: string[]): Promise<string[]> {
-  const files = await fg('.paqad/specs/*.yaml', { cwd: root, onlyFiles: true });
+  const files = await fg(`${PATHS.PLANNING_MANIFESTS_DIR}/*.yaml`, { cwd: root, onlyFiles: true });
   return files.filter((file) => modules.some((moduleName) => file.includes(moduleName)));
 }
 

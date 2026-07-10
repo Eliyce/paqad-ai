@@ -5,7 +5,6 @@ import { Command } from 'commander';
 
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze, freezeSpec } from '@/spec/spec-freeze.js';
-import { writeFrozenSpec } from '@/spec/frozen-spec-store.js';
 import { NoActiveFeatureError, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
@@ -17,13 +16,14 @@ import type { FeatureSpec } from '@/core/types/feature-spec.js';
  * in `src/spec/`: no CLI verb, no instruction naming it. This verb is that caller. It
  * is invocation only — it reimplements none of the freeze logic:
  *
- *   buildFeatureSpec → evaluateSpecFreeze → freezeSpec → writeFrozenSpec
+ *   buildFeatureSpec → evaluateSpecFreeze → freezeSpec → writeFeatureSpecification
  *
  * Blockers (missing behaviour / acceptance criteria / invariants, an acceptance
  * criterion with no proof target, an unconfirmed invariant, an open question) are
  * printed and the command exits non-zero with nothing frozen — a spec is never frozen
- * silently over unresolved questions. On a clean spec it writes the frozen sidecar at
- * `.paqad/specs/<spec_id>.frozen.json`, the durable record other stages check against.
+ * silently over unresolved questions. On a clean spec it writes the frozen spec into the
+ * active feature's bundle at `<feature>/specification.json` (issue #343), the durable
+ * record every frozen-spec reader now projects from.
  */
 export function createSpecCommand(): Command {
   const command = new Command('spec').description(
@@ -104,13 +104,12 @@ export function createSpecCommand(): Command {
           signed_off_by: options.signedOffBy,
           frozen_at: new Date().toISOString(),
         });
-        const target = writeFrozenSpec(options.projectRoot, frozen);
 
-        // Issue #339 — co-locate the frozen spec in the active feature's bundle as
-        // `specification.json` (the new canonical home). Best-effort: with no active
-        // feature (e.g. a standalone freeze) the legacy sidecar above still lands, so a
-        // missing feature never fails the freeze. The legacy sidecar stays until the
-        // Phase-7 cutover repoints every frozen-spec reader.
+        // Issue #343 (Phase-7 cutover) — the frozen spec's ONLY home is the active feature's
+        // bundle `specification.json` (the legacy `.paqad/specs/<id>.frozen.json` sidecar is
+        // retired). Every frozen-spec reader now projects from the bundles. With no active
+        // feature (a standalone freeze) nothing is persisted — the freeze still succeeds, but
+        // it names no bundle, so the caller knows to run `paqad-ai stage start planning` first.
         let bundlePath: string | null = null;
         try {
           const sessionId = resolveSessionId(
@@ -130,7 +129,6 @@ export function createSpecCommand(): Command {
             frozen: true,
             spec_id: specId,
             spec_hash: frozen.spec_hash,
-            sidecar: target,
             specification: bundlePath,
           }),
         );

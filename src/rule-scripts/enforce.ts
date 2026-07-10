@@ -11,10 +11,8 @@
  * a safety backstop, not context. It is gated only by paqad being enabled, the
  * `rule_compliance` mode, and a rule-script map actually existing.
  */
-import { existsSync } from 'node:fs';
-
 import type { Finding } from '@/rule-scripts/execute.js';
-import { ruleScriptMapPath } from '@/rule-scripts/map.js';
+import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 import { runRuleScripts, type RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 
@@ -28,12 +26,18 @@ export interface RuleViolation {
 }
 
 export interface EnforcementResult {
-  /** False when there was nothing to enforce (mode off, or no rule-script map). */
+  /** False when there was nothing to enforce (mode off, or no armed rule-scripts). */
   ran: boolean;
   mode: RuleComplianceMode;
   /** True only in strict mode with at least one deterministic violation. */
   blocking: boolean;
   violations: RuleViolation[];
+  /**
+   * How many verification scripts are registered across the rule-script map (issue #345 G4).
+   * `0` means nothing is armed — a `ran:false` with `armed:0` is an unenforced no-op the
+   * checks stage must SAY SO about, not report as a silent pass.
+   */
+  armed: number;
   /** Human-readable, paqad-voice summary (empty when nothing ran). */
   summary: string;
 }
@@ -52,8 +56,14 @@ export interface EnforceOptions {
  */
 export async function enforceRuleScripts(options: EnforceOptions): Promise<EnforcementResult> {
   const { projectRoot, mode } = options;
-  if (mode === 'off' || !existsSync(ruleScriptMapPath(projectRoot))) {
-    return { ran: false, mode, blocking: false, violations: [], summary: '' };
+  // Count the scripts actually registered in the map. A missing map, or a map that
+  // catalogues rules but arms zero scripts (`scripts: []` everywhere — the state of a
+  // freshly compiled repo), both mean nothing is enforced. Distinguishing that from a
+  // real clean run is issue #345 G4: the checks stage must say "none armed", not "all clear".
+  const map = loadRuleScriptMap(projectRoot);
+  const armed = map ? map.rules.reduce((total, rule) => total + (rule.scripts?.length ?? 0), 0) : 0;
+  if (mode === 'off' || armed === 0) {
+    return { ran: false, mode, blocking: false, violations: [], armed, summary: '' };
   }
 
   const changedFiles = options.changedFiles ?? (await loadChangeEvidence(projectRoot)).files;
@@ -81,6 +91,7 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
     mode,
     blocking: report.blocking,
     violations,
+    armed,
     summary: formatEnforcementSummary({ mode, blocking: report.blocking, violations }),
   };
 }
