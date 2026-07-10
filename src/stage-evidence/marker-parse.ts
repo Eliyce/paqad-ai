@@ -9,11 +9,10 @@
 // model. Best-effort and idempotent: a marker already in the ledger is skipped, so
 // re-parsing a growing transcript on every Stop never double-records.
 
-import { currentOrdinal, readSessionUnit } from '@/session-ledger/ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { recordMarkedStage, type MarkedStagePhase } from './live-writer.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from './types.js';
 
 /**
  * A `paqad:stage <stage> <start|end>` line, anchored to its own line. A stage-end may
@@ -122,11 +121,8 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
     if (markers.length === 0) return [];
 
     const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
-    const ordinal = currentOrdinal(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-    const existing =
-      ordinal > 0
-        ? readSessionUnit(input.projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal)
-        : [];
+    const dirName = currentFeature(input.projectRoot, sessionId);
+    const existing = dirName ? readFeatureStageUnit(input.projectRoot, dirName) : [];
     const seen = new Set<string>();
     for (const row of existing) {
       if (typeof row.stage !== 'string') continue;

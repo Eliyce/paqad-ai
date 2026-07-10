@@ -30,12 +30,11 @@ import {
   resolveComplianceCitations,
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
-import { foldChange } from '@/stage-evidence/fold.js';
+import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { currentOrdinal } from '@/session-ledger/ledger.js';
-import { STAGE_EVIDENCE_DOC_TYPE, type FoldedChange } from '@/stage-evidence/types.js';
+import { type FoldedChange } from '@/stage-evidence/types.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -363,11 +362,11 @@ export async function runRepositoryVerification(
 function readChangeFold(projectRoot: string, hostSessionId: string | null): FoldedChange | null {
   try {
     const sessionId = resolveSessionId(projectRoot, hostSessionId);
-    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-    if (ordinal <= 0) {
+    const dirName = currentFeature(projectRoot, sessionId);
+    if (!dirName) {
       return null;
     }
-    return foldChange(projectRoot, sessionId, ordinal);
+    return foldFeature(projectRoot, sessionId, dirName);
   } catch {
     return null;
   }

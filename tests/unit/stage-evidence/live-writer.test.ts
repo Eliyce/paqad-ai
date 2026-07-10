@@ -9,9 +9,9 @@ import {
   recordLiveStageEdit,
   recordMarkedStage,
 } from '@/stage-evidence/live-writer.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 import { stageIndex } from '@/stage-evidence/stages.js';
-import { currentOrdinal, readSessionUnit, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 function clock(startMs = 1_000_000, stepMs = 1000): () => Date {
   let t = startMs - stepMs;
@@ -61,8 +61,8 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
   });
 
   function rows(): SessionLedgerRow[] {
-    const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES);
-    return ord > 0 ? readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, ord) : [];
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
   }
   const kinds = (kind: string, stage?: string) =>
     rows().filter((r) => r.kind === kind && (stage ? r.stage === stage : true));
@@ -208,8 +208,8 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
     expect(recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end', now })).toBe(
       true,
     );
-    const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES);
-    const rows = readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, ord);
+    const dir = currentFeature(root, SES)!;
+    const rows = readFeatureStageUnit(root, dir);
     expect(
       rows.find((r) => r.kind === 'stage_start' && r.stage === 'planning')?.evidence_source,
     ).toBe('live-mark');
@@ -218,7 +218,7 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
 
   it('ignores an unknown stage token (no row, returns false)', () => {
     expect(recordMarkedStage(root, { sessionId: SES, stage: 'bogus', phase: 'start' })).toBe(false);
-    expect(currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES)).toBe(0);
+    expect(currentFeature(root, SES)).toBeNull();
   });
 
   it('returns false (never throws) when the ledger write itself fails', () => {

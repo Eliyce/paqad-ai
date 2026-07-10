@@ -5,11 +5,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  changeKey,
   COMPLETION_ANCHORED_STAGES,
   endStage,
-  foldChange,
-  foldRows,
+  foldRowsWithKey,
   isArtifactBearingStage,
   isCompletionAnchoredStage,
   isMandatoryStage,
@@ -21,7 +19,27 @@ import {
   verifyChange,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
-import { readSessionDoc, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import {
+  currentFeature,
+  featureStagePath,
+  foldFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
+
+/**
+ * The stage-evidence store is re-keyed onto the per-feature bundle (issue #339): a
+ * change's rows live in `<feature-dir>/stage-evidence.jsonl`, resolved from the active
+ * feature in the `_session` control, not `<session>/<ordinal>.jsonl`. These helpers fold
+ * a feature's rows and read them back for the disk-based assertions.
+ */
+function foldRows(rows: SessionLedgerRow[], sessionId: string, ordinal: number) {
+  return foldRowsWithKey(rows, {
+    sessionId,
+    changeKey: `${sessionId}#${ordinal}`,
+    promptOrdinal: ordinal,
+  });
+}
 
 /**
  * End-stage args that satisfy the #320 artifact requirement: for a thinking stage
@@ -66,35 +84,43 @@ describe('stage-evidence ledger (#247)', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  function run(stages: string[], now: () => Date, sessionId = 'ses_test'): number {
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
+  /** Record a run of stages against a fresh feature and return its dir name (the key). */
+  function run(stages: string[], now: () => Date, sessionId = 'ses_test'): string {
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
     for (const stage of stages) {
-      startStage(root, stage, { sessionId, ordinal, adapter: ADAPTER, now });
+      startStage(root, stage, { sessionId, dirName, adapter: ADAPTER, now });
       endStage(root, stage, provenEndArgs(root, stage), {
         sessionId,
-        ordinal,
+        dirName,
         adapter: ADAPTER,
         now,
       });
     }
-    return ordinal;
+    return dirName;
   }
 
   const MANDATORY = STAGE_EVIDENCE_STAGES.filter(isMandatoryStage);
 
-  it('opens a per-change record keyed by session + prompt ordinal', () => {
+  it('opens a per-feature record; a titled re-open mints a distinct feature', () => {
     const a = openStageEvidence(root, { sessionId: 'ses_x', adapter: ADAPTER });
-    const b = openStageEvidence(root, { sessionId: 'ses_x', adapter: ADAPTER });
-    // One session, many changes: each gets the next ordinal.
-    expect(a.ordinal).toBe(1);
-    expect(b.ordinal).toBe(2);
-    expect(a.changeKey).toBe(changeKey('ses_x', 1));
-    expect(b.changeKey).toBe('ses_x#2');
+    // Re-opening with no title resolves the SAME active feature (idempotent open).
+    const same = openStageEvidence(root, { sessionId: 'ses_x', adapter: ADAPTER });
+    expect(same.dirName).toBe(a.dirName);
+    expect(a.changeKey).toBe(a.dirName);
+    // A titled open is the "new work" signal — a fresh, distinct feature.
+    const b = openStageEvidence(root, {
+      sessionId: 'ses_x',
+      adapter: ADAPTER,
+      title: 'Second change',
+      issue: null,
+    });
+    expect(b.dirName).not.toBe(a.dirName);
+    expect(currentFeature(root, 'ses_x')).toBe(b.dirName);
   });
 
   it('stamps a script-clock start and end datetime and derives duration_ms per stage', () => {
-    const ordinal = run(['planning', 'specification'], clock(0, 5000), 'ses_t');
-    const fold = foldChange(root, 'ses_t', ordinal);
+    const dir = run(['planning', 'specification'], clock(0, 5000), 'ses_t');
+    const fold = foldFeature(root, 'ses_t', dir);
     const planning = fold.stages.find((s) => s.stage === 'planning')!;
     expect(planning.started_at).not.toBeNull();
     expect(planning.ended_at).not.toBeNull();
@@ -105,18 +131,18 @@ describe('stage-evidence ledger (#247)', () => {
 
   it('records an out-of-order earlier start instead of rejecting it (issue #310)', () => {
     const now = clock();
-    const { ordinal } = openStageEvidence(root, { sessionId: 'ses_o', adapter: ADAPTER, now });
-    startStage(root, 'development', { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now });
-    endStage(root, 'development', {}, { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now });
+    const { dirName } = openStageEvidence(root, { sessionId: 'ses_o', adapter: ADAPTER, now });
+    startStage(root, 'development', { sessionId: 'ses_o', dirName, adapter: ADAPTER, now });
+    endStage(root, 'development', {}, { sessionId: 'ses_o', dirName, adapter: ADAPTER, now });
     // planning is earlier than development, recorded after it. The recorder used to
     // THROW here — which made the pre-code stages unrecordable once a later stage was
     // recorded (the #310 deadlock). It now records the start; the fold's ordering
     // check is the single, non-destructive judge of order.
     expect(() =>
-      startStage(root, 'planning', { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now }),
+      startStage(root, 'planning', { sessionId: 'ses_o', dirName, adapter: ADAPTER, now }),
     ).not.toThrow();
-    endStage(root, 'planning', {}, { sessionId: 'ses_o', ordinal, adapter: ADAPTER, now });
-    const fold = foldChange(root, 'ses_o', ordinal);
+    endStage(root, 'planning', {}, { sessionId: 'ses_o', dirName, adapter: ADAPTER, now });
+    const fold = foldFeature(root, 'ses_o', dirName);
     expect(fold.stages.find((stage) => stage.stage === 'planning')?.started_at).not.toBeNull();
     expect(fold.completeness.ordering_violations).toContainEqual({
       before: 'planning',
@@ -131,8 +157,8 @@ describe('stage-evidence ledger (#247)', () => {
   });
 
   it('verify passes (exit 0) when every mandatory stage ran in order', () => {
-    const ordinal = run([...MANDATORY], clock(), 'ses_ok');
-    const result = verifyChange(root, { sessionId: 'ses_ok', ordinal, adapter: ADAPTER });
+    const dir = run([...MANDATORY], clock(), 'ses_ok');
+    const result = verifyChange(root, { sessionId: 'ses_ok', dirName: dir, adapter: ADAPTER });
     expect(result.verdict).toBe('complete');
     expect(result.ok).toBe(true);
     expect(result.missing_stages).toEqual([]);
@@ -140,8 +166,8 @@ describe('stage-evidence ledger (#247)', () => {
 
   it('verify fails (incomplete) and lists the missing mandatory stage', () => {
     const partial = MANDATORY.filter((s) => s !== 'documentation_sync');
-    const ordinal = run([...partial], clock(), 'ses_miss');
-    const result = verifyChange(root, { sessionId: 'ses_miss', ordinal, adapter: ADAPTER });
+    const dir = run([...partial], clock(), 'ses_miss');
+    const result = verifyChange(root, { sessionId: 'ses_miss', dirName: dir, adapter: ADAPTER });
     expect(result.ok).toBe(false);
     expect(result.verdict).toBe('incomplete');
     expect(result.missing_stages).toContain('documentation_sync');
@@ -149,8 +175,8 @@ describe('stage-evidence ledger (#247)', () => {
 
   it('escalates to blocked once the redo cap is hit', () => {
     const partial = MANDATORY.filter((s) => s !== 'review');
-    const ordinal = run([...partial], clock(), 'ses_block');
-    const ctx = { sessionId: 'ses_block', ordinal, adapter: ADAPTER };
+    const dir = run([...partial], clock(), 'ses_block');
+    const ctx = { sessionId: 'ses_block', dirName: dir, adapter: ADAPTER };
     expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // attempt 1
     expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // attempt 2
     const third = verifyChange(root, ctx); // cap hit
@@ -160,13 +186,13 @@ describe('stage-evidence ledger (#247)', () => {
 
   it('#321: the redo cap resets when a new stage mutation is recorded', () => {
     const partial = MANDATORY.filter((s) => s !== 'review');
-    const ordinal = run([...partial], clock(), 'ses_reset');
-    const ctx = { sessionId: 'ses_reset', ordinal, adapter: ADAPTER };
+    const dir = run([...partial], clock(), 'ses_reset');
+    const ctx = { sessionId: 'ses_reset', dirName: dir, adapter: ADAPTER };
     expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // failure 1
     expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // failure 2 (cap would hit next)
     // Fresh work: record a new stage row. This is a ledger mutation, so the redo-cap
     // failure count resets — the next verify is incomplete again, NOT blocked.
-    startStage(root, 'review', { sessionId: 'ses_reset', ordinal, adapter: ADAPTER });
+    startStage(root, 'review', { sessionId: 'ses_reset', dirName: dir, adapter: ADAPTER });
     const afterReset = verifyChange(root, ctx);
     expect(afterReset.verdict).toBe('incomplete');
     expect(afterReset.blocked).toBe(false);
@@ -175,14 +201,14 @@ describe('stage-evidence ledger (#247)', () => {
   it('flags an ordering violation when a later stage overlaps an earlier one', () => {
     // Hand-build overlapping events: development starts before specification ends.
     const sessionId = 'ses_overlap';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
     const c = (stage: string, kind: 'stage_start' | 'stage_end', t: number) =>
-      startStageRaw(root, sessionId, ordinal, stage, kind, t);
+      startStageRaw(root, sessionId, dirName, stage, kind, t);
     c('specification', 'stage_start', 1);
     c('development', 'stage_start', 2); // dev starts...
     c('specification', 'stage_end', 3); // ...before spec ends → violation
     c('development', 'stage_end', 4);
-    const fold = foldChange(root, sessionId, ordinal);
+    const fold = foldFeature(root, sessionId, dirName);
     expect(fold.completeness.ordering_violations).toContainEqual({
       before: 'specification',
       after: 'development',
@@ -192,39 +218,34 @@ describe('stage-evidence ledger (#247)', () => {
   it('hashes a real artifact over its on-disk bytes', () => {
     const sessionId = 'ses_art';
     writeFileSync(join(root, 'spec.md'), '# spec body');
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
-    startStage(root, 'planning', { sessionId, ordinal, adapter: ADAPTER });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
+    startStage(root, 'planning', { sessionId, dirName, adapter: ADAPTER });
     const row = endStage(
       root,
       'planning',
       { artifactPaths: ['spec.md'] },
-      { sessionId, ordinal, adapter: ADAPTER },
+      { sessionId, dirName, adapter: ADAPTER },
     );
     expect(row.artifact_digest).toMatch(/^sha256-[0-9a-f]{64}$/);
     expect(row.artifact_paths).toEqual(['spec.md']);
   });
 
   it('writes only AJV-valid rows to disk', () => {
-    run(['planning'], clock(), 'ses_valid');
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses_valid');
+    const dir = run(['planning'], clock(), 'ses_valid');
+    const rows = readFeatureStageUnit(root, dir);
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(validateStageEvidenceRow(row)).toEqual([]);
     }
   });
 
-  it('persists the ledger as JSONL under .paqad/ledger/<doc>/<session>/<ordinal>.jsonl', () => {
-    const ordinal = run(['planning'], clock(), 'ses_path');
-    const file = join(
-      root,
-      '.paqad/ledger',
-      STAGE_EVIDENCE_DOC_TYPE,
-      'ses_path',
-      `${ordinal}.jsonl`,
-    );
+  it('persists the ledger as JSONL inside the feature bundle', () => {
+    const dir = run(['planning'], clock(), 'ses_path');
+    const file = join(root, featureStagePath(dir));
     const lines = readFileSync(file, 'utf8').trim().split('\n');
     expect(lines.length).toBeGreaterThanOrEqual(3); // open + start + end
     expect(JSON.parse(lines[0]).kind).toBe('open');
+    expect(featureStagePath(dir)).toContain('.paqad/ledger/feature-evidence/');
   });
 
   it('rejects an unknown stage on end as well as start', () => {
@@ -238,43 +259,44 @@ describe('stage-evidence ledger (#247)', () => {
     // digest — otherwise a thinking stage could name a nonexistent file and still look
     // proven. A null digest folds the stage `inconclusive`, never `complete`.
     const sessionId = 'ses_absent';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
-    startStage(root, 'planning', { sessionId, ordinal, adapter: ADAPTER });
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
+    startStage(root, 'planning', { sessionId, dirName, adapter: ADAPTER });
     const missing = endStage(
       root,
       'planning',
       { artifactPaths: ['nope.md'] },
-      { sessionId, ordinal, adapter: ADAPTER },
+      { sessionId, dirName, adapter: ADAPTER },
     );
     expect(missing.artifact_digest).toBeNull();
 
     // An empty (0-byte) file is likewise not substantive → null.
     writeFileSync(join(root, 'empty.md'), '');
-    startStage(root, 'specification', { sessionId, ordinal, adapter: ADAPTER });
+    startStage(root, 'specification', { sessionId, dirName, adapter: ADAPTER });
     const empty = endStage(
       root,
       'specification',
       { artifactPaths: ['empty.md'] },
-      { sessionId, ordinal, adapter: ADAPTER },
+      { sessionId, dirName, adapter: ADAPTER },
     );
     expect(empty.artifact_digest).toBeNull();
   });
 
-  it('verify resolves the open change when no ordinal is passed, and throws when none is open', () => {
+  it('verify resolves the active feature when no dirName is passed, and throws when none is open', () => {
     expect(() => verifyChange(root, { sessionId: 'ses_v0', adapter: ADAPTER })).toThrow(
       /no open stage-evidence change/i,
     );
     run(['planning'], clock(), 'ses_v1');
-    // No ordinal passed → resolves via the .open pointer.
+    // No dirName passed → resolves via the active feature in the `_session` control.
     const result = verifyChange(root, { sessionId: 'ses_v1', adapter: ADAPTER });
     expect(result.verdict).toBe('incomplete'); // only planning ran
   });
 
   it('auto-opens a change when a stage is started without an explicit open', () => {
-    // No openStageEvidence call and no ordinal — the recorder opens one itself.
+    // No openStageEvidence call and no dirName — the recorder opens a feature itself.
     const row = startStage(root, 'planning', { sessionId: 'ses_auto', adapter: ADAPTER });
     expect(row.conversation_ordinal).toBe(1);
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses_auto');
+    const dir = currentFeature(root, 'ses_auto')!;
+    const rows = readFeatureStageUnit(root, dir);
     expect(rows[0].kind).toBe('open');
     expect(rows.some((r) => r.kind === 'stage_start')).toBe(true);
   });
@@ -419,14 +441,14 @@ describe('completion-anchored review (#270)', () => {
 
   /** Record planning→docs in build order, so `checks`/`documentation_sync` are on the
    *  ledger before the explicit review — the exact shape issue #270 describes. */
-  function recordBuild(sessionId: string, now: () => Date): number {
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
-    const ctx = { sessionId, ordinal, adapter: ADAPTER, now };
+  function recordBuild(sessionId: string, now: () => Date): string {
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
+    const ctx = { sessionId, dirName, adapter: ADAPTER, now };
     for (const stage of BUILD_ORDER) {
       startStage(root, stage, ctx);
       endStage(root, stage, provenEndArgs(root, stage), ctx);
     }
-    return ordinal;
+    return dirName;
   }
 
   it('marks only review as completion-anchored; every other stage stays ordered', () => {
@@ -439,27 +461,27 @@ describe('completion-anchored review (#270)', () => {
 
   it('records a review start AFTER checks/docs already started, without an out-of-order throw', () => {
     const now = clock();
-    const ordinal = recordBuild('ses_late_start', now);
-    const ctx = { sessionId: 'ses_late_start', ordinal, adapter: ADAPTER, now };
+    const dir = recordBuild('ses_late_start', now);
+    const ctx = { sessionId: 'ses_late_start', dirName: dir, adapter: ADAPTER, now };
     // review is canonically before checks/docs; the strict recorder would throw here.
     expect(() => startStage(root, 'review', ctx)).not.toThrow();
     endStage(root, 'review', provenEndArgs(root, 'review'), ctx);
-    const rows = readSessionDoc(root, STAGE_EVIDENCE_DOC_TYPE, 'ses_late_start');
+    const rows = readFeatureStageUnit(root, dir);
     expect(rows.some((r) => r.kind === 'stage_start' && r.stage === 'review')).toBe(true);
     expect(rows.some((r) => r.kind === 'stage_end' && r.stage === 'review')).toBe(true);
   });
 
   it('AC-1/AC-4: a review recorded after checks + docs passes with no ordering violation', () => {
     const now = clock();
-    const ordinal = recordBuild('ses_late', now);
-    const ctx = { sessionId: 'ses_late', ordinal, adapter: ADAPTER, now };
+    const dir = recordBuild('ses_late', now);
+    const ctx = { sessionId: 'ses_late', dirName: dir, adapter: ADAPTER, now };
     startStage(root, 'review', ctx);
     endStage(root, 'review', provenEndArgs(root, 'review'), ctx);
 
-    const fold = foldChange(root, 'ses_late', ordinal);
+    const fold = foldFeature(root, 'ses_late', dir);
     expect(fold.completeness.ordering_violations).toEqual([]);
 
-    const result = verifyChange(root, { sessionId: 'ses_late', ordinal, adapter: ADAPTER });
+    const result = verifyChange(root, { sessionId: 'ses_late', dirName: dir, adapter: ADAPTER });
     expect(result.verdict).toBe('complete');
     expect(result.ok).toBe(true);
     expect(result.missing_stages).toEqual([]);
@@ -467,8 +489,12 @@ describe('completion-anchored review (#270)', () => {
 
   it('AC-2/AC-3: a review that is never marked stays missing → incomplete (honesty floor)', () => {
     const now = clock();
-    const ordinal = recordBuild('ses_noreview', now);
-    const result = verifyChange(root, { sessionId: 'ses_noreview', ordinal, adapter: ADAPTER });
+    const dir = recordBuild('ses_noreview', now);
+    const result = verifyChange(root, {
+      sessionId: 'ses_noreview',
+      dirName: dir,
+      adapter: ADAPTER,
+    });
     expect(result.ok).toBe(false);
     expect(result.verdict).toBe('incomplete');
     expect(result.missing_stages).toEqual(['review']);
@@ -478,12 +504,12 @@ describe('completion-anchored review (#270)', () => {
     // Regression guard: the exemption is scoped to review only. A checks/docs overlap
     // (documentation_sync starts before checks ends) must still be a violation.
     const sessionId = 'ses_realviolation';
-    const { ordinal } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
-    startStageRaw(root, sessionId, ordinal, 'checks', 'stage_start', 1);
-    startStageRaw(root, sessionId, ordinal, 'documentation_sync', 'stage_start', 2); // docs starts…
-    startStageRaw(root, sessionId, ordinal, 'checks', 'stage_end', 3); // …before checks ends → violation
-    startStageRaw(root, sessionId, ordinal, 'documentation_sync', 'stage_end', 4);
-    const fold = foldChange(root, sessionId, ordinal);
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
+    startStageRaw(root, sessionId, dirName, 'checks', 'stage_start', 1);
+    startStageRaw(root, sessionId, dirName, 'documentation_sync', 'stage_start', 2); // docs starts…
+    startStageRaw(root, sessionId, dirName, 'checks', 'stage_end', 3); // …before checks ends → violation
+    startStageRaw(root, sessionId, dirName, 'documentation_sync', 'stage_end', 4);
+    const fold = foldFeature(root, sessionId, dirName);
     expect(fold.completeness.ordering_violations).toContainEqual({
       before: 'checks',
       after: 'documentation_sync',
@@ -573,7 +599,7 @@ function iso(ms: number): string {
 function startStageRaw(
   root: string,
   sessionId: string,
-  ordinal: number,
+  dirName: string,
   stage: string,
   kind: 'stage_start' | 'stage_end',
   t: number,
@@ -581,7 +607,7 @@ function startStageRaw(
   if (kind === 'stage_start') {
     startStage(root, stage, {
       sessionId,
-      ordinal,
+      dirName,
       adapter: 'claude-code',
       now: () => new Date(t),
     });
@@ -590,7 +616,7 @@ function startStageRaw(
       root,
       stage,
       {},
-      { sessionId, ordinal, adapter: 'claude-code', now: () => new Date(t) },
+      { sessionId, dirName, adapter: 'claude-code', now: () => new Date(t) },
     );
   }
 }

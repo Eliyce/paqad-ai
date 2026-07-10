@@ -5,8 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { extractMarkers, parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
-import { currentOrdinal, readSessionUnit } from '@/session-ledger/ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 /** One JSONL transcript line in the Claude shape. */
 function msg(role: string, text: string): string {
@@ -55,8 +54,8 @@ describe('parseAndRecordMarkers', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   function rows() {
-    const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES);
-    return ord > 0 ? readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, ord) : [];
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
   }
 
   it('records markers the assistant emitted, script-minting the rows', () => {

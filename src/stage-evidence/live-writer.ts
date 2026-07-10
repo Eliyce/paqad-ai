@@ -13,12 +13,12 @@
 
 import { isAbsolute, relative } from 'pathe';
 
-import { currentOrdinal, readSessionUnit, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { endStage, startStage } from './recorder.js';
 import { isKnownStage, PRE_CODE_STAGES, stageIndex, type StageId } from './stages.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from './types.js';
 
 /** Normalise a hook-supplied path to a project-relative posix path for globbing. */
 function toRelativePosix(projectRoot: string, targetPath: string): string {
@@ -145,9 +145,8 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
 
   try {
     const sessionId = resolveSessionId(projectRoot, input.sessionId);
-    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
-    const rows =
-      ordinal > 0 ? readSessionUnit(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId, ordinal) : [];
+    const dirName = currentFeature(projectRoot, sessionId);
+    const rows = dirName ? readFeatureStageUnit(projectRoot, dirName) : [];
     // F2 (issue #310): a file edit records NO stage evidence until the workflow's
     // pre-code stages (planning, specification) are on the ledger. Stamping a later
     // stage (development/checks/documentation_sync) before them is both dishonest
@@ -159,7 +158,7 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     // backfilled at completion (finalizeStageEvidence). No change is even opened until
     // the pre-code stages exist — which means `ordinal > 0` past this guard.
     if (!preCodeStagesRecorded(rows)) return null;
-    const ctx = { sessionId, ordinal, adapter: 'claude-code' as const, now };
+    const ctx = { sessionId, dirName: dirName ?? undefined, adapter: 'claude-code' as const, now };
 
     const started = stagesWithKind(rows, 'stage_start');
     const ended = stagesWithKind(rows, 'stage_end');

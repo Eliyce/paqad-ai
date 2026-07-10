@@ -4,8 +4,12 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { appendSessionEvent, readSessionUnit } from '@/session-ledger/ledger.js';
-import { foldChange } from '@/stage-evidence/fold.js';
+import {
+  appendFeatureStageRow,
+  currentFeature,
+  foldFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
 import {
   endStage,
   finalizeStageEvidence,
@@ -15,7 +19,6 @@ import {
 import { recordLiveStageEdit } from '@/stage-evidence/live-writer.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { formatValidationError, validateStageEvidenceRow } from '@/stage-evidence/schema.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 // Issue #307 hardening — edge branches the 100% stage-evidence floor pins:
 // forged ledger rows, artifact-bearing ends, and root-level schema errors must
@@ -30,11 +33,11 @@ describe('stage-evidence hardening edges', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('finalize survives a forged stage_start row whose stage the recorder cannot end', () => {
-    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
     // A row written around the recorder (hand-forged): the stage id is not in the
     // registry, so the close-out endStage throws — finalize must swallow it and
     // still verify the change instead of crashing the completion hook.
-    appendSessionEvent(root, STAGE_EVIDENCE_DOC_TYPE, SES, ordinal, {
+    appendFeatureStageRow(root, SES, dirName, {
       adapter: 'claude-code',
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
@@ -47,7 +50,7 @@ describe('stage-evidence hardening edges', () => {
       changedFilesCount: 1,
     });
     expect(result).not.toBeNull();
-    const rows = readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, ordinal);
+    const rows = readFeatureStageUnit(root, dirName);
     expect(
       rows.some((row) => row.kind === 'stage_end' && row.stage === 'not_a_registry_stage'),
     ).toBe(false);
@@ -55,15 +58,15 @@ describe('stage-evidence hardening edges', () => {
 
   it('fold carries a string artifact_digest from an artifact-bearing stage end', () => {
     writeFileSync(join(root, 'artifact.txt'), 'artifact bytes');
-    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
-    startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    startStage(root, 'planning', { sessionId: SES, dirName, adapter: 'claude-code' });
     endStage(
       root,
       'planning',
       { artifactPaths: ['artifact.txt'] },
-      { sessionId: SES, ordinal, adapter: 'claude-code' },
+      { sessionId: SES, dirName, adapter: 'claude-code' },
     );
-    const fold = foldChange(root, SES, ordinal);
+    const fold = foldFeature(root, SES, dirName);
     const planning = fold.stages.find((stage) => stage.stage === 'planning');
     expect(planning?.artifact_digest).toMatch(/^sha256-/);
   });
@@ -85,15 +88,15 @@ describe('stage-evidence hardening edges', () => {
   });
 
   it('the live writer survives a forged open stage the recorder cannot close', () => {
-    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    const { dirName } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
     // Pre-code stages recorded (issue #310): the writer defers until planning +
     // specification are on the ledger, so seed them before the edit.
-    startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
-    startStage(root, 'specification', { sessionId: SES, ordinal, adapter: 'claude-code' });
+    startStage(root, 'planning', { sessionId: SES, dirName, adapter: 'claude-code' });
+    startStage(root, 'specification', { sessionId: SES, dirName, adapter: 'claude-code' });
     // A forged, registry-unknown stage_start with no end: the forward-close loop's
     // endStage throws for it — the writer must swallow that and still start the
     // real stage for the edit.
-    appendSessionEvent(root, STAGE_EVIDENCE_DOC_TYPE, SES, ordinal, {
+    appendFeatureStageRow(root, SES, dirName, {
       adapter: 'claude-code',
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
@@ -117,7 +120,7 @@ describe('stage-evidence hardening edges', () => {
       subjectDigest: 'sha256-feedface',
     });
     expect(result).not.toBeNull();
-    const rows = readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, 1);
+    const rows = readFeatureStageUnit(root, currentFeature(root, SES)!);
     expect(
       rows.some((row) => row.kind === 'stage_end' && row.subject_digest === 'sha256-feedface'),
     ).toBe(true);
@@ -131,7 +134,7 @@ describe('stage-evidence hardening edges', () => {
       subjectDigest: null,
     });
     expect(result).not.toBeNull();
-    const rows = readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, 1);
+    const rows = readFeatureStageUnit(root, currentFeature(root, SES)!);
     expect(rows.some((row) => row.kind === 'stage_end' && row.subject_digest === null)).toBe(true);
   });
 

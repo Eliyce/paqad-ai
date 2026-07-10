@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { createProgram } from '@/cli/program.js';
-import { currentOrdinal, readSessionUnit } from '@/session-ledger/ledger.js';
-import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 // `paqad-ai stage <start|end> <stage>` — the shell escape hatch the block-forward
 // gate's remediation names (issue #307). Unlike the never-shipped scripts/se-mark.ts
@@ -28,8 +27,8 @@ describe('paqad-ai stage command', () => {
   });
 
   function rows() {
-    const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, SES);
-    return ord > 0 ? readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, SES, ord) : [];
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
   }
 
   async function run(...args: string[]): Promise<string[]> {
@@ -139,8 +138,8 @@ describe('paqad-ai stage command', () => {
     }
 
     function rowsFor(session: string) {
-      const ord = currentOrdinal(root, STAGE_EVIDENCE_DOC_TYPE, session);
-      return ord > 0 ? readSessionUnit(root, STAGE_EVIDENCE_DOC_TYPE, session, ord) : [];
+      const dir = currentFeature(root, session);
+      return dir ? readFeatureStageUnit(root, dir) : [];
     }
 
     afterEach(() => {

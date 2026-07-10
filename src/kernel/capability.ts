@@ -29,15 +29,14 @@ import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
 import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
-import { currentOrdinal } from '@/session-ledger/ledger.js';
+import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { foldChange } from '@/stage-evidence/fold.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { isFeatureDevEdit } from '@/stage-evidence/scope.js';
 import { isArtifactBearingStage, PRE_CODE_STAGES } from '@/stage-evidence/stages.js';
-import { STAGE_EVIDENCE_DOC_TYPE, type StageLane } from '@/stage-evidence/types.js';
+import { type StageLane } from '@/stage-evidence/types.js';
 
 import { readCapabilityDigest } from './capability-lock.js';
 import { evaluateCapabilityCompat, isRefusedByCompat } from './compat.js';
@@ -389,14 +388,14 @@ const stagesCapability: Capability = {
     // message names actually clears the block within the turn. The narration for
     // every recorded marker rides on the outcome — the ledger write is never silent.
     const narration = sweepSameTurnMarkers(projectRoot, payload?.transcriptPath, sessionId);
-    const ordinal = currentOrdinal(projectRoot, STAGE_EVIDENCE_DOC_TYPE, sessionId);
+    const dirName = currentFeature(projectRoot, sessionId);
 
     // The mandatory stages that must exist BEFORE code is written (planning,
     // specification) — one shared source with the live writer's defer condition.
     const prefix = PRE_CODE_STAGES;
 
-    if (ordinal <= 0) {
-      // No change opened yet → the first required stage is missing. `prefix` always
+    if (!dirName) {
+      // No feature opened yet → the first required stage is missing. `prefix` always
       // opens with 'planning' (PRE_CODE_STAGES is a compile-time constant); the ??
       // is a type-satisfying floor for a future reorder, never hit today.
       /* c8 ignore next -- defensive floor: prefix[0] is always 'planning' under the current MANDATORY_STAGES */
@@ -409,7 +408,7 @@ const stagesCapability: Capability = {
       };
     }
 
-    const fold = foldChange(projectRoot, sessionId, ordinal);
+    const fold = foldFeature(projectRoot, sessionId, dirName);
     const byStage = new Map(fold.stages.map((stage) => [stage.stage, stage]));
     // Lane-aware precondition (issue #324): the fast lane relaxes the SPECIFICATION
     // requirement (planning still required; a spec is optional for a small, low-risk

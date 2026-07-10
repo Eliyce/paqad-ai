@@ -169,11 +169,7 @@ export function openFeatureChange(
  * the NEXT stage/edit opens a fresh feature; the bundle's rows stay on disk as the
  * closed change's record. A no-op when nothing is active.
  */
-export function closeActiveFeature(
-  projectRoot: string,
-  sessionId: string,
-  now?: () => Date,
-): void {
+export function closeActiveFeature(projectRoot: string, sessionId: string, now?: () => Date): void {
   const active = currentFeature(projectRoot, sessionId);
   if (active) {
     markDone(projectRoot, sessionId, active, now);
