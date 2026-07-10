@@ -45,6 +45,7 @@ describe('createProgram', () => {
       'config',
       'intake',
       'deliver',
+      'delivery-link',
       'status',
     ]);
   });
