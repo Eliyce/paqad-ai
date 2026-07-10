@@ -37,6 +37,7 @@ describe('createProgram', () => {
       'rag-evidence',
       'update',
       'patterns',
+      'plan',
       'spec',
       'stage',
       'resume',
