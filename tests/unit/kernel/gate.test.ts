@@ -177,6 +177,69 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toBe('');
   });
 
+  it('says "none armed" at the completion seam when no rule-scripts are armed (#345 G4)', async () => {
+    // A map that catalogues the rule but arms no script (scripts: []).
+    const root = mkdtempSync(join(tmpdir(), 'paqad-kernel-gate-unarmed-'));
+    roots.push(root);
+    write(join(root, 'docs/instructions/rules/coding/q.md'), '- No debugger statements.\n');
+    const scan = scanAndEmbedIds(root);
+    const ruleId = scan.inventory[0].id;
+    const map = assembleMap(
+      scan.inventory,
+      new Map([
+        [ruleId, { id: ruleId, verifiability: { kind: 'deterministic' }, enforced_by: [] }],
+      ]),
+      scan.rule_files_hash,
+      null,
+    );
+    applyRuleScriptMap({
+      projectRoot: root,
+      map,
+      via: 'test',
+      event: { action: 'generate', rule_ids: [ruleId] },
+    });
+    write(join(root, '.paqad/configs/.config.policy'), 'rule_compliance=strict\nstages_mode=off\n');
+    const session = markFeatureDevelopment(root, 'sess-unarmed');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'completion',
+      payload: { sessionId: session },
+    });
+    expect(result.block).toBe(false);
+    expect(result.summary).toContain('none armed');
+  });
+
+  it('stays silent about "none armed" at the pre-mutation seam (no nagging every edit)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-kernel-gate-unarmed-pre-'));
+    roots.push(root);
+    write(join(root, 'docs/instructions/rules/coding/q.md'), '- No debugger statements.\n');
+    const scan = scanAndEmbedIds(root);
+    const ruleId = scan.inventory[0].id;
+    const map = assembleMap(
+      scan.inventory,
+      new Map([
+        [ruleId, { id: ruleId, verifiability: { kind: 'deterministic' }, enforced_by: [] }],
+      ]),
+      scan.rule_files_hash,
+      null,
+    );
+    applyRuleScriptMap({
+      projectRoot: root,
+      map,
+      via: 'test',
+      event: { action: 'generate', rule_ids: [ruleId] },
+    });
+    write(join(root, '.paqad/configs/.config.policy'), 'rule_compliance=strict\nstages_mode=off\n');
+    write(join(root, 'src/app.ts'), 'export const x = 1;\n');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      payload: { targetPath: 'src/app.ts' },
+    });
+    expect(result.block).toBe(false);
+    expect(result.summary).toBe('');
+  });
+
   it('clamps a local rule_compliance=off below the strict team floor (cannot weaken)', async () => {
     const root = setup('strict', 'debugger;\n');
     // A dev-local attempt to disable enforcement must be ignored — team floor wins.

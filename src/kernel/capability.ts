@@ -181,6 +181,20 @@ function formatTamperSummary(mode: RuleComplianceMode): string {
   );
 }
 
+/**
+ * Checks-stage note (issue #345 G4): no rule-scripts are armed, so scripted enforcement ran
+ * nothing. Surfaced at the completion seam so a clean checks run does not read as "the team's
+ * rule-scripts passed" when in fact none exist — honest ⚪ skipped, never a silent green.
+ */
+function formatNoneArmedSummary(): string {
+  return (
+    `**▸ paqad** · scripted rules: ⚪ none armed\n` +
+    `> No rule-scripts are registered for this repo, so I ran no scripted enforcement. Your ` +
+    `checks passed on the toolchain (format/tests/build), not on the team's rule-scripts — ` +
+    `arm them with \`generate rule scripts\` to enforce the rules deterministically.`
+  );
+}
+
 /** Advisory note: bindings run, but their integrity is not yet attested. */
 function formatUnverifiedSummary(): string {
   return (
@@ -267,8 +281,18 @@ const ruleScriptsCapability: Capability = {
       return { ran: true, blocking: mode === 'strict', summary: formatTamperSummary(mode) };
     }
     const result = await enforceRuleScripts({ projectRoot, mode });
-    if (!result.ran || result.violations.length === 0) {
-      // No violations, but if the bindings are unverified surface that (never block).
+    if (!result.ran) {
+      // Nothing was enforced. When that is because NO rule-scripts are armed, the checks
+      // stage (completion seam) says so — a ⚪ skipped verdict, never a silent green pass
+      // (issue #345 G4). Mid-edit (pre-mutation) seams stay quiet so we don't nag on every
+      // edit; the honest "none armed" line belongs at the end-of-change checks moment.
+      if (seam === 'completion' && result.armed === 0) {
+        return { ran: true, blocking: false, summary: formatNoneArmedSummary() };
+      }
+      return NO_OP;
+    }
+    if (result.violations.length === 0) {
+      // Armed scripts ran clean. If the bindings are unverified surface that (never block).
       return integrity === 'unverified'
         ? { ran: true, blocking: false, summary: formatUnverifiedSummary() }
         : NO_OP;
