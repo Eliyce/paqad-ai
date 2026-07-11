@@ -1,2 +1,0 @@
-# Orphaned reference
-Never cited.

@@ -1,0 +1,113 @@
+[
+  {
+    "source": "hooks/agent-entry-gate.mjs"
+  },
+  {
+    "source": "hooks/agent-entry-prompt-gate.mjs"
+  },
+  {
+    "source": "hooks/agent-entry-session-start.mjs"
+  },
+  {
+    "source": "hooks/block-destructive.sh"
+  },
+  {
+    "source": "hooks/capability-gate.mjs"
+  },
+  {
+    "source": "hooks/context-budget-check.sh"
+  },
+  {
+    "source": "hooks/context-hit-tracker.sh"
+  },
+  {
+    "source": "hooks/context-refresh-trigger.mjs"
+  },
+  {
+    "source": "hooks/context-seam-inject.mjs"
+  },
+  {
+    "source": "hooks/conversation-summarize.sh"
+  },
+  {
+    "source": "hooks/decision-pause-gate.mjs"
+  },
+  {
+    "source": "hooks/lib/agent-entry-sentinel.mjs"
+  },
+  {
+    "source": "hooks/lib/codex-rollout.mjs"
+  },
+  {
+    "source": "hooks/lib/context-seam-emit.mjs"
+  },
+  {
+    "source": "hooks/lib/loop-guard.mjs"
+  },
+  {
+    "source": "hooks/lib/paqad-disabled.mjs"
+  },
+  {
+    "source": "hooks/lib/paqad-disabled.sh"
+  },
+  {
+    "source": "hooks/module-health-sync.sh"
+  },
+  {
+    "source": "hooks/post-destructive-approved.sh"
+  },
+  {
+    "source": "hooks/pre-commit-check.sh"
+  },
+  {
+    "source": "hooks/pre-commit-verify.sh"
+  },
+  {
+    "source": "hooks/pre-compact-preserve.mjs"
+  },
+  {
+    "source": "hooks/pre-compact-preserve.sh"
+  },
+  {
+    "source": "hooks/pre-migrate-check.sh"
+  },
+  {
+    "source": "hooks/pre-write-check-spec.sh"
+  },
+  {
+    "source": "hooks/reset-doc-progress.sh"
+  },
+  {
+    "source": "hooks/silent-update.mjs"
+  },
+  {
+    "source": "hooks/skill-cache-check.mjs"
+  },
+  {
+    "source": "hooks/skill-cache-check.sh"
+  },
+  {
+    "source": "hooks/skill-index-gen.mjs"
+  },
+  {
+    "source": "hooks/stage-marker-parse.mjs"
+  },
+  {
+    "source": "hooks/stage-writer.mjs"
+  },
+  {
+    "source": "hooks/stale-doc-detector.sh"
+  },
+  {
+    "source": "hooks/ticket-intake-prompt.mjs"
+  },
+  {
+    "source": "hooks/track-file-changes.sh"
+  },
+  {
+    "source": "hooks/verification-completion.mjs"
+  },
+  {
+    "source": "hooks/verification-record.mjs"
+  }
+]

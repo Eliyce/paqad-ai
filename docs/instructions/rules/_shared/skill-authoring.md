@@ -1,120 +1,85 @@
 # Skill Authoring
 
-## Purpose
+Every skill under `runtime/**/skills/*` obeys this contract so the LLM does only the reasoning it must, and every deterministic step is a tested script. Read it before you create or modify a skill, or add a script to one. Specific to this repo (paqad-ai). The machine-checkable parts are enforced by `tests/unit/skills/coverage-completeness.test.ts`.
 
-Every skill in `runtime/**/skills/*` must obey this contract so the LLM does only the reasoning it actually needs to do, and every deterministic step is a tested script. This is the project rule that backs the agentskills.io guidelines — read it before creating or modifying a skill, and before adding a script to an existing skill.
-
-## Skill anatomy
-
-Every skill is a folder with this shape:
+A skill folder has this shape:
 
 ```
 <skill-name>/
-├── SKILL.md          # required — LLM-reasoning layer only
-├── references/       # optional — detail loaded on demand (cite from SKILL.md)
+├── SKILL.md          # required — LLM-reasoning layer only, loaded at activation
+├── references/       # optional — detail loaded on demand, cited from SKILL.md
 ├── assets/           # optional — output templates, schemas, lookup tables
 ├── scripts/          # optional — deterministic helpers
 └── agents/           # optional — adapter-specific descriptors (e.g. openai.yaml)
 ```
 
-`SKILL.md` is the only file loaded at activation. Everything else is referenced from it and loaded on demand (progressive disclosure).
+## SKILL.md
 
-## SKILL.md rules
+- Use the documented frontmatter and no invented fields: `name`, `description`, `model_tier`, `triggers`, `cacheable`, `cache_key_inputs`, `output_format`, `input_schema`. Mirror an existing peer skill. <!-- @rule RL-70a6 -->
+- Set `name` to the folder name, and write `description` from the user's perspective ("Detect X", "Verify Y") because it is the activation hint. <!-- @rule RL-4444 -->
+- Keep `SKILL.md` under ~500 lines (~5,000 tokens). Move detail into `references/<topic>.md` and cite it with a load condition ("Read `references/X.md` before doing Y"), never a generic "see references". <!-- @rule RL-b054 -->
+- Order the body exactly: `## What It Does`, `## Use This When`, `## Inputs`, `## Procedure`, `## Output Contract`, `## Escalate / Stop Conditions`, `## Resources`. <!-- @rule RL-191d -->
+- Route every deterministic procedure step (parse, derive an inventory, normalize, validate, diff, look up a table) to a script in `scripts/`. MUST NOT re-derive that work in prose. <!-- @rule RL-18a6 -->
+- Keep judgment steps (severity, ambiguity, whether a hit is a real finding) in prose, and name the boundary: "Run script X for candidates; the LLM picks severity per `references/Y.md`." <!-- @rule RL-ccec -->
+- List every script and referenced file under `## Resources` with a one-line purpose. The meta-test fails on any backticked path there that does not exist. <!-- @rule RL-db2e -->
 
-- Use the documented frontmatter — `name`, `description`, `model_tier`, `triggers`, `cacheable`, `cache_key_inputs`, `output_format`, `input_schema`. Mirror the shape of an existing peer skill rather than inventing new fields.
-- `name` matches the folder name. `description` is the activation hint — write it from the user's perspective ("Detect X", "Verify Y"), not the implementation's.
-- Keep `SKILL.md` under ~500 lines / ~5,000 tokens. Move detail to `references/<topic>.md` and tell the agent _when_ to load it ("Read `references/X.md` before doing Y") — never a generic "see references for details".
-- The body must contain, in order: `## What It Does`, `## Use This When`, `## Inputs`, `## Procedure`, `## Output Contract`, `## Escalate / Stop Conditions`, `## Resources`.
-- Procedure steps that are deterministic (parse a file, derive an inventory, normalize a value, validate a payload, emit a diff, look up a table) **must** call a script in `scripts/` — do not re-derive the work in prose.
-- Procedure steps that are judgment (severity, ambiguity, whether a flagged hit is a real finding) belong in prose. Make the boundary explicit: "Run script X to get the candidates; the LLM picks severity per the checklist in `references/Y.md`."
-- Resources section lists every script with a one-line purpose and every referenced file. The meta-test fails if any backticked path under Resources doesn't exist.
+## Scripts: interface contract
 
-## Scripts rules — interface contract
+- Give each script one verb (`parse-X`, `extract-Y`, `derive-Z`, `diff-X`, `match-X-to-Y`). If you would name it `do-stuff`, split it. <!-- @rule RL-3bbc -->
+- Make `--help` exit 0 and document usage, flags, output shape, and exit codes, tersely. It lands in the agent's context every run. <!-- @rule RL-106d -->
+- Write structured data to stdout (TSV by default; JSON when the consumer is `node`/`jq`) and all diagnostics to stderr, so stdout stays parseable. <!-- @rule RL-dae9 -->
+- Give an unrecognized or out-of-range input a clear message and the right exit code, never a bare "error: 1". <!-- @rule RL-6bf1 -->
+- Take all input via flags, env vars, or stdin. MUST NOT block on an interactive prompt, which hangs the agent. <!-- @rule RL-2bfa -->
+- Keep scripts idempotent: a re-run on the same input produces the same output, including stable id sequences. <!-- @rule RL-d65b -->
+- Default to a summary when output can grow unbounded, and accept `--out`/`--limit` for the full version. Harnesses truncate around 10–30K characters. <!-- @rule RL-9d84 -->
 
-Every script in `scripts/` follows this contract. The agentskills.io guidance is the spec; this rule is how we enforce it in this project.
+Exit codes are a fixed contract:
 
-- **One verb per script.** A script does one thing — `parse-X`, `extract-Y`, `derive-Z`, `diff-X`, `match-X-to-Y`, `propose-X`. If you find yourself naming a script `do-stuff`, split it.
-- **`--help` exits 0** and documents `Usage`, accepted flags, output shape, and exit codes. Keep it terse — `--help` lands in the agent's context window every time.
-- **Stdout is structured.** Default to TSV (`<col1>\t<col2>\t...`); use JSON when the consumer is `node`/`jq` (e.g. live-phase results). Never mix data and diagnostics on stdout.
-- **Stderr carries diagnostics.** Notes, warnings, "directory not found" hints — all stderr. Stdout stays parseable.
-- **Meaningful exit codes:**
-  - `0` — success (including "no rows" / "no match" — emit an empty result, don't error)
-  - `1` — the operation surfaced a real failure or unrecognized input that isn't usage
-  - `2` — usage error (missing required arg, unknown flag, file-not-found for required input)
-- **Helpful error messages.** "Error: X is required. Usage: ..." — never bare "error: 1". The agent reads stderr to decide the next attempt.
-- **No interactive prompts.** All input via flags, env vars, or stdin. A script that blocks on a TTY prompt hangs the agent indefinitely.
-- **Idempotent.** Agents retry. "Create if not exists" is safer than "create and fail on duplicate". Re-runs on the same input produce the same output (this includes stable id sequences — see `design-system-coverage/scripts/gap-report.sh`).
-- **Defaults over menus.** When multiple paths are reasonable, pick a sensible default and mention the alternative briefly. Don't dump a menu the agent has to pick from.
-- **Predictable output size.** If output can grow unbounded, default to a summary and accept a flag (`--out`, `--limit`) for the full version. Many agent harnesses truncate around 10–30K characters.
-- **Trust internal callers, validate at boundaries.** Reject ambiguous or out-of-range input with a clear error and `exit 2` rather than guessing.
+```
+0  success — including "no rows" / "no match" (emit an empty result, do not error)
+1  a real failure or unrecognized non-usage input
+2  a usage error — missing required arg, unknown flag, or a required input file not found
+```
 
-## Scripts rules — portability
+## Scripts: portability
 
-`bash -n` is checked by the meta-test. The scripts also need to run on macOS bash 3.2 and BSD grep / POSIX awk that ship in CI. Workarounds we've already paid for:
+Scripts run on macOS bash 3.2, BSD grep, and POSIX awk in CI, and `bash -n` is checked by the meta-test. Each workaround below is load-bearing. Document it inline so a future contributor does not "correct" it and break CI.
 
-- **No `mapfile`.** Bash 3.2 doesn't have it. Use `while IFS= read -r line; do ... done` or write the list to a tempfile and iterate.
-- **No `\b` in awk.** POSIX awk regex has no word-boundary metachar. Use explicit boundary character classes like `(^|[^A-Za-z0-9_-])...([^A-Za-z0-9_-]|$)`.
-- **BSD grep's `(^|...)` alternation is fragile.** When `(^|[^class])foo` fails to match start-of-line cases on macOS, use the `[^class]?foo` zero-or-one quantifier instead and let post-processing in awk handle the rest.
-- **awk's `match()` is case-sensitive even when grep used `-i`.** If you matched case-insensitively in grep, you must lowercase both sides in awk before calling `match()`, then map `RSTART`/`RLENGTH` back onto the original casing for reporting.
-- **`read` drops the last line when there's no trailing newline.** Always write `while IFS= ... read -r x || [ -n "${x:-}" ]; do ...; done` so a one-line input doesn't get silently skipped.
-- **`set -euo pipefail`** at the top of every script. Pair with `|| true` on any subshell whose non-zero exit is non-fatal (e.g. `grep` that finds nothing).
-- **`[A-Z]` / `[a-z]` ranges are locale-dependent.** On some POSIX locales (seen on GitHub's macOS runner) `[A-Z]` collates as `aBcDeF...` and matches lowercase too. When the filter is meant to be "uppercase only" or "lowercase only", use an explicit byte set (`[ABCDEFGHIJKLMNOPQRSTUVWXYZ]`). `[A-Za-z]` is safe because it already covers both cases. This applies to **both bash `case` patterns and awk regexes**.
-- **Don't shell out for what `awk` already does.** Each subprocess is a real cost when the agent runs the script across hundreds of files.
-- **Inline comments document each workaround.** If a future contributor sees `[^class]?foo` and thinks "that's wrong, it should be `(^|[^class])foo`", they will revert the fix and break CI. The comment is load-bearing.
+- Put `set -euo pipefail` at the top, and pair `|| true` with any subshell whose non-zero exit is expected (a `grep` that finds nothing). <!-- @rule RL-aa4e -->
+- Iterate with `while IFS= read -r line; do … done` instead of `mapfile`, which bash 3.2 lacks. <!-- @rule RL-0766 -->
+- Guard the last line with `while IFS= read -r x || [ -n "${x:-}" ]; do …` so input without a trailing newline is not dropped. <!-- @rule RL-b43e -->
+- Write word boundaries as explicit character classes like `(^|[^A-Za-z0-9_-])…([^A-Za-z0-9_-]|$)`; POSIX awk has no `\b`. <!-- @rule RL-6ab1 -->
+- Prefer `[^class]?foo` over `(^|[^class])foo` on BSD grep, where the alternation fails to match start-of-line cases. <!-- @rule RL-d505 -->
+- Lowercase both sides before `match()` in awk when you matched case-insensitively in grep, then map `RSTART`/`RLENGTH` back onto the original casing. Awk's `match()` ignores grep's `-i`. <!-- @rule RL-fb1b -->
+- Use an explicit byte set (`[ABCDEFGHIJKLMNOPQRSTUVWXYZ]`) for an "uppercase-only" filter; `[A-Z]` collates to include lowercase in some CI locales. `[A-Za-z]` is safe. <!-- @rule RL-0560 -->
+- Do the work in awk rather than shelling out per line. Each subprocess is a real cost across hundreds of files. <!-- @rule RL-a761 -->
 
-## Assets rules
+## Assets and references
 
-- `assets/output.template.{md,json}` — the canonical shape of the skill's output. Agents pattern-match against templates far more reliably than against prose descriptions.
-- `assets/<vocabulary>.txt` — closed sets the script and the agent both consume (e.g. severity vocabulary, axe-rule → WCAG mapping). Keep them flat and grep-friendly.
-- Never put logic in assets. Logic is in `scripts/`. Assets are static lookup data and templates.
+- Keep `assets/output.template.{md,json}` as the canonical output shape. Agents pattern-match templates more reliably than prose. <!-- @rule RL-7579 -->
+- Keep `assets/<vocabulary>.txt` flat and grep-friendly for the closed sets the script and agent share (severity words, axe-rule → WCAG map). <!-- @rule RL-5c12 -->
+- Put no logic in assets. Logic lives in `scripts/`; assets are static data and templates. <!-- @rule RL-0e13 -->
+- Cite every `references/<topic>.md` from `SKILL.md` with a load condition. A reference nothing cites is dead weight, and a procedure a reference describes becomes a script. <!-- @rule RL-48a0 -->
 
-## References rules
+## Testing: one test per script
 
-- `references/<topic>.md` — detail the agent loads only when it needs it.
-- Every reference must be cited from `SKILL.md` with a load condition ("Read `references/X.md` before evaluating Y"). A reference that's never cited is dead weight.
-- References are reading material, not executable. If the document describes a procedure, that procedure becomes a script.
+Every script has a spec at `tests/unit/skills/<skill>.test.ts` that references it by basename, exercised end to end against real fixtures.
 
-## Testing rules — one test per script
+- Make the first test of each `describe` assert `--help` exits 0, and assert usage errors exit 2 with the expected stderr. <!-- @rule RL-8744 -->
+- Give each documented behavior its own `it(...)`. Do not bundle "parses, ignores prose, handles empty" into one test. <!-- @rule RL-6239 -->
+- Assert on structured output (`expect(rows).toContain('color.primary.500\t#1a73e8\tcolor')`), not on a prose regex. <!-- @rule RL-4160 -->
+- Assert both the success and the skip path: every finding script has a "finds the violation" and a "skips exempt files" test; every required flag has a "rejects missing flag" test. <!-- @rule RL-882f -->
+- Test each portability workaround explicitly (feed a missing-trailing-newline input to the code that defends against it). The fix is silent otherwise. <!-- @rule RL-d5ba -->
+- Depend on no developer-machine state: no real `git`, network, or Playwright. Build tempdirs and fixtures with `withTempDir`, and keep larger fixtures under `tests/fixtures/…/<skill>/`. <!-- @rule RL-a187 -->
 
-Every script in `scripts/` has a corresponding test that exercises it end-to-end. This is enforced by `tests/unit/skills/coverage-completeness.test.ts`:
+## Before opening the PR
 
-1. **Every skill with `scripts/` has a spec at `tests/unit/skills/<skill>.test.ts`.**
-2. **Every script in that dir is referenced by basename in the spec.** A script with no test reference fails CI.
-3. **Every script passes `bash -n`** (syntax check).
-4. **Every backticked path under `## Resources` in `SKILL.md` exists on disk.**
+```
+- SKILL.md has the seven sections in order; description triggers on the right prompts, not near-misses.
+- Every deterministic step calls a script; every script has --help, structured stdout, stderr diagnostics, exit codes 0/1/2.
+- Every script is listed under ## Resources and has a spec referencing it by basename, with an it(...) per behavior.
+- Fixtures live under tests/fixtures/…; portability workarounds are documented inline.
+- `pnpm run ci` is green locally.
+```
 
-Inside each spec:
-
-- **`--help` must exit 0.** First test of every `describe` block.
-- **Usage errors must exit 2** with stderr matching the expected guidance.
-- **Each documented behavior is a separate `it(...)`.** Don't bundle "parses tokens, ignores prose, handles empty" into one test — fail them independently so failures point at one thing.
-- **Tests use real fixtures.** Fixture files live under `tests/fixtures/design-skills/<skill>/` (or the equivalent path for non-design skills). Inline strings via `withTempDir + writeFile` are fine for small one-offs (a CSS line, a single .tsx); anything larger goes in `tests/fixtures/`.
-- **Tests assert on structured output, not prose.** `expect(rows).toContain('color.primary.500\t#1a73e8\tcolor')`, not `expect(stdout).toMatch(/primary/)`.
-- **Tests assert both success and failure modes.** Every script that emits findings has both "finds the expected violation" and "skips exempt files" tests. Every script with required flags has a "rejects missing flag" test.
-- **No reliance on developer machine state.** No real `git`, no real network, no real Playwright. If the script needs a tempdir or a fixture, build it with `withTempDir`. The script must run identically on Node 22 / 24 / ubuntu / macOS.
-- **Test the portability workarounds explicitly.** If a script defends against missing trailing newline, write a test that feeds it a missing-trailing-newline input. The fix is silent without it.
-
-## Skill creation checklist
-
-Before opening a PR that adds or modifies a skill:
-
-- [ ] `SKILL.md` has the seven required sections in order.
-- [ ] `description` triggers on the right prompts and not on near-misses.
-- [ ] Every deterministic procedure step calls a script in `scripts/`.
-- [ ] Every script has `--help`, structured stdout, stderr diagnostics, and meaningful exit codes.
-- [ ] Every script is referenced under `## Resources` with a one-line purpose.
-- [ ] Every script has a spec file at `tests/unit/skills/<skill>.test.ts` that references it by basename.
-- [ ] Every script's documented behavior has its own `it(...)` test, including usage errors.
-- [ ] Fixtures live under `tests/fixtures/design-skills/<skill>/` (or the analogous path) — not inline blobs spread through the spec.
-- [ ] `pnpm run ci` is green locally before pushing.
-- [ ] Any portability workaround is documented inline so a future contributor doesn't undo it.
-
-## Rules
-
-- Skills are the LLM-reasoning layer. Anything mechanical lives in `scripts/`.
-- One script per verb. Structured stdout, stderr diagnostics, `--help`, exit codes 0/1/2.
-- Every script has a real test against fixtures — not a smoke check.
-- Scripts must run on bash 3.2 + BSD grep + POSIX awk. Workarounds documented inline.
-- `SKILL.md` ≤ ~500 lines. Detail goes in `references/` with explicit load triggers.
-- The meta-test (`coverage-completeness`) is the enforcement; do not bypass it.
-- When in doubt, copy the shape of an existing peer skill rather than inventing a new one.
+When in doubt, copy the shape of an existing peer skill rather than inventing a new one. The `coverage-completeness` meta-test is the enforcement. MUST NOT bypass it.

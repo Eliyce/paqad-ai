@@ -1,0 +1,1 @@
+const root = resolvePackageRoot();

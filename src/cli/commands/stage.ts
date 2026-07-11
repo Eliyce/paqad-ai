@@ -2,6 +2,7 @@ import { Command } from 'commander';
 
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
 
@@ -64,6 +65,22 @@ export function createStageCommand(): Command {
         return;
       }
       const root = options.projectRoot;
+      // Normalize + validate each `--artifact` at the boundary (issue #350) BEFORE any
+      // row is written: an in-tree path (absolute or relative) becomes project-relative
+      // so the recorder can hash it; a genuinely out-of-tree path is rejected loudly
+      // instead of being silently join()ed into a non-existent in-repo path and recorded
+      // as absent. Only meaningful on an `end` — a `start` never carries one.
+      let artifactPaths: string[] | undefined;
+      if (phase === 'end' && options.artifact) {
+        try {
+          // normalizeArtifactPath throws only ArtifactOutOfTreeError (an out-of-tree path).
+          artifactPaths = options.artifact.map((raw) => normalizeArtifactPath(root, raw));
+        } catch (error) {
+          console.error(`could not record "${stage} ${phase}" — ${(error as Error).message}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
       // Resolve the SAME session the live writer + block-forward gate key on (the
       // single-slot ledger-session cache) so a manual mark actually clears the
       // pre-mutation block in the session that hit it.
@@ -75,8 +92,9 @@ export function createStageCommand(): Command {
         sessionId,
         stage,
         phase,
-        // Artifacts are only meaningful on an `end`; a `start` ignores them.
-        artifactPaths: phase === 'end' ? options.artifact : undefined,
+        // Artifacts are only meaningful on an `end`; a `start` ignores them. Already
+        // normalized + tree-validated above (issue #350).
+        artifactPaths,
         // A `--title` on a start opens a fresh named feature first (issue #339);
         // ignored on an end (the boundary attaches to the active change).
         title: phase === 'start' ? options.title : undefined,

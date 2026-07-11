@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-10T16:24:09.795Z",
+  "passed": true,
+  "ran": true,
+  "results": [
+    {
+      "schema_version": "1.0.0",
+      "summary": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0,
+        "duration_ms": 0,
+        "timestamp": "2026-07-10T16:22:31.426Z",
+        "runner_id": "format"
+      },
+      "failures": [],
+      "warnings": [],
+      "parse_metadata": {
+        "raw_byte_size": 0,
+        "structured_byte_size": 0,
+        "compression_ratio": 1,
+        "original_size": 0,
+        "compact_size": 0,
+        "reduction_ratio": 0,
+        "delta_mode_used": false,
+        "escalation_occurred": false,
+        "escalation_reason": null,
+        "delta_summary": null,
+        "parse_strategy": "structured",
+        "parse_warnings": []
+      },
+      "errors": [],
+      "evidence_scope": {
+        "related_paths": [
+          ".changeset/routing-scope-exclude-paqad.md",
+          "runtime/AGENT-BOOTSTRAP.md",
+          "src/onboarding/agent-bootstrap-writer.ts"
+        ]
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "summary": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0,
+        "duration_ms": 0,
+        "timestamp": "2026-07-10T16:24:00.580Z",
+        "runner_id": "test"
+      },
+      "failures": [],
+      "warnings": [],
+      "parse_metadata": {
+        "raw_byte_size": 0,
+        "structured_byte_size": 0,
+        "compression_ratio": 1,
+        "original_size": 0,
+        "compact_size": 0,
+        "reduction_ratio": 0,
+        "delta_mode_used": false,
+        "escalation_occurred": false,
+        "escalation_reason": null,
+        "delta_summary": null,
+        "parse_strategy": "structured",
+        "parse_warnings": []
+      },
+      "errors": [],
+      "evidence_scope": {
+        "related_paths": [
+          ".changeset/routing-scope-exclude-paqad.md",
+          "runtime/AGENT-BOOTSTRAP.md",
+          "src/onboarding/agent-bootstrap-writer.ts"
+        ]
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "summary": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0,
+        "duration_ms": 0,
+        "timestamp": "2026-07-10T16:24:09.795Z",
+        "runner_id": "build"
+      },
+      "failures": [],
+      "warnings": [],
+      "parse_metadata": {
+        "raw_byte_size": 0,
+        "structured_byte_size": 0,
+        "compression_ratio": 1,
+        "original_size": 0,
+        "compact_size": 0,
+        "reduction_ratio": 0,
+        "delta_mode_used": false,
+        "escalation_occurred": false,
+        "escalation_reason": null,
+        "delta_summary": null,
+        "parse_strategy": "structured",
+        "parse_warnings": []
+      },
+      "errors": [],
+      "evidence_scope": {
+        "related_paths": [
+          ".changeset/routing-scope-exclude-paqad.md",
+          "runtime/AGENT-BOOTSTRAP.md",
+          "src/onboarding/agent-bootstrap-writer.ts"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+execSync("git status");

@@ -1,0 +1,26 @@
+{
+  "id": "D-01KX841Q4BW3H219AND947T0DV",
+  "category": "architecture-path",
+  "title": "Behavior for absolute / out-of-tree --artifact paths on stage end (#350)",
+  "context": "stage end --artifact currently join()s the path onto projectRoot, so an absolute or out-of-tree path silently becomes a non-existent in-repo path, is hashed as 'absent', and the stage folds to inconclusive while the CLI still prints recorded:true. We must stop the silent-accept. Anti-spoofing (a genuinely-missing in-tree file still records 'absent') must NOT weaken. Question: what should an absolute/out-of-tree path do?",
+  "options": [
+    {
+      "option_key": "reject",
+      "label": "Reject ALL absolute paths with a clear error + non-zero exit (artifact must be a path inside the project)"
+    },
+    {
+      "option_key": "accept_in_tree",
+      "label": "Accept an absolute path when it resolves to a real file INSIDE the project root (normalize to relative); reject only genuinely out-of-tree paths"
+    },
+    {
+      "option_key": "strict_loud",
+      "label": "Accept in-tree absolute, reject out-of-tree, and always fail loudly rather than recording a false 'absent'"
+    }
+  ],
+  "recommendation": "accept_in_tree",
+  "created_at": "2026-07-11T08:17:35.884Z",
+  "status": "resolved",
+  "chosen": "accept_in_tree",
+  "rationale": "Human chose: accept absolute paths that resolve inside project root (normalize to relative), reject genuinely out-of-tree paths with a clear error + non-zero exit. Anti-spoof for missing in-tree files unchanged.",
+  "resolved_at": "2026-07-11T08:22:34.072Z"
+}

@@ -1,0 +1,1 @@
+capture('Song Played', { id });

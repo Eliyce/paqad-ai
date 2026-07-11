@@ -1,5 +1,9 @@
 # Content Attribution
 
-- Attribute externally-derived facts, metrics, and claims whenever the source is known.
-- Distinguish observed facts from recommendations and inference.
-- Do not present guessed numbers or unsupported product claims as verified.
+Loads for content work.
+
+<!-- trigger: ** -->
+
+- Attribute every externally-derived fact, metric, or claim whose source you know. <!-- @rule RL-2432 -->
+- Separate observed facts from recommendations and inference. <!-- @rule RL-d1b0 -->
+- MUST NOT present a guessed number or an unsupported product claim as verified. <!-- @rule RL-1dd4 -->

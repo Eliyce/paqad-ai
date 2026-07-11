@@ -81,6 +81,44 @@ describe('paqad-ai stage command', () => {
     expect(end?.artifact_digest ?? null).toBeNull();
   });
 
+  it('accepts an ABSOLUTE in-tree --artifact by normalizing it to relative (#350)', async () => {
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(join(root, 'plan.md'), '# a real plan\n');
+    await run('start', 'planning');
+    // Pass the file by its absolute path — today this silently join()ed onto root and
+    // hashed as absent; now it normalizes and hashes the real bytes.
+    await run('end', 'planning', '--artifact', join(root, 'plan.md'));
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    expect(end?.artifact_digest).toMatch(/^sha256-/);
+    // The stored path is the normalized relative one, not the absolute input.
+    expect(end?.artifact_paths).toEqual(['plan.md']);
+  });
+
+  it('rejects an out-of-tree --artifact loudly with exit 1 and writes no row (#350)', async () => {
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((line: string) => {
+      errors.push(String(line));
+    });
+    await run('start', 'planning');
+    const before = rows().length;
+    // A real file OUTSIDE the repo (the #350 repro: a scratch/temp path). It must be
+    // refused at the command, not silently accepted then discovered absent later.
+    await run('end', 'planning', '--artifact', join(tmpdir(), 'paqad-oot-review.md'));
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toContain('artifact must be a path inside the project');
+    // No stage_end row was appended for the rejected artifact.
+    expect(rows().filter((r) => r.kind === 'stage_end' && r.stage === 'planning')).toHaveLength(0);
+    expect(rows().length).toBe(before);
+  });
+
+  it('ignores an out-of-tree path on a START (artifacts are end-only) (#350)', async () => {
+    // A start never carries an artifact, so an out-of-tree path on a start must not
+    // trip the boundary check — the start records normally.
+    await run('start', 'planning', '--artifact', join(tmpdir(), 'paqad-oot.md'));
+    expect(process.exitCode).toBeUndefined();
+    expect(rows().some((r) => r.kind === 'stage_start' && r.stage === 'planning')).toBe(true);
+  });
+
   it('narrates the mark in the ▸ paqad voice (ledger writes are never silent)', async () => {
     const startLines = await run('start', 'planning');
     expect(startLines.some((line) => line.startsWith('▸ paqad'))).toBe(true);

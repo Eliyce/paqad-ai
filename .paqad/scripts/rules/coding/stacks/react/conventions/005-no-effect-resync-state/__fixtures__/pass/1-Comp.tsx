@@ -1,0 +1,1 @@
+const full = first + " " + last;
