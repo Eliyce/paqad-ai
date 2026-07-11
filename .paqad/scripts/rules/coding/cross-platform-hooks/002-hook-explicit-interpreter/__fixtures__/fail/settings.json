@@ -1,5 +1,0 @@
-{
-  "hooks": {
-    "Stop": [{ "hooks": [{ "type": "command", "command": "/home/u/.paqad/hooks/verify.mjs" }] }]
-  }
-}

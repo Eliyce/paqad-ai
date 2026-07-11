@@ -1,0 +1,4 @@
+name: demo
+id: demo
+commands:
+  test: pnpm test

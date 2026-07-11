@@ -1,0 +1,3 @@
+grep '[ABCDEFGHIJKLMNOPQRSTUVWXYZ]' f
+
+// ok

@@ -4,5 +4,5 @@
 
 <!-- trigger: ** -->
 
-- Treat `docs/` as the authoritative description of current behavior. When code and docs disagree, resolve it in this change. Fix whichever is wrong, and MUST NOT leave the mismatch for later.
-- Keep each module's docs scoped to that module and complete enough to act on without reading the source.
+- Treat `docs/` as the authoritative description of current behavior. When code and docs disagree, resolve it in this change. Fix whichever is wrong, and MUST NOT leave the mismatch for later. <!-- @rule RL-6740 -->
+- Keep each module's docs scoped to that module and complete enough to act on without reading the source. <!-- @rule RL-6477 -->

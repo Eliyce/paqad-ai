@@ -2,13 +2,13 @@
 
 Loads when you write React UI that handles data, links, or auth. Sharpens `_shared/security.md` with React specifics; it does not repeat the baseline.
 
-- Render user text as children so React escapes it. MUST NOT pass unsanitized HTML to `dangerouslySetInnerHTML`; when HTML is unavoidable, sanitize it with `DOMPurify` first.
-- Validate the scheme before you build an `href` or `src` from user input, and reject `javascript:` and `data:` URLs.
-- Treat client-side route guards as UX only, and enforce every mutation's authorization on the server or API. The client is untrusted.
-- Keep secrets and privileged calls server-side (server components, route handlers, or a backend); anything in client code or a browser-exposed env var is public.
-- Store auth tokens in `HttpOnly`, `Secure`, `SameSite` cookies, not `localStorage`, which any injected script can read.
-- Add `rel="noopener noreferrer"` to every `target="_blank"` link to an external origin, to prevent reverse-tabnabbing.
-- Parse data crossing a trust boundary (API responses, URL params, `postMessage`) with a schema validator before use. MUST NOT assume the shape.
+- Render user text as children so React escapes it. MUST NOT pass unsanitized HTML to `dangerouslySetInnerHTML`; when HTML is unavoidable, sanitize it with `DOMPurify` first. <!-- @rule RL-7f59 -->
+- Validate the scheme before you build an `href` or `src` from user input, and reject `javascript:` and `data:` URLs. <!-- @rule RL-58f6 -->
+- Treat client-side route guards as UX only, and enforce every mutation's authorization on the server or API. The client is untrusted. <!-- @rule RL-38b9 -->
+- Keep secrets and privileged calls server-side (server components, route handlers, or a backend); anything in client code or a browser-exposed env var is public. <!-- @rule RL-f693 -->
+- Store auth tokens in `HttpOnly`, `Secure`, `SameSite` cookies, not `localStorage`, which any injected script can read. <!-- @rule RL-d38a -->
+- Add `rel="noopener noreferrer"` to every `target="_blank"` link to an external origin, to prevent reverse-tabnabbing. <!-- @rule RL-73ed -->
+- Parse data crossing a trust boundary (API responses, URL params, `postMessage`) with a schema validator before use. MUST NOT assume the shape. <!-- @rule RL-0c81 -->
 
 ## Verify
 

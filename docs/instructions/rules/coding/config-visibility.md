@@ -7,10 +7,10 @@ line is project-fact vs framework-knob, not whether a value has a default. Speci
 
 ## The two kinds of settings
 
-- Keep only project facts in `project-profile.yaml`: name, id, description, the project's own `commands`, `mcp.servers`,
+- Keep only project facts in `project-profile.yaml`: name, id, description, the project's own `commands`, `mcp.servers`, <!-- @rule RL-93ac -->
   the detection-derived `active_capabilities` and `stack_profile`, and the project-owned `custom` arrays. These describe
   the repository, not framework behavior.
-- Keep every framework knob in `src/core/framework-config.ts` (the `FRAMEWORK_CONFIG_SPECS` registry) at its code
+- Keep every framework knob in `src/core/framework-config.ts` (the `FRAMEWORK_CONFIG_SPECS` registry) at its code <!-- @rule RL-7483 -->
   default, and override it through the config layer below. Knobs include `paqad_enable`, the whole `enterprise` block,
   the RAG/intelligence knobs, strictness, escalation, feature flags, model routing, the decision knobs, and the
   version/update knobs.
@@ -35,18 +35,18 @@ cataloguing every knob; it is never read at runtime.
 
 ## Rules
 
-- Keep every knob discoverable: onboarding writes it into its group file, commented out, with its default and `PAQAD_*`
+- Keep every knob discoverable: onboarding writes it into its group file, commented out, with its default and `PAQAD_*` <!-- @rule RL-0a01 -->
   equivalent, so a team finds a knob by reading the file it would change. MUST NOT add a knob that is invisible and
   undiscoverable.
-- Resolve in the fixed precedence: defaults, then `configs/.config.*` (team, merged), then `.config` (local), then
+- Resolve in the fixed precedence: defaults, then `configs/.config.*` (team, merged), then `.config` (local), then <!-- @rule RL-5163 -->
   `PAQAD_*` env, then programmatic overrides. A local file beats a team file; an env var beats both files.
-- Resolve any knob no surface sets to its documented code default, so a commented, missing, or hand-trimmed config never
+- Resolve any knob no surface sets to its documented code default, so a commented, missing, or hand-trimmed config never <!-- @rule RL-e1f9 -->
   breaks and a fresh install runs entirely on defaults.
-- Source framework knobs only from the four surfaces. MUST NOT read a framework knob from `project-profile.yaml` or
+- Source framework knobs only from the four surfaces. MUST NOT read a framework knob from `project-profile.yaml` or <!-- @rule RL-23fb -->
   re-introduce one into the profile schema. A leftover knob there is ignored on read and stripped on write.
-- Refresh the detection-derived fields (`active_capabilities`, `stack_profile`) from repository reality on every run;
+- Refresh the detection-derived fields (`active_capabilities`, `stack_profile`) from repository reality on every run; <!-- @rule RL-0203 -->
   they are framework-owned outputs, not team config.
-- Reconcile on re-onboard and update, never reset: sync the group files (creating a missing file, appending a new
+- Reconcile on re-onboard and update, never reset: sync the group files (creating a missing file, appending a new <!-- @rule RL-6a6f -->
   version's knobs commented), prune only keys this version no longer knows, and preserve every value the team
   uncommented. MUST NOT rewrite a team's value or reset a file to defaults.
 

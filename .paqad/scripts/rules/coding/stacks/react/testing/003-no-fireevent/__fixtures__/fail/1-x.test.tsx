@@ -1,0 +1,1 @@
+fireEvent.click(btn);

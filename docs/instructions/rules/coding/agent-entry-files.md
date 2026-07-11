@@ -14,10 +14,10 @@ An entry file may contain only these three things:
    (which tells the host how to surface a decision pause) is selected by it.
 ```
 
-- An entry file MUST NOT name a `docs/instructions` or `docs/modules` load order. That order lives only behind the enablement gate, which is what makes a disabled project load zero framework docs on every provider.
-- An entry file MUST NOT inline a contract (the narration contract, the Decision Pause Contract, or any other); those live in the bootstrap, behind the enablement check.
-- An entry file MUST NOT carry a per-feature or per-capability instruction. New agent behavior goes into the framework (the bootstrap, a host hook, a rule under `docs/instructions/rules/**`, or a skill), never the entry file or its `.hbs` template.
-- An entry file MUST NOT contain any `## ` section. A lean stub has none. Only the host name, install path, and `Adapter:` value may differ between templates. Adding a section is a deliberate change to this rule and its guard test, reviewed on its own.
+- An entry file MUST NOT name a `docs/instructions` or `docs/modules` load order. That order lives only behind the enablement gate, which is what makes a disabled project load zero framework docs on every provider. <!-- @rule RL-5cfc -->
+- An entry file MUST NOT inline a contract (the narration contract, the Decision Pause Contract, or any other); those live in the bootstrap, behind the enablement check. <!-- @rule RL-487c -->
+- An entry file MUST NOT carry a per-feature or per-capability instruction. New agent behavior goes into the framework (the bootstrap, a host hook, a rule under `docs/instructions/rules/**`, or a skill), never the entry file or its `.hbs` template. <!-- @rule RL-a289 -->
+- An entry file MUST NOT contain any `## ` section. A lean stub has none. Only the host name, install path, and `Adapter:` value may differ between templates. Adding a section is a deliberate change to this rule and its guard test, reviewed on its own. <!-- @rule RL-6e28 -->
 
 ## Verify
 

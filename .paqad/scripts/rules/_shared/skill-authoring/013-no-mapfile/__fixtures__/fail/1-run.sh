@@ -1,0 +1,1 @@
+mapfile -t arr < f

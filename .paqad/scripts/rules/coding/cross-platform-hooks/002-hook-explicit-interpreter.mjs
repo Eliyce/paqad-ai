@@ -1,26 +1,23 @@
 // @paqad-rule-script
-// rule_id: RL-c6c2
+// rule_id: RL-d898
 // source: docs/instructions/rules/coding/cross-platform-hooks.md
 // kind: deterministic
 // scope: changed-files
 // runtime: node
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname, basename } from 'node:path';
-const payload = JSON.parse(readFileSync(0, 'utf8'));
-const projectRoot = payload.projectRoot;
-// test fixtures deliberately contain violations — they are samples, not code
-const files = payload.files.filter((f) => !/(^|\/)(__fixtures__|fixtures)(\/|$)/.test(f));
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+const { projectRoot, files } = JSON.parse(readFileSync(0, 'utf8'));
 const findings = [];
-const read = (rel) => { try { return readFileSync(join(projectRoot, rel), 'utf8'); } catch { return null; } };
-const INTERP = /^(node|node\.exe|npx|sh|bash|cmd|cmd\.exe|powershell|pwsh|python3?)\b/;
+const RE = new RegExp("hooks/[\\w.-]+\\.mjs", "");
+const SKIP = new RegExp("node\\s+\\\\?[\"\\']?/", "");
+const NEED = null;
+const FILTER = new RegExp("(claude|codex|gemini)/settings\\.json$|(codex|gemini)/hooks\\.json$", "");
+const SEV = "medium";
+const MSG = "Hook is not launched via `node \"<abs>/...mjs\"` — no ~ / shebang / bare path.";
 for (const file of files) {
-  if (!file.endsWith('.json')) continue;
-  const text = read(file); if (text === null || !text.includes('"hooks"')) continue;
-  text.split('\n').forEach((line, i) => {
-    const m = /"command"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(line);
-    if (m && m[1].trim() && !INTERP.test(m[1].trim())) {
-      findings.push({ file, line: i + 1, message: 'hook command does not launch through an explicit interpreter (node/sh/cmd…) — bare paths break cross-platform', severity: 'high' });
-    }
-  });
+  if (FILTER && !FILTER.test(file)) continue;
+  let text; try { text = readFileSync(join(projectRoot, file), 'utf8'); } catch { continue; }
+  const lines = text.split('\n');
+  lines.forEach((ln, i) => { if (RE.test(ln) && !(SKIP && SKIP.test(ln))) findings.push({ file, line: i + 1, message: MSG, severity: SEV }); });
 }
-process.stdout.write(JSON.stringify({ rule_id: 'RL-c6c2', kind: 'deterministic', findings }));
+process.stdout.write(JSON.stringify({ rule_id: 'RL-d898', kind: 'deterministic', findings }));

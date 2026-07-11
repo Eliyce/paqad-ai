@@ -1,0 +1,3 @@
+setItems([...items, x]);
+
+// ok

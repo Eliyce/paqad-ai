@@ -4,12 +4,12 @@ Baseline testing rules for every change, in every stack. These always load. A st
 
 <!-- trigger: ** -->
 
-- Add or update a test for every behavior change, in the same change. Untested behavior is unfinished behavior.
-- Cover the failure and edge paths the change introduces, not only the happy path.
-- Keep tests deterministic and isolated: no dependence on the network, the real clock, shared mutable state, or the order tests run in. Inject or fake those inputs.
-- Assert on observable behavior and outputs, not on private fields or internal call order.
-- When code resolves a real shipped resource (a pack, template, runtime root, or bundled asset), add a test that loads the real resource and asserts a non-empty, expected result, so a wrong path fails loudly instead of returning an empty set that reads as "nothing here".
-- Run the narrowest relevant suite while iterating, then run the full gate (`pnpm ci`) before you call the work done, and hold the project's coverage bar.
+- Add or update a test for every behavior change, in the same change. Untested behavior is unfinished behavior. <!-- @rule RL-7557 -->
+- Cover the failure and edge paths the change introduces, not only the happy path. <!-- @rule RL-0b1a -->
+- Keep tests deterministic and isolated: no dependence on the network, the real clock, shared mutable state, or the order tests run in. Inject or fake those inputs. <!-- @rule RL-edc2 -->
+- Assert on observable behavior and outputs, not on private fields or internal call order. <!-- @rule RL-5dc4 -->
+- When code resolves a real shipped resource (a pack, template, runtime root, or bundled asset), add a test that loads the real resource and asserts a non-empty, expected result, so a wrong path fails loudly instead of returning an empty set that reads as "nothing here". <!-- @rule RL-1dc7 -->
+- Run the narrowest relevant suite while iterating, then run the full gate (`pnpm ci`) before you call the work done, and hold the project's coverage bar. <!-- @rule RL-312d -->
 
 ## Verify
 

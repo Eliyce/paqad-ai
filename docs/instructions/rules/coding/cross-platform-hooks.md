@@ -4,10 +4,10 @@ Every hook paqad wires into a host's settings (Claude Code `.claude/settings.jso
 
 A bare command like `~/.paqad-ai/current/hooks/agent-entry-gate.sh` breaks three independent ways on Windows: `~` is not expanded by cmd.exe or PowerShell, `.sh` has no interpreter, and a `#!/usr/bin/env node` shebang is ignored. Renaming `.sh` to `.mjs` alone does not fix it. The bare-path invocation is the root cause.
 
-- Wire only Node (`.mjs`) hooks into a generated host config. MUST NOT add a new `.sh` hook; move mechanical shell-gate work into a cross-platform `.mjs` instead.
-- Launch every wired hook through an explicit interpreter with an absolute path: `node "<abs>/hooks/<name>.mjs"`, built by `hookCommand()` in `src/adapters/shared/paqad-hooks.ts`. MUST NOT rely on `~` expansion, a shebang, or the executable bit.
-- Recompute the absolute path from the local home directory at generate time, so it stays machine-agnostic across re-onboards instead of baking one machine's path into a shared file.
-- Prune the retired command forms (the old `.sh` and the bare-path `.mjs`) from an existing config on re-onboard, so they never linger beside their replacement.
+- Wire only Node (`.mjs`) hooks into a generated host config. MUST NOT add a new `.sh` hook; move mechanical shell-gate work into a cross-platform `.mjs` instead. <!-- @rule RL-4562 -->
+- Launch every wired hook through an explicit interpreter with an absolute path: `node "<abs>/hooks/<name>.mjs"`, built by `hookCommand()` in `src/adapters/shared/paqad-hooks.ts`. MUST NOT rely on `~` expansion, a shebang, or the executable bit. <!-- @rule RL-d898 -->
+- Recompute the absolute path from the local home directory at generate time, so it stays machine-agnostic across re-onboards instead of baking one machine's path into a shared file. <!-- @rule RL-4d16 -->
+- Prune the retired command forms (the old `.sh` and the bare-path `.mjs`) from an existing config on re-onboard, so they never linger beside their replacement. <!-- @rule RL-2f32 -->
 
 ## Verify
 

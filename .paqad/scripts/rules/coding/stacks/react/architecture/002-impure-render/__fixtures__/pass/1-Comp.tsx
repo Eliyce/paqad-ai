@@ -1,0 +1,1 @@
+useEffect(() => { setNow(Date.now()); }, []);

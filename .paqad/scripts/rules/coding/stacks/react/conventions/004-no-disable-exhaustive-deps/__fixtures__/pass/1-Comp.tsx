@@ -1,0 +1,1 @@
+useEffect(() => { load(id); }, [id]);

@@ -1,0 +1,1 @@
+<Suspense><Page /></Suspense>
