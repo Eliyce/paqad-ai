@@ -116,6 +116,36 @@ describe('parseAndRecordMarkers', () => {
     expect(end?.artifact_digest).toMatch(/^sha256-/);
   });
 
+  it('normalizes an ABSOLUTE in-tree artifact path on a marker (#350)', () => {
+    writeFileSync(join(root, 'plan.md'), '# a real plan with content\n');
+    const abs = join(root, 'plan.md');
+    const transcript = [
+      msg('assistant', 'Planning.\npaqad:stage planning start'),
+      msg('assistant', `Done.\npaqad:stage planning end -- ${abs}`),
+    ].join('\n');
+    parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    // The absolute in-tree path is normalized + hashed (shell and chat now agree).
+    expect(end?.artifact_digest).toMatch(/^sha256-/);
+    expect(end?.artifact_paths).toEqual(['plan.md']);
+  });
+
+  it('drops an out-of-tree marker artifact instead of recording a false-absent digest (#350)', () => {
+    const outside = join(tmpdir(), 'paqad-oot-marker.md');
+    writeFileSync(outside, '# real content but out of tree\n');
+    const transcript = [
+      msg('assistant', 'Planning.\npaqad:stage planning start'),
+      msg('assistant', `Done.\npaqad:stage planning end -- ${outside}`),
+    ].join('\n');
+    parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    // The boundary still records (best-effort), but with NO artifact — honestly
+    // inconclusive rather than a fabricated absent digest for an out-of-tree file.
+    expect(end).toBeDefined();
+    expect(end?.artifact_digest ?? null).toBeNull();
+    expect(end?.artifact_paths ?? null).toBeNull();
+  });
+
   it('leaves artifact_digest null when the `end -- <path>` file is missing (#320)', () => {
     const transcript = msg(
       'assistant',

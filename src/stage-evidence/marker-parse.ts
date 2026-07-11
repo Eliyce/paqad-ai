@@ -12,6 +12,7 @@
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
+import { ArtifactOutOfTreeError, normalizeArtifactPath } from './artifact-path.js';
 import { recordMarkedStage, type MarkedStagePhase } from './live-writer.js';
 
 /**
@@ -134,12 +135,26 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
     for (const { stage, phase, artifactPath } of markers) {
       const key = `${stage}:${phase}`;
       if (seen.has(key)) continue;
+      // Give a marker's artifact path the SAME boundary treatment as the CLI flag
+      // (issue #350): normalize an in-tree path (absolute or relative) to project-
+      // relative, and DROP a genuinely out-of-tree path rather than record it as a
+      // false-absent digest. The parser is best-effort, so an out-of-tree path records
+      // the boundary without an artifact (honestly inconclusive) instead of throwing.
+      let normalizedArtifact: string | undefined;
+      if (artifactPath) {
+        try {
+          normalizedArtifact = normalizeArtifactPath(input.projectRoot, artifactPath);
+        } catch (error) {
+          if (!(error instanceof ArtifactOutOfTreeError)) throw error;
+          normalizedArtifact = undefined;
+        }
+      }
       if (
         recordMarkedStage(input.projectRoot, {
           sessionId,
           stage,
           phase,
-          artifactPaths: artifactPath ? [artifactPath] : undefined,
+          artifactPaths: normalizedArtifact ? [normalizedArtifact] : undefined,
           adapter: input.adapter,
           now: input.now,
         })
