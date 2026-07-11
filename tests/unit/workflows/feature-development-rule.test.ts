@@ -3,6 +3,23 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { stripRuleMarker } from '@/rule-scripts/rule-id.js';
+
+/**
+ * Strip every `<!-- @rule RL-… -->` marker so two rule files compare by their rule
+ * TEXT, not their embedded ids. The dogfood copy under docs/instructions/rules/ is the
+ * repo's ACTIVE rule file, so paqad's own rule-script compilation embeds stable ids
+ * into it (issue #89); the shipped canonical template carries none, because each
+ * onboarded project mints its own. Byte-identity is the wrong invariant once the repo
+ * dogfoods rule compilation — identical text (markers removed) is the right one.
+ */
+function ruleText(doc: string): string {
+  return doc
+    .split('\n')
+    .map((line) => stripRuleMarker(line).text)
+    .join('\n');
+}
+
 /**
  * "Never break again" guard for the feature-development workflow procedure rule.
  *
@@ -40,9 +57,13 @@ describe('feature-development workflow procedure rule', () => {
     expect(() => readFileSync(CANONICAL, 'utf8')).not.toThrow();
   });
 
-  it('is mirrored into the dogfood contract, byte-identical to canonical', () => {
-    const canonical = readFileSync(CANONICAL, 'utf8');
-    const dogfood = readFileSync(DOGFOOD, 'utf8');
+  it('is mirrored into the dogfood contract, identical to canonical modulo @rule markers', () => {
+    // The dogfood copy is the repo's active rule file, so rule-script compilation embeds
+    // stable `<!-- @rule RL-… -->` ids into it that the shipped canonical never carries
+    // (issue #89). Compare the rule TEXT with those markers stripped — the real mirror
+    // invariant — not the raw bytes.
+    const canonical = ruleText(readFileSync(CANONICAL, 'utf8'));
+    const dogfood = ruleText(readFileSync(DOGFOOD, 'utf8'));
     expect(dogfood).toBe(canonical);
   });
 

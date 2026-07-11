@@ -2,7 +2,7 @@ import { Command } from 'commander';
 
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { ArtifactOutOfTreeError, normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
+import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
 
@@ -72,18 +72,13 @@ export function createStageCommand(): Command {
       // as absent. Only meaningful on an `end` — a `start` never carries one.
       let artifactPaths: string[] | undefined;
       if (phase === 'end' && options.artifact) {
-        artifactPaths = [];
-        for (const raw of options.artifact) {
-          try {
-            artifactPaths.push(normalizeArtifactPath(root, raw));
-          } catch (error) {
-            if (error instanceof ArtifactOutOfTreeError) {
-              console.error(`could not record "${stage} ${phase}" — ${error.message}`);
-              process.exitCode = 1;
-              return;
-            }
-            throw error;
-          }
+        try {
+          // normalizeArtifactPath throws only ArtifactOutOfTreeError (an out-of-tree path).
+          artifactPaths = options.artifact.map((raw) => normalizeArtifactPath(root, raw));
+        } catch (error) {
+          console.error(`could not record "${stage} ${phase}" — ${(error as Error).message}`);
+          process.exitCode = 1;
+          return;
         }
       }
       // Resolve the SAME session the live writer + block-forward gate key on (the

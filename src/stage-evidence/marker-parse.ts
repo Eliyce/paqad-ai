@@ -12,7 +12,7 @@
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-import { ArtifactOutOfTreeError, normalizeArtifactPath } from './artifact-path.js';
+import { normalizeArtifactPath } from './artifact-path.js';
 import { recordMarkedStage, type MarkedStagePhase } from './live-writer.js';
 
 /**
@@ -142,10 +142,12 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
       // the boundary without an artifact (honestly inconclusive) instead of throwing.
       let normalizedArtifact: string | undefined;
       if (artifactPath) {
+        // normalizeArtifactPath throws only ArtifactOutOfTreeError; drop the artifact on
+        // an out-of-tree path so the boundary still records — honestly inconclusive,
+        // never a false-absent digest.
         try {
           normalizedArtifact = normalizeArtifactPath(input.projectRoot, artifactPath);
-        } catch (error) {
-          if (!(error instanceof ArtifactOutOfTreeError)) throw error;
+        } catch {
           normalizedArtifact = undefined;
         }
       }
