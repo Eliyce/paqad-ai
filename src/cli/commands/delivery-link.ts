@@ -9,6 +9,7 @@ import {
   stampMergeCommit,
 } from '@/feature-evidence/delivery.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
+import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
@@ -34,6 +35,24 @@ function resolveSession(options: LinkOptions): string {
     options.projectRoot,
     options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
   );
+}
+
+/**
+ * Regenerate the feature's HTML evidence report after a git-linkage write (issue #371).
+ * This is what keeps the report fresh on ALL hosts — including the advisory ones with no
+ * lifecycle hook — because the git post-commit / post-merge hooks fire everywhere.
+ * Best-effort and gated on the `feature_report` flag: a render failure never affects the
+ * (already record-only, always exit-0) delivery-link command.
+ */
+function regenerateReportSafe(projectRoot: string, dirName: string | null): void {
+  if (!dirName) return;
+  try {
+    if (featureReportEnabled(projectRoot)) {
+      writeFeatureReport(projectRoot, dirName);
+    }
+  } catch {
+    // Record-only: a broken render must never disrupt a git operation.
+  }
 }
 
 /**
@@ -70,6 +89,7 @@ export function createDeliveryLinkCommand(): Command {
       { sha, subject },
       new Date().toISOString(),
     );
+    regenerateReportSafe(options.projectRoot, dir ?? null);
     console.log(JSON.stringify({ linked: Boolean(dir), feature: dir ?? null, sha }));
   });
 
@@ -89,6 +109,7 @@ export function createDeliveryLinkCommand(): Command {
       return;
     }
     stampMergeCommit(options.projectRoot, dir, sha, new Date().toISOString());
+    regenerateReportSafe(options.projectRoot, dir);
     console.log(JSON.stringify({ linked: true, feature: dir, merge_commit: sha }));
   });
 

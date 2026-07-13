@@ -1,9 +1,12 @@
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 import { Command } from 'commander';
 
 import { exportFeatureBundle, pruneFeatureBundles } from '@/feature-evidence/export.js';
-import { resolveFeatureRef } from '@/feature-evidence/stage-ledger.js';
+import { openFeatureReport } from '@/feature-evidence/report-open.js';
+import { resolveReportFeatureRef, writeFeatureReport } from '@/feature-evidence/report-writer.js';
+import { currentFeature, resolveFeatureRef } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 /**
@@ -44,6 +47,69 @@ export function createFeatureCommand(): Command {
         console.log(json);
       }
     });
+
+  command
+    .command('report')
+    .description('Render a self-contained HTML evidence report for a feature bundle (issue #371)')
+    .argument(
+      '[ref]',
+      'Feature ref (ULID, issue, slug, or dir name); defaults to the active/most-recent feature',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--session <id>', 'Session whose active feature is used when no ref is given')
+    .option('--out <file>', 'Write the report to this path instead of the bundle dir report.html')
+    .option('--open', 'Open the rendered report in the default browser', false)
+    .option('--quiet', 'Do not print the report path line', false)
+    .action(
+      (
+        ref: string | undefined,
+        options: {
+          projectRoot: string;
+          session?: string;
+          out?: string;
+          open?: boolean;
+          quiet?: boolean;
+        },
+      ) => {
+        const sessionId = resolveSessionId(
+          options.projectRoot,
+          options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+        );
+        const active = currentFeature(options.projectRoot, sessionId);
+        const dirName = resolveReportFeatureRef(options.projectRoot, sessionId, ref, active);
+        if (!dirName) {
+          console.error(
+            ref ? `could not resolve feature "${ref}"` : 'no feature bundle found to report on',
+          );
+          process.exitCode = 1;
+          return;
+        }
+        let result;
+        try {
+          result = writeFeatureReport(options.projectRoot, dirName, {
+            sessionId,
+            outPath: options.out,
+          });
+        } catch (error) {
+          console.error(`could not render report: ${(error as Error).message}`);
+          process.exitCode = 1;
+          return;
+        }
+        if (options.open) {
+          openFeatureReport({ absPath: result.path });
+        }
+        if (!options.quiet) {
+          const url = pathToFileURL(result.path).href;
+          // OSC 8 hyperlink (degrades to the label in unsupported terminals) plus the
+          // plain absolute path so it stays copyable everywhere.
+          const ESC = String.fromCharCode(27);
+          const link = `${ESC}]8;;${url}${ESC}\\report.html${ESC}]8;;${ESC}\\`;
+          console.log(`▸ paqad · report: ${link}`);
+          console.log(result.path);
+        }
+        console.log(JSON.stringify({ rendered: true, feature: dirName, path: result.path }));
+      },
+    );
 
   command
     .command('prune')

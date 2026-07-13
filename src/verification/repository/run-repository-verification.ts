@@ -32,6 +32,12 @@ import {
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
+import { openFeatureReport } from '@/feature-evidence/report-open.js';
+import {
+  featureReportAutoOpen,
+  featureReportEnabled,
+  writeFeatureReport,
+} from '@/feature-evidence/report-writer.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -338,12 +344,26 @@ export async function runRepositoryVerification(
     }
   }
 
+  // Issue #371 — render the per-feature HTML evidence report from the bundle on disk.
+  // A pure projection: it renders whatever exists (plan/spec/stages always; receipt +
+  // AI-BOM only when enterprise wrote them, otherwise a graceful empty-state note), so it
+  // is deliberately NOT gated on the enterprise flags — only on `feature_report` (default
+  // on). Best-effort and placed AFTER the receipt/AI-BOM projection so it renders the
+  // freshest bundle: a render failure is logged and NEVER changes the verdict or exit code.
+  const reportPath = renderActiveFeatureReport(
+    context.project_root,
+    options.hostSessionId ?? null,
+    completedAt,
+    verifierVersion(),
+  );
+
   const verdict = buildRepositoryVerificationVerdict({
     origin: context.verification_origin ?? options.origin,
     evidence,
     escalations,
     evidencePath,
   });
+  verdict.reportPath = reportPath;
 
   // Issue #325 — compose the ONE end-of-change receipt: the branded verdict headline
   // plus the per-stage evidence block (with honest provenance). Best-effort — if the
@@ -351,7 +371,20 @@ export async function runRepositoryVerification(
   verdict.receipt = composeChangeReceipt({
     verdictSummary: verdict.summary,
     fold: readChangeFold(context.project_root, options.hostSessionId ?? null),
+    reportPath,
   });
+
+  // Issue #371 — auto-open the report, opt-in and hook-only. The HOOK opens, never the
+  // agent (an agent-run `open` crashes inside a host sandbox). Gated on the
+  // `feature_report_auto_open` flag (default off) and the completion origin, and the
+  // opener is itself sandbox-aware (skips CI/SSH/remote/headless). Best-effort.
+  if (reportPath && origin === 'hook-completion' && featureReportAutoOpen(context.project_root)) {
+    try {
+      openFeatureReport({ absPath: reportPath });
+    } catch {
+      // Opening is informational; a failure never affects the verdict.
+    }
+  }
 
   if (options.eventBus) {
     options.eventBus.emit({
@@ -386,6 +419,36 @@ function readChangeFold(projectRoot: string, hostSessionId: string | null): Fold
     }
     return foldFeature(projectRoot, sessionId, dirName);
   } catch {
+    return null;
+  }
+}
+
+/**
+ * Render the active feature's HTML evidence report (issue #371), returning its absolute
+ * path, or null when no feature is active, the `feature_report` flag is off, or rendering
+ * failed. Best-effort by contract: it swallows every error so a broken render can never
+ * change the verification verdict or the process exit code.
+ */
+function renderActiveFeatureReport(
+  projectRoot: string,
+  hostSessionId: string | null,
+  completedAt: string,
+  paqadVersion: string,
+): string | null {
+  try {
+    const sessionId = resolveSessionId(projectRoot, hostSessionId);
+    const dirName = currentFeature(projectRoot, sessionId);
+    if (!dirName || !featureReportEnabled(projectRoot)) {
+      return null;
+    }
+    return writeFeatureReport(projectRoot, dirName, {
+      sessionId,
+      generatedAt: completedAt,
+      paqadVersion,
+    }).path;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: could not render feature report (${message})`);
     return null;
   }
 }

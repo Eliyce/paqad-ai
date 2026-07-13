@@ -65,6 +65,17 @@ export function featureFilePath(dirName: string, file: FeatureBundleFile): strin
   return join(featureDir(dirName), FEATURE_BUNDLE_FILES[file]);
 }
 
+/**
+ * Project-relative path to a feature's rendered `report.html` (issue #371). This is a
+ * derived, human-readable projection of the bundle — deliberately NOT a member of
+ * {@link FEATURE_BUNDLE_FILES}, so `exportFeatureBundle` never tries to parse it as a
+ * bundle JSON. It lives right next to the JSON it renders and, like the rest of the
+ * bundle, is git-ignored (the managed `.paqad/.gitignore` `ledger/` line covers it).
+ */
+export function featureReportPath(dirName: string): string {
+  return join(featureDir(dirName), 'report.html');
+}
+
 /** Project-relative path to the per-session control JSON. */
 export function featureSessionControlPath(sessionId: string): string {
   return join(PATHS.FEATURE_EVIDENCE_SESSION_DIR, `${sessionId}.json`);

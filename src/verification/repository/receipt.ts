@@ -92,6 +92,9 @@ export interface ComposeChangeReceiptInput {
   fold: FoldedChange | null;
   /** Optional one-line delivery state (branch/PR/CI), when available. */
   delivery?: string | null;
+  /** Absolute path to the per-feature HTML report paqad wrote (issue #371), when one
+   *  was rendered — surfaced so the developer can open the full evidence page. */
+  reportPath?: string | null;
 }
 
 /**
@@ -110,6 +113,9 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   }
   if (input.delivery) {
     parts.push(`> ${input.delivery}`);
+  }
+  if (input.reportPath) {
+    parts.push(`> Report: ${input.reportPath}`);
   }
   return parts.join('\n');
 }
