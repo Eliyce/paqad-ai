@@ -80,6 +80,7 @@ describe('writeModuleMapEvidence', () => {
 
     const raw = readFileSync(join(root, PATHS.MODULE_MAP), 'utf8');
     expect(raw).toContain('# the core module'); // comment survived
+    expect(raw).toContain('sources: [src/core]'); // hand-authored flow style preserved (no padding)
     const parsed = parseYaml(raw) as {
       modules: Array<{ slug: string; evidence?: { symbols?: string[] } }>;
     };

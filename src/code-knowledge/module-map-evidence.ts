@@ -81,6 +81,8 @@ export function writeModuleMapEvidence(
   }
 
   if (modulesUpdated === 0) return NOT_WRITTEN;
-  writeFileSync(mapPath, doc.toString(), 'utf8');
+  // Preserve the hand-authored flow-array style (`[a, b]`, no inner padding, no
+  // re-wrapping) so the diff is the evidence additions, not cosmetic churn (INV-5).
+  writeFileSync(mapPath, doc.toString({ flowCollectionPadding: false, lineWidth: 0 }), 'utf8');
   return { written: true, modulesUpdated };
 }

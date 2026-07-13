@@ -56,6 +56,71 @@ modules:
       - slug: update
         name: paqad-ai update
         sources: [src/cli/commands/update.ts, src/update]
+    evidence:
+      symbols:
+        - BootstrapOptions
+        - ConsumerCompatibility
+        - EngineVersionReport
+        - EntryStub
+        - EntryStubWireResult
+        - FrameworkUpdater
+        - FrameworkUpdaterOptions
+        - InstallResult
+        - MANAGED_HEADER
+        - MIN_CONSUMER_VERSION
+        - ModuleFeatureEntry
+        - ModuleMap
+        - ModuleMapEntry
+        - OnboardingOptions
+        - OnboardingOrchestrator
+        - OnboardingSelections
+        - RagSelection
+        - RulesRefreshReport
+        - UpdateCandidate
+        - UpdateDiff
+        - UpdateReport
+        - VERSION_UNKNOWN
+        - appendAuditLog
+        - appendAuditLogFailure
+        - applyRagSelection
+        - bootstrapFramework
+        - buildAgentBootstrapDocument
+        - buildDecisionPauseContractBody
+        - buildDecisionPauseContractDocument
+        - buildNarrationContractBody
+        - buildNarrationContractDocument
+        - compareConsumerCompatibility
+        - createInstallCommand
+        - createOnboardCommand
+        - createRefreshCommand
+        - createUpdateCommand
+        - deleteOnboardingCheckpoint
+        - discoverBusinessModules
+        - discoverModules
+        - enableRagDuringOnboarding
+        - generateDeliveryPolicy
+        - generateDocumentationScaffold
+        - generateFeatureDevelopmentPolicy
+        - generateInitialRegistries
+        - generateModuleMapYaml
+        - generateModuleScaffold
+        - generateProjectRules
+        - generateReferenceGuides
+        - getEngineVersionReport
+        - getStackPromptChoices
+        - loadModuleMap
+        - normalizeEngineVersion
+        - readOnboardingCheckpoint
+        - refreshProjectRules
+        - removeObsoleteContractDocs
+        - renderStackConfirmationSummary
+        - resolveRagSelection
+        - resolveSelections
+        - serializeModuleMap
+        - wireEntryStubs
+        - writeGitignore
+        - writeModuleMap
+        - writeOnboardingCheckpoint
 
   - slug: cli-health
     name: Health & Diagnostics Commands
@@ -74,6 +139,25 @@ modules:
       - slug: module-health
         name: paqad-ai module-health
         sources: [src/cli/commands/module-health.ts, src/module-health]
+    evidence:
+      symbols:
+        - CoverageFormat
+        - CoverageRow
+        - DEFAULT_GIT_WINDOW_DAYS
+        - ModuleRollup
+        - ParsedReport
+        - Parser
+        - RollupBlocked
+        - RollupOptions
+        - RollupReport
+        - TestRow
+        - assignToModule
+        - createDoctorCommand
+        - createModuleHealthCommand
+        - getParser
+        - listSupportedFormats
+        - parseReport
+        - rollupModuleHealth
 
   - slug: cli-rag
     name: RAG Index Commands
@@ -96,6 +180,9 @@ modules:
         name: rag clear
       - slug: rag-eval
         name: rag eval
+    evidence:
+      symbols:
+        - createRagCommand
 
   - slug: cli-graph
     name: Project Graph Command
@@ -119,6 +206,191 @@ modules:
       - slug: similarity-overlay
         name: Similarity & Intelligence Overlays
         sources: [src/graph]
+    evidence:
+      symbols:
+        - ActivityByModule
+        - AiBomResponse
+        - App
+        - AppState
+        - ApprovalsFeed
+        - ApprovalsPauseItem
+        - ApprovalsPauseOption
+        - ApprovalsProposalItem
+        - AttentionItem
+        - AuditFeedEntry
+        - AuditFeedPage
+        - CHUNK_PREVIEW_CLIP_CHARS
+        - ChunkContentRecord
+        - ChunkContentResponse
+        - ComplianceCitation
+        - DashboardArea
+        - DashboardPack
+        - DashboardReport
+        - DeliveryPolicyConfigResponse
+        - DeliveryPolicyIssue
+        - DeliveryPolicyView
+        - DeliverySectionKey
+        - DesignTokensConfigResponse
+        - DesignTokensView
+        - DisclosureMode
+        - EvidenceFeed
+        - EvidenceRow
+        - ExtractOptions
+        - Graph
+        - GraphEdge
+        - GraphEdgeAttributes
+        - GraphEdgeType
+        - GraphExtraction
+        - GraphMeta
+        - GraphMetaCounts
+        - GraphNode
+        - GraphNodeAttributes
+        - GraphNodeType
+        - GraphOverlaysAvailable
+        - GraphRoutes
+        - GraphView
+        - ImportEdgeResolved
+        - ImportScannerOptions
+        - InstallPackResult
+        - InstructionsFileResponse
+        - InstructionsTreeNode
+        - InstructionsTreeResponse
+        - InstructionsView
+        - InventoryClass
+        - InventoryItem
+        - InventoryItemState
+        - InventoryOwner
+        - InventoryReport
+        - KnowledgeRagPanel
+        - LayerVisibility
+        - LayoutRequest
+        - LayoutResponse
+        - LegendStop
+        - MaintenanceMode
+        - ManagedFileInfo
+        - ModuleActivity
+        - ModuleHealthTier
+        - ModuleMapConfigResponse
+        - ModuleMapDrift
+        - ModuleMapDriftFinding
+        - ModuleMapFeature
+        - ModuleMapModule
+        - ModuleMapView
+        - MutationOutcome
+        - NeighbourIndex
+        - NodeDetail
+        - OnboardingChecklist
+        - OnboardingChecklistStep
+        - OpenBrowserOptions
+        - OpenBrowserResult
+        - OpsAction
+        - OpsJob
+        - OpsProgressEvent
+        - OverlayKind
+        - OverlayMetrics
+        - PackSource
+        - ProfileConfigResponse
+        - PutDeliveryPolicyOutcome
+        - PutDesignTokensResult
+        - PutManagedFileResult
+        - PutModuleMapResult
+        - PutProfileResult
+        - PutRagResult
+        - RagConfigResponse
+        - RagStatus
+        - ReceiptCard
+        - ReceiptCheck
+        - ReceiptFeed
+        - RemovePackResult
+        - ResolvedDeliveryBranch
+        - ResolvedDeliveryCi
+        - ResolvedDeliveryCommit
+        - ResolvedDeliveryHost
+        - ResolvedDeliveryIntakeDecisions
+        - ResolvedDeliveryPolicy
+        - ResolvedDeliveryPr
+        - ResolvedDeliveryProcess
+        - ResolvedDeliveryTicket
+        - Route
+        - RunningWatcher
+        - SavedView
+        - SavedViewArea
+        - ScoreBand
+        - SearchState
+        - SectionData
+        - SectionMetric
+        - SetCapabilityResult
+        - SetupView
+        - SimilarityRequest
+        - SimilarityRequestScope
+        - SimilarityResolver
+        - SimilarityResolverOptions
+        - SimilarityResponse
+        - SimilarityState
+        - ThemeMode
+        - ValidationIssue
+        - WatcherOptions
+        - actOnModuleProposal
+        - applyTheme
+        - buildNeighbourIndex
+        - buildNodeDetail
+        - colorForNodeWithOverlay
+        - computeActivity
+        - computeOverlayMetrics
+        - createGraphCommand
+        - createGraphRoutes
+        - deleteSavedView
+        - extractGraph
+        - extractGraphWithSidecar
+        - extractImportSpecifiers
+        - fetchAiBom
+        - fetchApprovals
+        - fetchAudit
+        - fetchChunkContent
+        - fetchDashboard
+        - fetchDeliveryPolicyConfig
+        - fetchDesignTokensConfig
+        - fetchEvidence
+        - fetchEvidencePacketMarkdown
+        - fetchGraph
+        - fetchInstructionsFile
+        - fetchInstructionsTree
+        - fetchInventory
+        - fetchModuleMapConfig
+        - fetchNodeDetail
+        - fetchOnboardingChecklist
+        - fetchOps
+        - fetchOpsJob
+        - fetchPacks
+        - fetchPrComment
+        - fetchProfileConfig
+        - fetchRagConfig
+        - fetchReceipts
+        - fetchSavedViews
+        - fetchSimilar
+        - getThemeMode
+        - initTheme
+        - installPack
+        - isRecent
+        - legendForOverlay
+        - openBrowser
+        - putDeliveryPolicy
+        - putDesignTokens
+        - putInstructionsFile
+        - putModuleMap
+        - putProfile
+        - putRagConfig
+        - putSavedView
+        - removePack
+        - resolvePause
+        - scanImports
+        - setCapability
+        - setThemeMode
+        - shouldSkipBrowser
+        - startOp
+        - startPaqadWatcher
+        - useAppStore
+        - useHashRoute
 
   - slug: cli-dashboard
     name: Project Dashboard & Status Commands
@@ -180,18 +452,231 @@ modules:
         sources: [src/dashboard/inventory.ts]
       - slug: dashboard-ia
         name: Seven-Area IA + Comprehension Layer (Pulse, areas, badges, drawers)
-        sources:
-          [
-            graph-ui/src/views/PulseView.tsx,
-            graph-ui/src/views/AreaView.tsx,
-            graph-ui/src/lib/copy.ts,
-          ]
+        sources: [graph-ui/src/views/PulseView.tsx, graph-ui/src/views/AreaView.tsx, graph-ui/src/lib/copy.ts]
       - slug: dashboard-write-pipeline
         name: Audited Write Pipeline (allowlist, hash guard, atomic write, audit)
         sources: [src/dashboard/write-pipeline.ts]
       - slug: dashboard-config-editors
         name: Config Editors (delivery policy first; instructions file store)
         sources: [src/dashboard/config-delivery-policy.ts, src/dashboard/instructions-files.ts]
+    evidence:
+      symbols:
+        - ApprovalConflictError
+        - ApprovalNotFoundError
+        - ApprovalsFeed
+        - ApprovalsPauseItem
+        - ApprovalsProposalItem
+        - ApprovalsView
+        - AreaView
+        - AttentionItem
+        - AttestationResult
+        - AuditFeedEntry
+        - AuditFeedOptions
+        - AuditFeedPage
+        - BuildReportOptions
+        - ChecklistStep
+        - CodeEditor
+        - CodeEditorLang
+        - CommandPalette
+        - ConflictPanel
+        - DASHBOARD_ACTOR
+        - DASHBOARD_SECTION_IDS
+        - DEFAULT_FRESH_WINDOW_DAYS
+        - DEFAULT_STALE_CLIFF_DAYS
+        - DashboardArea
+        - DashboardChrome
+        - DashboardPack
+        - DashboardReport
+        - DashboardSectionId
+        - DashboardServerOptions
+        - DashboardView
+        - DecisionsResult
+        - DeleteSavedViewResult
+        - DeliveryPolicyConfig
+        - DeliveryPolicyValidationError
+        - DesignTokensConfig
+        - DesignTokensValidationError
+        - DetailPanel
+        - DocsAreaSpec
+        - DriftSignals
+        - EmptyState
+        - EvidenceFeed
+        - EvidenceFeedQuery
+        - EvidencePacket
+        - FrameworkVersionSection
+        - FreshnessOptions
+        - GraphCanvas
+        - HEALTH_STATE
+        - HealthHeadline
+        - HelperPopover
+        - INSTRUCTIONS_AREA_IDS
+        - InstallPackInput
+        - InstallPackResult
+        - InstructionsFile
+        - InstructionsTree
+        - InstructionsTreeNode
+        - InventoryClass
+        - InventoryItem
+        - InventoryItemState
+        - InventoryOptions
+        - InventoryOwner
+        - InventoryReport
+        - ItemCard
+        - Legend
+        - ManagedFile
+        - ModuleDecisionsResult
+        - ModuleEventsResult
+        - ModuleHealthResult
+        - ModuleMapConfig
+        - ModuleMapDriftResult
+        - ModuleMapValidationError
+        - ModuleProposalResult
+        - OPS_ACTIONS
+        - OnboardingChecklist
+        - OpButton
+        - OpsAction
+        - OpsConflictError
+        - OpsExecutor
+        - OpsJob
+        - OpsJobHelpers
+        - OpsJobRunner
+        - OpsJobRunnerOptions
+        - OpsProgressEvent
+        - OwnershipBadge
+        - PAGE_WHY
+        - PackNameError
+        - PackSource
+        - PacksRootsOverrides
+        - PathNotAllowedError
+        - PentestResult
+        - PresenceCounts
+        - PresenceOptions
+        - ProfileConfig
+        - ProfileValidationError
+        - ProjectProfileSection
+        - PulseView
+        - PutDeliveryPolicyInput
+        - PutDeliveryPolicyResult
+        - PutDesignTokensInput
+        - PutDesignTokensResult
+        - PutModuleMapInput
+        - PutModuleMapResult
+        - PutProfileResult
+        - PutRagConfigResult
+        - PutSavedViewInput
+        - RagConfig
+        - RagStatus
+        - RagValidationError
+        - RawModule
+        - ReceiptCard
+        - ReceiptFeed
+        - RemovePackInput
+        - RemovePackResult
+        - ResolvePauseInput
+        - ResolvePauseResult
+        - RunningDashboardServer
+        - SCORE_BAND_THRESHOLDS
+        - SavedView
+        - SavedViewArea
+        - SavedViewNotFoundError
+        - SavedViewsBar
+        - ScanOptions
+        - ScannedEntry
+        - SchemaForm
+        - ScoreBadge
+        - ScoreBand
+        - SearchBar
+        - SectionCard
+        - SectionData
+        - SectionMetric
+        - SetCapabilityResult
+        - Sidebar
+        - StackDriftResult
+        - StatCard
+        - SummaryBand
+        - TrustView
+        - WHY_DRAWER
+        - WhyDrawer
+        - WhyDrawerCopy
+        - WhySentence
+        - WinLine
+        - WriteConflictError
+        - WriteManagedFileInput
+        - WriteManagedFileResult
+        - acceptModuleProposal
+        - ageInDays
+        - appendDashboardAudit
+        - bandForScore
+        - buildApprovalsFeed
+        - buildEvidenceFeed
+        - buildEvidencePacket
+        - buildInventory
+        - buildModuleSnapshot
+        - buildOnboardingChecklist
+        - buildPrCommentMarkdown
+        - buildReceiptFeed
+        - buildReceiptSnapshot
+        - buildReport
+        - collectArchitecture
+        - collectAttestation
+        - collectDecisions
+        - collectDelivery
+        - collectDocsArea
+        - collectDriftSignals
+        - collectFrameworkVersion
+        - collectInstructionsAreas
+        - collectModuleDecisions
+        - collectModuleDocs
+        - collectModuleEvents
+        - collectModuleHealth
+        - collectModuleMapDrift
+        - collectPentest
+        - collectProjectProfile
+        - collectRagStatus
+        - collectRuleCompliance
+        - collectRules
+        - collectSession
+        - collectStackDrift
+        - collectWorkflows
+        - contentHash
+        - createDashboardCommand
+        - createStatusCommand
+        - deleteSavedView
+        - driftSignalsTrip
+        - fileMtime
+        - getDeliveryPolicyConfig
+        - getDesignTokensConfig
+        - getModuleMapConfig
+        - getProfileConfig
+        - getRagConfig
+        - healthLabel
+        - installPack
+        - isOpsAction
+        - listInstructionsTree
+        - listPacks
+        - listSavedViews
+        - putDeliveryPolicy
+        - putDesignTokens
+        - putModuleMap
+        - putProfile
+        - putRagConfig
+        - putSavedView
+        - readAiBomDocument
+        - readAuditFeed
+        - readInstructionsFile
+        - readManagedFile
+        - rejectModuleProposal
+        - removePack
+        - renderMarkdown
+        - resolveManagedPath
+        - resolvePauseDecision
+        - scanDirectory
+        - scoreFreshness
+        - scoreFreshnessAverage
+        - scorePresence
+        - setCapability
+        - startDashboardServer
+        - writeManagedFile
 
   - slug: cli-packs
     name: Pack Management Commands
@@ -213,6 +698,9 @@ modules:
         name: packs validate
       - slug: packs-create
         name: packs create
+    evidence:
+      symbols:
+        - createPacksCommand
 
   - slug: cli-capabilities
     name: Capability Toggle Commands
@@ -230,6 +718,9 @@ modules:
         name: capabilities add
       - slug: capabilities-remove
         name: capabilities remove
+    evidence:
+      symbols:
+        - createCapabilitiesCommand
 
   - slug: cli-patterns
     name: Pattern Library Commands
@@ -247,6 +738,9 @@ modules:
         name: patterns prune
       - slug: patterns-export
         name: patterns export
+    evidence:
+      symbols:
+        - createPatternsCommand
 
   - slug: cli-compliance
     name: Spec Compliance Commands
@@ -274,6 +768,128 @@ modules:
         name: compliance boundary
       - slug: compliance-patterns
         name: compliance patterns
+    evidence:
+      symbols:
+        - BOUNDARY_SCHEMA_VERSION
+        - BoundaryInterface
+        - BoundaryInterfaceReport
+        - BoundaryManifest
+        - BoundaryRelationship
+        - BoundaryReport
+        - CLASSIFICATION_RULES
+        - COMPLIANCE_SCHEMA_VERSION
+        - CheckComplianceOptions
+        - ClassificationRule
+        - ComplianceReport
+        - ComplianceReportObligation
+        - ComplianceReportSummary
+        - ComplianceState
+        - DEFAULT_BOUNDARY_REPORT_PATH
+        - DEFAULT_OBLIGATION_INDEX_PATH
+        - DEFECT_PATTERN_SCHEMA_VERSION
+        - DefectFinding
+        - DefectPatternEntry
+        - DefectPatternIndex
+        - DefectPatternIndexEntry
+        - DefectSource
+        - DoctorIssue
+        - DoctorResult
+        - ExtractObligationsOptions
+        - ExtractionResult
+        - GenerateBoundaryTestsOptions
+        - GenerateVitestSkeletonOptions
+        - GeneratedBoundaryTest
+        - LoadObligationIndexOptions
+        - LoadSpecReviewOptions
+        - MarkdownHeading
+        - MarkdownSection
+        - Obligation
+        - ObligationCategory
+        - ObligationIndex
+        - ObligationIndexMetadata
+        - PatternAdvisory
+        - PatternQueryOptions
+        - RawSpecDefect
+        - RecordFromComplianceOptions
+        - ReviewContext
+        - ReviewLine
+        - ReviewSpecOptions
+        - SPEC_REVIEW_DETECTORS
+        - SPEC_REVIEW_DETECTOR_INTERFACE_VERSION
+        - SPEC_REVIEW_SCHEMA_VERSION
+        - SaveObligationIndexOptions
+        - SaveSpecReviewOptions
+        - ScanBoundariesOptions
+        - SpecDefectSeverity
+        - SpecPatternAdvisory
+        - SpecReviewDefect
+        - SpecReviewDefectCategory
+        - SpecReviewDefectStatus
+        - SpecReviewDetector
+        - SpecReviewLocation
+        - SpecReviewReport
+        - SpecReviewReportMetadata
+        - StackContext
+        - UnhandledVariant
+        - assertComplianceSummaryInvariants
+        - attachSpecDefectsToObligations
+        - boundaryDetector
+        - buildBoundaryReport
+        - buildHeadingPath
+        - buildPatternAdvisories
+        - checkSpecCompliance
+        - classifyDefect
+        - classifySection
+        - compareDefects
+        - contradictionDetector
+        - createComplianceCommand
+        - dedupeByLineAndCategory
+        - defaultStoreRoot
+        - detectBoundariesInSource
+        - doctorBoundaryReport
+        - doctorObligationIndex
+        - doctorSpecReview
+        - ensureStoreDir
+        - extractObligationIndex
+        - extractUnhandledVariants
+        - formatAgentContextWarnings
+        - formatBoundaryReport
+        - formatSpecReviewSummary
+        - formulaDetector
+        - generateBoundaryTests
+        - generateVitestSkeletons
+        - goalConflictDetector
+        - hasNegativePath
+        - isEnoentError
+        - loadBoundaryReport
+        - loadEntry
+        - loadIndex
+        - loadObligationIndex
+        - loadSpecReviewReport
+        - makeDeterministicGeneratedId
+        - makeLocation
+        - markStaleEntries
+        - missingNegativeDetector
+        - normalizeCell
+        - normalizeText
+        - parseHeadings
+        - prunePatterns
+        - queryPatterns
+        - recordFindings
+        - recordFromComplianceReport
+        - referenceDetector
+        - renderVitestSkeleton
+        - reviewSpecification
+        - saveBoundaryReport
+        - saveObligationIndex
+        - saveSpecReviewReport
+        - scanBoundaries
+        - sha256Hex
+        - slugifySpec
+        - specIndexPath
+        - specReportPath
+        - specReviewPath
+        - splitLines
 
   - slug: cli-audit
     name: Trust Export Commands (audit + evidence)
@@ -301,6 +917,47 @@ modules:
       - slug: evidence-comment
         name: paqad-ai evidence (PR-comment renderer)
         sources: [src/cli/commands/evidence.ts, src/verification/evidence-markdown.ts]
+    evidence:
+      symbols:
+        - ECS_VERSION
+        - ExportOptions
+        - ExportResult
+        - OCSF_SCHEMA_VERSION
+        - REDACTED
+        - RenderEvidenceMarkdownOptions
+        - SIEM_FORMATS
+        - SiemAuthorship
+        - SiemEvent
+        - SiemEventKind
+        - SiemFormat
+        - SiemSubject
+        - ZERO_DIGEST
+        - aggregateSiemEvents
+        - buildEvidenceComment
+        - cefSeverity
+        - computeChangeSubjectDigest
+        - computeFileDigests
+        - createAuditCommand
+        - createEvidenceCommand
+        - ecsOutcome
+        - epochMs
+        - escapeCefExtension
+        - escapeCefHeader
+        - eventMessage
+        - exportAuditEvents
+        - ocsfSeverityId
+        - ocsfStatusId
+        - readVerificationEvidence
+        - redactEvent
+        - renderAuthorshipLine
+        - renderComplianceLines
+        - renderEvidenceMarkdown
+        - renderReproducibilityLine
+        - toCef
+        - toEcs
+        - toEcsRecord
+        - toOcsf
+        - toOcsfRecord
 
   - slug: cli-module-map
     name: Module Map Inspection Commands
@@ -331,6 +988,79 @@ modules:
       - slug: module-events
         name: module-events (list / since / for-module)
         sources: [src/cli/commands/module-events.ts]
+    evidence:
+      symbols:
+        - ApplyOptions
+        - ApplyResult
+        - DEFAULT_PROPOSED_TTL_DAYS
+        - DiscoveredModuleHealth
+        - DiscoveredSourceRoots
+        - ExtractedCandidate
+        - ExtractorHitKind
+        - ExtractorOptions
+        - InferenceChoice
+        - InferenceChoiceKind
+        - InferenceResult
+        - InferencerOptions
+        - MMFinding
+        - MMFindingCode
+        - ModuleDecision
+        - ModuleDecisionConfidence
+        - ModuleDecisionDisposition
+        - ModuleDecisionFeatureDraft
+        - ModuleDecisionLayer
+        - ModuleDecisionSource
+        - ModuleDecisionSourceType
+        - ModuleDecisionState
+        - ModuleMapDriftReport
+        - ModuleMapEvent
+        - ModuleMapEventType
+        - ModuleSensitivity
+        - RawFeature
+        - RawMap
+        - RawModule
+        - ReconcilerOptions
+        - appendModuleMapEvent
+        - appendRunCancelledEvent
+        - applyModuleMapMutation
+        - assertTransition
+        - atomicWriteModuleMap
+        - canTransition
+        - candidatesNeedingDecision
+        - createModuleDecisionsCommand
+        - createModuleEventsCommand
+        - createModuleMapCommand
+        - deleteDecision
+        - discoverModuleHealth
+        - discoverSourceRoots
+        - driftReportBlockedReason
+        - driftReportHasFindings
+        - emitContextTruncated
+        - expireStaleDecisions
+        - extractCandidates
+        - formatDecisionId
+        - inferAttribution
+        - isExpired
+        - isValidDecisionId
+        - isValidSlug
+        - levenshtein
+        - listDecisionIds
+        - listDecisions
+        - listDecisionsByState
+        - nextDecisionId
+        - normaliseSlug
+        - parseDecisionId
+        - readDecision
+        - readDriftReport
+        - readModuleMapEvents
+        - readModuleMapEventsForSlug
+        - readModuleMapEventsSince
+        - readRawModuleMap
+        - reconcileModuleMap
+        - resolvePathSensitivity
+        - snapshotModuleMap
+        - ttlExpiresAt
+        - writeDecision
 
   - slug: adapter-onboarding
     name: Adapter Onboarding (LLM platform entry files)
@@ -378,6 +1108,48 @@ modules:
       - slug: aiassistant
         name: JetBrains AI Assistant (rules-only)
         outputs: [.aiassistant/rules/guidelines.md]
+    evidence:
+      symbols:
+        - AdapterCapabilities
+        - AdapterContext
+        - AdapterFactory
+        - AdapterHookCoverage
+        - AdapterInterface
+        - AiAssistantAdapter
+        - AiderAdapter
+        - AntigravityAdapter
+        - BaseAdapter
+        - ClaudeCodeAdapter
+        - CodexCliAdapter
+        - ContinueAdapter
+        - CursorAdapter
+        - DECISION_PAUSE_UI_FALLBACK
+        - DECISION_PAUSE_UI_NOTES
+        - FileWriteResult
+        - GeminiCliAdapter
+        - GeneratedFile
+        - GithubCopilotAdapter
+        - HOOK_COVERAGE_MATRIX
+        - JunieAdapter
+        - NativeCompletionHookOptions
+        - PAQAD_LIVE_HOOKS
+        - PAQAD_MUTATING_TOOL_MATCHER
+        - PAQAD_RUNTIME_PREFIX
+        - PaqadHookEvent
+        - PaqadLiveHookSpec
+        - WindsurfAdapter
+        - WriteGeneratedFilesOptions
+        - buildFrameworkFallbackClause
+        - buildNativeCompletionHookFile
+        - capabilityGateCommand
+        - completionRecordCommand
+        - decisionPauseUiNote
+        - frameworkHomeAbsolute
+        - hasPreMutationBlock
+        - hookCommand
+        - isLiveHookCapable
+        - planGeneratedFiles
+        - writeGeneratedFiles
 
   # ────────────────────────────────────────────────────────────────────
   # LAYER 2 — agent-workflows (LLM-facing surface)
@@ -409,6 +1181,53 @@ modules:
         sources: [src/module-map, src/introspection]
       - slug: differential-refresh
         name: Differential Refresh
+    evidence:
+      symbols:
+        - DocumentPipeline
+        - DocumentPipelineOptions
+        - DocumentProgressTracker
+        - DocumentRunResult
+        - DocumentationWorkflow
+        - DocumentationWorkflowMode
+        - DocumentationWorkflowOptions
+        - DocumentationWorkflowResult
+        - DocumentationWorkflowStep
+        - EcosystemParser
+        - EcosystemParserRegistry
+        - EnvironmentTraitDetection
+        - ParsedLockfile
+        - ParsedLockfilePackage
+        - ParsedManifest
+        - ParsedManifestPackage
+        - ParsedProjectResult
+        - StackIntrospector
+        - StackSnapshotCache
+        - WriteStackArtifactsOptions
+        - buildAnalytics
+        - createDefaultEcosystemParserRegistry
+        - dartParser
+        - detectEnvironmentTraits
+        - goParser
+        - hashSourceFiles
+        - jvmParser
+        - normalizeConstraint
+        - npmParser
+        - parseComposerProject
+        - parseDartProject
+        - parseKeyValueLines
+        - parseNpmProject
+        - parsePnpmProject
+        - phpParser
+        - pnpmParser
+        - pythonParser
+        - readJson
+        - readJsonFile
+        - readProjectFile
+        - readTextFile
+        - resetGeneratingEntries
+        - rubyParser
+        - rustParser
+        - writeStackArtifacts
 
   - slug: pentest-workflow
     name: Security Pentest Workflow
@@ -433,6 +1252,60 @@ modules:
         name: Finding Normalizer (PT-XXXX IDs)
       - slug: local-attack-playbook
         name: Local Attack Playbook
+    evidence:
+      symbols:
+        - EnsurePentestRunOptions
+        - FileCheckMapper
+        - FileCheckMapping
+        - IncrementalScanOptions
+        - IncrementalScanResult
+        - IncrementalScanner
+        - MergeResult
+        - ModuleDocEvidence
+        - NarrowedScope
+        - OsvVulnerabilityRecord
+        - PentestProgressTracker
+        - PentestRetestWorkflow
+        - PentestRetestWorkflowOptions
+        - PentestRetestWorkflowResult
+        - PentestWorkflow
+        - PentestWorkflowOptions
+        - PentestWorkflowResult
+        - ProjectScriptResult
+        - ReportMerger
+        - SuspiciousRoute
+        - TestEvidence
+        - assignFindingIds
+        - buildCurrentPentestReport
+        - buildDependencyFindings
+        - buildModuleFindings
+        - buildPentestMarkdown
+        - buildRetestFindings
+        - buildRuntimeFindings
+        - buildSecretFindings
+        - discoverTargetUrl
+        - extractRelevantTestPaths
+        - hashRelevantInputs
+        - inferSourceArtifacts
+        - loadModuleDocs
+        - loadTests
+        - parseSecretMatches
+        - parseSuspiciousRoutes
+        - queryOsv
+        - readJsonIfExists
+        - remediationPriorities
+        - runArtifactsDir
+        - runLogsDir
+        - runProjectScript
+        - runStatusForSteps
+        - safeBaseName
+        - skillPath
+        - slugify
+        - summarizeCommandAvailability
+        - toLocalTimestamp
+        - toReportId
+        - toolReferencePath
+        - writeJson
 
   - slug: feature-development-workflow
     name: Feature Development Workflow
@@ -456,6 +1329,18 @@ modules:
         name: Conditional / Failure Handling
       - slug: resumable-runs
         name: Resumable Runs
+    evidence:
+      symbols:
+        - OnFailureDirective
+        - ParallelExecutor
+        - ParallelGroup
+        - ParallelResult
+        - StepCondition
+        - TemplateStep
+        - WorkflowRunProgress
+        - WorkflowStep
+        - WorkflowStepProgress
+        - WorkflowTemplate
 
   - slug: root-cause-analysis-workflow
     name: Root Cause Analysis Workflow
@@ -466,6 +1351,11 @@ modules:
       a postmortem-style write-up.
     sources:
       - src/workflows/root-cause-analysis.ts
+    evidence:
+      symbols:
+        - RootCauseAnalysisWorkflow
+        - RootCauseAnalysisWorkflowOptions
+        - RootCauseAnalysisWorkflowResult
 
   - slug: agent-routing
     name: Agent Routing & Capability Lanes
@@ -479,6 +1369,17 @@ modules:
     sources:
       - runtime/base/agents/router.md
       - src/core/capabilities.ts
+    evidence:
+      symbols:
+        - ACTIVE_CAPABILITY_ORDER
+        - MANAGEABLE_ACTIVE_CAPABILITIES
+        - addActiveCapability
+        - assertActiveCapability
+        - isActiveCapability
+        - isManageableActiveCapability
+        - listAvailableActiveCapabilities
+        - normalizeActiveCapabilities
+        - removeActiveCapability
 
   # ────────────────────────────────────────────────────────────────────
   # LAYER 3 — framework-internals (engine + runtime; for paqad-ai contributors)
@@ -503,6 +1404,34 @@ modules:
       - slug: drift-tracking
         name: Drift Tracking
         sources: [.paqad/stack-snapshot.json, .paqad/stack-drift.json]
+    evidence:
+      symbols:
+        - AIDetector
+        - AIDetectorOptions
+        - Detector
+        - DetectorOptions
+        - LaravelDetectionResult
+        - ReactDetectionResult
+        - StackDetectionPermissions
+        - StackDetectionResource
+        - SvelteDetectionResult
+        - ToStackDetectionResourceOptions
+        - VueDetectionResult
+        - buildDetectedStackProfile
+        - buildDetectionReport
+        - compareStackProfiles
+        - detectAnalyticsSignals
+        - detectFlutterSignals
+        - detectLaravelSignals
+        - detectReactSignals
+        - detectShortVideoSignals
+        - detectSvelteSignals
+        - detectVueSignals
+        - ecosystemToLanguage
+        - getLegacyCapabilities
+        - getPrimaryStack
+        - summarizeStack
+        - toStackDetectionResource
 
   - slug: pack-system
     name: Pack System
@@ -531,6 +1460,28 @@ modules:
         name: Override Precedence
       - slug: pack-authoring
         name: Custom Pack Authoring
+    evidence:
+      symbols:
+        - CompliancePackLoader
+        - CompliancePackLoaderOptions
+        - CreatePackOptions
+        - InstallPackOptions
+        - ListedPack
+        - PackManagerRoots
+        - StackPackLoader
+        - StackPackLoaderOptions
+        - createPack
+        - getPackManifestMap
+        - getPackTestRunners
+        - getPacksForFrameworks
+        - installPack
+        - listPacks
+        - loadCompliancePacks
+        - loadProjectPackRegistry
+        - removePack
+        - resolveCompliancePackRoots
+        - resolvePackManagerRoots
+        - validatePackAt
 
   - slug: capability-model
     name: Capability Model
@@ -557,6 +1508,18 @@ modules:
       - src/workflows/parallel-executor.ts
       - src/workflows/template-loader.ts
       - src/workflows/template-validator.ts
+    evidence:
+      symbols:
+        - StepExecutionContext
+        - StepExecutionResult
+        - StepExecutor
+        - StepExecutorOptions
+        - WorkflowEngine
+        - WorkflowEngineOptions
+        - WorkflowRunOptions
+        - WorkflowStepRunner
+        - WorkflowTemplateLoader
+        - WorkflowTemplateValidator
 
   - slug: skill-runtime
     name: Skill Runtime
@@ -569,6 +1532,32 @@ modules:
     sources:
       - src/skills
       - runtime/base/skills
+    evidence:
+      symbols:
+        - ConditionalSectionProcessor
+        - DEFAULT_SKILL_AUDIT_BUFFER_CAPACITY
+        - GeneratedSkillIndexEntry
+        - ParsedSkillDocument
+        - RuntimeSkillRegistry
+        - SkillAuditBuffer
+        - SkillAuditEvent
+        - SkillAuditEventType
+        - SkillCacheManager
+        - SkillFrontmatterParser
+        - SkillLoadFailedEvent
+        - SkillLoader
+        - SkillPackLoadFailedEvent
+        - SkillTriggerEvaluator
+        - appendSkillAuditEvent
+        - buildSkillIndex
+        - emitSkillAuditEvent
+        - generateSkillIndex
+        - getSharedSkillAuditBuffer
+        - readSkillAuditEvents
+        - selectModelForTier
+        - toLoadedSkill
+        - writeSkillIndex
+        - writeSkillIndexFromArtifacts
 
   - slug: agent-runtime
     name: Built-in Agent Roles
@@ -608,6 +1597,24 @@ modules:
       - src/templates
       - runtime/templates
       - src/design-tokens
+    evidence:
+      symbols:
+        - DESIGN_TOKENS_PLACEHOLDER_NOTE
+        - DesignTokenService
+        - DesignTokensMissingError
+        - DesignTokensPlaceholderError
+        - PLACEHOLDER_DESIGN_TOKENS
+        - TemplateDescriptor
+        - TemplateEngine
+        - TemplateRegistry
+        - buildAgentConfigContext
+        - buildApiDocContext
+        - buildDesignSystemContext
+        - buildErrorCatalogContext
+        - buildIntegrationDocContext
+        - buildModuleScaffoldContext
+        - buildRegistryContext
+        - buildRunnerScriptContext
 
   - slug: context-intelligence
     name: Context Intelligence
@@ -631,6 +1638,120 @@ modules:
         name: Turn Summarizer
       - slug: stream-truncator
         name: Stream Truncator
+    evidence:
+      symbols:
+        - ActionRecommendation
+        - ActionRouter
+        - AstChunker
+        - BudgetAllocation
+        - BudgetAllocator
+        - BudgetCheckResult
+        - BudgetClassificationHints
+        - BudgetDecision
+        - BudgetEvaluation
+        - BudgetOptimizerConfig
+        - BudgetVerdict
+        - CHUNKER_VERSION
+        - CONTEXT_HASH_ALGO_VERSION
+        - Chunk
+        - ChunkIndex
+        - ChunkIndexEntry
+        - ChunkIndexManager
+        - CodebaseMemoryEntry
+        - CodebaseMemoryStore
+        - CohereReranker
+        - ComposeMemoryOptions
+        - ContextBudgetEnforcer
+        - ContextBudgetOptimizer
+        - ContextEvictor
+        - ContextHashInput
+        - ContextHitTracker
+        - ContextPackEntry
+        - ContextPriorityTier
+        - DEFAULT_REBUILD_CACHE_MAX_SIZE
+        - DepthRoutingInput
+        - DifferentialRefresh
+        - DistillOptions
+        - EvictionResult
+        - FileReader
+        - FileRegistryMapper
+        - FilterFallbackReason
+        - FusionDiagnostic
+        - HEURISTIC_TOKENIZER_VERSION
+        - HitTrackerInput
+        - InferenceCompleteOptions
+        - InferenceMessage
+        - InferenceProvider
+        - InferredTurnClassifierModel
+        - LoadStats
+        - LoadedTokenizer
+        - LocalReranker
+        - MAX_CONTEXT_PACK_ENTRIES
+        - MAX_MEMORY_ENTRIES
+        - MEMORY_KINDS
+        - MEMORY_SECTION_CHAR_BUDGET
+        - MemoryInput
+        - MemoryKind
+        - MetadataFilter
+        - MetadataFilterResult
+        - MetadataFilterType
+        - PassthroughReranker
+        - PriorityClassifier
+        - RebuildCache
+        - RebuildInput
+        - RefreshResult
+        - RelevanceScorer
+        - RerankResult
+        - Reranker
+        - RerankingConfig
+        - RetrievalDepth
+        - RetrievalGate
+        - ScoringContext
+        - SemanticLoadClassification
+        - SemanticLoadOptions
+        - SemanticLoader
+        - SemanticLoaderOptions
+        - SummariseOptions
+        - TurnClassifierModel
+        - TurnSummarizer
+        - __tokenEfficiencyInternals
+        - applyDisclosurePolicy
+        - applyMetadataFilters
+        - buildCompactArtifact
+        - buildContextHashPreimage
+        - buildControlLayerAudit
+        - buildDriftDeltaReasoningPayload
+        - buildReasoningInputPayload
+        - buildTestDeltaReasoningPayload
+        - buildVerificationDeltaReasoningPayload
+        - castMerge
+        - clearTokenizerCache
+        - composeContextPack
+        - composeMemorySection
+        - computeContextHash
+        - createDriftDelta
+        - createReranker
+        - createTestDelta
+        - createVerificationDelta
+        - distillSlices
+        - emptyMemoryStore
+        - escalateDepth
+        - evaluateEscalation
+        - evaluateRetrievalGate
+        - gateRetrieval
+        - gatherCodebaseMemory
+        - getOrLoad
+        - loadCodebaseMemory
+        - locateLineRange
+        - memoryStorePath
+        - rebuildApiConversation
+        - recordCodebaseMemory
+        - resolveActiveLineage
+        - runRoutingDecision
+        - selectRetrievalDepth
+        - topNForDepth
+        - upsertMemoryEntry
+        - writeCodebaseMemory
 
   - slug: hybrid-rag
     name: Hybrid RAG Runtime
@@ -679,6 +1800,230 @@ modules:
         name: Context Pack (distilled path:line pointers for long workflows)
       - slug: base-drift
         name: Base-Drift Awareness (debounced origin/<base> heads-up, off-path)
+    evidence:
+      symbols:
+        - ALL_QUERY_CLASSES
+        - ANSWER_GROUNDING_STATES
+        - ANSWER_MODES
+        - ATTACHMENT_RETRY_BUDGET_MS
+        - AnswerGroundingState
+        - AnswerMode
+        - AnswerQuery
+        - ArchiveInspection
+        - ArchiveInspector
+        - AttachmentCollectionScope
+        - AttachmentContentKind
+        - AttachmentEvent
+        - AttachmentEventInput
+        - AttachmentEventKind
+        - AttachmentEventSink
+        - AttachmentIndexingDegradedSignal
+        - AttachmentIndexingOutcome
+        - AttachmentIndexingResult
+        - AttachmentOrphanPurgeRecord
+        - AttachmentPathError
+        - AttachmentRecord
+        - AttachmentRecordStatus
+        - AttachmentRejection
+        - AttachmentRejectionOutcome
+        - AttachmentRejectionReason
+        - AttachmentSessionKind
+        - AttachmentStoredChunk
+        - BackgroundSyncResult
+        - BaseDriftOptions
+        - BaseDriftSnapshot
+        - BlurbChunk
+        - BlurbContext
+        - Bm25Document
+        - Bm25Hit
+        - Bm25Index
+        - BuildIndexOptions
+        - BuildProjectRepoMapOptions
+        - CITATION_SOURCE_CLASSES
+        - ChunkIndexSyncResult
+        - Citation
+        - CitationSourceClass
+        - ComparisonMode
+        - ConfigurationComparisonResult
+        - Contradiction
+        - ContradictionDetector
+        - CorruptVectorIndexError
+        - CrsBacklogPersist
+        - CrsBacklogQueue
+        - CrsChunk
+        - CrsChunkInput
+        - CrsCollectionId
+        - CrsIndexedSessionEvent
+        - CrsRetrievalResult
+        - DEFAULT_BASE_DRIFT_INTERVAL_MS
+        - DEFAULT_CRS_BACKLOG_CAP
+        - DEFAULT_REPO_MAP_TOKEN_BUDGET
+        - DOC_SCOPE_PREFIXES
+        - EMBEDDING_CACHE_RELPATH
+        - EVAL_DATASET
+        - EmbeddingBacklogOverflow
+        - EmbeddingCache
+        - EmbeddingProvider
+        - EmbeddingProviderError
+        - EmbeddingProviderErrorCode
+        - EphemeralCollectionId
+        - EvalDatasetItem
+        - EvalQueryClass
+        - EvalRunResult
+        - EvalRunner
+        - EvalTrace
+        - EvidenceFile
+        - EvidenceRetriever
+        - ExtractionKind
+        - FeatureOffVsOnResult
+        - FileProbeResult
+        - FileVectorIndex
+        - FilterDiagnostics
+        - FilterStats
+        - FreshnessChecker
+        - FreshnessMetadata
+        - GatherOptions
+        - GitRunner
+        - GitState
+        - GitStateOptions
+        - IndexAttachmentFailure
+        - IndexAttachmentOutcome
+        - IndexAttachmentParams
+        - IndexAttachmentResult
+        - KnowledgeAnswer
+        - LocalEmbeddingExtractor
+        - LocalEmbeddingOutput
+        - LocalEmbeddingProgress
+        - LocalEmbeddingProvider
+        - MAX_RETRIEVAL_SLICES
+        - MAX_SLICE_CHARS
+        - ModelGradedScores
+        - ModelGrader
+        - OpenAiEmbeddingClient
+        - OpenAiEmbeddingProvider
+        - PAGERANK_DAMPING
+        - PDF_PAGE_CAP
+        - PageRankOptions
+        - ParseAttachmentOptions
+        - ParseAttachmentResult
+        - ParsedAttachment
+        - PdfExtraction
+        - PdfTextExtractor
+        - ProjectKnowledgeAnswerer
+        - ProviderFactory
+        - ProviderProgressUpdate
+        - RRF_K
+        - RagBenchmarkEvaluation
+        - RagBenchmarkMetricResult
+        - RagBenchmarkSnapshot
+        - RagFileFilter
+        - RagFileFilterOptions
+        - RagIgnoreConfig
+        - RagIndexMeta
+        - RagIngestError
+        - RagIngestErrorCode
+        - RagPromptTokenGateResult
+        - RagRetrievalResult
+        - RagService
+        - RagStatus
+        - RefreshBaseDriftOptions
+        - RefreshBaseDriftResult
+        - ReindexProgressEvent
+        - ReindexProgressHandler
+        - RepoEdge
+        - RepoFile
+        - RepoMapEntry
+        - RepoMapResult
+        - RetrievalScope
+        - RetrievalSlice
+        - RetrievalSource
+        - RrfResult
+        - SUPPORTED_EXTRACTION_KINDS
+        - SUPPORTED_VISION_EXTENSIONS
+        - SessionAttachmentIndexer
+        - StoredVectorChunk
+        - StoredVectorItem
+        - StoredVisionChunk
+        - TransformersRuntimeEnv
+        - VectorIndexPayload
+        - VectorQueryResult
+        - VisionChunk
+        - VisionIngestInput
+        - VisionIngestResult
+        - VoyageEmbeddingClient
+        - VoyageEmbeddingProvider
+        - ZIP_DECOMPRESSED_LIMIT_BYTES
+        - appendAttachmentEvent
+        - appendRagAudit
+        - applyPrecisionFloor
+        - attachmentCollectionsRoot
+        - backgroundIndexSync
+        - buildContextualBlurb
+        - buildFeatureOffTraces
+        - buildModuleRoleResolver
+        - buildProjectRepoMap
+        - buildRepoMap
+        - chunkHash
+        - clearEphemeralCollection
+        - collectionVectorPaths
+        - compareConfigurations
+        - composeBaseDriftSection
+        - composeRetrievalSection
+        - computeBaseDrift
+        - computeCorrectionTurns
+        - computeHitAtK
+        - computePromptTokensSent
+        - computeTaskSuccessRate
+        - contextualizeChunkText
+        - createEmbeddingProvider
+        - crsCollectionDir
+        - crsCollectionLayout
+        - crsCollectionPaths
+        - dedupeSlices
+        - deregisterCollection
+        - deriveScopeFromWorkingSet
+        - escapeCollectionId
+        - evaluateBenchmarkGates
+        - extractKeywords
+        - filterToScope
+        - gatherWorkingSetSlices
+        - getCollectionId
+        - getDatasetByClass
+        - getProjectSecret
+        - getSecretPermissionWarning
+        - indexAttachment
+        - isAttachmentIndexingDegraded
+        - isDocScopedPath
+        - isEmbeddingBacklogOverflow
+        - isEmbeddingProviderError
+        - isIndexAttachmentFailure
+        - isRagIngestError
+        - lexicalDocumentText
+        - listCollections
+        - loadBaseDrift
+        - pageRank
+        - parseAttachment
+        - readAttachmentEvents
+        - readGitState
+        - readProjectSecrets
+        - reciprocalRankFusion
+        - redactSecrets
+        - refreshBaseDrift
+        - registerCollection
+        - removeProjectSecrets
+        - reorderByRankedIds
+        - resolveCollectionDir
+        - retrieveFromAttachments
+        - runFeatureOffVsOnGate
+        - runOrphanSweep
+        - scopeForWorkflow
+        - scoreFile
+        - snapshotFromTraces
+        - toCrsCollectionId
+        - toEphemeralCollectionId
+        - tokenize
+        - validateDatasetCoverage
+        - writeProjectSecret
 
   - slug: background-harness
     name: Background-Worker Harness
@@ -706,6 +2051,22 @@ modules:
         name: Debounce Marker (burst coalescing)
       - slug: atomic-artifact-swap
         name: Atomic Artifact Swap (build-to-temp + rename)
+    evidence:
+      symbols:
+        - LockOutcome
+        - RefreshJobSpec
+        - TriggerDeps
+        - TriggerResult
+        - WorkerCommand
+        - atomicWriteFile
+        - buildAndSwap
+        - releaseLock
+        - runRefreshJob
+        - shouldDebounce
+        - spawnDetachedWorker
+        - touchMarker
+        - triggerRefresh
+        - tryAcquireLock
 
   - slug: context-seam
     name: Context Injection Seam
@@ -730,6 +2091,19 @@ modules:
         name: Budgeted Artifact Read (resolve + read + ceiling)
       - slug: context-block-emit
         name: Context Block Emit ([paqad-context] + hook wiring)
+    evidence:
+      symbols:
+        - BLOCK_CLOSE
+        - BLOCK_OPEN
+        - CONTEXT_ARTIFACT_RELPATH
+        - DEFAULT_BUDGET_MS
+        - DEFAULT_MAX_BYTES
+        - buildInjection
+        - formatContextBlock
+        - isLeanRulesEnabledValue
+        - isRagEnabledValue
+        - readContextUnderBudget
+        - resolveContextArtifactPath
 
   - slug: smart-rule-loading
     name: Smart Rule Loading
@@ -758,8 +2132,35 @@ modules:
         name: Trigger-Load (full rule text for the files in play)
       - slug: script-enforcement
         name: Script Enforcement (scripted rules enforced regardless of context)
-        sources:
-          [src/rule-scripts/enforce.ts, src/rule-scripts/compile.ts, src/cli/commands/rules.ts]
+        sources: [src/rule-scripts/enforce.ts, src/rule-scripts/compile.ts, src/cli/commands/rules.ts]
+    evidence:
+      symbols:
+        - CompileRuleScriptsResult
+        - ComposeRuleContextOptions
+        - DECISION_PAUSE_REMINDER
+        - EnforceOptions
+        - EnforcementResult
+        - LEAN_RULE_CONTEXT_BUDGET_BYTES
+        - RULES_MISSING_FALLBACK_MARKER
+        - RuleManifestOptions
+        - RuleSelection
+        - RuleViolation
+        - WriteRuleContextOptions
+        - compileRuleScripts
+        - composeRuleContext
+        - createRulesCommand
+        - enforceRuleScripts
+        - formatEnforcementSummary
+        - generateRuleManifest
+        - isAlwaysLoadRule
+        - isRuleScriptMapStale
+        - matchRuleTriggers
+        - matchesGlobish
+        - refreshRuleContext
+        - ruleTriggersMatch
+        - scriptedSourcePaths
+        - selectTriggeredRules
+        - writeRuleContext
 
   - slug: mcp-config
     name: MCP Configuration
@@ -770,6 +2171,13 @@ modules:
       project overrides, stack-scoped servers) from the resolved pack set.
     sources:
       - src/mcp
+    evidence:
+      symbols:
+        - DataRetrievalDecider
+        - MCP_SERVERS
+        - McpConfigManager
+        - McpServerRegistry
+        - getServersForStack
 
   - slug: module-map-engine
     name: Module Map Engine
@@ -809,6 +2217,32 @@ modules:
     sources:
       - src/session
       - src/cache
+    evidence:
+      symbols:
+        - ActiveImplementationSessionArtifact
+        - CacheMetrics
+        - CacheMetricsTracker
+        - CacheWarmer
+        - DEFAULT_PREDICTIVE_CACHE_OPTIONS
+        - HandoffParser
+        - HandoffWriter
+        - ParsedHandoff
+        - PredictiveCache
+        - PredictiveCacheOptions
+        - ResumeImplementationDecision
+        - SessionResumeValidation
+        - SessionResumeValidator
+        - StructuredHandoff
+        - TransitionEntry
+        - TransitionLog
+        - TransitionLogManager
+        - UnsupportedStructuredHandoff
+        - UnsupportedStructuredHandoffVersionError
+        - applyActiveImplementationSession
+        - createActiveImplementationSession
+        - isExplicitExplanationOnlyIntent
+        - readActiveImplementationSession
+        - writeActiveImplementationSession
 
   - slug: decision-pause-contract
     name: Decision Pause Contract
@@ -827,6 +2261,17 @@ modules:
     sources:
       - .paqad/decisions
       - src/planning/decision-precedents.ts
+    evidence:
+      symbols:
+        - DEFAULT_PRECEDENT_LIMIT
+        - DecisionPrecedent
+        - FindPrecedentsOptions
+        - PRECEDENT_BLOCK_HEADING
+        - PRECEDENT_SCORE_FLOOR
+        - PrecedentQuery
+        - findDecisionPrecedents
+        - formatDecisionPrecedents
+        - scorePrecedent
 
   - slug: pattern-library
     name: Cross-Project Pattern Library
@@ -838,6 +2283,23 @@ modules:
       180 days.
     sources:
       - src/patterns
+    evidence:
+      symbols:
+        - Pattern
+        - PatternCli
+        - PatternFilter
+        - PatternIndex
+        - PatternIndexEntry
+        - PatternMatch
+        - PatternRecorder
+        - PatternSemanticScorer
+        - PatternStore
+        - PatternSuggester
+        - PatternVectorService
+        - RecordPatternInput
+        - StoredPatternVector
+        - getGlobalPatternVectorPaths
+        - suggestPatternsForProject
 
   - slug: compliance-engine
     name: Spec Compliance Engine
@@ -863,6 +2325,17 @@ modules:
       not a label). Writes `.paqad/traceability/map.json`.
     sources:
       - src/traceability
+    evidence:
+      symbols:
+        - GatherOptions
+        - ReachabilityInput
+        - ReachabilityResult
+        - buildTraceabilityMap
+        - gatherTraceabilityInputs
+        - readTraceabilityMap
+        - solveReachability
+        - traceabilityMapPath
+        - writeTraceabilityMap
 
   - slug: quality-ratchet
     name: Quality Ratchet
@@ -882,6 +2355,35 @@ modules:
       Decision Pause and reused for the same kind.
     sources:
       - src/quality-ratchet
+    evidence:
+      symbols:
+        - CollectQualityMeasuresOptions
+        - EvaluateRatchetOptions
+        - FileDeficiency
+        - MeasureRunOptions
+        - MeasureRunResult
+        - QualityCollectorDeps
+        - RATCHET_EXCEPTION_APPROVE
+        - RATCHET_EXCEPTION_REFUSE
+        - RatchetExceptionInput
+        - RunQualityRatchetOptions
+        - StrictnessMeasure
+        - applyApprovedRegressions
+        - buildRatchetExceptionPacket
+        - collectQualityMeasures
+        - createBaseline
+        - evaluateRatchet
+        - exceptionKind
+        - measureStrictness
+        - measureStrictnessFromOptions
+        - parseTsconfig
+        - qualityBaselinePath
+        - readQualityBaseline
+        - resolveReusableExceptionKinds
+        - runQualityRatchetGate
+        - sampleKey
+        - tightenBaseline
+        - writeQualityBaseline
 
   - slug: verification
     name: Verification Gates
@@ -918,6 +2420,82 @@ modules:
       - slug: check-runner
         name: Deterministic Check Runner (format/test/build → structured results)
         sources: [src/checks/run-checks.ts, src/checks/report-store.ts, src/cli/commands/checks.ts]
+    evidence:
+      symbols:
+        - AC_ID_PATTERN
+        - AcTestMappingGate
+        - ArchitectureComplianceGate
+        - BehavioralCorrectnessGate
+        - BuildRepositoryVerificationContextOptions
+        - BuildVerificationEvidenceInput
+        - CHECKS_REPORT_SCHEMA_VERSION
+        - ChangeCompletenessGate
+        - CheckCommandOutcome
+        - ChecksReport
+        - ChecksRunResult
+        - CodeTestsLintGate
+        - ComposeChangeReceiptInput
+        - DatabaseQualityGate
+        - DocumentationFreshnessGate
+        - ExtensionSurfaceGate
+        - Gate
+        - ImplementationReviewGate
+        - InstructionsDocsStructureGate
+        - JudgmentSignal
+        - ModuleDocsStructureGate
+        - MutationTestingGate
+        - QualityRatchetGate
+        - RepositoryVerificationContextResult
+        - RepositoryVerificationGateVerdict
+        - RepositoryVerificationVerdict
+        - RequirementCompletenessGate
+        - RunChecksOptions
+        - RunRepositoryVerificationOptions
+        - SURFACE_DOC_PATH
+        - SpecReviewGate
+        - StoryQualityGate
+        - TEST_EVIDENCE_STRENGTH
+        - TestEvidenceAssessment
+        - TestEvidenceStrength
+        - VERIFICATION_EVIDENCE_RELATIVE_PATH
+        - VERIFICATION_EVIDENCE_STDERR_BUDGET_BYTES
+        - VerificationGateRunner
+        - WriteVerificationEvidenceOptions
+        - areRegistriesStale
+        - assessTestEvidence
+        - backstopGates
+        - buildDocumentationDriftDeltaPayload
+        - buildRepositoryVerificationContext
+        - buildRepositoryVerificationVerdict
+        - buildVerificationEvidence
+        - buildVerificationGateDeltaPayload
+        - checkBooleanGate
+        - checksEvidenceGate
+        - checksReportPath
+        - collectCanonicalDocumentationFailures
+        - collectObservedAcIds
+        - collectScopeDriftPaths
+        - collectUnresolvedDocTargets
+        - composeChangeReceipt
+        - computeAcTestMapping
+        - computeImplementationReview
+        - computeSpecReview
+        - createChecksCommand
+        - createFail
+        - createInconclusive
+        - createPass
+        - extractAcIdFromIssue
+        - formatCanonicalDocTarget
+        - formatStageEvidenceReceipt
+        - formatVerdictSummary
+        - identity
+        - readChecksReport
+        - runChecks
+        - runRepositoryVerification
+        - stageEvidenceGate
+        - toVerificationSnapshots
+        - writeChecksReport
+        - writeVerificationEvidence
 
   - slug: evidence-ledger
     name: Evidence Ledger & Provenance Receipt
@@ -951,6 +2529,61 @@ modules:
       - slug: compliance-citations
         name: Compliance Citations on the Receipt
         sources: [src/evidence/compliance]
+    evidence:
+      symbols:
+        - AiBomDocument
+        - BuildAiBomInput
+        - BuildAuthorshipInput
+        - BuildStatementInput
+        - CycloneDxComponent
+        - CycloneDxProperty
+        - DSSE_PAYLOAD_TYPE
+        - EngineFinding
+        - EvidenceRowIdentity
+        - GATE_STRENGTH_TIER
+        - GitIdentity
+        - GradedGateResult
+        - NewEvidenceRow
+        - ProjectReceiptInput
+        - ProjectReceiptResult
+        - ReproducibilityStamp
+        - ResolveAuthorshipInput
+        - ResolveComplianceCitationsInput
+        - RowContext
+        - SignReceiptInput
+        - appendEvidenceRows
+        - buildAiBom
+        - buildChangeAuthorship
+        - buildEvidenceRow
+        - buildInTotoStatement
+        - buildReproducibilityStamp
+        - computeRowContentHash
+        - decodeReceiptStatement
+        - deriveVerificationResult
+        - detectSigningMode
+        - findingRowsFrom
+        - gateResultsToRows
+        - gradeGateResult
+        - latestReceiptAuthorship
+        - latestReceiptHash
+        - latestReceiptTrustExtras
+        - pae
+        - projectReceipt
+        - ratchetResultToRows
+        - readEvidenceLedger
+        - readEvidenceWindow
+        - readGitIdentity
+        - readOnboardedAgent
+        - readReceiptChain
+        - readReproducibilityPredicate
+        - readReproducibilityStamp
+        - recordReproducibilityStamp
+        - resolveChangeAuthorship
+        - resolveComplianceCitations
+        - signReceipt
+        - statementPayload
+        - summarizeGradedEvidence
+        - verifyReceiptChain
 
   - slug: session-ledger
     name: Session-Scoped Evidence Substrate
@@ -969,6 +2602,36 @@ modules:
       always-on, AI-BOM-independent.
     sources:
       - src/session-ledger
+    evidence:
+      symbols:
+        - AppendOptions
+        - DISABLED_SESSION_DOC_TYPE
+        - DISABLED_SESSION_SCHEMA_VERSION
+        - OpenSessionDocResult
+        - RecordDisabledSessionContext
+        - SessionLedgerRow
+        - SessionRowValidator
+        - allocateOrdinal
+        - appendSessionEvent
+        - appendStampedRowToUnit
+        - closeSessionOrdinal
+        - computeSessionRowHash
+        - currentOrdinal
+        - foldByOrdinal
+        - listSessionIds
+        - openSessionDoc
+        - readAllSessionRows
+        - readLatestProjectEvent
+        - readProjectEvents
+        - readSessionDoc
+        - readSessionUnit
+        - readUnitFile
+        - recordDisabledSession
+        - recordProjectEvent
+        - sessionLedgerDir
+        - sessionLedgerPath
+        - sessionOpenPointerPath
+        - stampSessionRow
 
   - slug: feature-evidence
     name: Per-Feature Evidence Bundle
@@ -988,6 +2651,111 @@ modules:
       live stage spine is untouched.
     sources:
       - src/feature-evidence
+    evidence:
+      symbols:
+        - BuildFeatureRecordInput
+        - BuildPlanRecordInput
+        - CompiledArtifact
+        - DELIVERY_DOC_TYPE
+        - DELIVERY_SCHEMA_VERSION
+        - DeliveryCommit
+        - DeliveryRecord
+        - FEATURE_BUNDLE_FILES
+        - FEATURE_DOC_TYPE
+        - FEATURE_EVIDENCE_SCHEMA_VERSION
+        - FEATURE_SCHEMA
+        - FEATURE_SESSION_DOC_TYPE
+        - FeatureBundleExport
+        - FeatureBundleFile
+        - FeatureDirName
+        - FeatureLane
+        - FeatureRecord
+        - FeatureSessionControl
+        - FeatureStatus
+        - GIT_HOOK_MARKER
+        - InstallGitHooksResult
+        - MintFeatureDirNameInput
+        - MintedFeatureDirName
+        - NoActiveFeatureError
+        - OpenFeatureChangeInput
+        - PLAN_DOC_TYPE
+        - PLAN_SCHEMA
+        - PlanCompileInput
+        - PlanRecord
+        - PlanRisk
+        - PlanStep
+        - ProjectFeatureReceiptInput
+        - ProjectFeatureReceiptResult
+        - PruneResult
+        - RULE_RUN_DOC_TYPE
+        - RULE_RUN_SCHEMA_VERSION
+        - ResolveFeatureInput
+        - RuleRunEntry
+        - SetActiveOptions
+        - appendCommitToFeature
+        - appendFeatureStageRow
+        - appendRuleRun
+        - buildFeatureRecord
+        - buildPlanRecord
+        - chatDir
+        - chatRagPath
+        - closeActiveFeature
+        - commitsSinceBase
+        - computeContentHash
+        - currentFeature
+        - emptyControl
+        - exportFeatureBundle
+        - featureDir
+        - featureEvidenceDir
+        - featureFilePath
+        - featureSessionControlPath
+        - featureStagePath
+        - foldFeature
+        - formatFeatureDirName
+        - formatValidationError
+        - hookBlock
+        - installGitHooks
+        - isFeatureDirName
+        - listFeatureDirs
+        - markDone
+        - mintFeatureDirName
+        - mirrorRagRow
+        - openFeatureChange
+        - parseFeatureDirName
+        - pauseActive
+        - projectAiBomFromFeatures
+        - projectFeatureAiBom
+        - projectFeatureReceipt
+        - pruneFeatureBundles
+        - readAllFeatureRuleRuns
+        - readAllFeatureSpecifications
+        - readAllFeatureStageRows
+        - readFeatureAiBom
+        - readFeatureDelivery
+        - readFeaturePlan
+        - readFeatureReceipt
+        - readFeatureSpecification
+        - readFeatureStageUnit
+        - readRuleRun
+        - readSessionControl
+        - reconcileDeliveryFromGit
+        - recordCommitForBranch
+        - resolveActiveFeature
+        - resolveDeliveryFeatureByBranch
+        - resolveFeatureRef
+        - resolveHooksDir
+        - resolveRagHome
+        - resumeFeature
+        - resumeFeatureByRef
+        - setActiveFeature
+        - setLane
+        - stampMergeCommit
+        - validateFeatureRecord
+        - validatePlanRecord
+        - writeFeatureDelivery
+        - writeFeaturePlan
+        - writeFeatureSpecification
+        - writeSessionControl
 
   - slug: rag-evidence-ledger
     name: RAG-Evidence Ledger
@@ -1016,6 +2784,34 @@ modules:
       - slug: rag-evidence-show
         name: rag-evidence show (use-rate / fallback fold)
         sources: [src/rag-ledger/fold.ts, src/cli/commands/rag-evidence.ts]
+    evidence:
+      symbols:
+        - RAG_EVIDENCE_DOC_TYPE
+        - RAG_EVIDENCE_SCHEMA
+        - RAG_EVIDENCE_SCHEMA_VERSION
+        - RagEvidenceContext
+        - RagEvidenceConversationFold
+        - RagEvidenceFields
+        - RagEvidenceKind
+        - RagEvidenceRow
+        - RagEvidenceSessionFold
+        - RagFallbackReason
+        - RagInjectedSection
+        - RagQueryScope
+        - RagRefreshKind
+        - createRagEvidenceCommand
+        - foldRagEvidenceRows
+        - foldRagEvidenceSession
+        - mapAuditEventToEvidence
+        - mapFallbackReason
+        - openRagConversation
+        - recordRagEvidence
+        - recordRagEvidenceFromAudit
+        - recordSeamOutcome
+        - resolveSeamSessionId
+        - resolveSessionId
+        - sectionsFromBlock
+        - validateRagEvidenceRow
 
   - slug: delivery-workflow
     name: Provider-Agnostic Delivery Workflow
@@ -1047,6 +2843,91 @@ modules:
       - slug: delivery-ci-gate
         name: Delivery CI Gate + Graceful Degradation
         sources: [src/delivery/ci-gate.ts, src/delivery/degradation.ts]
+    evidence:
+      symbols:
+        - CheckRun
+        - ChecksState
+        - ChecksStatus
+        - CiGateAction
+        - CiGateOptions
+        - CiGateResult
+        - CommandRun
+        - CommandRunner
+        - DELIVERY_EVIDENCE_DOC_TYPE
+        - DELIVERY_EVIDENCE_SCHEMA_VERSION
+        - DeliveryCheckResult
+        - DeliveryDetectionResult
+        - DeliveryFinding
+        - DeliveryHost
+        - DeliveryPlan
+        - DeliveryRenderInputs
+        - DeliveryRunInputs
+        - DeliveryRunResult
+        - DeliveryShell
+        - DeliveryStepResult
+        - DetectedDelivery
+        - DetectedField
+        - EvaluateDeliveryInput
+        - GITHUB_ISSUE_JSON_FIELDS
+        - GhInvoke
+        - GitSnapshot
+        - GithubHostProvider
+        - GithubIssuesTicketProvider
+        - HostEnvironment
+        - HostProvider
+        - HostProviderResolution
+        - HostStepResult
+        - JIRA_MCP_TOOLS
+        - JiraMcpInvoke
+        - JiraTicketProvider
+        - NormalizedTicket
+        - OpenPrInput
+        - PullRequest
+        - RenderedDelivery
+        - TicketFieldUpdate
+        - TicketProvider
+        - TicketProviderResolution
+        - TicketTransition
+        - aggregate
+        - buildConnectNudge
+        - createDeliveryShell
+        - detectBase
+        - detectBranchTemplate
+        - detectCommitConvention
+        - detectDelivery
+        - detectDeliveryHost
+        - detectHost
+        - detectionPath
+        - evaluateDelivery
+        - execaCommandRunner
+        - extractAcceptanceCriteria
+        - formatDeliverySummary
+        - gatherGitSnapshot
+        - hasDetection
+        - normalizeCheckState
+        - normalizeGithubIssue
+        - normalizeIssueNumber
+        - normalizeJiraIssue
+        - normalizeJiraTransitions
+        - overlayDetection
+        - parseOwnerRepo
+        - parsePrUrl
+        - planDelivery
+        - readDetection
+        - readLatestDeliveryEvidence
+        - recordDeliveryEvidence
+        - renderDelivery
+        - renderTemplate
+        - resolveConventionalType
+        - resolveHostProvider
+        - resolveTicketProvider
+        - runCiGate
+        - runDelivery
+        - runDeliveryCapability
+        - runDeliveryDetection
+        - slugify
+        - summarizeDetection
+        - writeDetection
 
   - slug: pentest-engine
     name: Pentest Engine (12 Skills)
@@ -1061,6 +2942,18 @@ modules:
     sources:
       - src/pentest
       - src/validators
+    evidence:
+      symbols:
+        - MarkdownValidationResult
+        - SchemaValidationIssue
+        - SchemaValidator
+        - ValidationResult
+        - validateAcStatements
+        - validateApiDoc
+        - validateErrorCatalogMarkdown
+        - validateRequiredHeadings
+        - validateSpecDocument
+        - validateUserFlow
 
   - slug: project-profile-schema
     name: Project Profile & Onboarding Manifest
@@ -1075,6 +2968,37 @@ modules:
       - src/core/project-intelligence.ts
       - src/core/runtime-paths.ts
       - src/onboarding/manifest-writer.ts
+    evidence:
+      symbols:
+        - DEFAULT_ACTION_ROUTING
+        - DEFAULT_ADAPTIVE_RETRIEVAL
+        - DEFAULT_BENCHMARK_EVAL
+        - DEFAULT_BENCHMARK_GATES
+        - DEFAULT_LOCAL_EMBEDDING_MODEL
+        - DEFAULT_METADATA_FILTERS
+        - DEFAULT_RERANKING
+        - EMBEDDING_PROVIDERS
+        - LOCAL_EMBEDDING_MODELS
+        - LocalEmbeddingModel
+        - defaultIntelligenceConfig
+        - getDefaultEmbeddingModel
+        - getPackageRoot
+        - getProfileDomain
+        - getRuntimeRoot
+        - getRuntimeTemplatesRoot
+        - isCodeTunedLocalModel
+        - migrateProjectProfile
+        - normalizeIntelligenceConfig
+        - readExistingOnboardingManifest
+        - readProjectProfile
+        - resolveFrameworkInstallPath
+        - sanitizeStackSnapshotRepository
+        - writeDetectionReport
+        - writeFrameworkMetadata
+        - writeFrameworkVersionPreservingTimestamp
+        - writeJsonPreservingTimestamp
+        - writeOnboardingManifest
+        - writeProjectProfile
 
   - slug: repository-resolver
     name: Repository Resolver
@@ -1087,6 +3011,22 @@ modules:
     sources:
       - src/repository
       - src/resolver
+    evidence:
+      symbols:
+        - ARTIFACT_OUTPUT_KEYS
+        - ARTIFACT_TYPES
+        - ArtifactType
+        - COLLISION_MAP
+        - CollisionBehavior
+        - ContextDeduplicator
+        - DeduplicatorArtifact
+        - InheritanceDirectory
+        - Resolver
+        - ResolverOptions
+        - discoverRepositoryContext
+        - getInheritanceDirectories
+        - prefixRepositoryPath
+        - resolveCapabilityDirectories
 
 lowConfidenceModules:
   - root-cause-analysis-workflow
