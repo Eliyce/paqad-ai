@@ -8,14 +8,12 @@
 //   warn   — run, write the report, never block.
 //   strict — run, block on any `deterministic` finding. `heuristic` never blocks.
 
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import fg from 'fast-glob';
-
 import { PATHS } from '@/core/constants/paths.js';
+import { DEFAULT_SOURCE_GLOBS, scanWorkingTree } from '@/core/fs/gitignore-scan.js';
 
 import { executeRuleScript, missingBinaries, type Finding } from './execute.js';
 import { parseScriptHeader } from './header.js';
@@ -60,9 +58,6 @@ export interface RunOptions {
   wholeTreeGlobs?: string[];
 }
 
-const DEFAULT_GLOBS = ['**/*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte}'];
-const IGNORE = ['**/node_modules/**', '**/dist/**', '**/.paqad/**', '**/build/**', '**/vendor/**'];
-
 function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
@@ -81,33 +76,6 @@ function hashFiles(projectRoot: string, files: string[]): string {
 export function scriptFilesHash(projectRoot: string, map: RuleScriptMap): string {
   const paths = map.rules.flatMap((r) => r.scripts.map((s) => s.path)).sort();
   return hashFiles(projectRoot, paths);
-}
-
-// Drop paths git ignores (build output, vendored deps, generated code a team
-// gitignores) from the whole-tree scan. A single batched `git check-ignore`
-// honours the project `.gitignore`, nested `.paqad/.gitignore`, and any global
-// excludes alike — the same authority src/health/checker.ts trusts. `check-ignore`
-// respects the index by default, so *tracked* source that merely matches a
-// pattern is kept; only genuinely-ignored (untracked) files are removed.
-// Best-effort: git missing or not-a-repo (exit 128) / nothing ignored (exit 1)
-// both throw, and we fall back to the static IGNORE-only list.
-function dropGitIgnored(projectRoot: string, files: string[]): string[] {
-  try {
-    const out = execFileSync('git', ['check-ignore', '-z', '--stdin'], {
-      cwd: projectRoot,
-      input: files.join('\0'),
-      stdio: ['pipe', 'pipe', 'ignore'],
-    });
-    const ignored = new Set(out.toString('utf8').split('\0').filter(Boolean));
-    return files.filter((f) => !ignored.has(f));
-  } catch {
-    return files;
-  }
-}
-
-function wholeTree(projectRoot: string, globs: string[]): string[] {
-  const listed = fg.sync(globs, { cwd: projectRoot, ignore: IGNORE, onlyFiles: true });
-  return dropGitIgnored(projectRoot, listed).sort();
 }
 
 function targetsFor(script: ScriptEntry, opts: RunOptions, wholeTreeFiles: string[]): string[] {
@@ -139,8 +107,8 @@ export function runRuleScripts(opts: RunOptions): RunReport {
     };
   }
 
-  const globs = opts.wholeTreeGlobs ?? DEFAULT_GLOBS;
-  const wholeTreeFiles = wholeTree(opts.projectRoot, globs);
+  const globs = opts.wholeTreeGlobs ?? DEFAULT_SOURCE_GLOBS;
+  const wholeTreeFiles = scanWorkingTree(opts.projectRoot, globs);
   // The cache key must hash every file any registered script can actually read.
   // A `changed-files` run still scans the whole tree for whole-tree/git-scoped
   // scripts, so when any such script exists those files belong in the target
