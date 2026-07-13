@@ -25,3 +25,7 @@
 # ── Added in a newer paqad version ────────────────────────────
 # Base branch for branch-aware RAG. Unset auto-detects main->master. (env: PAQAD_RAG_BASE_BRANCH)
 # rag_base_branch=
+
+# ── Added in a newer paqad version ────────────────────────────
+# Relief band for floor-with-relief. When nothing clears rag_similarity_threshold, the top slices at or above this lower score are delivered tagged low-confidence. (env: PAQAD_RAG_RELIEF_FLOOR)
+# rag_relief_floor=0.35

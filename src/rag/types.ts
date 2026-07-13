@@ -327,6 +327,29 @@ export interface RagRetrievalResult {
   retrieved_source_files: string[];
   retrieved_chunks: Array<Pick<StoredVectorChunk, 'id' | 'source_file' | 'content'>>;
   fallback_reason?: string;
+  /**
+   * Issue #354 — the top pre-floor fused score for the query, when any candidate
+   * existed (before the similarity/relief floor was applied). Lets the consumer render
+   * an honest "none above the floor (best 58%)" line instead of silently omitting the
+   * retrieved-context section. Undefined when retrieval never scored anything (rag off,
+   * no/stale index, error) — those keep the section omitted (disabled == today).
+   */
+  best_score?: number;
+  /**
+   * Issue #354 — true when the returned chunks came from the RELIEF band (nothing
+   * cleared `rag_similarity_threshold`, so the top slices at or above `rag_relief_floor`
+   * were delivered tagged low-confidence). The consumer tags these slices so the model
+   * weighs them accordingly. Absent/false for high-confidence (above-floor) results.
+   */
+  low_confidence?: boolean;
+}
+
+/** A single scored candidate before the similarity/relief floor is applied (#354 probe). */
+export interface RagScoredCandidate {
+  id: string;
+  source_file: string;
+  content: string;
+  score: number;
 }
 
 export interface BuildIndexOptions {

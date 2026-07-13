@@ -46,6 +46,7 @@ describe('project intelligence defaults', () => {
     expect(defaultIntelligenceConfig()).toEqual({
       rag_enabled: false,
       rag_similarity_threshold: 0.75,
+      rag_relief_floor: 0.35,
       rag_top_n: 20,
       rag_max_file_size: 153600,
       benchmark_gates: DEFAULT_BENCHMARK_GATES,

@@ -1883,6 +1883,7 @@ modules:
         - FreshnessChecker
         - FreshnessMetadata
         - GatherOptions
+        - GatherResult
         - GitRunner
         - GitState
         - GitStateOptions
@@ -1924,6 +1925,7 @@ modules:
         - RagIngestErrorCode
         - RagPromptTokenGateResult
         - RagRetrievalResult
+        - RagScoredCandidate
         - RagService
         - RagStatus
         - RefreshBaseDriftOptions
@@ -1955,7 +1957,6 @@ modules:
         - ZIP_DECOMPRESSED_LIMIT_BYTES
         - appendAttachmentEvent
         - appendRagAudit
-        - applyPrecisionFloor
         - attachmentCollectionsRoot
         - backgroundIndexSync
         - buildContextualBlurb

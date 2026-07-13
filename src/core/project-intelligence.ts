@@ -111,6 +111,11 @@ export function defaultIntelligenceConfig(): IntelligenceConfig {
   return {
     rag_enabled: false,
     rag_similarity_threshold: 0.75,
+    // Issue #354 — chosen from live probe data on this repo: genuine on-target queries
+    // top out at 0.37-0.52 (local MiniLM cosine on hybrid-fused results), while a truly
+    // irrelevant query ("kubernetes ingress") tops at 0.32. 0.35 sits between: it
+    // delivers the weakest real hit and darkens the negative control.
+    rag_relief_floor: 0.35,
     rag_top_n: 20,
     rag_max_file_size: 153600,
     benchmark_gates: { ...DEFAULT_BENCHMARK_GATES },
@@ -140,6 +145,7 @@ export function normalizeIntelligenceConfig(
     embedding_model:
       input.embedding_model ?? (provider ? getDefaultEmbeddingModel(provider) : undefined),
     rag_similarity_threshold: input.rag_similarity_threshold ?? defaults.rag_similarity_threshold,
+    rag_relief_floor: input.rag_relief_floor ?? defaults.rag_relief_floor,
     rag_top_n: input.rag_top_n ?? defaults.rag_top_n,
     rag_max_file_size: input.rag_max_file_size ?? defaults.rag_max_file_size,
     rag_base_branch: input.rag_base_branch ?? defaults.rag_base_branch,

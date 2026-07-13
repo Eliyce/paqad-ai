@@ -8,7 +8,6 @@ import { refreshRuleContext } from '@/context/rule-context.js';
 import {
   MAX_RETRIEVAL_SLICES,
   MAX_SLICE_CHARS,
-  applyPrecisionFloor,
   composeRetrievalSection,
   deriveScopeFromWorkingSet,
   filterToScope,
@@ -90,25 +89,32 @@ describe('composeRetrievalSection', () => {
     const heading = md.split('\n').find((line) => line.startsWith('### '));
     expect(heading).toBe('### src/a.ts');
   });
-});
 
-describe('applyPrecisionFloor (F12)', () => {
-  it('keeps slices at or above the floor', () => {
-    const kept = applyPrecisionFloor(
-      [slice({ source_file: 'a', score: 0.8 }), slice({ source_file: 'b', score: 0.75 })],
-      0.75,
-    );
-    expect(kept.map((s) => s.source_file)).toEqual(['a', 'b']);
+  it('stays silent when there are no slices and no best score (disabled/cold == today) (#354)', () => {
+    // No bestScore ⇒ retrieval never scored anything ⇒ omit the section entirely.
+    expect(composeRetrievalSection([], { bestScore: null })).toBe('');
+    expect(composeRetrievalSection([], {})).toBe('');
   });
 
-  it('drops slices below the floor (confident-but-wrong is worse than grep)', () => {
-    const kept = applyPrecisionFloor([slice({ source_file: 'low', score: 0.6 })], 0.75);
-    expect(kept).toEqual([]);
+  it('renders ONE honest line naming the best score when retrieval went dark (#354)', () => {
+    const md = composeRetrievalSection([], { bestScore: 0.58 });
+    expect(md).toContain('## Retrieved context — none above the confidence floor (best match 58%)');
+    // One heading + one guidance line — no fenced slice blocks.
+    expect(md).not.toContain('```');
   });
 
-  it('drops slices with no score (never inject what we cannot vouch for)', () => {
-    const kept = applyPrecisionFloor([slice({ source_file: 'unscored' })], 0.75);
-    expect(kept).toEqual([]);
+  it('flags a low-confidence (relief-band) result so the model weighs it as weak (#354)', () => {
+    const md = composeRetrievalSection([
+      slice({
+        source_file: 'src/a.ts',
+        content: 'weak but best',
+        score: 0.36,
+        lowConfidence: true,
+      }),
+    ]);
+    expect(md).toContain('low-confidence');
+    expect(md).toContain('nothing cleared the confidence floor');
+    expect(md).toContain('weak but best');
   });
 });
 
@@ -171,12 +177,13 @@ describe('gatherWorkingSetSlices', () => {
         return emptyResult();
       },
     };
-    const slices = await gatherWorkingSetSlices('/proj', {
+    const { slices, bestScore } = await gatherWorkingSetSlices('/proj', {
       service,
       changedPaths: ['src/app.ts'],
       routing: { workflow: 'investigation', complexity: 'trivial' },
     });
     expect(slices).toEqual([]);
+    expect(bestScore).toBeNull();
     expect(called).toBe(false);
   });
 
@@ -187,19 +194,20 @@ describe('gatherWorkingSetSlices', () => {
       retrieved_chunk_ids: ['c1'],
       retrieved_source_files: ['src/app.ts'],
       retrieved_chunks: [{ id: 'c1', source_file: 'src/app.ts', content: 'code chunk' }],
+      best_score: 0.95,
     };
     const docsDefault = await gatherWorkingSetSlices('/proj', {
       service: source(result),
       changedPaths: ['src/app.ts'],
     });
-    expect(docsDefault).toEqual([]);
+    expect(docsDefault.slices).toEqual([]);
     // Explicit scope:'all' lets the same code slice through.
     const all = await gatherWorkingSetSlices('/proj', {
       service: source(result),
       changedPaths: ['src/app.ts'],
       scope: 'all',
     });
-    expect(all).toHaveLength(1);
+    expect(all.slices).toHaveLength(1);
   });
 
   it('a feature-dev workflow routes to code slices (F19)', async () => {
@@ -209,8 +217,9 @@ describe('gatherWorkingSetSlices', () => {
       retrieved_chunk_ids: ['c1'],
       retrieved_source_files: ['src/app.ts'],
       retrieved_chunks: [{ id: 'c1', source_file: 'src/app.ts', content: 'function f() {}' }],
+      best_score: 0.95,
     };
-    const slices = await gatherWorkingSetSlices('/proj', {
+    const { slices } = await gatherWorkingSetSlices('/proj', {
       service: source(result),
       changedPaths: ['src/app.ts'],
       routing: { workflow: 'feature-development' },
@@ -219,24 +228,67 @@ describe('gatherWorkingSetSlices', () => {
     expect(slices[0].source_file).toBe('src/app.ts');
   });
 
-  it('returns the retrieved chunks as slices, scored', async () => {
+  it('returns the retrieved chunks as slices, scored (high-confidence, not low)', async () => {
     const result: RagRetrievalResult = {
       vector_scores: new Map([['c1', 0.91]]),
       chunks_retrieved: 1,
       retrieved_chunk_ids: ['c1'],
       retrieved_source_files: ['docs/instructions/a.md'],
       retrieved_chunks: [{ id: 'c1', source_file: 'docs/instructions/a.md', content: 'doc slice' }],
+      best_score: 0.91,
+      low_confidence: false,
     };
-    const slices = await gatherWorkingSetSlices('/proj', {
+    const { slices, bestScore } = await gatherWorkingSetSlices('/proj', {
       service: source(result),
       changedPaths: ['src/app.ts'],
     });
     expect(slices).toEqual([
-      { source_file: 'docs/instructions/a.md', content: 'doc slice', score: 0.91 },
+      {
+        source_file: 'docs/instructions/a.md',
+        content: 'doc slice',
+        score: 0.91,
+        lowConfidence: false,
+      },
     ]);
+    expect(bestScore).toBe(0.91);
   });
 
-  it('returns [] when nothing is in play (no working set)', async () => {
+  it('tags relief-band slices low-confidence and passes the best score through (#354)', async () => {
+    const result: RagRetrievalResult = {
+      vector_scores: new Map([['c1', 0.36]]),
+      chunks_retrieved: 1,
+      retrieved_chunk_ids: ['c1'],
+      retrieved_source_files: ['docs/instructions/a.md'],
+      retrieved_chunks: [{ id: 'c1', source_file: 'docs/instructions/a.md', content: 'weak best' }],
+      best_score: 0.36,
+      low_confidence: true,
+    };
+    const { slices, bestScore } = await gatherWorkingSetSlices('/proj', {
+      service: source(result),
+      changedPaths: ['src/app.ts'],
+    });
+    expect(slices).toHaveLength(1);
+    expect(slices[0].lowConfidence).toBe(true);
+    expect(bestScore).toBe(0.36);
+  });
+
+  it('returns the best score even when the dark result carried no slices (#354)', async () => {
+    // Service went below the relief band: empty chunks, but best_score set for the
+    // honest "none above the floor" line.
+    const dark: RagRetrievalResult = {
+      ...emptyResult(),
+      fallback_reason: 'below-similarity-threshold',
+      best_score: 0.21,
+    };
+    const { slices, bestScore } = await gatherWorkingSetSlices('/proj', {
+      service: source(dark),
+      changedPaths: ['src/app.ts'],
+    });
+    expect(slices).toEqual([]);
+    expect(bestScore).toBe(0.21);
+  });
+
+  it('returns empty + null best score when nothing is in play (no working set)', async () => {
     let called = false;
     const service: RetrievalSource = {
       retrieveForEval: async () => {
@@ -244,8 +296,12 @@ describe('gatherWorkingSetSlices', () => {
         return emptyResult();
       },
     };
-    const slices = await gatherWorkingSetSlices('/proj', { service, changedPaths: [] });
+    const { slices, bestScore } = await gatherWorkingSetSlices('/proj', {
+      service,
+      changedPaths: [],
+    });
     expect(slices).toEqual([]);
+    expect(bestScore).toBeNull();
     expect(called).toBe(false);
   });
 
@@ -263,10 +319,11 @@ describe('gatherWorkingSetSlices', () => {
           retrieved_chunks: [
             { id: 'c1', source_file: 'docs/instructions/a.md', content: 'doc slice' },
           ],
+          best_score: 0.91,
         };
       },
     };
-    const slices = await gatherWorkingSetSlices('/proj', {
+    const { slices } = await gatherWorkingSetSlices('/proj', {
       service,
       changedPaths: [],
       query: 'how does the router work',
@@ -276,62 +333,27 @@ describe('gatherWorkingSetSlices', () => {
     expect(captured.input?.taskDescription).toBe('how does the router work');
   });
 
-  it('returns [] when retrieval falls back (empty result)', async () => {
-    const slices = await gatherWorkingSetSlices('/proj', {
+  it('returns empty + null best score when retrieval falls back (empty result)', async () => {
+    const { slices, bestScore } = await gatherWorkingSetSlices('/proj', {
       service: source(emptyResult()),
       changedPaths: ['src/app.ts'],
     });
     expect(slices).toEqual([]);
+    expect(bestScore).toBeNull();
   });
 
-  it('returns [] when retrieval throws (accelerator never blocks)', async () => {
+  it('returns empty when retrieval throws (accelerator never blocks)', async () => {
     const service: RetrievalSource = {
       retrieveForEval: async () => {
         throw new Error('provider down');
       },
     };
-    const slices = await gatherWorkingSetSlices('/proj', {
+    const { slices, bestScore } = await gatherWorkingSetSlices('/proj', {
       service,
       changedPaths: ['src/app.ts'],
     });
     expect(slices).toEqual([]);
-  });
-
-  it('drops a below-floor slice at the consumer boundary (F12)', async () => {
-    const result: RagRetrievalResult = {
-      vector_scores: new Map([['c1', 0.6]]),
-      chunks_retrieved: 1,
-      retrieved_chunk_ids: ['c1'],
-      retrieved_source_files: ['docs/instructions/a.md'],
-      retrieved_chunks: [
-        { id: 'c1', source_file: 'docs/instructions/a.md', content: 'weak match' },
-      ],
-    };
-    const slices = await gatherWorkingSetSlices('/proj', {
-      service: source(result),
-      changedPaths: ['src/app.ts'],
-      precisionFloor: 0.75,
-    });
-    expect(slices).toEqual([]);
-  });
-
-  it('keeps an above-floor slice (F12)', async () => {
-    const result: RagRetrievalResult = {
-      vector_scores: new Map([['c1', 0.9]]),
-      chunks_retrieved: 1,
-      retrieved_chunk_ids: ['c1'],
-      retrieved_source_files: ['docs/instructions/a.md'],
-      retrieved_chunks: [
-        { id: 'c1', source_file: 'docs/instructions/a.md', content: 'strong match' },
-      ],
-    };
-    const slices = await gatherWorkingSetSlices('/proj', {
-      service: source(result),
-      changedPaths: ['src/app.ts'],
-      precisionFloor: 0.75,
-    });
-    expect(slices).toHaveLength(1);
-    expect(slices[0].source_file).toBe('docs/instructions/a.md');
+    expect(bestScore).toBeNull();
   });
 
   it('forwards the topN cap to the retrieval source', async () => {
