@@ -3,7 +3,7 @@
 // corrupt, or schema-invalid file reads as absent (null) — never a crash, and never
 // a half-built index masquerading as real (INV-4).
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -32,8 +32,9 @@ export function writeCodeKnowledgeIndex(projectRoot: string, index: CodeKnowledg
  */
 export function readCodeKnowledgeIndex(projectRoot: string): CodeKnowledgeIndex | null {
   const target = codeKnowledgeIndexPath(projectRoot);
-  if (!existsSync(target)) return null;
   try {
+    // Read directly (no existsSync-then-read race); a missing file throws ENOENT and
+    // reads as absent, exactly like a corrupt or schema-invalid one.
     const parsed = JSON.parse(readFileSync(target, 'utf8')) as unknown;
     return validateCodeKnowledgeIndex(parsed).valid ? (parsed as CodeKnowledgeIndex) : null;
   } catch {

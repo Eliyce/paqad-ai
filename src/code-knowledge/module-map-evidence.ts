@@ -7,7 +7,7 @@
 // survive (INV-5). Format-aware — it edits whatever module nodes exist, so this
 // repo's version:2 map and the generator's standard shape both work.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import YAML from 'yaml';
@@ -49,12 +49,12 @@ export function writeModuleMapEvidence(
   index: CodeKnowledgeIndex,
 ): ModuleMapEvidenceResult {
   const mapPath = join(projectRoot, PATHS.MODULE_MAP);
-  if (!existsSync(mapPath)) return NOT_WRITTEN;
 
+  // Read directly and let the try/catch handle a missing/unreadable/unparseable map,
+  // rather than existsSync-then-read (a check-then-use file-system race).
   let doc: YAML.Document.Parsed;
   try {
     doc = YAML.parseDocument(readFileSync(mapPath, 'utf8'));
-    /* v8 ignore next 3 -- defensive: existsSync-then-read race, or a rare tokenizer throw */
   } catch {
     return NOT_WRITTEN;
   }

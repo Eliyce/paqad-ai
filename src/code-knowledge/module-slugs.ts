@@ -8,7 +8,7 @@
 // Shared by the index builder (to stamp `module_slug` on every symbol) and the
 // module-map evidence writer (to group symbols by module) — one resolver, not two.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parse as parseYaml } from 'yaml';
@@ -57,26 +57,26 @@ export function loadModuleSlugResolver(projectRoot: string): ModuleSlugResolver 
   const slugOrder: string[] = [];
 
   const mapPath = join(projectRoot, PATHS.MODULE_MAP);
-  if (existsSync(mapPath)) {
-    try {
-      const doc = parseYaml(readFileSync(mapPath, 'utf8')) as { modules?: unknown };
-      const modules = Array.isArray(doc?.modules) ? (doc.modules as ModuleNode[]) : [];
-      for (const module of modules) {
-        if (typeof module.slug !== 'string') continue;
-        const slug = module.slug;
-        let claimed = false;
-        for (const source of claimsForModule(module)) {
-          const prefix = source.replace(/\/+$/, '');
-          if (prefix.length > 0) {
-            claims.push({ slug, prefix });
-            claimed = true;
-          }
+  // Read directly and let the try/catch cover a missing OR malformed map (no
+  // existsSync-then-read file-system race); either way the resolver is empty.
+  try {
+    const doc = parseYaml(readFileSync(mapPath, 'utf8')) as { modules?: unknown };
+    const modules = Array.isArray(doc?.modules) ? (doc.modules as ModuleNode[]) : [];
+    for (const module of modules) {
+      if (typeof module.slug !== 'string') continue;
+      const slug = module.slug;
+      let claimed = false;
+      for (const source of claimsForModule(module)) {
+        const prefix = source.replace(/\/+$/, '');
+        if (prefix.length > 0) {
+          claims.push({ slug, prefix });
+          claimed = true;
         }
-        if (claimed) slugOrder.push(slug);
       }
-    } catch {
-      // Malformed map -> empty resolver; module_slug is simply null everywhere.
+      if (claimed) slugOrder.push(slug);
     }
+  } catch {
+    // Missing or malformed map -> empty resolver; module_slug is simply null everywhere.
   }
 
   return {

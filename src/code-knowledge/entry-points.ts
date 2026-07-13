@@ -4,7 +4,7 @@
 // resolved glob list rides in the index header so a consumer can see exactly why a
 // file was spared.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import fg from 'fast-glob';
@@ -41,9 +41,10 @@ interface PackageJson {
 /** Collect the string leaf values of package.json main/bin/exports as globs. */
 function packageEntryGlobs(projectRoot: string): string[] {
   const pkgPath = join(projectRoot, 'package.json');
-  if (!existsSync(pkgPath)) return [];
   let pkg: PackageJson;
   try {
+    // Read directly; a missing/unreadable/invalid package.json throws and yields no
+    // entry globs (avoids an existsSync-then-read file-system race).
     pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as PackageJson;
   } catch {
     return [];
