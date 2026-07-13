@@ -9,16 +9,22 @@ at runtime (issue #249), built on the [session-ledger substrate](../../session-l
 
 - **refreshed** — the background index / rule-context build or incremental sync ran.
 - **called** — a retrieval query was issued (scope / top-n / candidate pool).
-- **used** — the precomputed context was injected into a prompt (which sections, bytes).
+- **used** — what the background worker actually DELIVERED into the session-context
+  artifact the prompt seam injects: which sections (`rules` / `retrieval` / `memory` /
+  `drift`), the slice or context-pack-pointer count, the top match score, and the bytes.
+  `injected` is `true` only when the RAG tier contributed content, so this row is the
+  guardrail for "was retrieval actually used?", not just "did retrieval run?" (issue #354).
 - **fallback** — RAG produced nothing and the agent used grep (with a reason).
 
-The events fire from their real seams (the background worker for refreshed/called, the
-`context-seam-inject.mjs` prompt hook for used/fallback), and `appendRagAudit` dual-writes
-its RAG events into the structured ledger so it becomes the queryable source of truth
-without losing any event. The LLM never hand-authors a row.
+The events fire from their real seams: `refreshed` / `called` / `used` from the background
+context worker (`paqad-ai rag refresh-context`) as it syncs the index, retrieves, and
+composes the artifact; `fallback` from the retrieval layer via `appendRagAudit`, which
+dual-writes its RAG events into the structured ledger so it becomes the queryable source of
+truth without losing any event. The LLM never hand-authors a row.
 
 `paqad-ai rag-evidence show --session <id>` folds a session into a use-rate / fallback /
-coverage rollup in the paqad voice.
+coverage rollup in the paqad voice (only `used` rows with `injected: true` count toward the
+use-rate, so an honest dark turn never inflates it).
 
 ## Honest guarantee
 

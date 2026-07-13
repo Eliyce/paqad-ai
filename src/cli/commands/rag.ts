@@ -23,6 +23,8 @@ import {
   gatherWorkingSetSlices,
 } from '@/context/retrieval-context.js';
 import { compositionForRoute, readSessionRoute } from '@/pipeline/session-route.js';
+import { recordRagEvidence } from '@/rag-ledger/recorder.js';
+import type { RagInjectedSection } from '@/rag-ledger/types.js';
 import { backgroundIndexSync } from '@/rag/background-sync.js';
 import { composeBaseDriftSection, loadBaseDrift, refreshBaseDrift } from '@/rag/base-drift.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
@@ -305,6 +307,50 @@ export function createRagCommand(): Command {
       process.stdout.write(`${JSON.stringify(await service.getStatus(), null, 2)}\n`);
     });
 
+  // Issue #354 — diagnostic probe. Prints the top pre-floor fused scores for a query so
+  // the gap between the best real score and the 0.75 precision floor is measurable on a
+  // live repo (the gap that made retrieval dark). Read-only; changes no state.
+  command
+    .command('probe <query>')
+    .description(
+      'Print the top pre-floor retrieval scores for a query (diagnostic; no floor filter)',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--top-n <n>', 'How many candidates to show', '10')
+    .action(async (query: string, options: { projectRoot: string; topN: string }) => {
+      const service = new RagService(options.projectRoot);
+      const { intelligence } = resolveFrameworkConfig(options.projectRoot);
+      const floor = intelligence.rag_similarity_threshold;
+      const reliefFloor = intelligence.rag_relief_floor;
+      const topN = Number.parseInt(options.topN, 10);
+      const candidates = await service.probe(
+        { taskDescription: query, keywords: [] },
+        Number.isFinite(topN) && topN > 0 ? topN : 10,
+      );
+      const rows = candidates.map((candidate, index) => ({
+        rank: index + 1,
+        source_file: candidate.source_file,
+        score: Number(candidate.score.toFixed(4)),
+        above_floor: candidate.score >= floor,
+        above_relief: candidate.score >= reliefFloor,
+        gap_to_floor: Number((floor - candidate.score).toFixed(4)),
+      }));
+      process.stdout.write(
+        `${JSON.stringify(
+          {
+            query,
+            similarity_threshold: floor,
+            relief_floor: reliefFloor,
+            candidates: rows.length,
+            best_score: rows[0]?.score ?? null,
+            rows,
+          },
+          null,
+          2,
+        )}\n`,
+      );
+    });
+
   // RAG buildout F5/F9/F11 — the background "refresh session context" worker the
   // prompt-time trigger spawns detached. It (1) incrementally syncs the vector index
   // to the working tree (F9, only when an index already exists), (2) retrieves the
@@ -358,34 +404,37 @@ export function createRagCommand(): Command {
       const sync = await backgroundIndexSync(options.projectRoot);
       // #249 — the live background worker records the `called` retrieval event. #336 —
       // no-workflow retrieves nothing; every real workflow seeds retrieval with the
-      // prompt (falling back to the working set when no prompt was recorded).
-      const slices = retrieves
+      // prompt (falling back to the working set when no prompt was recorded). #354 —
+      // gather now returns the top pre-floor score too, so a dark retrieval can render
+      // an honest "none above the floor" line instead of silently omitting the section.
+      const { slices, bestScore } = retrieves
         ? await gatherWorkingSetSlices(options.projectRoot, {
             recordEvidence: { adapter: 'engine' },
             query: route?.query,
           })
-        : [];
+        : { slices: [], bestScore: null };
       // F26 — when the working set pulls more slices than the slice-display cap, the
       // workflow is broad; distil to a lean context PACK (path:Lstart-Lend pointers,
       // read the live file) instead of injecting many bodies. Narrow sets keep full
       // slices. Line ranges are located against the live files (best-effort reader).
-      const retrievalSection =
-        slices.length > MAX_RETRIEVAL_SLICES
-          ? composeContextPack(
-              distillSlices(slices, {
-                readFile: (path) => {
-                  try {
-                    return readFileSync(
-                      isAbsolute(path) ? path : join(options.projectRoot, path),
-                      'utf8',
-                    );
-                  } catch {
-                    return undefined;
-                  }
-                },
-              }),
-            )
-          : composeRetrievalSection(slices);
+      const usesContextPack = slices.length > MAX_RETRIEVAL_SLICES;
+      const packEntries = usesContextPack
+        ? distillSlices(slices, {
+            readFile: (path) => {
+              try {
+                return readFileSync(
+                  isAbsolute(path) ? path : join(options.projectRoot, path),
+                  'utf8',
+                );
+              } catch {
+                return undefined;
+              }
+            },
+          })
+        : [];
+      const retrievalSection = usesContextPack
+        ? composeContextPack(packEntries)
+        : composeRetrievalSection(slices, { bestScore });
       // F21 — durable codebase memory, deterministic and embedding-free (no provider
       // call), gathered from the on-disk store and injected ahead of the slices. #336 —
       // no-workflow (small talk) uses nothing, so memory + drift are skipped too.
@@ -404,6 +453,40 @@ export function createRagCommand(): Command {
         driftSection,
         loadRules,
       });
+
+      // #354 — record what the worker actually DELIVERED into the artifact the seam
+      // injects (the guardrail: prove RAG was used, not just that retrieval ran). The
+      // `used` row's fields are hashed + validated by the recorder; the fold counts only
+      // rows with `injected: true`, so an honest injected=false (dark) row stays visible
+      // in rag.jsonl without inflating the "times injected" total. Best-effort — a
+      // recorder failure must never wedge the detached worker.
+      if (retrieves) {
+        const sliceCount = usesContextPack ? 0 : slices.length;
+        const pointerCount = usesContextPack ? packEntries.length : 0;
+        const injectedSections: RagInjectedSection[] = [];
+        if (loadRules) injectedSections.push('rules');
+        if (sliceCount > 0 || pointerCount > 0) injectedSections.push('retrieval');
+        if (memorySection) injectedSections.push('memory');
+        if (driftSection) injectedSections.push('drift');
+        recordRagEvidence(
+          options.projectRoot,
+          'used',
+          {
+            injected:
+              sliceCount > 0 || pointerCount > 0 || Boolean(memorySection) || Boolean(driftSection),
+            injected_sections: injectedSections,
+            slice_count: sliceCount,
+            pointer_count: pointerCount,
+            score_top: bestScore,
+            bytes_injected: Buffer.byteLength(
+              `${retrievalSection}${memorySection}${driftSection}`,
+              'utf8',
+            ),
+          },
+          { ragEnabled: true, adapter: 'engine' },
+        );
+      }
+
       if (!options.quiet) {
         process.stdout.write(
           `${target ? `wrote ${target}` : 'nothing to compose'}; index sync: ${

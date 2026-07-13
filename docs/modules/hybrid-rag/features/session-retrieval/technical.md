@@ -8,15 +8,23 @@
 - `src/context/retrieval-depth-router.ts` — `gateRetrieval` (stage → depth/topN/skip).
 - `src/context/rule-context.ts` — `writeRuleContext` / `refreshRuleContext` append
   the retrieval section to the single session-context artifact.
-- `src/rag/service.ts` — `RagService.retrieveForEval` (the actual query).
-- `src/cli/commands/rag.ts` — `rag refresh-context` runs sync → gather → compose.
+- `src/rag/service.ts` — `RagService.retrieveForEval` (the actual query),
+  `RagService.probe` (pre-floor diagnostic), `scoreCandidates` (the one scoring path).
+- `src/cli/commands/rag.ts` — `rag refresh-context` runs sync → gather → compose →
+  record the `used` evidence; `rag probe "<query>"` prints pre-floor scores.
 
 ## Entry Points
 
 - `gatherWorkingSetSlices(projectRoot, { service?, changedPaths?, topN? })` →
-  `RetrievalSlice[]` (`{ source_file, content, score? }`); `[]` on any fallback.
-- `composeRetrievalSection(slices)` → markdown `## Retrieved context` section, or
-  `''` when there are no slices.
+  `{ slices: RetrievalSlice[], bestScore: number | null }`. `bestScore` is the top
+  pre-floor score (or `null` when retrieval never scored anything); each slice is
+  `{ source_file, content, score?, lowConfidence? }`.
+- `composeRetrievalSection(slices, { bestScore? })` → markdown `## Retrieved context`
+  section. Non-empty slices render fenced blocks; an empty result with a known
+  `bestScore` renders one honest "none above the floor (best N%)" line; a fully unknown
+  result (no `bestScore`) renders `''` (disabled == today).
+- `RagService.probe({ taskDescription, keywords }, topN?)` → `RagScoredCandidate[]`
+  scored BEFORE the floor — the diagnostic behind `paqad-ai rag probe`.
 
 ## Data Model / Schema
 
@@ -47,14 +55,19 @@
   scope from working-set breadth (`deriveScopeFromWorkingSet`). An explicit `topN`
   overrides the gate (eval/test hook).
 - Section is appended AFTER the rule slice (F5) so the seam injects one artifact.
-- Precision floor (F12): `applyPrecisionFloor(slices, floor)` drops any slice below
-  the floor OR without a score before injection. The floor is the project's
-  `rag_similarity_threshold` (default **0.75**) — one tuned threshold governs both
-  retrieval and injection. `RagService` already filters at this value; re-applying
-  it at the consumer makes the injection boundary self-defending.
-- Calibrated framing (F12): the section is advisory ("re-read the live files; the
-  match % is the index's confidence, not correctness") and each slice heading shows
-  its match strength (`### path · match 91%`) so the model can weigh a hint.
+- Floor-with-relief (#354): the floor lives in ONE place — `RagService`. Candidates at
+  or above `rag_similarity_threshold` (default **0.75**) are high-confidence hits. When
+  none clear it, the top `RELIEF_SLICE_CAP` (2) candidates at or above `rag_relief_floor`
+  (default **0.35**, chosen from live probe data — local-model cosine on hybrid-fused
+  results tops out ~0.37-0.52 for on-target queries) are delivered tagged
+  `low_confidence`. Below the relief band too → dark, but `best_score` still flows out.
+  The consumer no longer re-applies a floor (one canonical resolution): it trusts the
+  service result and only tags + scopes it.
+- Calibrated framing: a high-confidence section is advisory ("re-read the live files; the
+  match % is the index's confidence, not correctness") with per-slice match strength
+  (`### path · match 91%`); a relief section is labelled "low-confidence … nothing cleared
+  the confidence floor"; a dark turn shows the honest best-score line so the tier is never
+  silently missing.
 
 ## State Management
 
@@ -63,9 +76,12 @@
 
 ## Failure Modes
 
-- rag disabled / no index / stale index / below similarity threshold / retrieval
-  error → `gatherWorkingSetSlices` returns `[]` → empty section → artifact stays
-  rule-only, byte-equivalent to F5 (disabled == today). Never throws.
+- rag disabled / no index / stale index / retrieval error → `gatherWorkingSetSlices`
+  returns `{ slices: [], bestScore: null }` → empty section → artifact stays rule-only,
+  byte-equivalent to F5 (disabled == today). Never throws.
+- Scored but below the relief band (a genuinely irrelevant query, e.g. the "kubernetes
+  ingress" negative control) → `slices: []` with a numeric `bestScore` → the honest
+  one-line "none above the floor" section, so the dark tier is visible, not missing.
 
 ## Tests
 

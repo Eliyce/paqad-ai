@@ -54,6 +54,8 @@
 # rag_embedding_model=
 # Minimum cosine similarity for a chunk to be retrieved. (env: PAQAD_RAG_SIMILARITY_THRESHOLD)
 # rag_similarity_threshold=0.75
+# Relief band for floor-with-relief. When nothing clears rag_similarity_threshold, the top slices at or above this lower score are delivered tagged low-confidence. (env: PAQAD_RAG_RELIEF_FLOOR)
+# rag_relief_floor=0.35
 # Max chunks retrieved per query. (env: PAQAD_RAG_TOP_N)
 # rag_top_n=20
 # Skip indexing files larger than this many bytes. (env: PAQAD_RAG_MAX_FILE_SIZE)

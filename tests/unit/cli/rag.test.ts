@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -189,6 +189,177 @@ describe('rag command', () => {
     // The failure is swallowed; the context recompose still runs to completion.
     expect(writes.join('')).toContain('rule-only (rag off)');
     spy.mockRestore();
+  });
+
+  it('#354: refresh-context records a `used` event with what it delivered (rag on)', async () => {
+    const root = projectRoot(tempProjectRoot);
+    // Enable rag via the git-ignored local .config (the enablement surface the worker reads).
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad/.config'), 'rag_enabled=true\nrag_embedding_provider=local\n');
+
+    // Deliver one above-floor slice; stub the other RAG-tier layers so the compose is
+    // deterministic and the assertion isolates the `used` accounting.
+    const retrievalMod = await import('@/context/retrieval-context.js');
+    vi.spyOn(retrievalMod, 'gatherWorkingSetSlices').mockResolvedValue({
+      slices: [{ source_file: 'docs/instructions/a.md', content: 'a slice', score: 0.9 }],
+      bestScore: 0.9,
+    });
+    const driftMod = await import('@/rag/base-drift.js');
+    vi.spyOn(driftMod, 'refreshBaseDrift').mockResolvedValue(undefined);
+    vi.spyOn(driftMod, 'loadBaseDrift').mockReturnValue(null);
+    vi.spyOn(driftMod, 'composeBaseDriftSection').mockReturnValue('');
+    const memoryMod = await import('@/context/codebase-memory.js');
+    vi.spyOn(memoryMod, 'gatherCodebaseMemory').mockReturnValue('');
+    const recorderMod = await import('@/rag-ledger/recorder.js');
+    const record = vi.spyOn(recorderMod, 'recordRagEvidence').mockReturnValue(null);
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      ['node', 'rag', 'refresh-context', '--project-root', root, '--quiet'],
+      { from: 'node' },
+    );
+
+    const usedCall = record.mock.calls.find((call) => call[1] === 'used');
+    expect(usedCall).toBeDefined();
+    expect(usedCall?.[2]).toMatchObject({
+      injected: true,
+      slice_count: 1,
+      pointer_count: 0,
+      score_top: 0.9,
+      injected_sections: expect.arrayContaining(['retrieval']),
+    });
+    expect((usedCall?.[2] as { bytes_injected: number }).bytes_injected).toBeGreaterThan(0);
+  });
+
+  it('#354: records an honest injected:false `used` row when retrieval goes dark', async () => {
+    const root = projectRoot(tempProjectRoot);
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad/.config'), 'rag_enabled=true\nrag_embedding_provider=local\n');
+
+    // Non-quiet run so the worker's enabled summary line is exercised too.
+    const writes: string[] = [];
+    (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (chunk: unknown) => {
+        writes.push(String(chunk));
+        return true;
+      },
+    );
+
+    const retrievalMod = await import('@/context/retrieval-context.js');
+    // Dark: no slices, but a best score below the relief band.
+    vi.spyOn(retrievalMod, 'gatherWorkingSetSlices').mockResolvedValue({
+      slices: [],
+      bestScore: 0.3,
+    });
+    const driftMod = await import('@/rag/base-drift.js');
+    vi.spyOn(driftMod, 'refreshBaseDrift').mockResolvedValue(undefined);
+    vi.spyOn(driftMod, 'loadBaseDrift').mockReturnValue(null);
+    vi.spyOn(driftMod, 'composeBaseDriftSection').mockReturnValue('');
+    const memoryMod = await import('@/context/codebase-memory.js');
+    vi.spyOn(memoryMod, 'gatherCodebaseMemory').mockReturnValue('');
+    const recorderMod = await import('@/rag-ledger/recorder.js');
+    const record = vi.spyOn(recorderMod, 'recordRagEvidence').mockReturnValue(null);
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      ['node', 'rag', 'refresh-context', '--project-root', root],
+      { from: 'node' },
+    );
+
+    const usedCall = record.mock.calls.find((call) => call[1] === 'used');
+    expect(usedCall?.[2]).toMatchObject({
+      injected: false,
+      slice_count: 0,
+      pointer_count: 0,
+      score_top: 0.3,
+    });
+    expect((usedCall?.[2] as { injected_sections: string[] }).injected_sections).not.toContain(
+      'retrieval',
+    );
+    // The enabled summary line reports the slice count.
+    expect(writes.join('')).toContain('slices: 0');
+  });
+
+  it('#354: a broad working set distils to a context pack and records pointer_count', async () => {
+    const root = projectRoot(tempProjectRoot);
+    mkdirSync(join(root, '.paqad/context'), { recursive: true });
+    writeFileSync(join(root, '.paqad/.config'), 'rag_enabled=true\nrag_embedding_provider=local\n');
+
+    // Real doc files so the worker's distil readFile path is exercised; one slice points
+    // at a MISSING file to cover the reader's catch branch (returns undefined).
+    mkdirSync(join(root, 'docs/instructions'), { recursive: true });
+    const manySlices = Array.from({ length: 8 }, (_unused, i) => {
+      const rel = `docs/instructions/a-${i}.md`;
+      if (i < 7) writeFileSync(join(root, rel), `line one for ${i}\nline two\nline three\n`);
+      return { source_file: rel, content: `line one for ${i}`, score: 0.9 };
+    });
+
+    const retrievalMod = await import('@/context/retrieval-context.js');
+    vi.spyOn(retrievalMod, 'gatherWorkingSetSlices').mockResolvedValue({
+      slices: manySlices,
+      bestScore: 0.9,
+    });
+    const driftMod = await import('@/rag/base-drift.js');
+    vi.spyOn(driftMod, 'refreshBaseDrift').mockResolvedValue(undefined);
+    vi.spyOn(driftMod, 'loadBaseDrift').mockReturnValue(null);
+    vi.spyOn(driftMod, 'composeBaseDriftSection').mockReturnValue('');
+    const memoryMod = await import('@/context/codebase-memory.js');
+    vi.spyOn(memoryMod, 'gatherCodebaseMemory').mockReturnValue('');
+    const recorderMod = await import('@/rag-ledger/recorder.js');
+    const record = vi.spyOn(recorderMod, 'recordRagEvidence').mockReturnValue(null);
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      ['node', 'rag', 'refresh-context', '--project-root', root, '--quiet'],
+      { from: 'node' },
+    );
+
+    const usedCall = record.mock.calls.find((call) => call[1] === 'used');
+    const used = usedCall?.[2] as {
+      injected: boolean;
+      slice_count: number;
+      pointer_count: number;
+      score_top: number;
+    };
+    expect(used.injected).toBe(true);
+    expect(used.slice_count).toBe(0);
+    expect(used.pointer_count).toBeGreaterThan(0);
+    expect(used.score_top).toBe(0.9);
+  });
+
+  it('#354: probe prints the pre-floor scores annotated against the floor + relief band', async () => {
+    const writes: string[] = [];
+    (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (chunk: unknown) => {
+        writes.push(String(chunk));
+        return true;
+      },
+    );
+    vi.spyOn(RagService.prototype, 'probe').mockResolvedValue([
+      { id: 'c1', source_file: 'src/a.ts', content: 'x', score: 0.42 },
+      { id: 'c2', source_file: 'src/b.ts', content: 'y', score: 0.2 },
+    ]);
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      [
+        'node',
+        'rag',
+        'probe',
+        'how does retrieval work',
+        '--project-root',
+        projectRoot(tempProjectRoot),
+      ],
+      { from: 'node' },
+    );
+
+    const out = JSON.parse(writes.join(''));
+    expect(out.best_score).toBe(0.42);
+    expect(out.similarity_threshold).toBe(0.75);
+    expect(out.relief_floor).toBe(0.35);
+    // 0.42 is above the relief band but below the floor; 0.2 is below both.
+    expect(out.rows[0]).toMatchObject({ above_floor: false, above_relief: true });
+    expect(out.rows[1]).toMatchObject({ above_floor: false, above_relief: false });
   });
 
   it('F23: lets the user opt into the code-tuned local model interactively', async () => {

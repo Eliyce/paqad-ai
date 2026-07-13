@@ -119,6 +119,11 @@ export interface IntelligenceConfig {
   embedding_provider?: EmbeddingProviderName;
   embedding_model?: string;
   rag_similarity_threshold: number;
+  // Issue #354 — relief floor for floor-with-relief retrieval. When no candidate clears
+  // `rag_similarity_threshold`, the top slices at or above this lower band are delivered
+  // tagged low-confidence instead of nothing. Local-model cosine on hybrid-fused results
+  // rarely reaches 0.75, so a strict-only floor left retrieval dark on this repo.
+  rag_relief_floor: number;
   rag_top_n: number;
   rag_max_file_size?: number;
   // RAG buildout F10 — base branch for branch-aware RAG (F7). Unset = auto-detect

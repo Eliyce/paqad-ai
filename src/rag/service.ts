@@ -10,7 +10,7 @@ import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { createReranker } from '@/context/reranker.js';
 import type { RerankingConfig } from '@/context/reranker.js';
 import type { Chunk, ChunkIndex } from '@/context/types.js';
-import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
+import type { EmbeddingProviderName, IntelligenceConfig } from '@/core/types/project-profile.js';
 import { engineLog } from '@/core/logger-registry.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { CancelledError, isCancelledError } from '@/core/errors/cancelled-error.js';
@@ -43,6 +43,7 @@ import type {
   EmbeddingProvider,
   ProviderFactory,
   RagRetrievalResult,
+  RagScoredCandidate,
   RagStatus,
   ReindexProgressHandler,
   StoredVectorChunk,
@@ -70,6 +71,34 @@ const CRS_EMBED_BATCH_SIZE = 32;
  * chunk that cosine ranked below the cut; fusion then trims back to `limit`.
  */
 const HYBRID_FUSION_POOL_MULTIPLIER = 4;
+
+/**
+ * Issue #354 — how many slices floor-with-relief delivers when nothing cleared the
+ * high-confidence `rag_similarity_threshold`. Kept deliberately small (top 1-2): a
+ * below-floor slice is a hint, not ground truth, so we surface only the strongest few
+ * rather than flooding the artifact with weak matches.
+ */
+const RELIEF_SLICE_CAP = 2;
+
+/** Shape an ordered list of scored candidates into a {@link RagRetrievalResult} (#354). */
+function toRetrievalResult(
+  candidates: readonly RagScoredCandidate[],
+  extra: { bestScore?: number; lowConfidence: boolean },
+): RagRetrievalResult {
+  return {
+    vector_scores: new Map(candidates.map((candidate) => [candidate.id, candidate.score])),
+    chunks_retrieved: candidates.length,
+    retrieved_chunk_ids: candidates.map((candidate) => candidate.id),
+    retrieved_source_files: candidates.map((candidate) => candidate.source_file),
+    retrieved_chunks: candidates.map((candidate) => ({
+      id: candidate.id,
+      source_file: candidate.source_file,
+      content: candidate.content,
+    })),
+    best_score: extra.bestScore,
+    low_confidence: extra.lowConfidence,
+  };
+}
 
 /** How long a retired CRS index is kept under a `.revert.<ms>` suffix (24 hours). */
 const CRS_REVERT_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -485,72 +514,43 @@ export class RagService {
       if (!skipSync) {
         await this.syncVectorIndex(syncResult, intelligence);
       }
-      const provider = await this.providerFactory(this.projectRoot, intelligence);
-      const [queryVector] = await provider.embed(
-        queryTextFromTask(
-          input.taskDescription,
-          input.keywords,
-          input.targetFilePath,
-          input.symbolReferences ?? [],
-        ),
-      );
       const limit = topN ?? intelligence.rag_top_n;
-      // F17 — over-fetch a wider dense candidate pool so the lexical (BM25) leg can
-      // lift an exact-identifier chunk that cosine ranked just outside the top-N. The
-      // pool only widens the in-memory query (no extra embedding), then fusion cuts
-      // back to `limit`. Cosine scores are preserved, so the precision floor (F12) and
-      // the fallback behaviour below are unchanged — fusion can only reorder/recall
-      // within the floor-passing set, never inject a below-floor chunk.
-      const pool = limit * HYBRID_FUSION_POOL_MULTIPLIER;
-      const [fileResults, visionResults] = await Promise.all([
-        this.vectorIndex.query(this.projectRoot, queryVector, pool),
-        this.visionVectorIndex.query(this.projectRoot, queryVector, pool),
-      ]);
-      // Merge file- and vision-derived hits and re-rank by cosine. Vision chunks
-      // conform to the same retrieval shape; callers identify them by extension.
-      const dense = [...fileResults, ...visionResults].sort(
-        (left, right) => right.score - left.score,
+      const scored = await this.scoreCandidates(input, limit, intelligence);
+      const bestScore = scored.length > 0 ? scored[0].score : undefined;
+
+      // High-confidence: candidates at or above the precision floor (F12).
+      const aboveFloor = scored.filter(
+        (candidate) => candidate.score >= intelligence.rag_similarity_threshold,
       );
-      const queryText = queryTextFromTask(
-        input.taskDescription,
-        input.keywords,
-        input.targetFilePath,
-        input.symbolReferences ?? [],
-      );
-      const fused = fuseHybridRanking(dense, queryText);
-      // F18 — reranking. When configured on, a cross-encoder reorders the fused pool
-      // for precision; default-off, so this is a no-op unless a team opts in (it is
-      // contested for code and must clear the eval gate first). Reranking only changes
-      // order: cosine scores, the precision floor, and the token cap are untouched, and
-      // any reranker failure falls back to the fused order (never blocks).
-      const reranked = await this.applyReranking(queryText, fused, intelligence.reranking);
-      const results = reranked.slice(0, limit);
-      const filtered = results.filter(
-        (result) => result.score >= intelligence.rag_similarity_threshold,
-      );
-      if (filtered.length === 0) {
-        appendRagAudit(this.projectRoot, 'WARN', 'rag-fallback', {
-          reason: 'below-similarity-threshold',
-        });
-        return {
-          vector_scores: new Map(),
-          chunks_retrieved: 0,
-          retrieved_chunk_ids: [],
-          retrieved_source_files: [],
-          retrieved_chunks: [],
-          fallback_reason: 'below-similarity-threshold',
-        };
+      if (aboveFloor.length > 0) {
+        return toRetrievalResult(aboveFloor, { bestScore, lowConfidence: false });
       }
+
+      // Issue #354 — floor-with-relief. Local-model cosine on hybrid-fused results
+      // rarely reaches 0.75, so a strict-only floor left retrieval dark. When nothing
+      // clears the high-confidence floor, deliver the top RELIEF_SLICE_CAP candidates
+      // that are still within the relief band, tagged low-confidence — a weak hint beats
+      // nothing, and the consumer marks it so the model weighs it accordingly.
+      const relief = scored
+        .filter((candidate) => candidate.score >= intelligence.rag_relief_floor)
+        .slice(0, RELIEF_SLICE_CAP);
+      if (relief.length > 0) {
+        return toRetrievalResult(relief, { bestScore, lowConfidence: true });
+      }
+
+      // Nothing even in the relief band — stay dark, but carry the best score so the
+      // consumer can render the honest "none above the floor (best NN%)" line.
+      appendRagAudit(this.projectRoot, 'WARN', 'rag-fallback', {
+        reason: 'below-similarity-threshold',
+      });
       return {
-        vector_scores: new Map(filtered.map((result) => [result.item.id, result.score])),
-        chunks_retrieved: filtered.length,
-        retrieved_chunk_ids: filtered.map((result) => result.item.id),
-        retrieved_source_files: filtered.map((result) => result.item.source_file),
-        retrieved_chunks: filtered.map((result) => ({
-          id: result.item.id,
-          source_file: result.item.source_file,
-          content: result.item.content,
-        })),
+        vector_scores: new Map(),
+        chunks_retrieved: 0,
+        retrieved_chunk_ids: [],
+        retrieved_source_files: [],
+        retrieved_chunks: [],
+        fallback_reason: 'below-similarity-threshold',
+        best_score: bestScore,
       };
     } catch (error) {
       appendRagAudit(this.projectRoot, 'WARN', 'rag-fallback', {
@@ -582,6 +582,90 @@ export class RagService {
   ): Promise<RagRetrievalResult> {
     const syncResult = await this.refreshContext();
     return this.retrieveWithSyncPolicy(syncResult, input, topN, true);
+  }
+
+  /**
+   * Embed the query, query the file + vision indexes over a widened pool, fuse the
+   * dense and lexical (BM25) legs, optionally rerank, and return the top-`limit`
+   * candidates with their scores — BEFORE any similarity/relief floor is applied.
+   *
+   * This is the single canonical scoring path (RULE-04a1): both floor-with-relief
+   * retrieval ({@link retrieveWithSyncPolicy}) and the `probe` diagnostic call it, so
+   * a probe reports exactly the scores retrieval sees. Assumes the index is present
+   * and valid — callers check {@link getStatus} first.
+   */
+  private async scoreCandidates(
+    input: {
+      taskDescription?: string;
+      keywords: string[];
+      targetFilePath?: string;
+      symbolReferences?: string[];
+    },
+    limit: number,
+    intelligence: IntelligenceConfig,
+  ): Promise<RagScoredCandidate[]> {
+    const provider = await this.providerFactory(this.projectRoot, intelligence);
+    const queryText = queryTextFromTask(
+      input.taskDescription,
+      input.keywords,
+      input.targetFilePath,
+      input.symbolReferences ?? [],
+    );
+    const [queryVector] = await provider.embed(queryText);
+    // F17 — over-fetch a wider dense candidate pool so the lexical (BM25) leg can lift
+    // an exact-identifier chunk that cosine ranked just outside the top-N; fusion then
+    // trims back to `limit`. Cosine scores are preserved.
+    const pool = limit * HYBRID_FUSION_POOL_MULTIPLIER;
+    const [fileResults, visionResults] = await Promise.all([
+      this.vectorIndex.query(this.projectRoot, queryVector, pool),
+      this.visionVectorIndex.query(this.projectRoot, queryVector, pool),
+    ]);
+    // Merge file- and vision-derived hits and re-rank by cosine. Vision chunks conform
+    // to the same retrieval shape; callers identify them by extension.
+    const dense = [...fileResults, ...visionResults].sort(
+      (left, right) => right.score - left.score,
+    );
+    const fused = fuseHybridRanking(dense, queryText);
+    // F18 — reranking. On (opt-in, default-off) a cross-encoder reorders the fused pool;
+    // it only changes ORDER (scores untouched) and any failure falls back to the fused
+    // order, so the floor/relief behaviour above is unaffected.
+    const reranked = await this.applyReranking(queryText, fused, intelligence.reranking);
+    return reranked.slice(0, limit).map((result) => ({
+      id: result.item.id,
+      source_file: result.item.source_file,
+      content: result.item.content,
+      score: result.score,
+    }));
+  }
+
+  /**
+   * Issue #354 diagnostic — return the top-`limit` scored candidates for a query
+   * BEFORE the similarity/relief floor, so `paqad-ai rag probe` can show how far real
+   * scores sit from the floor on a live repo (the gap that made retrieval dark).
+   * Refreshes the index internally like {@link retrieveForEval}. Returns `[]` when rag
+   * is off or the index is missing/invalid.
+   */
+  async probe(
+    input: {
+      taskDescription?: string;
+      keywords: string[];
+      targetFilePath?: string;
+      symbolReferences?: string[];
+    },
+    topN?: number,
+  ): Promise<RagScoredCandidate[]> {
+    const intelligence = normalizeIntelligenceConfig(
+      readProjectProfile(this.projectRoot)?.intelligence,
+    );
+    if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
+      return [];
+    }
+    await this.refreshContext();
+    const status = await this.getStatus();
+    if (!status.index_present || !status.valid) {
+      return [];
+    }
+    return this.scoreCandidates(input, topN ?? intelligence.rag_top_n, intelligence);
   }
 
   /**

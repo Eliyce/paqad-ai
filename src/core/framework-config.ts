@@ -272,6 +272,17 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment: 'Minimum cosine similarity for a chunk to be retrieved.',
   },
   {
+    key: 'rag_relief_floor',
+    env: 'PAQAD_RAG_RELIEF_FLOOR',
+    type: 'number',
+    default: 0.35,
+    group: 'rag',
+    section: 'Intelligence / RAG',
+    comment:
+      'Relief band for floor-with-relief. When nothing clears rag_similarity_threshold, ' +
+      'the top slices at or above this lower score are delivered tagged low-confidence.',
+  },
+  {
     key: 'rag_top_n',
     env: 'PAQAD_RAG_TOP_N',
     type: 'number',
@@ -786,6 +797,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
     embedding_provider: provider,
     embedding_model: embeddingModel,
     rag_similarity_threshold: rn('rag_similarity_threshold'),
+    rag_relief_floor: rn('rag_relief_floor'),
     rag_top_n: rn('rag_top_n'),
     rag_max_file_size: rn('rag_max_file_size'),
     rag_base_branch: raw.get('rag_base_branch')?.trim() || undefined,
@@ -1329,6 +1341,7 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
       i.rag_similarity_threshold,
       d.intelligence.rag_similarity_threshold,
     );
+    put('rag_relief_floor', i.rag_relief_floor, d.intelligence.rag_relief_floor);
     put('rag_top_n', i.rag_top_n, d.intelligence.rag_top_n);
     put('rag_max_file_size', i.rag_max_file_size, d.intelligence.rag_max_file_size);
     put('rag_base_branch', i.rag_base_branch, d.intelligence.rag_base_branch);
@@ -1470,6 +1483,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'rag_embedding_provider',
       'rag_embedding_model',
       'rag_similarity_threshold',
+      'rag_relief_floor',
       'rag_top_n',
       'rag_max_file_size',
       'rag_base_branch',

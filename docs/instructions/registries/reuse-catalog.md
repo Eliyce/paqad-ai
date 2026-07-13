@@ -505,19 +505,19 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
 | resolveSessionId | `resolveSessionId(projectRoot: string, hint?: string / null): string` | src/rag-ledger/session.ts | 24 |
+| recordRagEvidence | `recordRagEvidence( projectRoot: string, kind: RagEvidenceKind, fields: RagEvidenceFields, ctx: RagEvidenceContext, ): RagEvidenceRow / null` | src/rag-ledger/recorder.ts | 4 |
 | RAG_EVIDENCE_DOC_TYPE | `RAG_EVIDENCE_DOC_TYPE` | src/rag-ledger/types.ts | 3 |
 | RagEvidenceKind | `type RagEvidenceKind` | src/rag-ledger/types.ts | 3 |
-| recordRagEvidence | `recordRagEvidence( projectRoot: string, kind: RagEvidenceKind, fields: RagEvidenceFields, ctx: RagEvidenceContext, ): RagEvidenceRow / null` | src/rag-ledger/recorder.ts | 3 |
 | RagEvidenceFields | `type RagEvidenceFields` | src/rag-ledger/recorder.ts | 2 |
 | RagEvidenceRow | `interface RagEvidenceRow` | src/rag-ledger/types.ts | 2 |
 | RagEvidenceSessionFold | `interface RagEvidenceSessionFold` | src/rag-ledger/types.ts | 2 |
+| RagInjectedSection | `type RagInjectedSection` | src/rag-ledger/types.ts | 2 |
 | createRagEvidenceCommand | `createRagEvidenceCommand(): Command` | src/cli/commands/rag-evidence.ts | 1 |
 | foldRagEvidenceSession | `foldRagEvidenceSession( projectRoot: string, sessionId: string, ): RagEvidenceSessionFold` | src/rag-ledger/fold.ts | 1 |
 | openRagConversation | `openRagConversation( projectRoot: string, ctx: RagEvidenceContext, ):` | src/rag-ledger/recorder.ts | 1 |
 | RAG_EVIDENCE_SCHEMA_VERSION | `RAG_EVIDENCE_SCHEMA_VERSION` | src/rag-ledger/types.ts | 1 |
 | RagEvidenceConversationFold | `interface RagEvidenceConversationFold` | src/rag-ledger/types.ts | 1 |
 | RagFallbackReason | `type RagFallbackReason` | src/rag-ledger/types.ts | 1 |
-| RagInjectedSection | `type RagInjectedSection` | src/rag-ledger/types.ts | 1 |
 | recordRagEvidenceFromAudit | `recordRagEvidenceFromAudit( projectRoot: string, event: string, fields: Record<string, unknown>, ): void` | src/rag-ledger/audit-bridge.ts | 1 |
 ## repository-resolver
 

@@ -45,6 +45,23 @@ export interface RetrievalSlice {
   content: string;
   /** Cosine similarity score for the hit, when known. */
   score?: number;
+  /**
+   * Issue #354 — true when this slice came from the RELIEF band (nothing cleared the
+   * high-confidence floor, so the best few were delivered anyway). The composed section
+   * flags these so the model treats them as weaker hints.
+   */
+  lowConfidence?: boolean;
+}
+
+/**
+ * Result of {@link gatherWorkingSetSlices}: the slices to inject plus the top pre-floor
+ * score (#354). `bestScore` is null when retrieval never scored anything (rag off, no
+ * index, error) — the caller then keeps the retrieved-context section omitted
+ * (disabled == today); a number lets it render the honest "none above the floor" line.
+ */
+export interface GatherResult {
+  slices: RetrievalSlice[];
+  bestScore: number | null;
 }
 
 /** Hard cap on slices injected into the artifact (token guard, not a quality bar). */
@@ -133,22 +150,6 @@ function truncateSlice(content: string): string {
   return `${body.slice(0, MAX_SLICE_CHARS)}\n…[slice truncated at ${MAX_SLICE_CHARS} chars]`;
 }
 
-/**
- * Consumer-side precision floor (RAG buildout F12). A confident-but-wrong slice is
- * worse than grep, so only slices with a known score at or above `floor` are kept;
- * a slice without a score is dropped (we never inject something we can't vouch for).
- * `RagService` already filters at the same `rag_similarity_threshold` during
- * retrieval; applying it again here makes the injection boundary self-defending —
- * any slice reaching the artifact is independently above the floor, regardless of
- * how it was retrieved.
- */
-export function applyPrecisionFloor(
-  slices: readonly RetrievalSlice[],
-  floor: number,
-): RetrievalSlice[] {
-  return slices.filter((slice) => typeof slice.score === 'number' && slice.score >= floor);
-}
-
 /** Calibrated trust annotation — shows match strength so the model can weigh a slice. */
 function formatScore(score?: number): string {
   if (typeof score !== 'number') {
@@ -185,11 +186,29 @@ export function dedupeSlices(slices: readonly RetrievalSlice[]): RetrievalSlice[
   return unique;
 }
 
-export function composeRetrievalSection(slices: readonly RetrievalSlice[]): string {
+export function composeRetrievalSection(
+  slices: readonly RetrievalSlice[],
+  opts: { bestScore?: number | null } = {},
+): string {
   if (slices.length === 0) {
+    // Issue #354 — make silence VISIBLE. When retrieval ran and scored something but
+    // nothing cleared even the relief band, emit ONE honest line naming the best score
+    // instead of omitting the section — so the developer (and our dogfood) can SEE the
+    // tier is dark rather than assuming it never ran. When retrieval never scored
+    // anything (rag off / no index ⇒ bestScore null/undefined), stay silent so the
+    // artifact is byte-identical to today (disabled == today).
+    if (typeof opts.bestScore === 'number') {
+      return (
+        `## Retrieved context — none above the confidence floor (best match ${Math.round(
+          opts.bestScore * 100,
+        )}%)\n` +
+        `> The index had no slice confident enough to inject for the files in play; read the live files directly.\n`
+      );
+    }
     return '';
   }
   const capped = dedupeSlices(slices).slice(0, MAX_RETRIEVAL_SLICES);
+  const lowConfidence = capped.some((slice) => slice.lowConfidence);
   const blocks = capped
     .map(
       (slice) =>
@@ -199,11 +218,15 @@ export function composeRetrievalSection(slices: readonly RetrievalSlice[]): stri
     )
     .join('\n\n');
   const noun = capped.length === 1 ? 'slice' : 'slices';
-  return (
-    `## Retrieved context — ${capped.length} ${noun} relevant to the files in play\n` +
-    `> Advisory hints retrieved from the index, not ground truth. Re-read the live files before relying on them; the match % is the index's confidence, not correctness.\n\n` +
-    `${blocks}\n`
-  );
+  // A low-confidence (relief-band) result is honest about being a weaker hint: nothing
+  // cleared the high-confidence floor, so these are the strongest available, no more.
+  const heading = lowConfidence
+    ? `## Retrieved context — ${capped.length} low-confidence ${noun} (nothing cleared the confidence floor)`
+    : `## Retrieved context — ${capped.length} ${noun} relevant to the files in play`;
+  const guidance = lowConfidence
+    ? `> Weak matches, below the confidence floor — treat as loose leads only and verify against the live files before relying on them.`
+    : `> Advisory hints retrieved from the index, not ground truth. Re-read the live files before relying on them; the match % is the index's confidence, not correctness.`;
+  return `${heading}\n${guidance}\n\n${blocks}\n`;
 }
 
 /** The retrieval surface {@link gatherWorkingSetSlices} needs — injectable for tests. */
@@ -226,11 +249,6 @@ export interface GatherOptions {
   changedPaths?: readonly string[];
   /** Override the top-k cap passed to retrieval. */
   topN?: number;
-  /**
-   * Override the injection precision floor (F12). Defaults to the project's
-   * `rag_similarity_threshold` (0.75) — the single tuned, documented threshold.
-   */
-  precisionFloor?: number;
   /**
    * Retrieval scope (F13/F19). When unset, it is routed by `routing.workflow`:
    * code-changing workflows get `all` (docs + code), others stay docs-only. Set this
@@ -298,21 +316,24 @@ function buildWorkingSetQuery(changedPaths: readonly string[]): {
 }
 
 /**
- * Gather the top-k retrieved slices for the current working set. Returns `[]` when
- * there is nothing in play or when retrieval falls back (rag disabled, no/stale
- * index, below similarity threshold, or any error) — so the artifact stays rule-only
- * and disabled/cold-start equals today. Never throws.
+ * Gather the top-k retrieved slices for the current working set. Returns
+ * `{ slices: [], bestScore: null }` when there is nothing in play or retrieval never
+ * scored anything (rag disabled, no/stale index, gate-skipped, or any error) — so the
+ * artifact stays rule-only and disabled/cold-start equals today. When retrieval scored
+ * candidates but none cleared the floor, `slices` is empty and `bestScore` carries the
+ * top score so the caller can render the honest "none above the floor" line (#354).
+ * Never throws.
  */
 export async function gatherWorkingSetSlices(
   projectRoot: string,
   options: GatherOptions = {},
-): Promise<RetrievalSlice[]> {
+): Promise<GatherResult> {
   const changedPaths = options.changedPaths ?? (await loadChangeEvidence(projectRoot)).files;
   const promptQuery = options.query?.trim();
   // Nothing to retrieve for: no working set AND no prompt seed. A prompt-driven query
   // (#336) still retrieves when the working set is empty (e.g. a question).
   if (changedPaths.length === 0 && !promptQuery) {
-    return [];
+    return { slices: [], bestScore: null };
   }
 
   const intelligence = normalizeIntelligenceConfig(readProjectProfile(projectRoot)?.intelligence);
@@ -325,7 +346,7 @@ export async function gatherWorkingSetSlices(
     const routing = options.routing ?? { scope: deriveScopeFromWorkingSet(changedPaths) };
     const gate = gateRetrieval({ ...routing, baseTopN: intelligence.rag_top_n });
     if (gate.skip) {
-      return [];
+      return { slices: [], bestScore: null };
     }
     effectiveTopN = gate.topN;
   }
@@ -342,20 +363,20 @@ export async function gatherWorkingSetSlices(
     result = await service.retrieveForEval(retrievalInput, effectiveTopN);
   } catch {
     // Retrieval is an accelerator on top of grep; any failure falls back silently.
-    return [];
+    return { slices: [], bestScore: null };
   }
 
-  const slices = result.retrieved_chunks.map((chunk) => ({
+  // #354 — the single floor now lives in RagService (floor-with-relief). Trust its
+  // result here rather than re-applying a floor (RULE-04a1): a high-confidence result
+  // is above the threshold; a relief result is tagged low-confidence; a dark result is
+  // empty with `best_score` set. We only tag the slices and route them by scope.
+  const slices: RetrievalSlice[] = result.retrieved_chunks.map((chunk) => ({
     source_file: chunk.source_file,
     content: chunk.content,
     score: result.vector_scores.get(chunk.id),
+    lowConfidence: result.low_confidence === true,
   }));
-
-  // F12 — drop anything below the injection floor at the consumer boundary, so a
-  // confident-but-wrong (or unscored) slice never reaches the model. Below floor ⇒
-  // [] ⇒ empty section ⇒ the agent falls back to grep on the live files.
-  const floor = options.precisionFloor ?? intelligence.rag_similarity_threshold;
-  const aboveFloor = applyPrecisionFloor(slices, floor);
+  const bestScore = typeof result.best_score === 'number' ? result.best_score : null;
 
   // F13 + F19 — scope routing. An explicit scope wins; otherwise route by workflow:
   // code-changing stages (feature-dev plan/implement/verify, bug-fix, refactor, …) get
@@ -382,5 +403,5 @@ export async function gatherWorkingSetSlices(
     );
   }
 
-  return filterToScope(aboveFloor, scope);
+  return { slices: filterToScope(slices, scope), bestScore };
 }

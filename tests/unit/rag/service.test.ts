@@ -502,7 +502,9 @@ describe('RagService', () => {
     );
   });
 
-  it('falls back when vector matches do not clear the similarity threshold', async () => {
+  it('falls back when vector matches clear neither the similarity nor the relief floor', async () => {
+    // #354 — floor-with-relief means "dark" requires the match to be below BOTH floors,
+    // so push the relief floor above the (impossible) similarity threshold too.
     writeProjectProfile(
       projectRoot,
       baseProfile({
@@ -510,6 +512,7 @@ describe('RagService', () => {
         embedding_provider: 'local',
         embedding_model: 'fake-local',
         rag_similarity_threshold: 1.01,
+        rag_relief_floor: 1.01,
       }),
     );
     persistIntelligence(projectRoot, {
@@ -517,6 +520,7 @@ describe('RagService', () => {
       embedding_provider: 'local',
       embedding_model: 'fake-local',
       rag_similarity_threshold: 1.01,
+      rag_relief_floor: 1.01,
     });
 
     const service = new RagService(projectRoot, fakeProviderFactory());
@@ -526,6 +530,7 @@ describe('RagService', () => {
         embedding_provider: 'local',
         embedding_model: 'fake-local',
         rag_similarity_threshold: 1.01,
+        rag_relief_floor: 1.01,
       }).intelligence,
     });
     const sync = await service.refreshContext();
@@ -536,6 +541,85 @@ describe('RagService', () => {
     });
 
     expect(retrieval.fallback_reason).toBe('below-similarity-threshold');
+  });
+
+  // Issue #354 — floor-with-relief. Bracket the (deterministic) auth match score S
+  // (>=0.75 per the test above) with the two thresholds to exercise each branch without
+  // needing a mid-range cosine: relief_floor <= S < similarity_threshold → relief.
+  async function buildEnabled(overrides: Partial<IntelligenceConfig>) {
+    const intelligence = {
+      rag_enabled: true,
+      embedding_provider: 'local' as const,
+      embedding_model: 'fake-local',
+      ...overrides,
+    };
+    writeProjectProfile(projectRoot, baseProfile(intelligence));
+    persistIntelligence(projectRoot, intelligence);
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.rebuild({ intelligence: baseProfile(intelligence).intelligence });
+    const sync = await service.refreshContext();
+    return { service, sync };
+  }
+
+  it('#354: delivers a low-confidence relief slice when nothing clears the floor', async () => {
+    // similarity_threshold above S, relief_floor below S → the auth match falls into the
+    // relief band and is delivered tagged low-confidence rather than dropped.
+    const { service, sync } = await buildEnabled({
+      rag_similarity_threshold: 1.5,
+      rag_relief_floor: 0.5,
+    });
+    const retrieval = await service.retrieve(sync, {
+      taskDescription: 'debug auth policy',
+      keywords: ['auth'],
+      symbolReferences: [],
+    });
+    expect(retrieval.chunks_retrieved).toBeGreaterThan(0);
+    expect(retrieval.low_confidence).toBe(true);
+    expect(retrieval.fallback_reason).toBeUndefined();
+    expect(retrieval.best_score).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it('#354: stays dark but carries best_score when even the relief band is not met', async () => {
+    // Both thresholds above S → nothing delivered, but best_score flows out for the
+    // honest "none above the floor (best NN%)" artifact line.
+    const { service, sync } = await buildEnabled({
+      rag_similarity_threshold: 1.5,
+      rag_relief_floor: 1.4,
+    });
+    const retrieval = await service.retrieve(sync, {
+      taskDescription: 'debug auth policy',
+      keywords: ['auth'],
+      symbolReferences: [],
+    });
+    expect(retrieval.chunks_retrieved).toBe(0);
+    expect(retrieval.fallback_reason).toBe('below-similarity-threshold');
+    expect(retrieval.best_score).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it('#354: a high-confidence hit is not flagged low-confidence and carries best_score', async () => {
+    const { service, sync } = await buildEnabled({ rag_similarity_threshold: 0.75 });
+    const retrieval = await service.retrieve(sync, {
+      taskDescription: 'debug auth policy',
+      keywords: ['auth'],
+      symbolReferences: [],
+    });
+    expect(retrieval.chunks_retrieved).toBeGreaterThan(0);
+    expect(retrieval.low_confidence).toBe(false);
+    expect(retrieval.best_score).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it('#354: probe returns pre-floor scored candidates for a query', async () => {
+    const { service } = await buildEnabled({ rag_similarity_threshold: 0.75 });
+    const candidates = await service.probe({ taskDescription: 'auth', keywords: ['auth'] }, 5);
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates[0].score).toBeGreaterThanOrEqual(0.75);
+    expect(candidates[0].source_file).toContain('auth.ts');
+  });
+
+  it('#354: probe returns nothing when RAG is disabled', async () => {
+    // Default profile has rag_enabled=false; probe short-circuits with no index work.
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    expect(await service.probe({ taskDescription: 'auth', keywords: ['auth'] })).toEqual([]);
   });
 
   it('refreshes and retrieves through retrieveForEval', async () => {
