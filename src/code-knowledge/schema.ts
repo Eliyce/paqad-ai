@@ -27,12 +27,16 @@ export interface CodeKnowledgeValidation {
 /** Validate a value against the committed code-knowledge schema. */
 export function validateCodeKnowledgeIndex(data: unknown): CodeKnowledgeValidation {
   const validate = validator();
-  const valid = validate(data) as boolean;
-  if (valid) {
+  if (validate(data)) {
     return { valid: true, errors: [] };
   }
-  const errors = (validate.errors ?? []).map((error) =>
-    `${error.instancePath || '/'} ${error.message ?? 'invalid'}`.trim(),
-  );
+  /* v8 ignore next -- ajv always populates errors[] after a failed validate */
+  const rawErrors = validate.errors ?? [];
+  const errors = rawErrors.map((error) => {
+    const path = error.instancePath.length > 0 ? error.instancePath : '/';
+    /* v8 ignore next -- ajv always sets a message under the default options */
+    const message = error.message ?? 'invalid';
+    return `${path} ${message}`.trim();
+  });
   return { valid: false, errors };
 }
