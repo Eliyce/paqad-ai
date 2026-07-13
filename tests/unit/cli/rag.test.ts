@@ -151,6 +151,46 @@ describe('rag command', () => {
     expect(retrieve).not.toHaveBeenCalled();
   });
 
+  it('refresh-context keeps the code-knowledge index fresh on the same worker (issue #353)', async () => {
+    const refreshModule = await import('@/code-knowledge/refresh.js');
+    const spy = vi
+      .spyOn(refreshModule, 'refreshCodeKnowledgeIndex')
+      .mockResolvedValue({ refreshed: false, reason: 'no-index', reparsed: [] });
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      ['node', 'rag', 'refresh-context', '--project-root', projectRoot(tempProjectRoot)],
+      { from: 'node' },
+    );
+
+    expect(spy).toHaveBeenCalledWith(projectRoot(tempProjectRoot));
+    spy.mockRestore();
+  });
+
+  it('refresh-context swallows a code-knowledge refresh failure and still recomposes', async () => {
+    const writes: string[] = [];
+    (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (chunk: unknown) => {
+        writes.push(String(chunk));
+        return true;
+      },
+    );
+    const refreshModule = await import('@/code-knowledge/refresh.js');
+    const spy = vi
+      .spyOn(refreshModule, 'refreshCodeKnowledgeIndex')
+      .mockRejectedValue(new Error('boom'));
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      ['node', 'rag', 'refresh-context', '--project-root', projectRoot(tempProjectRoot)],
+      { from: 'node' },
+    );
+
+    // The failure is swallowed; the context recompose still runs to completion.
+    expect(writes.join('')).toContain('rule-only (rag off)');
+    spy.mockRestore();
+  });
+
   it('F23: lets the user opt into the code-tuned local model interactively', async () => {
     setInteractive(true);
     // provider picker -> local, then the local-model picker -> code-tuned jina.
