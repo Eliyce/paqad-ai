@@ -1,0 +1,26 @@
+{
+  "id": "D-01KXD2Q175MVR5YXWKTWJR73NB",
+  "category": "architecture-path",
+  "title": "Code-knowledge index: module-map evidence.symbols writer vs this repo's version:2 format",
+  "context": "AC-6 requires filling module-map evidence.symbols for the top-10 modules with comments preserved. Issue points at apply.ts/generateModuleMapYaml. Verification: apply.ts is NOT the production writer and does not preserve comments (generateModuleMapYaml does, via YAML.parseDocument). Critically, THIS repo's module-map.yml is a hand-authored version:2 format (per-module 'sources:' + 'layer:' + nested 'features:', NO 'evidence:' block, NO 'source_paths') that diverges from the standard ModuleMapEntry (source_paths + evidence) the issue and inferencer.ts assume. No file-path to module-slug helper exists.",
+  "options": [
+    {
+      "option_key": "format-aware-writer",
+      "label": "Add a dedicated comment-preserving evidence writer (YAML.parseDocument) that detects the map format and writes evidence.symbols by matching index symbols to each module's sources/source_paths; build the missing file->slug resolver from those globs"
+    },
+    {
+      "option_key": "standard-only",
+      "label": "Support only the standard ModuleMapEntry format; skip evidence.symbols on this repo's version:2 map and note the divergence (AC-6 module-map part unverifiable on this repo)"
+    },
+    {
+      "option_key": "defer-modulemap",
+      "label": "Ship reuse-catalog.md now (AC-6 part 1) and defer module-map evidence.symbols to a follow-up until the map format is unified"
+    }
+  ],
+  "recommendation": "format-aware-writer",
+  "created_at": "2026-07-13T06:30:29.350Z",
+  "status": "resolved",
+  "chosen": "format-aware-writer",
+  "rationale": "Format-aware comment-preserving evidence writer; match symbols to modules via sources/source_paths and build the file->slug resolver.",
+  "resolved_at": "2026-07-13T06:43:52.121Z"
+}

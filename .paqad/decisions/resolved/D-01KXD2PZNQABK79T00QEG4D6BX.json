@@ -1,0 +1,22 @@
+{
+  "id": "D-01KXD2PZNQABK79T00QEG4D6BX",
+  "category": "architecture-path",
+  "title": "Code-knowledge index: background-refresh rebuild trigger",
+  "context": "Issue #353 says the background refresh should full-rebuild 'when head_commit branch changes' and otherwise incrementally re-parse only changed files. Verification found the existing RAG index does NOT rebuild on branch change: branch switches are absorbed by incremental content-hash diff, and only a chunker/schema-version mismatch forces a full rebuild. Following the issue literally is net-new logic that diverges from the established index-refresh precedent. AC-5 (only-changed-files re-parse) is satisfied either way.",
+  "options": [
+    {
+      "option_key": "content-hash-incremental",
+      "label": "Match the RAG precedent: content-hash diff absorbs branch switches; full rebuild only on schema_version mismatch (consistent, avoids redundant full rebuilds)"
+    },
+    {
+      "option_key": "branch-triggers-rebuild",
+      "label": "Follow the issue literally: compare stored meta.head_commit/branch and full-rebuild on change"
+    }
+  ],
+  "recommendation": "content-hash-incremental",
+  "created_at": "2026-07-13T06:30:27.767Z",
+  "status": "resolved",
+  "chosen": "branch-triggers-rebuild",
+  "rationale": "Follow the issue literally: compare stored meta.head_commit/branch and full-rebuild on change; incremental re-parse otherwise.",
+  "resolved_at": "2026-07-13T06:43:50.600Z"
+}

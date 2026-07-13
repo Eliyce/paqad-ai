@@ -15,6 +15,7 @@ import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createFeatureCommand } from './commands/feature.js';
 import { createGraphCommand } from './commands/graph.js';
+import { createIndexCommand } from './commands/index-cmd.js';
 import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
@@ -49,6 +50,7 @@ export function createProgram(): Command {
   program.addCommand(createInstallCommand());
   program.addCommand(createCapabilitiesCommand());
   program.addCommand(createChecksCommand());
+  program.addCommand(createIndexCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());

@@ -1,0 +1,26 @@
+{
+  "id": "D-01KXD2PH90CBBGWMF93ZFF12F7",
+  "category": "create-vs-reuse",
+  "title": "Code-knowledge index: file-discovery mechanism",
+  "context": "The index must scan the source tree respecting .gitignore. Issue #353 says to reuse the batched 'git check-ignore' pattern from src/rule-scripts/runner.ts. Verification found that pattern has NO shared helper (it is duplicated in src/health/checker.ts with a different invocation), and a heavyweight RAG-purpose scanner (RagFileFilter.discoverFiles, used by RagService) already exists. RULE-13/14 require routing shared logic through one canonical helper.",
+  "options": [
+    {
+      "option_key": "extract-helper",
+      "label": "Extract the check-ignore batch into a small shared helper; use it in the new module AND reroute runner.ts through it"
+    },
+    {
+      "option_key": "copy-pattern",
+      "label": "Copy the check-ignore batch into the new module (issue's literal wording; leaves the existing duplication)"
+    },
+    {
+      "option_key": "reuse-ragfilter",
+      "label": "Reuse RagFileFilter.discoverFiles (heavyweight; couples the index to RAG ignore-layer config)"
+    }
+  ],
+  "recommendation": "extract-helper",
+  "created_at": "2026-07-13T06:30:13.024Z",
+  "status": "resolved",
+  "chosen": "extract-helper",
+  "rationale": "Canonical-helper rule (RULE-13/14): extract the batched check-ignore scan once, reuse in the new module and reroute runner.ts.",
+  "resolved_at": "2026-07-13T06:43:49.006Z"
+}

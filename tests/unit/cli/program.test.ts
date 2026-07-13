@@ -17,6 +17,7 @@ describe('createProgram', () => {
       'install',
       'capabilities',
       'checks',
+      'index',
       'packs',
       'compliance',
       'dashboard',

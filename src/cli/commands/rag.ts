@@ -12,6 +12,7 @@ import {
 } from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
+import { refreshCodeKnowledgeIndex } from '@/code-knowledge/refresh.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
 import { composeContextPack, distillSlices } from '@/context/context-pack.js';
@@ -321,6 +322,17 @@ export function createRagCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--quiet', 'Suppress output (used by the background trigger)')
     .action(async (options: { projectRoot: string; quiet?: boolean }) => {
+      // Issue #353 — keep the code-knowledge index current on this same detached
+      // worker, independent of rag_enabled (the index is deterministic, no-LLM). It
+      // re-parses only the changed files and no-ops when no index exists yet (the
+      // initial build is an explicit `index build`). Best-effort: a hiccup here must
+      // never wedge the context refresh, so failures are swallowed.
+      try {
+        await refreshCodeKnowledgeIndex(options.projectRoot);
+      } catch {
+        // ignore — the code-knowledge index is a best-effort background artifact
+      }
+
       // Issue #336 — the routed workflow (from the prompt seam) decides what the
       // artifact carries. Rules load only for feature-development; no-workflow retrieves
       // nothing. With no pointer yet (first prompt), fall back to today's behaviour:
