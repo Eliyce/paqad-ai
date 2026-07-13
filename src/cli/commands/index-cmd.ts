@@ -7,7 +7,9 @@
 import { Command } from 'commander';
 
 import { buildCodeKnowledgeIndex } from '@/code-knowledge/builder.js';
+import { writeModuleMapEvidence } from '@/code-knowledge/module-map-evidence.js';
 import { queryCodeKnowledge, type QueryCard } from '@/code-knowledge/query.js';
+import { writeReuseCatalog } from '@/code-knowledge/reuse-catalog.js';
 import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
 import { readCodeKnowledgeIndex, writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 
@@ -46,18 +48,27 @@ export function createIndexCommand(): Command {
       }
 
       const path = writeCodeKnowledgeIndex(options.projectRoot, index);
+      // Regenerate the reuse catalog and fill module-map evidence.symbols from the
+      // fresh index (AC-6). These are the tracked writers the index feeds; the
+      // background refresh deliberately does NOT touch them.
+      const catalogPath = writeReuseCatalog(options.projectRoot, index);
+      const evidence = writeModuleMapEvidence(options.projectRoot, index);
+
       const orphans = index.files.filter((file) => file.orphan).length;
       const unusedDeps = index.dependencies.filter((dependency) => !dependency.imported).length;
       console.log(
         `**▸ paqad** · built the code-knowledge index for you — ` +
           `${index.symbols.length} symbols across ${index.files.length} files ` +
-          `(${orphans} with no callers, ${unusedDeps} unused deps).`,
+          `(${orphans} with no callers, ${unusedDeps} unused deps). ` +
+          `Reuse catalog + module-map evidence refreshed.`,
       );
       if (!options.quiet) {
         process.stdout.write(
           `${JSON.stringify({
             built: true,
             path,
+            reuse_catalog: catalogPath,
+            module_map_modules_updated: evidence.modulesUpdated,
             symbols: index.symbols.length,
             files: index.files.length,
             orphan_files: orphans,
