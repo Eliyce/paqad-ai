@@ -142,4 +142,13 @@ describe('composeChangeReceipt (#325)', () => {
     });
     expect(receipt).toContain('> 🟢 delivery: on feat/x');
   });
+
+  it('names the report path when one was rendered (AC-8, #371)', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: null,
+      reportPath: '/abs/path/report.html',
+    });
+    expect(receipt).toContain('> Report: /abs/path/report.html');
+  });
 });

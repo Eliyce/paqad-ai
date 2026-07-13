@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDeliveryLinkCommand } from '@/cli/commands/delivery-link.js';
 import { createProgram } from '@/cli/program.js';
 import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
+import { featureReportPath } from '@/feature-evidence/paths.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 describe('paqad-ai delivery-link', () => {
@@ -51,6 +52,13 @@ describe('paqad-ai delivery-link', () => {
     expect(lines.some((l) => l.includes('"linked":true'))).toBe(true);
     const dir = currentFeature(root, SES)!;
     expect(readFeatureDelivery(root, dir).commits).toHaveLength(1);
+  });
+
+  it('commit regenerates the feature report after linking (AC-6, #371)', async () => {
+    openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
+    await run('commit');
+    const dir = currentFeature(root, SES)!;
+    expect(existsSync(join(root, featureReportPath(dir)))).toBe(true);
   });
 
   it('commit reports linked:false when no feature is active', async () => {

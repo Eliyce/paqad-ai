@@ -43,6 +43,30 @@ Later phases of #339 wire the live recorder onto the feature ledger, plan/spec
 compile, re-homed sub-ledgers, native git hooks, on-demand projections, and cutover
 onto this base.
 
+**HTML evidence report (issue #371)** — a human-readable projection of the bundle:
+
+- **Renderer** (`report.ts`) — `renderFeatureReportHtml(bundle, fold, opts)` is a PURE
+  function of the `exportFeatureBundle()` document plus the `foldFeature()` result. It
+  returns ONE self-contained HTML page (inline styles, no `<script>`, no external
+  request; CSS-only `<details>`; light/dark + print) following the house contract of
+  `src/dashboard/export-packet.ts`. It imports the canonical paqad voice constants so
+  the verdict words and glyphs never drift, encodes the fold's honesty tags (backstop
+  idle-time, marker-only "no recorded work", failed-as-prominent-as-passed), verifies a
+  feature receipt against itself (`verifyFeatureReceiptSelf`, hash-chained not signed),
+  and renders a graceful plain-English note for every absent section — including a
+  distinct "enterprise governance is off" note for a missing receipt / AI-BOM.
+- **Writer** (`report-writer.ts`) — `writeFeatureReport` reads the bundle, folds the
+  stages, best-effort loads `review.md` from the review stage's artifact path, renders,
+  and atomically writes `report.html` into the bundle dir; `featureReportEnabled` /
+  `featureReportAutoOpen` read the config flags; `resolveReportFeatureRef` resolves the
+  active / most-recent / explicit-ref feature.
+- **Opener** (`report-open.ts`) — a sandbox-aware, fire-and-forget browser opener
+  (skips CI / SSH / remote / headless) with an injectable spawn; the HOOK opens, never
+  the agent. Generation is wired into `runRepositoryVerification` (Claude / Codex /
+  Gemini via the one backstop) and `delivery-link commit|merge` (advisory hosts via git
+  hooks), and exposed as `paqad-ai feature report`. All best-effort: it never changes a
+  verification verdict or a stage row.
+
 ## Source Footprint
 
 - `src/feature-evidence`
@@ -61,3 +85,8 @@ If anything here disagrees with the map, the **map wins**.
 - `tests/unit/feature-evidence/session-control.test.ts` — active + paused control.
 - `tests/unit/feature-evidence/stage-ledger.test.ts` — feature-scoped stage ledger.
 - `tests/unit/feature-evidence/index.test.ts` — barrel surface.
+- `tests/unit/feature-evidence/report.test.ts` — the pure HTML renderer (self-containment,
+  verdict, honesty tags, receipt integrity, graceful empty states, determinism).
+- `tests/unit/feature-evidence/report-writer.test.ts` — bundle → report.html writer, flags,
+  review-markdown resolution, and ref resolution.
+- `tests/unit/feature-evidence/report-open.test.ts` — the sandbox-aware opener.

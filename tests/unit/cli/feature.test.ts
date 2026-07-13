@@ -67,6 +67,29 @@ describe('paqad-ai feature command', () => {
     expect(errors.join('\n')).toContain('could not resolve feature');
   });
 
+  it('report renders report.html for the active feature and prints its path (#371)', async () => {
+    const dir = openFeatureChange(root, SES, {
+      adapter: 'claude-code',
+      title: 'Reportable',
+      issue: null,
+    });
+    const lines = await run('report', '--quiet');
+    const payload = lines.map((l) => l.trim()).find((l) => l.startsWith('{'))!;
+    const parsed = JSON.parse(payload);
+    expect(parsed.rendered).toBe(true);
+    expect(parsed.feature).toBe(dir);
+    expect(existsSync(parsed.path)).toBe(true);
+    expect(readFileSync(parsed.path, 'utf8')).not.toMatch(/<script/i);
+  });
+
+  it('report exits non-zero for an unknown ref', async () => {
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
+    await run('report', 'nope-nothing');
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toContain('could not resolve feature');
+  });
+
   it('prune reports how many bundles were removed', async () => {
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
     const lines = await run('prune', '--keep', '10');

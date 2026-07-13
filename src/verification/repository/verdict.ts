@@ -40,6 +40,10 @@ export interface RepositoryVerificationVerdict {
   /** Project path the evidence JSON was written to, or null if the write was
    *  skipped/failed. */
   evidence_path: string | null;
+  /** Absolute path to the rendered per-feature `report.html` (issue #371), or null when
+   *  no feature was active, the flag is off, or rendering failed. Best-effort — its
+   *  absence never affects `ok`. */
+  reportPath?: string | null;
   started_at: string;
   completed_at: string;
 }
