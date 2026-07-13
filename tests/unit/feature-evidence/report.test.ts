@@ -202,6 +202,27 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
     expect(html.startsWith('<!doctype html>')).toBe(true);
   });
 
+  it('leads with a paqad-branded dashboard: wordmark, submenu, and stat tiles', () => {
+    // The paqad wordmark header + verdict pill.
+    expect(html).toContain('class="brand"');
+    expect(html).toContain('paqad');
+    expect(html).toContain('class="verdict-pill');
+    // The submenu drills into each section by anchor.
+    expect(html).toContain('class="submenu"');
+    for (const id of ['#overview', '#timeline', '#plan', '#receipt', '#delivery']) {
+      expect(html).toContain(`href="${id}"`);
+    }
+    // The overview stat tiles carry the at-a-glance numbers.
+    expect(html).toContain('class="tiles"');
+    expect(html).toContain('Stages recorded');
+    expect(html).toContain('Active time');
+    expect(html).toContain('Rule findings');
+    expect(html).toContain('AI-BOM files');
+    expect(html).toContain('Commits');
+    // Detail sections are addressable panels (revealed via :target).
+    expect(html).toContain('<section class="panel" id="timeline">');
+  });
+
   it('carries the verdict words and every section', () => {
     expect(html).toContain('Needs your attention');
     for (const heading of [

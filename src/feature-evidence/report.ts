@@ -284,18 +284,18 @@ function asRows(value: unknown): LooseRow[] {
 
 // ── Section rendering ─────────────────────────────────────────────────────────
 
-/** A card shell. `emptyNote` is rendered when `body` is empty — never a blank gap. */
-function card(title: string, body: string, emptyNote?: string): string {
+/**
+ * A drill-in detail panel with a stable `id` so the submenu can navigate to it. Panels
+ * are hidden until targeted (CSS `:target`) so the page opens on the overview and reveals
+ * one section at a time — "first glance overview, then go deeper". `emptyNote` renders
+ * when `body` is empty, so a section is never a blank gap. Print shows every panel.
+ */
+function panel(id: string, title: string, body: string, emptyNote?: string): string {
   const inner =
     body.trim().length > 0
       ? body
       : `<p class="empty">${escapeHtml(emptyNote ?? 'Nothing recorded.')}</p>`;
-  return `<section class="card"><h2>${escapeHtml(title)}</h2>${inner}</section>`;
-}
-
-/** A collapsible card, collapsed by default, for the denser sections. */
-function collapsibleCard(title: string, summaryHint: string, body: string): string {
-  return `<section class="card"><details><summary><span class="h2">${escapeHtml(title)}</span> <span class="muted">${escapeHtml(summaryHint)}</span></summary><div class="details-body">${body}</div></details></section>`;
+  return `<section class="panel" id="${escapeHtml(id)}"><div class="panel-head"><h2>${escapeHtml(title)}</h2><a class="back" href="#overview">↑ overview</a></div>${inner}</section>`;
 }
 
 function renderTimeline(fold: FoldedChange, rawStageRows: LooseRow[]): string {
@@ -324,7 +324,7 @@ function renderTimeline(fold: FoldedChange, rawStageRows: LooseRow[]): string {
       return `<li class="stage"><span class="glyph">${GLYPH_FOR[view.glyphKind]}</span><span class="stage-name">${label}</span><span class="dur">${escapeHtml(duration)}</span><span class="stage-note">${glyphWordless(view.word)} · ${escapeHtml(view.note)}</span>${timing}</li>`;
     })
     .join('');
-  return `<ol class="timeline">${items}</ol>`;
+  return panel('timeline', 'Timeline', `<ol class="timeline">${items}</ol>`);
 }
 
 /** The status WORD without a glyph (the timeline already prints the glyph in its own cell). */
@@ -343,7 +343,8 @@ function renderPlan(bundle: FeatureBundleExport): string {
       }
     | undefined;
   if (!plan) {
-    return card(
+    return panel(
+      'plan',
       'Plan',
       '',
       'No plan was recorded for this change. The plan is written when the planning stage is compiled (paqad-ai plan compile).',
@@ -377,7 +378,7 @@ function renderPlan(bundle: FeatureBundleExport): string {
       .join('');
     parts.push(`<h3>Risks</h3><ul class="risks">${items}</ul>`);
   }
-  return card('Plan', parts.join(''), 'The plan is empty.');
+  return panel('plan', 'Plan', parts.join(''), 'The plan is empty.');
 }
 
 function renderSpec(bundle: FeatureBundleExport): string {
@@ -396,7 +397,8 @@ function renderSpec(bundle: FeatureBundleExport): string {
       }
     | undefined;
   if (!spec) {
-    return card(
+    return panel(
+      'spec',
       'Specification',
       '',
       'No frozen specification was recorded. The spec is written when it is frozen before code (paqad-ai spec freeze).',
@@ -442,13 +444,14 @@ function renderSpec(bundle: FeatureBundleExport): string {
       .join('');
     parts.push(`<h3>Invariants</h3><ul class="invariants">${items}</ul>`);
   }
-  return card('Specification', parts.join(''), 'The specification is empty.');
+  return panel('spec', 'Specification', parts.join(''), 'The specification is empty.');
 }
 
 function renderRules(bundle: FeatureBundleExport): string {
   const rows = asRows(bundle.files.ruleRun);
   if (rows.length === 0) {
-    return card(
+    return panel(
+      'rules',
       'Rules',
       '',
       'No rule-script runs were recorded. Rule scripts run during the checks stage of a feature-development change.',
@@ -472,13 +475,14 @@ function renderRules(bundle: FeatureBundleExport): string {
   const body =
     `<p>${rows.length} rule run${rows.length === 1 ? '' : 's'} recorded, ${total} finding${total === 1 ? '' : 's'} in total ` +
     `(${deterministic} deterministic · ${heuristic} heuristic · ${skipped} skipped).</p>${blockLine}`;
-  return card('Rules', body);
+  return panel('rules', 'Rules', body);
 }
 
 function renderRetrieval(bundle: FeatureBundleExport): string {
   const rows = asRows(bundle.files.rag);
   if (rows.length === 0) {
-    return card(
+    return panel(
+      'retrieval',
       'Retrieval',
       '',
       'No retrieval was recorded for this change (grep is the honest default; RAG is an optional accelerator).',
@@ -504,12 +508,13 @@ function renderRetrieval(bundle: FeatureBundleExport): string {
     lines.push(`refreshed the index ${refreshed} time${refreshed === 1 ? '' : 's'}`);
   const summary = lines.length > 0 ? `${lines.join(', ')}.` : 'Retrieval activity recorded.';
   const body = `<p>${escapeHtml(summary.charAt(0).toUpperCase() + summary.slice(1))}</p>`;
-  return card('Retrieval', body);
+  return panel('retrieval', 'Retrieval', body);
 }
 
 function renderReceipt(integrity: ReceiptIntegrity): string {
   if (!integrity.present) {
-    return card(
+    return panel(
+      'receipt',
       'Verification receipt',
       '',
       'No verification receipt was written. The signed receipt is an enterprise governance capability — enable enterprise (and enterprise_evidence_ledger) to record it. The gates still ran; only the receipt file is gated off.',
@@ -537,7 +542,7 @@ function renderReceipt(integrity: ReceiptIntegrity): string {
   const body =
     `<p class="receipt-result">Result: ${GLYPH_FOR[resultKind]} ${escapeHtml(result || 'n/a')}</p>` +
     `<p>${integrityLine}</p>${rowsHtml}`;
-  return card('Verification receipt', body);
+  return panel('receipt', 'Verification receipt', body);
 }
 
 function renderAiBom(bundle: FeatureBundleExport): string {
@@ -545,7 +550,8 @@ function renderAiBom(bundle: FeatureBundleExport): string {
     | { serialNumber?: string; components?: { name?: string; hashes?: { content?: string }[] }[] }
     | undefined;
   if (!aiBom) {
-    return card(
+    return panel(
+      'aibom',
       'AI bill of materials',
       '',
       'No AI-BOM was written. The CycloneDX AI-BOM is an enterprise governance capability — enable enterprise (and enterprise_ai_bom) to record it.',
@@ -563,7 +569,7 @@ function renderAiBom(bundle: FeatureBundleExport): string {
       ? `<table class="bom"><thead><tr><th>File</th><th>SHA-256</th></tr></thead><tbody>${rows}</tbody></table>`
       : '<p class="empty">No file components recorded.</p>';
   const body = `<p>${components.length} file${components.length === 1 ? '' : 's'} inventoried${aiBom.serialNumber ? ` · CycloneDX serial <code>${escapeHtml(aiBom.serialNumber)}</code>` : ''}.</p>${table}`;
-  return collapsibleCard('AI bill of materials', `${components.length} files`, body);
+  return panel('aibom', 'AI bill of materials', body);
 }
 
 function renderDelivery(bundle: FeatureBundleExport): string {
@@ -577,7 +583,8 @@ function renderDelivery(bundle: FeatureBundleExport): string {
       }
     | undefined;
   if (!delivery) {
-    return card(
+    return panel(
+      'delivery',
       'Delivery',
       '',
       'No delivery record yet. The commit trail is linked by the git post-commit / post-merge hooks once the change is committed.',
@@ -601,12 +608,13 @@ function renderDelivery(bundle: FeatureBundleExport): string {
   } else {
     parts.push('<p class="empty">No commits linked yet.</p>');
   }
-  return card('Delivery', parts.join(''));
+  return panel('delivery', 'Delivery', parts.join(''));
 }
 
 function renderReview(reviewMarkdown: string | null | undefined): string {
   if (!reviewMarkdown || reviewMarkdown.trim().length === 0) {
-    return card(
+    return panel(
+      'review',
       'Review',
       '',
       'No review notes were recorded. The review is written by the agent and linked from the review stage.',
@@ -614,7 +622,7 @@ function renderReview(reviewMarkdown: string | null | undefined): string {
   }
   // No markdown library ships in the main package (and none should be added), so the
   // review is rendered as escaped preformatted text — faithful, never executed.
-  return card('Review', `<pre class="review">${escapeHtml(reviewMarkdown)}</pre>`);
+  return panel('review', 'Review', `<pre class="review">${escapeHtml(reviewMarkdown)}</pre>`);
 }
 
 function renderFooter(): string {
@@ -632,31 +640,212 @@ function renderFooter(): string {
 </footer>`;
 }
 
+// ── Overview (the at-a-glance dashboard) ──────────────────────────────────────
+
+interface OverviewTile {
+  /** The section id this tile drills into. */
+  target: string;
+  label: string;
+  /** The big value (a number, a duration, a short status word). */
+  value: string;
+  /** A one-line sub-caption under the value. */
+  sub: string;
+  /** Status glyph kind — present only for genuine status tiles (never decoration). */
+  kind?: PaqadStatusKind;
+}
+
+/** Total wall-clock across stages whose duration is reliable (idle-inflated ends excluded). */
+function totalReliableDuration(fold: FoldedChange): number {
+  return fold.stages.reduce(
+    (sum, stage) =>
+      stage.duration_ms !== null && !stage.duration_unreliable ? sum + stage.duration_ms : sum,
+    0,
+  );
+}
+
+/** Build the overview stat tiles from the same data the detail panels render. */
+function buildOverviewTiles(
+  bundle: FeatureBundleExport,
+  fold: FoldedChange,
+  integrity: ReceiptIntegrity,
+): OverviewTile[] {
+  const tiles: OverviewTile[] = [];
+
+  // Stages — a status tile.
+  const passed = fold.completeness.required_passed;
+  const total = fold.completeness.required_total;
+  tiles.push({
+    target: 'timeline',
+    label: 'Stages recorded',
+    value: `${passed}/${total}`,
+    sub: passed >= total ? 'all mandatory stages done' : 'some stages incomplete',
+    kind: passed >= total ? 'good' : 'needsLook',
+  });
+
+  // Active time — a metric tile (no status glyph).
+  tiles.push({
+    target: 'timeline',
+    label: 'Active time',
+    value: formatDuration(totalReliableDuration(fold)),
+    sub: 'summed across recorded stages',
+  });
+
+  // Rules — a status tile.
+  const ruleRows = asRows(bundle.files.ruleRun);
+  let findings = 0;
+  let blocked = false;
+  for (const row of ruleRows) {
+    const counts = (row.counts as Record<string, number> | undefined) ?? {};
+    findings += Number(counts.deterministic ?? 0) + Number(counts.heuristic ?? 0);
+    if (row.blocking === true) blocked = true;
+  }
+  tiles.push({
+    target: 'rules',
+    label: 'Rule findings',
+    value: ruleRows.length === 0 ? '—' : String(findings),
+    sub:
+      ruleRows.length === 0
+        ? 'no rule runs'
+        : blocked
+          ? 'a rule blocked the change'
+          : 'nothing blocked',
+    kind: ruleRows.length === 0 ? 'skipped' : blocked ? 'failed' : 'good',
+  });
+
+  // Retrieval — a metric tile.
+  const ragRows = asRows(bundle.files.rag);
+  tiles.push({
+    target: 'retrieval',
+    label: 'Retrieval events',
+    value: ragRows.length === 0 ? '—' : String(ragRows.length),
+    sub: ragRows.length === 0 ? 'grep only (RAG not used)' : 'index + query activity',
+  });
+
+  // Receipt — a status tile.
+  tiles.push({
+    target: 'receipt',
+    label: 'Verification receipt',
+    value: !integrity.present ? 'Off' : integrity.verified ? 'Verified' : 'Unverifiable',
+    sub: !integrity.present
+      ? 'enterprise governance off'
+      : integrity.verified
+        ? 'hash chain recomputes'
+        : 'hash chain does not recompute',
+    kind: !integrity.present ? 'skipped' : integrity.verified ? 'good' : 'failed',
+  });
+
+  // AI-BOM — a metric tile.
+  const aiBom = bundle.files.aiBom as { components?: unknown[] } | undefined;
+  const componentCount = Array.isArray(aiBom?.components) ? aiBom.components.length : null;
+  tiles.push({
+    target: 'aibom',
+    label: 'AI-BOM files',
+    value: aiBom === undefined ? 'Off' : String(componentCount ?? 0),
+    sub: aiBom === undefined ? 'enterprise governance off' : 'inventoried with SHA-256',
+  });
+
+  // Delivery — a metric tile.
+  const delivery = bundle.files.delivery as
+    { branch?: string | null; commits?: unknown[] } | undefined;
+  const commitCount = Array.isArray(delivery?.commits) ? delivery.commits.length : 0;
+  tiles.push({
+    target: 'delivery',
+    label: 'Commits',
+    value: delivery === undefined ? '—' : String(commitCount),
+    sub: delivery?.branch ? `on ${delivery.branch}` : 'not linked yet',
+  });
+
+  return tiles;
+}
+
+/** Render the overview: the verdict hero + the clickable stat tiles. */
+function renderOverview(
+  title: string,
+  headerMeta: string,
+  verdict: VerdictKind,
+  tiles: OverviewTile[],
+): string {
+  const hero = `<a class="hero ${verdict}" href="#timeline"><span class="hero-verdict">${GLYPH_FOR[VERDICT_KIND_GLYPH[verdict]]} ${escapeHtml(VERDICT_WORD[verdict])}</span><span class="hero-meta">${headerMeta}</span></a>`;
+  const cards = tiles
+    .map(
+      (tile) =>
+        `<a class="tile" href="#${escapeHtml(tile.target)}"><span class="tile-label">${escapeHtml(tile.label)}</span><span class="tile-value">${tile.kind ? `${GLYPH_FOR[tile.kind]} ` : ''}${escapeHtml(tile.value)}</span><span class="tile-sub">${escapeHtml(tile.sub)}</span></a>`,
+    )
+    .join('');
+  return `<section id="overview" class="overview"><h1 class="page-title">${escapeHtml(title)}</h1>${hero}<div class="tiles">${cards}</div></section>`;
+}
+
+/** The sticky submenu that drills into each detail section. */
+function renderSubmenu(): string {
+  const items: [string, string][] = [
+    ['overview', 'Overview'],
+    ['timeline', 'Timeline'],
+    ['plan', 'Plan'],
+    ['spec', 'Spec'],
+    ['rules', 'Rules'],
+    ['retrieval', 'Retrieval'],
+    ['receipt', 'Receipt'],
+    ['aibom', 'AI-BOM'],
+    ['delivery', 'Delivery'],
+    ['review', 'Review'],
+  ];
+  return `<nav class="submenu">${items
+    .map(([id, label]) => `<a href="#${id}">${escapeHtml(label)}</a>`)
+    .join('')}</nav>`;
+}
+
 // ── Assembly ────────────────────────────────────────────────────────────────
 
 const STYLE = `
-:root{color-scheme:light dark;--bg:#fafafa;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--good:#16a34a;--fail:#dc2626;--warn:#d97706;--tag:#eef2ff;--tag-ink:#3730a3}
-@media (prefers-color-scheme:dark){:root{--bg:#0b1020;--card:#111827;--ink:#e5e7eb;--muted:#94a3b8;--line:#1f2937;--accent:#60a5fa;--good:#4ade80;--fail:#f87171;--warn:#fbbf24;--tag:#1e293b;--tag-ink:#c7d2fe}}
-:root[data-theme=dark]{--bg:#0b1020;--card:#111827;--ink:#e5e7eb;--muted:#94a3b8;--line:#1f2937;--accent:#60a5fa;--good:#4ade80;--fail:#f87171;--warn:#fbbf24;--tag:#1e293b;--tag-ink:#c7d2fe}
-:root[data-theme=light]{--bg:#fafafa;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--good:#16a34a;--fail:#dc2626;--warn:#d97706;--tag:#eef2ff;--tag-ink:#3730a3}
+:root{color-scheme:light dark;--bg:#fafafa;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--good:#16a34a;--fail:#dc2626;--warn:#d97706;--tag:#eef2ff;--tag-ink:#3730a3;--bar:#0f172a;--bar-fg:#f8fafc}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1020;--card:#111827;--ink:#e5e7eb;--muted:#94a3b8;--line:#1f2937;--accent:#60a5fa;--good:#4ade80;--fail:#f87171;--warn:#fbbf24;--tag:#1e293b;--tag-ink:#c7d2fe;--bar:#111827;--bar-fg:#f8fafc}}
+:root[data-theme=dark]{--bg:#0b1020;--card:#111827;--ink:#e5e7eb;--muted:#94a3b8;--line:#1f2937;--accent:#60a5fa;--good:#4ade80;--fail:#f87171;--warn:#fbbf24;--tag:#1e293b;--tag-ink:#c7d2fe;--bar:#111827;--bar-fg:#f8fafc}
+:root[data-theme=light]{--bg:#fafafa;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--good:#16a34a;--fail:#dc2626;--warn:#d97706;--tag:#eef2ff;--tag-ink:#3730a3;--bar:#0f172a;--bar-fg:#f8fafc}
 *{box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;color:var(--ink);background:var(--bg);margin:0;padding:32px 20px;line-height:1.5;font-size:15px}
-main{max-width:820px;margin:0 auto}
-h1{font-size:22px;font-weight:650;margin:0 0 2px}
-h2,.h2{font-size:17px;font-weight:620;margin:0 0 10px}
-h3,.h3{font-size:14px;font-weight:620;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-.sub{color:var(--muted);font-size:13px;margin:0 0 20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 16px}
-.banner{border-radius:12px;padding:16px 20px;margin:0 0 20px;font-size:18px;font-weight:620;border:1px solid var(--line)}
-.banner.pass{background:color-mix(in srgb,var(--good) 14%,transparent);border-color:var(--good)}
-.banner.fail{background:color-mix(in srgb,var(--fail) 14%,transparent);border-color:var(--fail)}
-.banner.inconclusive{background:color-mix(in srgb,var(--warn) 14%,transparent);border-color:var(--warn)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;color:var(--ink);background:var(--bg);margin:0;line-height:1.5;font-size:15px}
+main{max-width:900px;margin:0 auto;padding:20px}
+h1,h2,.h2,h3,.h3{margin:0}
+.page-title{font-size:22px;font-weight:650;margin:0 0 14px}
+/* Top bar with the paqad wordmark */
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;background:var(--bar);color:var(--bar-fg);padding:12px 20px}
+.brand{font-size:17px;font-weight:700;letter-spacing:.01em;display:flex;align-items:baseline;gap:6px}
+.brand .mark{color:#60a5fa;font-size:18px}
+.brand-sub{color:color-mix(in srgb,var(--bar-fg) 65%,transparent);font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.verdict-pill{font-size:13px;font-weight:640;padding:5px 12px;border-radius:999px;text-decoration:none;border:1px solid transparent;white-space:nowrap}
+.verdict-pill.pass{background:color-mix(in srgb,var(--good) 22%,transparent);color:var(--bar-fg);border-color:var(--good)}
+.verdict-pill.fail{background:color-mix(in srgb,var(--fail) 26%,transparent);color:var(--bar-fg);border-color:var(--fail)}
+.verdict-pill.inconclusive{background:color-mix(in srgb,var(--warn) 26%,transparent);color:var(--bar-fg);border-color:var(--warn)}
+/* Sticky submenu */
+.submenu{position:sticky;top:47px;z-index:4;display:flex;gap:2px;flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 20px}
+.submenu a{color:var(--muted);text-decoration:none;font-size:13px;font-weight:560;padding:5px 10px;border-radius:7px}
+.submenu a:hover{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
+/* Overview hero + tiles */
+.hero{display:flex;flex-direction:column;gap:4px;border-radius:14px;padding:18px 20px;margin:0 0 18px;border:1px solid var(--line);text-decoration:none;color:inherit}
+.hero.pass{background:color-mix(in srgb,var(--good) 13%,transparent);border-color:var(--good)}
+.hero.fail{background:color-mix(in srgb,var(--fail) 13%,transparent);border-color:var(--fail)}
+.hero.inconclusive{background:color-mix(in srgb,var(--warn) 13%,transparent);border-color:var(--warn)}
+.hero-verdict{font-size:20px;font-weight:680}
+.hero-meta{color:var(--muted);font-size:12.5px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin:0 0 8px}
+.tile{display:flex;flex-direction:column;gap:3px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;text-decoration:none;color:inherit}
+.tile:hover{border-color:var(--accent)}
+.tile-label{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.tile-value{font-size:24px;font-weight:680;font-variant-numeric:tabular-nums}
+.tile-sub{color:var(--muted);font-size:12.5px}
+/* Detail panels — hidden until the submenu targets them */
+.panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:18px 0;scroll-margin-top:96px}
+.panel:target{display:block}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 10px}
+.panel-head h2{font-size:17px;font-weight:620}
+.back{font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap}
+.back:hover{color:var(--accent)}
+h3,.h3{font-size:13px;font-weight:620;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
 .empty{color:var(--muted);font-style:italic;margin:6px 0}
 .muted{color:var(--muted);font-weight:400}
 ul,ol{margin:6px 0;padding-left:20px}
 li{margin:4px 0}
 .timeline{list-style:none;padding:0}
-.stage{display:grid;grid-template-columns:22px 150px 70px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
+.stage{display:grid;grid-template-columns:22px 150px 74px 1fr;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
 .stage:last-child{border-bottom:0}
 .stage-name{font-weight:560;text-transform:capitalize}
 .dur{color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
@@ -675,14 +864,14 @@ th{color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.0
 .freeze{margin:0 0 4px}
 pre.review{white-space:pre-wrap;word-break:break-word;background:color-mix(in srgb,var(--muted) 8%,transparent);border-radius:8px;padding:12px;font-size:13px;overflow-x:auto}
 summary{cursor:pointer;list-style:revert}
-.details-body{margin-top:10px}
 .footer{color:var(--muted);font-size:13px;margin-top:24px;border-top:1px solid var(--line);padding-top:16px}
 .legend{font-size:13px}
 .terms td{border:0;padding:3px 8px 3px 0}
 .terms .term{font-weight:600;color:var(--ink);white-space:nowrap}
 .provenance{margin-top:12px;font-style:italic}
 @page{margin:16mm}
-@media print{body{padding:0;background:#fff;color:#000}.card,.banner{break-inside:avoid;border-color:#bbb}details{display:block}details>summary{display:none}.details-body{margin-top:0}}
+/* Print: reveal every panel and the full page so a Save-as-PDF is complete. */
+@media print{.topbar{position:static}.submenu{display:none}.panel{display:block!important;break-inside:avoid;border-color:#bbb}.back{display:none}body{background:#fff;color:#000}}
 `;
 
 /**
@@ -708,20 +897,20 @@ export function renderFeatureReportHtml(
 
   const headerMeta = [
     parts?.issue ? `Issue #${escapeHtml(parts.issue)}` : '',
-    parts?.ulid ? `ULID <code>${escapeHtml(parts.ulid)}</code>` : '',
+    parts?.ulid ? `ULID ${escapeHtml(parts.ulid)}` : '',
     `Generated ${escapeHtml(options.generatedAt)}`,
     options.paqadVersion ? `paqad ${escapeHtml(options.paqadVersion)}` : '',
   ]
     .filter(Boolean)
     .join(' · ');
 
-  const banner = `<div class="banner ${verdict}">${GLYPH_FOR[VERDICT_KIND_GLYPH[verdict]]} ${escapeHtml(VERDICT_WORD[verdict])}</div>`;
+  const tiles = buildOverviewTiles(bundle, fold, integrity);
+
+  const topbar = `<header class="topbar"><div class="brand"><span class="mark">▸</span> paqad</div><div class="brand-sub">evidence report · ${escapeHtml(title)}</div><a class="verdict-pill ${verdict}" href="#overview">${GLYPH_FOR[VERDICT_KIND_GLYPH[verdict]]} ${escapeHtml(VERDICT_WORD[verdict])}</a></header>`;
 
   const body = [
-    `<h1>${escapeHtml(title)}</h1>`,
-    `<p class="sub">${headerMeta}</p>`,
-    banner,
-    card('Timeline', renderTimeline(fold, rawStageRows)),
+    renderOverview(title, headerMeta, verdict, tiles),
+    renderTimeline(fold, rawStageRows),
     renderPlan(bundle),
     renderSpec(bundle),
     renderRules(bundle),
@@ -742,6 +931,8 @@ export function renderFeatureReportHtml(
 <style>${STYLE}</style>
 </head>
 <body>
+${topbar}
+${renderSubmenu()}
 <main>
 ${body}
 </main>
