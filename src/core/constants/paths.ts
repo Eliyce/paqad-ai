@@ -192,6 +192,11 @@ export const PATHS = {
   PENTEST_ROOT_DIR: '.paqad/pentest',
   PENTEST_RUNS_DIR: '.paqad/pentest/runs',
   INDEXES_DIR: '.paqad/indexes',
+  // Issue #353 — the deterministic, offline code-knowledge index: every exported
+  // symbol (with signature + caller_count) and the file->file / file->symbol edges
+  // between them, plus per-dependency `imported` usage. Built once by
+  // `paqad-ai index build`, consumed twice (dead-code findings + reuse answers).
+  CODE_KNOWLEDGE_INDEX: '.paqad/indexes/code-knowledge.json',
   DOCS_DIR: 'docs',
   FRAMEWORK_DOCS_DIR: 'docs/framework',
   FRAMEWORK_STACK_DIR: 'docs/instructions/stack',

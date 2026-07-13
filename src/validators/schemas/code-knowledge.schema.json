@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "paqad://schemas/code-knowledge.json",
+  "title": "Code-knowledge index (issue #353)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "header",
+    "symbols",
+    "files",
+    "import_edges",
+    "reference_edges",
+    "dependencies"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generated_at", "branch", "head_commit", "schema_version", "entry_point_globs"],
+      "properties": {
+        "generated_at": { "type": "string", "minLength": 1 },
+        "branch": { "type": ["string", "null"] },
+        "head_commit": { "type": ["string", "null"] },
+        "schema_version": { "type": "integer", "const": 1 },
+        "entry_point_globs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "file",
+          "line",
+          "signature",
+          "exported",
+          "module_slug",
+          "extraction_tier",
+          "caller_count",
+          "orphan"
+        ],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["function", "class", "component", "const", "type"] },
+          "file": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 },
+          "signature": { "type": "string" },
+          "exported": { "type": "boolean" },
+          "module_slug": { "type": ["string", "null"] },
+          "extraction_tier": { "enum": ["regex", "ast"] },
+          "caller_count": { "type": "integer", "minimum": 0 },
+          "orphan": { "type": "boolean" }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "caller_count", "orphan", "entry_point"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "caller_count": { "type": "integer", "minimum": 0 },
+          "orphan": { "type": "boolean" },
+          "entry_point": { "type": "boolean" }
+        }
+      }
+    },
+    "import_edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "reference_edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "symbol"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 },
+          "symbol": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "ecosystem", "imported"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "ecosystem": { "type": "string", "minLength": 1 },
+          "imported": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}
