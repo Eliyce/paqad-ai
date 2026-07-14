@@ -57,15 +57,31 @@ function countByEngine(
   return counts;
 }
 
-/** A change PASSES only when nothing failed and no evidence was missing —
- *  blocked or inconclusive rows downgrade the result, never silently pass. */
-export function deriveVerificationResult(summary: GradedEvidenceSummary): 'PASSED' | 'FAILED' {
-  const failed =
-    summary.deterministic.fail > 0 ||
-    summary.llm_judged.fail > 0 ||
-    summary.blocked > 0 ||
-    summary.inconclusive > 0;
-  return failed ? 'FAILED' : 'PASSED';
+/**
+ * The three-way verification outcome (issue #368, AC-D2).
+ *
+ * A `blocked` row is a measure that COULD NOT RUN (an unwired or absent tool, e.g. a
+ * quality-ratchet measure reporting "tool-not-wired"); an `inconclusive` row could not
+ * be judged. Neither is a failure — conflating "couldn't verify" with "verification
+ * failed" manufactured a false `FAILED` (a change with 9/9 + 2/2 real passes and only
+ * three unwired ratchet measures still read `FAILED`). So:
+ *   - a genuine `fail` (deterministic or llm-judged) → `FAILED`;
+ *   - otherwise, any `blocked`/`inconclusive` row → `INCONCLUSIVE` (do not over-trust,
+ *     but do not cry failure either);
+ *   - everything passed → `PASSED`.
+ * A real failure always dominates a couldn't-verify, so a mix of fail + blocked is still
+ * `FAILED`.
+ */
+export function deriveVerificationResult(
+  summary: GradedEvidenceSummary,
+): 'PASSED' | 'FAILED' | 'INCONCLUSIVE' {
+  if (summary.deterministic.fail > 0 || summary.llm_judged.fail > 0) {
+    return 'FAILED';
+  }
+  if (summary.blocked > 0 || summary.inconclusive > 0) {
+    return 'INCONCLUSIVE';
+  }
+  return 'PASSED';
 }
 
 export interface BuildStatementInput {

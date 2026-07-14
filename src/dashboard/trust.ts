@@ -68,7 +68,7 @@ export interface ReceiptCard {
   /** True when the hash chain recomputes cleanly up to and including this link. */
   sealed: boolean;
   time_verified: string | null;
-  verification_result: 'PASSED' | 'FAILED' | null;
+  verification_result: 'PASSED' | 'FAILED' | 'INCONCLUSIVE' | null;
   authorship: ChangeAuthorship | null;
   /** Issue #122 — which legal clauses the passing gates produce evidence toward. */
   compliance: ComplianceCitation[];
