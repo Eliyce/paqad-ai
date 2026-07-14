@@ -90,6 +90,10 @@ const FIELD_CHECKS: Record<string, (value: unknown) => string | null> = {
       ? null
       : 'Expected a positive integer.',
   rag_base_branch: (value) => (typeof value === 'string' ? null : 'Expected a string.'),
+  existing_surface_tokens: (value) =>
+    typeof value === 'number' && Number.isInteger(value) && value > 0
+      ? null
+      : 'Expected a positive integer.',
 };
 
 export function putRagConfig(projectRoot: string, candidate: unknown): PutRagConfigResult {

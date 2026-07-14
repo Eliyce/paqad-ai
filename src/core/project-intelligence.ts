@@ -87,6 +87,14 @@ export const DEFAULT_ACTION_ROUTING: ActionRoutingConfig = {
   enabled: false,
 };
 
+/**
+ * Issue #356 — default hard token budget for the `## Existing surface` planning digest.
+ * ~1000 tokens (≈4KB at 4 bytes/token): the ONE deliberate token spend in the reuse-aware
+ * plan, precomputed in the background and capped/truncating, in place of the model burning
+ * far more tokens grepping for (or rewriting) code that already exists.
+ */
+export const DEFAULT_EXISTING_SURFACE_TOKENS = 1000;
+
 export const DEFAULT_BENCHMARK_GATES: BenchmarkGateConfig = {
   hit_at_5_improvement_pct: 20,
   task_success_rate_improvement_pct: 10,
@@ -118,6 +126,7 @@ export function defaultIntelligenceConfig(): IntelligenceConfig {
     rag_relief_floor: 0.35,
     rag_top_n: 20,
     rag_max_file_size: 153600,
+    existing_surface_tokens: DEFAULT_EXISTING_SURFACE_TOKENS,
     benchmark_gates: { ...DEFAULT_BENCHMARK_GATES },
     benchmark_eval: { ...DEFAULT_BENCHMARK_EVAL },
     adaptive_retrieval: {
@@ -148,6 +157,7 @@ export function normalizeIntelligenceConfig(
     rag_relief_floor: input.rag_relief_floor ?? defaults.rag_relief_floor,
     rag_top_n: input.rag_top_n ?? defaults.rag_top_n,
     rag_max_file_size: input.rag_max_file_size ?? defaults.rag_max_file_size,
+    existing_surface_tokens: input.existing_surface_tokens ?? defaults.existing_surface_tokens,
     rag_base_branch: input.rag_base_branch ?? defaults.rag_base_branch,
     benchmark_gates: {
       ...DEFAULT_BENCHMARK_GATES,

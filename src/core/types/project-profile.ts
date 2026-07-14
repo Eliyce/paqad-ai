@@ -130,6 +130,12 @@ export interface IntelligenceConfig {
   rag_relief_floor: number;
   rag_top_n: number;
   rag_max_file_size?: number;
+  // Issue #356 — hard token budget for the `## Existing surface` planning digest the
+  // background worker composes on the feature-development route. Cards are added by
+  // descending repo-map rank until this budget is hit, then truncated with an honest
+  // line. Default 1000 (see DEFAULT_EXISTING_SURFACE_TOKENS). Optional in the type so
+  // existing partial-config literals stay valid; the resolved config always fills it.
+  existing_surface_tokens?: number;
   // RAG buildout F10 — base branch for branch-aware RAG (F7). Unset = auto-detect
   // main->master.
   rag_base_branch?: string;

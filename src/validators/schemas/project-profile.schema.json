@@ -243,6 +243,7 @@
         "rag_top_n": { "type": "integer", "minimum": 1 },
         "rag_max_file_size": { "type": "integer", "minimum": 1 },
         "rag_base_branch": { "type": "string" },
+        "existing_surface_tokens": { "type": "integer", "minimum": 1 },
         "benchmark_gates": {
           "type": "object",
           "additionalProperties": false,

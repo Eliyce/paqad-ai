@@ -16,12 +16,14 @@ import { refreshCodeKnowledgeIndex } from '@/code-knowledge/refresh.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
 import { composeContextPack, distillSlices } from '@/context/context-pack.js';
+import { gatherExistingSurface } from '@/context/existing-surface.js';
 import { refreshRuleContext } from '@/context/rule-context.js';
 import {
   MAX_RETRIEVAL_SLICES,
   composeRetrievalSection,
   gatherWorkingSetSlices,
 } from '@/context/retrieval-context.js';
+import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { compositionForRoute, readSessionRoute } from '@/pipeline/session-route.js';
 import { recordRagEvidence } from '@/rag-ledger/recorder.js';
 import type { RagInjectedSection } from '@/rag-ledger/types.js';
@@ -386,13 +388,33 @@ export function createRagCommand(): Command {
       const route = readSessionRoute(options.projectRoot);
       const { loadRules, retrieves } = compositionForRoute(route);
 
-      // Issue #284 — the lean (rag-off) path recomposes the rule slice ONLY: no index
-      // sync, no retrieval, no codebase-memory, no base-drift network fetch. This is
-      // what keeps the token-neutral default provider-free and the artifact rule-only.
+      const intelligence = resolveFrameworkConfig(options.projectRoot).intelligence;
+
+      // Issue #356 — the `## Existing surface` planning digest: existing exported symbols
+      // for the files in play, so the model reuses instead of duplicating. It is composed
+      // ONLY on the feature-development route (loadRules) and is embedding-free (repo-map +
+      // code-knowledge index), so it works on BOTH the lean rag-off path and the full path.
+      // With no working set and no prompt hit it returns '' (byte-identical to today), so
+      // the token-neutral default is untouched — this is the one deliberate spend, and only
+      // while feature work is actually implicated.
+      const existingSurfaceSection = loadRules
+        ? await gatherExistingSurface(options.projectRoot, {
+            changedPaths: (await loadChangeEvidence(options.projectRoot)).files,
+            query: route?.query,
+            tokenBudget: intelligence.existing_surface_tokens,
+          })
+        : '';
+
+      // Issue #284 — the lean (rag-off) path recomposes the rule slice (+ the embedding-free
+      // existing-surface digest) ONLY: no index sync, no retrieval, no codebase-memory, no
+      // base-drift network fetch. This is what keeps the token-neutral default provider-free.
       // `rag_enabled` on restores the full compose (retrieval/memory/drift), unchanged.
-      const ragEnabled = resolveFrameworkConfig(options.projectRoot).intelligence.rag_enabled;
+      const ragEnabled = intelligence.rag_enabled;
       if (!ragEnabled) {
-        const target = await refreshRuleContext(options.projectRoot, { loadRules });
+        const target = await refreshRuleContext(options.projectRoot, {
+          existingSurfaceSection,
+          loadRules,
+        });
         if (!options.quiet) {
           process.stdout.write(
             `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (rag off)\n`,
@@ -448,6 +470,7 @@ export function createRagCommand(): Command {
         driftSection = composeBaseDriftSection(loadBaseDrift(options.projectRoot));
       }
       const target = await refreshRuleContext(options.projectRoot, {
+        existingSurfaceSection,
         memorySection,
         retrievalSection,
         driftSection,
