@@ -48,6 +48,7 @@ const KNOB_CONSUMERS: Record<string, string> = {
   rag_top_n: 'RAG retrieval depth',
   rag_max_file_size: 'RAG index build',
   rag_base_branch: 'branch-aware RAG index',
+  existing_surface_tokens: 'existing-surface planning digest',
   research_depth: NOTHING,
   model_default: 'model selection (skills/model-selector)',
   model_reasoning: 'model routing (budget optimizer)',
