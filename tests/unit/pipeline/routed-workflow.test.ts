@@ -10,7 +10,7 @@ import {
 } from '@/pipeline/routed-workflow.js';
 
 describe('routed-workflow (#336)', () => {
-  it('exposes exactly the 9 routing outcomes', () => {
+  it('exposes exactly the 10 routing outcomes', () => {
     expect([...ROUTED_WORKFLOWS]).toEqual([
       'feature-development',
       'project-question',
@@ -18,6 +18,7 @@ describe('routed-workflow (#336)', () => {
       'module-documentation',
       'pentest',
       'design-test',
+      'codebase-health',
       'rules-analyze',
       'root-cause-analysis',
       'no-workflow',
