@@ -26,7 +26,7 @@ describe('code-knowledge index over the paqad-ai repo', () => {
     expect(durationMs).toBeLessThan(30_000);
   }, 30_000);
 
-  it('queries buildProjectRepoMap and reports 0 production callers (AC-2)', async () => {
+  it('queries buildProjectRepoMap and finds its first production caller (AC-2)', async () => {
     const index = await buildCodeKnowledgeIndex(repoRoot);
     const result = queryCodeKnowledge(index, 'buildProjectRepoMap');
 
@@ -37,8 +37,11 @@ describe('code-knowledge index over the paqad-ai repo', () => {
       expect(card.file).toBe('src/rag/repo-map.ts');
       expect(card.line).toBeGreaterThan(0);
       expect(card.signature.length).toBeGreaterThan(0);
-      // The repo-map is finished but unwired: no production caller (tests excluded).
-      expect(card.caller_count).toBe(0);
+      // #353 recorded the repo-map as finished-but-unwired (0 production callers). Issue
+      // #356 wired it into the existing-surface planning digest — its first live consumer
+      // (AC-5), so it now has a production caller and is no longer dead code.
+      expect(card.caller_count).toBeGreaterThan(0);
+      expect(card.top_callers).toContain('src/context/existing-surface.ts');
     }
   }, 30_000);
 });

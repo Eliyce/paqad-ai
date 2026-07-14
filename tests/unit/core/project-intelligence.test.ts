@@ -49,6 +49,7 @@ describe('project intelligence defaults', () => {
       rag_relief_floor: 0.35,
       rag_top_n: 20,
       rag_max_file_size: 153600,
+      existing_surface_tokens: 1000,
       benchmark_gates: DEFAULT_BENCHMARK_GATES,
       benchmark_eval: DEFAULT_BENCHMARK_EVAL,
       adaptive_retrieval: {
