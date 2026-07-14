@@ -191,6 +191,13 @@ export const PATHS = {
   DOC_RUN_SESSION: '.paqad/session/doc-run.json',
   PENTEST_ROOT_DIR: '.paqad/pentest',
   PENTEST_RUNS_DIR: '.paqad/pentest/runs',
+  // Issue #355 — codebase-health audit (workflow #10). Distinct from the framework
+  // self-health checker (`src/health/`) and `module-health`: this is the on-demand
+  // project junk scan. Runs + baseline live under `.paqad/health`; reports under
+  // `docs/health` (mirrors the pentest run-dir / doc-output split).
+  HEALTH_ROOT_DIR: '.paqad/health',
+  HEALTH_RUNS_DIR: '.paqad/health/runs',
+  HEALTH_BASELINE: '.paqad/health/baseline.json',
   INDEXES_DIR: '.paqad/indexes',
   // Issue #353 — the deterministic, offline code-knowledge index: every exported
   // symbol (with signature + caller_count) and the file->file / file->symbol edges
@@ -203,6 +210,7 @@ export const PATHS = {
   RCA_DIR: 'docs/rca',
   PENTEST_DIR: 'docs/pentest',
   PENTEST_RETEST_DIR: 'docs/pentest/retests',
+  HEALTH_DIR: 'docs/health',
   RULES_DIR: 'docs/instructions/rules',
   MODULE_MAP: 'docs/instructions/rules/module-map.yml',
   TOOLS_DIR: 'docs/instructions/tools',
