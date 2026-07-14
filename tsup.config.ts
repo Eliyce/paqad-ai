@@ -27,6 +27,11 @@ export default defineConfig({
     // runtime/hooks/stage-marker-parse.mjs Stop hook to record the non-mutation
     // stage markers from the transcript.
     'stage-evidence/marker-parse': 'src/stage-evidence/marker-parse.ts',
+    // Ledger session-id resolver (issue #380, Issue 1) — lazy-imported by the
+    // runtime/hooks/agent-entry-session-start.mjs SessionStart hook to align the
+    // single-slot session cache to the live host session id (extends "bug #5"
+    // from finalization to bundle minting), same dedicated-entry pattern as above.
+    'rag-ledger/session': 'src/rag-ledger/session.ts',
     // Disabled-session audit recorder (buildout F2b) — lazy-imported by
     // verify-backstop.mjs's disabled branch as a small dist bundle, so the
     // disabled path stays light (no full dist/index.js load).
