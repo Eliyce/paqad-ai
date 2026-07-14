@@ -332,6 +332,17 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Intelligence / RAG',
     comment: 'Base branch for branch-aware RAG. Unset auto-detects main->master.',
   },
+  {
+    key: 'existing_surface_tokens',
+    env: 'PAQAD_EXISTING_SURFACE_TOKENS',
+    type: 'number',
+    default: 1000,
+    group: 'rag',
+    section: 'Intelligence / RAG',
+    comment:
+      'Token budget for the feature-development "Existing surface" planning digest ' +
+      '(existing symbols the model should reuse). Cards drop by rank past this budget.',
+  },
 
   // ── models group ───────────────────────────────────────────────────────
   {
@@ -823,6 +834,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
     rag_top_n: rn('rag_top_n'),
     rag_max_file_size: rn('rag_max_file_size'),
     rag_base_branch: raw.get('rag_base_branch')?.trim() || undefined,
+    existing_surface_tokens: rn('existing_surface_tokens'),
   });
 
   return {
@@ -1369,6 +1381,11 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
     put('rag_top_n', i.rag_top_n, d.intelligence.rag_top_n);
     put('rag_max_file_size', i.rag_max_file_size, d.intelligence.rag_max_file_size);
     put('rag_base_branch', i.rag_base_branch, d.intelligence.rag_base_branch);
+    put(
+      'existing_surface_tokens',
+      i.existing_surface_tokens,
+      d.intelligence.existing_surface_tokens,
+    );
   }
   if (overrides.strictness) {
     const s = overrides.strictness;
@@ -1517,6 +1534,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'rag_top_n',
       'rag_max_file_size',
       'rag_base_branch',
+      'existing_surface_tokens',
     ],
   },
   {

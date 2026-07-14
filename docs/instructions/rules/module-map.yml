@@ -1638,6 +1638,8 @@ modules:
         name: Turn Summarizer
       - slug: stream-truncator
         name: Stream Truncator
+      - slug: existing-surface
+        name: Existing-Surface Planning Digest (repo-map-ranked reuse cards)
     evidence:
       symbols:
         - ActionRecommendation
