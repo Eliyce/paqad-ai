@@ -255,6 +255,83 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
     expect(currentFeature(root, SES)).toBe(active);
   });
 
+  it('#380 Issue 2: closes the dangling last mutation stage when review is marked', () => {
+    const now = clock();
+    // Pre-code stages (satisfy the #310 defer) then the mutation edits in canonical
+    // order: development → checks → documentation_sync. The live writer forward-closes
+    // each earlier mutation stage as the next opens, but documentation_sync (the LAST
+    // mutation stage) is left open — no later mutation edit closes it.
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start', now });
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end', now });
+    recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'start', now });
+    recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'end', now });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/app.ts',
+      now,
+    });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'tests/app.test.ts',
+      now,
+    });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'docs/app.md',
+      now,
+    });
+
+    const dir = currentFeature(root, SES)!;
+    const before = readFeatureStageUnit(root, dir);
+    // documentation_sync is started but NOT ended — the exact #380 Issue 2 symptom.
+    expect(before.some((r) => r.kind === 'stage_start' && r.stage === 'documentation_sync')).toBe(
+      true,
+    );
+    expect(before.some((r) => r.kind === 'stage_end' && r.stage === 'documentation_sync')).toBe(
+      false,
+    );
+
+    // Recording the marked, completion-anchored `review` stage (index 3, BELOW
+    // documentation_sync's index 5) now forward-closes the dangling stage.
+    expect(recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start', now })).toBe(
+      true,
+    );
+    const after = readFeatureStageUnit(root, dir);
+    expect(after.some((r) => r.kind === 'stage_end' && r.stage === 'documentation_sync')).toBe(
+      true,
+    );
+    // INV-1: the target stage itself is opened, never closed by its own boundary.
+    expect(after.some((r) => r.kind === 'stage_start' && r.stage === 'review')).toBe(true);
+    expect(after.some((r) => r.kind === 'stage_end' && r.stage === 'review')).toBe(false);
+  });
+
+  it('#380 AC-3: a titled start on a fresh feature closes nothing (no earlier rows)', () => {
+    const now = clock();
+    // A titled start opens a brand-new feature bundle with no prior stage rows, so the
+    // forward-close is a pure no-op and the stage opens normally.
+    expect(
+      recordMarkedStage(root, {
+        sessionId: SES,
+        stage: 'planning',
+        phase: 'start',
+        title: 'fresh feature',
+        issue: '380',
+        now,
+      }),
+    ).toBe(true);
+    const dir = currentFeature(root, SES)!;
+    const rows = readFeatureStageUnit(root, dir);
+    expect(rows.filter((r) => r.kind === 'stage_start')).toHaveLength(1);
+    expect(rows.some((r) => r.kind === 'stage_start' && r.stage === 'planning')).toBe(true);
+    expect(rows.some((r) => r.kind === 'stage_end')).toBe(false);
+  });
+
   it('returns false (never throws) when the ledger write itself fails', () => {
     // A KNOWN stage passes the registry guard and enters the record path, but the
     // ledger append throws because the project root is a FILE, not a directory

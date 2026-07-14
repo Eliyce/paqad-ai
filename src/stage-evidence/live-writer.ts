@@ -219,6 +219,49 @@ export interface MarkedStageInput {
 }
 
 /**
+ * Close every still-open stage before a marked stage opens (issue #380, Issue 2).
+ *
+ * The live edit writer forward-closes lower-indexed stages on each mutation edit
+ * (`recordLiveStageEdit`), but the LAST mutation stage (`documentation_sync`) has no
+ * later mutation edit to close it. The next boundary is then a MARKED stage recorded
+ * here — canonically `review`, which is COMPLETION-ANCHORED: it sits at index 3, BELOW
+ * `checks` (4) and `documentation_sync` (5), and is recorded last, after those mutation
+ * stages have run. So an index-based "close earlier stages" would miss the very stage
+ * left dangling. Instead close ANY started-but-not-ended stage that is not the one now
+ * opening: stages are sequential, so a new marked boundary means every other open stage
+ * is done. This is safe against the fold's ordering check — a pair involving the
+ * completion-anchored `review` is exempt from ordering (fold.ts), so closing a
+ * higher-indexed mutation stage as `review` opens raises no spurious violation (INV-1:
+ * the target stage is never itself closed). Best-effort per stage — a recorder throw
+ * never wedges the marker path.
+ */
+function closeOpenStagesForMarkedStart(
+  projectRoot: string,
+  targetStage: string,
+  ctx: { sessionId?: string | null; adapter: string; now?: () => Date },
+): void {
+  const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) return;
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  const started = stagesWithKind(rows, 'stage_start');
+  const ended = stagesWithKind(rows, 'stage_end');
+  for (const row of rows) {
+    if (row.kind !== 'stage_start' || typeof row.stage !== 'string') continue;
+    const s = row.stage;
+    if (s !== targetStage && started.has(s) && !ended.has(s)) {
+      ended.add(s);
+      try {
+        endStage(projectRoot, s, {}, { sessionId, dirName, adapter: ctx.adapter, now: ctx.now });
+      } catch {
+        // Best-effort per stage: a forged/registry-unknown open stage the recorder
+        // cannot end is skipped so the marked boundary (e.g. `review`) still records.
+      }
+    }
+  }
+}
+
+/**
  * Record a stage boundary the marker parser (fix B) extracts from the agent's
  * `paqad:stage <name> <start|end>` control line. The ROW is script-minted (clock +
  * validation inside the recorder), so the model only supplies a bare boundary
@@ -240,6 +283,12 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
       openStageEvidence(projectRoot, { ...ctx, title: input.title, issue: input.issue });
     }
     if (input.phase === 'start') {
+      // Close any still-open stage first (issue #380): the mutation→marked boundary
+      // (e.g. documentation_sync → review) is the one the edit writer's forward-close
+      // cannot reach, because the dangling mutation stage outranks the completion-
+      // anchored `review` now opening. A titled start opened a fresh feature above,
+      // whose ledger has no earlier rows, so this is a no-op there.
+      closeOpenStagesForMarkedStart(projectRoot, input.stage, ctx);
       startStage(projectRoot, input.stage, ctx);
     } else {
       endStage(projectRoot, input.stage, { artifactPaths: input.artifactPaths ?? [] }, ctx);
