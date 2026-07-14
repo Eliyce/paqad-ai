@@ -1,5 +1,13 @@
 # paqad-ai
 
+## 1.59.0
+
+### Minor Changes
+
+- deb1cb9: Make the end-of-change verdict visible, honest, and enforced (#368). The completion backstop now surfaces the one end-of-change receipt to the developer whether the verdict passes, fails, or is inconclusive — a failing "Needs your attention" verdict can no longer be hidden on stderr while a PR ships. A hard-failing feature-development change now blocks the turn at the Stop seam via the documented `decision:block` channel (exit 2 is a no-op there), bounded by the stop-hook loop guard. A feature-development change with no real `paqad-ai checks run` report reads as Inconclusive and shows its `checks` stage as unverified rather than done. The `checks.block_on_failure` escalation stays script-enforced; `review_findings` / `stale_docs` are documented as agent-raised and Decision-Pause-enforced rather than falsely claiming script enforcement. The cross-provider verdict tiering (hook-surfaced on Claude, agent-narrated on Codex/Gemini/advisory) is documented so the promise is truthful per host.
+
+  Also (AC-D2, from the second reproduction on the #355 session): the evidence receipt's `verification_result` is now three-way — `FAILED` only on a genuine failure, `INCONCLUSIVE` when a measure could not run (a `blocked` ratchet from unwired/absent tooling) or could not be judged, and `PASSED` when every row passed. A couldn't-verify is no longer reported as a failure, so an unwired quality-ratchet measure can no longer manufacture a false `FAILED` on the attestation.
+
 ## 1.58.0
 
 ### Minor Changes
