@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type { HealthBaseline, HealthFinding } from '@/core/types/codebase-health.js';
 import {
   applyBaselineStatus,
@@ -56,7 +57,7 @@ describe('readBaseline', () => {
     const loaded = readBaseline(root) as HealthBaseline;
     expect(loaded.finding_ids).toEqual(['HL-1', 'HL-2']); // sorted
     expect(loaded.generated_by).toBe('paqad-ai');
-    expect(baselinePath(root)).toContain(PATHS.HEALTH_BASELINE);
+    expect(toPosixPath(baselinePath(root))).toContain(PATHS.HEALTH_BASELINE);
     expect(readFileSync(join(root, PATHS.HEALTH_BASELINE), 'utf8').endsWith('\n')).toBe(true);
   });
 });
