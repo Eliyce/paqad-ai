@@ -38,11 +38,13 @@ export function findingFingerprint(finding: Omit<HealthFinding, 'id'>): string {
     evidence: finding.evidence,
     suggestion: finding.suggestion,
   });
-  return createHash('sha1').update(payload).digest('hex').slice(0, 8).toUpperCase();
+  // SHA-256 (not for security — a stable content-addressed dedup key; secret bytes
+  // never reach here, only the already-redacted fingerprint does).
+  return createHash('sha256').update(payload).digest('hex').slice(0, 8).toUpperCase();
 }
 
 /**
- * Assign stable `HL-<sha1[:8]>` ids, suffixing `-NN` on a fingerprint collision
+ * Assign stable `HL-<sha256[:8]>` ids, suffixing `-NN` on a fingerprint collision
  * (mirrors the pentest `assignFindingIds` scheme).
  */
 export function assignHealthFindingIds<T extends Omit<HealthFinding, 'id'>>(

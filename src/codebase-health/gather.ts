@@ -158,7 +158,9 @@ export function builtinSecretScan(files: Array<{ path: string; content: string }
 }
 
 function redactedFingerprint(value: string): string {
-  return createHash('sha1').update(value).digest('hex').slice(0, 12);
+  // SHA-256, one-way: the point is to record a stable, non-reversible marker for a
+  // secret WITHOUT persisting its bytes — never an integrity/auth primitive.
+  return createHash('sha256').update(value).digest('hex').slice(0, 12);
 }
 
 export interface DocTimestampInput {
