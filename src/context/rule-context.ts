@@ -134,6 +134,14 @@ export function composeRuleContext(
 
 export interface WriteRuleContextOptions {
   /**
+   * The composed `## Existing surface` planning digest (issue #356): the exported
+   * symbols that already exist for the files in play, so the model reuses instead of
+   * duplicating. Appended with the rules (a feature-development planning aid, ahead of
+   * the ephemeral retrieval slices) and emitted ONLY when {@link loadRules} is true —
+   * so no other route ever carries it (INV-1). Empty/absent ⇒ omitted.
+   */
+  existingSurfaceSection?: string;
+  /**
    * The composed codebase-memory slice (RAG buildout F21), appended after the rule
    * slice (durable facts sit with the rules, ahead of the ephemeral retrieval slices).
    * Empty/absent ⇒ omitted, so the artifact stays byte-identical to before F21.
@@ -179,10 +187,15 @@ export async function writeRuleContext(
   // loadRules:false (any other routed workflow) the rule slice is not composed at all.
   const loadRules = options.loadRules ?? true;
   const store = loadRules ? await readCompiledRules(projectRoot) : null;
+  // #356 — the existing-surface digest is a feature-development-only planning aid, so it
+  // rides with the rules (loadRules). On any other route it is dropped even if a caller
+  // passed it, keeping INV-1 structural rather than caller-trusted.
+  const existingSurfaceSection = loadRules ? (options.existingSurfaceSection?.trim() ?? '') : '';
   const memorySection = options.memorySection?.trim() ?? '';
   const retrievalSection = options.retrievalSection?.trim() ?? '';
   const driftSection = options.driftSection?.trim() ?? '';
-  if (!store && !memorySection && !retrievalSection && !driftSection) return null;
+  if (!store && !existingSurfaceSection && !memorySection && !retrievalSection && !driftSection)
+    return null;
 
   let markdown = '';
   if (store) {
@@ -196,8 +209,9 @@ export async function writeRuleContext(
       markdown = `${markdown}\n${DECISION_PAUSE_REMINDER}\n`;
     }
   }
-  // Durable memory (F21) → ephemeral retrieval slices (F11) → base-drift heads-up (F27).
-  for (const section of [memorySection, retrievalSection, driftSection]) {
+  // Existing surface (#356, planning aid, feature-development only) → durable memory
+  // (F21) → ephemeral retrieval slices (F11) → base-drift heads-up (F27).
+  for (const section of [existingSurfaceSection, memorySection, retrievalSection, driftSection]) {
     if (section) {
       markdown = markdown ? `${markdown}\n${section}\n` : `${section}\n`;
     }
