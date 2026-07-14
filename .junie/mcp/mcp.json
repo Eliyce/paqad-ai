@@ -1,0 +1,55 @@
+{
+  "mcpServers": {
+    "figma": {
+      "enabled": true,
+      "stack": "react",
+      "provides": [
+        "design-specs",
+        "components",
+        "layouts"
+      ],
+      "replaces": [
+        "web-search-design-research"
+      ]
+    },
+    "vite-inspector": {
+      "enabled": true,
+      "stack": "react",
+      "provides": [
+        "build-graph",
+        "asset-manifest",
+        "hmr-config"
+      ],
+      "replaces": [
+        "vite-config-scanning",
+        "asset-manifest-scanning"
+      ]
+    },
+    "react-router-mcp": {
+      "enabled": true,
+      "stack": "react",
+      "provides": [
+        "route-tree",
+        "lazy-chunks",
+        "navigation-boundaries"
+      ],
+      "replaces": [
+        "manual-route-documentation"
+      ]
+    },
+    "tailwind-mcp": {
+      "enabled": true,
+      "stack": "react",
+      "provides": [
+        "design-tokens",
+        "utility-classes",
+        "theme-config"
+      ],
+      "replaces": [
+        "css-web-search",
+        "manual-tailwind-scanning"
+      ]
+    }
+  },
+  "resolved_artifacts": []
+}
