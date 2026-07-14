@@ -43,6 +43,38 @@ export async function loadPaqadApi() {
   return import(distUrl.href);
 }
 
+/**
+ * True when the verdict carries a HARD failure — at least one gate reported `fail`
+ * (issue #368). This is stricter than `!verdict.ok`: a verdict is also not-ok when it
+ * is merely Inconclusive (unproven signals, no failing gate), and Inconclusive must
+ * surface visibly WITHOUT blocking the turn. Defensive: a verdict with no gates array
+ * (older/mocked shapes) falls back to `!verdict.ok` so a real failure never slips
+ * through as non-blocking.
+ */
+export function verdictHasHardFailure(verdict) {
+  if (Array.isArray(verdict?.gates)) {
+    return verdict.gates.some((gate) => gate?.status === 'fail');
+  }
+  return verdict?.ok === false;
+}
+
+/**
+ * The concise, model-facing instruction attached to a `{decision:'block'}` on a hard
+ * failure (issue #368). It reuses the verdict summary (which already names the failing
+ * gates in paqad's voice) and appends one remediation line, so the model is told BOTH
+ * what failed and how to clear it before the turn can end.
+ */
+export function blockReason(verdict) {
+  const summary = verdict?.summary ?? 'A verification gate is blocking this change.';
+  return (
+    `${summary}\n` +
+    'Resolve the blocking item(s) above before ending the turn: mark any missing ' +
+    'feature-development stage (planning → specification → development → review → checks → ' +
+    'documentation_sync) with an artifact-bearing end, run `paqad-ai checks run` so tests are ' +
+    'proven, and fix any failing gate. This turn is held open until the change verifies.'
+  );
+}
+
 export async function runVerificationBackstop({
   origin,
   softFail,
@@ -82,35 +114,40 @@ export async function runVerificationBackstop({
     // contract words + per-stage evidence). Fall back to the plain summary if no
     // receipt was composed.
     const message = verdict.receipt ?? verdict.summary;
-    if (verdict.ok) {
-      // On the Claude Stop hook, emit the receipt as a visible `{systemMessage}` so
-      // the developer actually sees the verdict (bare stdout is transcript-only). On
-      // the git/CI backstop (a terminal), plain text reads better.
-      if (origin === 'hook-completion') {
-        out.write(`${JSON.stringify({ systemMessage: message })}\n`);
-      } else {
-        out.write(`${message}\n`);
+
+    // Issue #368 — the Claude Stop hook. The developer-facing channel is the JSON
+    // `{systemMessage}` on stdout at exit 0, which Claude renders whether the verdict
+    // passes OR fails — so a "Needs your attention" receipt is exactly as visible as
+    // "Safe to merge" (AC-C1), and a computed FAILED verdict can never be hidden on
+    // stderr while a PR ships (AC-D1, the #353 disaster). Blocking rides on the
+    // documented `{decision:'block'}` field, NOT exit 2 — exit 2 does not block a Stop
+    // hook (it is a PreToolUse mechanism), so the old `return 2` was both invisible AND
+    // a no-op. git/CI keep the exit-code-gated path below.
+    if (origin === 'hook-completion') {
+      const payload = { systemMessage: message };
+      // Give the gate real teeth on a HARD failure (a gate reported `fail`, e.g. a
+      // mandatory stage missing or a red checks report): tell the model to keep working
+      // and resolve it before the turn ends. An Inconclusive verdict (no failing gate —
+      // only unproven signals) is surfaced but never blocks: "do not over-trust", not
+      // "you must fix". The loop guard (`loopActive`, from Claude's `stop_hook_active`)
+      // means the gate already bit once this turn, so a second block would loop — step
+      // aside and let the session end (git/CI remains the hard gate).
+      if (verdictHasHardFailure(verdict) && !loopActive) {
+        payload.decision = 'block';
+        payload.reason = blockReason(verdict);
       }
+      out.write(`${JSON.stringify(payload)}\n`);
       return 0;
     }
-    // Stop-hook contract: on a block (exit 2) the host surfaces only STDERR to
-    // the model — STDOUT is transcript-only. Writing the verdict to stdout made
-    // the block invisible ("No stderr output"). Mirror capability-gate.mjs so the
-    // failing receipt reaches the model.
+
+    // git-backstop / ci-backstop — a real terminal / CI process where the exit code IS
+    // the gate. Plain text reads better than JSON here, and a hard fail must exit 2 so
+    // the commit / CI step fails. This layer never sets `loopActive`.
+    if (verdict.ok) {
+      out.write(`${message}\n`);
+      return 0;
+    }
     err.write(`${message}\n`);
-    // Loop guard (fix #2) — when the host says we are already inside a Stop-hook
-    // continuation (`loopActive`, set only by the completion hook from Claude's
-    // `stop_hook_active`), the gate has already bitten once this turn. Blocking
-    // again would loop forever on an unresolvable verdict, so we step aside: the
-    // summary is surfaced (above) but the exit is a non-blocking 0. git/CI stay the
-    // hard, non-bypassable layer. Never reached by the git/CI backstop, which
-    // never sets loopActive.
-    if (loopActive) {
-      err.write(
-        '[paqad] already surfaced this turn — not blocking again so the session can end (git/CI remains the hard gate).\n',
-      );
-      return 0;
-    }
     return 2;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

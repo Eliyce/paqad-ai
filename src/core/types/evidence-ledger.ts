@@ -168,8 +168,12 @@ export interface VsaPredicate {
   /** ISO-8601 time the verification completed. */
   time_verified: string;
   policy: { predicate_type: typeof PAQAD_VSA_PREDICATE_TYPE; schema_version: number };
-  /** `PASSED` iff no row is `fail` and none are `blocked`/`inconclusive`. */
-  verification_result: 'PASSED' | 'FAILED';
+  /** Three-way outcome (issue #368, AC-D2): `FAILED` only when a row genuinely
+   *  `fail`ed; `INCONCLUSIVE` when nothing failed but a measure could not run
+   *  (`blocked`) or could not be judged (`inconclusive`) — a couldn't-verify is never
+   *  a failure; `PASSED` when every row passed. This stops a false `FAILED` from an
+   *  unwired/absent tool (e.g. a ratchet measure that could not run). */
+  verification_result: 'PASSED' | 'FAILED' | 'INCONCLUSIVE';
   /** The anti-theater grade: passes split by how they were established. */
   graded_results: GradedEvidenceSummary;
   /** Per-engine row counts, for at-a-glance provenance. */

@@ -1,0 +1,22 @@
+{
+  "id": "D-01KXGC99J6DY3TE8J0YYCMG5E0",
+  "category": "architecture-path",
+  "title": "Stop-hook verdict enforcement mechanism (#368)",
+  "context": "The end-of-change verdict was surfaced to the developer only on PASS; fail/inconclusive went to stderr (model-only) and exit-2 is a no-op on a Stop hook. How hard should a failed verdict bite?",
+  "options": [
+    {
+      "option_key": "block",
+      "label": "Visible receipt + decision:block (real teeth)"
+    },
+    {
+      "option_key": "surface",
+      "label": "Visible receipt only, no block"
+    }
+  ],
+  "recommendation": "block",
+  "created_at": "2026-07-14T13:15:28.198Z",
+  "status": "resolved",
+  "chosen": "block",
+  "rationale": "User chose block+visible receipt: the real 'never ships hidden-FAILED' guarantee, aligned with the no-git/CI enforcement mandate; bounded by the stop_hook_active loop guard + block cap.",
+  "resolved_at": "2026-07-14T13:15:42.339Z"
+}

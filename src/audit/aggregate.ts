@@ -94,7 +94,7 @@ function attestationEvents(projectRoot: string): SiemEvent[] {
   });
 }
 
-function summarizeReceipt(result: 'PASSED' | 'FAILED', sealed: boolean): string {
+function summarizeReceipt(result: 'PASSED' | 'FAILED' | 'INCONCLUSIVE', sealed: boolean): string {
   return `verification ${result}; chain ${sealed ? 'sealed' : 'BROKEN'}`;
 }
 

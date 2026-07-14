@@ -529,6 +529,17 @@ export function renderDefaultFeatureDevelopmentPolicyYaml(): string {
   return `# Feature Development Stage Policy
 # This file customizes how the built-in feature-development workflow behaves in this project.
 # The framework still owns routing, phase order, and mandatory safety stages.
+#
+# Enforcement tiers (issue #368) — an escalation is honoured on one of two tiers, and
+# this contract never claims script enforcement it does not have:
+#   - SCRIPT-ENFORCED (deterministic): checks.block_on_failure and the mandatory-stage
+#     completeness gate. \`paqad-ai checks run\` exits non-zero on any red command and the
+#     completion backstop reads its report; a feature-dev change with no report reads
+#     Inconclusive, never a vacuous pass.
+#   - AGENT-RAISED -> DECISION-PAUSE-ENFORCED: review.escalation.review_findings and
+#     documentation_sync.escalation.stale_docs need model judgment to raise, so no script
+#     detects them; once raised as a \`stop\`, the Decision-Pause gate holds edits until the
+#     packet resolves. Not a false "a script proves this" promise.
 schema_version: "1"
 merge_mode: append
 
