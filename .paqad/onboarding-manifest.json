@@ -105,7 +105,9 @@
       "design_research": false,
       "team_agents": true,
       "analytics_instrumentation": false,
-      "lean_rules": true
+      "lean_rules": true,
+      "feature_report": true,
+      "feature_report_auto_open": false
     },
     "enterprise": {
       "enabled": true,
@@ -132,6 +134,7 @@
       "embedding_provider": "local",
       "embedding_model": "Xenova/all-MiniLM-L6-v2",
       "rag_similarity_threshold": 0.75,
+      "rag_relief_floor": 0.35,
       "rag_top_n": 20,
       "rag_max_file_size": 153600,
       "benchmark_gates": {
@@ -293,6 +296,96 @@
         "confidence": "medium"
       },
       {
+        "signal": "node-cli detected from package.json manifest fields",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
+        "implies": "node-cli",
+        "confidence": "medium"
+      },
+      {
+        "signal": "node-cli detected from package.json package metadata",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
+        "implies": "node-cli",
+        "confidence": "high"
+      },
+      {
+        "signal": "node-cli detected from package.json package metadata",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
+        "implies": "node-cli",
+        "confidence": "high"
+      },
+      {
+        "signal": "node-cli detected from src/cli",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/src/cli",
+        "implies": "node-cli",
+        "confidence": "medium"
+      },
+      {
+        "signal": "typescript detected from tsconfig.json",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/tsconfig.json",
+        "implies": "typescript",
+        "confidence": "medium"
+      },
+      {
+        "signal": "vitest detected from package metadata",
+        "file": "package metadata",
+        "implies": "vitest",
+        "confidence": "medium"
+      },
+      {
+        "signal": "eslint detected from package metadata",
+        "file": "package metadata",
+        "implies": "eslint",
+        "confidence": "medium"
+      },
+      {
+        "signal": "node-library detected from package.json package metadata",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
+        "implies": "node-library",
+        "confidence": "high"
+      },
+      {
+        "signal": "node-library detected from src/index.ts",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/src/index.ts",
+        "implies": "node-library",
+        "confidence": "medium"
+      },
+      {
+        "signal": "typescript detected from tsconfig.json",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/tsconfig.json",
+        "implies": "typescript",
+        "confidence": "medium"
+      },
+      {
+        "signal": "vitest detected from package metadata",
+        "file": "package metadata",
+        "implies": "vitest",
+        "confidence": "medium"
+      },
+      {
+        "signal": "eslint detected from package metadata",
+        "file": "package metadata",
+        "implies": "eslint",
+        "confidence": "medium"
+      },
+      {
+        "signal": "react detected from package.json package metadata",
+        "file": ".claude/worktrees/quirky-cartwright-87f313/graph-ui/package.json",
+        "implies": "react",
+        "confidence": "high"
+      },
+      {
+        "signal": "vite-spa detected from package metadata",
+        "file": "package metadata",
+        "implies": "vite-spa",
+        "confidence": "medium"
+      },
+      {
+        "signal": "tailwind detected from package metadata",
+        "file": "package metadata",
+        "implies": "tailwind",
+        "confidence": "medium"
+      },
+      {
         "signal": "react detected from package.json package metadata",
         "file": "graph-ui/package.json",
         "implies": "react",
@@ -311,7 +404,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-07-10T09:08:27.041Z",
+    "timestamp": "2026-07-14T09:46:34.851Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -467,6 +560,42 @@
     },
     {
       "path": ".claude/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": "GEMINI.md",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/.gitignore",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/settings.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/settings.hooks.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/mcp.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/cache.json",
+      "auto_update": true
+    },
+    {
+      "path": ".gemini/memory.json",
+      "auto_update": true
+    },
+    {
+      "path": ".junie/AGENTS.md",
+      "auto_update": true
+    },
+    {
+      "path": ".junie/mcp/mcp.json",
       "auto_update": true
     },
     {

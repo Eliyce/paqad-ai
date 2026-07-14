@@ -21,6 +21,31 @@ const WORKFLOW_PATTERNS: Array<{
     priority: 240,
     patterns: ['run a pentest', 'penetration test', 'security audit'],
   },
+  {
+    workflow: 'health-retest',
+    priority: 245,
+    patterns: ['health retest', 'health-retest', 'codebase health retest'],
+  },
+  {
+    workflow: 'codebase-health',
+    priority: 235,
+    // Kept below pentest (240) so "security audit" stays pentest; phrasings are
+    // audit-flavoured so a "fix the bug" cleanup does not get stolen.
+    patterns: [
+      'codebase health',
+      'code health',
+      'health check',
+      'health check-up',
+      'health audit',
+      "project's health",
+      'project health',
+      'audit my codebase',
+      'audit the codebase',
+      'find dead code',
+      'check for unused',
+      'cleanup audit',
+    ],
+  },
   { workflow: 'root-cause-analysis', priority: 230, patterns: ['root cause', 'rca'] },
   {
     workflow: 'module-documentation',

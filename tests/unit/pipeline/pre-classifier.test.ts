@@ -139,4 +139,31 @@ describe('PreClassifier', () => {
 
     expect(result.resolved.workflow).toBe('documentation-update');
   });
+
+  it('routes health prompts to codebase-health while pentest phrasings stay pentest (#355 AC-6)', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+
+    const healthPrompts = [
+      "can you check my project's health?",
+      'run a codebase health audit',
+      'find dead code in this repo',
+    ];
+    for (const request of healthPrompts) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow, `"${request}" → codebase-health`).toBe('codebase-health');
+    }
+
+    const retest = await new PreClassifier(process.cwd()).classify({
+      request: 'run a health retest',
+    });
+    expect(retest.resolved.workflow).toBe('health-retest');
+
+    const pentest = await new PreClassifier(process.cwd()).classify({
+      request: 'run a pentest of the app',
+    });
+    expect(pentest.resolved.workflow).toBe('pentest');
+  });
 });

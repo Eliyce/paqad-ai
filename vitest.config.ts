@@ -102,6 +102,10 @@ export default defineConfig({
         'src/patterns/pattern-rag.ts',
         'src/patterns/pattern-recorder.ts',
         'src/patterns/pattern-suggester.ts',
+        // The codebase-health production gatherer (issue #355) is real subprocesses
+        // + fs, like the pentest engine — its pure inputs (parsers, detectors,
+        // assembly) are covered on their own; the orchestration is covered via a fake.
+        'src/codebase-health/gatherer.ts',
         'src/pentest/file-check-mapper.ts',
         'src/pentest/findings.ts',
         'src/pentest/incremental-scanner.ts',

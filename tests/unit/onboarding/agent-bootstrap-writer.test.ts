@@ -42,6 +42,7 @@ describe('agent bootstrap document', () => {
       'module-documentation',
       'pentest',
       'design-test',
+      'codebase-health',
       'rules-analyze',
       'root-cause-analysis',
       'no workflow',

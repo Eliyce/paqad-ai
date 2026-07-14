@@ -47,3 +47,9 @@ market_research=true
 # ── Added in a newer paqad version ────────────────────────────
 # Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
 # lean_rules=true
+
+# ── Added in a newer paqad version ────────────────────────────
+# Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)
+feature_report=true
+# Open the per-feature report in a browser when a change completes (issue #371). OFF (default) just writes + names the file. Sandbox-aware: never opens under CI/SSH/remote. (env: PAQAD_FEATURE_REPORT_AUTO_OPEN)
+feature_report_auto_open=true

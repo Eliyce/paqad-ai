@@ -12,6 +12,7 @@ import { detectDelivery } from '@/delivery/detection';
 import { recordDecisionOpened } from '@/planning/decision-ledger';
 import { recordRuleDrift, recordRuleFindings } from '@/rule-scripts/rule-ledger';
 import { recordDisabledSession } from '@/session-ledger/disabled-audit';
+import { recordHealthRun } from '@/codebase-health/ledger';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types';
 
@@ -80,6 +81,26 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     recordRuleDrift(root, { blocked: true, counts: { 'RS-001': 2 } });
     const event = withVerdict(aggregateSiemEvents(root), 'rule-evidence', 'blocked');
     expect(event.detail).toBe('drift blocked');
+  });
+
+  it('folds a codebase-health run into the SIEM feed with a finding-count detail (#355 AC-7)', () => {
+    recordHealthRun(
+      root,
+      {
+        report_id: 'HEALTH-2026',
+        workflow: 'codebase-health',
+        offline: true,
+        finding_count: 4,
+        blocked_count: 1,
+        new_since_baseline: 4,
+        pre_existing: 0,
+      },
+      { sessionId: 'ses-h' },
+    );
+    const [event] = bySource(aggregateSiemEvents(root), 'codebase-health-run');
+    expect(event.session_id).toBe('ses-h');
+    expect(event.detail).toContain('health run HEALTH-2026');
+    expect(event.detail).toContain('4 finding(s)');
   });
 
   it('records a disabled session as a visible bypass (verdict disabled)', () => {

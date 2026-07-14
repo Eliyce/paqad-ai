@@ -31,6 +31,7 @@ needs-manual-verification
 # PR — no project-side codes.
 PEN-      # pentest findings (security workflow)
 DT-       # design-test findings (design-system audit; issue #76)
+HL-       # codebase-health findings (health workflow; issue #355; docs/health/<ts>.json)
 MD-       # prospective module decisions (issue #80, Phase 1; .paqad/decisions/module-decisions/)
 RS-       # rule-script drift findings (rules-as-scripts; issue #89; .paqad/scripts/rules/.cache/drift.json)
 
@@ -46,3 +47,14 @@ motion
 copy
 performance
 documentation-drift
+
+# codebase-health category
+# Categories used by HL-* findings. See runtime/capabilities/coding/rules/codebase-health.md.
+unused-dependency
+vulnerable-dependency
+deprecated-dependency
+secret-leak
+dead-code
+duplication
+stale-doc
+ai-slop

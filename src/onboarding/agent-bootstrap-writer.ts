@@ -60,7 +60,7 @@ A value of \`false\`, \`0\`, \`no\`, or \`off\` (case-insensitive) means **OFF**
 
 ## 2. Route first — pick one workflow, then load only what it needs
 
-Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 9 workflows by intent, and narrate the pick in one \`▸ paqad\` line (see the narration contract):
+Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 10 workflows by intent, and narrate the pick in one \`▸ paqad\` line (see the narration contract):
 
 1. **feature-development** — any change to code. This includes bug fixes, refactors, cleanups, and migrations; the name is just "development". Scope is every code change **except** a change confined to the \`docs/\` and \`.paqad/\` directories: a change that touches any other directory is feature-development even when it also edits files under \`docs/\` or \`.paqad/\`, and only a change made entirely within \`docs/\` and/or \`.paqad/\` is out of scope.
 2. **project-question** — answer a question about the project. Check \`docs/\` first, then the code. No code change.
@@ -68,9 +68,10 @@ Before loading the project contract, decide what this message is. As your FIRST 
 4. **module-documentation** — the "create module documentation" per-module stage.
 5. **pentest** — a full security test (backed by **pentest-retest** for re-runs).
 6. **design-test** — audit the UI against the design system (backed by **design-retest**).
-7. **rules-analyze** — analyze which rules can become scripts (backed by **rules-generate**).
-8. **root-cause-analysis** — post-incident analysis.
-9. **no workflow** — small talk or anything that is not one of the above. Load nothing, no RAG; just reply.
+7. **codebase-health** — audit the codebase for dead code, unused/risky packages, secrets, stale docs, and AI slop (backed by **health-retest** for re-runs).
+8. **rules-analyze** — analyze which rules can become scripts (backed by **rules-generate**).
+9. **root-cause-analysis** — post-incident analysis.
+10. **no workflow** — small talk or anything that is not one of the above. Load nothing, no RAG; just reply.
 
 How to decide:
 
@@ -93,9 +94,9 @@ Always load these and treat them as the canonical contract for documentation and
 - \`docs/instructions/design-system\`
 - \`docs/instructions/workflows\` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)
 
-**Rules load only for \`feature-development\` (issue #336).** When (and only when) you routed to feature-development, load the rules — artifact-first (issue #284): when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 8 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
+**Rules load only for \`feature-development\` (issue #336).** When (and only when) you routed to feature-development, load the rules — artifact-first (issue #284): when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 9 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
 
-**RAG** (when \`rag_enabled\`): all 8 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
+**RAG** (when \`rag_enabled\`): all 9 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
 
 When you work inside a specific module, also load that module's documentation under \`docs/modules/\` as those rules direct.
 

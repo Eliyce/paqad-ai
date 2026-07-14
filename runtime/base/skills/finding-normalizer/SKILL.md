@@ -6,6 +6,8 @@ triggers:
   - workflow:
       - pentest
       - pentest-retest
+      - codebase-health
+      - health-retest
 cacheable: false
 cache_key_inputs: []
 output_format: json
