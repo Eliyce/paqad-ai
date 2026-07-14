@@ -11,6 +11,35 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { ulid } from '@/core/ids/ulid.js';
 
+/**
+ * Persist a KNOWN host session id to the single-slot ledger-session cache, without
+ * minting (issue #380, Issue 1 — extend "bug #5" from finalization to bundle minting).
+ *
+ * The SessionStart hook calls this with the live host session id so the machine-local
+ * cache is aligned to the current session BEFORE the agent runs anything. Without it, a
+ * shell `paqad-ai stage start --title` invoked before the first edit resolves the cache
+ * — which may still hold a PRIOR session's id — and mints its feature bundle under that
+ * stale session, while the PreToolUse gate keys on the true host id: the bundle and the
+ * gate disagree, orphaning the bundle and blocking the edit.
+ *
+ * Returns true when a non-empty id was written, false otherwise (no id → nothing to
+ * align; never mints here). Best-effort: a write failure is swallowed — the next hook
+ * that carries the host id re-aligns the cache.
+ */
+export function persistLedgerSessionId(projectRoot: string, sessionId?: string | null): boolean {
+  const cleaned = sessionId?.trim();
+  if (!cleaned) return false;
+  try {
+    const path = join(projectRoot, PATHS.LEDGER_SESSION_ID);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, cleaned, 'utf8');
+    return true;
+    /* v8 ignore next 4 -- best-effort cache write; a fs failure is not reproduced in tests */
+  } catch {
+    return false;
+  }
+}
+
 /** Resolve a session id: the host hint when present, else the cached/minted local id. */
 export function resolveSessionId(projectRoot: string, hint?: string | null): string {
   const path = join(projectRoot, PATHS.LEDGER_SESSION_ID);

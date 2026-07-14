@@ -16,7 +16,7 @@ import {
   openStageEvidence,
   startStage,
 } from '@/stage-evidence/index.js';
-import { recordLiveStageEdit } from '@/stage-evidence/live-writer.js';
+import { recordLiveStageEdit, recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { formatValidationError, validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 
@@ -110,6 +110,26 @@ describe('stage-evidence hardening edges', () => {
       targetPath: 'src/a.ts',
     });
     expect(stage).toBe('development');
+  });
+
+  it('#380: a marked start survives a forged open stage its forward-close cannot end', () => {
+    const { dirName } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    // A forged, registry-unknown open stage_start: the #380 forward-close loop's
+    // endStage throws for it — recordMarkedStage must swallow that per-stage and still
+    // record the marked boundary (the dangling stage never blocks the boundary).
+    appendFeatureStageRow(root, SES, dirName, {
+      adapter: 'claude-code',
+      kind: 'stage_start',
+      stage: 'not_a_registry_stage',
+      event_status: 'started',
+      evidence_source: 'live-mark',
+    });
+    expect(recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start' })).toBe(true);
+    const rows = readFeatureStageUnit(root, dirName);
+    expect(rows.some((row) => row.kind === 'stage_start' && row.stage === 'review')).toBe(true);
+    expect(
+      rows.some((row) => row.kind === 'stage_end' && row.stage === 'not_a_registry_stage'),
+    ).toBe(false);
   });
 
   it('finalize threads a caller-supplied subjectDigest onto the inferred backstop row', () => {

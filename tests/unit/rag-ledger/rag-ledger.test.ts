@@ -9,7 +9,7 @@ import { readSessionDoc } from '@/session-ledger/ledger.js';
 import { foldRagEvidenceSession } from '@/rag-ledger/fold.js';
 import { openRagConversation, recordRagEvidence } from '@/rag-ledger/recorder.js';
 import { validateRagEvidenceRow } from '@/rag-ledger/schema.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { persistLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { RAG_EVIDENCE_DOC_TYPE } from '@/rag-ledger/types.js';
 
 let tick = 0;
@@ -98,6 +98,45 @@ describe('resolveSessionId', () => {
     expect(first).toMatch(/^ses_[0-9a-z]{26}$/);
     expect(resolveSessionId(root)).toBe(first); // cached
     expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe(first);
+  });
+});
+
+describe('persistLedgerSessionId (issue #380, Issue 1)', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-rl-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('aligns a stale cache to the live host id so bundle minting keys on it', () => {
+    // A prior session's id still sitting in the single-slot cache.
+    mkdirSync(dirname(join(root, PATHS.LEDGER_SESSION_ID)), { recursive: true });
+    writeFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'ses_prior_session');
+
+    expect(persistLedgerSessionId(root, 'ses_live_host')).toBe(true);
+    // A later no-hint reader (the CLI escape hatch / minting path) now resolves the
+    // LIVE id instead of the stale one — bundle and gate agree on one session.
+    expect(resolveSessionId(root)).toBe('ses_live_host');
+    expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe('ses_live_host');
+  });
+
+  it('creates the cache directory when it does not exist yet', () => {
+    expect(persistLedgerSessionId(root, 'ses_first')).toBe(true);
+    expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe('ses_first');
+  });
+
+  it('never mints: an empty / whitespace / missing id writes nothing', () => {
+    expect(persistLedgerSessionId(root, null)).toBe(false);
+    expect(persistLedgerSessionId(root, undefined)).toBe(false);
+    expect(persistLedgerSessionId(root, '')).toBe(false);
+    expect(persistLedgerSessionId(root, '   ')).toBe(false);
+    // No cache file was created — nothing to align means nothing is written.
+    expect(() => readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8')).toThrow();
+  });
+
+  it('trims surrounding whitespace from the persisted id', () => {
+    expect(persistLedgerSessionId(root, '  ses_padded  ')).toBe(true);
+    expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe('ses_padded');
   });
 });
 
