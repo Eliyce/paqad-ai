@@ -26,6 +26,7 @@ import type {
 
 import { assembleHealthReport } from './assemble.js';
 import { readBaseline, writeBaseline } from './baseline.js';
+import { recordHealthRun } from './ledger.js';
 import { buildHealthMarkdown } from './report-builder.js';
 import { writeJsonFile } from './shared.js';
 import {
@@ -143,6 +144,16 @@ export async function runHealthAudit(options: HealthRunOptions): Promise<HealthR
     await writeBaseline(projectRoot, findingIds, now());
     baselineCreated = true;
   }
+
+  recordHealthRun(projectRoot, {
+    report_id: report.report_id,
+    workflow: report.workflow,
+    offline,
+    finding_count: report.findings.length,
+    blocked_count: report.blocked_checks.length,
+    new_since_baseline: report.baseline.new_since_baseline,
+    pre_existing: report.baseline.pre_existing,
+  });
 
   return {
     report_id: report.report_id,

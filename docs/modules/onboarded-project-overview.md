@@ -265,6 +265,16 @@ Backed by [`pentest-engine`](pentest-engine/index/summary.md). Knows: docs/modul
 [`ux-design-research`](../../runtime/capabilities/coding/skills/ux-design-research/SKILL.md).
 Knows: design-system docs, source, tests.
 
+### Codebase health (codebase-health workflow)
+The deterministic `paqad-ai health run` verb finds dead code, unused/risky/deprecated
+packages, leaked secrets, duplication, stale docs, and AI slop — every finding with proof,
+a plain-words reason, and a suggested action, split honestly into Proven vs Needs-judgment.
+`paqad-ai health retest` reclassifies prior findings by their stable `HL-` id. Rules:
+[`codebase-health`](../../runtime/capabilities/coding/rules/codebase-health.md),
+[`health-retest`](../../runtime/capabilities/coding/rules/health-retest.md).
+Backed by [`codebase-health`](codebase-health/index/summary.md). Knows: code-knowledge index,
+dependency inventory, docs/modules, source.
+
 ### Data / incident
 [`database-design-review`](../../runtime/capabilities/coding/skills/database-design-review/SKILL.md),
 [`index-optimization`](../../runtime/capabilities/coding/skills/index-optimization/SKILL.md),

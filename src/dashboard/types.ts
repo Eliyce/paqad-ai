@@ -33,6 +33,7 @@ export const DASHBOARD_SECTION_IDS = [
   'tech-debt',
   'architecture',
   'pentest',
+  'codebase-health',
   'rule-compliance',
   'attestation',
   'session',

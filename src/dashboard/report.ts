@@ -12,6 +12,7 @@ import { collectInstructionsAreas } from './collectors/instructions-areas.js';
 import { collectModuleDecisions } from './collectors/module-decisions.js';
 import { collectModuleDocs } from './collectors/module-docs.js';
 import { collectModuleEvents } from './collectors/module-events.js';
+import { collectCodebaseHealth } from './collectors/codebase-health.js';
 import { collectModuleHealth } from './collectors/module-health.js';
 import { collectModuleMapDrift } from './collectors/module-map-drift.js';
 import { collectPentest } from './collectors/pentest.js';
@@ -111,6 +112,8 @@ export function buildReport(
   const areaSections = collectInstructionsAreas(root, now);
   const architectureSection = collectArchitecture(root, now);
   const { section: pentestSection, attention: pentestAttention } = collectPentest(root, now);
+  const { section: codebaseHealthSection, attention: codebaseHealthAttention } =
+    collectCodebaseHealth(root, now);
   const { section: ruleComplianceSection, attention: ruleComplianceAttention } =
     collectRuleCompliance(root);
   const { section: attestationSection } = collectAttestation(root);
@@ -134,6 +137,7 @@ export function buildReport(
     frameworkVersionSection,
     ragSection,
     pentestSection,
+    codebaseHealthSection,
     ruleComplianceSection,
     attestationSection,
     sessionSection,
@@ -147,6 +151,7 @@ export function buildReport(
     ...moduleEventsAttention,
     ...stackDriftAttention,
     ...pentestAttention,
+    ...codebaseHealthAttention,
     ...ruleComplianceAttention,
     ...deliveryAttention,
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
