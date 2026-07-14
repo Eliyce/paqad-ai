@@ -1,0 +1,5 @@
+---
+'paqad-ai': minor
+---
+
+Make the end-of-change verdict visible, honest, and enforced (#368). The completion backstop now surfaces the one end-of-change receipt to the developer whether the verdict passes, fails, or is inconclusive — a failing "Needs your attention" verdict can no longer be hidden on stderr while a PR ships. A hard-failing feature-development change now blocks the turn at the Stop seam via the documented `decision:block` channel (exit 2 is a no-op there), bounded by the stop-hook loop guard. A feature-development change with no real `paqad-ai checks run` report reads as Inconclusive and shows its `checks` stage as unverified rather than done. The `checks.block_on_failure` escalation stays script-enforced; `review_findings` / `stale_docs` are documented as agent-raised and Decision-Pause-enforced rather than falsely claiming script enforcement. The cross-provider verdict tiering (hook-surfaced on Claude, agent-narrated on Codex/Gemini/advisory) is documented so the promise is truthful per host.

@@ -114,6 +114,35 @@ describe('formatStageEvidenceReceipt (#325)', () => {
       formatStageEvidenceReceipt(fold([stage('ticket_intake', 'missing', { started_at: null })])),
     ).toBe('');
   });
+
+  describe('checks honesty (#368, AC-A2)', () => {
+    it('downgrades a "done" checks stage to 🟡 when no passing report backs it (checksVerified=false)', () => {
+      const out = formatStageEvidenceReceipt(fold([stage('checks', 'complete')]), false);
+      expect(out).toContain(`${PAQAD_STATUS_GLYPH.needsLook} checks — marked — tests not verified`);
+      expect(out).toContain('paqad-ai checks run');
+      expect(out).not.toContain(`${PAQAD_STATUS_GLYPH.good} checks — done`);
+    });
+
+    it('keeps a "done" checks stage 🟢 when a report backs it (checksVerified=true)', () => {
+      const out = formatStageEvidenceReceipt(fold([stage('checks', 'complete')]), true);
+      expect(out).toContain(`${PAQAD_STATUS_GLYPH.good} checks — done`);
+    });
+
+    it('leaves the checks line unchanged when the signal is unknown (undefined)', () => {
+      const out = formatStageEvidenceReceipt(fold([stage('checks', 'complete')]));
+      expect(out).toContain(`${PAQAD_STATUS_GLYPH.good} checks — done`);
+    });
+
+    it('never dresses UP a non-done checks stage (a failed stage stays failed even if unverified)', () => {
+      const out = formatStageEvidenceReceipt(fold([stage('checks', 'failed')]), false);
+      expect(out).toContain(`${PAQAD_STATUS_GLYPH.failed} checks — failed`);
+    });
+
+    it('does not touch non-checks stages when checksVerified=false', () => {
+      const out = formatStageEvidenceReceipt(fold([stage('planning', 'complete')]), false);
+      expect(out).toContain(`${PAQAD_STATUS_GLYPH.good} planning — done`);
+    });
+  });
 });
 
 describe('composeChangeReceipt (#325)', () => {
@@ -150,5 +179,14 @@ describe('composeChangeReceipt (#325)', () => {
       reportPath: '/abs/path/report.html',
     });
     expect(receipt).toContain('> Report: /abs/path/report.html');
+  });
+
+  it('threads checksVerified=false through to the stage block (#368)', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Inconclusive',
+      fold: fold([stage('checks', 'complete')]),
+      checksVerified: false,
+    });
+    expect(receipt).toContain('tests not verified');
   });
 });

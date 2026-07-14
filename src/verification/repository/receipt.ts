@@ -66,11 +66,41 @@ function stageStatus(stage: FoldedStage): StageStatus {
 }
 
 /**
+ * Downgrade an otherwise-"done" `checks` stage when no passing checks report backs it
+ * (issue #368, AC-A2). A `checks` marker only proves the agent SAID it ran the gates;
+ * the real pass/fail signal is a `paqad-ai checks run` report. So when `checksVerified`
+ * is explicitly false, a good/🟢 `checks` line becomes 🟡 "tests not verified" — the
+ * stage can never read as done on an unproven claim. Any non-good state (failed,
+ * running, missing) already tells the truth and is left untouched, as is an unknown
+ * (`undefined`) signal — callers that do not compute it keep the prior rendering.
+ */
+function applyChecksHonesty(
+  stage: FoldedStage,
+  status: StageStatus,
+  checksVerified: boolean | undefined,
+): StageStatus {
+  if (stage.stage !== 'checks' || checksVerified !== false) {
+    return status;
+  }
+  if (status.glyph !== PAQAD_STATUS_GLYPH.good) {
+    return status;
+  }
+  return {
+    glyph: PAQAD_STATUS_GLYPH.needsLook,
+    note: 'marked — tests not verified (run `paqad-ai checks run`)',
+  };
+}
+
+/**
  * Render the per-stage evidence block: one line per mandatory stage, plus any
  * optional stage that actually ran (has a start). Returns '' when there is nothing
  * to show. Each line is a blockquote so it nests under the verdict headline.
+ *
+ * `checksVerified` (issue #368) reflects whether a passing `paqad-ai checks run` report
+ * backs the change; `false` downgrades a "done" `checks` line so tests can never read as
+ * verified when they were not (AC-A2). `undefined` leaves rendering unchanged.
  */
-export function formatStageEvidenceReceipt(fold: FoldedChange): string {
+export function formatStageEvidenceReceipt(fold: FoldedChange, checksVerified?: boolean): string {
   const rows = fold.stages.filter(
     (stage) => isMandatoryStage(stage.stage) || stage.started_at !== null,
   );
@@ -79,7 +109,7 @@ export function formatStageEvidenceReceipt(fold: FoldedChange): string {
   }
   return rows
     .map((stage) => {
-      const { glyph, note } = stageStatus(stage);
+      const { glyph, note } = applyChecksHonesty(stage, stageStatus(stage), checksVerified);
       return `> ${glyph} ${stageLabel(stage.stage)} — ${note}`;
     })
     .join('\n');
@@ -95,6 +125,10 @@ export interface ComposeChangeReceiptInput {
   /** Absolute path to the per-feature HTML report paqad wrote (issue #371), when one
    *  was rendered — surfaced so the developer can open the full evidence page. */
   reportPath?: string | null;
+  /** Whether a passing `paqad-ai checks run` report backs this change (issue #368).
+   *  `false` downgrades a "done" `checks` stage line so tests never read as verified
+   *  when they were not (AC-A2). `undefined` leaves the `checks` line unchanged. */
+  checksVerified?: boolean;
 }
 
 /**
@@ -106,7 +140,7 @@ export interface ComposeChangeReceiptInput {
 export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   const parts = [input.verdictSummary];
   if (input.fold) {
-    const stageBlock = formatStageEvidenceReceipt(input.fold);
+    const stageBlock = formatStageEvidenceReceipt(input.fold, input.checksVerified);
     if (stageBlock) {
       parts.push(stageBlock);
     }

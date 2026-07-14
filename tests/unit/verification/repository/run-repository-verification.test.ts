@@ -4,7 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
+import {
+  inconclusiveChecksGate,
+  runRepositoryVerification,
+} from '@/verification/repository/run-repository-verification.js';
 import { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { EngineEvent, VerificationVerdictEvent } from '@/event-bus/types.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
@@ -180,6 +183,62 @@ describe('runRepositoryVerification (prebuilt context)', () => {
 
     expect(verdict.ok).toBe(false);
     expect(verdict.summary).toContain('D-7');
+  });
+});
+
+describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () => {
+  it('records code-tests-lint INCONCLUSIVE for a feature-dev code change with no checks report', async () => {
+    // ci-backstop: the stage-evidence gate is informational at a non-local origin, so
+    // this isolates the checks signal — the ONLY not-ok reason is the missing report.
+    const context = createVerificationContext({
+      verification_origin: 'ci-backstop',
+      verification_stage: 'backstop-completion',
+      code_changed: true,
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+      // No structured_test_results → `paqad-ai checks run` was never run this change.
+    });
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'ci-backstop',
+      prebuiltContext: { context, escalations: [] },
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    const checks = verdict.gates.find((gate) => gate.gate === 'code-tests-lint');
+    expect(checks?.status).toBe('inconclusive');
+    // Inconclusive flips ok=false → the headline is "Inconclusive", never "Safe to merge".
+    expect(verdict.ok).toBe(false);
+    expect(verdict.summary).toContain('Inconclusive');
+    expect(verdict.summary).not.toContain('Safe to merge');
+  });
+
+  it('leaves code-tests-lint skipped for a docs-only change (not feature development)', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      code_changed: false,
+      changed_files: ['docs/thing.md'],
+      changed_files_source: 'git-status',
+    });
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    const checks = verdict.gates.find((gate) => gate.gate === 'code-tests-lint');
+    expect(checks?.status).toBe('skipped');
+  });
+
+  it('inconclusiveChecksGate is a non-blocking inconclusive gate naming the remediation', () => {
+    const gate = inconclusiveChecksGate();
+    expect(gate.name).toBe('code-tests-lint');
+    expect(gate.status).toBe('inconclusive');
+    expect(gate.detail).toContain('paqad-ai checks run');
   });
 });
 

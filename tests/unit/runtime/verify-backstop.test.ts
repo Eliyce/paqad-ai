@@ -4,10 +4,13 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The Stop-hook backstop routes the verdict to the correct stream: on a BLOCK
-// (exit 2) the host surfaces only STDERR to the model, so a failing verdict that
-// went to stdout was invisible ("No stderr output"). These exercise the real
-// runVerificationBackstop with an injected {stdout,stderr} pair and a mocked dist
+// Issue #368 — the Stop-hook backstop must surface the end-of-change receipt to the
+// DEVELOPER whether the verdict passes, fails, or is inconclusive (no more pass-only
+// visibility). On the Claude Stop hook the developer channel is the JSON
+// `{systemMessage}` on stdout at exit 0; a HARD failure additionally carries
+// `{decision:'block'}` so the model keeps working (exit 2 is a no-op on a Stop hook).
+// The git/CI backstop keeps the plain-text + exit-code contract. These exercise the
+// real runVerificationBackstop with an injected {stdout,stderr} pair and a mocked dist
 // api, so the channel decision is asserted without a built dist.
 const DIST = resolve(process.cwd(), 'dist/index.js');
 
@@ -16,7 +19,15 @@ function capture() {
   return { stream: { write: (s: string) => ((text += s), true) }, read: () => text };
 }
 
-describe('runtime/scripts/verify-backstop.mjs — verdict stream routing', () => {
+function mockVerdict(verdict: Record<string, unknown>) {
+  vi.doMock(DIST, () => ({ runRepositoryVerification: async () => verdict }));
+}
+
+async function loadBackstop() {
+  return import('../../../runtime/scripts/verify-backstop.mjs');
+}
+
+describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -31,69 +42,16 @@ describe('runtime/scripts/verify-backstop.mjs — verdict stream routing', () =>
     vi.doUnmock(DIST);
   });
 
-  it('AC-1: a FAIL verdict is written to STDERR (not stdout) and exits 2', async () => {
-    vi.doMock(DIST, () => ({
-      runRepositoryVerification: async () => ({
-        ok: false,
-        summary: '✗ verification blocked — 1/3 gates failed.',
-      }),
-    }));
-    const { runVerificationBackstop } =
-      await import('../../../runtime/scripts/verify-backstop.mjs');
-    const out = capture();
-    const err = capture();
-
-    const code = await runVerificationBackstop({
-      origin: 'hook-completion',
-      softFail: true,
-      projectRoot,
-      stdout: out.stream,
-      stderr: err.stream,
+  it('AC-1: a HARD-FAIL verdict at hook-completion emits a visible {systemMessage} AND {decision:block}, exit 0', async () => {
+    const receipt = '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]';
+    mockVerdict({
+      ok: false,
+      summary: 'Needs your attention — stage-evidence failed.',
+      receipt,
+      gates: [{ status: 'fail' }],
     });
-
-    expect(code).toBe(2);
-    expect(err.read()).toContain('✗ verification blocked');
-    expect(out.read()).toBe('');
-  });
-
-  it('AC-3 (loop guard): loopActive downgrades a FAIL from exit 2 to exit 0, still surfacing the summary on STDERR', async () => {
-    vi.doMock(DIST, () => ({
-      runRepositoryVerification: async () => ({
-        ok: false,
-        summary: '✗ verification blocked — 1/3 gates failed.',
-      }),
-    }));
-    const { runVerificationBackstop } =
-      await import('../../../runtime/scripts/verify-backstop.mjs');
+    const { runVerificationBackstop } = await loadBackstop();
     const out = capture();
-    const err = capture();
-
-    const code = await runVerificationBackstop({
-      origin: 'hook-completion',
-      softFail: true,
-      projectRoot,
-      loopActive: true,
-      stdout: out.stream,
-      stderr: err.stream,
-    });
-
-    // The gate has already bitten once this turn, so a second block would loop —
-    // we step aside (exit 0) but the verdict + the step-aside note are on STDERR.
-    expect(code).toBe(0);
-    expect(err.read()).toContain('✗ verification blocked');
-    expect(err.read()).toContain('not blocking again');
-    expect(out.read()).toBe('');
-  });
-
-  it('AC-2b (loop guard off): without loopActive a FAIL still hard-blocks (exit 2)', async () => {
-    vi.doMock(DIST, () => ({
-      runRepositoryVerification: async () => ({
-        ok: false,
-        summary: '✗ verification blocked — 1/3 gates failed.',
-      }),
-    }));
-    const { runVerificationBackstop } =
-      await import('../../../runtime/scripts/verify-backstop.mjs');
     const err = capture();
 
     const code = await runVerificationBackstop({
@@ -101,22 +59,73 @@ describe('runtime/scripts/verify-backstop.mjs — verdict stream routing', () =>
       softFail: true,
       projectRoot,
       loopActive: false,
+      stdout: out.stream,
       stderr: err.stream,
     });
 
-    expect(code).toBe(2);
-    expect(err.read()).not.toContain('not blocking again');
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out.read());
+    // The developer sees the full receipt (AC-C1 / AC-D1) …
+    expect(parsed.systemMessage).toBe(receipt);
+    // … and the model is told to keep working (real teeth — AC-A1).
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toContain('Needs your attention');
+    expect(parsed.reason).toContain('paqad-ai checks run');
+    // Nothing leaks to stderr on the Stop hook.
+    expect(err.read()).toBe('');
   });
 
-  it('AC-2: a PASS verdict is written to STDOUT (not stderr) and exits 0', async () => {
-    vi.doMock(DIST, () => ({
-      runRepositoryVerification: async () => ({
-        ok: true,
-        summary: '✓ verification passed — 3/3 gates.',
-      }),
-    }));
-    const { runVerificationBackstop } =
-      await import('../../../runtime/scripts/verify-backstop.mjs');
+  it('AC-2: loopActive downgrades a HARD-FAIL — still visible, but no {decision:block} (no loop)', async () => {
+    const receipt = '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]';
+    mockVerdict({ ok: false, summary: 'blocked', receipt, gates: [{ status: 'fail' }] });
+    const { runVerificationBackstop } = await loadBackstop();
+    const out = capture();
+
+    const code = await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      loopActive: true,
+      stdout: out.stream,
+      stderr: capture().stream,
+    });
+
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out.read());
+    expect(parsed.systemMessage).toBe(receipt); // still visible
+    expect(parsed.decision).toBeUndefined(); // but does not re-block → no infinite loop
+  });
+
+  it('AC-3: an INCONCLUSIVE verdict (no failing gate) is visible but never blocks', async () => {
+    const receipt = '**▸ paqad** · Inconclusive\n> 🟡 code-tests-lint: tests not verified';
+    mockVerdict({
+      ok: false,
+      summary: 'Inconclusive',
+      receipt,
+      gates: [{ status: 'inconclusive' }],
+    });
+    const { runVerificationBackstop } = await loadBackstop();
+    const out = capture();
+
+    const code = await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      loopActive: false,
+      stdout: out.stream,
+      stderr: capture().stream,
+    });
+
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out.read());
+    expect(parsed.systemMessage).toBe(receipt);
+    expect(parsed.decision).toBeUndefined(); // "do not over-trust", not "you must fix"
+  });
+
+  it('AC-4: a PASS verdict at hook-completion is a visible {systemMessage}, no block, exit 0', async () => {
+    const receipt = '**▸ paqad** · Safe to merge\n> 🟢 planning — done';
+    mockVerdict({ ok: true, summary: 'ignored', receipt, gates: [{ status: 'pass' }] });
+    const { runVerificationBackstop } = await loadBackstop();
     const out = capture();
     const err = capture();
 
@@ -129,38 +138,39 @@ describe('runtime/scripts/verify-backstop.mjs — verdict stream routing', () =>
     });
 
     expect(code).toBe(0);
-    expect(out.read()).toContain('✓ verification passed');
+    const parsed = JSON.parse(out.read());
+    expect(parsed.systemMessage).toBe(receipt);
+    expect(parsed.decision).toBeUndefined();
     expect(err.read()).toBe('');
   });
 
-  it('#325: a PASS on the Stop hook emits the receipt as a visible {systemMessage}', async () => {
-    const receipt = '**▸ paqad** · Safe to merge\n> 🟢 planning — done';
-    vi.doMock(DIST, () => ({
-      runRepositoryVerification: async () => ({ ok: true, summary: 'ignored', receipt }),
-    }));
-    const { runVerificationBackstop } =
-      await import('../../../runtime/scripts/verify-backstop.mjs');
+  it('AC-5a: a FAIL at the git backstop stays plain-text on STDERR and exits 2 (hard gate unchanged)', async () => {
+    const receipt = '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]';
+    mockVerdict({ ok: false, summary: 'blocked', receipt, gates: [{ status: 'fail' }] });
+    const { runVerificationBackstop } = await loadBackstop();
     const out = capture();
+    const err = capture();
+
     const code = await runVerificationBackstop({
-      origin: 'hook-completion',
+      origin: 'git-backstop',
       softFail: true,
       projectRoot,
       stdout: out.stream,
-      stderr: capture().stream,
+      stderr: err.stream,
     });
-    expect(code).toBe(0);
-    const parsed = JSON.parse(out.read());
-    expect(parsed.systemMessage).toBe(receipt);
+
+    expect(code).toBe(2);
+    expect(err.read().trim()).toBe(receipt);
+    expect(err.read()).not.toContain('systemMessage');
+    expect(out.read()).toBe('');
   });
 
-  it('#325: a PASS on the git backstop stays plain text (terminal), not a systemMessage', async () => {
+  it('AC-5b: a PASS at the git backstop stays plain text on STDOUT (terminal), not a systemMessage', async () => {
     const receipt = '**▸ paqad** · Safe to merge\n> 🟢 planning — done';
-    vi.doMock(DIST, () => ({
-      runRepositoryVerification: async () => ({ ok: true, summary: 'ignored', receipt }),
-    }));
-    const { runVerificationBackstop } =
-      await import('../../../runtime/scripts/verify-backstop.mjs');
+    mockVerdict({ ok: true, summary: 'ignored', receipt, gates: [{ status: 'pass' }] });
+    const { runVerificationBackstop } = await loadBackstop();
     const out = capture();
+
     const code = await runVerificationBackstop({
       origin: 'git-backstop',
       softFail: true,
@@ -168,8 +178,47 @@ describe('runtime/scripts/verify-backstop.mjs — verdict stream routing', () =>
       stdout: out.stream,
       stderr: capture().stream,
     });
+
     expect(code).toBe(0);
     expect(out.read().trim()).toBe(receipt);
     expect(out.read()).not.toContain('systemMessage');
+  });
+
+  it('falls back to the plain summary when no receipt was composed', async () => {
+    mockVerdict({ ok: true, summary: '✓ 3/3 checks held.', gates: [{ status: 'pass' }] });
+    const { runVerificationBackstop } = await loadBackstop();
+    const out = capture();
+    await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      stdout: out.stream,
+      stderr: capture().stream,
+    });
+    expect(JSON.parse(out.read()).systemMessage).toBe('✓ 3/3 checks held.');
+  });
+});
+
+describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
+  it('verdictHasHardFailure is true only when a gate reports fail', async () => {
+    const { verdictHasHardFailure } = await loadBackstop();
+    expect(verdictHasHardFailure({ ok: false, gates: [{ status: 'fail' }] })).toBe(true);
+    expect(verdictHasHardFailure({ ok: false, gates: [{ status: 'inconclusive' }] })).toBe(false);
+    expect(verdictHasHardFailure({ ok: true, gates: [{ status: 'pass' }] })).toBe(false);
+  });
+
+  it('verdictHasHardFailure falls back to !ok when no gates array is present', async () => {
+    const { verdictHasHardFailure } = await loadBackstop();
+    expect(verdictHasHardFailure({ ok: false })).toBe(true);
+    expect(verdictHasHardFailure({ ok: true })).toBe(false);
+    expect(verdictHasHardFailure(undefined)).toBe(false);
+  });
+
+  it('blockReason names the summary and the remediation', async () => {
+    const { blockReason } = await loadBackstop();
+    const reason = blockReason({ summary: 'Needs your attention — X failed.' });
+    expect(reason).toContain('Needs your attention — X failed.');
+    expect(reason).toContain('documentation_sync');
+    expect(blockReason({})).toContain('A verification gate is blocking');
   });
 });

@@ -1,0 +1,22 @@
+{
+  "id": "D-01KXGC9QJPP227MYY6EDM9PF2J",
+  "category": "architecture-path",
+  "title": "AC-A3 escalation honesty (#368)",
+  "context": "review_findings/stale_docs are declared 'stop' but enforced by no script (AI-trusted-only). Enforce or remove?",
+  "options": [
+    {
+      "option_key": "document",
+      "label": "Keep checks.block_on_failure script-enforced; document review/docs as agent-raised->DPC-enforced"
+    },
+    {
+      "option_key": "remove",
+      "label": "Remove the un-enforceable 'stop' lines entirely"
+    }
+  ],
+  "recommendation": "document",
+  "created_at": "2026-07-14T13:15:42.550Z",
+  "status": "resolved",
+  "chosen": "document",
+  "rationale": "User chose to keep checks.block_on_failure script-enforced and honestly document review_findings/stale_docs as agent-raised -> Decision-Pause-enforced (not script-detected), avoiding a false 'a script proves this' promise.",
+  "resolved_at": "2026-07-14T13:15:51.653Z"
+}

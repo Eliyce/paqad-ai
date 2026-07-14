@@ -1,6 +1,18 @@
 # Feature Development Stage Policy
 # This file customizes how the built-in feature-development workflow behaves in this project.
 # The framework still owns routing, phase order, and mandatory safety stages.
+#
+# Enforcement tiers (issue #368) — an escalation is honoured on one of two tiers, and
+# this contract never claims script enforcement it does not have:
+#   - SCRIPT-ENFORCED (deterministic, cannot be bypassed by the agent): checks.block_on_failure
+#     — `paqad-ai checks run` exits non-zero on any red command, and the completion backstop
+#     reads its report; a change with no report reads Inconclusive, never a vacuous pass.
+#     Missing mandatory stages are likewise script-enforced by the stage-evidence completion gate.
+#   - AGENT-RAISED -> DECISION-PAUSE-ENFORCED (the agent must detect the finding; the
+#     framework then blocks its RESOLUTION): review.escalation.review_findings and
+#     documentation_sync.escalation.stale_docs. These need model judgment to raise, so no
+#     script detects them; once raised as a `stop`, the Decision-Pause gate holds edits until
+#     the packet resolves. They are NOT a false "a script proves this" promise.
 schema_version: "1"
 merge_mode: append
 
@@ -87,6 +99,11 @@ stages:
     strictness:
       require_review: true
     escalation:
+      # AGENT-RAISED -> DECISION-PAUSE-ENFORCED (issue #368): a blocking review finding
+      # needs model judgment to detect — no script re-judges the diff. Once the agent
+      # raises it as a `stop`, the Decision-Pause gate holds further edits until resolved.
+      # Not a script-detected gate; honestly an agent obligation with a script-enforced
+      # resolution.
       review_findings: stop
     artifacts:
       - review summary
@@ -114,6 +131,10 @@ stages:
         - test
         - build
       shell_commands: []
+      # SCRIPT-ENFORCED (issue #368): `paqad-ai checks run` exits non-zero on any red
+      # command and persists a report the completion backstop reads. A feature-dev change
+      # with no report reads Inconclusive (never a vacuous "Safe to merge"), and a red
+      # report fails the completion verdict. This is a deterministic gate, not AI-trusted.
       block_on_failure: true
       # Add project-specific commands here when needed.
       # shell_commands:
@@ -148,6 +169,10 @@ stages:
     strictness:
       require_canonical_sync: true
     escalation:
+      # AGENT-RAISED -> DECISION-PAUSE-ENFORCED (issue #368): stale-doc detection needs
+      # judgment about which docs a change makes stale — no script proves it. Raised as a
+      # `stop`, the Decision-Pause gate then holds edits until resolved. Honestly an agent
+      # obligation with a script-enforced resolution, not a script-detected gate.
       stale_docs: stop
     artifacts:
       - stale doc targets

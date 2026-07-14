@@ -203,6 +203,10 @@ export async function runRepositoryVerification(
   // stage marking, nor a fresh CI checkout. Added to `evidence.gates` BEFORE the
   // artifact is written so the receipt and the verdict agree.
   const origin = context.verification_origin ?? options.origin;
+  // Scope (issue #310): the feature-development completeness gate — and the #368
+  // checks-evidence honesty below — apply only to a feature-development change. A
+  // documentation-only / framework-internal diff is not a feature being built.
+  const isFeatureDev = changeIsFeatureDev(context.changed_files, context.project_root);
   let stageResult: VerifyResult | null = null;
   try {
     const stageFileDigests = await computeFileDigests(context.project_root, context.changed_files);
@@ -214,10 +218,7 @@ export async function runRepositoryVerification(
       sessionId: options.hostSessionId ?? null,
       changedFilesCount: context.changed_files.length,
       subjectDigest: computeChangeSubjectDigest(stageFileDigests),
-      // Scope (issue #310): the feature-development completeness gate applies only to
-      // a feature-development change. A documentation-only / framework-internal diff
-      // is not a feature being built, so it is not held to the code-stage workflow.
-      isFeatureDevChange: changeIsFeatureDev(context.changed_files, context.project_root),
+      isFeatureDevChange: isFeatureDev,
       now: () => new Date(completedAt),
     });
   } catch (error) {
@@ -257,7 +258,29 @@ export async function runRepositoryVerification(
       evidence.overall_status = 'fail';
       evidence.first_failure_gate ??= checksGate.name;
     }
+  } else if (isFeatureDev && context.code_changed) {
+    // Issue #368 (AC-A2) — a feature-development code change with NO checks report has
+    // no proof its tests ran. Leaving `code-tests-lint` as the vacuous `skipped`
+    // placeholder let the headline read "Safe to merge" on unverified tests. Record it
+    // INCONCLUSIVE instead, so the verdict is "Inconclusive" (verdict.ok=false) — the
+    // change is loudly not-done, never a silent green. This is surfaced (always, via the
+    // #368 receipt) but does NOT hard-block: Inconclusive is "do not over-trust", not a
+    // failing gate. Replaces the skipped placeholder in place so there is one row.
+    const inconclusiveGate = inconclusiveChecksGate();
+    const existingIndex = evidence.gates.findIndex((gate) => gate.name === 'code-tests-lint');
+    if (existingIndex >= 0) {
+      evidence.gates[existingIndex] = inconclusiveGate;
+    } else {
+      /* c8 ignore next 2 -- defensive: the evidence builder always emits a
+         `code-tests-lint` placeholder, so existingIndex is never -1 here (mirrors the
+         checksGate branch above). Kept so a future builder change fails safe, not silently. */
+      evidence.gates.push(inconclusiveGate);
+    }
   }
+  // Issue #368 — does a passing `paqad-ai checks run` report back this change? Used by
+  // the receipt to render the `checks` stage honestly (🟡 "tests not verified" when not).
+  const checksVerified =
+    (context.structured_test_results?.length ?? 0) > 0 && context.code_tests_lint_passed;
 
   let evidencePath: string | null = null;
   try {
@@ -372,6 +395,10 @@ export async function runRepositoryVerification(
     verdictSummary: verdict.summary,
     fold: readChangeFold(context.project_root, options.hostSessionId ?? null),
     reportPath,
+    // Issue #368 (AC-A2) — only when this is a feature-dev change do we assert the
+    // checks stage needs a report; for a docs/framework change the checks stage is
+    // not part of the promise, so leave the line unchanged (undefined).
+    checksVerified: isFeatureDev ? checksVerified : undefined,
   });
 
   // Issue #371 — auto-open the report, opt-in and hook-only. The HOOK opens, never the
@@ -577,6 +604,25 @@ export function checksEvidenceGate(
     status: 'pass',
     detail: `Deterministic checks passed (${totals.passed}/${totals.total}).`,
     remediation: null,
+    failures: [],
+  };
+}
+
+/**
+ * The `code-tests-lint` gate as INCONCLUSIVE (issue #368, AC-A2) — used when a
+ * feature-development code change carries no `paqad-ai checks run` report. An
+ * inconclusive gate flips `verdict.ok` to false so the headline reads "Inconclusive"
+ * (never a vacuous "Safe to merge" on unverified tests), yet it is not a hard `fail`,
+ * so the #368 Stop-hook enforcement surfaces it without blocking the turn.
+ */
+export function inconclusiveChecksGate(): VerificationEvidenceGate {
+  return {
+    name: 'code-tests-lint' as VerificationGate,
+    status: 'inconclusive',
+    detail:
+      'No checks report on record — tests were not verified for this change. Run ' +
+      '`paqad-ai checks run` so the checks stage is proven, or rely on CI.',
+    remediation: 'Run `paqad-ai checks run` to persist a report the completion gate reads.',
     failures: [],
   };
 }
