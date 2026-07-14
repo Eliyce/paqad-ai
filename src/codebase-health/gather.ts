@@ -76,7 +76,13 @@ export function parseNpmAuditJson(raw: string): OsvVulnerabilityRecord[] {
 /** Parse `gitleaks detect --report-format json` — REDACTED to file:line + rule + fingerprint. */
 export function parseGitleaksJson(raw: string): SecretMatch[] {
   const parsed = safeParse<
-    Array<{ RuleID?: string; File?: string; StartLine?: number; Fingerprint?: string; Secret?: string }>
+    Array<{
+      RuleID?: string;
+      File?: string;
+      StartLine?: number;
+      Fingerprint?: string;
+      Secret?: string;
+    }>
   >(raw);
   if (!Array.isArray(parsed)) return [];
   return parsed.map((entry) => ({
@@ -84,7 +90,8 @@ export function parseGitleaksJson(raw: string): SecretMatch[] {
     line: entry.StartLine ?? 0,
     rule: entry.RuleID ?? 'secret',
     // Prefer gitleaks' own fingerprint; else hash the secret so bytes never persist.
-    fingerprint: entry.Fingerprint ?? redactedFingerprint(entry.Secret ?? `${entry.File}:${entry.StartLine}`),
+    fingerprint:
+      entry.Fingerprint ?? redactedFingerprint(entry.Secret ?? `${entry.File}:${entry.StartLine}`),
     source: 'gitleaks' as const,
   }));
 }
@@ -116,7 +123,10 @@ export function parseJscpdJson(raw: string): DuplicationCluster[] {
 const SECRET_PATTERNS: Array<{ rule: string; pattern: RegExp }> = [
   { rule: 'private-key', pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/ },
   { rule: 'aws-access-key', pattern: /\bAKIA[0-9A-Z]{16}\b/ },
-  { rule: 'generic-api-key', pattern: /(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][A-Za-z0-9/+_-]{16,}['"]/i },
+  {
+    rule: 'generic-api-key',
+    pattern: /(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][A-Za-z0-9/+_-]{16,}['"]/i,
+  },
   { rule: 'bearer-token', pattern: /\bBearer\s+[A-Za-z0-9._-]{20,}\b/ },
 ];
 

@@ -38,11 +38,7 @@ export type HealthSuggestionAction = (typeof HEALTH_SUGGESTION_ACTIONS)[number];
 export const HEALTH_BASELINE_STATUSES = ['new-since-baseline', 'pre-existing', 'unknown'] as const;
 export type HealthBaselineStatus = (typeof HEALTH_BASELINE_STATUSES)[number];
 
-export const HEALTH_RETEST_STATUSES = [
-  'fixed',
-  'still-open',
-  'needs-manual-verification',
-] as const;
+export const HEALTH_RETEST_STATUSES = ['fixed', 'still-open', 'needs-manual-verification'] as const;
 export type HealthRetestStatus = (typeof HEALTH_RETEST_STATUSES)[number];
 
 export const HEALTH_FINDING_STATUSES = [

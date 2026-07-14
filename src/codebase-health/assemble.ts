@@ -35,7 +35,12 @@ import {
   type StaleDocCandidate,
 } from './detectors.js';
 import { nextRemediationPriorities } from './report-builder.js';
-import { assignHealthFindingIds, sortFindings, toHealthReportId, toHealthTimestamp } from './shared.js';
+import {
+  assignHealthFindingIds,
+  sortFindings,
+  toHealthReportId,
+  toHealthTimestamp,
+} from './shared.js';
 
 export interface HealthAssemblyInput {
   workflow: HealthWorkflowName;
@@ -85,9 +90,10 @@ export function assembleHealthReport(input: HealthAssemblyInput): AssembledHealt
 
   const timestamp = toHealthTimestamp(input.now);
   const isRetest = input.workflow === 'health-retest';
-  const base = isRetest && input.sourceReportId
-    ? `${stripReportPrefix(input.sourceReportId)}-retest-${timestamp}`
-    : timestamp;
+  const base =
+    isRetest && input.sourceReportId
+      ? `${stripReportPrefix(input.sourceReportId)}-retest-${timestamp}`
+      : timestamp;
   const reportPath = toPosixPath(join(PATHS.HEALTH_DIR, `${base}.md`));
   const sidecarPath = toPosixPath(join(PATHS.HEALTH_DIR, `${base}.json`));
 

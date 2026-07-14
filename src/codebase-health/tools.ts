@@ -22,13 +22,15 @@ export const HEALTH_TOOLS: HealthToolSpec[] = [
     tool: 'osv-scanner',
     used_for: ['vulnerable-dependency'],
     requires_network: false,
-    install_hint: 'Install osv-scanner (https://github.com/google/osv-scanner) for offline vuln matching.',
+    install_hint:
+      'Install osv-scanner (https://github.com/google/osv-scanner) for offline vuln matching.',
   },
   {
     tool: 'gitleaks',
     used_for: ['secret-leak'],
     requires_network: false,
-    install_hint: 'Install gitleaks (https://github.com/gitleaks/gitleaks) to scan git history for secrets.',
+    install_hint:
+      'Install gitleaks (https://github.com/gitleaks/gitleaks) to scan git history for secrets.',
   },
   {
     tool: 'jscpd',
@@ -40,7 +42,8 @@ export const HEALTH_TOOLS: HealthToolSpec[] = [
     tool: 'knip',
     used_for: ['dead-code', 'unused-dependency'],
     requires_network: false,
-    install_hint: 'Install knip (`npm i -g knip`) to corroborate dead code and unused deps in JS/TS.',
+    install_hint:
+      'Install knip (`npm i -g knip`) to corroborate dead code and unused deps in JS/TS.',
   },
 ];
 
@@ -53,7 +56,9 @@ export function healthToolSpec(tool: string): HealthToolSpec | undefined {
  * Resolve which scanners are on PATH. Pure over `missingBinaries` so it never
  * spawns a subprocess — a fresh machine simply reports every tool unavailable.
  */
-export function resolveToolAvailability(tools: HealthToolSpec[] = HEALTH_TOOLS): HealthToolStatus[] {
+export function resolveToolAvailability(
+  tools: HealthToolSpec[] = HEALTH_TOOLS,
+): HealthToolStatus[] {
   const absent = new Set(missingBinaries(tools.map((spec) => spec.tool)));
   return tools.map((spec) => ({
     tool: spec.tool,

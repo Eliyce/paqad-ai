@@ -3,7 +3,7 @@ import type { HealthCategory } from '@/core/types/codebase-health.js';
 /** Verbatim report header (issue #355, paqad voice — plain words, no jargon). */
 export const HEALTH_REPORT_HEADER =
   '**Codebase health** — I scanned this project for code and packages that no longer ' +
-  "earn their place. Every finding below carries proof; nothing here is a guess. Findings " +
+  'earn their place. Every finding below carries proof; nothing here is a guess. Findings ' +
   "marked 'needs judgment' are candidates I couldn't prove mechanically — you decide.";
 
 /**

@@ -25,11 +25,11 @@ There is one source of truth: the deterministic `paqad-ai health run` verb. It d
 detection and writes the findings JSON. You never re-derive or invent a finding — you run
 the verb, read its output, triage it, and write the prose the report needs.
 
-| Source | Role |
-| --- | --- |
-| `paqad-ai health run` output (`docs/health/<ts>.json`) | **the findings** — proof is machine-generated |
-| The code-knowledge index, dependency inventory, tool output | **primary evidence** the verb cites |
-| The human report `docs/health/<ts>.md` | **the deliverable** you narrate |
+| Source                                                      | Role                                          |
+| ----------------------------------------------------------- | --------------------------------------------- |
+| `paqad-ai health run` output (`docs/health/<ts>.json`)      | **the findings** — proof is machine-generated |
+| The code-knowledge index, dependency inventory, tool output | **primary evidence** the verb cites           |
+| The human report `docs/health/<ts>.md`                      | **the deliverable** you narrate               |
 
 ## Workflow Steps
 
@@ -42,7 +42,7 @@ and later runs mark each finding `new-since-baseline` vs `pre-existing`.
 Run `paqad-ai health run` (add `--offline` if the user asked to skip network checks). It:
 
 - reuses the code-knowledge index for dead code + unused dependencies (run `paqad-ai index
-  build` first if it reports `blocked_checks: index-not-built`),
+build` first if it reports `blocked_checks: index-not-built`),
 - shells out to `osv-scanner`, `gitleaks`, `jscpd` when they are on PATH and degrades to a
   labelled fallback or a `blocked_checks` entry (with an install hint) when they are not,
 - writes `docs/health/<ts>.md` + `docs/health/<ts>.json` and the per-run finding index.

@@ -154,9 +154,7 @@ export function detectDeadCode(index: CodeKnowledgeIndex): HealthCandidate[] {
 }
 
 /** Known-vulnerable dependencies from OSV / native audit records. */
-export function detectVulnerableDependencies(
-  records: OsvVulnerabilityRecord[],
-): HealthCandidate[] {
+export function detectVulnerableDependencies(records: OsvVulnerabilityRecord[]): HealthCandidate[] {
   const seen = new Set<string>();
   const findings: HealthCandidate[] = [];
   for (const record of records) {
@@ -190,9 +188,7 @@ export function detectVulnerableDependencies(
 }
 
 /** Deprecated / abandoned / end-of-life packages (registry metadata; online). */
-export function detectDeprecatedDependencies(
-  records: DeprecationRecord[],
-): HealthCandidate[] {
+export function detectDeprecatedDependencies(records: DeprecationRecord[]): HealthCandidate[] {
   return records.map((record) => ({
     title: `${record.kind === 'eol' ? 'End-of-life' : 'Deprecated'} package: ${record.package}@${record.version}`,
     description: reason('deprecated-dependency'),

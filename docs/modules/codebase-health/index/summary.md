@@ -95,3 +95,4 @@ If anything here disagrees with the map, the **map wins**.
 - Workflow rules: `runtime/capabilities/coding/rules/codebase-health.md` + `health-retest.md`.
 - Code-knowledge index: issue #353 (`src/code-knowledge`).
 - Pentest (the sibling audit workflow): `src/pentest`, `docs/modules/...`.
+- Code-knowledge index (dead code + unused deps source): `src/code-knowledge`.
