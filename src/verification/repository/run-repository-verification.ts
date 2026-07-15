@@ -35,6 +35,7 @@ import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
+import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { type FoldedChange } from '@/stage-evidence/types.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
@@ -347,7 +348,12 @@ export async function runRepositoryVerification(
         context.project_root,
         resolveSessionId(context.project_root, options.hostSessionId ?? null),
       );
-      if (activeFeature) {
+      // Issue #390 — do not project receipt.json / ai-bom.json into a feature bundle for
+      // a route we can prove is non-feature-development, even if a pointer is active.
+      if (
+        activeFeature &&
+        !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
+      ) {
         projectFeatureReceipt(context.project_root, activeFeature, {
           fileDigests,
           rows,
@@ -448,7 +454,13 @@ function renderActiveFeatureReport(
   try {
     const sessionId = resolveSessionId(projectRoot, hostSessionId);
     const dirName = currentFeature(projectRoot, sessionId);
-    if (!dirName || !featureReportEnabled(projectRoot)) {
+    // Issue #390 — never render report.html for a route we can prove is
+    // non-feature-development, even if a pointer leaked through to an active bundle.
+    if (
+      !dirName ||
+      !featureReportEnabled(projectRoot) ||
+      routeIsAffirmativelyNonFeature(projectRoot, hostSessionId)
+    ) {
       return null;
     }
     return writeFeatureReport(projectRoot, dirName, {

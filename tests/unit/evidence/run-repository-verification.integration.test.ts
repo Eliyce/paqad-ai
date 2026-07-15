@@ -11,8 +11,9 @@ import { readEvidenceLedger } from '@/evidence/ledger.js';
 import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
-import { featureFilePath } from '@/feature-evidence/paths.js';
+import { featureFilePath, featureReportPath } from '@/feature-evidence/paths.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
 import { createVerificationContext } from '../verification/shared.fixture.js';
 
@@ -136,6 +137,66 @@ describe('runRepositoryVerification — evidence ledger + receipt (issue #118)',
 
     expect(existsSync(join(context.project_root, featureFilePath(dir, 'aiBom')))).toBe(true);
     expect(existsSync(join(context.project_root, featureFilePath(dir, 'receipt')))).toBe(false);
+  });
+
+  // Issue #390 — receipt/ai-bom/report render must consult the persisted route, not
+  // just "is a pointer active?", so a non-feature workflow projects nothing.
+  it('projects NO receipt/ai-bom/report for a non-feature route even with an active pointer', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/modules/core/ui/screens.md'],
+      changed_files_source: 'git-status',
+    });
+    const SES = 'rv-nonfeature-route';
+    const sessionId = resolveSessionId(context.project_root, SES);
+    const dir = openFeatureChange(context.project_root, sessionId, {
+      adapter: 'claude-code',
+      title: 'Feature',
+      issue: null,
+    });
+    // The session's route is a non-feature workflow.
+    writeWorkflowState(context.project_root, sessionId, {
+      active: { workflow: 'root-cause-analysis' },
+      paused: [],
+    });
+    enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: true });
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+    });
+
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'receipt')))).toBe(false);
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'aiBom')))).toBe(false);
+    expect(existsSync(join(context.project_root, featureReportPath(dir)))).toBe(false);
+  });
+
+  it('renders the feature report for a feature-development route', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/modules/core/ui/screens.md'],
+      changed_files_source: 'git-status',
+    });
+    const SES = 'rv-feature-route';
+    const sessionId = resolveSessionId(context.project_root, SES);
+    const dir = openFeatureChange(context.project_root, sessionId, {
+      adapter: 'claude-code',
+      title: 'Feature',
+      issue: null,
+    });
+    writeWorkflowState(context.project_root, sessionId, {
+      active: { workflow: 'feature-development' },
+      paused: [],
+    });
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+    });
+
+    expect(existsSync(join(context.project_root, featureReportPath(dir)))).toBe(true);
   });
 
   it('never blocks verification when no files changed (empty subject still receipts)', async () => {
