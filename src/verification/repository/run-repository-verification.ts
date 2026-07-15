@@ -32,12 +32,7 @@ import {
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
-import { openFeatureReport } from '@/feature-evidence/report-open.js';
-import {
-  featureReportAutoOpen,
-  featureReportEnabled,
-  writeFeatureReport,
-} from '@/feature-evidence/report-writer.js';
+import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -400,18 +395,6 @@ export async function runRepositoryVerification(
     // not part of the promise, so leave the line unchanged (undefined).
     checksVerified: isFeatureDev ? checksVerified : undefined,
   });
-
-  // Issue #371 — auto-open the report, opt-in and hook-only. The HOOK opens, never the
-  // agent (an agent-run `open` crashes inside a host sandbox). Gated on the
-  // `feature_report_auto_open` flag (default off) and the completion origin, and the
-  // opener is itself sandbox-aware (skips CI/SSH/remote/headless). Best-effort.
-  if (reportPath && origin === 'hook-completion' && featureReportAutoOpen(context.project_root)) {
-    try {
-      openFeatureReport({ absPath: reportPath });
-    } catch {
-      // Opening is informational; a failure never affects the verdict.
-    }
-  }
 
   if (options.eventBus) {
     options.eventBus.emit({
