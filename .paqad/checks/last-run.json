@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-10T16:24:09.795Z",
+  "generated_at": "2026-07-15T09:30:08.266Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-10T16:22:31.426Z",
+        "timestamp": "2026-07-15T09:27:50.091Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -35,9 +35,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/routing-scope-exclude-paqad.md",
-          "runtime/AGENT-BOOTSTRAP.md",
-          "src/onboarding/agent-bootstrap-writer.ts"
+          ".changeset/quiet-trees-listen.md",
+          "src/repository/discovery.ts",
+          "tests/unit/repository/discovery.test.ts"
         ]
       }
     },
@@ -50,7 +50,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-10T16:24:00.580Z",
+        "timestamp": "2026-07-15T09:29:58.763Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -72,9 +72,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/routing-scope-exclude-paqad.md",
-          "runtime/AGENT-BOOTSTRAP.md",
-          "src/onboarding/agent-bootstrap-writer.ts"
+          ".changeset/quiet-trees-listen.md",
+          "src/repository/discovery.ts",
+          "tests/unit/repository/discovery.test.ts"
         ]
       }
     },
@@ -87,7 +87,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-10T16:24:09.795Z",
+        "timestamp": "2026-07-15T09:30:08.265Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -109,9 +109,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/routing-scope-exclude-paqad.md",
-          "runtime/AGENT-BOOTSTRAP.md",
-          "src/onboarding/agent-bootstrap-writer.ts"
+          ".changeset/quiet-trees-listen.md",
+          "src/repository/discovery.ts",
+          "tests/unit/repository/discovery.test.ts"
         ]
       }
     }
