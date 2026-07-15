@@ -21,6 +21,11 @@ const BASE = {
   created_at: CREATED_AT.toISOString(),
 };
 
+// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
+// `D-<ULID>` id. The builder unit tests keep legacy `D-1`/`D-2` ids (validate-only, never
+// written) to prove read tolerance stays intact.
+const WRITTEN_ID = 'D-01J000000000000000000000A1';
+
 describe('buildFixProofMethodPacket', () => {
   it('produces a valid fix.proof_method packet with stable option keys', () => {
     const packet = buildFixProofMethodPacket({
@@ -75,10 +80,14 @@ describe('fix.proof_method reuse by kind', () => {
     store.initialize();
 
     // Ask once for a "visual-appearance" defect and resolve it.
-    const first = buildFixProofMethodPacket({ ...BASE, decision_id: 'D-1', detail: 'defect one' });
+    const first = buildFixProofMethodPacket({
+      ...BASE,
+      decision_id: WRITTEN_ID,
+      detail: 'defect one',
+    });
     store.writePending(first);
     store.resolve({
-      decisionId: 'D-1',
+      decisionId: WRITTEN_ID,
       humanResponse: {
         chosen_option_key: 'human-verification-step',
         intent: 'explicit',
@@ -97,7 +106,7 @@ describe('fix.proof_method reuse by kind', () => {
       detail: 'defect two, same visual kind',
     });
     const reusedId = store.findReusableDecision(second);
-    expect(reusedId).toBe('D-1');
+    expect(reusedId).toBe(WRITTEN_ID);
 
     const reuseEvents = readDecisionAuditEvents(projectRoot).filter(
       (event) => event.event === 'decision-reused',

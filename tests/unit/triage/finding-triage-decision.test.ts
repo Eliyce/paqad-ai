@@ -21,6 +21,11 @@ const BASE = {
   created_at: '2026-06-08T00:00:00Z',
 };
 
+// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
+// `D-<ULID>` id. The builder unit tests keep legacy `D-1`/`D-2` ids (validate-only, never
+// written) to prove read tolerance stays intact.
+const WRITTEN_ID = 'D-01J000000000000000000000A1';
+
 describe('buildFindingTriagePacket', () => {
   it('produces a valid finding.triage packet with the four stable pile options', () => {
     const packet = buildFindingTriagePacket({ ...BASE, decision_id: 'D-1', detail: 'detail' });
@@ -99,10 +104,14 @@ describe('finding.triage reuse by kind (settle once, never re-raise)', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
-    const first = buildFindingTriagePacket({ ...BASE, decision_id: 'D-1', detail: 'case one' });
+    const first = buildFindingTriagePacket({
+      ...BASE,
+      decision_id: WRITTEN_ID,
+      detail: 'case one',
+    });
     store.writePending(first);
     store.resolve({
-      decisionId: 'D-1',
+      decisionId: WRITTEN_ID,
       humanResponse: {
         chosen_option_key: 'taste',
         intent: 'explicit',
@@ -120,9 +129,9 @@ describe('finding.triage reuse by kind (settle once, never re-raise)', () => {
       finding_id: 'F-2',
       detail: 'case two, same kind',
     });
-    expect(store.findReusableDecision(second)).toBe('D-1');
+    expect(store.findReusableDecision(second)).toBe(WRITTEN_ID);
 
-    const resolved = store.readResolved('D-1');
+    const resolved = store.readResolved(WRITTEN_ID);
     expect(resolved?.human_response?.chosen_option_key).toBe('taste');
     const reusedVerdict = verdictFromTriageOption(
       'F-2',

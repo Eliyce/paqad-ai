@@ -18,9 +18,15 @@ import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 
+// Issue #387 — packets written through DecisionStore.writePending must carry a strict
+// `D-<ULID>` id. The corrupt-packet test below writes a legacy `D-1.json` straight to disk
+// on purpose, proving the read/resolve path stays tolerant of legacy ids.
+const WID = 'D-01J000000000000000000000A1';
+const WID2 = 'D-01J000000000000000000000A2';
+
 function makePacket(overrides: Partial<DecisionPacket> = {}): DecisionPacket {
   return {
-    decision_id: 'D-1',
+    decision_id: WID,
     fingerprint: 'sha256:test',
     category: 'component-reuse',
     question: 'Use the Button we have?',
@@ -101,10 +107,10 @@ describe('dashboard approvals', () => {
     it('unifies pending pauses and proposed module decisions, newest first', () => {
       const store = new DecisionStore(root);
       store.initialize();
-      store.writePending(makePacket({ decision_id: 'D-1', created_at: '2026-04-27T12:00:00Z' }));
+      store.writePending(makePacket({ decision_id: WID, created_at: '2026-04-27T12:00:00Z' }));
       store.writePending(
         makePacket({
-          decision_id: 'D-2',
+          decision_id: WID2,
           fingerprint: 'sha256:test-2',
           task_session_id: 'session-2',
           created_at: '2026-04-28T12:00:00Z',
@@ -113,7 +119,7 @@ describe('dashboard approvals', () => {
       writeDecision(root, makeProposal());
 
       const feed = buildApprovalsFeed(root);
-      expect(feed.pauses.map((p) => p.id)).toEqual(['D-2', 'D-1']);
+      expect(feed.pauses.map((p) => p.id)).toEqual([WID2, WID]);
       expect(feed.pauses[0]).toMatchObject({
         kind: 'pause',
         category: 'component-reuse',
@@ -146,7 +152,7 @@ describe('dashboard approvals', () => {
       writeDecision(root, makeProposal({ expires_at: '2020-01-01T00:00:00.000Z' }));
 
       const feed = buildApprovalsFeed(root);
-      expect(feed.pauses.map((p) => p.id)).toEqual(['D-1']);
+      expect(feed.pauses.map((p) => p.id)).toEqual([WID]);
       expect(feed.proposals).toEqual([]);
       expect(feed.pendingCount).toBe(1);
     });
@@ -159,18 +165,18 @@ describe('dashboard approvals', () => {
       store.writePending(makePacket());
 
       const result = resolvePauseDecision(root, {
-        decisionId: 'D-1',
+        decisionId: WID,
         chosenOptionKey: 'reuse-button',
         note: 'looks right',
       });
 
       expect(result).toEqual({
-        id: 'D-1',
+        id: WID,
         status: 'resolved',
         chosen_option_key: 'reuse-button',
       });
-      expect(store.readPending('D-1')).toBeNull();
-      const resolved = store.readResolved('D-1');
+      expect(store.readPending(WID)).toBeNull();
+      const resolved = store.readResolved(WID);
       expect(resolved?.status).toBe('resolved');
       expect(resolved?.human_response).toMatchObject({
         chosen_option_key: 'reuse-button',
@@ -181,7 +187,7 @@ describe('dashboard approvals', () => {
       const audit = readFileSync(join(root, PATHS.AUDIT_LOG), 'utf8');
       expect(audit).toMatch(/dashboard-decision-resolved/);
       expect(audit).toMatch(/actor="dashboard"/);
-      expect(audit).toMatch(/decision_id="D-1"/);
+      expect(audit).toMatch(new RegExp(`decision_id="${WID}"`));
     });
 
     it('throws ApprovalNotFoundError for an unknown id', () => {
@@ -196,10 +202,10 @@ describe('dashboard approvals', () => {
       store.initialize();
       store.writePending(makePacket());
       expect(() =>
-        resolvePauseDecision(root, { decisionId: 'D-1', chosenOptionKey: 'nope' }),
+        resolvePauseDecision(root, { decisionId: WID, chosenOptionKey: 'nope' }),
       ).toThrow(ApprovalConflictError);
       // and the packet is still pending
-      expect(store.readPending('D-1')).not.toBeNull();
+      expect(store.readPending(WID)).not.toBeNull();
     });
 
     it('throws ApprovalConflictError when the pending packet is corrupt', () => {

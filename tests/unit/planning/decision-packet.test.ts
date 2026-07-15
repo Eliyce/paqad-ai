@@ -4,6 +4,7 @@ import {
   buildRepoStateSignature,
   computeDecisionFingerprint,
   isDecisionPacket,
+  isStrictDecisionId,
   normalizeDecisionQuestion,
   scoreDecisionOptionOverlap,
   toDecisionRecord,
@@ -11,6 +12,19 @@ import {
 } from '@/planning/index.js';
 
 describe('decision packet helpers', () => {
+  // Issue #387 — the strict write-time id shape accepts only `D-<ULID>`, while
+  // validateDecisionPacket (below) stays tolerant of the legacy `D-{N}` form.
+  it('isStrictDecisionId accepts D-<ULID> and rejects legacy or malformed ids', () => {
+    expect(isStrictDecisionId('D-01J000000000000000000000A1')).toBe(true);
+    expect(isStrictDecisionId('D-1')).toBe(false);
+    expect(isStrictDecisionId('D-4')).toBe(false);
+    expect(isStrictDecisionId('')).toBe(false);
+    expect(isStrictDecisionId('01J000000000000000000000A1')).toBe(false);
+    // Read validation stays tolerant of the legacy form it rejects on write.
+    expect(validateDecisionPacket({ decision_id: 'D-1' })).not.toContain(
+      'decision_id must match D-{id}',
+    );
+  });
   it('normalizes similar questions to the same fingerprint input', () => {
     expect(normalizeDecisionQuestion('Which Button should I use?')).toBe(
       normalizeDecisionQuestion('Button to pick?'),

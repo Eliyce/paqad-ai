@@ -20,6 +20,18 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 /** A `D-` id whose body is a 26-char Crockford-base32 ULID (issue #184). */
 const ULID_DECISION_ID = /^D-[0-9A-HJKMNP-TV-Z]{26}$/;
 
+// Issue #387 — the creation path (`writePending`) now rejects a non-ULID id, so every
+// packet written through it must carry the strict `D-<ULID>` form. These are fixed,
+// valid ULID-shaped ids for the packets these tests create. Legacy `D-{N}` ids that are
+// only ever read from disk (never written through `writePending`) are left as-is on
+// purpose — they prove read/list tolerance stays intact.
+const WID = 'D-01J000000000000000000000A1';
+const WID2 = 'D-01J000000000000000000000A2';
+const WID3 = 'D-01J000000000000000000000A3';
+const WID4 = 'D-01J000000000000000000000A4';
+const WID20 = 'D-01J000000000000000000000B0';
+const WID40 = 'D-01J000000000000000000000B4';
+
 describe('DecisionStore', () => {
   let projectRoot: string;
 
@@ -116,7 +128,7 @@ describe('DecisionStore', () => {
       expect.arrayContaining([
         expect.objectContaining({
           event: 'decision-pending-written',
-          decision_id: 'D-1',
+          decision_id: WID,
           fingerprint: 'sha256:test',
           task_session_id: 'session-1',
           provider: 'codex-cli',
@@ -125,7 +137,7 @@ describe('DecisionStore', () => {
         }),
         expect.objectContaining({
           event: 'decision-resolved-by-human',
-          decision_id: 'D-1',
+          decision_id: WID,
           responded_by: 'haider',
           chosen_option_key: 'reuse-button',
           intent: 'explicit',
@@ -141,9 +153,9 @@ describe('DecisionStore', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
-    const pendingPacket = makePacket({ decision_id: 'D-1', task_session_id: 'session-a' });
+    const pendingPacket = makePacket({ decision_id: WID, task_session_id: 'session-a' });
     const resolvedPacket = makePacket({
-      decision_id: 'D-2',
+      decision_id: WID2,
       task_session_id: 'session-b',
       fingerprint: 'sha256:other',
     });
@@ -155,10 +167,10 @@ describe('DecisionStore', () => {
       readDecisionEvidence(projectRoot)
         .pending.map((p) => p.id)
         .sort(),
-    ).toEqual(['D-1', 'D-2']);
+    ).toEqual([WID, WID2]);
 
     store.resolve({
-      decisionId: 'D-2',
+      decisionId: WID2,
       humanResponse: {
         chosen_option_key: 'reuse-button',
         intent: 'explicit',
@@ -170,7 +182,7 @@ describe('DecisionStore', () => {
     });
 
     const evidence = readDecisionEvidence(projectRoot);
-    expect(evidence.pending.map((p) => p.id)).toEqual(['D-1']);
+    expect(evidence.pending.map((p) => p.id)).toEqual([WID]);
     expect(evidence.pending[0]?.title).toBe('Use the Button we have?');
     expect(evidence.resolvedCount).toBe(1);
     expect(evidence.expiredCount).toBe(0);
@@ -228,7 +240,7 @@ describe('DecisionStore', () => {
     });
 
     expect(store.findReusableDecision(packet)).toBeNull();
-    expect(existsSync(join(projectRoot, PATHS.DECISIONS_EXPIRED_DIR, 'D-1.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, PATHS.DECISIONS_EXPIRED_DIR, `${WID}.json`))).toBe(true);
   });
 
   it('returns null for reusable decisions with no compatible chosen option', () => {
@@ -307,7 +319,7 @@ describe('DecisionStore', () => {
       event: 'decision-resolved-by-rule',
     });
 
-    expect(store.readResolved('D-1')?.status).toBe('superseded');
+    expect(store.readResolved(WID)?.status).toBe('superseded');
     expect(store.readResolved('D-2')?.status).toBe('resolved');
     expect(readFileSync(join(projectRoot, PATHS.DECISIONS_AUDIT_LOG), 'utf8')).toContain(
       'decision-superseded',
@@ -348,7 +360,7 @@ describe('DecisionStore', () => {
       event: 'decision-resolved-by-rule',
     });
 
-    expect(store.readResolved('D-1')?.status).toBe('delegated');
+    expect(store.readResolved(WID)?.status).toBe('delegated');
     expect(store.readResolved('D-2')?.status).toBe('resolved');
   });
 
@@ -378,6 +390,39 @@ describe('DecisionStore', () => {
       'utf8',
     );
     expect(() => store.readPending('D-7')).toThrow(/Decision packet at/);
+  });
+
+  // Issue #387 — the creation path is strict even though reads stay tolerant.
+  it('rejects writing a new packet whose id is a sequential D-{N} (issue #387)', () => {
+    const store = new DecisionStore(projectRoot);
+    store.initialize();
+
+    expect(() => store.writePending(makePacket({ decision_id: 'D-4' }))).toThrow(
+      /must be the collision-free D-<ULID> form/,
+    );
+    // Nothing is written for the rejected packet.
+    expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-4.json'))).toBe(false);
+    // The sanctioned mint is accepted.
+    expect(() =>
+      store.writePending(makePacket({ decision_id: store.nextDecisionId() })),
+    ).not.toThrow();
+  });
+
+  // Issue #387 — a pre-existing legacy `D-{N}` packet keeps reading and listing (the read
+  // path must not tighten). It is written straight to disk, bypassing the strict creation
+  // guard, exactly as a stale project would carry it.
+  it('still reads and lists a pre-existing legacy D-{N} packet (issue #387)', () => {
+    const store = new DecisionStore(projectRoot);
+    store.initialize();
+    const legacy = makePacket({ decision_id: 'D-1' });
+    writeFileSync(
+      join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-1.json'),
+      JSON.stringify(legacy),
+      'utf8',
+    );
+
+    expect(store.readPending('D-1')?.decision_id).toBe('D-1');
+    expect(store.listPendingDecisionIds()).toContain('D-1');
   });
 
   it('writes memoization and undeclared-decision audit events with complete metadata', () => {
@@ -414,7 +459,7 @@ describe('DecisionStore', () => {
 
     store.deferUndeclaredDecision({
       packet: makePacket({
-        decision_id: 'D-3',
+        decision_id: WID3,
         requested_by: 'paqad-system',
         task_session_id: 'retroactive:planning:SL-1',
       }),
@@ -433,7 +478,7 @@ describe('DecisionStore', () => {
         }),
         expect.objectContaining({
           event: 'undeclared-decision-flagged',
-          decision_id: 'D-3',
+          decision_id: WID3,
           task_session_id: 'retroactive:planning:SL-1',
           provider: 'paqad-system',
         }),
@@ -459,12 +504,12 @@ describe('DecisionStore', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
-    const first = makePacket({ decision_id: 'D-1', task_session_id: 'session-1' });
-    const second = makePacket({ decision_id: 'D-2', task_session_id: 'session-1' });
+    const first = makePacket({ decision_id: WID, task_session_id: 'session-1' });
+    const second = makePacket({ decision_id: WID2, task_session_id: 'session-1' });
     store.writePending(first);
 
     expect(() => store.writePending(second)).toThrow(/already has a pending decision/);
-    expect(store.findPendingDecisionForTask('session-1')).toBe('D-1');
+    expect(store.findPendingDecisionForTask('session-1')).toBe(WID);
 
     writeFileSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-9.json'), '{bad', 'utf8');
     const malformed = store.readPendingResult('D-9');
@@ -514,9 +559,9 @@ describe('DecisionStore', () => {
           },
         ],
       }),
-    ).toBe('D-1');
+    ).toBe(WID);
 
-    const missingResolved = makePacket({ decision_id: 'D-4', fingerprint: 'sha256:missing' });
+    const missingResolved = makePacket({ decision_id: WID4, fingerprint: 'sha256:missing' });
     store.writePending(missingResolved);
     store.resolve({
       decisionId: missingResolved.decision_id,
@@ -529,7 +574,7 @@ describe('DecisionStore', () => {
         carry_over_scope: 'none',
       },
     });
-    unlinkSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, 'D-4.json'));
+    unlinkSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, `${WID4}.json`));
     expect(
       store.findReusableDecision({
         ...missingResolved,
@@ -557,7 +602,7 @@ describe('DecisionStore', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
-    const delegated = makePacket({ decision_id: 'D-20' });
+    const delegated = makePacket({ decision_id: WID20 });
     store.writePending(delegated);
     store.resolve({
       decisionId: delegated.decision_id,
@@ -685,7 +730,7 @@ describe('DecisionStore', () => {
     );
 
     const packet = makePacket({
-      decision_id: 'D-40',
+      decision_id: WID40,
       fingerprint: 'sha256:invalidate',
       invalidation_watch: ['src/components/Button.tsx'],
     });
@@ -709,7 +754,7 @@ describe('DecisionStore', () => {
     );
 
     expect(store.findReusableDecision(packet)).toBeNull();
-    expect(existsSync(join(projectRoot, PATHS.DECISIONS_EXPIRED_DIR, 'D-40.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, PATHS.DECISIONS_EXPIRED_DIR, `${WID40}.json`))).toBe(true);
   });
 
   it('prefers the higher-overlap reusable decision and reports non-Error malformed reads', () => {
@@ -833,10 +878,10 @@ describe('DecisionStore', () => {
       const paused = events.find((event) => event.kind === 'decision-paused');
       expect(paused).toMatchObject({
         kind: 'decision-paused',
-        decisionId: 'D-1',
+        decisionId: WID,
         question: 'Use the Button we have?',
         recommendation: null,
-        packetPath: `${PATHS.DECISIONS_PENDING_DIR}/D-1.json`,
+        packetPath: `${PATHS.DECISIONS_PENDING_DIR}/${WID}.json`,
       });
       expect(paused?.kind === 'decision-paused' && paused.options).toHaveLength(2);
       // path must be relative — never leak an absolute (home-dir) path
@@ -865,7 +910,7 @@ describe('DecisionStore', () => {
       const resolved = events.find((event) => event.kind === 'decision-resolved');
       expect(resolved).toMatchObject({
         kind: 'decision-resolved',
-        decisionId: 'D-1',
+        decisionId: WID,
         chosenOptionKey: 'reuse-button',
         resolver: 'human',
         intent: 'explicit',
@@ -900,26 +945,28 @@ describe('DecisionStore', () => {
       store.initialize();
       // Fill to the (low, profile-driven) cap.
       writeProfileMaxPending(projectRoot, 2);
-      store.writePending(makePacket({ decision_id: 'D-1', task_session_id: 's-1' }));
-      store.writePending(makePacket({ decision_id: 'D-2', task_session_id: 's-2' }));
+      store.writePending(makePacket({ decision_id: WID, task_session_id: 's-1' }));
+      store.writePending(makePacket({ decision_id: WID2, task_session_id: 's-2' }));
 
       expect(() =>
-        store.writePending(makePacket({ decision_id: 'D-3', task_session_id: 's-3' })),
+        store.writePending(makePacket({ decision_id: WID3, task_session_id: 's-3' })),
       ).toThrow(DecisionCapExceededError);
 
       const capped = events.find((event) => event.kind === 'decision-cap-exceeded');
       expect(capped).toMatchObject({ kind: 'decision-cap-exceeded', pendingCount: 2, cap: 2 });
       // The refused packet must not have been written.
-      expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-3.json'))).toBe(false);
+      expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, `${WID3}.json`))).toBe(
+        false,
+      );
     });
 
     it('re-writing an already-pending packet never trips the cap', () => {
       const store = new DecisionStore(projectRoot);
       store.initialize();
       writeProfileMaxPending(projectRoot, 1);
-      store.writePending(makePacket({ decision_id: 'D-1' }));
+      store.writePending(makePacket({ decision_id: WID }));
       // Same id, same task — a refresh, not a new pause.
-      expect(() => store.writePending(makePacket({ decision_id: 'D-1' }))).not.toThrow();
+      expect(() => store.writePending(makePacket({ decision_id: WID }))).not.toThrow();
     });
 
     it('discards a pending packet: file removed, audit appended, no resolved entry, event emitted', () => {
@@ -934,15 +981,17 @@ describe('DecisionStore', () => {
         reason: 'no longer relevant',
       });
 
-      expect(removed.decision_id).toBe('D-1');
-      expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-1.json'))).toBe(false);
-      expect(existsSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, 'D-1.json'))).toBe(false);
+      expect(removed.decision_id).toBe(WID);
+      expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, `${WID}.json`))).toBe(false);
+      expect(existsSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, `${WID}.json`))).toBe(
+        false,
+      );
       const audit = readDecisionAuditEvents(projectRoot);
       expect(audit.some((event) => event.event === 'decision-discarded')).toBe(true);
       const discarded = events.find((event) => event.kind === 'decision-discarded');
       expect(discarded).toMatchObject({
         kind: 'decision-discarded',
-        decisionId: 'D-1',
+        decisionId: WID,
         reason: 'no longer relevant',
       });
     });
@@ -984,7 +1033,7 @@ function writeProfileMaxPending(projectRoot: string, maxPending: number): void {
 
 function makePacket(overrides: Partial<DecisionPacket> = {}): DecisionPacket {
   return {
-    decision_id: 'D-1',
+    decision_id: WID,
     fingerprint: 'sha256:test',
     category: 'component-reuse',
     question: 'Use the Button we have?',

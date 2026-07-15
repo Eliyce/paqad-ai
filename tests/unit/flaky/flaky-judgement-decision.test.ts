@@ -17,6 +17,11 @@ const BASE = {
   created_at: '2026-06-08T00:00:00Z',
 };
 
+// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
+// `D-<ULID>` id. The builder unit tests above keep using legacy `D-1`/`D-2` ids on
+// purpose (they only validate, never write, proving read tolerance stays intact).
+const WRITTEN_ID = 'D-01J000000000000000000000A1';
+
 describe('buildFlakyJudgementPacket', () => {
   it('produces a valid test.flaky_judgement packet with stable option keys', () => {
     const packet = buildFlakyJudgementPacket({
@@ -74,10 +79,14 @@ describe('test.flaky_judgement reuse by kind', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
-    const first = buildFlakyJudgementPacket({ ...BASE, decision_id: 'D-1', detail: 'case one' });
+    const first = buildFlakyJudgementPacket({
+      ...BASE,
+      decision_id: WRITTEN_ID,
+      detail: 'case one',
+    });
     store.writePending(first);
     store.resolve({
-      decisionId: 'D-1',
+      decisionId: WRITTEN_ID,
       humanResponse: {
         chosen_option_key: 'quarantine-as-flaky',
         intent: 'explicit',
@@ -94,7 +103,7 @@ describe('test.flaky_judgement reuse by kind', () => {
       test_id: 'another > test',
       detail: 'case two, same kind',
     });
-    expect(store.findReusableDecision(second)).toBe('D-1');
+    expect(store.findReusableDecision(second)).toBe(WRITTEN_ID);
 
     const reuseEvents = readDecisionAuditEvents(projectRoot).filter(
       (event) => event.event === 'decision-reused',
