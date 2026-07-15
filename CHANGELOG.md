@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.60.2
+
+### Patch Changes
+
+- 3900daf: Prevent onboarding repository discovery from scanning dot directories, ignored paths, generated trees, and nested Git checkouts.
+
 ## 1.60.1
 
 ### Patch Changes
