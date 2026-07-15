@@ -49,15 +49,6 @@ export function featureReportEnabled(
   return resolveFrameworkConfig(projectRoot, env).features.feature_report;
 }
 
-/** Read the auto-open flag (default false — an opt-in, since a browser popping on every
- *  completed change is obnoxious). */
-export function featureReportAutoOpen(
-  projectRoot: string,
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  return resolveFrameworkConfig(projectRoot, env).features.feature_report_auto_open;
-}
-
 type LooseRow = Record<string, unknown>;
 
 /**

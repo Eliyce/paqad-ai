@@ -241,17 +241,6 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ' +
       'ON (default) is local, free, and zero-LLM. OFF stops writing the page.',
   },
-  {
-    key: 'feature_report_auto_open',
-    env: 'PAQAD_FEATURE_REPORT_AUTO_OPEN',
-    type: 'boolean',
-    default: false,
-    group: 'app',
-    section: 'Feature flags',
-    comment:
-      'Open the per-feature report in a browser when a change completes (issue #371). OFF ' +
-      '(default) just writes + names the file. Sandbox-aware: never opens under CI/SSH/remote.',
-  },
 
   // ── rag group ──────────────────────────────────────────────────────────
   {
@@ -878,7 +867,6 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       analytics_instrumentation: rb('analytics_instrumentation'),
       lean_rules: rb('lean_rules'),
       feature_report: rb('feature_report'),
-      feature_report_auto_open: rb('feature_report_auto_open'),
     },
     research: {
       depth: asEnum(
@@ -1426,11 +1414,6 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
     );
     put('lean_rules', f.lean_rules, d.features.lean_rules);
     put('feature_report', f.feature_report, d.features.feature_report);
-    put(
-      'feature_report_auto_open',
-      f.feature_report_auto_open,
-      d.features.feature_report_auto_open,
-    );
   }
   if (overrides.research) {
     put('research_depth', overrides.research.depth, d.research.depth);
@@ -1565,7 +1548,6 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'analytics_instrumentation',
       'lean_rules',
       'feature_report',
-      'feature_report_auto_open',
     ],
   },
   { present: (p) => p.research !== undefined, keys: ['research_depth'] },

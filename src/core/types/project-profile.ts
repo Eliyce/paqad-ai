@@ -48,8 +48,6 @@ export interface ProjectFeatureFlags {
   lean_rules: boolean;
   /** Issue #371 — render the per-feature evidence report.html at end-of-change (default on). */
   feature_report: boolean;
-  /** Issue #371 — auto-open the per-feature report in a browser on completion (default off). */
-  feature_report_auto_open: boolean;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;
