@@ -1,0 +1,26 @@
+{
+  "id": "D-01KXJHXBV4JRVNY3WSY896HEA1",
+  "category": "delivery.open_pr",
+  "title": "Choose a viable PR head for issue 383",
+  "context": "The requested current branch is main, the PR base is also main, and GitHub cannot open a PR with identical head and base. No HLasani/paqad-ai fork exists. Two verified commits are local and unpushed.",
+  "options": [
+    {
+      "option_key": "branch",
+      "label": "Allow one issue branch in Eliyce/paqad-ai"
+    },
+    {
+      "option_key": "fork",
+      "label": "Create HLasani/paqad-ai and use its main branch"
+    },
+    {
+      "option_key": "local",
+      "label": "Keep the commits local and stop before PR"
+    }
+  ],
+  "recommendation": "branch",
+  "created_at": "2026-07-15T09:32:17.636Z",
+  "status": "resolved",
+  "chosen": "branch",
+  "rationale": "User authorized creating one issue branch so GitHub can open the PR.",
+  "resolved_at": "2026-07-15T09:39:20.537Z"
+}
