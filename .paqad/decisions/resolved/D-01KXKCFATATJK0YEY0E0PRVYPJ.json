@@ -1,0 +1,30 @@
+{
+  "id": "D-01KXKCFATATJK0YEY0E0PRVYPJ",
+  "category": "delivery.ci_red",
+  "title": "PR #391 blocked by code-scanning: pre-existing CodeQL high alert #131 re-attributed to the PR",
+  "context": "PR #391 has all 4 required CI contexts green (Node 22 ubuntu/macos/windows + Node 24 ubuntu), is MERGEABLE, and is not behind main. Merge is BLOCKED by GitHub code-scanning protection over CodeQL alert #131 (js/resource-exhaustion-from-deep-object-traversal, HIGH) at src/validators/validator.ts:74 (ajv allErrors:true). The alert was created 2026-06-12 and is open on main; this PR does NOT modify validator.ts. CodeQL re-attributes it as 'new in this PR' only because #388 edits project-profile.schema.json, a data-flow input to the unchanged validator. No new vulnerability is introduced by this PR.",
+  "options": [
+    {
+      "option_key": "dismiss",
+      "label": "Dismiss alert #131 as pre-existing (won't-fix/accepted) to unblock, note in PR"
+    },
+    {
+      "option_key": "fix_here",
+      "label": "Fix validator.ts (ajv input guard) in this PR — scope creep beyond the 5 issues"
+    },
+    {
+      "option_key": "fix_separate",
+      "label": "Leave PR blocked; open a separate issue/PR to fix #131 on main first"
+    },
+    {
+      "option_key": "admin_merge",
+      "label": "Admin-override merge past the code-scanning gate"
+    }
+  ],
+  "recommendation": "dismiss",
+  "created_at": "2026-07-15T17:16:29.386Z",
+  "status": "resolved",
+  "chosen": "fix_here",
+  "rationale": "All 4 required CI contexts pass; the blocker is a pre-existing CodeQL high alert (#131) re-attributed via the #388 schema change. Owner chose to fix the ajv allErrors DoS sink in validator.ts within this PR rather than dismiss the alert.",
+  "resolved_at": "2026-07-15T17:21:32.039Z"
+}

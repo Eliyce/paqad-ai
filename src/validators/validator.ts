@@ -62,7 +62,13 @@ export class SchemaValidator {
   private readonly ajv: Ajv;
 
   constructor() {
-    this.ajv = new Ajv({ allErrors: true, verbose: true });
+    // Deliberately NOT `allErrors: true`: collecting every error forces ajv to
+    // traverse the whole (potentially deeply nested, caller-influenced) object,
+    // which is a resource-exhaustion / DoS vector (CodeQL
+    // js/resource-exhaustion-from-deep-object-traversal). Default short-circuit
+    // stops at the first failure. `verbose` is kept so `error.data` still carries
+    // the offending value for readable messages.
+    this.ajv = new Ajv({ verbose: true });
     this.ajv.addFormat(
       'date-time',
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/,
