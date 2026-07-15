@@ -3,8 +3,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import * as gitignoreScan from '@/core/fs/gitignore-scan.js';
 import { discoverRepositoryContext } from '@/repository/discovery.js';
 
 function createProject(root: string, relativePath: string): void {
@@ -102,6 +103,43 @@ describe('discoverRepositoryContext', () => {
         'info-excluded',
       ]),
     );
+  });
+
+  it('resolves git-ignored paths with a single batched git check-ignore call regardless of directory count', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-repository-discovery-batch-'));
+    roots.push(root);
+    git(root, ['init']);
+    createProject(root, '.');
+
+    // Many directories within the default scan depth. The previous per-directory
+    // implementation called dropGitIgnored twice per directory (markers + child
+    // dirs), so this tree would spawn dozens of `git check-ignore` subprocesses.
+    for (let index = 0; index < 25; index += 1) {
+      mkdirSync(join(root, `dir-${index}`, 'sub', 'deep'), { recursive: true });
+    }
+
+    const spy = vi.spyOn(gitignoreScan, 'dropGitIgnored');
+    try {
+      await discoverRepositoryContext(root);
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('never spawns git check-ignore when there is nothing to check', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-repository-discovery-empty-'));
+    roots.push(root);
+    git(root, ['init']);
+
+    const spy = vi.spyOn(gitignoreScan, 'dropGitIgnored');
+    try {
+      const context = await discoverRepositoryContext(root);
+      expect(spy).not.toHaveBeenCalled();
+      expect(context.projects).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('retains real projects and static fallback behavior outside a git checkout', async () => {
