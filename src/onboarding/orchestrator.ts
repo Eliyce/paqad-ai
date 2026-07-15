@@ -63,6 +63,7 @@ import {
   writeOnboardingManifest,
   writeProjectProfile,
 } from './manifest-writer.js';
+import { migrateLegacyDecisionIds } from './decision-id-migration.js';
 import { generateDeliveryPolicy } from './delivery-policy-generator.js';
 import { generateFeatureDevelopmentPolicy } from './feature-policy-generator.js';
 import { resolveSelections } from './prompts.js';
@@ -324,6 +325,15 @@ export class OnboardingOrchestrator {
     }
     bootstrapFramework(options.projectRoot);
     new DecisionStore(options.projectRoot).initialize();
+    // Issue #387 — heal any legacy sequential `D-{N}.json` decision packets a stale
+    // project (or an advisory-host hand-authored packet) left behind, renaming each to a
+    // minted `D-<ULID>.json`. Best-effort and idempotent; already-ULID packets are
+    // untouched, so this is a no-op on a healthy project.
+    for (const migration of migrateLegacyDecisionIds(options.projectRoot)) {
+      onboardingWarnings.push(
+        `Migrated legacy decision id ${migration.from} → ${migration.to} in ${migration.dir}.`,
+      );
+    }
     // Issue #229 — the narration + decision-pause contracts are no longer copied
     // into the project's `.paqad/`. They are framework-owned content carried by
     // the install bootstrap (`AGENT-BOOTSTRAP.md`), loaded from there behind the

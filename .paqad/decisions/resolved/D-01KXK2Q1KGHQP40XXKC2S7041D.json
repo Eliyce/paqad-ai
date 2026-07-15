@@ -1,13 +1,29 @@
 {
-  "id": "D-3",
+  "id": "D-01KXK2Q1KGHQP40XXKC2S7041D",
   "category": "architecture-path",
   "title": "Scope of remediation for issue #94 (rules corpus audit)",
   "context": "Validation against the current codebase + online research shows most of issue #94 is already implemented. Finding #1 (correctness bugs in boost.md and rust-web/security) was fixed in PR #93 and the fix is factually correct per Laravel Boost docs and serde docs. Finding #3 (workflow specs) and Finding #6 (regression guard) are covered by an existing test guard tests/unit/content/rule-quality.test.ts which blocks ## Trigger / ### Step / run_id / .paqad/ in rules (the 3 workflow specs are deliberately allowlisted). Remaining, NOT yet enforced: Finding #2 (per-stack architecture.md/modules.md still duplicate module-map.yml boundary ownership, though they now defer to it) and Finding #4 (~45-75 short 'platitude' files). Market best practices (Cursor/AGENTS.md 2026) validate the lean-actionable-non-duplicative direction.",
   "options": [
-    {"option_key": "guard-extend", "label": "Extend existing guard only", "detail": "Extend rule-quality.test.ts to enforce the two remaining acceptance criteria (no new module-boundary duplication; platitude-shape rejection) as a durable backstop. Complements existing feature, low risk, no mass deletion."},
-    {"option_key": "guard-plus-prune", "label": "Guard + surgical prune", "detail": "Extend the guard AND delete/collapse the confirmed platitude + duplicative files in the same PR."},
-    {"option_key": "full-issue", "label": "Full issue as written", "detail": "Move workflow specs out of rules/, mass-delete ~45 platitudes, backfill stub stacks, collapse all duplication. Largest, riskiest; reverses some deliberate team choices (allowlist)."},
-    {"option_key": "close-stale", "label": "Close as largely-done", "detail": "Comment on #94 that criteria 1/2/3/6 are met; close or narrow it."}
+    {
+      "option_key": "guard-extend",
+      "label": "Extend existing guard only",
+      "detail": "Extend rule-quality.test.ts to enforce the two remaining acceptance criteria (no new module-boundary duplication; platitude-shape rejection) as a durable backstop. Complements existing feature, low risk, no mass deletion."
+    },
+    {
+      "option_key": "guard-plus-prune",
+      "label": "Guard + surgical prune",
+      "detail": "Extend the guard AND delete/collapse the confirmed platitude + duplicative files in the same PR."
+    },
+    {
+      "option_key": "full-issue",
+      "label": "Full issue as written",
+      "detail": "Move workflow specs out of rules/, mass-delete ~45 platitudes, backfill stub stacks, collapse all duplication. Largest, riskiest; reverses some deliberate team choices (allowlist)."
+    },
+    {
+      "option_key": "close-stale",
+      "label": "Close as largely-done",
+      "detail": "Comment on #94 that criteria 1/2/3/6 are met; close or narrow it."
+    }
   ],
   "chosen": "guard-plus-prune",
   "rationale": "User selected Guard + surgical prune: extend the existing rule-quality.test.ts guard to enforce the two unmet acceptance criteria (no new per-stack module-boundary duplication; platitude-shape rejection) AND delete/collapse the confirmed platitude + duplicative rule files in the same PR.",
