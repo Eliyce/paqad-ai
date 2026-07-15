@@ -1,5 +1,101 @@
 # paqad-ai
 
+## 1.61.0
+
+### Minor Changes
+
+- 9467f47: feat(#389): imperative advisory-host stage protocol + honest JetBrains tiering
+
+  The JetBrains Claude Agent incident (framework followed, but stages unenforced and
+  the ledger empty of planning/specification artifacts) exposed that on advisory hosts
+  paqad had zero enforcement and relied on the model voluntarily self-recording. The
+  bootstrap only said "narrate every stage and the verdict yourself" — too weak. The
+  advisory-host section now imperatively requires running the host-independent CLI for
+  a feature-development change: `paqad-ai stage start/end`, `paqad-ai plan compile`, and
+  `paqad-ai spec freeze`, in order, so the stage-evidence ledger carries real planning +
+  specification artifacts even where no lifecycle hook fires.
+
+  The verification-enforcement doc now documents the three JetBrains products honestly:
+  **Claude Agent / AI Assistant** reads `CLAUDE.md`-equivalent guidance but fires no
+  Claude Code hooks (advisory — the incident's host), the **Claude Code [Beta] plugin**
+  runs the real `claude` CLI so paqad's hooks fire (full, hook-enforced — the supported
+  enforcement path), and **Junie** is advisory. The `aiassistant` adapter (already
+  correctly `hooks:false`) is now listed in the per-adapter coverage matrix, and a
+  reproducible manual advisory-host protocol is documented. No host-detection change and
+  no overclaim of enforcement paqad does not have on the host.
+
+- 9467f47: fix(#390): gate feature-evidence bundle creation + report render to the feature-development route
+
+  Feature-evidence artifacts — the `feature-evidence/change-<ULID>/` bundle,
+  `stage-evidence.jsonl`, `report.html`, `receipt.json`, `ai-bom.json`, `rag.jsonl`,
+  and `_session/<id>.json` — were created for **every** workflow, not only
+  feature-development. A `root-cause-analysis` (or any non-feature) session that emitted
+  `paqad:stage` markers and reached Stop still minted a `change-<ULID>` bundle and a
+  `report.html`, because both the marker-driven auto-open and the report/receipt render
+  gated only on "is a feature pointer active?" (`currentFeature() != null`), never on the
+  routed workflow.
+
+  Both seams now consult the **persisted route** via `isFeatureDevelopmentRoute` (a new
+  `routeIsAffirmativelyNonFeature` helper), not the working-tree diff:
+
+  - `parseAndRecordMarkers` records nothing when the route is affirmatively
+    non-feature-development, so no bundle or `_session` control is minted.
+  - The per-feature receipt/AI-BOM projection and `renderActiveFeatureReport` in
+    `run-repository-verification.ts` write nothing when the route is affirmatively
+    non-feature-development, even if a pointer leaks through.
+
+  **Cross-provider safe by design:** suppression fires **only** on a route we can prove
+  is non-feature. The route seam runs only in Claude's UserPromptSubmit hook, so
+  Codex/Gemini sessions — which record markers through the same recorder but never write
+  route state — have **no** route state; an absent route is treated as "unknown" and
+  preserves today's recording behaviour rather than silently killing all cross-provider
+  feature-evidence. Feature-development behaviour is unchanged.
+
+- 9467f47: feat(#388): stop auto-opening report.html in the browser and remove the `feature_report_auto_open` config option
+
+  The per-feature `report.html` no longer opens in the OS browser. The auto-open-on-completion
+  path (fired by the completion hook) and the manual `paqad-ai feature report --open` path are
+  both removed, and the sandbox-aware opener (`report-open.ts`) is deleted — no code path opens a
+  browser anymore.
+
+  **Removed config key:** `feature_report_auto_open` is gone from the config registry, resolver,
+  serializer, listing, the project-profile type and JSON schema, the onboarding default seed, and
+  the generated config templates. On the next onboard/update the config-split reconcile (#227)
+  prunes the key from team/local `.config.*` files, so existing projects stop opening the browser
+  without manual edits — every still-valid value is preserved.
+
+  Report **generation** is unchanged: the `feature_report` flag (default on) and
+  `renderActiveFeatureReport` still write `report.html` into the feature bundle exactly as before.
+
+### Patch Changes
+
+- 9467f47: fix(#387): reject sequential decision ids at write, migrate legacy fixtures
+
+  Decision packets could still be minted with sequential `D-{number}` ids when an
+  agent bypassed the sanctioned writer and hand-authored the JSON, seeded by legacy
+  `D-1`/`D-2`/`D-3` example packets. The creation paths now funnel through a single
+  canonical `D-<ULID>` guard — `DecisionStore.writePending` rejects a caller-supplied
+  non-ULID id, and `createPendingDecision` already mints one — while read, validate,
+  and list stay tolerant of legacy ids so pre-existing packets keep working. Onboard
+  and update now best-effort migrate any `.paqad/decisions/{pending,resolved}/D-{N}.json`
+  to a minted ULID id (updating the in-file id and index reference, idempotent on
+  already-ULID packets), the repo's own legacy fixtures are migrated, and the bootstrap
+  now states imperatively that packets are created only via the `decision` skill,
+  never by hand — including on advisory hosts with no Decision-Pause hook.
+
+- 9467f47: Close two CodeQL high-severity findings surfaced on the evidence/decision paths:
+
+  - **Resource exhaustion (`js/resource-exhaustion-from-deep-object-traversal`)** — `SchemaValidator` no longer sets ajv `allErrors: true`, so validation short-circuits at the first error instead of traversing an entire (potentially deeply nested, caller-influenced) object to collect every error. `verbose` is retained so error output still carries the offending value; results now report the first failure rather than all of them.
+  - **File-system race (`js/file-system-race`)** — the legacy decision-id migration's `remapIndex` dropped its `existsSync` check-then-`writeFileSync` sequence, which was a time-of-check/time-of-use race. It now relies on the existing `try/catch` (a missing index throws `ENOENT`, treated as "nothing to remap"), with identical behaviour and no race window.
+
+- 9467f47: fix(#386): batch onboarding's git check-ignore to a single call
+
+  Repository discovery spawned two synchronous `git check-ignore` subprocesses per
+  visited directory, so onboarding stalled for seconds before the provider prompt on
+  large repositories. It now walks the tree once into memory and resolves all
+  git-ignored paths with a single batched `git check-ignore` call, cutting spawns
+  from O(directories) to O(1) with identical detection output.
+
 ## 1.60.2
 
 ### Patch Changes
