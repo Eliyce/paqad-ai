@@ -1,6 +1,8 @@
-import { readdir } from 'node:fs/promises';
+import { lstat, readdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
+import { dropGitIgnored } from '@/core/fs/gitignore-scan.js';
+import { toPosixPath } from '@/core/path-utils.js';
 import type { StackEcosystem } from '@/core/types/introspection.js';
 import type {
   RepositoryApplication,
@@ -37,9 +39,12 @@ const IGNORED_DIRECTORIES = new Set([
   'build',
   'coverage',
   'dist',
+  'docs',
+  'modules',
   'node_modules',
   'out',
   'target',
+  'tests',
   'vendor',
 ]);
 
@@ -107,7 +112,19 @@ async function walk(
   }
 
   const entryNames = new Set(entries.map((entry) => entry.name));
-  const markers = Array.from(PROJECT_MARKERS.keys()).filter((marker) => entryNames.has(marker));
+  const markerCandidates = Array.from(PROJECT_MARKERS.keys()).filter((marker) =>
+    entryNames.has(marker),
+  );
+  const markerPaths = markerCandidates.map((marker) => repositoryPath(relativeDir, marker));
+  const visibleMarkerPaths = new Set(dropGitIgnored(projectRoot, markerPaths));
+  const markers = markerCandidates.filter((marker) => {
+    const markerPath = repositoryPath(relativeDir, marker);
+    if (visibleMarkerPaths.has(markerPath)) {
+      return true;
+    }
+    ignoredPaths.add(markerPath);
+    return false;
+  });
 
   if (markers.length > 0) {
     const ecosystems = Array.from(
@@ -126,18 +143,57 @@ async function walk(
     return;
   }
 
+  const childDirectories: Array<{ absolutePath: string; relativePath: string }> = [];
+
   for (const entry of entries) {
+    const childRelativePath = repositoryPath(relativeDir, entry.name);
+    if (entry.name.startsWith('.')) {
+      ignoredPaths.add(childRelativePath);
+      continue;
+    }
+
     if (!entry.isDirectory()) {
       continue;
     }
 
-    const childRelativePath = relativeDir === '.' ? entry.name : join(relativeDir, entry.name);
     if (IGNORED_DIRECTORIES.has(entry.name) || NON_CANONICAL_DIRECTORIES.has(entry.name)) {
       ignoredPaths.add(childRelativePath);
       continue;
     }
 
-    await walk(projectRoot, childRelativePath, depth + 1, maxDepth, candidates, ignoredPaths);
+    childDirectories.push({
+      absolutePath: join(absoluteDir, entry.name),
+      relativePath: childRelativePath,
+    });
+  }
+
+  const visibleDirectories = new Set(
+    dropGitIgnored(
+      projectRoot,
+      childDirectories.map((directory) => directory.relativePath),
+    ),
+  );
+
+  for (const child of childDirectories) {
+    if (!visibleDirectories.has(child.relativePath) || (await hasVcsBoundary(child.absolutePath))) {
+      ignoredPaths.add(child.relativePath);
+      continue;
+    }
+
+    await walk(projectRoot, child.relativePath, depth + 1, maxDepth, candidates, ignoredPaths);
+  }
+}
+
+function repositoryPath(relativeDir: string, entryName: string): string {
+  return toPosixPath(relativeDir === '.' ? entryName : join(relativeDir, entryName));
+}
+
+async function hasVcsBoundary(absoluteDir: string): Promise<boolean> {
+  try {
+    await lstat(join(absoluteDir, '.git'));
+    return true;
+  } catch {
+    return false;
   }
 }
 
