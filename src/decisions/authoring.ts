@@ -34,7 +34,8 @@ import {
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { ULID_BODY, ulid } from '@/core/ids/ulid.js';
+import { ulid } from '@/core/ids/ulid.js';
+import { isStrictDecisionId } from '@/planning/decision-packet.js';
 
 /** A single option offered by a decision packet. */
 export interface ContractDecisionOption {
@@ -71,17 +72,18 @@ export interface CreateDecisionInput {
   recommendation?: string | null;
 }
 
-/** A `D-<ULID>` id: literal `D-` prefix followed by a 26-char ULID body. */
-const CONTRACT_DECISION_ID = new RegExp(`^D-${ULID_BODY}$`, 'u');
-
 /** Mint a fresh, collision-free decision id (`D-<ULID>`). */
 export function mintDecisionId(): string {
   return `D-${ulid()}`;
 }
 
-/** True when `id` is the collision-free `D-<ULID>` form (not legacy `D-{N}`). */
+/**
+ * True when `id` is the collision-free `D-<ULID>` form (not legacy `D-{N}`). Delegates
+ * to the single canonical write-time guard (`isStrictDecisionId`, issue #387) so the
+ * contract-packet and automated-packet paths never carry divergent id regexes.
+ */
 export function isContractDecisionId(id: string): boolean {
-  return CONTRACT_DECISION_ID.test(id);
+  return isStrictDecisionId(id);
 }
 
 /**

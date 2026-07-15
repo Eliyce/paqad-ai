@@ -462,7 +462,11 @@ export async function startDashboardServer(
       writeJson(res, req, buildApprovalsFeed(options.projectRoot));
       return;
     }
-    const resolveMatch = /^\/api\/decisions\/(D-\d+)\/resolve$/.exec(pathname);
+    // Issue #387 — accept both the current `D-<ULID>` id and the legacy numeric `D-{N}`
+    // form so the resolve route matches real (ULID) decisions, not just pre-#184 ids.
+    const resolveMatch = /^\/api\/decisions\/(D-(?:\d+|[0-9A-HJKMNP-TV-Z]{26}))\/resolve$/.exec(
+      pathname,
+    );
     if (resolveMatch && req.method === 'POST') {
       const decisionId = resolveMatch[1];
       await handleMutation(req, res, async () => {

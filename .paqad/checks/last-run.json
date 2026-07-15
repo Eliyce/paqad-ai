@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-15T09:30:08.266Z",
+  "generated_at": "2026-07-15T13:57:48.428Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-15T09:27:50.091Z",
+        "timestamp": "2026-07-15T13:56:07.332Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -35,7 +35,8 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/quiet-trees-listen.md",
+          ".changeset/onboard-provider-selection-git-check-ignore-storm.md",
+          ".junie/mcp/mcp.json",
           "src/repository/discovery.ts",
           "tests/unit/repository/discovery.test.ts"
         ]
@@ -50,7 +51,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-15T09:29:58.763Z",
+        "timestamp": "2026-07-15T13:57:39.427Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -72,7 +73,8 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/quiet-trees-listen.md",
+          ".changeset/onboard-provider-selection-git-check-ignore-storm.md",
+          ".junie/mcp/mcp.json",
           "src/repository/discovery.ts",
           "tests/unit/repository/discovery.test.ts"
         ]
@@ -87,7 +89,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-15T09:30:08.265Z",
+        "timestamp": "2026-07-15T13:57:48.428Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -109,7 +111,8 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/quiet-trees-listen.md",
+          ".changeset/onboard-provider-selection-git-check-ignore-storm.md",
+          ".junie/mcp/mcp.json",
           "src/repository/discovery.ts",
           "tests/unit/repository/discovery.test.ts"
         ]

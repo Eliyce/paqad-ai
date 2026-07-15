@@ -69,7 +69,14 @@ export async function discoverRepositoryContext(
   const ignoredPaths = new Set<string>();
   const candidates = new Map<string, RepositoryProjectCandidate>();
 
-  await walk(projectRoot, '.', 0, maxDepth, candidates, ignoredPaths);
+  // Walk the tree once into memory, then resolve git-ignored paths with a SINGLE
+  // batched `git check-ignore` call (issue #386). The previous implementation
+  // spawned two `git check-ignore` subprocesses per visited directory, so a
+  // large repo stalled onboarding for seconds before the provider prompt.
+  const tree = await buildTree(projectRoot, '.', 0, maxDepth);
+  const checkPaths = collectCheckPaths(tree);
+  const visible = new Set(checkPaths.length > 0 ? dropGitIgnored(projectRoot, checkPaths) : []);
+  resolveTree(tree, visible, candidates, ignoredPaths);
 
   const sortedCandidates = Array.from(candidates.values()).sort(compareCandidates);
   const projects = classifyProjects(sortedCandidates);
@@ -94,32 +101,117 @@ export function prefixRepositoryPath(root: string, relativePath: string): string
   return join(root, relativePath);
 }
 
-async function walk(
+/**
+ * A directory captured during the readdir pass. `markerCandidates`/`markerPaths`
+ * are the project markers present in this directory (aligned by index);
+ * `staticIgnored` are child paths excluded by the git-independent rules (dot
+ * entries and the static ignore/non-canonical sets); `children` are the
+ * directories worth resolving, each carrying whether it is a nested VCS boundary.
+ */
+interface DirNode {
+  relativeDir: string;
+  markerCandidates: string[];
+  markerPaths: string[];
+  staticIgnored: string[];
+  children: DirChild[];
+}
+
+interface DirChild {
+  relativePath: string;
+  vcsBoundary: boolean;
+  node: DirNode;
+}
+
+function emptyNode(relativeDir: string): DirNode {
+  return { relativeDir, markerCandidates: [], markerPaths: [], staticIgnored: [], children: [] };
+}
+
+/**
+ * Read the tree once into memory, applying only the git-independent rules (dot
+ * entries, static ignore/non-canonical sets, and nested VCS boundaries). No
+ * `git check-ignore` runs here — that resolution is batched into a single call
+ * by the caller. Descent stops at a nested VCS boundary so we never read an
+ * entire nested repository during collection.
+ */
+async function buildTree(
   projectRoot: string,
   relativeDir: string,
   depth: number,
   maxDepth: number,
-  candidates: Map<string, RepositoryProjectCandidate>,
-  ignoredPaths: Set<string>,
-): Promise<void> {
+): Promise<DirNode> {
   const absoluteDir = relativeDir === '.' ? projectRoot : join(projectRoot, relativeDir);
+  const node = emptyNode(relativeDir);
   let entries;
 
   try {
     entries = await readdir(absoluteDir, { withFileTypes: true });
   } catch {
-    return;
+    return node;
   }
 
   const entryNames = new Set(entries.map((entry) => entry.name));
-  const markerCandidates = Array.from(PROJECT_MARKERS.keys()).filter((marker) =>
+  node.markerCandidates = Array.from(PROJECT_MARKERS.keys()).filter((marker) =>
     entryNames.has(marker),
   );
-  const markerPaths = markerCandidates.map((marker) => repositoryPath(relativeDir, marker));
-  const visibleMarkerPaths = new Set(dropGitIgnored(projectRoot, markerPaths));
-  const markers = markerCandidates.filter((marker) => {
-    const markerPath = repositoryPath(relativeDir, marker);
-    if (visibleMarkerPaths.has(markerPath)) {
+  node.markerPaths = node.markerCandidates.map((marker) => repositoryPath(relativeDir, marker));
+
+  if (depth >= maxDepth) {
+    return node;
+  }
+
+  for (const entry of entries) {
+    const childRelativePath = repositoryPath(relativeDir, entry.name);
+    if (entry.name.startsWith('.')) {
+      node.staticIgnored.push(childRelativePath);
+      continue;
+    }
+
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    if (IGNORED_DIRECTORIES.has(entry.name) || NON_CANONICAL_DIRECTORIES.has(entry.name)) {
+      node.staticIgnored.push(childRelativePath);
+      continue;
+    }
+
+    const vcsBoundary = await hasVcsBoundary(join(absoluteDir, entry.name));
+    const childNode = vcsBoundary
+      ? emptyNode(childRelativePath)
+      : await buildTree(projectRoot, childRelativePath, depth + 1, maxDepth);
+    node.children.push({ relativePath: childRelativePath, vcsBoundary, node: childNode });
+  }
+
+  return node;
+}
+
+/** Flatten every marker and child-directory path so one batched git call covers them all. */
+function collectCheckPaths(node: DirNode, out: string[] = []): string[] {
+  for (const markerPath of node.markerPaths) {
+    out.push(markerPath);
+  }
+  for (const child of node.children) {
+    out.push(child.relativePath);
+    collectCheckPaths(child.node, out);
+  }
+  return out;
+}
+
+/**
+ * Reproduce the prune-as-you-go output from the precomputed visibility set: a
+ * git-ignored or nested-VCS child is recorded in `ignoredPaths` and never
+ * descended, so paths beneath it never surface — identical to the previous
+ * per-directory walk, but with zero further subprocesses.
+ */
+function resolveTree(
+  node: DirNode,
+  visible: Set<string>,
+  candidates: Map<string, RepositoryProjectCandidate>,
+  ignoredPaths: Set<string>,
+): void {
+  const markers = node.markerCandidates.filter((_marker, index) => {
+    const markerPath = node.markerPaths[index]!;
+    if (visible.has(markerPath)) {
       return true;
     }
     ignoredPaths.add(markerPath);
@@ -130,8 +222,8 @@ async function walk(
     const ecosystems = Array.from(
       new Set(markers.map((marker) => PROJECT_MARKERS.get(marker)).filter(isDefined)),
     ).sort();
-    candidates.set(relativeDir, {
-      root: relativeDir,
+    candidates.set(node.relativeDir, {
+      root: node.relativeDir,
       role: 'standalone',
       parent_root: null,
       markers: markers.sort(),
@@ -139,48 +231,17 @@ async function walk(
     });
   }
 
-  if (depth >= maxDepth) {
-    return;
+  for (const staticIgnoredPath of node.staticIgnored) {
+    ignoredPaths.add(staticIgnoredPath);
   }
 
-  const childDirectories: Array<{ absolutePath: string; relativePath: string }> = [];
-
-  for (const entry of entries) {
-    const childRelativePath = repositoryPath(relativeDir, entry.name);
-    if (entry.name.startsWith('.')) {
-      ignoredPaths.add(childRelativePath);
-      continue;
-    }
-
-    if (!entry.isDirectory()) {
-      continue;
-    }
-
-    if (IGNORED_DIRECTORIES.has(entry.name) || NON_CANONICAL_DIRECTORIES.has(entry.name)) {
-      ignoredPaths.add(childRelativePath);
-      continue;
-    }
-
-    childDirectories.push({
-      absolutePath: join(absoluteDir, entry.name),
-      relativePath: childRelativePath,
-    });
-  }
-
-  const visibleDirectories = new Set(
-    dropGitIgnored(
-      projectRoot,
-      childDirectories.map((directory) => directory.relativePath),
-    ),
-  );
-
-  for (const child of childDirectories) {
-    if (!visibleDirectories.has(child.relativePath) || (await hasVcsBoundary(child.absolutePath))) {
+  for (const child of node.children) {
+    if (!visible.has(child.relativePath) || child.vcsBoundary) {
       ignoredPaths.add(child.relativePath);
       continue;
     }
 
-    await walk(projectRoot, child.relativePath, depth + 1, maxDepth, candidates, ignoredPaths);
+    resolveTree(child.node, visible, candidates, ignoredPaths);
   }
 }
 

@@ -106,13 +106,15 @@ an entry-file contract the model is asked to follow, with no host seam to bind i
 | continue | `advisory` | nothing in-session | entry-file contract only |
 | github-copilot | `advisory` | nothing in-session | entry-file contract only |
 | junie | `advisory` | nothing in-session | entry-file contract only |
+| aiassistant | `advisory` | nothing in-session | JetBrains AI Assistant "Claude Agent"; reads `.aiassistant/rules/guidelines.md`, but no `settings.json` hook layer (`capabilities.hooks:false`) |
 | aider | `advisory` | nothing in-session | instruction-only conventions |
 | antigravity | `advisory` | nothing in-session | wires no executed native hook |
 
 `advisory` is stated plainly, never implied to bind. claude-code is the only host
 with an in-turn pre-mutation block; codex-cli and gemini-cli bind one turn late at
 completion. The previous matrix mislabelled cursor/windsurf as live and omitted
-continue/copilot/junie — corrected in buildout F7b.
+continue/copilot/junie — corrected in buildout F7b; the `aiassistant` (JetBrains
+Claude Agent) row was added for issue #389.
 
 ### Cross-provider enforcement guarantee (issue #265)
 
@@ -147,6 +149,67 @@ host is a physics-bounded limitation, not an open build item: it requires either
 that host to ship a pre-mutation hook (out of our control) or reintroducing a
 git/CI backstop (excluded by the no-git/CI mandate). Tracked as known and
 upstream-blocked; it advances only if a host adds the seam.
+
+### JetBrains: three products, three tiers (issue #389)
+
+"Running Claude inside a JetBrains IDE" is ambiguous — there are **three different
+products**, and they behave very differently for paqad. Naming the one you use
+matters, because only one is hook-enforced.
+
+| JetBrains product | Reads `CLAUDE.md`-equivalent guidance? | Fires Claude Code lifecycle hooks (`PreToolUse`/`Stop` from `~/.claude/settings.json`)? | paqad tier |
+| --- | --- | --- | --- |
+| **Claude Agent** in AI Assistant (the AI chat; built on Anthropic's Agent SDK; part of the JetBrains AI subscription) | **Yes** — reads `.aiassistant/rules/guidelines.md`, auto-applied at conversation start | **No** — controls behaviour purely through its own permission modes (Auto / Default / Accept Edits / Plan / Don't Ask / Bypass); no `settings.json` hook mechanism | **advisory** (`aiassistant` adapter) |
+| **Claude Code [Beta] plugin** for JetBrains (runs the real `claude` CLI in the integrated terminal) | Yes | **Yes** — the same hooks as the CLI | **full** (`claude-code` adapter) |
+| **Junie** (JetBrains' own agent) | Junie's own rules | No | **advisory** (`junie` adapter) |
+
+The JetBrains docs are explicit: Claude Agent "reads instructions from the CLAUDE.md
+file" and "is **not related to the Claude Code [Beta] plugin**." Its documentation
+has no mention of `PreToolUse`/`PostToolUse`/`UserPromptSubmit`/`Stop` hooks or
+`settings.json`.
+
+**What this means in practice.** On Claude Agent / AI Assistant the framework
+guidance is loaded and followed, but stages are **not hook-enforced** and the
+stage-evidence ledger is only written **if the agent self-records** via the CLI —
+there is no planning/spec/verdict enforcement. This is expected behaviour for the
+host, not a misdetection bug: the `aiassistant` adapter already declares
+`capabilities.hooks:false`. It is, however, easily mistaken for a bug by someone who
+sees "framework followed" but "no evidence".
+
+**The supported enforcement path.** For **hook-enforced** stage evidence inside a
+JetBrains IDE, use the **Claude Code [Beta] plugin** — it runs the `claude` CLI, so
+paqad's `PreToolUse` (pre-edit block on planning/specification) and `Stop`
+(end-of-change verdict) hooks fire exactly as on the standalone CLI. Do not expect
+Claude Agent to fire those hooks; it structurally cannot.
+
+#### Reproducible advisory-host protocol (populate the ledger without hooks)
+
+The stage CLI is **host-independent** — `paqad-ai stage`, `plan compile`, and
+`spec freeze` resolve from the installed package and write the ledger directly, with
+no hook required — so an advisory host can carry a full planning + specification
+evidence trail if the model runs them from the IDE's shell. For a feature-development
+change, in order:
+
+```sh
+npx paqad-ai stage start planning
+# … planning work …
+npx paqad-ai plan compile <plan-template.json>            # writes plan.json into the active feature bundle
+npx paqad-ai stage end planning --artifact <plan.json>
+
+npx paqad-ai stage start specification
+# … write the spec …
+npx paqad-ai spec freeze <spec.md> --confirm-invariants   # writes specification.json into the bundle
+npx paqad-ai stage end specification --artifact <specification.json>
+
+# development / checks / documentation_sync record from edited files where a hook exists;
+# on an advisory host mark the edit-less stages (e.g. review) the same way, then speak the
+# end-of-change verdict in prose.
+```
+
+To verify, confirm `.paqad/ledger/paqad.stage-evidence/…/stage-evidence.jsonl` contains
+`planning` and `specification` rows with non-empty `artifact_digest` values. The
+bootstrap's advisory-host section (issue #389) now instructs this imperatively rather
+than merely asking the model to "narrate" — narration alone leaves the ledger empty,
+which is exactly the gap the incident surfaced.
 
 ## What the backstop computes vs. skips
 

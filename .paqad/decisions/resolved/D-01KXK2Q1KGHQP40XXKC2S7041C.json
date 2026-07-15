@@ -1,5 +1,5 @@
 {
-  "id": "D-2",
+  "id": "D-01KXK2Q1KGHQP40XXKC2S7041C",
   "category": "architecture-path",
   "title": "Silent global auto-update enforcement policy",
   "context": "silent-update.sh currently (a) is never wired into SessionStart, and (b) only runs `npx paqad-ai@latest update` which regenerates project artifacts but never upgrades the installed global CLI. Fix wires it as a SessionStart hook and makes it run `npm install -g paqad-ai@latest`. Open questions: how strictly to enforce the 'only last two minor versions allowed' rule, and blocking vs background.",

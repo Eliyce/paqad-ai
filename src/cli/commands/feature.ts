@@ -4,7 +4,6 @@ import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
 
 import { exportFeatureBundle, pruneFeatureBundles } from '@/feature-evidence/export.js';
-import { openFeatureReport } from '@/feature-evidence/report-open.js';
 import { resolveReportFeatureRef, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import { currentFeature, resolveFeatureRef } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -58,7 +57,6 @@ export function createFeatureCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--session <id>', 'Session whose active feature is used when no ref is given')
     .option('--out <file>', 'Write the report to this path instead of the bundle dir report.html')
-    .option('--open', 'Open the rendered report in the default browser', false)
     .option('--quiet', 'Do not print the report path line', false)
     .action(
       (
@@ -67,7 +65,6 @@ export function createFeatureCommand(): Command {
           projectRoot: string;
           session?: string;
           out?: string;
-          open?: boolean;
           quiet?: boolean;
         },
       ) => {
@@ -94,9 +91,6 @@ export function createFeatureCommand(): Command {
           console.error(`could not render report: ${(error as Error).message}`);
           process.exitCode = 1;
           return;
-        }
-        if (options.open) {
-          openFeatureReport({ absPath: result.path });
         }
         if (!options.quiet) {
           const url = pathToFileURL(result.path).href;

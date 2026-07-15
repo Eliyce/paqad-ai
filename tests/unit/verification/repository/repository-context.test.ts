@@ -61,9 +61,13 @@ function writeMap(root: string, map: TraceabilityMap): void {
   writeFileSync(join(root, '.paqad/traceability/map.json'), JSON.stringify(map));
 }
 
+// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
+// `D-<ULID>` id.
+const WID = 'D-01J000000000000000000000A1';
+
 function makePacket(): DecisionPacket {
   return {
-    decision_id: 'D-1',
+    decision_id: WID,
     fingerprint: 'sha256:test',
     category: 'component-reuse',
     question: 'Use the Button we have?',
@@ -109,7 +113,7 @@ describe('buildRepositoryVerificationContext', () => {
     expect(context.implementation_review_passed).toBe(false);
     expect(context.implementation_review_findings?.[0]).toMatchObject({
       kind: 'decision-violation',
-      decision_id: 'D-1',
+      decision_id: WID,
     });
 
     const verdict = await runRepositoryVerification({

@@ -45,6 +45,7 @@ import {
 } from './decision-precedents.js';
 import {
   isDecisionPacket,
+  isStrictDecisionId,
   validateDecisionPacket,
   type DecisionHumanResponse,
   type DecisionPacket,
@@ -508,6 +509,18 @@ export class DecisionStore {
     if (validationErrors.length > 0) {
       throw new Error(
         `Decision packet ${packet.decision_id} is invalid: ${validationErrors.join('; ')}`,
+      );
+    }
+    // Issue #387 — the creation path is strict: a *new* pending packet must carry the
+    // collision-free `D-<ULID>` id. `validateDecisionPacket` (above) stays read-tolerant
+    // of the legacy `D-{N}` form so pre-existing packets keep validating, so an otherwise
+    // well-formed but hand-authored sequential id would pass validation. Reject it here so
+    // no new packet is ever written with a sequential id.
+    if (!isStrictDecisionId(packet.decision_id)) {
+      throw new Error(
+        `Decision id "${packet.decision_id}" must be the collision-free D-<ULID> form on ` +
+          `creation (mint it via DecisionStore.nextDecisionId / the decision skill; never ` +
+          `hand-write a sequential D-{N}).`,
       );
     }
     const copyIssues = lintDecisionCopy(packet);

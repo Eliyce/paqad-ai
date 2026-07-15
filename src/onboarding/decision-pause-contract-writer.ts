@@ -28,6 +28,8 @@ export function buildDecisionPauseContractBody(): string {
 
 Before implementing any choice that falls into one of the categories below, write a Decision Packet to \`.paqad/decisions/pending/D-{id}.json\` and stop work. Do not continue until \`.paqad/decisions/resolved/D-{id}.json\` exists. \`{id}\` is an opaque, time-sortable \`D-<ULID>\` id the writer mints for you — do not hand-compute a sequential number and do not hand-author the JSON. Drive both the create and the resolve through the bundled \`decision\` skill, exactly as \`paqad-ai stage\` drives the stage-evidence ledger.
 
+**Create packets only through the writer — never by hand.** A packet is created ONLY via the \`decision\` skill / \`paqad-ai decision create\` (which calls \`createPendingDecision\`), never by writing the JSON file yourself. This holds on every host, including advisory hosts (JetBrains AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) where no Decision-Pause hook fires to catch a hand-written file: the writer mints the collision-free \`D-<ULID>\` id, and a hand-picked sequential \`D-{N}\` is rejected at write time. Hand-authoring a \`D-1.json\` / \`D-4.json\` reintroduces the id collisions issue #184 fixed — do not do it.
+
 ## Categories
 
 ${categoriesList}

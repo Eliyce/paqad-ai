@@ -211,7 +211,9 @@ describe('DecisionStore.writePending enrichment (F25)', () => {
     );
     // A new pending decision on the same topic (different task, no human response).
     const pending = resolvedPacket({
-      decision_id: 'D-202',
+      // Issue #387 — writePending rejects a non-ULID id; the D-201 precedent above stays
+      // legacy (disk-only read) to prove read tolerance.
+      decision_id: 'D-01J000000000000000000000C2',
       task_session_id: 'task-2',
       status: 'pending',
       question: 'Reuse the parser or write a new parser for this slice?',
@@ -228,7 +230,7 @@ describe('DecisionStore.writePending enrichment (F25)', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
     const pending = resolvedPacket({
-      decision_id: 'D-203',
+      decision_id: 'D-01J000000000000000000000C3',
       task_session_id: 'task-3',
       status: 'pending',
       options: compliantOptions,

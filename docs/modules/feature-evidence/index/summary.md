@@ -57,15 +57,14 @@ onto this base.
   distinct "enterprise governance is off" note for a missing receipt / AI-BOM.
 - **Writer** (`report-writer.ts`) — `writeFeatureReport` reads the bundle, folds the
   stages, best-effort loads `review.md` from the review stage's artifact path, renders,
-  and atomically writes `report.html` into the bundle dir; `featureReportEnabled` /
-  `featureReportAutoOpen` read the config flags; `resolveReportFeatureRef` resolves the
-  active / most-recent / explicit-ref feature.
-- **Opener** (`report-open.ts`) — a sandbox-aware, fire-and-forget browser opener
-  (skips CI / SSH / remote / headless) with an injectable spawn; the HOOK opens, never
-  the agent. Generation is wired into `runRepositoryVerification` (Claude / Codex /
-  Gemini via the one backstop) and `delivery-link commit|merge` (advisory hosts via git
-  hooks), and exposed as `paqad-ai feature report`. All best-effort: it never changes a
-  verification verdict or a stage row.
+  and atomically writes `report.html` into the bundle dir; `featureReportEnabled` reads
+  the `feature_report` config flag; `resolveReportFeatureRef` resolves the active /
+  most-recent / explicit-ref feature. Generation is wired into `runRepositoryVerification`
+  (Claude / Codex / Gemini via the one backstop) and `delivery-link commit|merge` (advisory
+  hosts via git hooks), and exposed as `paqad-ai feature report`. All best-effort: it never
+  changes a verification verdict or a stage row. No code path opens the OS browser (issue
+  #388 removed the auto-open-on-completion behaviour, the manual `--open` opener, and their
+  config knob).
 
 ## Source Footprint
 
@@ -89,4 +88,3 @@ If anything here disagrees with the map, the **map wins**.
   verdict, honesty tags, receipt integrity, graceful empty states, determinism).
 - `tests/unit/feature-evidence/report-writer.test.ts` — bundle → report.html writer, flags,
   review-markdown resolution, and ref resolution.
-- `tests/unit/feature-evidence/report-open.test.ts` — the sandbox-aware opener.

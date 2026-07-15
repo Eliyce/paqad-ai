@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { mkdirSync } from 'node:fs';
 
+import { existsSync } from 'node:fs';
+
 import { extractMarkers, parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import {
   currentFeature,
@@ -13,6 +15,7 @@ import {
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
 import { setActiveFeature } from '@/feature-evidence/session-control.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
 /** One JSONL transcript line in the Claude shape. */
 function msg(role: string, text: string): string {
@@ -327,5 +330,49 @@ describe('parseAndRecordMarkers', () => {
     });
     expect(n).toHaveLength(2);
     expect(rows().every((r) => r.adapter === 'gemini-cli')).toBe(true);
+  });
+
+  // Issue #390 — the marker-open path must not mint a feature-evidence bundle for a
+  // route we can prove is NOT feature-development.
+  describe('route gating (#390)', () => {
+    const transcript = [
+      msg('assistant', 'Let me plan.\npaqad:stage planning start'),
+      msg('assistant', 'Done planning.\npaqad:stage planning end'),
+    ].join('\n');
+
+    it('records NOTHING and mints no bundle for a non-feature route', () => {
+      writeWorkflowState(root, SES, { active: { workflow: 'root-cause-analysis' }, paused: [] });
+      const recorded = parseAndRecordMarkers({
+        projectRoot: root,
+        transcriptText: transcript,
+        sessionId: SES,
+      });
+      expect(recorded).toEqual([]);
+      // No change bundle and no _session control was auto-opened.
+      expect(currentFeature(root, SES)).toBeNull();
+      expect(existsSync(join(root, '.paqad/ledger/feature-evidence'))).toBe(false);
+    });
+
+    it('records markers for the feature-development route (unchanged)', () => {
+      writeWorkflowState(root, SES, { active: { workflow: 'feature-development' }, paused: [] });
+      const recorded = parseAndRecordMarkers({
+        projectRoot: root,
+        transcriptText: transcript,
+        sessionId: SES,
+      });
+      expect(recorded).toHaveLength(2);
+      expect(currentFeature(root, SES)).not.toBeNull();
+    });
+
+    it('records markers when NO route state exists (cross-provider safe)', () => {
+      // Codex/Gemini never write route state; an absent route must not suppress.
+      const recorded = parseAndRecordMarkers({
+        projectRoot: root,
+        transcriptText: transcript,
+        sessionId: SES,
+      });
+      expect(recorded).toHaveLength(2);
+      expect(currentFeature(root, SES)).not.toBeNull();
+    });
   });
 });

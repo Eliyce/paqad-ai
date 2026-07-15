@@ -1,3 +1,4 @@
+import { ULID_BODY } from '@/core/ids/ulid.js';
 import type { DecisionRecord } from '@/core/types/planning.js';
 
 export const DECISION_CATEGORIES = [
@@ -37,6 +38,20 @@ export const DECISION_STATUSES = [
   'expired',
   'superseded',
 ] as const;
+
+/**
+ * The strict, collision-free decision-id shape (issue #387): literal `D-` followed by a
+ * 26-char ULID body. This is the ONLY id a *newly created* packet may carry, on every
+ * write path. Reads/lists deliberately stay tolerant of the legacy numeric `D-{N}` form
+ * (see {@link validateDecisionPacket} and `DecisionStore.listDirectoryIds`) so
+ * pre-existing packets keep validating — do not use this to tighten a read.
+ */
+const STRICT_DECISION_ID = new RegExp(`^D-${ULID_BODY}$`, 'u');
+
+/** True when `id` is the strict write-time `D-<ULID>` form (not legacy `D-{N}`). */
+export function isStrictDecisionId(id: string): boolean {
+  return STRICT_DECISION_ID.test(id);
+}
 
 export const DECISION_INTENTS = [
   'explicit',

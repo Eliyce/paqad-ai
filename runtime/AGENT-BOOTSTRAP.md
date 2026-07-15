@@ -146,7 +146,27 @@ Emit the `start` marker as you begin the stage and the `end` marker as you finis
 
 **One end-of-change receipt.** At the end of a change paqad surfaces a single receipt: the verdict in the contract words (Safe to merge / Needs your attention / Inconclusive), then one line per stage with a fixed glyph and its honest evidence state. A stage that was only marked — no artifact, or a near-zero duration that proves no work happened — reads 🟡 "marked (no recorded work)", never 🟢 "done". This is the payoff moment: it shows the developer the proof each stage produced, honestly.
 
-**Per host — who speaks.** On **Claude Code** the stage hooks fire on your edits and at turn end, so the entry lines and the end-of-change receipt are surfaced for you. On **Codex** and **Gemini** the record hook is deliberately record-only — it writes the ledger at turn end but says nothing in chat — so there YOU must narrate your own `▸ paqad` stage lines and speak the end-of-change verdict in prose. On **advisory hosts** (JetBrains AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) no native hook fires at all: narrate every stage and the verdict yourself. Never rely on a hook-spoken line on a non-Claude host.
+**Per host — who speaks.** On **Claude Code** the stage hooks fire on your edits and at turn end, so the entry lines and the end-of-change receipt are surfaced for you. On **Codex** and **Gemini** the record hook is deliberately record-only — it writes the ledger at turn end but says nothing in chat — so there YOU must narrate your own `▸ paqad` stage lines and speak the end-of-change verdict in prose. On **advisory hosts** (JetBrains "Claude Agent" / AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) **no native hook fires at all** — nothing blocks an edit, nothing writes the ledger for you, nothing speaks a verdict. Never rely on a hook-spoken line or a hook-written ledger row on an advisory host. Narrating alone is **not enough**: a narrated-but-unrecorded stage leaves the ledger empty, exactly the JetBrains Claude Agent gap (issue #389) — "framework followed" but "no evidence".
+
+**Advisory-host stage protocol — run the CLI, do not just narrate.** On an advisory host, for any **feature-development** change you MUST populate the ledger yourself by running the host-independent CLI (plain `npx paqad-ai …` in the IDE's shell — no hook required), in this order, and narrate each `▸ paqad` stage line as you go:
+
+```
+npx paqad-ai stage start planning
+… planning work …
+npx paqad-ai plan compile <plan-template.json>            # writes plan.json into the active feature bundle
+npx paqad-ai stage end planning --artifact <plan.json>
+
+npx paqad-ai stage start specification
+… write the spec …
+npx paqad-ai spec freeze <spec.md> --confirm-invariants   # writes specification.json into the bundle
+npx paqad-ai stage end specification --artifact <specification.json>
+
+# development / checks / documentation_sync record from the files you edit where a hook
+# exists; on an advisory host mark the edit-less ones the same way — e.g.
+npx paqad-ai stage start review … npx paqad-ai stage end review --artifact <review-notes>
+```
+
+Then speak the end-of-change verdict (Safe to merge / Needs your attention / Inconclusive) in prose, one line per stage with its honest evidence state. Skipping these calls is what leaves the ledger without planning/specification artifacts. If you want the stages **hook-enforced** in a JetBrains IDE rather than self-recorded, use the **Claude Code [Beta] plugin** (it runs the real `claude` CLI, so paqad's PreToolUse/Stop hooks fire) — "Claude Agent" in AI Assistant is advisory and structurally exposes no hook layer.
 
 **A thinking stage must point at a real artifact.** planning, specification, and review each prove their work with a file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with `paqad-ai plan compile` and freeze the spec with `paqad-ai spec freeze` (they write `plan.json` / `specification.json` into the active feature's bundle; the legacy `.paqad/plans/*.md` and `.paqad/specs` free-writes are retired), then end the stage against that file. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
 
@@ -173,6 +193,8 @@ Say the right-hand phrasing, never the internal term:
 # Decision Pause Contract
 
 Before implementing any choice that falls into one of the categories below, write a Decision Packet to `.paqad/decisions/pending/D-{id}.json` and stop work. Do not continue until `.paqad/decisions/resolved/D-{id}.json` exists. `{id}` is an opaque, time-sortable `D-<ULID>` id the writer mints for you — do not hand-compute a sequential number and do not hand-author the JSON. Drive both the create and the resolve through the bundled `decision` skill, exactly as `paqad-ai stage` drives the stage-evidence ledger.
+
+**Create packets only through the writer — never by hand.** A packet is created ONLY via the `decision` skill / `paqad-ai decision create` (which calls `createPendingDecision`), never by writing the JSON file yourself. This holds on every host, including advisory hosts (JetBrains AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) where no Decision-Pause hook fires to catch a hand-written file: the writer mints the collision-free `D-<ULID>` id, and a hand-picked sequential `D-{N}` is rejected at write time. Hand-authoring a `D-1.json` / `D-4.json` reintroduces the id collisions issue #184 fixed — do not do it.
 
 ## Categories
 

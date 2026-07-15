@@ -32,14 +32,10 @@ import {
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
-import { openFeatureReport } from '@/feature-evidence/report-open.js';
-import {
-  featureReportAutoOpen,
-  featureReportEnabled,
-  writeFeatureReport,
-} from '@/feature-evidence/report-writer.js';
+import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
+import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { type FoldedChange } from '@/stage-evidence/types.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
@@ -352,7 +348,12 @@ export async function runRepositoryVerification(
         context.project_root,
         resolveSessionId(context.project_root, options.hostSessionId ?? null),
       );
-      if (activeFeature) {
+      // Issue #390 — do not project receipt.json / ai-bom.json into a feature bundle for
+      // a route we can prove is non-feature-development, even if a pointer is active.
+      if (
+        activeFeature &&
+        !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
+      ) {
         projectFeatureReceipt(context.project_root, activeFeature, {
           fileDigests,
           rows,
@@ -400,18 +401,6 @@ export async function runRepositoryVerification(
     // not part of the promise, so leave the line unchanged (undefined).
     checksVerified: isFeatureDev ? checksVerified : undefined,
   });
-
-  // Issue #371 — auto-open the report, opt-in and hook-only. The HOOK opens, never the
-  // agent (an agent-run `open` crashes inside a host sandbox). Gated on the
-  // `feature_report_auto_open` flag (default off) and the completion origin, and the
-  // opener is itself sandbox-aware (skips CI/SSH/remote/headless). Best-effort.
-  if (reportPath && origin === 'hook-completion' && featureReportAutoOpen(context.project_root)) {
-    try {
-      openFeatureReport({ absPath: reportPath });
-    } catch {
-      // Opening is informational; a failure never affects the verdict.
-    }
-  }
 
   if (options.eventBus) {
     options.eventBus.emit({
@@ -465,7 +454,13 @@ function renderActiveFeatureReport(
   try {
     const sessionId = resolveSessionId(projectRoot, hostSessionId);
     const dirName = currentFeature(projectRoot, sessionId);
-    if (!dirName || !featureReportEnabled(projectRoot)) {
+    // Issue #390 — never render report.html for a route we can prove is
+    // non-feature-development, even if a pointer leaked through to an active bundle.
+    if (
+      !dirName ||
+      !featureReportEnabled(projectRoot) ||
+      routeIsAffirmativelyNonFeature(projectRoot, hostSessionId)
+    ) {
       return null;
     }
     return writeFeatureReport(projectRoot, dirName, {

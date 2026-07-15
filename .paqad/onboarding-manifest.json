@@ -106,8 +106,7 @@
       "team_agents": true,
       "analytics_instrumentation": false,
       "lean_rules": true,
-      "feature_report": true,
-      "feature_report_auto_open": false
+      "feature_report": true
     },
     "enterprise": {
       "enabled": true,

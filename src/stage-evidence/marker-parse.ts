@@ -10,6 +10,7 @@
 // re-parsing a growing transcript on every Stop never double-records.
 
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { normalizeArtifactPath } from './artifact-path.js';
@@ -122,6 +123,11 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
     if (markers.length === 0) return [];
 
     const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
+    // Issue #390: never record markers — and so never auto-open a change-<ULID> bundle
+    // + _session control — for a route we can prove is NOT feature-development. Only
+    // feature-development may create feature-evidence. An absent route (Codex/Gemini,
+    // which never write route state) is NOT proven non-feature, so it records as before.
+    if (routeIsAffirmativelyNonFeature(input.projectRoot, sessionId)) return [];
     const dirName = currentFeature(input.projectRoot, sessionId);
     const existing = dirName ? readFeatureStageUnit(input.projectRoot, dirName) : [];
     const seen = new Set<string>();

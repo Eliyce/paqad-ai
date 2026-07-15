@@ -161,9 +161,13 @@ describe('startDashboardServer', () => {
     expect(await spa.text()).toMatch(/<!doctype html>/);
   });
 
+  // Issue #387 — packets written through DecisionStore.writePending must carry a strict
+  // `D-<ULID>` id; this is the id every packet these tests create is written under.
+  const WID = 'D-01J000000000000000000000A1';
+
   function makePacket(overrides: Partial<DecisionPacket> = {}): DecisionPacket {
     return {
-      decision_id: 'D-1',
+      decision_id: WID,
       fingerprint: 'sha256:test',
       category: 'component-reuse',
       question: 'Use the Button we have?',
@@ -252,7 +256,7 @@ describe('startDashboardServer', () => {
         proposals: { id: string }[];
         pendingCount: number;
       };
-      expect(feed.pauses.map((p) => p.id)).toEqual(['D-1']);
+      expect(feed.pauses.map((p) => p.id)).toEqual([WID]);
       expect(feed.proposals.map((p) => p.id)).toEqual(['MD-0001']);
       expect(feed.pendingCount).toBe(2);
     });
@@ -264,7 +268,7 @@ describe('startDashboardServer', () => {
       store.writePending(makePacket());
       await startServer();
 
-      const res = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+      const res = await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chosen_option_key: 'reuse-button', note: 'fine' }),
@@ -273,7 +277,7 @@ describe('startDashboardServer', () => {
       const body = (await res.json()) as { ok: boolean; result: { chosen_option_key: string } };
       expect(body.ok).toBe(true);
       expect(body.result.chosen_option_key).toBe('reuse-button');
-      expect(store.readResolved('D-1')?.human_response?.responded_by).toBe('dashboard');
+      expect(store.readResolved(WID)?.human_response?.responded_by).toBe('dashboard');
 
       const feed = (await (await fetch(`${server!.url}/api/decisions`)).json()) as {
         pendingCount: number;
@@ -288,14 +292,14 @@ describe('startDashboardServer', () => {
       store.writePending(makePacket());
       await startServer();
 
-      const missingKey = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+      const missingKey = await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({}),
       });
       expect(missingKey.status).toBe(400);
 
-      const badJson = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+      const badJson = await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: '{nope',
@@ -309,7 +313,7 @@ describe('startDashboardServer', () => {
       });
       expect(unknown.status).toBe(404);
 
-      const wrongOption = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+      const wrongOption = await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chosen_option_key: 'nope' }),
@@ -352,13 +356,13 @@ describe('startDashboardServer', () => {
       store.writePending(makePacket());
       await startServer({ readOnly: true });
 
-      const res = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+      const res = await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chosen_option_key: 'reuse-button' }),
       });
       expect(res.status).toBe(403);
-      expect(store.readPending('D-1')).not.toBeNull();
+      expect(store.readPending(WID)).not.toBeNull();
 
       // reads still work
       expect((await fetch(`${server!.url}/api/decisions`)).status).toBe(200);
@@ -380,7 +384,7 @@ describe('startDashboardServer', () => {
       store.writePending(makePacket());
       await startServer();
 
-      const foreignOrigin = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+      const foreignOrigin = await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin: 'https://evil.example' },
         body: JSON.stringify({ chosen_option_key: 'reuse-button' }),
@@ -394,7 +398,7 @@ describe('startDashboardServer', () => {
           {
             host: '127.0.0.1',
             port: server!.port,
-            path: '/api/decisions/D-1/resolve',
+            path: `/api/decisions/${WID}/resolve`,
             method: 'POST',
             headers: { 'content-type': 'application/json', host: 'evil.example' },
           },
@@ -408,7 +412,7 @@ describe('startDashboardServer', () => {
       });
       expect(reboundStatus).toBe(403);
 
-      expect(store.readPending('D-1')).not.toBeNull();
+      expect(store.readPending(WID)).not.toBeNull();
     });
 
     it('rejects oversized mutation bodies', async () => {
@@ -418,7 +422,7 @@ describe('startDashboardServer', () => {
       store.writePending(makePacket());
       await startServer();
 
-      const res = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+      const res = await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chosen_option_key: 'reuse-button', note: 'x'.repeat(70 * 1024) }),
@@ -426,7 +430,7 @@ describe('startDashboardServer', () => {
       // The server destroys the connection or answers 400 — either way the
       // packet must still be pending.
       if (res !== null) expect(res.status).toBe(400);
-      expect(store.readPending('D-1')).not.toBeNull();
+      expect(store.readPending(WID)).not.toBeNull();
     });
   });
 
@@ -1079,7 +1083,7 @@ describe('startDashboardServer', () => {
     store.writePending(makePacket());
     await startServer();
 
-    await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+    await fetch(`${server!.url}/api/decisions/${WID}/resolve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chosen_option_key: 'reuse-button' }),

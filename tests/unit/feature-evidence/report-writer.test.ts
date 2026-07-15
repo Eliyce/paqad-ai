@@ -8,7 +8,6 @@ import { writeFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { exportFeatureBundle } from '@/feature-evidence/export.js';
 import { featureDir, featureReportPath } from '@/feature-evidence/paths.js';
 import {
-  featureReportAutoOpen,
   featureReportEnabled,
   readReviewMarkdown,
   resolveReportFeatureRef,
@@ -77,13 +76,11 @@ describe('writeFeatureReport', () => {
   });
 });
 
-describe('featureReportEnabled / featureReportAutoOpen', () => {
-  it('defaults report on and auto-open off, and honours the env override', () => {
+describe('featureReportEnabled', () => {
+  it('defaults report on, and honours the env override', () => {
     const root = tempRoot();
     expect(featureReportEnabled(root, {})).toBe(true);
-    expect(featureReportAutoOpen(root, {})).toBe(false);
     expect(featureReportEnabled(root, { PAQAD_FEATURE_REPORT: '0' })).toBe(false);
-    expect(featureReportAutoOpen(root, { PAQAD_FEATURE_REPORT_AUTO_OPEN: 'true' })).toBe(true);
   });
 });
 
