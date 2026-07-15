@@ -10,7 +10,7 @@
 // untouched so a re-run is a no-op. Read-time tolerance for legacy ids is unchanged;
 // this only heals the files on disk so nothing seeds a new sequential id.
 
-import { existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -102,9 +102,9 @@ function rewritePacketId(raw: string, oldId: string, newId: string): string {
  */
 function remapIndex(projectRoot: string, idRemap: Map<string, string>): void {
   const indexPath = join(projectRoot, PATHS.DECISIONS_INDEX);
-  if (!existsSync(indexPath)) {
-    return;
-  }
+  // No existsSync check-then-use: reading a missing index throws ENOENT, which the
+  // catch below already treats as "nothing to remap". Dropping the separate existence
+  // probe removes a time-of-check/time-of-use file-system race (CodeQL js/file-system-race).
   try {
     const index = JSON.parse(readFileSync(indexPath, 'utf8')) as {
       fingerprints?: Record<string, string>;
