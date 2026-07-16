@@ -591,9 +591,7 @@ describe('config value writers — local and tracked group paths', () => {
 
     const path = setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
     const out = readFileSync(path, 'utf8');
-    expect(out).toBe(
-      '# RAG header\n# Enable retrieval.\nrag_enabled=true\n\n# next section\n',
-    );
+    expect(out).toBe('# RAG header\n# Enable retrieval.\nrag_enabled=true\n\n# next section\n');
     expect(out.match(/^#?\s*rag_enabled=/gm)).toHaveLength(1);
   });
 
