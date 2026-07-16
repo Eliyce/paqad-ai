@@ -9,13 +9,16 @@
 // primitives (issue #339 2a) and the stage-evidence fold core. Additive/dark:
 // nothing wires it into the live recorder yet; the cutover does that.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import {
   appendStampedRowToUnit,
   readUnitFile,
   stampSessionRow,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
-import { foldRowsWithKey } from '@/stage-evidence/fold.js';
+import { augmentWithBundleArtifacts, foldRowsWithKey } from '@/stage-evidence/fold.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import {
   STAGE_EVIDENCE_DOC_TYPE,
@@ -123,7 +126,30 @@ export function readFeatureStageUnit(projectRoot: string, dirName: string): Sess
 /** Fold a feature's stage rows into the per-change view, keyed by the dir name. */
 export function foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange {
   const rows = readFeatureStageUnit(projectRoot, dirName);
-  return foldRowsWithKey(rows, { sessionId, changeKey: dirName, promptOrdinal: 0 });
+  const fold = foldRowsWithKey(rows, { sessionId, changeKey: dirName, promptOrdinal: 0 });
+  // Issue #394: a rigid thinking stage is truly done only when its bundle artifact
+  // actually exists. Assert plan.json + specification.json are present and non-empty, so
+  // a change whose rows read complete but never produced the artifacts (the incident's
+  // hand-written `.paqad/features/…` free-write) cannot fold to complete.
+  return augmentWithBundleArtifacts(fold, {
+    plan: bundleFileNonEmpty(projectRoot, dirName, 'plan'),
+    specification: bundleFileNonEmpty(projectRoot, dirName, 'specification'),
+  });
+}
+
+/** True when a bundle file exists and has real bytes. A single read + catch (never
+ *  stat-then-read) avoids the TOCTOU file-system race CodeQL flags (js/file-system-race);
+ *  a missing/unreadable file reads as absent, which downgrades the verdict (issue #394). */
+function bundleFileNonEmpty(
+  projectRoot: string,
+  dirName: string,
+  file: 'plan' | 'specification',
+): boolean {
+  try {
+    return readFileSync(join(projectRoot, featureFilePath(dirName, file))).length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**

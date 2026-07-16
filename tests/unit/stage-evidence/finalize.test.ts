@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -14,16 +14,24 @@ import {
   startStage,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 const ADAPTER = 'backstop';
 
-/** End-stage args satisfying the #320 artifact requirement for a thinking stage. */
-function provenEndArgs(root: string, stage: string): EndStageInput {
+/**
+ * End-stage args satisfying the #320 artifact requirement for a thinking stage.
+ * planning/specification prove work with the RIGID bundle artifact (issue #394), so the
+ * artifact is the active feature's plan.json / specification.json — which also makes it
+ * present on disk for the completeness verdict's bundle-file assertion. `review` owns no
+ * bundle file, so it uses a scratch findings file.
+ */
+function provenEndArgs(root: string, dirName: string, stage: string): EndStageInput {
   if (!isArtifactBearingStage(stage)) return {};
-  const rel = `.paqad/artifacts/${stage}.md`;
-  mkdirSync(join(root, '.paqad', 'artifacts'), { recursive: true });
-  writeFileSync(join(root, rel), `# ${stage} artifact\n`);
+  const file = stage === 'planning' ? 'plan' : stage === 'specification' ? 'specification' : null;
+  const rel = file ? featureFilePath(dirName, file) : `.paqad/artifacts/${stage}.md`;
+  mkdirSync(join(root, dirname(rel)), { recursive: true });
+  writeFileSync(join(root, rel), file ? '{"real":true}\n' : `# ${stage} artifact\n`);
   return { artifactPaths: [rel] };
 }
 
@@ -64,7 +72,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'documentation_sync',
     ]) {
       startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
-      endStage(root, stage, provenEndArgs(root, stage), {
+      endStage(root, stage, provenEndArgs(root, dirName, stage), {
         sessionId,
         dirName,
         adapter: 'claude-code',
@@ -138,7 +146,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'documentation_sync',
     ]) {
       startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
-      endStage(root, stage, provenEndArgs(root, stage), {
+      endStage(root, stage, provenEndArgs(root, dirName, stage), {
         sessionId,
         dirName,
         adapter: 'claude-code',
@@ -259,7 +267,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     const sessionId = 'ses_reverify';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     startStage(root, 'planning', { sessionId, dirName, adapter: 'claude-code' });
-    endStage(root, 'planning', provenEndArgs(root, 'planning'), {
+    endStage(root, 'planning', provenEndArgs(root, dirName, 'planning'), {
       sessionId,
       dirName,
       adapter: 'claude-code',
@@ -300,7 +308,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'documentation_sync',
     ]) {
       startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
-      endStage(root, stage, provenEndArgs(root, stage), {
+      endStage(root, stage, provenEndArgs(root, dirName, stage), {
         sessionId,
         dirName,
         adapter: 'claude-code',
@@ -340,7 +348,7 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
       'documentation_sync',
     ]) {
       startStage(root, stage, { sessionId, dirName: a, adapter: 'claude-code' });
-      endStage(root, stage, provenEndArgs(root, stage), {
+      endStage(root, stage, provenEndArgs(root, a, stage), {
         sessionId,
         dirName: a,
         adapter: 'claude-code',
