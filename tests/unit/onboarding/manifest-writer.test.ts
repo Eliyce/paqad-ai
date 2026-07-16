@@ -150,6 +150,16 @@ describe('writeJsonPreservingTimestamp', () => {
 
     expect(readFileSync(path, 'utf8')).toBe(first);
   });
+
+  it('rejects prototype-chain segments in caller-supplied timestamp paths', () => {
+    const path = join(dir, 'nested.json');
+    writeFileSync(path, '{"__proto__":{"polluted":"yes"}}\n');
+
+    writeJsonPreservingTimestamp(path, { name: 'safe' }, ['__proto__.polluted']);
+
+    expect(({} as { polluted?: string }).polluted).toBeUndefined();
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({ name: 'safe' });
+  });
 });
 
 describe('writeFrameworkVersionPreservingTimestamp', () => {

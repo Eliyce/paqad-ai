@@ -130,7 +130,13 @@ function readPreviousJson(path: string): Record<string, unknown> | null {
 function readNestedString(value: Record<string, unknown>, path: string): string | null {
   let current: unknown = value;
   for (const segment of path.split('.')) {
-    if (!current || typeof current !== 'object' || Array.isArray(current)) {
+    if (
+      !isSafePropertySegment(segment) ||
+      !current ||
+      typeof current !== 'object' ||
+      Array.isArray(current) ||
+      !Object.hasOwn(current, segment)
+    ) {
       return null;
     }
     current = (current as Record<string, unknown>)[segment];
@@ -142,6 +148,9 @@ function writeNestedString(value: Record<string, unknown>, path: string, next: s
   const segments = path.split('.');
   let current = value;
   for (const segment of segments.slice(0, -1)) {
+    if (!isSafePropertySegment(segment) || !Object.hasOwn(current, segment)) {
+      return;
+    }
     const child = current[segment];
     if (!child || typeof child !== 'object' || Array.isArray(child)) {
       return;
@@ -149,9 +158,18 @@ function writeNestedString(value: Record<string, unknown>, path: string, next: s
     current = child as Record<string, unknown>;
   }
   const leaf = segments.at(-1);
-  if (leaf) {
-    current[leaf] = next;
+  if (leaf && isSafePropertySegment(leaf)) {
+    Object.defineProperty(current, leaf, {
+      value: next,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
   }
+}
+
+function isSafePropertySegment(segment: string): boolean {
+  return segment !== '__proto__' && segment !== 'prototype' && segment !== 'constructor';
 }
 
 function readPreviousFrameworkVersion(path: string): { version: string; updatedAt: string } | null {
