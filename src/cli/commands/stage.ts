@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
+import { bundleArtifactFile, checkBundleArtifacts } from '@/stage-evidence/bundle-artifact.js';
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
 
@@ -65,6 +66,14 @@ export function createStageCommand(): Command {
         return;
       }
       const root = options.projectRoot;
+      // Resolve the SAME session the live writer + block-forward gate key on (the
+      // single-slot ledger-session cache) so a manual mark actually clears the
+      // pre-mutation block in the session that hit it. Resolved before the artifact
+      // check because the rigid-bundle check (issue #394) needs the active feature.
+      const sessionId = resolveSessionId(
+        root,
+        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+      );
       // Normalize + validate each `--artifact` at the boundary (issue #350) BEFORE any
       // row is written: an in-tree path (absolute or relative) becomes project-relative
       // so the recorder can hash it; a genuinely out-of-tree path is rejected loudly
@@ -72,22 +81,31 @@ export function createStageCommand(): Command {
       // as absent. Only meaningful on an `end` — a `start` never carries one.
       let artifactPaths: string[] | undefined;
       if (phase === 'end' && options.artifact) {
+        let normalized: string[];
         try {
           // normalizeArtifactPath throws only ArtifactOutOfTreeError (an out-of-tree path).
-          artifactPaths = options.artifact.map((raw) => normalizeArtifactPath(root, raw));
+          normalized = options.artifact.map((raw) => normalizeArtifactPath(root, raw));
         } catch (error) {
           console.error(`could not record "${stage} ${phase}" — ${(error as Error).message}`);
           process.exitCode = 1;
           return;
         }
+        // Issue #394: a planning/specification stage-end proves itself ONLY with the
+        // active bundle's rigid plan.json / specification.json. Drop any other path so
+        // the recorder hashes no digest and the stage folds inconclusive, and tell the
+        // developer which verb writes the real artifact. review + mutation stages pass
+        // through unchanged.
+        const check = checkBundleArtifacts(root, sessionId, stage, normalized);
+        if (check.rigid && check.accepted.length === 0 && check.rejected.length > 0) {
+          const target = check.expected ?? `the bundle's ${bundleArtifactFile(stage)}.json`;
+          console.error(
+            `**▸ paqad** · that file isn't ${stage}'s bundle artifact — run ` +
+              `\`npx ${check.verb} …\` first, then end ${stage} against ${target}. ` +
+              `Recording ${stage} as inconclusive.`,
+          );
+        }
+        artifactPaths = check.accepted.length > 0 ? check.accepted : undefined;
       }
-      // Resolve the SAME session the live writer + block-forward gate key on (the
-      // single-slot ledger-session cache) so a manual mark actually clears the
-      // pre-mutation block in the session that hit it.
-      const sessionId = resolveSessionId(
-        root,
-        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-      );
       const recorded = recordMarkedStage(root, {
         sessionId,
         stage,

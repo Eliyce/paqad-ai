@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { featureFilePath } from '@/feature-evidence/paths.js';
+import { setActiveFeature } from '@/feature-evidence/session-control.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
 import {
   endStage,
@@ -53,6 +55,24 @@ describe('stages capability — block-forward at pre-mutation', () => {
   function policy(body: string): void {
     mkdirSync(join(root, '.paqad/configs'), { recursive: true });
     writeFileSync(join(root, '.paqad/configs/.config.policy'), body);
+  }
+
+  /**
+   * Open a KNOWN feature and write its rigid bundle plan.json + specification.json,
+   * returning their project-relative paths (issue #394). A planning/specification
+   * stage-end proves itself ONLY with these; the same-turn marker sweep drops anything
+   * else, so the markers below must point here to clear the gate.
+   */
+  const BUNDLE_DIR = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+  function openBundle(): { planRel: string; specRel: string } {
+    setActiveFeature(root, SES, BUNDLE_DIR);
+    const planRel = featureFilePath(BUNDLE_DIR, 'plan');
+    const specRel = featureFilePath(BUNDLE_DIR, 'specification');
+    for (const rel of [planRel, specRel]) {
+      mkdirSync(join(root, rel.slice(0, rel.lastIndexOf('/'))), { recursive: true });
+      writeFileSync(join(root, rel), '{"real":true}\n');
+    }
+    return { planRel, specRel };
   }
 
   it('BLOCKS the first edit (no change opened) asking for planning, strict by default', async () => {
@@ -155,13 +175,12 @@ describe('stages capability — block-forward at pre-mutation', () => {
     }
 
     it('ALLOWS the edit when the turn transcript already carries planning+specification pairs', async () => {
-      // #320: the thinking-stage ends must reference a real artifact, so the markers
-      // carry `-- <path>` and the files exist.
-      writeFileSync(join(root, 'plan.md'), '# plan\n');
-      writeFileSync(join(root, 'spec.md'), '# spec\n');
+      // #320/#394: the thinking-stage ends must reference the active bundle's rigid
+      // plan.json / specification.json, so the markers carry `-- <bundle path>`.
+      const { planRel, specRel } = openBundle();
       const transcriptPath = transcript(
-        'paqad:stage planning start\nplanning…\npaqad:stage planning end -- plan.md',
-        'paqad:stage specification start\nspec…\npaqad:stage specification end -- spec.md',
+        `paqad:stage planning start\nplanning…\npaqad:stage planning end -- ${planRel}`,
+        `paqad:stage specification start\nspec…\npaqad:stage specification end -- ${specRel}`,
       );
       const result = await runCapabilityGate({
         projectRoot: root,
@@ -179,9 +198,9 @@ describe('stages capability — block-forward at pre-mutation', () => {
     });
 
     it('still BLOCKS on specification when the transcript only carries planning, narrating what it recorded', async () => {
-      writeFileSync(join(root, 'plan.md'), '# plan\n');
+      const { planRel } = openBundle();
       const transcriptPath = transcript(
-        'paqad:stage planning start\nplanning…\npaqad:stage planning end -- plan.md',
+        `paqad:stage planning start\nplanning…\npaqad:stage planning end -- ${planRel}`,
       );
       const result = await runCapabilityGate({
         projectRoot: root,
@@ -263,15 +282,14 @@ describe('stages capability — block-forward at pre-mutation', () => {
       // Reproduce the old poison: a documentation_sync start lands before planning.
       // The pre-mutation sweep must still record the planning + specification markers
       // (F3 makes the recorder tolerant), so the code edit is no longer deadlocked.
+      const { planRel, specRel } = openBundle();
       startStage(root, 'documentation_sync', { sessionId: SES, adapter: 'claude-code' });
-      writeFileSync(join(root, 'plan.md'), '# plan\n');
-      writeFileSync(join(root, 'spec.md'), '# spec\n');
       const transcriptPath = join(root, 'turn.jsonl');
       writeFileSync(
         transcriptPath,
         [
-          'paqad:stage planning start\nplanning…\npaqad:stage planning end -- plan.md',
-          'paqad:stage specification start\nspec…\npaqad:stage specification end -- spec.md',
+          `paqad:stage planning start\nplanning…\npaqad:stage planning end -- ${planRel}`,
+          `paqad:stage specification start\nspec…\npaqad:stage specification end -- ${specRel}`,
         ]
           .map((text) =>
             JSON.stringify({

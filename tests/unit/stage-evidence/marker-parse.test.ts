@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -9,6 +9,7 @@ import { mkdirSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 
 import { extractMarkers, parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   currentFeature,
   featureStagePath,
@@ -103,34 +104,69 @@ describe('parseAndRecordMarkers', () => {
   });
 
   it('populates artifact_digest from a real file on an `end -- <path>` marker (#320)', () => {
-    writeFileSync(join(root, 'plan.md'), '# a real plan with content\n');
+    // `review` is a thinking stage with no rigid bundle file, so an arbitrary in-tree
+    // artifact still hashes (the #394 rigid-bundle rule binds only planning/specification).
+    writeFileSync(join(root, 'findings.md'), '# a real review with content\n');
     const transcript = [
-      msg('assistant', 'Planning.\npaqad:stage planning start'),
-      msg('assistant', 'Done.\npaqad:stage planning end -- plan.md'),
+      msg('assistant', 'Reviewing.\npaqad:stage review start'),
+      msg('assistant', 'Done.\npaqad:stage review end -- findings.md'),
     ].join('\n');
     const recorded = parseAndRecordMarkers({
       projectRoot: root,
       transcriptText: transcript,
       sessionId: SES,
     });
-    expect(recorded).toContainEqual({ stage: 'planning', phase: 'end', artifactPath: 'plan.md' });
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    expect(recorded).toContainEqual({ stage: 'review', phase: 'end', artifactPath: 'findings.md' });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
     expect(typeof end?.artifact_digest).toBe('string');
     expect(end?.artifact_digest).toMatch(/^sha256-/);
   });
 
   it('normalizes an ABSOLUTE in-tree artifact path on a marker (#350)', () => {
-    writeFileSync(join(root, 'plan.md'), '# a real plan with content\n');
-    const abs = join(root, 'plan.md');
+    writeFileSync(join(root, 'findings.md'), '# a real review with content\n');
+    const abs = join(root, 'findings.md');
+    const transcript = [
+      msg('assistant', 'Reviewing.\npaqad:stage review start'),
+      msg('assistant', `Done.\npaqad:stage review end -- ${abs}`),
+    ].join('\n');
+    parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
+    // The absolute in-tree path is normalized + hashed (shell and chat now agree).
+    expect(end?.artifact_digest).toMatch(/^sha256-/);
+    expect(end?.artifact_paths).toEqual(['findings.md']);
+  });
+
+  it('drops a non-bundle planning artifact on a marker (records inconclusive) (#394)', () => {
+    // The incident: a hand-written `.paqad/features/<slug>/plan.md` cleared the gate. Now
+    // only the active bundle's plan.json is accepted; any other path is dropped so the
+    // recorder hashes no digest and the stage folds inconclusive.
+    setActiveFeature(root, SES, 'x-01JABCDEFGHJKMNPQRSTVWXYZ0');
+    writeFileSync(join(root, 'plan.md'), '# a hand-written plan with content\n');
     const transcript = [
       msg('assistant', 'Planning.\npaqad:stage planning start'),
-      msg('assistant', `Done.\npaqad:stage planning end -- ${abs}`),
+      msg('assistant', 'Done.\npaqad:stage planning end -- plan.md'),
     ].join('\n');
     parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
     const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
-    // The absolute in-tree path is normalized + hashed (shell and chat now agree).
+    expect(end).toBeDefined();
+    expect(end?.artifact_digest ?? null).toBeNull();
+    expect(end?.artifact_paths ?? null).toBeNull();
+  });
+
+  it('accepts the bundle plan.json on a planning-end marker (#394)', () => {
+    const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    setActiveFeature(root, SES, dir);
+    const planRel = featureFilePath(dir, 'plan');
+    mkdirSync(join(root, dirname(planRel)), { recursive: true });
+    writeFileSync(join(root, planRel), '{"summary":"real plan"}\n');
+    const transcript = [
+      msg('assistant', 'Planning.\npaqad:stage planning start'),
+      msg('assistant', `Done.\npaqad:stage planning end -- ${planRel}`),
+    ].join('\n');
+    parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
     expect(end?.artifact_digest).toMatch(/^sha256-/);
-    expect(end?.artifact_paths).toEqual(['plan.md']);
+    expect(end?.artifact_paths).toEqual([planRel]);
   });
 
   it('drops an out-of-tree marker artifact instead of recording a false-absent digest (#350)', () => {

@@ -1,10 +1,11 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  augmentWithBundleArtifacts,
   COMPLETION_ANCHORED_STAGES,
   endStage,
   foldRowsWithKey,
@@ -19,6 +20,7 @@ import {
   verifyChange,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   currentFeature,
   featureStagePath,
@@ -45,12 +47,17 @@ function foldRows(rows: SessionLedgerRow[], sessionId: string, ordinal: number) 
  * End-stage args that satisfy the #320 artifact requirement: for a thinking stage
  * (planning/specification/review) write a real, non-empty artifact and reference it, so
  * the stage folds to `complete` under the new contract; a mutation stage needs none.
+ * planning/specification prove work with the RIGID bundle artifact (issue #394), so the
+ * artifact is the active feature's plan.json / specification.json — which also makes it
+ * present on disk for the completeness verdict's bundle-file assertion. `review` owns no
+ * bundle file, so it uses a scratch findings file.
  */
-function provenEndArgs(root: string, stage: string): EndStageInput {
+function provenEndArgs(root: string, dirName: string, stage: string): EndStageInput {
   if (!isArtifactBearingStage(stage)) return {};
-  const rel = `.paqad/artifacts/${stage}.md`;
-  mkdirSync(join(root, '.paqad', 'artifacts'), { recursive: true });
-  writeFileSync(join(root, rel), `# ${stage} artifact\n`);
+  const file = stage === 'planning' ? 'plan' : stage === 'specification' ? 'specification' : null;
+  const rel = file ? featureFilePath(dirName, file) : `.paqad/artifacts/${stage}.md`;
+  mkdirSync(join(root, dirname(rel)), { recursive: true });
+  writeFileSync(join(root, rel), file ? '{"real":true}\n' : `# ${stage} artifact\n`);
   return { artifactPaths: [rel] };
 }
 
@@ -89,7 +96,7 @@ describe('stage-evidence ledger (#247)', () => {
     const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
     for (const stage of stages) {
       startStage(root, stage, { sessionId, dirName, adapter: ADAPTER, now });
-      endStage(root, stage, provenEndArgs(root, stage), {
+      endStage(root, stage, provenEndArgs(root, dirName, stage), {
         sessionId,
         dirName,
         adapter: ADAPTER,
@@ -162,6 +169,114 @@ describe('stage-evidence ledger (#247)', () => {
     expect(result.verdict).toBe('complete');
     expect(result.ok).toBe(true);
     expect(result.missing_stages).toEqual([]);
+  });
+
+  // Issue #394 — the completeness verdict asserts the bundle actually CONTAINS the rigid
+  // plan.json + specification.json, not merely that the planning/specification rows exist.
+  describe('bundle-artifact assertion in the verdict (#394)', () => {
+    it('folds incomplete when plan.json is missing even though every stage row is complete', () => {
+      const dir = run([...MANDATORY], clock(), 'ses_noplan');
+      // Rows all read complete; now the bundle loses its plan.json (the incident: a
+      // hand-written free-write elsewhere, plan.json never produced).
+      rmSync(join(root, featureFilePath(dir, 'plan')), { force: true });
+      const result = verifyChange(root, {
+        sessionId: 'ses_noplan',
+        dirName: dir,
+        adapter: ADAPTER,
+      });
+      expect(result.verdict).toBe('incomplete');
+      expect(result.ok).toBe(false);
+      expect(result.missing_stages).toContain('planning');
+    });
+
+    it('folds incomplete when specification.json is missing', () => {
+      const dir = run([...MANDATORY], clock(), 'ses_nospec');
+      rmSync(join(root, featureFilePath(dir, 'specification')), { force: true });
+      const result = verifyChange(root, {
+        sessionId: 'ses_nospec',
+        dirName: dir,
+        adapter: ADAPTER,
+      });
+      expect(result.verdict).toBe('incomplete');
+      expect(result.missing_stages).toContain('specification');
+    });
+
+    it('folds incomplete when an empty plan.json is present (not substantive evidence)', () => {
+      const dir = run([...MANDATORY], clock(), 'ses_emptyplan');
+      writeFileSync(join(root, featureFilePath(dir, 'plan')), '');
+      const result = verifyChange(root, {
+        sessionId: 'ses_emptyplan',
+        dirName: dir,
+        adapter: ADAPTER,
+      });
+      expect(result.verdict).toBe('incomplete');
+      expect(result.missing_stages).toContain('planning');
+    });
+
+    describe('augmentWithBundleArtifacts (pure)', () => {
+      // A valid FoldedChange to override per case — the helper only reads/writes
+      // `completeness`, so an empty-row fold is a sufficient, dependency-free base.
+      const base = foldRows([], 'ses', 1);
+
+      it('leaves a fold untouched when both artifacts are present', () => {
+        const out = augmentWithBundleArtifacts(base, { plan: true, specification: true });
+        expect(out).toBe(base);
+      });
+
+      it('downgrades complete→incomplete and lists planning when plan.json is absent', () => {
+        const complete = {
+          ...base,
+          completeness: { ...base.completeness, verdict: 'complete' as const, missing_stages: [] },
+        };
+        const out = augmentWithBundleArtifacts(complete, { plan: false, specification: true });
+        expect(out.completeness.verdict).toBe('incomplete');
+        expect(out.completeness.missing_stages).toContain('planning');
+        expect(out.completeness.missing_stages).not.toContain('specification');
+      });
+
+      it('downgrades a recovered verdict too when specification.json is absent', () => {
+        const recovered = {
+          ...base,
+          completeness: {
+            ...base.completeness,
+            verdict: 'recovered' as const,
+            missing_stages: [],
+          },
+        };
+        const out = augmentWithBundleArtifacts(recovered, { plan: true, specification: false });
+        expect(out.completeness.verdict).toBe('incomplete');
+        expect(out.completeness.missing_stages).toContain('specification');
+      });
+
+      it('preserves an already-incomplete verdict but surfaces the missing artifact', () => {
+        const incomplete = {
+          ...base,
+          completeness: {
+            ...base.completeness,
+            verdict: 'incomplete' as const,
+            missing_stages: ['review'],
+          },
+        };
+        const out = augmentWithBundleArtifacts(incomplete, { plan: false, specification: false });
+        expect(out.completeness.verdict).toBe('incomplete');
+        expect(out.completeness.missing_stages).toEqual(
+          expect.arrayContaining(['review', 'planning', 'specification']),
+        );
+      });
+
+      it('does not duplicate a stage already listed missing', () => {
+        const already = {
+          ...base,
+          completeness: {
+            ...base.completeness,
+            verdict: 'incomplete' as const,
+            missing_stages: ['planning'],
+          },
+        };
+        const out = augmentWithBundleArtifacts(already, { plan: false, specification: true });
+        expect(out.completeness.missing_stages.filter((s) => s === 'planning')).toHaveLength(1);
+      });
+    });
   });
 
   it('verify fails (incomplete) and lists the missing mandatory stage', () => {
@@ -446,7 +561,7 @@ describe('completion-anchored review (#270)', () => {
     const ctx = { sessionId, dirName, adapter: ADAPTER, now };
     for (const stage of BUILD_ORDER) {
       startStage(root, stage, ctx);
-      endStage(root, stage, provenEndArgs(root, stage), ctx);
+      endStage(root, stage, provenEndArgs(root, dirName, stage), ctx);
     }
     return dirName;
   }
@@ -465,7 +580,7 @@ describe('completion-anchored review (#270)', () => {
     const ctx = { sessionId: 'ses_late_start', dirName: dir, adapter: ADAPTER, now };
     // review is canonically before checks/docs; the strict recorder would throw here.
     expect(() => startStage(root, 'review', ctx)).not.toThrow();
-    endStage(root, 'review', provenEndArgs(root, 'review'), ctx);
+    endStage(root, 'review', provenEndArgs(root, dir, 'review'), ctx);
     const rows = readFeatureStageUnit(root, dir);
     expect(rows.some((r) => r.kind === 'stage_start' && r.stage === 'review')).toBe(true);
     expect(rows.some((r) => r.kind === 'stage_end' && r.stage === 'review')).toBe(true);
@@ -476,7 +591,7 @@ describe('completion-anchored review (#270)', () => {
     const dir = recordBuild('ses_late', now);
     const ctx = { sessionId: 'ses_late', dirName: dir, adapter: ADAPTER, now };
     startStage(root, 'review', ctx);
-    endStage(root, 'review', provenEndArgs(root, 'review'), ctx);
+    endStage(root, 'review', provenEndArgs(root, dir, 'review'), ctx);
 
     const fold = foldFeature(root, 'ses_late', dir);
     expect(fold.completeness.ordering_violations).toEqual([]);

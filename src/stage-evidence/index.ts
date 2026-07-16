@@ -38,6 +38,11 @@ export {
   type StageEvidenceContext,
   type EndStageInput,
 } from './recorder.js';
-export { foldRowsWithKey, type FoldIdentity } from './fold.js';
+export {
+  foldRowsWithKey,
+  augmentWithBundleArtifacts,
+  type FoldIdentity,
+  type BundleArtifactPresence,
+} from './fold.js';
 export { verifyChange, REDO_CAP, type VerifyResult, type VerifyContext } from './verify.js';
 export { finalizeStageEvidence, type FinalizeStageEvidenceInput } from './finalize.js';

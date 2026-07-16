@@ -202,6 +202,57 @@ function computeVerdict(
   return hadRedo ? 'recovered' : 'complete';
 }
 
+/** Bundle-file presence for the two rigid thinking stages (issue #394). */
+export interface BundleArtifactPresence {
+  /** `plan.json` exists in the bundle and is non-empty. */
+  plan: boolean;
+  /** `specification.json` exists in the bundle and is non-empty. */
+  specification: boolean;
+}
+
+/** The rigid thinking stages and the presence key that proves each one (issue #394). */
+const RIGID_STAGE_FILE: ReadonlyArray<{ stage: string; key: keyof BundleArtifactPresence }> = [
+  { stage: 'planning', key: 'plan' },
+  { stage: 'specification', key: 'specification' },
+];
+
+/**
+ * Downgrade a completeness verdict when the bundle is missing a rigid thinking-stage
+ * artifact (issue #394). The `planning` / `specification` rows may read complete — a
+ * digest was recorded at stage-end — but if the bundle's `plan.json` / `specification.json`
+ * is absent (or empty) at verdict time the stage never produced its durable artifact, so
+ * the change is not really done. Mark the stage missing and drop a `complete` / `recovered`
+ * verdict to `incomplete`; a verdict that is already worse (incomplete / blocked /
+ * cannot-verify) is preserved, with the missing artifact surfaced in `missing_stages`.
+ *
+ * Pure: the caller supplies presence, so the fold core stays filesystem-free (the
+ * FS-aware `foldFeature` reads the bundle and calls this). Only `completeness` is
+ * touched — never a per-stage `artifact_digest` / timing field — so the pre-mutation
+ * gate, which reads the folded per-stage digest, is unaffected.
+ */
+export function augmentWithBundleArtifacts(
+  fold: FoldedChange,
+  presence: BundleArtifactPresence,
+): FoldedChange {
+  const missing = [...fold.completeness.missing_stages];
+  for (const { stage, key } of RIGID_STAGE_FILE) {
+    if (!presence[key] && !missing.includes(stage)) {
+      missing.push(stage);
+    }
+  }
+  if (missing.length === fold.completeness.missing_stages.length) {
+    return fold; // both artifacts present, or their stages were already missing.
+  }
+  const verdict: StageCompletenessVerdict =
+    fold.completeness.verdict === 'complete' || fold.completeness.verdict === 'recovered'
+      ? 'incomplete'
+      : fold.completeness.verdict;
+  return {
+    ...fold,
+    completeness: { ...fold.completeness, verdict, missing_stages: missing },
+  };
+}
+
 function lastOf(events: readonly SessionLedgerRow[], kind: string): SessionLedgerRow | undefined {
   let found: SessionLedgerRow | undefined;
   for (const event of events) {
