@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.62.0
+
+### Minor Changes
+
+- 0cd07f4: Add `paqad-ai join` for zero-diff teammate setup, persist onboarding RAG choices in tracked team configuration, and make repeat onboarding manifests byte-stable.
+
 ## 1.61.1
 
 ### Patch Changes
