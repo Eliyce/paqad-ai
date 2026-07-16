@@ -27,6 +27,7 @@ export const PATHS = {
   DELIVERY_PR_BODY_TEMPLATE: '.paqad/templates/pr-body.md',
   FRAMEWORK_VERSION: '.paqad/framework-version.txt',
   FRAMEWORK_PATH: '.paqad/framework-path.txt',
+  AGENT_ENTRY_SENTINEL: '.paqad/.agent-entry-loaded',
   GLOSSARY: '.paqad/glossary.md',
   HANDOFF: '.paqad/session/handoff.md',
   CHANGED_FILES: '.paqad/session/changed-files.json',
