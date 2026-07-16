@@ -1,5 +1,5 @@
 schema_version: 1
-generated_at: 2026-07-16T08:33:33.484Z
+generated_at: 2026-07-16T10:17:42.895Z
 rule_files_hash: sha256-4e0e3542fca436bd6c36488b07b4c82e41d11a554c4222b99d168e66caf34c22
 rules:
   - id: RL-6740

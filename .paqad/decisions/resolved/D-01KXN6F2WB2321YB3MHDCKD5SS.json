@@ -1,0 +1,22 @@
+{
+  "id": "D-01KXN6F2WB2321YB3MHDCKD5SS",
+  "category": "finding.triage",
+  "title": "Resolve pre-existing rule-script drift before issue 393",
+  "context": "Planning for issue #393 found 15 RS-RULE-ADDED findings in codebase-health.md and health-retest.md. The strict feature-development policy blocks planning while this drift exists. Resolving it expands scope beyond #393; stopping leaves #393 unbuilt.",
+  "options": [
+    {
+      "option_key": "analyze",
+      "label": "Run analyze rules and reconcile the 15 findings"
+    },
+    {
+      "option_key": "stop",
+      "label": "Stop issue #393 until the drift is fixed separately"
+    }
+  ],
+  "recommendation": "analyze",
+  "created_at": "2026-07-16T10:09:58.667Z",
+  "status": "resolved",
+  "chosen": "analyze",
+  "rationale": "User explicitly requested rules analysis based on the dogfooded paqad-ai npm package, with writes limited to docs and .paqad.",
+  "resolved_at": "2026-07-16T10:15:21.956Z"
+}
