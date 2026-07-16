@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-07-10T21:21:19.361Z
-rule_files_hash: sha256-b0563f76e0387d826822957fc75503fde612c717ceba95f9e9adcb7cbb0f8a21
+generated_at: 2026-07-16T08:33:33.484Z
+rule_files_hash: sha256-4e0e3542fca436bd6c36488b07b4c82e41d11a554c4222b99d168e66caf34c22
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -1113,6 +1113,86 @@ rules:
         scope: changed-files
         last_validated_at: 2026-07-10T21:26:13.309Z
         fixtures_passed: true
+  - id: RL-f2f8
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: "\"check my project's health\", \"codebase health\", \"code health\", \"health check\", \"health audit\""
+    text_hash: ccb142900bea4b203bb22c3bde29abbc128727626823234e8086cd6d74998a5a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-4c78
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: '"audit my codebase", "find dead code", "check for unused code/packages", "cleanup audit"'
+    text_hash: d4608afe8988544ed14e4989750b653f22a2b77236281e32bd50a2ea0d9b4d3a
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-5785
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: reuses the code-knowledge index for dead code + unused dependencies (run `paqad-ai index
+    text_hash: 3e2d022cbff55238607ca025dec34462bb7d40bbd8ec1812103ee6cba56469ae
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-cb61
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: shells out to `osv-scanner`, `gitleaks`, `jscpd` when they are on PATH and degrades to a
+    text_hash: 379b0562a2a9f37b768c44710d81419d16069933f50867f913b5ed4dd6334b48
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-2b7d
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: writes `docs/health/<ts>.md` + `docs/health/<ts>.json` and the per-run finding index.
+    text_hash: c0489697ed28a2c14506762f8498db2886ccfd903a5b431a0e0fd15dc04fefb8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-e398
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: Never skip the verb. The findings come from `paqad-ai health run`, never from your own reading.
+    text_hash: d25578ce7140990c27df7c0bdca3a4b41bf13a0d8371682257c9ba6a87f9dfe8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-1af8
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: If a scanner is unavailable, it is already recorded in `blocked_checks` — surface it, do not work around it.
+    text_hash: 4bb8ae14257c451d312ff49a60c88f64e83e5a7843ba68c94412a13abf161253
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-6e45
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: Secret evidence never contains the secret bytes. Only file:line + rule + fingerprint.
+    text_hash: c1b1ab295d5a0a0bc1bec831a7a62bb9cf06a269b2f2383dfbc688a39ddc58df
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-7664
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: Deletion, dependency removal, and rewrites are suggestions. Acting on them is the user's call.
+    text_hash: bec10b2bfec3f4da3fbda10497ad395e803899d466cb35d5c38d84db79b696db
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-692c
+    source: docs/instructions/rules/coding/codebase-health.md
+    text: Always keep both the `.md` report and the `.json` sidecar; `health-retest` depends on the sidecar to preserve `HL-` ids.
+    text_hash: d90ce6298a8d8c7982d134adc56e374844b24d4023f254b7db5fbf864e11e9cc
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-93ac
     source: docs/instructions/rules/coding/config-visibility.md
     text: "Keep only project facts in `project-profile.yaml`: name, id, description, the project's own `commands`, `mcp.servers`,"
@@ -2194,6 +2274,14 @@ rules:
       reason: Producing an implementation sequence is a workflow procedure.
     enforced_by: []
     scripts: []
+  - id: RL-73a4
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Compile the plan into the feature bundle with `npx paqad-ai plan compile <plan-template.json>`: it writes the rigid `plan.json` into the active feature's bundle (`.paqad/ledger/feature-evidence/<change>/plan.json`) — the durable planning artifact. End the planning stage against **that** file (`paqad:stage planning end -- <path-to-plan.json>`, or `npx paqad-ai stage end planning --artifact <path-to-plan.json>`). Do **not** hand-write the plan to `.paqad/plans/*` or any other location: only the bundle's `plan.json` is the artifact, and a stage-end pointing anywhere else records inconclusive."
+    text_hash: 0b059e6a22abc61cf8cbed8c0e5b9ac2bb77bd8cf67fe92aca371e5eafd2d2d9
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-4da7
     source: docs/instructions/rules/coding/feature-development.md
     text: "Escalations: `attribution_pending: stop`, `rule_scripts_stale: ask`, missing docs/design-system: `warn`."
@@ -2223,8 +2311,8 @@ rules:
     scripts: []
   - id: RL-9321
     source: docs/instructions/rules/coding/feature-development.md
-    text: "Freeze it with `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants`: it evaluates the freeze blockers, writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`) that later stages check against, and refuses to freeze over open questions, missing acceptance criteria, or unconfirmed invariants."
-    text_hash: df605c4e354dbd9860f73ead62969bfcba2c0367f5c8d60a513d5fec4dfc7ee2
+    text: "Freeze it with `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants`: it evaluates the freeze blockers and, on a clean spec, writes the frozen `specification.json` into the active feature's bundle (`.paqad/ledger/feature-evidence/<change>/specification.json`) — the durable record later stages check against. It refuses to freeze over open questions, missing acceptance criteria, or unconfirmed invariants. End the specification stage against **that** `specification.json` (`paqad:stage specification end -- <path-to-specification.json>`, or `npx paqad-ai stage end specification --artifact <path-to-specification.json>`). Do **not** hand-write the spec to `.paqad/specs/*` or any other location as the durable artifact: only the bundle's `specification.json` is the artifact, and a stage-end pointing anywhere else records inconclusive."
+    text_hash: 0d2b8305055c5a479432ba5fad7f7612881e215b083af24519c676145189ba27
     verifiability:
       kind: unverifiable
       reason: The spec-freeze command is a workflow procedure.
@@ -2377,6 +2465,46 @@ rules:
     verifiability:
       kind: unverifiable
       reason: Honoring escalations through the Decision Pause is a human-approval process.
+    enforced_by: []
+    scripts: []
+  - id: RL-2daa
+    source: docs/instructions/rules/coding/health-retest.md
+    text: '"health retest", "re-run the health check", "did my health findings get fixed?"'
+    text_hash: 71435d6fd7567d262b7854f773c47320732b26ad0b3665f56b09872fd8d002f1
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-ec30
+    source: docs/instructions/rules/coding/health-retest.md
+    text: The source report sidecar. By default the newest `docs/health/*.json`; the user may name a
+    text_hash: 24c005c88bfd3c81e78fe582be443b0ff146d93d668e07d834583f2c06cf11f8
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-475c
+    source: docs/instructions/rules/coding/health-retest.md
+    text: Never invent a new finding in a retest, and never lower a finding's severity.
+    text_hash: 873544774c07c307819d65a58c1468b0e55aae0c7d8730a7c003a07d205387ba
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-38db
+    source: docs/instructions/rules/coding/health-retest.md
+    text: Match by stable `HL-` id, not by category.
+    text_hash: ae6efccc59e5e2a4ff73ba69b9141c61454f3c1d928d5eb5fd2e7d04d8c65ffd
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
+  - id: RL-d9a7
+    source: docs/instructions/rules/coding/health-retest.md
+    text: A network-required finding you could not re-check is `needs-manual-verification`, never `fixed`.
+    text_hash: bd3d7e49802147e1a3502c1be8d19900a5f6813e92dee974ca19a5fbd277650a
+    verifiability:
+      kind: heuristic
     enforced_by: []
     scripts: []
   - id: RL-2338

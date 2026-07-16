@@ -121,7 +121,7 @@ Classify the request:
 
 ## Output Contract
 
-Write the spec to `.paqad/specs/{slug}.md`:
+Author the spec as a transient markdown file (a scratch path outside the tracked tree is fine — it is not the durable artifact), using this shape:
 
 ```text
 # Spec: {feature name}
@@ -160,4 +160,4 @@ Q1: {ambiguity needing clarification}
 
 Return `Spec Status: complete` when no open questions remain, `Spec Status: blocked` when clarification is needed before proceeding.
 
-On `graduated`/`full` lanes the spec is frozen before development (issue #102). Freeze requires all three machine-checkable sections (behaviour, acceptance criteria, invariants), no open questions, no critical spec-review defects, and a human-confirmed invariant set. The structured `.paqad/specs/S-<id>.spec.json` sidecar is generated from this markdown on freeze — never hand-edit it. A mid-build goal change or a work-vs-spec contradiction pauses via the Decision Pause Contract (`spec.change` / `spec.contradiction`) and is never resolved silently.
+On `graduated`/`full` lanes the spec is frozen before development (issue #102). Freeze requires all three machine-checkable sections (behaviour, acceptance criteria, invariants), no open questions, no critical spec-review defects, and a human-confirmed invariant set. Freeze the transient markdown with `npx paqad-ai spec freeze <spec-file> --confirm-invariants`: it writes the frozen `specification.json` into the active feature's bundle (`.paqad/ledger/feature-evidence/<change>/specification.json`) — the durable, script-owned record every later stage checks against; never hand-write or hand-edit a spec under `.paqad/specs/*`. A mid-build goal change or a work-vs-spec contradiction pauses via the Decision Pause Contract (`spec.change` / `spec.contradiction`) and is never resolved silently.
