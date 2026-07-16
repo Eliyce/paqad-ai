@@ -1,11 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { createProgram } from '@/cli/program.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   currentFeature,
   readFeatureStageUnit,
@@ -63,35 +64,37 @@ describe('paqad-ai stage command', () => {
 
   it('hashes an `--artifact` on end into artifact_digest, but ignores it on start (#320)', async () => {
     const { writeFileSync } = await import('node:fs');
-    writeFileSync(join(root, 'plan.md'), '# a real plan\n');
-    // A start ignores an artifact (only an end carries one).
-    await run('start', 'planning', '--artifact', 'plan.md');
-    await run('end', 'planning', '--artifact', 'plan.md');
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    writeFileSync(join(root, 'findings.md'), '# review findings\n');
+    // `review` is a thinking stage that owns no rigid bundle file, so an arbitrary
+    // in-tree artifact still hashes (the #394 rigid-bundle rule binds only
+    // planning/specification). A start ignores an artifact (only an end carries one).
+    await run('start', 'review', '--artifact', 'findings.md');
+    await run('end', 'review', '--artifact', 'findings.md');
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
     expect(typeof end?.artifact_digest).toBe('string');
     expect(end?.artifact_digest).toMatch(/^sha256-/);
-    const start = rows().find((r) => r.kind === 'stage_start' && r.stage === 'planning');
+    const start = rows().find((r) => r.kind === 'stage_start' && r.stage === 'review');
     expect(start?.artifact_digest ?? null).toBeNull();
   });
 
   it('leaves artifact_digest null when the --artifact file is missing (#320)', async () => {
-    await run('start', 'planning');
-    await run('end', 'planning', '--artifact', 'nope.md');
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    await run('start', 'review');
+    await run('end', 'review', '--artifact', 'nope.md');
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
     expect(end?.artifact_digest ?? null).toBeNull();
   });
 
   it('accepts an ABSOLUTE in-tree --artifact by normalizing it to relative (#350)', async () => {
     const { writeFileSync } = await import('node:fs');
-    writeFileSync(join(root, 'plan.md'), '# a real plan\n');
-    await run('start', 'planning');
+    writeFileSync(join(root, 'findings.md'), '# review findings\n');
+    await run('start', 'review');
     // Pass the file by its absolute path — today this silently join()ed onto root and
     // hashed as absent; now it normalizes and hashes the real bytes.
-    await run('end', 'planning', '--artifact', join(root, 'plan.md'));
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+    await run('end', 'review', '--artifact', join(root, 'findings.md'));
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
     expect(end?.artifact_digest).toMatch(/^sha256-/);
     // The stored path is the normalized relative one, not the absolute input.
-    expect(end?.artifact_paths).toEqual(['plan.md']);
+    expect(end?.artifact_paths).toEqual(['findings.md']);
   });
 
   it('rejects an out-of-tree --artifact loudly with exit 1 and writes no row (#350)', async () => {
@@ -175,6 +178,71 @@ describe('paqad-ai stage command', () => {
     expect(process.exitCode).toBe(0);
     expect(errors).toEqual([]);
     expect(rows().some((r) => r.kind === 'stage_start' && r.stage === 'planning')).toBe(true);
+  });
+
+  // Issue #394 — a planning/specification stage-end proves itself ONLY with the active
+  // bundle's rigid plan.json / specification.json. Any other in-tree file is dropped so
+  // the stage folds inconclusive, and the developer is told which verb writes the real
+  // artifact. `review` (a thinking stage with no rigid file) is unaffected — covered above.
+  describe('rigid bundle artifact for planning/specification (#394)', () => {
+    /** Write a non-empty rigid bundle file into the active feature and return its rel path. */
+    function writeBundleArtifact(file: 'plan' | 'specification'): string {
+      const dir = currentFeature(root, SES)!;
+      const rel = featureFilePath(dir, file);
+      mkdirSync(join(root, dirname(rel)), { recursive: true });
+      writeFileSync(join(root, rel), '{"real":true}\n');
+      return rel;
+    }
+
+    it('hashes the bundle plan.json on a planning end (the accepted artifact)', async () => {
+      await run('start', 'planning');
+      const planRel = writeBundleArtifact('plan');
+      await run('end', 'planning', '--artifact', planRel);
+      const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+      expect(end?.artifact_digest).toMatch(/^sha256-/);
+      expect(end?.artifact_paths).toEqual([planRel]);
+    });
+
+    it('hashes the bundle specification.json on a specification end (the accepted artifact)', async () => {
+      await run('start', 'planning');
+      const specRel = writeBundleArtifact('specification');
+      await run('end', 'specification', '--artifact', specRel);
+      const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'specification');
+      expect(end?.artifact_digest).toMatch(/^sha256-/);
+    });
+
+    it('drops a non-bundle planning artifact (records inconclusive) and names `plan compile`', async () => {
+      const errors: string[] = [];
+      vi.spyOn(console, 'error').mockImplementation((line: string) => {
+        errors.push(String(line));
+      });
+      await run('start', 'planning');
+      // A plausible-but-wrong free-write, exactly the incident's `.paqad/features/…/plan.md`.
+      writeFileSync(join(root, 'notes.md'), '# hand-written plan\n');
+      const out = await run('end', 'planning', '--artifact', 'notes.md');
+      // Recorded (the boundary exists) but with no digest → the fold reads inconclusive.
+      const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
+      expect(end).toBeDefined();
+      expect(end?.artifact_digest ?? null).toBeNull();
+      expect(out.some((line) => line.includes('"recorded":true'))).toBe(true);
+      // Exit stays clean; the completeness verdict is the hard gate. The message names the verb.
+      expect(process.exitCode).toBeUndefined();
+      expect(errors.join('\n')).toContain('paqad-ai plan compile');
+      expect(errors.join('\n')).toContain('inconclusive');
+    });
+
+    it('drops a non-bundle specification artifact and names `spec freeze`', async () => {
+      const errors: string[] = [];
+      vi.spyOn(console, 'error').mockImplementation((line: string) => {
+        errors.push(String(line));
+      });
+      await run('start', 'planning');
+      writeFileSync(join(root, 'draft-spec.md'), '# hand-written spec\n');
+      await run('end', 'specification', '--artifact', 'draft-spec.md');
+      const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'specification');
+      expect(end?.artifact_digest ?? null).toBeNull();
+      expect(errors.join('\n')).toContain('paqad-ai spec freeze');
+    });
   });
 
   // stage.ts:42 — the session-id fallback chain

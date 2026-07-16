@@ -14,6 +14,7 @@ import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { normalizeArtifactPath } from './artifact-path.js';
+import { checkBundleArtifacts } from './bundle-artifact.js';
 import { recordMarkedStage, type MarkedStagePhase } from './live-writer.js';
 
 /**
@@ -155,6 +156,19 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
           normalizedArtifact = normalizeArtifactPath(input.projectRoot, artifactPath);
         } catch {
           normalizedArtifact = undefined;
+        }
+        // Issue #394: a planning/specification stage-end proves itself ONLY with the
+        // active bundle's rigid plan.json / specification.json. Drop any other artifact
+        // (the same silent-drop treatment as an out-of-tree path) so the recorder hashes
+        // no digest and the stage folds inconclusive — forcing `plan compile` / `spec
+        // freeze`. review and the mutation stages pass through untouched.
+        if (normalizedArtifact) {
+          const check = checkBundleArtifacts(input.projectRoot, sessionId, stage, [
+            normalizedArtifact,
+          ]);
+          if (check.rigid && check.accepted.length === 0) {
+            normalizedArtifact = undefined;
+          }
         }
       }
       if (
