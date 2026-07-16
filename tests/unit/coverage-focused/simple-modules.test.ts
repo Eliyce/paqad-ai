@@ -300,7 +300,7 @@ describe('coverage simple modules', () => {
       expect(JSON.parse(readFileSync(detectionPath, 'utf8'))).toMatchObject({
         repository: {
           selected_root: '.',
-          ignored_paths: ['node_modules', externalIgnored],
+          ignored_paths: [externalIgnored, 'node_modules'].sort(),
           projects: expect.arrayContaining([
             expect.objectContaining({ root: '.', parent_root: null }),
             expect.objectContaining({ root: 'packages/web', parent_root: '.' }),

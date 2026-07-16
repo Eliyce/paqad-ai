@@ -74,6 +74,7 @@ describe('writeJsonPreservingTimestamp', () => {
       name: 'x',
       timestamp: '2025-01-01T00:00:00.000Z',
     });
+    expect(readFileSync(path, 'utf8')).toMatch(/\n$/);
   });
 
   it('preserves the existing timestamp when other fields are unchanged', () => {
@@ -124,6 +125,30 @@ describe('writeJsonPreservingTimestamp', () => {
       name: 'x',
       timestamp: '2030-12-31T00:00:00.000Z',
     });
+  });
+
+  it('preserves multiple timestamp paths when all meaningful fields are unchanged', () => {
+    const path = join(dir, 'nested.json');
+    writeJsonPreservingTimestamp(
+      path,
+      {
+        generated_at: '2025-01-01T00:00:00.000Z',
+        detected: { timestamp: '2025-01-02T00:00:00.000Z', stack: 'node' },
+      },
+      ['generated_at', 'detected.timestamp'],
+    );
+    const first = readFileSync(path, 'utf8');
+
+    writeJsonPreservingTimestamp(
+      path,
+      {
+        generated_at: '2030-01-01T00:00:00.000Z',
+        detected: { timestamp: '2030-01-02T00:00:00.000Z', stack: 'node' },
+      },
+      ['generated_at', 'detected.timestamp'],
+    );
+
+    expect(readFileSync(path, 'utf8')).toBe(first);
   });
 });
 
@@ -188,6 +213,79 @@ describe('portability sanitization (issue #69)', () => {
     expect(written).not.toContain(dir);
     expect(written).toContain('"compiled_rules_path": ".paqad/compiled-rules.json"');
     expect(written).toContain('"project_root": "."');
+  });
+
+  it('writes byte-identical normalized manifests across repeat runs', () => {
+    const manifestPath = join(dir, '.paqad/onboarding-manifest.json');
+    const repository = {
+      selected_root: dir,
+      scan_max_depth: 3,
+      ignored_paths: [join(dir, '.vscode'), join(dir, 'node_modules'), join(dir, '.DS_Store')],
+      projects: [],
+      applications: [],
+      primary_project_root: dir,
+    };
+    const createManifest = (timestamp: string, reverse = false) => ({
+      adapter: 'codex-cli' as const,
+      project_root: dir,
+      profile: {} as never,
+      detected: {
+        detected_domain: 'coding' as const,
+        detected_stack: 'node-cli' as const,
+        detected_capabilities: [],
+        confidence: 'high' as const,
+        signals: [
+          {
+            signal: 'package',
+            file: join(dir, 'package.json'),
+            implies: 'node-cli',
+            confidence: 'high' as const,
+          },
+        ],
+        timestamp,
+        repository: {
+          ...repository,
+          ignored_paths: reverse
+            ? [...repository.ignored_paths].reverse()
+            : repository.ignored_paths,
+        },
+      },
+      repository: {
+        ...repository,
+        ignored_paths: reverse ? [...repository.ignored_paths].reverse() : repository.ignored_paths,
+      },
+      generated_at: timestamp,
+      generated_artifacts: reverse
+        ? [
+            { path: 'z-last.json', auto_update: true },
+            { path: 'a-first.json', auto_update: true },
+          ]
+        : [
+            { path: 'a-first.json', auto_update: true },
+            { path: 'z-last.json', auto_update: true },
+          ],
+    });
+
+    writeOnboardingManifest(dir, createManifest('2026-01-01T00:00:00.000Z'));
+    const first = readFileSync(manifestPath, 'utf8');
+    writeOnboardingManifest(dir, createManifest('2030-12-31T00:00:00.000Z', true));
+    const second = readFileSync(manifestPath, 'utf8');
+
+    expect(second).toBe(first);
+    expect(second).toMatch(/\n$/);
+    expect(second).not.toContain(dir);
+    const parsed = JSON.parse(second) as {
+      detected: { signals: Array<{ file: string }>; repository: { ignored_paths: string[] } };
+      repository: { ignored_paths: string[] };
+      generated_artifacts: Array<{ path: string }>;
+    };
+    expect(parsed.detected.signals[0]?.file).toBe('package.json');
+    expect(parsed.detected.repository.ignored_paths).toEqual(['node_modules']);
+    expect(parsed.repository.ignored_paths).toEqual(['node_modules']);
+    expect(parsed.generated_artifacts.map((artifact) => artifact.path)).toEqual([
+      'a-first.json',
+      'z-last.json',
+    ]);
   });
 
   it('strips absolute selected_root from the stack snapshot repository context', () => {
