@@ -28,10 +28,10 @@ Capture the main journeys for `onboard`. Each flow should call out:
 
 ## Business Rules
 
-- Enumerate invariants that must hold whenever `onboard` runs.
-- Note any preconditions enforced upstream (e.g. onboarding must have run, a pack must be installed,
-  a capability must be enabled).
-- Spell out idempotency expectations — re-running should converge, not duplicate.
+- The lead's RAG choice is committed in `.paqad/configs/.config.rag` so teammates inherit it; machine-local and environment overrides remain higher precedence.
+- Re-running onboarding with the same semantic inputs leaves `.paqad/onboarding-manifest.json` byte-identical, including `generated_at` and the detection timestamp.
+- Persisted signal and artifact paths are repository-relative, developer-local ignored noise is excluded, and order-insensitive path collections are sorted.
+- Teammates use `paqad-ai join` after cloning instead of repeating onboarding.
 
 ## Triggers & Side Effects
 

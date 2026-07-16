@@ -22,9 +22,9 @@ Source directories owned by this feature:
 
 ## API / Interface Contract
 
-- Public functions exported from the source files above.
-- CLI flags / arguments (if applicable).
-- Agent-callable skill names or workflow trigger phrases (if applicable).
+- `createRagCommand()` registers the `rag` command family.
+- `initializeRagIndex(projectRoot, options)` is the shared initial-build and recovery path used by both `rag init` and `paqad-ai join`.
+- Callers may supply the already-read RAG status plus provider and model, avoiding duplicate status work while retaining the normal provider recovery behavior.
 
 ## State Management
 

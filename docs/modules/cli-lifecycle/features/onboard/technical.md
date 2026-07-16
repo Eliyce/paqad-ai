@@ -29,9 +29,9 @@ Source directories owned by this feature:
 
 ## State Management
 
-- What state this feature reads.
-- What state this feature writes.
-- Where that state is persisted (`.paqad/**`, project files, in-memory only).
+- RAG enablement, provider, and model are written through `setGroupConfigValue` to the tracked `.paqad/configs/.config.rag` group file. The writer activates generated commented defaults in place and preserves file ordering.
+- `writeOnboardingManifest` normalizes persisted paths and deterministic collections before serialization. When semantic content is unchanged, it carries forward both `generated_at` and `detected.timestamp` and avoids rewriting byte-identical output.
+- Detection signals and generated artifact paths are repository-relative; ignored repository paths omit `.DS_Store`, `.idea`, and `.vscode` noise and are sorted.
 
 ## Error Codes
 

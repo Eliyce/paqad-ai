@@ -40,6 +40,7 @@ modules:
       a project's framework footprint without re-running full onboarding.
     sources:
       - src/cli/commands/install.ts
+      - src/cli/commands/join.ts
       - src/cli/commands/onboard.ts
       - src/cli/commands/refresh.ts
       - src/cli/commands/update.ts
@@ -50,6 +51,9 @@ modules:
       - slug: onboard
         name: paqad-ai onboard
         sources: [src/cli/commands/onboard.ts, src/onboarding]
+      - slug: join
+        name: paqad-ai join
+        sources: [src/cli/commands/join.ts]
       - slug: refresh
         name: paqad-ai refresh
         sources: [src/cli/commands/refresh.ts]

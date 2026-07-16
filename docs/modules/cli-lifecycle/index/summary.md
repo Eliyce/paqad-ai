@@ -10,6 +10,7 @@ a project's framework footprint without re-running full onboarding.
 ## Source Footprint
 
 - `src/cli/commands/install.ts`
+- `src/cli/commands/join.ts`
 - `src/cli/commands/onboard.ts`
 - `src/cli/commands/refresh.ts`
 - `src/cli/commands/update.ts`
@@ -17,6 +18,7 @@ a project's framework footprint without re-running full onboarding.
 ## Features
 
 - [paqad-ai install](../features/install/business.md)
+- [paqad-ai join](../features/join/business.md)
 - [paqad-ai onboard](../features/onboard/business.md)
 - [paqad-ai refresh](../features/refresh/business.md)
 - [paqad-ai update](../features/update/business.md)
