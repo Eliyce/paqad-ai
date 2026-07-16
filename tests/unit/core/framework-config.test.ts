@@ -28,6 +28,7 @@ import {
   resolveFrameworkConfig,
   resolveFrameworkConfigFromMap,
   setConfigValue,
+  setGroupConfigValue,
   stripFrameworkConfigFromProfile,
   syncFrameworkConfig,
   syncGroupConfigs,
@@ -236,6 +237,14 @@ describe('layeredConfigMap — four surfaces, LOCAL WINS', () => {
     writeConfigsFile(root, '.config.app', 'rag_top_n=5\n');
     writeConfig(root, 'rag_top_n=9\n');
     expect(layeredConfigMap(root, {}).get('rag_top_n')).toBe('9');
+  });
+
+  it('resolves RAG enablement from team config, with local override above its default', () => {
+    expect(resolveFrameworkConfig(root, {}).intelligence.rag_enabled).toBe(false);
+    writeConfigsFile(root, '.config.rag', 'rag_enabled=true\n');
+    expect(resolveFrameworkConfig(root, {}).intelligence.rag_enabled).toBe(true);
+    writeConfig(root, 'rag_enabled=false\n');
+    expect(resolveFrameworkConfig(root, {}).intelligence.rag_enabled).toBe(false);
   });
 
   it('lets a PAQAD_* env var override both files (escape hatch)', () => {
@@ -540,7 +549,7 @@ describe('integration — readProjectProfile / writeProjectProfile', () => {
   });
 });
 
-describe('setConfigValue / removeConfigValue — the write path', () => {
+describe('config value writers — local and tracked group paths', () => {
   let root: string;
   beforeEach(() => {
     root = tmpRoot();
@@ -571,6 +580,31 @@ describe('setConfigValue / removeConfigValue — the write path', () => {
     const out = readFileSync(configPath(), 'utf8');
     expect(out).toContain('# rag_top_n=20');
     expect(out).toMatch(/^rag_top_n=5$/m);
+  });
+
+  it('uncomments a generated group key in place without adding a duplicate', () => {
+    writeConfigsFile(
+      root,
+      '.config.rag',
+      '# RAG header\n# Enable retrieval.\n# rag_enabled=false\n\n# next section\n',
+    );
+
+    const path = setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
+    const out = readFileSync(path, 'utf8');
+    expect(out).toBe(
+      '# RAG header\n# Enable retrieval.\nrag_enabled=true\n\n# next section\n',
+    );
+    expect(out.match(/^#?\s*rag_enabled=/gm)).toHaveLength(1);
+  });
+
+  it('replaces an existing group assignment and preserves surrounding text', () => {
+    writeConfigsFile(root, '.config.rag', '# header\nrag_enabled=false\n# footer\n');
+
+    setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
+
+    expect(readFileSync(join(root, '.paqad/configs/.config.rag'), 'utf8')).toBe(
+      '# header\nrag_enabled=true\n# footer\n',
+    );
   });
 
   it('removeConfigValue deletes the key but keeps comments and other keys', () => {
@@ -699,6 +733,15 @@ describe('reconcileConfigOverrides — prune obsolete keys, never reset', () => 
   it('is a no-op (no report) when nothing is obsolete', () => {
     writeConfig(root, 'enterprise=true\n');
     expect(reconcileConfigOverrides(root)).toEqual([]);
+  });
+
+  it('preserves an uncommented team RAG value across reconciliation', () => {
+    writeConfigsFile(root, '.config.rag', '# team RAG\nrag_enabled=true\n');
+
+    expect(reconcileConfigOverrides(root)).toEqual([]);
+    expect(readFileSync(join(root, '.paqad/configs/.config.rag'), 'utf8')).toBe(
+      '# team RAG\nrag_enabled=true\n',
+    );
   });
 });
 

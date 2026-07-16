@@ -1,0 +1,30 @@
+{
+  "id": "D-01KXN81KD2WF54N5JK0RR0P935",
+  "category": "architecture-path",
+  "title": "Attribute issue #393 to a canonical module",
+  "context": "The attribution extractor found no explicit module marker and the inferencer was below confidence. The new top-level join command extends onboard/update teammate setup, while its conditional index step reuses existing RAG behavior. Choose the primary owning module for planning and documentation.",
+  "options": [
+    {
+      "option_key": "cli-lifecycle",
+      "label": "Extend CLI Lifecycle as the primary owner; reference CLI RAG for the reused index step"
+    },
+    {
+      "option_key": "hybrid-rag",
+      "label": "Treat Hybrid RAG Runtime as the primary owner"
+    },
+    {
+      "option_key": "adapter-onboarding",
+      "label": "Treat Adapter Onboarding as the primary owner"
+    },
+    {
+      "option_key": "no-attribution",
+      "label": "Proceed without module attribution or module-map mutation"
+    }
+  ],
+  "recommendation": "cli-lifecycle",
+  "created_at": "2026-07-16T10:37:33.987Z",
+  "status": "resolved",
+  "chosen": "cli-lifecycle",
+  "rationale": "Issue #393 adds teammate setup alongside onboard/update; CLI RAG remains a reused subsystem.",
+  "resolved_at": "2026-07-16T10:38:11.968Z"
+}
