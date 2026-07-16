@@ -749,6 +749,49 @@ export function setConfigValue(projectRoot: string, key: string, value: string):
   return path;
 }
 
+/**
+ * Set a team-shared override in one tracked `configs/.config.*` group file.
+ * Unlike the local writer, this also recognizes the generated commented default
+ * and replaces it in place so the file keeps its documentation and ordering
+ * without appending a duplicate assignment.
+ */
+export function setGroupConfigValue(
+  projectRoot: string,
+  group: ConfigGroup,
+  key: string,
+  value: string,
+): string {
+  const path = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, CONFIG_GROUP_FILES[group]);
+  let existing = '';
+  try {
+    existing = readFileSync(path, 'utf8');
+  } catch {
+    // keep the empty default — file will be created below
+  }
+
+  const lines = existing.replace(/\n+$/u, '').split(/\r?\n/);
+  const escapedKey = escapeRegExp(key);
+  const assignmentRe = new RegExp(`^\\s*(?:export\\s+)?${escapedKey}\\s*=`, 'u');
+  const commentedRe = new RegExp(`^\\s*#\\s*(?:export\\s+)?${escapedKey}\\s*=`, 'u');
+  const activeIndex = lines.findIndex((line) => assignmentRe.test(line));
+  const targetIndex =
+    activeIndex === -1 ? lines.findIndex((line) => commentedRe.test(line)) : activeIndex;
+
+  if (targetIndex === -1) {
+    if (lines.length === 1 && lines[0] === '') {
+      lines[0] = `${key}=${value}`;
+    } else {
+      lines.push(`${key}=${value}`);
+    }
+  } else {
+    lines[targetIndex] = `${key}=${value}`;
+  }
+
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${lines.join('\n')}\n`, 'utf8');
+  return path;
+}
+
 // ── Coercion ─────────────────────────────────────────────────────────────
 
 function asBool(raw: string | undefined, def: boolean): boolean {

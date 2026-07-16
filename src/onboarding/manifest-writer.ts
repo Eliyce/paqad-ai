@@ -72,7 +72,7 @@ export function writeOnboardingManifest(projectRoot: string, manifest: Onboardin
   const path = join(projectRoot, PATHS.ONBOARDING_MANIFEST);
   mkdirSync(dirname(path), { recursive: true });
   const sanitized = sanitizeOnboardingManifest(projectRoot, manifest);
-  writeJsonPreservingTimestamp(path, sanitized, 'generated_at');
+  writeJsonPreservingTimestamp(path, sanitized, ['generated_at', 'detected.timestamp']);
   return path;
 }
 
@@ -84,19 +84,26 @@ export function writeOnboardingManifest(projectRoot: string, manifest: Onboardin
 export function writeJsonPreservingTimestamp<T extends object>(
   path: string,
   value: T,
-  timestampField: keyof T & string,
+  timestampFields: (keyof T & string) | readonly string[],
 ): void {
-  const previousTimestamp = readPreviousJsonTimestamp(path, timestampField);
-  if (previousTimestamp !== null) {
-    const candidate = { ...value, [timestampField]: previousTimestamp };
-    const candidateJson = JSON.stringify(candidate, null, 2);
+  const fields = typeof timestampFields === 'string' ? [timestampFields] : timestampFields;
+  const previous = readPreviousJson(path);
+  if (previous !== null) {
+    const candidate = JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+    for (const field of fields) {
+      const previousTimestamp = readNestedString(previous, field);
+      if (previousTimestamp !== null) {
+        writeNestedString(candidate, field, previousTimestamp);
+      }
+    }
+    const candidateJson = `${JSON.stringify(candidate, null, 2)}\n`;
     const existing = readFileSync(path, 'utf8');
     if (candidateJson === existing) {
-      // No real change → keep the file (and its timestamp) byte-identical.
+      // No real change → keep the file (and its timestamps) byte-identical.
       return;
     }
   }
-  writeFileSync(path, JSON.stringify(value, null, 2));
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 export function writeFrameworkVersionPreservingTimestamp(
@@ -109,17 +116,60 @@ export function writeFrameworkVersionPreservingTimestamp(
   writeFileSync(path, `version=${version}\nupdated_at=${timestamp}\n`);
 }
 
-function readPreviousJsonTimestamp(path: string, timestampField: string): string | null {
+function readPreviousJson(path: string): Record<string, unknown> | null {
   if (!existsSync(path)) {
     return null;
   }
   try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
-    const value = parsed[timestampField];
-    return typeof value === 'string' ? value : null;
+    return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+function readNestedString(value: Record<string, unknown>, path: string): string | null {
+  let current: unknown = value;
+  for (const segment of path.split('.')) {
+    if (
+      !isSafePropertySegment(segment) ||
+      !current ||
+      typeof current !== 'object' ||
+      Array.isArray(current) ||
+      !Object.hasOwn(current, segment)
+    ) {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return typeof current === 'string' ? current : null;
+}
+
+function writeNestedString(value: Record<string, unknown>, path: string, next: string): void {
+  const segments = path.split('.');
+  let current = value;
+  for (const segment of segments.slice(0, -1)) {
+    if (!isSafePropertySegment(segment) || !Object.hasOwn(current, segment)) {
+      return;
+    }
+    const child = current[segment];
+    if (!child || typeof child !== 'object' || Array.isArray(child)) {
+      return;
+    }
+    current = child as Record<string, unknown>;
+  }
+  const leaf = segments.at(-1);
+  if (leaf && isSafePropertySegment(leaf)) {
+    Object.defineProperty(current, leaf, {
+      value: next,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+}
+
+function isSafePropertySegment(segment: string): boolean {
+  return segment !== '__proto__' && segment !== 'prototype' && segment !== 'constructor';
 }
 
 function readPreviousFrameworkVersion(path: string): { version: string; updatedAt: string } | null {
@@ -150,6 +200,10 @@ function resolveFrameworkInstallReference(): string {
 function sanitizeDetectionReport(projectRoot: string, report: DetectionReport): DetectionReport {
   return {
     ...report,
+    signals: (report.signals ?? []).map((signal) => ({
+      ...signal,
+      file: sanitizePersistedPath(projectRoot, signal.file),
+    })),
     repository: report.repository
       ? sanitizeRepositoryContext(projectRoot, report.repository)
       : undefined,
@@ -170,6 +224,12 @@ function sanitizeOnboardingManifest(
     repository: manifest.repository
       ? sanitizeRepositoryContext(projectRoot, manifest.repository)
       : undefined,
+    generated_artifacts: [...(manifest.generated_artifacts ?? [])]
+      .map((artifact) => ({
+        ...artifact,
+        path: sanitizePersistedPath(projectRoot, artifact.path),
+      }))
+      .sort((left, right) => comparePaths(left.path, right.path)),
     planning_artifacts: manifest.planning_artifacts
       ? {
           ...manifest.planning_artifacts,
@@ -197,7 +257,10 @@ function sanitizeRepositoryContext(
   return {
     ...repository,
     selected_root: sanitizePersistedPath(projectRoot, repository.selected_root),
-    ignored_paths: repository.ignored_paths.map((path) => sanitizePersistedPath(projectRoot, path)),
+    ignored_paths: repository.ignored_paths
+      .map((path) => sanitizePersistedPath(projectRoot, path))
+      .filter((path) => !isDeveloperLocalNoise(path))
+      .sort(comparePaths),
     projects: repository.projects.map((project) => sanitizeRepositoryProject(projectRoot, project)),
     applications: repository.applications.map((application) =>
       sanitizeRepositoryApplication(projectRoot, application),
@@ -207,6 +270,18 @@ function sanitizeRepositoryContext(
         ? null
         : sanitizePersistedPath(projectRoot, repository.primary_project_root),
   };
+}
+
+const DEVELOPER_LOCAL_PATH_SEGMENTS = new Set(['.DS_Store', '.idea', '.vscode']);
+
+function isDeveloperLocalNoise(path: string): boolean {
+  return toPosixPath(path)
+    .split('/')
+    .some((segment) => DEVELOPER_LOCAL_PATH_SEGMENTS.has(segment));
+}
+
+function comparePaths(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function sanitizeRepositoryProject(

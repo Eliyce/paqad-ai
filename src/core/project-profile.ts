@@ -38,7 +38,15 @@ interface MigrationResult {
   audit_message?: string;
 }
 
-export function readProjectProfile(projectRoot: string): ProjectProfile | null {
+export interface ReadProjectProfileOptions {
+  /** Persist a legacy-to-canonical migration. Join disables this to remain read-only. */
+  persistMigration?: boolean;
+}
+
+export function readProjectProfile(
+  projectRoot: string,
+  options: ReadProjectProfileOptions = {},
+): ProjectProfile | null {
   const path = join(projectRoot, PATHS.PROJECT_PROFILE);
   if (!existsSync(path)) {
     return null;
@@ -48,7 +56,7 @@ export function readProjectProfile(projectRoot: string): ProjectProfile | null {
     const parsed = YAML.parse(readFileSync(path, 'utf8')) as ProjectProfileLike;
     const migration = migrateProjectProfile(parsed);
 
-    if (migration.migrated) {
+    if (migration.migrated && options.persistMigration !== false) {
       writeProjectProfile(projectRoot, migration.profile, migration.audit_message);
     }
 

@@ -19,6 +19,7 @@ import { createHealthCommand } from './commands/health.js';
 import { createIndexCommand } from './commands/index-cmd.js';
 import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
+import { createJoinCommand } from './commands/join.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
@@ -67,6 +68,7 @@ export function createProgram(): Command {
   program.addCommand(createModuleHealthCommand());
   program.addCommand(createModuleMapCommand());
   program.addCommand(createOnboardCommand());
+  program.addCommand(createJoinCommand());
   program.addCommand(createEnableCommand());
   program.addCommand(createDisableCommand());
   program.addCommand(createRefreshCommand());

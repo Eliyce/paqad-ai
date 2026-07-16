@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-15T13:57:48.428Z",
+  "generated_at": "2026-07-16T11:08:29.593Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-15T13:56:07.332Z",
+        "timestamp": "2026-07-16T11:06:24.790Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -33,14 +33,7 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {
-        "related_paths": [
-          ".changeset/onboard-provider-selection-git-check-ignore-storm.md",
-          ".junie/mcp/mcp.json",
-          "src/repository/discovery.ts",
-          "tests/unit/repository/discovery.test.ts"
-        ]
-      }
+      "evidence_scope": {}
     },
     {
       "schema_version": "1.0.0",
@@ -51,7 +44,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-15T13:57:39.427Z",
+        "timestamp": "2026-07-16T11:08:19.693Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -71,14 +64,7 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {
-        "related_paths": [
-          ".changeset/onboard-provider-selection-git-check-ignore-storm.md",
-          ".junie/mcp/mcp.json",
-          "src/repository/discovery.ts",
-          "tests/unit/repository/discovery.test.ts"
-        ]
-      }
+      "evidence_scope": {}
     },
     {
       "schema_version": "1.0.0",
@@ -89,7 +75,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-15T13:57:48.428Z",
+        "timestamp": "2026-07-16T11:08:29.593Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -109,14 +95,7 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {
-        "related_paths": [
-          ".changeset/onboard-provider-selection-git-check-ignore-storm.md",
-          ".junie/mcp/mcp.json",
-          "src/repository/discovery.ts",
-          "tests/unit/repository/discovery.test.ts"
-        ]
-      }
+      "evidence_scope": {}
     }
   ]
 }

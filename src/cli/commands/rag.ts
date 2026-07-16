@@ -221,6 +221,22 @@ async function buildWithRecovery(
   }
 }
 
+export interface InitializeRagIndexOptions {
+  provider?: string;
+  model?: string;
+  current?: Awaited<ReturnType<RagService['getStatus']>>;
+}
+
+/** Shared initial-build path used by both `rag init` and teammate `join`. */
+export async function initializeRagIndex(
+  projectRoot: string,
+  options: InitializeRagIndexOptions = {},
+): Promise<Awaited<ReturnType<RagService['configureAndBuild']>>> {
+  const service = new RagService(projectRoot);
+  const current = options.current ?? (await service.getStatus());
+  return buildWithRecovery(service, current, options);
+}
+
 export function createRagCommand(): Command {
   const command = new Command('rag').description('Manage optional hybrid RAG context retrieval');
 
@@ -256,7 +272,8 @@ export function createRagCommand(): Command {
           }
         }
 
-        const status = await buildWithRecovery(service, current, {
+        const status = await initializeRagIndex(options.projectRoot, {
+          current,
           provider: options.provider,
           model: options.model,
         });

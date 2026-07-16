@@ -1,0 +1,22 @@
+{
+  "id": "D-01KXN7X9C9FXGW6P3J9BTH8D88",
+  "category": "intake.requirement",
+  "title": "Confirm issue #393 implementation scope",
+  "context": "Issue #393 locks D1 join command, D2 byte-idempotent tracked manifest, and D3 team-shared RAG config. The repository rule also requires explicit owner confirmation before moving RAG persistence from local .paqad/.config to tracked .paqad/configs/.config.rag. Confirm the ticket as the implementation contract before source edits.",
+  "options": [
+    {
+      "option_key": "proceed",
+      "label": "Implement all three scoped parts and the required tests/changeset, including the tracked RAG write-target move"
+    },
+    {
+      "option_key": "stop",
+      "label": "Do not implement issue #393 yet"
+    }
+  ],
+  "recommendation": "proceed",
+  "created_at": "2026-07-16T10:35:12.650Z",
+  "status": "resolved",
+  "chosen": "proceed",
+  "rationale": "Owner confirmed issue #393 as the implementation contract, including the tracked RAG write-target move.",
+  "resolved_at": "2026-07-16T10:35:51.067Z"
+}

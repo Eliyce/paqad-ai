@@ -288,8 +288,12 @@ describe('OnboardingOrchestrator', () => {
       }),
       expect.any(Function),
     );
-    // RAG is a framework knob: it persists to `.paqad/.config`, not the lean profile.
-    expect(readFileSync(join(projectRoot, '.paqad/.config'), 'utf8')).toContain('rag_enabled=true');
+    // The lead's RAG choice is tracked team truth; no local override is needed.
+    const teamConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
+    expect(teamConfig).toContain('rag_enabled=true');
+    expect(teamConfig).toContain('rag_embedding_provider=local');
+    expect(teamConfig).toContain('rag_embedding_model=Xenova/all-MiniLM-L6-v2');
+    expect(existsSync(join(projectRoot, '.paqad/.config'))).toBe(false);
     expect(readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8')).not.toContain(
       'rag_enabled',
     );
@@ -313,9 +317,9 @@ describe('OnboardingOrchestrator', () => {
       },
     });
 
-    // The failure path resets RAG to disabled in `.paqad/.config`; the profile
+    // The failure path resets team RAG to disabled in `.config.rag`; the profile
     // stays lean and never carries the embedding provider.
-    const config = readFileSync(join(projectRoot, '.paqad/.config'), 'utf8');
+    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
     expect(config).toContain('rag_enabled=false');
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
     expect(profile).not.toContain('rag_enabled');

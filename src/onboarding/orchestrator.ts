@@ -9,7 +9,7 @@ import {
   detectFlippedFrameworkValues,
   readConfigsDir,
   reconcileConfigOverrides,
-  setConfigValue,
+  setGroupConfigValue,
   syncGroupConfigs,
   writeConfigExample,
   writeConfigsReadme,
@@ -438,7 +438,8 @@ export class OnboardingOrchestrator {
     if (ragSelection) {
       profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
       writeProjectProfile(options.projectRoot, profile);
-      // RAG is a framework knob: persist it to `.config`, not the lean profile.
+      // The lead's RAG choice is team truth: persist it to the tracked RAG group,
+      // while the normal resolver still lets a developer override it locally.
       persistRagConfig(options.projectRoot, profile.intelligence);
     }
 
@@ -448,8 +449,8 @@ export class OnboardingOrchestrator {
       } catch (error) {
         profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
         writeProjectProfile(options.projectRoot, profile);
-        // Reset is an explicit default-write so any earlier rag_enabled=true clears.
-        setConfigValue(options.projectRoot, 'rag_enabled', 'false');
+        // Reset is an explicit team default-write so any earlier enablement clears.
+        setGroupConfigValue(options.projectRoot, 'rag', 'rag_enabled', 'false');
         onboardingWarnings.push(
           `RAG setup failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}. Onboarding completed with RAG disabled.`,
         );
@@ -622,15 +623,20 @@ function mergeProfileOverrides(
   return { ...(existing ?? {}), ...(explicit ?? {}) };
 }
 
-/** Persist the resolved RAG/intelligence selection into `.paqad/.config`. The
- *  profile YAML stays lean; RAG state is a framework knob like the rest. */
+/** Persist the lead's RAG selection into tracked team config. The profile YAML
+ *  stays lean and a developer can still override this locally in `.paqad/.config`. */
 function persistRagConfig(projectRoot: string, intelligence: ProjectProfile['intelligence']): void {
-  setConfigValue(projectRoot, 'rag_enabled', String(intelligence.rag_enabled));
+  setGroupConfigValue(projectRoot, 'rag', 'rag_enabled', String(intelligence.rag_enabled));
   if (intelligence.embedding_provider) {
-    setConfigValue(projectRoot, 'rag_embedding_provider', intelligence.embedding_provider);
+    setGroupConfigValue(
+      projectRoot,
+      'rag',
+      'rag_embedding_provider',
+      intelligence.embedding_provider,
+    );
   }
   if (intelligence.embedding_model) {
-    setConfigValue(projectRoot, 'rag_embedding_model', intelligence.embedding_model);
+    setGroupConfigValue(projectRoot, 'rag', 'rag_embedding_model', intelligence.embedding_model);
   }
 }
 
