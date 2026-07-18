@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
 
+import { strayBundleFiles } from './bundle-integrity.js';
 import { listFeatureDirs } from './delivery.js';
 import {
   FEATURE_BUNDLE_FILES,
@@ -27,6 +28,13 @@ export interface FeatureBundleExport {
   dir_name: string;
   exported_at: string;
   files: Partial<Record<FeatureBundleFile, unknown>>;
+  /**
+   * Files present in the bundle dir that do not belong there (issue #402). The export
+   * itself reads a fixed allowlist, so a stray never breaks it — but it would otherwise
+   * be invisible, which is how a duplicate spec markdown sat in a bundle unnoticed.
+   * Empty for a clean bundle.
+   */
+  strays: string[];
 }
 
 function readJson(projectRoot: string, rel: string): unknown {
@@ -58,7 +66,12 @@ export function exportFeatureBundle(
       if (parsed !== null) files[key] = parsed;
     }
   }
-  return { dir_name: dirName, exported_at: exportedAt, files };
+  return {
+    dir_name: dirName,
+    exported_at: exportedAt,
+    files,
+    strays: strayBundleFiles(projectRoot, dirName),
+  };
 }
 
 /** Every feature dir name that is active or paused in ANY session control. */

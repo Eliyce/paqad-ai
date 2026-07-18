@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { basename } from 'node:path';
 
 import { Command } from 'commander';
@@ -6,6 +6,8 @@ import { Command } from 'commander';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze, freezeSpec } from '@/spec/spec-freeze.js';
 import { NoActiveFeatureError, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
+import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
+import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
@@ -53,6 +55,7 @@ export function createSpecCommand(): Command {
       '--session <id>',
       'Session id whose active feature receives specification.json (issue #339)',
     )
+    .option('--keep-input', 'Keep the transient spec markdown instead of deleting it', false)
     .action(
       (
         specFile: string,
@@ -62,8 +65,29 @@ export function createSpecCommand(): Command {
           specId?: string;
           confirmInvariants: boolean;
           session?: string;
+          keepInput?: boolean;
         },
       ) => {
+        // Issue #402: never read (and so never bless) a spec authored INSIDE a feature
+        // bundle dir. That dir holds only rigid, script-owned artifacts; a spec markdown
+        // in there is the duplicate-of-specification.json pollution this fixes. An
+        // out-of-tree path simply isn't in a bundle, so a normalize failure is not fatal.
+        let relSpec: string | null;
+        try {
+          relSpec = normalizeArtifactPath(options.projectRoot, specFile);
+        } catch {
+          relSpec = null;
+        }
+        if (relSpec !== null && classifyBundlePath(relSpec) !== null) {
+          console.error(
+            `**▸ paqad** · a feature bundle holds only its rigid artifacts, so a spec can't ` +
+              `live at ${relSpec}. Author it outside \`.paqad/ledger/feature-evidence/\` — ` +
+              `the freeze writes specification.json into the bundle for you.`,
+          );
+          process.exitCode = 1;
+          return;
+        }
+
         let markdown: string;
         try {
           markdown = readFileSync(specFile, 'utf8');
@@ -120,6 +144,19 @@ export function createSpecCommand(): Command {
         } catch (error) {
           if (!(error instanceof NoActiveFeatureError)) {
             throw error;
+          }
+        }
+
+        // Transient scratch (issue #402): the markdown has been built, hashed, and frozen
+        // into specification.json, so the source is deleted for the same reason `plan
+        // compile` deletes its template — it is never a second, editable source of truth,
+        // and leaving it behind is how a byte-identical copy of the spec ended up beside
+        // the frozen record. Only ever after a successful freeze; best-effort.
+        if (!options.keepInput) {
+          try {
+            rmSync(specFile, { force: true });
+          } catch {
+            /* best-effort: a leftover spec is harmless, never fail the freeze for it */
           }
         }
 

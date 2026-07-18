@@ -2,20 +2,19 @@
 //
 // The thin, side-effecting layer around the pure `renderFeatureReportHtml` renderer:
 // it reads the feature's bundle (via the existing `exportFeatureBundle`), folds its
-// stage evidence (via `foldFeature`), best-effort loads the agent-authored `review.md`
-// from the review stage's recorded artifact path, renders the HTML, and writes
+// stage evidence (via `foldFeature`), renders the HTML, and writes
 // `report.html` next to the JSON it came from — atomically (temp + rename) so a crash
 // never leaves a half-written page. Everything here is best-effort by contract: a caller
 // (the verification backstop, the delivery-link hook, the CLI) wraps it so a render or
 // write failure can never disrupt the change.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative } from 'node:path';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 
 import { listFeatureDirs } from './delivery.js';
-import { exportFeatureBundle, type FeatureBundleExport } from './export.js';
+import { exportFeatureBundle } from './export.js';
 import { featureReportPath, parseFeatureDirName } from './paths.js';
 import { renderFeatureReportHtml } from './report.js';
 import { foldFeature, resolveFeatureRef } from './stage-ledger.js';
@@ -49,42 +48,6 @@ export function featureReportEnabled(
   return resolveFrameworkConfig(projectRoot, env).features.feature_report;
 }
 
-type LooseRow = Record<string, unknown>;
-
-/**
- * Best-effort read of the review markdown from the review stage's recorded artifact path.
- * The review file is agent-authored and is NOT a rigid bundle file, so it is discovered
- * via the `review` `stage_end` row's `artifact_paths` (never a fixed filename). Only an
- * in-tree `.md` is read; anything else (absent, out-of-tree, unreadable) returns null.
- */
-export function readReviewMarkdown(
-  projectRoot: string,
-  bundle: FeatureBundleExport,
-): string | null {
-  const rows = Array.isArray(bundle.files.stageEvidence)
-    ? (bundle.files.stageEvidence as LooseRow[])
-    : [];
-  let artifactPath: string | null = null;
-  for (const row of rows) {
-    if (row.kind === 'stage_end' && row.stage === 'review' && Array.isArray(row.artifact_paths)) {
-      const first = (row.artifact_paths as unknown[]).find(
-        (p): p is string => typeof p === 'string' && p.toLowerCase().endsWith('.md'),
-      );
-      if (first) artifactPath = first;
-    }
-  }
-  if (!artifactPath) return null;
-  const abs = isAbsolute(artifactPath) ? artifactPath : join(projectRoot, artifactPath);
-  // Reject an out-of-tree path (never read outside the project root).
-  const rel = relative(projectRoot, abs);
-  if (rel.startsWith('..') || isAbsolute(rel)) return null;
-  try {
-    return readFileSync(abs, 'utf8');
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Render and write a feature's `report.html`. Returns the absolute path written and the
  * HTML. Callers wrap this best-effort — it throws only on an unresolvable render/write
@@ -99,11 +62,9 @@ export function writeFeatureReport(
   const sessionId = options.sessionId ?? 'report';
   const bundle = exportFeatureBundle(projectRoot, dirName, generatedAt);
   const fold = foldFeature(projectRoot, sessionId, dirName);
-  const reviewMarkdown = readReviewMarkdown(projectRoot, bundle);
   const html = renderFeatureReportHtml(bundle, fold, {
     generatedAt,
     paqadVersion: options.paqadVersion ?? null,
-    reviewMarkdown,
   });
   const abs = options.outPath
     ? isAbsolute(options.outPath)
