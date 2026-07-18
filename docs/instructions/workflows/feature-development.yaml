@@ -92,6 +92,7 @@ stages:
   review:
     instructions:
       - Review the change against correctness, regressions, and rollback risk before treating it as complete.
+      - "Rigid review artifact (issue #402): record the review with `paqad-ai review record <template.json>`, which writes review.json into the active feature's bundle, and end the review stage against that file. A stage-end naming anything else records inconclusive, and nothing may be written into a feature bundle directory."
       - "Design-system (issue #76): on UI diffs, run ux-heuristic-evaluation and design-system-coverage against the changed surfaces. DT-blocker findings are review-blocking."
     required_inputs:
       - code diff
@@ -106,7 +107,7 @@ stages:
       # resolution.
       review_findings: stop
     artifacts:
-      - review summary
+      - review.json
 
   checks:
     instructions:

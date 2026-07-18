@@ -151,8 +151,13 @@ export function createSpecCommand(): Command {
         // into specification.json, so the source is deleted for the same reason `plan
         // compile` deletes its template — it is never a second, editable source of truth,
         // and leaving it behind is how a byte-identical copy of the spec ended up beside
-        // the frozen record. Only ever after a successful freeze; best-effort.
-        if (!options.keepInput) {
+        // the frozen record. Best-effort.
+        //
+        // Gated on `bundlePath` and not merely on the freeze succeeding: a standalone
+        // freeze with no active feature swallows NoActiveFeatureError above and persists
+        // NOTHING, so deleting there would destroy the only copy of the spec. Delete only
+        // once the frozen record demonstrably lives in a bundle.
+        if (!options.keepInput && bundlePath !== null) {
           try {
             rmSync(specFile, { force: true });
           } catch {

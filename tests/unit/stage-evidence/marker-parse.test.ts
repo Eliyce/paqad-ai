@@ -158,6 +158,26 @@ describe('parseAndRecordMarkers', () => {
     expect(end?.artifact_paths ?? null).toBeNull();
   });
 
+  // Issue #402 — the chat marker is the PRIMARY Claude Code path, so the in-bundle
+  // rejection must fire here too, not only in the `stage` CLI.
+  it('drops a non-rigid artifact written into a bundle dir on a marker (#402)', () => {
+    const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    setActiveFeature(root, SES, dir);
+    const stray = `.paqad/ledger/feature-evidence/${dir}/scratch-notes.md`;
+    mkdirSync(join(root, dirname(stray)), { recursive: true });
+    writeFileSync(join(root, stray), '# notes with real content\n');
+    const transcript = [
+      msg('assistant', 'Building.\npaqad:stage development start'),
+      msg('assistant', `Done.\npaqad:stage development end -- ${stray}`),
+    ].join('\n');
+    parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
+    expect(end).toBeDefined();
+    // The stray exists and has real bytes, but is never hashed into the row.
+    expect(end?.artifact_digest ?? null).toBeNull();
+    expect(end?.artifact_paths ?? null).toBeNull();
+  });
+
   it('accepts the bundle plan.json on a planning-end marker (#394)', () => {
     const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
     setActiveFeature(root, SES, dir);

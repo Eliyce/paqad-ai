@@ -62,11 +62,16 @@ export interface BundlePathClassification {
  * flat set of rigid files, so a subdirectory is pollution just as a stray file is.
  */
 export function classifyBundlePath(relPath: string): BundlePathClassification | null {
+  // Both callers hand this an already-normalized posix path (via `normalizeArtifactPath`),
+  // but normalize defensively anyway: this function decides whether a write is INSIDE a
+  // bundle, so an unrecognized spelling must never fail open into "not in a bundle". A
+  // stray `./` or a Windows backslash would otherwise read as clean.
+  const normalized = relPath.replace(/\\/g, '/').replace(/^\.\//, '');
   const prefix = `${PATHS.FEATURE_EVIDENCE_DIR}/`;
-  if (!relPath.startsWith(prefix)) {
+  if (!normalized.startsWith(prefix)) {
     return null;
   }
-  const rest = relPath.slice(prefix.length);
+  const rest = normalized.slice(prefix.length);
   const slash = rest.indexOf('/');
   // A file directly under the container (no `<dir>/<file>` split) is not in a bundle.
   if (slash === -1) {
@@ -78,11 +83,11 @@ export function classifyBundlePath(relPath: string): BundlePathClassification | 
   if (!isFeatureDirName(dirName)) {
     return null;
   }
-  return {
-    dirName,
-    filename,
-    allowed: ALLOWED_BUNDLE_FILENAMES.has(filename) || isAtomicWriteTemp(filename),
-  };
+  // Deliberately NOT tolerant of a temp file here, unlike `strayBundleFiles`. A stage
+  // artifact is never legitimately an in-flight `.tmp`, so accepting one would hand back
+  // a bypass: `--artifact <bundle>/notes.tmp` would clear the check AND stay invisible to
+  // stray detection. Transience is a reason not to REPORT a file, not a reason to bless it.
+  return { dirName, filename, allowed: ALLOWED_BUNDLE_FILENAMES.has(filename) };
 }
 
 /**

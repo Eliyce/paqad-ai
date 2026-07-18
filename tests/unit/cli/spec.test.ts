@@ -191,6 +191,16 @@ describe('paqad-ai spec command', () => {
       expect(existsSync(path)).toBe(true);
     });
 
+    // A standalone freeze persists NOTHING (no active feature to write into), so deleting
+    // the source there would destroy the only copy of the spec.
+    it('never deletes the source when no active feature received the spec (AC-5)', async () => {
+      const path = writeSpec('S-402-standalone.md', COMPLETE_SPEC);
+      const { out } = await run('freeze', path, '--confirm-invariants', '--session', 'ses_none');
+      // The freeze itself succeeded, but nothing was persisted to a bundle.
+      expect(out.some((line) => line.includes('"specification":null'))).toBe(true);
+      expect(existsSync(path)).toBe(true);
+    });
+
     it('refuses a spec authored inside a feature bundle dir, writing nothing (AC-6)', async () => {
       activeFeature();
       const dir = currentFeature(root, 'ses_spec_402')!;

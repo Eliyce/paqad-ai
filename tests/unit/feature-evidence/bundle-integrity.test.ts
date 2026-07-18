@@ -68,13 +68,16 @@ describe('bundle-integrity', () => {
       }
     });
 
-    it('allows an in-flight atomic-write temp file', () => {
+    // Transience is a reason not to REPORT a file as a stray, never a reason to accept it
+    // as a stage artifact — otherwise `.tmp` is a bypass that is also invisible to
+    // strayBundleFiles.
+    it('does not accept an atomic-write temp file as an artifact', () => {
       expect(
         classifyBundlePath(`.paqad/ledger/feature-evidence/${DIR}/plan.json.tmp`)!.allowed,
-      ).toBe(true);
+      ).toBe(false);
       expect(
         classifyBundlePath(`.paqad/ledger/feature-evidence/${DIR}/report.html.tmp-4242`)!.allowed,
-      ).toBe(true);
+      ).toBe(false);
     });
 
     // The two files from the incident this issue reports.
@@ -84,6 +87,18 @@ describe('bundle-integrity', () => {
         expect(result).not.toBeNull();
         expect(result!.allowed).toBe(false);
       }
+    });
+
+    // The classifier decides whether a write is inside a bundle, so an unrecognized
+    // spelling must never fail OPEN into "not in a bundle".
+    it('normalizes a ./ prefix and Windows backslashes rather than failing open', () => {
+      const dotSlash = classifyBundlePath(`./.paqad/ledger/feature-evidence/${DIR}/stray.md`);
+      expect(dotSlash?.allowed).toBe(false);
+      expect(dotSlash?.filename).toBe('stray.md');
+      const backslash = classifyBundlePath(
+        `.paqad\\ledger\\feature-evidence\\${DIR}\\stray.md`.replace(/\\/g, '\\'),
+      );
+      expect(backslash?.allowed).toBe(false);
     });
 
     it('rejects a nested path — the bundle is a flat rigid set', () => {

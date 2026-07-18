@@ -41,9 +41,10 @@ export function createFeatureCommand(): Command {
       // Issue #402: a bundle holds only its rigid artifacts. Anything else is flagged on
       // stderr so it never contaminates the export document on stdout.
       if (bundle.strays.length > 0) {
+        const one = bundle.strays.length === 1;
         console.error(
-          `**▸ paqad** · 🟡 this bundle carries ${bundle.strays.length} file${bundle.strays.length === 1 ? '' : 's'} ` +
-            `that don't belong in it: ${bundle.strays.join(', ')}`,
+          `**▸ paqad** · 🟡 this bundle carries ${bundle.strays.length} ${one ? 'file that does' : 'files that do'} ` +
+            `not belong in it: ${bundle.strays.join(', ')}`,
         );
       }
       const json = `${JSON.stringify(bundle, null, 2)}\n`;
