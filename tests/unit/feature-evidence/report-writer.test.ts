@@ -1,12 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { writeFeaturePlan, writeFeatureReview } from '@/feature-evidence/artifacts.js';
-import { exportFeatureBundle } from '@/feature-evidence/export.js';
-import { featureDir, featureReportPath } from '@/feature-evidence/paths.js';
+import { featureReportPath } from '@/feature-evidence/paths.js';
 import {
   featureReportEnabled,
   resolveReportFeatureRef,

@@ -21,12 +21,18 @@ change, so the live feature-development stage spine is untouched:
   container inherits the git-ignored `ledger/` root.
 - **Dir-name mint** (`mint.ts`) — mints the change key from a title + optional
   ticket ref (reusing `deriveSlug`, `detectTicketRefs`, `ulid`), normalising a
-  github `#45` ref to a parseable `45`; builds `feature.json` / `plan.json` records
-  with a deterministic `content_hash` (volatile timestamps excluded).
+  github `#45` ref to a parseable `45`; builds `feature.json` / `plan.json` /
+  `review.json` records with a deterministic `content_hash` (volatile timestamps
+  excluded).
 - **Rigid schemas** (`schema.ts`) — framework-owned AJV validators
   (`additionalProperties: false`) so the stored bytes are script-owned, not a
   free-written hallucination surface. `specification.json` reuses the existing
   `FeatureSpec` shape.
+- **Bundle integrity** (`bundle-integrity.ts`, issue #402) — the rigid-only invariant
+  made checkable. `classifyBundlePath` judges whether a project-relative path sits in a
+  bundle dir and whether it belongs there (the stage-end boundary uses it to reject a
+  non-rigid artifact written into a bundle); `strayBundleFiles` lists what does not
+  belong in a bundle dir so the exporter can flag pollution. Nothing here deletes.
 - **Session control** (`session-control.ts`) — the `_session/<sessionId>.json`
   active + paused-feature stack + lane store, folding today's `.open` +
   `.pending-lane` role at feature grain (set-active pauses the prior active; resume
@@ -56,8 +62,9 @@ onto this base.
   and renders a graceful plain-English note for every absent section — including a
   distinct "enterprise governance is off" note for a missing receipt / AI-BOM.
 - **Writer** (`report-writer.ts`) — `writeFeatureReport` reads the bundle, folds the
-  stages, best-effort loads `review.md` from the review stage's artifact path, renders,
-  and atomically writes `report.html` into the bundle dir; `featureReportEnabled` reads
+  stages, renders, and atomically writes `report.html` into the bundle dir (the review
+  comes from the rigid `review.json` like any other bundle file, since #402);
+  `featureReportEnabled` reads
   the `feature_report` config flag; `resolveReportFeatureRef` resolves the active /
   most-recent / explicit-ref feature. Generation is wired into `runRepositoryVerification`
   (Claude / Codex / Gemini via the one backstop) and `delivery-link commit|merge` (advisory
@@ -87,4 +94,6 @@ If anything here disagrees with the map, the **map wins**.
 - `tests/unit/feature-evidence/report.test.ts` — the pure HTML renderer (self-containment,
   verdict, honesty tags, receipt integrity, graceful empty states, determinism).
 - `tests/unit/feature-evidence/report-writer.test.ts` — bundle → report.html writer, flags,
-  review-markdown resolution, and ref resolution.
+  review rendering from `review.json`, and ref resolution.
+- `tests/unit/feature-evidence/bundle-integrity.test.ts` — bundle-path classification and
+  stray detection (the rigid-only invariant).

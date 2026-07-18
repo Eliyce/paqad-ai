@@ -155,6 +155,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Review the change against correctness, regressions, and rollback risk before treating it as complete.',
+          "Record the review with `paqad-ai review record` (issue #402). The review stage's artifact is the bundle's rigid review.json — a hand-written notes file is rejected, and nothing may be written into the feature bundle directory.",
         ],
         required_inputs: ['code diff', 'verification summary'],
         strictness: {
@@ -163,7 +164,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         escalation: {
           review_findings: 'stop',
         },
-        artifacts: ['review summary'],
+        artifacts: ['review.json'],
         checks: null,
       },
       checks: {

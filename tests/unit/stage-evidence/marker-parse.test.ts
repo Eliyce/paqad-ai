@@ -117,7 +117,11 @@ describe('parseAndRecordMarkers', () => {
       transcriptText: transcript,
       sessionId: SES,
     });
-    expect(recorded).toContainEqual({ stage: 'development', phase: 'end', artifactPath: 'findings.md' });
+    expect(recorded).toContainEqual({
+      stage: 'development',
+      phase: 'end',
+      artifactPath: 'findings.md',
+    });
     const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
     expect(typeof end?.artifact_digest).toBe('string');
     expect(end?.artifact_digest).toMatch(/^sha256-/);

@@ -170,7 +170,14 @@ describe('paqad-ai spec command', () => {
     it('keeps the spec markdown with --keep-input (AC-5)', async () => {
       activeFeature();
       const path = writeSpec('S-402-keep.md', COMPLETE_SPEC);
-      await run('freeze', path, '--confirm-invariants', '--keep-input', '--session', 'ses_spec_402');
+      await run(
+        'freeze',
+        path,
+        '--confirm-invariants',
+        '--keep-input',
+        '--session',
+        'ses_spec_402',
+      );
       expect(existsSync(path)).toBe(true);
     });
 
@@ -191,7 +198,13 @@ describe('paqad-ai spec command', () => {
       mkdirSync(bundle, { recursive: true });
       const path = join(bundle, 'river-agent-spec.md');
       writeFileSync(path, COMPLETE_SPEC, 'utf8');
-      const { err } = await run('freeze', path, '--confirm-invariants', '--session', 'ses_spec_402');
+      const { err } = await run(
+        'freeze',
+        path,
+        '--confirm-invariants',
+        '--session',
+        'ses_spec_402',
+      );
       expect(process.exitCode).toBe(1);
       expect(err.join('\n')).toContain('holds only its rigid artifacts');
       // Refused before anything was read or written: the file is untouched.
