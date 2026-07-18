@@ -1,11 +1,11 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { exportFeatureBundle, pruneFeatureBundles } from '@/feature-evidence/export.js';
-import { writeFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { writeFeaturePlan, writeFeatureReview } from '@/feature-evidence/artifacts.js';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureDir } from '@/feature-evidence/paths.js';
 import { pauseActive } from '@/feature-evidence/session-control.js';
@@ -102,5 +102,58 @@ describe('pruneFeatureBundles', () => {
     const result = pruneFeatureBundles(root, 0);
     expect(result.removed).toEqual([]);
     expect(result.kept.sort()).toEqual([a, b].sort());
+  });
+});
+
+// Issue #402 — the export reads a fixed allowlist, so a stray never broke it; it was
+// simply invisible. It now carries what does not belong so a polluted bundle is visible.
+describe('exportFeatureBundle strays', () => {
+  function bundleWithPlan(root: string): string {
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Rigid bundle only',
+      issue: '402',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    writeFeaturePlan(root, 'ses_1', { summary: 'do the thing', now: () => new Date(AT) });
+    return dir;
+  }
+
+  it('reports no strays for a clean bundle', () => {
+    const root = tempRoot();
+    const dir = bundleWithPlan(root);
+    expect(exportFeatureBundle(root, dir, AT).strays).toEqual([]);
+  });
+
+  it('reports a stray markdown file without disturbing the parsed files', () => {
+    const root = tempRoot();
+    const dir = bundleWithPlan(root);
+    writeFileSync(join(root, featureDir(dir), 'review-notes.md'), '# notes', 'utf8');
+    const bundle = exportFeatureBundle(root, dir, AT);
+    expect(bundle.strays).toEqual(['review-notes.md']);
+    // The stray is reported, never parsed into the document.
+    expect(bundle.files.plan).toBeTruthy();
+  });
+
+  // AC-8: a bundle written before review.json existed must still export.
+  it('omits the review key for a bundle that has no review.json', () => {
+    const root = tempRoot();
+    const dir = bundleWithPlan(root);
+    const bundle = exportFeatureBundle(root, dir, AT);
+    expect(bundle.files.review).toBeUndefined();
+    expect(bundle.strays).toEqual([]);
+  });
+
+  it('includes review.json once the review is recorded', () => {
+    const root = tempRoot();
+    const dir = bundleWithPlan(root);
+    writeFeatureReview(root, 'ses_1', {
+      summary: 'looks right',
+      verdict: 'safe-to-merge',
+      rollback: 'revert the commit',
+      now: () => new Date(AT),
+    });
+    const bundle = exportFeatureBundle(root, dir, AT);
+    expect((bundle.files.review as { verdict?: string }).verdict).toBe('safe-to-merge');
   });
 });

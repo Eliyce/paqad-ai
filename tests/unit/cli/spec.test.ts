@@ -144,4 +144,59 @@ describe('paqad-ai spec command', () => {
     const joined = policy.stages.specification.instructions.join('\n');
     expect(joined).toContain('paqad-ai spec freeze');
   });
+
+  // Issue #402 — the transient markdown is scratch, not a second source of truth. Leaving
+  // it behind is how a byte-identical copy of the spec ended up beside specification.json.
+  describe('transient spec cleanup', () => {
+    function activeFeature(): void {
+      openFeatureChange(root, 'ses_spec_402', {
+        adapter: 'claude-code',
+        title: 'Rigid bundle only',
+        issue: '402',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      });
+    }
+
+    it('deletes the spec markdown after a successful freeze (AC-5)', async () => {
+      activeFeature();
+      const path = writeSpec('S-402.md', COMPLETE_SPEC);
+      await run('freeze', path, '--confirm-invariants', '--session', 'ses_spec_402');
+      expect(existsSync(path)).toBe(false);
+      // The frozen record is what survives.
+      const dir = currentFeature(root, 'ses_spec_402')!;
+      expect(readFeatureSpecification(root, dir)?.frozen).toBeTruthy();
+    });
+
+    it('keeps the spec markdown with --keep-input (AC-5)', async () => {
+      activeFeature();
+      const path = writeSpec('S-402-keep.md', COMPLETE_SPEC);
+      await run('freeze', path, '--confirm-invariants', '--keep-input', '--session', 'ses_spec_402');
+      expect(existsSync(path)).toBe(true);
+    });
+
+    it('never deletes the source when the freeze fails on blockers (AC-5)', async () => {
+      const path = writeSpec(
+        'S-402-thin.md',
+        ['# Thin', '', '## Functional requirements', '- FR-1: a thing.', ''].join('\n'),
+      );
+      await run('freeze', path);
+      expect(process.exitCode).toBe(1);
+      expect(existsSync(path)).toBe(true);
+    });
+
+    it('refuses a spec authored inside a feature bundle dir, writing nothing (AC-6)', async () => {
+      activeFeature();
+      const dir = currentFeature(root, 'ses_spec_402')!;
+      const bundle = join(root, '.paqad', 'ledger', 'feature-evidence', dir);
+      mkdirSync(bundle, { recursive: true });
+      const path = join(bundle, 'river-agent-spec.md');
+      writeFileSync(path, COMPLETE_SPEC, 'utf8');
+      const { err } = await run('freeze', path, '--confirm-invariants', '--session', 'ses_spec_402');
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toContain('holds only its rigid artifacts');
+      // Refused before anything was read or written: the file is untouched.
+      expect(existsSync(path)).toBe(true);
+      expect(readFeatureSpecification(root, dir)).toBeNull();
+    });
+  });
 });

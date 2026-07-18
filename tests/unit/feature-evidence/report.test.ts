@@ -254,12 +254,22 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
     expect(html).toContain('feat/x'); // delivery branch
   });
 
-  it('renders the review markdown as escaped preformatted text', () => {
-    const html2 = renderFeatureReportHtml(fullBundle(), fold(completeStageRows()), {
-      generatedAt: AT,
-      reviewMarkdown: '# Review\n<script>alert(1)</script> looks good',
-    });
-    expect(html2).toContain('# Review');
+  // Issue #402 — the review is a rigid bundle artifact now, not an agent-authored .md
+  // discovered from the stage row, so it renders structurally from review.json.
+  it('renders the recorded review structurally, escaping every field', () => {
+    const bundle = fullBundle();
+    bundle.files.review = {
+      summary: '<script>alert(1)</script> looks good',
+      verdict: 'needs-attention',
+      findings: [{ severity: 'blocker', description: 'unsafe cast', file: 'src/a.ts' }],
+      checked: ['correctness'],
+      rollback: 'Revert the commit.',
+    };
+    const html2 = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
+    // The verdict renders in the narration contract's own words.
+    expect(html2).toContain('Needs your attention');
+    expect(html2).toContain('unsafe cast');
+    expect(html2).toContain('Revert the commit.');
     // The script tag from the review is escaped, never live.
     expect(html2).not.toMatch(/<script/i);
     expect(html2).toContain('&lt;script&gt;');
@@ -291,7 +301,7 @@ describe('renderFeatureReportHtml — partial bundle graceful empty states (AC-2
     expect(html).toContain('enterprise governance capability'); // enterprise-off wording
     expect(html).toContain('No AI-BOM was written');
     expect(html).toContain('No delivery record yet');
-    expect(html).toContain('No review notes were recorded');
+    expect(html).toContain('No review was recorded for this change');
     expect(html).not.toMatch(/https?:\/\//);
   });
 });

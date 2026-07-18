@@ -7,11 +7,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   NoActiveFeatureError,
   readFeaturePlan,
+  readFeatureReview,
   readFeatureSpecification,
   writeFeaturePlan,
+  writeFeatureReview,
   writeFeatureSpecification,
 } from '@/feature-evidence/artifacts.js';
-import { validatePlanRecord } from '@/feature-evidence/schema.js';
+import { validatePlanRecord, validateReviewRecord } from '@/feature-evidence/schema.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
@@ -102,5 +104,80 @@ describe('writeFeatureSpecification', () => {
 
   it('reads null for an absent specification.json', () => {
     expect(readFeatureSpecification(tempRoot(), 'nope-01JABCDEFGHJKMNPQRSTVWXYZ0')).toBeNull();
+  });
+});
+
+// Issue #402 — the review stage's rigid artifact. Before this, review owned no bundle
+// file, so its evidence was an agent-authored .md dropped wherever the model chose.
+describe('writeFeatureReview', () => {
+  const template = {
+    summary: 'Checked correctness, regressions and rollback.',
+    verdict: 'safe-to-merge' as const,
+    findings: [{ severity: 'minor' as const, description: 'naming nit', file: 'src/a.ts' }],
+    checked: ['correctness', 'regressions'],
+    rollback: 'Revert the commit; no data migration ran.',
+    now: clock,
+  };
+
+  it('writes review.json into the active feature with identity from the dir name', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const result = writeFeatureReview(root, 'ses_1', template);
+    expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/review.json`);
+    const record = readFeatureReview(root, dir);
+    expect(record?.doc_type).toBe('paqad.review');
+    // Identity is taken from the dir, never from the model.
+    expect(record?.issue).toBe('339');
+    expect(record?.ulid).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
+    expect(record?.verdict).toBe('safe-to-merge');
+    expect(record?.findings).toHaveLength(1);
+    expect(validateReviewRecord(record)).toEqual([]);
+  });
+
+  it('stamps a deterministic content_hash that ignores the volatile timestamps', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const first = writeFeatureReview(root, 'ses_1', template).record;
+    const second = writeFeatureReview(root, 'ses_1', {
+      ...template,
+      now: () => new Date('2026-07-11T00:00:00.000Z'),
+    }).record;
+    expect(second.created_at).not.toBe(first.created_at);
+    expect(second.content_hash).toBe(first.content_hash);
+    expect(readFeatureReview(root, dir)?.content_hash).toBe(first.content_hash);
+  });
+
+  it('defaults findings and checked to empty arrays', () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const record = writeFeatureReview(root, 'ses_1', {
+      summary: 'nothing found',
+      verdict: 'safe-to-merge',
+      rollback: 'revert',
+      now: clock,
+    }).record;
+    expect(record.findings).toEqual([]);
+    expect(record.checked).toEqual([]);
+  });
+
+  it('throws on a record the schema rejects rather than persisting it', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    expect(() =>
+      writeFeatureReview(root, 'ses_1', {
+        ...template,
+        verdict: 'looks-fine' as unknown as 'safe-to-merge',
+      }),
+    ).toThrow(/Invalid review\.json/);
+    expect(readFeatureReview(root, dir)).toBeNull();
+  });
+
+  it('throws NoActiveFeatureError when no feature is active', () => {
+    const root = tempRoot();
+    expect(() => writeFeatureReview(root, 'ses_1', template)).toThrow(NoActiveFeatureError);
+  });
+
+  it('reads null for an absent review.json', () => {
+    expect(readFeatureReview(tempRoot(), 'nope-01JABCDEFGHJKMNPQRSTVWXYZ0')).toBeNull();
   });
 });
