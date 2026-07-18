@@ -16,6 +16,7 @@
 // stages) passes through unchanged: review owns no rigid bundle file, and a mutation
 // stage's proof is the observed edit, not an artifact.
 
+import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
 import { featureFilePath, type FeatureBundleFile } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 
@@ -27,12 +28,18 @@ import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 export function bundleArtifactFile(stage: string): FeatureBundleFile | null {
   if (stage === 'planning') return 'plan';
   if (stage === 'specification') return 'specification';
+  // Issue #402: `review` owns a rigid artifact too. Without one, its evidence was a
+  // free-written `.md` with no defined home, which is how `review-notes.md` ended up
+  // inside a bundle dir.
+  if (stage === 'review') return 'review';
   return null;
 }
 
-/** The compile/freeze verb that writes a rigid stage's bundle artifact. */
+/** The compile/freeze/record verb that writes a rigid stage's bundle artifact. */
 export function bundleArtifactVerb(file: FeatureBundleFile): string {
-  return file === 'plan' ? 'paqad-ai plan compile' : 'paqad-ai spec freeze';
+  if (file === 'plan') return 'paqad-ai plan compile';
+  if (file === 'specification') return 'paqad-ai spec freeze';
+  return 'paqad-ai review record';
 }
 
 export interface BundleArtifactCheck {
@@ -67,13 +74,20 @@ export function checkBundleArtifacts(
 ): BundleArtifactCheck {
   const file = bundleArtifactFile(stage);
   if (!file) {
-    return {
-      rigid: false,
-      expected: null,
-      accepted: [...normalizedPaths],
-      rejected: [],
-      verb: null,
-    };
+    // Issue #402: a non-rigid stage still may not prove itself with a file written INTO
+    // a bundle dir — that dir holds only rigid, script-owned artifacts. An artifact
+    // anywhere else passes through untouched, which is every normal case.
+    const accepted: string[] = [];
+    const rejected: string[] = [];
+    for (const path of normalizedPaths) {
+      const inBundle = classifyBundlePath(path);
+      if (inBundle && !inBundle.allowed) {
+        rejected.push(path);
+      } else {
+        accepted.push(path);
+      }
+    }
+    return { rigid: false, expected: null, accepted, rejected, verb: null };
   }
   const dirName = currentFeature(projectRoot, sessionId);
   const expected = dirName ? featureFilePath(dirName, file) : null;
