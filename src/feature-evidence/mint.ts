@@ -19,12 +19,16 @@ import {
   FEATURE_DOC_TYPE,
   FEATURE_EVIDENCE_SCHEMA_VERSION,
   PLAN_DOC_TYPE,
+  REVIEW_DOC_TYPE,
   type FeatureLane,
   type FeatureRecord,
   type FeatureStatus,
   type PlanRecord,
   type PlanRisk,
   type PlanStep,
+  type ReviewFinding,
+  type ReviewRecord,
+  type ReviewVerdict,
 } from './types.js';
 
 /** Keys excluded from a record's identity hash (volatile / non-identifying). */
@@ -147,6 +151,43 @@ export interface BuildPlanRecordInput {
   decisions?: string[];
   risks?: PlanRisk[];
   now?: () => Date;
+}
+
+export interface BuildReviewRecordInput {
+  issue: string | null;
+  title: string;
+  slug: string;
+  ulid: string;
+  summary: string;
+  verdict: ReviewVerdict;
+  findings?: ReviewFinding[];
+  checked?: string[];
+  rollback: string;
+  now?: () => Date;
+}
+
+/** Build a validated-shape `review.json` record with a stamped `content_hash` (issue #402). */
+export function buildReviewRecord(input: BuildReviewRecordInput): ReviewRecord {
+  const stamp = (input.now ?? (() => new Date()))().toISOString();
+  const base = {
+    schema_version: FEATURE_EVIDENCE_SCHEMA_VERSION,
+    doc_type: REVIEW_DOC_TYPE,
+    issue: input.issue,
+    title: input.title,
+    slug: input.slug,
+    ulid: input.ulid,
+    summary: input.summary,
+    verdict: input.verdict,
+    findings: input.findings ?? [],
+    checked: input.checked ?? [],
+    rollback: input.rollback,
+  } satisfies Omit<ReviewRecord, 'created_at' | 'updated_at' | 'content_hash'>;
+  return {
+    ...base,
+    created_at: stamp,
+    updated_at: stamp,
+    content_hash: computeContentHash(base),
+  };
 }
 
 /** Build a validated-shape `plan.json` record with a stamped `content_hash`. */

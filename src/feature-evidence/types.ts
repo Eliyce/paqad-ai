@@ -16,6 +16,9 @@ export const FEATURE_DOC_TYPE = 'paqad.feature';
 /** Doc type stamped on a `plan.json` record. */
 export const PLAN_DOC_TYPE = 'paqad.plan';
 
+/** Doc type stamped on a `review.json` record. */
+export const REVIEW_DOC_TYPE = 'paqad.review';
+
 /** Doc type stamped on the `_session/<sessionId>.json` control. */
 export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 
@@ -88,6 +91,47 @@ export interface PlanRecord {
   /** Decision-packet ids (`D-…`) this plan depends on. */
   decisions: string[];
   risks: PlanRisk[];
+  created_at: string;
+  updated_at: string;
+  content_hash: string;
+}
+
+/** The verdict a review reached, in the paqad narration contract's own words. */
+export type ReviewVerdict = 'safe-to-merge' | 'needs-attention' | 'inconclusive';
+
+/** How serious a review finding is; a `blocker` is what `review_findings: stop` escalates. */
+export type ReviewFindingSeverity = 'blocker' | 'major' | 'minor';
+
+/** One thing the review found, and where. */
+export interface ReviewFinding {
+  severity: ReviewFindingSeverity;
+  description: string;
+  /** Project-relative file the finding sits in, when it has one. */
+  file?: string;
+}
+
+/**
+ * The review artifact stored as `review.json` (issue #402). Before this, `review`
+ * owned no rigid bundle file, so its evidence was an agent-authored `.md` written
+ * wherever the model chose — including inside the bundle dir, which is meant to hold
+ * only rigid, script-owned artifacts. This gives the stage the same contract
+ * `plan.json` has: the model fills a template, the script builds and hashes the
+ * record, and the AJV schema rejects unknown keys.
+ */
+export interface ReviewRecord {
+  schema_version: number;
+  doc_type: typeof REVIEW_DOC_TYPE;
+  issue: string | null;
+  title: string;
+  slug: string;
+  ulid: string;
+  summary: string;
+  verdict: ReviewVerdict;
+  findings: ReviewFinding[];
+  /** What the review actually looked at (RULE-14's priority list: correctness, regressions, …). */
+  checked: string[];
+  /** How to undo the change, which the code-review rule requires the review to state. */
+  rollback: string;
   created_at: string;
   updated_at: string;
   content_hash: string;

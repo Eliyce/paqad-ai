@@ -22,6 +22,7 @@ export const FEATURE_BUNDLE_FILES = {
   feature: 'feature.json',
   plan: 'plan.json',
   specification: 'specification.json',
+  review: 'review.json',
   stageEvidence: 'stage-evidence.jsonl',
   ruleRun: 'rule-run.jsonl',
   delivery: 'delivery.json',

@@ -6,7 +6,7 @@
 
 import Ajv, { type ValidateFunction } from 'ajv';
 
-import { FEATURE_DOC_TYPE, PLAN_DOC_TYPE } from './types.js';
+import { FEATURE_DOC_TYPE, PLAN_DOC_TYPE, REVIEW_DOC_TYPE } from './types.js';
 
 const nullableString = { type: ['string', 'null'] } as const;
 const lane = { type: ['string', 'null'], enum: ['fast', 'graduated', 'full', null] } as const;
@@ -110,9 +110,61 @@ export const PLAN_SCHEMA = {
   },
 } as const;
 
+export const REVIEW_SCHEMA = {
+  $id: 'paqad://schemas/review.json',
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'doc_type',
+    'issue',
+    'title',
+    'slug',
+    'ulid',
+    'summary',
+    'verdict',
+    'findings',
+    'checked',
+    'rollback',
+    'created_at',
+    'updated_at',
+    'content_hash',
+  ],
+  properties: {
+    schema_version: { type: 'integer', const: 1 },
+    doc_type: { const: REVIEW_DOC_TYPE },
+    issue: nullableString,
+    title: { type: 'string', minLength: 1 },
+    slug: { type: 'string', minLength: 1 },
+    ulid: { type: 'string', minLength: 1 },
+    summary: { type: 'string', minLength: 1 },
+    // The narration contract's three verdict words, so chat, report, and bundle agree.
+    verdict: { enum: ['safe-to-merge', 'needs-attention', 'inconclusive'] },
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['severity', 'description'],
+        properties: {
+          severity: { enum: ['blocker', 'major', 'minor'] },
+          description: { type: 'string', minLength: 1 },
+          file: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+    checked: { type: 'array', items: { type: 'string', minLength: 1 } },
+    rollback: { type: 'string', minLength: 1 },
+    created_at: { type: 'string', minLength: 1 },
+    updated_at: { type: 'string', minLength: 1 },
+    content_hash: { type: 'string', minLength: 1 },
+  },
+} as const;
+
 const ajv = new Ajv({ allErrors: true, allowUnionTypes: true });
 let compiledFeature: ValidateFunction | undefined;
 let compiledPlan: ValidateFunction | undefined;
+let compiledReview: ValidateFunction | undefined;
 
 /** One human-readable line for a validation error. */
 export function formatValidationError(error: { instancePath?: string; message?: string }): string {
@@ -141,4 +193,12 @@ export function validatePlanRecord(row: unknown): string[] {
     compiledPlan = ajv.compile(PLAN_SCHEMA);
   }
   return runValidator(compiledPlan, row);
+}
+
+/** Returns `[]` when `row` is a valid `review.json` record, else error strings. */
+export function validateReviewRecord(row: unknown): string[] {
+  if (!compiledReview) {
+    compiledReview = ajv.compile(REVIEW_SCHEMA);
+  }
+  return runValidator(compiledReview, row);
 }
