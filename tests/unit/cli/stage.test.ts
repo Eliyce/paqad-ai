@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { createProgram } from '@/cli/program.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
+import { readSessionControl } from '@/feature-evidence/session-control.js';
 import {
   currentFeature,
   readFeatureStageUnit,
@@ -262,6 +263,16 @@ describe('paqad-ai stage command', () => {
       return dir ? readFeatureStageUnit(root, dir) : [];
     }
 
+    /**
+     * The feature this session's control points at ON ITS OWN, with no reconcile.
+     * `currentFeature` deliberately ADOPTS the single in-flight bundle across a
+     * session-id rotation (issue #404), so it can no longer answer "did the mark route
+     * to this session?" — the raw control can.
+     */
+    function ownActive(session: string): string | null {
+      return readSessionControl(root, session).active;
+    }
+
     afterEach(() => {
       vi.unstubAllEnvs();
     });
@@ -271,7 +282,7 @@ describe('paqad-ai stage command', () => {
       vi.stubEnv('CLAUDE_SESSION_ID', 'ses_from_claude'); // present but lower priority
       await runNoSession('start', 'planning');
       expect(rowsFor('ses_from_se').some((r) => r.kind === 'stage_start')).toBe(true);
-      expect(rowsFor('ses_from_claude')).toHaveLength(0);
+      expect(ownActive('ses_from_claude')).toBeNull();
     });
 
     it('falls back to CLAUDE_SESSION_ID when --session and SE_SESSION are both absent', async () => {

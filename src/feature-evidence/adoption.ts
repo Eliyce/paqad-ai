@@ -62,18 +62,22 @@ export function listInFlightFeatures(projectRoot: string): string[] {
  * Reconcile a session's control and return the feature it should be working on, or
  * `null` when there is none.
  *
- * Two repairs, in order:
- *   1. Drop every `active`/`paused` entry naming a bundle dir that does not exist. A
- *      dangling pointer names no evidence, so clearing it loses nothing and stops later
- *      rows from being attributed to a bundle that was never written.
- *   2. When no active feature survives and the project holds exactly one in-flight
- *      bundle, adopt it — this is the session-rotation carry-over. Two or more is
- *      ambiguous, so nothing is adopted.
+ * The control is repointed at the single in-flight bundle when the session's own
+ * `active` does not name real evidence — either because it is unset (the rotated-session
+ * case: a fresh control) or because it names a bundle dir that was never materialized
+ * (the dangling-pointer case). Two or more in-flight bundles is ambiguous, so nothing is
+ * adopted and the caller mints exactly as before.
  *
- * NEVER mints a feature: it only repoints the control at a bundle that already exists,
+ * REPOINT ONLY — a dangling pointer is never simply cleared (decision
+ * D-01KXY2BDSN226DDCH9DZA1TAK6). `resolveActiveFeature` mints a feature and sets it
+ * active BEFORE any row is appended, so a freshly minted pointer legitimately names an
+ * unmaterialized dir until the first append lands; clearing it there would drop the
+ * change the session just opened. With nothing to adopt, the existing pointer stands.
+ *
+ * NEVER mints a feature: every name it can return already holds stage evidence on disk,
  * which is why the read paths (`currentFeature`) can safely call it. The control is
- * rewritten only when something actually changed, so a healthy session does no I/O
- * beyond the read.
+ * rewritten only when the active pointer actually moves, so a healthy session does no
+ * I/O beyond the read.
  */
 export function reconcileSessionControl(
   projectRoot: string,
@@ -81,23 +85,20 @@ export function reconcileSessionControl(
   now?: () => Date,
 ): string | null {
   const control = readSessionControl(projectRoot, sessionId, now);
-  const materialized = (dirName: string): boolean => isBundleMaterialized(projectRoot, dirName);
-
-  const paused = control.paused.filter(materialized);
-  let active = control.active !== null && materialized(control.active) ? control.active : null;
-
-  if (active === null) {
-    // A paused bundle is in flight too, but the session deliberately set it aside — a
-    // detour must not silently resume it, so only bundles outside the stack are adopted.
-    const inFlight = listInFlightFeatures(projectRoot).filter((name) => !paused.includes(name));
-    if (inFlight.length === 1) {
-      active = inFlight[0]!;
-    }
+  if (control.active !== null && isBundleMaterialized(projectRoot, control.active)) {
+    return control.active;
   }
 
-  const changed = active !== control.active || paused.length !== control.paused.length;
-  if (changed) {
-    writeSessionControl(projectRoot, { ...control, active, paused }, now);
+  // A paused bundle is in flight too, but the session deliberately set it aside — a
+  // detour must not silently resume it, so only bundles outside the stack are adopted.
+  const inFlight = listInFlightFeatures(projectRoot).filter(
+    (name) => !control.paused.includes(name),
+  );
+  if (inFlight.length !== 1) {
+    return control.active;
   }
-  return active;
+
+  const adopted = inFlight[0]!;
+  writeSessionControl(projectRoot, { ...control, active: adopted }, now);
+  return adopted;
 }
