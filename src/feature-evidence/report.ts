@@ -46,9 +46,6 @@ export interface RenderFeatureReportOptions {
   generatedAt: string;
   /** The paqad version that produced the change (for the header). */
   paqadVersion?: string | null;
-  /** The review markdown, read best-effort by the writer from the review stage-end
-   *  artifact path (the review file is agent-authored and NOT a rigid bundle file). */
-  reviewMarkdown?: string | null;
 }
 
 // ── Small pure helpers ──────────────────────────────────────────────────────
@@ -611,18 +608,67 @@ function renderDelivery(bundle: FeatureBundleExport): string {
   return panel('delivery', 'Delivery', parts.join(''));
 }
 
-function renderReview(reviewMarkdown: string | null | undefined): string {
-  if (!reviewMarkdown || reviewMarkdown.trim().length === 0) {
+/**
+ * Render the review from the bundle's rigid `review.json` (issue #402). This used to read
+ * an agent-authored `.md` discovered from the review stage row — a design that invited the
+ * model to free-write a review file, which is how `review-notes.md` landed in a bundle dir.
+ * The review is now a rigid record like the plan, so it renders structurally.
+ */
+function renderReview(bundle: FeatureBundleExport): string {
+  const review = bundle.files.review as
+    | {
+        summary?: string;
+        verdict?: string;
+        findings?: { severity?: string; description?: string; file?: string }[];
+        checked?: string[];
+        rollback?: string;
+      }
+    | undefined;
+  if (!review) {
     return panel(
       'review',
       'Review',
       '',
-      'No review notes were recorded. The review is written by the agent and linked from the review stage.',
+      'No review was recorded for this change. The review is written when the review stage is recorded (paqad-ai review record).',
     );
   }
-  // No markdown library ships in the main package (and none should be added), so the
-  // review is rendered as escaped preformatted text — faithful, never executed.
-  return panel('review', 'Review', `<pre class="review">${escapeHtml(reviewMarkdown)}</pre>`);
+  const parts: string[] = [];
+  if (review.verdict) {
+    parts.push(
+      `<p class="verdict"><strong>${escapeHtml(reviewVerdictLabel(review.verdict))}</strong></p>`,
+    );
+  }
+  if (review.summary) parts.push(`<p>${escapeHtml(review.summary)}</p>`);
+  const findings = review.findings ?? [];
+  if (findings.length > 0) {
+    const items = findings
+      .map(
+        (finding) =>
+          `<li><span class="tag">${escapeHtml(finding.severity ?? '')}</span> ${escapeHtml(finding.description ?? '')}${finding.file ? ` <code>${escapeHtml(finding.file)}</code>` : ''}</li>`,
+      )
+      .join('');
+    parts.push(`<h3>Findings</h3><ul class="findings">${items}</ul>`);
+  } else {
+    parts.push('<p class="empty">No findings were raised.</p>');
+  }
+  const checked = review.checked ?? [];
+  if (checked.length > 0) {
+    parts.push(
+      `<h3>Checked</h3><ul>${checked.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`,
+    );
+  }
+  if (review.rollback) {
+    parts.push(`<h3>Rollback</h3><p>${escapeHtml(review.rollback)}</p>`);
+  }
+  return panel('review', 'Review', parts.join(''));
+}
+
+/** The narration contract's verdict words, spelled the way paqad says them. */
+function reviewVerdictLabel(verdict: string): string {
+  if (verdict === 'safe-to-merge') return 'Safe to merge';
+  if (verdict === 'needs-attention') return 'Needs your attention';
+  if (verdict === 'inconclusive') return 'Inconclusive';
+  return verdict;
 }
 
 function renderFooter(): string {
@@ -918,7 +964,7 @@ export function renderFeatureReportHtml(
     renderReceipt(integrity),
     renderAiBom(bundle),
     renderDelivery(bundle),
-    renderReview(options.reviewMarkdown),
+    renderReview(bundle),
     renderFooter(),
   ].join('\n');
 

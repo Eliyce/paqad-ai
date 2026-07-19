@@ -34,8 +34,8 @@ describe('extractMarkers', () => {
   });
 
   it('tolerates blockquote/list prefixes but not inline mentions', () => {
-    const text = '> paqad:stage review start\nplease do paqad:stage review end inline\n';
-    expect(extractMarkers(text)).toEqual([{ stage: 'review', phase: 'start' }]);
+    const text = '> paqad:stage development start\nplease do paqad:stage development end inline\n';
+    expect(extractMarkers(text)).toEqual([{ stage: 'development', phase: 'start' }]);
   });
 
   it('parses an artifact path on a stage-end (`end -- <path>`) — issue #320', () => {
@@ -104,20 +104,25 @@ describe('parseAndRecordMarkers', () => {
   });
 
   it('populates artifact_digest from a real file on an `end -- <path>` marker (#320)', () => {
-    // `review` is a thinking stage with no rigid bundle file, so an arbitrary in-tree
-    // artifact still hashes (the #394 rigid-bundle rule binds only planning/specification).
-    writeFileSync(join(root, 'findings.md'), '# a real review with content\n');
+    // `development` is a mutation stage with no rigid bundle file, so an arbitrary in-tree
+    // artifact outside a bundle dir still hashes (the rigid-bundle rule binds planning,
+    // specification and — since #402 — review).
+    writeFileSync(join(root, 'findings.md'), '# a real artifact with content\n');
     const transcript = [
-      msg('assistant', 'Reviewing.\npaqad:stage review start'),
-      msg('assistant', 'Done.\npaqad:stage review end -- findings.md'),
+      msg('assistant', 'Reviewing.\npaqad:stage development start'),
+      msg('assistant', 'Done.\npaqad:stage development end -- findings.md'),
     ].join('\n');
     const recorded = parseAndRecordMarkers({
       projectRoot: root,
       transcriptText: transcript,
       sessionId: SES,
     });
-    expect(recorded).toContainEqual({ stage: 'review', phase: 'end', artifactPath: 'findings.md' });
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
+    expect(recorded).toContainEqual({
+      stage: 'development',
+      phase: 'end',
+      artifactPath: 'findings.md',
+    });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
     expect(typeof end?.artifact_digest).toBe('string');
     expect(end?.artifact_digest).toMatch(/^sha256-/);
   });
@@ -126,11 +131,11 @@ describe('parseAndRecordMarkers', () => {
     writeFileSync(join(root, 'findings.md'), '# a real review with content\n');
     const abs = join(root, 'findings.md');
     const transcript = [
-      msg('assistant', 'Reviewing.\npaqad:stage review start'),
-      msg('assistant', `Done.\npaqad:stage review end -- ${abs}`),
+      msg('assistant', 'Reviewing.\npaqad:stage development start'),
+      msg('assistant', `Done.\npaqad:stage development end -- ${abs}`),
     ].join('\n');
     parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
     // The absolute in-tree path is normalized + hashed (shell and chat now agree).
     expect(end?.artifact_digest).toMatch(/^sha256-/);
     expect(end?.artifact_paths).toEqual(['findings.md']);
@@ -149,6 +154,26 @@ describe('parseAndRecordMarkers', () => {
     parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
     const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
     expect(end).toBeDefined();
+    expect(end?.artifact_digest ?? null).toBeNull();
+    expect(end?.artifact_paths ?? null).toBeNull();
+  });
+
+  // Issue #402 — the chat marker is the PRIMARY Claude Code path, so the in-bundle
+  // rejection must fire here too, not only in the `stage` CLI.
+  it('drops a non-rigid artifact written into a bundle dir on a marker (#402)', () => {
+    const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    setActiveFeature(root, SES, dir);
+    const stray = `.paqad/ledger/feature-evidence/${dir}/scratch-notes.md`;
+    mkdirSync(join(root, dirname(stray)), { recursive: true });
+    writeFileSync(join(root, stray), '# notes with real content\n');
+    const transcript = [
+      msg('assistant', 'Building.\npaqad:stage development start'),
+      msg('assistant', `Done.\npaqad:stage development end -- ${stray}`),
+    ].join('\n');
+    parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
+    expect(end).toBeDefined();
+    // The stray exists and has real bytes, but is never hashed into the row.
     expect(end?.artifact_digest ?? null).toBeNull();
     expect(end?.artifact_paths ?? null).toBeNull();
   });
@@ -360,7 +385,7 @@ describe('parseAndRecordMarkers', () => {
     // inline final-message text, which the parser scans as raw text.
     const n = parseAndRecordMarkers({
       projectRoot: root,
-      transcriptText: 'Final answer.\npaqad:stage review start\npaqad:stage review end',
+      transcriptText: 'Final answer.\npaqad:stage development start\npaqad:stage development end',
       sessionId: SES,
       adapter: 'gemini-cli',
     });

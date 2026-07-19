@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-16T11:08:29.593Z",
+  "generated_at": "2026-07-18T10:52:46.498Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-16T11:06:24.790Z",
+        "timestamp": "2026-07-18T10:51:05.148Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -33,7 +33,13 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {}
+      "evidence_scope": {
+        "related_paths": [
+          ".junie/mcp/mcp.json",
+          ".paqad/.config.example",
+          ".paqad/configs/.config.rag"
+        ]
+      }
     },
     {
       "schema_version": "1.0.0",
@@ -44,7 +50,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-16T11:08:19.693Z",
+        "timestamp": "2026-07-18T10:52:37.360Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -64,7 +70,13 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {}
+      "evidence_scope": {
+        "related_paths": [
+          ".junie/mcp/mcp.json",
+          ".paqad/.config.example",
+          ".paqad/configs/.config.rag"
+        ]
+      }
     },
     {
       "schema_version": "1.0.0",
@@ -75,7 +87,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-16T11:08:29.593Z",
+        "timestamp": "2026-07-18T10:52:46.498Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -95,7 +107,13 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {}
+      "evidence_scope": {
+        "related_paths": [
+          ".junie/mcp/mcp.json",
+          ".paqad/.config.example",
+          ".paqad/configs/.config.rag"
+        ]
+      }
     }
   ]
 }

@@ -161,14 +161,20 @@ npx paqad-ai stage start specification
 npx paqad-ai spec freeze <spec.md> --confirm-invariants   # writes specification.json into the bundle
 npx paqad-ai stage end specification --artifact <specification.json>
 
+npx paqad-ai stage start review
+… review the change …
+npx paqad-ai review record <review-template.json>         # writes review.json into the bundle
+npx paqad-ai stage end review --artifact <review.json>
+
 # development / checks / documentation_sync record from the files you edit where a hook
-# exists; on an advisory host mark the edit-less ones the same way — e.g.
-npx paqad-ai stage start review … npx paqad-ai stage end review --artifact <review-notes>
+# exists; on an advisory host mark them the same way.
 ```
 
 Then speak the end-of-change verdict (Safe to merge / Needs your attention / Inconclusive) in prose, one line per stage with its honest evidence state. Skipping these calls is what leaves the ledger without planning/specification artifacts. If you want the stages **hook-enforced** in a JetBrains IDE rather than self-recorded, use the **Claude Code [Beta] plugin** (it runs the real `claude` CLI, so paqad's PreToolUse/Stop hooks fire) — "Claude Agent" in AI Assistant is advisory and structurally exposes no hook layer.
 
-**A thinking stage must point at a real artifact.** planning, specification, and review each prove their work with a file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with `paqad-ai plan compile` and freeze the spec with `paqad-ai spec freeze` (they write `plan.json` / `specification.json` into the active feature's bundle; the legacy `.paqad/plans/*.md` and `.paqad/specs` free-writes are retired), then end the stage against that file. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
+**A thinking stage must point at its RIGID bundle artifact.** planning, specification, and review each prove their work with a script-written file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with `paqad-ai plan compile`, freeze the spec with `paqad-ai spec freeze`, and record the review with `paqad-ai review record` (they write `plan.json` / `specification.json` / `review.json` into the active feature's bundle; the legacy `.paqad/plans/*.md` and `.paqad/specs` free-writes are retired), then end the stage against that file. Any OTHER path is rejected, so a hand-written notes file can never stand in for the real artifact. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
+
+**Never write into a feature bundle directory.** `.paqad/ledger/feature-evidence/<change>/` holds only its rigid, script-written artifacts plus the generated `report.html`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and clean the transient input up. A stage artifact pointing at a non-rigid file inside a bundle dir is rejected.
 
 **Code edits are gated on this.** Until `planning` and `specification` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, `npx paqad-ai stage start <stage>` / `npx paqad-ai stage end <stage> --artifact <path>` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the `▸ paqad` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 

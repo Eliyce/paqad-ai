@@ -1,15 +1,13 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { writeFeaturePlan } from '@/feature-evidence/artifacts.js';
-import { exportFeatureBundle } from '@/feature-evidence/export.js';
-import { featureDir, featureReportPath } from '@/feature-evidence/paths.js';
+import { writeFeaturePlan, writeFeatureReview } from '@/feature-evidence/artifacts.js';
+import { featureReportPath } from '@/feature-evidence/paths.js';
 import {
   featureReportEnabled,
-  readReviewMarkdown,
   resolveReportFeatureRef,
   writeFeatureReport,
 } from '@/feature-evidence/report-writer.js';
@@ -84,70 +82,31 @@ describe('featureReportEnabled', () => {
   });
 });
 
-describe('readReviewMarkdown', () => {
-  it('reads the review markdown from the review stage-end artifact path', () => {
+// Issue #402 — the review used to be an agent-authored .md discovered from the review
+// stage row, a design that invited the model to free-write into the bundle dir. It is a
+// rigid bundle artifact now, so the report reads it like any other.
+describe('review rendering from the rigid review.json', () => {
+  it('renders the recorded review from review.json', () => {
     const root = tempRoot();
     const dir = openWithPlan(root, 1, 'C feature');
-    const reviewRel = join(featureDir(dir), 'review.md');
-    writeFileSync(join(root, reviewRel), '# Review\nlooks good', 'utf8');
-    appendFeatureStageRow(root, 'ses_1', dir, {
-      kind: 'stage_end',
-      stage: 'review',
-      adapter: 'claude-code',
-      artifact_paths: [reviewRel],
+    writeFeatureReview(root, 'ses_1', {
+      summary: 'Checked correctness and rollback.',
+      verdict: 'safe-to-merge',
+      findings: [{ severity: 'minor', description: 'naming nit' }],
+      rollback: 'Revert the commit.',
+      now: () => new Date(AT),
     });
-    const bundle = exportFeatureBundle(root, dir, AT);
-    expect(readReviewMarkdown(root, bundle)).toContain('looks good');
+    const { html } = writeFeatureReport(root, dir, { generatedAt: AT });
+    expect(html).toContain('Safe to merge');
+    expect(html).toContain('Checked correctness and rollback.');
+    expect(html).toContain('naming nit');
   });
 
-  it('returns null when no review artifact is recorded', () => {
+  it('shows a graceful note naming the verb when no review was recorded', () => {
     const root = tempRoot();
     const dir = openWithPlan(root, 1, 'D feature');
-    const bundle = exportFeatureBundle(root, dir, AT);
-    expect(readReviewMarkdown(root, bundle)).toBeNull();
-  });
-
-  it('returns null when the in-tree review path is unreadable', () => {
-    const root = tempRoot();
-    const dir = openWithPlan(root, 1, 'F feature');
-    // A well-formed in-tree .md path that does not exist on disk → readFileSync throws.
-    appendFeatureStageRow(root, 'ses_1', dir, {
-      kind: 'stage_end',
-      stage: 'review',
-      adapter: 'claude-code',
-      artifact_paths: [join(featureDir(dir), 'missing-review.md')],
-    });
-    const bundle = exportFeatureBundle(root, dir, AT);
-    expect(readReviewMarkdown(root, bundle)).toBeNull();
-  });
-
-  it('returns null when the bundle has no stage rows or no .md artifact', () => {
-    const root = tempRoot();
-    // A bundle export with no stageEvidence array at all.
-    expect(readReviewMarkdown(root, { dir_name: 'x', exported_at: AT, files: {} })).toBeNull();
-    // A review stage-end whose only artifact is not a .md.
-    const dir = openWithPlan(root, 1, 'G feature');
-    appendFeatureStageRow(root, 'ses_1', dir, {
-      kind: 'stage_end',
-      stage: 'review',
-      adapter: 'claude-code',
-      artifact_paths: ['notes.txt'],
-    });
-    const bundle = exportFeatureBundle(root, dir, AT);
-    expect(readReviewMarkdown(root, bundle)).toBeNull();
-  });
-
-  it('rejects an out-of-tree review path', () => {
-    const root = tempRoot();
-    const dir = openWithPlan(root, 1, 'E feature');
-    appendFeatureStageRow(root, 'ses_1', dir, {
-      kind: 'stage_end',
-      stage: 'review',
-      adapter: 'claude-code',
-      artifact_paths: ['../../../etc/passwd.md'],
-    });
-    const bundle = exportFeatureBundle(root, dir, AT);
-    expect(readReviewMarkdown(root, bundle)).toBeNull();
+    const { html } = writeFeatureReport(root, dir, { generatedAt: AT });
+    expect(html).toContain('paqad-ai review record');
   });
 });
 

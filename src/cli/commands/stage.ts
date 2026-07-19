@@ -103,6 +103,15 @@ export function createStageCommand(): Command {
               `\`npx ${check.verb} …\` first, then end ${stage} against ${target}. ` +
               `Recording ${stage} as inconclusive.`,
           );
+        } else if (!check.rigid && check.rejected.length > 0) {
+          // Issue #402: a non-rigid stage pointed at a file written into a bundle dir.
+          // The bundle holds only rigid artifacts, so the path is dropped rather than
+          // recorded — and the developer is told where the artifact should live instead.
+          console.error(
+            `**▸ paqad** · a feature bundle holds only its rigid artifacts, so ` +
+              `${check.rejected.join(', ')} can't prove ${stage} — keep the artifact ` +
+              `outside \`.paqad/ledger/feature-evidence/\` and end ${stage} against that path.`,
+          );
         }
         artifactPaths = check.accepted.length > 0 ? check.accepted : undefined;
       }

@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFeatureCommand } from '@/cli/commands/feature.js';
 import { createProgram } from '@/cli/program.js';
+import { featureDir } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 describe('paqad-ai feature command', () => {
@@ -102,5 +103,27 @@ describe('paqad-ai feature command', () => {
     await run('prune', '--keep', 'lots');
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain('--keep must be');
+  });
+
+  // Issue #402 — a polluted bundle is flagged on stderr so it never contaminates the
+  // export document on stdout.
+  it('export flags stray files in the bundle on stderr', async () => {
+    const dir = openFeatureChange(root, SES, {
+      adapter: 'claude-code',
+      title: 'Rigid bundle only',
+      issue: '402',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
+    writeFileSync(join(root, featureDir(dir), 'review-notes.md'), '# notes', 'utf8');
+    await run('export', '402');
+    expect(errors.join('\n')).toContain('1 file that does not belong in it: review-notes.md');
+
+    // Two strays read as plural.
+    writeFileSync(join(root, featureDir(dir), 'river-agent-spec.md'), '# spec', 'utf8');
+    errors.length = 0;
+    await run('export', '402');
+    expect(errors.join('\n')).toContain('2 files that do not belong in it');
   });
 });

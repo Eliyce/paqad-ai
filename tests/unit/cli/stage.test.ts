@@ -64,16 +64,16 @@ describe('paqad-ai stage command', () => {
 
   it('hashes an `--artifact` on end into artifact_digest, but ignores it on start (#320)', async () => {
     const { writeFileSync } = await import('node:fs');
-    writeFileSync(join(root, 'findings.md'), '# review findings\n');
-    // `review` is a thinking stage that owns no rigid bundle file, so an arbitrary
-    // in-tree artifact still hashes (the #394 rigid-bundle rule binds only
-    // planning/specification). A start ignores an artifact (only an end carries one).
-    await run('start', 'review', '--artifact', 'findings.md');
-    await run('end', 'review', '--artifact', 'findings.md');
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
+    writeFileSync(join(root, 'findings.md'), '# findings\n');
+    // `development` is a mutation stage that owns no rigid bundle file, so an arbitrary
+    // in-tree artifact outside the bundle still hashes (the rigid-bundle rule binds
+    // planning/specification/review). A start ignores an artifact (only an end carries one).
+    await run('start', 'development', '--artifact', 'findings.md');
+    await run('end', 'development', '--artifact', 'findings.md');
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
     expect(typeof end?.artifact_digest).toBe('string');
     expect(end?.artifact_digest).toMatch(/^sha256-/);
-    const start = rows().find((r) => r.kind === 'stage_start' && r.stage === 'review');
+    const start = rows().find((r) => r.kind === 'stage_start' && r.stage === 'development');
     expect(start?.artifact_digest ?? null).toBeNull();
   });
 
@@ -86,12 +86,12 @@ describe('paqad-ai stage command', () => {
 
   it('accepts an ABSOLUTE in-tree --artifact by normalizing it to relative (#350)', async () => {
     const { writeFileSync } = await import('node:fs');
-    writeFileSync(join(root, 'findings.md'), '# review findings\n');
-    await run('start', 'review');
+    writeFileSync(join(root, 'findings.md'), '# findings\n');
+    await run('start', 'development');
     // Pass the file by its absolute path — today this silently join()ed onto root and
     // hashed as absent; now it normalizes and hashes the real bytes.
-    await run('end', 'review', '--artifact', join(root, 'findings.md'));
-    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'review');
+    await run('end', 'development', '--artifact', join(root, 'findings.md'));
+    const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
     expect(end?.artifact_digest).toMatch(/^sha256-/);
     // The stored path is the normalized relative one, not the absolute input.
     expect(end?.artifact_paths).toEqual(['findings.md']);
@@ -183,7 +183,8 @@ describe('paqad-ai stage command', () => {
   // Issue #394 — a planning/specification stage-end proves itself ONLY with the active
   // bundle's rigid plan.json / specification.json. Any other in-tree file is dropped so
   // the stage folds inconclusive, and the developer is told which verb writes the real
-  // artifact. `review` (a thinking stage with no rigid file) is unaffected — covered above.
+  // artifact. Issue #402 added `review` → review.json on the same footing; a mutation
+  // stage still hashes any artifact outside a bundle dir — covered above.
   describe('rigid bundle artifact for planning/specification (#394)', () => {
     /** Write a non-empty rigid bundle file into the active feature and return its rel path. */
     function writeBundleArtifact(file: 'plan' | 'specification'): string {

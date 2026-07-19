@@ -38,6 +38,15 @@ export function createFeatureCommand(): Command {
         return;
       }
       const bundle = exportFeatureBundle(options.projectRoot, dirName, new Date().toISOString());
+      // Issue #402: a bundle holds only its rigid artifacts. Anything else is flagged on
+      // stderr so it never contaminates the export document on stdout.
+      if (bundle.strays.length > 0) {
+        const one = bundle.strays.length === 1;
+        console.error(
+          `**▸ paqad** · 🟡 this bundle carries ${bundle.strays.length} ${one ? 'file that does' : 'files that do'} ` +
+            `not belong in it: ${bundle.strays.join(', ')}`,
+        );
+      }
       const json = `${JSON.stringify(bundle, null, 2)}\n`;
       if (options.out) {
         writeFileSync(options.out, json, 'utf8');

@@ -62,6 +62,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 - Run the **attribution gate**: identify which module(s) the change belongs to (the `module-attribution-extractor` then `module-attribution-inferencer` skills). If attribution is unresolved, escalate `attribution_pending: stop` via a Decision Packet — never guess silently. <!-- @rule RL-7919 -->
 - Produce the implementation sequence scoped to the request and the current repository state. <!-- @rule RL-2f27 -->
 - Compile the plan into the feature bundle with `npx paqad-ai plan compile <plan-template.json>`: it writes the rigid `plan.json` into the active feature's bundle (`.paqad/ledger/feature-evidence/<change>/plan.json`) — the durable planning artifact. End the planning stage against **that** file (`paqad:stage planning end -- <path-to-plan.json>`, or `npx paqad-ai stage end planning --artifact <path-to-plan.json>`). Do **not** hand-write the plan to `.paqad/plans/*` or any other location: only the bundle's `plan.json` is the artifact, and a stage-end pointing anywhere else records inconclusive. <!-- @rule RL-73a4 -->
+- Never write anything into a feature bundle directory (`.paqad/ledger/feature-evidence/<change>/`). It holds only its rigid, script-written artifacts (`plan.json`, `specification.json`, `review.json`, the ledgers, `delivery.json`, `receipt.json`, `ai-bom.json`) plus the generated `report.html`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and delete the transient input. A stage-end artifact pointing at a non-rigid file inside a bundle directory is rejected. <!-- @rule RL-4022 -->
 - Escalations: `attribution_pending: stop`, `rule_scripts_stale: ask`, missing docs/design-system: `warn`. <!-- @rule RL-4da7 -->
 
 ### Stage 2 — specification
@@ -79,6 +80,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 ### Stage 4 — review
 
 - Review the change against correctness, regressions, and rollback risk before treating it as complete. <!-- @rule RL-2e65 -->
+- Record the review with `npx paqad-ai review record <review-template.json>`: it writes the rigid `review.json` into the active feature's bundle (`.paqad/ledger/feature-evidence/<change>/review.json`) from a filled template (`{ summary, verdict, findings, checked, rollback }`, where `verdict` is one of `safe-to-merge`, `needs-attention`, `inconclusive`). End the review stage against **that** file (`paqad:stage review end -- <path-to-review.json>`, or `npx paqad-ai stage end review --artifact <path-to-review.json>`). Do **not** hand-write review notes to a `.md` or any other location as the durable artifact: only the bundle's `review.json` is the artifact, and a stage-end pointing anywhere else records inconclusive. <!-- @rule RL-4021 -->
 - Blocking findings escalate `review_findings: stop`. <!-- @rule RL-e522d -->
 
 ### Stage 5 — checks

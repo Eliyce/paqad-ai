@@ -28,6 +28,7 @@ import { createOnboardCommand } from './commands/onboard.js';
 import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
 import { createPlanCommand } from './commands/plan.js';
+import { createReviewCommand } from './commands/review.js';
 import { createConfigCommand } from './commands/config.js';
 import { createDecisionCommand } from './commands/decision.js';
 import { createRagCommand } from './commands/rag.js';
@@ -79,6 +80,7 @@ export function createProgram(): Command {
   program.addCommand(createPatternsCommand());
   program.addCommand(createPlanCommand());
   program.addCommand(createSpecCommand());
+  program.addCommand(createReviewCommand());
   program.addCommand(createStageCommand());
   program.addCommand(createResumeCommand());
   program.addCommand(createDecisionCommand());
