@@ -8,6 +8,9 @@ export * from './paths.js';
 export * from './mint.js';
 export * from './schema.js';
 export * from './session-control.js';
+// `enumerate.js` is not star-exported here: `delivery.js` re-exports its one symbol, and
+// exporting the same binding twice would make it ambiguous to `export *`.
+export * from './adoption.js';
 export * from './stage-ledger.js';
 export * from './artifacts.js';
 export * from './rename.js';

@@ -32,6 +32,11 @@ export default defineConfig({
     // single-slot session cache to the live host session id (extends "bug #5"
     // from finalization to bundle minting), same dedicated-entry pattern as above.
     'rag-ledger/session': 'src/rag-ledger/session.ts',
+    // In-flight bundle adoption (issue #404) — lazy-imported by the same SessionStart
+    // hook, right after the cache alignment above, so a rotated session id is repointed
+    // at the in-flight bundle before the agent records anything and the change cannot
+    // fork into a second bundle. Dedicated entry, same pattern as the resolver.
+    'feature-evidence/adoption': 'src/feature-evidence/adoption.ts',
     // Disabled-session audit recorder (buildout F2b) — lazy-imported by
     // verify-backstop.mjs's disabled branch as a small dist bundle, so the
     // disabled path stays light (no full dist/index.js load).

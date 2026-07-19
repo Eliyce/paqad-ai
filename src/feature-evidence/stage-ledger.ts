@@ -26,6 +26,7 @@ import {
   type FoldedChange,
 } from '@/stage-evidence/types.js';
 
+import { reconcileSessionControl } from './adoption.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import {
@@ -54,6 +55,11 @@ export interface ResolveFeatureInput {
  * it returns the active feature, or — when none is active — mints an untitled
  * `change-<ULID>` feature so a stage call never lands on nothing (mirrors the legacy
  * auto-open). The minted feature is set active in the `_session` control.
+ *
+ * The lookup goes through `reconcileSessionControl` (issue #404) rather than reading the
+ * control raw, so a session-id rotation mid-change ADOPTS the in-flight bundle instead of
+ * minting a second one and orphaning the first. A dangling pointer (a bundle dir that was
+ * never materialized) is cleared by the same pass.
  */
 export function resolveActiveFeature(
   projectRoot: string,
@@ -63,9 +69,9 @@ export function resolveActiveFeature(
   if (input.title !== undefined) {
     return mintAndActivate(projectRoot, sessionId, input.title, input);
   }
-  const control = readSessionControl(projectRoot, sessionId, input.now);
-  if (control.active) {
-    return control.active;
+  const active = reconcileSessionControl(projectRoot, sessionId, input.now);
+  if (active) {
+    return active;
   }
   return mintAndActivate(projectRoot, sessionId, UNTITLED_FEATURE_TITLE, input);
 }
@@ -153,13 +159,20 @@ function bundleFileNonEmpty(
 }
 
 /**
- * The active feature dir name for this session, or `null` when none is active. READ
- * ONLY — it never mints, so a reader (the pre-mutation gate, the narrator) sees "no
- * open change" as `null` rather than accidentally creating a feature. The feature-dir
- * analogue of the legacy `currentOrdinal(...) > 0` probe.
+ * The active feature dir name for this session, or `null` when none is active. NEVER
+ * MINTS, so a reader (the pre-mutation gate, the narrator, the finalizer) sees "no open
+ * change" as `null` rather than accidentally creating a feature. The feature-dir analogue
+ * of the legacy `currentOrdinal(...) > 0` probe.
+ *
+ * It resolves through `reconcileSessionControl` (issue #404), which may REPOINT the
+ * session control at an in-flight bundle that already exists — so a session-id rotation
+ * is carried over on the read paths too, not just when a stage mints. That is a write,
+ * but never a mint: no bundle is created, and every name it can return already holds
+ * stage evidence on disk. Without it the finalizer would read `null` after a rotation and
+ * write its inferred-git backstop into a fresh bundle — forking the change a second time.
  */
 export function currentFeature(projectRoot: string, sessionId: string): string | null {
-  return readSessionControl(projectRoot, sessionId).active;
+  return reconcileSessionControl(projectRoot, sessionId);
 }
 
 export interface OpenFeatureChangeInput extends ResolveFeatureInput {
