@@ -37,6 +37,17 @@ change, so the live feature-development stage spine is untouched:
   active + paused-feature stack + lane store, folding today's `.open` +
   `.pending-lane` role at feature grain (set-active pauses the prior active; resume
   pops a paused feature; mark-done clears).
+- **Generic-slug back-fill** (`rename.ts`, issue #403) — a feature opened by a bare
+  `paqad:stage planning start` is minted as the untitled `change-<ULID>`
+  (`UNTITLED_FEATURE_TITLE` in `mint.ts`); when `plan compile` later carries a
+  `title`, `backfillFeatureSlug` renames the bundle to the descriptive
+  `[<issue>-]<slug>-<ULID>` — same ULID (the stable change key), issue detected from
+  the title — repoints every `_session/*.json` control referencing the old name
+  (active or paused, any session), and rewrites `artifact_paths` in the moved
+  `stage-evidence.jsonl` with the row `content_hash` re-stamped by the script.
+  Fail-safe: an already-descriptive dir, an empty/generic-deriving title, an
+  existing target, or a rename error each leave the generic name in place with the
+  compile still succeeding.
 - **Feature-scoped stage ledger** (`stage-ledger.ts`, Phase 2 — additive) —
   `resolveActiveFeature` (mints/sets-active a feature so a stage call never lands on
   nothing), `appendFeatureStageRow` / `readFeatureStageUnit` / `foldFeature` write,

@@ -17,6 +17,7 @@ import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
 import { parseFeatureDirName, featureFilePath } from './paths.js';
+import { backfillFeatureSlug } from './rename.js';
 import { validatePlanRecord, validateReviewRecord } from './schema.js';
 import { currentFeature } from './stage-ledger.js';
 import type {
@@ -89,16 +90,30 @@ function activeFeatureParts(projectRoot: string, sessionId: string) {
 /**
  * Compile the active feature's `plan.json` from a filled template. The record's identity
  * (issue / slug / ulid) is taken from the feature dir name so the plan can never drift
- * from the feature it belongs to; the model supplies only the plan body. Validates
- * against `PLAN_SCHEMA` and throws on any violation, so a malformed template is never
- * persisted. Throws {@link NoActiveFeatureError} when no feature is active.
+ * from the feature it belongs to; the model supplies only the plan body. When the
+ * template carries a `title` and the active dir still has the generic untitled
+ * `change-<ULID>` shape, the bundle is first renamed to the descriptive
+ * `[<issue>-]<slug>-<ULID>` (issue #403) so the recorded slug is never the literal
+ * `change`. Validates against `PLAN_SCHEMA` and throws on any violation, so a malformed
+ * template is never persisted. Throws {@link NoActiveFeatureError} when no feature is
+ * active.
  */
 export function writeFeaturePlan(
   projectRoot: string,
   sessionId: string,
   input: PlanCompileInput,
 ): CompiledArtifact<PlanRecord> {
-  const { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
+  let { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
+  if (input.title !== undefined && input.title.length > 0) {
+    const backfilled = backfillFeatureSlug(projectRoot, dirName, input.title, input.now);
+    if (backfilled.renamed) {
+      dirName = backfilled.dirName;
+      const renamedParts = parseFeatureDirName(dirName);
+      if (renamedParts) {
+        parts = renamedParts;
+      }
+    }
+  }
   const record = buildPlanRecord({
     issue: parts.issue,
     title: input.title ?? parts.slug,
