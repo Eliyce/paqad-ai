@@ -31,6 +31,13 @@ import {
   type ReviewVerdict,
 } from './types.js';
 
+/**
+ * The literal title an untitled feature is minted with (a bare stage marker carries
+ * no title), producing the generic `change-<ULID>` dir name the plan-compile
+ * back-fill later renames (issue #403).
+ */
+export const UNTITLED_FEATURE_TITLE = 'change';
+
 /** Keys excluded from a record's identity hash (volatile / non-identifying). */
 const HASH_EXCLUDED_KEYS = new Set(['content_hash', 'created_at', 'updated_at']);
 

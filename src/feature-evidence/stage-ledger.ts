@@ -26,7 +26,7 @@ import {
   type FoldedChange,
 } from '@/stage-evidence/types.js';
 
-import { mintFeatureDirName } from './mint.js';
+import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import {
   markDone,
@@ -67,7 +67,7 @@ export function resolveActiveFeature(
   if (control.active) {
     return control.active;
   }
-  return mintAndActivate(projectRoot, sessionId, 'change', input);
+  return mintAndActivate(projectRoot, sessionId, UNTITLED_FEATURE_TITLE, input);
 }
 
 function mintAndActivate(
