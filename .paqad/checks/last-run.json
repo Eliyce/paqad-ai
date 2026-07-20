@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-20T12:19:46.898Z",
+  "generated_at": "2026-07-20T15:05:46.789Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-20T12:17:47.421Z",
+        "timestamp": "2026-07-20T15:03:51.025Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -33,13 +33,7 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {
-        "related_paths": [
-          "runtime/hooks/lib/transcript.mjs",
-          "tests/unit/runtime/verify-backstop.test.ts",
-          "tests/unit/stage-evidence/narration-audit.test.ts"
-        ]
-      }
+      "evidence_scope": {}
     },
     {
       "schema_version": "1.0.0",
@@ -50,7 +44,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-20T12:19:37.381Z",
+        "timestamp": "2026-07-20T15:05:36.645Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -70,13 +64,7 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {
-        "related_paths": [
-          "runtime/hooks/lib/transcript.mjs",
-          "tests/unit/runtime/verify-backstop.test.ts",
-          "tests/unit/stage-evidence/narration-audit.test.ts"
-        ]
-      }
+      "evidence_scope": {}
     },
     {
       "schema_version": "1.0.0",
@@ -87,7 +75,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-20T12:19:46.898Z",
+        "timestamp": "2026-07-20T15:05:46.789Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -107,13 +95,7 @@
         "parse_warnings": []
       },
       "errors": [],
-      "evidence_scope": {
-        "related_paths": [
-          "runtime/hooks/lib/transcript.mjs",
-          "tests/unit/runtime/verify-backstop.test.ts",
-          "tests/unit/stage-evidence/narration-audit.test.ts"
-        ]
-      }
+      "evidence_scope": {}
     }
   ]
 }

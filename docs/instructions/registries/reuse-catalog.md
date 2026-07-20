@@ -8,20 +8,20 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| PATHS | `PATHS` | src/core/constants/paths.ts | 134 |
-| toPosixPath | `toPosixPath(path: string): string` | src/core/path-utils.ts | 31 |
-| ProjectProfile | `interface ProjectProfile` | src/core/types/project-profile.ts | 29 |
+| PATHS | `PATHS` | src/core/constants/paths.ts | 145 |
+| toPosixPath | `toPosixPath(path: string): string` | src/core/path-utils.ts | 35 |
+| ProjectProfile | `interface ProjectProfile` | src/core/types/project-profile.ts | 30 |
 | Lane | `type Lane` | src/core/types/routing.ts | 19 |
 | DecisionPacket | `interface DecisionPacket` | src/planning/decision-packet.ts | 16 |
+| VERSION | `VERSION: string` | src/index.ts | 16 |
 | ClassificationResult | `interface ClassificationResult` | src/core/types/classification.ts | 15 |
 | Capability | `type Capability` | src/core/types/domain.ts | 13 |
 | DecisionCategory | `type DecisionCategory` | src/planning/decision-packet.ts | 13 |
 | resolveProjectRoot | `resolveProjectRoot(env` | runtime/hooks/lib/paqad-disabled.mjs | 13 |
+| AdapterType | `type AdapterType` | src/core/types/adapter.ts | 12 |
 | isPaqadDisabled | `isPaqadDisabled(projectRoot` | runtime/hooks/lib/paqad-disabled.mjs | 12 |
 | Stack | `type Stack` | src/core/types/domain.ts | 12 |
-| VERSION | `VERSION: string` | src/index.ts | 12 |
 | ActiveCapability | `type ActiveCapability` | src/core/types/domain.ts | 11 |
-| AdapterType | `type AdapterType` | src/core/types/adapter.ts | 11 |
 | DetectionSignal | `interface DetectionSignal` | src/core/types/health.ts | 11 |
 ## adapter-onboarding
 
@@ -31,8 +31,8 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | BaseAdapter | `BaseAdapter implements AdapterInterface` | src/adapters/shared/base-adapter.ts | 11 |
 | AdapterCapabilities | `interface AdapterCapabilities` | src/adapters/adapter.interface.ts | 8 |
 | AdapterContext | `interface AdapterContext` | src/adapters/adapter.interface.ts | 4 |
+| writeGeneratedFiles | `writeGeneratedFiles( projectRoot: string, files: GeneratedFile[], options: WriteGeneratedFilesOptions` | src/onboarding/file-writer.ts | 4 |
 | AdapterFactory | `AdapterFactory` | src/adapters/factory.ts | 3 |
-| writeGeneratedFiles | `writeGeneratedFiles( projectRoot: string, files: GeneratedFile[], options: WriteGeneratedFilesOptions` | src/onboarding/file-writer.ts | 3 |
 | AdapterInterface | `interface AdapterInterface` | src/adapters/adapter.interface.ts | 2 |
 | buildFrameworkFallbackClause | `buildFrameworkFallbackClause(): string` | src/adapters/shared/framework-fallback-clause.ts | 2 |
 | buildNativeCompletionHookFile | `buildNativeCompletionHookFile(options: NativeCompletionHookOptions): GeneratedFile` | src/adapters/shared/native-completion-hook.ts | 2 |
@@ -78,7 +78,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
 | SiemEvent | `interface SiemEvent` | src/audit/types.ts | 7 |
-| ZERO_DIGEST | `ZERO_DIGEST` | src/evidence/digests.ts | 3 |
+| ZERO_DIGEST | `ZERO_DIGEST` | src/evidence/digests.ts | 4 |
 | epochMs | `epochMs(ts: string): number` | src/audit/severity.ts | 2 |
 | eventMessage | `eventMessage(event: SiemEvent): string` | src/audit/severity.ts | 2 |
 | ocsfSeverityId | `ocsfSeverityId(verdict: string): number` | src/audit/severity.ts | 2 |
@@ -120,9 +120,9 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| SectionData | `interface SectionData` | src/dashboard/types.ts | 22 |
+| SectionData | `interface SectionData` | src/dashboard/types.ts | 23 |
+| AttentionItem | `interface AttentionItem` | src/dashboard/types.ts | 11 |
 | DashboardChrome | `DashboardChrome(` | graph-ui/src/components/DashboardChrome.tsx | 11 |
-| AttentionItem | `interface AttentionItem` | src/dashboard/types.ts | 10 |
 | WinLine | `WinLine(` | graph-ui/src/components/WinLine.tsx | 9 |
 | fileMtime | `fileMtime(path: string): number / null` | src/dashboard/collectors/fs-helpers.ts | 8 |
 | WhySentence | `WhySentence(` | graph-ui/src/components/WhySentence.tsx | 8 |
@@ -206,11 +206,11 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | reconcileModuleMap | `reconcileModuleMap(opts: ReconcilerOptions): Promise<ModuleMapDriftReport>` | src/module-map/reconciler.ts | 3 |
 | appendRunCancelledEvent | `appendRunCancelledEvent( projectRoot: string, runId: string, payload?: Record<string, unknown>, ): void` | src/module-decisions/events.ts | 2 |
 | driftReportHasFindings | `driftReportHasFindings(report: ModuleMapDriftReport / null): boolean` | src/module-map/reconciler.ts | 2 |
+| levenshtein | `levenshtein(a: string, b: string, max` | src/module-decisions/schema.ts | 2 |
 | ModuleMapDriftReport | `interface ModuleMapDriftReport` | src/module-map/reconciler.ts | 2 |
 | readDecision | `readDecision(projectRoot: string, id: string): ModuleDecision / null` | src/module-decisions/store.ts | 2 |
 | readDriftReport | `readDriftReport(projectRoot: string): ModuleMapDriftReport / null` | src/module-map/reconciler.ts | 2 |
 | readModuleMapEvents | `readModuleMapEvents(projectRoot: string): ModuleMapEvent[]` | src/module-decisions/events.ts | 2 |
-| candidatesNeedingDecision | `candidatesNeedingDecision(candidates: ExtractedCandidate[]): ExtractedCandidate[]` | src/module-decisions/extractor.ts | 1 |
 ## cli-packs
 
 | Symbol | Signature | File | Callers |
@@ -226,6 +226,8 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
 | createRagCommand | `createRagCommand(): Command` | src/cli/commands/rag.ts | 1 |
+| initializeRagIndex | `initializeRagIndex( projectRoot: string, options: InitializeRagIndexOptions` | src/cli/commands/rag.ts | 1 |
+| InitializeRagIndexOptions | `interface InitializeRagIndexOptions` | src/cli/commands/rag.ts | 0 |
 ## context-intelligence
 
 | Symbol | Signature | File | Callers |
@@ -277,8 +279,8 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| DeliveryShell | `interface DeliveryShell` | src/delivery/runner.ts | 5 |
-| createDeliveryShell | `createDeliveryShell(cwd: string): DeliveryShell` | src/delivery/shell.ts | 3 |
+| DeliveryShell | `interface DeliveryShell` | src/delivery/runner.ts | 7 |
+| createDeliveryShell | `createDeliveryShell(cwd: string): DeliveryShell` | src/delivery/shell.ts | 4 |
 | DetectedDelivery | `interface DetectedDelivery` | src/delivery/detection.ts | 3 |
 | HostProvider | `interface HostProvider` | src/providers/host-provider.ts | 3 |
 | NormalizedTicket | `interface NormalizedTicket` | src/providers/ticket-provider.ts | 3 |
@@ -299,7 +301,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | EcosystemParser | `interface EcosystemParser` | src/introspection/ecosystems/types.ts | 10 |
 | ParsedLockfile | `interface ParsedLockfile` | src/introspection/ecosystems/types.ts | 9 |
 | ParsedManifest | `interface ParsedManifest` | src/introspection/ecosystems/types.ts | 9 |
-| StackIntrospector | `StackIntrospector` | src/introspection/stack-introspector.ts | 6 |
+| StackIntrospector | `StackIntrospector` | src/introspection/stack-introspector.ts | 7 |
 | readJson | `readJson<T>(content: string): T / null` | src/introspection/ecosystems/shared.ts | 3 |
 | readJsonFile | `readJsonFile<T>( projectRoot: string, relativePath: string, ): Promise<T / null>` | src/introspection/parsers/shared.ts | 3 |
 | StackSnapshotCache | `StackSnapshotCache` | src/introspection/cache.ts | 3 |
@@ -315,7 +317,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| decodeReceiptStatement | `decodeReceiptStatement(envelope: ReceiptEnvelope): InTotoStatement / null` | src/evidence/receipt/project.ts | 4 |
+| decodeReceiptStatement | `decodeReceiptStatement(envelope: ReceiptEnvelope): InTotoStatement / null` | src/evidence/receipt/project.ts | 5 |
 | AiBomDocument | `interface AiBomDocument` | src/evidence/receipt/ai-bom.ts | 3 |
 | readReceiptChain | `readReceiptChain(projectRoot: string): ReceiptEnvelope[]` | src/evidence/receipt/project.ts | 3 |
 | buildAiBom | `buildAiBom(input: BuildAiBomInput): AiBomDocument` | src/evidence/receipt/ai-bom.ts | 2 |
@@ -325,11 +327,11 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | verifyReceiptChain | `verifyReceiptChain(envelopes: readonly ReceiptEnvelope[]): number / null` | src/evidence/receipt/dsse.ts | 2 |
 | buildEvidenceRow | `buildEvidenceRow(row: NewEvidenceRow): EvidenceLedgerRow` | src/evidence/ledger.ts | 1 |
 | detectSigningMode | `detectSigningMode(env: NodeJS.ProcessEnv): ReceiptSigningMode` | src/evidence/receipt/dsse.ts | 1 |
+| DSSE_PAYLOAD_TYPE | `DSSE_PAYLOAD_TYPE` | src/evidence/receipt/dsse.ts | 1 |
 | gradeGateResult | `gradeGateResult(result: GateResult): GradedGateResult` | src/evidence/grading.ts | 1 |
 | latestReceiptAuthorship | `latestReceiptAuthorship(projectRoot: string): ChangeAuthorship / null` | src/evidence/receipt/project.ts | 1 |
 | latestReceiptTrustExtras | `latestReceiptTrustExtras(projectRoot: string):` | src/evidence/receipt/project.ts | 1 |
-| appendEvidenceRows | `appendEvidenceRows(projectRoot: string, rows: readonly EvidenceLedgerRow[]): void` | src/evidence/ledger.ts | 0 |
-| BuildAiBomInput | `interface BuildAiBomInput` | src/evidence/receipt/ai-bom.ts | 0 |
+| pae | `pae(payloadType: string, payload: Buffer): Buffer` | src/evidence/receipt/dsse.ts | 1 |
 ## feature-development-workflow
 
 | Symbol | Signature | File | Callers |
@@ -348,29 +350,29 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| currentFeature | `currentFeature(projectRoot: string, sessionId: string): string / null` | src/feature-evidence/stage-ledger.ts | 13 |
-| featureFilePath | `featureFilePath(dirName: string, file: FeatureBundleFile): string` | src/feature-evidence/paths.ts | 8 |
+| currentFeature | `currentFeature(projectRoot: string, sessionId: string): string / null` | src/feature-evidence/stage-ledger.ts | 15 |
+| featureFilePath | `featureFilePath(dirName: string, file: FeatureBundleFile): string` | src/feature-evidence/paths.ts | 11 |
+| parseFeatureDirName | `parseFeatureDirName(dirName: string): FeatureDirName / null` | src/feature-evidence/paths.ts | 7 |
+| foldFeature | `foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange` | src/feature-evidence/stage-ledger.ts | 5 |
 | readFeatureStageUnit | `readFeatureStageUnit(projectRoot: string, dirName: string): SessionLedgerRow[]` | src/feature-evidence/stage-ledger.ts | 5 |
-| foldFeature | `foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange` | src/feature-evidence/stage-ledger.ts | 4 |
-| listFeatureDirs | `listFeatureDirs(projectRoot: string): string[]` | src/feature-evidence/delivery.ts | 4 |
-| parseFeatureDirName | `parseFeatureDirName(dirName: string): FeatureDirName / null` | src/feature-evidence/paths.ts | 4 |
+| readSessionControl | `readSessionControl( projectRoot: string, sessionId: string, now: () =>` | src/feature-evidence/session-control.ts | 4 |
 | appendFeatureStageRow | `appendFeatureStageRow( projectRoot: string, sessionId: string, dirName: string, row: Record<string, unknown>, now?: () =>` | src/feature-evidence/stage-ledger.ts | 3 |
+| featureDir | `featureDir(dirName: string): string` | src/feature-evidence/paths.ts | 3 |
 | FeatureLane | `type FeatureLane` | src/feature-evidence/types.ts | 3 |
-| FEATURE_DOC_TYPE | `FEATURE_DOC_TYPE` | src/feature-evidence/types.ts | 2 |
-| FEATURE_EVIDENCE_SCHEMA_VERSION | `FEATURE_EVIDENCE_SCHEMA_VERSION` | src/feature-evidence/types.ts | 2 |
-| installGitHooks | `installGitHooks(projectRoot: string): InstallGitHooksResult` | src/feature-evidence/git-hooks.ts | 2 |
-| NoActiveFeatureError | `NoActiveFeatureError extends Error` | src/feature-evidence/artifacts.ts | 2 |
-| PLAN_DOC_TYPE | `PLAN_DOC_TYPE` | src/feature-evidence/types.ts | 2 |
-| PlanRecord | `interface PlanRecord` | src/feature-evidence/types.ts | 2 |
-| PlanRisk | `interface PlanRisk` | src/feature-evidence/types.ts | 2 |
+| installGitHooks | `installGitHooks(projectRoot: string): InstallGitHooksResult` | src/feature-evidence/git-hooks.ts | 3 |
+| NoActiveFeatureError | `NoActiveFeatureError extends Error` | src/feature-evidence/artifacts.ts | 3 |
+| PlanReuse | `interface PlanReuse` | src/feature-evidence/reuse.ts | 3 |
+| writeFeatureReport | `writeFeatureReport( projectRoot: string, dirName: string, options: WriteFeatureReportOptions` | src/feature-evidence/report-writer.ts | 3 |
+| classifyBundlePath | `classifyBundlePath(relPath: string): BundlePathClassification / null` | src/feature-evidence/bundle-integrity.ts | 2 |
+| exportFeatureBundle | `exportFeatureBundle( projectRoot: string, dirName: string, exportedAt: string, ): FeatureBundleExport` | src/feature-evidence/export.ts | 2 |
 ## hybrid-rag
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| RagService | `RagService` | src/rag/service.ts | 10 |
+| RagService | `RagService` | src/rag/service.ts | 11 |
+| readGitState | `readGitState(projectRoot: string, options: GitStateOptions` | src/rag/git-state.ts | 7 |
 | FileVectorIndex | `FileVectorIndex<T extends StoredVectorItem` | src/rag/vector-index.ts | 5 |
 | ProviderFactory | `type ProviderFactory` | src/rag/types.ts | 5 |
-| readGitState | `readGitState(projectRoot: string, options: GitStateOptions` | src/rag/git-state.ts | 5 |
 | createEmbeddingProvider | `createEmbeddingProvider( projectRoot: string, intelligence: IntelligenceConfig, onProgress?: (update: ProviderProgressUpdate) =>` | src/rag/providers.ts | 4 |
 | CrsCollectionId | `type CrsCollectionId` | src/rag/types.ts | 4 |
 | EmbeddingProvider | `interface EmbeddingProvider` | src/rag/types.ts | 4 |
@@ -447,12 +449,14 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
+| OsvVulnerabilityRecord | `interface OsvVulnerabilityRecord` | src/pentest/osv.ts | 5 |
 | toLocalTimestamp | `toLocalTimestamp(date: Date): string` | src/pentest/shared.ts | 3 |
 | buildPentestMarkdown | `buildPentestMarkdown(report: PentestReportIndex): string` | src/pentest/report-builder.ts | 2 |
 | discoverTargetUrl | `discoverTargetUrl( projectRoot: string, stack: string, explicit?: string, ): Promise<string / null>` | src/pentest/shared.ts | 2 |
 | FileCheckMapper | `FileCheckMapper` | src/pentest/file-check-mapper.ts | 2 |
 | hashRelevantInputs | `hashRelevantInputs( projectRoot: string, workflow: PentestWorkflowName, extra: Record<string, string / string[] / null / undefined>` | src/pentest/shared.ts | 2 |
 | PentestProgressTracker | `PentestProgressTracker` | src/pentest/progress-tracker.ts | 2 |
+| queryOsv | `queryOsv(packages: InstalledPackage[]): Promise<OsvVulnerabilityRecord[]>` | src/pentest/osv.ts | 2 |
 | readJsonIfExists | `readJsonIfExists<T>(target: string): Promise<T / null>` | src/pentest/shared.ts | 2 |
 | remediationPriorities | `remediationPriorities(findings: PentestFinding[]): string[]` | src/pentest/report-builder.ts | 2 |
 | runArtifactsDir | `runArtifactsDir(projectRoot: string, runId: string): string` | src/pentest/progress-tracker.ts | 2 |
@@ -460,27 +464,25 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | runProjectScript | `runProjectScript( projectRoot: string, scriptName: string, env: Record<string, string>, logDir: string, ): Promise<ProjectScriptResult>` | src/pentest/shared.ts | 2 |
 | skillPath | `skillPath(name: string): string` | src/pentest/shared.ts | 2 |
 | summarizeCommandAvailability | `summarizeCommandAvailability(scriptResults: ProjectScriptResult[]): string[]` | src/pentest/shared.ts | 2 |
-| toolReferencePath | `toolReferencePath(stack: string): string` | src/pentest/shared.ts | 2 |
-| toReportId | `toReportId(prefix: 'PENTEST' / 'RETEST', date: Date): string` | src/pentest/shared.ts | 2 |
 ## project-profile-schema
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| readProjectProfile | `readProjectProfile(projectRoot: string): ProjectProfile / null` | src/core/project-profile.ts | 25 |
-| getRuntimeRoot | `getRuntimeRoot(): string` | src/core/runtime-paths.ts | 8 |
+| readProjectProfile | `readProjectProfile( projectRoot: string, options: ReadProjectProfileOptions` | src/core/project-profile.ts | 27 |
+| getRuntimeRoot | `getRuntimeRoot(): string` | src/core/runtime-paths.ts | 9 |
 | normalizeIntelligenceConfig | `normalizeIntelligenceConfig( input?: Partial<IntelligenceConfig> / null, ): IntelligenceConfig` | src/core/project-intelligence.ts | 8 |
 | writeProjectProfile | `writeProjectProfile( projectRoot: string, profile: ProjectProfileLike / ProjectProfile, auditMessage?: string, ): string` | src/core/project-profile.ts | 8 |
-| getDefaultEmbeddingModel | `getDefaultEmbeddingModel(provider: EmbeddingProviderName): string` | src/core/project-intelligence.ts | 4 |
-| getProfileDomain | `getProfileDomain( profile: Partial<Pick<ProjectProfile, 'active_capabilities' / 'stack_profile' / 'routing'>>, ): Domain` | src/core/project-profile.ts | 4 |
+| getDefaultEmbeddingModel | `getDefaultEmbeddingModel(provider: EmbeddingProviderName): string` | src/core/project-intelligence.ts | 5 |
+| getProfileDomain | `getProfileDomain( profile: Partial<Pick<ProjectProfile, 'active_capabilities' / 'stack_profile' / 'routing'>>, ): Domain` | src/core/project-profile.ts | 5 |
 | getRuntimeTemplatesRoot | `getRuntimeTemplatesRoot(): string` | src/core/runtime-paths.ts | 3 |
+| readExistingOnboardingManifest | `readExistingOnboardingManifest(projectRoot: string): OnboardingManifest / null` | src/onboarding/manifest-writer.ts | 2 |
 | sanitizeStackSnapshotRepository | `sanitizeStackSnapshotRepository<T extends` | src/onboarding/manifest-writer.ts | 2 |
 | writeDetectionReport | `writeDetectionReport(projectRoot: string, report: DetectionReport): string` | src/onboarding/manifest-writer.ts | 2 |
 | writeFrameworkMetadata | `writeFrameworkMetadata(projectRoot: string, version: string): void` | src/onboarding/manifest-writer.ts | 2 |
+| writeFrameworkVersionPreservingTimestamp | `writeFrameworkVersionPreservingTimestamp( path: string, version: string, now: string, ): void` | src/onboarding/manifest-writer.ts | 2 |
 | writeOnboardingManifest | `writeOnboardingManifest(projectRoot: string, manifest: OnboardingManifest): string` | src/onboarding/manifest-writer.ts | 2 |
 | writeProjectProfile | `writeProjectProfile(projectRoot: string, profile: ProjectProfile): string` | src/onboarding/manifest-writer.ts | 2 |
 | DEFAULT_BENCHMARK_GATES | `DEFAULT_BENCHMARK_GATES: BenchmarkGateConfig` | src/core/project-intelligence.ts | 1 |
-| DEFAULT_LOCAL_EMBEDDING_MODEL | `DEFAULT_LOCAL_EMBEDDING_MODEL = LOCAL_EMBEDDING_MODELS.find((model) =>` | src/core/project-intelligence.ts | 1 |
-| defaultIntelligenceConfig | `defaultIntelligenceConfig(): IntelligenceConfig` | src/core/project-intelligence.ts | 1 |
 ## quality-ratchet
 
 | Symbol | Signature | File | Callers |
@@ -504,7 +506,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| resolveSessionId | `resolveSessionId(projectRoot: string, hint?: string / null): string` | src/rag-ledger/session.ts | 24 |
+| resolveSessionId | `resolveSessionId(projectRoot: string, hint?: string / null): string` | src/rag-ledger/session.ts | 27 |
 | recordRagEvidence | `recordRagEvidence( projectRoot: string, kind: RagEvidenceKind, fields: RagEvidenceFields, ctx: RagEvidenceContext, ): RagEvidenceRow / null` | src/rag-ledger/recorder.ts | 4 |
 | RAG_EVIDENCE_DOC_TYPE | `RAG_EVIDENCE_DOC_TYPE` | src/rag-ledger/types.ts | 3 |
 | RagEvidenceKind | `type RagEvidenceKind` | src/rag-ledger/types.ts | 3 |
@@ -523,8 +525,8 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
+| Resolver | `Resolver` | src/resolver/resolver.ts | 4 |
 | ArtifactType | `type ArtifactType` | src/resolver/artifact-types.ts | 3 |
-| Resolver | `Resolver` | src/resolver/resolver.ts | 3 |
 | prefixRepositoryPath | `prefixRepositoryPath(root: string, relativePath: string): string` | src/repository/discovery.ts | 2 |
 | ARTIFACT_OUTPUT_KEYS | `ARTIFACT_OUTPUT_KEYS` | src/resolver/artifact-types.ts | 1 |
 | ARTIFACT_TYPES | `ARTIFACT_TYPES` | src/resolver/artifact-types.ts | 1 |
@@ -569,19 +571,19 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | --- | --- | --- | --- |
 | SessionLedgerRow | `interface SessionLedgerRow` | src/session-ledger/ledger.ts | 13 |
 | currentOrdinal | `currentOrdinal(projectRoot: string, docType: string, sessionId: string): number` | src/session-ledger/ledger.ts | 5 |
-| openSessionDoc | `openSessionDoc( projectRoot: string, docType: string, sessionId: string, openRow: Record<string, unknown>` | src/session-ledger/ledger.ts | 4 |
-| readUnitFile | `readUnitFile(projectRoot: string, unitRelPath: string): SessionLedgerRow[]` | src/session-ledger/ledger.ts | 4 |
+| openSessionDoc | `openSessionDoc( projectRoot: string, docType: string, sessionId: string, openRow: Record<string, unknown>` | src/session-ledger/ledger.ts | 5 |
+| readUnitFile | `readUnitFile(projectRoot: string, unitRelPath: string): SessionLedgerRow[]` | src/session-ledger/ledger.ts | 5 |
 | recordProjectEvent | `recordProjectEvent( projectRoot: string, docType: string, row: Record<string, unknown>, schemaVersion` | src/session-ledger/project-ledger.ts | 4 |
 | appendSessionEvent | `appendSessionEvent( projectRoot: string, docType: string, sessionId: string, ordinal: number, row: Record<string, unknown>` | src/session-ledger/ledger.ts | 3 |
 | appendStampedRowToUnit | `appendStampedRowToUnit( projectRoot: string, unitRelPath: string, stamped: SessionLedgerRow, ): void` | src/session-ledger/ledger.ts | 2 |
+| OpenSessionDocResult | `interface OpenSessionDocResult` | src/session-ledger/ledger.ts | 2 |
 | readLatestProjectEvent | `readLatestProjectEvent( projectRoot: string, docType: string, match: (row: SessionLedgerRow) =>` | src/session-ledger/project-ledger.ts | 2 |
 | readSessionDoc | `readSessionDoc( projectRoot: string, docType: string, sessionId: string, ): SessionLedgerRow[]` | src/session-ledger/ledger.ts | 2 |
 | sessionLedgerDir | `sessionLedgerDir(docType: string, sessionId: string): string` | src/session-ledger/ledger.ts | 2 |
 | stampSessionRow | `stampSessionRow( docType: string, sessionId: string, row: Record<string, unknown>, options: AppendOptions` | src/session-ledger/ledger.ts | 2 |
+| computeSessionRowHash | `computeSessionRowHash(row: Record<string, unknown>): string` | src/session-ledger/ledger.ts | 1 |
 | DISABLED_SESSION_DOC_TYPE | `DISABLED_SESSION_DOC_TYPE` | src/session-ledger/disabled-audit.ts | 1 |
 | foldByOrdinal | `foldByOrdinal(rows: readonly SessionLedgerRow[]): Map<number, SessionLedgerRow[]>` | src/session-ledger/ledger.ts | 1 |
-| OpenSessionDocResult | `interface OpenSessionDocResult` | src/session-ledger/ledger.ts | 1 |
-| readAllSessionRows | `readAllSessionRows(projectRoot: string, docType: string): SessionLedgerRow[]` | src/session-ledger/ledger.ts | 1 |
 ## skill-runtime
 
 | Symbol | Signature | File | Callers |
@@ -606,6 +608,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
 | compileRuleScripts | `compileRuleScripts(projectRoot: string): CompileRuleScriptsResult` | src/rule-scripts/compile.ts | 2 |
+| writeRuleContext | `writeRuleContext( projectRoot: string, options: WriteRuleContextOptions` | src/context/rule-context.ts | 2 |
 | createRulesCommand | `createRulesCommand(): Command` | src/cli/commands/rules.ts | 1 |
 | enforceRuleScripts | `enforceRuleScripts(options: EnforceOptions): Promise<EnforcementResult>` | src/rule-scripts/enforce.ts | 1 |
 | generateRuleManifest | `generateRuleManifest( store: CompiledRulesStore, options: RuleManifestOptions` | src/context/rule-manifest.ts | 1 |
@@ -615,7 +618,6 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | refreshRuleContext | `refreshRuleContext( projectRoot: string, options: WriteRuleContextOptions` | src/context/rule-context.ts | 1 |
 | ruleTriggersMatch | `ruleTriggersMatch( rule: Pick<CompiledRule, 'trigger_patterns'>, paths: readonly string[], ): boolean` | src/pipeline/rule-trigger-matcher.ts | 1 |
 | scriptedSourcePaths | `scriptedSourcePaths(map: RuleScriptMap / null): Set<string>` | src/context/rule-manifest.ts | 1 |
-| writeRuleContext | `writeRuleContext( projectRoot: string, options: WriteRuleContextOptions` | src/context/rule-context.ts | 1 |
 | CompileRuleScriptsResult | `interface CompileRuleScriptsResult` | src/rule-scripts/compile.ts | 0 |
 | composeRuleContext | `composeRuleContext( store: CompiledRulesStore, options: ComposeRuleContextOptions` | src/context/rule-context.ts | 0 |
 | ComposeRuleContextOptions | `interface ComposeRuleContextOptions` | src/context/rule-context.ts | 0 |
@@ -624,9 +626,9 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| getPrimaryStack | `getPrimaryStack( profile: Partial<Pick<ProjectProfile, 'active_capabilities' / 'routing' / 'stack_profile'>> / undefined, ): Stack` | src/core/stack-profile.ts | 13 |
+| getPrimaryStack | `getPrimaryStack( profile: Partial<Pick<ProjectProfile, 'active_capabilities' / 'routing' / 'stack_profile'>> / undefined, ): Stack` | src/core/stack-profile.ts | 14 |
+| getLegacyCapabilities | `getLegacyCapabilities( profile: Partial<Pick<ProjectProfile, 'routing' / 'stack_profile'>> / undefined, ): Capability[]` | src/core/stack-profile.ts | 4 |
 | Detector | `Detector` | src/detection/detector.ts | 3 |
-| getLegacyCapabilities | `getLegacyCapabilities( profile: Partial<Pick<ProjectProfile, 'routing' / 'stack_profile'>> / undefined, ): Capability[]` | src/core/stack-profile.ts | 3 |
 | buildDetectedStackProfile | `buildDetectedStackProfile(input:` | src/core/stack-profile.ts | 2 |
 | buildDetectionReport | `buildDetectionReport(input: BuildDetectionReportInput): DetectionReport` | src/detection/report.ts | 2 |
 | summarizeStack | `summarizeStack(profile: DetectedStackProfile): string` | src/core/stack-profile.ts | 2 |

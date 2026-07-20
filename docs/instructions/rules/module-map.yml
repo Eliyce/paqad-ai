@@ -64,12 +64,19 @@ modules:
       symbols:
         - BootstrapOptions
         - ConsumerCompatibility
+        - DecisionIdMigration
         - EngineVersionReport
         - EntryStub
         - EntryStubWireResult
         - FrameworkUpdater
         - FrameworkUpdaterOptions
         - InstallResult
+        - JOIN_NOT_ONBOARDED_MESSAGE
+        - JOIN_RAG_BUILDING_MESSAGE
+        - JOIN_RAG_OFF_MESSAGE
+        - JOIN_RAG_PRESENT_MESSAGE
+        - JOIN_READY_MESSAGE
+        - JoinProjectOptions
         - MANAGED_HEADER
         - MIN_CONSUMER_VERSION
         - ModuleFeatureEntry
@@ -95,10 +102,12 @@ modules:
         - buildNarrationContractDocument
         - compareConsumerCompatibility
         - createInstallCommand
+        - createJoinCommand
         - createOnboardCommand
         - createRefreshCommand
         - createUpdateCommand
         - deleteOnboardingCheckpoint
+        - deriveRecordedProviders
         - discoverBusinessModules
         - discoverModules
         - enableRagDuringOnboarding
@@ -112,7 +121,9 @@ modules:
         - generateReferenceGuides
         - getEngineVersionReport
         - getStackPromptChoices
+        - joinProject
         - loadModuleMap
+        - migrateLegacyDecisionIds
         - normalizeEngineVersion
         - readOnboardingCheckpoint
         - refreshProjectRules
@@ -186,7 +197,9 @@ modules:
         name: rag eval
     evidence:
       symbols:
+        - InitializeRagIndexOptions
         - createRagCommand
+        - initializeRagIndex
 
   - slug: cli-graph
     name: Project Graph Command
@@ -481,6 +494,7 @@ modules:
         - ChecklistStep
         - CodeEditor
         - CodeEditorLang
+        - CodebaseHealthResult
         - CommandPalette
         - ConflictPanel
         - DASHBOARD_ACTOR
@@ -623,6 +637,7 @@ modules:
         - buildReport
         - collectArchitecture
         - collectAttestation
+        - collectCodebaseHealth
         - collectDecisions
         - collectDelivery
         - collectDocsArea
@@ -1227,6 +1242,7 @@ modules:
         - readJson
         - readJsonFile
         - readProjectFile
+        - readStackSnapshotSync
         - readTextFile
         - resetGeneratingEntries
         - rubyParser
@@ -1666,6 +1682,7 @@ modules:
         - CodebaseMemoryEntry
         - CodebaseMemoryStore
         - CohereReranker
+        - ComposeExistingSurfaceOptions
         - ComposeMemoryOptions
         - ContextBudgetEnforcer
         - ContextBudgetOptimizer
@@ -1678,11 +1695,15 @@ modules:
         - DepthRoutingInput
         - DifferentialRefresh
         - DistillOptions
+        - EXISTING_SURFACE_FRAMING
+        - EXISTING_SURFACE_HEADING
         - EvictionResult
+        - ExistingSurfaceCard
         - FileReader
         - FileRegistryMapper
         - FilterFallbackReason
         - FusionDiagnostic
+        - GatherExistingSurfaceOptions
         - HEURISTIC_TOKENIZER_VERSION
         - HitTrackerInput
         - InferenceCompleteOptions
@@ -1733,6 +1754,7 @@ modules:
         - castMerge
         - clearTokenizerCache
         - composeContextPack
+        - composeExistingSurfaceSection
         - composeMemorySection
         - computeContextHash
         - createDriftDelta
@@ -1746,6 +1768,7 @@ modules:
         - evaluateRetrievalGate
         - gateRetrieval
         - gatherCodebaseMemory
+        - gatherExistingSurface
         - getOrLoad
         - loadCodebaseMemory
         - locateLineRange
@@ -1754,6 +1777,7 @@ modules:
         - recordCodebaseMemory
         - resolveActiveLineage
         - runRoutingDecision
+        - selectCandidateFiles
         - selectRetrievalDepth
         - topNForDepth
         - upsertMemoryEntry
@@ -2496,6 +2520,7 @@ modules:
         - formatStageEvidenceReceipt
         - formatVerdictSummary
         - identity
+        - inconclusiveChecksGate
         - readChecksReport
         - runChecks
         - runRepositoryVerification
@@ -2660,8 +2685,12 @@ modules:
       - src/feature-evidence
     evidence:
       symbols:
+        - ALLOWED_BUNDLE_FILENAMES
         - BuildFeatureRecordInput
         - BuildPlanRecordInput
+        - BuildReviewRecordInput
+        - BundlePathClassification
+        - CREATE_KEYWORDS
         - CompiledArtifact
         - DELIVERY_DOC_TYPE
         - DELIVERY_SCHEMA_VERSION
@@ -2679,51 +2708,88 @@ modules:
         - FeatureRecord
         - FeatureSessionControl
         - FeatureStatus
+        - FrameworkChecked
         - GIT_HOOK_MARKER
+        - INDEX_ABSENT_WARNING
         - InstallGitHooksResult
         - MintFeatureDirNameInput
         - MintedFeatureDirName
+        - NewConstruct
         - NoActiveFeatureError
         - OpenFeatureChangeInput
         - PLAN_DOC_TYPE
         - PLAN_SCHEMA
         - PlanCompileInput
         - PlanRecord
+        - PlanReuse
         - PlanRisk
         - PlanStep
         - ProjectFeatureReceiptInput
         - ProjectFeatureReceiptResult
         - PruneResult
+        - REVIEW_DOC_TYPE
+        - REVIEW_SCHEMA
         - RULE_RUN_DOC_TYPE
         - RULE_RUN_SCHEMA_VERSION
+        - ReceiptIntegrity
+        - RenderFeatureReportOptions
         - ResolveFeatureInput
+        - ReuseClaim
+        - ReuseConsulted
+        - ReuseConsultedSource
+        - ReuseCounts
+        - ReuseDeclarationError
+        - ReuseProvenance
+        - ReuseValidation
+        - ReviewFinding
+        - ReviewFindingSeverity
+        - ReviewRecord
+        - ReviewRecordInput
+        - ReviewVerdict
         - RuleRunEntry
+        - SNAPSHOT_ABSENT_WARNING
         - SetActiveOptions
+        - SlugBackfillResult
+        - UNTITLED_FEATURE_TITLE
+        - ValidateReuseInput
+        - WriteFeatureReportOptions
+        - WriteFeatureReportResult
         - appendCommitToFeature
         - appendFeatureStageRow
         - appendRuleRun
+        - backfillFeatureSlug
         - buildFeatureRecord
         - buildPlanRecord
+        - buildReviewRecord
         - chatDir
         - chatRagPath
+        - classifyBundlePath
         - closeActiveFeature
         - commitsSinceBase
         - computeContentHash
         - currentFeature
+        - deriveReportVerdict
         - emptyControl
         - exportFeatureBundle
+        - featureBranch
         - featureDir
         - featureEvidenceDir
         - featureFilePath
+        - featureReportEnabled
+        - featureReportPath
         - featureSessionControlPath
         - featureStagePath
         - foldFeature
+        - formatDuration
         - formatFeatureDirName
         - formatValidationError
         - hookBlock
         - installGitHooks
+        - isBundleMaterialized
         - isFeatureDirName
+        - listAdoptableFeatures
         - listFeatureDirs
+        - listInFlightFeatures
         - markDone
         - mintFeatureDirName
         - mirrorRagRow
@@ -2741,26 +2807,37 @@ modules:
         - readFeatureDelivery
         - readFeaturePlan
         - readFeatureReceipt
+        - readFeatureReview
         - readFeatureSpecification
         - readFeatureStageUnit
         - readRuleRun
         - readSessionControl
         - reconcileDeliveryFromGit
+        - reconcileSessionControl
         - recordCommitForBranch
+        - renderFeatureReportHtml
         - resolveActiveFeature
         - resolveDeliveryFeatureByBranch
         - resolveFeatureRef
         - resolveHooksDir
         - resolveRagHome
+        - resolveReportFeatureRef
         - resumeFeature
         - resumeFeatureByRef
+        - reuseCounts
         - setActiveFeature
         - setLane
         - stampMergeCommit
+        - strayBundleFiles
         - validateFeatureRecord
         - validatePlanRecord
+        - validateReuseSection
+        - validateReviewRecord
+        - verifyFeatureReceiptSelf
         - writeFeatureDelivery
         - writeFeaturePlan
+        - writeFeatureReport
+        - writeFeatureReview
         - writeFeatureSpecification
         - writeSessionControl
 
@@ -2812,6 +2889,7 @@ modules:
         - mapAuditEventToEvidence
         - mapFallbackReason
         - openRagConversation
+        - persistLedgerSessionId
         - recordRagEvidence
         - recordRagEvidenceFromAudit
         - recordSeamOutcome
@@ -2981,12 +3059,14 @@ modules:
         - DEFAULT_ADAPTIVE_RETRIEVAL
         - DEFAULT_BENCHMARK_EVAL
         - DEFAULT_BENCHMARK_GATES
+        - DEFAULT_EXISTING_SURFACE_TOKENS
         - DEFAULT_LOCAL_EMBEDDING_MODEL
         - DEFAULT_METADATA_FILTERS
         - DEFAULT_RERANKING
         - EMBEDDING_PROVIDERS
         - LOCAL_EMBEDDING_MODELS
         - LocalEmbeddingModel
+        - ReadProjectProfileOptions
         - defaultIntelligenceConfig
         - getDefaultEmbeddingModel
         - getPackageRoot
