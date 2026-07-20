@@ -98,7 +98,7 @@
     "ajv": "^8.20.0",
     "chalk": "^5.4.1",
     "commander": "^15.0.0",
-    "execa": "^9.6.0",
+    "execa": "^10.0.0",
     "fast-glob": "^3.3.3",
     "handlebars": "^4.7.9",
     "openai": "^6.48.0",
