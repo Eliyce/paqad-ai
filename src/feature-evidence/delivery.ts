@@ -8,14 +8,18 @@
 // record rather than throwing.
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { PATHS } from '@/core/constants/paths.js';
 import { readGitState } from '@/rag/git-state.js';
 
-import { featureFilePath, isFeatureDirName, parseFeatureDirName } from './paths.js';
+import { listFeatureDirs } from './enumerate.js';
+import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { currentFeature } from './stage-ledger.js';
+
+// Re-exported from its leaf home (issue #404) so every existing `delivery.js` importer
+// keeps working while `adoption.ts` can reach it without closing an import cycle.
+export { listFeatureDirs };
 
 /** Doc type stamped on a `delivery.json` record. */
 export const DELIVERY_DOC_TYPE = 'paqad.delivery';
@@ -190,18 +194,6 @@ export function stampMergeCommit(
  *  does not parse (defensive — every listed dir is a validated feature name). */
 function ulidOf(dirName: string): string {
   return parseFeatureDirName(dirName)?.ulid ?? dirName;
-}
-
-/** Every feature dir name under the evidence container (excludes `_session`/junk). */
-export function listFeatureDirs(projectRoot: string): string[] {
-  try {
-    return readdirSync(join(projectRoot, PATHS.FEATURE_EVIDENCE_DIR), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && isFeatureDirName(entry.name))
-      .map((entry) => entry.name)
-      .sort();
-  } catch {
-    return [];
-  }
 }
 
 /**

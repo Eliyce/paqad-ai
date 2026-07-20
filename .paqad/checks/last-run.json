@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-18T10:52:46.498Z",
+  "generated_at": "2026-07-20T06:24:07.503Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-18T10:51:05.148Z",
+        "timestamp": "2026-07-20T06:22:19.673Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -35,9 +35,16 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".junie/mcp/mcp.json",
+          ".changeset/wild-donkeys-hammer.md",
           ".paqad/.config.example",
-          ".paqad/configs/.config.rag"
+          ".paqad/checks/last-run.json",
+          ".paqad/configs/.config.rag",
+          ".paqad/decisions/resolved/D-01KXY55ZM70Y3JNDM8E0XC7WSX.json",
+          "docs/modules/feature-evidence/index/summary.md",
+          "src/feature-evidence/adoption.ts",
+          "src/feature-evidence/stage-ledger.ts",
+          "src/stage-evidence/schema.ts",
+          "tests/unit/feature-evidence/adoption.test.ts"
         ]
       }
     },
@@ -50,7 +57,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-18T10:52:37.360Z",
+        "timestamp": "2026-07-20T06:23:56.553Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -72,9 +79,16 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".junie/mcp/mcp.json",
+          ".changeset/wild-donkeys-hammer.md",
           ".paqad/.config.example",
-          ".paqad/configs/.config.rag"
+          ".paqad/checks/last-run.json",
+          ".paqad/configs/.config.rag",
+          ".paqad/decisions/resolved/D-01KXY55ZM70Y3JNDM8E0XC7WSX.json",
+          "docs/modules/feature-evidence/index/summary.md",
+          "src/feature-evidence/adoption.ts",
+          "src/feature-evidence/stage-ledger.ts",
+          "src/stage-evidence/schema.ts",
+          "tests/unit/feature-evidence/adoption.test.ts"
         ]
       }
     },
@@ -87,7 +101,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-18T10:52:46.498Z",
+        "timestamp": "2026-07-20T06:24:07.503Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -109,9 +123,16 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".junie/mcp/mcp.json",
+          ".changeset/wild-donkeys-hammer.md",
           ".paqad/.config.example",
-          ".paqad/configs/.config.rag"
+          ".paqad/checks/last-run.json",
+          ".paqad/configs/.config.rag",
+          ".paqad/decisions/resolved/D-01KXY55ZM70Y3JNDM8E0XC7WSX.json",
+          "docs/modules/feature-evidence/index/summary.md",
+          "src/feature-evidence/adoption.ts",
+          "src/feature-evidence/stage-ledger.ts",
+          "src/stage-evidence/schema.ts",
+          "tests/unit/feature-evidence/adoption.test.ts"
         ]
       }
     }

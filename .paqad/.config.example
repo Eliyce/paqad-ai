@@ -64,6 +64,8 @@
 # rag_max_file_size=153600
 # Base branch for branch-aware RAG. Unset auto-detects main->master. (env: PAQAD_RAG_BASE_BRANCH)
 # rag_base_branch=
+# Token budget for the feature-development "Existing surface" planning digest (existing symbols the model should reuse). Cards drop by rank past this budget. (env: PAQAD_EXISTING_SURFACE_TOKENS)
+# existing_surface_tokens=1000
 
 # ── Research & model routing ────────────────────────────────
 # cutting-edge | standard | conservative. (env: PAQAD_RESEARCH_DEPTH)

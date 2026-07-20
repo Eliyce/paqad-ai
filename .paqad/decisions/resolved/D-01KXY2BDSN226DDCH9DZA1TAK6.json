@@ -1,0 +1,22 @@
+{
+  "id": "D-01KXY2BDSN226DDCH9DZA1TAK6",
+  "category": "spec.contradiction",
+  "title": "FR-2 clears a legitimately-active bundle that has no rows yet",
+  "context": "Frozen spec S-404 FR-2 says a session-control pointer naming a bundle dir that does not exist must be dropped from active and paused. Implementing it broke 6 existing tests, and they are right: resolveActiveFeature(title) mints a feature and sets it active WITHOUT writing a stage row, so a freshly minted pointer legitimately names an unmaterialized dir until the first row lands. Clearing it there loses the active change. Separately, closeActiveFeature() alone clears the pointer but writes no close row, so adoption resurrects a change the session had explicitly finished.",
+  "options": [
+    {
+      "option_key": "narrow-fr2",
+      "label": "Repoint only: never clear a dangling pointer unless there is exactly one in-flight bundle to adopt instead. Also make closeActiveFeature append the close row so 'closed' is durable on the ledger, not just in one session control."
+    },
+    {
+      "option_key": "keep-fr2",
+      "label": "Keep clearing every dangling pointer and instead materialize the bundle at mint time, so a pointer always names a real dir."
+    }
+  ],
+  "recommendation": "narrow-fr2",
+  "created_at": "2026-07-19T20:51:14.357Z",
+  "status": "resolved",
+  "chosen": "narrow-fr2",
+  "rationale": "Repoint-only preserves the mint window (a freshly minted pointer legitimately names an unmaterialized dir); durable close rows make 'closed' session-independent so adoption cannot resurrect a finished change.",
+  "resolved_at": "2026-07-19T21:04:03.415Z"
+}

@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readGitState } from '@/rag/git-state.js';
 import {
   appendStampedRowToUnit,
   readUnitFile,
@@ -26,6 +27,7 @@ import {
   type FoldedChange,
 } from '@/stage-evidence/types.js';
 
+import { reconcileSessionControl } from './adoption.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import {
@@ -54,6 +56,11 @@ export interface ResolveFeatureInput {
  * it returns the active feature, or — when none is active — mints an untitled
  * `change-<ULID>` feature so a stage call never lands on nothing (mirrors the legacy
  * auto-open). The minted feature is set active in the `_session` control.
+ *
+ * The lookup goes through `reconcileSessionControl` (issue #404) rather than reading the
+ * control raw, so a session-id rotation mid-change ADOPTS the in-flight bundle instead of
+ * minting a second one and orphaning the first. A dangling pointer (a bundle dir that was
+ * never materialized) is cleared by the same pass.
  */
 export function resolveActiveFeature(
   projectRoot: string,
@@ -63,9 +70,9 @@ export function resolveActiveFeature(
   if (input.title !== undefined) {
     return mintAndActivate(projectRoot, sessionId, input.title, input);
   }
-  const control = readSessionControl(projectRoot, sessionId, input.now);
-  if (control.active) {
-    return control.active;
+  const active = reconcileSessionControl(projectRoot, sessionId, input.now);
+  if (active) {
+    return active;
   }
   return mintAndActivate(projectRoot, sessionId, UNTITLED_FEATURE_TITLE, input);
 }
@@ -153,13 +160,20 @@ function bundleFileNonEmpty(
 }
 
 /**
- * The active feature dir name for this session, or `null` when none is active. READ
- * ONLY — it never mints, so a reader (the pre-mutation gate, the narrator) sees "no
- * open change" as `null` rather than accidentally creating a feature. The feature-dir
- * analogue of the legacy `currentOrdinal(...) > 0` probe.
+ * The active feature dir name for this session, or `null` when none is active. NEVER
+ * MINTS, so a reader (the pre-mutation gate, the narrator, the finalizer) sees "no open
+ * change" as `null` rather than accidentally creating a feature. The feature-dir analogue
+ * of the legacy `currentOrdinal(...) > 0` probe.
+ *
+ * It resolves through `reconcileSessionControl` (issue #404), which may REPOINT the
+ * session control at an in-flight bundle that already exists — so a session-id rotation
+ * is carried over on the read paths too, not just when a stage mints. That is a write,
+ * but never a mint: no bundle is created, and every name it can return already holds
+ * stage evidence on disk. Without it the finalizer would read `null` after a rotation and
+ * write its inferred-git backstop into a fresh bundle — forking the change a second time.
  */
 export function currentFeature(projectRoot: string, sessionId: string): string | null {
-  return readSessionControl(projectRoot, sessionId).active;
+  return reconcileSessionControl(projectRoot, sessionId);
 }
 
 export interface OpenFeatureChangeInput extends ResolveFeatureInput {
@@ -187,7 +201,15 @@ export function openFeatureChange(
       projectRoot,
       sessionId,
       dirName,
-      { kind: 'open', adapter: input.adapter, lane: input.lane ?? null },
+      {
+        kind: 'open',
+        adapter: input.adapter,
+        lane: input.lane ?? null,
+        // The branch this change is being built on (issue #404). Read once, here, so a
+        // rotated session can recognise its own in-flight bundle from row 1 — a session
+        // id rotates, a branch does not. `null` off a branch (detached HEAD, non-git).
+        branch: readGitState(projectRoot).branch ?? null,
+      },
       input.now,
     );
   }
@@ -199,12 +221,51 @@ export function openFeatureChange(
  * `closeSessionOrdinal`. Clears `active` in the `_session` control (via `markDone`) so
  * the NEXT stage/edit opens a fresh feature; the bundle's rows stay on disk as the
  * closed change's record. A no-op when nothing is active.
+ *
+ * The bundle is also stamped with a `kind:'close'` row when it does not already carry
+ * one (issue #404). Clearing one session's pointer used to be the ONLY record that a
+ * change was finished, which is invisible to every other session — so cross-session
+ * adoption would read the bundle as still in flight and resurrect it. Writing the row
+ * makes "closed" durable on the ledger itself. Idempotent: the finalizer appends its own
+ * close row first (carrying the verdict), and this skips when one is present.
  */
 export function closeActiveFeature(projectRoot: string, sessionId: string, now?: () => Date): void {
   const active = currentFeature(projectRoot, sessionId);
-  if (active) {
-    markDone(projectRoot, sessionId, active, now);
+  if (!active) {
+    return;
   }
+  const rows = readFeatureStageUnit(projectRoot, active);
+  // An unmaterialized bundle (no rows) is not in flight, so nothing can adopt it and it
+  // needs no close row — stamping one would materialize an empty bundle just to close it.
+  const adapter = lastAdapter(rows);
+  if (adapter !== null && !rows.some((row) => row.kind === 'close')) {
+    appendFeatureStageRow(
+      projectRoot,
+      sessionId,
+      active,
+      {
+        kind: 'close',
+        // The adapter is required on every row; inherit it from the bundle's own rows so
+        // the close row is attributed to the host that actually recorded the change.
+        adapter,
+        event_status: 'completed',
+        note: 'closed; active pointer released',
+      },
+      now,
+    );
+  }
+  markDone(projectRoot, sessionId, active, now);
+}
+
+/** The adapter on the most recent row that carries one; null for an empty bundle. */
+function lastAdapter(rows: readonly SessionLedgerRow[]): string | null {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const adapter = rows[i]!.adapter;
+    if (typeof adapter === 'string' && adapter.length > 0) {
+      return adapter;
+    }
+  }
+  return null;
 }
 
 /**

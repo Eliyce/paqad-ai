@@ -44,6 +44,12 @@ export const STAGE_EVIDENCE_SCHEMA = {
     artifact_digest: nullableString,
     subject_digest: nullableString,
     lane: { type: ['string', 'null'], enum: ['fast', 'graduated', 'full', null] },
+    // The git branch the change is being built on, stamped on the `open` row (issue
+    // #404). A session-id rotation does not change the branch, so this is what lets a
+    // rotated session tell ITS in-flight bundle apart from every other open one.
+    // Optional and nullable: rows written before it existed, and non-git projects,
+    // carry no branch and still validate.
+    branch: nullableString,
     note: nullableString,
     content_hash: { type: 'string', minLength: 1 },
   },

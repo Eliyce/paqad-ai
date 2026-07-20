@@ -41,6 +41,16 @@ async function main(input) {
       const distUrl = new URL('../../dist/rag-ledger/session.js', import.meta.url);
       const { persistLedgerSessionId } = await import(distUrl.href);
       persistLedgerSessionId(projectRoot, hostSessionId);
+
+      // Carry an in-flight change across a session-id rotation (issue #404). A rotated
+      // id reads a FRESH `_session` control, so without this the next stage/edit mints a
+      // second bundle and orphans the one the change is already recorded in. Reconciling
+      // here repoints the new session at the in-flight bundle (and clears a pointer at a
+      // bundle dir that was never materialized) before the agent runs anything. Never
+      // mints — with nothing in flight, or several, it leaves the control alone.
+      const adoptUrl = new URL('../../dist/feature-evidence/adoption.js', import.meta.url);
+      const { reconcileSessionControl } = await import(adoptUrl.href);
+      reconcileSessionControl(projectRoot, hostSessionId);
     }
   } catch {
     // best-effort; never fail a session start over cache alignment.

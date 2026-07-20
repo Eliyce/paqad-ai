@@ -1,0 +1,30 @@
+{
+  "id": "D-01KXY55ZM70Y3JNDM8E0XC7WSX",
+  "category": "architecture-path",
+  "title": "How 'in-flight' is scoped for session-rotation bundle adoption (#404)",
+  "context": "Review of the #404 fix found it inert on any real repo. listInFlightFeatures = every materialized bundle with no kind:'close' row; adoption requires exactly ONE. This repo has 13 such bundles (historical changes never got a close row, since only the finalizer's passing verdict wrote one), so reconcileSessionControl returns null for a rotated session and the caller mints a second bundle - the #404 defect, unfixed. The new close row in closeActiveFeature only helps changes closed from now on; it does not retro-close history. Need a scoping signal that actually identifies THE change a rotated session was mid-way through.",
+  "options": [
+    {
+      "option_key": "prior-session",
+      "label": "Adopt the bundle named by the most-recently-updated OTHER session control, within a recency window (matches the RCA's own wording)"
+    },
+    {
+      "option_key": "branch-scoped",
+      "label": "Scope in-flight to the current git branch - stamp branch on the bundle's open row; a session rotation never changes the branch (deterministic, no clock heuristic)"
+    },
+    {
+      "option_key": "most-recent",
+      "label": "Drop the exactly-one guard - adopt the in-flight bundle with the newest stage row, within a recency window"
+    },
+    {
+      "option_key": "ship-as-is",
+      "label": "Ship as built (correct only where <=1 bundle is un-closed) and open a follow-up issue"
+    }
+  ],
+  "recommendation": "branch-scoped",
+  "created_at": "2026-07-19T21:40:41.735Z",
+  "status": "resolved",
+  "chosen": "branch-scoped",
+  "rationale": "A session-id rotation never changes the git branch, so the branch is the one stable, deterministic identifier for 'the change this session was mid-way through'. No clock heuristic, no magic time constant, no new knob. Stamping branch on the open row makes it known from row 1; delivery.json's branch is the fallback for bundles opened before the field existed. On this repo it resolves 13 ambiguous candidates down to exactly the 404 bundle.",
+  "resolved_at": "2026-07-19T21:42:57.550Z"
+}
