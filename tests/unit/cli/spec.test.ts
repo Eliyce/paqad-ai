@@ -298,8 +298,8 @@ describe('paqad-ai spec command', () => {
   // stage instructions live in two surfaces (the default policy object and the rendered
   // YAML a project is onboarded with) and previously duplicated every line verbatim.
   it('both contract surfaces describe the review freeze actually runs (AC-7)', () => {
-    const fromPolicy = defaultFeatureDevelopmentPolicy()
-      .stages.specification.instructions.join('\n');
+    const fromPolicy =
+      defaultFeatureDevelopmentPolicy().stages.specification.instructions.join('\n');
     const fromYaml = renderDefaultFeatureDevelopmentPolicyYaml();
 
     for (const surface of [fromPolicy, fromYaml]) {
