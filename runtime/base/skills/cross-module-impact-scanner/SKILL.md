@@ -3,7 +3,9 @@ name: cross-module-impact-scanner
 description: Pre-implementation scan that classifies how a proposed change affects each consuming module's public surface and recommends coordinated changes.
 model_tier: reasoning
 triggers:
-  - process_depth:
+  - workflow:
+      - feature-development
+    process_depth:
       - graduated lane
       - full lane
   - api_impact:
