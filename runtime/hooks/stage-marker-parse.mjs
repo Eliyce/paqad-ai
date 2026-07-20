@@ -10,10 +10,10 @@
 // Thin by contract (parse logic lives in dist/stage-evidence/marker-parse.js):
 // drain stdin → parse payload → lazy-import → record → exit 0. Claude-only.
 
-import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { transcriptTextFromStdin } from './lib/transcript.mjs';
 
 async function main(input) {
   try {
@@ -27,16 +27,8 @@ async function main(input) {
       /* v8 ignore next */
       return 0;
     }
-    const transcriptPath = payload?.transcript_path ?? null;
-    if (!transcriptPath) return 0;
-
-    let transcriptText;
-    try {
-      transcriptText = readFileSync(transcriptPath, 'utf8');
-    } catch {
-      /* v8 ignore next */
-      return 0;
-    }
+    const transcriptText = transcriptTextFromStdin(input);
+    if (!transcriptText) return 0;
 
     const distUrl = new URL('../../dist/stage-evidence/marker-parse.js', import.meta.url);
     const narrationUrl = new URL('../../dist/stage-evidence/narration.js', import.meta.url);
