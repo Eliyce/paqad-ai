@@ -139,6 +139,114 @@ describe('paqad-ai spec command', () => {
     expect(err.join('\n')).toMatch(/could not read spec file/);
   });
 
+  // Issue #401 — the freeze contract promised "no critical spec-review defects" while the
+  // command evaluated the freeze with no review at all, so the clause was enforced nowhere.
+  describe('spec-quality review runs inside freeze (issue #401)', () => {
+    // The contradiction detector's critical case: a denominator-exclusion rule beside a
+    // formula that still divides by total.
+    const CRITICAL_SPEC = [
+      '# Ratio spec',
+      '',
+      '## Functional requirements',
+      '- FR-1: Indeterminate obligations are excluded from the denominator.',
+      '- FR-2: The score is reported as compliance_ratio = covered / total.',
+      '',
+      '## Acceptance criteria',
+      '- AC-1: given a report, when rendered, then it shows the ratio. (proof: automated)',
+      '',
+      '## Invariants',
+      '- INV-1: The ratio is never negative.',
+      '',
+    ].join('\n');
+
+    function activeFeature(session: string): void {
+      openFeatureChange(root, session, {
+        adapter: 'claude-code',
+        title: 'Freeze runs the review',
+        issue: '401',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      });
+    }
+
+    it('blocks the freeze on an open critical spec-review defect (AC-1)', async () => {
+      const SES = 'ses_spec_401_critical';
+      activeFeature(SES);
+      const path = writeSpec('S-401-critical.md', CRITICAL_SPEC);
+      const { err } = await run('freeze', path, '--confirm-invariants', '--session', SES);
+
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toMatch(/Critical spec-review defect open: SQ-/);
+      // Nothing frozen, and the source survives so the defect can be fixed.
+      const dir = currentFeature(root, SES)!;
+      expect(readFeatureSpecification(root, dir)).toBeNull();
+      expect(existsSync(path)).toBe(true);
+    });
+
+    it('never writes a standalone spec-review report (AC-1, AC-2)', async () => {
+      const SES = 'ses_spec_401_noartifact';
+      activeFeature(SES);
+      // Run both paths: the blocked freeze and the clean one.
+      await run(
+        'freeze',
+        writeSpec('S-401-blocked.md', CRITICAL_SPEC),
+        '--confirm-invariants',
+        '--session',
+        SES,
+      );
+      process.exitCode = undefined;
+      await run(
+        'freeze',
+        writeSpec('S-401-clean.md', COMPLETE_SPEC),
+        '--confirm-invariants',
+        '--session',
+        SES,
+      );
+      // The stray artifact this issue was filed over is never produced by the freeze.
+      expect(existsSync(join(root, '.paqad', 'compliance'))).toBe(false);
+    });
+
+    it('freezes over non-critical findings and records the defect summary (AC-2)', async () => {
+      const SES = 'ses_spec_401_summary';
+      activeFeature(SES);
+      // "always"/"never" on a shared subject is a MAJOR contradiction — it must not block.
+      const path = writeSpec(
+        'S-401-major.md',
+        [
+          '# Widget spec',
+          '',
+          '## Functional requirements',
+          '- FR-1: The `widget` always renders a greeting.',
+          '- FR-2: The `widget` never renders a greeting for an anonymous user.',
+          '',
+          '## Acceptance criteria',
+          '- AC-1: given a name, when rendered, then it greets the name. (proof: automated)',
+          '',
+          '## Invariants',
+          '- INV-1: Rendering is side-effect free.',
+          '',
+        ].join('\n'),
+      );
+      await run('freeze', path, '--confirm-invariants', '--session', SES);
+
+      expect(process.exitCode).toBeUndefined();
+      const dir = currentFeature(root, SES)!;
+      const summary = readFeatureSpecification(root, dir)!.spec_review!;
+      expect(summary.by_severity.critical).toBe(0);
+      expect(summary.by_severity.major).toBeGreaterThan(0);
+      expect(summary.defect_count).toBe(
+        summary.by_severity.critical + summary.by_severity.major + summary.by_severity.minor,
+      );
+      expect(summary.reviewed_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('blocks a critical defect even with no active feature to persist into (EC-2)', async () => {
+      const path = writeSpec('S-401-standalone.md', CRITICAL_SPEC);
+      const { err } = await run('freeze', path, '--confirm-invariants', '--session', 'ses_none');
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toMatch(/Critical spec-review defect open/);
+    });
+  });
+
   // Issue #401 — a spec authored in /tmp used to freeze happily, recording an absolute,
   // non-portable `spec_file` (and a `../../../..` escape in the report beside it).
   describe('out-of-tree spec files (issue #401)', () => {

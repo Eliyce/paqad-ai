@@ -2,6 +2,7 @@ import type {
   FeatureSpec,
   FrozenSpecMetadata,
   SpecFreezeEvaluation,
+  SpecReviewSummary,
 } from '@/core/types/feature-spec.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
@@ -80,7 +81,31 @@ export function freezeSpec(spec: FeatureSpec, input: FreezeSpecInput): FeatureSp
     signed_off_by: input.signed_off_by,
   };
 
-  return { ...spec, frozen };
+  // Issue #401 — the review that gated this freeze is folded into the record it produced,
+  // so the evidence travels with the spec of record. Before this, the only way to see what
+  // the review found was a separate `.paqad/compliance/<slug>/spec-review.json` the agent
+  // had to generate by hand, which is the stray artifact this issue was filed over.
+  const specReview = input.spec_review ? summarizeSpecReview(input.spec_review) : undefined;
+
+  return { ...spec, frozen, ...(specReview === undefined ? {} : { spec_review: specReview }) };
+}
+
+/**
+ * Condenses a full review report to the counts worth keeping in the frozen record.
+ * Resolved defects are excluded, matching {@link evaluateSpecFreeze}, which only blocks on
+ * a critical defect that is still open.
+ */
+function summarizeSpecReview(report: SpecReviewReport): SpecReviewSummary {
+  const open = report.defects.filter((defect) => defect.status !== 'resolved');
+  return {
+    reviewed_at: report.metadata.reviewed_at,
+    defect_count: open.length,
+    by_severity: {
+      critical: open.filter((defect) => defect.severity === 'critical').length,
+      major: open.filter((defect) => defect.severity === 'major').length,
+      minor: open.filter((defect) => defect.severity === 'minor').length,
+    },
+  };
 }
 
 /**

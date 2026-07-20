@@ -28,6 +28,24 @@ export interface FrozenSpecMetadata {
 }
 
 /**
+ * What the spec-quality review found at freeze time, folded into the frozen record
+ * (issue #401). Freeze runs the review itself and blocks on a critical defect, so this
+ * summary is the evidence that it ran — it travels with the spec of record instead of
+ * living in a separate `.paqad/compliance/<slug>/spec-review.json` the feature-development
+ * flow had to produce by hand. Counts are of OPEN defects; a resolved defect is excluded,
+ * matching the freeze evaluation's own semantics.
+ */
+export interface SpecReviewSummary {
+  reviewed_at: string;
+  defect_count: number;
+  by_severity: {
+    critical: number;
+    major: number;
+    minor: number;
+  };
+}
+
+/**
  * The structured, machine-checkable sidecar generated from a human-readable
  * `.paqad/specs/S-<id>-<slug>.md`. It is rebuilt from the markdown on every
  * freeze (never hand-maintained) so it cannot drift from the source of truth.
@@ -42,6 +60,11 @@ export interface FeatureSpec {
   invariants: FeatureSpecInvariant[];
   open_questions: string[];
   frozen: FrozenSpecMetadata | null;
+  /**
+   * Set by `freezeSpec` when a spec-quality review was run for the freeze. Absent on
+   * records frozen before issue #401, so readers must tolerate its absence.
+   */
+  spec_review?: SpecReviewSummary;
 }
 
 /**
