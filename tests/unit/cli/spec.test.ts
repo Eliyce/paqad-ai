@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSpecCommand } from '@/cli/commands/spec.js';
 import { createProgram } from '@/cli/program.js';
-import { defaultFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+import {
+  defaultFeatureDevelopmentPolicy,
+  renderDefaultFeatureDevelopmentPolicyYaml,
+} from '@/pipeline/feature-development-policy.js';
 import { readFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
@@ -289,6 +292,23 @@ describe('paqad-ai spec command', () => {
     const policy = defaultFeatureDevelopmentPolicy();
     const joined = policy.stages.specification.instructions.join('\n');
     expect(joined).toContain('paqad-ai spec freeze');
+  });
+
+  // Issue #401 — the contract is what drifted from the code, so it is asserted too. The
+  // stage instructions live in two surfaces (the default policy object and the rendered
+  // YAML a project is onboarded with) and previously duplicated every line verbatim.
+  it('both contract surfaces describe the review freeze actually runs (AC-7)', () => {
+    const fromPolicy = defaultFeatureDevelopmentPolicy()
+      .stages.specification.instructions.join('\n');
+    const fromYaml = renderDefaultFeatureDevelopmentPolicyYaml();
+
+    for (const surface of [fromPolicy, fromYaml]) {
+      // Says freeze runs the review itself...
+      expect(surface).toContain('spec freeze` runs the spec-quality review itself');
+      // ...and tells the agent not to do what produced the stray artifact.
+      expect(surface).toContain('never run `compliance review` by hand');
+      expect(surface).toContain('no .paqad/compliance/<slug>/spec-review.json is written');
+    }
   });
 
   // Issue #402 — the transient markdown is scratch, not a second source of truth. Leaving

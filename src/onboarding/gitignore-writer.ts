@@ -89,6 +89,12 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'delivery-detection.json', // regenerated from git history per machine
   '# compliance ledger (share via dashboard/SIEM, not git)',
   'ledger/',
+  // Issue #401 — everything under `compliance/` (the obligation index, the compliance
+  // report, a spec-review report) is derived from the spec plus the test tree and is
+  // regenerable, exactly the `ledger/` rationale. It was NOT ignored, so a report written
+  // there surfaced as an untracked, committable artifact in a consumer project and fed the
+  // "untracked .paqad/ artifact leaks into the changed-file set" class tracked by #205.
+  'compliance/',
 ];
 
 /**
