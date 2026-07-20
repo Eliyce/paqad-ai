@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readGitState } from '@/rag/git-state.js';
 import {
   appendStampedRowToUnit,
   readUnitFile,
@@ -200,7 +201,15 @@ export function openFeatureChange(
       projectRoot,
       sessionId,
       dirName,
-      { kind: 'open', adapter: input.adapter, lane: input.lane ?? null },
+      {
+        kind: 'open',
+        adapter: input.adapter,
+        lane: input.lane ?? null,
+        // The branch this change is being built on (issue #404). Read once, here, so a
+        // rotated session can recognise its own in-flight bundle from row 1 — a session
+        // id rotates, a branch does not. `null` off a branch (detached HEAD, non-git).
+        branch: readGitState(projectRoot).branch ?? null,
+      },
       input.now,
     );
   }
@@ -226,7 +235,10 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
     return;
   }
   const rows = readFeatureStageUnit(projectRoot, active);
-  if (!rows.some((row) => row.kind === 'close')) {
+  // An unmaterialized bundle (no rows) is not in flight, so nothing can adopt it and it
+  // needs no close row — stamping one would materialize an empty bundle just to close it.
+  const adapter = lastAdapter(rows);
+  if (adapter !== null && !rows.some((row) => row.kind === 'close')) {
     appendFeatureStageRow(
       projectRoot,
       sessionId,
@@ -235,7 +247,7 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
         kind: 'close',
         // The adapter is required on every row; inherit it from the bundle's own rows so
         // the close row is attributed to the host that actually recorded the change.
-        adapter: lastAdapter(rows) ?? 'unknown',
+        adapter,
         event_status: 'completed',
         note: 'closed; active pointer released',
       },
@@ -245,7 +257,7 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
   markDone(projectRoot, sessionId, active, now);
 }
 
-/** The adapter on the most recent row that carries one, or null for an empty bundle. */
+/** The adapter on the most recent row that carries one; null for an empty bundle. */
 function lastAdapter(rows: readonly SessionLedgerRow[]): string | null {
   for (let i = rows.length - 1; i >= 0; i -= 1) {
     const adapter = rows[i]!.adapter;

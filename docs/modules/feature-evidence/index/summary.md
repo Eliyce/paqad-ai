@@ -55,6 +55,49 @@ change, so the live feature-development stage spine is untouched:
   reusing the session-ledger row primitives (`stampSessionRow` /
   `appendStampedRowToUnit` / `readUnitFile`) and the stage-evidence `foldRowsWithKey`
   core. Still dark — the live recorder is re-pointed onto it in the cutover.
+- **Bundle enumeration** (`enumerate.ts`) — `listFeatureDirs` lists every feature dir
+  under the evidence container. A leaf (paths + `readdir`, nothing else) so both
+  `delivery.ts` — which re-exports it, keeping existing importers unchanged — and
+  `adoption.ts` can use it without closing an import cycle.
+- **Session-rotation adoption** (`adoption.ts`, issue #404) — the carry-over that keeps
+  ONE change in ONE bundle when the host session id rotates mid-change (an app relaunch,
+  a resumed conversation, a rotated `SE_SESSION`). The active feature is tracked per
+  session, so a rotated id read a fresh control, found nothing active, and minted a
+  second `change-<ULID>` — orphaning the bundle the change was already recorded in.
+  `reconcileSessionControl` repoints a session's control at the single **in-flight bundle
+  on the current branch** (`listAdoptableFeatures`) when its own `active` names no
+  evidence — either unset, or a dir that was never materialized
+  (`isBundleMaterialized`). It is wired into `resolveActiveFeature` and `currentFeature`
+  so the write and read paths agree, and into the SessionStart hook so a rotation is
+  carried over before the agent records anything.
+
+  **The branch is what makes it work** (decision `D-01KXY55ZM70Y3JNDM8E0XC7WSX`). "In
+  flight" on its own means real stage rows and no `kind:'close'` row
+  (`listInFlightFeatures`), and that set only grows: a change that was abandoned, and a
+  change shipped without a passing verdict, never get a close row either. This repo held
+  13, so an "exactly one in flight" rule could never fire and adoption was dead code. A
+  session id rotates *within* a change and a change is built on one branch, so the branch
+  identifies the rotated session's own work — deterministically, with no clock heuristic
+  and no tunable window. `openFeatureChange` stamps `branch` on the bundle's `open` row so
+  it is known from row 1; `featureBranch` falls back to `delivery.json`'s branch for a
+  bundle opened before the stamp existed, and a bundle with no knowable branch is never
+  adopted while on one. Off a branch entirely (detached HEAD, non-git project) the scope
+  cannot apply and the unscoped in-flight set stands.
+
+  Three further limits keep it honest: it **never mints** (every name it returns
+  already holds evidence on disk, which is why a read path may call it); it adopts only
+  when **exactly one** bundle is in flight on the branch, since two or more is ambiguous
+  and would risk attributing evidence to the wrong change; and it **repoints only** — a
+  dangling pointer with nothing to adopt is left alone, because `resolveActiveFeature`
+  sets a freshly minted feature active *before* its first row lands, so an unmaterialized
+  pointer is often the live change (decision `D-01KXY2BDSN226DDCH9DZA1TAK6`). Paused
+  features are never adopted: the session set them aside deliberately.
+
+  Because adoption is cross-session, "this change is finished" has to live on the ledger
+  rather than in one session's control — so `closeActiveFeature` now stamps a
+  `kind:'close'` row when the bundle carries none (idempotent with the finalizer's own
+  verdict-carrying close row, and skipped for an unmaterialized bundle, which is not in
+  flight anyway).
 
 Later phases of #339 wire the live recorder onto the feature ledger, plan/spec
 compile, re-homed sub-ledgers, native git hooks, on-demand projections, and cutover
@@ -101,6 +144,11 @@ If anything here disagrees with the map, the **map wins**.
 - `tests/unit/feature-evidence/schema.test.ts` — AJV validation (unknown-key rejection).
 - `tests/unit/feature-evidence/session-control.test.ts` — active + paused control.
 - `tests/unit/feature-evidence/stage-ledger.test.ts` — feature-scoped stage ledger.
+- `tests/unit/feature-evidence/adoption.test.ts` — in-flight detection, branch scoping
+  (the open-row stamp, the `delivery.json` fallback, the other-branch and unknown-branch
+  refusals, the non-git degrade), the repoint-only
+  reconcile, the ambiguity and paused guards, the durable close row, and the end-to-end
+  session-id rotation (one bundle, not two).
 - `tests/unit/feature-evidence/index.test.ts` — barrel surface.
 - `tests/unit/feature-evidence/report.test.ts` — the pure HTML renderer (self-containment,
   verdict, honesty tags, receipt integrity, graceful empty states, determinism).

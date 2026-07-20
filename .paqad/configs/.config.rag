@@ -29,3 +29,7 @@
 # ── Added in a newer paqad version ────────────────────────────
 # Relief band for floor-with-relief. When nothing clears rag_similarity_threshold, the top slices at or above this lower score are delivered tagged low-confidence. (env: PAQAD_RAG_RELIEF_FLOOR)
 # rag_relief_floor=0.35
+
+# ── Added in a newer paqad version ────────────────────────────
+# Token budget for the feature-development "Existing surface" planning digest (existing symbols the model should reuse). Cards drop by rank past this budget. (env: PAQAD_EXISTING_SURFACE_TOKENS)
+# existing_surface_tokens=1000
