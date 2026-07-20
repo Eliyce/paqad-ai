@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import YAML from 'yaml';
 import { describe, expect, it } from 'vitest';
@@ -9,7 +9,9 @@ import { PATHS } from '@/core/constants/paths.js';
 import {
   defaultFeatureDevelopmentPolicy,
   loadFeatureDevelopmentPolicy,
+  renderDefaultFeatureDevelopmentPolicyYaml,
   resolveFeatureDevelopmentCheckCommands,
+  reusePlanningInstructions,
 } from '@/pipeline/feature-development-policy.js';
 
 describe('feature development policy', () => {
@@ -263,6 +265,109 @@ describe('feature development policy', () => {
       const { policy } = loadFeatureDevelopmentPolicy(root);
 
       expect(policy).toEqual(defaultFeatureDevelopmentPolicy());
+    });
+  });
+
+  describe('reuse-first planning wiring (issue #359)', () => {
+    const REPO_ROOT = resolve(__dirname, '../../..');
+
+    /** The `triggers` array declared in a SKILL.md frontmatter block. */
+    function skillTriggers(relPath: string): Array<Record<string, string[]>> {
+      const text = readFileSync(join(REPO_ROOT, relPath), 'utf8');
+      const match = /^---\n([\s\S]*?)\n---/.exec(text);
+      expect(match, `${relPath} has no frontmatter block`).not.toBeNull();
+      const front = YAML.parse(match![1]) as { triggers?: Array<Record<string, string[]>> };
+      return front.triggers ?? [];
+    }
+
+    it('AC-4: the fast lane pays exactly one sentence — the reuse reflex, no skill blocks', () => {
+      const fast = reusePlanningInstructions('fast');
+      expect(fast).toHaveLength(1);
+      expect(fast[0]).toMatch(/^Reuse before you build:/);
+      expect(fast.join('\n')).not.toContain('diff-minimizer');
+      expect(fast.join('\n')).not.toContain('cross-module-impact-scanner');
+    });
+
+    it('AC-4: graduated and full lanes add the diff-minimizer block', () => {
+      for (const lane of ['graduated', 'full'] as const) {
+        const instructions = reusePlanningInstructions(lane);
+        expect(instructions).toHaveLength(2);
+        expect(instructions[1]).toContain('diff-minimizer');
+        expect(instructions[1]).toContain('existing-doc-checker');
+        // Without multiModule, the cross-module block does not load.
+        expect(instructions.join('\n')).not.toContain('cross-module-impact-scanner');
+      }
+    });
+
+    it('AC-4: a multi-module graduated/full change adds the cross-module block', () => {
+      for (const lane of ['graduated', 'full'] as const) {
+        const instructions = reusePlanningInstructions(lane, { multiModule: true });
+        expect(instructions).toHaveLength(3);
+        expect(instructions[2]).toContain('cross-module-impact-scanner');
+      }
+      // The fast lane never gets the cross-module block, multiModule or not.
+      expect(reusePlanningInstructions('fast', { multiModule: true })).toHaveLength(1);
+    });
+
+    it('AC-1: the default policy object carries the three blocks with their lane conditions', () => {
+      const planning = defaultFeatureDevelopmentPolicy().stages.planning.instructions;
+      expect(planning.some((i) => i.startsWith('Reuse before you build:'))).toBe(true);
+      expect(
+        planning.some(
+          (i) => i.startsWith('On graduated and full lanes:') && i.includes('diff-minimizer'),
+        ),
+      ).toBe(true);
+      expect(
+        planning.some(
+          (i) =>
+            i.startsWith('On graduated and full lanes touching more than one module:') &&
+            i.includes('cross-module-impact-scanner'),
+        ),
+      ).toBe(true);
+    });
+
+    it('AC-1 / INV-1: the rendered yaml carries the identical three instruction blocks', () => {
+      const yaml = renderDefaultFeatureDevelopmentPolicyYaml();
+      // Every reuse instruction on the object must appear verbatim in the rendered yaml, so
+      // the two contract surfaces cannot drift (INV-1).
+      for (const instruction of reusePlanningInstructions('full', { multiModule: true })) {
+        expect(yaml).toContain(instruction);
+      }
+      // And the rendered yaml parses back into a policy whose planning stage carries them.
+      const parsed = YAML.parse(yaml) as {
+        stages: { planning: { instructions: string[] } };
+      };
+      expect(parsed.stages.planning.instructions).toEqual(
+        expect.arrayContaining(reusePlanningInstructions('full', { multiModule: true })),
+      );
+    });
+
+    it('AC-2: every wired skill named in the instructions resolves at its install path and declares feature-development', () => {
+      const instructions = reusePlanningInstructions('full', { multiModule: true }).join('\n');
+      const skills = [
+        'runtime/base/skills/diff-minimizer/SKILL.md',
+        'runtime/base/skills/existing-doc-checker/SKILL.md',
+        'runtime/base/skills/cross-module-impact-scanner/SKILL.md',
+      ];
+      for (const relPath of skills) {
+        const name = relPath.split('/')[3]!;
+        // The instruction must name the skill by its exact directory name so the model can
+        // find it through the install path.
+        expect(instructions, `instructions should name ${name}`).toContain(name);
+        expect(existsSync(join(REPO_ROOT, relPath)), `${relPath} must exist`).toBe(true);
+        const declaresFeatureDev = skillTriggers(relPath).some((trigger) =>
+          (trigger.workflow ?? []).includes('feature-development'),
+        );
+        expect(
+          declaresFeatureDev,
+          `${name} must declare feature-development in triggers.workflow`,
+        ).toBe(true);
+      }
+      // The solution-architect procedure is an agent, not a skill; assert it too resolves.
+      expect(instructions).toContain('solution-architect');
+      expect(
+        existsSync(join(REPO_ROOT, 'runtime/capabilities/coding/agents/solution-architect.md')),
+      ).toBe(true);
     });
   });
 });
