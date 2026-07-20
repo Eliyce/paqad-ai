@@ -30,6 +30,8 @@ import {
   resolveComplianceCitations,
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
+import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { reuseCounts } from '@/feature-evidence/reuse.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
@@ -408,6 +410,11 @@ export async function runRepositoryVerification(
     }),
   );
 
+  const receiptFeature = currentFeature(
+    context.project_root,
+    resolveSessionId(context.project_root, options.hostSessionId ?? null),
+  );
+
   // Issue #325 — compose the ONE end-of-change receipt: the branded verdict headline
   // plus the per-stage evidence block (with honest provenance). Best-effort — if the
   // fold cannot be read the receipt is just the verdict summary, never a throw.
@@ -415,6 +422,14 @@ export async function runRepositoryVerification(
     verdictSummary: verdict.summary,
     fold,
     reportPath,
+    // Issue #357 (AC-5) — surface what the plan declared it reused. The feature is
+    // resolved here rather than reused from the enterprise receipt block above, which is
+    // gated on `evidence_ledger` and may never run. Both reads are tolerant, and
+    // `reuseCounts` returns null for a plan compiled before the reuse gate, so the
+    // planning line is unchanged for those.
+    reuse: reuseCounts(
+      receiptFeature ? readFeaturePlan(context.project_root, receiptFeature) : null,
+    ),
     // Issue #368 (AC-A2) — only when this is a feature-dev change do we assert the
     // checks stage needs a report; for a docs/framework change the checks stage is
     // not part of the promise, so leave the line unchanged (undefined).

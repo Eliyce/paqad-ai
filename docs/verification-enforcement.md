@@ -193,6 +193,7 @@ change, in order:
 npx paqad-ai stage start planning
 # … planning work …
 npx paqad-ai plan compile <plan-template.json>            # writes plan.json into the active feature bundle
+                                                          # the template MUST carry a "reuse" section (#357)
 npx paqad-ai stage end planning --artifact <plan.json>
 
 npx paqad-ai stage start specification
