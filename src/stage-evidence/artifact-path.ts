@@ -19,7 +19,7 @@
 
 import { realpathSync } from 'node:fs';
 
-import { isAbsolute, relative, resolve } from 'pathe';
+import { dirname, isAbsolute, join, relative, resolve } from 'pathe';
 
 /** Thrown when an artifact path resolves outside the project root. */
 export class ArtifactOutOfTreeError extends Error {
@@ -35,6 +35,35 @@ function realOrLexical(p: string): string {
     return realpathSync.native(p);
   } catch {
     return p;
+  }
+}
+
+/**
+ * Symlink-resolve an absolute path that may not exist yet, by realpath'ing its deepest
+ * EXISTING ancestor and re-attaching the remainder.
+ *
+ * A plain realpath falls back to the lexical path for a missing file, which silently
+ * breaks the comparison this module is built on: on macOS `/tmp` and `/var` are symlinks
+ * (`/tmp` → `/private/tmp`), so a root realpaths to `/private/var/…` while an absolute
+ * path to a not-yet-created file under it stays `/var/…`. `relative()` then reads a
+ * genuinely in-tree path as a `../..` escape and rejects it. Anchoring on the existing
+ * ancestor puts both sides in the same form, so existence stays irrelevant to the
+ * accept/reject decision — exactly as this validator promises.
+ */
+function realOrLexicalAllowingMissing(p: string): string {
+  const tail: string[] = [];
+  let cursor = p;
+
+  // Walk up to the deepest existing ancestor (the root, `/`, terminates the walk).
+  for (;;) {
+    try {
+      return join(realpathSync.native(cursor), ...tail);
+    } catch {
+      const parent = dirname(cursor);
+      if (parent === cursor) return p;
+      tail.unshift(cursor.slice(parent.length).replace(/^[/\\]/, ''));
+      cursor = parent;
+    }
   }
 }
 
@@ -58,7 +87,7 @@ function realOrLexical(p: string): string {
  */
 export function normalizeArtifactPath(projectRoot: string, input: string): string {
   const rootAbs = realOrLexical(resolve(projectRoot));
-  const absInput = isAbsolute(input) ? realOrLexical(input) : resolve(rootAbs, input);
+  const absInput = isAbsolute(input) ? realOrLexicalAllowingMissing(input) : resolve(rootAbs, input);
   const rel = relative(rootAbs, absInput);
   // Empty (the root dir), a `..` escape, or an absolute remainder (a different Windows
   // drive) all mean the path is not inside the project root.

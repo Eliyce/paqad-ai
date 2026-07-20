@@ -139,6 +139,44 @@ describe('paqad-ai spec command', () => {
     expect(err.join('\n')).toMatch(/could not read spec file/);
   });
 
+  // Issue #401 — a spec authored in /tmp used to freeze happily, recording an absolute,
+  // non-portable `spec_file` (and a `../../../..` escape in the report beside it).
+  describe('out-of-tree spec files (issue #401)', () => {
+    it('refuses a spec resolving outside the project root, freezing nothing (AC-3)', async () => {
+      const outside = mkdtempSync(join(tmpdir(), 'paqad-outside-'));
+      const path = join(outside, 'river-agent-spec.md');
+      writeFileSync(path, COMPLETE_SPEC, 'utf8');
+      try {
+        const { err } = await run('freeze', path, '--confirm-invariants');
+        expect(process.exitCode).toBe(1);
+        expect(err.join('\n')).toMatch(/has to live inside the project/);
+        // Refused before anything was read: the source is untouched.
+        expect(existsSync(path)).toBe(true);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    });
+
+    it('records spec_file as a project-relative posix path for an absolute in-tree spec (AC-5)', async () => {
+      const SES = 'ses_spec_401_rel';
+      openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'Relative spec_file',
+        issue: '401',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      });
+      // Addressed by its ABSOLUTE path — the frozen record must still be relative.
+      const path = writeSpec('S-401-abs.md', COMPLETE_SPEC);
+      await run('freeze', path, '--confirm-invariants', '--session', SES);
+
+      const dir = currentFeature(root, SES)!;
+      const spec = readFeatureSpecification(root, dir)!;
+      expect(spec.spec_file).toBe('S-401-abs.md');
+      expect(spec.spec_file.startsWith('/')).toBe(false);
+      expect(spec.spec_file).not.toContain('\\');
+    });
+  });
+
   it('the default specification-stage instructions name the freeze command (AC-4)', () => {
     const policy = defaultFeatureDevelopmentPolicy();
     const joined = policy.stages.specification.instructions.join('\n');

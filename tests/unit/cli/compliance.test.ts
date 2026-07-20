@@ -1452,4 +1452,37 @@ describe('paqad-ai compliance CLI', () => {
 
     expect(process.exitCode).toBe(0);
   });
+
+  // Issue #401 — `path.relative` produced the `../../../../../../tmp/river-agent-spec.md`
+  // escape that got recorded verbatim in the persisted report.
+  it('review refuses a spec resolving outside the project root (AC-4)', async () => {
+    const root = await makeTempProject();
+    const outside = await makeTempProject();
+    const specPath = await writeSpecWithObligations(outside, ['FR-1-T1']);
+
+    const errors: string[] = [];
+    const origError = console.error;
+    console.error = (msg: string) => errors.push(String(msg));
+
+    process.exitCode = undefined;
+    try {
+      await createComplianceCommand().parseAsync([
+        'node',
+        'paqad-ai',
+        'review',
+        specPath,
+        '--project-root',
+        root,
+      ]);
+    } finally {
+      console.error = origError;
+      await rm(outside, { recursive: true, force: true });
+    }
+
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toMatch(/has to live inside the project/);
+    // Nothing persisted: the stray artifact this issue was filed over is never created.
+    const review = await loadSpecReviewReport({ project_root: root, spec_file: 'spec.md' });
+    expect(review).toBeNull();
+  });
 });
