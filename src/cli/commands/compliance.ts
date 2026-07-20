@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { Command } from 'commander';
 
+import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import {
   buildBoundaryReport,
   buildPatternAdvisories,
@@ -104,8 +105,22 @@ export function createComplianceCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--json', 'Print JSON instead of a human-readable summary')
     .action(async (specFile: string, options: { projectRoot: string; json?: boolean }) => {
-      const specPath = path.resolve(options.projectRoot, specFile);
-      const relativeSpec = path.relative(options.projectRoot, specPath);
+      // Issue #401: reject a spec resolving outside the project root, and record a
+      // project-relative posix path. `path.relative` happily produced the
+      // `../../../../../../tmp/river-agent-spec.md` escape this issue was filed over
+      // (and backslashes on Windows); the canonical helper rejects the escape instead.
+      let relativeSpec: string;
+      try {
+        relativeSpec = normalizeArtifactPath(options.projectRoot, specFile);
+      } catch {
+        console.error(
+          `**▸ paqad** · a spec has to live inside the project for its review to be ` +
+            `portable, and ${specFile} resolves outside it.`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const specPath = path.resolve(options.projectRoot, relativeSpec);
       const specMarkdown = await readFile(specPath, 'utf8');
       const previousReport = await loadSpecReviewReport({
         project_root: options.projectRoot,

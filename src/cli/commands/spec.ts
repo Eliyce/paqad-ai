@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 
 import { Command } from 'commander';
 
+import { reviewSpecification } from '@/compliance/spec-review.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze, freezeSpec } from '@/spec/spec-freeze.js';
 import { NoActiveFeatureError, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
@@ -18,12 +19,20 @@ import type { FeatureSpec } from '@/core/types/feature-spec.js';
  * in `src/spec/`: no CLI verb, no instruction naming it. This verb is that caller. It
  * is invocation only — it reimplements none of the freeze logic:
  *
- *   buildFeatureSpec → evaluateSpecFreeze → freezeSpec → writeFeatureSpecification
+ *   buildFeatureSpec → reviewSpecification → evaluateSpecFreeze → freezeSpec
+ *                    → writeFeatureSpecification
  *
  * Blockers (missing behaviour / acceptance criteria / invariants, an acceptance
- * criterion with no proof target, an unconfirmed invariant, an open question) are
- * printed and the command exits non-zero with nothing frozen — a spec is never frozen
- * silently over unresolved questions. On a clean spec it writes the frozen spec into the
+ * criterion with no proof target, an unconfirmed invariant, an open question, and an
+ * open CRITICAL spec-review defect) are printed and the command exits non-zero with
+ * nothing frozen — a spec is never frozen silently over unresolved questions.
+ *
+ * The `reviewSpecification` step is issue #401: the contract had always claimed freeze
+ * enforced "no critical spec-review defects" while this command passed no review at all,
+ * so agents ran `compliance review` by hand and leaked a stray
+ * `.paqad/compliance/<slug>/spec-review.json`. The review now runs inside freeze and its
+ * summary rides in the frozen record, so the feature-development flow needs no second
+ * command and writes no separate report. On a clean spec it writes the frozen spec into the
  * active feature's bundle at `<feature>/specification.json` (issue #343), the durable
  * record every frozen-spec reader now projects from.
  */
@@ -68,17 +77,29 @@ export function createSpecCommand(): Command {
           keepInput?: boolean;
         },
       ) => {
-        // Issue #402: never read (and so never bless) a spec authored INSIDE a feature
-        // bundle dir. That dir holds only rigid, script-owned artifacts; a spec markdown
-        // in there is the duplicate-of-specification.json pollution this fixes. An
-        // out-of-tree path simply isn't in a bundle, so a normalize failure is not fatal.
-        let relSpec: string | null;
+        // Issue #401: a spec that resolves outside the project root is rejected outright.
+        // Freeze used to swallow the normalize failure and then record the raw input as
+        // `spec_file`, so a spec authored in `/tmp` was frozen with a non-portable absolute
+        // path (and the compliance report beside it recorded a `../../../..` escape). The
+        // tree-boundary judgement routes through the canonical `normalizeArtifactPath`
+        // helper — the same one the stage recorder uses — never a local re-derivation.
+        let relSpec: string;
         try {
           relSpec = normalizeArtifactPath(options.projectRoot, specFile);
         } catch {
-          relSpec = null;
+          console.error(
+            `**▸ paqad** · a spec has to live inside the project so its record stays ` +
+              `portable, and ${specFile} resolves outside it. Author it in the repo and ` +
+              `freeze it from there.`,
+          );
+          process.exitCode = 1;
+          return;
         }
-        if (relSpec !== null && classifyBundlePath(relSpec) !== null) {
+
+        // Issue #402: never read (and so never bless) a spec authored INSIDE a feature
+        // bundle dir. That dir holds only rigid, script-owned artifacts; a spec markdown
+        // in there is the duplicate-of-specification.json pollution this fixes.
+        if (classifyBundlePath(relSpec) !== null) {
           console.error(
             `**▸ paqad** · a feature bundle holds only its rigid artifacts, so a spec can't ` +
               `live at ${relSpec}. Author it outside \`.paqad/ledger/feature-evidence/\` — ` +
@@ -98,9 +119,11 @@ export function createSpecCommand(): Command {
         }
 
         const specId = options.specId ?? basename(specFile).replace(/\.[^.]+$/, '');
+        // `relSpec`, not the raw input: the frozen record pins a project-relative posix
+        // path, so it reads the same on every machine and on Windows (issue #401).
         const built = buildFeatureSpec({
           spec_id: specId,
-          spec_file: specFile,
+          spec_file: relSpec,
           spec_markdown: markdown,
         });
 
@@ -111,7 +134,19 @@ export function createSpecCommand(): Command {
           ? { ...built, invariants: built.invariants.map((inv) => ({ ...inv, confirmed: true })) }
           : built;
 
-        const evaluation = evaluateSpecFreeze(spec);
+        // Issue #401 — the freeze contract has always promised "no critical spec-review
+        // defects", but this command evaluated the freeze with no review attached, so the
+        // clause was enforced nowhere and agents hand-ran `compliance review` to satisfy it
+        // (leaking a stray `.paqad/compliance/<slug>/spec-review.json`). Running the review
+        // HERE makes the promise real: the report feeds the existing critical-defect check
+        // in `evaluateSpecFreeze`, which this command invokes rather than reimplements. The
+        // report is never persisted separately; its summary rides along in the frozen record.
+        const specReview = reviewSpecification({
+          spec_file: relSpec,
+          spec_markdown: markdown,
+        });
+
+        const evaluation = evaluateSpecFreeze(spec, specReview);
         if (!evaluation.can_freeze) {
           console.error(
             `**▸ paqad** · can't freeze this spec yet — ${evaluation.blockers.length} ` +
@@ -127,6 +162,7 @@ export function createSpecCommand(): Command {
         const frozen = freezeSpec(spec, {
           signed_off_by: options.signedOffBy,
           frozen_at: new Date().toISOString(),
+          spec_review: specReview,
         });
 
         // Issue #343 (Phase-7 cutover) — the frozen spec's ONLY home is the active feature's

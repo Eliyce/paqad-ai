@@ -99,6 +99,13 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(read(projectRoot, '.paqad/.gitignore')).toContain('ledger/');
   });
 
+  // Issue #401 — `.paqad/compliance/` was not ignored, so a spec-review report written
+  // there showed up as `?? .paqad/compliance/` in a consumer project and was committable.
+  it('ignores the compliance directory, so a compliance artifact is never committable (AC-6)', () => {
+    writeGitignore(projectRoot);
+    expect(read(projectRoot, '.paqad/.gitignore')).toContain('compliance/');
+  });
+
   it('writes a nested .paqad/.gitattributes making the decision index merge cleanly', () => {
     writeGitignore(projectRoot);
 
