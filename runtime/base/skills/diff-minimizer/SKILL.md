@@ -3,7 +3,9 @@ name: diff-minimizer
 description: Classify each proposed implementation step against the acceptance criteria so scaffolding and over-build are dropped before code is written.
 model_tier: reasoning
 triggers:
-  - process_depth:
+  - workflow:
+      - feature-development
+    process_depth:
       - graduated lane
       - full lane
 cacheable: false

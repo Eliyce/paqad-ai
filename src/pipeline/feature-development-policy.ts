@@ -69,6 +69,54 @@ const SPEC_REVIEW_ENFORCEMENT_INSTRUCTION =
   'and no .paqad/compliance/<slug>/spec-review.json is written by this workflow. Author the ' +
   'spec markdown inside the project: a path resolving outside the project root is rejected.';
 
+/**
+ * Issue #359 — the reuse-first planning instructions, authored ONCE so the default policy
+ * object and the rendered YAML cannot drift (the same shared-constant discipline as
+ * {@link SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}). They wire four built-but-idle planning
+ * helpers into the enforced planning stage, lane-gated by inline conditions so a fast-lane
+ * change reads only the first sentence. The install-path skill names are load-bearing: the
+ * model finds `runtime/.../skills/<name>/SKILL.md` through the bootstrap by that exact
+ * directory name.
+ */
+const REUSE_PLANNING_INSTRUCTION =
+  'Reuse before you build: consult the Existing surface section (and `npx paqad-ai index ' +
+  'query <name>`) for existing helpers; follow the solution-architect procedure — Reuse / ' +
+  'Extend / Build-new, and record a rejection rationale for every Build-new.';
+
+/** Graduated/full-lane block: diff-minimizer + existing-doc-checker (issue #359). */
+const DIFF_MINIMIZER_PLANNING_INSTRUCTION =
+  'On graduated and full lanes: run the diff-minimizer skill over the implementation ' +
+  'sequence before compiling the plan; drop steps it classifies over-build or record why ' +
+  'they stay. Run existing-doc-checker before creating any new doc or registry artifact.';
+
+/** Graduated/full-lane multi-module block: cross-module-impact-scanner (issue #359). */
+const CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION =
+  'On graduated and full lanes touching more than one module: run ' +
+  'cross-module-impact-scanner; surface breaking / silent-shift rows as Decision Packets ' +
+  '(existing categories).';
+
+/**
+ * The reuse-first planning instructions that apply to a given lane (issue #359). The fast
+ * lane pays exactly one sentence — the reuse reflex — and loads no skill procedure; the
+ * graduated and full lanes add the diff-minimizer + existing-doc-checker block, and a
+ * multi-module change on those lanes additionally adds the cross-module-impact-scanner
+ * block. This is the single source of the lane-gating logic that the static YAML documents
+ * in prose, and it is what builds the default policy's planning instructions (below).
+ */
+export function reusePlanningInstructions(
+  lane: 'fast' | 'graduated' | 'full',
+  options: { multiModule?: boolean } = {},
+): string[] {
+  const instructions = [REUSE_PLANNING_INSTRUCTION];
+  if (lane === 'graduated' || lane === 'full') {
+    instructions.push(DIFF_MINIMIZER_PLANNING_INSTRUCTION);
+    if (options.multiModule === true) {
+      instructions.push(CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION);
+    }
+  }
+  return instructions;
+}
+
 export function featureDevelopmentPolicyPath(projectRoot: string): string {
   return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
 }
@@ -120,6 +168,10 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
           'Review the canonical module and instruction docs before planning the change.',
           'Keep planning scoped to the requested feature and the current repository state.',
           'Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues.',
+          // Issue #359 — the reuse-first block (all lanes) + the graduated/full skill blocks.
+          // The full+multiModule call materialises every lane-gated line; the inline lane
+          // conditions in each string keep a fast-lane read to the first sentence only.
+          ...reusePlanningInstructions('full', { multiModule: true }),
         ],
         required_inputs: ['active request', 'canonical docs'],
         strictness: {
@@ -598,6 +650,9 @@ stages:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.
       - "Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
+      - "${REUSE_PLANNING_INSTRUCTION}"
+      - "${DIFF_MINIMIZER_PLANNING_INSTRUCTION}"
+      - "${CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION}"
     required_inputs:
       - active request
       - canonical docs

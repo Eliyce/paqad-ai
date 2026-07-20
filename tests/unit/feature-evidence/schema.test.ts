@@ -61,6 +61,48 @@ describe('validatePlanRecord', () => {
     expect(validatePlanRecord({ ...plan(), sneaky: 1 }).length).toBeGreaterThan(0);
     expect(validatePlanRecord({ ...plan(), steps: [{ id: 'S1' }] }).length).toBeGreaterThan(0);
   });
+
+  it('carries a diff-minimizer step classification through the builder (issue #359)', () => {
+    const record = buildPlanRecord({
+      issue: null,
+      title: 't',
+      slug: 's',
+      ulid: ULID,
+      summary: 'x',
+      steps: [
+        { id: 'S1', description: 'satisfy an AC', classification: 'ac-satisfying' },
+        { id: 'S2', description: 'the setup it needs', classification: 'necessary-setup' },
+      ],
+      now: clock,
+    });
+    expect(validatePlanRecord(record)).toEqual([]);
+    expect(record.steps.map((step) => step.classification)).toEqual([
+      'ac-satisfying',
+      'necessary-setup',
+    ]);
+  });
+
+  it('rejects an unknown step classification (issue #359)', () => {
+    expect(
+      validatePlanRecord({
+        ...plan(),
+        steps: [{ id: 'S1', description: 'x', classification: 'gold-plating' }],
+      }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('accepts a step with no classification — the field is optional (INV-3)', () => {
+    const record = buildPlanRecord({
+      issue: null,
+      title: 't',
+      slug: 's',
+      ulid: ULID,
+      summary: 'x',
+      steps: [{ id: 'S1', description: 'a step with no verdict' }],
+      now: clock,
+    });
+    expect(validatePlanRecord(record)).toEqual([]);
+  });
 });
 
 describe('formatValidationError', () => {

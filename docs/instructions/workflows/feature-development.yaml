@@ -29,6 +29,9 @@ stages:
       - "Attribution Gate (issue #80): before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. Surface every needs-decision packet via the Decision Pause Contract and await an explicit user response — no silent acceptance. Accepted decisions are applied to module-map.yml via src/module-decisions/apply.ts (the only writer of the map). Only after the gate resolves may planning continue."
       - "Design-system (issue #76): if the change touches UI, plan against the design system. Identify tokens, components, and states involved. Flag additions that require extending docs/instructions/design-system/* before extending the code. Missing design-system contract degrades planning to bare-minimum mode (warn, not stop)."
       - "Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
+      - "Reuse before you build: consult the Existing surface section (and `npx paqad-ai index query <name>`) for existing helpers; follow the solution-architect procedure — Reuse / Extend / Build-new, and record a rejection rationale for every Build-new."
+      - "On graduated and full lanes: run the diff-minimizer skill over the implementation sequence before compiling the plan; drop steps it classifies over-build or record why they stay. Run existing-doc-checker before creating any new doc or registry artifact."
+      - "On graduated and full lanes touching more than one module: run cross-module-impact-scanner; surface breaking / silent-shift rows as Decision Packets (existing categories)."
     required_inputs:
       - active request
       - canonical docs
