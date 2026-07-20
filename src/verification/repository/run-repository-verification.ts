@@ -33,6 +33,7 @@ import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
+import { auditTurnNarration, unnarratedAdvisory } from '@/stage-evidence/narration-audit.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
@@ -115,6 +116,11 @@ export interface RunRepositoryVerificationOptions extends BuildRepositoryVerific
    *  single-slot cache and fragmenting one session into two subdirs (buildout F5b,
    *  bug #5). Absent on hosts that supply no id (the cached/minted id is used). */
   hostSessionId?: string | null;
+  /** The turn transcript (issue #409). When supplied, the verdict carries a
+   *  `narrationAdvisory` naming any stage this change recorded that the agent never
+   *  spoke in visible text — the mirror of the narrated-but-unrecorded gap (#389).
+   *  Absent/empty reads as "cannot tell" and produces no advisory. */
+  transcriptText?: string | null;
   now?: () => string;
 }
 
@@ -389,12 +395,25 @@ export async function runRepositoryVerification(
   });
   verdict.reportPath = reportPath;
 
+  const fold = readChangeFold(context.project_root, options.hostSessionId ?? null);
+
+  // Issue #409 — the voice backstop. The fold proves which stages RAN; the transcript
+  // shows which the agent actually SAID. Any gap is reported so the model can put the
+  // receipt where the developer can see it. Advisory only: it never touches
+  // `verdict.ok`, so a silent-but-correct change still passes (INV-1).
+  verdict.narrationAdvisory = unnarratedAdvisory(
+    auditTurnNarration({
+      transcriptText: options.transcriptText ?? '',
+      recorded: (fold?.stages ?? []).map((stage) => stage.stage),
+    }),
+  );
+
   // Issue #325 — compose the ONE end-of-change receipt: the branded verdict headline
   // plus the per-stage evidence block (with honest provenance). Best-effort — if the
   // fold cannot be read the receipt is just the verdict summary, never a throw.
   verdict.receipt = composeChangeReceipt({
     verdictSummary: verdict.summary,
-    fold: readChangeFold(context.project_root, options.hostSessionId ?? null),
+    fold,
     reportPath,
     // Issue #368 (AC-A2) — only when this is a feature-dev change do we assert the
     // checks stage needs a report; for a docs/framework change the checks stage is

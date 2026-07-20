@@ -43,6 +43,33 @@ from turning into a nuisance:
   capability-gate completion seam. The hard, non-bypassable check remains at
   git/CI.
 
+## Who speaks the receipt (issue #409)
+
+The completion hook writes the ledger and computes the verdict, but it does **not**
+reliably speak. Its narration rides Claude's `{systemMessage}` channel, and the
+Desktop app records that as a hook attachment it never renders in the chat — a
+verified six-stage run emitted eleven `▸ paqad` stage lines and the developer saw
+none of them, while the evidence bundle was complete. Recorded but unnarrated, the
+inverse of the JetBrains gap (#389).
+
+So the voice belongs to the agent, and the hook keeps a deterministic backstop:
+
+- **The agent speaks.** The narration contract instructs the Claude Code agent to
+  emit its own `▸ paqad` stage lines and the one end-of-change receipt in visible
+  assistant text, placed in the turn's **final** message — mid-turn text between
+  tool calls is not reliably rendered either.
+- **The hook checks that it did.** `src/stage-evidence/narration-audit.ts` reads the
+  turn transcript and reports every stage recorded this turn that carries no
+  matching visible stage line in an assistant **text** block. A line found only in a
+  hook attachment or `systemMessage` payload does not count as visible.
+- **The check is advisory, never a gate.** An unnarrated turn is a voice defect, not
+  a broken change, so the finding rides along as an instruction to the model and can
+  never turn a passing verdict into a failing one or block a turn. A missing,
+  unreadable, or malformed transcript yields no findings at all.
+
+The hook's `{systemMessage}` emission is deliberately kept as belt-and-braces for
+the surfaces where it does render; removing it would regress those for no gain.
+
 ## The gate bank
 
 The gates under `src/verification/gates/` cover correctness, completeness, quality,
@@ -106,3 +133,4 @@ then regenerate this page via `create module documentation`.
 - Quality ratchet (a gate input): [`quality-ratchet`](../../quality-ratchet/index/summary.md)
 - Bidirectional traceability: [`traceability-engine`](../../traceability-engine/index/summary.md)
 - Architecture overview: [`docs/instructions/architecture/overview.md`](../../../instructions/architecture/overview.md)
+

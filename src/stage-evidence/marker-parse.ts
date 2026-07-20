@@ -50,8 +50,13 @@ export interface Marker {
 /** Pull assistant-authored text from a JSONL transcript, ignoring user/system/tool
  *  content so a quoted marker in the loaded contract or a tool result is not
  *  mistaken for one the agent emitted. Falls back to the raw text when the lines
- *  are not JSON (a plain-text transcript). */
-function extractAssistantText(raw: string): string {
+ *  are not JSON (a plain-text transcript).
+ *
+ *  Exported because the narration audit (issue #409) needs exactly this notion of
+ *  "what the agent actually said" — hook output and tool results are not the agent
+ *  speaking. Two copies of this rule would let the audit and the marker parser
+ *  disagree about the same transcript. */
+export function extractAssistantText(raw: string): string {
   const parts: string[] = [];
   let sawJson = false;
   for (const line of raw.split('\n')) {

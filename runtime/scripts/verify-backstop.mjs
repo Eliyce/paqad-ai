@@ -83,6 +83,7 @@ export async function runVerificationBackstop({
   stdout,
   stderr,
   loopActive,
+  transcriptText,
 }) {
   const out = stdout ?? process.stdout;
   const err = stderr ?? process.stderr;
@@ -109,11 +110,14 @@ export async function runVerificationBackstop({
       projectRoot,
       origin,
       hostSessionId: hostSessionId ?? null,
+      // Issue #409 — let the verdict tell us whether the stages it recorded were ever
+      // spoken where the developer could see them.
+      transcriptText: transcriptText ?? null,
     });
     // Issue #325 — surface the ONE end-of-change receipt (verdict headline in
     // contract words + per-stage evidence). Fall back to the plain summary if no
     // receipt was composed.
-    const message = verdict.receipt ?? verdict.summary;
+    const receipt = verdict.receipt ?? verdict.summary;
 
     // Issue #368 — the Claude Stop hook. The developer-facing channel is the JSON
     // `{systemMessage}` on stdout at exit 0, which Claude renders whether the verdict
@@ -124,7 +128,19 @@ export async function runVerificationBackstop({
     // hook (it is a PreToolUse mechanism), so the old `return 2` was both invisible AND
     // a no-op. git/CI keep the exit-code-gated path below.
     if (origin === 'hook-completion') {
-      const payload = { systemMessage: message };
+      // Issue #409 — the voice backstop. `{systemMessage}` is exactly backwards for a
+      // receipt (the model reads it, the Desktop developer never sees it), which is why
+      // the agent must speak the receipt itself. But that same property makes it the
+      // right channel for an advisory ABOUT the narration: the audience is the model.
+      // So when this change recorded stages the agent never said out loud, the advisory
+      // rides along here, and is folded into the block reason below when a block is
+      // already firing for a real gate failure. It never causes a block of its own — a
+      // silent turn is a voice defect, not a broken change (INV-1).
+      const payload = {
+        systemMessage: verdict.narrationAdvisory
+          ? `${receipt}\n\n${verdict.narrationAdvisory}`
+          : receipt,
+      };
       // Give the gate real teeth on a HARD failure (a gate reported `fail`, e.g. a
       // mandatory stage missing or a red checks report): tell the model to keep working
       // and resolve it before the turn ends. An Inconclusive verdict (no failing gate —
@@ -134,7 +150,9 @@ export async function runVerificationBackstop({
       // aside and let the session end (git/CI remains the hard gate).
       if (verdictHasHardFailure(verdict) && !loopActive) {
         payload.decision = 'block';
-        payload.reason = blockReason(verdict);
+        payload.reason = verdict.narrationAdvisory
+          ? `${blockReason(verdict)}\n\n${verdict.narrationAdvisory}`
+          : blockReason(verdict);
       }
       out.write(`${JSON.stringify(payload)}\n`);
       return 0;
@@ -144,10 +162,10 @@ export async function runVerificationBackstop({
     // the gate. Plain text reads better than JSON here, and a hard fail must exit 2 so
     // the commit / CI step fails. This layer never sets `loopActive`.
     if (verdict.ok) {
-      out.write(`${message}\n`);
+      out.write(`${receipt}\n`);
       return 0;
     }
-    err.write(`${message}\n`);
+    err.write(`${receipt}\n`);
     return 2;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

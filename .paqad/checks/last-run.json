@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-20T06:24:07.503Z",
+  "generated_at": "2026-07-20T12:19:46.898Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-20T06:22:19.673Z",
+        "timestamp": "2026-07-20T12:17:47.421Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -35,16 +35,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/wild-donkeys-hammer.md",
-          ".paqad/.config.example",
-          ".paqad/checks/last-run.json",
-          ".paqad/configs/.config.rag",
-          ".paqad/decisions/resolved/D-01KXY55ZM70Y3JNDM8E0XC7WSX.json",
-          "docs/modules/feature-evidence/index/summary.md",
-          "src/feature-evidence/adoption.ts",
-          "src/feature-evidence/stage-ledger.ts",
-          "src/stage-evidence/schema.ts",
-          "tests/unit/feature-evidence/adoption.test.ts"
+          "runtime/hooks/lib/transcript.mjs",
+          "tests/unit/runtime/verify-backstop.test.ts",
+          "tests/unit/stage-evidence/narration-audit.test.ts"
         ]
       }
     },
@@ -57,7 +50,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-20T06:23:56.553Z",
+        "timestamp": "2026-07-20T12:19:37.381Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -79,16 +72,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/wild-donkeys-hammer.md",
-          ".paqad/.config.example",
-          ".paqad/checks/last-run.json",
-          ".paqad/configs/.config.rag",
-          ".paqad/decisions/resolved/D-01KXY55ZM70Y3JNDM8E0XC7WSX.json",
-          "docs/modules/feature-evidence/index/summary.md",
-          "src/feature-evidence/adoption.ts",
-          "src/feature-evidence/stage-ledger.ts",
-          "src/stage-evidence/schema.ts",
-          "tests/unit/feature-evidence/adoption.test.ts"
+          "runtime/hooks/lib/transcript.mjs",
+          "tests/unit/runtime/verify-backstop.test.ts",
+          "tests/unit/stage-evidence/narration-audit.test.ts"
         ]
       }
     },
@@ -101,7 +87,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-20T06:24:07.503Z",
+        "timestamp": "2026-07-20T12:19:46.898Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -123,16 +109,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/wild-donkeys-hammer.md",
-          ".paqad/.config.example",
-          ".paqad/checks/last-run.json",
-          ".paqad/configs/.config.rag",
-          ".paqad/decisions/resolved/D-01KXY55ZM70Y3JNDM8E0XC7WSX.json",
-          "docs/modules/feature-evidence/index/summary.md",
-          "src/feature-evidence/adoption.ts",
-          "src/feature-evidence/stage-ledger.ts",
-          "src/stage-evidence/schema.ts",
-          "tests/unit/feature-evidence/adoption.test.ts"
+          "runtime/hooks/lib/transcript.mjs",
+          "tests/unit/runtime/verify-backstop.test.ts",
+          "tests/unit/stage-evidence/narration-audit.test.ts"
         ]
       }
     }

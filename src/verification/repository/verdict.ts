@@ -32,6 +32,11 @@ export interface RepositoryVerificationVerdict {
    *  evidence + delivery state, composed at the completion seam. Falls back to
    *  `summary` when no stage fold is available. */
   receipt?: string;
+  /** The model-facing narration advisory (issue #409): set when this change recorded
+   *  stages the agent never spoke in visible text, empty otherwise. Advisory by
+   *  contract — it never contributes to `ok`, because a silent turn is a voice defect,
+   *  not a broken change. */
+  narrationAdvisory?: string;
   /** Per-gate pass/fail/inconclusive/skipped with specifics. */
   gates: RepositoryVerificationGateVerdict[];
   /** Signals that could not be proven either way and escalate without blocking
