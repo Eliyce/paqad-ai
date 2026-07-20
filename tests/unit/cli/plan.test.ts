@@ -40,7 +40,14 @@ describe('paqad-ai plan compile', () => {
     const withReuse =
       'reuse' in body
         ? body
-        : { ...body, reuse: { consulted: [{ source: 'grep', query: 'x', hits: 0 }], reusing: [], new_constructs: [] } };
+        : {
+            ...body,
+            reuse: {
+              consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+              reusing: [],
+              new_constructs: [],
+            },
+          };
     writeFileSync(path, JSON.stringify(withReuse));
     return path;
   }

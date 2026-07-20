@@ -137,7 +137,11 @@ describe('AC-1 — a plan template without a reuse section does not compile', ()
     const root = tempRoot();
     const errors = validateReuseSection({
       projectRoot: root,
-      reuse: { consulted: [{ source: 'grep', query: 'x', hits: 0 }], reusing: 'no', new_constructs: 'no' },
+      reuse: {
+        consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+        reusing: 'no',
+        new_constructs: 'no',
+      },
       steps: [],
     }).errors;
     expect(errors).toContain('plan template "reuse.reusing" must be an array');
@@ -267,7 +271,11 @@ describe('AC-8 — a detected framework demands the framework check on a new con
           {
             name: 'Slugger',
             justification: 'we need our own',
-            framework_checked: { package: 'laravel/framework', nearest: 'Str::slug', verdict: 'insufficient' },
+            framework_checked: {
+              package: 'laravel/framework',
+              nearest: 'Str::slug',
+              verdict: 'insufficient',
+            },
           },
         ],
       }),
@@ -316,7 +324,12 @@ describe('AC-9 — a framework claim must agree with the resolved stack snapshot
       projectRoot: root,
       reuse: base({
         reusing: [
-          { symbol: 'Str::of', package: 'laravel/framework', version: '10.48.2', how: 'use slug()' },
+          {
+            symbol: 'Str::of',
+            package: 'laravel/framework',
+            version: '10.48.2',
+            how: 'use slug()',
+          },
         ],
       }),
       steps: [],
@@ -404,5 +417,46 @@ describe('AC-5 — reuse counts for the receipt', () => {
   it('returns null for a plan compiled before the reuse gate, and for no plan', () => {
     expect(reuseCounts(null)).toBeNull();
     expect(reuseCounts({})).toBeNull();
+  });
+
+  it('counts a reuse section whose optional arrays are absent as zero', () => {
+    expect(reuseCounts({ reuse: { consulted: [] } as unknown as PlanReuse })).toEqual({
+      reused: 0,
+      newJustified: 0,
+    });
+  });
+});
+
+// A template may legitimately omit the two optional arrays entirely — only `consulted` is
+// required — so every path has to treat them as empty rather than assume they are present.
+describe('a reuse section with only the required consulted array', () => {
+  it('validates with no errors and no warnings', () => {
+    const result = validateReuseSection({
+      projectRoot: tempRoot(),
+      reuse: { consulted: [{ source: 'grep', query: 'x', hits: 0 }] },
+      steps: [{ description: 'wire it up' }],
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('still applies the declare-or-justify rule', () => {
+    const result = validateReuseSection({
+      projectRoot: tempRoot(),
+      reuse: { consulted: [{ source: 'grep', query: 'x', hits: 0 }] },
+      steps: [{ description: 'Create a helper for slugs' }],
+    });
+    expect(result.errors[0]).toContain('declare the new construct');
+  });
+
+  it('needs no framework fields even when a framework is detected', () => {
+    const root = tempRoot();
+    withFrameworks(root, ['react']);
+    const result = validateReuseSection({
+      projectRoot: root,
+      reuse: { consulted: [{ source: 'grep', query: 'x', hits: 0 }] },
+      steps: [],
+    });
+    expect(result.errors).toEqual([]);
   });
 });

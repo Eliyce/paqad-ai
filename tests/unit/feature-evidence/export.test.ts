@@ -36,7 +36,15 @@ describe('exportFeatureBundle', () => {
       stage: 'planning',
       adapter: 'claude-code',
     });
-    writeFeaturePlan(root, 'ses_1', { summary: 'do the thing', now: () => new Date(AT) });
+    writeFeaturePlan(root, 'ses_1', {
+      summary: 'do the thing',
+      reuse: {
+        consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+        reusing: [],
+        new_constructs: [],
+      },
+      now: () => new Date(AT),
+    });
 
     const bundle = exportFeatureBundle(root, dir, AT);
     expect(bundle.dir_name).toBe(dir);
@@ -115,7 +123,15 @@ describe('exportFeatureBundle strays', () => {
       issue: '402',
       ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
     });
-    writeFeaturePlan(root, 'ses_1', { summary: 'do the thing', now: () => new Date(AT) });
+    writeFeaturePlan(root, 'ses_1', {
+      summary: 'do the thing',
+      reuse: {
+        consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+        reusing: [],
+        new_constructs: [],
+      },
+      now: () => new Date(AT),
+    });
     return dir;
   }
 

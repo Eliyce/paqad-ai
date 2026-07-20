@@ -28,6 +28,25 @@ change, so the live feature-development stage spine is untouched:
   (`additionalProperties: false`) so the stored bytes are script-owned, not a
   free-written hallucination surface. `specification.json` reuses the existing
   `FeatureSpec` shape.
+- **Plan reuse gate** (`reuse.ts`, issue #357, Phase A) — the plan must answer "did you
+  check what already exists?" before it compiles. `validateReuseSection` returns blocking
+  `errors` and non-blocking `warnings` for the template's `reuse` section: `consulted`
+  (≥1 entry — what was actually checked), `reusing` (may be empty), and `new_constructs`
+  (every new exported construct, justified). `writeFeaturePlan` runs it BEFORE resolving
+  the active feature, so a plan that has not answered leaves no trace at all — no bundle
+  rename, no file. Checks are deterministic and cost zero model tokens: first-party
+  `reusing[].symbol` entries are looked up in the code-knowledge index (an unknown symbol
+  fails with a nearest match, reusing the exported `levenshtein` rather than a second
+  edit-distance implementation); a framework-native claim (one with `package`) must set
+  `version` and match the resolved `locked_version` in `.paqad/stack-snapshot.json`; and
+  when `stack_profile.frameworks` is non-empty, a new construct must carry
+  `framework_checked` or a justification naming the framework. Fail-safe throughout — an
+  absent index or snapshot downgrades to a warning, and a framework-less project carries
+  no new burden. `CREATE_KEYWORDS` is one exported constant so the declare-or-justify
+  trigger list stays tunable. `reuse` is REQUIRED on the compile input but OPTIONAL in
+  the stored `PLAN_SCHEMA`, so a `plan.json` written before this gate stays valid.
+  Phase B (does the framework symbol exist / is it deprecated at the installed version)
+  is issue #397; Phase C's ecosystem adapters are #398.
 - **Bundle integrity** (`bundle-integrity.ts`, issue #402) — the rigid-only invariant
   made checkable. `classifyBundlePath` judges whether a project-relative path sits in a
   bundle dir and whether it belongs there (the stage-end boundary uses it to reject a

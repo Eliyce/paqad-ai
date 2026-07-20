@@ -71,26 +71,30 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
     "summary": "What this change does, in one or two sentences.",
     "steps": [{ "id": "s1", "description": "wire the router", "module": "pipeline" }],
     "modules_touched": ["pipeline"],
-    "decisions": ["D-01J…"],           // resolved decision-packet ids this plan depends on
+    "decisions": ["D-01J…"], // resolved decision-packet ids this plan depends on
     "risks": [{ "description": "…", "mitigation": "…" }],
     "reuse": {
-      "consulted": [                    // ≥1 entry — what you actually checked
-        { "source": "index-query", "query": "date formatting", "hits": 2 }
+      "consulted": [
+        // ≥1 entry — what you actually checked
+        { "source": "index-query", "query": "date formatting", "hits": 2 },
       ],
-      "reusing": [                      // may be empty
-        { "symbol": "formatIsoDate", "file": "src/utils/dates.ts", "how": "call as-is" }
+      "reusing": [
+        // may be empty
+        { "symbol": "formatIsoDate", "file": "src/utils/dates.ts", "how": "call as-is" },
       ],
-      "new_constructs": [               // every NEW exported construct, justified
+      "new_constructs": [
+        // every NEW exported construct, justified
         {
           "name": "formatRelativeDate",
-          "justification": "no existing helper handles the relative form; nearest is formatIsoDate (checked)"
-        }
-      ]
-    }
+          "justification": "no existing helper handles the relative form; nearest is formatIsoDate (checked)",
+        },
+      ],
+    },
   }
   ```
 
   `consulted[].source` is one of `existing-surface`, `index-query`, `reuse-catalog`, `module-doc`, `grep`, `framework-api`, `framework-docs`. A framework-native reuse claim adds `package` and the resolved `version` (for example `{ "symbol": "Str::of", "package": "laravel/framework", "version": "10.48.2", "how": "use Str::of()->slug() instead of a hand-rolled slugger" }`); when a framework is detected, a new construct adds `framework_checked: { package, nearest, verdict }` with `verdict` one of `reuse`, `extend`, `insufficient`, `absent`.
+
 - Never write anything into a feature bundle directory (`.paqad/ledger/feature-evidence/<change>/`). It holds only its rigid, script-written artifacts (`plan.json`, `specification.json`, `review.json`, the ledgers, `delivery.json`, `receipt.json`, `ai-bom.json`) plus the generated `report.html`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and delete the transient input. A stage-end artifact pointing at a non-rigid file inside a bundle directory is rejected.
 - Escalations: `attribution_pending: stop`, `rule_scripts_stale: ask`, missing docs/design-system: `warn`.
 

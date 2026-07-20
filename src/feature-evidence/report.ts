@@ -405,7 +405,8 @@ function renderPlan(bundle: FeatureBundleExport): string {
     parts.push('<h3>Reuse</h3>');
     if (consulted) parts.push(`<h4>Consulted</h4><ul class="consulted">${consulted}</ul>`);
     if (reusing) parts.push(`<h4>Reusing</h4><ul class="reusing">${reusing}</ul>`);
-    if (constructs) parts.push(`<h4>New, justified</h4><ul class="new-constructs">${constructs}</ul>`);
+    if (constructs)
+      parts.push(`<h4>New, justified</h4><ul class="new-constructs">${constructs}</ul>`);
   }
   return panel('plan', 'Plan', parts.join(''), 'The plan is empty.');
 }

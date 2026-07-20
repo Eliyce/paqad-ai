@@ -189,4 +189,40 @@ describe('composeChangeReceipt (#325)', () => {
     });
     expect(receipt).toContain('tests not verified');
   });
+
+  // Issue #357 (AC-5) — the planning line shows what the plan declared it reused.
+  it('suffixes the planning line with the declared reuse counts', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: fold([stage('planning', 'complete')]),
+      reuse: { reused: 1, newJustified: 2 },
+    });
+    expect(receipt).toContain('planning — done (reuse: 1 reused, 2 new justified)');
+  });
+
+  it('leaves the planning line unchanged for a plan compiled before the reuse gate', () => {
+    const withoutReuse = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: fold([stage('planning', 'complete')]),
+    });
+    expect(withoutReuse).toContain('planning — done');
+    expect(withoutReuse).not.toContain('reuse:');
+    // An explicit null is the same as omitting it.
+    expect(
+      composeChangeReceipt({
+        verdictSummary: '**▸ paqad** · Safe to merge',
+        fold: fold([stage('planning', 'complete')]),
+        reuse: null,
+      }),
+    ).toBe(withoutReuse);
+  });
+
+  it('never suffixes a stage other than planning', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: fold([stage('development', 'complete')]),
+      reuse: { reused: 1, newJustified: 0 },
+    });
+    expect(receipt).not.toContain('reuse:');
+  });
 });
