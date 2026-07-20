@@ -104,6 +104,79 @@ export const PLAN_SCHEMA = {
         },
       },
     },
+    // Issue #357 — the reuse declaration. OPTIONAL here on purpose: presence is enforced
+    // on the compile-INPUT side (`validateReuseSection`), so a `plan.json` written before
+    // this change stays valid and readable (AC-6 / INV-3). The nested shape is fully
+    // validated, so what IS stored is still script-owned rather than free text.
+    reuse: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['consulted', 'reusing', 'new_constructs'],
+      properties: {
+        consulted: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['source', 'query', 'hits'],
+            properties: {
+              source: {
+                enum: [
+                  'existing-surface',
+                  'index-query',
+                  'reuse-catalog',
+                  'module-doc',
+                  'grep',
+                  'framework-api',
+                  'framework-docs',
+                ],
+              },
+              query: { type: 'string', minLength: 1 },
+              target: { type: 'string', minLength: 1 },
+              hits: { type: 'integer', minimum: 0 },
+            },
+          },
+        },
+        reusing: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['symbol', 'how'],
+            properties: {
+              symbol: { type: 'string', minLength: 1 },
+              file: { type: 'string', minLength: 1 },
+              how: { type: 'string', minLength: 1 },
+              package: { type: 'string', minLength: 1 },
+              version: { type: 'string', minLength: 1 },
+              provenance: { enum: ['asserted', 'unknown-dynamic', 'doc-derived'] },
+            },
+          },
+        },
+        new_constructs: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['name', 'justification'],
+            properties: {
+              name: { type: 'string', minLength: 1 },
+              justification: { type: 'string', minLength: 1 },
+              framework_checked: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['package', 'nearest', 'verdict'],
+                properties: {
+                  package: { type: 'string', minLength: 1 },
+                  nearest: { type: 'string', minLength: 1 },
+                  verdict: { enum: ['reuse', 'extend', 'insufficient', 'absent'] },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     created_at: { type: 'string', minLength: 1 },
     updated_at: { type: 'string', minLength: 1 },
     content_hash: { type: 'string', minLength: 1 },

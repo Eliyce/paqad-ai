@@ -337,6 +337,11 @@ function renderPlan(bundle: FeatureBundleExport): string {
         decisions?: string[];
         risks?: { description?: string; mitigation?: string }[];
         modules_touched?: string[];
+        reuse?: {
+          consulted?: { source?: string; query?: string; target?: string; hits?: number }[];
+          reusing?: { symbol?: string; file?: string; how?: string; package?: string }[];
+          new_constructs?: { name?: string; justification?: string }[];
+        };
       }
     | undefined;
   if (!plan) {
@@ -374,6 +379,34 @@ function renderPlan(bundle: FeatureBundleExport): string {
       )
       .join('');
     parts.push(`<h3>Risks</h3><ul class="risks">${items}</ul>`);
+  }
+  const reuse = plan.reuse;
+  if (reuse) {
+    // Issue #357 — what the plan checked before building. Rendered as three plain lists so
+    // the reader can see the reuse question was actually answered, not just claimed.
+    const consulted = (reuse.consulted ?? [])
+      .map(
+        (entry) =>
+          `<li><span class="tag">${escapeHtml(entry.source ?? '')}</span> ${escapeHtml(entry.query ?? '')}${entry.target ? ` <span class="tag">${escapeHtml(entry.target)}</span>` : ''} — ${entry.hits ?? 0} hit(s)</li>`,
+      )
+      .join('');
+    const reusing = (reuse.reusing ?? [])
+      .map(
+        (claim) =>
+          `<li><strong>${escapeHtml(claim.symbol ?? '')}</strong>${claim.package ? ` <span class="tag">${escapeHtml(claim.package)}</span>` : claim.file ? ` <span class="tag">${escapeHtml(claim.file)}</span>` : ''} — ${escapeHtml(claim.how ?? '')}</li>`,
+      )
+      .join('');
+    const constructs = (reuse.new_constructs ?? [])
+      .map(
+        (construct) =>
+          `<li><strong>${escapeHtml(construct.name ?? '')}</strong> — ${escapeHtml(construct.justification ?? '')}</li>`,
+      )
+      .join('');
+    parts.push('<h3>Reuse</h3>');
+    if (consulted) parts.push(`<h4>Consulted</h4><ul class="consulted">${consulted}</ul>`);
+    if (reusing) parts.push(`<h4>Reusing</h4><ul class="reusing">${reusing}</ul>`);
+    if (constructs)
+      parts.push(`<h4>New, justified</h4><ul class="new-constructs">${constructs}</ul>`);
   }
   return panel('plan', 'Plan', parts.join(''), 'The plan is empty.');
 }

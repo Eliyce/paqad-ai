@@ -18,6 +18,7 @@ import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
 import { parseFeatureDirName, featureFilePath } from './paths.js';
 import { backfillFeatureSlug } from './rename.js';
+import { validateReuseSection, type PlanReuse } from './reuse.js';
 import { validatePlanRecord, validateReviewRecord } from './schema.js';
 import { currentFeature } from './stage-ledger.js';
 import type {
@@ -36,9 +37,27 @@ export interface PlanCompileInput {
   modules_touched?: string[];
   decisions?: string[];
   risks?: PlanRisk[];
+  /**
+   * What the plan checked before deciding to build (issue #357). Required in practice:
+   * {@link writeFeaturePlan} refuses an input without a valid one, which is what makes the
+   * "did you check what already exists?" question part of the plan. Typed optional only so
+   * a malformed template reaches the validator and gets its actionable message, rather
+   * than dying at the JSON boundary.
+   */
+  reuse?: PlanReuse;
   /** Title override for the record; defaults to the feature slug when absent. */
   title?: string;
   now?: () => Date;
+}
+
+/** Thrown when a plan template's `reuse` section is missing or fails its checks (#357). */
+export class ReuseDeclarationError extends Error {
+  readonly errors: string[];
+  constructor(errors: string[]) {
+    super(errors.join('\n'));
+    this.name = 'ReuseDeclarationError';
+    this.errors = errors;
+  }
 }
 
 /** Thrown when a compile verb runs with no active feature to attach the artifact to. */
@@ -68,6 +87,13 @@ export interface CompiledArtifact<T> {
   dirName: string;
   path: string;
   record: T;
+  /**
+   * Non-blocking notes from the compile (issue #357) — a check that could not be
+   * performed, such as reuse claims that could not be verified because no code-knowledge
+   * index has been built. Returned rather than logged so the caller decides how to
+   * surface them, and so nothing here depends on shared mutable state.
+   */
+  warnings?: string[];
 }
 
 /**
@@ -103,6 +129,18 @@ export function writeFeaturePlan(
   sessionId: string,
   input: PlanCompileInput,
 ): CompiledArtifact<PlanRecord> {
+  // Issue #357 — the reuse gate runs BEFORE anything is resolved or renamed, so a plan
+  // that has not answered "did you check what already exists?" leaves no trace: no
+  // bundle rename, no file, nothing written (INV-5).
+  const reuseCheck = validateReuseSection({
+    projectRoot,
+    reuse: input.reuse,
+    steps: input.steps ?? [],
+  });
+  if (reuseCheck.errors.length > 0) {
+    throw new ReuseDeclarationError(reuseCheck.errors);
+  }
+
   let { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
   if (input.title !== undefined && input.title.length > 0) {
     const backfilled = backfillFeatureSlug(projectRoot, dirName, input.title, input.now);
@@ -124,6 +162,7 @@ export function writeFeaturePlan(
     modules_touched: input.modules_touched,
     decisions: input.decisions,
     risks: input.risks,
+    reuse: input.reuse,
     now: input.now,
   });
   const errors = validatePlanRecord(record);
@@ -132,7 +171,7 @@ export function writeFeaturePlan(
   }
   const rel = featureFilePath(dirName, 'plan');
   atomicWriteJson(join(projectRoot, rel), record);
-  return { dirName, path: rel, record };
+  return { dirName, path: rel, record, warnings: reuseCheck.warnings };
 }
 
 /** Tolerant read of a feature's `plan.json`, or null when absent/corrupt. */

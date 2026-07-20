@@ -15,6 +15,7 @@ import { deriveSlug } from '@/planning/slug-utils.js';
 import { detectTicketRefs } from '@/planning/ticket-ref-detect.js';
 
 import { formatFeatureDirName } from './paths.js';
+import type { PlanReuse } from './reuse.js';
 import {
   FEATURE_DOC_TYPE,
   FEATURE_EVIDENCE_SCHEMA_VERSION,
@@ -157,6 +158,8 @@ export interface BuildPlanRecordInput {
   modules_touched?: string[];
   decisions?: string[];
   risks?: PlanRisk[];
+  /** The reuse declaration (issue #357); absent only for a record built pre-gate. */
+  reuse?: PlanReuse;
   now?: () => Date;
 }
 
@@ -212,6 +215,10 @@ export function buildPlanRecord(input: BuildPlanRecordInput): PlanRecord {
     modules_touched: input.modules_touched ?? [],
     decisions: input.decisions ?? [],
     risks: input.risks ?? [],
+    // Omitted entirely when absent: the stored schema leaves `reuse` optional so a
+    // pre-#357 plan.json stays valid, and a literal `undefined` would serialise into the
+    // identity hash differently than the missing key it represents.
+    ...(input.reuse === undefined ? {} : { reuse: input.reuse }),
   } satisfies Omit<PlanRecord, 'created_at' | 'updated_at' | 'content_hash'>;
   return {
     ...base,

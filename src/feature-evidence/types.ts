@@ -1,3 +1,5 @@
+import type { PlanReuse } from './reuse.js';
+
 // Per-feature evidence bundle types (issue #339, Phase 1 — dark foundation).
 //
 // The design: each feature gets ONE directory
@@ -91,6 +93,12 @@ export interface PlanRecord {
   /** Decision-packet ids (`D-…`) this plan depends on. */
   decisions: string[];
   risks: PlanRisk[];
+  /**
+   * What the plan checked before deciding to build (issue #357). Optional on the stored
+   * record so a `plan.json` written before the reuse gate stays readable; every plan
+   * compiled since carries it, because the compile verb refuses an input without one.
+   */
+  reuse?: PlanReuse;
   created_at: string;
   updated_at: string;
   content_hash: string;

@@ -165,6 +165,7 @@ Emit the `start` marker as you begin the stage and the `end` marker as you finis
 npx paqad-ai stage start planning
 … planning work …
 npx paqad-ai plan compile <plan-template.json>            # writes plan.json into the active feature bundle
+                                                          # the template MUST carry a "reuse" section (#357)
 npx paqad-ai stage end planning --artifact <plan.json>
 
 npx paqad-ai stage start specification
@@ -180,6 +181,8 @@ npx paqad-ai stage end review --artifact <review.json>
 # development / checks / documentation_sync record from the files you edit where a hook
 # exists; on an advisory host mark them the same way.
 ```
+
+The plan template must record what existing code you checked before building (issue #357): `reuse.consulted` (≥1 entry), `reuse.reusing` (may be empty), and `reuse.new_constructs` (every new exported construct, justified). `plan compile` refuses a template without it, so run `npx paqad-ai index query <name>` — or read the Existing surface section — before you compile.
 
 Then speak the end-of-change verdict (Safe to merge / Needs your attention / Inconclusive) in prose, one line per stage with its honest evidence state. Skipping these calls is what leaves the ledger without planning/specification artifacts. If you want the stages **hook-enforced** in a JetBrains IDE rather than self-recorded, use the **Claude Code [Beta] plugin** (it runs the real `claude` CLI, so paqad's PreToolUse/Stop hooks fire) — "Claude Agent" in AI Assistant is advisory and structurally exposes no hook layer.
 

@@ -10,6 +10,7 @@
 // recorded work)", never 🟢 "done" — it reflects the fold's honesty tags verbatim.
 
 import { PAQAD_STATUS_GLYPH } from '@/core/constants/paqad-voice.js';
+import type { ReuseCounts } from '@/feature-evidence/reuse.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 
@@ -100,7 +101,11 @@ function applyChecksHonesty(
  * backs the change; `false` downgrades a "done" `checks` line so tests can never read as
  * verified when they were not (AC-A2). `undefined` leaves rendering unchanged.
  */
-export function formatStageEvidenceReceipt(fold: FoldedChange, checksVerified?: boolean): string {
+export function formatStageEvidenceReceipt(
+  fold: FoldedChange,
+  checksVerified?: boolean,
+  reuse?: ReuseCounts | null,
+): string {
   const rows = fold.stages.filter(
     (stage) => isMandatoryStage(stage.stage) || stage.started_at !== null,
   );
@@ -110,9 +115,22 @@ export function formatStageEvidenceReceipt(fold: FoldedChange, checksVerified?: 
   return rows
     .map((stage) => {
       const { glyph, note } = applyChecksHonesty(stage, stageStatus(stage), checksVerified);
-      return `> ${glyph} ${stageLabel(stage.stage)} — ${note}`;
+      return `> ${glyph} ${stageLabel(stage.stage)} — ${note}${reuseSuffix(stage, reuse)}`;
     })
     .join('\n');
+}
+
+/**
+ * The planning line's reuse suffix (issue #357, AC-5) — `(reuse: 1 reused, 1 new
+ * justified)`. Only the `planning` line carries it, and only when the plan actually
+ * declared a reuse section: a plan compiled before the reuse gate existed renders exactly
+ * as it did before, so the receipt never implies a check that did not happen.
+ */
+function reuseSuffix(stage: FoldedStage, reuse: ReuseCounts | null | undefined): string {
+  if (stage.stage !== 'planning' || !reuse) {
+    return '';
+  }
+  return ` (reuse: ${reuse.reused} reused, ${reuse.newJustified} new justified)`;
 }
 
 export interface ComposeChangeReceiptInput {
@@ -129,6 +147,9 @@ export interface ComposeChangeReceiptInput {
    *  `false` downgrades a "done" `checks` stage line so tests never read as verified
    *  when they were not (AC-A2). `undefined` leaves the `checks` line unchanged. */
   checksVerified?: boolean;
+  /** The reuse counts the active feature's plan declared (issue #357), or null when it
+   *  declared none — which is the case for any plan compiled before the reuse gate. */
+  reuse?: ReuseCounts | null;
 }
 
 /**
@@ -140,7 +161,11 @@ export interface ComposeChangeReceiptInput {
 export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   const parts = [input.verdictSummary];
   if (input.fold) {
-    const stageBlock = formatStageEvidenceReceipt(input.fold, input.checksVerified);
+    const stageBlock = formatStageEvidenceReceipt(
+      input.fold,
+      input.checksVerified,
+      input.reuse ?? null,
+    );
     if (stageBlock) {
       parts.push(stageBlock);
     }

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   NoActiveFeatureError,
+  ReuseDeclarationError,
   readFeaturePlan,
   readFeatureReview,
   readFeatureSpecification,
@@ -13,6 +14,7 @@ import {
   writeFeatureReview,
   writeFeatureSpecification,
 } from '@/feature-evidence/artifacts.js';
+import type { PlanReuse } from '@/feature-evidence/reuse.js';
 import { validatePlanRecord, validateReviewRecord } from '@/feature-evidence/schema.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
@@ -53,14 +55,24 @@ function frozenSpec(): FeatureSpec {
   };
 }
 
+/** A minimal valid reuse declaration (issue #357) — every plan compile now needs one. */
+function reuse(): PlanReuse {
+  return {
+    consulted: [{ source: 'index-query', query: 'router', hits: 0 }],
+    reusing: [],
+    new_constructs: [],
+  };
+}
+
 describe('writeFeaturePlan', () => {
   it('compiles a schema-valid plan.json into the active feature, keyed by the dir name', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     const result = writeFeaturePlan(root, 'ses_1', {
       summary: 'Route every prompt to one of nine workflows',
-      steps: [{ id: 's1', description: 'add the router' }],
+      steps: [{ id: 's1', description: 'wire the router' }],
       modules_touched: ['pipeline'],
+      reuse: reuse(),
       now: clock,
     });
     expect(result.dirName).toBe(dir);
@@ -70,11 +82,23 @@ describe('writeFeaturePlan', () => {
     expect(validatePlanRecord(result.record)).toEqual([]);
     const readBack = readFeaturePlan(root, dir);
     expect(readBack?.content_hash).toBe(result.record.content_hash);
+    expect(readBack?.reuse?.consulted).toHaveLength(1);
   });
 
   it('throws NoActiveFeatureError when no feature is active', () => {
     const root = tempRoot();
-    expect(() => writeFeaturePlan(root, 'ses_1', { summary: 'x' })).toThrow(NoActiveFeatureError);
+    expect(() => writeFeaturePlan(root, 'ses_1', { summary: 'x', reuse: reuse() })).toThrow(
+      NoActiveFeatureError,
+    );
+  });
+
+  // Issue #357 — the reuse gate runs before anything is resolved, so a plan that has not
+  // answered "did you check what already exists?" leaves no trace at all (INV-5).
+  it('refuses a plan with no reuse section and writes nothing', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    expect(() => writeFeaturePlan(root, 'ses_1', { summary: 'x' })).toThrow(ReuseDeclarationError);
+    expect(readFeaturePlan(root, dir)).toBeNull();
   });
 });
 

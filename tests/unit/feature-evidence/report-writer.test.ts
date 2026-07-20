@@ -37,7 +37,15 @@ function openWithPlan(root: string, ulidSeed: number, title: string): string {
     stage: 'planning',
     adapter: 'claude-code',
   });
-  writeFeaturePlan(root, 'ses_1', { summary: `plan for ${title}`, now: () => new Date(AT) });
+  writeFeaturePlan(root, 'ses_1', {
+    summary: `plan for ${title}`,
+    reuse: {
+      consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+      reusing: [],
+      new_constructs: [],
+    },
+    now: () => new Date(AT),
+  });
   return dir;
 }
 

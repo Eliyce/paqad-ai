@@ -212,6 +212,11 @@ describe('writeFeaturePlan slug back-fill (issue #403)', () => {
     const result = writeFeaturePlan(root, 'ses_1', {
       summary: 'Back-fill the generic slug from the plan title',
       title: 'fix(#403): back-fill generic change bundle slug',
+      reuse: {
+        consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+        reusing: [],
+        new_constructs: [],
+      },
       now: clock,
     });
     expect(result.dirName).not.toBe(dir);
@@ -226,7 +231,15 @@ describe('writeFeaturePlan slug back-fill (issue #403)', () => {
   it('an untitled compile leaves the generic dir in place (AC-5)', () => {
     const root = tempRoot();
     const dir = untitledFeature(root);
-    const result = writeFeaturePlan(root, 'ses_1', { summary: 'no title given', now: clock });
+    const result = writeFeaturePlan(root, 'ses_1', {
+      summary: 'no title given',
+      reuse: {
+        consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+        reusing: [],
+        new_constructs: [],
+      },
+      now: clock,
+    });
     expect(result.dirName).toBe(dir);
     expect(result.record.slug).toBe('change');
   });

@@ -33,9 +33,22 @@ describe('paqad-ai plan compile', () => {
     return lines;
   }
 
-  function writeTemplate(body: unknown): string {
+  function writeTemplate(body: Record<string, unknown>): string {
     const path = join(root, 'plan-input.json');
-    writeFileSync(path, JSON.stringify(body));
+    // Issue #357 — every compile needs a reuse declaration, so the fixtures carry a
+    // minimal valid one unless a test is deliberately exercising its absence.
+    const withReuse =
+      'reuse' in body
+        ? body
+        : {
+            ...body,
+            reuse: {
+              consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+              reusing: [],
+              new_constructs: [],
+            },
+          };
+    writeFileSync(path, JSON.stringify(withReuse));
     return path;
   }
 
@@ -107,5 +120,38 @@ describe('paqad-ai plan compile', () => {
     await run(input);
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain('non-empty "summary"');
+  });
+
+  // Issue #357 — the reuse gate at the CLI boundary.
+  it('refuses a template with no reuse section and prints the expected shape (AC-1)', async () => {
+    openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 3 });
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
+    const input = writeTemplate({ summary: 'no reuse declared', reuse: undefined });
+    await run(input);
+    expect(process.exitCode).toBe(1);
+    const printed = errors.join('\n');
+    expect(printed).toContain('missing the required "reuse" section');
+    expect(printed).not.toContain('could not compile plan');
+    // Nothing was written, and the transient input survives a failed compile.
+    expect(readFeaturePlan(root, currentFeature(root, SES)!)).toBeNull();
+    expect(existsSync(input)).toBe(true);
+  });
+
+  it('prints the unverified-claims warning when no index has been built (AC-3)', async () => {
+    openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 4 });
+    const warnings: string[] = [];
+    vi.spyOn(console, 'warn').mockImplementation((l: string) => warnings.push(String(l)));
+    const input = writeTemplate({
+      summary: 'reuse something',
+      reuse: {
+        consulted: [{ source: 'grep', query: 'dates', hits: 1 }],
+        reusing: [{ symbol: 'formatIsoDate', how: 'call as-is' }],
+        new_constructs: [],
+      },
+    });
+    await run(input);
+    expect(process.exitCode).toBeUndefined();
+    expect(warnings.join('\n')).toContain('reuse claims unverified: index not built');
   });
 });

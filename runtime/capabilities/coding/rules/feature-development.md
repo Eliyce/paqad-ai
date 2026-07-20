@@ -62,6 +62,39 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 - Run the **attribution gate**: identify which module(s) the change belongs to (the `module-attribution-extractor` then `module-attribution-inferencer` skills). If attribution is unresolved, escalate `attribution_pending: stop` via a Decision Packet — never guess silently.
 - Produce the implementation sequence scoped to the request and the current repository state.
 - Compile the plan into the feature bundle with `npx paqad-ai plan compile <plan-template.json>`: it writes the rigid `plan.json` into the active feature's bundle (`.paqad/ledger/feature-evidence/<change>/plan.json`) — the durable planning artifact. **Always include the change's `title` (with its ticket ref, e.g. `fix(#403): …`) in the plan template**: a change opened by a bare `paqad:stage planning start` is minted as the generic `change-<ULID>`, and the titled compile is what renames the bundle to its descriptive `[<issue>-]<slug>-<ULID>` name (issue #403). End the planning stage against **that** file (`paqad:stage planning end -- <path-to-plan.json>`, or `npx paqad-ai stage end planning --artifact <path-to-plan.json>`) — the compile prints the (possibly renamed) path to use. Do **not** hand-write the plan to `.paqad/plans/*` or any other location: only the bundle's `plan.json` is the artifact, and a stage-end pointing anywhere else records inconclusive.
+- Before compiling the plan, check the Existing surface section and/or run `npx paqad-ai index query <name>`. The plan must record what you checked (`consulted`), what you will reuse (`reusing`), and must justify anything new (`new_constructs`). A plan template without a `reuse` section does not compile, so a change can never quietly rebuild something the project already has. First-party claims are checked against the code-knowledge index (an unknown symbol fails with the nearest match); when a framework is detected, a new construct must also record the framework check, and a framework-native claim must name the installed version. A missing index or stack snapshot downgrades the check to a warning rather than blocking.
+- The filled plan template looks like this — `summary` is required, and `reuse` is required:
+
+  ```jsonc
+  {
+    "title": "feat(#357): short change title with its ticket ref",
+    "summary": "What this change does, in one or two sentences.",
+    "steps": [{ "id": "s1", "description": "wire the router", "module": "pipeline" }],
+    "modules_touched": ["pipeline"],
+    "decisions": ["D-01J…"], // resolved decision-packet ids this plan depends on
+    "risks": [{ "description": "…", "mitigation": "…" }],
+    "reuse": {
+      "consulted": [
+        // ≥1 entry — what you actually checked
+        { "source": "index-query", "query": "date formatting", "hits": 2 },
+      ],
+      "reusing": [
+        // may be empty
+        { "symbol": "formatIsoDate", "file": "src/utils/dates.ts", "how": "call as-is" },
+      ],
+      "new_constructs": [
+        // every NEW exported construct, justified
+        {
+          "name": "formatRelativeDate",
+          "justification": "no existing helper handles the relative form; nearest is formatIsoDate (checked)",
+        },
+      ],
+    },
+  }
+  ```
+
+  `consulted[].source` is one of `existing-surface`, `index-query`, `reuse-catalog`, `module-doc`, `grep`, `framework-api`, `framework-docs`. A framework-native reuse claim adds `package` and the resolved `version` (for example `{ "symbol": "Str::of", "package": "laravel/framework", "version": "10.48.2", "how": "use Str::of()->slug() instead of a hand-rolled slugger" }`); when a framework is detected, a new construct adds `framework_checked: { package, nearest, verdict }` with `verdict` one of `reuse`, `extend`, `insufficient`, `absent`.
+
 - Never write anything into a feature bundle directory (`.paqad/ledger/feature-evidence/<change>/`). It holds only its rigid, script-written artifacts (`plan.json`, `specification.json`, `review.json`, the ledgers, `delivery.json`, `receipt.json`, `ai-bom.json`) plus the generated `report.html`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and delete the transient input. A stage-end artifact pointing at a non-rigid file inside a bundle directory is rejected.
 - Escalations: `attribution_pending: stop`, `rule_scripts_stale: ask`, missing docs/design-system: `warn`.
 
