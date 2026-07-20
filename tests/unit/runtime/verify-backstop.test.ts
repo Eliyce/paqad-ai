@@ -362,7 +362,13 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
 
     it('leaves the receipt untouched when nothing was silent', async () => {
       const receipt = '**▸ paqad** · Safe to merge';
-      mockVerdict({ ok: true, summary: 'Safe to merge', receipt, gates: [], narrationAdvisory: '' });
+      mockVerdict({
+        ok: true,
+        summary: 'Safe to merge',
+        receipt,
+        gates: [],
+        narrationAdvisory: '',
+      });
       const { runVerificationBackstop } = await loadBackstop();
       const out = capture();
 

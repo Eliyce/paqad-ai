@@ -85,7 +85,9 @@ describe('auditTurnNarration', () => {
   });
 
   it('reports nothing when no stages were recorded', () => {
-    expect(auditTurnNarration({ transcriptText: assistantText('hello'), recorded: [] })).toEqual([]);
+    expect(auditTurnNarration({ transcriptText: assistantText('hello'), recorded: [] })).toEqual(
+      [],
+    );
   });
 
   it('ignores unknown stage ids rather than reporting them as unnarrated', () => {
