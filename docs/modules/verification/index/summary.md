@@ -133,3 +133,4 @@ then regenerate this page via `create module documentation`.
 - Quality ratchet (a gate input): [`quality-ratchet`](../../quality-ratchet/index/summary.md)
 - Bidirectional traceability: [`traceability-engine`](../../traceability-engine/index/summary.md)
 - Architecture overview: [`docs/instructions/architecture/overview.md`](../../../instructions/architecture/overview.md)
+

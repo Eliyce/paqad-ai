@@ -221,4 +221,161 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
     expect(reason).toContain('documentation_sync');
     expect(blockReason({})).toContain('A verification gate is blocking');
   });
+
+  // Issue #409 — the voice backstop. `{systemMessage}` reaches the MODEL but not the
+  // Desktop developer, which is why the receipt must be spoken by the agent and why
+  // this channel is the right one for an advisory telling it to do so.
+  describe('#409 narration advisory', () => {
+    let projectRoot: string;
+
+    beforeEach(() => {
+      projectRoot = mkdtempSync(join(tmpdir(), 'paqad-narration-advisory-'));
+      vi.resetModules();
+    });
+
+    afterEach(() => {
+      rmSync(projectRoot, { recursive: true, force: true });
+      vi.doUnmock(DIST);
+    });
+
+    it('threads the transcript through to the verification API', async () => {
+      let seen;
+      vi.doMock(DIST, () => ({
+        runRepositoryVerification: async (options: Record<string, unknown>) => {
+          seen = options.transcriptText;
+          return { ok: true, summary: 'ok', receipt: 'ok', gates: [] };
+        },
+      }));
+      const { runVerificationBackstop } = await loadBackstop();
+
+      await runVerificationBackstop({
+        origin: 'hook-completion',
+        softFail: true,
+        projectRoot,
+        loopActive: false,
+        transcriptText: 'the transcript',
+        stdout: capture().stream,
+        stderr: capture().stream,
+      });
+
+      expect(seen).toBe('the transcript');
+    });
+
+    it('passes null when the host withheld a transcript, so absence reads as "cannot tell"', async () => {
+      let seen = 'unset';
+      vi.doMock(DIST, () => ({
+        runRepositoryVerification: async (options: Record<string, unknown>) => {
+          seen = options.transcriptText as string;
+          return { ok: true, summary: 'ok', receipt: 'ok', gates: [] };
+        },
+      }));
+      const { runVerificationBackstop } = await loadBackstop();
+
+      await runVerificationBackstop({
+        origin: 'hook-completion',
+        softFail: true,
+        projectRoot,
+        loopActive: false,
+        stdout: capture().stream,
+        stderr: capture().stream,
+      });
+
+      expect(seen).toBeNull();
+    });
+
+    it('AC-4: appends the advisory to the systemMessage on a GREEN verdict, without blocking', async () => {
+      mockVerdict({
+        ok: true,
+        summary: 'Safe to merge',
+        receipt: '**▸ paqad** · Safe to merge',
+        gates: [{ status: 'pass' }],
+        narrationAdvisory: '▸ paqad · you recorded a stage you never said out loud: review.',
+      });
+      const { runVerificationBackstop } = await loadBackstop();
+      const out = capture();
+
+      const code = await runVerificationBackstop({
+        origin: 'hook-completion',
+        softFail: true,
+        projectRoot,
+        loopActive: false,
+        stdout: out.stream,
+        stderr: capture().stream,
+      });
+
+      expect(code).toBe(0);
+      const parsed = JSON.parse(out.read());
+      expect(parsed.systemMessage).toContain('Safe to merge');
+      expect(parsed.systemMessage).toContain('never said out loud');
+      // INV-1 — a silent turn is a voice defect, not a broken change.
+      expect(parsed.decision).toBeUndefined();
+    });
+
+    it('INV-1: the advisory alone never blocks, even with no other finding', async () => {
+      mockVerdict({
+        ok: true,
+        summary: 'Safe to merge',
+        receipt: 'Safe to merge',
+        gates: [],
+        narrationAdvisory: 'speak up',
+      });
+      const { runVerificationBackstop } = await loadBackstop();
+      const out = capture();
+
+      await runVerificationBackstop({
+        origin: 'hook-completion',
+        softFail: true,
+        projectRoot,
+        loopActive: false,
+        stdout: out.stream,
+        stderr: capture().stream,
+      });
+
+      expect(JSON.parse(out.read()).decision).toBeUndefined();
+    });
+
+    it('folds the advisory into the block reason when a real gate failure is already blocking', async () => {
+      mockVerdict({
+        ok: false,
+        summary: 'Needs your attention',
+        receipt: 'Needs your attention',
+        gates: [{ status: 'fail' }],
+        narrationAdvisory: '▸ paqad · you recorded stages you never said out loud: planning.',
+      });
+      const { runVerificationBackstop } = await loadBackstop();
+      const out = capture();
+
+      await runVerificationBackstop({
+        origin: 'hook-completion',
+        softFail: true,
+        projectRoot,
+        loopActive: false,
+        stdout: out.stream,
+        stderr: capture().stream,
+      });
+
+      const parsed = JSON.parse(out.read());
+      expect(parsed.decision).toBe('block');
+      expect(parsed.reason).toContain('paqad-ai checks run');
+      expect(parsed.reason).toContain('never said out loud');
+    });
+
+    it('leaves the receipt untouched when nothing was silent', async () => {
+      const receipt = '**▸ paqad** · Safe to merge';
+      mockVerdict({ ok: true, summary: 'Safe to merge', receipt, gates: [], narrationAdvisory: '' });
+      const { runVerificationBackstop } = await loadBackstop();
+      const out = capture();
+
+      await runVerificationBackstop({
+        origin: 'hook-completion',
+        softFail: true,
+        projectRoot,
+        loopActive: false,
+        stdout: out.stream,
+        stderr: capture().stream,
+      });
+
+      expect(JSON.parse(out.read()).systemMessage).toBe(receipt);
+    });
+  });
 });

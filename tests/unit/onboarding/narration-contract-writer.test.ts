@@ -21,6 +21,38 @@ describe('narration-contract-writer', () => {
     expect(body).toContain('**▸ paqad**');
   });
 
+  // Issue #409 — the contract used to tell the Claude Code agent that "the entry lines
+  // and the end-of-change receipt are surfaced for you", so a compliant agent delegated
+  // its voice to a channel Claude Code Desktop never renders. AC-3.
+  describe('#409 who speaks, and on which channel', () => {
+    it('AC-3: no longer promises that the hooks surface the narration for the agent', () => {
+      expect(buildNarrationContractBody()).not.toContain(
+        'the entry lines and the end-of-change receipt are surfaced for you',
+      );
+    });
+
+    it('AC-3: puts the voice on the Claude Code agent itself', () => {
+      const body = buildNarrationContractBody();
+      expect(body).toContain('On **Claude Code** YOU speak');
+      expect(body).toContain('Never treat a hook as having spoken for you');
+    });
+
+    it('AC-3: states per surface which channels actually render', () => {
+      const body = buildNarrationContractBody();
+      expect(body).toContain('Claude Code CLI');
+      expect(body).toContain('Claude Code Desktop');
+      expect(body).toContain('recorded as a hook attachment');
+      // The channel the agent controls is named as the one that renders.
+      expect(body).toContain('Your assistant text, final message of the turn');
+    });
+
+    it('states the placement rule mid-turn narration was silently missing', () => {
+      const body = buildNarrationContractBody();
+      expect(body).toContain('**final message of the turn**');
+      expect(body).toContain('between tool calls');
+    });
+  });
+
   it('reuses the canonical verdict words', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(PAQAD_VERDICT.pass);
