@@ -59,12 +59,22 @@ export interface FeatureRecord {
   content_hash: string;
 }
 
+/**
+ * The diff-minimizer verdict for a plan step (issue #359): does it satisfy an acceptance
+ * criterion, set up one that does, or is it scaffolding / over-build that should be dropped?
+ * Mirrors the skill's `assets/classifications.txt` so a recorded plan can carry the verdict.
+ */
+export type PlanStepClassification =
+  'ac-satisfying' | 'necessary-setup' | 'scaffolding' | 'over-build';
+
 /** One step in a plan's implementation sequence. */
 export interface PlanStep {
   id: string;
   description: string;
   /** Module slug this step touches, when known. */
   module?: string;
+  /** The diff-minimizer classification for this step (issue #359), when the skill ran. */
+  classification?: PlanStepClassification;
 }
 
 /** A risk the plan surfaced, paired with its mitigation. */

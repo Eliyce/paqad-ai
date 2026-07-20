@@ -87,6 +87,12 @@ export const PLAN_SCHEMA = {
           id: { type: 'string', minLength: 1 },
           description: { type: 'string', minLength: 1 },
           module: { type: 'string', minLength: 1 },
+          // Issue #359 — the diff-minimizer verdict for the step. Optional and additive so a
+          // plan.json compiled before this change stays valid (INV-3); when present it must
+          // be one of the skill's four classifications.
+          classification: {
+            enum: ['ac-satisfying', 'necessary-setup', 'scaffolding', 'over-build'],
+          },
         },
       },
     },
