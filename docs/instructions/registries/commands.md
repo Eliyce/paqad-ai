@@ -40,3 +40,4 @@ Source: `src/cli/commands/*.ts`. Regenerate when adding/removing commands.
 | `patterns`      | `src/cli/commands/patterns.ts`    | Inspect detection patterns                     |
 | `evidence`      | `src/cli/commands/evidence.ts`    | Render verification evidence as a scannable PR comment (Markdown or JSON) |
 | `audit`         | `src/cli/commands/audit.ts`       | Export the evidence ledger to your own SIEM — OCSF/ECS/CEF/JSONL, read-only, local-first (`export`) |
+| `duplication`   | `src/cli/commands/duplication.ts` | Flag new code that near-copies existing helpers, new-code-only and deterministic (`scan`) |

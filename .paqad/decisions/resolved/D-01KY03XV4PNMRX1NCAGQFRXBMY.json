@@ -1,0 +1,26 @@
+{
+  "id": "D-01KY03XV4PNMRX1NCAGQFRXBMY",
+  "category": "architecture-path",
+  "title": "Duplication detector binds to the rule-script engine via a CLI verb",
+  "context": "Issue #358 specifies an armed rule-script binding. Verified: findings.schema.json sets additionalProperties:false so a finding carries only file/line/message/severity; and all 34 armed scripts are self-contained zero-dependency regex scanners, while duplication detection needs the chunk index, cosine similarity and the code-knowledge index.",
+  "options": [
+    {
+      "option_key": "shell-out",
+      "label": "Thin .mjs shells out to a new duplication scan --json verb"
+    },
+    {
+      "option_key": "import-package",
+      "label": "Hand-authored .mjs imports the installed paqad-ai package"
+    },
+    {
+      "option_key": "in-process",
+      "label": "Detector runs in-process at checks only; no rule-script binding"
+    }
+  ],
+  "recommendation": "shell-out",
+  "created_at": "2026-07-20T15:57:15.286Z",
+  "status": "resolved",
+  "chosen": "shell-out",
+  "rationale": "Keeps armed rule-scripts dependency-free (all 34 today are self-contained), keeps the detector as normal testable TypeScript in src/duplication/, and yields a reusable CLI verb. Subprocess cost measured against the AC-7 <3s budget.",
+  "resolved_at": "2026-07-20T15:57:25.602Z"
+}

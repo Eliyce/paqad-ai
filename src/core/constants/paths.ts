@@ -267,6 +267,8 @@ export const PATHS = {
   RULE_SCRIPTS_CACHE_DIR: '.paqad/scripts/rules/.cache',
   RULE_SCRIPTS_REPORT: '.paqad/scripts/rules/.cache/report.json',
   RULE_SCRIPTS_DRIFT: '.paqad/scripts/rules/.cache/drift.json',
+  // Issue #358 — duplication gate report cache (read by the Stop-seam gate).
+  DUPLICATION_REPORT: '.paqad/scripts/rules/.cache/duplication.json',
   RULE_SCRIPT_MAP_HISTORY_DIR: '.paqad/scripts/rules/.history',
   RULE_SCRIPT_MAP_EVENTS_LOG: '.paqad/scripts/rules/.history/events.jsonl',
   // Capability Kernel integrity lock (buildout F5). Engine-owned, tracked: the

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { dirname } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { cosineSimilarity } from '@/core/math/cosine.js';
 
 import { crsCollectionDir, crsCollectionPaths } from './crs-paths.js';
 import { readGitState } from './git-state.js';
@@ -25,27 +26,6 @@ export class CorruptVectorIndexError extends Error {
     super(`Corrupt vector ${kind} file at ${filePath}`);
     this.name = 'CorruptVectorIndexError';
   }
-}
-
-function cosineSimilarity(left: number[], right: number[]): number {
-  if (left.length !== right.length || left.length === 0) {
-    return 0;
-  }
-
-  let dot = 0;
-  let leftNorm = 0;
-  let rightNorm = 0;
-  for (let i = 0; i < left.length; i++) {
-    dot += left[i] * right[i];
-    leftNorm += left[i] * left[i];
-    rightNorm += right[i] * right[i];
-  }
-
-  if (leftNorm === 0 || rightNorm === 0) {
-    return 0;
-  }
-
-  return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
 }
 
 async function atomicWrite(path: string, content: string): Promise<void> {

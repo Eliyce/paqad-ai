@@ -38,6 +38,8 @@ import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/rep
 import { auditTurnNarration, unnarratedAdvisory } from '@/stage-evidence/narration-audit.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
+import { runDuplicationScan } from '@/duplication/scan.js';
+import { resolveDuplicationMode } from '@/duplication/config.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { type FoldedChange } from '@/stage-evidence/types.js';
@@ -58,6 +60,7 @@ import type { Gate } from '../gates/gate.interface.js';
 import { AcTestMappingGate } from '../gates/ac-test-mapping.js';
 import { ChangeCompletenessGate } from '../gates/change-completeness.js';
 import { DocumentationFreshnessGate } from '../gates/documentation-freshness.js';
+import { DuplicationGate } from '../gates/duplication.js';
 import { ExtensionSurfaceGate } from '../gates/extension-surface.js';
 import { ImplementationReviewGate } from '../gates/implementation-review.js';
 import { InstructionsDocsStructureGate } from '../gates/instructions-docs-structure.js';
@@ -98,6 +101,10 @@ export function backstopGates(): Gate[] {
     new ChangeCompletenessGate(),
     new MutationTestingGate(),
     new QualityRatchetGate(),
+    // Issue #358 — the duplication verdict. Placed after the quality gates (a near-copy is a
+    // quality signal, not a correctness blocker) and, being blocking only in strict mode with a
+    // deterministic finding, it never preempts a more critical gate in the default warn bake-in.
+    new DuplicationGate(),
     new ModuleDocsStructureGate(),
     new InstructionsDocsStructureGate(),
     new DocumentationFreshnessGate(),
@@ -165,6 +172,27 @@ export async function runRepositoryVerification(
       origin: options.origin,
     }));
   const { context, escalations } = built;
+
+  // Issue #358 — refresh the duplication report BEFORE the gates run, so the DuplicationGate
+  // (in backstopGates) reads this change's result. Scoped to feature-development (a docs/
+  // framework-internal diff is not code being built) and to a non-off duplication mode. Driven
+  // here for the same reason module-health is (this is the universal, agent-independent
+  // completion seam), and best-effort by contract: a scan failure is logged and never changes
+  // the verdict (NFR-3).
+  if (
+    changeIsFeatureDev(context.changed_files, context.project_root) &&
+    resolveDuplicationMode(context.project_root) !== 'off'
+  ) {
+    try {
+      await runDuplicationScan({
+        projectRoot: context.project_root,
+        changedFiles: context.changed_files,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      engineLog('warn', `paqad: duplication scan skipped (${message})`);
+    }
+  }
 
   const runner = new VerificationGateRunner(backstopGates());
   const results = await runner.run(context);
