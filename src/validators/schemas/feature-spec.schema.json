@@ -36,9 +36,29 @@
     },
     "frozen": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/frozenMetadata" }]
-    }
+    },
+    "spec_review": { "$ref": "#/$defs/specReviewSummary" }
   },
   "$defs": {
+    "specReviewSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewed_at", "defect_count", "by_severity"],
+      "properties": {
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "defect_count": { "type": "integer", "minimum": 0 },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["critical", "major", "minor"],
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "major": { "type": "integer", "minimum": 0 },
+            "minor": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
     "verificationCase": {
       "type": "object",
       "additionalProperties": false,

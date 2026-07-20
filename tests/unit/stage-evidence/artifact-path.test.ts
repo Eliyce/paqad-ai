@@ -1,3 +1,5 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -16,6 +18,20 @@ describe('normalizeArtifactPath', () => {
 
   it('normalizes an absolute in-tree path to project-relative', () => {
     expect(normalizeArtifactPath(root, join(root, 'docs', 'plan.md'))).toBe('docs/plan.md');
+  });
+
+  // Issue #401 — a real repro on macOS, where the temp root lives under the `/var`
+  // symlink. The root realpath'd to `/private/var/…` while an absolute path to a
+  // not-yet-created file under it stayed `/var/…`, so a genuinely in-tree path read as a
+  // `../..` escape and was rejected. Existence must stay irrelevant to accept/reject.
+  it('accepts an absolute in-tree path that does not exist yet, under a symlinked root', () => {
+    const symlinkedRoot = mkdtempSync(join(tmpdir(), 'paqad-artifact-path-'));
+    try {
+      const missing = join(symlinkedRoot, 'nested', 'not-created-yet.md');
+      expect(normalizeArtifactPath(symlinkedRoot, missing)).toBe('nested/not-created-yet.md');
+    } finally {
+      rmSync(symlinkedRoot, { recursive: true, force: true });
+    }
   });
 
   it('normalizes a redundant `./` prefix and dot segments', () => {

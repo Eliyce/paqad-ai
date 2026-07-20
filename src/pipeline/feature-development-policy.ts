@@ -52,6 +52,23 @@ const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Reco
     documentation_sync: { require_canonical_sync: true },
   };
 
+/**
+ * Issue #401 — the specification stage's spec-review clause, authored ONCE.
+ *
+ * The stage instructions exist in two forms here: the built-in default policy object and
+ * the rendered YAML a project is onboarded with. Every other instruction is duplicated
+ * verbatim between them, which is exactly how the freeze contract drifted from the freeze
+ * code in the first place. This one is a shared constant so the two surfaces cannot say
+ * different things about what freeze enforces.
+ */
+const SPEC_REVIEW_ENFORCEMENT_INSTRUCTION =
+  'Spec-review enforcement (issue #401): SCRIPT-ENFORCED. `paqad-ai spec freeze` runs the ' +
+  'spec-quality review itself and refuses to freeze while a critical defect is open, so ' +
+  'never run `compliance review` by hand to satisfy the clause above. Major and minor ' +
+  "findings never block. The defect summary is folded into the bundle's specification.json " +
+  'and no .paqad/compliance/<slug>/spec-review.json is written by this workflow. Author the ' +
+  'spec markdown inside the project: a path resolving outside the project root is rejected.';
+
 export function featureDevelopmentPolicyPath(projectRoot: string): string {
   return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
 }
@@ -122,6 +139,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Write or refine the feature specification before implementation when the lane includes specification.',
           'Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
+          SPEC_REVIEW_ENFORCEMENT_INSTRUCTION,
           'Freeze the spec before writing code on graduated/full lanes: run `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen spec into the active feature bundle (`specification.json`) that development builds against and the spec-change guard checks for drift.',
         ],
         required_inputs: ['approved spec boundary'],
@@ -597,6 +615,7 @@ stages:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
       - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
+      - "${SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}"
       - "Freeze the spec before writing code on graduated/full lanes: run \`npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants\` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen spec into the active feature bundle (\`specification.json\`) that development builds against and the spec-change guard checks for drift."
     required_inputs:
       - approved spec boundary

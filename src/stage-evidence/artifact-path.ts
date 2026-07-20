@@ -38,6 +38,15 @@ function realOrLexical(p: string): string {
   }
 }
 
+/** Whether a `relative()` result means the path is not inside the root it was taken from. */
+function isEscape(rel: string): boolean {
+  // Empty (the root dir), a `..` escape, or an absolute remainder (a different Windows
+  // drive) all mean the path is not inside the project root.
+  return (
+    rel === '' || rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || isAbsolute(rel)
+  );
+}
+
 /**
  * Normalize an artifact path to a project-relative posix path, or throw
  * {@link ArtifactOutOfTreeError} when it resolves outside the project root.
@@ -52,24 +61,26 @@ function realOrLexical(p: string): string {
  * Symlinks are reconciled the same way the capability gate does: `process.cwd()` on
  * macOS reports the realpath (`/private/tmp/…`) while a user-supplied absolute path may
  * use the symlinked form (`/tmp/…`), so a purely lexical `relative()` would wrongly read
- * an in-tree file as an escape. We realpath the root and any existing absolute input to
- * compare on equal footing; a relative input resolves against the realpath'd root so a
- * not-yet-created in-tree file still normalizes.
+ * an in-tree file as an escape. The input is therefore compared against BOTH forms of the
+ * root — its realpath and its lexical resolution — and is in-tree when either matches.
+ *
+ * Comparing against both is what keeps existence irrelevant (issue #401): `realpath` falls
+ * back to the lexical path for a file that does not exist yet, so an absolute path to a
+ * not-yet-created file under a symlinked root (macOS `/var`, `/tmp`) stays in the symlinked
+ * form while the root realpaths to `/private/var/…`. Matching only the realpath'd root read
+ * that genuinely in-tree path as a `../..` escape and rejected it.
  */
 export function normalizeArtifactPath(projectRoot: string, input: string): string {
-  const rootAbs = realOrLexical(resolve(projectRoot));
-  const absInput = isAbsolute(input) ? realOrLexical(input) : resolve(rootAbs, input);
-  const rel = relative(rootAbs, absInput);
-  // Empty (the root dir), a `..` escape, or an absolute remainder (a different Windows
-  // drive) all mean the path is not inside the project root.
-  if (
-    rel === '' ||
-    rel === '..' ||
-    rel.startsWith('../') ||
-    rel.startsWith('..\\') ||
-    isAbsolute(rel)
-  ) {
-    throw new ArtifactOutOfTreeError(input);
+  const rootResolved = resolve(projectRoot);
+  const rootReal = realOrLexical(rootResolved);
+  const absInput = isAbsolute(input) ? realOrLexical(input) : resolve(rootReal, input);
+
+  // A Set so the common case (no symlink in the root) does exactly one comparison.
+  for (const root of new Set([rootReal, rootResolved])) {
+    const rel = relative(root, absInput);
+    if (!isEscape(rel)) {
+      return rel.replace(/\\/g, '/');
+    }
   }
-  return rel.replace(/\\/g, '/');
+  throw new ArtifactOutOfTreeError(input);
 }

@@ -130,6 +130,44 @@ describe('freezeSpec', () => {
       }),
     ).toThrow(/Cannot freeze spec S-102/);
   });
+
+  // Issue #401 — the review that gated the freeze rides in the record it produced, so the
+  // evidence no longer needs a separate `.paqad/compliance/<slug>/spec-review.json`.
+  it('folds the review defect summary into the frozen record (AC-2)', () => {
+    const frozen = freezeSpec(frozenReadySpec(), {
+      signed_off_by: 'haider',
+      frozen_at: '2026-06-07T12:00:00Z',
+      spec_review: reviewWith('major', 'new'),
+    });
+    expect(frozen.spec_review).toEqual({
+      reviewed_at: '2026-06-07T00:00:00Z',
+      defect_count: 1,
+      by_severity: { critical: 0, major: 1, minor: 0 },
+    });
+  });
+
+  // Resolved defects are excluded, matching evaluateSpecFreeze — which is why a resolved
+  // CRITICAL defect neither blocks the freeze nor inflates the recorded count.
+  it('excludes resolved defects from the summary (EC-1)', () => {
+    const frozen = freezeSpec(frozenReadySpec(), {
+      signed_off_by: 'haider',
+      frozen_at: '2026-06-07T12:00:00Z',
+      spec_review: reviewWith('critical', 'resolved'),
+    });
+    expect(frozen.spec_review).toEqual({
+      reviewed_at: '2026-06-07T00:00:00Z',
+      defect_count: 0,
+      by_severity: { critical: 0, major: 0, minor: 0 },
+    });
+  });
+
+  it('omits the summary entirely when no review was run', () => {
+    const frozen = freezeSpec(frozenReadySpec(), {
+      signed_off_by: 'haider',
+      frozen_at: '2026-06-07T12:00:00Z',
+    });
+    expect(frozen.spec_review).toBeUndefined();
+  });
 });
 
 describe('isFrozenSpecStale', () => {
