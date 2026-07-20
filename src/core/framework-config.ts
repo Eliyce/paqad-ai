@@ -511,6 +511,40 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'off | warn | strict — analytics instrumentation completeness (issue #279). ' +
       'warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated.',
   },
+  {
+    key: 'duplication_mode',
+    env: 'PAQAD_DUPLICATION_MODE',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a ' +
+      'near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in.',
+  },
+  {
+    key: 'duplication_similarity_threshold',
+    env: 'PAQAD_DUPLICATION_SIMILARITY_THRESHOLD',
+    type: 'number',
+    default: 0.9,
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'Minimum similarity (0..1) for a blocking duplication finding (issue #358). Default 0.90 — ' +
+      'conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks.',
+  },
+  {
+    key: 'duplication_min_lines',
+    env: 'PAQAD_DUPLICATION_MIN_LINES',
+    type: 'number',
+    default: 8,
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'Minimum meaningful-line span a new code block must have to be scored for duplication ' +
+      '(issue #358). Default 8 — shorter snippets are never flagged.',
+  },
 ] as const;
 
 const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
@@ -1615,7 +1649,17 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   // false); a developer sets them only via the config layers, clamped by the
   // floor in resolveFlooredMode. Listed here so the registry-coverage invariant
   // (every spec key appears in exactly one section) holds.
-  { present: () => false, keys: ['stages_mode', 'rule_compliance', 'analytics_strictness'] },
+  {
+    present: () => false,
+    keys: [
+      'stages_mode',
+      'rule_compliance',
+      'analytics_strictness',
+      'duplication_mode',
+      'duplication_similarity_threshold',
+      'duplication_min_lines',
+    ],
+  },
 ];
 
 /**

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { cosineSimilarity } from '@/core/math/cosine.js';
 
 import type {
   GraphEdge,
@@ -45,20 +46,6 @@ interface ResolvedScope {
 
 interface CacheEntry {
   response: SimilarityResponse;
-}
-
-function cosine(a: number[], b: number[]): number {
-  if (a.length !== b.length || a.length === 0) return 0;
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i]! * b[i]!;
-    na += a[i]! * a[i]!;
-    nb += b[i]! * b[i]!;
-  }
-  if (na === 0 || nb === 0) return 0;
-  return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
 function descendantChunks(
@@ -189,7 +176,7 @@ export class SimilarityResolver {
       if (anchor) {
         for (const other of projected) {
           if (other.nodeId === anchor.nodeId) continue;
-          const score = cosine(anchor.vec, other.vec);
+          const score = cosineSimilarity(anchor.vec, other.vec);
           if (score < threshold) continue;
           const pairKey = pairKeyOf(anchor.nodeId, other.nodeId);
           if (seenPairs.has(pairKey)) continue;
@@ -209,7 +196,7 @@ export class SimilarityResolver {
         const a = scoped[i]!;
         for (let j = i + 1; j < scoped.length; j++) {
           const b = scoped[j]!;
-          const score = cosine(a.vec, b.vec);
+          const score = cosineSimilarity(a.vec, b.vec);
           if (score < threshold) continue;
           const pairKey = pairKeyOf(a.nodeId, b.nodeId);
           if (seenPairs.has(pairKey)) continue;

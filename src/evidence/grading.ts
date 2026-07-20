@@ -11,7 +11,7 @@ import type { GateResult, VerificationGate } from '@/core/types/verification.js'
 import type { EvidenceStrengthClass, EvidenceVerdict } from '@/core/types/evidence-ledger.js';
 
 /**
- * Tier A vs Tier B for every one of the 16 gates. Derived from reading
+ * Tier A vs Tier B for every one of the 17 gates. Derived from reading
  * `src/verification/gates/`: Tier B gates consume a bare boolean verdict via
  * `checkBooleanGate` (the model/heuristic produced the pass/fail upstream);
  * every other gate computes its own verdict from artifacts.
@@ -30,6 +30,8 @@ export const GATE_STRENGTH_TIER: Record<VerificationGate, 'deterministic' | 'llm
   'instructions-docs-structure': 'deterministic',
   'documentation-freshness': 'deterministic',
   'extension-surface': 'deterministic',
+  // Issue #358 — the duplication gate reads its own cached report (no LLM).
+  duplication: 'deterministic',
   // Tier B — LLM-judged (consume a pre-computed boolean verdict).
   'requirement-completeness': 'llm-judged',
   'story-quality': 'llm-judged',

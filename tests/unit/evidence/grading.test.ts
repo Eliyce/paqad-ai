@@ -9,7 +9,7 @@ function gate(overrides: Partial<GateResult> & Pick<GateResult, 'gate'>): GateRe
 }
 
 describe('GATE_STRENGTH_TIER', () => {
-  it('classifies every one of the 16 gates exactly once', () => {
+  it('classifies every one of the 17 gates exactly once', () => {
     for (const g of VERIFICATION_GATES) {
       expect(GATE_STRENGTH_TIER[g]).toMatch(/^(deterministic|llm-judged)$/);
     }

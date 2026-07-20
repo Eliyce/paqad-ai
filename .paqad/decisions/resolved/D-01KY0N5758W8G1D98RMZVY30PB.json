@@ -1,0 +1,22 @@
+{
+  "id": "D-01KY0N5758W8G1D98RMZVY30PB",
+  "category": "architecture-path",
+  "title": "Duplication scan is driven by the verification backstop, not an armed map-script",
+  "context": "Issue #358 asked for an armed rule-script in rule-script-map.yml. Verified blockers: the map is integrity-locked (verifyRuleScriptsIntegrity flags a hand-edit as tampered, which would break this repo's own dogfood), and map scripts are per-project GENERATED artifacts that would not ship to consumers without onboarding changes. The scan instead runs from runRepositoryVerification (same precedent as syncModuleHealthFromVerification) so the report is always fresh when the Stop-seam DuplicationGate reads it, on every host; the duplication scan CLI verb is the second, project-wireable entry.",
+  "options": [
+    {
+      "option_key": "verification-seam",
+      "label": "Drive the scan from runRepositoryVerification + CLI verb (no map script)"
+    },
+    {
+      "option_key": "armed-map-script",
+      "label": "Hand-register an armed .mjs in the integrity-locked map"
+    }
+  ],
+  "recommendation": "verification-seam",
+  "created_at": "2026-07-20T20:58:22.760Z",
+  "status": "resolved",
+  "chosen": "verification-seam",
+  "rationale": "Map is integrity-locked (hand-edit=tampered breaks dogfood) and map scripts don't ship to consumers; the verification-seam scan is universal, always-fresh, and reads by the Stop gate. CLI verb is the project-wireable checks entry.",
+  "resolved_at": "2026-07-20T20:58:31.104Z"
+}

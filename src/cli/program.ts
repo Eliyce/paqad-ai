@@ -6,6 +6,7 @@ import { createAuditCommand } from './commands/audit.js';
 import { createCapabilitiesCommand } from './commands/capabilities.js';
 import { createChecksCommand } from './commands/checks.js';
 import { createComplianceCommand } from './commands/compliance.js';
+import { createDuplicationCommand } from './commands/duplication.js';
 import { createDashboardCommand } from './commands/dashboard.js';
 import { createDeliveryCommand } from './commands/delivery.js';
 import { createDeliveryLinkCommand } from './commands/delivery-link.js';
@@ -53,6 +54,7 @@ export function createProgram(): Command {
   program.addCommand(createInstallCommand());
   program.addCommand(createCapabilitiesCommand());
   program.addCommand(createChecksCommand());
+  program.addCommand(createDuplicationCommand());
   program.addCommand(createIndexCommand());
   program.addCommand(createHealthCommand());
   program.addCommand(createPacksCommand());

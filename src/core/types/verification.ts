@@ -20,6 +20,7 @@ export const VERIFICATION_GATES = [
   'instructions-docs-structure',
   'documentation-freshness',
   'extension-surface',
+  'duplication',
 ] as const;
 export type VerificationGate = (typeof VERIFICATION_GATES)[number];
 
