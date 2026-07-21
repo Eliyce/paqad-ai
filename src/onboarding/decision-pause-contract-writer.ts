@@ -34,6 +34,15 @@ Before implementing any choice that falls into one of the categories below, writ
 
 ${categoriesList}
 
+## Evidence-armed pauses (issue #361)
+
+The categories are unchanged, but a \`create-vs-reuse\` pause no longer waits for the agent to volunteer that it is at a reuse fork. When \`decision_arm_mode\` is \`strict\`, the framework mints that packet from **evidence** on its own:
+
+- **Plan time:** at \`plan compile\`, each declared \`new_constructs[]\` entry is scored against the code-knowledge index; a name/spec similarity at or above \`decision_arm_plan_threshold\` (default 0.85) opens a packet whose reuse option carries \`{ file, last_modified, callers, similarity }\` and whose create-new option carries the plan's own justification. The recommendation is reuse once the existing symbol has ≥ 3 callers.
+- **Change time:** a blocking-band duplication finding (issue #358) opens the same packet from the finding's evidence.
+
+Both mints go through \`paqad-ai decision create\` — never hand-authored — carry \`origin: "evidence-armed"\`, and are capped at \`decision_arm_max_per_change\` (default 1, the strongest fork only). An identical fork already answered in \`.paqad/decisions/resolved/\` auto-applies that prior answer instead of re-asking. Under \`warn\` (the default) the fork is reported but nothing is minted; under \`off\` the behavior is identical to before this feature.
+
 ## Resolution flow
 
 1. Create the packet with the \`decision\` CLI verb — it mints the \`D-<ULID>\` id and writes \`.paqad/decisions/pending/D-{id}.json\` for you (resolved from the installed package on every onboarded project, so it never ENOENTs like a repo-local script):

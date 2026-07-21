@@ -11,7 +11,7 @@
 // The numeric knobs are ordinary LOCAL-WINS values (not floored) read from the layered map; a
 // malformed or out-of-range value falls back to the default rather than throwing.
 
-import { layeredConfigMap, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import { readConfigsDir, readDotConfig, resolveNumericConfig } from '@/core/framework-config.js';
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 
 export type DuplicationMode = 'off' | 'warn' | 'strict';
@@ -44,14 +44,14 @@ export function resolveDuplicationConfig(
 ): DuplicationConfig {
   return {
     mode: resolveDuplicationMode(projectRoot, env),
-    similarityThreshold: resolveNumber(
+    similarityThreshold: resolveNumericConfig(
       projectRoot,
       env,
       'duplication_similarity_threshold',
       DEFAULT_SIMILARITY_THRESHOLD,
       (value) => value > 0 && value <= 1,
     ),
-    minLines: resolveNumber(
+    minLines: resolveNumericConfig(
       projectRoot,
       env,
       'duplication_min_lines',
@@ -75,20 +75,4 @@ export function resolveDuplicationMode(
     DUPLICATION_MODES,
     DEFAULT_DUPLICATION_MODE,
   );
-}
-
-/** Read a numeric knob from the layered (LOCAL-WINS) map, falling back on a bad value. */
-function resolveNumber(
-  projectRoot: string,
-  env: NodeJS.ProcessEnv,
-  key: string,
-  fallback: number,
-  valid: (value: number) => boolean,
-): number {
-  const raw = layeredConfigMap(projectRoot, env).get(key);
-  if (raw === undefined) {
-    return fallback;
-  }
-  const parsed = Number(raw.trim());
-  return Number.isFinite(parsed) && valid(parsed) ? parsed : fallback;
 }

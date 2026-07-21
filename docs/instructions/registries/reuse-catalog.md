@@ -8,7 +8,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| PATHS | `PATHS` | src/core/constants/paths.ts | 145 |
+| PATHS | `PATHS` | src/core/constants/paths.ts | 149 |
 | toPosixPath | `toPosixPath(path: string): string` | src/core/path-utils.ts | 35 |
 | ProjectProfile | `interface ProjectProfile` | src/core/types/project-profile.ts | 30 |
 | Lane | `type Lane` | src/core/types/routing.ts | 19 |
@@ -22,7 +22,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | isPaqadDisabled | `isPaqadDisabled(projectRoot` | runtime/hooks/lib/paqad-disabled.mjs | 12 |
 | Stack | `type Stack` | src/core/types/domain.ts | 12 |
 | ActiveCapability | `type ActiveCapability` | src/core/types/domain.ts | 11 |
-| DetectionSignal | `interface DetectionSignal` | src/core/types/health.ts | 11 |
+| CodeKnowledgeIndex | `interface CodeKnowledgeIndex` | src/code-knowledge/types.ts | 11 |
 ## adapter-onboarding
 
 | Symbol | Signature | File | Callers |
@@ -79,10 +79,10 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | --- | --- | --- | --- |
 | SiemEvent | `interface SiemEvent` | src/audit/types.ts | 7 |
 | ZERO_DIGEST | `ZERO_DIGEST` | src/evidence/digests.ts | 4 |
+| readVerificationEvidence | `readVerificationEvidence(projectRoot: string): VerificationEvidence / null` | src/verification/evidence-markdown.ts | 3 |
 | epochMs | `epochMs(ts: string): number` | src/audit/severity.ts | 2 |
 | eventMessage | `eventMessage(event: SiemEvent): string` | src/audit/severity.ts | 2 |
 | ocsfSeverityId | `ocsfSeverityId(verdict: string): number` | src/audit/severity.ts | 2 |
-| readVerificationEvidence | `readVerificationEvidence(projectRoot: string): VerificationEvidence / null` | src/verification/evidence-markdown.ts | 2 |
 | renderEvidenceMarkdown | `renderEvidenceMarkdown( evidence: VerificationEvidence, options: RenderEvidenceMarkdownOptions` | src/verification/evidence-markdown.ts | 2 |
 | toCef | `toCef(event: SiemEvent, productVersion: string): string` | src/audit/formats/cef.ts | 2 |
 | toEcs | `toEcs(event: SiemEvent, productVersion: string): string` | src/audit/formats/ecs.ts | 2 |
@@ -232,10 +232,10 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| Chunk | `interface Chunk` | src/context/types.ts | 12 |
-| AstChunker | `AstChunker` | src/context/ast-chunker.ts | 4 |
+| Chunk | `interface Chunk` | src/context/types.ts | 13 |
+| AstChunker | `AstChunker` | src/context/ast-chunker.ts | 5 |
+| ChunkIndexManager | `ChunkIndexManager` | src/context/chunk-index.ts | 5 |
 | ChunkIndex | `interface ChunkIndex` | src/context/types.ts | 4 |
-| ChunkIndexManager | `ChunkIndexManager` | src/context/chunk-index.ts | 4 |
 | PriorityClassifier | `PriorityClassifier` | src/context/priority-classifier.ts | 3 |
 | TurnSummarizer | `TurnSummarizer` | src/context/turn-summarizer.ts | 3 |
 | ActionRecommendation | `interface ActionRecommendation` | src/context/types.ts | 2 |
@@ -350,10 +350,10 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| currentFeature | `currentFeature(projectRoot: string, sessionId: string): string / null` | src/feature-evidence/stage-ledger.ts | 15 |
+| currentFeature | `currentFeature(projectRoot: string, sessionId: string): string / null` | src/feature-evidence/stage-ledger.ts | 17 |
 | featureFilePath | `featureFilePath(dirName: string, file: FeatureBundleFile): string` | src/feature-evidence/paths.ts | 11 |
 | parseFeatureDirName | `parseFeatureDirName(dirName: string): FeatureDirName / null` | src/feature-evidence/paths.ts | 7 |
-| foldFeature | `foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange` | src/feature-evidence/stage-ledger.ts | 5 |
+| foldFeature | `foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange` | src/feature-evidence/stage-ledger.ts | 6 |
 | readFeatureStageUnit | `readFeatureStageUnit(projectRoot: string, dirName: string): SessionLedgerRow[]` | src/feature-evidence/stage-ledger.ts | 5 |
 | readSessionControl | `readSessionControl( projectRoot: string, sessionId: string, now: () =>` | src/feature-evidence/session-control.ts | 4 |
 | appendFeatureStageRow | `appendFeatureStageRow( projectRoot: string, sessionId: string, dirName: string, row: Record<string, unknown>, now?: () =>` | src/feature-evidence/stage-ledger.ts | 3 |
@@ -371,19 +371,19 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | --- | --- | --- | --- |
 | RagService | `RagService` | src/rag/service.ts | 11 |
 | readGitState | `readGitState(projectRoot: string, options: GitStateOptions` | src/rag/git-state.ts | 7 |
-| FileVectorIndex | `FileVectorIndex<T extends StoredVectorItem` | src/rag/vector-index.ts | 5 |
+| FileVectorIndex | `FileVectorIndex<T extends StoredVectorItem` | src/rag/vector-index.ts | 6 |
 | ProviderFactory | `type ProviderFactory` | src/rag/types.ts | 5 |
 | createEmbeddingProvider | `createEmbeddingProvider( projectRoot: string, intelligence: IntelligenceConfig, onProgress?: (update: ProviderProgressUpdate) =>` | src/rag/providers.ts | 4 |
 | CrsCollectionId | `type CrsCollectionId` | src/rag/types.ts | 4 |
 | EmbeddingProvider | `interface EmbeddingProvider` | src/rag/types.ts | 4 |
 | ProviderProgressUpdate | `interface ProviderProgressUpdate` | src/rag/types.ts | 4 |
+| StoredVectorChunk | `interface StoredVectorChunk` | src/rag/types.ts | 4 |
 | AnswerQuery | `interface AnswerQuery` | src/project-knowledge/types.ts | 3 |
 | appendRagAudit | `appendRagAudit( projectRoot: string, level: 'INFO' / 'WARN', event: string, fields: Record<string, unknown>` | src/rag/audit.ts | 3 |
 | ComparisonMode | `type ComparisonMode` | src/rag/types.ts | 3 |
 | Contradiction | `interface Contradiction` | src/project-knowledge/types.ts | 3 |
 | EmbeddingProviderError | `EmbeddingProviderError extends Error` | src/rag/types.ts | 3 |
 | EvidenceFile | `interface EvidenceFile` | src/project-knowledge/evidence-retriever.ts | 3 |
-| FreshnessMetadata | `interface FreshnessMetadata` | src/project-knowledge/types.ts | 3 |
 ## mcp-config
 
 | Symbol | Signature | File | Callers |
@@ -506,7 +506,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| resolveSessionId | `resolveSessionId(projectRoot: string, hint?: string / null): string` | src/rag-ledger/session.ts | 27 |
+| resolveSessionId | `resolveSessionId(projectRoot: string, hint?: string / null): string` | src/rag-ledger/session.ts | 28 |
 | recordRagEvidence | `recordRagEvidence( projectRoot: string, kind: RagEvidenceKind, fields: RagEvidenceFields, ctx: RagEvidenceContext, ): RagEvidenceRow / null` | src/rag-ledger/recorder.ts | 4 |
 | RAG_EVIDENCE_DOC_TYPE | `RAG_EVIDENCE_DOC_TYPE` | src/rag-ledger/types.ts | 3 |
 | RagEvidenceKind | `type RagEvidenceKind` | src/rag-ledger/types.ts | 3 |
@@ -573,7 +573,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | currentOrdinal | `currentOrdinal(projectRoot: string, docType: string, sessionId: string): number` | src/session-ledger/ledger.ts | 5 |
 | openSessionDoc | `openSessionDoc( projectRoot: string, docType: string, sessionId: string, openRow: Record<string, unknown>` | src/session-ledger/ledger.ts | 5 |
 | readUnitFile | `readUnitFile(projectRoot: string, unitRelPath: string): SessionLedgerRow[]` | src/session-ledger/ledger.ts | 5 |
-| recordProjectEvent | `recordProjectEvent( projectRoot: string, docType: string, row: Record<string, unknown>, schemaVersion` | src/session-ledger/project-ledger.ts | 4 |
+| recordProjectEvent | `recordProjectEvent( projectRoot: string, docType: string, row: Record<string, unknown>, schemaVersion` | src/session-ledger/project-ledger.ts | 5 |
 | appendSessionEvent | `appendSessionEvent( projectRoot: string, docType: string, sessionId: string, ordinal: number, row: Record<string, unknown>` | src/session-ledger/ledger.ts | 3 |
 | appendStampedRowToUnit | `appendStampedRowToUnit( projectRoot: string, unitRelPath: string, stamped: SessionLedgerRow, ): void` | src/session-ledger/ledger.ts | 2 |
 | OpenSessionDocResult | `interface OpenSessionDocResult` | src/session-ledger/ledger.ts | 2 |
@@ -677,21 +677,21 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| Gate | `interface Gate` | src/verification/gates/gate.interface.ts | 18 |
-| createFail | `createFail( gate: VerificationGate, detail: string, remediation: string, ): GateResult` | src/verification/gates/shared.ts | 11 |
-| createPass | `createPass(gate: VerificationGate, detail: string): GateResult` | src/verification/gates/shared.ts | 11 |
+| Gate | `interface Gate` | src/verification/gates/gate.interface.ts | 19 |
+| createFail | `createFail( gate: VerificationGate, detail: string, remediation: string, ): GateResult` | src/verification/gates/shared.ts | 12 |
+| createPass | `createPass(gate: VerificationGate, detail: string): GateResult` | src/verification/gates/shared.ts | 12 |
 | checkBooleanGate | `checkBooleanGate( gate: VerificationGate, value: boolean, passDetail: string, failDetail: string, remediation: string` | src/verification/gates/shared.ts | 8 |
 | assessTestEvidence | `assessTestEvidence(input: TestEvidenceInput): TestEvidenceAssessment` | src/verification/test-evidence.ts | 3 |
 | createInconclusive | `createInconclusive( gate: VerificationGate, detail: string, remediation: string, ): GateResult` | src/verification/gates/shared.ts | 3 |
+| MachineFinding | `interface MachineFinding` | src/review-digest/sources.ts | 3 |
 | AcTestMappingGate | `AcTestMappingGate implements Gate` | src/verification/gates/ac-test-mapping.ts | 2 |
 | areRegistriesStale | `areRegistriesStale(registryRefreshedAt: string / null): boolean` | src/verification/gates/documentation-checks.ts | 2 |
 | buildRepositoryVerificationContext | `buildRepositoryVerificationContext( options: BuildRepositoryVerificationContextOptions, ): Promise<RepositoryVerificationContextResult>` | src/verification/repository/repository-context.ts | 2 |
 | BuildRepositoryVerificationContextOptions | `interface BuildRepositoryVerificationContextOptions` | src/verification/repository/repository-context.ts | 2 |
 | buildRepositoryVerificationVerdict | `buildRepositoryVerificationVerdict(input:` | src/verification/repository/verdict.ts | 2 |
+| buildReviewDigest | `buildReviewDigest(input: ReviewDigestInput): string` | src/review-digest/digest.ts | 2 |
 | ChangeCompletenessGate | `ChangeCompletenessGate implements Gate` | src/verification/gates/change-completeness.ts | 2 |
 | collectCanonicalDocumentationFailures | `collectCanonicalDocumentationFailures( projectRoot: string, expectedUiModules: string[], expectedApiModules: string[], expectedIntegrationModules: string[], expectedErrorCatalogModules: string[]` | src/verification/gates/documentation-checks.ts | 2 |
-| collectScopeDriftPaths | `collectScopeDriftPaths(changedFiles: string[], specBoundary: string[]): string[]` | src/verification/repository/scope-drift.ts | 2 |
-| collectUnresolvedDocTargets | `collectUnresolvedDocTargets( projectRoot: string, changedFiles: string[], staleDocTargets: CanonicalDocTarget[], ): Promise<CanonicalDocTarget[]>` | src/verification/gates/documentation-checks.ts | 2 |
 ## workflow-engine
 
 | Symbol | Signature | File | Callers |

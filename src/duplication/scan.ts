@@ -6,7 +6,10 @@
 // caching, and telemetry in one place means the checks-stage rule-script and the Stop-seam gate
 // always read a single, consistent report.
 
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { armDecisionFromDuplicationFinding } from '@/planning/decision-evidence-arm.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { resolveDuplicationConfig, type DuplicationConfig } from './config.js';
 import { detectNewCodeDuplication } from './detect.js';
@@ -26,6 +29,8 @@ export interface ScanOptions {
   config?: DuplicationConfig;
   /** Run jscpd corroboration (default true). */
   corroborate?: boolean;
+  /** Session whose active feature identifies the change being armed (issue #361). */
+  sessionId?: string | null;
   /** Clock injection for a deterministic `generated_at` / elapsed measure in tests. */
   clock?: { nowIso: () => string; nowMs: () => number };
 }
@@ -71,7 +76,43 @@ export async function runDuplicationScan(options: ScanOptions): Promise<Duplicat
 
   writeDuplicationReport(options.projectRoot, report);
   recordDuplicationRun(options.projectRoot, report);
+  armStrongestBlockingFinding(options, findings);
   return report;
+}
+
+/**
+ * Issue #361 — a blocking-band finding IS the create-vs-reuse question with its evidence
+ * already attached, so open the pause the #358 escape hatch expects instead of leaving the
+ * developer to write the packet by hand. Only the strongest finding is offered; the arming
+ * layer applies the mode, the per-change cap, and the prior-answer check. Best-effort: a
+ * scan never fails because a pause could not be opened.
+ */
+function armStrongestBlockingFinding(
+  options: ScanOptions,
+  findings: DuplicationReport['findings'],
+): void {
+  const blocking = findings.filter((finding) => finding.kind === 'deterministic');
+  if (blocking.length === 0) {
+    return;
+  }
+  const strongest = blocking.reduce((best, finding) =>
+    finding.similarity > best.similarity ? finding : best,
+  );
+  try {
+    const sessionId = resolveSessionId(options.projectRoot, options.sessionId ?? null);
+    const changeKey = currentFeature(options.projectRoot, sessionId);
+    if (!changeKey) {
+      return;
+    }
+    armDecisionFromDuplicationFinding({
+      projectRoot: options.projectRoot,
+      changeKey,
+      sessionId,
+      finding: strongest,
+    });
+  } catch {
+    /* best-effort: arming never breaks a scan (INV-4) */
+  }
 }
 
 /**
