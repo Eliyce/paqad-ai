@@ -1,9 +1,11 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
+import { CODE_KNOWLEDGE_SCHEMA_VERSION } from '@/code-knowledge/types.js';
 import {
   NoActiveFeatureError,
   ReuseDeclarationError,
@@ -30,6 +32,13 @@ afterEach(() => {
 });
 
 const clock = () => new Date('2026-07-10T00:00:00.000Z');
+
+/** Write a file inside the project, creating its parent directories. */
+function writeFileSync2(root: string, rel: string, content: string): void {
+  const abs = join(root, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, content);
+}
 
 /** Open an active feature and return its dir name. */
 function activeFeature(root: string): string {
@@ -203,5 +212,109 @@ describe('writeFeatureReview', () => {
 
   it('reads null for an absent review.json', () => {
     expect(readFeatureReview(tempRoot(), 'nope-01JABCDEFGHJKMNPQRSTVWXYZ0')).toBeNull();
+  });
+});
+
+describe('evidence-armed reuse pause at plan compile (#361)', () => {
+  function seedIndex(root: string): void {
+    mkdirSync(join(root, 'src/utils'), { recursive: true });
+    writeFileSync(join(root, 'src/utils/dates.ts'), 'export function formatIsoDate() {}\n');
+    writeCodeKnowledgeIndex(root, {
+      schema_version: CODE_KNOWLEDGE_SCHEMA_VERSION,
+      header: {
+        generated_at: '2026-07-21T00:00:00.000Z',
+        branch: 'main',
+        head_commit: null,
+        schema_version: CODE_KNOWLEDGE_SCHEMA_VERSION,
+        entry_point_globs: [],
+      },
+      symbols: [
+        {
+          name: 'formatIsoDate',
+          kind: 'function',
+          file: 'src/utils/dates.ts',
+          line: 1,
+          signature: 'formatIsoDate()',
+          exported: true,
+          module_slug: 'utils',
+          extraction_tier: 'regex',
+          caller_count: 5,
+          orphan: false,
+        },
+      ],
+      files: [{ path: 'src/utils/dates.ts', caller_count: 5, orphan: false, entry_point: false }],
+      import_edges: [],
+      reference_edges: [],
+      dependencies: [],
+    });
+  }
+
+  const forkingReuse = (): PlanReuse => ({
+    consulted: [{ source: 'index-query', query: 'date formatting', hits: 1 }],
+    reusing: [],
+    new_constructs: [{ name: 'formatRelativeDate', justification: 'need the relative form' }],
+  });
+
+  it('opens a pause for the declared fork in strict mode and reports its id', () => {
+    const root = tempRoot();
+    writeFileSync2(root, '.paqad/configs/.config.policy', 'decision_arm_mode=strict\n');
+    seedIndex(root);
+    activeFeature(root);
+
+    const result = writeFeaturePlan(root, 'ses_1', {
+      summary: 'Add relative date formatting',
+      reuse: forkingReuse(),
+      now: clock,
+    });
+
+    expect(result.armedDecisions).toHaveLength(1);
+    expect(readdirSync(join(root, '.paqad/decisions/pending'))).toHaveLength(1);
+    // The plan itself is still written — arming rides on top, it does not gate the compile.
+    expect(readFeaturePlan(root, result.dirName)).not.toBeNull();
+  });
+
+  it('reports the fork as a warning in the shipped warn default, minting nothing', () => {
+    const root = tempRoot();
+    seedIndex(root);
+    activeFeature(root);
+
+    const result = writeFeaturePlan(root, 'ses_1', {
+      summary: 'Add relative date formatting',
+      reuse: forkingReuse(),
+      now: clock,
+    });
+
+    expect(result.armedDecisions).toEqual([]);
+    expect(result.warnings?.some((line) => line.includes('formatIsoDate'))).toBe(true);
+    expect(existsSync(join(root, '.paqad/decisions/pending'))).toBe(false);
+  });
+
+  it('arms nothing when the plan declares no new constructs', () => {
+    const root = tempRoot();
+    writeFileSync2(root, '.paqad/configs/.config.policy', 'decision_arm_mode=strict\n');
+    seedIndex(root);
+    activeFeature(root);
+
+    const result = writeFeaturePlan(root, 'ses_1', {
+      summary: 'Tidy the router',
+      reuse: reuse(),
+      now: clock,
+    });
+    expect(result.armedDecisions).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('AC-4: compiles normally with no index built', () => {
+    const root = tempRoot();
+    writeFileSync2(root, '.paqad/configs/.config.policy', 'decision_arm_mode=strict\n');
+    activeFeature(root);
+
+    const result = writeFeaturePlan(root, 'ses_1', {
+      summary: 'Add relative date formatting',
+      reuse: forkingReuse(),
+      now: clock,
+    });
+    expect(result.armedDecisions).toEqual([]);
+    expect(readFeaturePlan(root, result.dirName)).not.toBeNull();
   });
 });

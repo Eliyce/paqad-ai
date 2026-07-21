@@ -12,6 +12,7 @@ import {
   isContractDecisionId,
   listContractDecisions,
   mintDecisionId,
+  readContractDecisions,
   resolvePendingDecision,
   type CreateDecisionInput,
 } from '@/decisions/authoring.js';
@@ -238,5 +239,51 @@ describe('addWriteInOption (#326)', () => {
     expect(() => addWriteInOption(root, id, '  ')).toThrow(/non-empty label/u);
     expect(() => addWriteInOption(root, 'D-4', 'x')).toThrow(/D-<ULID>/u);
     expect(() => addWriteInOption(root, mintDecisionId(), 'x')).toThrow(/not found/u);
+  });
+});
+
+describe('evidence-armed packet fields (#361)', () => {
+  it('round-trips an option evidence block through create and resolve', () => {
+    const evidence = {
+      file: 'src/utils/dates.ts',
+      last_modified: '2026-07-21T00:00:00.000Z',
+      callers: 5,
+      similarity: 0.87,
+    };
+    const { id } = createPendingDecision(root, {
+      ...validInput(),
+      options: [
+        { option_key: 'reuse', label: 'Reuse formatIsoDate', evidence },
+        { option_key: 'create-new', label: 'Build it' },
+      ],
+      recommendation: 'reuse',
+      origin: 'evidence-armed',
+    });
+
+    const stored = readContractDecisions(root).find((row) => row.packet.id === id);
+    expect(stored?.packet.origin).toBe('evidence-armed');
+    expect(stored?.packet.options[0].evidence).toEqual(evidence);
+    // An option without evidence stays clean rather than carrying an empty block.
+    expect(stored?.packet.options[1].evidence).toBeUndefined();
+
+    const { packet } = resolvePendingDecision(root, id, 'reuse');
+    expect(packet.origin).toBe('evidence-armed');
+    expect(packet.options[0].evidence).toEqual(evidence);
+  });
+
+  it('leaves origin absent on a hand-opened packet', () => {
+    const { id } = createPendingDecision(root, validInput());
+    const stored = readContractDecisions(root).find((row) => row.packet.id === id);
+    expect(stored?.packet.origin).toBeUndefined();
+  });
+
+  it('readContractDecisions returns nothing for a store that was never created', () => {
+    expect(readContractDecisions(mkdtempSync(join(tmpdir(), 'paqad-empty-')))).toEqual([]);
+  });
+
+  it('readContractDecisions skips a malformed packet rather than throwing', () => {
+    createPendingDecision(root, validInput());
+    writeFileSync(join(root, PATHS.DECISIONS_PENDING_DIR, 'D-broken.json'), '{ not json');
+    expect(readContractDecisions(root)).toHaveLength(1);
   });
 });

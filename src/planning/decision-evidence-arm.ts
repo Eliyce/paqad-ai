@@ -342,9 +342,7 @@ function toMintableFinding(projectRoot: string, finding: DuplicationFinding): Mi
       },
     ],
     recommendation:
-      finding.matched_callers >= RECOMMEND_REUSE_MIN_CALLERS
-        ? reuseOptionKey(matchedName)
-        : null,
+      finding.matched_callers >= RECOMMEND_REUSE_MIN_CALLERS ? reuseOptionKey(matchedName) : null,
     score: finding.similarity,
     warning: finding.message,
   };
