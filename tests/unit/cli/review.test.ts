@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -132,5 +132,77 @@ describe('paqad-ai review record', () => {
     await run(writeTemplate({ ...valid, findings: [{ severity: 'minor', description: '' }] }));
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain('could not record review');
+  });
+});
+
+// Issue #360 — `review digest` composes the machine-built evidence the review stage reads
+// before it writes a single finding.
+describe('paqad-ai review digest', () => {
+  let root: string;
+  const SES = 'ses_cli_review_digest';
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-cli-digest-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.exitCode = undefined;
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  async function run(): Promise<string[]> {
+    const lines: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line: string) => lines.push(String(line)));
+    await createReviewCommand().parseAsync(['digest', '--project-root', root, '--session', SES], {
+      from: 'user',
+    });
+    return lines;
+  }
+
+  it('writes the digest and reports how many findings the review must address', async () => {
+    mkdirSync(join(root, '.paqad/scripts/rules/.cache'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/scripts/rules/.cache/report.json'),
+      JSON.stringify({
+        results: [
+          {
+            rule_id: 'RL-6740',
+            script: 'a.mjs',
+            kind: 'deterministic',
+            findings: [{ file: 'src/a.ts', line: 4, message: 'docs disagree', severity: 'high' }],
+          },
+        ],
+      }),
+    );
+
+    const lines = await run();
+
+    expect(process.exitCode).toBeUndefined();
+    expect(lines.some((l) => l.includes('"written":true'))).toBe(true);
+    expect(lines.some((l) => l.includes('1 machine finding(s)'))).toBe(true);
+    expect(existsSync(join(root, '.paqad/session/review-digest.md'))).toBe(true);
+    expect(readFileSync(join(root, '.paqad/session/review-digest.md'), 'utf8')).toContain(
+      'src/a.ts:4',
+    );
+  });
+
+  it('succeeds with an honest empty digest when nothing has been recorded', async () => {
+    const lines = await run();
+    expect(process.exitCode).toBeUndefined();
+    expect(lines.some((l) => l.includes('0 machine finding(s)'))).toBe(true);
+  });
+
+  it('exits non-zero when the digest cannot be written', async () => {
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
+    // A file where the session directory must be makes the write impossible.
+    rmSync(join(root, '.paqad'), { recursive: true, force: true });
+    writeFileSync(join(root, '.paqad'), 'not a directory');
+
+    await run();
+
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toContain('could not write the review digest');
   });
 });

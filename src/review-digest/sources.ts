@@ -30,13 +30,7 @@ import { readVerificationEvidence } from '@/verification/evidence-markdown.js';
  * a rule finding passes through unchanged; the other three sources map onto it.
  */
 export type MachineFindingSeverity =
-  | 'critical'
-  | 'blocker'
-  | 'high'
-  | 'medium'
-  | 'low'
-  | 'nit'
-  | 'info';
+  'critical' | 'blocker' | 'high' | 'medium' | 'low' | 'nit' | 'info';
 
 /**
  * Whether a row is machine-proven or a judgement call the tooling is only suggesting.

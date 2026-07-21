@@ -85,7 +85,10 @@ function findingLine(finding: MachineFinding): string {
 function capLines(lines: string[]): string[] {
   if (lines.length <= DIGEST_LINE_CAP) return lines;
   const kept = lines.slice(0, DIGEST_LINE_CAP - 1);
-  return [...kept, `> …truncated: ${lines.length - kept.length} more lines (cap ${DIGEST_LINE_CAP}).`];
+  return [
+    ...kept,
+    `> …truncated: ${lines.length - kept.length} more lines (cap ${DIGEST_LINE_CAP}).`,
+  ];
 }
 
 /**
@@ -147,7 +150,13 @@ export function buildReviewDigest(input: ReviewDigestInput): string {
     ),
   );
 
-  lines.push(...section('Blind spots', BLIND_SPOTS.map((spot) => `- ${spot}`), 'none recorded'));
+  lines.push(
+    ...section(
+      'Blind spots',
+      BLIND_SPOTS.map((spot) => `- ${spot}`),
+      'none recorded',
+    ),
+  );
 
   return `${capLines(lines).join('\n').trimEnd()}\n`;
 }

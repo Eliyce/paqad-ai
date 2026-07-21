@@ -66,9 +66,7 @@ export function createReviewCommand(): Command {
       console.log(
         `▸ paqad · ${result.path} — ${result.findings} machine finding(s) for the review to confirm or contest`,
       );
-      console.log(
-        JSON.stringify({ written: true, path: result.path, findings: result.findings }),
-      );
+      console.log(JSON.stringify({ written: true, path: result.path, findings: result.findings }));
     });
 
   command

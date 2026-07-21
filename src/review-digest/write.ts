@@ -50,6 +50,7 @@ function readStages(projectRoot: string, sessionId: string, feature: string | nu
       stage: stage.stage,
       state: stage.state,
     }));
+    /* v8 ignore next 3 -- defensive: an unreadable ledger degrades the header, never the digest */
   } catch {
     return [];
   }
@@ -82,6 +83,7 @@ export function writeReviewDigest(
   let feature: string | null;
   try {
     feature = currentFeature(projectRoot, sessionId);
+    /* v8 ignore next 3 -- defensive: no active feature is a header line, never a failure */
   } catch {
     feature = null;
   }
