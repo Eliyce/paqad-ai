@@ -8,11 +8,17 @@ import {
   type ReviewRecordInput,
 } from '@/feature-evidence/artifacts.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { writeReviewDigest } from '@/review-digest/index.js';
 
 interface ReviewRecordOptions {
   projectRoot: string;
   session?: string;
   keepInput?: boolean;
+}
+
+interface ReviewDigestOptions {
+  projectRoot: string;
+  session?: string;
 }
 
 /** The verdict words the narration contract uses everywhere paqad speaks. */
@@ -33,8 +39,37 @@ const VERDICTS = ['safe-to-merge', 'needs-attention', 'inconclusive'] as const;
  */
 export function createReviewCommand(): Command {
   const command = new Command('review').description(
-    'Work with the per-feature review (record the review.json from a template)',
+    'Work with the per-feature review (build the evidence digest, record the review.json)',
   );
+
+  command
+    .command('digest')
+    .description('Compose the machine-built review evidence digest the review stage reads')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option(
+      '--session <id>',
+      'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
+    )
+    .action((options: ReviewDigestOptions) => {
+      const sessionId = resolveSessionId(
+        options.projectRoot,
+        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+      );
+      let result;
+      try {
+        result = writeReviewDigest(options.projectRoot, sessionId);
+      } catch (error) {
+        console.error(`could not write the review digest: ${(error as Error).message}`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(
+        `▸ paqad · ${result.path} — ${result.findings} machine finding(s) for the review to confirm or contest`,
+      );
+      console.log(
+        JSON.stringify({ written: true, path: result.path, findings: result.findings }),
+      );
+    });
 
   command
     .command('record')

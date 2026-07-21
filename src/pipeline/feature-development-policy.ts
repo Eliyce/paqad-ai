@@ -89,6 +89,21 @@ const DIFF_MINIMIZER_PLANNING_INSTRUCTION =
   'sequence before compiling the plan; drop steps it classifies over-build or record why ' +
   'they stay. Run existing-doc-checker before creating any new doc or registry artifact.';
 
+/**
+ * Issue #360 — the review stage's evidence-digest clause, authored ONCE (the same
+ * shared-constant discipline as {@link SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}). Review was
+ * the weakest stage in the pipeline because the reviewer had no hard facts in front of it,
+ * while paqad had already computed them. This hands the stage the digest and makes
+ * ignoring it detectable: the review gate fails on a deterministic high-severity machine
+ * finding the review never cites by file:line.
+ */
+const REVIEW_DIGEST_INSTRUCTION =
+  'Review digest (issue #360): before writing review findings, run `npx paqad-ai review ' +
+  'digest` and read `.paqad/session/review-digest.md`. Each finding must either reference a ' +
+  'digest row or be explicitly marked judgment-only. Confirm or contest every deterministic ' +
+  'finding — an unaddressed deterministic finding is itself a review finding, and the review ' +
+  'gate fails when a deterministic high-severity row is never cited by file:line.';
+
 /** Graduated/full-lane multi-module block: cross-module-impact-scanner (issue #359). */
 const CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION =
   'On graduated and full lanes touching more than one module: run ' +
@@ -225,6 +240,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Review the change against correctness, regressions, and rollback risk before treating it as complete.',
+          REVIEW_DIGEST_INSTRUCTION,
           "Record the review with `paqad-ai review record` (issue #402). The review stage's artifact is the bundle's rigid review.json — a hand-written notes file is rejected, and nothing may be written into the feature bundle directory.",
         ],
         required_inputs: ['code diff', 'verification summary'],
@@ -700,6 +716,7 @@ stages:
   review:
     instructions:
       - Review the change against correctness, regressions, and rollback risk before treating it as complete.
+      - "${REVIEW_DIGEST_INSTRUCTION}"
     required_inputs:
       - code diff
       - verification summary

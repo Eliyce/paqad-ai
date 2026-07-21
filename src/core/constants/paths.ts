@@ -33,6 +33,10 @@ export const PATHS = {
   CHANGED_FILES: '.paqad/session/changed-files.json',
   ACTIVE_IMPLEMENTATION_SESSION: '.paqad/session/active-implementation.json',
   CONTEXT_HIT_LOG: '.paqad/session/context-hit-log.json',
+  // Issue #360 — the machine-built evidence digest the review stage reads before
+  // it writes findings. An INPUT to the review, never an artifact: the review
+  // stage's artifact stays the bundle's rigid review.json.
+  REVIEW_DIGEST: '.paqad/session/review-digest.md',
   PROJECT_QUESTION_ANSWER: '.paqad/session/project-question-answer.json',
   AUDIT_LOG: '.paqad/audit.log',
   DECISIONS_DIR: '.paqad/decisions',
