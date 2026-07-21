@@ -2438,6 +2438,7 @@ modules:
       - src/verification/gates
       - src/verification/repository
       - src/checks
+      - src/review-digest
     features:
       - slug: gate-runner
         name: Gate Runner & Verdict Aggregation
@@ -2451,6 +2452,9 @@ modules:
       - slug: check-runner
         name: Deterministic Check Runner (format/test/build → structured results)
         sources: [src/checks/run-checks.ts, src/checks/report-store.ts, src/cli/commands/checks.ts]
+      - slug: review-digest
+        name: Review Evidence Digest (machine findings the review must address)
+        sources: [src/review-digest, src/cli/commands/review.ts]
     evidence:
       symbols:
         - AC_ID_PATTERN

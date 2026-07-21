@@ -370,4 +370,51 @@ describe('feature development policy', () => {
       ).toBe(true);
     });
   });
+
+  // Issue #360 — the review stage gets machine-built evidence, and the instruction that
+  // says so is authored ONCE so the default policy object and the rendered yaml (the two
+  // contract surfaces a project actually reads) cannot say different things.
+  describe('review evidence digest wiring (issue #360)', () => {
+    function reviewDigestInstruction(): string {
+      const review = defaultFeatureDevelopmentPolicy().stages.review.instructions;
+      const found = review.find((instruction) =>
+        instruction.startsWith('Review digest (issue #360):'),
+      );
+      expect(found, 'the default review stage must carry the digest instruction').toBeDefined();
+      return found!;
+    }
+
+    it('AC-4: the default policy object tells the review stage to build and read the digest', () => {
+      const instruction = reviewDigestInstruction();
+      expect(instruction).toContain('npx paqad-ai review digest');
+      expect(instruction).toContain('.paqad/session/review-digest.md');
+      expect(instruction).toContain('judgment-only');
+      expect(instruction).toContain(
+        'an unaddressed deterministic finding is itself a review finding',
+      );
+    });
+
+    it('AC-4 / FR-8: the rendered yaml carries the identical instruction and parses back', () => {
+      const instruction = reviewDigestInstruction();
+      const yaml = renderDefaultFeatureDevelopmentPolicyYaml();
+      expect(yaml).toContain(instruction);
+      const parsed = YAML.parse(yaml) as { stages: { review: { instructions: string[] } } };
+      expect(parsed.stages.review.instructions).toEqual(expect.arrayContaining([instruction]));
+    });
+
+    it('AC-4: this repo’s live contract and the shipped rule pack carry it too', () => {
+      const liveYaml = readFileSync(
+        resolve(__dirname, '../../..', 'docs/instructions/workflows/feature-development.yaml'),
+        'utf8',
+      );
+      const rulePack = readFileSync(
+        resolve(__dirname, '../../..', 'runtime/capabilities/coding/rules/feature-development.md'),
+        'utf8',
+      );
+      for (const source of [liveYaml, rulePack]) {
+        expect(source).toContain('review digest');
+        expect(source).toContain('.paqad/session/review-digest.md');
+      }
+    });
+  });
 });

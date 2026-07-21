@@ -96,6 +96,7 @@ stages:
   review:
     instructions:
       - Review the change against correctness, regressions, and rollback risk before treating it as complete.
+      - "Review digest (issue #360): before writing review findings, run `npx paqad-ai review digest` and read `.paqad/session/review-digest.md`. Each finding must either reference a digest row or be explicitly marked judgment-only. Confirm or contest every deterministic finding — an unaddressed deterministic finding is itself a review finding, and the review gate fails when a deterministic high-severity row is never cited by file:line."
       - "Rigid review artifact (issue #402): record the review with `paqad-ai review record <template.json>`, which writes review.json into the active feature's bundle, and end the review stage against that file. A stage-end naming anything else records inconclusive, and nothing may be written into a feature bundle directory."
       - "Design-system (issue #76): on UI diffs, run ux-heuristic-evaluation and design-system-coverage against the changed surfaces. DT-blocker findings are review-blocking."
     required_inputs:
@@ -109,6 +110,12 @@ stages:
       # raises it as a `stop`, the Decision-Pause gate holds further edits until resolved.
       # Not a script-detected gate; honestly an agent obligation with a script-enforced
       # resolution.
+      #
+      # One PART of review IS script-enforced (issue #360): whether the review ADDRESSED
+      # what the machine already proved. The review gate re-derives the deterministic,
+      # file-anchored, high-severity machine findings and fails when the recorded review
+      # never cites one by file:line. It judges citation, never prose quality — so
+      # "ignored the machine" is detectable while the verdict stays the model's judgment.
       review_findings: stop
     artifacts:
       - review.json

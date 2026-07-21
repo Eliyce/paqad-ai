@@ -84,7 +84,8 @@ and documentation:
 | `mutation-testing` | Tests would actually catch a behaviour-changing mistake (#105). |
 | `quality-ratchet` | No quality measure regresses (see [`quality-ratchet`](../../quality-ratchet/index/summary.md)). |
 | `requirement-completeness` | Requirements are fully addressed. |
-| `spec-review` / `story-quality` / `implementation-review` | LLM-judged quality of the spec, story, and implementation. |
+| `spec-review` / `story-quality` | LLM-judged quality of the spec and the story. |
+| `implementation-review` | LLM-judged quality of the implementation — **plus** a deterministic part (#360): the gate fails when a deterministic, file-anchored, high-severity machine finding is never cited by `file:line` in the recorded `review.json`. Ignoring the machine is detectable; the verdict itself is still judgment. |
 | `architecture-compliance` / `database-quality` / `extension-surface` | Structural and contract conformance. |
 | `documentation-freshness` / `documentation-checks` / `instructions-docs-structure` / `module-docs-structure` | Docs are present, current, and well-formed. |
 
@@ -97,6 +98,9 @@ and documentation:
 - [Deterministic Check Runner](../check-runner.md) — run the mapped
   format/test/build commands and feed real structured results to `code-tests-lint`,
   so the completion verdict proves the checks ran instead of assuming they did (#318).
+- [Review Evidence Digest](../review-digest.md) — hand the review stage the facts
+  paqad already computed, and make an unaddressed deterministic finding a review
+  failure rather than a silent omission (#360).
 
 ## Source Footprint
 
@@ -110,6 +114,10 @@ and documentation:
 - `src/checks/run-checks.ts`, `src/checks/report-store.ts`, `src/cli/commands/checks.ts`
   — the deterministic check runner (`paqad-ai checks run`) that produces the
   structured test/build/format results `code-tests-lint` consumes (#318).
+- `src/review-digest/**`, `src/cli/commands/review.ts` — the review evidence digest
+  (`paqad-ai review digest`): one collector unions the four cached finding sources,
+  a pure composer renders the digest, and `implementation-review` re-derives the
+  same rows to check the review addressed them (#360).
 
 ## Boundaries
 

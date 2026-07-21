@@ -125,6 +125,7 @@ export default defineConfig({
         'src/planning/index.ts',
         'src/planning/manifest-types.ts',
         'src/duplication/index.ts',
+        'src/review-digest/index.ts',
         'src/rag/audit.ts',
         'src/rag/benchmark-gates.ts',
         'src/rag/providers.ts',
