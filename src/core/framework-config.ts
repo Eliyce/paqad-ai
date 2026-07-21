@@ -545,6 +545,40 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'Minimum meaningful-line span a new code block must have to be scored for duplication ' +
       '(issue #358). Default 8 — shorter snippets are never flagged.',
   },
+  {
+    key: 'decision_arm_mode',
+    env: 'PAQAD_DECISION_ARM_MODE',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'off | warn | strict — arm the create-vs-reuse decision pause from evidence (issue #361). ' +
+      'warn (default) reports the fork; strict opens a pause that blocks edits until answered.',
+  },
+  {
+    key: 'decision_arm_plan_threshold',
+    env: 'PAQAD_DECISION_ARM_PLAN_THRESHOLD',
+    type: 'number',
+    default: 0.85,
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'Minimum name similarity (0..1) between a planned new construct and an existing symbol ' +
+      'before it counts as a reuse fork (issue #361). Default 0.85.',
+  },
+  {
+    key: 'decision_arm_max_per_change',
+    env: 'PAQAD_DECISION_ARM_MAX_PER_CHANGE',
+    type: 'number',
+    default: 1,
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'How many evidence-armed decision pauses one change may open (issue #361). Default 1 — ' +
+      'only the strongest fork is asked; the rest are reported as warnings.',
+  },
 ] as const;
 
 const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
@@ -723,6 +757,28 @@ export function layeredConfigMap(
     }
   }
   return merged;
+}
+
+/**
+ * Read one NUMERIC knob from the layered (LOCAL-WINS) map, falling back to `fallback`
+ * whenever the value is unset, unparseable, or fails `valid`. The single resolver for
+ * every non-floored numeric knob: a bad hand-edited value degrades to the documented
+ * default rather than throwing, which is what RULE-16's "a hand-trimmed config never
+ * breaks" guarantee requires.
+ */
+export function resolveNumericConfig(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  key: string,
+  fallback: number,
+  valid: (value: number) => boolean,
+): number {
+  const raw = layeredConfigMap(projectRoot, env).get(key);
+  if (raw === undefined) {
+    return fallback;
+  }
+  const parsed = Number(raw.trim());
+  return Number.isFinite(parsed) && valid(parsed) ? parsed : fallback;
 }
 
 /**
@@ -1658,6 +1714,9 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'duplication_mode',
       'duplication_similarity_threshold',
       'duplication_min_lines',
+      'decision_arm_mode',
+      'decision_arm_plan_threshold',
+      'decision_arm_max_per_change',
     ],
   },
 ];

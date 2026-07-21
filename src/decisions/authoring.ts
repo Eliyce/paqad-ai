@@ -35,12 +35,28 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { ulid } from '@/core/ids/ulid.js';
-import { isStrictDecisionId } from '@/planning/decision-packet.js';
+import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/decision-packet.js';
 
-/** A single option offered by a decision packet. */
+/**
+ * How a packet came to exist. Absent on a packet the agent opened by hand through
+ * `paqad-ai decision create`; `evidence-armed` on one the machine minted from computed
+ * evidence (issue #361), so a reader can tell an asked question from a detected one.
+ */
+export type ContractDecisionOrigin = 'evidence-armed';
+
+/**
+ * A single option offered by a decision packet.
+ *
+ * `evidence` is optional and additive (issue #361): a hand-authored option carries none,
+ * while an evidence-armed option carries the proof behind it (the matched file, when it
+ * last changed, how many callers it has, how similar it is). It reuses the
+ * {@link DecisionOptionEvidence} shape the automated `DecisionPacket` already defines
+ * rather than introducing a second evidence representation.
+ */
 export interface ContractDecisionOption {
   option_key: string;
   label: string;
+  evidence?: DecisionOptionEvidence;
 }
 
 /** The pending form written by {@link createPendingDecision}. */
@@ -53,6 +69,8 @@ export interface PendingContractDecision {
   recommendation: string | null;
   created_at: string;
   status: 'pending';
+  /** Set only on a machine-minted packet (issue #361); absent on a hand-opened one. */
+  origin?: ContractDecisionOrigin;
 }
 
 /** The resolved form written by {@link resolvePendingDecision}. */
@@ -70,6 +88,8 @@ export interface CreateDecisionInput {
   context: string;
   options: ContractDecisionOption[];
   recommendation?: string | null;
+  /** Set by a machine minter (issue #361); omitted when the agent opens the packet. */
+  origin?: ContractDecisionOrigin;
 }
 
 /** Mint a fresh, collision-free decision id (`D-<ULID>`). */
@@ -159,13 +179,17 @@ export function createPendingDecision(
     category: input.category,
     title: input.title,
     context: input.context,
+    // Copy field by field so a caller cannot smuggle extra keys into the stored packet;
+    // `evidence` rides along only when the option actually carries it (issue #361).
     options: input.options.map((option) => ({
       option_key: option.option_key,
       label: option.label,
+      ...(option.evidence !== undefined ? { evidence: option.evidence } : {}),
     })),
     recommendation: input.recommendation ?? null,
     created_at: new Date().toISOString(),
     status: 'pending',
+    ...(input.origin !== undefined ? { origin: input.origin } : {}),
   };
 
   const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
@@ -219,13 +243,21 @@ export interface ContractDecisionListEntry {
   status: 'pending' | 'resolved';
 }
 
+/** A stored packet plus which directory it was read from. */
+export interface StoredContractDecision {
+  packet: PendingContractDecision;
+  status: 'pending' | 'resolved';
+}
+
 /**
- * List every decision packet (pending first, then resolved), for `paqad-ai decision
- * list`. Tolerant: a missing dir yields no rows and a malformed packet is skipped, so
- * a partial store never throws.
+ * Read every stored decision packet (pending first, then resolved, each id-sorted). The one
+ * reader for the contract store: the CLI listing renders it, and the evidence-armed minter
+ * (issue #361) scans the packets' contexts for its machine tokens. Tolerant by design — a
+ * missing directory yields no rows and a malformed packet is skipped, so a partial store
+ * never throws.
  */
-export function listContractDecisions(projectRoot: string): ContractDecisionListEntry[] {
-  const rows: ContractDecisionListEntry[] = [];
+export function readContractDecisions(projectRoot: string): StoredContractDecision[] {
+  const rows: StoredContractDecision[] = [];
   const sources = [
     [PATHS.DECISIONS_PENDING_DIR, 'pending'],
     [PATHS.DECISIONS_RESOLVED_DIR, 'resolved'],
@@ -241,13 +273,26 @@ export function listContractDecisions(projectRoot: string): ContractDecisionList
     for (const file of files.filter((name) => name.endsWith('.json')).sort()) {
       try {
         const packet = JSON.parse(readFileSync(join(abs, file), 'utf8')) as PendingContractDecision;
-        rows.push({ id: packet.id, category: packet.category, title: packet.title, status });
+        rows.push({ packet, status });
       } catch {
-        // Skip a malformed packet — a broken file never breaks the listing.
+        // Skip a malformed packet — a broken file never breaks the read.
       }
     }
   }
   return rows;
+}
+
+/**
+ * List every decision packet (pending first, then resolved), for `paqad-ai decision
+ * list`.
+ */
+export function listContractDecisions(projectRoot: string): ContractDecisionListEntry[] {
+  return readContractDecisions(projectRoot).map(({ packet, status }) => ({
+    id: packet.id,
+    category: packet.category,
+    title: packet.title,
+    status,
+  }));
 }
 
 /**
