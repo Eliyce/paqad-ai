@@ -1,0 +1,22 @@
+{
+  "id": "D-01KY26KYR7RTJXQVHXJDS6ZZKQ",
+  "category": "architecture-path",
+  "title": "How should evidence-armed decision packets carry file/callers/similarity?",
+  "context": "Issue #361 wants a minted create-vs-reuse packet to carry structured evidence (file, last_modified, callers, similarity). But there are TWO packet shapes: the CONTRACT packet written by 'paqad-ai decision create' (src/decisions/authoring.ts, ContractDecisionOption = {option_key,label} only, no evidence field) which is what the pause gate blocks on, and the rich DecisionPacket (src/planning/decision-packet.ts) which already has DecisionOptionEvidence but is only written by DecisionStore/self-arm. Issue #358 hit this and chose prose-in-context with a machine token. AC-1 of #361 asserts 'callers=5, similarity populated', which is awkward to test against prose.",
+  "options": [
+    {
+      "option_key": "extend-option",
+      "label": "Add an optional evidence field to ContractDecisionOption, reusing the existing DecisionOptionEvidence type (additive, backward-compatible), and also render it in the context prose"
+    },
+    {
+      "option_key": "prose-only",
+      "label": "Keep the contract packet shape frozen; carry evidence only as a structured prose block in context, following the #358 precedent"
+    }
+  ],
+  "recommendation": "extend-option",
+  "created_at": "2026-07-21T11:22:45.895Z",
+  "status": "resolved",
+  "chosen": "extend-option",
+  "rationale": "AC-1 asserts callers=5 and similarity populated; asserting on parsed prose is fragile. DecisionOptionEvidence already exists in decision-packet.ts so extending ContractDecisionOption reuses the canonical type (RULE-13) rather than adding a second evidence representation. Additive optional field is backward-compatible (RULE-23) - existing packets and the pause gate are unaffected.",
+  "resolved_at": "2026-07-21T11:23:47.754Z"
+}

@@ -2470,13 +2470,20 @@ modules:
         - ChecksRunResult
         - CodeTestsLintGate
         - ComposeChangeReceiptInput
+        - DIGEST_LINE_CAP
         - DatabaseQualityGate
+        - DigestCriterion
+        - DigestStage
         - DocumentationFreshnessGate
+        - DuplicationGate
         - ExtensionSurfaceGate
         - Gate
         - ImplementationReviewGate
         - InstructionsDocsStructureGate
         - JudgmentSignal
+        - MachineFinding
+        - MachineFindingSeverity
+        - MachineFindingTier
         - ModuleDocsStructureGate
         - MutationTestingGate
         - QualityRatchetGate
@@ -2484,6 +2491,7 @@ modules:
         - RepositoryVerificationGateVerdict
         - RepositoryVerificationVerdict
         - RequirementCompletenessGate
+        - ReviewDigestInput
         - RunChecksOptions
         - RunRepositoryVerificationOptions
         - SURFACE_DOC_PATH
@@ -2496,18 +2504,22 @@ modules:
         - VERIFICATION_EVIDENCE_STDERR_BUDGET_BYTES
         - VerificationGateRunner
         - WriteVerificationEvidenceOptions
+        - WrittenDigest
+        - anchoringFindings
         - areRegistriesStale
         - assessTestEvidence
         - backstopGates
         - buildDocumentationDriftDeltaPayload
         - buildRepositoryVerificationContext
         - buildRepositoryVerificationVerdict
+        - buildReviewDigest
         - buildVerificationEvidence
         - buildVerificationGateDeltaPayload
         - checkBooleanGate
         - checksEvidenceGate
         - checksReportPath
         - collectCanonicalDocumentationFailures
+        - collectMachineFindings
         - collectObservedAcIds
         - collectScopeDriftPaths
         - collectUnresolvedDocTargets
@@ -2519,7 +2531,9 @@ modules:
         - createFail
         - createInconclusive
         - createPass
+        - createReviewCommand
         - extractAcIdFromIssue
+        - findingAnchor
         - formatCanonicalDocTarget
         - formatStageEvidenceReceipt
         - formatVerdictSummary
@@ -2530,7 +2544,9 @@ modules:
         - runRepositoryVerification
         - stageEvidenceGate
         - toVerificationSnapshots
+        - unanchoredMachineFindings
         - writeChecksReport
+        - writeReviewDigest
         - writeVerificationEvidence
 
   - slug: evidence-ledger
@@ -2728,6 +2744,7 @@ modules:
         - PlanReuse
         - PlanRisk
         - PlanStep
+        - PlanStepClassification
         - ProjectFeatureReceiptInput
         - ProjectFeatureReceiptResult
         - PruneResult
