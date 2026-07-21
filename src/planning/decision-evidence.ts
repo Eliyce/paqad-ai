@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
+
 import { PATHS } from '@/core/constants/paths.js';
+import { buildReuseForkEvidence } from './decision-evidence-arm.js';
 import type { DecisionCategory, DecisionOptionEvidence } from './decision-packet.js';
 
 interface EvidenceInput {
@@ -22,6 +25,28 @@ const MAX_SIMILARITY = 0.99;
 export function assembleDecisionEvidence(input: EvidenceInput): DecisionOptionEvidence {
   const absolutePath = join(input.projectRoot, input.file);
   const fileExists = existsSync(absolutePath);
+
+  // Issue #361 — when the code-knowledge index (#353) has been built it already knows this
+  // file's real in-edge count, so use it and the shared reuse-fork builder rather than the
+  // whole-tree filename-stem walk below. That keeps the prompt-armed path's evidence
+  // identical in meaning to the evidence-armed path's. No index ⇒ the original walk stands.
+  const indexedCallers = indexedCallerCount(input.projectRoot, input.file);
+  if (indexedCallers !== null) {
+    const evidence = buildReuseForkEvidence({
+      projectRoot: input.projectRoot,
+      file: input.file,
+      callers: indexedCallers,
+      similarity: clampSimilarity(
+        input.similarity ?? defaultSimilarityFor(input.category, fileExists, indexedCallers),
+      ),
+    });
+    const ruleMatch = findSupportingRule(input.projectRoot, input.file);
+    if (ruleMatch) {
+      evidence.rule_match = ruleMatch;
+    }
+    return evidence;
+  }
+
   const callers = fileExists ? countFileReferences(input.projectRoot, input.file) : 0;
   /* v8 ignore next 3 -- input.similarity fallback; tests always pass explicit similarity values */
   const similarity = clampSimilarity(
@@ -123,6 +148,20 @@ export function defaultSimilarityFor(
     case 'analytics.new_event':
       return 0.5;
   }
+}
+
+/**
+ * The file's caller count from the code-knowledge index, or null when no index exists or the
+ * index does not know the file. Null means "fall back", never "zero callers" — reporting an
+ * unknown file as having no callers would be a fabricated fact, not a missing one.
+ */
+function indexedCallerCount(projectRoot: string, file: string): number | null {
+  const index = readCodeKnowledgeIndex(projectRoot);
+  if (!index) {
+    return null;
+  }
+  const normalized = normalizePath(file);
+  return index.files.find((entry) => entry.path === normalized)?.caller_count ?? null;
 }
 
 function findSupportingRule(projectRoot: string, file: string): string | undefined {

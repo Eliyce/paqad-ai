@@ -90,6 +90,14 @@ export function createPlanCommand(): Command {
       for (const warning of result.warnings ?? []) {
         console.warn(`▸ paqad · ${warning}`);
       }
+      // Issue #361 — an evidence-armed pause blocks the next edit, so say so plainly rather
+      // than letting the developer discover it as a mystery block.
+      for (const decisionId of result.armedDecisions ?? []) {
+        console.warn(
+          `▸ paqad · I hit a reuse-or-create choice that's yours to make — answer ${decisionId} ` +
+            `(\`npx paqad-ai decision resolve ${decisionId} <option>\`), then I'll continue.`,
+        );
+      }
       // Transient scratch: the filled template is deleted so only the rigid JSON
       // persists — the input is never a second, editable source of truth.
       if (!options.keepInput) {
@@ -100,7 +108,13 @@ export function createPlanCommand(): Command {
         }
       }
       console.log(`▸ paqad · compiled ${result.path}`);
-      console.log(JSON.stringify({ compiled: true, path: result.path }));
+      console.log(
+        JSON.stringify({
+          compiled: true,
+          path: result.path,
+          ...(result.armedDecisions?.length ? { armed_decisions: result.armedDecisions } : {}),
+        }),
+      );
     });
 
   return command;

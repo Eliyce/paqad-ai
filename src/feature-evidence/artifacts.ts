@@ -14,6 +14,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
+import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
 
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
 import { parseFeatureDirName, featureFilePath } from './paths.js';
@@ -94,6 +95,12 @@ export interface CompiledArtifact<T> {
    * surface them, and so nothing here depends on shared mutable state.
    */
   warnings?: string[];
+  /**
+   * Ids of the create-vs-reuse pauses this compile opened from evidence (issue #361). Empty
+   * unless `decision_arm_mode=strict` found a fork worth asking about; the caller announces
+   * them so the developer knows an edit is now blocked and why.
+   */
+  armedDecisions?: string[];
 }
 
 /**
@@ -171,7 +178,28 @@ export function writeFeaturePlan(
   }
   const rel = featureFilePath(dirName, 'plan');
   atomicWriteJson(join(projectRoot, rel), record);
-  return { dirName, path: rel, record, warnings: reuseCheck.warnings };
+
+  // Issue #361 — the plan has now DECLARED what it intends to build new. Score those against
+  // the code-knowledge index and, in strict mode, open a create-vs-reuse pause for the
+  // strongest fork. Runs after the write so a plan is never lost to an arming failure, and
+  // every fork it declines to ask about comes back as a warning rather than vanishing.
+  const armed = armDecisionFromPlan({
+    projectRoot,
+    changeKey: dirName,
+    sessionId,
+    constructs: (input.reuse?.new_constructs ?? []).map((construct) => ({
+      name: construct.name,
+      justification: construct.justification,
+    })),
+  });
+
+  return {
+    dirName,
+    path: rel,
+    record,
+    warnings: [...reuseCheck.warnings, ...armed.warnings],
+    armedDecisions: armed.minted,
+  };
 }
 
 /** Tolerant read of a feature's `plan.json`, or null when absent/corrupt. */
