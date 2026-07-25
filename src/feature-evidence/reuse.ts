@@ -220,7 +220,9 @@ function verifyFrameworkSymbols(
     return;
   }
   for (const claim of claims) {
-    const result = queryFrameworkApi(index, claim.package, claim.symbol);
+    // Pass the claimed version so a monorepo with the same package at two roots answers
+    // from the version the plan actually named, not from whichever entry sorted first.
+    const result = queryFrameworkApi(index, claim.package, claim.symbol, claim.version);
     const key = frameworkClaimKey(claim.package, claim.symbol);
     switch (result.verdict) {
       case 'live':

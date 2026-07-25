@@ -98,13 +98,26 @@ export function nearestFrameworkSymbol(symbol: string, known: string[]): string 
   return best;
 }
 
-/** Look one `package` + `symbol` up in the index. */
+/**
+ * Look one `package` + `symbol` up in the index.
+ *
+ * `version` is the version the CLAIM was made against. A monorepo can install the same
+ * package at two manifest roots at two versions, and answering such a claim from whichever
+ * entry happened to sort first would be an arbitrary tie-break on a verdict that blocks a
+ * compile — so a claim naming a version is answered from THAT version's entry, and only
+ * falls back to the first entry for the package when it names none.
+ */
 export function queryFrameworkApi(
   index: FrameworkApiIndex,
   packageName: string,
   symbol: string,
+  version?: string,
 ): FrameworkApiQueryResult {
-  const entry = index.packages.find((candidate) => candidate.package === packageName);
+  const forPackage = index.packages.filter((candidate) => candidate.package === packageName);
+  const entry =
+    (version === undefined
+      ? forPackage[0]
+      : (forPackage.find((candidate) => candidate.version === version) ?? forPackage[0])) ?? null;
   if (!entry) {
     return {
       package: packageName,

@@ -132,6 +132,36 @@ describe('queryFrameworkApi', () => {
     expect(result.nearest).toBe('useId');
   });
 
+  it('answers from the version the claim named when a package is installed twice', () => {
+    // A monorepo can install the same package at two manifest roots at two versions.
+    // Answering from whichever sorted first would be an arbitrary tie-break on a blocking
+    // verdict, so the claimed version selects the entry.
+    const index = indexWith([symbol({ name: 'useId' })]);
+    index.packages.push({
+      ...index.packages[0]!,
+      version: '18.3.1',
+      root: 'legacy-app',
+      symbols: [symbol({ name: 'useId', deprecated: true, message: 'not in 18.' })],
+    });
+
+    expect(queryFrameworkApi(index, 'react', 'useId', '19.2.6').verdict).toBe('live');
+    const legacy = queryFrameworkApi(index, 'react', 'useId', '18.3.1');
+    expect(legacy.verdict).toBe('deprecated');
+    expect(legacy.version).toBe('18.3.1');
+  });
+
+  it('falls back to the first entry when the claim names no version', () => {
+    const index = indexWith([symbol({ name: 'useId' })]);
+    expect(queryFrameworkApi(index, 'react', 'useId').version).toBe('19.2.6');
+  });
+
+  it('falls back to the first entry when the claimed version is not indexed', () => {
+    const index = indexWith([symbol({ name: 'useId' })]);
+    const result = queryFrameworkApi(index, 'react', 'useId', '17.0.0');
+    expect(result.verdict).toBe('live');
+    expect(result.version).toBe('19.2.6');
+  });
+
   it('reports a package the index does not cover, without guessing', () => {
     const result = queryFrameworkApi(indexWith([symbol({ name: 'useId' })]), 'vue', 'ref');
     expect(result.verdict).toBe('package-not-indexed');
