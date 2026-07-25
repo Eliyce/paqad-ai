@@ -48,6 +48,8 @@ export interface ProjectFeatureFlags {
   lean_rules: boolean;
   /** Issue #371 — render the per-feature evidence report.html at end-of-change (default on). */
   feature_report: boolean;
+  /** Issue #362 — compute + surface the per-change shape metrics (dup on new code + reuse rate). */
+  metrics_enabled: boolean;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;
