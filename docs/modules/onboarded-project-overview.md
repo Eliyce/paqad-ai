@@ -311,6 +311,7 @@ the coding flow** or **sits to the side** (advisory, lane-gated, or opt-in).
 | [Verification gates](verification/index/summary.md) (`src/verification`) | 16 contract-driven, language-agnostic land/block checks | Strong | **Wired in twice** — in-pipeline and at the git/CI backstop |
 | [Decision Pause](decision-pause-contract/index/summary.md) | A hard stop for human judgment at flagged junctions | Strong control point | Wired in; depends on the AI honouring it plus the PreToolUse hook |
 | [Evidence Ledger](evidence-ledger/index/summary.md) (`src/evidence`) | An append-only record of what every gate and engine produced | The connective tissue | Wired in; a record, not an enforcer |
+| Change-shape metrics (`src/change-metrics`) | Two per-change numbers — duplication on new code and cross-file reuse rate — so "less, better code" is measurable, not a slogan | Deterministic, zero model tokens; folds over the duplication (#358) + code-knowledge (#353) caches | **Wired in** (issue #362) — computed at the completion seam for feature-development changes, shown on the end-of-change receipt, trended on the dashboard, and folded into the SIEM export. Observed, not gated |
 
 **The honest summary.** The always-on consciousness is the entry-gate +
 module-map/attribution + verification gates, and — since issue #359 — the
