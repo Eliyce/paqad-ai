@@ -19,6 +19,7 @@ import { collectPentest } from './collectors/pentest.js';
 import { collectProjectProfile } from './collectors/project-profile.js';
 import { collectRagStatus } from './collectors/rag-status.js';
 import { collectRuleCompliance } from './collectors/rule-compliance.js';
+import { collectChangeMetrics } from './collectors/change-metrics.js';
 import { collectRules } from './collectors/rules.js';
 import { collectSession } from './collectors/session.js';
 import { collectStackDrift } from './collectors/stack-drift.js';
@@ -116,6 +117,8 @@ export function buildReport(
     collectCodebaseHealth(root, now);
   const { section: ruleComplianceSection, attention: ruleComplianceAttention } =
     collectRuleCompliance(root);
+  const { section: changeMetricsSection, attention: changeMetricsAttention } =
+    collectChangeMetrics(root);
   const { section: attestationSection } = collectAttestation(root);
   const sessionSection = collectSession(root, now);
 
@@ -139,6 +142,7 @@ export function buildReport(
     pentestSection,
     codebaseHealthSection,
     ruleComplianceSection,
+    changeMetricsSection,
     attestationSection,
     sessionSection,
   ];
@@ -153,6 +157,7 @@ export function buildReport(
     ...pentestAttention,
     ...codebaseHealthAttention,
     ...ruleComplianceAttention,
+    ...changeMetricsAttention,
     ...deliveryAttention,
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 

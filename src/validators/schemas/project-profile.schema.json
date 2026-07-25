@@ -162,7 +162,8 @@
         "team_agents": { "type": "boolean" },
         "analytics_instrumentation": { "type": "boolean" },
         "lean_rules": { "type": "boolean" },
-        "feature_report": { "type": "boolean" }
+        "feature_report": { "type": "boolean" },
+        "metrics_enabled": { "type": "boolean" }
       }
     },
     "enterprise": {

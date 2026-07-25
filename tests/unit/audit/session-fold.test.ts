@@ -13,6 +13,7 @@ import { recordDecisionOpened } from '@/planning/decision-ledger';
 import { recordRuleDrift, recordRuleFindings } from '@/rule-scripts/rule-ledger';
 import { recordDisabledSession } from '@/session-ledger/disabled-audit';
 import { recordHealthRun } from '@/codebase-health/ledger';
+import { CHANGE_METRICS_DOC_TYPE, recordChangeMetrics } from '@/change-metrics/index';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types';
 
@@ -101,6 +102,45 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     expect(event.session_id).toBe('ses-h');
     expect(event.detail).toContain('health run HEALTH-2026');
     expect(event.detail).toContain('4 finding(s)');
+  });
+
+  it('folds a change-metrics row into the SIEM feed with a change-shape detail (#362 AC-3)', () => {
+    recordChangeMetrics(root, {
+      dup_new_pct: 2,
+      reuse_rate: 4.2,
+      meaningful_changed_lines: 120,
+      inputs: {
+        flagged_lines: 3,
+        reuse_calls: 5,
+        duplication_report_present: true,
+        index_present: true,
+      },
+    });
+    const event = bySource(aggregateSiemEvents(root), CHANGE_METRICS_DOC_TYPE).find((e) =>
+      e.detail.includes('change shape'),
+    );
+    expect(event).toBeDefined();
+    expect(event!.detail).toContain('2% dup');
+    expect(event!.detail).toContain('4.2 reuse/100');
+    expect(event!.detail).toContain('120 lines');
+  });
+
+  it('renders n/a change-metrics parts in the SIEM detail', () => {
+    recordChangeMetrics(root, {
+      dup_new_pct: null,
+      reuse_rate: null,
+      meaningful_changed_lines: 0,
+      inputs: {
+        flagged_lines: 0,
+        reuse_calls: 0,
+        duplication_report_present: false,
+        index_present: false,
+      },
+    });
+    const event = bySource(aggregateSiemEvents(root), CHANGE_METRICS_DOC_TYPE).find((e) =>
+      e.detail.includes('change shape'),
+    );
+    expect(event!.detail).toContain('n/a dup, n/a reuse/100');
   });
 
   it('records a disabled session as a visible bypass (verdict disabled)', () => {

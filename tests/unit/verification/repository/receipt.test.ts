@@ -190,6 +190,37 @@ describe('composeChangeReceipt (#325)', () => {
     expect(receipt).toContain('tests not verified');
   });
 
+  // Issue #362 — the change-shape line renders only when metrics are supplied.
+  it('appends the change-shape line when metrics are supplied', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: null,
+      changeMetrics: {
+        dup_new_pct: 0,
+        reuse_rate: 4.2,
+        meaningful_changed_lines: 100,
+        inputs: {
+          flagged_lines: 0,
+          reuse_calls: 4,
+          duplication_report_present: true,
+          index_present: true,
+        },
+      },
+    });
+    expect(receipt).toContain(
+      '> - 📏 change shape: 0% duplicated new code · 4.2 reuse calls /100 lines',
+    );
+  });
+
+  it('omits the change-shape line when no metrics are supplied (non-feature-dev)', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: null,
+      changeMetrics: null,
+    });
+    expect(receipt).not.toContain('change shape');
+  });
+
   // Issue #357 (AC-5) — the planning line shows what the plan declared it reused.
   it('suffixes the planning line with the declared reuse counts', () => {
     const receipt = composeChangeReceipt({

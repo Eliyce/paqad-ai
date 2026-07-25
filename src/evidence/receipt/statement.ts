@@ -18,6 +18,7 @@ import {
   type GradedEvidenceSummary,
   type InTotoStatement,
   type InTotoSubject,
+  type MetricsPredicate,
   type ReproducibilityStampPredicate,
   type VsaPredicate,
 } from '@/core/types/evidence-ledger.js';
@@ -96,6 +97,8 @@ export interface BuildStatementInput {
   complianceCitations?: readonly ComplianceCitation[];
   /** Issue #123 — frozen-context reproducibility stamp. Omitted when absent. */
   reproducibility?: ReproducibilityStampPredicate;
+  /** Issue #362 — per-change shape metrics. Omitted when absent, so receipts stay byte-identical. */
+  metrics?: MetricsPredicate;
 }
 
 /** Build the in-toto Statement: per-file subjects + a graded VSA predicate. */
@@ -122,6 +125,7 @@ export function buildInTotoStatement(input: BuildStatementInput): InTotoStatemen
       ? { compliance_citations: [...input.complianceCitations] }
       : {}),
     ...(input.reproducibility !== undefined ? { reproducibility: input.reproducibility } : {}),
+    ...(input.metrics !== undefined ? { metrics: input.metrics } : {}),
     rows: [...input.rows],
   };
 

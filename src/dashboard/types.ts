@@ -35,6 +35,7 @@ export const DASHBOARD_SECTION_IDS = [
   'pentest',
   'codebase-health',
   'rule-compliance',
+  'change-metrics',
   'attestation',
   'session',
 ] as const;

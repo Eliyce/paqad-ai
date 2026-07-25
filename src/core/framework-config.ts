@@ -241,6 +241,19 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ' +
       'ON (default) is local, free, and zero-LLM. OFF stops writing the page.',
   },
+  {
+    key: 'metrics_enabled',
+    env: 'PAQAD_METRICS_ENABLED',
+    type: 'boolean',
+    default: true,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) ' +
+      'and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is ' +
+      'local, deterministic, and zero-LLM — it folds over caches the gates already produced. ' +
+      'OFF stops computing and recording them.',
+  },
 
   // ── rag group ──────────────────────────────────────────────────────────
   {
@@ -1000,6 +1013,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       analytics_instrumentation: rb('analytics_instrumentation'),
       lean_rules: rb('lean_rules'),
       feature_report: rb('feature_report'),
+      metrics_enabled: rb('metrics_enabled'),
     },
     research: {
       depth: asEnum(
@@ -1547,6 +1561,7 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
     );
     put('lean_rules', f.lean_rules, d.features.lean_rules);
     put('feature_report', f.feature_report, d.features.feature_report);
+    put('metrics_enabled', f.metrics_enabled, d.features.metrics_enabled);
   }
   if (overrides.research) {
     put('research_depth', overrides.research.depth, d.research.depth);
@@ -1681,6 +1696,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'analytics_instrumentation',
       'lean_rules',
       'feature_report',
+      'metrics_enabled',
     ],
   },
   { present: (p) => p.research !== undefined, keys: ['research_depth'] },

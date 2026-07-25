@@ -21,6 +21,7 @@ import { createIndexCommand } from './commands/index-cmd.js';
 import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
 import { createJoinCommand } from './commands/join.js';
+import { createMetricsCommand } from './commands/metrics.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
@@ -55,6 +56,7 @@ export function createProgram(): Command {
   program.addCommand(createCapabilitiesCommand());
   program.addCommand(createChecksCommand());
   program.addCommand(createDuplicationCommand());
+  program.addCommand(createMetricsCommand());
   program.addCommand(createIndexCommand());
   program.addCommand(createHealthCommand());
   program.addCommand(createPacksCommand());

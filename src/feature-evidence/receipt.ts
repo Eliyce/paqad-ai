@@ -19,6 +19,7 @@ import { dirname, join } from 'node:path';
 import type {
   EvidenceFileDigest,
   EvidenceLedgerRow,
+  MetricsPredicate,
   ReceiptEnvelope,
 } from '@/core/types/evidence-ledger.js';
 import { ZERO_DIGEST } from '@/evidence/digests.js';
@@ -67,6 +68,9 @@ export interface ProjectFeatureReceiptInput {
    * computed (and returned) even when a write is gated off.
    */
   write?: { receipt?: boolean; aiBom?: boolean };
+  /** Issue #362 — the per-change shape metrics to carry on this receipt's predicate.
+   *  Omitted when none were computed, so the statement stays byte-identical to before. */
+  metrics?: MetricsPredicate;
 }
 
 export interface ProjectFeatureReceiptResult {
@@ -92,6 +96,7 @@ export function projectFeatureReceipt(
     rows: input.rows,
     verifierVersion: input.verifierVersion,
     timeVerified: input.timeVerified,
+    ...(input.metrics !== undefined ? { metrics: input.metrics } : {}),
   });
   const prior = readFeatureReceipt(projectRoot, dirName);
   const envelope = signReceipt({

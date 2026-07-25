@@ -19,6 +19,7 @@ import { readAllSessionRows, type SessionLedgerRow } from '@/session-ledger/ledg
 import { readAllFeatureStageRows } from '@/feature-evidence/projections.js';
 import { DISABLED_SESSION_DOC_TYPE } from '@/session-ledger/disabled-audit.js';
 import { HEALTH_RUN_DOC_TYPE } from '@/codebase-health/ledger.js';
+import { CHANGE_METRICS_DOC_TYPE } from '@/change-metrics/index.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import type { SiemAuthorship, SiemEvent } from './types.js';
@@ -113,6 +114,7 @@ const SESSION_LEDGER_DOC_TYPES = [
   RULE_EVIDENCE_DOC_TYPE,
   DISABLED_SESSION_DOC_TYPE,
   HEALTH_RUN_DOC_TYPE,
+  CHANGE_METRICS_DOC_TYPE,
 ] as const;
 
 /**
@@ -151,6 +153,18 @@ function sessionDetail(row: SessionLedgerRow): string {
     case HEALTH_RUN_DOC_TYPE: {
       const count = typeof row.finding_count === 'number' ? row.finding_count : 0;
       return `health run ${typeof row.report_id === 'string' ? row.report_id : ''} · ${count} finding(s)`.trim();
+    }
+    case CHANGE_METRICS_DOC_TYPE: {
+      // The project-ledger opens each doc with a `kind:'open'` marker that carries no
+      // metrics — surface it as the plain kind, not a misleading `change shape · n/a` line.
+      if (typeof row.meaningful_changed_lines !== 'number') {
+        return kind;
+      }
+      const dup = typeof row.dup_new_pct === 'number' ? `${row.dup_new_pct}%` : 'n/a';
+      const reuse = typeof row.reuse_rate === 'number' ? row.reuse_rate.toFixed(1) : 'n/a';
+      const lines =
+        typeof row.meaningful_changed_lines === 'number' ? row.meaningful_changed_lines : 0;
+      return `change shape · ${dup} dup, ${reuse} reuse/100 (${lines} lines)`;
     }
     default:
       return kind;

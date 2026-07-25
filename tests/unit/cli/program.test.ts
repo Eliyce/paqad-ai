@@ -18,6 +18,7 @@ describe('createProgram', () => {
       'capabilities',
       'checks',
       'duplication',
+      'metrics',
       'index',
       'health',
       'packs',
