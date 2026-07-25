@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "paqad://schemas/framework-api.json",
+  "title": "Installed framework-API index (issue #397)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "header", "packages", "blocked"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generated_at", "schema_version"],
+      "properties": {
+        "generated_at": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "integer", "const": 1 }
+      }
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["package", "version", "ecosystem", "content_hash", "sources", "symbols"],
+        "properties": {
+          "package": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 },
+          "ecosystem": { "type": "string", "minLength": 1 },
+          "content_hash": { "type": "string", "minLength": 1 },
+          "sources": { "type": "array", "items": { "type": "string" } },
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "kind",
+                "exists",
+                "deprecated",
+                "message",
+                "since",
+                "for_removal",
+                "provenance"
+              ],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "function",
+                    "class",
+                    "interface",
+                    "type",
+                    "variable",
+                    "enum",
+                    "namespace",
+                    "member",
+                    "unknown"
+                  ]
+                },
+                "exists": { "type": "boolean" },
+                "deprecated": { "type": "boolean" },
+                "message": { "type": ["string", "null"] },
+                "since": { "type": ["string", "null"] },
+                "for_removal": { "type": "boolean" },
+                "provenance": {
+                  "type": "string",
+                  "enum": ["asserted", "unknown-dynamic", "doc-derived"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "blocked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["package", "ecosystem", "reason", "detail"],
+        "properties": {
+          "package": { "type": "string", "minLength": 1 },
+          "ecosystem": { "type": "string", "minLength": 1 },
+          "reason": {
+            "type": "string",
+            "enum": ["no-adapter", "not-installed", "no-types", "parser-unavailable"]
+          },
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}
