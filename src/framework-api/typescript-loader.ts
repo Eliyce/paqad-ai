@@ -80,6 +80,7 @@ function resolveFromPaqad(): TypeScriptModule | null {
   try {
     const selfRequire = createRequire(import.meta.url);
     return selfRequire('typescript') as TypeScriptModule;
+    /* v8 ignore next 3 -- typescript is a devDependency of this repo, so its own suite can never reach the both-hops-failed path; the degradation it produces is covered through the adapter's `parser-unavailable` branch instead. */
   } catch {
     return null;
   }

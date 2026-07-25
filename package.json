@@ -107,6 +107,14 @@
     "voyageai": "^0.4.0",
     "yaml": "^2.9.0"
   },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@changesets/changelog-git": "^0.2.1",
     "@changesets/changelog-github": "^0.7.0",

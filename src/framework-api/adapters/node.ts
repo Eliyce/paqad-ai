@@ -126,9 +126,9 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
       hash.update(entry);
       try {
         hash.update(readFileSync(entry));
+        /* v8 ignore next 4 -- resolveTypesEntry only returns a path it just read, so this catch needs the file to vanish mid-build; the entry still hashes by path+version and the build records `no-types`, so a stale surface is never passed off as current. */
       } catch {
-        // An unreadable entry still hashes by path+version; the index build will record
-        // `no-types` for it anyway, so this never silently passes off a stale surface.
+        // Deliberately empty: the path+version already in the hash is enough.
       }
     }
     return `sha256:${hash.digest('hex')}`;
@@ -161,6 +161,7 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
     });
     const checker = program.getTypeChecker();
     const sourceFile = program.getSourceFile(entry);
+    /* v8 ignore next -- `entry` is the program's own root file, so it always resolves; the guard exists so a compiler that returned nothing degrades to `no-types` instead of throwing. */
     const moduleSymbol = sourceFile ? checker.getSymbolAtLocation(sourceFile) : undefined;
     if (!moduleSymbol) {
       // A declaration file with no module symbol is a global-script `.d.ts`: it declares
@@ -219,10 +220,11 @@ function drillMembers(
   let type: unknown;
   try {
     type = checker.getDeclaredTypeOfSymbol(container);
+    /* v8 ignore next 3 -- defensive guard on an opaque compiler API: no authorable declaration makes getDeclaredTypeOfSymbol throw, but a compiler-version change must degrade to the wildcard rather than let members read absent (INV-2). */
   } catch {
-    // A container whose type cannot be resolved must not make its members look absent.
     return [dynamicRecord(containerName)];
   }
+  /* v8 ignore next 2 -- the same guard, for a type object that exposes no getProperties. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- structural compiler type
   const properties = ((type as any)?.getProperties?.() ?? []) as TsSymbolLike[];
   const records = properties
