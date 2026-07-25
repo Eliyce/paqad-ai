@@ -30,7 +30,10 @@ describe('countMeaningfulChangedLines', () => {
     const root = makeProject();
     // 5 meaningful + 1 blank + 1 comment = 5 meaningful.
     writeFile(root, 'src/a.ts', `${codeLines(5)}\n\n// a comment line`);
-    const count = await countMeaningfulChangedLines({ projectRoot: root, changedFiles: ['src/a.ts'] });
+    const count = await countMeaningfulChangedLines({
+      projectRoot: root,
+      changedFiles: ['src/a.ts'],
+    });
     expect(count).toBe(5);
   });
 

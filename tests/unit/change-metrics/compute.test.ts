@@ -34,7 +34,13 @@ describe('flaggedNewCodeLines', () => {
 describe('crossFileReuseCalls', () => {
   const index = (edges: CodeKnowledgeIndex['reference_edges']): CodeKnowledgeIndex => ({
     schema_version: 1,
-    header: { generated_at: 'x', branch: null, head_commit: null, schema_version: 1, entry_point_globs: [] },
+    header: {
+      generated_at: 'x',
+      branch: null,
+      head_commit: null,
+      schema_version: 1,
+      entry_point_globs: [],
+    },
     symbols: [],
     files: [],
     import_edges: [],
@@ -117,7 +123,10 @@ describe('computeChangeMetrics', () => {
     writeDuplicationCache(root, []);
     writeIndex(root, [{ from: 'src/blank.ts', to: 'src/existing.ts', symbol: 'a' }]);
 
-    const metrics = await computeChangeMetrics({ projectRoot: root, changedFiles: ['src/blank.ts'] });
+    const metrics = await computeChangeMetrics({
+      projectRoot: root,
+      changedFiles: ['src/blank.ts'],
+    });
     expect(metrics.meaningful_changed_lines).toBe(0);
     expect(metrics.dup_new_pct).toBeNull();
     expect(metrics.reuse_rate).toBeNull();

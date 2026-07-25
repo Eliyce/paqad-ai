@@ -17,7 +17,12 @@ function metrics(dup: number | null, reuse: number | null, lines = 100): ChangeM
     dup_new_pct: dup,
     reuse_rate: reuse,
     meaningful_changed_lines: lines,
-    inputs: { flagged_lines: 0, reuse_calls: 0, duplication_report_present: true, index_present: true },
+    inputs: {
+      flagged_lines: 0,
+      reuse_calls: 0,
+      duplication_report_present: true,
+      index_present: true,
+    },
   };
 }
 
@@ -33,6 +38,9 @@ async function run(args: string[]): Promise<{ out: string[]; err: string[] }> {
 describe('trendOf', () => {
   it('is flat with fewer than two numeric points', () => {
     expect(trendOf([null, 5, null])).toBe('flat');
+  });
+  it('is flat when the two halves are equal', () => {
+    expect(trendOf([2, 2, 2, 2])).toBe('flat');
   });
   it('detects a rising then falling series', () => {
     expect(trendOf([1, 1, 9, 9])).toBe('rising');
@@ -56,6 +64,17 @@ describe('paqad-ai metrics report', () => {
     expect(text).toContain('of new code duplicated existing code');
     expect(text).toContain('industry drift: rising');
     expect(text).toContain('| duplication | reuse /100 |');
+  });
+
+  it('renders n/a averages when every recorded reading is n/a', async () => {
+    const r = root();
+    recordChangeMetrics(r, metrics(null, null));
+    recordChangeMetrics(r, metrics(null, null));
+
+    const { out } = await run(['report', '--project-root', r]);
+    const text = out.join('\n');
+    expect(text).toContain('n/a of new code duplicated');
+    expect(text).toContain('Reuse held at n/a');
   });
 
   it('emits JSON with --json', async () => {

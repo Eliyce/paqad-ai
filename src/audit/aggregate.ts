@@ -162,7 +162,8 @@ function sessionDetail(row: SessionLedgerRow): string {
       }
       const dup = typeof row.dup_new_pct === 'number' ? `${row.dup_new_pct}%` : 'n/a';
       const reuse = typeof row.reuse_rate === 'number' ? row.reuse_rate.toFixed(1) : 'n/a';
-      const lines = typeof row.meaningful_changed_lines === 'number' ? row.meaningful_changed_lines : 0;
+      const lines =
+        typeof row.meaningful_changed_lines === 'number' ? row.meaningful_changed_lines : 0;
       return `change shape · ${dup} dup, ${reuse} reuse/100 (${lines} lines)`;
     }
     default:

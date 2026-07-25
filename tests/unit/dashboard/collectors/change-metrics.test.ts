@@ -17,7 +17,12 @@ function metrics(dup: number | null, reuse: number | null): ChangeMetrics {
     dup_new_pct: dup,
     reuse_rate: reuse,
     meaningful_changed_lines: 100,
-    inputs: { flagged_lines: 0, reuse_calls: 0, duplication_report_present: true, index_present: true },
+    inputs: {
+      flagged_lines: 0,
+      reuse_calls: 0,
+      duplication_report_present: true,
+      index_present: true,
+    },
   };
 }
 

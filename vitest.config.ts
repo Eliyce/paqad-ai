@@ -41,6 +41,7 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/adapters/adapter.interface.ts',
         'src/cache/types.ts',
+        'src/change-metrics/types.ts',
         'src/context/types.ts',
         'src/context/inference-provider.ts',
         'src/core/types/design-tokens.ts',
