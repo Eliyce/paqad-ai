@@ -637,6 +637,7 @@ modules:
         - buildReport
         - collectArchitecture
         - collectAttestation
+        - collectChangeMetrics
         - collectCodebaseHealth
         - collectDecisions
         - collectDelivery
@@ -1430,6 +1431,7 @@ modules:
         - AIDetectorOptions
         - Detector
         - DetectorOptions
+        - FRAMEWORK_PACKAGE_MAP
         - LaravelDetectionResult
         - ReactDetectionResult
         - StackDetectionPermissions
@@ -2705,6 +2707,47 @@ modules:
       hard-blocks a valid plan.
     sources:
       - src/framework-api
+    evidence:
+      symbols:
+        - BuildFrameworkApiOptions
+        - BuildFrameworkApiResult
+        - DYNAMIC_MEMBER_SUFFIX
+        - DeprecationVerdict
+        - FRAMEWORK_API_SCHEMA_VERSION
+        - FrameworkApiAdapter
+        - FrameworkApiAdapterInput
+        - FrameworkApiAdapterRegistry
+        - FrameworkApiAdapterResult
+        - FrameworkApiBlocked
+        - FrameworkApiHeader
+        - FrameworkApiIndex
+        - FrameworkApiPackage
+        - FrameworkApiProvenance
+        - FrameworkApiQueryResult
+        - FrameworkApiSymbol
+        - FrameworkApiSymbolKind
+        - FrameworkApiValidation
+        - FrameworkApiVerdict
+        - InstalledLocation
+        - JsDocTagLike
+        - TsProgram
+        - TypeScriptModule
+        - buildFrameworkApiIndex
+        - clearTypeScriptCache
+        - createDefaultFrameworkApiAdapterRegistry
+        - frameworkApiIndexPath
+        - loadTypeScript
+        - nearestFrameworkSymbol
+        - nodeFrameworkApiAdapter
+        - queryFrameworkApi
+        - readDeprecation
+        - readFrameworkApiIndex
+        - resolveInstalledVersion
+        - resolveTypesEntry
+        - typesFromExports
+        - typesPackageName
+        - validateFrameworkApiIndex
+        - writeFrameworkApiIndex
 
   - slug: feature-evidence
     name: Per-Feature Evidence Bundle
@@ -2742,6 +2785,7 @@ modules:
         - FEATURE_EVIDENCE_SCHEMA_VERSION
         - FEATURE_SCHEMA
         - FEATURE_SESSION_DOC_TYPE
+        - FRAMEWORK_API_INDEX_ABSENT_WARNING
         - FeatureBundleExport
         - FeatureBundleFile
         - FeatureDirName
@@ -2825,6 +2869,7 @@ modules:
         - formatDuration
         - formatFeatureDirName
         - formatValidationError
+        - frameworkClaimKey
         - hookBlock
         - installGitHooks
         - isBundleMaterialized
