@@ -98,6 +98,19 @@ describe('nodeFrameworkApiAdapter.index', () => {
     expect(result.sources[0]).toContain('index.d.ts');
   });
 
+  it('records sources in the posix-everywhere form, on every platform', () => {
+    // `sources` lands in persisted JSON, so it is an output boundary: a Windows
+    // `node_modules\react\index.d.ts` must never reach it. Asserted here rather than left
+    // for the Windows CI leg to catch, so a regression fails on any platform.
+    const result = nodeFrameworkApiAdapter.index(
+      install('acme', '1.0.0', 'export declare function go(): void;'),
+    );
+    expect(result.indexed).toBe(true);
+    if (!result.indexed) return;
+    expect(result.sources[0]).not.toContain('\\');
+    expect(result.sources[0]).toContain('node_modules/acme');
+  });
+
   it('classifies each declaration kind it can tell apart', () => {
     const result = nodeFrameworkApiAdapter.index(
       install(
@@ -255,6 +268,9 @@ describe('nodeFrameworkApiAdapter.index', () => {
       install('acme', '1.0.0', 'declare const globalThing: number;'),
     );
     expect(result).toMatchObject({ indexed: false, reason: 'no-types' });
+    if (result.indexed) return;
+    // The blocked detail is surfaced to the developer, so it carries a posix path too.
+    expect(result.detail).not.toContain('\\');
   });
 });
 

@@ -23,6 +23,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 
+import { toPosixPath } from '@/core/path-utils.js';
+
 import { readDeprecation, type JsDocTagLike } from '../deprecation.js';
 import { resolveInstalledVersion, resolveTypesEntry } from '../resolve-version.js';
 import { loadTypeScript, type TypeScriptModule } from '../typescript-loader.js';
@@ -36,6 +38,15 @@ import type {
 
 /** The wildcard suffix that marks a container as accepting runtime-provided members. */
 export const DYNAMIC_MEMBER_SUFFIX = '.*';
+
+/**
+ * A project-relative path in the repo's posix-everywhere form. The index and the blocked
+ * details are output boundaries — persisted JSON a consumer reads — so a Windows
+ * `graph-ui\node_modules\…` must never reach them (see `toPosixPath`).
+ */
+function projectRelative(projectRoot: string, target: string): string {
+  return toPosixPath(relative(projectRoot, target));
+}
 
 /**
  * How many exported containers get drilled for members. Class and interface members are
@@ -169,7 +180,7 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
       return {
         indexed: false,
         reason: 'no-types',
-        detail: `${input.package}@${input.version} declares no module surface at ${relative(input.projectRoot, entry)}`,
+        detail: `${input.package}@${input.version} declares no module surface at ${projectRelative(input.projectRoot, entry)}`,
       };
     }
 
@@ -195,7 +206,7 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
 
     return {
       indexed: true,
-      sources: [relative(input.projectRoot, entry)],
+      sources: [projectRelative(input.projectRoot, entry)],
       symbols,
     };
   },
