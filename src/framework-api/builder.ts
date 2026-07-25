@@ -10,6 +10,8 @@
 // missing package would read as "checked and fine", which is the failure mode this whole
 // index exists to prevent.
 
+import { join } from 'node:path';
+
 import { FRAMEWORK_PACKAGE_MAP } from '@/core/stack-profile.js';
 import type { StackSnapshot } from '@/core/types/introspection.js';
 import { readStackSnapshotSync } from '@/introspection/cache.js';
@@ -63,10 +65,20 @@ export function buildFrameworkApiIndex(
   const blocked: FrameworkApiBlocked[] = [];
   let cacheHits = 0;
 
+  // A snapshot can list the same dependency more than once (one row per manifest that
+  // declares it), so index each package+root pair once rather than re-walking it.
+  const seen = new Set<string>();
   for (const dependency of snapshot?.packages ?? []) {
     if (FRAMEWORK_PACKAGE_MAP[dependency.name] === undefined) {
       continue;
     }
+    const root = dependency.root ?? '.';
+    const pairKey = `${dependency.name}@@${root}`;
+    if (seen.has(pairKey)) {
+      continue;
+    }
+    seen.add(pairKey);
+
     const adapter = registry.get(dependency.ecosystem);
     if (adapter === null) {
       blocked.push({
@@ -77,26 +89,33 @@ export function buildFrameworkApiIndex(
       });
       continue;
     }
-    const installed = adapter.resolveInstalled(projectRoot, dependency.name);
+    // The dependency was declared under `root`, so its install tree is there — in a
+    // monorepo the framework sits beside the sub-app that declares it, not at the top.
+    const searchRoot = join(projectRoot, root);
+    const installed = adapter.resolveInstalled(searchRoot, dependency.name);
     if (installed === null) {
       blocked.push({
         package: dependency.name,
         ecosystem: dependency.ecosystem,
         reason: 'not-installed',
-        detail: `${dependency.name} is declared but not present in the install tree — run your package manager's install`,
+        detail: `${dependency.name} is declared in ${root} but not present in its install tree — run your package manager's install`,
       });
       continue;
     }
 
     const input = {
       projectRoot,
+      searchRoot,
       package: dependency.name,
       version: installed.version,
       packageDir: installed.dir,
     };
     const contentHash = adapter.contentHash(input);
     const stored = previous?.packages.find(
-      (entry) => entry.package === dependency.name && entry.content_hash === contentHash,
+      (entry) =>
+        entry.package === dependency.name &&
+        entry.root === root &&
+        entry.content_hash === contentHash,
     );
     if (stored) {
       packages.push(stored);
@@ -118,6 +137,7 @@ export function buildFrameworkApiIndex(
       package: dependency.name,
       version: installed.version,
       ecosystem: dependency.ecosystem,
+      root,
       content_hash: contentHash,
       sources: result.sources,
       symbols: result.symbols,

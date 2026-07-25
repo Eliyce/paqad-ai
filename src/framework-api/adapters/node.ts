@@ -11,10 +11,13 @@
 // resolves that transparently, along with `export *` barrels and the `exports` condition
 // tree, which is why it is worth resolving a compiler at all.
 //
-// Dynamism is handled honestly (INV-2). A container whose type carries a string index
-// signature provides members at runtime that no declaration lists, so instead of letting
-// a lookup fall through to "absent", the adapter records a `<Container>.*` wildcard marked
-// `unknown-dynamic`. #398's Laravel facades and Python `__getattr__` reuse that shape.
+// What gets stored is shaped by INV-2 — never claim absence you cannot prove. Top-level
+// exports are enumerated in full, so a missing one is a real `absent`. Members are stored
+// only when DEPRECATED, and every container carries a `<Container>.*` wildcard marked
+// `unknown-dynamic`, so a member the index does not list warns instead of blocking. That
+// keeps the file small (measured on this repo: 676 records instead of 18,574, with the
+// same 299 deprecations found) without ever converting "not listed" into "does not exist".
+// #398's Laravel facades and Python `__getattr__` reuse the same wildcard shape.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -81,7 +84,16 @@ function toRecord(
   };
 }
 
-/** A wildcard record saying "this container also provides members at runtime" (INV-2). */
+/**
+ * A wildcard record saying "this container's members are not individually enumerated
+ * here, so absence cannot be asserted for them" (INV-2).
+ *
+ * Emitted for every drilled container, which is what makes storing only the DEPRECATED
+ * members honest: an unlisted member reads `unknown-dynamic` (a warning) rather than
+ * `absent` (a block). Storing every member instead was measured on this repo at 18,317
+ * records for react alone against 285 deprecated ones — 98.6% of the file to answer a
+ * question the wildcard answers conservatively.
+ */
 function dynamicRecord(container: string): FrameworkApiSymbol {
   return {
     name: `${container}${DYNAMIC_MEMBER_SUFFIX}`,
@@ -98,8 +110,8 @@ function dynamicRecord(container: string): FrameworkApiSymbol {
 export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
   ecosystem: 'node',
 
-  resolveInstalled(projectRoot, packageName) {
-    return resolveInstalledVersion(projectRoot, packageName);
+  resolveInstalled(searchRoot, packageName) {
+    return resolveInstalledVersion(searchRoot, packageName);
   },
 
   /**
@@ -108,7 +120,7 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
    * hash means an equal surface and the stored entry can be reused (FR-13).
    */
   contentHash(input: FrameworkApiAdapterInput): string {
-    const entry = resolveTypesEntry(input.projectRoot, input.package, input.packageDir);
+    const entry = resolveTypesEntry(input.searchRoot, input.package, input.packageDir);
     const hash = createHash('sha256').update(`${input.package}@${input.version}`);
     if (entry !== null) {
       hash.update(entry);
@@ -132,7 +144,7 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
           'the TypeScript compiler could not be resolved from this project or from paqad-ai — install typescript to verify framework reuse claims',
       };
     }
-    const entry = resolveTypesEntry(input.projectRoot, input.package, input.packageDir);
+    const entry = resolveTypesEntry(input.searchRoot, input.package, input.packageDir);
     if (entry === null) {
       return {
         indexed: false,
@@ -166,11 +178,14 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
     for (const symbol of exported) {
       const name = symbol.getName();
       symbols.push(toRecord(ts, checker, symbol, name));
-      if (drilled >= MAX_DRILLED_CONTAINERS) {
-        continue;
-      }
       const isContainer = Boolean(symbol.flags & (ts.SymbolFlags.Class | ts.SymbolFlags.Interface));
       if (!isContainer) {
+        continue;
+      }
+      if (drilled >= MAX_DRILLED_CONTAINERS) {
+        // Past the budget, the container still gets its wildcard: skipping it silently
+        // would let an un-drilled member fall through to a false "absent" (INV-2).
+        symbols.push(dynamicRecord(name));
         continue;
       }
       drilled += 1;
@@ -186,10 +201,13 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
 };
 
 /**
- * One level of members for an exported class or interface, plus a wildcard when the
- * container accepts runtime-provided members. One level is deliberate: it captures the
- * deprecations that matter (React's `Component.componentWillMount` and friends) without
- * the unbounded walk that would break the time budget.
+ * The DEPRECATED members of an exported class or interface, plus the container's wildcard.
+ *
+ * One level deep is deliberate: it captures the deprecations that matter (React's
+ * `Component.componentWillMount` and friends) without the unbounded walk that would break
+ * the time budget. Only deprecated members are stored, because a member's useful question
+ * is "is this one deprecated?" — and the wildcard keeps that honest by making every member
+ * the index does not list read `unknown-dynamic` rather than `absent` (INV-2).
  */
 function drillMembers(
   ts: TypeScriptModule,
@@ -198,7 +216,6 @@ function drillMembers(
   container: TsSymbolLike,
   containerName: string,
 ): FrameworkApiSymbol[] {
-  const records: FrameworkApiSymbol[] = [];
   let type: unknown;
   try {
     type = checker.getDeclaredTypeOfSymbol(container);
@@ -208,28 +225,11 @@ function drillMembers(
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- structural compiler type
   const properties = ((type as any)?.getProperties?.() ?? []) as TsSymbolLike[];
-  for (const property of properties) {
-    records.push(
+  const records = properties
+    .map((property) =>
       toRecord(ts, checker, property, `${containerName}.${property.getName()}`, 'member'),
-    );
-  }
-  if (hasStringIndex(ts, checker, type)) {
-    records.push(dynamicRecord(containerName));
-  }
+    )
+    .filter((record) => record.deprecated);
+  records.push(dynamicRecord(containerName));
   return records;
-}
-
-/**
- * Whether a type carries a string index signature — the declaration-level tell that
- * members arrive at runtime. This is the node analogue of a Laravel facade's
- * `__callStatic` or a Python `__getattr__`, and it is what keeps a dynamic member out of
- * the "absent" bucket (AC-5).
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque compiler objects
-function hasStringIndex(ts: TypeScriptModule, checker: any, type: unknown): boolean {
-  try {
-    return Boolean(checker.getIndexInfoOfType(type, ts.IndexKind.String));
-  } catch {
-    return false;
-  }
 }

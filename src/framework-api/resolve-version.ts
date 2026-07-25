@@ -35,16 +35,19 @@ function readManifest(packageDir: string): PackageManifest | null {
 }
 
 /**
- * Locate `packageName` in the project's install tree and read its resolved version.
- * Returns null when the package is declared but not installed — a real state after a
- * manifest edit without an install, and one the index records as `not-installed` rather
- * than guessing.
+ * Locate `packageName` in the install tree under `searchRoot` and read its resolved
+ * version. Returns null when the package is declared but not installed — a real state
+ * after a manifest edit without an install, and one the index records as `not-installed`
+ * rather than guessing.
+ *
+ * `searchRoot` is the manifest root the dependency was declared under, not necessarily the
+ * project root: a monorepo installs its framework beside the sub-app that declares it.
  */
 export function resolveInstalledVersion(
-  projectRoot: string,
+  searchRoot: string,
   packageName: string,
 ): InstalledLocation | null {
-  const dir = join(projectRoot, 'node_modules', packageName);
+  const dir = join(searchRoot, 'node_modules', packageName);
   const manifest = readManifest(dir);
   if (!manifest || typeof manifest.version !== 'string' || manifest.version.length === 0) {
     return null;
@@ -104,12 +107,12 @@ export function typesFromExports(exportsField: unknown): string | null {
  * The absolute path to a package's declaration entry, or null when it ships none.
  *
  * Order: the package's own `types`/`typings`, then its `exports` condition tree, then a
- * conventional `index.d.ts`, then the `@types/<pkg>` companion in the project's install
- * tree. React is the case that needs the last hop — `react` itself ships no declarations;
+ * conventional `index.d.ts`, then the `@types/<pkg>` companion in the same install tree.
+ * React is the case that needs the last hop — `react` itself ships no declarations;
  * `@types/react` does.
  */
 export function resolveTypesEntry(
-  projectRoot: string,
+  searchRoot: string,
   packageName: string,
   packageDir: string,
 ): string | null {
@@ -121,7 +124,7 @@ export function resolveTypesEntry(
   if (own !== null) {
     return own;
   }
-  const typesDir = join(projectRoot, 'node_modules', typesPackageName(packageName));
+  const typesDir = join(searchRoot, 'node_modules', typesPackageName(packageName));
   const typesManifest = readManifest(typesDir);
   if (!typesManifest) {
     return null;

@@ -74,6 +74,13 @@ export interface FrameworkApiPackage {
   version: string;
   ecosystem: StackEcosystem;
   /**
+   * The manifest root the package was installed under, project-relative (`.` for the
+   * project root). A monorepo installs its framework under the sub-app that declares it —
+   * in this very repo, react lives in `graph-ui/node_modules`, not the root — so the root
+   * is recorded rather than assumed.
+   */
+  root: string;
+  /**
    * Content address of the inputs this entry was built from. A rebuild whose address
    * matches reuses the stored entry instead of re-walking declarations (FR-13).
    */
@@ -113,6 +120,11 @@ export interface FrameworkApiIndex {
 /** What an adapter is asked to index: one installed package at one resolved version. */
 export interface FrameworkApiAdapterInput {
   projectRoot: string;
+  /**
+   * Absolute path to the manifest root the package was installed under. Equals
+   * `projectRoot` for a single-package repo, and the sub-app directory in a monorepo.
+   */
+  searchRoot: string;
   package: string;
   version: string;
   /** Absolute path to the installed package directory. */
@@ -131,11 +143,11 @@ export type FrameworkApiAdapterResult =
 export interface FrameworkApiAdapter {
   ecosystem: StackEcosystem;
   /**
-   * Resolve the installed package directory and its version, or null when the package is
-   * not present in this project's install tree.
+   * Resolve the installed package directory and its version under `searchRoot`, or null
+   * when the package is not present in that install tree.
    */
   resolveInstalled(
-    projectRoot: string,
+    searchRoot: string,
     packageName: string,
   ): { dir: string; version: string } | null;
   /** Content-address the declaration inputs, so an unchanged rebuild is a cache hit. */

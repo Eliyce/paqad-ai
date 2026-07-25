@@ -21,11 +21,20 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["package", "version", "ecosystem", "content_hash", "sources", "symbols"],
+        "required": [
+          "package",
+          "version",
+          "ecosystem",
+          "root",
+          "content_hash",
+          "sources",
+          "symbols"
+        ],
         "properties": {
           "package": { "type": "string", "minLength": 1 },
           "version": { "type": "string", "minLength": 1 },
           "ecosystem": { "type": "string", "minLength": 1 },
+          "root": { "type": "string", "minLength": 1 },
           "content_hash": { "type": "string", "minLength": 1 },
           "sources": { "type": "array", "items": { "type": "string" } },
           "symbols": {

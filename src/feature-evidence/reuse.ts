@@ -13,13 +13,17 @@
 // snapshot downgrades a check to a WARNING, never a false block, so a project that has
 // not built an index is never gated on one.
 //
-// Phase B (does the framework symbol exist, and is it deprecated, at the installed
-// version?) needs a real framework-API index and lives in issue #397; Phase C's ecosystem
-// adapters are #398. Neither is implemented here — this module only validates the
-// DECLARATION plus the cheap cross-checks against already-detected versions.
+// Phase B (issue #397) is now wired in too: a framework claim is checked against the
+// INSTALLED framework-API index, so "does this symbol exist at the installed version, and
+// is it deprecated?" is answered from the declarations shipped inside the package rather
+// than trusted from the model. That check overrides the declared `provenance` with a
+// computed one. Phase C's non-JS ecosystem adapters are #398; until they land, a non-node
+// framework is recorded `no-adapter` in the index and its claims warn rather than block.
 
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import { readProjectProfile } from '@/core/project-profile.js';
+import { queryFrameworkApi, type FrameworkApiQueryResult } from '@/framework-api/query.js';
+import { readFrameworkApiIndex } from '@/framework-api/store.js';
 import { readStackSnapshotSync } from '@/introspection/cache.js';
 import { levenshtein } from '@/module-decisions/schema.js';
 
@@ -124,10 +128,26 @@ export const INDEX_ABSENT_WARNING = 'reuse claims unverified: index not built';
 export const SNAPSHOT_ABSENT_WARNING =
   'framework reuse claims unverified: stack snapshot not built';
 
+/**
+ * The warning emitted when framework claims cannot be checked against the installed
+ * framework-API index (issue #397, AC-6). Mirrors {@link INDEX_ABSENT_WARNING}: a project
+ * that has not built the index is never gated on one.
+ */
+export const FRAMEWORK_API_INDEX_ABSENT_WARNING =
+  'framework reuse claims unverified: framework-api index not built';
+
 /** What a reuse validation concluded: blocking `errors` and non-blocking `warnings`. */
 export interface ReuseValidation {
   errors: string[];
   warnings: string[];
+  /**
+   * The provenance the framework-API index COMPUTED per claimed symbol (issue #397),
+   * keyed by `package::symbol`. Returned rather than written onto the caller's object so
+   * the validator stays free of side effects; `writeFeaturePlan` applies it to the plan it
+   * stores, which is what makes the recorded `provenance` a verified fact rather than a
+   * model assertion.
+   */
+  provenance: Record<string, ReuseProvenance>;
 }
 
 /** A plan step as the validator needs to see it (only the description matters here). */
@@ -157,12 +177,91 @@ export function validateReuseSection(input: ValidateReuseInput): ReuseValidation
   const reuse = input.reuse as PlanReuse;
   const errors: string[] = [];
   const warnings: string[] = [];
+  const provenance: Record<string, ReuseProvenance> = {};
 
   checkDeclaredConstructs(reuse, input.steps, errors);
   checkFirstPartySymbols(input.projectRoot, reuse, errors, warnings);
   checkFrameworkClaims(input.projectRoot, reuse, errors, warnings);
+  verifyFrameworkSymbols(input.projectRoot, reuse, errors, warnings, provenance);
 
-  return { errors, warnings };
+  return { errors, warnings, provenance };
+}
+
+/** The key a computed provenance is recorded under. */
+export function frameworkClaimKey(packageName: string, symbol: string): string {
+  return `${packageName}::${symbol}`;
+}
+
+/**
+ * Phase B (issue #397): verify each framework claim against the INSTALLED framework-API
+ * index, and record the provenance the index computed.
+ *
+ * This is what turns #357's declaration into a checked fact. Only two verdicts block —
+ * a symbol that demonstrably is not exported at the installed version, and one carrying a
+ * static `@deprecated` marker. Everything the index could not resolve warns instead
+ * (INV-2), because a false "absent" would hard-block a perfectly good plan.
+ */
+function verifyFrameworkSymbols(
+  projectRoot: string,
+  reuse: PlanReuse,
+  errors: string[],
+  warnings: string[],
+  provenance: Record<string, ReuseProvenance>,
+): void {
+  const claims = (reuse.reusing ?? []).filter(
+    (claim): claim is ReuseClaim & { package: string } => claim.package !== undefined,
+  );
+  if (claims.length === 0) {
+    return;
+  }
+  const index = readFrameworkApiIndex(projectRoot);
+  if (!index) {
+    warnings.push(FRAMEWORK_API_INDEX_ABSENT_WARNING);
+    return;
+  }
+  for (const claim of claims) {
+    const result = queryFrameworkApi(index, claim.package, claim.symbol);
+    const key = frameworkClaimKey(claim.package, claim.symbol);
+    switch (result.verdict) {
+      case 'live':
+        provenance[key] = 'asserted';
+        break;
+      case 'deprecated':
+        provenance[key] = 'asserted';
+        errors.push(deprecatedMessage(claim, result));
+        break;
+      case 'absent':
+        provenance[key] = 'asserted';
+        errors.push(
+          `reuse.reusing "${claim.symbol}" does not exist in ${claim.package}@${result.version}` +
+            (result.nearest === null ? '' : ` — did you mean "${result.nearest}"?`),
+        );
+        break;
+      case 'unknown-dynamic':
+        provenance[key] = 'unknown-dynamic';
+        warnings.push(
+          `reuse.reusing "${claim.symbol}" is provided dynamically by ${claim.package}@${result.version} — paqad could not verify it statically`,
+        );
+        break;
+      default:
+        // `package-not-indexed`: the index exists but this package produced no entry (its
+        // `blocked` list says why). Unverified is a warning, never a block.
+        warnings.push(
+          `reuse.reusing "${claim.symbol}" unverified: ${claim.package} is not in the framework-api index`,
+        );
+    }
+  }
+}
+
+/** The blocking message for a deprecated framework symbol (AC-4). */
+function deprecatedMessage(
+  claim: ReuseClaim & { package: string },
+  result: FrameworkApiQueryResult,
+): string {
+  const detail = result.record?.message ?? 'no reason given';
+  const since = result.record?.since === null ? '' : ` (deprecated since ${result.record?.since})`;
+  const removal = result.record?.for_removal === true ? ' It is slated for removal.' : '';
+  return `reuse.reusing "${claim.symbol}" is deprecated in ${claim.package}@${result.version}${since}: ${detail}${removal}`;
 }
 
 /** Structural validation of the section itself (AC-1 and the non-empty `consulted` rule). */
@@ -173,10 +272,15 @@ function validateShape(reuse: unknown): ReuseValidation {
         `plan template is missing the required "reuse" section — record what you checked before building.\nExpected shape:\n${EXPECTED_SHAPE}`,
       ],
       warnings: [],
+      provenance: {},
     };
   }
   if (typeof reuse !== 'object' || Array.isArray(reuse)) {
-    return { errors: ['plan template "reuse" must be an object'], warnings: [] };
+    return {
+      errors: ['plan template "reuse" must be an object'],
+      warnings: [],
+      provenance: {},
+    };
   }
   const candidate = reuse as Partial<PlanReuse>;
   const errors: string[] = [];
@@ -191,7 +295,7 @@ function validateShape(reuse: unknown): ReuseValidation {
   if (candidate.new_constructs !== undefined && !Array.isArray(candidate.new_constructs)) {
     errors.push('plan template "reuse.new_constructs" must be an array');
   }
-  return { errors, warnings: [] };
+  return { errors, warnings: [], provenance: {} };
 }
 
 /** The create-keyword a description matches, or null. */
