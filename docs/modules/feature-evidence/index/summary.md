@@ -45,8 +45,17 @@ change, so the live feature-development stage spine is untouched:
   no new burden. `CREATE_KEYWORDS` is one exported constant so the declare-or-justify
   trigger list stays tunable. `reuse` is REQUIRED on the compile input but OPTIONAL in
   the stored `PLAN_SCHEMA`, so a `plan.json` written before this gate stays valid.
-  Phase B (does the framework symbol exist / is it deprecated at the installed version)
-  is issue #397; Phase C's ecosystem adapters are #398.
+  Phase B (issue #397) adds the verification the declaration alone could not give:
+  `verifyFrameworkSymbols` looks every `reusing[]` entry with a `package` up in the
+  installed framework-API index (`src/framework-api/`, see
+  [framework-api](../../framework-api/index/summary.md)) and returns the COMPUTED
+  provenance in `ReuseValidation.provenance`, which `writeFeaturePlan` applies to the
+  plan it stores — so `provenance` in a `plan.json` is a checked fact, not a model
+  assertion. Only two verdicts block: `absent` (fails with the nearest existing symbol)
+  and `deprecated` (fails citing the tag's message, `since`, and whether it is slated for
+  removal). `unknown-dynamic` and an unindexed package warn, and an absent index warns
+  with `FRAMEWORK_API_INDEX_ABSENT_WARNING` — a project that never built the index is
+  never gated on one. Phase C's non-JS ecosystem adapters are #398.
 - **Bundle integrity** (`bundle-integrity.ts`, issue #402) — the rigid-only invariant
   made checkable. `classifyBundlePath` judges whether a project-relative path sits in a
   bundle dir and whether it belongs there (the stage-end boundary uses it to reject a

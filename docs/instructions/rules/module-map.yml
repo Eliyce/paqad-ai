@@ -2685,6 +2685,27 @@ modules:
         - sessionOpenPointerPath
         - stampSessionRow
 
+  - slug: framework-api
+    name: Installed Framework-API Index
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The deterministic backend that verifies framework reuse claims (issue #397).
+      #357 lets a plan DECLARE it reuses a framework API; nothing checked the claim.
+      This module reads the `.d.ts` declaration layer shipped inside the installed
+      package and answers, for the version actually installed, whether the symbol
+      exists and whether it carries a static `@deprecated` marker — zero model
+      tokens, zero network. Built as an ecosystem-adapter registry (mirroring
+      EcosystemParserRegistry) with only the node/JS-TS adapter implemented, so
+      #398's PHP/Python/JVM adapters plug in and a non-node project records
+      `no-adapter` rather than running the wrong code path. `typescript` is an
+      OPTIONAL peer dependency lazy-resolved from the onboarded project, because
+      paqad-ai installs into projects of any stack. Only `absent` and `deprecated`
+      block a `plan compile`; everything unresolved warns, because a false "absent"
+      hard-blocks a valid plan.
+    sources:
+      - src/framework-api
+
   - slug: feature-evidence
     name: Per-Feature Evidence Bundle
     layer: framework-internals
