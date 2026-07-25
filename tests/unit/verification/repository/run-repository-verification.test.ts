@@ -13,6 +13,7 @@ import type { EngineEvent, VerificationVerdictEvent } from '@/event-bus/types.js
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 
 import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
+import { readChangeMetricsRows } from '@/change-metrics/index.js';
 
 import { createVerificationContext } from '../shared.fixture.js';
 
@@ -239,6 +240,49 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
     expect(gate.name).toBe('code-tests-lint');
     expect(gate.status).toBe('inconclusive');
     expect(gate.detail).toContain('paqad-ai checks run');
+  });
+});
+
+describe('runRepositoryVerification change-shape metrics (#362)', () => {
+  it('records a change-metrics row and renders the change-shape line for a feature-dev change', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      code_changed: true,
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+    });
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(verdict.receipt).toContain('change shape');
+    // A row was folded onto the project ledger (no caches present → n/a parts, but still recorded).
+    expect(readChangeMetricsRows(context.project_root, 20).length).toBe(1);
+  });
+
+  it('emits no change-shape line and no row for a docs-only (non-feature-dev) change', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      code_changed: false,
+      changed_files: ['docs/thing.md'],
+      changed_files_source: 'git-status',
+    });
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(verdict.receipt ?? '').not.toContain('change shape');
+    expect(readChangeMetricsRows(context.project_root, 20)).toHaveLength(0);
   });
 });
 

@@ -40,6 +40,12 @@ import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { runDuplicationScan } from '@/duplication/scan.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
+import {
+  computeChangeMetrics,
+  recordChangeMetrics,
+  type ChangeMetrics,
+} from '@/change-metrics/index.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { type FoldedChange } from '@/stage-evidence/types.js';
@@ -314,6 +320,26 @@ export async function runRepositoryVerification(
   const checksVerified =
     (context.structured_test_results?.length ?? 0) > 0 && context.code_tests_lint_passed;
 
+  // Issue #362 — the per-change shape metrics, folded over the caches the gates already
+  // produced (the duplication report refreshed above + the code-knowledge index). Computed
+  // only for a feature-development change and only when `metrics_enabled` (default on). It
+  // reads caches + the changed-file content, no second scan, and is best-effort by contract:
+  // a failure degrades to no metrics and NEVER changes the verdict (INV-1).
+  let changeMetrics: ChangeMetrics | null = null;
+  if (isFeatureDev && resolveFrameworkConfig(context.project_root).features.metrics_enabled) {
+    try {
+      changeMetrics = await computeChangeMetrics({
+        projectRoot: context.project_root,
+        changedFiles: context.changed_files,
+      });
+      recordChangeMetrics(context.project_root, changeMetrics);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      engineLog('warn', `paqad: change-metrics skipped (${message})`);
+      changeMetrics = null;
+    }
+  }
+
   let evidencePath: string | null = null;
   try {
     evidencePath = await writeVerificationEvidence(evidence, {
@@ -396,6 +422,16 @@ export async function runRepositoryVerification(
           verifierVersion: verifierVersion(),
           timeVerified: completedAt,
           write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
+          // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
+          ...(changeMetrics
+            ? {
+                metrics: {
+                  dup_new_pct: changeMetrics.dup_new_pct,
+                  reuse_rate: changeMetrics.reuse_rate,
+                  meaningful_changed_lines: changeMetrics.meaningful_changed_lines,
+                },
+              }
+            : {}),
         });
       }
     } catch (error) {
@@ -462,6 +498,8 @@ export async function runRepositoryVerification(
     // checks stage needs a report; for a docs/framework change the checks stage is
     // not part of the promise, so leave the line unchanged (undefined).
     checksVerified: isFeatureDev ? checksVerified : undefined,
+    // Issue #362 — the change-shape line, present only for feature-development changes.
+    changeMetrics,
   });
 
   if (options.eventBus) {

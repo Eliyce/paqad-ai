@@ -9,6 +9,8 @@
 // or a near-zero duration that proves no work happened) renders 🟡 "marked (no
 // recorded work)", never 🟢 "done" — it reflects the fold's honesty tags verbatim.
 
+import { formatChangeShapeLine } from '@/change-metrics/index.js';
+import type { ChangeMetrics } from '@/change-metrics/index.js';
 import { PAQAD_STATUS_GLYPH } from '@/core/constants/paqad-voice.js';
 import type { ReuseCounts } from '@/feature-evidence/reuse.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
@@ -150,6 +152,10 @@ export interface ComposeChangeReceiptInput {
   /** The reuse counts the active feature's plan declared (issue #357), or null when it
    *  declared none — which is the case for any plan compiled before the reuse gate. */
   reuse?: ReuseCounts | null;
+  /** The per-change shape metrics (issue #362), or null/absent when none were computed
+   *  (metrics off, or a non-feature-development change). When present, one `change shape`
+   *  line is appended; when absent the receipt renders exactly as before. */
+  changeMetrics?: ChangeMetrics | null;
 }
 
 /**
@@ -169,6 +175,10 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
     if (stageBlock) {
       parts.push(stageBlock);
     }
+  }
+  // Issue #362 — one honest change-shape line for feature-development changes.
+  if (input.changeMetrics) {
+    parts.push(formatChangeShapeLine(input.changeMetrics));
   }
   if (input.delivery) {
     parts.push(`> ${input.delivery}`);
