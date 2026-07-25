@@ -195,6 +195,22 @@ describe('buildInTotoStatement', () => {
     });
     expect('compliance_citations' in statement.predicate).toBe(false);
     expect('reproducibility' in statement.predicate).toBe(false);
+    expect('metrics' in statement.predicate).toBe(false);
+  });
+
+  it('folds the change-shape metrics into the predicate when supplied, omits otherwise (#362)', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+      rows: [row({})],
+      verifierVersion: '1.2.3',
+      timeVerified: '2026-06-11T00:00:00.000Z',
+      metrics: { dup_new_pct: 2, reuse_rate: 4.2, meaningful_changed_lines: 120 },
+    });
+    expect(statement.predicate.metrics).toEqual({
+      dup_new_pct: 2,
+      reuse_rate: 4.2,
+      meaningful_changed_lines: 120,
+    });
   });
 
   it('omits compliance_citations when the array is empty', () => {

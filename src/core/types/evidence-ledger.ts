@@ -188,8 +188,26 @@ export interface VsaPredicate {
   /** Issue #123 — the frozen-context reproducibility stamp. Omitted when no
    *  context stamp was recorded for the change, so receipts stay byte-identical. */
   reproducibility?: ReproducibilityStampPredicate;
+  /** Issue #362 — the per-change shape metrics (duplication on new code + cross-file
+   *  reuse rate). Omitted when none were computed (metrics off, or a non-feature-dev
+   *  change), so a change that produces no metrics stays byte-identical. */
+  metrics?: MetricsPredicate;
   /** The graded rows themselves, so the receipt is self-contained. */
   rows: EvidenceLedgerRow[];
+}
+
+/**
+ * The per-change shape metrics carried on the receipt (issue #362). `dup_new_pct` and
+ * `reuse_rate` are `null` when their source cache was absent (n/a), so the receipt never
+ * implies a measurement that did not happen.
+ */
+export interface MetricsPredicate {
+  /** % of meaningful changed lines that near-duplicate existing code, or null (n/a). */
+  dup_new_pct: number | null;
+  /** Cross-file reuse calls per 100 meaningful changed lines, or null (n/a). */
+  reuse_rate: number | null;
+  /** Non-blank, non-comment added/modified lines the change introduced. */
+  meaningful_changed_lines: number;
 }
 
 export interface InTotoSubject {

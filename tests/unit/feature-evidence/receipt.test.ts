@@ -15,6 +15,7 @@ import {
 } from '@/feature-evidence/receipt.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -66,6 +67,27 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
     // The AI-BOM is the CycloneDX view of the same subject.
     const aiBom = readFeatureAiBom(root, dir)!;
     expect(JSON.stringify(aiBom)).toContain('src/app.ts');
+  });
+
+  it('carries the change-shape metrics block into the receipt predicate (#362)', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+    });
+
+    projectFeatureReceipt(root, dir, {
+      ...INPUT,
+      metrics: { dup_new_pct: 0, reuse_rate: 4.2, meaningful_changed_lines: 120 },
+    });
+
+    const statement = decodeReceiptStatement(readFeatureReceipt(root, dir)!)!;
+    expect(statement.predicate.metrics).toEqual({
+      dup_new_pct: 0,
+      reuse_rate: 4.2,
+      meaningful_changed_lines: 120,
+    });
   });
 
   it("hash-chains a re-projected receipt to the feature's OWN prior receipt", () => {
