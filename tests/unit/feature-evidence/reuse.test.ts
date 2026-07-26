@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   CREATE_KEYWORDS,
+  FRAMEWORK_API_INDEX_ABSENT_WARNING,
   INDEX_ABSENT_WARNING,
   SNAPSHOT_ABSENT_WARNING,
   reuseCounts,
@@ -374,7 +375,10 @@ describe('AC-9 — a framework claim must agree with the resolved stack snapshot
       steps: [],
     });
     expect(result.errors).toEqual([]);
-    expect(result.warnings).toEqual([SNAPSHOT_ABSENT_WARNING]);
+    // Both unverified axes are reported: the version cross-check has no snapshot to read
+    // (Phase A, #357) and the symbol check has no framework-API index (Phase B, #397).
+    // Neither blocks — a project that built neither artifact is never gated on one.
+    expect(result.warnings).toEqual([SNAPSHOT_ABSENT_WARNING, FRAMEWORK_API_INDEX_ABSENT_WARNING]);
   });
 });
 

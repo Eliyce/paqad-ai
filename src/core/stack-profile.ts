@@ -10,7 +10,12 @@ import type {
 } from './types/introspection.js';
 import type { ProjectProfile } from './types/project-profile.js';
 
-const FRAMEWORK_PACKAGE_MAP: Record<string, Stack> = {
+/**
+ * Which dependency name means which framework. Exported so the framework-API index
+ * (issue #397) selects the packages to index from THIS map rather than keeping a second,
+ * divergent copy of the same knowledge (RULE-13).
+ */
+export const FRAMEWORK_PACKAGE_MAP: Record<string, Stack> = {
   'laravel/framework': 'laravel',
   flutter: 'flutter',
   react: 'react',

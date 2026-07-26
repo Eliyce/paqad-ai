@@ -19,7 +19,12 @@ import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
 import { parseFeatureDirName, featureFilePath } from './paths.js';
 import { backfillFeatureSlug } from './rename.js';
-import { validateReuseSection, type PlanReuse } from './reuse.js';
+import {
+  frameworkClaimKey,
+  validateReuseSection,
+  type PlanReuse,
+  type ReuseProvenance,
+} from './reuse.js';
 import { validatePlanRecord, validateReviewRecord } from './schema.js';
 import { currentFeature } from './stage-ledger.js';
 import type {
@@ -147,6 +152,10 @@ export function writeFeaturePlan(
   if (reuseCheck.errors.length > 0) {
     throw new ReuseDeclarationError(reuseCheck.errors);
   }
+  // Issue #397 — overwrite the model's declared `provenance` with the one the installed
+  // framework-API index computed, so the stored plan records a verified fact rather than
+  // an assertion. Claims the index could not reach keep whatever the plan declared.
+  const reuse = applyComputedProvenance(input.reuse, reuseCheck.provenance);
 
   let { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
   if (input.title !== undefined && input.title.length > 0) {
@@ -169,7 +178,7 @@ export function writeFeaturePlan(
     modules_touched: input.modules_touched,
     decisions: input.decisions,
     risks: input.risks,
-    reuse: input.reuse,
+    reuse,
     now: input.now,
   });
   const errors = validatePlanRecord(record);
@@ -199,6 +208,34 @@ export function writeFeaturePlan(
     record,
     warnings: [...reuseCheck.warnings, ...armed.warnings],
     armedDecisions: armed.minted,
+  };
+}
+
+/**
+ * Return a copy of the plan's reuse section with each framework claim's `provenance`
+ * replaced by the one the framework-API index computed (issue #397, FR-4/FR-8).
+ *
+ * A copy rather than a mutation: the caller's template object is the model's input, and a
+ * validator that silently rewrites its input is the kind of surprise a reviewer should
+ * never have to discover. A claim the index could not reach carries no computed entry and
+ * keeps whatever the plan declared.
+ */
+function applyComputedProvenance(
+  reuse: PlanReuse | undefined,
+  computed: Record<string, ReuseProvenance>,
+): PlanReuse | undefined {
+  if (reuse === undefined || Object.keys(computed).length === 0) {
+    return reuse;
+  }
+  return {
+    ...reuse,
+    reusing: (reuse.reusing ?? []).map((claim) => {
+      if (claim.package === undefined) {
+        return claim;
+      }
+      const verdict = computed[frameworkClaimKey(claim.package, claim.symbol)];
+      return verdict === undefined ? claim : { ...claim, provenance: verdict };
+    }),
   };
 }
 

@@ -12,10 +12,18 @@ import { queryCodeKnowledge, type QueryCard } from '@/code-knowledge/query.js';
 import { writeReuseCatalog } from '@/code-knowledge/reuse-catalog.js';
 import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
 import { readCodeKnowledgeIndex, writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
+import { buildFrameworkApiIndex } from '@/framework-api/builder.js';
+import { queryFrameworkApi, type FrameworkApiQueryResult } from '@/framework-api/query.js';
+import { validateFrameworkApiIndex } from '@/framework-api/schema.js';
+import { readFrameworkApiIndex, writeFrameworkApiIndex } from '@/framework-api/store.js';
 
 interface BuildFlags {
   projectRoot: string;
   quiet: boolean;
+}
+
+interface FrameworkApiBuildFlags extends BuildFlags {
+  force: boolean;
 }
 
 interface QueryFlags {
@@ -108,7 +116,136 @@ export function createIndexCommand(): Command {
       }
     });
 
+  command.addCommand(createFrameworkApiCommand());
+
   return command;
+}
+
+/**
+ * `paqad-ai index framework-api build|query` (issue #397). The installed framework-API
+ * index: for each detected framework, at the version actually installed, which exported
+ * symbols exist and which carry a static `@deprecated` marker. Same shape as the parent
+ * command's build/query pair, so the two read alike.
+ */
+function createFrameworkApiCommand(): Command {
+  const command = new Command('framework-api').description(
+    'Build and query the installed framework-API index (does a framework symbol exist, and is it deprecated?)',
+  );
+
+  command
+    .command('build')
+    .description('Build the framework-API index at .paqad/indexes/framework-api.json')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--force', 'Re-walk every package instead of reusing unchanged entries', false)
+    .option('--quiet', 'Suppress the machine-readable summary line', false)
+    .action((options: FrameworkApiBuildFlags) => {
+      const { index, cacheHits } = buildFrameworkApiIndex(options.projectRoot, {
+        force: options.force,
+      });
+      const validation = validateFrameworkApiIndex(index);
+      if (!validation.valid) {
+        console.error(
+          '**▸ paqad** · the framework-API index failed schema validation — not written',
+        );
+        for (const error of validation.errors.slice(0, 10)) {
+          console.error(`  - ${error}`);
+        }
+        process.exitCode = 1;
+        return;
+      }
+
+      const path = writeFrameworkApiIndex(options.projectRoot, index);
+      const symbols = index.packages.reduce((total, entry) => total + entry.symbols.length, 0);
+      const deprecated = index.packages.reduce(
+        (total, entry) => total + entry.symbols.filter((symbol) => symbol.deprecated).length,
+        0,
+      );
+      console.log(
+        `**▸ paqad** · checked your installed frameworks for you — ` +
+          `${symbols} symbols across ${index.packages.length} package(s), ` +
+          `${deprecated} marked deprecated (${cacheHits} reused from cache).` +
+          (index.blocked.length > 0 ? ` ⚪ ${index.blocked.length} package(s) skipped.` : ''),
+      );
+      for (const blocked of index.blocked) {
+        console.log(`> ⚪ ${blocked.package} — ${blocked.detail}`);
+      }
+      if (!options.quiet) {
+        process.stdout.write(
+          `${JSON.stringify({
+            built: true,
+            path,
+            packages: index.packages.length,
+            symbols,
+            deprecated_symbols: deprecated,
+            cache_hits: cacheHits,
+            blocked: index.blocked.length,
+          })}\n`,
+        );
+      }
+    });
+
+  command
+    .command('query')
+    .description('Look one framework symbol up at the version actually installed')
+    .argument('<package>', 'The installed package name, e.g. react')
+    .argument('<symbol>', 'The exported symbol, e.g. useId or Component.componentWillMount')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--quiet', 'Suppress the machine-readable summary line', false)
+    .action((packageName: string, symbol: string, options: QueryFlags) => {
+      const index = readFrameworkApiIndex(options.projectRoot);
+      if (index === null) {
+        console.error(
+          '**▸ paqad** · no framework-API index yet — run `paqad-ai index framework-api build` first',
+        );
+        process.exitCode = 2;
+        return;
+      }
+      const result = queryFrameworkApi(index, packageName, symbol);
+      console.log(formatFrameworkCard(result));
+      // A symbol that is absent or deprecated is the answer the caller acts on, so it is
+      // reported through the exit code too, exactly as `index query` reports a miss.
+      if (result.verdict === 'absent' || result.verdict === 'deprecated') {
+        process.exitCode = 1;
+      }
+      if (!options.quiet) {
+        process.stdout.write(`${JSON.stringify(result)}\n`);
+      }
+    });
+
+  return command;
+}
+
+function formatFrameworkCard(result: FrameworkApiQueryResult): string {
+  const at = result.version === null ? result.package : `${result.package}@${result.version}`;
+  switch (result.verdict) {
+    case 'live':
+      return `**▸ paqad** · 🟢 ${result.symbol} exists in ${at} and carries no deprecation marker.`;
+    case 'deprecated': {
+      const since = result.record?.since === null ? '' : ` since ${result.record?.since}`;
+      const removal = result.record?.for_removal === true ? ' It is slated for removal.' : '';
+      return [
+        `**▸ paqad** · 🔴 ${result.symbol} is deprecated in ${at}${since}.`,
+        `> ${result.record?.message ?? 'no reason given'}${removal}`,
+      ].join('\n');
+    }
+    case 'absent':
+      return [
+        `**▸ paqad** · 🔴 ${result.symbol} does not exist in ${at}.`,
+        result.nearest === null
+          ? '> No close match — check the name against the package docs.'
+          : `> Did you mean "${result.nearest}"?`,
+      ].join('\n');
+    case 'unknown-dynamic':
+      return [
+        `**▸ paqad** · 🟡 ${result.symbol} is provided dynamically by ${at}.`,
+        '> I could not verify it statically, so I am not claiming it is missing.',
+      ].join('\n');
+    default:
+      return [
+        `**▸ paqad** · 🟡 ${result.package} is not in the framework-API index.`,
+        "> Run `paqad-ai index framework-api build`, or check the index's blocked list for why it was skipped.",
+      ].join('\n');
+  }
 }
 
 function formatCard(card: QueryCard): string {

@@ -1,0 +1,26 @@
+{
+  "id": "D-01KYCFNW46E4AZC9JAAH5ZCR9P",
+  "category": "architecture-path",
+  "title": "How should the framework-API index parse .d.ts declarations (#397)?",
+  "context": "The index must decide 'does this symbol exist at the installed version, and is it @deprecated?' well enough to HARD-BLOCK a plan compile (AC-3/AC-4). Verified constraints: @types/react wraps everything in 'declare namespace React' + 'export = React' (index.d.ts:67,70) and exposes 40 @deprecated tags, so a naive export-regex misses useId entirely; the existing #353 symbol-extractor is deliberately regex-only with no type resolution; typescript is currently a devDependency only (24MB), while paqad already ships @xenova/transformers (47MB) and openai (17MB) as runtime deps.",
+  "options": [
+    {
+      "option_key": "ts-compiler-dep",
+      "label": "Promote typescript to a runtime dependency and use the compiler API (+24MB install, one deterministic code path everywhere)"
+    },
+    {
+      "option_key": "ts-lazy-resolve",
+      "label": "Keep typescript a devDep; resolve it from the project's node_modules at build time, degrade to a blocked index + AC-6 warning when unresolvable (0MB added, but same plan can compile on one machine and fail on another)"
+    },
+    {
+      "option_key": "dts-lightweight-parse",
+      "label": "Hand-rolled .d.ts scanner matching the existing regex-extractor precedent (0MB added, no new dep, but namespaces/barrels/export= will produce false 'absent' verdicts that hard-block plans)"
+    }
+  ],
+  "recommendation": "ts-compiler-dep",
+  "created_at": "2026-07-25T11:13:30.246Z",
+  "status": "resolved",
+  "chosen": "ts-lazy-resolve",
+  "rationale": "paqad-ai is installed into onboarded projects of ANY stack (Laravel, Flutter, Python), so a hard 24MB typescript runtime dep taxes every one of them for a JS-only verifier. Declare typescript as an OPTIONAL peer dependency (peerDependenciesMeta.optional) so npm never auto-installs it, and lazy-resolve it at build time from the project's node_modules first, then paqad's own install. Degradation is honest and self-correlating: a JS/TS project without typescript installed also has no @types/* to read, so 'parser unavailable' and 'nothing to index' coincide. When unresolvable the index records blocked and plan compile degrades to the AC-6 warning, which the issue already specifies as non-blocking. Rejected ts-compiler-dep (cross-stack install tax) and dts-lightweight-parse (verified it misses useId inside 'declare namespace React' + 'export = React', producing false 'absent' verdicts that hard-block valid plans — the exact failure AC-5 forbids).",
+  "resolved_at": "2026-07-25T11:18:51.506Z"
+}

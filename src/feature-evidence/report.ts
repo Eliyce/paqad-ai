@@ -339,7 +339,14 @@ function renderPlan(bundle: FeatureBundleExport): string {
         modules_touched?: string[];
         reuse?: {
           consulted?: { source?: string; query?: string; target?: string; hits?: number }[];
-          reusing?: { symbol?: string; file?: string; how?: string; package?: string }[];
+          reusing?: {
+            symbol?: string;
+            file?: string;
+            how?: string;
+            package?: string;
+            version?: string;
+            provenance?: string;
+          }[];
           new_constructs?: { name?: string; justification?: string }[];
         };
       }
@@ -393,7 +400,7 @@ function renderPlan(bundle: FeatureBundleExport): string {
     const reusing = (reuse.reusing ?? [])
       .map(
         (claim) =>
-          `<li><strong>${escapeHtml(claim.symbol ?? '')}</strong>${claim.package ? ` <span class="tag">${escapeHtml(claim.package)}</span>` : claim.file ? ` <span class="tag">${escapeHtml(claim.file)}</span>` : ''} — ${escapeHtml(claim.how ?? '')}</li>`,
+          `<li><strong>${escapeHtml(claim.symbol ?? '')}</strong>${claim.package ? ` <span class="tag">${escapeHtml(frameworkTag(claim))}</span>` : claim.file ? ` <span class="tag">${escapeHtml(claim.file)}</span>` : ''} — ${escapeHtml(claim.how ?? '')}${verifiedNote(claim)}</li>`,
       )
       .join('');
     const constructs = (reuse.new_constructs ?? [])
@@ -403,12 +410,60 @@ function renderPlan(bundle: FeatureBundleExport): string {
       )
       .join('');
     parts.push('<h3>Reuse</h3>');
+    parts.push(frameworkReuseSummary(reuse.reusing ?? []));
     if (consulted) parts.push(`<h4>Consulted</h4><ul class="consulted">${consulted}</ul>`);
     if (reusing) parts.push(`<h4>Reusing</h4><ul class="reusing">${reusing}</ul>`);
     if (constructs)
       parts.push(`<h4>New, justified</h4><ul class="new-constructs">${constructs}</ul>`);
   }
   return panel('plan', 'Plan', parts.join(''), 'The plan is empty.');
+}
+
+/** A reuse claim as the report reads it. */
+interface ReuseClaimView {
+  symbol?: string;
+  file?: string;
+  how?: string;
+  package?: string;
+  version?: string;
+  provenance?: string;
+}
+
+/** `react@19.2.6` when the version is known, otherwise just the package name. */
+function frameworkTag(claim: ReuseClaimView): string {
+  return claim.version ? `${claim.package}@${claim.version}` : (claim.package ?? '');
+}
+
+/**
+ * The verification note on a framework-native claim (issue #397). `asserted` means the
+ * installed declarations were read and the symbol resolved; anything else says plainly
+ * that the claim was not statically verified, rather than letting silence imply it was.
+ */
+function verifiedNote(claim: ReuseClaimView): string {
+  if (claim.package === undefined) {
+    return '';
+  }
+  if (claim.provenance === 'asserted') {
+    return ' <span class="verified">🟢 verified against the installed version</span>';
+  }
+  if (claim.provenance === 'unknown-dynamic') {
+    return ' <span class="unverified">🟡 provided dynamically — not statically verified</span>';
+  }
+  return ' <span class="unverified">🟡 not verified against an installed version</span>';
+}
+
+/**
+ * A one-line count of framework-native reuse and how much of it paqad actually checked
+ * (issue #397). Rendered only when the plan makes a framework claim, so a first-party-only
+ * plan reads exactly as it did before.
+ */
+function frameworkReuseSummary(claims: ReuseClaimView[]): string {
+  const framework = claims.filter((claim) => claim.package !== undefined);
+  if (framework.length === 0) {
+    return '';
+  }
+  const verified = framework.filter((claim) => claim.provenance === 'asserted').length;
+  return `<p class="reuse-summary">${framework.length} framework-native reuse claim(s); ${verified} verified against the installed version's declarations. A plan naming a removed or deprecated framework API does not compile.</p>`;
 }
 
 function renderSpec(bundle: FeatureBundleExport): string {
@@ -948,6 +1003,10 @@ summary{cursor:pointer;list-style:revert}
 .terms td{border:0;padding:3px 8px 3px 0}
 .terms .term{font-weight:600;color:var(--ink);white-space:nowrap}
 .provenance{margin-top:12px;font-style:italic}
+/* Framework reuse verification, stated rather than implied. */
+.reuse-summary{font-size:13px;color:var(--muted);margin:4px 0 8px}
+.verified,.unverified{font-size:12px;white-space:nowrap}
+.unverified{color:var(--muted)}
 @page{margin:16mm}
 /* Print: reveal every panel and the full page so a Save-as-PDF is complete. */
 @media print{.topbar{position:static}.submenu{display:none}.panel{display:block!important;break-inside:avoid;border-color:#bbb}.back{display:none}body{background:#fff;color:#000}}

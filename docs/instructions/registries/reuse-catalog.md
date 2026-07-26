@@ -8,7 +8,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| PATHS | `PATHS` | src/core/constants/paths.ts | 149 |
+| PATHS | `PATHS` | src/core/constants/paths.ts | 150 |
 | toPosixPath | `toPosixPath(path: string): string` | src/core/path-utils.ts | 35 |
 | ProjectProfile | `interface ProjectProfile` | src/core/types/project-profile.ts | 30 |
 | Lane | `type Lane` | src/core/types/routing.ts | 19 |
@@ -16,13 +16,13 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | VERSION | `VERSION: string` | src/index.ts | 16 |
 | ClassificationResult | `interface ClassificationResult` | src/core/types/classification.ts | 15 |
 | Capability | `type Capability` | src/core/types/domain.ts | 13 |
+| CodeKnowledgeIndex | `interface CodeKnowledgeIndex` | src/code-knowledge/types.ts | 13 |
 | DecisionCategory | `type DecisionCategory` | src/planning/decision-packet.ts | 13 |
 | resolveProjectRoot | `resolveProjectRoot(env` | runtime/hooks/lib/paqad-disabled.mjs | 13 |
 | AdapterType | `type AdapterType` | src/core/types/adapter.ts | 12 |
 | isPaqadDisabled | `isPaqadDisabled(projectRoot` | runtime/hooks/lib/paqad-disabled.mjs | 12 |
 | Stack | `type Stack` | src/core/types/domain.ts | 12 |
 | ActiveCapability | `type ActiveCapability` | src/core/types/domain.ts | 11 |
-| CodeKnowledgeIndex | `interface CodeKnowledgeIndex` | src/code-knowledge/types.ts | 11 |
 ## adapter-onboarding
 
 | Symbol | Signature | File | Callers |
@@ -120,8 +120,8 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| SectionData | `interface SectionData` | src/dashboard/types.ts | 23 |
-| AttentionItem | `interface AttentionItem` | src/dashboard/types.ts | 11 |
+| SectionData | `interface SectionData` | src/dashboard/types.ts | 24 |
+| AttentionItem | `interface AttentionItem` | src/dashboard/types.ts | 12 |
 | DashboardChrome | `DashboardChrome(` | graph-ui/src/components/DashboardChrome.tsx | 11 |
 | WinLine | `WinLine(` | graph-ui/src/components/WinLine.tsx | 9 |
 | fileMtime | `fileMtime(path: string): number / null` | src/dashboard/collectors/fs-helpers.ts | 8 |
@@ -133,8 +133,8 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | ConflictPanel | `ConflictPanel(` | graph-ui/src/components/ConflictPanel.tsx | 4 |
 | ManagedFile | `interface ManagedFile` | src/dashboard/write-pipeline.ts | 4 |
 | readManagedFile | `readManagedFile(projectRoot: string, relativePath: string): ManagedFile` | src/dashboard/write-pipeline.ts | 4 |
+| ScoreBand | `type ScoreBand` | src/dashboard/types.ts | 4 |
 | writeManagedFile | `writeManagedFile( projectRoot: string, input: WriteManagedFileInput, ): WriteManagedFileResult` | src/dashboard/write-pipeline.ts | 4 |
-| buildReceiptFeed | `buildReceiptFeed(projectRoot: string): ReceiptFeed` | src/dashboard/trust.ts | 3 |
 ## cli-graph
 
 | Symbol | Signature | File | Callers |
@@ -198,6 +198,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | --- | --- | --- | --- |
 | readRawModuleMap | `readRawModuleMap(projectRoot: string): RawMap / null` | src/module-map/reconciler.ts | 7 |
 | appendModuleMapEvent | `appendModuleMapEvent(projectRoot: string, event: ModuleMapEvent): void` | src/module-decisions/events.ts | 4 |
+| levenshtein | `levenshtein(a: string, b: string, max` | src/module-decisions/schema.ts | 4 |
 | discoverSourceRoots | `discoverSourceRoots(projectRoot: string): DiscoveredSourceRoots` | src/module-map/source-roots.ts | 3 |
 | isExpired | `isExpired(decision: ModuleDecision, now: Date` | src/module-decisions/schema.ts | 3 |
 | listDecisions | `listDecisions(projectRoot: string): ModuleDecision[]` | src/module-decisions/store.ts | 3 |
@@ -206,7 +207,6 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | reconcileModuleMap | `reconcileModuleMap(opts: ReconcilerOptions): Promise<ModuleMapDriftReport>` | src/module-map/reconciler.ts | 3 |
 | appendRunCancelledEvent | `appendRunCancelledEvent( projectRoot: string, runId: string, payload?: Record<string, unknown>, ): void` | src/module-decisions/events.ts | 2 |
 | driftReportHasFindings | `driftReportHasFindings(report: ModuleMapDriftReport / null): boolean` | src/module-map/reconciler.ts | 2 |
-| levenshtein | `levenshtein(a: string, b: string, max` | src/module-decisions/schema.ts | 2 |
 | ModuleMapDriftReport | `interface ModuleMapDriftReport` | src/module-map/reconciler.ts | 2 |
 | readDecision | `readDecision(projectRoot: string, id: string): ModuleDecision / null` | src/module-decisions/store.ts | 2 |
 | readDriftReport | `readDriftReport(projectRoot: string): ModuleMapDriftReport / null` | src/module-map/reconciler.ts | 2 |
@@ -309,10 +309,10 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | createDefaultEcosystemParserRegistry | `createDefaultEcosystemParserRegistry(): EcosystemParserRegistry` | src/introspection/ecosystems/registry.ts | 2 |
 | detectEnvironmentTraits | `detectEnvironmentTraits( projectRoot: string, options?:` | src/introspection/environment-traits.ts | 2 |
 | parseKeyValueLines | `parseKeyValueLines( content: string, separator: string, ): Array<` | src/introspection/ecosystems/shared.ts | 2 |
+| readStackSnapshotSync | `readStackSnapshotSync(projectRoot: string): StackSnapshot / null` | src/introspection/cache.ts | 2 |
 | readTextFile | `readTextFile( projectRoot: string, relativePath: string, ): Promise<string / null>` | src/introspection/parsers/shared.ts | 2 |
 | dartParser | `dartParser: EcosystemParser` | src/introspection/ecosystems/dart.ts | 1 |
 | DocumentationWorkflow | `DocumentationWorkflow` | src/document/workflow.ts | 1 |
-| DocumentationWorkflowMode | `type DocumentationWorkflowMode` | src/document/workflow.ts | 1 |
 ## evidence-ledger
 
 | Symbol | Signature | File | Callers |
@@ -350,7 +350,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| currentFeature | `currentFeature(projectRoot: string, sessionId: string): string / null` | src/feature-evidence/stage-ledger.ts | 17 |
+| currentFeature | `currentFeature(projectRoot: string, sessionId: string): string / null` | src/feature-evidence/stage-ledger.ts | 18 |
 | featureFilePath | `featureFilePath(dirName: string, file: FeatureBundleFile): string` | src/feature-evidence/paths.ts | 11 |
 | parseFeatureDirName | `parseFeatureDirName(dirName: string): FeatureDirName / null` | src/feature-evidence/paths.ts | 7 |
 | foldFeature | `foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange` | src/feature-evidence/stage-ledger.ts | 6 |
@@ -365,6 +365,25 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | writeFeatureReport | `writeFeatureReport( projectRoot: string, dirName: string, options: WriteFeatureReportOptions` | src/feature-evidence/report-writer.ts | 3 |
 | classifyBundlePath | `classifyBundlePath(relPath: string): BundlePathClassification / null` | src/feature-evidence/bundle-integrity.ts | 2 |
 | exportFeatureBundle | `exportFeatureBundle( projectRoot: string, dirName: string, exportedAt: string, ): FeatureBundleExport` | src/feature-evidence/export.ts | 2 |
+## framework-api
+
+| Symbol | Signature | File | Callers |
+| --- | --- | --- | --- |
+| FrameworkApiIndex | `interface FrameworkApiIndex` | src/framework-api/types.ts | 3 |
+| readFrameworkApiIndex | `readFrameworkApiIndex(projectRoot: string): FrameworkApiIndex / null` | src/framework-api/store.ts | 3 |
+| FrameworkApiAdapter | `interface FrameworkApiAdapter` | src/framework-api/types.ts | 2 |
+| FrameworkApiPackage | `interface FrameworkApiPackage` | src/framework-api/types.ts | 2 |
+| FrameworkApiQueryResult | `interface FrameworkApiQueryResult` | src/framework-api/query.ts | 2 |
+| FrameworkApiSymbol | `interface FrameworkApiSymbol` | src/framework-api/types.ts | 2 |
+| queryFrameworkApi | `queryFrameworkApi( index: FrameworkApiIndex, packageName: string, symbol: string, version?: string, ): FrameworkApiQueryResult` | src/framework-api/query.ts | 2 |
+| validateFrameworkApiIndex | `validateFrameworkApiIndex(data: unknown): FrameworkApiValidation` | src/framework-api/schema.ts | 2 |
+| buildFrameworkApiIndex | `buildFrameworkApiIndex( projectRoot: string, options: BuildFrameworkApiOptions` | src/framework-api/builder.ts | 1 |
+| createDefaultFrameworkApiAdapterRegistry | `createDefaultFrameworkApiAdapterRegistry(): FrameworkApiAdapterRegistry` | src/framework-api/adapters/registry.ts | 1 |
+| DYNAMIC_MEMBER_SUFFIX | `DYNAMIC_MEMBER_SUFFIX` | src/framework-api/adapters/node.ts | 1 |
+| FRAMEWORK_API_SCHEMA_VERSION | `FRAMEWORK_API_SCHEMA_VERSION` | src/framework-api/types.ts | 1 |
+| FrameworkApiAdapterInput | `interface FrameworkApiAdapterInput` | src/framework-api/types.ts | 1 |
+| FrameworkApiAdapterRegistry | `FrameworkApiAdapterRegistry` | src/framework-api/adapters/registry.ts | 1 |
+| FrameworkApiAdapterResult | `type FrameworkApiAdapterResult` | src/framework-api/types.ts | 1 |
 ## hybrid-rag
 
 | Symbol | Signature | File | Callers |
@@ -506,7 +525,7 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| resolveSessionId | `resolveSessionId(projectRoot: string, hint?: string / null): string` | src/rag-ledger/session.ts | 28 |
+| resolveSessionId | `resolveSessionId(projectRoot: string, hint?: string / null): string` | src/rag-ledger/session.ts | 29 |
 | recordRagEvidence | `recordRagEvidence( projectRoot: string, kind: RagEvidenceKind, fields: RagEvidenceFields, ctx: RagEvidenceContext, ): RagEvidenceRow / null` | src/rag-ledger/recorder.ts | 4 |
 | RAG_EVIDENCE_DOC_TYPE | `RAG_EVIDENCE_DOC_TYPE` | src/rag-ledger/types.ts | 3 |
 | RagEvidenceKind | `type RagEvidenceKind` | src/rag-ledger/types.ts | 3 |
@@ -569,21 +588,21 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 
 | Symbol | Signature | File | Callers |
 | --- | --- | --- | --- |
-| SessionLedgerRow | `interface SessionLedgerRow` | src/session-ledger/ledger.ts | 13 |
+| SessionLedgerRow | `interface SessionLedgerRow` | src/session-ledger/ledger.ts | 15 |
+| recordProjectEvent | `recordProjectEvent( projectRoot: string, docType: string, row: Record<string, unknown>, schemaVersion` | src/session-ledger/project-ledger.ts | 6 |
 | currentOrdinal | `currentOrdinal(projectRoot: string, docType: string, sessionId: string): number` | src/session-ledger/ledger.ts | 5 |
 | openSessionDoc | `openSessionDoc( projectRoot: string, docType: string, sessionId: string, openRow: Record<string, unknown>` | src/session-ledger/ledger.ts | 5 |
 | readUnitFile | `readUnitFile(projectRoot: string, unitRelPath: string): SessionLedgerRow[]` | src/session-ledger/ledger.ts | 5 |
-| recordProjectEvent | `recordProjectEvent( projectRoot: string, docType: string, row: Record<string, unknown>, schemaVersion` | src/session-ledger/project-ledger.ts | 5 |
 | appendSessionEvent | `appendSessionEvent( projectRoot: string, docType: string, sessionId: string, ordinal: number, row: Record<string, unknown>` | src/session-ledger/ledger.ts | 3 |
 | appendStampedRowToUnit | `appendStampedRowToUnit( projectRoot: string, unitRelPath: string, stamped: SessionLedgerRow, ): void` | src/session-ledger/ledger.ts | 2 |
 | OpenSessionDocResult | `interface OpenSessionDocResult` | src/session-ledger/ledger.ts | 2 |
 | readLatestProjectEvent | `readLatestProjectEvent( projectRoot: string, docType: string, match: (row: SessionLedgerRow) =>` | src/session-ledger/project-ledger.ts | 2 |
+| readProjectEvents | `readProjectEvents(projectRoot: string, docType: string): SessionLedgerRow[]` | src/session-ledger/project-ledger.ts | 2 |
 | readSessionDoc | `readSessionDoc( projectRoot: string, docType: string, sessionId: string, ): SessionLedgerRow[]` | src/session-ledger/ledger.ts | 2 |
 | sessionLedgerDir | `sessionLedgerDir(docType: string, sessionId: string): string` | src/session-ledger/ledger.ts | 2 |
 | stampSessionRow | `stampSessionRow( docType: string, sessionId: string, row: Record<string, unknown>, options: AppendOptions` | src/session-ledger/ledger.ts | 2 |
 | computeSessionRowHash | `computeSessionRowHash(row: Record<string, unknown>): string` | src/session-ledger/ledger.ts | 1 |
 | DISABLED_SESSION_DOC_TYPE | `DISABLED_SESSION_DOC_TYPE` | src/session-ledger/disabled-audit.ts | 1 |
-| foldByOrdinal | `foldByOrdinal(rows: readonly SessionLedgerRow[]): Map<number, SessionLedgerRow[]>` | src/session-ledger/ledger.ts | 1 |
 ## skill-runtime
 
 | Symbol | Signature | File | Callers |
@@ -636,11 +655,11 @@ Exported symbols across the codebase, most-reused first per module. Consult this
 | compareStackProfiles | `compareStackProfiles( previous: DetectedStackProfile / null, current: DetectedStackProfile, ): StackDriftReport` | src/core/stack-profile.ts | 1 |
 | detectShortVideoSignals | `detectShortVideoSignals(projectRoot: string): DetectionSignal[]` | src/detection/signals/short-video.ts | 1 |
 | ecosystemToLanguage | `ecosystemToLanguage(ecosystem: StackEcosystem / null / undefined): string / null` | src/detection/language-map.ts | 1 |
+| FRAMEWORK_PACKAGE_MAP | `FRAMEWORK_PACKAGE_MAP: Record<string, Stack>` | src/core/stack-profile.ts | 1 |
 | AIDetectorOptions | `interface AIDetectorOptions` | src/detection/ai-detector.ts | 0 |
 | detectAnalyticsSignals | `detectAnalyticsSignals(projectRoot: string): DetectionSignal[]` | src/detection/signals/analytics-provider.ts | 0 |
 | detectFlutterSignals | `detectFlutterSignals(projectRoot: string): DetectionSignal[]` | src/detection/signals/flutter.ts | 0 |
 | detectLaravelSignals | `detectLaravelSignals(projectRoot: string): LaravelDetectionResult` | src/detection/signals/laravel.ts | 0 |
-| DetectorOptions | `interface DetectorOptions` | src/detection/detector.ts | 0 |
 ## template-engine
 
 | Symbol | Signature | File | Callers |

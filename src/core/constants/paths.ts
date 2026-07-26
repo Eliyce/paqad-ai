@@ -209,6 +209,11 @@ export const PATHS = {
   // between them, plus per-dependency `imported` usage. Built once by
   // `paqad-ai index build`, consumed twice (dead-code findings + reuse answers).
   CODE_KNOWLEDGE_INDEX: '.paqad/indexes/code-knowledge.json',
+  // Issue #397 — the installed framework-API index: for each detected framework, at the
+  // version actually installed, which exported symbols exist and which carry a static
+  // `@deprecated` marker. Built by `paqad-ai index framework-api build`, consumed by
+  // `plan compile` to verify #357's framework reuse claims instead of trusting them.
+  FRAMEWORK_API_INDEX: '.paqad/indexes/framework-api.json',
   DOCS_DIR: 'docs',
   FRAMEWORK_DOCS_DIR: 'docs/framework',
   FRAMEWORK_STACK_DIR: 'docs/instructions/stack',

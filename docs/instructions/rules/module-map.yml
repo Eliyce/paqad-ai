@@ -637,6 +637,7 @@ modules:
         - buildReport
         - collectArchitecture
         - collectAttestation
+        - collectChangeMetrics
         - collectCodebaseHealth
         - collectDecisions
         - collectDelivery
@@ -1430,6 +1431,7 @@ modules:
         - AIDetectorOptions
         - Detector
         - DetectorOptions
+        - FRAMEWORK_PACKAGE_MAP
         - LaravelDetectionResult
         - ReactDetectionResult
         - StackDetectionPermissions
@@ -2685,6 +2687,68 @@ modules:
         - sessionOpenPointerPath
         - stampSessionRow
 
+  - slug: framework-api
+    name: Installed Framework-API Index
+    layer: framework-internals
+    confidence: high
+    summary: |
+      The deterministic backend that verifies framework reuse claims (issue #397).
+      #357 lets a plan DECLARE it reuses a framework API; nothing checked the claim.
+      This module reads the `.d.ts` declaration layer shipped inside the installed
+      package and answers, for the version actually installed, whether the symbol
+      exists and whether it carries a static `@deprecated` marker — zero model
+      tokens, zero network. Built as an ecosystem-adapter registry (mirroring
+      EcosystemParserRegistry) with only the node/JS-TS adapter implemented, so
+      #398's PHP/Python/JVM adapters plug in and a non-node project records
+      `no-adapter` rather than running the wrong code path. `typescript` is an
+      OPTIONAL peer dependency lazy-resolved from the onboarded project, because
+      paqad-ai installs into projects of any stack. Only `absent` and `deprecated`
+      block a `plan compile`; everything unresolved warns, because a false "absent"
+      hard-blocks a valid plan.
+    sources:
+      - src/framework-api
+    evidence:
+      symbols:
+        - BuildFrameworkApiOptions
+        - BuildFrameworkApiResult
+        - DYNAMIC_MEMBER_SUFFIX
+        - DeprecationVerdict
+        - FRAMEWORK_API_SCHEMA_VERSION
+        - FrameworkApiAdapter
+        - FrameworkApiAdapterInput
+        - FrameworkApiAdapterRegistry
+        - FrameworkApiAdapterResult
+        - FrameworkApiBlocked
+        - FrameworkApiHeader
+        - FrameworkApiIndex
+        - FrameworkApiPackage
+        - FrameworkApiProvenance
+        - FrameworkApiQueryResult
+        - FrameworkApiSymbol
+        - FrameworkApiSymbolKind
+        - FrameworkApiValidation
+        - FrameworkApiVerdict
+        - InstalledLocation
+        - JsDocTagLike
+        - TsProgram
+        - TypeScriptModule
+        - buildFrameworkApiIndex
+        - clearTypeScriptCache
+        - createDefaultFrameworkApiAdapterRegistry
+        - frameworkApiIndexPath
+        - loadTypeScript
+        - nearestFrameworkSymbol
+        - nodeFrameworkApiAdapter
+        - queryFrameworkApi
+        - readDeprecation
+        - readFrameworkApiIndex
+        - resolveInstalledVersion
+        - resolveTypesEntry
+        - typesFromExports
+        - typesPackageName
+        - validateFrameworkApiIndex
+        - writeFrameworkApiIndex
+
   - slug: feature-evidence
     name: Per-Feature Evidence Bundle
     layer: framework-internals
@@ -2721,6 +2785,7 @@ modules:
         - FEATURE_EVIDENCE_SCHEMA_VERSION
         - FEATURE_SCHEMA
         - FEATURE_SESSION_DOC_TYPE
+        - FRAMEWORK_API_INDEX_ABSENT_WARNING
         - FeatureBundleExport
         - FeatureBundleFile
         - FeatureDirName
@@ -2804,6 +2869,7 @@ modules:
         - formatDuration
         - formatFeatureDirName
         - formatValidationError
+        - frameworkClaimKey
         - hookBlock
         - installGitHooks
         - isBundleMaterialized
