@@ -98,16 +98,18 @@ describe('buildFrameworkApiIndex', () => {
     expect(index.blocked[0]).toMatchObject({ package: 'react', reason: 'not-installed' });
   });
 
-  it('records an ecosystem with no adapter as blocked, leaving the #398 slot open (FR-14)', () => {
+  it('records an ecosystem with no adapter as blocked, never run through the wrong one (FR-14)', () => {
+    // php, python and jvm gained adapters in issue #398; dart, go and rust deliberately
+    // have none, so this is still the live contract rather than a historical one.
     const { index } = buildFrameworkApiIndex(root, {
-      snapshot: snapshotOf([{ name: 'laravel/framework', ecosystem: 'php' }]),
+      snapshot: snapshotOf([{ name: 'flutter', ecosystem: 'dart' }]),
       now,
     });
     expect(index.blocked[0]).toMatchObject({
-      package: 'laravel/framework',
+      package: 'flutter',
       reason: 'no-adapter',
     });
-    expect(index.blocked[0]?.detail).toContain('php');
+    expect(index.blocked[0]?.detail).toContain('dart');
   });
 
   it("records an adapter refusal with the adapter's own reason", () => {

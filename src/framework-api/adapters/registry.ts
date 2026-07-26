@@ -1,16 +1,19 @@
 // Per-ecosystem framework-API adapter registry (issue #397).
 //
 // Mirrors `EcosystemParserRegistry` (src/introspection/ecosystems/registry.ts) so the two
-// read alike. It exists from day one, with only the node adapter registered, because
-// paqad-ai is installed into onboarded projects of ANY stack: a Laravel or Python project
-// must get a clean "no adapter for this ecosystem" rather than the node code path pointed
-// at a `vendor/` directory. #398's PHP, Python and JVM adapters register here.
+// read alike. It exists because paqad-ai is installed into onboarded projects of ANY stack:
+// an ecosystem with no adapter must get a clean "no adapter for this ecosystem" rather than
+// the wrong code path pointed at its install tree. Issue #398 filled the PHP, Python and
+// JVM slots Phase B reserved; go, rust and dart are still deliberately unregistered.
 
 import type { StackEcosystem } from '@/core/types/introspection.js';
 
 import type { FrameworkApiAdapter } from '../types.js';
 
+import { jvmFrameworkApiAdapter } from './jvm.js';
 import { nodeFrameworkApiAdapter } from './node.js';
+import { phpFrameworkApiAdapter } from './php.js';
+import { pythonFrameworkApiAdapter } from './python.js';
 
 export class FrameworkApiAdapterRegistry {
   private readonly adapters = new Map<StackEcosystem, FrameworkApiAdapter>();
@@ -36,5 +39,10 @@ export class FrameworkApiAdapterRegistry {
 }
 
 export function createDefaultFrameworkApiAdapterRegistry(): FrameworkApiAdapterRegistry {
-  return new FrameworkApiAdapterRegistry([nodeFrameworkApiAdapter]);
+  return new FrameworkApiAdapterRegistry([
+    nodeFrameworkApiAdapter,
+    phpFrameworkApiAdapter,
+    pythonFrameworkApiAdapter,
+    jvmFrameworkApiAdapter,
+  ]);
 }
