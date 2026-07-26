@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   applyLaravelBackstop,
-  loadLaravelUpgradeGuide,
+  loadLaravelDeprecations,
   majorOf,
   mergeDocDerived,
   parseUpgradeGuide,
@@ -24,12 +24,24 @@ function fakeFetch(body: string, ok = true) {
   return impl as unknown as typeof globalThis.fetch & { mock: { calls: unknown[] } };
 }
 
-/** Seed the on-disk cache for a major version. */
-function seedCache(major: string, body: string, fetchedAt: number): void {
+/** Seed the on-disk cache with already-derived records. */
+function seedCache(major: string, names: string[], fetchedAt: number): void {
   const path = upgradeGuideCachePath(root, major);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify({ fetched_at: fetchedAt, body }));
+  writeFileSync(
+    path,
+    JSON.stringify({
+      fetched_at: fetchedAt,
+      parser_version: 1,
+      records: names.map((name) =>
+        record({ name, deprecated: true, since: major, provenance: 'doc-derived' }),
+      ),
+    }),
+  );
 }
+
+/** A guide whose one deprecation is `Blueprint::getPrefix`. */
+const GUIDE = '### Database\n\nThe `Blueprint::getPrefix()` method is deprecated.\n';
 
 function record(overrides: Partial<FrameworkApiSymbol> & { name: string }): FrameworkApiSymbol {
   return {
@@ -57,71 +69,113 @@ describe('majorOf', () => {
   it('reads the major version of an installed version string', () => {
     expect(majorOf('13.18.0')).toBe('13');
     expect(majorOf('v11.0.0')).toBe('11');
-    expect(majorOf('nonsense')).toBe('nonsense');
+  });
+
+  it('returns null for anything that does not start with a major, so nothing is built from it', () => {
+    // The major reaches a URL and a cache filename, and the version behind it is read out
+    // of a project's own vendor tree — so a traversal attempt must produce "no guide".
+    expect(majorOf('nonsense')).toBeNull();
+    expect(majorOf('../../etc/passwd')).toBeNull();
+    expect(majorOf('')).toBeNull();
   });
 });
 
-describe('loadLaravelUpgradeGuide', () => {
-  it('fetches the version-pinned guide and caches it', async () => {
-    const fetchImpl = fakeFetch('# Upgrade Guide');
-    const first = await loadLaravelUpgradeGuide(root, '13.18.0', { fetchImpl, now: () => 1000 });
-    expect(first).toBe('# Upgrade Guide');
-    expect(JSON.parse(readFileSync(upgradeGuideCachePath(root, '13'), 'utf8'))).toMatchObject({
-      fetched_at: 1000,
-    });
+describe('loadLaravelDeprecations', () => {
+  it('fetches the version-pinned guide and caches what it derived', async () => {
+    const fetchImpl = fakeFetch(GUIDE);
+    const first = await loadLaravelDeprecations(root, '12.4.0', { fetchImpl, now: () => 1000 });
+    expect(first?.map((entry) => entry.name)).toEqual(['Blueprint::getPrefix']);
 
-    const second = await loadLaravelUpgradeGuide(root, '13.18.0', { fetchImpl, now: () => 2000 });
-    expect(second).toBe('# Upgrade Guide');
+    // The cache holds derived records only — never the fetched document.
+    const cached = JSON.parse(readFileSync(upgradeGuideCachePath(root, '12'), 'utf8')) as {
+      fetched_at: number;
+      parser_version: number;
+      records: { name: string; message: string }[];
+    };
+    expect(cached).toMatchObject({ fetched_at: 1000, parser_version: 1 });
+    expect(JSON.stringify(cached)).not.toContain('### Database');
+    expect(cached.records[0]?.message).toBe(
+      'The Laravel 12.x upgrade guide lists this as deprecated.',
+    );
+
+    const second = await loadLaravelDeprecations(root, '12.4.0', { fetchImpl, now: () => 2000 });
+    expect(second?.map((entry) => entry.name)).toEqual(['Blueprint::getPrefix']);
     expect(fetchImpl.mock.calls).toHaveLength(1);
   });
 
+  it('never persists a symbol name outside the shape it accepts', async () => {
+    const hostile =
+      '### Removed\n\nThe `Evil::../../x()` and `Fine::go()` methods have been removed.\n';
+    const records = await loadLaravelDeprecations(root, '12.0.0', {
+      fetchImpl: fakeFetch(hostile),
+      now: () => 1000,
+    });
+    expect(records?.map((entry) => entry.name)).toEqual(['Fine::go']);
+  });
+
   it('re-fetches once the cache is older than its max age', async () => {
-    seedCache('13', '# stale', 0);
-    const fetchImpl = fakeFetch('# fresh');
-    const guide = await loadLaravelUpgradeGuide(root, '13.0.0', {
-      fetchImpl,
+    seedCache('13', ['Stale::method'], 0);
+    const records = await loadLaravelDeprecations(root, '13.0.0', {
+      fetchImpl: fakeFetch(GUIDE),
       now: () => 10_000,
       maxAgeMs: 5_000,
     });
-    expect(guide).toBe('# fresh');
+    expect(records?.map((entry) => entry.name)).toEqual(['Blueprint::getPrefix']);
+  });
+
+  it('re-fetches a cache written by an older parser', async () => {
+    const path = upgradeGuideCachePath(root, '13');
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify({ fetched_at: 1000, parser_version: 0, records: [] }));
+    const records = await loadLaravelDeprecations(root, '13.0.0', {
+      fetchImpl: fakeFetch(GUIDE),
+      now: () => 1000,
+    });
+    expect(records?.map((entry) => entry.name)).toEqual(['Blueprint::getPrefix']);
   });
 
   it('never touches the network when offline, but still uses a stale cache (FR-13)', async () => {
-    seedCache('13', '# stale but real', 0);
-    const fetchImpl = fakeFetch('# should not be requested');
-    const guide = await loadLaravelUpgradeGuide(root, '13.0.0', {
+    seedCache('13', ['Stale::method'], 0);
+    const fetchImpl = fakeFetch(GUIDE);
+    const records = await loadLaravelDeprecations(root, '13.0.0', {
       fetchImpl,
       offline: true,
       now: () => 10_000,
       maxAgeMs: 1,
     });
-    expect(guide).toBe('# stale but real');
+    expect(records?.map((entry) => entry.name)).toEqual(['Stale::method']);
     expect(fetchImpl.mock.calls).toHaveLength(0);
   });
 
   it('returns a fresh offline cache without falling through', async () => {
-    seedCache('13', '# fresh enough', 9_999);
-    const guide = await loadLaravelUpgradeGuide(root, '13.0.0', {
+    seedCache('13', ['Fresh::method'], 9_999);
+    const records = await loadLaravelDeprecations(root, '13.0.0', {
       offline: true,
       now: () => 10_000,
     });
-    expect(guide).toBe('# fresh enough');
+    expect(records?.map((entry) => entry.name)).toEqual(['Fresh::method']);
   });
 
   it('returns null offline with nothing cached', async () => {
-    expect(await loadLaravelUpgradeGuide(root, '13.0.0', { offline: true })).toBeNull();
+    expect(await loadLaravelDeprecations(root, '13.0.0', { offline: true })).toBeNull();
+  });
+
+  it('returns null for a version with no readable major, without fetching', async () => {
+    const fetchImpl = fakeFetch(GUIDE);
+    expect(await loadLaravelDeprecations(root, '../../etc', { fetchImpl })).toBeNull();
+    expect(fetchImpl.mock.calls).toHaveLength(0);
   });
 
   it('returns null when the request fails, rather than failing the build', async () => {
     const fetchImpl = vi.fn(async () =>
       Promise.reject(new Error('offline')),
     ) as unknown as typeof globalThis.fetch;
-    expect(await loadLaravelUpgradeGuide(root, '13.0.0', { fetchImpl })).toBeNull();
+    expect(await loadLaravelDeprecations(root, '13.0.0', { fetchImpl })).toBeNull();
   });
 
   it('returns null on a non-200 response', async () => {
     expect(
-      await loadLaravelUpgradeGuide(root, '99.0.0', { fetchImpl: fakeFetch('Not Found', false) }),
+      await loadLaravelDeprecations(root, '99.0.0', { fetchImpl: fakeFetch('Not Found', false) }),
     ).toBeNull();
   });
 
@@ -129,14 +183,14 @@ describe('loadLaravelUpgradeGuide', () => {
     const path = upgradeGuideCachePath(root, '13');
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, 'not json');
-    expect(await loadLaravelUpgradeGuide(root, '13.0.0', { offline: true })).toBeNull();
+    expect(await loadLaravelDeprecations(root, '13.0.0', { offline: true })).toBeNull();
   });
 
   it('ignores a cache file with the wrong shape', async () => {
     const path = upgradeGuideCachePath(root, '13');
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify({ body: 42 }));
-    expect(await loadLaravelUpgradeGuide(root, '13.0.0', { offline: true })).toBeNull();
+    writeFileSync(path, JSON.stringify({ records: 42, parser_version: 1 }));
+    expect(await loadLaravelDeprecations(root, '13.0.0', { offline: true })).toBeNull();
   });
 });
 
@@ -268,9 +322,7 @@ describe('applyLaravelBackstop', () => {
 
   it('folds the guide into the laravel entry and reports what it added', async () => {
     const index = laravelIndex();
-    const result = await applyLaravelBackstop(root, index, {
-      fetchImpl: fakeFetch('### Database\n\nThe `Blueprint::getPrefix()` method is deprecated.\n'),
-    });
+    const result = await applyLaravelBackstop(root, index, { fetchImpl: fakeFetch(GUIDE) });
     expect(result).toEqual({ applied: true, deprecations: 1 });
     expect(index.packages[0]?.symbols[0]).toMatchObject({
       deprecated: true,

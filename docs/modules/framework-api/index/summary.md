@@ -143,7 +143,13 @@ is amended for it by the decision above. It is fenced so nothing else changes:
 
 - it runs as a **post-pass** on the built index, so the builder and every adapter stay
   synchronous and offline;
-- the guide is cached under `.paqad/indexes/cache/` and re-fetched at most weekly;
+- the fetched document is parsed in memory and **discarded**: only the derived records are
+  cached, under `.paqad/indexes/cache/`, re-fetched at most weekly. Each cached record has a
+  strictly-shaped `Class::method` name, a numeric major, a boolean, and a message this
+  module composes — so no network text ever reaches the filesystem;
+- a version with no readable leading major yields **no guide at all**, because that major
+  reaches both a URL and a cache filename and the version behind it is read out of the
+  project's own `vendor/` tree;
 - `--offline` skips the network and uses only what is cached;
 - a failed or skipped fetch adds **no** records rather than failing the build.
 

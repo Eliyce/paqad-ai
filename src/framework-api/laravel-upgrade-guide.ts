@@ -53,39 +53,104 @@ const DEPRECATION_SENTENCE =
 /** Whether a matched phrase means gone, not merely discouraged. */
 const REMOVAL_PHRASE = /\bremov\w*/i;
 
-/** The on-disk cache for one major version's guide. */
+/**
+ * Bumped whenever {@link parseUpgradeGuide} changes what it extracts, so a cache written by
+ * an older parser is refetched rather than trusted.
+ */
+const CACHE_PARSER_VERSION = 1;
+
+/**
+ * The only symbol shape allowed to reach the cache file.
+ *
+ * Nothing free-form from the network is ever persisted (see the cache note below), and this
+ * is the gate that guarantees it: a record whose name does not match exactly is dropped.
+ */
+const CACHEABLE_SYMBOL = /^[A-Za-z_][A-Za-z0-9_\\]*::[A-Za-z0-9_]+$/;
+
+/** The on-disk cache for one major version's derived records. */
 export function upgradeGuideCachePath(projectRoot: string, major: string): string {
-  return join(projectRoot, PATHS.INDEXES_DIR, 'cache', `laravel-upgrade-${major}.md`);
+  return join(projectRoot, PATHS.INDEXES_DIR, 'cache', `laravel-upgrade-${major}.json`);
 }
 
-/** The major version of a resolved semver-ish version string (`13.18.0` -> `13`). */
-export function majorOf(version: string): string {
-  return (/^v?(\d+)/.exec(version)?.[1] ?? version).trim();
+/**
+ * The major version of a resolved semver-ish version string (`13.18.0` -> `13`), or null
+ * when the string does not start with one.
+ *
+ * Null rather than a fallback on purpose: the major reaches a URL and a cache filename, and
+ * the version it comes from is read out of a project's own `vendor/` tree. A version like
+ * `../../x` must produce "no guide", never a path or a URL built from it.
+ */
+export function majorOf(version: string): string | null {
+  return /^v?(\d{1,4})(?:\D|$)/.exec(version.trim())?.[1] ?? null;
 }
 
-/** Read the cached guide when it exists and is younger than `maxAgeMs`. */
-function readCache(path: string, maxAgeMs: number, now: number): string | null {
+/** What one cache file holds. Derived records only — never the fetched document. */
+interface GuideCache {
+  fetched_at: number;
+  parser_version: number;
+  records: FrameworkApiSymbol[];
+}
+
+/**
+ * Keep only what is safe to persist: a strictly-shaped symbol name, our own major version,
+ * a boolean, and a message this module composes itself.
+ *
+ * This is the sanitizer that keeps network text off the filesystem. The guide's own prose —
+ * its headings especially — is used to DECIDE what is deprecated and then discarded, so a
+ * cache file can only ever contain values this code produced.
+ */
+function cacheable(records: FrameworkApiSymbol[], major: string): FrameworkApiSymbol[] {
+  const safe: FrameworkApiSymbol[] = [];
+  for (const record of records) {
+    if (!CACHEABLE_SYMBOL.test(record.name)) {
+      continue;
+    }
+    safe.push({
+      name: record.name,
+      kind: 'member',
+      exists: true,
+      deprecated: true,
+      message: `The Laravel ${major}.x upgrade guide lists this as ${record.for_removal ? 'removed' : 'deprecated'}.`,
+      since: major,
+      for_removal: record.for_removal,
+      provenance: 'doc-derived',
+    });
+  }
+  return safe;
+}
+
+/** Read the cached records when they exist, match this parser, and are young enough. */
+function readCache(path: string, maxAgeMs: number, now: number): FrameworkApiSymbol[] | null {
   try {
-    const cached = JSON.parse(readFileSync(path, 'utf8')) as { fetched_at?: number; body?: string };
-    if (typeof cached.body !== 'string' || typeof cached.fetched_at !== 'number') {
+    const cached = JSON.parse(readFileSync(path, 'utf8')) as Partial<GuideCache>;
+    if (
+      !Array.isArray(cached.records) ||
+      typeof cached.fetched_at !== 'number' ||
+      cached.parser_version !== CACHE_PARSER_VERSION
+    ) {
       return null;
     }
-    return now - cached.fetched_at <= maxAgeMs ? cached.body : null;
+    return now - cached.fetched_at <= maxAgeMs ? cached.records : null;
   } catch {
     return null;
   }
 }
 
-/** Persist a fetched guide, atomically, so a killed build leaves no half-written cache. */
-function writeCache(path: string, body: string, now: number): void {
+/** Persist derived records atomically, so a killed build leaves no half-written cache. */
+function writeCache(path: string, records: FrameworkApiSymbol[], now: number): void {
   try {
     mkdirSync(dirname(path), { recursive: true });
     const tmp = `${path}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ fetched_at: now, body }), 'utf8');
+    const payload: GuideCache = {
+      fetched_at: now,
+      parser_version: CACHE_PARSER_VERSION,
+      records,
+    };
+    writeFileSync(tmp, JSON.stringify(payload), 'utf8');
     renameSync(tmp, path);
     /* v8 ignore next 4 -- a cache that cannot be written costs a re-fetch next build, which is not worth failing an index build over. */
   } catch {
-    // Deliberately empty: the guide is already in hand; caching it is an optimization.
+    // Deliberately empty: the records are already in hand; caching them is an optimization.
   }
 }
 
@@ -100,17 +165,26 @@ export interface UpgradeGuideOptions {
 }
 
 /**
- * The Upgrade Guide text for an installed Laravel major version, from cache when it is
- * fresh and from the network otherwise. Returns null when it cannot be obtained — offline,
+ * The doc-derived deprecation records for an installed Laravel major version: from cache
+ * when it is fresh, and from the version-pinned guide otherwise.
+ *
+ * Returns null when nothing can be obtained — an unparseable major, offline with no cache,
  * a failed request, a non-200 — which the caller treats as "no doc-derived records", never
  * as an error.
+ *
+ * The fetched document itself is parsed in memory and discarded; only the derived,
+ * strictly-shaped records are cached. Persisting the raw markdown would put network text on
+ * the filesystem for no benefit the records do not already give.
  */
-export async function loadLaravelUpgradeGuide(
+export async function loadLaravelDeprecations(
   projectRoot: string,
   version: string,
   options: UpgradeGuideOptions = {},
-): Promise<string | null> {
+): Promise<FrameworkApiSymbol[] | null> {
   const major = majorOf(version);
+  if (major === null) {
+    return null;
+  }
   const path = upgradeGuideCachePath(projectRoot, major);
   const now = (options.now ?? (() => Date.now()))();
   const maxAge = options.maxAgeMs ?? UPGRADE_GUIDE_MAX_AGE_MS;
@@ -133,9 +207,9 @@ export async function loadLaravelUpgradeGuide(
     if (!response.ok) {
       return readCache(path, Number.POSITIVE_INFINITY, now);
     }
-    const body = await response.text();
-    writeCache(path, body, now);
-    return body;
+    const records = cacheable(parseUpgradeGuide(await response.text(), major), major);
+    writeCache(path, records, now);
+    return records;
   } catch {
     // Offline, DNS failure, timeout: fall back to any cache at all, then to nothing.
     return readCache(path, Number.POSITIVE_INFINITY, now);
@@ -151,7 +225,7 @@ export async function loadLaravelUpgradeGuide(
  */
 export function parseUpgradeGuide(markdown: string, version: string): FrameworkApiSymbol[] {
   const records = new Map<string, FrameworkApiSymbol>();
-  const major = majorOf(version);
+  const major = majorOf(version) ?? version;
   let heading = 'deprecations';
   let headingIsDeprecation = false;
   // Sticky within a section: the guide writes "The following have been removed:" once and
@@ -262,12 +336,12 @@ export async function applyLaravelBackstop(
   if (entry === undefined) {
     return { applied: false, deprecations: 0 };
   }
-  const guide = await loadLaravelUpgradeGuide(projectRoot, entry.version, options);
-  if (guide === null) {
+  const docDerived = await loadLaravelDeprecations(projectRoot, entry.version, options);
+  if (docDerived === null) {
     return { applied: false, deprecations: 0 };
   }
   const before = entry.symbols.filter((record) => record.deprecated).length;
-  entry.symbols = mergeDocDerived(entry.symbols, parseUpgradeGuide(guide, entry.version));
+  entry.symbols = mergeDocDerived(entry.symbols, docDerived);
   const after = entry.symbols.filter((record) => record.deprecated).length;
   return { applied: true, deprecations: after - before };
 }
