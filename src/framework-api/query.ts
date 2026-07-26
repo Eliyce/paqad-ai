@@ -7,7 +7,7 @@
 
 import { levenshtein } from '@/module-decisions/schema.js';
 
-import { DYNAMIC_MEMBER_SUFFIX } from './adapters/node.js';
+import { DYNAMIC_MEMBER_SUFFIX, containerOf, lastNameSegment } from './adapters/shared.js';
 import type { FrameworkApiIndex, FrameworkApiPackage, FrameworkApiSymbol } from './types.js';
 
 /**
@@ -36,29 +36,25 @@ export interface FrameworkApiQueryResult {
   nearest: string | null;
 }
 
-/** The last dotted segment of a qualified name (`Component.render` -> `render`). */
-function lastSegment(name: string): string {
-  const index = name.lastIndexOf('.');
-  return index === -1 ? name : name.slice(index + 1);
-}
-
 /**
  * Match a claimed symbol against a package's records.
  *
  * Exact first, then by last segment, because a plan may reasonably write either
  * `componentWillMount` or `Component.componentWillMount` for the same member and both
- * should reach the same verdict.
+ * should reach the same verdict. Since issue #398 the segment split also understands PHP's
+ * `::` and `\`, so `Cache::get` and `Illuminate\Support\Facades\Cache::get` answer from the
+ * one record the index stores.
  */
 function findRecord(entry: FrameworkApiPackage, symbol: string): FrameworkApiSymbol | null {
   const exact = entry.symbols.find((record) => record.name === symbol);
   if (exact) {
     return exact;
   }
-  const wanted = lastSegment(symbol);
+  const wanted = lastNameSegment(symbol);
   return (
     entry.symbols.find(
       (record) =>
-        !record.name.endsWith(DYNAMIC_MEMBER_SUFFIX) && lastSegment(record.name) === wanted,
+        !record.name.endsWith(DYNAMIC_MEMBER_SUFFIX) && lastNameSegment(record.name) === wanted,
     ) ?? null
   );
 }
@@ -66,14 +62,24 @@ function findRecord(entry: FrameworkApiPackage, symbol: string): FrameworkApiSym
 /**
  * Whether the claimed symbol's container accepts runtime-provided members. A claim on
  * `Facade.anything` must not be called absent when `Facade.*` is in the index.
+ *
+ * The container is compared by last segment too: an index that stores
+ * `Illuminate\Support\Facades\Cache.*` has to cover a claim written `Cache::someMacro`,
+ * because a container spelled two ways is still one container (INV-1).
  */
 function coveredByDynamicContainer(entry: FrameworkApiPackage, symbol: string): boolean {
-  const separator = symbol.lastIndexOf('.');
-  if (separator === -1) {
+  const container = containerOf(symbol);
+  if (container === null) {
     return false;
   }
-  const container = symbol.slice(0, separator);
-  return entry.symbols.some((record) => record.name === `${container}${DYNAMIC_MEMBER_SUFFIX}`);
+  const wanted = lastNameSegment(container);
+  return entry.symbols.some((record) => {
+    if (!record.name.endsWith(DYNAMIC_MEMBER_SUFFIX)) {
+      return false;
+    }
+    const recorded = record.name.slice(0, -DYNAMIC_MEMBER_SUFFIX.length);
+    return recorded === container || lastNameSegment(recorded) === wanted;
+  });
 }
 
 /**
@@ -84,12 +90,12 @@ function coveredByDynamicContainer(entry: FrameworkApiPackage, symbol: string): 
  * unrelated symbol is worse than suggesting nothing.
  */
 export function nearestFrameworkSymbol(symbol: string, known: string[]): string | null {
-  const wanted = lastSegment(symbol);
+  const wanted = lastNameSegment(symbol);
   const bound = Math.max(2, Math.floor(wanted.length / 4));
   let best: string | null = null;
   let bestDistance = bound + 1;
   for (const candidate of known) {
-    const distance = levenshtein(wanted, lastSegment(candidate), bound);
+    const distance = levenshtein(wanted, lastNameSegment(candidate), bound);
     if (distance < bestDistance) {
       best = candidate;
       bestDistance = distance;

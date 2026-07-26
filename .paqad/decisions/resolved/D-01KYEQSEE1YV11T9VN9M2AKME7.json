@@ -1,0 +1,26 @@
+{
+  "id": "D-01KYEQSEE1YV11T9VN9M2AKME7",
+  "category": "architecture-path",
+  "title": "#398: where does the Laravel Upgrade Guide deprecation backstop come from?",
+  "context": "AC-2 wants provenance 'doc-derived' for symbols deprecated only in the Upgrade Guide. Verified against a real Laravel 13.18.0 vendor tree: laravel/framework ships 39 @deprecated docblocks and ZERO #[\\Deprecated] attributes, so the doc backstop is genuinely load-bearing. But laravel/docs is NOT shipped in vendor/, and Phase B's stated invariant INV-1 is zero model tokens AND zero network. So an Upgrade Guide can only reach us from a local file the developer points at, or from a network fetch that breaks INV-1.",
+  "options": [
+    {
+      "option_key": "local-path",
+      "label": "Offline: opt-in --upgrade-guide <path> flag, parsed into doc-derived records"
+    },
+    {
+      "option_key": "network-fetch",
+      "label": "Fetch the version-pinned guide from laravel/docs (breaks INV-1)"
+    },
+    {
+      "option_key": "skip-doc-derived",
+      "label": "Skip doc-derived in this PR; keep the provenance reserved"
+    }
+  ],
+  "recommendation": "local-path",
+  "created_at": "2026-07-26T08:13:44.769Z",
+  "status": "resolved",
+  "chosen": "network-fetch",
+  "rationale": "Haider chose the fetched, version-pinned Upgrade Guide so doc-derived works with no developer effort. Phase B's zero-network invariant is amended for this one backstop: fetch is cached, degrades to no doc-derived records when offline, and never blocks the build.",
+  "resolved_at": "2026-07-26T08:39:54.539Z"
+}

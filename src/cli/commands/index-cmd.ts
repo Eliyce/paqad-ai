@@ -14,6 +14,7 @@ import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
 import { readCodeKnowledgeIndex, writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import { buildFrameworkApiIndex } from '@/framework-api/builder.js';
 import { queryFrameworkApi, type FrameworkApiQueryResult } from '@/framework-api/query.js';
+import { applyLaravelBackstop } from '@/framework-api/laravel-upgrade-guide.js';
 import { validateFrameworkApiIndex } from '@/framework-api/schema.js';
 import { readFrameworkApiIndex, writeFrameworkApiIndex } from '@/framework-api/store.js';
 
@@ -24,6 +25,7 @@ interface BuildFlags {
 
 interface FrameworkApiBuildFlags extends BuildFlags {
   force: boolean;
+  offline: boolean;
 }
 
 interface QueryFlags {
@@ -137,10 +139,17 @@ function createFrameworkApiCommand(): Command {
     .description('Build the framework-API index at .paqad/indexes/framework-api.json')
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--force', 'Re-walk every package instead of reusing unchanged entries', false)
+    .option('--offline', 'Skip the Laravel Upgrade Guide fetch and use only what is cached', false)
     .option('--quiet', 'Suppress the machine-readable summary line', false)
-    .action((options: FrameworkApiBuildFlags) => {
+    .action(async (options: FrameworkApiBuildFlags) => {
       const { index, cacheHits } = buildFrameworkApiIndex(options.projectRoot, {
         force: options.force,
+      });
+      // Issue #398 — the doc-derived backstop runs here, after the offline build, so the
+      // builder and every adapter stay synchronous and network-free. A failed or skipped
+      // fetch simply adds nothing.
+      const backstop = await applyLaravelBackstop(options.projectRoot, index, {
+        offline: options.offline,
       });
       const validation = validateFrameworkApiIndex(index);
       if (!validation.valid) {
@@ -166,6 +175,11 @@ function createFrameworkApiCommand(): Command {
           `${deprecated} marked deprecated (${cacheHits} reused from cache).` +
           (index.blocked.length > 0 ? ` ⚪ ${index.blocked.length} package(s) skipped.` : ''),
       );
+      if (backstop.applied) {
+        console.log(
+          `> 🟡 ${backstop.deprecations} more deprecation(s) from the Laravel upgrade guide — recorded as doc-derived, not read from the code.`,
+        );
+      }
       for (const blocked of index.blocked) {
         console.log(`> ⚪ ${blocked.package} — ${blocked.detail}`);
       }

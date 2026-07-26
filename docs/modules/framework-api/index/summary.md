@@ -16,9 +16,23 @@ two questions that actually matter, for the version actually installed:
 - does it carry a static **`@deprecated`** marker?
 
 Both answers come from the declaration files that physically ship inside the installed
-package. **Zero model tokens, zero network.** It is the framework-native counterpart to
+package. **Zero model tokens**, and the only network call in the whole module is the
+Laravel Upgrade Guide backstop described below. It is the framework-native counterpart to
 what the code-knowledge index (#353) did for first-party symbols — which is first-party
 only by design, since it hard-excludes `node_modules` and `vendor`.
+
+Four ecosystems are covered (issue #398). Each runs the same three steps against a
+different declaration layer:
+
+| Ecosystem | Installed version from | Existence + deprecation from |
+| --- | --- | --- |
+| JS/TS (`node`) | `node_modules/<pkg>/package.json` | the shipped `.d.ts` / `@types` declarations, walked with the TypeScript compiler |
+| PHP (`php`) | `vendor/composer/installed.json`, then `composer.lock` | `vendor/` source: `#[\Deprecated]`, then `@deprecated`, then `trigger_error(E_USER_DEPRECATED)` |
+| Python (`python`) | `<site-packages>/<dist>-<ver>.dist-info/METADATA` | `__all__` + module-level declarations (a `.pyi` stub wins): PEP 702 `@deprecated`, then `DeprecationWarning` |
+| Java/JVM (`jvm`) | the jar's `META-INF/maven/**/pom.properties` | jar class entries: the `Deprecated` attribute and the `RuntimeVisibleAnnotations` entry for `@Deprecated` |
+
+`go`, `rust` and `dart` are deliberately unregistered: an ecosystem with no adapter records
+`no-adapter` rather than being run through the wrong reader.
 
 ## Shape
 
@@ -61,8 +75,23 @@ prevent.
   API, following `export *` barrels, `declare namespace` + `export =`, and one level of
   class/interface members. Existence is whether the exported symbol resolves; deprecation
   is `getJsDocTags()` carrying `@deprecated`.
+- **Shared adapter primitives** (`adapters/shared.ts`) — the wildcard contract
+  (`DYNAMIC_MEMBER_SUFFIX`, `dynamicRecord`), the posix path helper, and the segment-aware
+  name split that understands `.`, `::` and `\`. One definition, so "never claim absence you
+  cannot prove" cannot diverge between ecosystems.
+- **PHP adapter** (`adapters/php.ts`, `adapters/php-scan.ts`) — reads composer's installed
+  manifest and the `vendor/` declarations. A facade's members come from its
+  `@method static … name(...)` docblocks, which Laravel writes precisely for tooling, so
+  `Cache::get` resolves instead of reporting only `__callStatic`.
+- **Python adapter** (`adapters/python.ts`) — reads the dist-info METADATA and the module's
+  own declarations, preferring a `.pyi` stub when one ships.
+- **JVM adapter** (`adapters/jvm.ts`, `adapters/jar.ts`, `adapters/class-file.ts`) — locates
+  the artifact in the developer's Maven repository or Gradle module cache (the one ecosystem
+  whose install tree is not inside the project), then reads the jar's zip directory and the
+  class files' constant pools. A Spring `*-starter-*` ships no classes, so a starter is
+  followed through its sibling POM to the modules it aggregates.
 - **Adapter registry** (`adapters/registry.ts`) — modelled on `EcosystemParserRegistry`.
-  Only `node` is registered; PHP, Python, and JVM are #398 and drop in here.
+  `node`, `php`, `python` and `jvm` are registered; `go`, `rust` and `dart` are not.
 - **Builder** (`builder.ts`) — selects packages by crossing the stack snapshot with the
   shared `FRAMEWORK_PACKAGE_MAP`, honours each dependency's `root` (this very repo installs
   react under `graph-ui/`, not at the top), and content-addresses each entry so a rebuild at
@@ -96,9 +125,37 @@ same 299 deprecations found, and no case where "not listed" becomes "does not ex
 
 `deprecated: false` means **"no static deprecation marker was found"**, not "this API is
 live". Verified counter-examples: `react-dom`'s `render`/`hydrate` deprecation is a runtime
-`console.warn`, not a `.d.ts` tag, and Laravel 10.x `Str.php` carries **zero**
-`@deprecated` docblocks (its record is the version-pinned Upgrade Guide). That is why the
-verdicts are tiered and why nothing here ever reports a confident "not deprecated".
+`console.warn`, not a `.d.ts` tag, and a real Laravel **v13.18.0** install carries 39
+`@deprecated` docblocks and **zero** `#[\Deprecated]` attributes across the whole framework.
+That is why the verdicts are tiered and why nothing here ever reports a confident "not
+deprecated".
+
+## The Laravel Upgrade Guide backstop (D-01KYEQSEE1YV11T9VN9M2AKME7)
+
+Because Laravel's authoritative deprecation record is prose, not tags, the version-pinned
+Upgrade Guide is fetched for the installed major, cached, and parsed
+(`laravel-upgrade-guide.ts`). A symbol the guide deprecates that the code never tagged is
+recorded `deprecated: true` with `provenance: "doc-derived"`; a real `@deprecated` tag is
+never overwritten by prose, because a declaration says more than a guide does.
+
+This is the **one** place the index reaches the network, and #397's zero-network invariant
+is amended for it by the decision above. It is fenced so nothing else changes:
+
+- it runs as a **post-pass** on the built index, so the builder and every adapter stay
+  synchronous and offline;
+- the fetched document is parsed in memory and **discarded**: only the derived records are
+  cached, under `.paqad/indexes/cache/`, re-fetched at most weekly. Each cached record has a
+  strictly-shaped `Class::method` name, a numeric major, a boolean, and a message this
+  module composes — so no network text ever reaches the filesystem;
+- a version with no readable leading major yields **no guide at all**, because that major
+  reaches both a URL and a cache filename and the version behind it is read out of the
+  project's own `vendor/` tree;
+- `--offline` skips the network and uses only what is cached;
+- a failed or skipped fetch adds **no** records rather than failing the build.
+
+What it finds is honestly variable, because the guides vary: measured against the real
+published guides, 11.x yields 19 records, 12.x yields 4, and 13.x yields 0 — the 13.x guide
+names almost nothing by `Class::method`.
 
 ## Dependency decision (D-01KYCFNW46E4AZC9JAAH5ZCR9P)
 
@@ -120,11 +177,16 @@ false "absent".
 ## CLI
 
 ```bash
-paqad-ai index framework-api build [--force] [--quiet]
+paqad-ai index framework-api build [--force] [--offline] [--quiet]
 paqad-ai index framework-api query <package> <symbol>
 ```
 
 `query` exits `1` for `absent` or `deprecated`, and `2` when no index has been built.
+`--offline` skips the Laravel Upgrade Guide fetch.
+
+A symbol can be claimed in any spelling its ecosystem uses: `Cache::get`, `Cache.get` and
+`Illuminate\Support\Facades\Cache::get` all answer from the one stored record, because the
+name match compares last segments across `.`, `::` and `\`.
 
 ## Boundaries
 

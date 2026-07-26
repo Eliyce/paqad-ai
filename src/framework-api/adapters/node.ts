@@ -21,9 +21,6 @@
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { relative } from 'node:path';
-
-import { toPosixPath } from '@/core/path-utils.js';
 
 import { readDeprecation, type JsDocTagLike } from '../deprecation.js';
 import { resolveInstalledVersion, resolveTypesEntry } from '../resolve-version.js';
@@ -36,17 +33,7 @@ import type {
   FrameworkApiSymbolKind,
 } from '../types.js';
 
-/** The wildcard suffix that marks a container as accepting runtime-provided members. */
-export const DYNAMIC_MEMBER_SUFFIX = '.*';
-
-/**
- * A project-relative path in the repo's posix-everywhere form. The index and the blocked
- * details are output boundaries — persisted JSON a consumer reads — so a Windows
- * `graph-ui\node_modules\…` must never reach them (see `toPosixPath`).
- */
-function projectRelative(projectRoot: string, target: string): string {
-  return toPosixPath(relative(projectRoot, target));
-}
+import { dynamicRecord, projectRelative } from './shared.js';
 
 /**
  * How many exported containers get drilled for members. Class and interface members are
@@ -92,29 +79,6 @@ function toRecord(
     since: deprecation.since,
     for_removal: deprecation.for_removal,
     provenance: 'asserted',
-  };
-}
-
-/**
- * A wildcard record saying "this container's members are not individually enumerated
- * here, so absence cannot be asserted for them" (INV-2).
- *
- * Emitted for every drilled container, which is what makes storing only the DEPRECATED
- * members honest: an unlisted member reads `unknown-dynamic` (a warning) rather than
- * `absent` (a block). Storing every member instead was measured on this repo at 18,317
- * records for react alone against 285 deprecated ones — 98.6% of the file to answer a
- * question the wildcard answers conservatively.
- */
-function dynamicRecord(container: string): FrameworkApiSymbol {
-  return {
-    name: `${container}${DYNAMIC_MEMBER_SUFFIX}`,
-    kind: 'member',
-    exists: true,
-    deprecated: false,
-    message: null,
-    since: null,
-    for_removal: false,
-    provenance: 'unknown-dynamic',
   };
 }
 
