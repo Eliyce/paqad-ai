@@ -124,6 +124,7 @@ export async function loadLaravelUpgradeGuide(
     return readCache(path, Number.POSITIVE_INFINITY, now);
   }
 
+  /* v8 ignore next -- the tests always inject a fetch; the fallback is the real network call this module exists to make. */
   const request = options.fetchImpl ?? globalThis.fetch;
   try {
     const response = await request(LARAVEL_UPGRADE_GUIDE_URL.replace('{major}', major), {

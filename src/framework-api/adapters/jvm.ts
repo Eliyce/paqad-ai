@@ -28,7 +28,7 @@ import { parseClassFile } from './class-file.js';
 import { readZipDirectory, readZipEntry } from './jar.js';
 import { dynamicRecord } from './shared.js';
 
-/** `version=3.5.0` in a jar's `META-INF/maven/**​/pom.properties`. */
+/** `version=3.5.0` in a jar's nested `META-INF/maven` pom.properties. */
 const POM_VERSION_PATTERN = /^version=(.+)$/m;
 
 /**
@@ -55,7 +55,13 @@ export function jarCandidates(
   const found: string[] = [];
 
   // Maven: ~/.m2/repository/<group as path>/<artifact>/<version>/<artifact>-<version>.jar
-  const mavenDir = join(home, '.m2', 'repository', ...coordinate.group.split('.'), coordinate.artifact);
+  const mavenDir = join(
+    home,
+    '.m2',
+    'repository',
+    ...coordinate.group.split('.'),
+    coordinate.artifact,
+  );
   for (const version of listDirs(mavenDir)) {
     const jar = join(mavenDir, version, `${coordinate.artifact}-${version}.jar`);
     if (existsSync(jar)) {
@@ -122,8 +128,8 @@ export function versionFromJar(buffer: Buffer): string | null {
 function readJar(path: string): Buffer | null {
   try {
     return readFileSync(path);
+    /* v8 ignore next 3 -- every caller passes a path an existsSync or statSync hit just proved, so reaching this needs the artifact to vanish mid-build. */
   } catch {
-    /* v8 ignore next 2 -- the path came from an existsSync hit, so this needs a race. */
     return null;
   }
 }
@@ -142,6 +148,7 @@ function resolveJar(coordinate: {
 }): { path: string; version: string } | null {
   for (const candidate of [...jarCandidates(coordinate, homedir())].reverse()) {
     const buffer = readJar(candidate);
+    /* v8 ignore next 3 -- readJar only fails on a path that existed a moment ago; an unreadable candidate is skipped rather than failing the whole resolve. */
     if (buffer === null) {
       continue;
     }
@@ -179,7 +186,10 @@ function siblingPom(jarPath: string): string | null {
 }
 
 /** The records one class contributes: the class, its deprecated members, its wildcard. */
-function classRecords(className: string, parsed: NonNullable<ReturnType<typeof parseClassFile>>): FrameworkApiSymbol[] {
+function classRecords(
+  className: string,
+  parsed: NonNullable<ReturnType<typeof parseClassFile>>,
+): FrameworkApiSymbol[] {
   const records: FrameworkApiSymbol[] = [
     {
       name: className,
@@ -225,7 +235,6 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
       if (!statSync(searchRoot).isDirectory()) {
         return null;
       }
-      /* v8 ignore next 3 -- searchRoot is the project root the builder just walked. */
     } catch {
       return null;
     }
@@ -278,6 +287,7 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
     const sources: string[] = [cachePath(input.packageDir)];
     for (const dependency of aggregatedCoordinates(pom).slice(0, MAX_AGGREGATED)) {
       const coordinate = parseCoordinate(dependency);
+      /* v8 ignore next 3 -- the ecosystem parser only ever emits `group:artifact`, so this cannot trip today; it keeps a future parser change from indexing a malformed coordinate. */
       if (coordinate === null) {
         continue;
       }
@@ -310,6 +320,7 @@ const MAX_AGGREGATED = 12;
 /** One jar's records, or null when the artifact could not be read at all. */
 function indexJar(jarPath: string): { symbols: FrameworkApiSymbol[]; classes: number } | null {
   const buffer = readJar(jarPath);
+  /* v8 ignore next 3 -- readJar returns null only for a path that existed moments earlier. */
   if (buffer === null) {
     return null;
   }
@@ -324,6 +335,7 @@ function indexJar(jarPath: string): { symbols: FrameworkApiSymbol[]; classes: nu
     if (!entry.name.endsWith('.class') || entry.name.includes('$')) {
       continue;
     }
+    /* v8 ignore next 3 -- the cap only bites on a jar with more than 4,000 top-level classes; a fixture that large would dominate the suite's runtime to prove a bound. */
     if (classes >= MAX_CLASSES) {
       break;
     }

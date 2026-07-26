@@ -109,6 +109,7 @@ function phpFiles(dir: string): string[] {
     let entries: import('node:fs').Dirent[];
     try {
       entries = readdirSync(current, { withFileTypes: true });
+      /* v8 ignore next 3 -- the directory came from a readdir hit one level up; an unreadable subtree is skipped rather than failing the package. */
     } catch {
       continue;
     }
@@ -162,7 +163,11 @@ export function classRecords(namespace: string | null, declared: PhpClass): Fram
   ];
 
   for (const method of declared.methods) {
-    const record = assertedRecord(`${qualified}::${method.name}`, 'member', phpDeprecationTags(method));
+    const record = assertedRecord(
+      `${qualified}::${method.name}`,
+      'member',
+      phpDeprecationTags(method),
+    );
     if (record.deprecated) {
       records.push(record);
     }

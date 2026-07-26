@@ -25,7 +25,10 @@ function install(
   files: Record<string, string>,
   options: { sitePackages?: string[]; metadata?: string } = {},
 ): FrameworkApiAdapterInput {
-  const site = join(root, ...(options.sitePackages ?? ['.venv', 'lib', 'python3.12', 'site-packages']));
+  const site = join(
+    root,
+    ...(options.sitePackages ?? ['.venv', 'lib', 'python3.12', 'site-packages']),
+  );
   const distInfo = join(site, `${dist}-${version}.dist-info`);
   mkdirSync(distInfo, { recursive: true });
   writeFileSync(
@@ -194,6 +197,21 @@ describe('pythonFrameworkApiAdapter.resolveInstalled', () => {
     expect(pythonFrameworkApiAdapter.resolveInstalled(root, 'flask')?.version).toBe('3.0.0');
   });
 
+  it('ignores a dist-info directory whose name carries no version segment', () => {
+    install('flask', '3.0.0', { '__init__.py': '' });
+    mkdirSync(join(root, '.venv/lib/python3.12/site-packages/weird.dist-info'), {
+      recursive: true,
+    });
+    expect(pythonFrameworkApiAdapter.resolveInstalled(root, 'flask')?.version).toBe('3.0.0');
+  });
+
+  it('ignores a dist-info directory with no METADATA at all', () => {
+    mkdirSync(join(root, '.venv/lib/python3.12/site-packages/flask-3.0.0.dist-info'), {
+      recursive: true,
+    });
+    expect(pythonFrameworkApiAdapter.resolveInstalled(root, 'flask')).toBeNull();
+  });
+
   it('returns null when nothing is installed', () => {
     expect(pythonFrameworkApiAdapter.resolveInstalled(root, 'flask')).toBeNull();
   });
@@ -242,7 +260,9 @@ describe('pythonFrameworkApiAdapter.index', () => {
   });
 
   it('normalizes a hyphenated distribution to its import name', () => {
-    const input = { ...install('typing-extensions', '4.12.0', { '__init__.py': 'def go():\n    pass\n' }) };
+    const input = {
+      ...install('typing-extensions', '4.12.0', { '__init__.py': 'def go():\n    pass\n' }),
+    };
     const result = pythonFrameworkApiAdapter.index(input);
     expect(result.indexed).toBe(true);
     if (!result.indexed) {

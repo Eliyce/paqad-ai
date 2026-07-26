@@ -84,6 +84,11 @@ export interface MemberFixture {
   deprecated?: DeprecationFixture;
   /** Give the member a RuntimeVisibleAnnotations entry that is NOT a deprecation. */
   otherAnnotation?: boolean;
+  /**
+   * Give the member an annotation whose element values are an array, a nested annotation
+   * and an enum — the three element_value shapes the skipper has to walk to stay in sync.
+   */
+  richAnnotation?: boolean;
 }
 
 export interface ClassFixture {
@@ -216,6 +221,48 @@ export function buildClassFile(fixture: ClassFixture): Buffer {
     return Buffer.concat([u2(1), u2(typeIndex), u2(pairs.length / 3), ...pairs]);
   };
 
+  /**
+   * An annotation carrying an array of strings, a nested annotation and an enum constant,
+   * followed by a real `@Deprecated` — so a reader that mis-walks any element_value shape
+   * loses the deprecation that follows it.
+   */
+  const richAnnotation = (): Buffer => {
+    const arrayValue = Buffer.concat([
+      Buffer.from([0x5b]),
+      u2(2),
+      Buffer.from([0x73]),
+      u2(sinceName),
+      Buffer.from([0x73]),
+      u2(sinceName),
+    ]);
+    // One pair inside the nested annotation, so the annotation skipper's loop body runs.
+    const nested = Buffer.concat([
+      Buffer.from([0x40]),
+      u2(otherType),
+      u2(1),
+      u2(sinceName),
+      Buffer.from([0x73]),
+      u2(sinceName),
+    ]);
+    const enumValue = Buffer.concat([Buffer.from([0x65]), u2(sinceName), u2(sinceName)]);
+    return Buffer.concat([
+      u2(2),
+      u2(otherType),
+      u2(3),
+      u2(sinceName),
+      arrayValue,
+      u2(sinceName),
+      nested,
+      u2(sinceName),
+      enumValue,
+      u2(deprecatedType),
+      u2(1),
+      u2(sinceName),
+      Buffer.from([0x73]),
+      u2(pool.utf8('7')),
+    ]);
+  };
+
   const attributes = (member: MemberFixture | { deprecated?: DeprecationFixture }): Buffer => {
     const parts: Buffer[] = [];
     let count = 0;
@@ -230,6 +277,11 @@ export function buildClassFile(fixture: ClassFixture): Buffer {
     }
     if ('otherAnnotation' in member && member.otherAnnotation === true) {
       const body = annotation(otherType);
+      parts.push(u2(annotationsAttr), u4(body.length), body);
+      count += 1;
+    }
+    if ('richAnnotation' in member && member.richAnnotation === true) {
+      const body = richAnnotation();
       parts.push(u2(annotationsAttr), u4(body.length), body);
       count += 1;
     }

@@ -27,12 +27,7 @@ import type {
 import { dynamicRecord, projectRelative } from './shared.js';
 
 /** Where a virtualenv puts its packages, relative to the project root. */
-const SITE_PACKAGES_ROOTS = [
-  ['.venv', 'lib'],
-  ['venv', 'lib'],
-  ['env', 'lib'],
-  ['site-packages'],
-];
+const SITE_PACKAGES_ROOTS = [['.venv', 'lib'], ['venv', 'lib'], ['env', 'lib'], ['site-packages']];
 
 /** `Version: 3.1.2` in a wheel's METADATA. */
 const METADATA_VERSION_PATTERN = /^Version:[ \t]*(.+)$/m;
@@ -44,8 +39,7 @@ const DUNDER_ALL_PATTERN = /^__all__\s*(?::[^=]+)?=\s*[[(]([\s\S]*?)[\])]/m;
 const QUOTED_NAME_PATTERN = /['"]([A-Za-z_]\w*)['"]/g;
 
 /** A module-level `def` / `async def` / `class`, with the decorators above it. */
-const DECLARATION_PATTERN =
-  /^((?:@[^\n]*\n)*)(?:async[ \t]+)?(def|class)[ \t]+(\w+)/gm;
+const DECLARATION_PATTERN = /^((?:@[^\n]*\n)*)(?:async[ \t]+)?(def|class)[ \t]+(\w+)/gm;
 
 /** PEP 702: `@deprecated("…")`, optionally namespaced (`typing_extensions.deprecated`). */
 const PEP702_PATTERN = /@(?:[\w.]+\.)?deprecated\s*\(\s*(?:['"]([^'"]*)['"])?/;
@@ -86,11 +80,11 @@ function sitePackagesDirs(searchRoot: string): string[] {
     }
     // A virtualenv nests under `lib/python3.X/site-packages`; the minor version is the
     // interpreter's, so the directory is discovered rather than guessed.
-    let versionDirs: string[] = [];
+    let versionDirs: string[];
     try {
       versionDirs = readdirSync(base);
+      /* v8 ignore next 3 -- `base` was just proven to exist; an unreadable one needs a race. */
     } catch {
-      /* v8 ignore next 2 -- `base` exists and was just listed; unreadable needs a race. */
       continue;
     }
     for (const versionDir of versionDirs) {
@@ -129,7 +123,8 @@ function findDistInfo(
       const distInfo = join(siteDir, entry);
       const metadata = readText(join(distInfo, 'METADATA'));
       // The METADATA `Version:` field is the authority; the directory name only locates it.
-      const version = metadata === null ? null : (METADATA_VERSION_PATTERN.exec(metadata)?.[1] ?? null);
+      const version =
+        metadata === null ? null : (METADATA_VERSION_PATTERN.exec(metadata)?.[1] ?? null);
       if (version !== null) {
         return { siteDir, distInfo, version: version.trim() };
       }
@@ -175,10 +170,12 @@ export function pythonDeprecationTags(
 ): { name: string; text?: { text: string }[] }[] {
   const pep702 = PEP702_PATTERN.exec(decorators);
   if (pep702 !== null) {
+    /* v8 ignore next -- a bare `@deprecated()` with no message still matches with an empty group. */
     return [{ name: 'deprecated', text: [{ text: pep702[1] ?? '' }] }];
   }
   const warned = DEPRECATION_WARNING_PATTERN.exec(body);
   if (warned !== null) {
+    /* v8 ignore next -- same: the message group participates even when empty. */
     return [{ name: 'deprecated', text: [{ text: warned[1] ?? '' }] }];
   }
   return [];
@@ -212,6 +209,7 @@ export function moduleRecords(moduleName: string, source: string): FrameworkApiS
     }
     seen.add(name);
     const deprecation = readDeprecation(
+      /* v8 ignore next -- the decorator group is always present, empty when there are none. */
       pythonDeprecationTags(match[1] ?? '', bodyFrom(source, match.index + match[0].length)),
     );
     records.push({

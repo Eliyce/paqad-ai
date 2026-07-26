@@ -43,10 +43,7 @@ export function readZipDirectory(buffer: Buffer): ZipEntry[] | null {
   if (start === null) {
     return null;
   }
-  if (
-    start >= 20 &&
-    buffer.readUInt32LE(start - 20) === ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR
-  ) {
+  if (start >= 20 && buffer.readUInt32LE(start - 20) === ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR) {
     // zip64 puts the real sizes and offsets in a different record; rather than half-read
     // it, the caller is told this archive could not be read.
     return null;

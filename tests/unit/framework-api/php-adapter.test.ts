@@ -9,7 +9,11 @@ import {
   normalizeComposerVersion,
   phpFrameworkApiAdapter,
 } from '@/framework-api/adapters/php.js';
-import { phpDeprecationTags, scanPhpFile, stripDocComment } from '@/framework-api/adapters/php-scan.js';
+import {
+  phpDeprecationTags,
+  scanPhpFile,
+  stripDocComment,
+} from '@/framework-api/adapters/php-scan.js';
 import { queryFrameworkApi } from '@/framework-api/query.js';
 import type { FrameworkApiAdapterInput, FrameworkApiIndex } from '@/framework-api/types.js';
 
@@ -83,7 +87,7 @@ afterEach(() => {
 });
 
 describe('normalizeComposerVersion', () => {
-  it('drops composer\'s leading v so the stored version reads like a plan writes it', () => {
+  it("drops composer's leading v so the stored version reads like a plan writes it", () => {
     expect(normalizeComposerVersion('v13.18.0')).toBe('13.18.0');
     expect(normalizeComposerVersion('13.18.0')).toBe('13.18.0');
   });
@@ -142,7 +146,7 @@ class Str
     expect(plain.classes[0]?.dynamic).toBe(false);
   });
 
-  it('reads a facade\'s @method static promises (AC-3)', () => {
+  it("reads a facade's @method static promises (AC-3)", () => {
     const scan = scanPhpFile(`<?php
 
 namespace Acme\\Facades;
@@ -165,8 +169,16 @@ class Cache extends Facade
     expect(scan.classes[0]?.methods).toEqual([]);
   });
 
+  it('reads a truncated class declaration that never opens a body', () => {
+    const scan = scanPhpFile('<?php\n\nnamespace Acme;\n\nclass Trailing');
+    expect(scan.classes[0]?.name).toBe('Trailing');
+    expect(scan.classes[0]?.dynamic).toBe(false);
+  });
+
   it('reads an abstract method that has no body', () => {
-    const scan = scanPhpFile(`<?php\nabstract class Base\n{\n    abstract public function go(): void;\n}\n`);
+    const scan = scanPhpFile(
+      `<?php\nabstract class Base\n{\n    abstract public function go(): void;\n}\n`,
+    );
     expect(scan.classes[0]?.methods.map((method) => method.name)).toEqual(['go']);
     expect(scan.classes[0]?.methods[0]?.body).toBe('');
   });
@@ -259,7 +271,12 @@ describe('phpFrameworkApiAdapter.resolveInstalled', () => {
   });
 
   it('falls back to composer.lock when installed.json is absent', () => {
-    install('acme/pkg', '1.0.0', { 'src/Thing.php': '<?php\nclass Thing {}\n' }, { lockOnly: true });
+    install(
+      'acme/pkg',
+      '1.0.0',
+      { 'src/Thing.php': '<?php\nclass Thing {}\n' },
+      { lockOnly: true },
+    );
     expect(phpFrameworkApiAdapter.resolveInstalled(root, 'acme/pkg')?.version).toBe('1.0.0');
   });
 
@@ -303,16 +320,28 @@ describe('phpFrameworkApiAdapter.resolveInstalled', () => {
 
 describe('phpFrameworkApiAdapter.contentHash', () => {
   it('is stable for an unchanged install (FR-13)', () => {
-    const input = install('acme/pkg', '1.0.0', { 'src/A.php': '<?php\nclass A {}\n' }, {
-      reference: 'abc123',
-    });
-    expect(phpFrameworkApiAdapter.contentHash(input)).toBe(phpFrameworkApiAdapter.contentHash(input));
+    const input = install(
+      'acme/pkg',
+      '1.0.0',
+      { 'src/A.php': '<?php\nclass A {}\n' },
+      {
+        reference: 'abc123',
+      },
+    );
+    expect(phpFrameworkApiAdapter.contentHash(input)).toBe(
+      phpFrameworkApiAdapter.contentHash(input),
+    );
   });
 
   it('changes when the installed reference changes', () => {
-    const input = install('acme/pkg', '1.0.0', { 'src/A.php': '<?php\nclass A {}\n' }, {
-      reference: 'abc123',
-    });
+    const input = install(
+      'acme/pkg',
+      '1.0.0',
+      { 'src/A.php': '<?php\nclass A {}\n' },
+      {
+        reference: 'abc123',
+      },
+    );
     const before = phpFrameworkApiAdapter.contentHash(input);
     install('acme/pkg', '1.0.0', { 'src/A.php': '<?php\nclass A {}\n' }, { reference: 'def456' });
     expect(phpFrameworkApiAdapter.contentHash(input)).not.toBe(before);

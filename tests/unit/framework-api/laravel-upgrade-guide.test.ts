@@ -220,7 +220,14 @@ describe('mergeDocDerived', () => {
           message: 'from the docblock.',
         }),
       ],
-      [record({ name: 'Str::of', deprecated: true, message: 'from the guide.', provenance: 'doc-derived' })],
+      [
+        record({
+          name: 'Str::of',
+          deprecated: true,
+          message: 'from the guide.',
+          provenance: 'doc-derived',
+        }),
+      ],
     );
     expect(merged[0]).toMatchObject({ message: 'from the docblock.', provenance: 'asserted' });
   });
@@ -238,16 +245,11 @@ describe('mergeDocDerived', () => {
       [record({ name: 'Illuminate\\Support\\Str' })],
       [record({ name: 'Gone::method', deprecated: true, provenance: 'doc-derived' })],
     );
-    expect(merged.map((entry) => entry.name)).toEqual([
-      'Illuminate\\Support\\Str',
-      'Gone::method',
-    ]);
+    expect(merged.map((entry) => entry.name)).toEqual(['Illuminate\\Support\\Str', 'Gone::method']);
   });
 
   it('is idempotent, so a rebuild does not double-count', () => {
-    const docDerived = [
-      record({ name: 'Str::of', deprecated: true, provenance: 'doc-derived' }),
-    ];
+    const docDerived = [record({ name: 'Str::of', deprecated: true, provenance: 'doc-derived' })];
     const once = mergeDocDerived([record({ name: 'Illuminate\\Support\\Str::of' })], docDerived);
     expect(mergeDocDerived(once, docDerived)).toEqual(once);
   });

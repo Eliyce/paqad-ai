@@ -52,7 +52,7 @@ const NAMESPACE_PATTERN = /^[ \t]*namespace[ \t]+([A-Za-z_\\][\w\\]*)[ \t]*[;{]/
  *
  * `[\s\S]*?` alone can expand across an intervening comment and attach a class's docblock
  * to a method three lines below it — which then anchors the whole match ABOVE the class
- * declaration, and the method is attributed to no class at all. Forbidding an inner `*​/`
+ * declaration, and the method is attributed to no class at all. Forbidding an inner comment terminator
  * keeps a docblock bound to the declaration it actually sits on.
  */
 const DOC_BLOCK = String.raw`\/\*\*(?:(?!\*\/)[\s\S])*\*\/`;
@@ -83,7 +83,7 @@ const KIND_BY_KEYWORD: Record<string, PhpClass['kind']> = {
   enum: 'enum',
 };
 
-/** Strip a docblock's `/**`, `*` and `*​/` decoration, keeping the text and its tags. */
+/** Strip a docblock's its leading and trailing markers, keeping the text and its tags. */
 export function stripDocComment(doc: string): string {
   return doc
     .replace(/^\/\*\*+/, '')
@@ -150,10 +150,12 @@ export function scanPhpFile(source: string): PhpFileScan {
   for (const match of source.matchAll(CLASS_PATTERN)) {
     const keyword = match[3];
     const name = match[4];
+    /* v8 ignore next 3 -- both groups are mandatory in CLASS_PATTERN, so a match always carries them; the guard exists so a future pattern edit degrades to skipping a declaration rather than recording an undefined name. */
     if (keyword === undefined || name === undefined || match.index === undefined) {
       continue;
     }
     const doc = match[1] === undefined ? null : stripDocComment(match[1]);
+    /* v8 ignore next -- the attribute group always participates, empty string included. */
     const attributes = match[2] ?? '';
     const declarationEnd = match.index + match[0].length;
     // The header (`extends Facade`, `implements …`) sits between the class name and the
@@ -164,6 +166,7 @@ export function scanPhpFile(source: string): PhpFileScan {
       at: declarationEnd,
       value: {
         name,
+        /* v8 ignore next -- the pattern only matches the four keywords the map holds; the fallback keeps the type total. */
         kind: KIND_BY_KEYWORD[keyword] ?? 'class',
         doc,
         attributes,
@@ -177,6 +180,7 @@ export function scanPhpFile(source: string): PhpFileScan {
 
   for (const match of source.matchAll(METHOD_PATTERN)) {
     const name = match[3];
+    /* v8 ignore next 3 -- the name group is mandatory in METHOD_PATTERN; same defensive contract as the class loop above. */
     if (name === undefined || match.index === undefined) {
       continue;
     }
@@ -187,6 +191,7 @@ export function scanPhpFile(source: string): PhpFileScan {
     owner.methods.push({
       name,
       doc: match[1] === undefined ? null : stripDocComment(match[1]),
+      /* v8 ignore next -- as above: the attribute group is always present. */
       attributes: match[2] ?? '',
       body: bodyAfter(source, match.index + match[0].length),
     });
@@ -206,8 +211,7 @@ const ATTRIBUTE_MESSAGE_PATTERN = /(?:message\s*:\s*)?['"]([^'"]*)['"]/;
 const ATTRIBUTE_SINCE_PATTERN = /since\s*:\s*['"]([^'"]*)['"]/;
 
 /** `trigger_error('…', E_USER_DEPRECATED)` anywhere in a method body. */
-const TRIGGER_ERROR_PATTERN =
-  /trigger_error\s*\(\s*['"]([^'"]*)['"][\s\S]{0,80}?E_USER_DEPRECATED/;
+const TRIGGER_ERROR_PATTERN = /trigger_error\s*\(\s*['"]([^'"]*)['"][\s\S]{0,80}?E_USER_DEPRECATED/;
 
 /**
  * The deprecation tags a PHP declaration carries, in the priority the research note sets:
@@ -240,7 +244,9 @@ export function phpDeprecationTags(declaration: {
     const tags: { name: string; text?: { text: string }[] }[] = [];
     for (const match of declaration.doc.matchAll(DOC_TAG_PATTERN)) {
       const name = match[1];
+      /* v8 ignore next -- the tag-name group is mandatory in DOC_TAG_PATTERN. */
       if (name !== undefined) {
+        /* v8 ignore next -- the value group always participates, empty string included. */
         tags.push({ name, text: [{ text: (match[2] ?? '').trim() }] });
       }
     }
@@ -251,6 +257,7 @@ export function phpDeprecationTags(declaration: {
 
   const triggered = TRIGGER_ERROR_PATTERN.exec(declaration.body ?? '');
   if (triggered !== null) {
+    /* v8 ignore next -- the message group is mandatory in TRIGGER_ERROR_PATTERN. */
     return [{ name: 'deprecated', text: [{ text: triggered[1] ?? '' }] }];
   }
   return [];

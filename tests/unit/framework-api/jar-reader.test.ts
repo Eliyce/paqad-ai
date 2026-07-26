@@ -1,5 +1,3 @@
-import { deflateRawSync } from 'node:zlib';
-
 import { describe, expect, it } from 'vitest';
 
 import { parseClassFile } from '@/framework-api/adapters/class-file.js';
@@ -20,7 +18,9 @@ describe('readZipDirectory', () => {
   });
 
   it('finds the end record behind a trailing archive comment', () => {
-    const zip = buildZip([{ name: 'a.txt', data: Buffer.from('a') }], { comment: 'built by paqad' });
+    const zip = buildZip([{ name: 'a.txt', data: Buffer.from('a') }], {
+      comment: 'built by paqad',
+    });
     expect(readZipDirectory(zip)).toHaveLength(1);
   });
 
@@ -49,7 +49,9 @@ describe('readZipEntry', () => {
   });
 
   it('inflates a deflated entry', () => {
-    const zip = buildZip([{ name: 'a.txt', data: Buffer.from('hello hello hello'), deflate: true }]);
+    const zip = buildZip([
+      { name: 'a.txt', data: Buffer.from('hello hello hello'), deflate: true },
+    ]);
     const entry = readZipDirectory(zip)?.[0];
     expect(readZipEntry(zip, entry!)?.toString('utf8')).toBe('hello hello hello');
   });
@@ -112,7 +114,10 @@ describe('parseClassFile', () => {
 
   it('reads a deprecated class', () => {
     const parsed = parseClassFile(
-      buildClassFile({ name: 'com/acme/Gone', classDeprecated: { since: '11', forRemoval: false } }),
+      buildClassFile({
+        name: 'com/acme/Gone',
+        classDeprecated: { since: '11', forRemoval: false },
+      }),
     );
     expect(parsed).toMatchObject({ deprecated: true, since: '11', for_removal: false });
   });
@@ -141,11 +146,24 @@ describe('parseClassFile', () => {
   });
 
   it('returns null when this_class does not resolve to a name', () => {
-    expect(parseClassFile(buildClassFile({ name: 'com/acme/Thing', brokenThisClass: true }))).toBeNull();
+    expect(
+      parseClassFile(buildClassFile({ name: 'com/acme/Thing', brokenThisClass: true })),
+    ).toBeNull();
   });
 
   it('returns null for a truncated class file rather than throwing', () => {
     const whole = buildClassFile({ name: 'com/acme/Thing', methods: [{ name: 'go' }] });
     expect(parseClassFile(whole.subarray(0, whole.length - 8))).toBeNull();
+  });
+});
+
+describe('parseClassFile element_value walking', () => {
+  it('stays in sync across array, nested-annotation and enum values', () => {
+    // The rich annotation is followed by a real @Deprecated: a reader that mis-walks any
+    // element_value shape loses that deprecation, so this asserts the walk, not the shapes.
+    const parsed = parseClassFile(
+      buildClassFile({ name: 'com/acme/Thing', methods: [{ name: 'rich', richAnnotation: true }] }),
+    );
+    expect(parsed?.members[0]).toMatchObject({ name: 'rich', deprecated: true, since: '7' });
   });
 });

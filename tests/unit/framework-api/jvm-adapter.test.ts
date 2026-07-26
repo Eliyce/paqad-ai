@@ -21,7 +21,7 @@ let root: string;
 let home: string;
 
 interface JarFixture {
-  /** The `version=` line written into META-INF/maven/**​/pom.properties. */
+  /** The `version=` line written into the jar pom.properties. */
   version?: string;
   classes?: ClassFixture[];
   /** A sibling `.pom` naming the modules this artifact aggregates. */
@@ -44,7 +44,17 @@ function installMaven(coordinate: string, version: string, fixture: JarFixture):
 /** Write a jar into the fake Gradle module cache. */
 function installGradle(coordinate: string, version: string, fixture: JarFixture): string {
   const [group, artifact] = coordinate.split(':') as [string, string];
-  const dir = join(home, '.gradle', 'caches', 'modules-2', 'files-2.1', group, artifact, version, 'abc123');
+  const dir = join(
+    home,
+    '.gradle',
+    'caches',
+    'modules-2',
+    'files-2.1',
+    group,
+    artifact,
+    version,
+    'abc123',
+  );
   mkdirSync(dir, { recursive: true });
   const jar = join(dir, `${artifact}-${version}.jar`);
   writeFileSync(jar, buildJar(artifact, fixture.version ?? version, fixture.classes ?? []));
@@ -137,6 +147,17 @@ describe('versionFromJar', () => {
     expect(versionFromJar(Buffer.from('not a jar'))).toBeNull();
   });
 
+  it('returns null when the pom.properties entry cannot be read', () => {
+    const jar = buildZip([
+      {
+        name: 'META-INF/maven/com.acme/widget/pom.properties',
+        data: Buffer.from('version=1.0.0\n'),
+        method: 12,
+      },
+    ]);
+    expect(versionFromJar(jar)).toBeNull();
+  });
+
   it('returns null when pom.properties carries no version line', () => {
     const jar = buildZip([
       {
@@ -181,7 +202,16 @@ describe('jvmFrameworkApiAdapter.resolveInstalled', () => {
 
   it('returns null when the module root does not exist', () => {
     installMaven('com.acme:widget', '1.0.0', {});
-    expect(jvmFrameworkApiAdapter.resolveInstalled(join(root, 'nope'), 'com.acme:widget')).toBeNull();
+    expect(
+      jvmFrameworkApiAdapter.resolveInstalled(join(root, 'nope'), 'com.acme:widget'),
+    ).toBeNull();
+  });
+
+  it('returns null when the module root is a file rather than a directory', () => {
+    installMaven('com.acme:widget', '1.0.0', {});
+    const file = join(root, 'build.gradle');
+    writeFileSync(file, 'plugins {}');
+    expect(jvmFrameworkApiAdapter.resolveInstalled(file, 'com.acme:widget')).toBeNull();
   });
 
   it('skips a cached artifact whose bytes are not a jar', () => {
@@ -201,7 +231,9 @@ describe('jvmFrameworkApiAdapter.contentHash', () => {
       version: '1.0.0',
       packageDir: jar,
     };
-    expect(jvmFrameworkApiAdapter.contentHash(input)).toBe(jvmFrameworkApiAdapter.contentHash(input));
+    expect(jvmFrameworkApiAdapter.contentHash(input)).toBe(
+      jvmFrameworkApiAdapter.contentHash(input),
+    );
   });
 
   it('still hashes when the artifact cannot be stat-ed', () => {
@@ -237,7 +269,10 @@ describe('jvmFrameworkApiAdapter.index', () => {
       classes: [
         {
           name: 'com/acme/Widget',
-          methods: [{ name: 'legacy', deprecated: { since: '0.9', forRemoval: true } }, { name: 'go' }],
+          methods: [
+            { name: 'legacy', deprecated: { since: '0.9', forRemoval: true } },
+            { name: 'go' },
+          ],
         },
       ],
     });
@@ -369,5 +404,70 @@ describe('the JVM entry answered through the query (AC-4)', () => {
     expect(queryFrameworkApi(index, 'com.acme:widget', 'com.acme.Widget.whatever').verdict).toBe(
       'unknown-dynamic',
     );
+  });
+});
+
+describe('jvmFrameworkApiAdapter.index — artifacts that only partly read', () => {
+  /** A jar holding entries the class reader cannot use, beside one it can. */
+  function mixedJar(): Buffer {
+    return buildZip([
+      {
+        name: 'META-INF/maven/com.acme/mixed/pom.properties',
+        data: Buffer.from('version=4.0.0\n'),
+      },
+      // Not a class file at all: parseClassFile returns null and it is skipped.
+      { name: 'com/acme/Garbage.class', data: Buffer.from('not a class file') },
+      // Stored with a method the entry reader does not implement: skipped too.
+      { name: 'com/acme/Packed.class', data: Buffer.from('whatever'), method: 12 },
+      {
+        name: 'com/acme/Real.class',
+        data: buildClassFile({
+          name: 'com/acme/Real',
+          classDeprecated: { since: '3.0', forRemoval: true },
+        }),
+      },
+    ]);
+  }
+
+  it('keeps the classes it could read and silently skips the ones it could not', () => {
+    const jar = join(root, 'mixed.jar');
+    writeFileSync(jar, mixedJar());
+    const result = jvmFrameworkApiAdapter.index({
+      projectRoot: root,
+      searchRoot: root,
+      package: 'com.acme:mixed',
+      version: '4.0.0',
+      packageDir: jar,
+    });
+    expect(result.indexed).toBe(true);
+    if (!result.indexed) {
+      return;
+    }
+    expect(result.symbols.map((record) => record.name)).toEqual([
+      'com.acme.Real',
+      'com.acme.Real.*',
+    ]);
+    expect(result.symbols[0]).toMatchObject({
+      deprecated: true,
+      since: '3.0',
+      for_removal: true,
+      message: 'marked @Deprecated in the installed artifact',
+    });
+  });
+
+  it('records a jar outside the home directory by its real path', () => {
+    const jar = join(root, 'mixed.jar');
+    writeFileSync(jar, mixedJar());
+    const result = jvmFrameworkApiAdapter.index({
+      projectRoot: root,
+      searchRoot: root,
+      package: 'com.acme:mixed',
+      version: '4.0.0',
+      packageDir: jar,
+    });
+    if (!result.indexed) {
+      throw new Error('expected an indexed result');
+    }
+    expect(result.sources[0]?.startsWith('~/')).toBe(false);
   });
 });

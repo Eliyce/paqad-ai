@@ -121,6 +121,7 @@ function readConstantPool(cursor: Cursor): PoolEntry[] | null {
 /** The UTF-8 constant at `index`, or null when it is not one. */
 function utf8(pool: PoolEntry[], index: number): string | null {
   const entry = pool[index];
+  /* v8 ignore next -- an out-of-range pool index means a class file javac could not have written; the undefined arm keeps that a null rather than a throw. */
   return entry !== undefined && entry.kind === 'utf8' ? entry.value : null;
 }
 
@@ -207,7 +208,11 @@ function readAttributes(cursor: Cursor, pool: PoolEntry[]): ClassFileDeprecation
     } else if (name === 'RuntimeVisibleAnnotations') {
       const annotation = readDeprecatedAnnotation(cursor.buffer, start, length, pool);
       if (annotation !== null) {
-        verdict = { deprecated: true, since: annotation.since, for_removal: annotation.for_removal };
+        verdict = {
+          deprecated: true,
+          since: annotation.since,
+          for_removal: annotation.for_removal,
+        };
       }
     }
     cursor.at = start + length;

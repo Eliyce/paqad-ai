@@ -1,0 +1,22 @@
+{
+  "id": "D-01KYEQS2Y21QFK3KBQ66CPZ541",
+  "category": "architecture-path",
+  "title": "#398: does the Java/Spring adapter ship in this PR?",
+  "context": "Verified: FRAMEWORK_PACKAGE_MAP (src/core/stack-profile.ts:18) has NO jvm entry (and no django/fastapi/rails), so the framework-API builder would select zero packages for a Spring project even with a perfect adapter. Java jars also live outside the project (~/.m2, ~/.gradle caches with a hash dir), and reading pom.properties + @Deprecated bytecode needs a hand-rolled ZIP + class-file parser in Node (no zip dep; typescript is our only optional peer). PHP/Laravel and Python both have in-project install trees and are pure-JS parseable.",
+  "options": [
+    {
+      "option_key": "php-python-now",
+      "label": "Ship PHP/Laravel + Python now, JVM as a follow-up issue"
+    },
+    {
+      "option_key": "all-three",
+      "label": "Ship PHP + Python + Java/Spring in this PR"
+    }
+  ],
+  "recommendation": "php-python-now",
+  "created_at": "2026-07-26T08:13:32.994Z",
+  "status": "resolved",
+  "chosen": "all-three",
+  "rationale": "Haider wants #398 delivered whole: PHP/Laravel + Python + Java/Spring in one PR. Accepts the JVM cost — jar resolution from ~/.m2 and ~/.gradle, a hand-rolled ZIP + class-file reader, and new jvm/django/fastapi entries in FRAMEWORK_PACKAGE_MAP.",
+  "resolved_at": "2026-07-26T08:39:52.784Z"
+}
