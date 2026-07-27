@@ -7,7 +7,7 @@
 ## Where things start (entries)
 
 - **Terminal**: `paqad-ai onboard` (first contact) · `doctor` · `dashboard` · ~17 more commands (registry: `docs/instructions/registries/commands.md`)
-- **Agent chat**: any prompt in a connected agent → **router** picks exactly one of 11 workflows (bootstrap: `runtime/AGENT-BOOTSTRAP.md`)
+- **Agent chat**: any prompt in a connected agent → **router** picks exactly one of 10 workflows (bootstrap: `runtime/AGENT-BOOTSTRAP.md`)
 - **Dashboard**: `http://127.0.0.1:5372` — loopback only, requires onboarded project
 
 ## Top journeys

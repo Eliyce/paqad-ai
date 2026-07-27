@@ -171,21 +171,47 @@ surfaces:
       - { to: agent-chat.router, trigger: prompt, note: routing runs on every message }
 
   - id: agent-chat.router
-    kind: decision
-    label: Workflow router (picks exactly one of 11)
+    kind: router # prompt-flow node kind: routing decision with guarded + fallback edges
+    label: Workflow router (picks exactly one of 10)
     area: agent-chat
     module: agent-routing
     evidence: { file: runtime/base/skills/workflow-router/SKILL.md, line: 1 }
     derivation: static
     confidence: high
-    transitions: # guard = the routing rule, phrased functionally
-      - { to: agent-chat.workflow.feature-development, trigger: route, guard-text: "any code change" }
-      - { to: agent-chat.workflow.documentation-update, trigger: route, guard-text: "create documentation" }
-      - { to: agent-chat.workflow.module-documentation, trigger: route, guard-text: "create module documentation" }
-      - { to: agent-chat.workflow.pentest, trigger: route, guard-text: "security test / pentest" }
-      - { to: agent-chat.workflow.codebase-health, trigger: route, guard-text: "audit codebase health" }
-      - { to: agent-chat.workflow.project-question, trigger: route, guard-text: "question, no code change" }
-      # trimmed: design-test, rules-analyze, root-cause-analysis, no-workflow
+    # Each edge's guard is marked deterministic (machine-evaluable pattern) or
+    # llm-judged (the model's intent understanding) — the honesty marker that
+    # makes an LLM-workflow map trustworthy. paqad routes by intent (llm-judged),
+    # informed by a deterministic priority-ordered phrase table.
+    transitions:
+      - to: agent-chat.workflow.feature-development
+        trigger: route
+        guard-text: "any code change, however phrased"
+        guard_mode: llm-judged
+      - to: agent-chat.workflow.documentation-update
+        trigger: route
+        guard-text: "create documentation (+ variants, typos tolerated)"
+        guard_mode: deterministic # phrase table row, priority 220
+        utterances: ["create documentation", "generate documentation", "update documentation"]
+      - to: agent-chat.workflow.module-documentation
+        trigger: route
+        guard-text: "create module documentation"
+        guard_mode: deterministic # priority 225
+      - to: agent-chat.workflow.pentest
+        trigger: route
+        guard-text: "security test / pentest / check for vulnerabilities"
+        guard_mode: llm-judged
+      - to: agent-chat.workflow.codebase-health
+        trigger: route
+        guard-text: "audit codebase health"
+        guard_mode: llm-judged
+      - to: agent-chat.workflow.project-question
+        trigger: route
+        guard-text: "question about the project, no code change"
+        guard_mode: llm-judged
+      - to: agent-chat.no-workflow
+        trigger: fallback # mandatory modeled path: "couldn't route" is never an error
+        guard-text: "small talk or nothing above matches — load nothing, just reply"
+      # trimmed: design-test, rules-analyze, root-cause-analysis
 
   - id: agent-chat.workflow.documentation-update
     kind: llm-workflow
@@ -193,15 +219,21 @@ surfaces:
     area: agent-chat
     module: documentation-workflow
     guard: paqad-enabled
+    routing_description: "the 'create documentation' foundation stage" # what the router reads
     stages: # user-visible stops only (frontstage); machinery stays backstage
-      - { id: sync-stack, label: Re-read live stack & sync profile, stage: backstage }
-      - { id: write-foundation, label: Write stack/architecture/registry docs, visible: "▸ paqad narration" }
-      - { id: discover-modules, label: Discover business modules & write the module map }
-      - { id: map-review, label: "PAUSE: review the proposed module map", kind: human-pause }
+      - { id: sync-stack, label: Re-read live stack & sync profile, type: tool, stage: backstage }
+      - { id: write-foundation, label: Write stack/architecture/registry docs, type: llm, visible: "▸ paqad narration" }
+      - { id: discover-modules, label: Discover business modules & write the module map, type: llm }
+      - id: map-review
+        kind: decision-pause # BPMN user-task semantics: presents / decisions / outcome edges
+        label: "PAUSE: review the proposed module map"
+        presents: "the proposed module map, low-confidence modules called out"
+        decisions: [accept, rename-modules, rediscover]
+        resumable: true # state persists; the pause survives a session restart
     ends:
       success: { receipt: "verbatim Stage-1 final message; moduleDocStage=pending_map_review" }
     transitions:
-      - { to: agent-chat.workflow.module-documentation, trigger: follow-up-prompt, note: "Stage 2 continues from the reviewed map" }
+      - { to: agent-chat.workflow.module-documentation, trigger: follow-up-prompt, mode: link, note: "Stage 2 continues from the reviewed map — control does not return" }
 
   - id: agent-chat.workflow.feature-development
     kind: llm-workflow
@@ -241,6 +273,12 @@ surfaces:
     label: Answer a project question (docs first, then code; no code change)
     area: agent-chat
     ends: { success: { receipt: "answer in chat" } }
+
+  - id: agent-chat.no-workflow
+    kind: terminal
+    label: Plain reply (no framework machinery loaded)
+    area: agent-chat
+    note: the router's fallback end — small talk gets an answer, nothing else
 
   # trimmed for the sample: module-documentation, codebase-health, design-test,
   # rules-analyze, root-cause-analysis, no-workflow
