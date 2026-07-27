@@ -67,3 +67,31 @@ export async function publishSiteMap(
   await tracker.save(projectRoot, progress);
   return { published, skipped };
 }
+
+/**
+ * The published view paths whose source files have changed since the last publish — i.e. the
+ * map drifted from the code. Compares each `siteMap` doc-progress entry's recorded
+ * `source_hash` against a fresh hash of its source files (the same staleness signal the
+ * differential refresh uses). Returns [] when nothing has been published yet, so a project that
+ * never ran a site-map audit is never reported stale.
+ */
+export async function collectStaleSiteMapViews(
+  projectRoot: string,
+  tracker: DocumentProgressTracker = new DocumentProgressTracker(),
+): Promise<string[]> {
+  const progress = await tracker.load(projectRoot);
+  const group = progress.global.siteMap;
+  if (group === undefined) {
+    return [];
+  }
+
+  const stale: string[] = [];
+  for (const [path, entry] of Object.entries(group)) {
+    const currentHash = await hashSourceFiles(projectRoot, entry.source_files);
+    if (entry.source_hash !== currentHash) {
+      stale.push(path);
+    }
+  }
+
+  return stale.sort();
+}

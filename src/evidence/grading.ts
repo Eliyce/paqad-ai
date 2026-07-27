@@ -29,6 +29,8 @@ export const GATE_STRENGTH_TIER: Record<VerificationGate, 'deterministic' | 'llm
   'module-docs-structure': 'deterministic',
   'instructions-docs-structure': 'deterministic',
   'documentation-freshness': 'deterministic',
+  // Issue: the site-map freshness gate reads doc-progress source hashes (no LLM).
+  'site-map-freshness': 'deterministic',
   'extension-surface': 'deterministic',
   // Issue #358 — the duplication gate reads its own cached report (no LLM).
   duplication: 'deterministic',

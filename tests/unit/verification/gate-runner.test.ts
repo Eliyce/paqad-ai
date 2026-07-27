@@ -64,6 +64,7 @@ describe('VerificationGateRunner', () => {
       'module-docs-structure',
       'instructions-docs-structure',
       'documentation-freshness',
+      'site-map-freshness',
       'extension-surface',
     ]);
   });

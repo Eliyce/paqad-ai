@@ -15,5 +15,6 @@ export * from './gates/implementation-review.js';
 export * from './gates/instructions-docs-structure.js';
 export * from './gates/module-docs-structure.js';
 export * from './gates/requirement-completeness.js';
+export * from './gates/site-map-freshness.js';
 export * from './gates/spec-review.js';
 export * from './gates/story-quality.js';
