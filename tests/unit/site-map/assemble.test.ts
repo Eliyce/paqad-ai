@@ -49,6 +49,7 @@ function input(overrides: Partial<SiteMapAssemblyInput> = {}): SiteMapAssemblyIn
     app: { name: 'paqad-ai', kind: 'cli', frameworks: ['commander'] },
     map: null,
     extraction: extraction([extracted()]),
+    evidenceResolutions: [],
     journeyCount: 0,
     blockedChecks: [],
     baseline: null,

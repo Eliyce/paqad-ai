@@ -52,6 +52,9 @@ function gatherer(overrides: Partial<SiteMapGatherer> = {}): SiteMapGatherer {
     appSummary: () => ({ name: 'paqad-ai', kind: 'cli', frameworks: ['commander'] }),
     loadAppMap: () => null,
     journeyCount: () => 0,
+    // Default: every cited pointer resolves, so the map is clean unless a test says otherwise.
+    resolveEvidence: (pointers) =>
+      pointers.map((pointer) => ({ file: pointer.file, line: pointer.line, status: 'resolved' })),
     extractors: async (): Promise<ExtractorOutput[]> => [
       { extractor: 'node-cli', available: true, surfaces: [surface()] },
     ],
@@ -168,6 +171,67 @@ describe('runSiteMapAudit', () => {
     expect(sidecar.workflow).toBe('site-map-retest');
     expect(sidecar.source_report_path).toBe('docs/site-map/prior.json');
     expect(sidecar.source_report_id).toBe('SITEMAP-prior');
+  });
+
+  it('resolves cited evidence through the gatherer and records Tier-A findings (AC-7)', async () => {
+    const root = repo();
+    const map: AppMap = {
+      schema_version: 1,
+      app: { name: 'paqad-ai', kind: 'cli' },
+      guards: [{ id: 'g-admin', kind: 'role', label: 'Admin' }],
+      surfaces: [
+        {
+          id: 's-home',
+          kind: 'page',
+          label: 'Home',
+          entry: { kind: 'url', value: '/' },
+          evidence: [{ file: 'src/gone.ts', line: 3 }],
+          transitions: [{ to: 's-missing', trigger: 'click' }],
+        },
+      ],
+    };
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => map,
+        extractors: async () => [],
+        // The cited file does not exist in the tree → the surface reads as removed.
+        resolveEvidence: (pointers) =>
+          pointers.map((pointer) => ({
+            file: pointer.file,
+            line: pointer.line,
+            status: 'file-missing',
+          })),
+      }),
+      sessionId: 's-tier-a',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.exit_code).toBe(1);
+    const sidecar = readSidecar(root, result.sidecar_path);
+    const categories = sidecar.findings.map((finding) => finding.category).sort();
+    // SM-REMOVE (evidence file gone) + SM-XREF (transition to a missing surface).
+    expect(categories).toContain('SM-REMOVE');
+    expect(categories).toContain('SM-XREF');
+  });
+
+  it('surfaces an ungrounded graph (transitions but no entry) as a blocked reachability check', async () => {
+    const root = repo();
+    const map: AppMap = {
+      schema_version: 1,
+      app: { name: 'paqad-ai', kind: 'cli' },
+      surfaces: [
+        { id: 's-a', kind: 'page', label: 'A', transitions: [{ to: 's-b', trigger: 'go' }] },
+        { id: 's-b', kind: 'page', label: 'B', ends: { success: true } },
+      ],
+    };
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => map, extractors: async () => [] }),
+      sessionId: 's-blocked-graph',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    const sidecar = readSidecar(root, result.sidecar_path);
+    expect(sidecar.blocked_checks.map((check) => check.check)).toContain('reachability');
   });
 
   it('records a blocked extractor as a gap and still completes the run (FR-3)', async () => {

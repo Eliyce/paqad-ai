@@ -10,7 +10,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import type { AppKind, AppMap } from '@/core/types/site-map.js';
+import type { AppKind, AppMap, Evidence } from '@/core/types/site-map.js';
 import type {
   SiteMapAppSummary,
   SiteMapBlockedCheck,
@@ -23,6 +23,7 @@ import { assembleExtraction, type ExtractorOutput } from './extraction.js';
 import { recordSiteMapRun } from './ledger.js';
 import { buildSiteMapMarkdown } from './report-builder.js';
 import { writeJsonFile } from './shared.js';
+import { collectMapEvidence, type EvidenceResolution } from './verification.js';
 
 /** Everything the run needs from the outside world — injected for tests, provided by the CLI. */
 export interface SiteMapGatherer {
@@ -36,6 +37,9 @@ export interface SiteMapGatherer {
   journeyCount(): number;
   /** Each extractor's contribution: its surfaces, or a blocked check when unavailable (FR-3). */
   extractors(): Promise<ExtractorOutput[]>;
+  /** Resolve each `file:line` the map cites against the tree — the only I/O Tier-A verification
+   * depends on, so the whole run stays deterministic behind a fake gatherer in tests. */
+  resolveEvidence(pointers: Evidence[]): EvidenceResolution[];
 }
 
 export interface SiteMapRunOptions {
@@ -69,6 +73,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
   const map = gatherer.loadAppMap();
   const journeyCount = gatherer.journeyCount();
   const appSummary = gatherer.appSummary();
+  const evidenceResolutions = gatherer.resolveEvidence(collectMapEvidence(map));
 
   const outputs = await gatherer.extractors();
   const extraction = assembleExtraction(outputs, gatherer.appKind());
@@ -87,6 +92,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     app: appSummary,
     map,
     extraction,
+    evidenceResolutions,
     journeyCount,
     blockedChecks: extraction.blocked_checks,
     baseline,

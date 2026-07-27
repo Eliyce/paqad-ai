@@ -16,7 +16,7 @@ import { basename, join } from 'node:path';
 import fg from 'fast-glob';
 
 import { toPosixPath } from '@/core/path-utils.js';
-import type { AppKind, AppMap } from '@/core/types/site-map.js';
+import type { AppKind, AppMap, Evidence } from '@/core/types/site-map.js';
 import type { SiteMapAppSummary } from '@/core/types/site-map-run.js';
 
 import {
@@ -29,6 +29,7 @@ import {
 } from './extraction.js';
 import type { SiteMapGatherer } from './run.js';
 import { listJourneyIds, readAppMap } from './store.js';
+import type { EvidenceResolution } from './verification.js';
 
 /** A dependency name → the app kind it implies, most specific first. */
 interface FrameworkSignal {
@@ -204,6 +205,25 @@ async function scanGenericSurfaces(projectRoot: string): Promise<GenericSurfaceR
   return records;
 }
 
+/**
+ * Resolve one cited pointer against the tree: the file must exist, and a cited line must fall
+ * within it. A missing file reads as `file-missing`, an out-of-range line as `line-missing`.
+ */
+function resolvePointer(projectRoot: string, pointer: Evidence): EvidenceResolution {
+  let content: string;
+  try {
+    content = readFileSync(join(projectRoot, pointer.file), 'utf8');
+  } catch {
+    return { file: pointer.file, line: pointer.line, status: 'file-missing' };
+  }
+  if (pointer.line === undefined) {
+    return { file: pointer.file, status: 'resolved' };
+  }
+  const lineCount = content.split('\n').length;
+  const inRange = pointer.line >= 1 && pointer.line <= lineCount;
+  return { file: pointer.file, line: pointer.line, status: inRange ? 'resolved' : 'line-missing' };
+}
+
 /** Wire the real world: read the manifest, the map, the journeys, and run the extractors. */
 export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
   const manifest = readManifest(projectRoot);
@@ -218,6 +238,8 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
     appSummary: (): SiteMapAppSummary => ({ name, kind: appKind, frameworks }),
     loadAppMap: (): AppMap | null => readAppMap(projectRoot),
     journeyCount: () => listJourneyIds(projectRoot).length,
+    resolveEvidence: (pointers: Evidence[]): EvidenceResolution[] =>
+      pointers.map((pointer) => resolvePointer(projectRoot, pointer)),
     async extractors(): Promise<ExtractorOutput[]> {
       const outputs: ExtractorOutput[] = [];
       if (isNodeCli) {

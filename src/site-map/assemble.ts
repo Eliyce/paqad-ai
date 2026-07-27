@@ -3,12 +3,11 @@
 // produce the SiteMapReportIndex. No I/O — the impure collector in `run.ts` gathers the inputs
 // (reading the map, walking the tree via the injectable gatherer) and writes the outputs.
 //
-// Scope note (S4): the reconciliation implemented here is the "is every extracted surface
-// mapped?" half of FR-7 (category SM-ADD). The remaining Tier-A checks — SM-REMOVE, evidence
-// `file:line` resolution (SM-EVIDENCE), cross-reference integrity (SM-XREF), and the graph
-// invariants (SM-ORPHAN / SM-DEADEND / SM-GUARDLESS) — land in the verification slice and plug
-// their candidates into `collectCandidates`, exactly as codebase-health's assemble concatenates
-// detector outputs.
+// The reconciliation implemented here is the "is every extracted surface mapped?" half of FR-7
+// (category SM-ADD). The remaining Tier-A checks — SM-REMOVE, evidence `file:line` resolution
+// (SM-EVIDENCE), cross-reference integrity (SM-XREF), and the graph invariants (SM-ORPHAN /
+// SM-DEADEND / SM-GUARDLESS) — live in `./verification.ts` and are concatenated in below via
+// `collectCandidates`, exactly as codebase-health's assemble concatenates detector outputs.
 
 import { join } from 'node:path';
 
@@ -34,6 +33,7 @@ import {
   toSiteMapReportId,
   toSiteMapTimestamp,
 } from './shared.js';
+import { collectVerificationFindings, type EvidenceResolution } from './verification.js';
 
 export interface SiteMapAssemblyInput {
   workflow: SiteMapWorkflowName;
@@ -42,6 +42,8 @@ export interface SiteMapAssemblyInput {
   /** The canonical map, or null when none exists yet (first run over an unmapped project). */
   map: AppMap | null;
   extraction: ExtractionResult;
+  /** How each `file:line` the map cites resolved against the tree (the gatherer's Tier-A I/O). */
+  evidenceResolutions: EvidenceResolution[];
   journeyCount: number;
   blockedChecks: SiteMapBlockedCheck[];
   baseline: SiteMapBaseline | null;
@@ -118,14 +120,28 @@ export function detectUnmappedSurfaces(
   return candidates;
 }
 
-/** Concatenate every reconciliation category's candidates in a stable order. */
-function collectCandidates(input: SiteMapAssemblyInput): Array<Omit<SiteMapFinding, 'id'>> {
-  return detectUnmappedSurfaces(input.map, input.extraction);
+/**
+ * Concatenate every category's candidates in a stable order — SM-ADD (extraction reconciliation)
+ * then the Tier-A verification categories — plus any check the verification could not run.
+ */
+function collectCandidates(input: SiteMapAssemblyInput): {
+  candidates: Array<Omit<SiteMapFinding, 'id'>>;
+  blockedChecks: SiteMapBlockedCheck[];
+} {
+  const verification = collectVerificationFindings(input.map, input.evidenceResolutions);
+  return {
+    candidates: [
+      ...detectUnmappedSurfaces(input.map, input.extraction),
+      ...verification.candidates,
+    ],
+    blockedChecks: verification.blockedChecks,
+  };
 }
 
 /** Assemble the full run-report index from gathered inputs (pure). */
 export function assembleSiteMapReport(input: SiteMapAssemblyInput): AssembledSiteMapReport {
-  const withIds = assignSiteMapFindingIds(collectCandidates(input));
+  const { candidates, blockedChecks: verificationBlocked } = collectCandidates(input);
+  const withIds = assignSiteMapFindingIds(candidates);
   const findings = sortFindings(applyBaselineStatus(withIds, input.baseline));
 
   const timestamp = toSiteMapTimestamp(input.now);
@@ -163,7 +179,7 @@ export function assembleSiteMapReport(input: SiteMapAssemblyInput): AssembledSit
       fingerprint: input.extraction.fingerprint,
     },
     findings,
-    blocked_checks: input.blockedChecks,
+    blocked_checks: [...input.blockedChecks, ...verificationBlocked],
     baseline: {
       existed: input.baseline !== null,
       new_since_baseline: newSinceBaseline,
