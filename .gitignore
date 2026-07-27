@@ -35,3 +35,6 @@ docs/tracker/
 .aider/memory.json
 .github/cache.json
 .github/memory.json
+
+# Site Map capability buildout tracker (cross-session continuity scratch; not part of the PR)
+/site-map-buildout/

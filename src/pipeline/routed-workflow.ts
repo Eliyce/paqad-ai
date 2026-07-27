@@ -23,6 +23,7 @@ export const ROUTED_WORKFLOWS = [
   'pentest',
   'design-test',
   'codebase-health',
+  'site-map',
   'rules-analyze',
   'root-cause-analysis',
   'no-workflow',
@@ -76,6 +77,8 @@ const OUTCOME_BY_WORKFLOW: Record<ClassificationWorkflow, RoutedWorkflow> = {
   'pentest-retest': 'pentest',
   'codebase-health': 'codebase-health',
   'health-retest': 'codebase-health',
+  'site-map': 'site-map',
+  'site-map-retest': 'site-map',
   'root-cause-analysis': 'root-cause-analysis',
   // Generic content and anything not one of the above → no-workflow (no rules/lane/scripts/RAG).
   writing: 'no-workflow',

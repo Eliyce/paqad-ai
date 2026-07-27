@@ -1,0 +1,3 @@
+interface:
+  display_name: Site-Map Gap Analysis
+  short_description: Turn invariants and verdicts into evidenced SM-* findings, each with a concrete fix.

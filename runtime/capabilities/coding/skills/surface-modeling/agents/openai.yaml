@@ -1,0 +1,3 @@
+interface:
+  display_name: Surface Modeling
+  short_description: Name, type, and module-attribute extracted surfaces — the non-inferable layer, kept tied to evidence.

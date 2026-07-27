@@ -29,7 +29,7 @@ describe('agent bootstrap document', () => {
     expect(sentinel).toBeGreaterThan(load);
   });
 
-  it('routes first: names the 9 workflows and the read-first / ask-if-torn rules (#336)', () => {
+  it('routes first: names the 11 workflows and the read-first / ask-if-torn rules (#336)', () => {
     const doc = buildAgentBootstrapDocument();
     const route = doc.slice(
       doc.indexOf('## 2. Route first'),
@@ -45,6 +45,7 @@ describe('agent bootstrap document', () => {
       'codebase-health',
       'rules-analyze',
       'root-cause-analysis',
+      'site-map',
       'no workflow',
     ]) {
       expect(route).toContain(workflow);

@@ -10,7 +10,7 @@ import {
 } from '@/pipeline/routed-workflow.js';
 
 describe('routed-workflow (#336)', () => {
-  it('exposes exactly the 10 routing outcomes', () => {
+  it('exposes exactly the 11 routing outcomes', () => {
     expect([...ROUTED_WORKFLOWS]).toEqual([
       'feature-development',
       'project-question',
@@ -19,6 +19,7 @@ describe('routed-workflow (#336)', () => {
       'pentest',
       'design-test',
       'codebase-health',
+      'site-map',
       'rules-analyze',
       'root-cause-analysis',
       'no-workflow',
@@ -57,6 +58,8 @@ describe('routed-workflow (#336)', () => {
     expect(resolveRoutedWorkflow('module-documentation')).toBe('module-documentation');
     expect(resolveRoutedWorkflow('pentest')).toBe('pentest');
     expect(resolveRoutedWorkflow('pentest-retest')).toBe('pentest');
+    expect(resolveRoutedWorkflow('site-map')).toBe('site-map');
+    expect(resolveRoutedWorkflow('site-map-retest')).toBe('site-map');
     expect(resolveRoutedWorkflow('root-cause-analysis')).toBe('root-cause-analysis');
   });
 

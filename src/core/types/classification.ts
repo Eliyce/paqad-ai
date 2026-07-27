@@ -24,6 +24,8 @@ export const CLASSIFICATION_WORKFLOWS = [
   'pentest-retest',
   'codebase-health',
   'health-retest',
+  'site-map',
+  'site-map-retest',
   'schema-change',
   'query-optimization',
   'custom',

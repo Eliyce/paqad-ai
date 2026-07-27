@@ -64,6 +64,7 @@ describe('VerificationGateRunner', () => {
       'module-docs-structure',
       'instructions-docs-structure',
       'documentation-freshness',
+      'site-map-freshness',
       'extension-surface',
     ]);
   });
@@ -103,7 +104,7 @@ describe('VerificationGateRunner', () => {
       passed: false,
       detail: 'Invalid instruction documentation path docs/instructions/random/foo.md',
       remediation:
-        'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt}/ path.',
+        'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt,site-map}/ path.',
     });
   });
 

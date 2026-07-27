@@ -40,6 +40,7 @@ const KNOB_CONSUMERS: Record<string, string> = {
   design_research: 'design-research agent (planning)',
   team_agents: 'full-lane team routing',
   analytics_instrumentation: 'analytics gate + classifier',
+  site_map: 'site-map engine + workflow',
   lean_rules: 'context seam (rule injection)',
   rag_enabled: 'context seam / retrieval',
   rag_embedding_provider: 'RAG embedding provider',

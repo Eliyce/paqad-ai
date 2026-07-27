@@ -19,6 +19,7 @@ export const VERIFICATION_GATES = [
   'module-docs-structure',
   'instructions-docs-structure',
   'documentation-freshness',
+  'site-map-freshness',
   'extension-surface',
   'duplication',
 ] as const;

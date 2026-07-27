@@ -166,4 +166,22 @@ describe('PreClassifier', () => {
     });
     expect(pentest.resolved.workflow).toBe('pentest');
   });
+
+  it('routes map-authoring prompts to site-map and its retest above the base (S9)', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+
+    const sitePrompts = ['create a site map for the app', 'generate sitemap', 'draw a journey map'];
+    for (const request of sitePrompts) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow, `"${request}" → site-map`).toBe('site-map');
+    }
+
+    const retest = await new PreClassifier(process.cwd()).classify({
+      request: 'retest the site map',
+    });
+    expect(retest.resolved.workflow).toBe('site-map-retest');
+  });
 });

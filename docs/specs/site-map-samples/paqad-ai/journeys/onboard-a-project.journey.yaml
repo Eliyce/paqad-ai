@@ -1,0 +1,30 @@
+# SAMPLE journey (hand-authored, schema draft 0) — a CLI journey.
+# Demonstrates: command entries, wizard steps, exit-code oracles, and the
+# hand-off from terminal to both the dashboard and the agent-chat district.
+schema_version: 0-draft
+id: onboard-a-project
+label: Onboard a project in 30 seconds
+actor: developer
+goal: "The project is set up so every connected AI agent follows the team's rules"
+entry: cli.onboard
+steps:
+  - surface: cli.onboard
+    action: "run: npx paqad-ai onboard"
+    expect: "detected stack shown and confirmed interactively"
+  - surface: cli.onboard
+    action: "pick providers / confirm capabilities in the wizard"
+    expect: "entry files + docs/instructions/** + .paqad/** written; 'ONBOARDING COMPLETE' panel with next step 'create documentation'"
+  - surface: cli.doctor
+    action: "run: paqad-ai doctor"
+    expect: "exit code 0 (everything paqad manages is present and valid)"
+  - surface: dashboard.pulse
+    action: "run: paqad-ai dashboard"
+    expect: "Pulse opens on 127.0.0.1 with the project's health"
+ends:
+  success: "agents now route through the framework — continue in journey: create-documentation"
+  failure: "doctor exits 1 → its output names the broken artifact; re-run onboard or fix and re-check"
+next_journeys: [create-documentation]
+tests: [tests/unit/onboarding/orchestrator.test.ts] # illustrative linkage
+priority: high
+status: confirmed
+derivation: human

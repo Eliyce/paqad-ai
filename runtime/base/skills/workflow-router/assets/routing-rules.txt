@@ -24,6 +24,15 @@
 235	design-test	validate the ui
 235	design-test	validate design
 235	design-test	design test
+233	site-map-retest	site map retest
+233	site-map-retest	site-map retest
+233	site-map-retest	retest the site map
+233	site-map-retest	retest site map
+232	site-map	site map
+232	site-map	create sitemap
+232	site-map	update sitemap
+232	site-map	generate sitemap
+232	site-map	journey map
 230	root-cause-analysis	root cause analysis
 230	root-cause-analysis	root-cause-analysis
 230	root-cause-analysis	postmortem

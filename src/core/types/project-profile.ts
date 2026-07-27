@@ -44,6 +44,8 @@ export interface ProjectFeatureFlags {
   team_agents: boolean;
   /** Issue #241 — opt in to the complementary analytics-instrumentation agent. */
   analytics_instrumentation: boolean;
+  /** Site Map & Journeys capability — deterministic behavioural map (default off, coding-gated). */
+  site_map: boolean;
   /** Issue #284 — token-neutral rule loading (lean rule contract + lifted full-load mandate). */
   lean_rules: boolean;
   /** Issue #371 — render the per-feature evidence report.html at end-of-change (default on). */

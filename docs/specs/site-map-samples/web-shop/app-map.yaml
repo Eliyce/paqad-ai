@@ -1,0 +1,202 @@
+# Site map — "Aurelia Shop" (FICTIONAL SAMPLE, hand-authored, schema draft 0)
+# A typical web app fragment demonstrating the owner's new directives:
+#   1. business-language labels resolved from TRANSLATION KEYS (i18n)
+#   2. PERMISSION-based guards (distinct from roles) and actor = permission bundle
+#   3. a FEATURE-FLAG VARIANT of a surface
+#   4. EXTERNAL-SYSTEM hand-offs (payment, email) drawn on the user's path
+#   5. functional altitude: backstage machinery marked, hidden by default
+schema_version: 0-draft
+app:
+  name: aurelia-shop
+  kind: [web]
+  frameworks: [laravel, react]
+  generated_from: "main@f3d9e21 (illustrative)"
+  language:
+    default_locale: en
+    locales: [en, de, ja]
+    catalogs: [resources/lang, resources/js/i18n] # extractor inputs
+    label_policy: "label = default-locale resolution of label_key; glossary preferred_terms win on conflict"
+
+actors: # actor = permission bundle → the 'view as' lens is computable
+  - { id: guest, label: Guest, satisfies: [] }
+  - { id: shopper, label: Shopper, satisfies: [authenticated] }
+  - id: store-manager
+    label: Store manager
+    satisfies: [authenticated, perm.orders.view, perm.orders.export, perm.catalog.edit]
+  - id: support-agent
+    label: Support agent
+    satisfies: [authenticated, perm.orders.view] # can see orders, cannot export — the lens shows the difference
+
+guards:
+  - { id: authenticated, kind: auth-state, label: Signed in, satisfy_via: journey:sign-in }
+  - id: perm.catalog.edit
+    kind: permission
+    label: May edit the catalog
+    evidence: { file: app/Policies/ProductPolicy.php, line: 22 }
+  - id: perm.orders.export
+    kind: permission # permission ≠ role: roles are bundles, permissions are the atoms
+    label: May export orders
+    requires: "policy: orders.export"
+    satisfy_via: "fixture: user with orders.export"
+    evidence: { file: app/Policies/OrderPolicy.php, line: 41 }
+  - id: perm.orders.view
+    kind: permission
+    label: May view orders
+    evidence: { file: app/Policies/OrderPolicy.php, line: 18 }
+  - id: flag.new-checkout
+    kind: feature-flag
+    label: New checkout experience (rollout 40%)
+    flag_key: new-checkout
+    required_variant: on # guard = (flagKey, variantName), never a raw value
+    provider: unleash
+    owner: team-payments
+    lifecycle: active # new|active|launched|inactive|stale — launched/stale ⇒ cleanup candidate finding
+    introduced: 2026-05-02 # flag hygiene: age is visible → stale flags become findings
+    evidence: { file: resources/js/flags.ts, line: 12 }
+  - id: flag.recommendations
+    kind: feature-flag
+    label: Product recommendations
+    flag_key: recommendations
+    required_variant: on
+    lifecycle: launched # fully rolled out → the map flags it as removable debt
+    introduced: 2025-11-14
+
+areas:
+  - { id: storefront, label: Storefront }
+  - { id: account, label: My account }
+  - { id: back-office, label: Back office, guard: authenticated }
+  - { id: fulfillment, label: Fulfillment machinery, visibility: backstage }
+
+surfaces:
+  - id: catalog.list
+    kind: page
+    label: Products # ← business language, resolved from the key below
+    label_key: catalog.title # ← what the code actually says
+    label_source: h1-key # ← which rung of the resolution chain produced the label
+    labels: { de: Produkte, ja: 商品一覧 } # per-locale, from the catalogs
+    area: storefront
+    entry: { kind: url, value: "/products" }
+    page_type: list
+    module: catalog
+    evidence: { file: routes/web.php, line: 31 }
+    derivation: static
+    confidence: high
+    transitions:
+      - { to: catalog.detail, trigger: click, note: product card }
+      - { to: cart.view, trigger: click, note: mini-cart }
+
+  - id: catalog.detail
+    kind: page
+    label: Product details
+    label_key: catalog.product.title
+    label_source: route-meta
+    area: storefront
+    entry: { kind: url, value: "/products/{slug}", deep_link: true }
+    page_type: detail
+    # ANNOTATE-DON'T-DUPLICATE variant form: the flag changes a feature INSIDE the
+    # surface, so it stays one surface with a variants[] annotation. (Contrast with
+    # the checkout below, where the flag swaps the WHOLE surface — there, two
+    # surfaces tied by variant_group is the honest shape.)
+    variants:
+      - { flag: flag.recommendations, variant: on, adds: "recommendation carousel" }
+    transitions:
+      - { to: cart.view, trigger: submit, note: add to cart }
+
+  - id: cart.view
+    kind: page
+    label: Shopping cart
+    label_key: cart.title
+    area: storefront
+    page_type: form
+    transitions:
+      # FEATURE-FLAG VARIANT: same intent, two surfaces; the lens picks one
+      - { to: checkout.classic, trigger: submit, guard_not: flag.new-checkout }
+      - { to: checkout.express, trigger: submit, guard: flag.new-checkout }
+
+  - id: checkout.classic
+    kind: page
+    label: Checkout (classic, 3 steps)
+    label_key: checkout.title
+    area: storefront
+    guard: authenticated
+    page_type: wizard
+    status: active
+    variant_group: checkout # ← ties the variants together on the map
+    transitions:
+      - { to: external.stripe, trigger: hand-off, note: card entry on provider page }
+
+  - id: checkout.express
+    kind: page
+    label: Checkout (express, single page)
+    label_key: checkout.express.title
+    area: storefront
+    guard: [authenticated, flag.new-checkout]
+    page_type: form
+    status: variant
+    variant_group: checkout
+    variant_of: checkout.classic
+    transitions:
+      - { to: external.stripe, trigger: hand-off }
+
+  - id: external.stripe
+    kind: external-system
+    label: Stripe payment
+    area: storefront
+    visibility: frontstage # the shopper consciously leaves and returns
+    hand_off: { carries: "payment session token", returns: true } # label WHAT crosses the boundary
+    transitions:
+      - { to: order.confirmation, trigger: redirect, carries: "payment confirmation", note: payment succeeded }
+      - { to: cart.view, trigger: redirect, note: cancelled/failed — money path failure branch }
+
+  - id: order.confirmation
+    kind: page
+    label: Order confirmed
+    label_key: checkout.confirmation.title
+    area: storefront
+    page_type: confirmation
+    ends: { success: true }
+    transitions:
+      - { to: external.mail, trigger: event, visibility: backstage, note: receipt email queued }
+
+  - id: external.mail
+    kind: external-system
+    label: Customer's inbox (receipt & verification emails)
+    area: fulfillment
+    visibility: backstage
+    note: becomes frontstage in the sign-up journey (email verification loop)
+
+  - id: admin.orders
+    kind: page
+    label: Orders
+    label_key: admin.orders.title
+    area: back-office
+    guard: perm.orders.view
+    page_type: list
+    transitions:
+      # PERMISSION SPLIT: two actors see the same page, only one sees this action
+      - { to: admin.orders.export, trigger: click, guard: perm.orders.export }
+
+  - id: admin.orders.export
+    kind: action
+    label: Export orders (CSV)
+    area: back-office
+    guard: perm.orders.export
+    oracle: { observable: "CSV downloads" }
+    ends: { success: true }
+
+  - id: jobs.fulfillment
+    kind: job
+    label: Fulfillment pipeline (pick, pack, ship events)
+    area: fulfillment
+    visibility: backstage
+    note: invisible to shoppers; surfaces to them only as order-status emails
+
+journeys: # index; confirmed journeys have files in journeys/, `proposed` ones may be index-only
+  - { id: checkout, label: Shopper buys a product, actor: shopper, priority: high, status: confirmed }
+  - { id: sign-in, label: Shopper signs in, actor: guest, priority: high, status: proposed } # referenced by guards/uses; index-only in this sample
+  - { id: export-orders, label: Manager exports the day's orders, actor: store-manager, priority: medium, status: proposed } # index-only until confirmed
+
+# LENS EXAMPLES (computed, not stored — shown here for review only):
+#   view as support-agent  → admin.orders visible; admin.orders.export hidden (perm.orders.export unsatisfied)
+#   view as guest          → checkout.* unreachable past cart.view (authenticated unsatisfied)
+#   flag lens new-checkout=off → checkout.express hidden; variant_group renders classic only

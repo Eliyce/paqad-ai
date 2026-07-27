@@ -13,7 +13,7 @@ import type { Gate } from './gate.interface.js';
 import { createFail, createPass } from './shared.js';
 
 const REMEDIATION =
-  'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt}/ path.';
+  'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt,site-map}/ path.';
 
 const NON_CANONICAL_ROOTS = [
   'docs/instruction/',
@@ -31,6 +31,7 @@ const ALLOWED_TOP_LEVEL_AREAS = new Set([
   'tools',
   'benchmarks',
   'tech-debt',
+  'site-map',
 ]);
 
 export class InstructionsDocsStructureGate implements Gate {
@@ -122,6 +123,8 @@ function validateInstructionPath(filePath: string): string | null {
       return validateFlatExtensionPath(filePath, segments, ['.yaml', '.yml']);
     case 'tools':
       return validateToolsPath(filePath, segments);
+    case 'site-map':
+      return validateSiteMapPath(filePath, segments);
     case 'benchmarks':
     case 'tech-debt':
       return validateFlatExtensionPath(filePath, segments, ['.md']);
@@ -156,6 +159,23 @@ function validateToolsPath(filePath: string, segments: string[]): string | null 
     return null;
   }
 
+  return `Invalid instruction documentation path ${filePath}`;
+}
+
+/**
+ * The site-map area is nested: the canonical map + its agent views sit at the top
+ * (`app-map.yaml`, `index.md`, `overview.md`), and `journeys/*.yaml` + `registries/*.md`
+ * sit one level down. Any `.yaml`/`.yml`/`.md` at depth 4, or under a named subdir at
+ * depth 5, is structurally valid; the engine's AJV schema is the real content check (FR-1).
+ */
+function validateSiteMapPath(filePath: string, segments: string[]): string | null {
+  const allowed = ['.yaml', '.yml', '.md'];
+  if (segments.length === 4 && allowed.includes(extname(filePath))) {
+    return null;
+  }
+  if (segments.length === 5 && segments[3].length > 0 && allowed.includes(extname(filePath))) {
+    return null;
+  }
   return `Invalid instruction documentation path ${filePath}`;
 }
 
@@ -205,6 +225,12 @@ async function validateFileContent(
         detail: `Instruction YAML file ${relativePath} does not parse`,
         remediation: 'Fix the YAML syntax before completing the provider request.',
       };
+    }
+
+    // Site-map YAML (app-map.yaml, journeys/*.yaml) is not a workflow template — a successful
+    // parse is all this structural gate asserts; the engine's AJV schema is the real check.
+    if (isSiteMapArea(relativePath)) {
+      return null;
     }
 
     if (isModuleMap(relativePath) && !hasTopLevelModulesArray(parsed)) {
@@ -264,6 +290,10 @@ function hasHiddenOrSystemSegment(filePath: string): boolean {
 
 function hasMarkdownHeading(markdown: string): boolean {
   return markdown.split(/\r?\n/u).some((line) => /^#{1,6}\s+\S/u.test(line.trim()));
+}
+
+function isSiteMapArea(relativePath: string): boolean {
+  return relativePath.startsWith('docs/instructions/site-map/');
 }
 
 function isModuleMap(relativePath: string): boolean {

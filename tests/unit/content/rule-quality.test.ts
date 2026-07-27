@@ -19,6 +19,8 @@ const WORKFLOW_SPEC_ALLOWLIST = [
   'capabilities/coding/rules/feature-development.md',
   'capabilities/coding/rules/codebase-health.md',
   'capabilities/coding/rules/health-retest.md',
+  'capabilities/coding/rules/site-map.md',
+  'capabilities/coding/rules/site-map-retest.md',
   'capabilities/security/rules/pentest.md',
 ];
 

@@ -18,6 +18,7 @@ import { ModuleDocsStructureGate } from './gates/module-docs-structure.js';
 import { MutationTestingGate } from './gates/mutation-testing.js';
 import { QualityRatchetGate } from './gates/quality-ratchet.js';
 import { RequirementCompletenessGate } from './gates/requirement-completeness.js';
+import { SiteMapFreshnessGate } from './gates/site-map-freshness.js';
 import { SpecReviewGate } from './gates/spec-review.js';
 import { StoryQualityGate } from './gates/story-quality.js';
 
@@ -77,6 +78,16 @@ function shouldRunAfterFailure(gate: Gate, context: VerificationContext): boolea
     });
   }
 
+  if (gate.gate === 'site-map-freshness') {
+    return context.changed_files.some((filePath) => {
+      const normalized = normalizePath(filePath);
+      return (
+        normalized.startsWith('docs/instructions/site-map/') ||
+        normalized.startsWith('docs/site-map/')
+      );
+    });
+  }
+
   return false;
 }
 
@@ -101,6 +112,7 @@ function defaultGates(): Gate[] {
     new ModuleDocsStructureGate(),
     new InstructionsDocsStructureGate(),
     new DocumentationFreshnessGate(),
+    new SiteMapFreshnessGate(),
     new ExtensionSurfaceGate(),
   ];
 }

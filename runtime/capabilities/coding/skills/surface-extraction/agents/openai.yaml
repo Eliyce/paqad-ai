@@ -1,0 +1,3 @@
+interface:
+  display_name: Surface Extraction
+  short_description: Run the extractors, normalize, and fingerprint the app's exposed surfaces with resolving evidence.

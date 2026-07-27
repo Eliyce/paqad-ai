@@ -107,6 +107,10 @@ export default defineConfig({
         // + fs, like the pentest engine — its pure inputs (parsers, detectors,
         // assembly) are covered on their own; the orchestration is covered via a fake.
         'src/codebase-health/gatherer.ts',
+        // The site-map production gatherer (issue site-map S5) is the same shape: real
+        // filesystem scanning of the target project; the pure extractors it feeds and the
+        // run orchestrator around it are covered on their own via an injected fake gatherer.
+        'src/site-map/gatherer.ts',
         'src/pentest/file-check-mapper.ts',
         'src/pentest/findings.ts',
         'src/pentest/incremental-scanner.ts',

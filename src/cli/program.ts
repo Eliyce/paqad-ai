@@ -38,6 +38,7 @@ import { createRagEvidenceCommand } from './commands/rag-evidence.js';
 import { createRefreshCommand } from './commands/refresh.js';
 import { createResumeCommand } from './commands/resume.js';
 import { createRulesCommand } from './commands/rules.js';
+import { createSitemapCommand } from './commands/sitemap.js';
 import { createSpecCommand } from './commands/spec.js';
 import { createStageCommand } from './commands/stage.js';
 import { createStatusCommand } from './commands/status.js';
@@ -59,6 +60,7 @@ export function createProgram(): Command {
   program.addCommand(createMetricsCommand());
   program.addCommand(createIndexCommand());
   program.addCommand(createHealthCommand());
+  program.addCommand(createSitemapCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());

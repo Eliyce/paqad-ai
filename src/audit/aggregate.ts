@@ -19,6 +19,7 @@ import { readAllSessionRows, type SessionLedgerRow } from '@/session-ledger/ledg
 import { readAllFeatureStageRows } from '@/feature-evidence/projections.js';
 import { DISABLED_SESSION_DOC_TYPE } from '@/session-ledger/disabled-audit.js';
 import { HEALTH_RUN_DOC_TYPE } from '@/codebase-health/ledger.js';
+import { SITE_MAP_RUN_DOC_TYPE } from '@/site-map/ledger.js';
 import { CHANGE_METRICS_DOC_TYPE } from '@/change-metrics/index.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
@@ -114,6 +115,7 @@ const SESSION_LEDGER_DOC_TYPES = [
   RULE_EVIDENCE_DOC_TYPE,
   DISABLED_SESSION_DOC_TYPE,
   HEALTH_RUN_DOC_TYPE,
+  SITE_MAP_RUN_DOC_TYPE,
   CHANGE_METRICS_DOC_TYPE,
 ] as const;
 
@@ -153,6 +155,11 @@ function sessionDetail(row: SessionLedgerRow): string {
     case HEALTH_RUN_DOC_TYPE: {
       const count = typeof row.finding_count === 'number' ? row.finding_count : 0;
       return `health run ${typeof row.report_id === 'string' ? row.report_id : ''} · ${count} finding(s)`.trim();
+    }
+    case SITE_MAP_RUN_DOC_TYPE: {
+      const count = typeof row.finding_count === 'number' ? row.finding_count : 0;
+      const surfaces = typeof row.surface_count === 'number' ? row.surface_count : 0;
+      return `site-map run ${typeof row.report_id === 'string' ? row.report_id : ''} · ${surfaces} surface(s) · ${count} finding(s)`.trim();
     }
     case CHANGE_METRICS_DOC_TYPE: {
       // The project-ledger opens each doc with a `kind:'open'` marker that carries no
