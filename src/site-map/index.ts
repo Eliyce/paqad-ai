@@ -8,3 +8,7 @@ export * from './shared.js';
 export * from './baseline.js';
 export * from './ledger.js';
 export * from './extraction.js';
+export * from './report-builder.js';
+export * from './assemble.js';
+export { runSiteMapAudit } from './run.js';
+export type { SiteMapGatherer, SiteMapRunOptions, SiteMapRunResult } from './run.js';

@@ -106,3 +106,52 @@ export interface SiteMapBaseline {
   created_at: string;
   finding_ids: string[];
 }
+
+/** The mapped product, distilled for the run header (mirrors health's `stack`). */
+export interface SiteMapAppSummary {
+  name: string;
+  /** The primary app kind (the first of a multi-kind app). */
+  kind: string;
+  frameworks: string[];
+}
+
+/** What the extraction stage produced, distilled for the run header and the freshness gate. */
+export interface SiteMapExtractionSummary {
+  extractors_ran: number;
+  extracted_surfaces: number;
+  low_confidence_fallback: boolean;
+  /** Content-addressed over the raw surface set — the drift signal the freshness gate compares. */
+  fingerprint: string;
+}
+
+/**
+ * The dual-written run report (`docs/site-map/<ts>.json` sidecar). Mirrors `HealthReportIndex`:
+ * a self-describing, schema-versioned record of one audit — its findings, what was blocked, the
+ * baseline delta — so `paqad-ai audit export` and the retest bookend read a stable shape.
+ */
+export interface SiteMapReportIndex {
+  schema_version: '1';
+  generated_by: 'paqad-ai';
+  framework_version: string;
+  report_id: string;
+  workflow: SiteMapWorkflowName;
+  generated_at: string;
+  /** Repo-relative posix path of the human markdown report. */
+  report_path: string;
+  /** Repo-relative posix path of this JSON sidecar. */
+  sidecar_path: string;
+  /** Repo-relative posix path of the run's evidence bundle directory. */
+  bundle_dir: string;
+  source_report_path: string | null;
+  source_report_id: string | null;
+  app: SiteMapAppSummary;
+  /** Surfaces in the CANONICAL map (`app-map.yaml`); 0 when no map exists yet. */
+  surface_count: number;
+  journey_count: number;
+  extraction: SiteMapExtractionSummary;
+  findings: Array<SiteMapFinding | SiteMapRetestFinding>;
+  blocked_checks: SiteMapBlockedCheck[];
+  baseline: SiteMapBaselineSummary;
+  sources_used: string[];
+  next_remediation_priorities: string[];
+}
