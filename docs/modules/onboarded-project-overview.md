@@ -118,7 +118,7 @@ feature-development stages are named in §2. Throughout:
   stop for a human at flagged junctions (reuse-vs-create, architecture path, spec
   change, module-slug collision)
   ([`decision-pause-contract`](decision-pause-contract/index/summary.md)).
-- **Verification gates** (16 of them) decide whether the change may land. They run
+- **Verification gates** (17 of them) decide whether the change may land. They run
   transparently in-pipeline **and again at a git/CI backstop independent of the
   agent** ([`verification`](verification/index/summary.md), `src/verification`).
 - Everything lands in the append-only **Evidence Ledger**, and a per-change
@@ -149,8 +149,8 @@ the framework owns phase order and the mandatory safety stages.
 
 ## 3. Full catalog: every skill and agent, by lifecycle phase
 
-This is the complete roster the framework ships into an onboarded repo: **39 base
-skills, 18 coding skills, 11 security skills, 6 content skills, 20 agents.** Each
+This is the complete roster the framework ships into an onboarded repo: **41 base
+skills, 29 coding skills, 11 security skills, 6 content skills, 21 agents.** Each
 links to its definition; "knows" lists the existing-codebase signals it actually
 consults. The authority for what exists remains
 [`module-map.yml`](../instructions/rules/module-map.yml) and the runtime
@@ -274,6 +274,32 @@ a plain-words reason, and a suggested action, split honestly into Proven vs Need
 [`health-retest`](../../runtime/capabilities/coding/rules/health-retest.md).
 Backed by [`codebase-health`](codebase-health/index/summary.md). Knows: code-knowledge index,
 dependency inventory, docs/modules, source.
+
+### Site map (site-map workflow — behind the `site_map` flag, off by default)
+The deterministic `paqad-ai sitemap run` verb maps the application — its surfaces (pages,
+screens, endpoints, CLI commands), transitions, guards, and areas — reconciles them against the
+canonical [`docs/instructions/site-map/app-map.yaml`](../instructions/site-map/app-map.yaml), runs
+Tier-A verification (evidence resolution, cross-reference integrity, graph invariants), and
+publishes a token-budgeted index, a Mermaid overview, and screen/API registries.
+`paqad-ai sitemap retest` reclassifies prior findings by their stable `SM-` id. The
+[`SiteMapFreshnessGate`](../../src/verification/gates/site-map-freshness.ts) keeps a
+feature-development change from reaching "Safe to merge" while a published view is stale (inert
+when the flag is off). Skills:
+[`site-map-readiness`](../../runtime/capabilities/coding/skills/site-map-readiness/SKILL.md),
+[`surface-extraction`](../../runtime/capabilities/coding/skills/surface-extraction/SKILL.md),
+[`surface-modeling`](../../runtime/capabilities/coding/skills/surface-modeling/SKILL.md),
+[`transition-tracing`](../../runtime/capabilities/coding/skills/transition-tracing/SKILL.md),
+[`guard-inference`](../../runtime/capabilities/coding/skills/guard-inference/SKILL.md),
+[`site-map-assembly`](../../runtime/capabilities/coding/skills/site-map-assembly/SKILL.md),
+[`map-verification`](../../runtime/capabilities/coding/skills/map-verification/SKILL.md),
+[`site-map-gap-analysis`](../../runtime/capabilities/coding/skills/site-map-gap-analysis/SKILL.md),
+[`site-map-publication`](../../runtime/capabilities/coding/skills/site-map-publication/SKILL.md),
+[`site-map-maintainer`](../../runtime/capabilities/coding/skills/site-map-maintainer/SKILL.md),
+[`site-map-retest`](../../runtime/capabilities/coding/skills/site-map-retest/SKILL.md). Rules:
+[`site-map`](../../runtime/capabilities/coding/rules/site-map.md),
+[`site-map-retest`](../../runtime/capabilities/coding/rules/site-map-retest.md). Role:
+[app-cartographer](../../runtime/capabilities/coding/agents/app-cartographer.md). Backed by
+`src/site-map`. Knows: code-knowledge index, route/command scan, module-map, source.
 
 ### Data / incident
 [`database-design-review`](../../runtime/capabilities/coding/skills/database-design-review/SKILL.md),
