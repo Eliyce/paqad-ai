@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
+import { runJourneyCuration, type JourneyCurationAction } from '@/site-map/journey-curation.js';
 import { runSiteMapRetest } from '@/site-map/retest-run.js';
 import { runSiteMapAudit } from '@/site-map/run.js';
 
@@ -119,6 +120,43 @@ export function createSitemapCommand(): Command {
         process.exitCode = 2;
       }
     });
+
+  const journey = command
+    .command('journey')
+    .description('Curate proposed journeys — the human sign-off that confirms or removes them');
+
+  for (const action of ['confirm', 'reject'] as JourneyCurationAction[]) {
+    journey
+      .command(action)
+      .description(
+        action === 'confirm'
+          ? 'Confirm a proposed journey (proposed → confirmed)'
+          : 'Reject a proposed journey (removes it from the map)',
+      )
+      .argument('<id>', 'Journey id under docs/instructions/site-map/journeys/')
+      .option('--project-root <path>', 'Project root', process.cwd())
+      .action((id: string, options: { projectRoot: string }) => {
+        try {
+          const result = runJourneyCuration({ projectRoot: options.projectRoot, id, action });
+          if (!result.ok) {
+            console.error(`**▸ paqad** · sitemap journey ${action}: ${result.reason}`);
+            process.exitCode = 1;
+            return;
+          }
+          console.log(
+            result.status === 'confirmed'
+              ? `**▸ paqad** · journey "${id}" confirmed — it is now part of the map.`
+              : `**▸ paqad** · journey "${id}" rejected — removed from the map.`,
+          );
+          process.exitCode = 0;
+        } catch (error) {
+          console.error(
+            `**▸ paqad** · sitemap journey ${action} failed: ${(error as Error).message}`,
+          );
+          process.exitCode = 2;
+        }
+      });
+  }
 
   return command;
 }

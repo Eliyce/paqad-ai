@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runSiteMapAudit = vi.fn();
 const runSiteMapRetest = vi.fn();
+const runJourneyCuration = vi.fn();
 const createSiteMapGatherer = vi.fn(() => ({}) as never);
 
 vi.mock('@/site-map/run.js', () => ({ runSiteMapAudit }));
 vi.mock('@/site-map/retest-run.js', () => ({ runSiteMapRetest }));
+vi.mock('@/site-map/journey-curation.js', () => ({ runJourneyCuration }));
 vi.mock('@/site-map/gatherer.js', () => ({ createSiteMapGatherer }));
 
 const { createSitemapCommand } = await import('@/cli/commands/sitemap.js');
@@ -23,6 +25,7 @@ describe('paqad-ai sitemap command', () => {
   beforeEach(() => {
     runSiteMapAudit.mockReset();
     runSiteMapRetest.mockReset();
+    runJourneyCuration.mockReset();
     createSiteMapGatherer.mockClear();
   });
 
@@ -136,5 +139,51 @@ describe('paqad-ai sitemap command', () => {
     const out = await invoke(['retest']);
     expect(process.exitCode).toBe(2);
     expect(out.join('\n')).toContain('sitemap retest failed: kaboom');
+  });
+
+  it('journey confirm: reports success and exits 0', async () => {
+    runJourneyCuration.mockReturnValue({
+      ok: true,
+      id: 'checkout',
+      action: 'confirm',
+      status: 'confirmed',
+    });
+    const out = await invoke(['journey', 'confirm', 'checkout', '--project-root', '/tmp/app']);
+    expect(process.exitCode).toBe(0);
+    expect(runJourneyCuration).toHaveBeenCalledWith(
+      expect.objectContaining({ projectRoot: '/tmp/app', id: 'checkout', action: 'confirm' }),
+    );
+    expect(out.join('\n')).toContain('confirmed');
+  });
+
+  it('journey reject: reports removal and exits 0', async () => {
+    runJourneyCuration.mockReturnValue({
+      ok: true,
+      id: 'abandoned',
+      action: 'reject',
+      status: 'removed',
+    });
+    const out = await invoke(['journey', 'reject', 'abandoned']);
+    expect(process.exitCode).toBe(0);
+    expect(out.join('\n')).toContain('rejected');
+  });
+
+  it('journey confirm: a refused transition exits 1', async () => {
+    runJourneyCuration.mockReturnValue({
+      ok: false,
+      reason: 'journey "x" is locked, not proposed',
+    });
+    const out = await invoke(['journey', 'confirm', 'x']);
+    expect(process.exitCode).toBe(1);
+    expect(out.join('\n')).toContain('not proposed');
+  });
+
+  it('journey confirm: an unexpected error exits 2', async () => {
+    runJourneyCuration.mockImplementation(() => {
+      throw new Error('splat');
+    });
+    const out = await invoke(['journey', 'confirm', 'x']);
+    expect(process.exitCode).toBe(2);
+    expect(out.join('\n')).toContain('journey confirm failed: splat');
   });
 });
