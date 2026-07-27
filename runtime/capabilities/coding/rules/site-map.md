@@ -89,8 +89,10 @@ the index and overview narrate. Then narrate the receipt in the paqad voice: the
 the contract words (Safe to merge / Needs your attention / Inconclusive), the top gaps, and any
 blocked checks.
 
-Journeys are `proposed`-only in this phase: the schema and the `journeys/` path exist, but
-journey synthesis and human curation are a later stage. Do not confirm a journey here.
+Journeys are `proposed`-only: the `journey-synthesis` skill (with the `journey-designer` role)
+proposes capped, well-formed journeys — one actor, one goal, ordered evidenced steps, dual ends —
+but a journey becomes `confirmed` only when a human signs off through the audited surface. Do not
+confirm a journey here.
 
 ## Rules
 

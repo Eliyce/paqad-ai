@@ -1,0 +1,3 @@
+interface:
+  display_name: Journey Synthesis
+  short_description: Propose a few capped, well-formed journeys over the verified map — all proposed, never auto-confirmed.
