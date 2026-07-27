@@ -21,6 +21,7 @@ describe('createProgram', () => {
       'metrics',
       'index',
       'health',
+      'sitemap',
       'packs',
       'compliance',
       'dashboard',

@@ -12,3 +12,4 @@ export * from './report-builder.js';
 export * from './assemble.js';
 export { runSiteMapAudit } from './run.js';
 export type { SiteMapGatherer, SiteMapRunOptions, SiteMapRunResult } from './run.js';
+export { createSiteMapGatherer } from './gatherer.js';
