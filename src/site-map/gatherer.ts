@@ -22,10 +22,14 @@ import type { SiteMapAppSummary } from '@/core/types/site-map-run.js';
 import {
   blockedExtractor,
   extractGenericSurfaces,
+  extractLaravelRouteSurfaces,
   extractNodeCliSurfaces,
+  extractReactRouteSurfaces,
   type CliCommandRecord,
   type ExtractorOutput,
   type GenericSurfaceRecord,
+  type LaravelRouteRecord,
+  type ReactRouteRecord,
 } from './extraction.js';
 import type { SiteMapGatherer } from './run.js';
 import { listJourneyIds, readAppMap } from './store.js';
@@ -191,6 +195,107 @@ const ROUTE_CONVENTIONS = [
 ];
 const ROUTE_EXCLUDE = new Set(['_app', '_document', '_error']);
 
+// React Router: `<Route path="/x" element={<Comp/>} />` or a route object `{ path: '/x', ... }`.
+const REACT_JSX_ROUTE_RE =
+  /<Route\b[^>]*\bpath=(['"])([^'"]+)\1[^>]*?(?:element=\{<\s*([A-Za-z0-9_]+))?/g;
+const REACT_OBJECT_ROUTE_RE =
+  /\bpath:\s*(['"])([^'"]+)\1\s*,\s*(?:element:\s*<\s*([A-Za-z0-9_]+))?/g;
+
+/** Statically read React Router route declarations from one source file. */
+function scanFileForReactRoutes(relFile: string, content: string): ReactRouteRecord[] {
+  const records: ReactRouteRecord[] = [];
+  for (const re of [REACT_JSX_ROUTE_RE, REACT_OBJECT_ROUTE_RE]) {
+    re.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(content)) !== null) {
+      const path = match[2]!.trim();
+      if (path.length === 0) continue;
+      records.push({
+        path,
+        ...(match[3] ? { component: match[3] } : {}),
+        file: relFile,
+        line: lineOf(content, match.index),
+      });
+    }
+  }
+  return records;
+}
+
+/** Scan the tree for React Router routes, deduping by `path` (first file wins). */
+async function scanReactRoutes(projectRoot: string): Promise<ReactRouteRecord[]> {
+  const files = (
+    await fg(['**/*.{tsx,jsx,ts,js}'], { cwd: projectRoot, ignore: SOURCE_IGNORE, dot: false })
+  ).slice(0, MAX_SCANNED_FILES);
+  const byPath = new Map<string, ReactRouteRecord>();
+  for (const file of files) {
+    let content: string;
+    try {
+      content = readFileSync(join(projectRoot, file), 'utf8');
+    } catch {
+      continue;
+    }
+    if (!content.includes('path')) continue;
+    for (const record of scanFileForReactRoutes(toPosixPath(file), content)) {
+      if (!byPath.has(record.path)) byPath.set(record.path, record);
+    }
+  }
+  return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
+}
+
+// Laravel: `Route::get('/x', Controller::class)` — the method and the uri literal.
+const LARAVEL_ROUTE_RE =
+  /Route::(get|post|put|patch|delete|options|any|match)\s*\(\s*(?:\[[^\]]*\]\s*,\s*)?(['"])([^'"]+)\2/g;
+
+/** Statically read Laravel route declarations from one PHP route file. */
+function scanFileForLaravelRoutes(relFile: string, content: string): LaravelRouteRecord[] {
+  const records: LaravelRouteRecord[] = [];
+  LARAVEL_ROUTE_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = LARAVEL_ROUTE_RE.exec(content)) !== null) {
+    const uri = match[3]!.trim();
+    if (uri.length === 0) continue;
+    records.push({
+      method: match[1]!.toUpperCase(),
+      uri,
+      file: relFile,
+      line: lineOf(content, match.index),
+    });
+  }
+  return records;
+}
+
+/** Scan a Laravel project's route files for `Route::` declarations. */
+async function scanLaravelRoutes(projectRoot: string): Promise<LaravelRouteRecord[]> {
+  const files = await fg(['routes/**/*.php'], {
+    cwd: projectRoot,
+    ignore: ['**/vendor/**'],
+    dot: false,
+  });
+  const records: LaravelRouteRecord[] = [];
+  for (const file of files) {
+    let content: string;
+    try {
+      content = readFileSync(join(projectRoot, file), 'utf8');
+    } catch {
+      continue;
+    }
+    records.push(...scanFileForLaravelRoutes(toPosixPath(file), content));
+  }
+  return records;
+}
+
+/** True when the project declares Laravel (composer requires laravel/framework). */
+function isLaravelProject(projectRoot: string): boolean {
+  try {
+    const composer = JSON.parse(readFileSync(join(projectRoot, 'composer.json'), 'utf8')) as {
+      require?: Record<string, string>;
+    };
+    return composer.require?.['laravel/framework'] !== undefined;
+  } catch {
+    return false;
+  }
+}
+
 /** Best-effort convention scan for web apps without a dedicated deterministic extractor. */
 async function scanGenericSurfaces(projectRoot: string): Promise<GenericSurfaceRecord[]> {
   const files = (
@@ -232,6 +337,8 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
   const frameworks = detectFrameworks(deps);
   const name = manifest.name ?? basename(projectRoot);
   const isNodeCli = appKind === 'cli' || deps.has('commander');
+  const isReactRouter = deps.has('react-router-dom') || deps.has('react-router');
+  const isLaravel = isLaravelProject(projectRoot);
 
   return {
     appKind: () => appKind,
@@ -248,6 +355,26 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
           available: true,
           surfaces: extractNodeCliSurfaces(await scanCliCommands(projectRoot)),
         });
+      }
+      if (isReactRouter) {
+        const routes = await scanReactRoutes(projectRoot);
+        if (routes.length > 0) {
+          outputs.push({
+            extractor: 'react-routes',
+            available: true,
+            surfaces: extractReactRouteSurfaces(routes),
+          });
+        }
+      }
+      if (isLaravel) {
+        const routes = await scanLaravelRoutes(projectRoot);
+        if (routes.length > 0) {
+          outputs.push({
+            extractor: 'laravel-routes',
+            available: true,
+            surfaces: extractLaravelRouteSurfaces(routes),
+          });
+        }
       }
       const generic = await scanGenericSurfaces(projectRoot);
       if (generic.length > 0) {

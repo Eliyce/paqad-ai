@@ -25,6 +25,8 @@ export const SITE_MAP_EXTRACTION_SCHEMA_VERSION = 1;
 
 const NODE_CLI_SOURCE = 'node-cli';
 const GENERIC_SOURCE = 'generic';
+const REACT_ROUTES_SOURCE = 'react-routes';
+const LARAVEL_ROUTES_SOURCE = 'laravel-routes';
 
 /** One commander command as read from the CLI program (normalized by the gatherer). */
 export interface CliCommandRecord {
@@ -138,6 +140,72 @@ export function extractGenericSurfaces(records: GenericSurfaceRecord[]): Extract
       derivation: 'static' as const,
       confidence: 'medium' as const,
       source: GENERIC_SOURCE,
+    };
+  });
+}
+
+/** One declared React route as read from a route tree (React Router objects, Next app/pages). */
+export interface ReactRouteRecord {
+  /** Route path, e.g. `/checkout` or `/users/:id`. */
+  path: string;
+  /** The component or page the route renders, used as the label when present. */
+  component?: string;
+  file: string;
+  line?: number;
+}
+
+/**
+ * React-route extractor: each declared route becomes a `page` surface whose entry is the URL.
+ * High confidence — the route is read from an explicit declaration, not a naming convention.
+ * The label is the component name when known, else the path.
+ */
+export function extractReactRouteSurfaces(records: ReactRouteRecord[]): ExtractedSurface[] {
+  return records.map((record) => {
+    const component = record.component?.trim();
+    return {
+      raw_id: toRawId(REACT_ROUTES_SOURCE, record.path),
+      kind: 'page' as const,
+      label: component && component.length > 0 ? component : record.path,
+      evidence: [toEvidence(record.file, record.line)],
+      entry: { kind: 'url', value: record.path },
+      derivation: 'static' as const,
+      confidence: 'high' as const,
+      source: REACT_ROUTES_SOURCE,
+    };
+  });
+}
+
+/** One declared Laravel route, e.g. `Route::get('/users', ...)` or an `routes/api.php` entry. */
+export interface LaravelRouteRecord {
+  /** HTTP method, upper-cased, e.g. `GET`. */
+  method: string;
+  /** Route uri without a leading slash, e.g. `users` or `api/orders`. */
+  uri: string;
+  /** Controller@action or closure label, used as the label when present. */
+  action?: string;
+  file: string;
+  line?: number;
+}
+
+/**
+ * Laravel-route extractor: an `api/`-prefixed uri becomes an `api` surface, everything else a
+ * `page`. High confidence — read from an explicit `Route::` declaration. The entry is the uri as
+ * a rooted URL; the label is the controller action when known, else the method + uri.
+ */
+export function extractLaravelRouteSurfaces(records: LaravelRouteRecord[]): ExtractedSurface[] {
+  return records.map((record) => {
+    const uri = record.uri.replace(/^\/+/, '');
+    const isApi = uri === 'api' || uri.startsWith('api/');
+    const action = record.action?.trim();
+    return {
+      raw_id: toRawId(LARAVEL_ROUTES_SOURCE, `${record.method} ${uri}`),
+      kind: isApi ? ('api' as const) : ('page' as const),
+      label: action && action.length > 0 ? action : `${record.method} /${uri}`,
+      evidence: [toEvidence(record.file, record.line)],
+      entry: { kind: 'url', value: `/${uri}` },
+      derivation: 'static' as const,
+      confidence: 'high' as const,
+      source: LARAVEL_ROUTES_SOURCE,
     };
   });
 }
