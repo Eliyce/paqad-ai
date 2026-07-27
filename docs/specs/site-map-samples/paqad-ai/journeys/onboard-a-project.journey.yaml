@@ -13,7 +13,7 @@ steps:
     expect: "detected stack shown and confirmed interactively"
   - surface: cli.onboard
     action: "pick providers / confirm capabilities in the wizard"
-    expect: "entry files + docs/instructions/** + .paqad/** written; 'Ready.' summary"
+    expect: "entry files + docs/instructions/** + .paqad/** written; 'ONBOARDING COMPLETE' panel with next step 'create documentation'"
   - surface: cli.doctor
     action: "run: paqad-ai doctor"
     expect: "exit code 0 (everything paqad manages is present and valid)"

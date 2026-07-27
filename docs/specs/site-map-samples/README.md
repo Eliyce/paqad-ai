@@ -11,8 +11,11 @@ Reading order: each sample's `app-map.yaml` first (the canonical graph), then `j
 
 Conventions demonstrated (from the proposal/plan/addendum):
 
-- **Functional altitude**: surfaces are what a *user of the product* experiences; technical detail exists only as `evidence` provenance. Supporting machinery is marked `stage: backstage` and hidden by default in the visual map (service-blueprint frontstage/backstage).
+- **Functional altitude**: surfaces are what a *user of the product* experiences; technical detail exists only as `evidence` provenance. Supporting machinery is marked `visibility: backstage` and hidden by default in the visual map (service-blueprint frontstage/backstage).
 - **Business language**: `label` is the human, business-language name. Where the code uses translation keys, `label_key` records the key and `label` the resolved default-locale text; the domain glossary in `module-map.yml` supplies preferred terms.
 - **Incident encoding**: each surface lists its own outgoing transitions inline.
 - **Guards are named and satisfiable**; actors are **permission bundles** (`satisfies:` lists), which is what makes "view as X" lenses computable.
 - **Provenance everywhere**: `derivation` + `confidence` + `evidence` on anything non-obvious; human-curated fields are explicit.
+- **`status: proposed` journeys may be index-only** (listed in the map's journeys index without a file); a journey file appears when it is confirmed.
+
+Deliberately **not** demonstrated here (named in the addendum, awaiting the real schema): guard kinds `role` and `data-state` in the web-shop sample, step sub-type `collect` with declared inputs/outputs, decision-pause outcome-labeled edges and timeout edges, terminal outcome `abandoned`, standalone `handoff`/`subflow` nodes with `mode: call`, the flow-level `state`/slots block, and variant `changes` (only `adds` is shown). These samples illustrate the shape, not the full vocabulary.

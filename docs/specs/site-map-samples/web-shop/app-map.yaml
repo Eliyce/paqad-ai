@@ -28,7 +28,11 @@ actors: # actor = permission bundle → the 'view as' lens is computable
     satisfies: [authenticated, perm.orders.view] # can see orders, cannot export — the lens shows the difference
 
 guards:
-  - { id: authenticated, kind: auth, label: Signed in, satisfy_via: journey:sign-in }
+  - { id: authenticated, kind: auth-state, label: Signed in, satisfy_via: journey:sign-in }
+  - id: perm.catalog.edit
+    kind: permission
+    label: May edit the catalog
+    evidence: { file: app/Policies/ProductPolicy.php, line: 22 }
   - id: perm.orders.export
     kind: permission # permission ≠ role: roles are bundles, permissions are the atoms
     label: May export orders
@@ -61,7 +65,7 @@ areas:
   - { id: storefront, label: Storefront }
   - { id: account, label: My account }
   - { id: back-office, label: Back office, guard: authenticated }
-  - { id: fulfillment, label: Fulfillment machinery, stage: backstage }
+  - { id: fulfillment, label: Fulfillment machinery, visibility: backstage }
 
 surfaces:
   - id: catalog.list
@@ -106,7 +110,7 @@ surfaces:
     page_type: form
     transitions:
       # FEATURE-FLAG VARIANT: same intent, two surfaces; the lens picks one
-      - { to: checkout.classic, trigger: submit, guard-not: flag.new-checkout }
+      - { to: checkout.classic, trigger: submit, guard_not: flag.new-checkout }
       - { to: checkout.express, trigger: submit, guard: flag.new-checkout }
 
   - id: checkout.classic
@@ -138,7 +142,7 @@ surfaces:
     kind: external-system
     label: Stripe payment
     area: storefront
-    stage: frontstage # the shopper consciously leaves and returns
+    visibility: frontstage # the shopper consciously leaves and returns
     hand_off: { carries: "payment session token", returns: true } # label WHAT crosses the boundary
     transitions:
       - { to: order.confirmation, trigger: redirect, carries: "payment confirmation", note: payment succeeded }
@@ -152,13 +156,13 @@ surfaces:
     page_type: confirmation
     ends: { success: true }
     transitions:
-      - { to: external.mail, trigger: event, stage: backstage, note: receipt email queued }
+      - { to: external.mail, trigger: event, visibility: backstage, note: receipt email queued }
 
   - id: external.mail
     kind: external-system
     label: Customer's inbox (receipt & verification emails)
     area: fulfillment
-    stage: backstage
+    visibility: backstage
     note: becomes frontstage in the sign-up journey (email verification loop)
 
   - id: admin.orders
@@ -184,12 +188,13 @@ surfaces:
     kind: job
     label: Fulfillment pipeline (pick, pack, ship events)
     area: fulfillment
-    stage: backstage
+    visibility: backstage
     note: invisible to shoppers; surfaces to them only as order-status emails
 
-journeys:
+journeys: # index; confirmed journeys have files in journeys/, `proposed` ones may be index-only
   - { id: checkout, label: Shopper buys a product, actor: shopper, priority: high, status: confirmed }
-  - { id: export-orders, label: Manager exports the day's orders, actor: store-manager, priority: medium, status: proposed }
+  - { id: sign-in, label: Shopper signs in, actor: guest, priority: high, status: proposed } # referenced by guards/uses; index-only in this sample
+  - { id: export-orders, label: Manager exports the day's orders, actor: store-manager, priority: medium, status: proposed } # index-only until confirmed
 
 # LENS EXAMPLES (computed, not stored — shown here for review only):
 #   view as support-agent  → admin.orders visible; admin.orders.export hidden (perm.orders.export unsatisfied)

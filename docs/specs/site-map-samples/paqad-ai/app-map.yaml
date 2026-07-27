@@ -24,11 +24,13 @@ guards:
   - id: paqad-enabled
     kind: feature-flag
     label: paqad is enabled for this project
+    flag_key: paqad_enable
+    required_variant: on
     requires: "paqad_enable resolves ON (env > .config > configs/.config.app > default ON)"
     satisfy_via: "leave defaults, or set paqad_enable=true"
     evidence: { file: runtime/AGENT-BOOTSTRAP.md, line: 9 }
   - id: project-onboarded
-    kind: precondition
+    kind: data-state
     label: Project is onboarded
     requires: ".paqad/onboarding-manifest.json exists"
     satisfy_via: journey:onboard-a-project
@@ -41,19 +43,22 @@ guards:
   - id: dashboard-reachable
     kind: environment
     label: Dashboard reachable (loopback only)
-    requires: "server binds 127.0.0.1; foreign Origin/Host rejected"
-    evidence: { file: src/dashboard/server.ts, line: 359 }
+    requires: "server binds 127.0.0.1 (CLI default); mutations additionally reject foreign Origin/Host"
+    evidence:
+      - { file: src/cli/commands/dashboard.ts, line: 46, note: loopback bind default }
+      - { file: src/dashboard/server.ts, line: 359, note: mutation-only Host/Origin guard }
   - id: rag-enabled
     kind: feature-flag
     label: Hybrid retrieval switched on
-    requires: "rag_enabled=true"
+    flag_key: rag_enabled
+    required_variant: on
     satisfy_via: "paqad-ai rag init --provider local"
 
 areas: # the "districts" of the visual map
   - { id: terminal, label: Terminal (CLI) }
   - { id: dashboard, label: Dashboard (local web) }
   - { id: agent-chat, label: Agent chat (prompt workflows) }
-  - { id: background, label: Background & hooks, stage: backstage }
+  - { id: background, label: Background & hooks, visibility: backstage }
 
 surfaces:
   # ─── Terminal district (subset — the registry lists ~20 commands) ───
@@ -64,7 +69,7 @@ surfaces:
     entry: { kind: command, value: "paqad-ai onboard" }
     page_type: wizard
     module: cli-lifecycle
-    oracle: { output: "Ready. Your AI agents now understand your project" }
+    oracle: { output: "ONBOARDING COMPLETE panel, then 'NEXT STEP: prompt your AI agent with: create documentation'" }
     evidence: { file: src/cli/commands/onboard.ts, line: 1 }
     derivation: static
     confidence: high
@@ -129,7 +134,7 @@ surfaces:
         note: resolve decision packet (audited write)
       - to: agent-chat.workflow.feature-development
         trigger: unblocks
-        stage: backstage
+        visibility: backstage
         note: a resolved packet lets a paused workflow continue
 
   - id: dashboard.trust
@@ -175,7 +180,9 @@ surfaces:
     label: Workflow router (picks exactly one of 10)
     area: agent-chat
     module: agent-routing
-    evidence: { file: runtime/base/skills/workflow-router/SKILL.md, line: 1 }
+    evidence:
+      - { file: runtime/AGENT-BOOTSTRAP.md, line: 25, note: the authoritative 10-workflow list }
+      - { file: runtime/base/skills/workflow-router/SKILL.md, line: 1, note: deterministic phrase-table priorities (its table also carries finer-grained targets the bootstrap folds into feature-development) }
     derivation: static
     confidence: high
     # Each edge's guard is marked deterministic (machine-evaluable pattern) or
@@ -185,32 +192,32 @@ surfaces:
     transitions:
       - to: agent-chat.workflow.feature-development
         trigger: route
-        guard-text: "any code change, however phrased"
+        guard_text: "any code change, however phrased"
         guard_mode: llm-judged
       - to: agent-chat.workflow.documentation-update
         trigger: route
-        guard-text: "create documentation (+ variants, typos tolerated)"
+        guard_text: "create documentation (+ variants, typos tolerated)"
         guard_mode: deterministic # phrase table row, priority 220
         utterances: ["create documentation", "generate documentation", "update documentation"]
       - to: agent-chat.workflow.module-documentation
         trigger: route
-        guard-text: "create module documentation"
+        guard_text: "create module documentation"
         guard_mode: deterministic # priority 225
       - to: agent-chat.workflow.pentest
         trigger: route
-        guard-text: "security test / pentest / check for vulnerabilities"
+        guard_text: "security test / pentest / check for vulnerabilities"
         guard_mode: llm-judged
       - to: agent-chat.workflow.codebase-health
         trigger: route
-        guard-text: "audit codebase health"
+        guard_text: "audit codebase health"
         guard_mode: llm-judged
       - to: agent-chat.workflow.project-question
         trigger: route
-        guard-text: "question about the project, no code change"
+        guard_text: "question about the project, no code change"
         guard_mode: llm-judged
       - to: agent-chat.no-workflow
         trigger: fallback # mandatory modeled path: "couldn't route" is never an error
-        guard-text: "small talk or nothing above matches — load nothing, just reply"
+        guard_text: "small talk or nothing above matches — load nothing, just reply"
       # trimmed: design-test, rules-analyze, root-cause-analysis
 
   - id: agent-chat.workflow.documentation-update
@@ -220,12 +227,12 @@ surfaces:
     module: documentation-workflow
     guard: paqad-enabled
     routing_description: "the 'create documentation' foundation stage" # what the router reads
-    stages: # user-visible stops only (frontstage); machinery stays backstage
-      - { id: sync-stack, label: Re-read live stack & sync profile, type: tool, stage: backstage }
+    steps: # user-visible stops only (frontstage); machinery stays backstage
+      - { id: sync-stack, label: Re-read live stack & sync profile, type: tool, visibility: backstage }
       - { id: write-foundation, label: Write stack/architecture/registry docs, type: llm, visible: "▸ paqad narration" }
       - { id: discover-modules, label: Discover business modules & write the module map, type: llm }
       - id: map-review
-        kind: decision-pause # BPMN user-task semantics: presents / decisions / outcome edges
+        type: decision-pause # BPMN user-task semantics: presents / decisions / outcome edges
         label: "PAUSE: review the proposed module map"
         presents: "the proposed module map, low-confidence modules called out"
         decisions: [accept, rename-modules, rediscover]
@@ -241,20 +248,29 @@ surfaces:
     area: agent-chat
     module: feature-development-workflow
     guard: [paqad-enabled, coding-capability]
-    stages:
-      - { id: planning, label: Plan (reuse-checked, module-attributed), artifact: plan.json }
-      - { id: specification, label: "Freeze the spec (AC + invariants)", artifact: specification.json, kind: human-confirm }
-      - { id: development, label: Build the change }
-      - { id: review, label: Review against the evidence digest, artifact: review.json }
-      - { id: checks, label: "Checks: format, tests, build (script-enforced)" }
-      - { id: documentation-sync, label: Sync canonical docs (and, later, this site map) }
-      - { id: decision-pauses, label: "PAUSE(s): choices routed to the human", kind: human-pause, when: as-needed }
+    steps:
+      - { id: planning, label: Plan (reuse-checked, module-attributed), type: llm, artifact: plan.json }
+      - id: specification
+        type: decision-pause
+        label: "Freeze the spec (AC + invariants confirmed by the human)"
+        presents: "the spec's acceptance criteria and invariants"
+        decisions: [confirm-and-freeze, revise]
+        artifact: specification.json
+      - { id: development, label: Build the change, type: llm }
+      - { id: review, label: Review against the evidence digest, type: llm, artifact: review.json }
+      - { id: checks, label: "Checks: format, tests, build (script-enforced)", type: tool }
+      - { id: documentation-sync, label: Sync canonical docs (and, later, this site map), type: llm }
+      - id: decision-pauses
+        type: decision-pause
+        label: "PAUSE(s), as needed: choices routed to the human"
+        presents: "a decision packet with its options"
+        decisions: [per-packet options]
     ends:
       success: { receipt: "Safe to merge — per-stage evidence table" }
       failure: { receipt: "Needs your attention / Inconclusive" }
     transitions:
       - { to: dashboard.approvals, trigger: hand-off, note: decision packets surface in the Approvals inbox }
-      - { to: dashboard.trust, trigger: evidence, stage: backstage, note: receipts land in the trust ledger }
+      - { to: dashboard.trust, trigger: evidence, visibility: backstage, note: receipts land in the trust ledger }
 
   - id: agent-chat.workflow.pentest
     kind: llm-workflow
@@ -262,10 +278,10 @@ surfaces:
     area: agent-chat
     module: pentest-workflow
     guard: [paqad-enabled, coding-capability]
-    stages:
-      - { id: threat-model, label: STRIDE threat inventory (runs first, feeds all checks) }
-      - { id: reviews, label: 12 security checks over docs/tests/code/runtime }
-      - { id: report, label: "Report + local curl playbook (never auto-executed)" }
+    steps:
+      - { id: threat-model, label: STRIDE threat inventory (runs first, feeds all checks), type: llm }
+      - { id: reviews, label: 12 security checks over docs/tests/code/runtime, type: llm }
+      - { id: report, label: "Report + local curl playbook (never auto-executed)", type: tool }
     ends: { success: { receipt: "docs/pentest/<timestamp>.md + .json" } }
 
   - id: agent-chat.workflow.project-question
@@ -280,23 +296,23 @@ surfaces:
     area: agent-chat
     note: the router's fallback end — small talk gets an answer, nothing else
 
-  # trimmed for the sample: module-documentation, codebase-health, design-test,
-  # rules-analyze, root-cause-analysis, no-workflow
+  # trimmed for the sample: the module-documentation, codebase-health, design-test,
+  # rules-analyze, and root-cause-analysis workflow surfaces
 
   # ─── External & background ───
   - id: external.siem
     kind: external-system
     label: Your SIEM (evidence export target)
     area: dashboard
-    stage: frontstage # the user consciously hands off to it
+    visibility: frontstage # the user consciously hands off to it
   - id: background.hooks
     kind: job
     label: Hook layer (gates edits, records evidence)
     area: background
-    stage: backstage
+    visibility: backstage
     note: invisible to the user except as blocked edits and ledger rows
 
-journeys: # index only — full definitions live in journeys/*.journey.yaml
+journeys: # index; confirmed journeys have files in journeys/, `proposed` ones may be index-only
   - { id: onboard-a-project, label: Onboard a project in 30 seconds, actor: developer, priority: high, status: confirmed }
   - { id: create-documentation, label: Create the project documentation via a prompt, actor: coding-agent, priority: high, status: confirmed }
-  - { id: review-trust-evidence, label: Review what the AI did and export the evidence, actor: team-lead, priority: medium, status: proposed }
+  - { id: review-trust-evidence, label: Review what the AI did and export the evidence, actor: team-lead, priority: medium, status: proposed } # index-only until confirmed

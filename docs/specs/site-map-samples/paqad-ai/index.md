@@ -1,6 +1,6 @@
 # paqad-ai — site map index (SAMPLE of the ≤1k-token agent orientation layer)
 
-> Hybrid product: **CLI** + **local dashboard** + **LLM prompt workflows**. Mapped from `main@a7c3a30` (illustrative). 24 surfaces · 3 areas (+1 backstage) · 3 journeys · full map: `app-map.yaml`, journeys: `journeys/`.
+> Hybrid product: **CLI** + **local dashboard** + **LLM prompt workflows**. Mapped from `main@a7c3a30` (illustrative). 17 surfaces (trimmed sample — a real generation would carry the full inventory) · 3 areas (+1 backstage) · 3 journeys · canonical map: `app-map.yaml`, journeys: `journeys/`.
 
 **Consult-and-verify rule:** before adding or changing a CLI command, dashboard area, or routed workflow, read the matching section of `app-map.yaml`. Every claim carries `evidence: file:line` — if the evidence no longer matches the code, trust the code and flag map drift (SM finding), never edit around it.
 

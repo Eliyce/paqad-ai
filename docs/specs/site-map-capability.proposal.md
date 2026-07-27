@@ -61,7 +61,7 @@ The research turned up nine ideas that make the difference between "a diagram" a
 
 ### 2.1 The trigger and the workflow
 
-A new routed workflow, **`site-map`**, joining the existing ten. Trigger phrases: `create site map` (primary), plus `create sitemap`, `update site map`, `generate site map`, `create journey map` — registered in the same routing table as the documentation workflows, in their priority band. The agent bootstrap's numbered workflow list grows by one entry, described as: *"site-map — the 'create site map' stage: map every entry, surface, transition, and journey of the application."*
+A new routed workflow, **`site-map`**, joining the existing ten. Trigger phrases: `create site map` (primary), plus `create sitemap`, `update site map`, `generate site map`, `create journey map` — registered in the same routing table as the other workflows. (Priority placement is decided in the plan, decision 6: the 232/233 band between root-cause-analysis and design-test, above the documentation band so the retest variant can outrank its base phrase.) The agent bootstrap's numbered workflow list grows by one entry, described as: *"site-map — the 'create site map' stage: map every entry, surface, transition, and journey of the application."*
 
 **Prerequisite posture (soft):** the site map is most valuable after Stage 1 (`create documentation`) has produced the module map, because every surface links to its owning module. If the module map is missing, the workflow still runs but marks surfaces as unattributed and recommends running `create documentation` — a softer posture than Stage 2's hard refusal, because the behavioral map has standalone value.
 
@@ -71,7 +71,7 @@ A new routed workflow, **`site-map`**, joining the existing ten. Trigger phrases
 2. **Deterministic inventory (scripts first, no LLM).** Run the per-stack extractor recipes (§2.5) to enumerate raw surfaces: route tables, page-file conventions, command trees, navigation XML. Output is a raw extraction artifact with file/line evidence — cheap, repeatable, and the future drift baseline.
 3. **Agent normalization & enrichment.** The agent turns raw entries into named surfaces (semantic slugs, human titles, page types), walks the code to find **transitions** (links, redirects, form submissions, navigation calls, command invocations) and **guards** (middleware, decorators, route meta, `canActivate`, redirect callbacks), marking each with derivation + confidence + evidence. Existing per-feature skills (`user-flow-generation`, `ux-state-machine`) already reason this way per change; this workflow aggregates the same reasoning app-wide.
 4. **Journey proposal.** From entry points to terminal states, the agent proposes the important journeys — informed by existing E2E tests, the module map, analytics call-sites, and READMEs. Proposals carry confidence and are explicitly marked `proposed`.
-5. **Human checkpoint.** Journey confirmation rides the existing review machinery (Decision Pause packets or the dashboard Approvals area — decision point §7.3): confirm, rename, reprioritize, or reject. Confirmed journeys become curated files that refresh never clobbers. This mirrors Stage 1's `pending_map_review` pattern.
+5. **Human checkpoint (non-blocking for the map).** Journey confirmation rides the existing review machinery (Decision Pause packets or the dashboard Approvals area — decision point §7.3): confirm, rename, reprioritize, or reject. Confirmed journeys become curated files that refresh never clobbers. Unlike Stage 1's blocking `pending_map_review`, the map itself still publishes while journeys await confirmation — unresolved curation downgrades the run verdict to "Needs your attention" and leaves journeys `proposed` (the plan's S5/S7/S8 ordering is authoritative here).
 6. **Write the artifact set** (§2.3), register every output in the doc tracker (inheriting differential refresh + crash recovery for free), regenerate the human mirror and Mermaid views, and finish with the standard workflow status output (completed / blocked / gaps found).
 
 **Re-runs are differential.** Like the doc workflow: content-hashing of each output's source files means an unchanged module costs nothing; a changed routes file re-extracts only the affected slice; human-curated fields survive (same semantics as `auto_update_module_name: false` locked entries in the module map).
@@ -112,8 +112,8 @@ docs/instructions/site-map/
 docs/modules/<slug>/user-flows/    # per-module journey pages (claims the dormant
                                    # MODULE_USER_FLOWS_DIR slot; generated projections)
 
-.paqad/site-map/extraction.json    # raw deterministic extraction (derived cache + drift baseline)
-.paqad/site-map/drift.json         # SM-* findings from the last reconcile
+.paqad/site-map/runs/<run_id>/     # run bundle: progress, per-stage artifacts (incl. extraction), findings, logs
+.paqad/site-map/baseline.json      # finding baseline (new-since-baseline vs pre-existing) — plan §II.4 is authoritative
 ```
 
 **Format decisions (each backed by research, §V.6):**
@@ -191,7 +191,7 @@ This reuses the four existing drift mechanisms rather than inventing a fifth:
 
 1. **Differential refresh via the doc tracker.** Every generated site-map output registers in `.paqad/doc-progress.json` with its source files and content hash — the identical mechanism the module docs use. Unchanged sources ⇒ skip; interrupted runs ⇒ automatic crash recovery. (The tracker's `global` group is schema-open, so this needs no schema surgery.)
 2. **Stale-detection on every code change.** The stale-doc detector learns the flow-relevant paths (per-pack: `routes/**`, `app/Http/Controllers/**`, `src/pages/**`, `src/cli/**`, navigation dirs …) so a change there marks the site map stale during feature development, and the documentation-sync engine routes the repair to a new `site-map-maintainer` skill — exactly how `api-doc-maintainer` works today.
-3. **Reconciliation with stable finding codes.** A reconcile pass compares a fresh deterministic extraction against the canonical map and emits `SM-*` findings, mirroring the module map's `MM-*` family:
+3. **Reconciliation with stable finding categories.** A reconcile pass compares a fresh deterministic extraction against the canonical map and emits `SM-*` findings, mirroring the module map's `MM-*` family. (These names are the finding's *category*; each finding's *identity* is a content-addressed stable ID — see the plan §II.4 — which is what retest matches on.)
    - `SM-ADD` — surface exists in code, missing from map
    - `SM-REMOVE` — mapped surface no longer in code
    - `SM-EDGE-STALE` — transition's evidence no longer matches
@@ -209,7 +209,7 @@ Research validated that **modern frameworks have converged on statically enumera
 
 - Five packs already ship `scripts/extract-routes.sh` (nextjs, nestjs, dotnet, flask, kotlin-android), and a stack-switched runner-script template exists with `php artisan route:list --json` as its default arm — currently orphaned (never wired into onboarding). The capability adopts and completes this seam.
 - Per-ecosystem dump commands validated: Laravel `route:list --json` (middleware = guards), Rails `rails routes`, Django `show_urls --format json`, FastAPI `/openapi.json` (security = guards), React Router/Remix `routes --json`, Next.js file conventions + build manifests, Vue Router meta + navigation guards, Angular `canActivate`, Android navigation XML, iOS storyboards, Flutter GoRouter trees, oclif `manifest`, commander introspection.
-- **Pack extension (new optional `site_map` block):** declares the app kind(s) (`web | api | cli | mobile | service`), surface locations (route/screen/command globs — largely already present as pentest `file_check_map` globs), the extractor script, guard conventions (where auth lives in this stack), and navigation hints. Packs without the block fall back to generic conventions plus agent-led discovery at lower confidence. (Note: the pack schema is strict, so the block must be added to the schema — a known, cheap step.)
+- **Pack extension (new optional `site_map` block):** declares the app kind(s) (`web | api | cli | mobile | service` — extended by the addendum §5 with `desktop` and `llm-workflows`), surface locations (route/screen/command globs — largely already present as pentest `file_check_map` globs), the extractor script, guard conventions (where auth lives in this stack), and navigation hints. Packs without the block fall back to generic conventions plus agent-led discovery at lower confidence. (Note: the pack schema is strict, so the block must be added to the schema — a known, cheap step.)
 - **Key insight from the research: nodes are cheap; edges are the product.** Static extraction guarantees the surface inventory; transitions need framework-aware analysis plus agent refinement with per-edge confidence. That hybrid (static graph + LLM semantic refinement) is literally the 2026 state of the art in the academic literature — and paqad already has the LLM in the loop.
 
 ### 2.6 The dashboard area — "Site map"
@@ -348,7 +348,7 @@ Each phase ships standalone value; nothing blocks on the last mile.
 2. **Canonical home.** Recommended: `docs/instructions/site-map/` (version-controlled, reviewable, agent-loadable, dashboard-editable later), with `.paqad/site-map/` for derived caches only. Alternative: everything under `.paqad/` (hidden from PR review — not recommended; the map deserves review).
 3. **Journey confirmation surface.** Recommended: dashboard Approvals (it exists, it's audited, it's pleasant) with Decision Pause packets as the headless fallback. Alternative: plain file edits only.
 4. **MVP shape.** Recommended: Phase 0 skill first (validates schema on real repos in days), promote to routed workflow in the same release train as the dashboard area. Alternative: go straight to Shape A.
-5. **Default state.** Recommended: feature flag `site_map` ships default-ON for projects with the `coding` capability once Phase 1 lands (docs are paqad's product promise), default-OFF during Phase 0.
+5. **Default state.** Superseded by the plan's decision 9: default-OFF through P1–P2, ON once the P3 sync machinery ships — a map that can go stale without its freshness gate should not be on by default.
 6. **Trigger wording for journeys refresh.** One workflow (`create site map` does map + journey proposals) vs a separate `create journeys` stage. Recommended: one workflow with the review checkpoint inside — fewer phrases to learn, mirrors how Stage 1 already pauses at `pending_map_review`.
 
 ---

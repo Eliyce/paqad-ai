@@ -16,16 +16,16 @@ steps:
     action: "router matches the phrase (priority 220 band)"
     expect: "workflow = documentation-update, no clarifying question asked"
   - surface: agent-chat.workflow.documentation-update
-    stage: write-foundation
+    step: write-foundation
     action: "agent re-reads live manifests, writes docs/instructions/** (stack, architecture, registries)"
     expect: "narrated progress; files appear under docs/instructions/"
   - surface: agent-chat.workflow.documentation-update
-    stage: discover-modules
+    step: discover-modules
     action: "agent discovers business modules and writes module-map.yml"
     expect: "low-confidence modules are called out explicitly"
   - surface: agent-chat.workflow.documentation-update
-    stage: map-review
-    kind: human-pause
+    step: map-review
+    type: decision-pause
     action: "developer reviews the proposed module map"
     expect: "verbatim Stage-1 final message; moduleDocStage=pending_map_review"
 branches:
@@ -35,7 +35,7 @@ branches:
 ends:
   success: "map reviewed; developer follows up with 'create module documentation' (journey: module docs)"
   failure: "paqad disabled or bootstrap unreadable → agent proceeds as a plain assistant; no paqad artifacts"
-next_journeys: [module-documentation]
+next_journeys: [module-documentation] # journey trimmed from this sample (its workflow surface is too)
 tests: [] # gap, on purpose: shows how an untested journey reads in the map
 priority: high
 status: confirmed
