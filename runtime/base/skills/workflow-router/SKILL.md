@@ -18,6 +18,21 @@ request_routing:
       - penetration test
       - security review
       - security test
+  - priority: 233
+    target_workflow: site-map-retest
+    patterns:
+      - site map retest
+      - site-map retest
+      - retest the site map
+      - retest site map
+  - priority: 232
+    target_workflow: site-map
+    patterns:
+      - site map
+      - create sitemap
+      - update sitemap
+      - generate sitemap
+      - journey map
   - priority: 230
     target_workflow: root-cause-analysis
     patterns:

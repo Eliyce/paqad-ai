@@ -46,6 +46,18 @@ const WORKFLOW_PATTERNS: Array<{
       'cleanup audit',
     ],
   },
+  {
+    workflow: 'site-map-retest',
+    priority: 233,
+    patterns: ['site map retest', 'site-map retest', 'retest the site map', 'retest site map'],
+  },
+  {
+    workflow: 'site-map',
+    priority: 232,
+    // Two-word "site map" is the doc sense; one-word "sitemap" is only ever verb-
+    // qualified so a literal sitemap.xml feature request stays feature-development.
+    patterns: ['site map', 'create sitemap', 'update sitemap', 'generate sitemap', 'journey map'],
+  },
   { workflow: 'root-cause-analysis', priority: 230, patterns: ['root cause', 'rca'] },
   {
     workflow: 'module-documentation',

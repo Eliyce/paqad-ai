@@ -49,6 +49,7 @@ const ROUTE_REASON: Record<RoutedWorkflow, string> = {
   'design-test': 'auditing the UI against the design system',
   'codebase-health':
     'a health check-up of the codebase — dead code, risky deps, secrets, stale docs',
+  'site-map': "mapping the app's surfaces, navigation, and journeys against the code",
   'rules-analyze': 'analysing which rules can become scripts',
   'root-cause-analysis': 'a post-incident root-cause analysis',
   'no-workflow': 'just chatting — nothing to set up',
