@@ -238,6 +238,11 @@ export const PATHS = {
   SITE_MAP_JOURNEYS_DIR: 'docs/instructions/site-map/journeys',
   SITE_MAP_INDEX: 'docs/instructions/site-map/index.md',
   SITE_MAP_OVERVIEW: 'docs/instructions/site-map/overview.md',
+  // Registry projections of the map (surfaces grouped by family), kept under the
+  // site-map area so they never collide with the doc-generation registries.
+  SITE_MAP_REGISTRIES_DIR: 'docs/instructions/site-map/registries',
+  SITE_MAP_SCREEN_REGISTRY: 'docs/instructions/site-map/registries/screen-registry.md',
+  SITE_MAP_API_REGISTRY: 'docs/instructions/site-map/registries/api-registry.md',
   RULES_DIR: 'docs/instructions/rules',
   MODULE_MAP: 'docs/instructions/rules/module-map.yml',
   TOOLS_DIR: 'docs/instructions/tools',

@@ -21,6 +21,7 @@ import { assembleSiteMapReport } from './assemble.js';
 import { readBaseline, writeBaseline } from './baseline.js';
 import { assembleExtraction, type ExtractorOutput } from './extraction.js';
 import { recordSiteMapRun } from './ledger.js';
+import { publishSiteMap } from './publish.js';
 import { buildSiteMapMarkdown } from './report-builder.js';
 import { writeJsonFile } from './shared.js';
 import { collectMapEvidence, type EvidenceResolution } from './verification.js';
@@ -60,6 +61,10 @@ export interface SiteMapRunResult {
   finding_count: number;
   blocked_checks: SiteMapBlockedCheck[];
   baseline_created: boolean;
+  /** Derived views (index/overview/registries) whose bytes changed and were (re)written. */
+  published: string[];
+  /** Derived views already up to date, left untouched (differential refresh). */
+  publish_skipped: string[];
   /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
 }
@@ -115,6 +120,17 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     baselineCreated = true;
   }
 
+  // Publication is a projection of the canonical map, so it only runs once a map exists;
+  // with no map yet the run's job is to tell you what to map (SM-ADD findings), not to
+  // publish empty views. Differential refresh means an unchanged map rewrites nothing.
+  let published: string[] = [];
+  let publishSkipped: string[] = [];
+  if (map !== null) {
+    const publication = await publishSiteMap({ projectRoot, map, journeyCount, now });
+    published = publication.published;
+    publishSkipped = publication.skipped;
+  }
+
   recordSiteMapRun(
     projectRoot,
     {
@@ -138,6 +154,8 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     finding_count: report.findings.length,
     blocked_checks: report.blocked_checks,
     baseline_created: baselineCreated,
+    published,
+    publish_skipped: publishSkipped,
     exit_code: report.findings.length > 0 ? 1 : 0,
   };
 }

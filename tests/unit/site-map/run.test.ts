@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { PATHS } from '@/core/constants/paths.js';
 import type { AppMap } from '@/core/types/site-map.js';
 import type { SiteMapReportIndex } from '@/core/types/site-map-run.js';
 import { readBaseline } from '@/site-map/baseline.js';
@@ -81,6 +82,10 @@ describe('runSiteMapAudit', () => {
     expect(result.finding_count).toBe(1);
     expect(result.baseline_created).toBe(true);
     expect(result.blocked_checks).toEqual([]);
+    // No map yet → publication is skipped entirely (nothing to project).
+    expect(result.published).toEqual([]);
+    expect(result.publish_skipped).toEqual([]);
+    expect(existsSync(join(root, PATHS.SITE_MAP_INDEX))).toBe(false);
 
     const sidecar = readSidecar(root, result.sidecar_path);
     expect(sidecar.report_id).toBe(result.report_id);
@@ -127,6 +132,11 @@ describe('runSiteMapAudit', () => {
     });
     expect(result.exit_code).toBe(0);
     expect(result.finding_count).toBe(0);
+    // A map exists → the derived views are published (index + overview; no screens/apis here).
+    expect(result.published.sort()).toEqual([PATHS.SITE_MAP_INDEX, PATHS.SITE_MAP_OVERVIEW].sort());
+    expect(result.publish_skipped).toEqual([]);
+    expect(existsSync(join(root, PATHS.SITE_MAP_INDEX))).toBe(true);
+    expect(existsSync(join(root, PATHS.SITE_MAP_OVERVIEW))).toBe(true);
 
     const sidecar = readSidecar(root, result.sidecar_path);
     expect(sidecar.surface_count).toBe(1);
