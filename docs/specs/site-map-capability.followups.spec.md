@@ -14,9 +14,9 @@ Three follow-up features on the shipped site-map capability, all behind the OFF-
   node-cli extractor; an unrecognised shape falls through to the generic fallback, never a guess.
 - FR-4: A dashboard Site map area reads the published site-map artifacts (canonical map, index,
   overview, registries, latest findings) and exposes them as a dashboard section.
-- FR-5: A journey-curation flow confirms or rejects a `proposed` journey through the audited
-  decision surface, writing the status transition (`proposed` -> `confirmed`/`rejected`) back to
-  the journey file, and never self-confirms.
+- FR-5: A journey-curation flow confirms or rejects a `proposed` journey through a human-invoked
+  verb, writing the status transition (`proposed` -> `confirmed`, or removing the file on reject)
+  and recording an audit row on the curation ledger, and never self-confirms.
 
 ## Invariants
 
@@ -24,8 +24,8 @@ Three follow-up features on the shipped site-map capability, all behind the OFF-
   inside the flagged verb's gatherer, and the dashboard area and curation verb are inert.
 - INV-2: Every extracted surface carries at least one resolving `file:line` evidence pointer; an
   extractor never emits a surface it cannot ground.
-- INV-3: A journey only becomes `confirmed` through a resolved decision packet, never by the
-  synthesis or curation code on its own.
+- INV-3: A journey only becomes `confirmed` through the human-invoked curation verb (recorded on
+  the audit ledger), never by the synthesis or curation code on its own.
 
 ## Acceptance criteria
 
@@ -37,5 +37,6 @@ Three follow-up features on the shipped site-map capability, all behind the OFF-
   alongside the node-cli and generic extractors.
 - AC-4: The dashboard exposes a Site map section built from the published artifacts, and renders
   nothing when the capability is off.
-- AC-5: The curation verb transitions a `proposed` journey to `confirmed`/`rejected` only through a
-  resolved decision packet, and writes the status back to the journey file.
+- AC-5: The curation verb transitions a `proposed` journey to `confirmed` (or removes it on
+  reject), writes the status back to the journey file, and records an audit row; it refuses a
+  journey that is not `proposed`.
