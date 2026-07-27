@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "paqad://schemas/journey.json",
+  "title": "Site map — curated journey (journeys/<id>.journey.yaml)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "label", "actor", "goal", "entry", "steps", "status"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "label": { "type": "string", "minLength": 1 },
+    "actor": { "type": "string", "minLength": 1 },
+    "on_behalf_of": { "type": "string" },
+    "goal": { "type": "string", "minLength": 1 },
+    "entry": { "type": "string", "minLength": 1 },
+    "uses": { "type": "array", "items": { "type": "string" } },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/journeyStep" } },
+    "branches": { "type": "array", "items": { "type": "object" } },
+    "ends": { "$ref": "#/$defs/journeyEnds" },
+    "next_journeys": { "type": "array", "items": { "type": "string" } },
+    "tests": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "null" },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "spec": { "type": ["string", "null"] },
+              "variant": { "type": "string" }
+            }
+          }
+        ]
+      }
+    },
+    "priority": { "type": "string" },
+    "status": { "type": "string", "enum": ["proposed", "confirmed", "locked"] },
+    "derivation": { "type": "string", "enum": ["static", "convention", "agent", "human"] },
+    "evidence": {
+      "oneOf": [
+        { "$ref": "#/$defs/evidenceItem" },
+        { "type": "array", "items": { "$ref": "#/$defs/evidenceItem" } }
+      ]
+    }
+  },
+  "$defs": {
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "note": { "type": "string" }
+      }
+    },
+    "journeyStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface"],
+      "properties": {
+        "surface": { "type": "string", "minLength": 1 },
+        "action": { "type": "string" },
+        "expect": { "type": "string" },
+        "step": { "type": "string" },
+        "type": { "type": "string" },
+        "variant": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "group": { "type": "string" },
+            "when": { "type": "string" }
+          }
+        }
+      }
+    },
+    "journeyEnds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "success": {},
+        "failure": {},
+        "abandoned": {}
+      }
+    }
+  }
+}

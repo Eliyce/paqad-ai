@@ -1,0 +1,288 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "paqad://schemas/app-map.json",
+  "title": "Site map — application behavioural map (app-map.yaml)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "app", "surfaces"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "app": { "$ref": "#/$defs/app" },
+    "actors": { "type": "array", "items": { "$ref": "#/$defs/actor" } },
+    "guards": { "type": "array", "items": { "$ref": "#/$defs/guard" } },
+    "areas": { "type": "array", "items": { "$ref": "#/$defs/area" } },
+    "surfaces": { "type": "array", "items": { "$ref": "#/$defs/surface" } },
+    "journeys": { "type": "array", "items": { "$ref": "#/$defs/journeyIndexEntry" } }
+  },
+  "$defs": {
+    "appKind": {
+      "type": "string",
+      "enum": ["web", "api", "cli", "mobile", "desktop", "service", "llm-workflows"]
+    },
+    "visibility": { "type": "string", "enum": ["frontstage", "backstage"] },
+    "derivation": { "type": "string", "enum": ["static", "convention", "agent", "human"] },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "guardKind": {
+      "type": "string",
+      "enum": [
+        "permission",
+        "role",
+        "feature-flag",
+        "auth-state",
+        "data-state",
+        "capability",
+        "environment"
+      ]
+    },
+    "guardRef": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      ]
+    },
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 },
+        "note": { "type": "string" }
+      }
+    },
+    "evidenceRef": {
+      "oneOf": [
+        { "$ref": "#/$defs/evidenceItem" },
+        { "type": "array", "items": { "$ref": "#/$defs/evidenceItem" } }
+      ]
+    },
+    "endsValue": { "type": ["boolean", "string"] },
+    "ends": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "success": { "$ref": "#/$defs/endsValue" },
+        "failure": { "$ref": "#/$defs/endsValue" },
+        "abandoned": { "$ref": "#/$defs/endsValue" }
+      }
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": {
+          "oneOf": [
+            { "$ref": "#/$defs/appKind" },
+            { "type": "array", "items": { "$ref": "#/$defs/appKind" }, "minItems": 1 }
+          ]
+        },
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "generated_from": { "type": "string" },
+        "language": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["default_locale"],
+              "properties": {
+                "default_locale": { "type": "string", "minLength": 1 },
+                "locales": { "type": "array", "items": { "type": "string" } },
+                "catalogs": { "type": "array", "items": { "type": "string" } },
+                "label_policy": { "type": "string" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "satisfies": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+    "guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/guardKind" },
+        "label": { "type": "string", "minLength": 1 },
+        "requires": { "type": "string" },
+        "satisfy_via": { "type": "string" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" },
+        "flag_key": { "type": "string" },
+        "required_variant": { "type": "string" },
+        "provider": { "type": "string" },
+        "owner": { "type": "string" },
+        "lifecycle": {
+          "type": "string",
+          "enum": ["new", "active", "launched", "inactive", "stale"]
+        },
+        "introduced": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "guard": { "$ref": "#/$defs/guardRef" }
+      }
+    },
+    "surfaceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "value": { "type": "string" },
+        "deep_link": { "type": "boolean" }
+      }
+    },
+    "surfaceVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flag", "variant"],
+      "properties": {
+        "flag": { "type": "string", "minLength": 1 },
+        "variant": { "type": "string", "minLength": 1 },
+        "adds": { "type": "string" },
+        "changes": { "type": "string" }
+      }
+    },
+    "handOff": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "carries": { "type": "string" },
+        "returns": { "type": "boolean" }
+      }
+    },
+    "flowStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "type": { "type": "string" },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "visible": { "type": "string" },
+        "artifact": { "type": "string" },
+        "presents": { "type": "string" },
+        "decisions": { "type": "array", "items": { "type": "string" } },
+        "resumable": { "type": "boolean" },
+        "inputs": { "type": "array", "items": { "type": "string" } },
+        "outputs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["to", "trigger"],
+      "properties": {
+        "to": { "type": "string", "minLength": 1 },
+        "trigger": { "type": "string", "minLength": 1 },
+        "guard": { "$ref": "#/$defs/guardRef" },
+        "guard_not": { "type": "string" },
+        "note": { "type": "string" },
+        "via": { "type": "string" },
+        "carries": { "type": "string" },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "mode": { "type": "string", "enum": ["link", "call"] },
+        "guard_text": { "type": "string" },
+        "guard_mode": { "type": "string", "enum": ["deterministic", "llm-judged"] },
+        "utterances": { "type": "array", "items": { "type": "string" } },
+        "fallback": { "type": "boolean" },
+        "routing_description": { "type": "string" }
+      }
+    },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "page",
+            "screen",
+            "modal",
+            "action",
+            "api",
+            "cli-command",
+            "job",
+            "webhook",
+            "email",
+            "external-system",
+            "prompt-entry",
+            "router",
+            "llm-workflow",
+            "step",
+            "decision-pause",
+            "handoff",
+            "subflow",
+            "terminal"
+          ]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "label_key": { "type": "string" },
+        "label_source": { "type": "string" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "area": { "type": "string" },
+        "entry": { "$ref": "#/$defs/surfaceEntry" },
+        "page_type": { "type": "string" },
+        "module": { "type": "string" },
+        "guard": { "$ref": "#/$defs/guardRef" },
+        "guard_not": { "type": "string" },
+        "evidence": { "$ref": "#/$defs/evidenceRef" },
+        "derivation": { "$ref": "#/$defs/derivation" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "visibility": { "$ref": "#/$defs/visibility" },
+        "variants": { "type": "array", "items": { "$ref": "#/$defs/surfaceVariant" } },
+        "variant_group": { "type": "string" },
+        "variant_of": { "type": "string" },
+        "status": { "type": "string" },
+        "oracle": { "type": "object", "additionalProperties": { "type": "string" } },
+        "hand_off": { "$ref": "#/$defs/handOff" },
+        "ends": { "$ref": "#/$defs/ends" },
+        "note": { "type": "string" },
+        "actor": { "type": "string" },
+        "intent": { "type": "string" },
+        "routing_description": { "type": "string" },
+        "utterances": { "type": "array", "items": { "type": "string" } },
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/flowStep" } },
+        "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } }
+      }
+    },
+    "journeyIndexEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string" },
+        "priority": { "type": "string" },
+        "status": { "type": "string", "enum": ["proposed", "confirmed", "locked"] }
+      }
+    }
+  }
+}
