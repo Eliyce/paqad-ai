@@ -98,7 +98,7 @@ describe('InstructionsDocsStructureGate', () => {
       passed: false,
       detail: 'Invalid instruction documentation path docs/instruction/rules/testing.md',
       remediation:
-        'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt}/ path.',
+        'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt,site-map}/ path.',
     });
   });
 
@@ -115,7 +115,7 @@ describe('InstructionsDocsStructureGate', () => {
       passed: false,
       detail: 'Invalid instruction documentation path docs/instructions/random/foo.md',
       remediation:
-        'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt}/ path.',
+        'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt,site-map}/ path.',
     });
   });
 
@@ -278,6 +278,79 @@ describe('InstructionsDocsStructureGate', () => {
     );
     expect(unscopedToolResult.detail).toBe(
       'Invalid instruction documentation path docs/instructions/tools/README.md',
+    );
+  });
+
+  it('passes the nested site-map area (map, views, journeys, registries)', async () => {
+    const context = createVerificationContext({
+      changed_files: [
+        'docs/instructions/site-map/app-map.yaml',
+        'docs/instructions/site-map/index.md',
+        'docs/instructions/site-map/overview.md',
+        'docs/instructions/site-map/journeys/checkout.journey.yaml',
+        'docs/instructions/site-map/registries/screen-registry.md',
+      ],
+      documentation_files_changed: true,
+    });
+
+    writeInstructionFile(
+      context.project_root,
+      'docs/instructions/site-map/app-map.yaml',
+      'schema_version: 1\napp:\n  name: shop\n  kind: web\nsurfaces: []\n',
+    );
+    writeInstructionFile(context.project_root, 'docs/instructions/site-map/index.md');
+    writeInstructionFile(context.project_root, 'docs/instructions/site-map/overview.md');
+    writeInstructionFile(
+      context.project_root,
+      'docs/instructions/site-map/journeys/checkout.journey.yaml',
+      'schema_version: 1\nid: checkout\n',
+    );
+    writeInstructionFile(
+      context.project_root,
+      'docs/instructions/site-map/registries/screen-registry.md',
+    );
+
+    const result = await new InstructionsDocsStructureGate().check(context);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails a site-map path that is too deep or has an unapproved extension', async () => {
+    const tooDeep = await new InstructionsDocsStructureGate().check(
+      createVerificationContext({
+        changed_files: ['docs/instructions/site-map/journeys/nested/x.journey.yaml'],
+        documentation_files_changed: true,
+      }),
+    );
+    expect(tooDeep.detail).toBe(
+      'Invalid instruction documentation path docs/instructions/site-map/journeys/nested/x.journey.yaml',
+    );
+
+    const badExtension = await new InstructionsDocsStructureGate().check(
+      createVerificationContext({
+        changed_files: ['docs/instructions/site-map/app-map.json'],
+        documentation_files_changed: true,
+      }),
+    );
+    expect(badExtension.detail).toBe(
+      'Invalid instruction documentation path docs/instructions/site-map/app-map.json',
+    );
+  });
+
+  it('fails site-map YAML that does not parse', async () => {
+    const context = createVerificationContext({
+      changed_files: ['docs/instructions/site-map/app-map.yaml'],
+      documentation_files_changed: true,
+    });
+    writeInstructionFile(
+      context.project_root,
+      'docs/instructions/site-map/app-map.yaml',
+      '"unterminated\n',
+    );
+
+    const result = await new InstructionsDocsStructureGate().check(context);
+    expect(result.passed).toBe(false);
+    expect(result.detail).toBe(
+      'Instruction YAML file docs/instructions/site-map/app-map.yaml does not parse',
     );
   });
 });

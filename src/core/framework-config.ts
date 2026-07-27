@@ -219,6 +219,18 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc.',
   },
   {
+    key: 'site_map',
+    env: 'PAQAD_SITE_MAP',
+    type: 'boolean',
+    default: false,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Opt in to the Site Map & Journeys capability — a deterministic behavioural map of the ' +
+      'app under docs/instructions/site-map/ (the `paqad-ai sitemap` verb + `site-map` workflow). ' +
+      'OFF (default) is completely inert; ON also requires the coding capability at its consumers.',
+  },
+  {
     key: 'lean_rules',
     env: 'PAQAD_LEAN_RULES',
     type: 'boolean',
@@ -1011,6 +1023,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       design_research: rb('design_research'),
       team_agents: rb('team_agents'),
       analytics_instrumentation: rb('analytics_instrumentation'),
+      site_map: rb('site_map'),
       lean_rules: rb('lean_rules'),
       feature_report: rb('feature_report'),
       metrics_enabled: rb('metrics_enabled'),
@@ -1694,6 +1707,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'design_research',
       'team_agents',
       'analytics_instrumentation',
+      'site_map',
       'lean_rules',
       'feature_report',
       'metrics_enabled',

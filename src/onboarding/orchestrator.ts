@@ -674,6 +674,7 @@ function buildProjectProfile(
       design_research: false,
       team_agents: true,
       analytics_instrumentation: false,
+      site_map: false,
       lean_rules: true,
       feature_report: true,
       metrics_enabled: true,
