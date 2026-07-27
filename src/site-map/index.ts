@@ -7,3 +7,4 @@ export * from './store.js';
 export * from './shared.js';
 export * from './baseline.js';
 export * from './ledger.js';
+export * from './extraction.js';

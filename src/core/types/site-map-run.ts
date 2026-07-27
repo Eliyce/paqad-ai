@@ -34,6 +34,17 @@ export type SiteMapCategory = (typeof SITE_MAP_CATEGORIES)[number];
 export const SITE_MAP_TIERS = ['deterministic', 'ai-judged'] as const;
 export type SiteMapTier = (typeof SITE_MAP_TIERS)[number];
 
+/**
+ * A check the run could not perform, with why and how to enable it (FR-3). An unavailable
+ * extractor becomes one of these and the run proceeds — a blocked check is a gap, never a
+ * silent pass. Mirrors `HealthBlockedCheck`.
+ */
+export interface SiteMapBlockedCheck {
+  check: string;
+  reason: string;
+  install_hint: string;
+}
+
 export const SITE_MAP_BASELINE_STATUSES = [
   'new-since-baseline',
   'pre-existing',
