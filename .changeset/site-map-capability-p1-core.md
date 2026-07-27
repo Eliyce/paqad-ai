@@ -17,13 +17,14 @@ This release wires the capability into the framework:
   codebase-health / health-retest). Verb-qualified triggers keep a literal `sitemap.xml` feature
   request on the feature-development path.
 - **Skills, roles, and rules**: the `site-map` / `site-map-retest` workflow rules, the
-  `app-cartographer` agent role, and the fine-grained P1 skills (readiness, extraction, modeling,
-  transition-tracing, guard-inference, assembly, verification, gap-analysis, publication,
-  maintainer, retest).
+  `app-cartographer` and `journey-designer` agent roles, and the fine-grained skills (readiness,
+  extraction, modeling, transition-tracing, guard-inference, assembly, verification, gap-analysis,
+  publication, maintainer, retest, and journey-synthesis). Journeys are proposed by
+  `journey-synthesis`/`journey-designer` and become `confirmed` only through human sign-off.
 - **Freshness gate**: a feature-development change that drifts the map cannot reach "Safe to
   merge" while a published view is stale — inert unless the flag is on.
 - **Retest**: `paqad-ai sitemap retest` replays a prior report by stable `SM-` id (never invents a
   finding, never lowers severity, never calls the absence of proof a fix).
 
-The React dashboard Site map area and the journey-synthesis / human-curation layer are deferred to
-a follow-up.
+The React dashboard Site map area and the human journey-curation UI (confirming a proposed journey)
+are deferred to a follow-up.

@@ -150,7 +150,7 @@ the framework owns phase order and the mandatory safety stages.
 ## 3. Full catalog: every skill and agent, by lifecycle phase
 
 This is the complete roster the framework ships into an onboarded repo: **41 base
-skills, 29 coding skills, 11 security skills, 6 content skills, 21 agents.** Each
+skills, 30 coding skills, 11 security skills, 6 content skills, 22 agents.** Each
 links to its definition; "knows" lists the existing-codebase signals it actually
 consults. The authority for what exists remains
 [`module-map.yml`](../instructions/rules/module-map.yml) and the runtime
@@ -294,12 +294,16 @@ when the flag is off). Skills:
 [`map-verification`](../../runtime/capabilities/coding/skills/map-verification/SKILL.md),
 [`site-map-gap-analysis`](../../runtime/capabilities/coding/skills/site-map-gap-analysis/SKILL.md),
 [`site-map-publication`](../../runtime/capabilities/coding/skills/site-map-publication/SKILL.md),
+[`journey-synthesis`](../../runtime/capabilities/coding/skills/journey-synthesis/SKILL.md),
 [`site-map-maintainer`](../../runtime/capabilities/coding/skills/site-map-maintainer/SKILL.md),
 [`site-map-retest`](../../runtime/capabilities/coding/skills/site-map-retest/SKILL.md). Rules:
 [`site-map`](../../runtime/capabilities/coding/rules/site-map.md),
-[`site-map-retest`](../../runtime/capabilities/coding/rules/site-map-retest.md). Role:
-[app-cartographer](../../runtime/capabilities/coding/agents/app-cartographer.md). Backed by
-`src/site-map`. Knows: code-knowledge index, route/command scan, module-map, source.
+[`site-map-retest`](../../runtime/capabilities/coding/rules/site-map-retest.md). Roles:
+[app-cartographer](../../runtime/capabilities/coding/agents/app-cartographer.md) (draws + verifies
+the map),
+[journey-designer](../../runtime/capabilities/coding/agents/journey-designer.md) (proposes
+journeys; humans confirm). Backed by `src/site-map`. Knows: code-knowledge index, route/command
+scan, module-map, source.
 
 ### Data / incident
 [`database-design-review`](../../runtime/capabilities/coding/skills/database-design-review/SKILL.md),

@@ -14,8 +14,8 @@ the inconclusive claims the engine hands you.
 
 Run this workflow whenever the user says anything equivalent to:
 
-- "create a site map", "create sitemap", "generate the site map", "map the app"
-- "update the site map", "draw a journey map"
+- "create a site map", "create sitemap", "generate the site map", "map the app" <!-- @rule RL-fb47 -->
+- "update the site map", "draw a journey map" <!-- @rule RL-3923 -->
 
 Do **not** improvise a site map. Always follow the steps below in order. For a re-run of an
 existing map against the current code, use the `site-map-retest` workflow instead. This is a
@@ -96,13 +96,13 @@ confirm a journey here.
 
 ## Rules
 
-- Never skip the verb. The extraction, integrity checks, and published views come from
+- Never skip the verb. The extraction, integrity checks, and published views come from <!-- @rule RL-9194 -->
   `paqad-ai sitemap run`, never from your own reading of the code.
-- Ground every surface, transition, and guard in a resolving `file:line`. A claim whose
+- Ground every surface, transition, and guard in a resolving `file:line`. A claim whose <!-- @rule RL-3681 -->
   evidence does not resolve is a finding, not a fact.
-- Do not flag a transition because a link exists — only when evidence shows navigation actually
+- Do not flag a transition because a link exists — only when evidence shows navigation actually <!-- @rule RL-d4e9 -->
   occurs. Do not name a surface the extractor never saw.
-- The role that draws the map does not confirm it: modeling is yours, but journeys are
+- The role that draws the map does not confirm it: modeling is yours, but journeys are <!-- @rule RL-c14a -->
   confirmed by humans through the audited surface, never self-approved.
-- Always keep both the `.md` report and the `.json` sidecar; `site-map-retest` depends on the
+- Always keep both the `.md` report and the `.json` sidecar; `site-map-retest` depends on the <!-- @rule RL-cc21 -->
   sidecar to preserve `SM-` ids.
