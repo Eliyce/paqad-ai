@@ -1,0 +1,3 @@
+interface:
+  display_name: Guard Inference
+  short_description: Evidence the guards gating surfaces and transitions, and how each is satisfied — enforced controls only.

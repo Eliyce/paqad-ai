@@ -1,0 +1,3 @@
+interface:
+  display_name: Site-Map Assembly
+  short_description: Drive the compile verb into app-map.yaml and resolve conflicts without clobbering curated content.

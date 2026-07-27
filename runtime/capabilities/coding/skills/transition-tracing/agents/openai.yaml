@@ -1,0 +1,3 @@
+interface:
+  display_name: Transition Tracing
+  short_description: Evidence the transitions between surfaces — real navigation only, never a bare link.

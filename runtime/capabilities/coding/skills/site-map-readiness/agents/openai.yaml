@@ -1,0 +1,3 @@
+interface:
+  display_name: Site-Map Readiness
+  short_description: Grade whether the project is mappable and route the unmappable case before the site-map run.
