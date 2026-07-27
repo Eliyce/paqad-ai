@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { DocProgressFile } from '@/core/types/document-generation.js';
+import type { AppMap } from '@/core/types/site-map.js';
 import { DocumentProgressTracker } from '@/document/progress-tracker.js';
 import { publishSiteMap } from '@/site-map/publish.js';
 
@@ -86,5 +87,41 @@ describe('publishSiteMap', () => {
     });
     expect(result.published.length).toBe(3);
     expect(readProgress(root).global.siteMap![PATHS.SITE_MAP_INDEX]!.completed_at).not.toBeNull();
+  });
+
+  it('deletes and de-registers a view the map no longer produces (stale-view cleanup)', async () => {
+    const root = repo();
+    // First: a map with screen surfaces → a screen-registry is published.
+    await publishSiteMap({
+      projectRoot: root,
+      map: validAppMap(),
+      journeyCount: 0,
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(existsSync(join(root, PATHS.SITE_MAP_SCREEN_REGISTRY))).toBe(true);
+
+    // Then: a map with no screen-family surfaces → the screen-registry is no longer produced.
+    const noScreens: AppMap = {
+      schema_version: 1,
+      app: { name: 'cli-only', kind: 'cli' },
+      surfaces: [
+        {
+          id: 'c',
+          kind: 'cli-command',
+          label: 'Run',
+          evidence: [{ file: 'src/cli.ts', line: 1 }],
+        },
+      ],
+    };
+    const result = await publishSiteMap({
+      projectRoot: root,
+      map: noScreens,
+      journeyCount: 0,
+      now: () => new Date(2026, 0, 3, 3, 4, 5),
+    });
+
+    expect(result.removed).toContain(PATHS.SITE_MAP_SCREEN_REGISTRY);
+    expect(existsSync(join(root, PATHS.SITE_MAP_SCREEN_REGISTRY))).toBe(false);
+    expect(readProgress(root).global.siteMap![PATHS.SITE_MAP_SCREEN_REGISTRY]).toBeUndefined();
   });
 });

@@ -1,0 +1,3 @@
+interface:
+  display_name: Site-Map Retest
+  short_description: Replay a prior site-map report by stable id — never invent, never lower severity, never fake a fix.

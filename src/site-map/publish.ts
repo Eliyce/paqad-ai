@@ -4,7 +4,7 @@
 // `.paqad/doc-progress.json`). A view whose bytes already match is skipped, so re-running the
 // audit over an unchanged map rewrites nothing.
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { AppMap } from '@/core/types/site-map.js';
@@ -18,6 +18,8 @@ export interface SiteMapPublishResult {
   published: string[];
   /** Repo-relative paths already up to date, left untouched. */
   skipped: string[];
+  /** Repo-relative paths a prior run produced that the map no longer produces — deleted. */
+  removed: string[];
 }
 
 export interface SiteMapPublishOptions {
@@ -64,8 +66,21 @@ export async function publishSiteMap(
     entry.tokens_used = estimateTokens(output.contents);
   }
 
+  // Stale-view cleanup: a view a prior run produced but this map no longer produces (e.g. an
+  // app that dropped every screen leaves a lingering screen-registry) is deleted and dropped
+  // from the tracker, so the published set never over-states what the map contains.
+  const currentPaths = new Set(outputs.map((output) => output.path));
+  const removed: string[] = [];
+  for (const path of Object.keys(group)) {
+    if (!currentPaths.has(path)) {
+      await rm(join(projectRoot, path), { force: true });
+      delete group[path];
+      removed.push(path);
+    }
+  }
+
   await tracker.save(projectRoot, progress);
-  return { published, skipped };
+  return { published, skipped, removed: removed.sort() };
 }
 
 /**

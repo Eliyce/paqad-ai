@@ -67,6 +67,8 @@ export interface SiteMapRunResult {
   published: string[];
   /** Derived views already up to date, left untouched (differential refresh). */
   publish_skipped: string[];
+  /** Derived views a prior run produced that the map no longer produces — deleted this run. */
+  publish_removed: string[];
   /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
 }
@@ -167,10 +169,12 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
   // publish empty views. Differential refresh means an unchanged map rewrites nothing.
   let published: string[] = [];
   let publishSkipped: string[] = [];
+  let publishRemoved: string[] = [];
   if (map !== null) {
     const publication = await publishSiteMap({ projectRoot, map, journeyCount, now });
     published = publication.published;
     publishSkipped = publication.skipped;
+    publishRemoved = publication.removed;
   }
 
   recordSiteMapRun(
@@ -198,6 +202,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     baseline_created: baselineCreated,
     published,
     publish_skipped: publishSkipped,
+    publish_removed: publishRemoved,
     exit_code: report.findings.length > 0 ? 1 : 0,
   };
 }
