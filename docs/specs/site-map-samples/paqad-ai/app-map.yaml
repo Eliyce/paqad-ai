@@ -1,0 +1,264 @@
+# Site map — paqad-ai (SAMPLE, hand-authored, schema draft 0)
+# Demonstrates the hybrid case: one product, three surface families —
+# CLI commands, a local web dashboard, and LLM prompt workflows.
+# Trimmed for readability: real generation would list every command, area, and workflow.
+schema_version: 0-draft
+app:
+  name: paqad-ai
+  kind: [cli, web, llm-workflows]
+  frameworks: [node-cli]
+  generated_from: "main@a7c3a30 (illustrative)"
+  language: en # no i18n layer in this product; labels are authored directly
+
+actors:
+  - id: developer
+    label: Developer (terminal & dashboard user)
+  - id: coding-agent
+    label: LLM coding agent (Claude Code, Codex, Cursor, ...)
+    note: The agent is a user of this product — it enters through the prompt surfaces.
+  - id: team-lead
+    label: Team lead / reviewer
+    satisfies: [dashboard-reachable]
+
+guards:
+  - id: paqad-enabled
+    kind: feature-flag
+    label: paqad is enabled for this project
+    requires: "paqad_enable resolves ON (env > .config > configs/.config.app > default ON)"
+    satisfy_via: "leave defaults, or set paqad_enable=true"
+    evidence: { file: runtime/AGENT-BOOTSTRAP.md, line: 9 }
+  - id: project-onboarded
+    kind: precondition
+    label: Project is onboarded
+    requires: ".paqad/onboarding-manifest.json exists"
+    satisfy_via: journey:onboard-a-project
+    evidence: { file: src/cli/commands/dashboard.ts, line: 63 }
+  - id: coding-capability
+    kind: capability
+    label: Coding capability is active
+    requires: "active_capabilities includes 'coding'"
+    satisfy_via: "paqad-ai capabilities add coding"
+  - id: dashboard-reachable
+    kind: environment
+    label: Dashboard reachable (loopback only)
+    requires: "server binds 127.0.0.1; foreign Origin/Host rejected"
+    evidence: { file: src/dashboard/server.ts, line: 359 }
+  - id: rag-enabled
+    kind: feature-flag
+    label: Hybrid retrieval switched on
+    requires: "rag_enabled=true"
+    satisfy_via: "paqad-ai rag init --provider local"
+
+areas: # the "districts" of the visual map
+  - { id: terminal, label: Terminal (CLI) }
+  - { id: dashboard, label: Dashboard (local web) }
+  - { id: agent-chat, label: Agent chat (prompt workflows) }
+  - { id: background, label: Background & hooks, stage: backstage }
+
+surfaces:
+  # ─── Terminal district (subset — the registry lists ~20 commands) ───
+  - id: cli.onboard
+    kind: cli-command
+    label: Onboard a project
+    area: terminal
+    entry: { kind: command, value: "paqad-ai onboard" }
+    page_type: wizard
+    module: cli-lifecycle
+    oracle: { output: "Ready. Your AI agents now understand your project" }
+    evidence: { file: src/cli/commands/onboard.ts, line: 1 }
+    derivation: static
+    confidence: high
+    transitions:
+      - to: cli.doctor
+        trigger: command
+        note: recommended next step after onboarding
+      - to: dashboard.pulse
+        trigger: command
+        via: "paqad-ai dashboard"
+        guard: project-onboarded
+      - to: agent-chat.prompt-entry
+        trigger: hand-off
+        note: entry files (CLAUDE.md, AGENTS.md, ...) now route every agent here
+
+  - id: cli.doctor
+    kind: cli-command
+    label: Check project health
+    area: terminal
+    entry: { kind: command, value: "paqad-ai doctor" }
+    module: cli-health
+    oracle: { exit_code: "0 pass / 1 failure" }
+    ends: { success: exit-0, failure: exit-1 }
+    transitions:
+      - to: dashboard.pulse
+        trigger: suggestion
+        note: doctor output points to the dashboard for detail
+
+  - id: cli.dashboard
+    kind: cli-command
+    label: Open the dashboard
+    area: terminal
+    entry: { kind: command, value: "paqad-ai dashboard" }
+    guard: project-onboarded
+    module: cli-dashboard
+    transitions:
+      - { to: dashboard.pulse, trigger: opens-browser }
+
+  # ─── Dashboard district (8 areas behind one left rail) ───
+  - id: dashboard.pulse
+    kind: page
+    label: Pulse (project health at a glance)
+    area: dashboard
+    entry: { kind: url, value: "http://127.0.0.1:5372/#/dashboard" }
+    guard: dashboard-reachable
+    page_type: overview
+    module: cli-dashboard
+    transitions:
+      - { to: dashboard.approvals, trigger: link, note: pending decisions deep-link }
+      - { to: dashboard.trust, trigger: link }
+      - { to: dashboard.graph, trigger: nav }
+      - { to: dashboard.editors, trigger: nav }
+
+  - id: dashboard.approvals
+    kind: page
+    label: Approvals (decisions waiting on a human)
+    area: dashboard
+    page_type: inbox
+    transitions:
+      - to: dashboard.approvals
+        trigger: submit
+        note: resolve decision packet (audited write)
+      - to: agent-chat.workflow.feature-development
+        trigger: unblocks
+        stage: backstage
+        note: a resolved packet lets a paused workflow continue
+
+  - id: dashboard.trust
+    kind: page
+    label: Trust (evidence, receipts, exports)
+    area: dashboard
+    page_type: report
+    transitions:
+      - { to: external.siem, trigger: export, note: "OCSF/ECS/CEF/JSONL download" }
+
+  - id: dashboard.graph
+    kind: page
+    label: Graph (code structure map)
+    area: dashboard
+    page_type: canvas
+    note: sibling of the future Site map area — Graph shows code structure, Site map shows product behavior
+
+  - id: dashboard.editors
+    kind: page
+    label: Web editors (profile, module map, rules, tokens, policy)
+    area: dashboard
+    page_type: form
+    transitions:
+      - to: dashboard.editors
+        trigger: submit
+        note: audited, conflict-checked write to docs/instructions/**
+
+  # ─── Agent-chat district: THE PROMPT-WORKFLOW FAMILY ───
+  - id: agent-chat.prompt-entry
+    kind: prompt-entry
+    label: Developer prompts the coding agent
+    area: agent-chat
+    entry: { kind: prompt, value: "any message in a connected agent (CLAUDE.md et al. point here)" }
+    guard: paqad-enabled
+    actor: coding-agent
+    oracle: { observable: "a '▸ paqad' narration line names the routed workflow" }
+    evidence: { file: runtime/AGENT-BOOTSTRAP.md, line: 25 }
+    transitions:
+      - { to: agent-chat.router, trigger: prompt, note: routing runs on every message }
+
+  - id: agent-chat.router
+    kind: decision
+    label: Workflow router (picks exactly one of 11)
+    area: agent-chat
+    module: agent-routing
+    evidence: { file: runtime/base/skills/workflow-router/SKILL.md, line: 1 }
+    derivation: static
+    confidence: high
+    transitions: # guard = the routing rule, phrased functionally
+      - { to: agent-chat.workflow.feature-development, trigger: route, guard-text: "any code change" }
+      - { to: agent-chat.workflow.documentation-update, trigger: route, guard-text: "create documentation" }
+      - { to: agent-chat.workflow.module-documentation, trigger: route, guard-text: "create module documentation" }
+      - { to: agent-chat.workflow.pentest, trigger: route, guard-text: "security test / pentest" }
+      - { to: agent-chat.workflow.codebase-health, trigger: route, guard-text: "audit codebase health" }
+      - { to: agent-chat.workflow.project-question, trigger: route, guard-text: "question, no code change" }
+      # trimmed: design-test, rules-analyze, root-cause-analysis, no-workflow
+
+  - id: agent-chat.workflow.documentation-update
+    kind: llm-workflow
+    label: Create documentation (Stage 1 — foundation docs + module map)
+    area: agent-chat
+    module: documentation-workflow
+    guard: paqad-enabled
+    stages: # user-visible stops only (frontstage); machinery stays backstage
+      - { id: sync-stack, label: Re-read live stack & sync profile, stage: backstage }
+      - { id: write-foundation, label: Write stack/architecture/registry docs, visible: "▸ paqad narration" }
+      - { id: discover-modules, label: Discover business modules & write the module map }
+      - { id: map-review, label: "PAUSE: review the proposed module map", kind: human-pause }
+    ends:
+      success: { receipt: "verbatim Stage-1 final message; moduleDocStage=pending_map_review" }
+    transitions:
+      - { to: agent-chat.workflow.module-documentation, trigger: follow-up-prompt, note: "Stage 2 continues from the reviewed map" }
+
+  - id: agent-chat.workflow.feature-development
+    kind: llm-workflow
+    label: Build a feature (plan → spec → build → verify → sync docs)
+    area: agent-chat
+    module: feature-development-workflow
+    guard: [paqad-enabled, coding-capability]
+    stages:
+      - { id: planning, label: Plan (reuse-checked, module-attributed), artifact: plan.json }
+      - { id: specification, label: "Freeze the spec (AC + invariants)", artifact: specification.json, kind: human-confirm }
+      - { id: development, label: Build the change }
+      - { id: review, label: Review against the evidence digest, artifact: review.json }
+      - { id: checks, label: "Checks: format, tests, build (script-enforced)" }
+      - { id: documentation-sync, label: Sync canonical docs (and, later, this site map) }
+      - { id: decision-pauses, label: "PAUSE(s): choices routed to the human", kind: human-pause, when: as-needed }
+    ends:
+      success: { receipt: "Safe to merge — per-stage evidence table" }
+      failure: { receipt: "Needs your attention / Inconclusive" }
+    transitions:
+      - { to: dashboard.approvals, trigger: hand-off, note: decision packets surface in the Approvals inbox }
+      - { to: dashboard.trust, trigger: evidence, stage: backstage, note: receipts land in the trust ledger }
+
+  - id: agent-chat.workflow.pentest
+    kind: llm-workflow
+    label: Security test (resumable OWASP pass)
+    area: agent-chat
+    module: pentest-workflow
+    guard: [paqad-enabled, coding-capability]
+    stages:
+      - { id: threat-model, label: STRIDE threat inventory (runs first, feeds all checks) }
+      - { id: reviews, label: 12 security checks over docs/tests/code/runtime }
+      - { id: report, label: "Report + local curl playbook (never auto-executed)" }
+    ends: { success: { receipt: "docs/pentest/<timestamp>.md + .json" } }
+
+  - id: agent-chat.workflow.project-question
+    kind: llm-workflow
+    label: Answer a project question (docs first, then code; no code change)
+    area: agent-chat
+    ends: { success: { receipt: "answer in chat" } }
+
+  # trimmed for the sample: module-documentation, codebase-health, design-test,
+  # rules-analyze, root-cause-analysis, no-workflow
+
+  # ─── External & background ───
+  - id: external.siem
+    kind: external-system
+    label: Your SIEM (evidence export target)
+    area: dashboard
+    stage: frontstage # the user consciously hands off to it
+  - id: background.hooks
+    kind: job
+    label: Hook layer (gates edits, records evidence)
+    area: background
+    stage: backstage
+    note: invisible to the user except as blocked edits and ledger rows
+
+journeys: # index only — full definitions live in journeys/*.journey.yaml
+  - { id: onboard-a-project, label: Onboard a project in 30 seconds, actor: developer, priority: high, status: confirmed }
+  - { id: create-documentation, label: Create the project documentation via a prompt, actor: coding-agent, priority: high, status: confirmed }
+  - { id: review-trust-evidence, label: Review what the AI did and export the evidence, actor: team-lead, priority: medium, status: proposed }
