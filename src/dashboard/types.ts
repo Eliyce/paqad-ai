@@ -34,6 +34,7 @@ export const DASHBOARD_SECTION_IDS = [
   'architecture',
   'pentest',
   'codebase-health',
+  'site-map',
   'rule-compliance',
   'change-metrics',
   'attestation',

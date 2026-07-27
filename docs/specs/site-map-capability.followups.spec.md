@@ -1,7 +1,7 @@
 # Site Map — dedicated extractors, dashboard area, journey curation (spec)
 
 Three follow-up features on the shipped site-map capability, all behind the OFF-by-default
-`site_map` flag and the coding capability.
+`site_map` flag and the coding capability. Each ships as its own committed, CI-green slice.
 
 ## Functional requirements
 
