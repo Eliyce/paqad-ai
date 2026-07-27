@@ -13,13 +13,15 @@ import { dirname, join } from 'node:path';
 import type { AppKind, AppMap, Evidence } from '@/core/types/site-map.js';
 import type {
   SiteMapAppSummary,
+  SiteMapBaseline,
   SiteMapBlockedCheck,
+  SiteMapReportIndex,
   SiteMapWorkflowName,
 } from '@/core/types/site-map-run.js';
 
 import { assembleSiteMapReport } from './assemble.js';
 import { readBaseline, writeBaseline } from './baseline.js';
-import { assembleExtraction, type ExtractorOutput } from './extraction.js';
+import { assembleExtraction, type ExtractionResult, type ExtractorOutput } from './extraction.js';
 import { recordSiteMapRun } from './ledger.js';
 import { publishSiteMap } from './publish.js';
 import { buildSiteMapMarkdown } from './report-builder.js';
@@ -69,12 +71,32 @@ export interface SiteMapRunResult {
   exit_code: 0 | 1;
 }
 
-/** Run the full audit and dual-write the report, the run bundle, and the ledger row. */
-export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteMapRunResult> {
-  const { projectRoot, gatherer } = options;
-  const workflow = options.workflow ?? 'site-map';
-  const now = options.now ?? (() => new Date());
+/** Everything the gather+assemble step produces, before any writes. */
+export interface GatheredSiteMapReport {
+  report: SiteMapReportIndex;
+  findingIds: string[];
+  /** The full extraction (not the report's summary) — written verbatim into the run bundle. */
+  extraction: ExtractionResult;
+  map: AppMap | null;
+  journeyCount: number;
+  baseline: SiteMapBaseline | null;
+}
 
+/**
+ * Gather the raw inputs and assemble the run report — the shared read-and-assemble half of a
+ * run, with no writes. `runSiteMapAudit` calls it and persists; `runSiteMapRetest` calls it to
+ * recompute the CURRENT findings without dual-writing a fresh report. One code path, so the two
+ * verbs can never drift in how they read the app (RULE-13).
+ */
+export async function gatherSiteMapReport(options: {
+  projectRoot: string;
+  gatherer: SiteMapGatherer;
+  workflow: SiteMapWorkflowName;
+  now: Date;
+  sourceReportPath?: string | null;
+  sourceReportId?: string | null;
+}): Promise<GatheredSiteMapReport> {
+  const { projectRoot, gatherer } = options;
   const map = gatherer.loadAppMap();
   const journeyCount = gatherer.journeyCount();
   const appSummary = gatherer.appSummary();
@@ -90,10 +112,9 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
   if (journeyCount > 0) sources.push('journeys');
 
   const baseline = readBaseline(projectRoot);
-  const runNow = now();
   const { report, findingIds } = assembleSiteMapReport({
-    workflow,
-    now: runNow,
+    workflow: options.workflow,
+    now: options.now,
     app: appSummary,
     map,
     extraction,
@@ -105,6 +126,27 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     sourceReportPath: options.sourceReportPath ?? null,
     sourceReportId: options.sourceReportId ?? null,
   });
+
+  return { report, findingIds, extraction, map, journeyCount, baseline };
+}
+
+/** Run the full audit and dual-write the report, the run bundle, and the ledger row. */
+export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteMapRunResult> {
+  const { projectRoot, gatherer } = options;
+  const workflow = options.workflow ?? 'site-map';
+  const now = options.now ?? (() => new Date());
+  const runNow = now();
+
+  const { report, findingIds, extraction, map, journeyCount, baseline } = await gatherSiteMapReport(
+    {
+      projectRoot,
+      gatherer,
+      workflow,
+      now: runNow,
+      sourceReportPath: options.sourceReportPath,
+      sourceReportId: options.sourceReportId,
+    },
+  );
 
   await writeJsonFile(join(projectRoot, report.sidecar_path), report);
   await writeMarkdown(join(projectRoot, report.report_path), buildSiteMapMarkdown(report));

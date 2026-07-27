@@ -13,6 +13,14 @@ export * from './verification.js';
 export * from './assemble.js';
 export * from './publication.js';
 export * from './publish.js';
-export { runSiteMapAudit } from './run.js';
-export type { SiteMapGatherer, SiteMapRunOptions, SiteMapRunResult } from './run.js';
+export { runSiteMapAudit, gatherSiteMapReport } from './run.js';
+export type {
+  SiteMapGatherer,
+  SiteMapRunOptions,
+  SiteMapRunResult,
+  GatheredSiteMapReport,
+} from './run.js';
 export { createSiteMapGatherer } from './gatherer.js';
+export * from './retest.js';
+export { runSiteMapRetest } from './retest-run.js';
+export type { SiteMapRetestOptions, SiteMapRetestResult } from './retest-run.js';

@@ -4,13 +4,21 @@
 // corrupt, or schema-invalid file reads as absent (null), never a crash and never a
 // half-built map masquerading as real (mirrors the code-knowledge store discipline).
 
-import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { AppMap, Journey } from '@/core/types/site-map.js';
+import type { SiteMapReportIndex } from '@/core/types/site-map-run.js';
 
 import { validateAppMap, validateJourney } from './schema.js';
 
@@ -121,4 +129,30 @@ export function readAllJourneys(projectRoot: string): Journey[] {
     }
   }
   return journeys;
+}
+
+/** Tolerant read of a run-report sidecar (`docs/site-map/<ts>.json`) — missing/corrupt is null. */
+export function readSiteMapSidecar(path: string): SiteMapReportIndex | null {
+  if (!existsSync(path)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as SiteMapReportIndex;
+    if (!Array.isArray(parsed.findings)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Find the newest `docs/site-map/*.json` sidecar (excluding retest sidecars) so
+ * `sitemap retest` can default to the latest run. Returns an absolute path or null.
+ */
+export function findLatestSiteMapSidecar(projectRoot: string): string | null {
+  const dir = join(projectRoot, PATHS.SITE_MAP_REPORT_DIR);
+  if (!existsSync(dir)) return null;
+  const candidates = readdirSync(dir)
+    .filter((name) => name.endsWith('.json') && !name.includes('-retest-'))
+    .sort();
+  const latest = candidates.at(-1);
+  return latest ? join(dir, latest) : null;
 }
