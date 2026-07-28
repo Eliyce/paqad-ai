@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { auditTurnNarration, unnarratedAdvisory } from '@/stage-evidence/narration-audit.js';
+import {
+  auditTurnNarration,
+  isAgentNarratableStage,
+  unnarratedAdvisory,
+} from '@/stage-evidence/narration-audit.js';
 import { STAGE_NARRATION } from '@/stage-evidence/narration.js';
 
 // Issue #409 — the mirror of #389. The ledger proves a stage RAN; this proves the
@@ -28,6 +32,22 @@ function hookAttachment(line: string): string {
     },
   });
 }
+
+// Issue #449 — only an agent-authored stage can be "recorded but never said out loud".
+// A hook/backstop-inferred stage was never the agent's claim, so it must be filtered out
+// of the #409 audit before it can accuse the agent of failing to narrate it.
+describe('isAgentNarratableStage', () => {
+  it('is true only for agent-authored provenance (live-mark, redo)', () => {
+    expect(isAgentNarratableStage('live-mark')).toBe(true);
+    expect(isAgentNarratableStage('redo')).toBe(true);
+  });
+
+  it('is false for hook/backstop-inferred and ambiguous provenance', () => {
+    expect(isAgentNarratableStage('inferred-git')).toBe(false);
+    expect(isAgentNarratableStage('inferred-artifact')).toBe(false);
+    expect(isAgentNarratableStage(null)).toBe(false);
+  });
+});
 
 describe('auditTurnNarration', () => {
   it('reports nothing when every recorded stage was spoken in visible text', () => {

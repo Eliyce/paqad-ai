@@ -35,7 +35,11 @@ import { reuseCounts } from '@/feature-evidence/reuse.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
-import { auditTurnNarration, unnarratedAdvisory } from '@/stage-evidence/narration-audit.js';
+import {
+  auditTurnNarration,
+  isAgentNarratableStage,
+  unnarratedAdvisory,
+} from '@/stage-evidence/narration-audit.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { runDuplicationScan } from '@/duplication/scan.js';
@@ -467,10 +471,17 @@ export async function runRepositoryVerification(
   // shows which the agent actually SAID. Any gap is reported so the model can put the
   // receipt where the developer can see it. Advisory only: it never touches
   // `verdict.ok`, so a silent-but-correct change still passes (INV-1).
+  //
+  // Issue #449 — only stages the AGENT authored (live-mark/redo) can be "recorded but
+  // never said out loud". A hook/backstop-inferred stage (e.g. the inferred-git
+  // `development` row) was never the agent's claim, so filter those out before the audit
+  // rather than accuse the agent of failing to narrate work it never asserted.
   verdict.narrationAdvisory = unnarratedAdvisory(
     auditTurnNarration({
       transcriptText: options.transcriptText ?? '',
-      recorded: (fold?.stages ?? []).map((stage) => stage.stage),
+      recorded: (fold?.stages ?? [])
+        .filter((stage) => isAgentNarratableStage(stage.evidence_source))
+        .map((stage) => stage.stage),
     }),
   );
 
