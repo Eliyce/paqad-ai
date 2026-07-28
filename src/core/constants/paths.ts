@@ -211,6 +211,10 @@ export const PATHS = {
   SITE_MAP_ROOT_DIR: '.paqad/site-map',
   SITE_MAP_RUNS_DIR: '.paqad/site-map/runs',
   SITE_MAP_BASELINE: '.paqad/site-map/baseline.json',
+  // Issue #448 — the site-map publisher's own differential-refresh ledger, split
+  // out of the documentation workflow's doc-progress.json so a legacy/invalid
+  // doc-progress can never abort a site-map run or the freshness gate.
+  SITE_MAP_PROGRESS: '.paqad/site-map/progress.json',
   INDEXES_DIR: '.paqad/indexes',
   // Issue #353 — the deterministic, offline code-knowledge index: every exported
   // symbol (with signature + caller_count) and the file->file / file->symbol edges
