@@ -19,6 +19,7 @@ export type Route =
   | 'delivery-policy'
   | 'instructions'
   | 'module-map'
+  | 'site-map'
   | 'design-tokens';
 
 const ROUTES: ReadonlySet<Route> = new Set<Route>([
@@ -34,6 +35,7 @@ const ROUTES: ReadonlySet<Route> = new Set<Route>([
   'delivery-policy',
   'instructions',
   'module-map',
+  'site-map',
   'design-tokens',
 ]);
 

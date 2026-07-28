@@ -60,7 +60,9 @@ export function createProgram(): Command {
   program.addCommand(createMetricsCommand());
   program.addCommand(createIndexCommand());
   program.addCommand(createHealthCommand());
-  program.addCommand(createSitemapCommand());
+  // Hidden (issue #448): the site map is now a dashboard area (Run it from
+  // `paqad-ai dashboard`). The verb stays registered for CI/scripting.
+  program.addCommand(createSitemapCommand(), { hidden: true });
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());

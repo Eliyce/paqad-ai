@@ -16,33 +16,31 @@ function enableSiteMap(projectRoot: string): void {
   writeFileSync(join(projectRoot, '.paqad/.config'), 'site_map=true\n');
 }
 
-/** Seed a valid doc-progress file with one published site-map view under the `siteMap` group. */
+/** Seed the site-map progress ledger with one published view (issue #448 — its own store). */
 function seedSiteMapProgress(
   projectRoot: string,
   entry: { output_path: string; source_files: string[]; source_hash: string | null },
 ): void {
-  mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  mkdirSync(join(projectRoot, '.paqad/site-map'), { recursive: true });
   const progress = {
-    schema_version: '1',
+    schema_version: 1,
     generated_by: 'paqad-ai',
-    framework_version: '1.71.0',
-    modules: {},
-    global: {
-      siteMap: {
-        [entry.output_path]: {
-          output_path: entry.output_path,
-          state: 'done',
-          started_at: '2026-07-27T00:00:00.000Z',
-          completed_at: '2026-07-27T00:00:00.000Z',
-          source_files: entry.source_files,
-          source_hash: entry.source_hash,
-          tokens_used: 10,
-          error: null,
-        },
+    views: {
+      [entry.output_path]: {
+        path: entry.output_path,
+        state: 'done',
+        started_at: '2026-07-27T00:00:00.000Z',
+        completed_at: '2026-07-27T00:00:00.000Z',
+        source_files: entry.source_files,
+        source_hash: entry.source_hash,
+        tokens_used: 10,
       },
     },
   };
-  writeFileSync(join(projectRoot, '.paqad/doc-progress.json'), `${JSON.stringify(progress)}\n`);
+  writeFileSync(
+    join(projectRoot, '.paqad/site-map/progress.json'),
+    `${JSON.stringify(progress)}\n`,
+  );
 }
 
 describe('SiteMapFreshnessGate', () => {
@@ -83,7 +81,8 @@ describe('SiteMapFreshnessGate', () => {
 
     expect(result.passed).toBe(false);
     expect(result.detail).toContain('docs/site-map/index.md');
-    expect(result.remediation).toContain('paqad-ai sitemap run');
+    expect(result.remediation).toContain('Site map area');
+    expect(result.remediation).not.toContain('paqad-ai sitemap run');
   });
 
   it('passes when the published view still matches its sources', async () => {

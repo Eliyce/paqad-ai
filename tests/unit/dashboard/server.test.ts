@@ -16,6 +16,8 @@ import { writeDecision } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
+import { writeJourney } from '@/site-map/store.js';
+import type { Journey } from '@/core/types/site-map.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 
 const STATIC_DIR = mkdtempSync(join(tmpdir(), 'paqad-dash-static-'));
@@ -283,6 +285,65 @@ describe('startDashboardServer', () => {
         pendingCount: number;
       };
       expect(feed.pendingCount).toBe(0);
+    });
+
+    it('lists journeys and curates a proposed one (#448)', async () => {
+      bootstrap(root);
+      const journey: Journey = {
+        schema_version: 1,
+        id: 'checkout',
+        label: 'Checkout',
+        actor: 'shopper',
+        goal: 'buy the thing',
+        entry: 'home',
+        steps: [{ surface: 'cart' }],
+        status: 'proposed',
+      };
+      writeJourney(root, journey);
+      await startServer();
+
+      // GET lists it with its status.
+      const list = (await (await fetch(`${server!.url}/api/site-map/journeys`)).json()) as {
+        journeys: { id: string; label: string; status: string }[];
+      };
+      expect(list.journeys).toEqual([{ id: 'checkout', label: 'Checkout', status: 'proposed' }]);
+
+      // POST confirm transitions it to confirmed.
+      const res = await fetch(`${server!.url}/api/site-map/journeys/curate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: 'checkout', action: 'confirm' }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { ok: boolean; result: { status: string } };
+      expect(body.ok).toBe(true);
+      expect(body.result.status).toBe('confirmed');
+
+      const after = (await (await fetch(`${server!.url}/api/site-map/journeys`)).json()) as {
+        journeys: { status: string }[];
+      };
+      expect(after.journeys[0]!.status).toBe('confirmed');
+    });
+
+    it('rejects a curate call with a bad body or a non-proposed journey (#448)', async () => {
+      bootstrap(root);
+      await startServer();
+
+      // Missing id → 400.
+      const bad = await fetch(`${server!.url}/api/site-map/journeys/curate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm' }),
+      });
+      expect(bad.status).toBe(400);
+
+      // Unknown journey → 400 from the curation reason.
+      const unknown = await fetch(`${server!.url}/api/site-map/journeys/curate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: 'nope', action: 'reject' }),
+      });
+      expect(unknown.status).toBe(400);
     });
 
     it('maps mutation failures onto 400/404/409', async () => {

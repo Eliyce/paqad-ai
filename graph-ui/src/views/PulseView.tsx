@@ -47,6 +47,7 @@ const SECTION_AREA: Partial<Record<string, Route>> = {
   'stack-drift': 'build',
   'tech-debt': 'build',
   pentest: 'build',
+  'site-map': 'site-map',
   'rule-compliance': 'build',
   decisions: 'approvals',
   'module-decisions': 'approvals',

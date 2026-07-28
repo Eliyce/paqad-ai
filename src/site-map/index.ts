@@ -4,6 +4,7 @@
 
 export * from './schema.js';
 export * from './store.js';
+export * from './progress-store.js';
 export * from './shared.js';
 export * from './baseline.js';
 export * from './ledger.js';

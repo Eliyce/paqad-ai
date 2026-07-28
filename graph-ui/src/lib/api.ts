@@ -32,6 +32,7 @@ import type {
   SavedView,
   SavedViewArea,
   SetCapabilityResult,
+  SiteMapJourney,
   ValidationIssue,
 } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
@@ -73,6 +74,25 @@ export async function resolvePause(
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ chosen_option_key: chosenOptionKey, ...(note ? { note } : {}) }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res));
+}
+
+export async function fetchSiteMapJourneys(): Promise<SiteMapJourney[]> {
+  const res = await fetch('/api/site-map/journeys');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  const body = (await res.json()) as { journeys: SiteMapJourney[] };
+  return body.journeys;
+}
+
+export async function curateSiteMapJourney(
+  id: string,
+  action: 'confirm' | 'reject',
+): Promise<void> {
+  const res = await fetch('/api/site-map/journeys/curate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id, action }),
   });
   if (!res.ok) throw new Error(await errorMessage(res));
 }

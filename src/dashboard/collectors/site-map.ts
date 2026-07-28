@@ -4,7 +4,7 @@ import { ageInDays, bandForScore, scoreFreshness } from '../scoring/index.js';
 import type { AttentionItem, SectionData } from '../types.js';
 
 const HELPER = {
-  what: 'Each `paqad-ai sitemap run` writes a report + sidecar under docs/site-map/ with the mapped surfaces, journeys, findings, and blocked checks.',
+  what: 'Each Run (the button on the Site map area) writes a report + sidecar under docs/site-map/ with the mapped surfaces, journeys, findings, and blocked checks.',
   goodLooksLike:
     'A recent run whose map matches the code (no open findings), every extractor available, and journeys confirmed through the audited surface.',
 } as const;
@@ -36,7 +36,7 @@ export function collectSiteMap(
 ): SiteMapDashboardResult {
   const latestPath = findLatestSiteMapSidecar(projectRoot);
   if (!latestPath) {
-    return emptySection('No site-map runs yet — run `paqad-ai sitemap run` when you need one.');
+    return emptySection('No site-map runs yet — hit Run on the Site map area when you need one.');
   }
 
   const report = readSiteMapSidecar(latestPath);

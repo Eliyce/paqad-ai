@@ -15,6 +15,9 @@ import { reconcileModuleMap } from '@/module-map/reconciler.js';
 import { discoverSourceRoots } from '@/module-map/source-roots.js';
 import { refreshProjectRules } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
+import { createSiteMapGatherer } from '@/site-map/gatherer.js';
+import { runSiteMapRetest } from '@/site-map/retest-run.js';
+import { runSiteMapAudit } from '@/site-map/run.js';
 
 import { appendDashboardAudit } from './approvals.js';
 
@@ -43,6 +46,8 @@ export const OPS_ACTIONS = [
   'regenerate-docs',
   'compliance-check',
   'doctor',
+  'site-map',
+  'site-map-retest',
 ] as const;
 
 export type OpsAction = (typeof OPS_ACTIONS)[number];
@@ -209,6 +214,48 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
     const report = await new HealthChecker().run(projectRoot);
     progress(`Overall status: ${report.overall_status}.`);
     return report.checks;
+  },
+
+  // Issue #448 — the site-map run is a dashboard action, not a command the user types. This
+  // runs the exact core function the (hidden) `sitemap` verb runs: no reimplementation, no
+  // shelling out. runSiteMapAudit is flag-gated at its consumers, so this is inert with the
+  // site_map capability off.
+  'site-map': async (_job, { projectRoot, progress }) => {
+    progress('Mapping the app — scanning surfaces and reconciling against the map.');
+    const result = await runSiteMapAudit({
+      projectRoot,
+      gatherer: createSiteMapGatherer(projectRoot),
+    });
+    progress(`Mapped the app: ${result.finding_count} finding(s) worth a look.`);
+    return {
+      report_id: result.report_id,
+      report_path: result.report_path,
+      findings: result.finding_count,
+      blocked_checks: result.blocked_checks.length,
+      baseline_created: result.baseline_created,
+    };
+  },
+
+  // Issue #448 — replay the latest site-map report against the current code from the dashboard.
+  // A missing source sidecar (nothing to replay) is a clean failed job, not a crash.
+  'site-map-retest': async (_job, { projectRoot, progress }) => {
+    progress('Replaying the latest site-map report against the current code.');
+    const result = await runSiteMapRetest({
+      projectRoot,
+      gatherer: createSiteMapGatherer(projectRoot),
+      sidecar: null,
+    });
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+    progress(`Retest done: ${result.still_open} still open, ${result.fixed} fixed.`);
+    return {
+      report_id: result.report_id,
+      report_path: result.report_path,
+      fixed: result.fixed,
+      still_open: result.still_open,
+      needs_manual_verification: result.needs_manual_verification,
+    };
   },
 };
 

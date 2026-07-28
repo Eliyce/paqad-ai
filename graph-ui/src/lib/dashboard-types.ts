@@ -161,7 +161,15 @@ export interface ReceiptFeed {
 export type InventoryClass = 'web' | 'prompt' | 'evidence' | 'operation';
 export type InventoryOwner = 'you' | 'paqad' | 'shared';
 export type DashboardArea =
-  'pulse' | 'approvals' | 'trust' | 'build' | 'graph' | 'automation' | 'knowledge' | 'setup';
+  | 'pulse'
+  | 'approvals'
+  | 'trust'
+  | 'build'
+  | 'graph'
+  | 'automation'
+  | 'knowledge'
+  | 'setup'
+  | 'site-map';
 
 export interface InventoryItemState {
   /** True when the source of truth exists on disk. */
@@ -492,7 +500,16 @@ export type OpsAction =
   | 'rag-clear'
   | 'regenerate-docs'
   | 'compliance-check'
-  | 'doctor';
+  | 'doctor'
+  | 'site-map'
+  | 'site-map-retest';
+
+/** A journey row for the Site map area's curation panel (issue #448). */
+export interface SiteMapJourney {
+  id: string;
+  label: string;
+  status: 'proposed' | 'confirmed' | 'locked';
+}
 
 export interface OpsJob {
   id: string;

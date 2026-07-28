@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "paqad://schemas/site-map-progress.json",
+  "title": "Site-map progress ledger (issue #448)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_by", "views"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "generated_by": { "type": "string", "const": "paqad-ai" },
+    "views": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "state",
+          "started_at",
+          "completed_at",
+          "source_files",
+          "source_hash",
+          "tokens_used"
+        ],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "state": {
+            "type": "string",
+            "enum": ["not_started", "generating", "done", "failed"]
+          },
+          "started_at": { "type": ["string", "null"] },
+          "completed_at": { "type": ["string", "null"] },
+          "source_files": { "type": "array", "items": { "type": "string" } },
+          "source_hash": { "type": ["string", "null"] },
+          "tokens_used": { "type": ["integer", "null"] }
+        }
+      }
+    }
+  }
+}

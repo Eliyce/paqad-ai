@@ -236,6 +236,41 @@ describe('ops job runner', () => {
       expect(job.result).toMatchObject({ checked: false });
     });
 
+    it('site-map completes with a run summary and a dashboard audit line', async () => {
+      const job = await run('site-map');
+      expect(job.status).toBe('done');
+      expect(job.result).toMatchObject({
+        findings: expect.any(Number),
+        blocked_checks: expect.any(Number),
+        baseline_created: expect.any(Boolean),
+      });
+      expect(job.result).toHaveProperty('report_path');
+      expect(job.progress.length).toBeGreaterThan(1);
+      expect(readAudit(root)).toContain('dashboard.ops.site-map');
+    });
+
+    it('site-map-retest fails cleanly when there is no prior report to replay', async () => {
+      const job = await run('site-map-retest');
+      expect(job.status).toBe('failed');
+      expect(job.error).toMatch(/no prior site-map report/i);
+      expect(readAudit(root)).toContain('status="failed"');
+    });
+
+    it('site-map-retest replays the sidecar a prior site-map run wrote', async () => {
+      const first = await run('site-map');
+      expect(first.status).toBe('done');
+
+      const job = await run('site-map-retest');
+      expect(job.status).toBe('done');
+      expect(job.result).toMatchObject({
+        fixed: expect.any(Number),
+        still_open: expect.any(Number),
+        needs_manual_verification: expect.any(Number),
+      });
+      expect(job.result).toHaveProperty('report_path');
+      expect(readAudit(root)).toContain('dashboard.ops.site-map-retest');
+    });
+
     it('reconcile completes with a drift summary', async () => {
       const job = await run('reconcile');
       expect(job.status).toBe('done');
