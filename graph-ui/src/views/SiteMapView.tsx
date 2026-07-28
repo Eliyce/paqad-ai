@@ -5,14 +5,15 @@ import { OpButton } from '../components/OpButton';
 import { OwnershipBadge } from '../components/OwnershipBadge';
 import { ScoreBadge } from '../components/ScoreBadge';
 import { WhySentence } from '../components/WhySentence';
-import { fetchDashboard } from '../lib/api';
-import type { SectionData } from '../lib/dashboard-types';
+import { curateSiteMapJourney, fetchDashboard, fetchSiteMapJourneys } from '../lib/api';
+import type { SectionData, SiteMapJourney } from '../lib/dashboard-types';
 
 /**
  * The Site map area (issue #448). The site-map run is a dashboard action, not a
  * command the user types: this page renders the latest run the server computed
- * (surfaces, journeys, findings) and a Run button that maps the app on demand
- * via the `site-map` ops job, refreshing the view when it finishes.
+ * (surfaces, journeys, findings), a Run/Retest button that maps the app on demand
+ * via the `site-map` / `site-map-retest` ops jobs, and a journeys panel where a
+ * human confirms or rejects the proposed journeys — all from the web.
  */
 
 interface BlockedCheck {
@@ -39,6 +40,15 @@ export function SiteMapView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [sseLive, setSseLive] = useState(false);
+  const [journeys, setJourneys] = useState<SiteMapJourney[]>([]);
+  const [curatingId, setCuratingId] = useState<string | null>(null);
+  const [curateError, setCurateError] = useState<string | null>(null);
+
+  const loadJourneys = useCallback((): void => {
+    fetchSiteMapJourneys()
+      .then(setJourneys)
+      .catch(() => setJourneys([]));
+  }, []);
 
   const load = useCallback((): void => {
     fetchDashboard()
@@ -52,7 +62,20 @@ export function SiteMapView() {
         setLoadError(err instanceof Error ? err.message : String(err));
         setLoaded(true);
       });
-  }, []);
+    loadJourneys();
+  }, [loadJourneys]);
+
+  const curate = useCallback(
+    (id: string, action: 'confirm' | 'reject'): void => {
+      setCuratingId(id);
+      setCurateError(null);
+      curateSiteMapJourney(id, action)
+        .then(() => loadJourneys())
+        .catch((err: unknown) => setCurateError(err instanceof Error ? err.message : String(err)))
+        .finally(() => setCuratingId(null));
+    },
+    [loadJourneys],
+  );
 
   useEffect(() => {
     load();
@@ -81,7 +104,15 @@ export function SiteMapView() {
           <h1 className="text-page font-semibold">Site map</h1>
           <OwnershipBadge managedBy="shared" />
           {section && <ScoreBadge score={section.score} band={section.band} />}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {hasRun && (
+              <OpButton
+                action="site-map-retest"
+                label="Retest"
+                done="Retested against the current code."
+                onDone={load}
+              />
+            )}
             <OpButton
               action="site-map"
               label={hasRun ? 'Run again' : 'Run site map'}
@@ -172,6 +203,60 @@ export function SiteMapView() {
               </div>
             )}
           </>
+        )}
+
+        {journeys.length > 0 && (
+          <div className="mt-4 rounded-[10px] p-4" style={{ background: 'var(--color-surface)' }}>
+            <div className="text-body font-medium">Journeys</div>
+            <p className="mt-1 text-caption" style={{ color: 'var(--color-muted)' }}>
+              Confirm the proposed journeys that match how people really use the app, or reject the
+              ones that do not.
+            </p>
+            {curateError && (
+              <div className="mt-2 text-secondary" style={{ color: 'var(--color-mod-red)' }}>
+                {curateError}
+              </div>
+            )}
+            <div className="mt-3 flex flex-col gap-1.5">
+              {journeys.map((journey) => (
+                <div key={journey.id} className="flex items-center gap-2 text-secondary">
+                  <span className="min-w-0 flex-1 truncate">{journey.label}</span>
+                  {journey.status === 'proposed' ? (
+                    <>
+                      <span
+                        className="shrink-0 text-caption"
+                        style={{ color: 'var(--color-mod-amber)' }}
+                      >
+                        proposed
+                      </span>
+                      <button
+                        type="button"
+                        disabled={curatingId === journey.id}
+                        className="shrink-0 rounded-[6px] px-2.5 py-1 text-caption font-medium disabled:opacity-50"
+                        style={{ background: 'var(--color-accent)', color: '#ffffff' }}
+                        onClick={() => curate(journey.id, 'confirm')}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        disabled={curatingId === journey.id}
+                        className="shrink-0 rounded-[6px] px-2.5 py-1 text-caption font-medium disabled:opacity-50"
+                        style={{ background: 'var(--color-surface)', color: 'var(--color-muted)' }}
+                        onClick={() => curate(journey.id, 'reject')}
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : (
+                    <span className="shrink-0 text-caption" style={{ color: 'var(--color-muted)' }}>
+                      {journey.status}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </DashboardChrome>

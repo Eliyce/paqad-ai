@@ -11,6 +11,8 @@ import { engineLog } from '@/core/logger-registry.js';
 import { createGraphRoutes } from '@/graph/routes.js';
 import { VERSION } from '@/index.js';
 import { startPaqadWatcher, type RunningWatcher } from '@/graph/watcher.js';
+import { runJourneyCuration } from '@/site-map/journey-curation.js';
+import { readAllJourneys } from '@/site-map/store.js';
 
 import {
   acceptModuleProposal,
@@ -460,6 +462,39 @@ export async function startDashboardServer(
     }
     if (pathname === '/api/decisions' && req.method === 'GET') {
       writeJson(res, req, buildApprovalsFeed(options.projectRoot));
+      return;
+    }
+    // Issue #448 — the site map is a dashboard area, so journey curation (the human sign-off on
+    // proposed journeys) happens here. List is read-only; curate goes through the mutation guard
+    // and runs the same runJourneyCuration the (hidden) CLI verb runs.
+    if (pathname === '/api/site-map/journeys' && req.method === 'GET') {
+      const journeys = readAllJourneys(options.projectRoot).map((journey) => ({
+        id: journey.id,
+        label: journey.label,
+        status: journey.status,
+      }));
+      writeJson(res, req, { journeys });
+      return;
+    }
+    if (pathname === '/api/site-map/journeys/curate' && req.method === 'POST') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { id?: unknown; action?: unknown };
+        if (typeof body.id !== 'string' || body.id.length === 0) {
+          throw new Error('Body must include a non-empty `id` string.');
+        }
+        if (body.action !== 'confirm' && body.action !== 'reject') {
+          throw new Error("Body `action` must be 'confirm' or 'reject'.");
+        }
+        const result = runJourneyCuration({
+          projectRoot: options.projectRoot,
+          id: body.id,
+          action: body.action,
+        });
+        if (!result.ok) {
+          throw new Error(result.reason);
+        }
+        return result;
+      });
       return;
     }
     // Issue #387 — accept both the current `D-<ULID>` id and the legacy numeric `D-{N}`

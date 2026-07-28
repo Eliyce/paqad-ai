@@ -46,7 +46,7 @@ export async function runSiteMapRetest(
   if (!sidecarPath) {
     return {
       ok: false,
-      reason: 'no prior site-map report found — run `paqad-ai sitemap run` first',
+      reason: 'no prior site-map report found — hit Run on the Site map area first',
     };
   }
   const source = readSiteMapSidecar(sidecarPath);
