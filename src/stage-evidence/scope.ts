@@ -7,12 +7,13 @@
 // pentest that only touches docs must never be forced through the code-development
 // stages.
 //
-// Deliberately keyed on an EXCLUDE list (documentation + framework paths), never an
-// allowlist of source directories: an onboarded project can be any stack (a Laravel
-// app under `app/*.php`, a Python or Go service, …), so allowlisting `src/`/tests
-// would silently UNDER-gate every non-JS codebase. Anything that is not documentation
-// or framework-internal is treated as a feature-development change (fail-closed for
-// code — the safe direction for an enforcement gate).
+// Deliberately keyed on an EXCLUDE list (documentation + framework paths + host-agent
+// config paths), never an allowlist of source directories: an onboarded project can be
+// any stack (a Laravel app under `app/*.php`, a Python or Go service, …), so allowlisting
+// `src/`/tests would silently UNDER-gate every non-JS codebase. Anything that is not
+// documentation, framework-internal (`.paqad/**`), or paqad-managed host-agent config
+// (`.claude/**`, `.codex/**`, … — issue #449) is treated as a feature-development change
+// (fail-closed for code — the safe direction for an enforcement gate).
 
 import { isAbsolute, relative } from 'pathe';
 
@@ -50,6 +51,46 @@ export function isDocumentationPath(targetPath: string, projectRoot?: string): b
 }
 
 /**
+ * The paqad-managed host-agent integration directories (issue #449): each host's own
+ * config tree — hooks, settings, generated entry files, MCP config, cached skills/agents.
+ * paqad writes and regenerates these (on `onboard`/`refresh`, or a host `mcp.json` edit),
+ * and they never hold product source, so forcing them through the feature-development
+ * stages is wrong for the same reason `.paqad/` is: it blocks legitimate integration
+ * bookkeeping. `.github/` is deliberately EXCLUDED from this set — it carries CI workflow
+ * code, which stays under the feature-development gate.
+ */
+const HOST_AGENT_CONFIG_DIRS = [
+  '.claude',
+  '.codex',
+  '.gemini',
+  '.junie',
+  '.cursor',
+  '.windsurf',
+  '.continue',
+  '.aider',
+  '.aiassistant',
+] as const;
+
+/** The `.windsurfrules` root entry file — Windsurf's equivalent of the (doc-classified)
+ *  `CLAUDE.md`/`AGENTS.md` entry files, but a dotfile the doc predicate does not match. */
+const HOST_AGENT_CONFIG_FILES = ['.windsurfrules'] as const;
+
+/**
+ * True when `targetPath` is a paqad-managed host-agent config path (a file under one of
+ * {@link HOST_AGENT_CONFIG_DIRS} or an exact {@link HOST_AGENT_CONFIG_FILES} entry). These
+ * are integration wiring, not product code, so the feature-development gate never applies
+ * to them (issue #449). Never matches `.github/` (CI workflows are real code). Normalises
+ * an absolute host path through the same helper the other scope predicates use.
+ */
+export function isHostAgentConfigPath(targetPath: string, projectRoot?: string): boolean {
+  const p = toRelativePosix(targetPath, projectRoot);
+  if (HOST_AGENT_CONFIG_FILES.includes(p as (typeof HOST_AGENT_CONFIG_FILES)[number])) {
+    return true;
+  }
+  return HOST_AGENT_CONFIG_DIRS.some((dir) => p === dir || p.startsWith(`${dir}/`));
+}
+
+/**
  * True when an edit to `targetPath` is a feature-development change the stage gate
  * governs. A missing/unknown path is treated as in-scope (fail-closed): the real host
  * always supplies a path, so this only affects a payload-less call, which must not
@@ -58,6 +99,7 @@ export function isDocumentationPath(targetPath: string, projectRoot?: string): b
 export function isFeatureDevEdit(targetPath: string | undefined, projectRoot?: string): boolean {
   if (!targetPath) return true; // unknown intent → gate (fail-closed for code)
   if (isFrameworkInternalPath(targetPath, projectRoot)) return false;
+  if (isHostAgentConfigPath(targetPath, projectRoot)) return false;
   if (isDocumentationPath(targetPath, projectRoot)) return false;
   return true;
 }

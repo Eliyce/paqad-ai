@@ -5,6 +5,7 @@ import {
   isDocumentationPath,
   isFeatureDevEdit,
   isFrameworkInternalPath,
+  isHostAgentConfigPath,
 } from '@/stage-evidence/scope.js';
 
 // Feature-development scope (issue #310). The stage gate governs feature development
@@ -58,6 +59,41 @@ describe('scope — isDocumentationPath', () => {
   });
 });
 
+// Host-agent config scope (issue #449). paqad's own host-integration directories are
+// not product code; forcing them through the feature-development stages hard-blocks the
+// turn on a change that was never feature development.
+describe('scope — isHostAgentConfigPath', () => {
+  it('flags every paqad-managed host-agent config directory', () => {
+    expect(isHostAgentConfigPath('.claude/settings.json')).toBe(true);
+    expect(isHostAgentConfigPath('.codex/hooks.json')).toBe(true);
+    expect(isHostAgentConfigPath('.gemini/settings.json')).toBe(true);
+    expect(isHostAgentConfigPath('.junie/mcp/mcp.json')).toBe(true);
+    expect(isHostAgentConfigPath('.cursor/rules/paqad.mdc')).toBe(true);
+    expect(isHostAgentConfigPath('.windsurf/hooks.json')).toBe(true);
+    expect(isHostAgentConfigPath('.continue/mcp.json')).toBe(true);
+    expect(isHostAgentConfigPath('.aider/cache.json')).toBe(true);
+    expect(isHostAgentConfigPath('.aiassistant/agents')).toBe(true);
+    // the bare directory itself, and the .windsurfrules root entry file
+    expect(isHostAgentConfigPath('.claude')).toBe(true);
+    expect(isHostAgentConfigPath('.windsurfrules')).toBe(true);
+  });
+
+  it('does NOT flag .github (CI workflows are real code), source, or docs', () => {
+    expect(isHostAgentConfigPath('.github/workflows/ci.yml')).toBe(false);
+    expect(isHostAgentConfigPath('.github/copilot-instructions.md')).toBe(false);
+    expect(isHostAgentConfigPath('src/a.ts')).toBe(false);
+    expect(isHostAgentConfigPath('docs/a.md')).toBe(false);
+    // a lookalike prefix that is not a host-config dir boundary
+    expect(isHostAgentConfigPath('.claudely/x.ts')).toBe(false);
+    expect(isHostAgentConfigPath('.windsurfrules.bak')).toBe(false);
+  });
+
+  it('normalises an absolute host path against the project root', () => {
+    expect(isHostAgentConfigPath('/proj/.junie/mcp/mcp.json', '/proj')).toBe(true);
+    expect(isHostAgentConfigPath('/proj/src/a.ts', '/proj')).toBe(false);
+  });
+});
+
 describe('scope — isFeatureDevEdit', () => {
   it('is feature development for any non-doc, non-framework edit (any stack)', () => {
     expect(isFeatureDevEdit('src/a.ts')).toBe(true);
@@ -68,11 +104,16 @@ describe('scope — isFeatureDevEdit', () => {
     expect(isFeatureDevEdit('package.json')).toBe(true); // config counts as a change
   });
 
-  it('is NOT feature development for docs or framework-internal edits', () => {
+  it('is NOT feature development for docs, framework-internal, or host-agent config edits', () => {
     expect(isFeatureDevEdit('docs/inbound/README.md')).toBe(false);
     expect(isFeatureDevEdit('README.md')).toBe(false);
     expect(isFeatureDevEdit('.paqad/configs/.config.policy')).toBe(false);
     expect(isFeatureDevEdit('.paqad/.agent-entry-loaded')).toBe(false);
+    expect(isFeatureDevEdit('.junie/mcp/mcp.json')).toBe(false); // issue #449
+    expect(isFeatureDevEdit('.claude/settings.json')).toBe(false);
+    expect(isFeatureDevEdit('.windsurfrules')).toBe(false);
+    // .github stays in scope — CI workflows are genuine code
+    expect(isFeatureDevEdit('.github/workflows/ci.yml')).toBe(true);
   });
 
   it('fails closed for an unknown/absent target path (gate applies)', () => {
@@ -87,6 +128,18 @@ describe('scope — changeIsFeatureDev', () => {
 
   it('is false for a docs-only / framework-only change', () => {
     expect(changeIsFeatureDev(['docs/a.md', 'README.md', '.paqad/.config'])).toBe(false);
+  });
+
+  it('is false for a host-agent-config-only change (issue #449)', () => {
+    // the exact live repro: a session whose only working-tree change is the host MCP config
+    expect(changeIsFeatureDev(['.junie/mcp/mcp.json'])).toBe(false);
+    expect(
+      changeIsFeatureDev(['.claude/settings.json', '.codex/hooks.json', '.paqad/.config']),
+    ).toBe(false);
+  });
+
+  it('is true when a host-config change also touches real source', () => {
+    expect(changeIsFeatureDev(['.claude/settings.json', 'src/a.ts'])).toBe(true);
   });
 
   it('is false for an empty change set (nothing to build)', () => {
