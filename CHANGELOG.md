@@ -1,5 +1,49 @@
 # paqad-ai
 
+## 1.75.0
+
+### Minor Changes
+
+- ca8aefa: **Site map is a dashboard area now, not a command you type (#448).** Open `paqad-ai dashboard`
+  and there is a **Site map** entry in the side menu: it shows the latest run (surfaces, journeys,
+  findings, skipped checks) and a **Run site map** button that maps the app on demand. The run is
+  the same deterministic, zero-token audit the engine always did — it just happens from the web,
+  with live progress and a dashboard-attributed line in the audit trail, so no one has to drop to a
+  terminal.
+
+  The `paqad-ai sitemap` verb still exists for CI and scripting, but it is now hidden from `--help`
+  (the dashboard is the place to run it), mirroring how `graph` became a dashboard area. Everything
+  stays behind the OFF-by-default `site_map` flag.
+
+- ca8aefa: **Site map dashboard: Retest and journey sign-off from the web (#448).** The Site map area now
+  carries the last two actions that used to need the terminal:
+
+  - **Retest** replays the latest run against the current code (a `site-map-retest` dashboard
+    action, with live progress). If there is no prior run to replay it says so instead of failing
+    obscurely.
+  - **Journeys** lists the app's journeys and lets you **Confirm** or **Reject** the proposed ones
+    in place. Confirming makes a journey part of the map; rejecting drops it. Both run the same
+    audited curation the engine always did.
+
+  The run itself is unchanged. Everything stays behind the OFF-by-default `site_map` flag, and the
+  `paqad-ai sitemap` verb remains available (hidden) for CI and scripting.
+
+### Patch Changes
+
+- ca8aefa: **Fix (#448): a legacy `.paqad/doc-progress.json` no longer blocks a site-map run.** Site-map
+  publication used to piggyback on the documentation workflow's `DocumentProgressTracker`, so every
+  `sitemap run` loaded and schema-validated `doc-progress.json` — and a file written by an older
+  paqad (an unrelated, disjoint shape) threw, aborting the run before `index.md` / `overview.md`
+  were published.
+
+  Site-map now keeps its **own** differential-refresh ledger at `.paqad/site-map/progress.json`
+  (schema-versioned, mirroring the tolerant persistence of the code-knowledge index: a missing,
+  corrupt, or schema-invalid file degrades to empty and self-heals on the next run rather than
+  crashing). Nothing under `src/site-map/` reads or validates `doc-progress.json` anymore, so an
+  unrelated stale ledger can never block a map publication or the site-map freshness gate. The two
+  concerns are decoupled by construction. All behaviour stays behind the OFF-by-default `site_map`
+  flag.
+
 ## 1.74.0
 
 ### Minor Changes
