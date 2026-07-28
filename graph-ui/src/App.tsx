@@ -10,6 +10,7 @@ import { KnowledgeRagPanel } from './views/KnowledgeRagPanel';
 import { ModuleMapView } from './views/ModuleMapView';
 import { SetupView } from './views/SetupView';
 import { PulseView } from './views/PulseView';
+import { SiteMapView } from './views/SiteMapView';
 import { TrustView } from './views/TrustView';
 
 /**
@@ -30,6 +31,7 @@ export function App() {
   if (route === 'delivery-policy') return <DeliveryPolicyView />;
   if (route === 'instructions') return <InstructionsView />;
   if (route === 'module-map') return <ModuleMapView />;
+  if (route === 'site-map') return <SiteMapView />;
   if (route === 'design-tokens') return <DesignTokensView />;
   if (route === 'knowledge')
     return (

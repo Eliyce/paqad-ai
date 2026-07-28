@@ -236,6 +236,19 @@ describe('ops job runner', () => {
       expect(job.result).toMatchObject({ checked: false });
     });
 
+    it('site-map completes with a run summary and a dashboard audit line', async () => {
+      const job = await run('site-map');
+      expect(job.status).toBe('done');
+      expect(job.result).toMatchObject({
+        findings: expect.any(Number),
+        blocked_checks: expect.any(Number),
+        baseline_created: expect.any(Boolean),
+      });
+      expect(job.result).toHaveProperty('report_path');
+      expect(job.progress.length).toBeGreaterThan(1);
+      expect(readAudit(root)).toContain('dashboard.ops.site-map');
+    });
+
     it('reconcile completes with a drift summary', async () => {
       const job = await run('reconcile');
       expect(job.status).toBe('done');

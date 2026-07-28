@@ -81,7 +81,8 @@ describe('SiteMapFreshnessGate', () => {
 
     expect(result.passed).toBe(false);
     expect(result.detail).toContain('docs/site-map/index.md');
-    expect(result.remediation).toContain('paqad-ai sitemap run');
+    expect(result.remediation).toContain('Site map area');
+    expect(result.remediation).not.toContain('paqad-ai sitemap run');
   });
 
   it('passes when the published view still matches its sources', async () => {

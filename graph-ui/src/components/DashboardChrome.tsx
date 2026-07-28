@@ -30,6 +30,7 @@ function NavIcon({ name }: { name: DashboardArea }) {
     automation: <path d="M3 6a5 5 0 0 1 9-2m1 6a5 5 0 0 1-9 2M12 1v3H9M4 15v-3h3" />,
     knowledge: <path d="M3 3a3 3 0 0 1 5 1 3 3 0 0 1 5-1v9a3 3 0 0 0-5 1 3 3 0 0 0-5-1V3z" />,
     setup: <path d="M3 5h10M3 11h10M6 3v4M11 9v4" />,
+    'site-map': <path d="M2 4l4-2 4 2 4-2v10l-4 2-4-2-4 2V4zM6 2v10M10 4v10" />,
   };
   return (
     <svg
@@ -200,6 +201,7 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive, childr
           {navItem('approvals', 'Approvals', pendingCount)}
           {navItem('trust', 'Trust')}
           {navItem('build', 'Build')}
+          {navItem('site-map', 'Site map')}
           {navItem('graph', 'Graph')}
           {navItem('automation', 'Automation')}
           {navItem('knowledge', 'Knowledge')}

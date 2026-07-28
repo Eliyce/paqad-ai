@@ -7,7 +7,7 @@ import { createFail, createPass } from './shared.js';
 /**
  * Keep the published site map honest: a code change that drifts the map cannot reach
  * "Safe to merge" while the map is stale. Mirror of {@link DocumentationFreshnessGate}, but
- * over the `siteMap` doc-progress group instead of the canonical docs.
+ * over the site-map progress ledger instead of the canonical docs.
  *
  * Inert unless the `site_map` capability is enabled (INV-1): with the flag off — the default —
  * the gate always passes and changes nothing, so it is fully additive.
@@ -29,7 +29,7 @@ export class SiteMapFreshnessGate implements Gate {
       return createFail(
         this.gate,
         `Site map is stale for changed code: ${staleViews.join(', ')}`,
-        'Re-run `paqad-ai sitemap run` to refresh the map before treating the change as complete.',
+        'Hit Run on the Site map area of `paqad-ai dashboard` to refresh the map before treating the change as complete.',
       );
     }
 

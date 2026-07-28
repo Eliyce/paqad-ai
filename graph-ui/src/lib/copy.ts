@@ -18,6 +18,8 @@ export const PAGE_WHY: Record<DashboardArea, string> = {
   knowledge:
     'Everything your agents know about this project. Edit it here, every agent learns it instantly.',
   setup: "Your project's foundation. Set it once, change it any time.",
+  'site-map':
+    'How your app really behaves: every screen, journey, and guard, checked against the code.',
 };
 
 /**
