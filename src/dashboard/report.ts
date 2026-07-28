@@ -13,6 +13,7 @@ import { collectModuleDecisions } from './collectors/module-decisions.js';
 import { collectModuleDocs } from './collectors/module-docs.js';
 import { collectModuleEvents } from './collectors/module-events.js';
 import { collectCodebaseHealth } from './collectors/codebase-health.js';
+import { collectSiteMap } from './collectors/site-map.js';
 import { collectModuleHealth } from './collectors/module-health.js';
 import { collectModuleMapDrift } from './collectors/module-map-drift.js';
 import { collectPentest } from './collectors/pentest.js';
@@ -115,6 +116,7 @@ export function buildReport(
   const { section: pentestSection, attention: pentestAttention } = collectPentest(root, now);
   const { section: codebaseHealthSection, attention: codebaseHealthAttention } =
     collectCodebaseHealth(root, now);
+  const { section: siteMapSection, attention: siteMapAttention } = collectSiteMap(root, now);
   const { section: ruleComplianceSection, attention: ruleComplianceAttention } =
     collectRuleCompliance(root);
   const { section: changeMetricsSection, attention: changeMetricsAttention } =
@@ -141,6 +143,7 @@ export function buildReport(
     ragSection,
     pentestSection,
     codebaseHealthSection,
+    siteMapSection,
     ruleComplianceSection,
     changeMetricsSection,
     attestationSection,
@@ -156,6 +159,7 @@ export function buildReport(
     ...stackDriftAttention,
     ...pentestAttention,
     ...codebaseHealthAttention,
+    ...siteMapAttention,
     ...ruleComplianceAttention,
     ...changeMetricsAttention,
     ...deliveryAttention,

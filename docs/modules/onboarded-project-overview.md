@@ -281,7 +281,9 @@ screens, endpoints, CLI commands), transitions, guards, and areas — reconciles
 canonical [`docs/instructions/site-map/app-map.yaml`](../instructions/site-map/app-map.yaml), runs
 Tier-A verification (evidence resolution, cross-reference integrity, graph invariants), and
 publishes a token-budgeted index, a Mermaid overview, and screen/API registries.
-`paqad-ai sitemap retest` reclassifies prior findings by their stable `SM-` id. The
+`paqad-ai sitemap retest` reclassifies prior findings by their stable `SM-` id, and
+`paqad-ai sitemap journey confirm|reject <id>` is the human sign-off that turns a proposed journey
+into a confirmed one (or removes it), recorded on the audit ledger. The
 [`SiteMapFreshnessGate`](../../src/verification/gates/site-map-freshness.ts) keeps a
 feature-development change from reaching "Safe to merge" while a published view is stale (inert
 when the flag is off). Skills:

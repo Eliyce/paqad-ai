@@ -54,3 +54,42 @@ export function recordSiteMapRun(
     return null;
   }
 }
+
+export const SITE_MAP_JOURNEY_CURATION_DOC_TYPE = 'site-map-journey-curation';
+
+export interface JourneyCurationLedgerSummary {
+  journey_id: string;
+  /** `confirm` or `reject`. */
+  action: string;
+  /** The journey's status after the action (`confirmed`, or `removed` for a reject). */
+  status: string;
+}
+
+/**
+ * Record a journey-curation row — the audit trail for a human sign-off that confirmed or rejected
+ * a proposed journey (INV-3). Best-effort: the audit must never break the curation itself.
+ */
+export function recordJourneyCuration(
+  projectRoot: string,
+  summary: JourneyCurationLedgerSummary,
+  ctx: RecordSiteMapRunContext = {},
+): OpenSessionDocResult | null {
+  try {
+    const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
+    return openSessionDoc(
+      projectRoot,
+      SITE_MAP_JOURNEY_CURATION_DOC_TYPE,
+      sessionId,
+      {
+        kind: 'curation',
+        journey_id: summary.journey_id,
+        action: summary.action,
+        status: summary.status,
+        event_status: summary.action === 'confirm' ? 'confirmed' : 'rejected',
+      },
+      { schemaVersion: SITE_MAP_RUN_SCHEMA_VERSION, now: ctx.now },
+    );
+  } catch {
+    return null;
+  }
+}

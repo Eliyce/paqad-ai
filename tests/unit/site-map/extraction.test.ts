@@ -5,7 +5,9 @@ import {
   assembleExtraction,
   blockedExtractor,
   extractGenericSurfaces,
+  extractLaravelRouteSurfaces,
   extractNodeCliSurfaces,
+  extractReactRouteSurfaces,
   extractionFingerprint,
   sortExtractedSurfaces,
   type ExtractedSurface,
@@ -66,6 +68,72 @@ describe('site-map extraction', () => {
     it('omits the line from evidence when the gatherer could not pin one', () => {
       const [only] = extractNodeCliSurfaces([{ name: 'audit', file: 'src/cli/audit.ts' }]);
       expect(only!.evidence).toEqual([{ file: 'src/cli/audit.ts' }]);
+    });
+  });
+
+  describe('extractReactRouteSurfaces', () => {
+    it('maps a declared route to a high-confidence page surface with the component label', () => {
+      const [only] = extractReactRouteSurfaces([
+        { path: '/checkout', component: 'CheckoutPage', file: 'src/routes.tsx', line: 12 },
+      ]);
+      expect(only).toEqual({
+        raw_id: 'react-routes-checkout',
+        kind: 'page',
+        label: 'CheckoutPage',
+        evidence: [{ file: 'src/routes.tsx', line: 12 }],
+        entry: { kind: 'url', value: '/checkout' },
+        derivation: 'static',
+        confidence: 'high',
+        source: 'react-routes',
+      });
+    });
+
+    it('falls back to the path as label when the component is absent or blank', () => {
+      const [noComp] = extractReactRouteSurfaces([{ path: '/users/:id', file: 'src/routes.tsx' }]);
+      expect(noComp!.label).toBe('/users/:id');
+      const [blank] = extractReactRouteSurfaces([
+        { path: '/', component: '   ', file: 'src/routes.tsx' },
+      ]);
+      expect(blank!.label).toBe('/');
+      expect(blank!.evidence).toEqual([{ file: 'src/routes.tsx' }]);
+    });
+  });
+
+  describe('extractLaravelRouteSurfaces', () => {
+    it('maps an api-prefixed uri to an api surface with the action label', () => {
+      const [api] = extractLaravelRouteSurfaces([
+        {
+          method: 'POST',
+          uri: 'api/orders',
+          action: 'OrderController@store',
+          file: 'routes/api.php',
+          line: 8,
+        },
+      ]);
+      expect(api).toEqual({
+        raw_id: 'laravel-routes-post-api-orders',
+        kind: 'api',
+        label: 'OrderController@store',
+        evidence: [{ file: 'routes/api.php', line: 8 }],
+        entry: { kind: 'url', value: '/api/orders' },
+        derivation: 'static',
+        confidence: 'high',
+        source: 'laravel-routes',
+      });
+    });
+
+    it('maps a web uri to a page surface, strips a leading slash, and labels method+uri', () => {
+      const [page] = extractLaravelRouteSurfaces([
+        { method: 'GET', uri: '/dashboard', file: 'routes/web.php' },
+      ]);
+      expect(page!.kind).toBe('page');
+      expect(page!.label).toBe('GET /dashboard');
+      expect(page!.entry).toEqual({ kind: 'url', value: '/dashboard' });
+      // A bare `api` segment is also an api surface.
+      const [bare] = extractLaravelRouteSurfaces([
+        { method: 'GET', uri: 'api', file: 'routes/api.php' },
+      ]);
+      expect(bare!.kind).toBe('api');
     });
   });
 

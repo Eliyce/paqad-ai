@@ -10,6 +10,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -96,6 +97,14 @@ export function writeJourney(projectRoot: string, journey: Journey): string {
     throw new SiteMapSchemaError(`journey "${journey.id}" failed schema validation`, result.errors);
   }
   return writeYamlAtomic(journeyPath(projectRoot, journey.id), journey);
+}
+
+/** Remove a journey file by id. Returns true when a file was deleted, false when none existed. */
+export function removeJourney(projectRoot: string, id: string): boolean {
+  const target = journeyPath(projectRoot, id);
+  if (!existsSync(target)) return false;
+  rmSync(target, { force: true });
+  return true;
 }
 
 /** Read one journey by id, or null when absent / corrupt / schema-invalid. */
