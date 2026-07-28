@@ -13,6 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
+import { execa } from 'execa';
 import fg from 'fast-glob';
 
 import { toPosixPath } from '@/core/path-utils.js';
@@ -22,12 +23,21 @@ import type { SiteMapAppSummary } from '@/core/types/site-map-run.js';
 import {
   blockedExtractor,
   extractGenericSurfaces,
+  extractLaravelArtisanRoutes,
+  extractLaravelConsoleCommands,
+  extractLaravelJobs,
+  extractLaravelMailables,
   extractLaravelRouteSurfaces,
+  extractLaravelScheduledJobs,
   extractNodeCliSurfaces,
   extractReactRouteSurfaces,
+  parseArtisanCommandList,
+  parseArtisanRouteList,
+  parseArtisanScheduleList,
   type CliCommandRecord,
   type ExtractorOutput,
   type GenericSurfaceRecord,
+  type LaravelClassSurfaceRecord,
   type LaravelRouteRecord,
   type ReactRouteRecord,
 } from './extraction.js';
@@ -264,9 +274,20 @@ function scanFileForLaravelRoutes(relFile: string, content: string): LaravelRout
   return records;
 }
 
-/** Scan a Laravel project's route files for `Route::` declarations. */
+// Route files live in `routes/` for a classic app, and inside modules for nwidart/bespoke
+// layouts — so the static fallback walks module directories too, not just `routes/`.
+const LARAVEL_ROUTE_GLOBS = [
+  'routes/**/*.php',
+  'Modules/*/Routes/**/*.php',
+  'Modules/*/routes/**/*.php',
+  'Modules/*/app/routes/**/*.php',
+  'app/Modules/*/Routes/**/*.php',
+  'app/Modules/*/routes/**/*.php',
+];
+
+/** Scan a Laravel project's route files (classic + modular) for `Route::` declarations. */
 async function scanLaravelRoutes(projectRoot: string): Promise<LaravelRouteRecord[]> {
-  const files = await fg(['routes/**/*.php'], {
+  const files = await fg(LARAVEL_ROUTE_GLOBS, {
     cwd: projectRoot,
     ignore: ['**/vendor/**'],
     dot: false,
@@ -282,6 +303,172 @@ async function scanLaravelRoutes(projectRoot: string): Promise<LaravelRouteRecor
     records.push(...scanFileForLaravelRoutes(toPosixPath(file), content));
   }
   return records;
+}
+
+/** Best-effort timeout for booting artisan — a slow/hung boot must degrade, not stall the run. */
+const ARTISAN_TIMEOUT_MS = 20_000;
+
+/**
+ * Run a read-only artisan command in the target project, timeout-bounded. Returns whether it
+ * exited cleanly and its stdout. Any failure (no PHP, boot error, timeout) resolves to `ok:false`
+ * so the caller degrades to the static scan and records a blocked check — it never throws.
+ */
+async function runArtisan(
+  projectRoot: string,
+  args: string[],
+): Promise<{ ok: boolean; stdout: string }> {
+  try {
+    const result = await execa('php', ['artisan', ...args], {
+      cwd: projectRoot,
+      reject: false,
+      timeout: ARTISAN_TIMEOUT_MS,
+    });
+    const exitCode = typeof result.exitCode === 'number' ? result.exitCode : 1;
+    return { ok: exitCode === 0, stdout: result.stdout ?? '' };
+  } catch {
+    return { ok: false, stdout: '' };
+  }
+}
+
+// Queued jobs and mailables are not registered like routes, so there is no artisan "list jobs";
+// they need a static scan — but a modular-aware one that also walks module directories.
+const LARAVEL_JOB_GLOBS = [
+  'app/Jobs/**/*.php',
+  'Modules/*/Jobs/**/*.php',
+  'Modules/*/app/Jobs/**/*.php',
+  'app/Modules/*/Jobs/**/*.php',
+];
+const LARAVEL_MAIL_GLOBS = [
+  'app/Mail/**/*.php',
+  'app/Notifications/**/*.php',
+  'Modules/*/Mail/**/*.php',
+  'Modules/*/app/Mail/**/*.php',
+  'Modules/*/Notifications/**/*.php',
+  'app/Modules/*/Mail/**/*.php',
+];
+
+// A `ShouldQueue` job, or a `Mailable`/`Notification` class — the class marker per family.
+const JOB_MARKER_RE = /\bimplements\b[^{]*\bShouldQueue\b/;
+const MAIL_MARKER_RE = /\bextends\s+(?:Mailable|Notification)\b/;
+const PHP_CLASS_RE = /\bclass\s+([A-Za-z0-9_]+)/;
+/** The owning module in a `Modules/<Name>/` or `app/Modules/<Name>/` path. */
+const MODULE_PATH_RE = /(?:^|\/)(?:app\/)?Modules\/([^/]+)\//;
+
+/** The owning module from a scanned class file path, when it lives under a module directory. */
+function moduleFromPath(relFile: string): string | undefined {
+  const match = MODULE_PATH_RE.exec(relFile);
+  return match ? match[1] : undefined;
+}
+
+/** Scan a family of class files (jobs, mailables) whose content matches `marker`. */
+async function scanLaravelClasses(
+  projectRoot: string,
+  globs: string[],
+  marker: RegExp,
+): Promise<LaravelClassSurfaceRecord[]> {
+  const files = await fg(globs, { cwd: projectRoot, ignore: ['**/vendor/**'], dot: false });
+  const records: LaravelClassSurfaceRecord[] = [];
+  for (const file of files) {
+    let content: string;
+    try {
+      content = readFileSync(join(projectRoot, file), 'utf8');
+    } catch {
+      continue;
+    }
+    if (!marker.test(content)) continue;
+    const classMatch = PHP_CLASS_RE.exec(content);
+    if (!classMatch) continue;
+    const rel = toPosixPath(file);
+    const module = moduleFromPath(rel);
+    records.push({
+      className: classMatch[1]!,
+      file: rel,
+      line: lineOf(content, classMatch.index),
+      ...(module ? { module } : {}),
+    });
+  }
+  return records;
+}
+
+/**
+ * Wire every Laravel extractor: prefer artisan introspection (the real router resolves modules,
+ * middleware, and controllers), and fall back to the modular-aware static scan plus a labelled
+ * blocked check when artisan cannot run. Queued jobs and mailables have no artisan listing, so
+ * they are always the static class scan.
+ */
+async function laravelExtractors(projectRoot: string): Promise<ExtractorOutput[]> {
+  const outputs: ExtractorOutput[] = [];
+
+  const routeRun = await runArtisan(projectRoot, ['route:list', '--json']);
+  if (routeRun.ok) {
+    const routes = parseArtisanRouteList(routeRun.stdout);
+    if (routes.length > 0) {
+      outputs.push({
+        extractor: 'laravel-artisan-routes',
+        available: true,
+        surfaces: extractLaravelArtisanRoutes(routes),
+      });
+    }
+  } else {
+    const staticRoutes = await scanLaravelRoutes(projectRoot);
+    if (staticRoutes.length > 0) {
+      outputs.push({
+        extractor: 'laravel-routes',
+        available: true,
+        surfaces: extractLaravelRouteSurfaces(staticRoutes),
+      });
+    }
+    outputs.push(
+      blockedExtractor(
+        'laravel-artisan-routes',
+        'php artisan route:list --json did not run (no PHP on PATH, or the app failed to boot)',
+        'Install PHP and ensure `php artisan route:list --json` boots so modular routes and middleware are mapped; the static route scan ran as a fallback.',
+      ),
+    );
+  }
+
+  const listRun = await runArtisan(projectRoot, ['list', '--format=json']);
+  if (listRun.ok) {
+    const commands = parseArtisanCommandList(listRun.stdout);
+    if (commands.length > 0) {
+      outputs.push({
+        extractor: 'laravel-console',
+        available: true,
+        surfaces: extractLaravelConsoleCommands(commands),
+      });
+    }
+  }
+
+  const scheduleRun = await runArtisan(projectRoot, ['schedule:list']);
+  if (scheduleRun.ok) {
+    const scheduled = parseArtisanScheduleList(scheduleRun.stdout);
+    if (scheduled.length > 0) {
+      outputs.push({
+        extractor: 'laravel-schedule',
+        available: true,
+        surfaces: extractLaravelScheduledJobs(scheduled),
+      });
+    }
+  }
+
+  const jobs = await scanLaravelClasses(projectRoot, LARAVEL_JOB_GLOBS, JOB_MARKER_RE);
+  if (jobs.length > 0) {
+    outputs.push({
+      extractor: 'laravel-jobs',
+      available: true,
+      surfaces: extractLaravelJobs(jobs),
+    });
+  }
+  const mailables = await scanLaravelClasses(projectRoot, LARAVEL_MAIL_GLOBS, MAIL_MARKER_RE);
+  if (mailables.length > 0) {
+    outputs.push({
+      extractor: 'laravel-mail',
+      available: true,
+      surfaces: extractLaravelMailables(mailables),
+    });
+  }
+
+  return outputs;
 }
 
 /** True when the project declares Laravel (composer requires laravel/framework). */
@@ -367,14 +554,7 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
         }
       }
       if (isLaravel) {
-        const routes = await scanLaravelRoutes(projectRoot);
-        if (routes.length > 0) {
-          outputs.push({
-            extractor: 'laravel-routes',
-            available: true,
-            surfaces: extractLaravelRouteSurfaces(routes),
-          });
-        }
+        outputs.push(...(await laravelExtractors(projectRoot)));
       }
       const generic = await scanGenericSurfaces(projectRoot);
       if (generic.length > 0) {
