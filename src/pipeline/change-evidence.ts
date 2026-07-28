@@ -6,6 +6,7 @@ import { execa } from 'execa';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { CanonicalDocOwnershipKind, CanonicalDocTarget } from '@/core/types/verification.js';
+import { readGitState } from '@/rag/git-state.js';
 
 export interface ChangeEvidence {
   files: string[];
@@ -15,7 +16,17 @@ export interface ChangeEvidence {
 export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvidence> {
   const tracked = await readTrackedFiles(projectRoot);
   if (tracked.length > 0) {
-    return { files: tracked, source: 'session-artifact' };
+    // Issue #450: never trust the session artifact blindly. A `changed-files.json`
+    // left over from an already-delivered change (its files committed and clean)
+    // would otherwise be attributed to a later, unrelated session and force the
+    // full feature-development gate onto out-of-scope work. Keep only the entries
+    // git still considers part of the current change.
+    const reconciled = await reconcileTrackedWithGit(projectRoot, tracked);
+    if (reconciled.length > 0) {
+      return { files: reconciled, source: 'session-artifact' };
+    }
+    // Every tracked entry is stale (clean and already in base history): fall
+    // through to git reality instead of returning an empty session-artifact.
   }
 
   const gitFiles = await readGitStatusFiles(projectRoot);
@@ -24,6 +35,64 @@ export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvi
   }
 
   return { files: [], source: 'none' };
+}
+
+/**
+ * Intersect the tracked-file artifact with what git currently considers changed.
+ * Returns the tracked list unchanged when git cannot bound the current change
+ * (not a work tree, or no resolvable base branch), so non-git and base-less
+ * repositories keep their prior behavior. Otherwise drops any entry that is
+ * neither dirty in the working tree nor committed on this branch since the
+ * merge-base — i.e. entries that git already treats as delivered base history.
+ */
+async function reconcileTrackedWithGit(projectRoot: string, tracked: string[]): Promise<string[]> {
+  const changed = await gitChangedSet(projectRoot);
+  if (changed === null) {
+    return tracked;
+  }
+  return tracked.filter((filePath) => changed.has(filePath));
+}
+
+/**
+ * The set of files git considers changed for the current branch: the union of
+ * working-tree status and everything committed since the merge-base with the
+ * base branch. Returns `null` when the divergence cannot be bounded — a non-git
+ * directory, a detached HEAD, or a repo with no `main`/`master` base — signalling
+ * "cannot reconcile, trust the artifact".
+ */
+async function gitChangedSet(projectRoot: string): Promise<Set<string> | null> {
+  const gitState = readGitState(projectRoot);
+  if (!gitState.head_commit || !gitState.base_commit) {
+    return null;
+  }
+
+  const [statusFiles, committedFiles] = await Promise.all([
+    readGitStatusFiles(projectRoot),
+    readCommittedSinceBase(projectRoot, gitState.base_commit),
+  ]);
+  return new Set([...statusFiles, ...committedFiles]);
+}
+
+/** Files changed between `baseCommit` and HEAD (committed on this branch). */
+async function readCommittedSinceBase(projectRoot: string, baseCommit: string): Promise<string[]> {
+  try {
+    const result = await execa('git', ['diff', '--name-only', `${baseCommit}..HEAD`], {
+      cwd: projectRoot,
+      reject: false,
+    });
+    if (result.exitCode !== 0) {
+      return [];
+    }
+
+    return normalizePaths(
+      result.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    );
+  } catch {
+    return [];
+  }
 }
 
 export function isDocumentationFile(filePath: string): boolean {

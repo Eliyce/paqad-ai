@@ -238,6 +238,85 @@ describe('loadChangeEvidence (git-status path)', () => {
   });
 });
 
+describe('loadChangeEvidence (git reconciliation, issue #450)', () => {
+  function commitAllOnMain(root: string, message: string): void {
+    execSync('git add -A', { cwd: root });
+    execSync(`git commit -m "${message}"`, { cwd: root });
+    // Normalize the branch name so main/master base detection is deterministic
+    // across git versions/configs.
+    execSync('git branch -M main', { cwd: root });
+  }
+
+  it('drops an artifact entry that is committed and clean, then falls through to git-status (AC-1)', async () => {
+    const root = makeGitRoot();
+    writeFileSync(join(root, 'delivered.ts'), 'export const x = 1;');
+    commitAllOnMain(root, 'deliver');
+    // The stale artifact still names the already-delivered, now-clean file.
+    writeChangedFiles(root, ['delivered.ts']);
+    // An unrelated untracked file is the session's real (docs) change.
+    writeFileSync(join(root, 'note.txt'), 'later session');
+
+    const result = await loadChangeEvidence(root);
+
+    expect(result.source).toBe('git-status');
+    expect(result.files).not.toContain('delivered.ts');
+    expect(result.files).toContain('note.txt');
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('keeps an artifact entry that is dirty in the working tree (AC-2)', async () => {
+    const root = makeGitRoot();
+    writeFileSync(join(root, 'feature.ts'), 'export const x = 1;');
+    commitAllOnMain(root, 'init');
+    writeFileSync(join(root, 'feature.ts'), 'export const x = 2;'); // now modified
+    writeChangedFiles(root, ['feature.ts']);
+
+    const result = await loadChangeEvidence(root);
+
+    expect(result.source).toBe('session-artifact');
+    expect(result.files).toEqual(['feature.ts']);
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('keeps an artifact entry committed on this branch since the merge-base (AC-3)', async () => {
+    const root = makeGitRoot();
+    writeFileSync(join(root, 'base.ts'), 'export const x = 1;');
+    commitAllOnMain(root, 'base');
+    execSync('git checkout -b feature', { cwd: root });
+    writeFileSync(join(root, 'branch-work.ts'), 'export const y = 2;');
+    execSync('git add -A', { cwd: root });
+    execSync('git commit -m "branch work"', { cwd: root });
+    writeChangedFiles(root, ['branch-work.ts']); // clean tree, committed on the branch
+
+    const result = await loadChangeEvidence(root);
+
+    expect(result.source).toBe('session-artifact');
+    expect(result.files).toEqual(['branch-work.ts']);
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('trusts the artifact unchanged when there is no main/master base branch (AC-5)', async () => {
+    const root = makeGitRoot();
+    // Switch to a non-main/master branch BEFORE the first commit, so neither
+    // main nor master ever gets a ref and the divergence cannot be bounded.
+    execSync('git checkout -b develop', { cwd: root });
+    writeFileSync(join(root, 'delivered.ts'), 'export const x = 1;');
+    execSync('git add -A', { cwd: root });
+    execSync('git commit -m "deliver"', { cwd: root });
+    writeChangedFiles(root, ['delivered.ts']); // clean + committed, yet trusted
+
+    const result = await loadChangeEvidence(root);
+
+    expect(result.source).toBe('session-artifact');
+    expect(result.files).toEqual(['delivered.ts']);
+
+    rmSync(root, { recursive: true, force: true });
+  });
+});
+
 describe('detectStaleDocTargets', () => {
   it('returns empty array when no code files are in the changed list', async () => {
     const root = makeTmpRoot();
