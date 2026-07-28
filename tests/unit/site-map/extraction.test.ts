@@ -5,10 +5,18 @@ import {
   assembleExtraction,
   blockedExtractor,
   extractGenericSurfaces,
+  extractLaravelArtisanRoutes,
+  extractLaravelConsoleCommands,
+  extractLaravelJobs,
+  extractLaravelMailables,
   extractLaravelRouteSurfaces,
+  extractLaravelScheduledJobs,
   extractNodeCliSurfaces,
   extractReactRouteSurfaces,
   extractionFingerprint,
+  parseArtisanCommandList,
+  parseArtisanRouteList,
+  parseArtisanScheduleList,
   sortExtractedSurfaces,
   type ExtractedSurface,
   type ExtractorOutput,
@@ -279,6 +287,224 @@ describe('site-map extraction', () => {
       expect(result.extractors_ran).toBe(0);
       expect(result.low_confidence_fallback).toBe(true);
       expect(result.surfaces).toEqual([]);
+    });
+  });
+
+  describe('parseArtisanRouteList', () => {
+    it('normalizes well-formed route:list JSON, coercing middleware to a token list', () => {
+      const records = parseArtisanRouteList(
+        JSON.stringify([
+          {
+            domain: 'admin.example.com',
+            method: 'GET|HEAD',
+            uri: 'api/users',
+            name: 'users.index',
+            action: 'App\\Http\\Controllers\\UserController@index',
+            middleware: ['api', 'auth:api'],
+          },
+          {
+            method: 'POST',
+            uri: 'posts',
+            action: 'Modules\\Blog\\Http\\Controllers\\PostController@store',
+            // middleware as a newline/comma string (older artisan)
+            middleware: 'web\nauth,can:create,posts',
+          },
+        ]),
+      );
+      expect(records).toHaveLength(2);
+      expect(records[0]).toEqual({
+        domain: 'admin.example.com',
+        method: 'GET|HEAD',
+        uri: 'api/users',
+        name: 'users.index',
+        action: 'App\\Http\\Controllers\\UserController@index',
+        middleware: ['api', 'auth:api'],
+      });
+      expect(records[1]!.middleware).toEqual(['web', 'auth', 'can:create', 'posts']);
+      expect(records[1]!.name).toBeUndefined();
+      expect(records[1]!.domain).toBeUndefined();
+    });
+
+    it('drops a non-string middleware element and omits an empty middleware list', () => {
+      const [only] = parseArtisanRouteList(
+        JSON.stringify([{ method: 'GET', uri: '/', middleware: ['web', 42, '  '] }]),
+      );
+      expect(only!.middleware).toEqual(['web']);
+      const [bare] = parseArtisanRouteList(JSON.stringify([{ method: 'GET', uri: '/' }]));
+      expect(bare!.middleware).toBeUndefined();
+    });
+
+    it('skips entries that are not objects or lack a method/uri', () => {
+      const records = parseArtisanRouteList(
+        JSON.stringify([
+          null,
+          'nope',
+          { method: 'GET' },
+          { uri: 'x' },
+          { method: 'GET', uri: 'ok' },
+        ]),
+      );
+      expect(records).toEqual([{ method: 'GET', uri: 'ok' }]);
+    });
+
+    it('returns [] for malformed or non-array output', () => {
+      expect(parseArtisanRouteList('not json')).toEqual([]);
+      expect(parseArtisanRouteList('{"not":"an array"}')).toEqual([]);
+    });
+  });
+
+  describe('parseArtisanCommandList', () => {
+    it('reads commands from the Symfony envelope, preserving hidden + description', () => {
+      const records = parseArtisanCommandList(
+        JSON.stringify({
+          application: { name: 'Laravel' },
+          commands: [
+            { name: 'migrate', description: 'Run the migrations', hidden: false },
+            { name: '_complete', hidden: true },
+            { name: '  ' },
+            'nope',
+          ],
+        }),
+      );
+      expect(records).toEqual([
+        { name: 'migrate', description: 'Run the migrations' },
+        { name: '_complete', hidden: true },
+      ]);
+    });
+
+    it('accepts a bare command array and skips an object with a non-string name', () => {
+      expect(
+        parseArtisanCommandList(JSON.stringify([{ name: 'inspire' }, { description: 'no name' }])),
+      ).toEqual([{ name: 'inspire' }]);
+    });
+
+    it('returns [] for a non-array, non-envelope shape or malformed output', () => {
+      expect(parseArtisanCommandList('{}')).toEqual([]);
+      expect(parseArtisanCommandList('not json')).toEqual([]);
+    });
+  });
+
+  describe('parseArtisanScheduleList', () => {
+    it('parses cron lines (stripping ANSI + dotted filler) and skips non-task lines', () => {
+      const stdout = [
+        '[32m0 2 * * *[39m  php artisan backup:run ......... Next Due: 5 hours from now',
+        '  @daily  php artisan report:send',
+        'Scheduled tasks:',
+        '* * * * * * php artisan pulse:check   Next Due: 1 second from now',
+      ].join('\n');
+      const records = parseArtisanScheduleList(stdout);
+      expect(records).toEqual([
+        { expression: '0 2 * * *', command: 'php artisan backup:run' },
+        { expression: '@daily', command: 'php artisan report:send' },
+        { expression: '* * * * * *', command: 'php artisan pulse:check' },
+      ]);
+    });
+
+    it('returns [] when nothing looks like a scheduled task', () => {
+      expect(parseArtisanScheduleList('No scheduled tasks have been defined.')).toEqual([]);
+    });
+  });
+
+  describe('extractLaravelArtisanRoutes', () => {
+    it('maps a modular route to api/page by uri, with guards + module attribution', () => {
+      const [api, page] = extractLaravelArtisanRoutes([
+        {
+          method: 'GET|HEAD',
+          uri: '/api/users',
+          action: 'Modules\\Blog\\Http\\Controllers\\UserController@index',
+          middleware: ['api', 'auth:api'],
+        },
+        { method: 'POST', uri: 'posts', action: 'Closure' },
+      ]);
+      expect(api).toMatchObject({
+        kind: 'api',
+        source: 'laravel-artisan-routes',
+        label: 'Modules\\Blog\\Http\\Controllers\\UserController@index',
+        guards: ['api', 'auth:api'],
+        module: 'Blog',
+        entry: { kind: 'url', value: '/api/users' },
+        confidence: 'high',
+      });
+      expect(api!.evidence).toEqual([{ file: 'php artisan route:list', note: 'GET /api/users' }]);
+      // action === 'Closure' falls back to the method+uri label; no module/guards.
+      expect(page).toMatchObject({ kind: 'page', label: 'POST /posts' });
+      expect(page!.module).toBeUndefined();
+      expect(page!.guards).toBeUndefined();
+    });
+
+    it('labels a route with no action and tolerates an empty leading method token', () => {
+      const [noAction, weird] = extractLaravelArtisanRoutes([
+        { method: 'GET', uri: 'health' },
+        { method: ',GET', uri: 'x' },
+      ]);
+      expect(noAction!.label).toBe('GET /health');
+      // ',GET'.split -> first token '' is falsy, so the whole method string is used.
+      expect(weird!.label).toBe(',GET /x');
+    });
+  });
+
+  describe('extractLaravelConsoleCommands', () => {
+    it('maps non-hidden commands to cli-command surfaces and skips hidden ones', () => {
+      const surfaces = extractLaravelConsoleCommands([
+        { name: 'migrate', description: 'Run the migrations' },
+        { name: 'app:sync' },
+        { name: '_complete', hidden: true },
+      ]);
+      expect(surfaces).toHaveLength(2);
+      expect(surfaces[0]).toMatchObject({
+        kind: 'cli-command',
+        label: 'Run the migrations',
+        entry: { kind: 'artisan', value: 'migrate' },
+        source: 'laravel-console',
+      });
+      // no description -> the command name is the label.
+      expect(surfaces[1]!.label).toBe('app:sync');
+    });
+  });
+
+  describe('extractLaravelScheduledJobs', () => {
+    it('maps scheduled tasks to job surfaces entered by cron expression', () => {
+      const [only] = extractLaravelScheduledJobs([
+        { expression: '0 2 * * *', command: 'php artisan backup:run' },
+      ]);
+      expect(only).toMatchObject({
+        kind: 'job',
+        label: 'php artisan backup:run',
+        entry: { kind: 'schedule', value: '0 2 * * *' },
+        source: 'laravel-schedule',
+      });
+      expect(only!.evidence).toEqual([{ file: 'php artisan schedule:list', note: '0 2 * * *' }]);
+    });
+  });
+
+  describe('extractLaravelJobs / extractLaravelMailables', () => {
+    it('maps queued-job classes to job surfaces with resolving evidence + module', () => {
+      const [only] = extractLaravelJobs([
+        {
+          className: 'SendWelcomeEmail',
+          file: 'Modules/Blog/Jobs/SendWelcomeEmail.php',
+          line: 12,
+          module: 'Blog',
+        },
+      ]);
+      expect(only).toMatchObject({
+        kind: 'job',
+        label: 'SendWelcomeEmail',
+        source: 'laravel-jobs',
+        module: 'Blog',
+      });
+      expect(only!.evidence).toEqual([
+        { file: 'Modules/Blog/Jobs/SendWelcomeEmail.php', line: 12 },
+      ]);
+    });
+
+    it('maps mailable classes to email surfaces, omitting module + line when absent', () => {
+      const [only] = extractLaravelMailables([
+        { className: 'OrderShipped', file: 'app/Mail/OrderShipped.php' },
+      ]);
+      expect(only).toMatchObject({ kind: 'email', label: 'OrderShipped', source: 'laravel-mail' });
+      expect(only!.module).toBeUndefined();
+      expect(only!.evidence).toEqual([{ file: 'app/Mail/OrderShipped.php' }]);
     });
   });
 });
