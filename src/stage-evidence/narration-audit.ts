@@ -19,9 +19,23 @@
 import { extractAssistantText } from './marker-parse.js';
 import { STAGE_NARRATION } from './narration.js';
 import { STAGE_EVIDENCE_STAGES, isKnownStage, type StageId } from './stages.js';
+import { type StageEvidenceSource } from './types.js';
 
 /** The branded prefix every narration line carries. Text without it is not paqad speaking. */
 const NARRATION_PREFIX = '▸ paqad';
+
+/**
+ * True when a stage's provenance is the AGENT's own — a live stage mark it wrote, or an
+ * explicit redo — as opposed to a hook/backstop inference (issue #449). Only an
+ * agent-authored stage can be "recorded but never said out loud": a backstop-inferred
+ * stage (`inferred-git`/`inferred-artifact`) was never the agent's claim, so the #409
+ * advisory must not accuse the agent of failing to narrate it. `null` provenance is
+ * ambiguous and treated as NOT agent-authored, consistent with the audit's fail-open,
+ * never-accuse-on-absent-evidence contract.
+ */
+export function isAgentNarratableStage(evidenceSource: StageEvidenceSource): boolean {
+  return evidenceSource === 'live-mark' || evidenceSource === 'redo';
+}
 
 export interface AuditTurnNarrationInput {
   /** Raw transcript (JSONL, or plain text for hosts that write one). */
