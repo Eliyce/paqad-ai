@@ -266,7 +266,7 @@ export const DOCS_PAGES = {
           ['1', 'base/', 'Always-on agents, shared rules, core checklists.'],
           ['2', 'content capability', 'Writing style, markdown conventions, attribution.'],
           ['3', 'coding capability', 'Code quality, review, architecture rules.'],
-          ['4', 'security capability', 'Pentest, OWASP coverage, guardrails.'],
+          ['4', 'security capability', 'Security self-review, OWASP WSTG mapping, guardrails.'],
           ['5', 'stack pack', 'Framework-specific rules and MCP defaults.'],
           ['6', 'traits', 'Per-library overlays (e.g. tailwind, vitest).'],
           ['7', 'archetypes', 'Project shape rules (cli, library, service).'],
@@ -332,7 +332,7 @@ export const DOCS_PAGES = {
           },
           {
             term: 'security',
-            def: 'Pentest workflows, OWASP mappings, escalation guardrails, security scanning agents. Requires coding.',
+            def: 'Security self-review workflows, OWASP WSTG mappings, escalation guardrails, security review agents. Requires coding.',
           },
         ],
       },
@@ -437,7 +437,7 @@ export const DOCS_PAGES = {
           'Base layer, always-on agents, shared rules, core checklists.',
           'Content capability, writing style, markdown, attribution.',
           'Coding capability, code quality, review, architecture.',
-          'Security capability, pentest, OWASP, guardrails.',
+          'Security capability, security self-review, OWASP WSTG, guardrails.',
           'Stack pack, framework-specific rules and MCP defaults.',
           'Trait overlays, per-library rules (e.g. `vitest`, `tailwind`).',
           'Archetype rules, project-shape rules (cli, library, service).',
@@ -1105,7 +1105,7 @@ export const DOCS_PAGES = {
           'MCP servers, which Model Context Protocol servers to register for this stack.',
           'Traits, sub-library overlays (e.g. a `vitest` trait within a `node` pack).',
           'Archetypes, project-shape rules that apply on top of the stack rules.',
-          'Pentest maps, OWASP attack surface hints for the security capability.',
+          'Security review maps, OWASP attack surface hints for the security capability.',
           'Testing metadata, test runner, coverage thresholds, and test file patterns.',
         ],
       },
@@ -2240,7 +2240,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'local-vs-ci', text: 'Local vs CI' },
       {
         type: 'p',
-        text: 'The local pentest is fast and incremental, it scans only the files changed in the current task. The CI pentest runs the full OWASP surface scan. Both produce the same evidence format, so failures are reproducible.',
+        text: 'The local security self-review is fast and incremental, it scans only the files changed in the current task. The CI run covers the OWASP WSTG review surface. Both produce the same evidence format, so failures are reproducible.',
       },
       {
         type: 'callout',
@@ -2262,7 +2262,7 @@ export const DOCS_PAGES = {
       { type: 'h1', text: 'Pentest Workflow' },
       {
         type: 'p',
-        text: 'The pentest workflow is an incremental security scan driven by the `security-auditor` and `adversarial-reviewer` agents. It focuses on the files changed in the current task, producing a structured evidence report.',
+        text: 'The pentest workflow is an incremental, OWASP WSTG-structured security self-review driven by the `security-auditor` and `adversarial-reviewer` agents. It focuses on the files changed in the current task, producing a structured evidence report. It hardens code before a certified pentest, it does not replace one.',
       },
       { type: 'h2', id: 'phases', text: 'Scan phases' },
       {
@@ -2291,14 +2291,14 @@ export const DOCS_PAGES = {
 
   'security-owasp': {
     id: 'security-owasp',
-    title: 'OWASP Coverage',
+    title: 'OWASP Mapping',
     section: 'Security',
     sectionId: 'security',
     prev: 'security-pentest',
     next: 'security-guardrails',
     keywords: ['OWASP', 'top 10', 'injection', 'auth', 'XSS', 'coverage'],
     content: [
-      { type: 'h1', text: 'OWASP Coverage' },
+      { type: 'h1', text: 'OWASP Mapping' },
       {
         type: 'p',
         text: 'The security capability maps to the OWASP Top 10 (2021). Each category has a set of check rules that are applied based on the file types and frameworks in scope.',
@@ -2323,7 +2323,7 @@ export const DOCS_PAGES = {
       {
         type: 'callout',
         variant: 'note',
-        text: 'OWASP coverage is continuously improved. Check `CHANGELOG.md` in each paqad-ai release for new rules added to the security capability.',
+        text: 'OWASP mapping is continuously improved. Check `CHANGELOG.md` in each paqad-ai release for new rules added to the security capability.',
       },
     ],
   },
