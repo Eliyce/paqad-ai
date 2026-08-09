@@ -57,7 +57,7 @@ No account, no API key, no subscription. Prefer not to install anything? Run `np
 | **One setup, every tool**    | Configure Claude, Cursor, Copilot, Gemini, and the rest from one source of truth       |
 | **Workflows, not prompts**   | Your team's process runs the same way every time, instead of being re-typed            |
 | **Proof, not promises**      | Automatic checks confirm tests, specs, docs, and security before "done" counts         |
-| **Security as a workflow**   | A full OWASP pentest pass, with retests, built in                                      |
+| **Security as a workflow**   | An OWASP WSTG-structured security self-review, with retests, built in                  |
 | **Design as a workflow**     | Your UI audited against your own design system                                         |
 | **Docs that stay current**   | The framework keeps your documentation in sync with the code                           |
 | **Fewer tokens, on purpose** | Loads a lean resident slice, not the whole repo. Measured 49-61% smaller resident load |
@@ -228,7 +228,7 @@ paqad-ai can turn the plain rules in your `docs/instructions/rules/` into small 
 
 Most tools treat security as a separate scanner you remember to run. paqad-ai treats it as part of the work.
 
-**Security workflow.** A resumable pentest pass with full OWASP coverage, timed to the moment the industry is formalizing security for AI agents.
+**Security workflow.** A resumable, OWASP WSTG-structured security self-review that hardens code before a certified pentest, timed to the moment the industry is formalizing security for AI agents.
 
 | Standard                    | Coverage         |
 | --------------------------- | ---------------- |
@@ -259,7 +259,7 @@ It writes a local `curl` playbook to prove each finding (it never runs attacks f
 
 </details>
 
-**Design workflow.** The same rigor, pointed at the front end. The design-test pass audits your UI against your own design system, covering tokens, components, accessibility, responsive behavior, and motion, and design-retest replays the findings after you fix them. Pentest checks that the code is safe. Design-test checks that the interface is consistent.
+**Design workflow.** The same rigor, pointed at the front end. The design-test pass audits your UI against your own design system, covering tokens, components, accessibility, responsive behavior, and motion, and design-retest replays the findings after you fix them. The security self-review hardens the code. Design-test checks that the interface is consistent.
 
 ## Documentation that stays current
 
