@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-21T19:34:24.649Z",
+  "generated_at": "2026-08-09T09:34:50.228Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-21T19:32:36.626Z",
+        "timestamp": "2026-08-09T09:32:59.302Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -35,23 +35,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/evidence-armed-decision-pauses-361.md",
-          ".paqad/.config.example",
-          ".paqad/configs/.config.policy",
-          ".paqad/decisions/resolved/D-01KY26KYR7RTJXQVHXJDS6ZZKQ.json",
-          "docs/instructions/registries/reuse-catalog.md",
-          "docs/instructions/rules/module-map.yml",
-          "runtime/AGENT-BOOTSTRAP.md",
-          "src/onboarding/decision-pause-contract-writer.ts",
-          "src/planning/decision-evidence-arm.ts",
-          "tests/unit/decisions/authoring.test.ts",
-          "tests/unit/duplication/scan.test.ts",
-          "tests/unit/feature-evidence/artifacts.test.ts",
-          "tests/unit/onboarding/decision-pause-contract-writer.test.ts",
-          "tests/unit/planning/decision-arm-config.test.ts",
-          "tests/unit/planning/decision-evidence-arm.test.ts",
-          "tests/unit/planning/decision-evidence.test.ts",
-          "tests/unit/planning/symbol-similarity.test.ts"
+          ".changeset/reframe-owasp-overclaim-206.md",
+          ".junie/mcp/mcp.json",
+          ".paqad/checks/last-run.json"
         ]
       }
     },
@@ -64,7 +50,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-21T19:34:15.091Z",
+        "timestamp": "2026-08-09T09:34:40.715Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -86,23 +72,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/evidence-armed-decision-pauses-361.md",
-          ".paqad/.config.example",
-          ".paqad/configs/.config.policy",
-          ".paqad/decisions/resolved/D-01KY26KYR7RTJXQVHXJDS6ZZKQ.json",
-          "docs/instructions/registries/reuse-catalog.md",
-          "docs/instructions/rules/module-map.yml",
-          "runtime/AGENT-BOOTSTRAP.md",
-          "src/onboarding/decision-pause-contract-writer.ts",
-          "src/planning/decision-evidence-arm.ts",
-          "tests/unit/decisions/authoring.test.ts",
-          "tests/unit/duplication/scan.test.ts",
-          "tests/unit/feature-evidence/artifacts.test.ts",
-          "tests/unit/onboarding/decision-pause-contract-writer.test.ts",
-          "tests/unit/planning/decision-arm-config.test.ts",
-          "tests/unit/planning/decision-evidence-arm.test.ts",
-          "tests/unit/planning/decision-evidence.test.ts",
-          "tests/unit/planning/symbol-similarity.test.ts"
+          ".changeset/reframe-owasp-overclaim-206.md",
+          ".junie/mcp/mcp.json",
+          ".paqad/checks/last-run.json"
         ]
       }
     },
@@ -115,7 +87,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-07-21T19:34:24.649Z",
+        "timestamp": "2026-08-09T09:34:50.228Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -137,23 +109,9 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/evidence-armed-decision-pauses-361.md",
-          ".paqad/.config.example",
-          ".paqad/configs/.config.policy",
-          ".paqad/decisions/resolved/D-01KY26KYR7RTJXQVHXJDS6ZZKQ.json",
-          "docs/instructions/registries/reuse-catalog.md",
-          "docs/instructions/rules/module-map.yml",
-          "runtime/AGENT-BOOTSTRAP.md",
-          "src/onboarding/decision-pause-contract-writer.ts",
-          "src/planning/decision-evidence-arm.ts",
-          "tests/unit/decisions/authoring.test.ts",
-          "tests/unit/duplication/scan.test.ts",
-          "tests/unit/feature-evidence/artifacts.test.ts",
-          "tests/unit/onboarding/decision-pause-contract-writer.test.ts",
-          "tests/unit/planning/decision-arm-config.test.ts",
-          "tests/unit/planning/decision-evidence-arm.test.ts",
-          "tests/unit/planning/decision-evidence.test.ts",
-          "tests/unit/planning/symbol-similarity.test.ts"
+          ".changeset/reframe-owasp-overclaim-206.md",
+          ".junie/mcp/mcp.json",
+          ".paqad/checks/last-run.json"
         ]
       }
     }
