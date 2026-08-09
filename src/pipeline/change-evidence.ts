@@ -110,7 +110,31 @@ export function isTestFile(filePath: string): boolean {
   );
 }
 
+/**
+ * True when a path lives under any `.paqad/` home — the root `.paqad/`, or a
+ * nested runtime home such as `runtime/base/.paqad/` (issue #205). Everything
+ * under a `.paqad/` home is framework work-product: generated logs, evidence
+ * JSON, quality baselines, session state, team config. None of it is the
+ * project's own source, so it must never be classified as changed code. Mirrors
+ * the inlined checks already used by `src/rag/file-filter.ts` and
+ * `src/stage-evidence/scope.ts`, but as a small exported predicate the
+ * changed-file classifier can share.
+ */
+export function isPaqadArtifactPath(filePath: string): boolean {
+  const normalized = filePath.replace(/\\/g, '/');
+  return (
+    normalized === '.paqad' || normalized.startsWith('.paqad/') || normalized.includes('/.paqad/')
+  );
+}
+
 export function isCodeFile(filePath: string): boolean {
+  // Issue #205 — generated `.paqad/` artifacts (from any `.paqad/` home, including
+  // a self-hosted `runtime/base/.paqad/`) leak into the working tree and would
+  // otherwise match the `runtime/`/extension rules below. They are never code.
+  if (isPaqadArtifactPath(filePath)) {
+    return false;
+  }
+
   if (isDocumentationFile(filePath) || isTestFile(filePath)) {
     return false;
   }
