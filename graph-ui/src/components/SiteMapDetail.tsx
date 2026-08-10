@@ -1,6 +1,6 @@
 import type { AppMap, Journey, Surface } from '../lib/site-map-types';
 import { evidenceList, guardList } from '../lib/site-map-types';
-import { kindMeta, trustMeta } from '../lib/site-map-vocab';
+import { kindMeta, trustMeaning, trustMeta } from '../lib/site-map-vocab';
 
 /**
  * The detail panel for a selected surface (issue #466, DP-1..3). It leads with a plain-language
@@ -59,6 +59,9 @@ export function SiteMapDetail({ surface, map, journeys, onClose }: Props) {
         <Badge title="How strongly this is proven">{trust.label}</Badge>
         {surface.confidence && <Badge>{surface.confidence} confidence</Badge>}
       </div>
+      <p className="mt-1.5 text-caption" style={{ color: 'var(--color-muted)' }}>
+        {trustMeaning(surface.trust)}
+      </p>
 
       {surface.note && <p className="mt-3 text-secondary">{surface.note}</p>}
 

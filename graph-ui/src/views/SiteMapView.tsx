@@ -7,8 +7,19 @@ import { SiteMapCanvas } from '../components/SiteMapCanvas';
 import { SiteMapDetail } from '../components/SiteMapDetail';
 import { SiteMapList } from '../components/SiteMapList';
 import { fetchDashboard, fetchSiteMap } from '../lib/api';
-import type { Journey, SiteMapView as SiteMapPayload, Surface } from '../lib/site-map-types';
-import { KIND_LEGEND } from '../lib/site-map-vocab';
+import type {
+  AppMap,
+  Journey,
+  SiteMapFreshness,
+  SiteMapView as SiteMapPayload,
+  Surface,
+} from '../lib/site-map-types';
+import {
+  freshnessVerdict,
+  KIND_LEGEND,
+  trustRollup,
+  type FreshnessTone,
+} from '../lib/site-map-vocab';
 
 /**
  * The Site map area (issue #466). Its primary content is an interactive visual of the app, read
@@ -128,6 +139,8 @@ export function SiteMapView() {
             gate, each traceable to the code.
           </WhySentence>
         </div>
+
+        {ready && map && <HonestyStrip freshness={ready.freshness} map={map} />}
 
         {loadError && <Banner tone="red">Could not load the site map: {loadError}</Banner>}
         {payload === null && !loadError && <Banner tone="muted">Loading…</Banner>}
@@ -336,6 +349,47 @@ function JourneyChip({
     >
       {children}
     </button>
+  );
+}
+
+/** The colour token for a freshness tone. Colour reinforces the glyph and word, never carries the
+ *  meaning on its own (A11Y-3). */
+function toneColor(tone: FreshnessTone): string {
+  if (tone === 'fresh') return 'var(--color-mod-green)';
+  if (tone === 'stale') return 'var(--color-mod-amber)';
+  return 'var(--color-mod-unknown)';
+}
+
+/**
+ * The honesty strip (issue #466, C5c). It surfaces the proof layer the map already carries: how
+ * fresh the map is versus the code it cites, and how much of it is proven in code rather than
+ * inferred. Both are read statically from the served payload, so nothing resolves at view time
+ * (NFR-1). It never claims more certainty than the elements earned (FR-3).
+ */
+function HonestyStrip({ freshness, map }: { freshness: SiteMapFreshness; map: AppMap }) {
+  const verdict = freshnessVerdict(freshness);
+  const trust = trustRollup(map);
+  const color = toneColor(verdict.tone);
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b px-6 py-2"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+    >
+      <span className="inline-flex items-center gap-1.5 text-caption font-medium" style={{ color }}>
+        <span aria-hidden="true">{verdict.glyph}</span>
+        {verdict.label}
+      </span>
+      <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
+        {verdict.detail}
+      </span>
+      <span className="ml-auto text-caption" style={{ color: 'var(--color-muted)' }}>
+        <strong style={{ color: 'var(--color-canvas-fg)' }}>
+          {trust.proven} of {trust.total}
+        </strong>{' '}
+        surfaces proven in code or stronger
+        {trust.unproven > 0 ? ` · ${trust.unproven} still inferred or unverified` : ''}
+      </span>
+    </div>
   );
 }
 

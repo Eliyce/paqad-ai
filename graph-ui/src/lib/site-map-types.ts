@@ -129,7 +129,16 @@ export interface Journey {
 }
 
 export interface SiteMapFreshness {
+  /** The code state the map was authored against (a commit ref), or null when unstated. */
   generated_from: string | null;
+  /** Distinct cited file:line anchors, or null before the map has been verified. */
+  anchors_total: number | null;
+  /** How many of those anchors still resolve, or null before verification. */
+  anchors_resolved: number | null;
+  /** How many no longer resolve, or null before verification. */
+  anchors_broken: number | null;
+  /** True when at least one cited anchor is broken (the map has drifted from code). */
+  stale: boolean;
 }
 
 /** The two documentation-family workflows site-map creation depends on, named as the person
