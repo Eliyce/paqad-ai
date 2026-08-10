@@ -11,6 +11,7 @@ export * from './ledger.js';
 export * from './extraction.js';
 export * from './report-builder.js';
 export * from './verification.js';
+export * from './trust.js';
 export * from './assemble.js';
 export * from './publication.js';
 export * from './publish.js';

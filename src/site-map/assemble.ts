@@ -33,6 +33,7 @@ import {
   toSiteMapReportId,
   toSiteMapTimestamp,
 } from './shared.js';
+import { deriveTrustFindings } from './trust.js';
 import { collectVerificationFindings, type EvidenceResolution } from './verification.js';
 
 export interface SiteMapAssemblyInput {
@@ -133,6 +134,7 @@ function collectCandidates(input: SiteMapAssemblyInput): {
     candidates: [
       ...detectUnmappedSurfaces(input.map, input.extraction),
       ...verification.candidates,
+      ...deriveTrustFindings(input.map, input.evidenceResolutions),
     ],
     blockedChecks: verification.blockedChecks,
   };

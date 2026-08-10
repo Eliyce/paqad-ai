@@ -27,6 +27,7 @@ export const SITE_MAP_CATEGORIES = [
   'SM-EVIDENCE', // a cited file:line does not resolve (Tier-A)
   'SM-XREF', // a transition target or guard reference does not exist (Tier-A)
   'SM-GUARDLESS', // a sensitive surface has no guard
+  'SM-TRUST', // an element claims a higher trust tier than its evidence earns (Tier-A, INV-3)
 ] as const;
 export type SiteMapCategory = (typeof SITE_MAP_CATEGORIES)[number];
 

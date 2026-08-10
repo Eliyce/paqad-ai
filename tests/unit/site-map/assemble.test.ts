@@ -221,6 +221,30 @@ describe('assembleSiteMapReport', () => {
     expect(report.baseline).toEqual({ existed: false, new_since_baseline: 0, pre_existing: 0 });
   });
 
+  it('folds an overstated trust tier into the findings as SM-TRUST', () => {
+    // A surface claiming proven-in-code whose cited file is gone: the trust proof catches it
+    // alongside the evidence check, so both categories reach the assembled report.
+    const map: AppMap = {
+      schema_version: 1,
+      app: { name: 'paqad-ai', kind: 'cli' },
+      surfaces: [
+        {
+          id: 's-a',
+          kind: 'cli-command',
+          label: 'A',
+          trust: 'proven-in-code',
+          evidence: [{ file: 'gone.ts', line: 1 }],
+        },
+      ],
+    };
+    const { findings } = assembleSiteMapReport(
+      input({ map, evidenceResolutions: [{ file: 'gone.ts', line: 1, status: 'file-missing' }] }),
+    );
+    const categories = findings.map((finding) => finding.category);
+    expect(categories).toContain('SM-TRUST');
+    expect(categories).toContain('SM-REMOVE');
+  });
+
   it('de-duplicates and sorts sources_used', () => {
     const report = assembleSiteMapReport(
       input({ sources: ['node-cli', 'app-map.yaml', 'node-cli'] }),
