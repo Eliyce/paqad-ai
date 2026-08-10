@@ -2,17 +2,22 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   SiteMapSchemaError,
   appMapPath,
+  canonicalAppMapPath,
+  canonicalJourneysDir,
   findLatestSiteMapSidecar,
   journeyPath,
   journeysDir,
   listJourneyIds,
+  readAllCanonicalJourneys,
   readAllJourneys,
   readAppMap,
+  readCanonicalSiteMap,
   readJourney,
   readSiteMapSidecar,
   writeAppMap,
@@ -127,6 +132,50 @@ describe('site-map store', () => {
       );
       const ids = readAllJourneys(root).map((journey) => journey.id);
       expect(ids).toEqual(['a', 'b']);
+    });
+  });
+
+  describe('canonical map (issue #466)', () => {
+    function writeCanonicalYaml(path: string, data: unknown): void {
+      mkdirSync(join(path, '..'), { recursive: true });
+      writeFileSync(path, YAML.stringify(data), 'utf8');
+    }
+
+    it('reads the canonical app-map from docs/site-map/, and null when absent or invalid', () => {
+      expect(readCanonicalSiteMap(root)).toBeNull();
+
+      const map = validAppMap();
+      writeCanonicalYaml(canonicalAppMapPath(root), map);
+      expect(readCanonicalSiteMap(root)).toEqual(map);
+
+      // Valid YAML, invalid shape → absent, never a half-map masquerading as real.
+      writeCanonicalYaml(canonicalAppMapPath(root), { schema_version: 1, app: { name: 'x' } });
+      expect(readCanonicalSiteMap(root)).toBeNull();
+    });
+
+    it('accepts trust tiers on the canonical map elements', () => {
+      const map = validAppMap();
+      map.surfaces[0]!.trust = 'proven-in-code';
+      map.surfaces[0]!.transitions![0]!.trust = 'proven-by-test';
+      map.guards![0]!.trust = 'human-confirmed';
+      map.journeys![0]!.trust = 'inferred';
+      writeCanonicalYaml(canonicalAppMapPath(root), map);
+      expect(readCanonicalSiteMap(root)).toEqual(map);
+    });
+
+    it('reads every valid canonical journey, skips invalid, and returns [] when absent', () => {
+      expect(readAllCanonicalJourneys(root)).toEqual([]);
+
+      const dir = canonicalJourneysDir(root);
+      writeCanonicalYaml(join(dir, 'checkout.journey.yaml'), { ...validJourney(), id: 'checkout' });
+      writeCanonicalYaml(join(dir, 'onboard.journey.yaml'), { ...minimalJourney(), id: 'onboard' });
+      // A schema-invalid file must be skipped, not crash the read.
+      writeFileSync(join(dir, 'broken.journey.yaml'), 'schema_version: 1\nid: broken\n', 'utf8');
+
+      expect(readAllCanonicalJourneys(root).map((journey) => journey.id)).toEqual([
+        'checkout',
+        'onboard',
+      ]);
     });
   });
 

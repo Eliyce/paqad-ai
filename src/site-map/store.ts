@@ -40,8 +40,21 @@ export function appMapPath(projectRoot: string): string {
   return join(projectRoot, PATHS.SITE_MAP_APP_MAP);
 }
 
+/**
+ * The single canonical, AI-authored map location (issue #466). Lives under `docs/site-map/`,
+ * outside the auto-loaded instructions tree, and is what the dashboard renders statically.
+ */
+export function canonicalAppMapPath(projectRoot: string): string {
+  return join(projectRoot, PATHS.SITE_MAP_CANONICAL_APP_MAP);
+}
+
 export function journeysDir(projectRoot: string): string {
   return join(projectRoot, PATHS.SITE_MAP_JOURNEYS_DIR);
+}
+
+/** The canonical journeys directory (issue #466), sibling of the canonical app-map. */
+export function canonicalJourneysDir(projectRoot: string): string {
+  return join(projectRoot, PATHS.SITE_MAP_CANONICAL_JOURNEYS_DIR);
 }
 
 export function journeyPath(projectRoot: string, id: string): string {
@@ -80,11 +93,25 @@ export function writeAppMap(projectRoot: string, map: AppMap): string {
   return writeYamlAtomic(appMapPath(projectRoot), map);
 }
 
-/** Read the persisted app-map, or null when absent / corrupt / schema-invalid. */
-export function readAppMap(projectRoot: string): AppMap | null {
-  const parsed = readYaml(appMapPath(projectRoot));
+/** Read an app-map from an explicit path, or null when absent / corrupt / schema-invalid. */
+function readAppMapAt(path: string): AppMap | null {
+  const parsed = readYaml(path);
   if (parsed === null) return null;
   return validateAppMap(parsed).valid ? (parsed as AppMap) : null;
+}
+
+/** Read the persisted app-map, or null when absent / corrupt / schema-invalid. */
+export function readAppMap(projectRoot: string): AppMap | null {
+  return readAppMapAt(appMapPath(projectRoot));
+}
+
+/**
+ * Read the single canonical, AI-authored map (issue #466) from `docs/site-map/app-map.yaml`,
+ * or null when absent / corrupt / schema-invalid. This is the static source the dashboard
+ * renders — no LLM at view time (NFR-4).
+ */
+export function readCanonicalSiteMap(projectRoot: string): AppMap | null {
+  return readAppMapAt(canonicalAppMapPath(projectRoot));
 }
 
 /**
@@ -107,18 +134,18 @@ export function removeJourney(projectRoot: string, id: string): boolean {
   return true;
 }
 
-/** Read one journey by id, or null when absent / corrupt / schema-invalid. */
-export function readJourney(projectRoot: string, id: string): Journey | null {
-  const parsed = readYaml(journeyPath(projectRoot, id));
+/** Read one journey file from an explicit path, or null when absent / corrupt / schema-invalid. */
+function readJourneyAt(path: string): Journey | null {
+  const parsed = readYaml(path);
   if (parsed === null) return null;
   return validateJourney(parsed).valid ? (parsed as Journey) : null;
 }
 
-/** List the journey ids present on disk (newest-file order not guaranteed; sorted). */
-export function listJourneyIds(projectRoot: string): string[] {
+/** List the journey ids present in a directory (sorted; empty when the directory is absent). */
+function listJourneyIdsIn(dir: string): string[] {
   let names: string[];
   try {
-    names = readdirSync(journeysDir(projectRoot));
+    names = readdirSync(dir);
   } catch {
     return [];
   }
@@ -128,16 +155,39 @@ export function listJourneyIds(projectRoot: string): string[] {
     .sort();
 }
 
-/** Read every valid journey on disk, skipping any that fail validation. */
-export function readAllJourneys(projectRoot: string): Journey[] {
+/** Read every valid journey in a directory, skipping any that fail validation. */
+function readAllJourneysIn(dir: string): Journey[] {
   const journeys: Journey[] = [];
-  for (const id of listJourneyIds(projectRoot)) {
-    const journey = readJourney(projectRoot, id);
+  for (const id of listJourneyIdsIn(dir)) {
+    const journey = readJourneyAt(join(dir, `${id}${JOURNEY_SUFFIX}`));
     if (journey !== null) {
       journeys.push(journey);
     }
   }
   return journeys;
+}
+
+/** Read one journey by id, or null when absent / corrupt / schema-invalid. */
+export function readJourney(projectRoot: string, id: string): Journey | null {
+  return readJourneyAt(journeyPath(projectRoot, id));
+}
+
+/** List the journey ids present on disk (newest-file order not guaranteed; sorted). */
+export function listJourneyIds(projectRoot: string): string[] {
+  return listJourneyIdsIn(journeysDir(projectRoot));
+}
+
+/** Read every valid journey on disk, skipping any that fail validation. */
+export function readAllJourneys(projectRoot: string): Journey[] {
+  return readAllJourneysIn(journeysDir(projectRoot));
+}
+
+/**
+ * Read every valid journey from the canonical location (issue #466), skipping any that fail
+ * validation. These carry the per-step detail journey mode renders (DATA-2).
+ */
+export function readAllCanonicalJourneys(projectRoot: string): Journey[] {
+  return readAllJourneysIn(canonicalJourneysDir(projectRoot));
 }
 
 /** Tolerant read of a run-report sidecar (`docs/site-map/<ts>.json`) — missing/corrupt is null. */

@@ -226,6 +226,14 @@ export const PATHS = {
   // `@deprecated` marker. Built by `paqad-ai index framework-api build`, consumed by
   // `plan compile` to verify #357's framework reuse claims instead of trusting them.
   FRAMEWORK_API_INDEX: '.paqad/indexes/framework-api.json',
+  // Issue #466 — the single canonical, AI-authored behavioural map. One YML location, loaded
+  // as documentation (it sits outside docs/instructions/, so the framework loads it explicitly).
+  // The dashboard reads this statically and renders it as the interactive visual; no run/rerun
+  // report dumps live here. Supersedes SITE_MAP_INSTRUCTIONS_DIR (retired in a later commit,
+  // ART-8: no migration). Inert unless the `site_map` flag is on.
+  SITE_MAP_CANONICAL_DIR: 'docs/site-map',
+  SITE_MAP_CANONICAL_APP_MAP: 'docs/site-map/app-map.yaml',
+  SITE_MAP_CANONICAL_JOURNEYS_DIR: 'docs/site-map/journeys',
   DOCS_DIR: 'docs',
   FRAMEWORK_DOCS_DIR: 'docs/framework',
   FRAMEWORK_STACK_DIR: 'docs/instructions/stack',
