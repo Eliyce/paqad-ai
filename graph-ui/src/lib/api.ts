@@ -12,7 +12,6 @@ import type {
   InstructionsFileResponse,
   InstructionsTreeResponse,
   InventoryReport,
-  ManagedFileInfo,
   ModuleMapConfigResponse,
   MutationOutcome,
   OnboardingChecklist,
@@ -36,6 +35,7 @@ import type {
   ValidationIssue,
 } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
+import type { SiteMapView } from './site-map-types';
 
 export async function fetchDashboard(): Promise<DashboardReport> {
   const res = await fetch('/api/dashboard');
@@ -76,6 +76,12 @@ export async function resolvePause(
     body: JSON.stringify({ chosen_option_key: chosenOptionKey, ...(note ? { note } : {}) }),
   });
   if (!res.ok) throw new Error(await errorMessage(res));
+}
+
+export async function fetchSiteMap(): Promise<SiteMapView> {
+  const res = await fetch('/api/site-map/map');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as SiteMapView;
 }
 
 export async function fetchSiteMapJourneys(): Promise<SiteMapJourney[]> {

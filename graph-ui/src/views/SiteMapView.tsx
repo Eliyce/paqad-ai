@@ -1,81 +1,58 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DashboardChrome } from '../components/DashboardChrome';
-import { OpButton } from '../components/OpButton';
 import { OwnershipBadge } from '../components/OwnershipBadge';
-import { ScoreBadge } from '../components/ScoreBadge';
 import { WhySentence } from '../components/WhySentence';
-import { curateSiteMapJourney, fetchDashboard, fetchSiteMapJourneys } from '../lib/api';
-import type { SectionData, SiteMapJourney } from '../lib/dashboard-types';
+import { SiteMapCanvas } from '../components/SiteMapCanvas';
+import { SiteMapDetail } from '../components/SiteMapDetail';
+import { SiteMapList } from '../components/SiteMapList';
+import { fetchDashboard, fetchSiteMap } from '../lib/api';
+import type { Journey, SiteMapView as SiteMapPayload, Surface } from '../lib/site-map-types';
+import { KIND_LEGEND } from '../lib/site-map-vocab';
 
 /**
- * The Site map area (issue #448). The site-map run is a dashboard action, not a
- * command the user types: this page renders the latest run the server computed
- * (surfaces, journeys, findings), a Run/Retest button that maps the app on demand
- * via the `site-map` / `site-map-retest` ops jobs, and a journeys panel where a
- * human confirms or rejects the proposed journeys — all from the web.
+ * The Site map area (issue #466). Its primary content is an interactive visual of the app, read
+ * statically from the single canonical docs/site-map/ YML the server serves on /api/site-map/map
+ * (no LLM at view time). Journeys are the hero: pick one and walk it station by station. A
+ * text-first list toggle gives the same information without the diagram (A11Y-2).
  */
 
-interface BlockedCheck {
-  check: string;
-  reason: string;
-}
+type ViewMode = 'map' | 'list';
 
-function readBlockedChecks(details: Record<string, unknown> | undefined): BlockedCheck[] {
-  const raw = details?.blockedChecks;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (item): item is BlockedCheck =>
-      typeof item === 'object' &&
-      item !== null &&
-      typeof (item as BlockedCheck).check === 'string' &&
-      typeof (item as BlockedCheck).reason === 'string',
-  );
+function shapeGlyph(shape: string): string {
+  if (shape === 'diamond') return '◇';
+  if (shape === 'stadium') return '▢';
+  if (shape === 'slanted') return '▱';
+  return '▭';
 }
 
 export function SiteMapView() {
-  const [section, setSection] = useState<SectionData | null>(null);
+  const [payload, setPayload] = useState<SiteMapPayload | null>(null);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [sseLive, setSseLive] = useState(false);
-  const [journeys, setJourneys] = useState<SiteMapJourney[]>([]);
-  const [curatingId, setCuratingId] = useState<string | null>(null);
-  const [curateError, setCurateError] = useState<string | null>(null);
-
-  const loadJourneys = useCallback((): void => {
-    fetchSiteMapJourneys()
-      .then(setJourneys)
-      .catch(() => setJourneys([]));
-  }, []);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeJourneyId, setActiveJourneyId] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const [mode, setMode] = useState<ViewMode>('map');
 
   const load = useCallback((): void => {
+    fetchSiteMap()
+      .then((next) => {
+        setPayload(next);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => setLoadError(err instanceof Error ? err.message : String(err)));
     fetchDashboard()
       .then((report) => {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
-        setSection(report.sections.find((candidate) => candidate.id === 'site-map') ?? null);
-        setLoaded(true);
       })
-      .catch((err: unknown) => {
-        setLoadError(err instanceof Error ? err.message : String(err));
-        setLoaded(true);
+      .catch(() => {
+        /* chrome metadata is best-effort; the map still renders */
       });
-    loadJourneys();
-  }, [loadJourneys]);
-
-  const curate = useCallback(
-    (id: string, action: 'confirm' | 'reject'): void => {
-      setCuratingId(id);
-      setCurateError(null);
-      curateSiteMapJourney(id, action)
-        .then(() => loadJourneys())
-        .catch((err: unknown) => setCurateError(err instanceof Error ? err.message : String(err)))
-        .finally(() => setCuratingId(null));
-    },
-    [loadJourneys],
-  );
+  }, []);
 
   useEffect(() => {
     load();
@@ -85,13 +62,35 @@ export function SiteMapView() {
     const source = new EventSource('/api/events');
     source.addEventListener('open', () => setSseLive(true));
     source.addEventListener('error', () => setSseLive(false));
-    return () => {
-      source.close();
-    };
+    // Live reload: when the .paqad/docs artefacts change, refresh the map (FRESH-2).
+    source.addEventListener('message', () => load());
+    return () => source.close();
+  }, [load]);
+
+  const ready = payload?.status === 'ready' ? payload : null;
+  const map = ready?.map ?? null;
+
+  const activeJourney: Journey | null = useMemo(() => {
+    if (ready === null || activeJourneyId === null) return null;
+    return ready.journeys.find((journey) => journey.id === activeJourneyId) ?? null;
+  }, [ready, activeJourneyId]);
+
+  const selectedSurface: Surface | null = useMemo(() => {
+    if (map === null || selectedId === null) return null;
+    return map.surfaces.find((surface) => surface.id === selectedId) ?? null;
+  }, [map, selectedId]);
+
+  const pickJourney = useCallback((id: string | null): void => {
+    setActiveJourneyId(id);
+    setStep(0);
   }, []);
 
-  const hasRun = section !== null && section.score !== null;
-  const blockedChecks = readBlockedChecks(section?.details);
+  // When walking a journey, keep the current station selected so its detail shows (JM-2).
+  useEffect(() => {
+    if (activeJourney === null) return;
+    const surface = activeJourney.steps[step]?.surface;
+    if (surface !== undefined) setSelectedId(surface);
+  }, [activeJourney, step]);
 
   return (
     <DashboardChrome
@@ -99,166 +98,233 @@ export function SiteMapView() {
       frameworkVersion={frameworkVersion}
       sseLive={sseLive}
     >
-      <div className="mx-auto w-full max-w-4xl p-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-page font-semibold">Site map</h1>
-          <OwnershipBadge managedBy="shared" />
-          {section && <ScoreBadge score={section.score} band={section.band} />}
-          <div className="ml-auto flex items-center gap-2">
-            {hasRun && (
-              <OpButton
-                action="site-map-retest"
-                label="Retest"
-                done="Retested against the current code."
-                onDone={load}
-              />
+      <div className="flex h-full flex-col">
+        <div className="border-b px-6 py-4" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="flex items-center gap-3">
+            <h1 className="text-page font-semibold">Site map</h1>
+            <OwnershipBadge managedBy="shared" />
+            {ready && (
+              <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
+                {ready.map.surfaces.length} surfaces
+                {ready.freshness.generated_from ? ` · from ${ready.freshness.generated_from}` : ''}
+              </span>
             )}
-            <OpButton
-              action="site-map"
-              label={hasRun ? 'Run again' : 'Run site map'}
-              done="Mapped. Showing the fresh run."
-              onDone={load}
-            />
+            {ready && (
+              <div
+                className="ml-auto inline-flex overflow-hidden rounded-[8px] border"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <ModeButton active={mode === 'map'} onClick={() => setMode('map')}>
+                  Map
+                </ModeButton>
+                <ModeButton active={mode === 'list'} onClick={() => setMode('list')}>
+                  List
+                </ModeButton>
+              </div>
+            )}
           </div>
+          <WhySentence>
+            How your app really behaves, as a picture you can explore: every screen, journey, and
+            gate, each traceable to the code.
+          </WhySentence>
         </div>
-        <WhySentence>
-          How your app really behaves: every screen, journey, and guard, checked against the code.
-        </WhySentence>
 
-        {loadError && (
-          <div
-            className="mt-4 rounded-[10px] border p-4 text-secondary"
-            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-mod-red)' }}
-          >
-            Could not load the site map: {loadError}
-          </div>
+        {loadError && <Banner tone="red">Could not load the site map: {loadError}</Banner>}
+        {payload === null && !loadError && <Banner tone="muted">Loading…</Banner>}
+        {payload?.status === 'disabled' && (
+          <Banner tone="muted">
+            The site map is turned off. Enable the <code>site_map</code> feature to build and view
+            it.
+          </Banner>
         )}
-
-        {!loaded && !loadError && (
-          <div className="mt-6 text-secondary" style={{ color: 'var(--color-muted)' }}>
-            Loading…
-          </div>
-        )}
-
-        {loaded && !loadError && !hasRun && (
-          <div className="mt-6 rounded-[10px] p-6" style={{ background: 'var(--color-surface)' }}>
-            <div className="text-body font-medium">No site-map runs yet.</div>
-            <p className="mt-1.5 text-secondary" style={{ color: 'var(--color-muted)' }}>
-              Hit Run site map to scan the app, reconcile it against the map, and publish the
-              overview here. It runs locally with zero model tokens.
+        {payload?.status === 'empty' && (
+          <div className="mx-auto mt-10 max-w-lg px-6 text-center">
+            <div className="text-body font-medium">No site map yet</div>
+            <p className="mt-2 text-secondary" style={{ color: 'var(--color-muted)' }}>
+              The AI builds the map from your project's documentation and code, then this area draws
+              it as a picture you can explore. Ask paqad to <strong>create the site map</strong> to
+              get started.
             </p>
           </div>
         )}
 
-        {loaded && hasRun && section && (
-          <>
-            <p className="mt-4 text-secondary" style={{ color: 'var(--color-muted)' }}>
-              {section.summary}
-            </p>
-
-            {section.metrics.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                {section.metrics.map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="rounded-[10px] p-4"
-                    style={{ background: 'var(--color-surface)' }}
+        {ready && map && (
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* Journey picker: journeys are the default unit (UXR-2). */}
+            <div
+              className="flex flex-wrap items-center gap-2 border-b px-6 py-2.5"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <span className="text-caption font-medium" style={{ color: 'var(--color-muted)' }}>
+                Journey
+              </span>
+              <JourneyChip active={activeJourneyId === null} onClick={() => pickJourney(null)}>
+                Whole map
+              </JourneyChip>
+              {ready.journeys.map((journey) => (
+                <JourneyChip
+                  key={journey.id}
+                  active={activeJourneyId === journey.id}
+                  onClick={() => pickJourney(journey.id)}
+                >
+                  {journey.label}
+                </JourneyChip>
+              ))}
+              <div className="ml-auto flex items-center gap-2.5">
+                {KIND_LEGEND.map((entry) => (
+                  <span
+                    key={entry.family}
+                    className="inline-flex items-center gap-1 text-caption"
+                    style={{ color: 'var(--color-muted)' }}
                   >
-                    <div className="text-page font-semibold">{metric.value}</div>
-                    <div className="text-caption" style={{ color: 'var(--color-muted)' }}>
-                      {metric.label}
-                    </div>
-                  </div>
+                    <span aria-hidden="true">{shapeGlyph(entry.shape)}</span>
+                    {entry.family}
+                  </span>
                 ))}
               </div>
-            )}
-
-            {blockedChecks.length > 0 && (
-              <div
-                className="mt-4 rounded-[10px] p-4"
-                style={{ background: 'var(--color-surface)' }}
-              >
-                <div className="text-body font-medium">
-                  {blockedChecks.length} {blockedChecks.length === 1 ? 'check was' : 'checks were'}{' '}
-                  skipped
-                </div>
-                <div className="mt-3 flex flex-col gap-1.5">
-                  {blockedChecks.map((blocked) => (
-                    <div key={blocked.check} className="flex items-baseline gap-2 text-secondary">
-                      <span
-                        aria-hidden="true"
-                        className="inline-block h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full"
-                        style={{ background: 'var(--color-muted)' }}
-                      />
-                      <span
-                        className="shrink-0 font-mono text-caption"
-                        style={{ color: 'var(--color-muted)' }}
-                      >
-                        {blocked.check}
-                      </span>
-                      <span className="min-w-0">{blocked.reason}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {journeys.length > 0 && (
-          <div className="mt-4 rounded-[10px] p-4" style={{ background: 'var(--color-surface)' }}>
-            <div className="text-body font-medium">Journeys</div>
-            <p className="mt-1 text-caption" style={{ color: 'var(--color-muted)' }}>
-              Confirm the proposed journeys that match how people really use the app, or reject the
-              ones that do not.
-            </p>
-            {curateError && (
-              <div className="mt-2 text-secondary" style={{ color: 'var(--color-mod-red)' }}>
-                {curateError}
-              </div>
-            )}
-            <div className="mt-3 flex flex-col gap-1.5">
-              {journeys.map((journey) => (
-                <div key={journey.id} className="flex items-center gap-2 text-secondary">
-                  <span className="min-w-0 flex-1 truncate">{journey.label}</span>
-                  {journey.status === 'proposed' ? (
-                    <>
-                      <span
-                        className="shrink-0 text-caption"
-                        style={{ color: 'var(--color-mod-amber)' }}
-                      >
-                        proposed
-                      </span>
-                      <button
-                        type="button"
-                        disabled={curatingId === journey.id}
-                        className="shrink-0 rounded-[6px] px-2.5 py-1 text-caption font-medium disabled:opacity-50"
-                        style={{ background: 'var(--color-accent)', color: '#ffffff' }}
-                        onClick={() => curate(journey.id, 'confirm')}
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        disabled={curatingId === journey.id}
-                        className="shrink-0 rounded-[6px] px-2.5 py-1 text-caption font-medium disabled:opacity-50"
-                        style={{ background: 'var(--color-surface)', color: 'var(--color-muted)' }}
-                        onClick={() => curate(journey.id, 'reject')}
-                      >
-                        Reject
-                      </button>
-                    </>
-                  ) : (
-                    <span className="shrink-0 text-caption" style={{ color: 'var(--color-muted)' }}>
-                      {journey.status}
-                    </span>
-                  )}
-                </div>
-              ))}
             </div>
+
+            <div className="flex min-h-0 flex-1">
+              <div className="min-w-0 flex-1">
+                {mode === 'map' ? (
+                  <SiteMapCanvas
+                    map={map}
+                    activeJourney={activeJourney}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                  />
+                ) : (
+                  <SiteMapList map={map} selectedId={selectedId} onSelect={setSelectedId} />
+                )}
+              </div>
+              {selectedSurface && (
+                <SiteMapDetail
+                  surface={selectedSurface}
+                  map={map}
+                  journeys={ready.journeys}
+                  onClose={() => setSelectedId(null)}
+                />
+              )}
+            </div>
+
+            {activeJourney && (
+              <JourneyStepper journey={activeJourney} step={step} onStep={setStep} />
+            )}
           </div>
         )}
       </div>
     </DashboardChrome>
+  );
+}
+
+function JourneyStepper({
+  journey,
+  step,
+  onStep,
+}: {
+  journey: Journey;
+  step: number;
+  onStep: (next: number) => void;
+}) {
+  const current = journey.steps[step];
+  const total = journey.steps.length;
+  return (
+    <div
+      className="flex items-center gap-3 border-t px-6 py-3"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+    >
+      <button
+        type="button"
+        disabled={step === 0}
+        onClick={() => onStep(Math.max(0, step - 1))}
+        className="rounded-[8px] px-3 py-1 text-caption font-medium disabled:opacity-40"
+        style={{ border: '1px solid var(--color-border)' }}
+      >
+        ← Back
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="text-caption" style={{ color: 'var(--color-muted)' }}>
+          Step {step + 1} of {total} · {journey.label}
+        </div>
+        <div className="truncate text-body">
+          <strong>{current?.surface}</strong>
+          {current?.action ? ` — ${current.action}` : ''}
+          {current?.expect ? ` (expect: ${current.expect})` : ''}
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={step >= total - 1}
+        onClick={() => onStep(Math.min(total - 1, step + 1))}
+        className="rounded-[8px] px-3 py-1 text-caption font-medium disabled:opacity-40"
+        style={{ border: '1px solid var(--color-border)' }}
+      >
+        Next →
+      </button>
+    </div>
+  );
+}
+
+function ModeButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="px-3 py-1 text-caption font-medium"
+      style={{
+        background: active ? 'var(--color-accent)' : 'transparent',
+        color: active ? '#ffffff' : 'var(--color-muted)',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function JourneyChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full px-3 py-1 text-caption font-medium"
+      style={{
+        background: active ? 'var(--color-accent)' : 'var(--color-surface)',
+        color: active ? '#ffffff' : 'var(--color-canvas-fg)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Banner({ tone, children }: { tone: 'red' | 'muted'; children: React.ReactNode }) {
+  return (
+    <div
+      className="mx-6 mt-4 rounded-[10px] border p-4 text-secondary"
+      style={{
+        background: 'var(--color-surface)',
+        borderColor: tone === 'red' ? 'var(--color-mod-red)' : 'var(--color-border)',
+        color: tone === 'muted' ? 'var(--color-muted)' : undefined,
+      }}
+    >
+      {children}
+    </div>
   );
 }
