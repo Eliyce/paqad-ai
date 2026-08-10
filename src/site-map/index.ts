@@ -30,4 +30,5 @@ export { runSiteMapRetest } from './retest-run.js';
 export type { SiteMapRetestOptions, SiteMapRetestResult } from './retest-run.js';
 export * from './journey-curation.js';
 export * from './prerequisites.js';
+export * from './creation-answers.js';
 export * from './dashboard-view.js';

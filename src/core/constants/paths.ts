@@ -234,6 +234,11 @@ export const PATHS = {
   SITE_MAP_CANONICAL_DIR: 'docs/site-map',
   SITE_MAP_CANONICAL_APP_MAP: 'docs/site-map/app-map.yaml',
   SITE_MAP_CANONICAL_JOURNEYS_DIR: 'docs/site-map/journeys',
+  // The persisted creation-time answers (issue #466, Part A / OSC-18). A sibling of the
+  // canonical map so the human decisions that shaped it live in the one site-map location
+  // (ART-1), are diffable, and are shared with the team. Reused across a re-creation so a
+  // settled question is not re-asked unless the code it was about changed.
+  SITE_MAP_CANONICAL_ANSWERS: 'docs/site-map/answers.yaml',
   DOCS_DIR: 'docs',
   FRAMEWORK_DOCS_DIR: 'docs/framework',
   FRAMEWORK_STACK_DIR: 'docs/instructions/stack',

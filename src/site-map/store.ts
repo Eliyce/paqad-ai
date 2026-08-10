@@ -61,8 +61,12 @@ export function journeyPath(projectRoot: string, id: string): string {
   return join(journeysDir(projectRoot), `${id}${JOURNEY_SUFFIX}`);
 }
 
-/** Write a value atomically as YAML (temp file + rename). Returns the written path. */
-function writeYamlAtomic(target: string, data: unknown): string {
+/**
+ * Write a value atomically as YAML (temp file + rename). Returns the written path. Exported so
+ * sibling site-map stores (for example the creation-answers store, issue #466) reuse this exact
+ * atomic-write discipline instead of copying it.
+ */
+export function writeYamlAtomic(target: string, data: unknown): string {
   mkdirSync(dirname(target), { recursive: true });
   const tmp = `${target}.tmp`;
   writeFileSync(tmp, YAML.stringify(data), 'utf8');
@@ -70,8 +74,11 @@ function writeYamlAtomic(target: string, data: unknown): string {
   return target;
 }
 
-/** Parse a YAML file into an object, or null when missing/corrupt. */
-function readYaml(target: string): unknown {
+/**
+ * Parse a YAML file into an object, or null when missing/corrupt. Exported so sibling site-map
+ * stores reuse the same tolerant read (a missing or corrupt file reads as absent, never a crash).
+ */
+export function readYaml(target: string): unknown {
   try {
     // Read directly (no existsSync-then-read race); a missing file throws ENOENT and reads
     // as absent, exactly like a corrupt one.

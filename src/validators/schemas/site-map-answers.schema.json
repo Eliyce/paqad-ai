@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "paqad://schemas/site-map-answers.json",
+  "title": "Site-map creation answers (issue #466, Part A)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_by", "answers"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "generated_by": { "type": "string", "const": "paqad-ai" },
+    "answers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question_id", "category", "question", "answer", "decided_by", "anchors"],
+        "properties": {
+          "question_id": { "type": "string", "minLength": 1 },
+          "category": {
+            "type": "string",
+            "enum": [
+              "app-kind",
+              "actors-roles",
+              "sensitive-surface",
+              "journey-priority",
+              "labels-language",
+              "grouping"
+            ]
+          },
+          "question": { "type": "string", "minLength": 1 },
+          "answer": { "type": "string" },
+          "decided_by": { "type": "string", "enum": ["human", "default"] },
+          "anchors": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
