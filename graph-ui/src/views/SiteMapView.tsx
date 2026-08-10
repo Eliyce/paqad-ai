@@ -137,6 +137,31 @@ export function SiteMapView() {
             it.
           </Banner>
         )}
+        {payload?.status === 'blocked' && (
+          <div className="mx-auto mt-10 max-w-lg px-6 text-center">
+            <div className="text-body font-medium">Finish the documentation first</div>
+            <p className="mt-2 text-secondary" style={{ color: 'var(--color-muted)' }}>
+              The site map is the third step of the same documentation family, so it needs these
+              done first:
+            </p>
+            <div className="mt-4 flex flex-col gap-3 text-left">
+              {payload.missing.map((item) => (
+                <div
+                  key={item.workflow}
+                  className="rounded-[10px] border p-4"
+                  style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+                >
+                  <div className="text-body font-medium">
+                    Run <code>{item.workflow}</code>
+                  </div>
+                  <p className="mt-1 text-caption" style={{ color: 'var(--color-muted)' }}>
+                    {item.reason}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {payload?.status === 'empty' && (
           <div className="mx-auto mt-10 max-w-lg px-6 text-center">
             <div className="text-body font-medium">No site map yet</div>

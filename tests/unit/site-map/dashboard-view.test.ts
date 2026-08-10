@@ -36,12 +36,54 @@ describe('buildSiteMapView (issue #466)', () => {
     writeFileSync(join(dir, `${id}.journey.yaml`), YAML.stringify(journey), 'utf8');
   }
 
+  /** The `create documentation` output: docs/instructions/rules/module-map.yml with one module. */
+  function writeModuleMap(): void {
+    const path = join(root, PATHS.MODULE_MAP);
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(
+      path,
+      YAML.stringify({
+        modules: [{ slug: 'billing', name: 'Billing', sources: ['src/billing/**'] }],
+      }),
+      'utf8',
+    );
+  }
+
+  /** The `create module documentation` output for a module: docs/modules/<slug>/index/summary.md. */
+  function writeModuleDoc(slug: string): void {
+    const dir = join(root, PATHS.MODULES_DIR, slug, 'index');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'summary.md'), `# ${slug}\n`, 'utf8');
+  }
+
   it('is disabled when the site_map flag is off, even with a map present', () => {
     writeCanonicalMap(validAppMap());
     expect(buildSiteMapView(root, FLAG_OFF)).toEqual({ status: 'disabled' });
   });
 
-  it('is empty when the flag is on but no map has been authored', () => {
+  it('is blocked on create documentation when the documentation foundation is absent', () => {
+    const view = buildSiteMapView(root, FLAG_ON);
+    expect(view.status).toBe('blocked');
+    if (view.status !== 'blocked') throw new Error('expected blocked');
+    expect(view.missing.map((m) => m.workflow)).toEqual(['create documentation']);
+    expect(view.prerequisites.status.foundation_present).toBe(false);
+  });
+
+  it('is blocked on create module documentation when the foundation exists but no module is documented', () => {
+    writeModuleMap();
+    const view = buildSiteMapView(root, FLAG_ON);
+    if (view.status !== 'blocked') throw new Error('expected blocked');
+    expect(view.missing.map((m) => m.workflow)).toEqual(['create module documentation']);
+    expect(view.prerequisites.status).toMatchObject({
+      foundation_present: true,
+      module_count: 1,
+      documented_module_count: 0,
+    });
+  });
+
+  it('is empty when the prerequisites are met but no map has been authored', () => {
+    writeModuleMap();
+    writeModuleDoc('billing');
     expect(buildSiteMapView(root, FLAG_ON)).toEqual({ status: 'empty' });
   });
 

@@ -8,6 +8,11 @@
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import type { AppMap, Journey } from '@/core/types/site-map.js';
 
+import {
+  detectSiteMapPrerequisites,
+  type MissingSiteMapPrerequisite,
+  type SiteMapPrerequisites,
+} from './prerequisites.js';
 import { readAllCanonicalJourneys, readCanonicalSiteMap } from './store.js';
 
 /** How fresh the map is, so the viewer can judge whether to trust it (FRESH-1). */
@@ -20,11 +25,19 @@ export interface SiteMapFreshness {
  * The dashboard's view of the site map. A discriminated union so the client renders exactly one
  * honest state and never a map with no basis:
  *  - `disabled`  — the `site_map` flag is off; nothing is served (INV-1).
- *  - `empty`     — the flag is on but no map has been authored yet (STATE-1).
+ *  - `blocked`   — the flag is on but the documentation family it depends on is missing, so creation
+ *                  cannot run; `missing` names exactly which of `create documentation` /
+ *                  `create module documentation` to run first (FR-5, PRE-2..5).
+ *  - `empty`     — the flag is on and the prerequisites are met, but no map has been authored yet.
  *  - `ready`     — the full map plus its journeys, read statically from the canonical YML.
  */
 export type SiteMapView =
   | { status: 'disabled' }
+  | {
+      status: 'blocked';
+      missing: MissingSiteMapPrerequisite[];
+      prerequisites: SiteMapPrerequisites;
+    }
   | { status: 'empty' }
   | { status: 'ready'; map: AppMap; journeys: Journey[]; freshness: SiteMapFreshness };
 
@@ -43,6 +56,15 @@ export function buildSiteMapView(
 
   const map = readCanonicalSiteMap(projectRoot);
   if (map === null) {
+    // No map authored yet. Distinguish "cannot be created" from "ready to create": if the
+    // documentation family it depends on is missing, say so and name what to run (FR-5). Only
+    // when the prerequisites are met is the empty "ask paqad to create it" state honest. An
+    // already-authored map keeps rendering even if the prerequisites later go missing; surfacing
+    // that as a stale-foundation signal (PRE-8) belongs to the proof/living-doc commits.
+    const prerequisites = detectSiteMapPrerequisites(projectRoot);
+    if (!prerequisites.satisfied) {
+      return { status: 'blocked', missing: prerequisites.missing, prerequisites };
+    }
     return { status: 'empty' };
   }
 

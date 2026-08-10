@@ -132,9 +132,20 @@ export interface SiteMapFreshness {
   generated_from: string | null;
 }
 
+/** The two documentation-family workflows site-map creation depends on, named as the person
+ *  invokes them (mirrors the engine's SiteMapPrerequisiteWorkflow). */
+export type SiteMapPrerequisiteWorkflow = 'create documentation' | 'create module documentation';
+
+/** One unmet prerequisite the blocked state names: the workflow to run and why it matters. */
+export interface MissingSiteMapPrerequisite {
+  workflow: SiteMapPrerequisiteWorkflow;
+  reason: string;
+}
+
 /** The discriminated union the server returns; the client renders exactly one honest state. */
 export type SiteMapView =
   | { status: 'disabled' }
+  | { status: 'blocked'; missing: MissingSiteMapPrerequisite[] }
   | { status: 'empty' }
   | { status: 'ready'; map: AppMap; journeys: Journey[]; freshness: SiteMapFreshness };
 
