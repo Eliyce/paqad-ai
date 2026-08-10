@@ -21,6 +21,7 @@ import {
   readJourney,
   readSiteMapSidecar,
   writeAppMap,
+  writeCanonicalSiteMap,
   writeJourney,
 } from '@/site-map/index.js';
 import { PATHS } from '@/core/constants/paths.js';
@@ -176,6 +177,21 @@ describe('site-map store', () => {
         'checkout',
         'onboard',
       ]);
+    });
+
+    it('writes the canonical app-map atomically and round-trips it', () => {
+      const map = validAppMap();
+      const path = writeCanonicalSiteMap(root, map);
+      expect(path).toBe(canonicalAppMapPath(root));
+      expect(readCanonicalSiteMap(root)).toEqual(map);
+      // Atomic write leaves no temp file behind.
+      expect(() => readFileSync(`${canonicalAppMapPath(root)}.tmp`, 'utf8')).toThrow();
+    });
+
+    it('throws SiteMapSchemaError rather than persisting an invalid canonical map', () => {
+      const bad = { ...validAppMap(), schema_version: 99 } as unknown as AppMap;
+      expect(() => writeCanonicalSiteMap(root, bad)).toThrow(SiteMapSchemaError);
+      expect(readCanonicalSiteMap(root)).toBeNull();
     });
   });
 

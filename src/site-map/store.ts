@@ -93,6 +93,20 @@ export function writeAppMap(projectRoot: string, map: AppMap): string {
   return writeYamlAtomic(appMapPath(projectRoot), map);
 }
 
+/**
+ * Persist the canonical, AI-authored map (issue #466) to `docs/site-map/app-map.yaml`
+ * atomically, after validating it. This is the single writer of the location the dashboard
+ * renders and the write side of the trust proof stamps into (see `stampHonestTrustTiers`).
+ * Throws {@link SiteMapSchemaError} on an invalid map so a bad shape is never written.
+ */
+export function writeCanonicalSiteMap(projectRoot: string, map: AppMap): string {
+  const result = validateAppMap(map);
+  if (!result.valid) {
+    throw new SiteMapSchemaError('canonical app-map failed schema validation', result.errors);
+  }
+  return writeYamlAtomic(canonicalAppMapPath(projectRoot), map);
+}
+
 /** Read an app-map from an explicit path, or null when absent / corrupt / schema-invalid. */
 function readAppMapAt(path: string): AppMap | null {
   const parsed = readYaml(path);

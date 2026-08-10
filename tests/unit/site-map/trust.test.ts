@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AppMap, Guard, Surface, TrustTier } from '@/core/types/site-map.js';
-import { honestTrustTier, deriveTrustFindings, type AnchorState } from '@/site-map/trust.js';
+import {
+  honestTrustTier,
+  deriveTrustFindings,
+  stampHonestTrustTiers,
+  type AnchorState,
+} from '@/site-map/trust.js';
 
 function surface(overrides: Partial<Surface> = {}): Surface {
   return { id: 's', kind: 'page', label: 'S', ...overrides };
@@ -123,5 +128,85 @@ describe('deriveTrustFindings', () => {
     expect(deriveTrustFindings(map({ surfaces: [surface({ trust: 'unverified' })] }), [])).toEqual(
       [],
     );
+  });
+});
+
+describe('stampHonestTrustTiers', () => {
+  it('caps an overstated surface claim down to its earned tier and reports the change', () => {
+    const m = map({
+      surfaces: [surface({ trust: 'human-confirmed', evidence: [{ file: 'gone.ts', line: 1 }] })],
+    });
+    const result = stampHonestTrustTiers(m, [{ file: 'gone.ts', line: 1, status: 'file-missing' }]);
+    expect(result.changed).toBe(true);
+    // A broken anchor earns nothing, so the bare-unverified tier is written as the absent default.
+    expect(result.map.surfaces[0]!.trust).toBeUndefined();
+  });
+
+  it('raises a bare, proven surface to the proven-in-code it earned', () => {
+    const m = map({ surfaces: [surface({ evidence: [{ file: 'a.ts', line: 1 }] })] });
+    const result = stampHonestTrustTiers(m, [{ file: 'a.ts', line: 1, status: 'resolved' }]);
+    expect(result.changed).toBe(true);
+    expect(result.map.surfaces[0]!.trust).toBe('proven-in-code');
+  });
+
+  it('leaves a stronger attestation standing over a live anchor', () => {
+    const m = map({
+      surfaces: [surface({ trust: 'human-confirmed', evidence: [{ file: 'a.ts', line: 1 }] })],
+    });
+    const result = stampHonestTrustTiers(m, [{ file: 'a.ts', line: 1, status: 'resolved' }]);
+    expect(result.changed).toBe(false);
+    expect(result.map.surfaces[0]!.trust).toBe('human-confirmed');
+  });
+
+  it('is a no-op when every earned tier already matches (idempotent)', () => {
+    const m = map({
+      surfaces: [
+        surface({ id: 'proven', trust: 'proven-in-code', evidence: [{ file: 'a.ts', line: 1 }] }),
+        surface({ id: 'bare' }),
+      ],
+      guards: [guard({ trust: 'inferred' })],
+    });
+    const resolutions = [{ file: 'a.ts', line: 1, status: 'resolved' as const }];
+    const once = stampHonestTrustTiers(m, resolutions);
+    expect(once.changed).toBe(false);
+    // Re-stamping the already-earned map still changes nothing.
+    expect(stampHonestTrustTiers(once.map, resolutions).changed).toBe(false);
+  });
+
+  it('stamps a proven transition while leaving an unchanged sibling edge untouched', () => {
+    const provenEdge = { to: 's', trigger: 'go', evidence: { file: 'a.ts', line: 2 } };
+    const steadyEdge = { to: 's', trigger: 'stay', trust: 'inferred' as const };
+    const m = map({ surfaces: [surface({ transitions: [provenEdge, steadyEdge] })] });
+    const result = stampHonestTrustTiers(m, [{ file: 'a.ts', line: 2, status: 'resolved' }]);
+    expect(result.changed).toBe(true);
+    const [stampedProven, stampedSteady] = result.map.surfaces[0]!.transitions!;
+    expect(stampedProven!.trust).toBe('proven-in-code');
+    // The steady edge has no code anchor, so its authored inferred tier survives unchanged.
+    expect(stampedSteady!.trust).toBe('inferred');
+    expect(stampedSteady).toBe(steadyEdge);
+  });
+
+  it('keeps a surface object untouched when none of its edges changed', () => {
+    const s = surface({ transitions: [{ to: 's', trigger: 'go', trust: 'inferred' }] });
+    const m = map({ surfaces: [s] });
+    const result = stampHonestTrustTiers(m, []);
+    expect(result.changed).toBe(false);
+    expect(result.map.surfaces[0]).toBe(s);
+  });
+
+  it('stamps guards and preserves a map that declares no guards', () => {
+    const withGuards = map({
+      guards: [guard({ trust: 'proven-in-code', evidence: { file: 'gone.ts', line: 9 } })],
+    });
+    const guardResult = stampHonestTrustTiers(withGuards, [
+      { file: 'gone.ts', line: 9, status: 'file-missing' },
+    ]);
+    expect(guardResult.changed).toBe(true);
+    expect(guardResult.map.guards![0]!.trust).toBeUndefined();
+
+    const noGuards = map({ surfaces: [surface()] });
+    const noGuardResult = stampHonestTrustTiers(noGuards, []);
+    expect(noGuardResult.changed).toBe(false);
+    expect(noGuardResult.map.guards).toBeUndefined();
   });
 });
