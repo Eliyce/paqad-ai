@@ -97,14 +97,58 @@ describe('buildSiteMapView (issue #466)', () => {
     if (view.status !== 'ready') throw new Error('expected ready');
     expect(view.map).toEqual(map);
     expect(view.journeys.map((journey) => journey.id)).toEqual(['checkout']);
-    expect(view.freshness).toEqual({ generated_from: 'main@abc123' });
+    // No freshness has been stamped yet, so the anchor counts are null and nothing reads stale.
+    expect(view.freshness).toEqual({
+      generated_from: 'main@abc123',
+      anchors_total: null,
+      anchors_resolved: null,
+      anchors_broken: null,
+      stale: false,
+    });
   });
 
   it('reports null freshness when the map does not state the code state it was authored against', () => {
     writeCanonicalMap(minimalAppMap());
     const view = buildSiteMapView(root, FLAG_ON);
     if (view.status !== 'ready') throw new Error('expected ready');
-    expect(view.freshness).toEqual({ generated_from: null });
+    expect(view.freshness).toEqual({
+      generated_from: null,
+      anchors_total: null,
+      anchors_resolved: null,
+      anchors_broken: null,
+      stale: false,
+    });
     expect(view.journeys).toEqual([]);
+  });
+
+  it('surfaces the stamped anchor counts statically and reads fresh when every anchor resolves', () => {
+    const map = validAppMap();
+    writeCanonicalMap({
+      ...map,
+      app: { ...map.app, freshness: { anchors_total: 4, anchors_resolved: 4, anchors_broken: 0 } },
+    });
+
+    const view = buildSiteMapView(root, FLAG_ON);
+    if (view.status !== 'ready') throw new Error('expected ready');
+    expect(view.freshness).toEqual({
+      generated_from: 'main@abc123',
+      anchors_total: 4,
+      anchors_resolved: 4,
+      anchors_broken: 0,
+      stale: false,
+    });
+  });
+
+  it('reads stale when the stamped freshness shows at least one broken anchor', () => {
+    const map = validAppMap();
+    writeCanonicalMap({
+      ...map,
+      app: { ...map.app, freshness: { anchors_total: 4, anchors_resolved: 3, anchors_broken: 1 } },
+    });
+
+    const view = buildSiteMapView(root, FLAG_ON);
+    if (view.status !== 'ready') throw new Error('expected ready');
+    expect(view.freshness.stale).toBe(true);
+    expect(view.freshness.anchors_broken).toBe(1);
   });
 });

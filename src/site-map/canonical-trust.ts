@@ -12,6 +12,7 @@
 
 import type { Evidence } from '@/core/types/site-map.js';
 
+import { deriveMapFreshness, stampMapFreshness } from './freshness.js';
 import { readCanonicalSiteMap, writeCanonicalSiteMap } from './store.js';
 import { stampHonestTrustTiers } from './trust.js';
 import { collectMapEvidence, type EvidenceResolution } from './verification.js';
@@ -30,9 +31,12 @@ export type RestampCanonicalTrustResult =
   { status: 'no-map' } | { status: 'unchanged' } | { status: 'stamped'; path: string };
 
 /**
- * Re-stamp the canonical map's trust tiers from live code evidence and persist the result when it
- * changed. Pure over its injected `resolveEvidence`, so tests drive the whole path offline; the
- * only real I/O is the store read and the conditional atomic write.
+ * Re-stamp the canonical map's trust tiers AND its map-vs-code freshness from live code evidence,
+ * persisting the result when either changed. Both proofs read the SAME resolutions gathered once, so
+ * the earned tiers and the staleness counts can never disagree. Pure over its injected
+ * `resolveEvidence`, so tests drive the whole path offline; the only real I/O is the store read and
+ * the conditional atomic write. Writes at most once, and only when a tier or a freshness count moved,
+ * so a steady map over steady code is left byte-for-byte untouched.
  */
 export function restampCanonicalTrust(
   projectRoot: string,
@@ -42,8 +46,12 @@ export function restampCanonicalTrust(
   if (map === null) return { status: 'no-map' };
 
   const resolutions = resolveEvidence(collectMapEvidence(map));
-  const { map: stamped, changed } = stampHonestTrustTiers(map, resolutions);
-  if (!changed) return { status: 'unchanged' };
+  const { map: trustStamped, changed: trustChanged } = stampHonestTrustTiers(map, resolutions);
+  const { map: stamped, changed: freshnessChanged } = stampMapFreshness(
+    trustStamped,
+    deriveMapFreshness(map, resolutions),
+  );
+  if (!trustChanged && !freshnessChanged) return { status: 'unchanged' };
 
   const path = writeCanonicalSiteMap(projectRoot, stamped);
   return { status: 'stamped', path };

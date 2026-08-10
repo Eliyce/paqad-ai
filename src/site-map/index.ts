@@ -12,6 +12,7 @@ export * from './extraction.js';
 export * from './report-builder.js';
 export * from './verification.js';
 export * from './trust.js';
+export * from './freshness.js';
 export * from './canonical-trust.js';
 export * from './assemble.js';
 export * from './publication.js';

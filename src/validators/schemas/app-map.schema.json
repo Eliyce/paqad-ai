@@ -84,6 +84,16 @@
         },
         "frameworks": { "type": "array", "items": { "type": "string" } },
         "generated_from": { "type": "string" },
+        "freshness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["anchors_total", "anchors_resolved", "anchors_broken"],
+          "properties": {
+            "anchors_total": { "type": "integer", "minimum": 0 },
+            "anchors_resolved": { "type": "integer", "minimum": 0 },
+            "anchors_broken": { "type": "integer", "minimum": 0 }
+          }
+        },
         "language": {
           "oneOf": [
             { "type": "string", "minLength": 1 },

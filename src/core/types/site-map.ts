@@ -121,12 +121,31 @@ export interface AppLanguage {
   label_policy?: string;
 }
 
+/**
+ * How stale the whole map is against the code it cites (issue #466, Part G, FRESH-1). A count of the
+ * distinct `file:line` anchors the map cites and how many still resolve in the tree, stamped into the
+ * stored map at author/verify time so the dashboard can read freshness statically, with no resolution
+ * work at view time (NFR-4). Counts only, never a timestamp, so re-stamping an unchanged map over
+ * unchanged code stays a byte-for-byte no-op. A non-zero `anchors_broken` means the code the map
+ * points to has moved, so the map is stale by exactly that many anchors.
+ */
+export interface AppFreshness {
+  /** Distinct cited `file:line` anchors across surfaces, transitions, and guards. */
+  anchors_total: number;
+  /** How many of those anchors still resolve in the tree. */
+  anchors_resolved: number;
+  /** How many no longer resolve — the map is stale against code by exactly this many. */
+  anchors_broken: number;
+}
+
 /** Header describing the mapped product. */
 export interface AppMeta {
   name: string;
   kind: AppKind | AppKind[];
   frameworks?: string[];
   generated_from?: string;
+  /** Deterministic map-vs-code freshness, stamped at author/verify time (issue #466). */
+  freshness?: AppFreshness;
   /** A bare default locale (`en`) or the full i18n block. */
   language?: string | AppLanguage;
 }

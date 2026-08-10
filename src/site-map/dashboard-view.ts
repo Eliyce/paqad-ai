@@ -8,6 +8,7 @@
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import type { AppMap, Journey } from '@/core/types/site-map.js';
 
+import { isStale } from './freshness.js';
 import {
   detectSiteMapPrerequisites,
   type MissingSiteMapPrerequisite,
@@ -15,10 +16,36 @@ import {
 } from './prerequisites.js';
 import { readAllCanonicalJourneys, readCanonicalSiteMap } from './store.js';
 
-/** How fresh the map is, so the viewer can judge whether to trust it (FRESH-1). */
+/**
+ * How fresh the map is, so the viewer can judge whether to trust it (FRESH-1). The anchor counts and
+ * the derived `stale` flag come straight from the freshness the write path stamped into the stored
+ * map, so the dashboard resolves nothing at view time (NFR-4). They are `null` until the map has been
+ * verified at least once (an authored-but-never-verified map has no stamped freshness), in which case
+ * `stale` reads false — nothing has been shown to be broken yet.
+ */
 export interface SiteMapFreshness {
   /** The code state the map was authored against (a commit ref), or null when unstated. */
   generated_from: string | null;
+  /** Distinct cited `file:line` anchors, or null before the map has been verified. */
+  anchors_total: number | null;
+  /** How many of those anchors still resolve, or null before verification. */
+  anchors_resolved: number | null;
+  /** How many no longer resolve, or null before verification. */
+  anchors_broken: number | null;
+  /** True when at least one cited anchor is broken (the map has drifted from code). */
+  stale: boolean;
+}
+
+/** Project the stored map's freshness into the static dashboard payload (no resolution at view time). */
+function freshnessOf(map: AppMap): SiteMapFreshness {
+  const stamped = map.app.freshness;
+  return {
+    generated_from: map.app.generated_from ?? null,
+    anchors_total: stamped?.anchors_total ?? null,
+    anchors_resolved: stamped?.anchors_resolved ?? null,
+    anchors_broken: stamped?.anchors_broken ?? null,
+    stale: stamped === undefined ? false : isStale(stamped),
+  };
 }
 
 /**
@@ -72,6 +99,6 @@ export function buildSiteMapView(
     status: 'ready',
     map,
     journeys: readAllCanonicalJourneys(projectRoot),
-    freshness: { generated_from: map.app.generated_from ?? null },
+    freshness: freshnessOf(map),
   };
 }
