@@ -41,6 +41,14 @@ only the current map, and the run's findings live in its evidence bundle under
 | The code-knowledge index, route/command scan, module map  | **primary evidence** the verb cites            |
 | The dashboard's Site map area (static render of the map)  | **the deliverable** humans read                |
 
+## One creation action
+
+Creating the map is a single action for the person: they ask once ("create a site map"), and
+readiness, authoring, the questions, and verification all run as internal stages of that one
+action. The only moment you interrupt them is the one batched set of questions in Step 2. Do not
+turn the internal stages into a string of prompts, and do not ask them to pick a document type
+when the request already means the site map.
+
 ## Workflow Steps
 
 The run is baseline-ratcheted: the first run records `.paqad/site-map/baseline.json`, and
@@ -54,7 +62,7 @@ or `create module documentation` is missing. If the app shape is one no extracto
 engine records a `blocked_checks` entry with the reason — surface it, do not fabricate surfaces
 to fill the gap.
 
-### Step 2 — author the map
+### Step 2 — author the map and settle the open questions
 
 Write the map YML at `docs/site-map/` directly. For each surface supply the layer code alone
 does not carry: a semantic slug, a title, the surface kind, entry/exit marks, and the module it
@@ -62,6 +70,29 @@ belongs to. Add transitions and guards, evidenced only: a transition records whe
 what triggers it, and the `file:line` that proves navigation actually occurs; a guard records
 what it protects and how it is satisfied (`satisfy_via`). Every element carries a `file:line`
 evidence pointer — a claim with no evidence is not allowed in the map.
+
+A few decisions the code cannot settle are the person's to make: how to group surfaces into
+districts, who the actors are and which guards they satisfy, which proposed journeys matter, and
+which human label to show for a keyed string. Ask them in one batch, not one at a time:
+
+1. Run `paqad-ai sitemap questions`. It reads the map you just authored plus the persisted
+   answers and prints only the questions the map still needs, each drawn from a fixed list
+   (grouping, actors and roles, journey priority, labels and language, app kind, and whether an
+   unguarded surface is meant to be public). Never invent a question outside that list. A
+   fully-authored map prints nothing, so you ask nothing.
+2. Put the `to_ask` questions to the person in a single batched prompt (on Claude Code,
+   `AskUserQuestion`). Show each question's plain reason and its `file:line` evidence, offer the
+   recommended default, and let them defer. A choice they make is `human`; a default they accept
+   or a question they defer is `default`.
+3. Record the outcome with `paqad-ai sitemap answer --input <file>`, where the file is a JSON
+   array of `{ question_id, answer, decided_by }`. It writes the decisions to
+   `docs/site-map/answers.yaml` and stamps each one's provenance onto the surfaces it settled, so
+   a human choice reads as confirmed and a default reads as a low-confidence guess.
+
+The answers persist, so a later re-creation or a documentation sync does not re-ask a settled
+question. A human answer whose code is unchanged is reused as is; a question whose evidence moved
+is reopened and asked again, so a settled decision is never applied to code it no longer
+describes.
 
 ### Step 3 — verify (run the verb)
 
@@ -102,5 +133,8 @@ the top gaps, and any blocked checks, in the paqad voice.
   occurs. Do not name a surface the extractor never saw.
 - The role that draws the map does not confirm it: modeling is yours, but journeys are
   confirmed by humans through the audited surface, never self-approved.
+- The creation questions come from a fixed list, and a defaulted answer is recorded as a
+  default, never as a human decision. Never ask outside the list, and never mark a deferred or
+  defaulted choice as confirmed.
 - `docs/site-map/` holds only the current map. Never write timestamped reports, generated
   views, or any second copy of the map there or anywhere else.
