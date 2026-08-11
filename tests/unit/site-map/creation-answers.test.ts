@@ -14,6 +14,7 @@ import {
   readCreationAnswers,
   recordAnswers,
   reconcileQuestions,
+  stampAnswerProvenance,
   writeCreationAnswers,
 } from '@/site-map/index.js';
 import {
@@ -359,6 +360,159 @@ describe('site-map creation answers', () => {
         'journey-priority',
         'labels-language',
       ]);
+    });
+  });
+
+  describe('stampAnswerProvenance', () => {
+    function mapWith(surfaces: AppMap['surfaces']): AppMap {
+      return { schema_version: 1, app: { name: 'Demo', kind: 'web' }, surfaces };
+    }
+
+    function answer(overrides: Partial<SiteMapAnswer> = {}): SiteMapAnswer {
+      return {
+        question_id: 'grouping:ungrouped-surfaces',
+        category: 'grouping',
+        question: 'How should these surfaces be grouped?',
+        answer: 'group-by-module',
+        decided_by: 'human',
+        anchors: ['src/a.ts:1'],
+        ...overrides,
+      };
+    }
+
+    it('leaves the map untouched (same reference) when there are no answers', () => {
+      const map = mapWith([
+        { id: 's1', kind: 'page', label: 'Home', evidence: { file: 'src/a.ts', line: 1 } },
+      ]);
+      const result = stampAnswerProvenance(map, []);
+      expect(result.changed).toBe(false);
+      expect(result.map).toBe(map);
+    });
+
+    it('stamps a human answer as human/high on the surface it settled, without mutating the input', () => {
+      const map = mapWith([
+        { id: 's1', kind: 'page', label: 'Home', evidence: { file: 'src/a.ts', line: 1 } },
+      ]);
+      const result = stampAnswerProvenance(map, [answer()]);
+      expect(result.changed).toBe(true);
+      expect(result.map.surfaces[0].derivation).toBe('human');
+      expect(result.map.surfaces[0].confidence).toBe('high');
+      // the input map object is untouched
+      expect(map.surfaces[0].derivation).toBeUndefined();
+    });
+
+    it('stamps a default answer as agent/low, so a defaulted decision reads as not user-confirmed', () => {
+      const map = mapWith([
+        { id: 's1', kind: 'page', label: 'k', evidence: { file: 'src/h.ts', line: 4 } },
+      ]);
+      const result = stampAnswerProvenance(map, [
+        answer({ category: 'labels-language', decided_by: 'default', anchors: ['src/h.ts:4'] }),
+      ]);
+      expect(result.changed).toBe(true);
+      expect(result.map.surfaces[0].derivation).toBe('agent');
+      expect(result.map.surfaces[0].confidence).toBe('low');
+    });
+
+    it('stamps nothing for irrelevant answers (wrong category, empty anchors, or no coverage)', () => {
+      const map = mapWith([
+        // has evidence, but no answer legitimately covers it
+        { id: 's1', kind: 'page', label: 'Home', evidence: { file: 'src/a.ts', line: 1 } },
+        // has no evidence at all, so nothing can anchor to it
+        { id: 's2', kind: 'page', label: 'Blank' },
+      ]);
+      const result = stampAnswerProvenance(map, [
+        // a guard-shaped category never bleeds onto a surface, even on a shared anchor
+        answer({
+          question_id: 'actors-roles:x',
+          category: 'actors-roles',
+          anchors: ['src/a.ts:1'],
+        }),
+        // a journey-priority answer carries no anchors, so it settles no element
+        answer({ question_id: 'journey-priority:x', category: 'journey-priority', anchors: [] }),
+        // a grouping answer about different code does not cover this surface
+        answer({ anchors: ['src/other.ts:9'] }),
+      ]);
+      expect(result.changed).toBe(false);
+      expect(result.map).toBe(map);
+    });
+
+    it('never downgrades a stronger static fact to a default guess (monotonic)', () => {
+      const map = mapWith([
+        {
+          id: 's1',
+          kind: 'page',
+          label: 'Home',
+          derivation: 'static',
+          confidence: 'high',
+          evidence: { file: 'src/a.ts', line: 1 },
+        },
+      ]);
+      const result = stampAnswerProvenance(map, [answer({ decided_by: 'default' })]);
+      expect(result.changed).toBe(false);
+      expect(result.map.surfaces[0].derivation).toBe('static');
+      expect(result.map.surfaces[0].confidence).toBe('high');
+    });
+
+    it('raises confidence within the same derivation, then is idempotent on a second pass', () => {
+      const map = mapWith([
+        {
+          id: 's1',
+          kind: 'page',
+          label: 'Home',
+          derivation: 'human',
+          confidence: 'low',
+          evidence: { file: 'src/a.ts', line: 1 },
+        },
+      ]);
+      const first = stampAnswerProvenance(map, [answer()]);
+      expect(first.changed).toBe(true);
+      expect(first.map.surfaces[0].confidence).toBe('high');
+
+      const second = stampAnswerProvenance(first.map, [answer()]);
+      expect(second.changed).toBe(false);
+      expect(second.map).toBe(first.map);
+    });
+
+    it('fills a missing confidence when the derivation already matches', () => {
+      const map = mapWith([
+        {
+          id: 's1',
+          kind: 'page',
+          label: 'k',
+          derivation: 'agent',
+          evidence: { file: 'src/h.ts', line: 4 },
+        },
+      ]);
+      const result = stampAnswerProvenance(map, [
+        answer({ category: 'labels-language', decided_by: 'default', anchors: ['src/h.ts:4'] }),
+      ]);
+      expect(result.changed).toBe(true);
+      expect(result.map.surfaces[0].confidence).toBe('low');
+    });
+
+    it('picks the strongest matching answer regardless of order (human beats default)', () => {
+      const surface = mapWith([
+        { id: 's1', kind: 'page', label: 'Home', evidence: { file: 'src/a.ts', line: 1 } },
+      ]);
+      const humanAns = answer({ question_id: 'grouping:h', decided_by: 'human' });
+      const defaultAns = answer({ question_id: 'grouping:d', decided_by: 'default' });
+
+      // default first, then upgraded to human
+      const a = stampAnswerProvenance(surface, [defaultAns, humanAns]);
+      expect(a.map.surfaces[0].derivation).toBe('human');
+      // human first, default does not weaken it
+      const b = stampAnswerProvenance(surface, [humanAns, defaultAns]);
+      expect(b.map.surfaces[0].derivation).toBe('human');
+    });
+
+    it('keeps the untouched surfaces as their original objects when only one changes', () => {
+      const map = mapWith([
+        { id: 's1', kind: 'page', label: 'Home', evidence: { file: 'src/a.ts', line: 1 } },
+        { id: 's2', kind: 'page', label: 'Other', area: 'core' },
+      ]);
+      const result = stampAnswerProvenance(map, [answer()]);
+      expect(result.changed).toBe(true);
+      expect(result.map.surfaces[1]).toBe(map.surfaces[1]);
     });
   });
 });

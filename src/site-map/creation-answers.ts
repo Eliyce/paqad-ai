@@ -11,7 +11,10 @@
 //  - `recordAnswers` folds newly decided answers back in idempotently for a stable diff;
 //  - `provenanceOf` maps an answer onto a map element's provenance, so a human decision earns
 //    normal confidence and a default earns reduced confidence and is visibly not user-confirmed
-//    (OSC-14/OSC-19).
+//    (OSC-14/OSC-19);
+//  - `stampAnswerProvenance` is the write-back: it stamps that provenance onto the surfaces each
+//    answer settled, so a defaulted grouping/label decision is visibly not user-confirmed on the
+//    map element itself, monotonically (never downgrading a stronger fact) and idempotently.
 //
 // Everything here is pure or a validated store; nothing runs at view time, and nothing runs while
 // the `site_map` flag is off (the creation flow that calls it is flag- and prerequisite-gated).
@@ -25,9 +28,16 @@ import {
   type CandidateQuestion,
   type QuestionReconciliation,
   type SiteMapAnswer,
+  type SiteMapAnswerCategory,
   type SiteMapAnswersFile,
 } from '@/core/types/site-map-answers.js';
-import type { AppMap, EvidenceRef } from '@/core/types/site-map.js';
+import type {
+  AppMap,
+  Confidence,
+  Derivation,
+  EvidenceRef,
+  Surface,
+} from '@/core/types/site-map.js';
 
 import { validateSiteMapAnswers } from './schema.js';
 import { SiteMapSchemaError, readYaml, writeYamlAtomic } from './store.js';
@@ -251,4 +261,119 @@ export function buildCandidateQuestions(map: AppMap): CandidateQuestion[] {
   }
 
   return candidates;
+}
+
+// ---------------------------------------------------------------------------
+// Provenance stamp (issue #466, Part A — the deferred author-time write-back)
+// ---------------------------------------------------------------------------
+
+// Rank each provenance component by how *authoritative* it is, lowest-to-highest, so a stamp only
+// ever raises an element and never erases a stronger existing fact. This is deliberately NOT the
+// `DERIVATIONS` enum's declaration order (`static, convention, agent, human`, which no code ranks
+// by): an `agent` value is the LLM/default's own guess and is the LEAST trustworthy, so it must sit
+// below a deterministic `static` extraction and a `convention` match. A person (`human`) is top.
+// The upshot: a human answer confirms any element, and a default answer (`agent`/low, per
+// provenanceOf) only fills a blank element and can never downgrade a static or convention fact to a
+// guess. Confidence is the tiebreak within one derivation: low < medium < high.
+const DERIVATION_AUTHORITY: Record<Derivation, number> = {
+  agent: 0,
+  convention: 1,
+  static: 2,
+  human: 3,
+};
+const CONFIDENCE_RANK: Record<Confidence, number> = { low: 0, medium: 1, high: 2 };
+
+/** An absent component ranks below every present one, so any real provenance raises a bare element. */
+function provenanceRank(p: { derivation?: Derivation; confidence?: Confidence }): [number, number] {
+  return [
+    p.derivation === undefined ? -1 : DERIVATION_AUTHORITY[p.derivation],
+    p.confidence === undefined ? -1 : CONFIDENCE_RANK[p.confidence],
+  ];
+}
+
+/** Whether `a` is strictly stronger provenance than `b` (derivation first, then confidence). */
+function isStronger(
+  a: { derivation?: Derivation; confidence?: Confidence },
+  b: { derivation?: Derivation; confidence?: Confidence },
+): boolean {
+  const [ad, ac] = provenanceRank(a);
+  const [bd, bc] = provenanceRank(b);
+  return ad > bd || (ad === bd && ac > bc);
+}
+
+/**
+ * The closed set of answer categories that decide something about a *surface* (OSC-16). Only these
+ * may stamp a surface's provenance, so an `actors-roles` answer (which is about guards) can never
+ * bleed its provenance onto a surface that happens to share a code anchor. `app-kind` is app-level
+ * and `journey-priority` names no per-element provenance slot, so both are excluded here.
+ */
+const SURFACE_CATEGORIES: ReadonlySet<SiteMapAnswerCategory> = new Set([
+  'grouping',
+  'labels-language',
+  'sensitive-surface',
+]);
+
+/**
+ * The strongest provenance a set of persisted answers grants an element citing `anchors`, or null
+ * when none applies. An answer motivates the element only when the answer is in `categories`, cites
+ * at least one anchor, and its anchor set *covers* the element's whole (non-empty) anchor set — so
+ * the element is genuinely among the ones that answer settled, not a coincidental single-anchor
+ * overlap. A human answer outranks a default (via {@link provenanceOf}), so the strongest wins.
+ */
+function motivatingProvenance(
+  anchors: string[],
+  answers: SiteMapAnswer[],
+  categories: ReadonlySet<SiteMapAnswerCategory>,
+): AnswerProvenance | null {
+  if (anchors.length === 0) return null;
+  let best: AnswerProvenance | null = null;
+  for (const answer of answers) {
+    if (!categories.has(answer.category) || answer.anchors.length === 0) continue;
+    const cover = new Set(answer.anchors);
+    if (!anchors.every((anchor) => cover.has(anchor))) continue;
+    const provenance = provenanceOf(answer);
+    if (best === null || isStronger(provenance, best)) best = provenance;
+  }
+  return best;
+}
+
+/** The result of stamping answer provenance onto a map: the (possibly rewritten) map and whether it moved. */
+export interface StampedProvenance {
+  map: AppMap;
+  changed: boolean;
+}
+
+/**
+ * Stamp each persisted creation-answer's provenance onto the map elements it settled (issue #466,
+ * Part A — the write-back the OSC honesty seam was built toward). `provenanceOf` already maps a
+ * human answer to {@link Derivation `human`}/high confidence and a documented default to `agent`/low;
+ * this is the pure function that writes that pair back onto the map, so a defaulted grouping or label
+ * decision is *visibly* not user-confirmed (OSC-14) and a human one reads confirmed (OSC-19, INV-3).
+ *
+ * Only **surfaces** are stamped: a surface is the one map element carrying the full
+ * `{derivation, confidence}` pair, and every surface-deciding category (`grouping`,
+ * `labels-language`, `sensitive-surface`) targets it. Guards carry their honesty in the `trust`
+ * tier (added in C1) with no derivation/confidence slot, transitions carry only confidence with no
+ * category that decides them, and journey index entries carry neither — so all three are left
+ * untouched, and the durable record of *who* decided every answer still lives in `answers.yaml`.
+ *
+ * The stamp is monotonic (it only ever raises a surface to a stronger provenance, never downgrades a
+ * stronger static/convention fact) and idempotent (re-stamping an unchanged map over unchanged
+ * answers rewrites nothing, so `changed` is false and the bytes are identical). An unchanged surface
+ * keeps its original object and key order. Pure over its inputs; the caller is flag- and
+ * prerequisite-gated (INV-1).
+ */
+export function stampAnswerProvenance(map: AppMap, answers: SiteMapAnswer[]): StampedProvenance {
+  let changed = false;
+
+  const surfaces = map.surfaces.map((surface) => {
+    const anchors = collectAnchors([surface.evidence]);
+    const provenance = motivatingProvenance(anchors, answers, SURFACE_CATEGORIES);
+    if (provenance === null || !isStronger(provenance, surface)) return surface;
+    changed = true;
+    return { ...surface, derivation: provenance.derivation, confidence: provenance.confidence };
+  });
+
+  if (!changed) return { map, changed: false };
+  return { map: { ...map, surfaces: surfaces as Surface[] }, changed: true };
 }
