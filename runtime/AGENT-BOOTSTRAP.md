@@ -63,6 +63,8 @@ Always load these and treat them as the canonical contract for documentation and
 
 When you work inside a specific module, also load that module's documentation under `docs/modules/` as those rules direct.
 
+When you routed to **site-map**, load the app's authored map from `docs/site-map/` (its `app-map.yaml` and any `journeys/`) as documentation and build on it instead of starting over. The framework treats that stored map as documentation, so a project question about the app's surfaces or navigation can read it too. Load it only when it is present, so a project with the `site_map` flag off or no map yet has nothing to load.
+
 ### Workflow handling
 
 - Interpret short Paqad workflow prompts such as `create documentation` as workflow invocations.
