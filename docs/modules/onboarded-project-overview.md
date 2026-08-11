@@ -276,17 +276,20 @@ Backed by [`codebase-health`](codebase-health/index/summary.md). Knows: code-kno
 dependency inventory, docs/modules, source.
 
 ### Site map (site-map workflow — behind the `site_map` flag, off by default)
-The deterministic `paqad-ai sitemap run` verb maps the application — its surfaces (pages,
-screens, endpoints, CLI commands), transitions, guards, and areas — reconciles them against the
-canonical [`docs/instructions/site-map/app-map.yaml`](../instructions/site-map/app-map.yaml), runs
-Tier-A verification (evidence resolution, cross-reference integrity, graph invariants), and
-publishes a token-budgeted index, a Mermaid overview, and screen/API registries.
-`paqad-ai sitemap retest` reclassifies prior findings by their stable `SM-` id, and
+The map is a single AI-authored YML at `docs/site-map/` (`app-map.yaml`, `journeys/*.journey.yaml`,
+`answers.yaml`) — the one site-map location, which the dashboard's Site map area renders
+statically with no model call at view time. The deterministic `paqad-ai sitemap run` verb (the
+same engine behind the area's Run) extracts the application's surfaces (pages, screens,
+endpoints, CLI commands), reconciles them against the stored map, runs Tier-A verification
+(evidence resolution, cross-reference integrity, graph invariants, trust honesty), and stamps
+each element's earned trust tier plus the map-vs-code freshness back into the stored map — no
+timestamped report dumps and no generated views; the run's findings live in its evidence bundle
+under `.paqad/site-map/runs/`. A re-run (`site-map-retest`) is the same verification run again.
 `paqad-ai sitemap journey confirm|reject <id>` is the human sign-off that turns a proposed journey
 into a confirmed one (or removes it), recorded on the audit ledger. The
 [`SiteMapFreshnessGate`](../../src/verification/gates/site-map-freshness.ts) keeps a
-feature-development change from reaching "Safe to merge" while a published view is stale (inert
-when the flag is off). Skills:
+feature-development change from reaching "Safe to merge" while the stamped freshness says the map
+drifted from the code (inert when the flag is off). Skills:
 [`site-map-readiness`](../../runtime/capabilities/coding/skills/site-map-readiness/SKILL.md),
 [`surface-extraction`](../../runtime/capabilities/coding/skills/surface-extraction/SKILL.md),
 [`surface-modeling`](../../runtime/capabilities/coding/skills/surface-modeling/SKILL.md),
@@ -295,7 +298,6 @@ when the flag is off). Skills:
 [`site-map-assembly`](../../runtime/capabilities/coding/skills/site-map-assembly/SKILL.md),
 [`map-verification`](../../runtime/capabilities/coding/skills/map-verification/SKILL.md),
 [`site-map-gap-analysis`](../../runtime/capabilities/coding/skills/site-map-gap-analysis/SKILL.md),
-[`site-map-publication`](../../runtime/capabilities/coding/skills/site-map-publication/SKILL.md),
 [`journey-synthesis`](../../runtime/capabilities/coding/skills/journey-synthesis/SKILL.md),
 [`site-map-maintainer`](../../runtime/capabilities/coding/skills/site-map-maintainer/SKILL.md),
 [`site-map-retest`](../../runtime/capabilities/coding/skills/site-map-retest/SKILL.md). Rules:

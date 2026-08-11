@@ -4,105 +4,103 @@
 
 Build and maintain a verified map of the application: its surfaces (pages, screens, modals,
 API endpoints, CLI commands, jobs), how they connect (transitions), what gates them (guards),
-and the areas they live in. A sibling of codebase-health and design-test — routed and
-rule-driven, no stage-gating. The deterministic engine does extraction, cross-reference
-integrity, and publication and costs zero model tokens; you supply the judgment the engine
-cannot: naming and typing surfaces, tracing real navigation, inferring guards, and grading
-the inconclusive claims the engine hands you.
+and the areas they live in. The map is a single AI-authored YML at `docs/site-map/` — the one
+site-map location (`app-map.yaml`, `journeys/*.journey.yaml`, `answers.yaml`). You author it;
+the deterministic engine proves it: every element is checked against real code, earns an honest
+trust tier, and the map's freshness against the code is stamped into the map itself. Humans do
+not read the YML — they read the dashboard's Site map area, which renders the stored map
+statically with no model call at view time.
 
 ## Trigger
 
 Run this workflow whenever the user says anything equivalent to:
 
-- "create a site map", "create sitemap", "generate the site map", "map the app" <!-- @rule RL-fb47 -->
-- "update the site map", "draw a journey map" <!-- @rule RL-3923 -->
+- "create a site map", "create sitemap", "generate the site map", "map the app"
+- "update the site map", "draw a journey map"
 
-Do **not** improvise a site map. Always follow the steps below in order. For a re-run of an
-existing map against the current code, use the `site-map-retest` workflow instead. This is a
-`coding`-capability workflow behind the `site_map` flag (env `PAQAD_SITE_MAP`); when the flag
-is off, nothing here loads or runs.
+Do **not** improvise a site map. Always follow the steps below in order. Re-checking an
+existing map against the current code is the `site-map-retest` workflow — the same
+verification run again, not a different engine. This is a `coding`-capability workflow behind
+the `site_map` flag (env `PAQAD_SITE_MAP`); when the flag is off, nothing here loads or runs.
 
 ## Source-of-Truth Model
 
-The deterministic `paqad-ai sitemap run` verb is the engine. It extracts surfaces from the
-code, resolves every citation to a `file:line`, checks cross-reference integrity and the graph
-invariants, and publishes the index, overview, and registries. You never invent a surface,
-transition, or finding the engine did not ground — you run the verb, read what it grounded,
-add the modeling judgment it asks for, and grade the claims it marks inconclusive.
+The stored map is the single source of truth, and trust comes from proof, not from the model's
+word. The deterministic `paqad-ai sitemap run` verb (the same engine behind Run on the
+dashboard's Site map area) extracts the surfaces it can prove, resolves every cited
+`file:line`, reconciles the extraction against the stored map, runs the graph invariants, and
+stamps each element's earned trust tier plus the map-vs-code freshness back into
+`docs/site-map/app-map.yaml`. There are no timestamped report dumps: `docs/site-map/` holds
+only the current map, and the run's findings live in its evidence bundle under
+`.paqad/site-map/runs/` and in what you narrate.
 
-| Source                                                        | Role                                              |
-| ------------------------------------------------------------- | ------------------------------------------------- |
-| `paqad-ai sitemap run` output (`docs/site-map/<ts>.json`)     | **the findings + extraction** — machine-generated |
-| `docs/instructions/site-map/app-map.yaml` + `journeys/*.yaml` | **the map of record** you curate                  |
-| The code-knowledge index, route/command scan, module map      | **primary evidence** the verb cites               |
-| The published `index.md` + `overview.md` + registries         | **the deliverable** you narrate                   |
+| Source                                                     | Role                                            |
+| ---------------------------------------------------------- | ----------------------------------------------- |
+| `docs/site-map/app-map.yaml` + `journeys/*.journey.yaml`   | **the map of record** you author and curate     |
+| `paqad-ai sitemap run` findings + stamped trust/freshness  | **the proof** — machine-generated, zero tokens  |
+| The code-knowledge index, route/command scan, module map   | **primary evidence** the verb cites             |
+| The dashboard's Site map area (static render of the map)   | **the deliverable** humans read                 |
 
 ## Workflow Steps
 
-Progress and outputs live under `.paqad/site-map/runs/<run_id>/` and `docs/site-map/`. The
-run is resumable and baseline-ratcheted: the first run records `.paqad/site-map/baseline.json`,
-and later runs mark each finding `new-since-baseline` vs `pre-existing`.
+The run is baseline-ratcheted: the first run records `.paqad/site-map/baseline.json`, and
+later runs mark each finding `new-since-baseline` vs `pre-existing`.
 
-### Step 1 — readiness (`site-map-readiness` skill)
+### Step 1 — readiness
 
-Confirm the app kind and frameworks are detectable and the extractor has a surface to read.
-If the app shape is one no extractor covers, the engine records a `blocked_checks` entry with
-the reason — surface it, do not fabricate surfaces to fill the gap.
+Map creation is gated on the documentation family: when the documentation foundation is absent,
+or modules exist and none is documented, stop and name exactly which of `create documentation`
+or `create module documentation` is missing. If the app shape is one no extractor covers, the
+engine records a `blocked_checks` entry with the reason — surface it, do not fabricate surfaces
+to fill the gap.
 
-### Step 2 — run the verb
+### Step 2 — author the map
 
-Run `paqad-ai sitemap run`. It reuses the code-knowledge index, extracts the surfaces it can
-prove (real `file:line` evidence, deduped and fingerprinted), reconciles them against the
-committed `app-map.yaml` (`SM-ADD` for an extracted surface no map entry covers), runs the
-Tier-A checks (evidence resolution, cross-reference integrity, graph invariants), and writes
-`docs/site-map/<ts>.{md,json}` plus the per-run finding index. Its exit code is the verdict:
-0 clean, 1 findings, 2 an unexpected error.
+Write the map YML at `docs/site-map/` directly. For each surface supply the layer code alone
+does not carry: a semantic slug, a title, the surface kind, entry/exit marks, and the module it
+belongs to. Add transitions and guards, evidenced only: a transition records where it goes,
+what triggers it, and the `file:line` that proves navigation actually occurs; a guard records
+what it protects and how it is satisfied (`satisfy_via`). Every element carries a `file:line`
+evidence pointer — a claim with no evidence is not allowed in the map.
 
-### Step 3 — model the surfaces (`surface-modeling` skill)
+### Step 3 — verify (run the verb)
 
-For each extracted surface the verb could not fully type, supply the non-inferable layer:
-a semantic slug, a title, the surface kind, entry/exit marks, and the module it belongs to
-(joined to the module map). Every surface you name must carry resolving evidence, and every
-extracted entry must be accounted for — mapped, or excluded with a stated reason. This is the
-one place the map gains meaning the code alone does not carry; keep it honest.
+Run `paqad-ai sitemap run`. It extracts the provable surfaces (real `file:line` evidence,
+deduped and fingerprinted), reconciles them against the stored map (`SM-ADD` for an extracted
+surface no map entry covers), runs the Tier-A checks (evidence resolution, cross-reference
+integrity, graph invariants, trust honesty), and stamps the earned trust tiers and the
+map-vs-code freshness into the stored map. Its exit code is the verdict: 0 clean, 1 findings,
+2 an unexpected error.
 
-### Step 4 — trace flow (`transition-tracing` + `guard-inference` skills)
+### Step 4 — grade and close the gaps
 
-Add transitions and guards, evidenced only. A transition records where it goes, what triggers
-it, and the `file:line` that proves navigation actually occurs. A guard records what it
-protects and how it is satisfied (`satisfy_via`). Re-run the verb so its graph analysis —
-reachability, dead ends, guard coverage — recomputes over your additions with zero tokens.
+Findings are `SM-*` (the id is a content-addressed `SM-<hash8>`; the category — `SM-ADD |
+SM-REMOVE | SM-EDGE-STALE | SM-GUARD-DRIFT | SM-ORPHAN | SM-DEADEND | SM-TRUST | …` — is a
+field). Fix what the engine proved, and grade only the claims it marked inconclusive: an
+inconclusive claim is a question, not a finding, until you ground it. Then re-run the verb so
+the map's stamped proof reflects the fixes.
 
-### Step 5 — assemble + verify (`site-map-assembly` + `map-verification` skills)
+### Step 5 — journeys
 
-The verb compiles the layers into `app-map.yaml` and marks each claim it could not settle
-deterministically as inconclusive. Refute or confirm those, and only those: an inconclusive
-claim is a question, not a finding, until you ground it.
+Journeys are `proposed`-only: propose capped, well-formed journeys — one actor, one goal,
+ordered evidenced steps, dual ends — but a journey becomes `confirmed` only when a human signs
+off through the audited surface (`paqad-ai sitemap journey confirm|reject`, or the dashboard's
+journey curation). Do not confirm a journey here.
 
-### Step 6 — gap analysis + publication (`site-map-gap-analysis` + `site-map-publication` skills)
+### Step 6 — narrate the receipt
 
-Turn the invariants and verdicts into `SM-*` findings (the id is a content-addressed
-`SM-<hash8>`; the category — `SM-ADD | SM-REMOVE | SM-EDGE-STALE | SM-GUARD-DRIFT | SM-ORPHAN |
-SM-DEADEND | …` — is a field). The verb publishes the token-budgeted `index.md`, the
-deterministic `overview.md` Mermaid, and the screen/API registries; you curate only the prose
-the index and overview narrate. Then narrate the receipt in the paqad voice: the verdict in
-the contract words (Safe to merge / Needs your attention / Inconclusive), the top gaps, and any
-blocked checks.
-
-Journeys are `proposed`-only: the `journey-synthesis` skill (with the `journey-designer` role)
-proposes capped, well-formed journeys — one actor, one goal, ordered evidenced steps, dual ends —
-but a journey becomes `confirmed` only when a human signs off through the audited surface. Do not
-confirm a journey here.
+Speak the verdict in the contract words (Safe to merge / Needs your attention / Inconclusive),
+the top gaps, and any blocked checks, in the paqad voice.
 
 ## Rules
 
-- Never skip the verb. The extraction, integrity checks, and published views come from <!-- @rule RL-9194 -->
-  `paqad-ai sitemap run`, never from your own reading of the code.
-- Ground every surface, transition, and guard in a resolving `file:line`. A claim whose <!-- @rule RL-3681 -->
+- Never skip the verb. The extraction, integrity checks, and the stamped trust and freshness
+  come from `paqad-ai sitemap run`, never from your own reading of the code.
+- Ground every surface, transition, and guard in a resolving `file:line`. A claim whose
   evidence does not resolve is a finding, not a fact.
-- Do not flag a transition because a link exists — only when evidence shows navigation actually <!-- @rule RL-d4e9 -->
+- Do not flag a transition because a link exists — only when evidence shows navigation actually
   occurs. Do not name a surface the extractor never saw.
-- The role that draws the map does not confirm it: modeling is yours, but journeys are <!-- @rule RL-c14a -->
+- The role that draws the map does not confirm it: modeling is yours, but journeys are
   confirmed by humans through the audited surface, never self-approved.
-- Always keep both the `.md` report and the `.json` sidecar; `site-map-retest` depends on the <!-- @rule RL-cc21 -->
-  sidecar to preserve `SM-` ids.
+- `docs/site-map/` holds only the current map. Never write timestamped reports, generated
+  views, or any second copy of the map there or anywhere else.
