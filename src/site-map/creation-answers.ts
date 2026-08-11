@@ -27,9 +27,11 @@ import {
   type SiteMapAnswer,
   type SiteMapAnswersFile,
 } from '@/core/types/site-map-answers.js';
+import type { AppMap, EvidenceRef } from '@/core/types/site-map.js';
 
 import { validateSiteMapAnswers } from './schema.js';
 import { SiteMapSchemaError, readYaml, writeYamlAtomic } from './store.js';
+import { locate, normalizeEvidence } from './verification.js';
 
 // ---------------------------------------------------------------------------
 // Store
@@ -154,4 +156,99 @@ export function provenanceOf(answer: SiteMapAnswer): AnswerProvenance {
   return answer.decided_by === 'human'
     ? { derivation: 'human', confidence: 'high' }
     : { derivation: 'agent', confidence: 'low' };
+}
+
+/** The sorted, deduped `file:line` anchors an element set cites, in the map's own anchor form. */
+function collectAnchors(refs: Array<EvidenceRef | undefined>): string[] {
+  const anchors = new Set<string>();
+  for (const ref of refs) {
+    for (const pointer of normalizeEvidence(ref)) anchors.add(locate(pointer));
+  }
+  return [...anchors].sort();
+}
+
+/**
+ * Derive the reduced set of creation-time questions from an assembled map (issue #466, Part A,
+ * the deferred author-time seam). The AI-driven flow batches these through `AskUserQuestion`, then
+ * feeds the answers into {@link reconcileQuestions} so a settled one is not re-asked. The rules:
+ *
+ *  - Stay inside the closed OSC-16 categories, and emit a question ONLY when the map itself shows
+ *    the ambiguity deterministically, so a fully-authored map yields `[]` (nothing to ask, OSC-9):
+ *      - `grouping`         — surfaces with no `area`, so the map has no district for them.
+ *      - `actors-roles`     — guards are defined but no actors name who satisfies them.
+ *      - `journey-priority` — journeys are still `proposed`, awaiting a human call on which matter.
+ *      - `labels-language`  — a surface still shows its i18n key instead of a resolved human label.
+ *  - Attach the current `file:line` anchors that motivate each question, so `reconcileQuestions`
+ *    reopens it when that code moves (OSC-18) rather than silently reusing a stale answer.
+ *  - Carry a recommended default with its reason, so the person can accept quickly (OSC-10).
+ *
+ * At most one question per category, so the asked set is small and nothing is ever silently
+ * dropped. Pure over the map; the caller is flag- and prerequisite-gated (INV-1).
+ */
+export function buildCandidateQuestions(map: AppMap): CandidateQuestion[] {
+  const candidates: CandidateQuestion[] = [];
+
+  const ungrouped = map.surfaces.filter((surface) => surface.area === undefined);
+  if (ungrouped.length > 0) {
+    candidates.push({
+      question_id: 'grouping:ungrouped-surfaces',
+      category: 'grouping',
+      question: `${ungrouped.length} surface(s) are not assigned to an area, so the map has no district for them. How should they be grouped?`,
+      anchors: collectAnchors(ungrouped.map((surface) => surface.evidence)),
+      recommended_default: {
+        answer: 'group-by-module',
+        reason: 'Group each ungrouped surface under the module it already belongs to.',
+      },
+    });
+  }
+
+  const guards = map.guards ?? [];
+  const actors = map.actors ?? [];
+  if (guards.length > 0 && actors.length === 0) {
+    candidates.push({
+      question_id: 'actors-roles:no-actors',
+      category: 'actors-roles',
+      question: `The map defines ${guards.length} guard(s) but names no actors. Who uses the app, and which guards does each satisfy?`,
+      anchors: collectAnchors(guards.map((guard) => guard.evidence)),
+      recommended_default: {
+        answer: 'single-authenticated-user',
+        reason:
+          'Assume one signed-in user who satisfies every guard until distinct roles are named.',
+      },
+    });
+  }
+
+  const proposed = (map.journeys ?? []).filter((journey) => journey.status === 'proposed');
+  if (proposed.length > 0) {
+    candidates.push({
+      question_id: 'journey-priority:proposed',
+      category: 'journey-priority',
+      question: `${proposed.length} journey(s) are still proposed. Which are real, and which matter most?`,
+      anchors: [],
+      recommended_default: {
+        answer: 'keep-all-proposed',
+        reason: 'Keep every proposed journey until a person deprioritizes one.',
+      },
+    });
+  }
+
+  const keyed = map.surfaces.filter(
+    (surface) =>
+      surface.label_key !== undefined &&
+      (surface.labels === undefined || surface.label === surface.label_key),
+  );
+  if (keyed.length > 0) {
+    candidates.push({
+      question_id: 'labels-language:keyed-labels',
+      category: 'labels-language',
+      question: `${keyed.length} surface(s) show a translation key instead of a human label. Which label should the map display?`,
+      anchors: collectAnchors(keyed.map((surface) => surface.evidence)),
+      recommended_default: {
+        answer: 'default-locale-label',
+        reason: "Resolve each key against the app's default locale catalog.",
+      },
+    });
+  }
+
+  return candidates;
 }

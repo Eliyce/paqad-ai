@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   SiteMapSchemaError,
+  buildCandidateQuestions,
   canonicalAnswersPath,
   emptyCreationAnswers,
   provenanceOf,
@@ -21,6 +22,7 @@ import {
   type SiteMapAnswer,
   type SiteMapAnswersFile,
 } from '@/core/types/site-map-answers.js';
+import type { AppMap } from '@/core/types/site-map.js';
 
 function humanAnswer(overrides: Partial<SiteMapAnswer> = {}): SiteMapAnswer {
   return {
@@ -214,6 +216,149 @@ describe('site-map creation answers', () => {
         derivation: 'agent',
         confidence: 'low',
       });
+    });
+  });
+
+  describe('buildCandidateQuestions', () => {
+    function mapWith(overrides: Partial<AppMap> = {}): AppMap {
+      return {
+        schema_version: 1,
+        app: { name: 'Demo', kind: 'web' },
+        surfaces: [],
+        ...overrides,
+      };
+    }
+
+    it('asks nothing for a map with no ambiguity to resolve', () => {
+      const map = mapWith({
+        surfaces: [{ id: 's1', kind: 'page', label: 'Home', area: 'core' }],
+        guards: [{ id: 'g1', kind: 'auth-state', label: 'Signed in' }],
+        actors: [{ id: 'user', label: 'User', satisfies: ['g1'] }],
+        journeys: [{ id: 'j1', label: 'Sign in', status: 'confirmed' }],
+      });
+      expect(buildCandidateQuestions(map)).toEqual([]);
+    });
+
+    it('asks a grouping question for ungrouped surfaces, with deduped sorted anchors', () => {
+      const map = mapWith({
+        surfaces: [
+          {
+            id: 's1',
+            kind: 'page',
+            label: 'Home',
+            evidence: [
+              { file: 'src/b.ts', line: 2 },
+              { file: 'src/a.ts', line: 1 },
+            ],
+          },
+          { id: 's2', kind: 'page', label: 'About', evidence: { file: 'src/a.ts', line: 1 } },
+          { id: 's3', kind: 'page', label: 'Grouped', area: 'core' },
+        ],
+      });
+      const [question] = buildCandidateQuestions(map);
+      expect(question.category).toBe('grouping');
+      expect(question.question_id).toBe('grouping:ungrouped-surfaces');
+      expect(question.question).toContain('2 surface(s)');
+      expect(question.anchors).toEqual(['src/a.ts:1', 'src/b.ts:2']);
+      expect(question.recommended_default.answer).toBe('group-by-module');
+    });
+
+    it('drops the anchor line when an ungrouped surface cites no evidence', () => {
+      const map = mapWith({ surfaces: [{ id: 's1', kind: 'page', label: 'Home' }] });
+      const [question] = buildCandidateQuestions(map);
+      expect(question.anchors).toEqual([]);
+    });
+
+    it('asks an actors-roles question when guards exist but no actors are named', () => {
+      const map = mapWith({
+        surfaces: [{ id: 's1', kind: 'page', label: 'Home', area: 'core' }],
+        guards: [
+          { id: 'g1', kind: 'role', label: 'Admin', evidence: { file: 'src/g.ts', line: 3 } },
+        ],
+      });
+      const questions = buildCandidateQuestions(map);
+      expect(questions).toHaveLength(1);
+      expect(questions[0].category).toBe('actors-roles');
+      expect(questions[0].anchors).toEqual(['src/g.ts:3']);
+    });
+
+    it('does not ask about actors when actors are already named', () => {
+      const map = mapWith({
+        surfaces: [{ id: 's1', kind: 'page', label: 'Home', area: 'core' }],
+        guards: [{ id: 'g1', kind: 'role', label: 'Admin' }],
+        actors: [{ id: 'admin', label: 'Admin' }],
+      });
+      expect(buildCandidateQuestions(map)).toEqual([]);
+    });
+
+    it('asks a journey-priority question for proposed journeys, with no anchors', () => {
+      const map = mapWith({
+        surfaces: [{ id: 's1', kind: 'page', label: 'Home', area: 'core' }],
+        journeys: [
+          { id: 'j1', label: 'Onboard', status: 'proposed' },
+          { id: 'j2', label: 'Checkout', status: 'confirmed' },
+        ],
+      });
+      const questions = buildCandidateQuestions(map);
+      expect(questions).toHaveLength(1);
+      expect(questions[0].category).toBe('journey-priority');
+      expect(questions[0].question).toContain('1 journey(s)');
+      expect(questions[0].anchors).toEqual([]);
+    });
+
+    it('asks a labels-language question only for surfaces still showing their i18n key', () => {
+      const map = mapWith({
+        surfaces: [
+          // key with no resolved labels catalog -> asked
+          {
+            id: 's1',
+            kind: 'page',
+            label: 'home.title',
+            label_key: 'home.title',
+            area: 'core',
+            evidence: { file: 'src/h.ts', line: 4 },
+          },
+          // labels present but label still equals the key -> asked
+          {
+            id: 's2',
+            kind: 'page',
+            label: 'about.title',
+            label_key: 'about.title',
+            labels: { en: 'About' },
+            area: 'core',
+          },
+          // labels present and label already resolved -> not asked
+          {
+            id: 's3',
+            kind: 'page',
+            label: 'Contact',
+            label_key: 'contact.title',
+            labels: { en: 'Contact' },
+            area: 'core',
+          },
+          // no key at all -> not asked
+          { id: 's4', kind: 'page', label: 'Plain', area: 'core' },
+        ],
+      });
+      const questions = buildCandidateQuestions(map);
+      expect(questions).toHaveLength(1);
+      expect(questions[0].category).toBe('labels-language');
+      expect(questions[0].question).toContain('2 surface(s)');
+      expect(questions[0].anchors).toEqual(['src/h.ts:4']);
+    });
+
+    it('returns all four categories in a fixed order for a fresh map', () => {
+      const map = mapWith({
+        surfaces: [{ id: 's1', kind: 'page', label: 'k', label_key: 'k' }],
+        guards: [{ id: 'g1', kind: 'role', label: 'Admin' }],
+        journeys: [{ id: 'j1', label: 'Onboard', status: 'proposed' }],
+      });
+      expect(buildCandidateQuestions(map).map((q) => q.category)).toEqual([
+        'grouping',
+        'actors-roles',
+        'journey-priority',
+        'labels-language',
+      ]);
     });
   });
 });
