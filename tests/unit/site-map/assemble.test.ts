@@ -247,5 +247,4 @@ describe('assembleSiteMapReport', () => {
     ).report;
     expect(report.sources_used).toEqual(['app-map.yaml', 'node-cli']);
   });
-
 });

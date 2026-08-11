@@ -34,12 +34,12 @@ stamps each element's earned trust tier plus the map-vs-code freshness back into
 only the current map, and the run's findings live in its evidence bundle under
 `.paqad/site-map/runs/` and in what you narrate.
 
-| Source                                                     | Role                                            |
-| ---------------------------------------------------------- | ----------------------------------------------- |
-| `docs/site-map/app-map.yaml` + `journeys/*.journey.yaml`   | **the map of record** you author and curate     |
-| `paqad-ai sitemap run` findings + stamped trust/freshness  | **the proof** — machine-generated, zero tokens  |
-| The code-knowledge index, route/command scan, module map   | **primary evidence** the verb cites             |
-| The dashboard's Site map area (static render of the map)   | **the deliverable** humans read                 |
+| Source                                                    | Role                                           |
+| --------------------------------------------------------- | ---------------------------------------------- |
+| `docs/site-map/app-map.yaml` + `journeys/*.journey.yaml`  | **the map of record** you author and curate    |
+| `paqad-ai sitemap run` findings + stamped trust/freshness | **the proof** — machine-generated, zero tokens |
+| The code-knowledge index, route/command scan, module map  | **primary evidence** the verb cites            |
+| The dashboard's Site map area (static render of the map)  | **the deliverable** humans read                |
 
 ## Workflow Steps
 

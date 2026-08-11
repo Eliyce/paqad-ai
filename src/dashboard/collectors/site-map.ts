@@ -92,7 +92,10 @@ export function collectSiteMap(projectRoot: string): SiteMapDashboardResult {
       metrics: [
         { label: 'surfaces', value: String(surfaceCount) },
         { label: 'journeys', value: String(journeyCount) },
-        { label: 'anchors resolving', value: `${freshness.anchors_resolved}/${freshness.anchors_total}` },
+        {
+          label: 'anchors resolving',
+          value: `${freshness.anchors_resolved}/${freshness.anchors_total}`,
+        },
         { label: 'broken anchors', value: String(freshness.anchors_broken) },
       ],
       helper: HELPER,

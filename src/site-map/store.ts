@@ -175,4 +175,3 @@ export function listJourneyIds(projectRoot: string): string[] {
 export function readAllJourneys(projectRoot: string): Journey[] {
   return readAllJourneysIn(journeysDir(projectRoot));
 }
-
