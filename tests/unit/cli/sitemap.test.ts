@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runSiteMapAudit = vi.fn();
-const runSiteMapRetest = vi.fn();
 const runJourneyCuration = vi.fn();
 const createSiteMapGatherer = vi.fn(() => ({}) as never);
 
 vi.mock('@/site-map/run.js', () => ({ runSiteMapAudit }));
-vi.mock('@/site-map/retest-run.js', () => ({ runSiteMapRetest }));
 vi.mock('@/site-map/journey-curation.js', () => ({ runJourneyCuration }));
 vi.mock('@/site-map/gatherer.js', () => ({ createSiteMapGatherer }));
 
@@ -24,7 +22,6 @@ async function invoke(args: string[]): Promise<string[]> {
 describe('paqad-ai sitemap command', () => {
   beforeEach(() => {
     runSiteMapAudit.mockReset();
-    runSiteMapRetest.mockReset();
     runJourneyCuration.mockReset();
     createSiteMapGatherer.mockClear();
   });
@@ -91,61 +88,10 @@ describe('paqad-ai sitemap command', () => {
     expect(out.join('\n')).toContain('sitemap run failed: boom');
   });
 
-  it('retest: still-open findings exit 1 and pass through the sidecar flag', async () => {
-    runSiteMapRetest.mockResolvedValue({
-      ok: true,
-      report_id: 'RETEST-z',
-      report_path: 'docs/site-map/z-retest.md',
-      sidecar_path: 'docs/site-map/z-retest.json',
-      fixed: 1,
-      still_open: 2,
-      needs_manual_verification: 0,
-      exit_code: 1,
-    });
-    const out = await invoke([
-      'retest',
-      '--project-root',
-      '/tmp/app',
-      '--sidecar',
-      'docs/site-map/src.json',
-    ]);
-    expect(process.exitCode).toBe(1);
-    expect(runSiteMapRetest).toHaveBeenCalledWith(
-      expect.objectContaining({ projectRoot: '/tmp/app', sidecar: 'docs/site-map/src.json' }),
-    );
-    expect(out.join('\n')).toContain('2 still open');
-    expect(out.join('\n')).toContain('"still_open":2');
-  });
-
-  it('retest: nothing still open exits 0 and honours --quiet', async () => {
-    runSiteMapRetest.mockResolvedValue({
-      ok: true,
-      report_id: 'RETEST-w',
-      report_path: 'docs/site-map/w-retest.md',
-      sidecar_path: 'docs/site-map/w-retest.json',
-      fixed: 3,
-      still_open: 0,
-      needs_manual_verification: 1,
-      exit_code: 0,
-    });
-    const out = await invoke(['retest', '--quiet']);
-    expect(process.exitCode).toBe(0);
-    expect(out.join('\n')).toContain('nothing still open');
-    expect(out.join('\n')).not.toContain('"still_open"');
-  });
-
-  it('retest: a missing source report exits 2', async () => {
-    runSiteMapRetest.mockResolvedValue({ ok: false, reason: 'no prior site-map report found' });
-    const out = await invoke(['retest']);
-    expect(process.exitCode).toBe(2);
-    expect(out.join('\n')).toContain('no prior site-map report');
-  });
-
-  it('retest: an unexpected error exits 2', async () => {
-    runSiteMapRetest.mockRejectedValue(new Error('kaboom'));
-    const out = await invoke(['retest']);
-    expect(process.exitCode).toBe(2);
-    expect(out.join('\n')).toContain('sitemap retest failed: kaboom');
+  it('retest is retired: the subcommand no longer exists (ART-3)', async () => {
+    const names = createSitemapCommand().commands.map((c) => c.name());
+    expect(names).not.toContain('retest');
+    expect(names).toEqual(expect.arrayContaining(['run', 'journey']));
   });
 
   it('journey confirm: reports success and exits 0', async () => {

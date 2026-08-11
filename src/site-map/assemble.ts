@@ -26,13 +26,7 @@ import type {
 
 import { applyBaselineStatus } from './baseline.js';
 import type { ExtractionResult } from './extraction.js';
-import { nextRemediationPriorities } from './report-builder.js';
-import {
-  assignSiteMapFindingIds,
-  sortFindings,
-  toSiteMapReportId,
-  toSiteMapTimestamp,
-} from './shared.js';
+import { assignSiteMapFindingIds, sortFindings, toSiteMapReportId } from './shared.js';
 import { deriveTrustFindings } from './trust.js';
 import { collectVerificationFindings, type EvidenceResolution } from './verification.js';
 
@@ -50,8 +44,6 @@ export interface SiteMapAssemblyInput {
   baseline: SiteMapBaseline | null;
   /** Named inputs that fed the run (extractor names, `app-map.yaml`, `journeys/`). */
   sources: string[];
-  sourceReportPath?: string | null;
-  sourceReportId?: string | null;
 }
 
 export interface AssembledSiteMapReport {
@@ -146,10 +138,7 @@ export function assembleSiteMapReport(input: SiteMapAssemblyInput): AssembledSit
   const withIds = assignSiteMapFindingIds(candidates);
   const findings = sortFindings(applyBaselineStatus(withIds, input.baseline));
 
-  const timestamp = toSiteMapTimestamp(input.now);
   const reportId = toSiteMapReportId('SITEMAP', input.now);
-  const reportPath = toPosixPath(join(PATHS.SITE_MAP_REPORT_DIR, `${timestamp}.md`));
-  const sidecarPath = toPosixPath(join(PATHS.SITE_MAP_REPORT_DIR, `${timestamp}.json`));
   const bundleDir = toPosixPath(join(PATHS.SITE_MAP_RUNS_DIR, reportId));
 
   const newSinceBaseline = findings.filter(
@@ -166,11 +155,7 @@ export function assembleSiteMapReport(input: SiteMapAssemblyInput): AssembledSit
     report_id: reportId,
     workflow: input.workflow,
     generated_at: input.now.toISOString(),
-    report_path: reportPath,
-    sidecar_path: sidecarPath,
     bundle_dir: bundleDir,
-    source_report_path: input.sourceReportPath ?? null,
-    source_report_id: input.sourceReportId ?? null,
     app: input.app,
     surface_count: input.map?.surfaces.length ?? 0,
     journey_count: input.journeyCount,
@@ -188,7 +173,6 @@ export function assembleSiteMapReport(input: SiteMapAssemblyInput): AssembledSit
       pre_existing: preExisting,
     },
     sources_used: [...new Set(input.sources)].sort(),
-    next_remediation_priorities: nextRemediationPriorities(findings),
   };
 
   return { report, findings, findingIds: findings.map((finding) => finding.id) };

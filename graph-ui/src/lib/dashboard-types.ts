@@ -501,8 +501,7 @@ export type OpsAction =
   | 'regenerate-docs'
   | 'compliance-check'
   | 'doctor'
-  | 'site-map'
-  | 'site-map-retest';
+  | 'site-map';
 
 /** A journey row for the Site map area's curation panel (issue #448). */
 export interface SiteMapJourney {

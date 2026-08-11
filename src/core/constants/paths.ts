@@ -203,18 +203,13 @@ export const PATHS = {
   HEALTH_ROOT_DIR: '.paqad/health',
   HEALTH_RUNS_DIR: '.paqad/health/runs',
   HEALTH_BASELINE: '.paqad/health/baseline.json',
-  // Site Map & Journeys capability (behavioural map of the application). Run bundles +
-  // baseline live under `.paqad/site-map`; the canonical map + agent index live under
-  // `docs/instructions/site-map`; run reports dual-write to `docs/site-map` — the same
-  // run-dir / doc-output split as pentest and codebase-health. Inert unless the
-  // `site_map` flag is on. See docs/specs/site-map-capability.*.md.
+  // Site Map & Journeys capability (behavioural map of the application). Run evidence
+  // bundles + the baseline ratchet live under `.paqad/site-map`; the canonical map lives
+  // under `docs/site-map` (SITE_MAP_CANONICAL_DIR below) and is the only doc output —
+  // there are no report dumps (issue #466, ART-3). Inert unless the `site_map` flag is on.
   SITE_MAP_ROOT_DIR: '.paqad/site-map',
   SITE_MAP_RUNS_DIR: '.paqad/site-map/runs',
   SITE_MAP_BASELINE: '.paqad/site-map/baseline.json',
-  // Issue #448 — the site-map publisher's own differential-refresh ledger, split
-  // out of the documentation workflow's doc-progress.json so a legacy/invalid
-  // doc-progress can never abort a site-map run or the freshness gate.
-  SITE_MAP_PROGRESS: '.paqad/site-map/progress.json',
   INDEXES_DIR: '.paqad/indexes',
   // Issue #353 — the deterministic, offline code-knowledge index: every exported
   // symbol (with signature + caller_count) and the file->file / file->symbol edges
@@ -246,20 +241,12 @@ export const PATHS = {
   PENTEST_DIR: 'docs/pentest',
   PENTEST_RETEST_DIR: 'docs/pentest/retests',
   HEALTH_DIR: 'docs/health',
-  // Site-map run reports (dual-written .md + .json), sibling of docs/health.
-  SITE_MAP_REPORT_DIR: 'docs/site-map',
-  // The canonical, version-controlled behavioural map + its agent index (an allowed
-  // instructions area — see instructions-docs-structure gate).
+  // The legacy site-map location (superseded by SITE_MAP_CANONICAL_DIR, issue #466). Only
+  // the journey store still points here until the location move completes (ART-8: replaced,
+  // not migrated).
   SITE_MAP_INSTRUCTIONS_DIR: 'docs/instructions/site-map',
   SITE_MAP_APP_MAP: 'docs/instructions/site-map/app-map.yaml',
   SITE_MAP_JOURNEYS_DIR: 'docs/instructions/site-map/journeys',
-  SITE_MAP_INDEX: 'docs/instructions/site-map/index.md',
-  SITE_MAP_OVERVIEW: 'docs/instructions/site-map/overview.md',
-  // Registry projections of the map (surfaces grouped by family), kept under the
-  // site-map area so they never collide with the doc-generation registries.
-  SITE_MAP_REGISTRIES_DIR: 'docs/instructions/site-map/registries',
-  SITE_MAP_SCREEN_REGISTRY: 'docs/instructions/site-map/registries/screen-registry.md',
-  SITE_MAP_API_REGISTRY: 'docs/instructions/site-map/registries/api-registry.md',
   RULES_DIR: 'docs/instructions/rules',
   MODULE_MAP: 'docs/instructions/rules/module-map.yml',
   TOOLS_DIR: 'docs/instructions/tools',

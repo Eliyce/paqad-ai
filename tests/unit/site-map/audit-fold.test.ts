@@ -10,21 +10,19 @@ import {
   SITE_MAP_BASELINE_STATUSES,
   SITE_MAP_CATEGORIES,
   SITE_MAP_FINDING_STATUSES,
-  SITE_MAP_RETEST_STATUSES,
   SITE_MAP_SEVERITIES,
   SITE_MAP_TIERS,
   SITE_MAP_WORKFLOWS,
 } from '@/core/types/site-map-run.js';
 
 describe('site-map run vocabulary', () => {
-  it('exposes the closed sets the engine + retest key on', () => {
+  it('exposes the closed sets the engine keys on', () => {
     expect(SITE_MAP_WORKFLOWS).toEqual(['site-map', 'site-map-retest']);
     expect(SITE_MAP_SEVERITIES).toEqual(['high', 'medium', 'low']);
     expect(SITE_MAP_CATEGORIES).toContain('SM-GUARD-DRIFT');
     expect(SITE_MAP_CATEGORIES).toContain('SM-ORPHAN');
     expect(SITE_MAP_TIERS).toEqual(['deterministic', 'ai-judged']);
     expect(SITE_MAP_BASELINE_STATUSES).toContain('new-since-baseline');
-    expect(SITE_MAP_RETEST_STATUSES).toEqual(['fixed', 'still-open', 'needs-manual-verification']);
     expect(SITE_MAP_FINDING_STATUSES).toContain('open');
   });
 });

@@ -10,7 +10,6 @@ import {
   appMapPath,
   canonicalAppMapPath,
   canonicalJourneysDir,
-  findLatestSiteMapSidecar,
   journeyPath,
   journeysDir,
   listJourneyIds,
@@ -19,12 +18,10 @@ import {
   readAppMap,
   readCanonicalSiteMap,
   readJourney,
-  readSiteMapSidecar,
   writeAppMap,
   writeCanonicalSiteMap,
   writeJourney,
 } from '@/site-map/index.js';
-import { PATHS } from '@/core/constants/paths.js';
 import type { AppMap, Journey } from '@/core/types/site-map.js';
 
 import {
@@ -195,44 +192,4 @@ describe('site-map store', () => {
     });
   });
 
-  describe('run-report sidecar', () => {
-    function writeSidecar(name: string, body: string): string {
-      const dir = join(root, PATHS.SITE_MAP_REPORT_DIR);
-      mkdirSync(dir, { recursive: true });
-      const path = join(dir, name);
-      writeFileSync(path, body, 'utf8');
-      return path;
-    }
-
-    it('reads a valid sidecar and returns null for missing / corrupt / non-array findings', () => {
-      const valid = writeSidecar(
-        '2026-01-02.json',
-        JSON.stringify({ report_id: 'X', findings: [] }),
-      );
-      expect(readSiteMapSidecar(valid)?.report_id).toBe('X');
-
-      expect(readSiteMapSidecar(join(root, 'docs/site-map/absent.json'))).toBeNull();
-
-      const corrupt = writeSidecar('corrupt.json', '{ not json');
-      expect(readSiteMapSidecar(corrupt)).toBeNull();
-
-      const noFindings = writeSidecar('no-findings.json', JSON.stringify({ report_id: 'X' }));
-      expect(readSiteMapSidecar(noFindings)).toBeNull();
-    });
-
-    it('finds the newest sidecar, excludes retest reports, and returns null when the dir is absent', () => {
-      expect(findLatestSiteMapSidecar(root)).toBeNull();
-
-      // A dir that exists but holds only a retest sidecar has no eligible source → null.
-      writeSidecar('2026-01-01-00-00-00-retest-2026-03-01-00-00-00.json', '{}');
-      expect(findLatestSiteMapSidecar(root)).toBeNull();
-
-      writeSidecar('2026-01-01-00-00-00.json', '{}');
-      writeSidecar('2026-02-01-00-00-00.json', '{}');
-
-      expect(findLatestSiteMapSidecar(root)).toBe(
-        join(root, PATHS.SITE_MAP_REPORT_DIR, '2026-02-01-00-00-00.json'),
-      );
-    });
-  });
 });

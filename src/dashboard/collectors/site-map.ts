@@ -1,12 +1,13 @@
-import { findLatestSiteMapSidecar, readSiteMapSidecar } from '@/site-map/store.js';
+import { isStale } from '@/site-map/freshness.js';
+import { readAllCanonicalJourneys, readCanonicalSiteMap } from '@/site-map/store.js';
 
-import { ageInDays, bandForScore, scoreFreshness } from '../scoring/index.js';
+import { bandForScore } from '../scoring/index.js';
 import type { AttentionItem, SectionData } from '../types.js';
 
 const HELPER = {
-  what: 'Each Run (the button on the Site map area) writes a report + sidecar under docs/site-map/ with the mapped surfaces, journeys, findings, and blocked checks.',
+  what: 'The stored map at docs/site-map/ is the single source of truth. Each Run on the Site map area checks every cited file:line against the code and stamps the earned trust and freshness back into the map.',
   goodLooksLike:
-    'A recent run whose map matches the code (no open findings), every extractor available, and journeys confirmed through the audited surface.',
+    'A map whose cited anchors all still resolve against the code, with journeys confirmed through the audited surface.',
 } as const;
 
 export interface SiteMapDashboardResult {
@@ -29,46 +30,57 @@ function emptySection(summary: string): SiteMapDashboardResult {
   };
 }
 
-/** Dashboard section for the site-map workflow — latest run, surfaces, journeys, open findings. */
-export function collectSiteMap(
-  projectRoot: string,
-  now: number = Date.now(),
-): SiteMapDashboardResult {
-  const latestPath = findLatestSiteMapSidecar(projectRoot);
-  if (!latestPath) {
-    return emptySection('No site-map runs yet — hit Run on the Site map area when you need one.');
+/**
+ * Dashboard section for the site map — read STATICALLY from the stored canonical map
+ * (issue #466, ART-3/NFR-4): surfaces, journeys, and the stamped map-vs-code freshness.
+ * There are no report dumps to collect; a map that has never been checked against the
+ * code reads honestly as not yet checked, never as fresh.
+ */
+export function collectSiteMap(projectRoot: string): SiteMapDashboardResult {
+  const map = readCanonicalSiteMap(projectRoot);
+  if (map === null) {
+    return emptySection('No site map yet — create one from the Site map area when you need it.');
   }
 
-  const report = readSiteMapSidecar(latestPath);
-  if (!report) {
-    return emptySection('Site-map reports present but the latest sidecar is unreadable.');
+  const surfaceCount = map.surfaces.length;
+  const journeyCount = readAllCanonicalJourneys(projectRoot).length;
+  const freshness = map.app.freshness;
+
+  if (freshness === undefined) {
+    return {
+      section: {
+        id: 'site-map',
+        title: 'Site map',
+        band: 'unknown',
+        score: null,
+        summary: `${surfaceCount} surface(s) · ${journeyCount} journey(s) · not yet checked against code`,
+        metrics: [
+          { label: 'surfaces', value: String(surfaceCount) },
+          { label: 'journeys', value: String(journeyCount) },
+          { label: 'anchors checked', value: '—' },
+        ],
+        helper: HELPER,
+        details: { surfaces: surfaceCount, journeys: journeyCount, freshness: null },
+      },
+      attention: [],
+    };
   }
 
-  const updatedMs = Date.parse(report.generated_at);
-  const findingCount = report.findings.length;
-  const openFindings = report.findings.filter((finding) => finding.status === 'open').length;
-  const freshness = scoreFreshness(Number.isFinite(updatedMs) ? updatedMs : null, { now });
-  const findingsScore = findingCount === 0 ? 100 : Math.max(0, 100 - findingCount * 10);
-  let score = Math.round(freshness * 0.5 + findingsScore * 0.5);
-  if (report.blocked_checks.length > 0) {
-    score = Math.min(score, 80);
-  }
-  const age = ageInDays(Number.isFinite(updatedMs) ? updatedMs : null, now);
+  const score =
+    freshness.anchors_total === 0
+      ? 100
+      : Math.round((100 * freshness.anchors_resolved) / freshness.anchors_total);
+  const stale = isStale(freshness);
 
-  const summary = `${report.surface_count} surface(s) · ${report.journey_count} journey(s) · ${findingCount} finding(s)${
-    age !== null ? ` · ${age}d ago` : ''
-  }`;
-
-  const attention: AttentionItem[] =
-    openFindings > 0
-      ? [
-          {
-            sectionId: 'site-map',
-            message: `${openFindings} open site-map finding(s) in ${report.report_id}`,
-            severity: openFindings >= 5 ? 'critical' : 'warn',
-          },
-        ]
-      : [];
+  const attention: AttentionItem[] = stale
+    ? [
+        {
+          sectionId: 'site-map',
+          message: `Site map has drifted from code: ${freshness.anchors_broken} of ${freshness.anchors_total} cited anchors no longer resolve`,
+          severity: freshness.anchors_broken >= 5 ? 'critical' : 'warn',
+        },
+      ]
+    : [];
 
   return {
     section: {
@@ -76,20 +88,19 @@ export function collectSiteMap(
       title: 'Site map',
       band: bandForScore(score),
       score,
-      summary,
+      summary: `${surfaceCount} surface(s) · ${journeyCount} journey(s) · ${freshness.anchors_resolved} of ${freshness.anchors_total} anchors resolve`,
       metrics: [
-        { label: 'surfaces', value: String(report.surface_count) },
-        { label: 'journeys', value: String(report.journey_count) },
-        { label: 'open findings', value: String(openFindings) },
-        { label: 'latest', value: age !== null ? `${age}d` : '—' },
+        { label: 'surfaces', value: String(surfaceCount) },
+        { label: 'journeys', value: String(journeyCount) },
+        { label: 'anchors resolving', value: `${freshness.anchors_resolved}/${freshness.anchors_total}` },
+        { label: 'broken anchors', value: String(freshness.anchors_broken) },
       ],
       helper: HELPER,
       details: {
-        latestReport: report.report_id,
-        surfaces: report.surface_count,
-        journeys: report.journey_count,
-        findings: findingCount,
-        blockedChecks: report.blocked_checks,
+        surfaces: surfaceCount,
+        journeys: journeyCount,
+        freshness,
+        stale,
       },
     },
     attention,
