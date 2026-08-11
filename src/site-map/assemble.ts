@@ -103,7 +103,7 @@ export function detectUnmappedSurfaces(
       ),
       resolution:
         `Add a surface for "${surface.label}" (raw id ${surface.raw_id}) to ` +
-        'docs/instructions/site-map/app-map.yaml, or exclude it with a documented reason.',
+        'docs/site-map/app-map.yaml, or exclude it with a documented reason.',
       affected_surfaces: [surface.raw_id],
       affected_files: files,
       baseline_status: 'unknown',

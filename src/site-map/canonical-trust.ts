@@ -6,9 +6,9 @@
 // steady map is left byte-for-byte untouched. Running it at author/verify time means the dashboard
 // renders earned tiers statically, with no resolution work at view time (NFR-4).
 //
-// It operates directly on the canonical location, independent of the run/retest orchestrator, which
-// still reads the superseded `docs/instructions/site-map/` path until the migration commit (C8)
-// moves it. The CLI wires the real gatherer's `resolveEvidence` in as the resolver.
+// It operates directly on the canonical location — the same `docs/site-map/` map the run
+// orchestrator reads and the dashboard renders. The CLI wires the real gatherer's
+// `resolveEvidence` in as the resolver.
 
 import type { Evidence } from '@/core/types/site-map.js';
 

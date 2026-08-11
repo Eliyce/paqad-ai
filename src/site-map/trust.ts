@@ -37,9 +37,7 @@ import {
   type StatusOf,
 } from './verification.js';
 
-// The canonical single location the map is authored at (#466). Named here rather than imported so
-// the trust findings read against the new location even while the shipped engine's other findings
-// still name the superseded `docs/instructions/site-map/` path (retired in its own later commit).
+// The canonical single location the map is authored at (#466, ART-1).
 const APP_MAP_PATH = 'docs/site-map/app-map.yaml';
 
 const UNVERIFIED: TrustTier = 'unverified';

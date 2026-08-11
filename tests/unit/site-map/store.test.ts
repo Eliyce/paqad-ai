@@ -7,18 +7,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   SiteMapSchemaError,
-  appMapPath,
   canonicalAppMapPath,
-  canonicalJourneysDir,
   journeyPath,
   journeysDir,
   listJourneyIds,
-  readAllCanonicalJourneys,
   readAllJourneys,
-  readAppMap,
   readCanonicalSiteMap,
   readJourney,
-  writeAppMap,
   writeCanonicalSiteMap,
   writeJourney,
 } from '@/site-map/index.js';
@@ -41,26 +36,27 @@ describe('site-map store', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  describe('app-map', () => {
-    it('round-trips a valid map through YAML', () => {
+  describe('canonical app-map (docs/site-map/)', () => {
+    it('round-trips a valid map through YAML at the one canonical location', () => {
       const map = validAppMap();
-      const path = writeAppMap(root, map);
-      expect(path).toBe(appMapPath(root));
-      expect(readAppMap(root)).toEqual(map);
+      const path = writeCanonicalSiteMap(root, map);
+      expect(path).toBe(canonicalAppMapPath(root));
+      expect(path).toContain(join('docs', 'site-map', 'app-map.yaml'));
+      expect(readCanonicalSiteMap(root)).toEqual(map);
     });
 
     it('leaves no temp file behind after an atomic write', () => {
-      writeAppMap(root, validAppMap());
-      expect(() => readFileSync(`${appMapPath(root)}.tmp`, 'utf8')).toThrow();
+      writeCanonicalSiteMap(root, validAppMap());
+      expect(() => readFileSync(`${canonicalAppMapPath(root)}.tmp`, 'utf8')).toThrow();
     });
 
     it('throws SiteMapSchemaError rather than persisting an invalid map', () => {
       const bad = { ...validAppMap(), schema_version: 99 } as unknown as AppMap;
-      expect(() => writeAppMap(root, bad)).toThrow(SiteMapSchemaError);
+      expect(() => writeCanonicalSiteMap(root, bad)).toThrow(SiteMapSchemaError);
       // Nothing was written.
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
       try {
-        writeAppMap(root, bad);
+        writeCanonicalSiteMap(root, bad);
       } catch (error) {
         expect(error).toBeInstanceOf(SiteMapSchemaError);
         expect((error as SiteMapSchemaError).errors.length).toBeGreaterThan(0);
@@ -68,29 +64,42 @@ describe('site-map store', () => {
     });
 
     it('reads null when the map is absent', () => {
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
     });
 
     it('reads null when the file is corrupt YAML', () => {
-      const target = appMapPath(root);
+      const target = canonicalAppMapPath(root);
       mkdirSync(join(target, '..'), { recursive: true });
       writeFileSync(target, ':\n  - [unbalanced', 'utf8');
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
     });
 
     it('reads null when the file is valid YAML but schema-invalid', () => {
-      const target = appMapPath(root);
+      const target = canonicalAppMapPath(root);
       mkdirSync(join(target, '..'), { recursive: true });
       writeFileSync(target, 'schema_version: 1\napp:\n  name: x\n', 'utf8'); // no surfaces
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
+    });
+
+    it('accepts trust tiers on the canonical map elements', () => {
+      const map = validAppMap();
+      map.surfaces[0]!.trust = 'proven-in-code';
+      map.surfaces[0]!.transitions![0]!.trust = 'proven-by-test';
+      map.guards![0]!.trust = 'human-confirmed';
+      map.journeys![0]!.trust = 'inferred';
+      const target = canonicalAppMapPath(root);
+      mkdirSync(join(target, '..'), { recursive: true });
+      writeFileSync(target, YAML.stringify(map), 'utf8');
+      expect(readCanonicalSiteMap(root)).toEqual(map);
     });
   });
 
-  describe('journeys', () => {
-    it('round-trips a valid journey through YAML', () => {
+  describe('journeys (docs/site-map/journeys/)', () => {
+    it('round-trips a valid journey through YAML under the canonical location', () => {
       const journey = validJourney();
       const path = writeJourney(root, journey);
       expect(path).toBe(journeyPath(root, journey.id));
+      expect(path).toContain(join('docs', 'site-map', 'journeys'));
       expect(readJourney(root, journey.id)).toEqual(journey);
     });
 
@@ -117,6 +126,7 @@ describe('site-map store', () => {
 
     it('lists nothing when the journeys directory is absent', () => {
       expect(listJourneyIds(root)).toEqual([]);
+      expect(readAllJourneys(root)).toEqual([]);
     });
 
     it('reads all valid journeys and skips invalid ones', () => {
@@ -132,64 +142,4 @@ describe('site-map store', () => {
       expect(ids).toEqual(['a', 'b']);
     });
   });
-
-  describe('canonical map (issue #466)', () => {
-    function writeCanonicalYaml(path: string, data: unknown): void {
-      mkdirSync(join(path, '..'), { recursive: true });
-      writeFileSync(path, YAML.stringify(data), 'utf8');
-    }
-
-    it('reads the canonical app-map from docs/site-map/, and null when absent or invalid', () => {
-      expect(readCanonicalSiteMap(root)).toBeNull();
-
-      const map = validAppMap();
-      writeCanonicalYaml(canonicalAppMapPath(root), map);
-      expect(readCanonicalSiteMap(root)).toEqual(map);
-
-      // Valid YAML, invalid shape → absent, never a half-map masquerading as real.
-      writeCanonicalYaml(canonicalAppMapPath(root), { schema_version: 1, app: { name: 'x' } });
-      expect(readCanonicalSiteMap(root)).toBeNull();
-    });
-
-    it('accepts trust tiers on the canonical map elements', () => {
-      const map = validAppMap();
-      map.surfaces[0]!.trust = 'proven-in-code';
-      map.surfaces[0]!.transitions![0]!.trust = 'proven-by-test';
-      map.guards![0]!.trust = 'human-confirmed';
-      map.journeys![0]!.trust = 'inferred';
-      writeCanonicalYaml(canonicalAppMapPath(root), map);
-      expect(readCanonicalSiteMap(root)).toEqual(map);
-    });
-
-    it('reads every valid canonical journey, skips invalid, and returns [] when absent', () => {
-      expect(readAllCanonicalJourneys(root)).toEqual([]);
-
-      const dir = canonicalJourneysDir(root);
-      writeCanonicalYaml(join(dir, 'checkout.journey.yaml'), { ...validJourney(), id: 'checkout' });
-      writeCanonicalYaml(join(dir, 'onboard.journey.yaml'), { ...minimalJourney(), id: 'onboard' });
-      // A schema-invalid file must be skipped, not crash the read.
-      writeFileSync(join(dir, 'broken.journey.yaml'), 'schema_version: 1\nid: broken\n', 'utf8');
-
-      expect(readAllCanonicalJourneys(root).map((journey) => journey.id)).toEqual([
-        'checkout',
-        'onboard',
-      ]);
-    });
-
-    it('writes the canonical app-map atomically and round-trips it', () => {
-      const map = validAppMap();
-      const path = writeCanonicalSiteMap(root, map);
-      expect(path).toBe(canonicalAppMapPath(root));
-      expect(readCanonicalSiteMap(root)).toEqual(map);
-      // Atomic write leaves no temp file behind.
-      expect(() => readFileSync(`${canonicalAppMapPath(root)}.tmp`, 'utf8')).toThrow();
-    });
-
-    it('throws SiteMapSchemaError rather than persisting an invalid canonical map', () => {
-      const bad = { ...validAppMap(), schema_version: 99 } as unknown as AppMap;
-      expect(() => writeCanonicalSiteMap(root, bad)).toThrow(SiteMapSchemaError);
-      expect(readCanonicalSiteMap(root)).toBeNull();
-    });
-  });
-
 });

@@ -14,7 +14,7 @@ import {
   type MissingSiteMapPrerequisite,
   type SiteMapPrerequisites,
 } from './prerequisites.js';
-import { readAllCanonicalJourneys, readCanonicalSiteMap } from './store.js';
+import { readAllJourneys, readCanonicalSiteMap } from './store.js';
 
 /**
  * How fresh the map is, so the viewer can judge whether to trust it (FRESH-1). The anchor counts and
@@ -98,7 +98,7 @@ export function buildSiteMapView(
   return {
     status: 'ready',
     map,
-    journeys: readAllCanonicalJourneys(projectRoot),
+    journeys: readAllJourneys(projectRoot),
     freshness: freshnessOf(map),
   };
 }

@@ -221,11 +221,10 @@ export const PATHS = {
   // `@deprecated` marker. Built by `paqad-ai index framework-api build`, consumed by
   // `plan compile` to verify #357's framework reuse claims instead of trusting them.
   FRAMEWORK_API_INDEX: '.paqad/indexes/framework-api.json',
-  // Issue #466 — the single canonical, AI-authored behavioural map. One YML location, loaded
-  // as documentation (it sits outside docs/instructions/, so the framework loads it explicitly).
-  // The dashboard reads this statically and renders it as the interactive visual; no run/rerun
-  // report dumps live here. Supersedes SITE_MAP_INSTRUCTIONS_DIR (retired in a later commit,
-  // ART-8: no migration). Inert unless the `site_map` flag is on.
+  // Issue #466 — the single canonical, AI-authored behavioural map (ART-1). One YML location,
+  // loaded as documentation (it sits outside docs/instructions/, so the framework loads it
+  // explicitly). The dashboard reads this statically and renders it as the interactive visual;
+  // no run/rerun report dumps live here (ART-3). Inert unless the `site_map` flag is on.
   SITE_MAP_CANONICAL_DIR: 'docs/site-map',
   SITE_MAP_CANONICAL_APP_MAP: 'docs/site-map/app-map.yaml',
   SITE_MAP_CANONICAL_JOURNEYS_DIR: 'docs/site-map/journeys',
@@ -241,12 +240,6 @@ export const PATHS = {
   PENTEST_DIR: 'docs/pentest',
   PENTEST_RETEST_DIR: 'docs/pentest/retests',
   HEALTH_DIR: 'docs/health',
-  // The legacy site-map location (superseded by SITE_MAP_CANONICAL_DIR, issue #466). Only
-  // the journey store still points here until the location move completes (ART-8: replaced,
-  // not migrated).
-  SITE_MAP_INSTRUCTIONS_DIR: 'docs/instructions/site-map',
-  SITE_MAP_APP_MAP: 'docs/instructions/site-map/app-map.yaml',
-  SITE_MAP_JOURNEYS_DIR: 'docs/instructions/site-map/journeys',
   RULES_DIR: 'docs/instructions/rules',
   MODULE_MAP: 'docs/instructions/rules/module-map.yml',
   TOOLS_DIR: 'docs/instructions/tools',

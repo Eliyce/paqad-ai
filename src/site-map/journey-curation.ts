@@ -89,7 +89,7 @@ export function runJourneyCuration(options: RunJourneyCurationOptions): RunJourn
   if (!journey) {
     return {
       ok: false,
-      reason: `no journey "${id}" found under docs/instructions/site-map/journeys/`,
+      reason: `no journey "${id}" found under docs/site-map/journeys/`,
     };
   }
 

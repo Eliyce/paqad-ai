@@ -1,5 +1,5 @@
 import { isStale } from '@/site-map/freshness.js';
-import { readAllCanonicalJourneys, readCanonicalSiteMap } from '@/site-map/store.js';
+import { readAllJourneys, readCanonicalSiteMap } from '@/site-map/store.js';
 
 import { bandForScore } from '../scoring/index.js';
 import type { AttentionItem, SectionData } from '../types.js';
@@ -43,7 +43,7 @@ export function collectSiteMap(projectRoot: string): SiteMapDashboardResult {
   }
 
   const surfaceCount = map.surfaces.length;
-  const journeyCount = readAllCanonicalJourneys(projectRoot).length;
+  const journeyCount = readAllJourneys(projectRoot).length;
   const freshness = map.app.freshness;
 
   if (freshness === undefined) {

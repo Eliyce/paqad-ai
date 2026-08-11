@@ -77,7 +77,7 @@ export function createSitemapCommand(): Command {
           ? 'Confirm a proposed journey (proposed → confirmed)'
           : 'Reject a proposed journey (removes it from the map)',
       )
-      .argument('<id>', 'Journey id under docs/instructions/site-map/journeys/')
+      .argument('<id>', 'Journey id under docs/site-map/journeys/')
       .option('--project-root <path>', 'Project root', process.cwd())
       .action((id: string, options: { projectRoot: string }) => {
         try {

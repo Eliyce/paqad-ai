@@ -1,8 +1,9 @@
-// Persisted site-map store. The canonical map (`app-map.yaml`) and each per-journey YAML
-// are written atomically (temp file + rename) and validated BEFORE they are persisted, so
-// a schema-invalid artifact is never stored (INV-3). Reads are tolerant: a missing,
-// corrupt, or schema-invalid file reads as absent (null), never a crash and never a
-// half-built map masquerading as real (mirrors the code-knowledge store discipline).
+// Persisted site-map store over the single canonical `docs/site-map/` location (issue #466,
+// ART-1): the AI-authored map (`app-map.yaml`) and each per-journey YAML are written
+// atomically (temp file + rename) and validated BEFORE they are persisted, so a
+// schema-invalid artifact is never stored (INV-3). Reads are tolerant: a missing, corrupt,
+// or schema-invalid file reads as absent (null), never a crash and never a half-built map
+// masquerading as real (mirrors the code-knowledge store discipline).
 
 import {
   existsSync,
@@ -35,10 +36,6 @@ export class SiteMapSchemaError extends Error {
 
 const JOURNEY_SUFFIX = '.journey.yaml';
 
-export function appMapPath(projectRoot: string): string {
-  return join(projectRoot, PATHS.SITE_MAP_APP_MAP);
-}
-
 /**
  * The single canonical, AI-authored map location (issue #466). Lives under `docs/site-map/`,
  * outside the auto-loaded instructions tree, and is what the dashboard renders statically.
@@ -47,12 +44,8 @@ export function canonicalAppMapPath(projectRoot: string): string {
   return join(projectRoot, PATHS.SITE_MAP_CANONICAL_APP_MAP);
 }
 
+/** The journeys directory (issue #466, ART-1): sibling of the canonical app-map. */
 export function journeysDir(projectRoot: string): string {
-  return join(projectRoot, PATHS.SITE_MAP_JOURNEYS_DIR);
-}
-
-/** The canonical journeys directory (issue #466), sibling of the canonical app-map. */
-export function canonicalJourneysDir(projectRoot: string): string {
   return join(projectRoot, PATHS.SITE_MAP_CANONICAL_JOURNEYS_DIR);
 }
 
@@ -88,18 +81,6 @@ export function readYaml(target: string): unknown {
 }
 
 /**
- * Persist the canonical app-map atomically, after validating it. Throws
- * {@link SiteMapSchemaError} on an invalid map so a bad shape is never written.
- */
-export function writeAppMap(projectRoot: string, map: AppMap): string {
-  const result = validateAppMap(map);
-  if (!result.valid) {
-    throw new SiteMapSchemaError('app-map failed schema validation', result.errors);
-  }
-  return writeYamlAtomic(appMapPath(projectRoot), map);
-}
-
-/**
  * Persist the canonical, AI-authored map (issue #466) to `docs/site-map/app-map.yaml`
  * atomically, after validating it. This is the single writer of the location the dashboard
  * renders and the write side of the trust proof stamps into (see `stampHonestTrustTiers`).
@@ -113,25 +94,15 @@ export function writeCanonicalSiteMap(projectRoot: string, map: AppMap): string 
   return writeYamlAtomic(canonicalAppMapPath(projectRoot), map);
 }
 
-/** Read an app-map from an explicit path, or null when absent / corrupt / schema-invalid. */
-function readAppMapAt(path: string): AppMap | null {
-  const parsed = readYaml(path);
-  if (parsed === null) return null;
-  return validateAppMap(parsed).valid ? (parsed as AppMap) : null;
-}
-
-/** Read the persisted app-map, or null when absent / corrupt / schema-invalid. */
-export function readAppMap(projectRoot: string): AppMap | null {
-  return readAppMapAt(appMapPath(projectRoot));
-}
-
 /**
  * Read the single canonical, AI-authored map (issue #466) from `docs/site-map/app-map.yaml`,
  * or null when absent / corrupt / schema-invalid. This is the static source the dashboard
  * renders — no LLM at view time (NFR-4).
  */
 export function readCanonicalSiteMap(projectRoot: string): AppMap | null {
-  return readAppMapAt(canonicalAppMapPath(projectRoot));
+  const parsed = readYaml(canonicalAppMapPath(projectRoot));
+  if (parsed === null) return null;
+  return validateAppMap(parsed).valid ? (parsed as AppMap) : null;
 }
 
 /**
@@ -197,16 +168,11 @@ export function listJourneyIds(projectRoot: string): string[] {
   return listJourneyIdsIn(journeysDir(projectRoot));
 }
 
-/** Read every valid journey on disk, skipping any that fail validation. */
+/**
+ * Read every valid journey on disk, skipping any that fail validation. These carry the
+ * per-step detail journey mode renders (DATA-2).
+ */
 export function readAllJourneys(projectRoot: string): Journey[] {
   return readAllJourneysIn(journeysDir(projectRoot));
-}
-
-/**
- * Read every valid journey from the canonical location (issue #466), skipping any that fail
- * validation. These carry the per-step detail journey mode renders (DATA-2).
- */
-export function readAllCanonicalJourneys(projectRoot: string): Journey[] {
-  return readAllJourneysIn(canonicalJourneysDir(projectRoot));
 }
 

@@ -42,7 +42,7 @@ import {
   type ReactRouteRecord,
 } from './extraction.js';
 import type { SiteMapGatherer } from './run.js';
-import { readAllCanonicalJourneys, readCanonicalSiteMap } from './store.js';
+import { readAllJourneys, readCanonicalSiteMap } from './store.js';
 import type { EvidenceResolution } from './verification.js';
 
 /** A dependency name → the app kind it implies, most specific first. */
@@ -532,10 +532,9 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
     appSummary: (): SiteMapAppSummary => ({ name, kind: appKind, frameworks }),
     // Issue #466, C8b: read the SINGLE canonical map + journeys under docs/site-map/, so the
     // live run verifies, resolves evidence for, and restamps (C8a) exactly the map the dashboard
-    // renders statically — not the superseded docs/instructions/site-map/ copy. The report-dump
-    // publish still targets the legacy location; it is retired in its own commit (C8c, INV-6).
+    // renders statically.
     loadAppMap: (): AppMap | null => readCanonicalSiteMap(projectRoot),
-    journeyCount: () => readAllCanonicalJourneys(projectRoot).length,
+    journeyCount: () => readAllJourneys(projectRoot).length,
     resolveEvidence: (pointers: Evidence[]): EvidenceResolution[] =>
       pointers.map((pointer) => resolvePointer(projectRoot, pointer)),
     async extractors(): Promise<ExtractorOutput[]> {
