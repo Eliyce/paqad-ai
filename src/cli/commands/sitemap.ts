@@ -47,6 +47,9 @@ export function createSitemapCommand(): Command {
         for (const blocked of result.blocked_checks) {
           console.log(`> ⚪ ${blocked.check} skipped — ${blocked.reason}`);
         }
+        if (result.trust_restamp.status === 'stamped') {
+          console.log(`> Stamped earned trust and freshness into ${result.trust_restamp.path}`);
+        }
         if (result.baseline_created) {
           console.log('> Baseline recorded — future runs will flag only what is new.');
         }

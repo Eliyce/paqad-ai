@@ -49,6 +49,7 @@ describe('paqad-ai sitemap command', () => {
         { check: 'web-surfaces', reason: 'no extractor', install_hint: 'hand-author' },
       ],
       baseline_created: true,
+      trust_restamp: { status: 'stamped', path: 'docs/site-map/app-map.yaml' },
       exit_code: 1,
     });
     const out = await invoke(['run', '--project-root', '/tmp/app']);
@@ -56,6 +57,9 @@ describe('paqad-ai sitemap command', () => {
     expect(createSiteMapGatherer).toHaveBeenCalledWith('/tmp/app');
     expect(out.join('\n')).toContain('worth a look');
     expect(out.join('\n')).toContain('web-surfaces skipped');
+    expect(out.join('\n')).toContain(
+      'Stamped earned trust and freshness into docs/site-map/app-map.yaml',
+    );
     expect(out.join('\n')).toContain('Baseline recorded');
     expect(out.join('\n')).toContain('"findings":2');
   });
@@ -69,11 +73,14 @@ describe('paqad-ai sitemap command', () => {
       finding_count: 0,
       blocked_checks: [],
       baseline_created: false,
+      trust_restamp: { status: 'no-map' },
       exit_code: 0,
     });
     const out = await invoke(['run', '--quiet']);
     expect(process.exitCode).toBe(0);
     expect(out.join('\n')).toContain('the map matches the code');
+    // no-map means nothing was stamped, so no stamped line is printed.
+    expect(out.join('\n')).not.toContain('Stamped earned trust');
     expect(out.join('\n')).not.toContain('"findings"');
   });
 

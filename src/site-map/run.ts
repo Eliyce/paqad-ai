@@ -21,6 +21,7 @@ import type {
 
 import { assembleSiteMapReport } from './assemble.js';
 import { readBaseline, writeBaseline } from './baseline.js';
+import { restampCanonicalTrust, type RestampCanonicalTrustResult } from './canonical-trust.js';
 import { assembleExtraction, type ExtractionResult, type ExtractorOutput } from './extraction.js';
 import { recordSiteMapRun } from './ledger.js';
 import { publishSiteMap } from './publish.js';
@@ -69,6 +70,12 @@ export interface SiteMapRunResult {
   publish_skipped: string[];
   /** Derived views a prior run produced that the map no longer produces — deleted this run. */
   publish_removed: string[];
+  /**
+   * Whether this run re-earned the canonical map's trust tiers + map-vs-code freshness and wrote
+   * them back (issue #466, C8). `no-map` until an AI-authored `docs/site-map/app-map.yaml` exists,
+   * so the wire is a no-op on a project that has not authored its map yet.
+   */
+  trust_restamp: RestampCanonicalTrustResult;
   /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
 }
@@ -177,6 +184,16 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     publishRemoved = publication.removed;
   }
 
+  // Re-earn the canonical map's honest trust tiers + map-vs-code freshness from the SAME evidence
+  // the run already resolved (the gatherer's one resolveEvidence seam), and write them back when
+  // either moved (issue #466, C8: this is the wire that makes `map.app.freshness` non-null on a
+  // real project, so the dashboard honesty strip and the freshness gate read earned proof rather
+  // than "not yet checked"). It operates on the canonical `docs/site-map/` location directly and is
+  // a no-op (`no-map`) until that map is authored, so it never regresses a project without one.
+  const trustRestamp = restampCanonicalTrust(projectRoot, (pointers) =>
+    gatherer.resolveEvidence(pointers),
+  );
+
   recordSiteMapRun(
     projectRoot,
     {
@@ -203,6 +220,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     published,
     publish_skipped: publishSkipped,
     publish_removed: publishRemoved,
+    trust_restamp: trustRestamp,
     exit_code: report.findings.length > 0 ? 1 : 0,
   };
 }

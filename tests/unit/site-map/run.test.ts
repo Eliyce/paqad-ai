@@ -15,6 +15,7 @@ import {
 } from '@/site-map/extraction.js';
 import { SITE_MAP_RUN_DOC_TYPE } from '@/site-map/ledger.js';
 import { runSiteMapAudit, type SiteMapGatherer } from '@/site-map/run.js';
+import { readCanonicalSiteMap, writeCanonicalSiteMap } from '@/site-map/store.js';
 import { readAllSessionRows } from '@/session-ledger/ledger.js';
 
 function repo(): string {
@@ -43,6 +44,23 @@ const coveringMap: AppMap = {
       kind: 'cli-command',
       label: 'Site map',
       evidence: [{ file: 'src/cli/sitemap.ts', line: 12 }],
+    },
+  ],
+};
+
+// An AI-authored canonical map (docs/site-map/app-map.yaml) whose one surface cites a resolving
+// anchor but authors no trust tier — so a run that resolves the anchor earns it `proven-in-code`
+// and stamps freshness, exercising the C8 restampCanonicalTrust wire independent of the run's own
+// (legacy) map, which is null here.
+const canonicalMap: AppMap = {
+  schema_version: 1,
+  app: { name: 'paqad-ai', kind: 'cli' },
+  surfaces: [
+    {
+      id: 's-home',
+      kind: 'page',
+      label: 'Home',
+      evidence: [{ file: 'src/app.ts', line: 1 }],
     },
   ],
 };
@@ -259,5 +277,61 @@ describe('runSiteMapAudit', () => {
     const sidecar = readSidecar(root, result.sidecar_path);
     expect(sidecar.extraction.low_confidence_fallback).toBe(true);
     expect(sidecar.blocked_checks[0]!.check).toBe('rails-routes surface extraction');
+  });
+
+  // C8: the run wires restampCanonicalTrust in, so a real run re-earns the canonical map's honest
+  // trust tiers + map-vs-code freshness from the same evidence and writes them back.
+  it('reports no-map and writes nothing when no canonical map is authored yet (C8)', async () => {
+    const root = repo();
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer(),
+      sessionId: 's-no-canonical',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.trust_restamp.status).toBe('no-map');
+    expect(existsSync(join(root, PATHS.SITE_MAP_CANONICAL_APP_MAP))).toBe(false);
+  });
+
+  it('stamps earned trust + freshness into the canonical map from the resolved evidence (C8)', async () => {
+    const root = repo();
+    writeCanonicalSiteMap(root, canonicalMap);
+    const result = await runSiteMapAudit({
+      // The run's own (legacy) map is null; restampCanonicalTrust still operates on the canonical
+      // map, and the default gatherer resolves every cited pointer.
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => null }),
+      sessionId: 's-stamp',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.trust_restamp.status).toBe('stamped');
+    if (result.trust_restamp.status === 'stamped') {
+      expect(result.trust_restamp.path).toBe(join(root, PATHS.SITE_MAP_CANONICAL_APP_MAP));
+    }
+    const stamped = readCanonicalSiteMap(root);
+    expect(stamped?.surfaces[0]!.trust).toBe('proven-in-code');
+    expect(stamped?.app.freshness).toEqual({
+      anchors_total: 1,
+      anchors_resolved: 1,
+      anchors_broken: 0,
+    });
+  });
+
+  it('reports unchanged on a second run over a steady canonical map and steady code (C8)', async () => {
+    const root = repo();
+    writeCanonicalSiteMap(root, canonicalMap);
+    await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => null }),
+      sessionId: 's-stamp-1',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    const second = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => null }),
+      sessionId: 's-stamp-2',
+      now: () => new Date(2026, 0, 3, 3, 4, 5),
+    });
+    expect(second.trust_restamp.status).toBe('unchanged');
   });
 });
