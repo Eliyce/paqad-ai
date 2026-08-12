@@ -244,31 +244,13 @@ describe('ops job runner', () => {
         blocked_checks: expect.any(Number),
         baseline_created: expect.any(Boolean),
       });
-      expect(job.result).toHaveProperty('report_path');
+      expect(job.result).toHaveProperty('report_id');
       expect(job.progress.length).toBeGreaterThan(1);
       expect(readAudit(root)).toContain('dashboard.ops.site-map');
     });
 
-    it('site-map-retest fails cleanly when there is no prior report to replay', async () => {
-      const job = await run('site-map-retest');
-      expect(job.status).toBe('failed');
-      expect(job.error).toMatch(/no prior site-map report/i);
-      expect(readAudit(root)).toContain('status="failed"');
-    });
-
-    it('site-map-retest replays the sidecar a prior site-map run wrote', async () => {
-      const first = await run('site-map');
-      expect(first.status).toBe('done');
-
-      const job = await run('site-map-retest');
-      expect(job.status).toBe('done');
-      expect(job.result).toMatchObject({
-        fixed: expect.any(Number),
-        still_open: expect.any(Number),
-        needs_manual_verification: expect.any(Number),
-      });
-      expect(job.result).toHaveProperty('report_path');
-      expect(readAudit(root)).toContain('dashboard.ops.site-map-retest');
+    it('site-map-retest is retired: a re-run is the same site-map action (ART-3)', () => {
+      expect(isOpsAction('site-map-retest')).toBe(false);
     });
 
     it('reconcile completes with a drift summary', async () => {

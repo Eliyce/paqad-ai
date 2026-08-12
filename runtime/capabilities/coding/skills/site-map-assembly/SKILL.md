@@ -30,7 +30,7 @@ precedes verification and publication.
 ## Inputs
 
 - The run bundle's modeled layers (surfaces, transitions, guards).
-- The committed `docs/instructions/site-map/app-map.yaml`, if one exists.
+- The stored `docs/site-map/app-map.yaml`, if one exists.
 - Read `references/merge-policy.md` before resolving any conflict.
 
 ## Procedure

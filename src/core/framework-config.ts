@@ -226,8 +226,8 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Opt in to the Site Map & Journeys capability — a deterministic behavioural map of the ' +
-      'app under docs/instructions/site-map/ (the `paqad-ai sitemap` verb + `site-map` workflow). ' +
+      'Opt in to the Site Map & Journeys capability — a verified behavioural map of the ' +
+      'app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). ' +
       'OFF (default) is completely inert; ON also requires the coding capability at its consumers.',
   },
   {

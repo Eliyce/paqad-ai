@@ -8,13 +8,13 @@ import Ajv, { type ValidateFunction } from 'ajv';
 
 import appMapSchema from '../validators/schemas/app-map.schema.json';
 import journeySchema from '../validators/schemas/journey.schema.json';
-import siteMapProgressSchema from '../validators/schemas/site-map-progress.schema.json';
+import siteMapAnswersSchema from '../validators/schemas/site-map-answers.schema.json';
 import type { AppMap, Journey } from '@/core/types/site-map.js';
 
 const ajv = new Ajv({ allErrors: true, allowUnionTypes: true });
 let compiledAppMap: ValidateFunction | undefined;
 let compiledJourney: ValidateFunction | undefined;
-let compiledProgress: ValidateFunction | undefined;
+let compiledAnswers: ValidateFunction | undefined;
 
 function appMapValidator(): ValidateFunction {
   if (!compiledAppMap) {
@@ -30,11 +30,11 @@ function journeyValidator(): ValidateFunction {
   return compiledJourney;
 }
 
-function progressValidator(): ValidateFunction {
-  if (!compiledProgress) {
-    compiledProgress = ajv.compile(siteMapProgressSchema);
+function answersValidator(): ValidateFunction {
+  if (!compiledAnswers) {
+    compiledAnswers = ajv.compile(siteMapAnswersSchema);
   }
-  return compiledProgress;
+  return compiledAnswers;
 }
 
 export interface SiteMapValidation {
@@ -78,7 +78,7 @@ export function isJourney(data: unknown): data is Journey {
   return validateJourney(data).valid;
 }
 
-/** Validate a value against the committed site-map progress schema (issue #448). */
-export function validateSiteMapProgress(data: unknown): SiteMapValidation {
-  return toValidation(progressValidator(), data);
+/** Validate a value against the committed site-map creation-answers schema (issue #466). */
+export function validateSiteMapAnswers(data: unknown): SiteMapValidation {
+  return toValidation(answersValidator(), data);
 }

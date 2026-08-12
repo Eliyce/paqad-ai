@@ -2,95 +2,84 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import YAML from 'yaml';
 import { describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
-import type { SiteMapReportIndex } from '@/core/types/site-map-run.js';
+import type { AppFreshness } from '@/core/types/site-map.js';
 import { collectSiteMap } from '@/dashboard/collectors/site-map.js';
+import { writeCanonicalSiteMap } from '@/site-map/index.js';
+
+import { validAppMap, validJourney } from '../../../fixtures/site-map/valid-app-map.js';
 
 function repo(): string {
   return mkdtempSync(join(tmpdir(), 'sm-dash-'));
 }
 
-function writeSidecar(root: string, name: string, report: Partial<SiteMapReportIndex>): void {
-  const dir = join(root, PATHS.SITE_MAP_REPORT_DIR);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, name), JSON.stringify(report));
+function writeMap(root: string, freshness?: AppFreshness): void {
+  const map = validAppMap();
+  if (freshness !== undefined) {
+    map.app.freshness = freshness;
+  }
+  writeCanonicalSiteMap(root, map);
 }
 
-const NOW = Date.parse('2026-07-14T00:00:00.000Z');
-
 describe('collectSiteMap', () => {
-  it('is an unknown, empty section when there are no runs', () => {
-    const { section, attention } = collectSiteMap(repo(), NOW);
+  it('is an unknown, empty section when there is no stored map', () => {
+    const { section, attention } = collectSiteMap(repo());
     expect(section.id).toBe('site-map');
     expect(section.band).toBe('unknown');
-    expect(section.summary).toContain('No site-map runs yet');
+    expect(section.score).toBeNull();
+    expect(section.summary).toContain('No site map yet');
     expect(attention).toEqual([]);
   });
 
-  it('handles an unreadable latest sidecar', () => {
+  it('reads a never-checked map honestly: counts present, freshness unknown', () => {
     const root = repo();
-    const dir = join(root, PATHS.SITE_MAP_REPORT_DIR);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, '2026-07-13-00-00-00.json'), 'not json');
-    const { section } = collectSiteMap(root, NOW);
-    expect(section.summary).toContain('unreadable');
+    writeMap(root);
+    const { section, attention } = collectSiteMap(root);
+    expect(section.band).toBe('unknown');
+    expect(section.score).toBeNull();
+    expect(section.summary).toContain('not yet checked against code');
+    expect(section.metrics.find((m) => m.label === 'surfaces')?.value).toBe(
+      String(validAppMap().surfaces.length),
+    );
+    expect(section.metrics.find((m) => m.label === 'anchors checked')?.value).toBe('—');
+    expect(attention).toEqual([]);
   });
 
-  it('summarises surfaces/journeys and raises attention for open findings', () => {
+  it('scores a checked, fresh map from its resolving anchors and counts canonical journeys', () => {
     const root = repo();
-    writeSidecar(root, '2026-07-13-00-00-00.json', {
-      report_id: 'SITEMAP-2026-07-13-00-00-00',
-      generated_at: '2026-07-13T00:00:00.000Z',
-      surface_count: 12,
-      journey_count: 3,
-      findings: [{ id: 'SM-1', status: 'open' } as never, { id: 'SM-2', status: 'open' } as never],
-      blocked_checks: [{ check: 'reachability', reason: 'x', install_hint: 'y' }],
-    });
-    const { section, attention } = collectSiteMap(root, NOW);
-    expect(section.metrics.find((m) => m.label === 'surfaces')?.value).toBe('12');
-    expect(section.metrics.find((m) => m.label === 'journeys')?.value).toBe('3');
-    expect(section.metrics.find((m) => m.label === 'open findings')?.value).toBe('2');
+    writeMap(root, { anchors_total: 6, anchors_resolved: 6, anchors_broken: 0 });
+    const journey = validJourney();
+    const journeysDir = join(root, PATHS.SITE_MAP_CANONICAL_JOURNEYS_DIR);
+    mkdirSync(journeysDir, { recursive: true });
+    writeFileSync(join(journeysDir, `${journey.id}.journey.yaml`), YAML.stringify(journey), 'utf8');
+    const { section, attention } = collectSiteMap(root);
+    expect(section.score).toBe(100);
+    expect(section.summary).toContain('6 of 6 anchors resolve');
+    expect(section.metrics.find((m) => m.label === 'journeys')?.value).toBe('1');
+    expect(section.metrics.find((m) => m.label === 'broken anchors')?.value).toBe('0');
+    expect(attention).toEqual([]);
+  });
+
+  it('raises attention when the stamped freshness says the map drifted', () => {
+    const root = repo();
+    writeMap(root, { anchors_total: 6, anchors_resolved: 4, anchors_broken: 2 });
+    const { section, attention } = collectSiteMap(root);
+    expect(section.score).toBe(67);
     expect(attention).toHaveLength(1);
     expect(attention[0]!.severity).toBe('warn');
+    expect(attention[0]!.message).toContain('2 of 6 cited anchors no longer resolve');
   });
 
-  it('degrades to an em-dash age when generated_at is unparseable', () => {
+  it('escalates to critical when five or more anchors are broken, and a zero-anchor map scores clean', () => {
     const root = repo();
-    writeSidecar(root, '2026-07-13-00-00-00.json', {
-      report_id: 'SITEMAP-x',
-      generated_at: 'not-a-date',
-      surface_count: 0,
-      journey_count: 0,
-      findings: [],
-      blocked_checks: [],
-    });
-    const { section } = collectSiteMap(root, NOW);
-    expect(section.metrics.find((m) => m.label === 'latest')?.value).toBe('—');
-  });
+    writeMap(root, { anchors_total: 9, anchors_resolved: 4, anchors_broken: 5 });
+    expect(collectSiteMap(root).attention[0]!.severity).toBe('critical');
 
-  it('marks critical attention when 5+ findings are open, and excludes retest sidecars', () => {
-    const root = repo();
-    writeSidecar(root, '2026-07-13-00-00-00-retest-2026-07-14-00-00-00.json', {
-      report_id: 'RETEST',
-      generated_at: '2026-07-14T00:00:00.000Z',
-      surface_count: 1,
-      journey_count: 0,
-      findings: [],
-      blocked_checks: [],
-    });
-    writeSidecar(root, '2026-07-12-00-00-00.json', {
-      report_id: 'SITEMAP-2026-07-12-00-00-00',
-      generated_at: '2026-07-12T00:00:00.000Z',
-      surface_count: 8,
-      journey_count: 1,
-      findings: Array.from({ length: 5 }, (_, i) => ({ id: `SM-${i}`, status: 'open' }) as never),
-      blocked_checks: [],
-    });
-    const { section, attention } = collectSiteMap(root, NOW);
-    // The retest sidecar is excluded, so the web/page surface count comes from the base run.
-    expect(section.metrics.find((m) => m.label === 'surfaces')?.value).toBe('8');
-    expect(attention[0]!.severity).toBe('critical');
+    const empty = repo();
+    writeMap(empty, { anchors_total: 0, anchors_resolved: 0, anchors_broken: 0 });
+    expect(collectSiteMap(empty).section.score).toBe(100);
   });
 });

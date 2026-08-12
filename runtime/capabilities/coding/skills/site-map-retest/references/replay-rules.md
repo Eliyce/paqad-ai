@@ -1,32 +1,35 @@
-# Replay rules
+# Re-run rules
 
-A retest is a replay, not a re-audit. Its whole value is that it answers one question honestly —
-did the prior findings get fixed, or did the map drift — without moving the goalposts. These are
-the rules that keep it honest.
+A re-run is a re-check, not a re-audit with moved goalposts. Its whole value is that it answers
+one question honestly — does the stored map still match the code — using the exact verification
+the `site-map` workflow runs. These are the rules that keep it honest.
+
+## One engine, one map
+
+- There is no separate retest engine and no report replay. The re-run is `paqad-ai sitemap run`
+  over the one stored map at `docs/site-map/`, and its lasting record is the trust and
+  freshness the engine stamps back into that map.
 
 ## Match by stable id, never by label
 
-- Every finding is matched to the fresh scan by its content-addressed `SM-` id, not by category
-  or surface label. A renamed surface is the same finding; a coincidentally-similar new one is
-  not.
+- Finding ids are content-addressed (`SM-<hash8>`), so a finding that persists across runs
+  keeps its id and the baseline ratchet marks it `pre-existing`. A renamed surface is the same
+  finding; a coincidentally-similar new one is not.
 
-## The three statuses
+## What drift means
 
-- **still-open** — the finding's id reproduces in the fresh scan. The gap is still there.
-- **fixed** — a deterministic finding's id is gone from the fresh scan. The gap is resolved.
-- **needs-manual-verification** — an ai-judged finding's id is gone. A deterministic re-scan
-  cannot re-derive an ai-judged finding, so its absence is not proof of a fix. A human confirms.
+- `anchors_broken > 0` in the stamped freshness is the drift verdict: code the map cites no
+  longer resolves. That is a finding against the map, never a reason to quietly drop the claim.
+- A finding that disappears between runs was resolved by whatever change removed its evidence —
+  say which change, when you can see it, rather than just counting it gone.
 
-## What a retest never does
+## What a re-run never does
 
-- It never invents a new finding. A problem the source report did not contain is out of scope —
-  run a fresh `site-map` audit for those.
-- It never lowers a finding's severity. Severity belongs to the source report; the retest only
-  updates status.
-- It never calls the absence of proof a fix. A surface whose cited evidence no longer resolves is
-  `still-open` drift, not `fixed`.
+- It never invents a finding. The engine's output is the only source.
+- It never softens a finding. Absence of proof is drift, not a fix.
+- It never hand-edits the stamped freshness. Only the verb writes it.
 
 ## The verdict
 
-Safe to merge only when nothing is still-open. A `needs-manual-verification` count is a gap in
-confidence, not a pass — surface it, do not bury it.
+Safe to merge only when the run exits clean and no cited anchor is broken. Blocked checks are a
+gap in confidence, not a pass — surface them, do not bury them.

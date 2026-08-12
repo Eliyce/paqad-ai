@@ -1,14 +1,24 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runSiteMapAudit = vi.fn();
-const runSiteMapRetest = vi.fn();
 const runJourneyCuration = vi.fn();
 const createSiteMapGatherer = vi.fn(() => ({}) as never);
+const deriveCreationQuestions = vi.fn();
+const recordCreationAnswers = vi.fn();
 
 vi.mock('@/site-map/run.js', () => ({ runSiteMapAudit }));
-vi.mock('@/site-map/retest-run.js', () => ({ runSiteMapRetest }));
 vi.mock('@/site-map/journey-curation.js', () => ({ runJourneyCuration }));
 vi.mock('@/site-map/gatherer.js', () => ({ createSiteMapGatherer }));
+// Mock the two fs-touching composers but keep the real parseCreationDecisions.
+vi.mock('@/site-map/creation-flow.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/site-map/creation-flow.js')>()),
+  deriveCreationQuestions,
+  recordCreationAnswers,
+}));
 
 const { createSitemapCommand } = await import('@/cli/commands/sitemap.js');
 const { createProgram } = await import('@/cli/program.js');
@@ -24,9 +34,10 @@ async function invoke(args: string[]): Promise<string[]> {
 describe('paqad-ai sitemap command', () => {
   beforeEach(() => {
     runSiteMapAudit.mockReset();
-    runSiteMapRetest.mockReset();
     runJourneyCuration.mockReset();
     createSiteMapGatherer.mockClear();
+    deriveCreationQuestions.mockReset();
+    recordCreationAnswers.mockReset();
   });
 
   afterEach(() => {
@@ -49,6 +60,7 @@ describe('paqad-ai sitemap command', () => {
         { check: 'web-surfaces', reason: 'no extractor', install_hint: 'hand-author' },
       ],
       baseline_created: true,
+      trust_restamp: { status: 'stamped', path: 'docs/site-map/app-map.yaml' },
       exit_code: 1,
     });
     const out = await invoke(['run', '--project-root', '/tmp/app']);
@@ -56,6 +68,9 @@ describe('paqad-ai sitemap command', () => {
     expect(createSiteMapGatherer).toHaveBeenCalledWith('/tmp/app');
     expect(out.join('\n')).toContain('worth a look');
     expect(out.join('\n')).toContain('web-surfaces skipped');
+    expect(out.join('\n')).toContain(
+      'Stamped earned trust and freshness into docs/site-map/app-map.yaml',
+    );
     expect(out.join('\n')).toContain('Baseline recorded');
     expect(out.join('\n')).toContain('"findings":2');
   });
@@ -69,11 +84,14 @@ describe('paqad-ai sitemap command', () => {
       finding_count: 0,
       blocked_checks: [],
       baseline_created: false,
+      trust_restamp: { status: 'no-map' },
       exit_code: 0,
     });
     const out = await invoke(['run', '--quiet']);
     expect(process.exitCode).toBe(0);
     expect(out.join('\n')).toContain('the map matches the code');
+    // no-map means nothing was stamped, so no stamped line is printed.
+    expect(out.join('\n')).not.toContain('Stamped earned trust');
     expect(out.join('\n')).not.toContain('"findings"');
   });
 
@@ -84,61 +102,10 @@ describe('paqad-ai sitemap command', () => {
     expect(out.join('\n')).toContain('sitemap run failed: boom');
   });
 
-  it('retest: still-open findings exit 1 and pass through the sidecar flag', async () => {
-    runSiteMapRetest.mockResolvedValue({
-      ok: true,
-      report_id: 'RETEST-z',
-      report_path: 'docs/site-map/z-retest.md',
-      sidecar_path: 'docs/site-map/z-retest.json',
-      fixed: 1,
-      still_open: 2,
-      needs_manual_verification: 0,
-      exit_code: 1,
-    });
-    const out = await invoke([
-      'retest',
-      '--project-root',
-      '/tmp/app',
-      '--sidecar',
-      'docs/site-map/src.json',
-    ]);
-    expect(process.exitCode).toBe(1);
-    expect(runSiteMapRetest).toHaveBeenCalledWith(
-      expect.objectContaining({ projectRoot: '/tmp/app', sidecar: 'docs/site-map/src.json' }),
-    );
-    expect(out.join('\n')).toContain('2 still open');
-    expect(out.join('\n')).toContain('"still_open":2');
-  });
-
-  it('retest: nothing still open exits 0 and honours --quiet', async () => {
-    runSiteMapRetest.mockResolvedValue({
-      ok: true,
-      report_id: 'RETEST-w',
-      report_path: 'docs/site-map/w-retest.md',
-      sidecar_path: 'docs/site-map/w-retest.json',
-      fixed: 3,
-      still_open: 0,
-      needs_manual_verification: 1,
-      exit_code: 0,
-    });
-    const out = await invoke(['retest', '--quiet']);
-    expect(process.exitCode).toBe(0);
-    expect(out.join('\n')).toContain('nothing still open');
-    expect(out.join('\n')).not.toContain('"still_open"');
-  });
-
-  it('retest: a missing source report exits 2', async () => {
-    runSiteMapRetest.mockResolvedValue({ ok: false, reason: 'no prior site-map report found' });
-    const out = await invoke(['retest']);
-    expect(process.exitCode).toBe(2);
-    expect(out.join('\n')).toContain('no prior site-map report');
-  });
-
-  it('retest: an unexpected error exits 2', async () => {
-    runSiteMapRetest.mockRejectedValue(new Error('kaboom'));
-    const out = await invoke(['retest']);
-    expect(process.exitCode).toBe(2);
-    expect(out.join('\n')).toContain('sitemap retest failed: kaboom');
+  it('retest is retired: the subcommand no longer exists (ART-3)', async () => {
+    const names = createSitemapCommand().commands.map((c) => c.name());
+    expect(names).not.toContain('retest');
+    expect(names).toEqual(expect.arrayContaining(['run', 'journey']));
   });
 
   it('journey confirm: reports success and exits 0', async () => {
@@ -185,5 +152,145 @@ describe('paqad-ai sitemap command', () => {
     const out = await invoke(['journey', 'confirm', 'x']);
     expect(process.exitCode).toBe(2);
     expect(out.join('\n')).toContain('journey confirm failed: splat');
+  });
+
+  it('questions + answer are registered subcommands (C6a)', () => {
+    const names = createSitemapCommand().commands.map((c) => c.name());
+    expect(names).toEqual(expect.arrayContaining(['questions', 'answer']));
+  });
+
+  it('questions: no authored map prints the empty JSON payload', async () => {
+    deriveCreationQuestions.mockReturnValue({ status: 'no-map' });
+    const out = await invoke(['questions', '--project-root', '/tmp/app']);
+    expect(deriveCreationQuestions).toHaveBeenCalledWith('/tmp/app');
+    expect(out.join('\n')).toContain('nothing to ask');
+    expect(out.join('\n')).toContain('"status":"no-map"');
+  });
+
+  it('questions: lists the open questions as a machine-readable payload', async () => {
+    deriveCreationQuestions.mockReturnValue({
+      status: 'ready',
+      reconciliation: {
+        to_ask: [
+          {
+            question_id: 'grouping:ungrouped-surfaces',
+            category: 'grouping',
+            question: 'How should they be grouped?',
+            anchors: ['src/cli/index.ts:1'],
+            recommended_default: { answer: 'group-by-module', reason: 'by module' },
+          },
+        ],
+        reused: [],
+        reopened: [],
+      },
+    });
+    const out = await invoke(['questions']);
+    expect(out.join('\n')).toContain('1 question(s) need your call');
+    expect(out.join('\n')).toContain('"question_id":"grouping:ungrouped-surfaces"');
+    expect(out.join('\n')).toContain('"reused_count":0');
+  });
+
+  it('questions: a fully-decided map says nothing is left to ask', async () => {
+    deriveCreationQuestions.mockReturnValue({
+      status: 'ready',
+      reconciliation: { to_ask: [], reused: [], reopened: [] },
+    });
+    const out = await invoke(['questions']);
+    expect(out.join('\n')).toContain('fully decided');
+    expect(out.join('\n')).toContain('"status":"ready"');
+  });
+
+  it('questions: an unexpected error exits 2', async () => {
+    deriveCreationQuestions.mockImplementation(() => {
+      throw new Error('kaboom');
+    });
+    const out = await invoke(['questions']);
+    expect(process.exitCode).toBe(2);
+    expect(out.join('\n')).toContain('sitemap questions failed: kaboom');
+  });
+
+  describe('answer', () => {
+    let dir: string;
+    let inputFile: string;
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'paqad-sitemap-cli-'));
+      inputFile = join(dir, 'decisions.json');
+    });
+
+    afterEach(() => {
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('records the decisions, printing skipped ids and the stamp line', async () => {
+      writeFileSync(
+        inputFile,
+        JSON.stringify([
+          {
+            question_id: 'grouping:ungrouped-surfaces',
+            answer: 'group-by-module',
+            decided_by: 'human',
+          },
+        ]),
+      );
+      recordCreationAnswers.mockReturnValue({
+        status: 'recorded',
+        recorded: 1,
+        unknown: ['labels-language:gone'],
+        answers_path: '/tmp/app/docs/site-map/answers.yaml',
+        stamped: true,
+        map_path: '/tmp/app/docs/site-map/app-map.yaml',
+      });
+      const out = await invoke(['answer', '--input', inputFile, '--project-root', '/tmp/app']);
+      expect(process.exitCode).toBe(0);
+      expect(recordCreationAnswers).toHaveBeenCalledWith('/tmp/app', [
+        {
+          question_id: 'grouping:ungrouped-surfaces',
+          answer: 'group-by-module',
+          decided_by: 'human',
+        },
+      ]);
+      expect(out.join('\n')).toContain('recorded 1 answer(s)');
+      expect(out.join('\n')).toContain('Skipped 1 answer(s)');
+      expect(out.join('\n')).toContain('Stamped who-decided provenance onto');
+    });
+
+    it('a no-map result exits 1', async () => {
+      writeFileSync(
+        inputFile,
+        JSON.stringify([{ question_id: 'q', answer: 'a', decided_by: 'human' }]),
+      );
+      recordCreationAnswers.mockReturnValue({ status: 'no-map' });
+      const out = await invoke(['answer', '--input', inputFile]);
+      expect(process.exitCode).toBe(1);
+      expect(out.join('\n')).toContain('no authored map to record answers against');
+    });
+
+    it('a clean record prints neither the skip nor the stamp line', async () => {
+      writeFileSync(
+        inputFile,
+        JSON.stringify([{ question_id: 'q', answer: 'a', decided_by: 'human' }]),
+      );
+      recordCreationAnswers.mockReturnValue({
+        status: 'recorded',
+        recorded: 1,
+        unknown: [],
+        answers_path: '/tmp/app/docs/site-map/answers.yaml',
+        stamped: false,
+        map_path: null,
+      });
+      const out = await invoke(['answer', '--input', inputFile]);
+      expect(process.exitCode).toBe(0);
+      expect(out.join('\n')).not.toContain('Skipped');
+      expect(out.join('\n')).not.toContain('Stamped who-decided');
+    });
+
+    it('a malformed input file exits 2 via the real parser', async () => {
+      writeFileSync(inputFile, 'not json');
+      const out = await invoke(['answer', '--input', inputFile]);
+      expect(process.exitCode).toBe(2);
+      expect(out.join('\n')).toContain('sitemap answer failed: decisions input is not valid JSON');
+      expect(recordCreationAnswers).not.toHaveBeenCalled();
+    });
   });
 });

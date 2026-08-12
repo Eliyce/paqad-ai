@@ -22,6 +22,10 @@
     "visibility": { "type": "string", "enum": ["frontstage", "backstage"] },
     "derivation": { "type": "string", "enum": ["static", "convention", "agent", "human"] },
     "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "trustTier": {
+      "type": "string",
+      "enum": ["unverified", "inferred", "proven-in-code", "proven-by-test", "human-confirmed"]
+    },
     "guardKind": {
       "type": "string",
       "enum": [
@@ -80,6 +84,16 @@
         },
         "frameworks": { "type": "array", "items": { "type": "string" } },
         "generated_from": { "type": "string" },
+        "freshness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["anchors_total", "anchors_resolved", "anchors_broken"],
+          "properties": {
+            "anchors_total": { "type": "integer", "minimum": 0 },
+            "anchors_resolved": { "type": "integer", "minimum": 0 },
+            "anchors_broken": { "type": "integer", "minimum": 0 }
+          }
+        },
         "language": {
           "oneOf": [
             { "type": "string", "minLength": 1 },
@@ -129,7 +143,8 @@
           "enum": ["new", "active", "launched", "inactive", "stale"]
         },
         "introduced": { "type": "string" },
-        "note": { "type": "string" }
+        "note": { "type": "string" },
+        "trust": { "$ref": "#/$defs/trustTier" }
       }
     },
     "area": {
@@ -205,6 +220,7 @@
         "visibility": { "$ref": "#/$defs/visibility" },
         "evidence": { "$ref": "#/$defs/evidenceRef" },
         "confidence": { "$ref": "#/$defs/confidence" },
+        "trust": { "$ref": "#/$defs/trustTier" },
         "mode": { "type": "string", "enum": ["link", "call"] },
         "guard_text": { "type": "string" },
         "guard_mode": { "type": "string", "enum": ["deterministic", "llm-judged"] },
@@ -255,6 +271,7 @@
         "evidence": { "$ref": "#/$defs/evidenceRef" },
         "derivation": { "$ref": "#/$defs/derivation" },
         "confidence": { "$ref": "#/$defs/confidence" },
+        "trust": { "$ref": "#/$defs/trustTier" },
         "visibility": { "$ref": "#/$defs/visibility" },
         "variants": { "type": "array", "items": { "$ref": "#/$defs/surfaceVariant" } },
         "variant_group": { "type": "string" },
@@ -281,7 +298,8 @@
         "label": { "type": "string", "minLength": 1 },
         "actor": { "type": "string" },
         "priority": { "type": "string" },
-        "status": { "type": "string", "enum": ["proposed", "confirmed", "locked"] }
+        "status": { "type": "string", "enum": ["proposed", "confirmed", "locked"] },
+        "trust": { "$ref": "#/$defs/trustTier" }
       }
     }
   }

@@ -73,6 +73,23 @@ export type Derivation = (typeof DERIVATIONS)[number];
 export const CONFIDENCES = ['high', 'medium', 'low'] as const;
 export type Confidence = (typeof CONFIDENCES)[number];
 
+/**
+ * How strongly an element is proven, lowest to highest (issue #466, PROOF-14). The LLM authors
+ * the map, but nothing is trusted on its word: a tier is only earned. `unverified` is a bare
+ * LLM claim; `inferred` is convention- or consistency-checked but still model-judged;
+ * `proven-in-code` is confirmed by a deterministic check; `proven-by-test` is traversed by a
+ * passing test; `human-confirmed` is attested by a person. A lower tier is never shown as a
+ * higher one, and the tier is perishable — it must be re-earned when the underlying code changes.
+ */
+export const TRUST_TIERS = [
+  'unverified',
+  'inferred',
+  'proven-in-code',
+  'proven-by-test',
+  'human-confirmed',
+] as const;
+export type TrustTier = (typeof TRUST_TIERS)[number];
+
 /** Whether a router edge is machine-evaluable or judged by the model (the honesty marker). */
 export const GUARD_MODES = ['deterministic', 'llm-judged'] as const;
 export type GuardMode = (typeof GUARD_MODES)[number];
@@ -104,12 +121,31 @@ export interface AppLanguage {
   label_policy?: string;
 }
 
+/**
+ * How stale the whole map is against the code it cites (issue #466, Part G, FRESH-1). A count of the
+ * distinct `file:line` anchors the map cites and how many still resolve in the tree, stamped into the
+ * stored map at author/verify time so the dashboard can read freshness statically, with no resolution
+ * work at view time (NFR-4). Counts only, never a timestamp, so re-stamping an unchanged map over
+ * unchanged code stays a byte-for-byte no-op. A non-zero `anchors_broken` means the code the map
+ * points to has moved, so the map is stale by exactly that many anchors.
+ */
+export interface AppFreshness {
+  /** Distinct cited `file:line` anchors across surfaces, transitions, and guards. */
+  anchors_total: number;
+  /** How many of those anchors still resolve in the tree. */
+  anchors_resolved: number;
+  /** How many no longer resolve — the map is stale against code by exactly this many. */
+  anchors_broken: number;
+}
+
 /** Header describing the mapped product. */
 export interface AppMeta {
   name: string;
   kind: AppKind | AppKind[];
   frameworks?: string[];
   generated_from?: string;
+  /** Deterministic map-vs-code freshness, stamped at author/verify time (issue #466). */
+  freshness?: AppFreshness;
   /** A bare default locale (`en`) or the full i18n block. */
   language?: string | AppLanguage;
 }
@@ -132,6 +168,8 @@ export interface Guard {
   /** The testability hint: how to become able to cross this guard. */
   satisfy_via?: string;
   evidence?: EvidenceRef;
+  /** How strongly this guard is proven (issue #466, PROOF-14). */
+  trust?: TrustTier;
   // feature-flag guards carry a (flag_key, required_variant) pair, never a raw value:
   flag_key?: string;
   required_variant?: string;
@@ -206,6 +244,8 @@ export interface Transition {
   visibility?: Visibility;
   evidence?: EvidenceRef;
   confidence?: Confidence;
+  /** How strongly this transition is proven (issue #466, PROOF-14). */
+  trust?: TrustTier;
   /** For handoff/subflow edges: `link` (no return) vs `call` (returns). */
   mode?: 'link' | 'call';
   // router-edge fields (prompt-flow):
@@ -233,6 +273,8 @@ export interface Surface {
   evidence?: EvidenceRef;
   derivation?: Derivation;
   confidence?: Confidence;
+  /** How strongly this surface is proven (issue #466, PROOF-14). */
+  trust?: TrustTier;
   visibility?: Visibility;
   variants?: SurfaceVariant[];
   variant_group?: string;
@@ -258,6 +300,8 @@ export interface JourneyIndexEntry {
   actor?: string;
   priority?: string;
   status?: JourneyStatus;
+  /** How strongly this journey is proven (issue #466, PROOF-14). */
+  trust?: TrustTier;
 }
 
 /** The canonical behavioural map (`app-map.yaml`). */

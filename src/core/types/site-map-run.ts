@@ -1,9 +1,8 @@
 // Site-map run types — findings, the baseline ratchet, and run status. Deliberately
 // separate from the map-document types in `site-map.ts` (Surface/Journey/etc.): those
 // describe the artifact the run produces, these describe the audit OF that artifact.
-// Modelled on the codebase-health finding/retest/baseline shapes so retest, the SIEM
-// fold, and the baseline ratchet all behave identically. See
-// docs/specs/site-map-capability.plan.md §II.4.
+// Modelled on the codebase-health finding/baseline shapes so the SIEM fold and the
+// baseline ratchet behave identically. See docs/specs/site-map-capability.plan.md §II.4.
 
 export const SITE_MAP_WORKFLOWS = ['site-map', 'site-map-retest'] as const;
 export type SiteMapWorkflowName = (typeof SITE_MAP_WORKFLOWS)[number];
@@ -27,6 +26,7 @@ export const SITE_MAP_CATEGORIES = [
   'SM-EVIDENCE', // a cited file:line does not resolve (Tier-A)
   'SM-XREF', // a transition target or guard reference does not exist (Tier-A)
   'SM-GUARDLESS', // a sensitive surface has no guard
+  'SM-TRUST', // an element claims a higher trust tier than its evidence earns (Tier-A, INV-3)
 ] as const;
 export type SiteMapCategory = (typeof SITE_MAP_CATEGORIES)[number];
 
@@ -51,13 +51,6 @@ export const SITE_MAP_BASELINE_STATUSES = [
   'unknown',
 ] as const;
 export type SiteMapBaselineStatus = (typeof SITE_MAP_BASELINE_STATUSES)[number];
-
-export const SITE_MAP_RETEST_STATUSES = [
-  'fixed',
-  'still-open',
-  'needs-manual-verification',
-] as const;
-export type SiteMapRetestStatus = (typeof SITE_MAP_RETEST_STATUSES)[number];
 
 export const SITE_MAP_FINDING_STATUSES = [
   'open',
@@ -86,10 +79,6 @@ export interface SiteMapFinding {
   affected_files: string[];
   baseline_status: SiteMapBaselineStatus;
   status: SiteMapFindingStatus;
-}
-
-export interface SiteMapRetestFinding extends SiteMapFinding {
-  retest_status: SiteMapRetestStatus;
 }
 
 export interface SiteMapBaselineSummary {
@@ -125,9 +114,10 @@ export interface SiteMapExtractionSummary {
 }
 
 /**
- * The dual-written run report (`docs/site-map/<ts>.json` sidecar). Mirrors `HealthReportIndex`:
- * a self-describing, schema-versioned record of one audit — its findings, what was blocked, the
- * baseline delta — so `paqad-ai audit export` and the retest bookend read a stable shape.
+ * The in-memory run report. A self-describing, schema-versioned record of one audit — its
+ * findings, what was blocked, the baseline delta. It is never dumped under `docs/` (issue #466,
+ * ART-3): the caller narrates it, and the findings persist in the run's evidence bundle
+ * (`finding-index.json`) under `.paqad/site-map/runs/`.
  */
 export interface SiteMapReportIndex {
   schema_version: '1';
@@ -136,22 +126,15 @@ export interface SiteMapReportIndex {
   report_id: string;
   workflow: SiteMapWorkflowName;
   generated_at: string;
-  /** Repo-relative posix path of the human markdown report. */
-  report_path: string;
-  /** Repo-relative posix path of this JSON sidecar. */
-  sidecar_path: string;
   /** Repo-relative posix path of the run's evidence bundle directory. */
   bundle_dir: string;
-  source_report_path: string | null;
-  source_report_id: string | null;
   app: SiteMapAppSummary;
   /** Surfaces in the CANONICAL map (`app-map.yaml`); 0 when no map exists yet. */
   surface_count: number;
   journey_count: number;
   extraction: SiteMapExtractionSummary;
-  findings: Array<SiteMapFinding | SiteMapRetestFinding>;
+  findings: SiteMapFinding[];
   blocked_checks: SiteMapBlockedCheck[];
   baseline: SiteMapBaselineSummary;
   sources_used: string[];
-  next_remediation_priorities: string[];
 }

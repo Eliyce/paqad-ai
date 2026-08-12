@@ -2,23 +2,21 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import YAML from 'yaml';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   SiteMapSchemaError,
-  appMapPath,
-  findLatestSiteMapSidecar,
+  canonicalAppMapPath,
   journeyPath,
   journeysDir,
   listJourneyIds,
   readAllJourneys,
-  readAppMap,
+  readCanonicalSiteMap,
   readJourney,
-  readSiteMapSidecar,
-  writeAppMap,
+  writeCanonicalSiteMap,
   writeJourney,
 } from '@/site-map/index.js';
-import { PATHS } from '@/core/constants/paths.js';
 import type { AppMap, Journey } from '@/core/types/site-map.js';
 
 import {
@@ -38,26 +36,27 @@ describe('site-map store', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  describe('app-map', () => {
-    it('round-trips a valid map through YAML', () => {
+  describe('canonical app-map (docs/site-map/)', () => {
+    it('round-trips a valid map through YAML at the one canonical location', () => {
       const map = validAppMap();
-      const path = writeAppMap(root, map);
-      expect(path).toBe(appMapPath(root));
-      expect(readAppMap(root)).toEqual(map);
+      const path = writeCanonicalSiteMap(root, map);
+      expect(path).toBe(canonicalAppMapPath(root));
+      expect(path).toContain(join('docs', 'site-map', 'app-map.yaml'));
+      expect(readCanonicalSiteMap(root)).toEqual(map);
     });
 
     it('leaves no temp file behind after an atomic write', () => {
-      writeAppMap(root, validAppMap());
-      expect(() => readFileSync(`${appMapPath(root)}.tmp`, 'utf8')).toThrow();
+      writeCanonicalSiteMap(root, validAppMap());
+      expect(() => readFileSync(`${canonicalAppMapPath(root)}.tmp`, 'utf8')).toThrow();
     });
 
     it('throws SiteMapSchemaError rather than persisting an invalid map', () => {
       const bad = { ...validAppMap(), schema_version: 99 } as unknown as AppMap;
-      expect(() => writeAppMap(root, bad)).toThrow(SiteMapSchemaError);
+      expect(() => writeCanonicalSiteMap(root, bad)).toThrow(SiteMapSchemaError);
       // Nothing was written.
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
       try {
-        writeAppMap(root, bad);
+        writeCanonicalSiteMap(root, bad);
       } catch (error) {
         expect(error).toBeInstanceOf(SiteMapSchemaError);
         expect((error as SiteMapSchemaError).errors.length).toBeGreaterThan(0);
@@ -65,29 +64,42 @@ describe('site-map store', () => {
     });
 
     it('reads null when the map is absent', () => {
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
     });
 
     it('reads null when the file is corrupt YAML', () => {
-      const target = appMapPath(root);
+      const target = canonicalAppMapPath(root);
       mkdirSync(join(target, '..'), { recursive: true });
       writeFileSync(target, ':\n  - [unbalanced', 'utf8');
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
     });
 
     it('reads null when the file is valid YAML but schema-invalid', () => {
-      const target = appMapPath(root);
+      const target = canonicalAppMapPath(root);
       mkdirSync(join(target, '..'), { recursive: true });
       writeFileSync(target, 'schema_version: 1\napp:\n  name: x\n', 'utf8'); // no surfaces
-      expect(readAppMap(root)).toBeNull();
+      expect(readCanonicalSiteMap(root)).toBeNull();
+    });
+
+    it('accepts trust tiers on the canonical map elements', () => {
+      const map = validAppMap();
+      map.surfaces[0]!.trust = 'proven-in-code';
+      map.surfaces[0]!.transitions![0]!.trust = 'proven-by-test';
+      map.guards![0]!.trust = 'human-confirmed';
+      map.journeys![0]!.trust = 'inferred';
+      const target = canonicalAppMapPath(root);
+      mkdirSync(join(target, '..'), { recursive: true });
+      writeFileSync(target, YAML.stringify(map), 'utf8');
+      expect(readCanonicalSiteMap(root)).toEqual(map);
     });
   });
 
-  describe('journeys', () => {
-    it('round-trips a valid journey through YAML', () => {
+  describe('journeys (docs/site-map/journeys/)', () => {
+    it('round-trips a valid journey through YAML under the canonical location', () => {
       const journey = validJourney();
       const path = writeJourney(root, journey);
       expect(path).toBe(journeyPath(root, journey.id));
+      expect(path).toContain(join('docs', 'site-map', 'journeys'));
       expect(readJourney(root, journey.id)).toEqual(journey);
     });
 
@@ -114,6 +126,7 @@ describe('site-map store', () => {
 
     it('lists nothing when the journeys directory is absent', () => {
       expect(listJourneyIds(root)).toEqual([]);
+      expect(readAllJourneys(root)).toEqual([]);
     });
 
     it('reads all valid journeys and skips invalid ones', () => {
@@ -127,47 +140,6 @@ describe('site-map store', () => {
       );
       const ids = readAllJourneys(root).map((journey) => journey.id);
       expect(ids).toEqual(['a', 'b']);
-    });
-  });
-
-  describe('run-report sidecar', () => {
-    function writeSidecar(name: string, body: string): string {
-      const dir = join(root, PATHS.SITE_MAP_REPORT_DIR);
-      mkdirSync(dir, { recursive: true });
-      const path = join(dir, name);
-      writeFileSync(path, body, 'utf8');
-      return path;
-    }
-
-    it('reads a valid sidecar and returns null for missing / corrupt / non-array findings', () => {
-      const valid = writeSidecar(
-        '2026-01-02.json',
-        JSON.stringify({ report_id: 'X', findings: [] }),
-      );
-      expect(readSiteMapSidecar(valid)?.report_id).toBe('X');
-
-      expect(readSiteMapSidecar(join(root, 'docs/site-map/absent.json'))).toBeNull();
-
-      const corrupt = writeSidecar('corrupt.json', '{ not json');
-      expect(readSiteMapSidecar(corrupt)).toBeNull();
-
-      const noFindings = writeSidecar('no-findings.json', JSON.stringify({ report_id: 'X' }));
-      expect(readSiteMapSidecar(noFindings)).toBeNull();
-    });
-
-    it('finds the newest sidecar, excludes retest reports, and returns null when the dir is absent', () => {
-      expect(findLatestSiteMapSidecar(root)).toBeNull();
-
-      // A dir that exists but holds only a retest sidecar has no eligible source → null.
-      writeSidecar('2026-01-01-00-00-00-retest-2026-03-01-00-00-00.json', '{}');
-      expect(findLatestSiteMapSidecar(root)).toBeNull();
-
-      writeSidecar('2026-01-01-00-00-00.json', '{}');
-      writeSidecar('2026-02-01-00-00-00.json', '{}');
-
-      expect(findLatestSiteMapSidecar(root)).toBe(
-        join(root, PATHS.SITE_MAP_REPORT_DIR, '2026-02-01-00-00-00.json'),
-      );
     });
   });
 });

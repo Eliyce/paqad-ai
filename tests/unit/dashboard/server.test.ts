@@ -325,6 +325,17 @@ describe('startDashboardServer', () => {
       expect(after.journeys[0]!.status).toBe('confirmed');
     });
 
+    it('serves the site-map view on GET /api/site-map/map (disabled while the flag is off, #466)', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const view = (await (await fetch(`${server!.url}/api/site-map/map`)).json()) as {
+        status: string;
+      };
+      // The flag defaults off, so the map endpoint is inert (INV-1) — it still answers, honestly.
+      expect(view).toEqual({ status: 'disabled' });
+    });
+
     it('rejects a curate call with a bad body or a non-proposed journey (#448)', async () => {
       bootstrap(root);
       await startServer();

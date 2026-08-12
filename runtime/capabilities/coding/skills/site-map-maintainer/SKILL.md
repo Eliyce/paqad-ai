@@ -31,26 +31,26 @@ Skip it when the change touches nothing the map depends on.
 ## Inputs
 
 - The change's `changed_files`.
-- The committed `app-map.yaml` and the run's staleness signal (which views the freshness gate
-  reports drifted).
+- The stored `docs/site-map/app-map.yaml` and its stamped freshness (the broken-anchor count
+  the freshness gate reads).
 - Read `references/patch-scope.md` before patching.
 
 ## Procedure
 
-The drift detection is the engine's (the freshness gate compares source hashes); your job is the
-scoped patch.
+The drift detection is the engine's (the stamped freshness records which cited anchors no
+longer resolve); your job is the scoped patch.
 
-1. Run `paqad-ai sitemap run`; read which published views it reports stale and which surfaces the
-   changed files cite.
+1. Run `paqad-ai sitemap run`; read which cited anchors broke and which surfaces the changed
+   files cite.
 2. Patch only those surfaces — add the new one, update the changed guard, mark the removed one —
    leaving untouched surfaces exactly as curated.
 3. Re-run the verb to confirm the freshness gate is satisfied and the map validates.
 
 ## Output Contract
 
-- A JSON object `{ patched_surfaces: [...], stale_views_resolved: [...], still_stale: [...] }`.
+- A JSON object `{ patched_surfaces: [...], anchors_repaired: [...], still_broken: [...] }`.
 - Every patched surface carries resolving evidence from the changed files.
-- `still_stale` is empty when the change is complete; a non-empty list is a blocking gap.
+- `still_broken` is empty when the change is complete; a non-empty list is a blocking gap.
 
 ## Escalate / Stop Conditions
 
