@@ -31,6 +31,10 @@ import {
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
+import {
+  appendChangeMetrics,
+  appendFeatureEvidenceRows,
+} from '@/feature-evidence/bundle-ledgers.js';
 import { reuseCounts } from '@/feature-evidence/reuse.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
@@ -337,6 +341,15 @@ export async function runRepositoryVerification(
         changedFiles: context.changed_files,
       });
       recordChangeMetrics(context.project_root, changeMetrics);
+      // Issue #468, Phase A — additive dual-write of the same metrics into the active
+      // feature's `change-metrics.jsonl`. A no-op when no feature is active; the old-home
+      // write above is untouched. Inside this best-effort try/catch, so it cannot change
+      // the verdict.
+      appendChangeMetrics(
+        context.project_root,
+        resolveSessionId(context.project_root, options.hostSessionId ?? null),
+        changeMetrics,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: change-metrics skipped (${message})`);
@@ -410,16 +423,21 @@ export async function runRepositoryVerification(
       // feature's bundle from the SAME graded rows, honouring the SAME enterprise flags
       // (`evidence_ledger` → receipt.json, `ai_bom` → ai-bom.json). Best-effort: no active
       // feature (a framework-internal change, or none open) simply skips the bundle write.
-      const activeFeature = currentFeature(
-        context.project_root,
-        resolveSessionId(context.project_root, options.hostSessionId ?? null),
-      );
+      const bundleSessionId = resolveSessionId(context.project_root, options.hostSessionId ?? null);
+      const activeFeature = currentFeature(context.project_root, bundleSessionId);
       // Issue #390 — do not project receipt.json / ai-bom.json into a feature bundle for
       // a route we can prove is non-feature-development, even if a pointer is active.
       if (
         activeFeature &&
         !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
       ) {
+        // Issue #468, Phase A — additive dual-write of the SAME graded rows into the
+        // active feature's `evidence.jsonl`, honouring the same `evidence_ledger` flag as
+        // the top-level `appendEvidenceRows` above (which is untouched). Best-effort:
+        // riding the enclosing try/catch, it introduces no throw into verdict computation.
+        if (policy.evidence_ledger) {
+          appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
+        }
         projectFeatureReceipt(context.project_root, activeFeature, {
           fileDigests,
           rows,

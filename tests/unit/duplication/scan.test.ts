@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { readDuplication } from '@/feature-evidence/bundle-ledgers.js';
 import { runDuplicationScan } from '@/duplication/scan.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import {
@@ -48,6 +49,29 @@ describe('runDuplicationScan', () => {
     });
     expect(report.blocking).toBe(true);
     expect(report.counts.deterministic).toBe(1);
+    expect(readDuplicationReport(root)).toEqual(report);
+  });
+
+  it('#468: additively writes the run into the active feature bundle (no-op with none)', async () => {
+    const root = nearCopyProject();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Add a timestamp helper',
+      issue: '468',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    const report = await runDuplicationScan({
+      projectRoot: root,
+      changedFiles: ['src/stamp.ts'],
+      config: { mode: 'strict', similarityThreshold: 0.9, minLines: 8 },
+      corroborate: false,
+      sessionId: 'ses_1',
+      clock,
+    });
+    const rows = readDuplication(root, dir);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ mode: 'strict', blocking: report.blocking });
+    // The old-home cache write is untouched.
     expect(readDuplicationReport(root)).toEqual(report);
   });
 

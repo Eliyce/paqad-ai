@@ -6,6 +6,7 @@
 // caching, and telemetry in one place means the checks-stage rule-script and the Stop-seam gate
 // always read a single, consistent report.
 
+import { appendDuplicationRun } from '@/feature-evidence/bundle-ledgers.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { armDecisionFromDuplicationFinding } from '@/planning/decision-evidence-arm.js';
@@ -76,6 +77,14 @@ export async function runDuplicationScan(options: ScanOptions): Promise<Duplicat
 
   writeDuplicationReport(options.projectRoot, report);
   recordDuplicationRun(options.projectRoot, report);
+  // Issue #468, Phase A — additive dual-write of the same run into the active feature's
+  // `duplication.jsonl`. A no-op when no feature is active; the old-home write above and
+  // the engine cache are untouched.
+  appendDuplicationRun(
+    options.projectRoot,
+    resolveSessionId(options.projectRoot, options.sessionId ?? null),
+    report,
+  );
   armStrongestBlockingFinding(options, findings);
   return report;
 }
