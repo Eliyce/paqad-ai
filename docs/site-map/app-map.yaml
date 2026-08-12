@@ -1,0 +1,1432 @@
+schema_version: 1
+app:
+  name: paqad-ai
+  kind: cli
+  frameworks:
+    - commander
+    - node
+  generated_from: paqad-ai sitemap run — node-cli extractor
+  language: en
+  freshness:
+    anchors_total: 95
+    anchors_resolved: 95
+    anchors_broken: 0
+actors:
+  - id: developer
+    label: Developer
+    satisfies:
+      - paqad-enabled
+      - flag-site-map
+      - flag-rag
+    note: A person driving the paqad-ai CLI locally with the framework enabled.
+  - id: automation
+    label: CI / automation
+    satisfies:
+      - paqad-enabled
+    note: Non-interactive runs (CI, hooks, scheduled) invoking the CLI.
+guards:
+  - id: paqad-enabled
+    kind: data-state
+    label: Framework enabled
+    requires: paqad_enable resolves ON (default) across env / .config / configs
+    satisfy_via: Leave paqad_enable unset, or set it to true/on (env PAQAD_ENABLE).
+    evidence:
+      file: src/core/framework-config.ts
+      line: 108
+    trust: proven-in-code
+  - id: flag-site-map
+    kind: feature-flag
+    label: Site Map capability
+    flag_key: site_map
+    required_variant: "true"
+    provider: paqad-config
+    requires: the site_map flag is on
+    satisfy_via: Set site_map=true (env PAQAD_SITE_MAP) in a config layer.
+    evidence:
+      file: src/core/framework-config.ts
+      line: 228
+    trust: proven-in-code
+  - id: flag-rag
+    kind: feature-flag
+    label: RAG retrieval capability
+    flag_key: rag_enabled
+    required_variant: "true"
+    provider: paqad-config
+    requires: the rag_enabled flag is on
+    satisfy_via: Set rag_enabled=true in a config layer and build the index.
+    evidence:
+      file: src/core/framework-config.ts
+      line: 278
+    trust: proven-in-code
+areas:
+  - id: lifecycle
+    label: Lifecycle & Setup
+  - id: feature-dev
+    label: Feature Development
+  - id: knowledge
+    label: Knowledge & Retrieval
+  - id: delivery
+    label: Delivery & Release
+  - id: governance
+    label: Governance & Decisions
+  - id: compliance
+    label: Compliance
+  - id: health
+    label: Codebase Health & Modules
+  - id: sitemap
+    label: Site Map
+  - id: visualization
+    label: Dashboard & Visualization
+  - id: extensibility
+    label: Capabilities & Packs
+  - id: audit
+    label: Audit & Evidence
+  - id: intake
+    label: Intake
+surfaces:
+  - id: node-cli-audit
+    kind: cli-command
+    label: Export the evidence ledger to your own SIEM (read-only, local-first)
+    entry:
+      kind: bin
+      value: audit
+    area: audit
+    module: cli-audit
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/audit.ts
+        line: 30
+    trust: proven-in-code
+  - id: node-cli-export
+    kind: cli-command
+    label: Project the evidence ledger + receipts into OCSF / ECS / CEF / JSONL for
+      your own SIEM
+    entry:
+      kind: bin
+      value: export
+    area: audit
+    module: cli-audit
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/audit.ts
+        line: 35
+    trust: proven-in-code
+  - id: node-cli-boundary
+    kind: cli-command
+    label: Detect shared-type boundaries across specs and report unhandled variants
+    entry:
+      kind: bin
+      value: boundary
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 429
+    trust: proven-in-code
+  - id: node-cli-check
+    kind: cli-command
+    label: Check project tests for obligation coverage
+    entry:
+      kind: bin
+      value: check
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 151
+    trust: proven-in-code
+  - id: node-cli-compliance
+    kind: cli-command
+    label: Spec compliance verification tools
+    entry:
+      kind: bin
+      value: compliance
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 68
+    trust: proven-in-code
+  - id: node-cli-doctor
+    kind: cli-command
+    label: Validate obligation index health
+    entry:
+      kind: bin
+      value: doctor
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 386
+    trust: proven-in-code
+  - id: node-cli-extract
+    kind: cli-command
+    label: Extract obligations from a spec and persist an obligation index
+    entry:
+      kind: bin
+      value: extract
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 71
+    trust: proven-in-code
+  - id: node-cli-patterns
+    kind: cli-command
+    label: List, prune, or export defect patterns from the pattern store
+    entry:
+      kind: bin
+      value: patterns
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 460
+    trust: proven-in-code
+  - id: node-cli-report
+    kind: cli-command
+    label: Print a human-readable compliance report
+    entry:
+      kind: bin
+      value: report
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 310
+    trust: proven-in-code
+  - id: node-cli-review-specfile
+    kind: cli-command
+    label: Run deterministic spec-quality review and persist the review report
+    entry:
+      kind: bin
+      value: review <specFile>
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 103
+    trust: proven-in-code
+  - id: node-cli-skeleton
+    kind: cli-command
+    label: Generate failing test skeletons for uncovered and partial obligations
+      (Vitest).
+    entry:
+      kind: bin
+      value: skeleton
+    area: compliance
+    module: cli-compliance
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/compliance.ts
+        line: 241
+    trust: proven-in-code
+  - id: node-cli-commit
+    kind: cli-command
+    label: Record HEAD as a commit on the branch-matched (or active) feature
+    entry:
+      kind: bin
+      value: commit
+    area: delivery
+    module: delivery-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/delivery-link.ts
+        line: 77
+    trust: proven-in-code
+  - id: node-cli-deliver
+    kind: cli-command
+    label: "Run the delivery chain: PR (after asking) → wait for CI → evidence on
+      green"
+    entry:
+      kind: bin
+      value: deliver
+    area: delivery
+    module: delivery-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/delivery.ts
+        line: 239
+    trust: proven-in-code
+  - id: node-cli-delivery-link
+    kind: cli-command
+    label: Link git commits/merges to the active feature bundle (post-commit /
+      post-merge hooks)
+    entry:
+      kind: bin
+      value: delivery-link
+    area: delivery
+    module: delivery-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/delivery-link.ts
+        line: 66
+    trust: proven-in-code
+  - id: node-cli-install
+    kind: cli-command
+    label: Install (chain) the post-commit / post-merge git hooks for this clone
+    entry:
+      kind: bin
+      value: install
+    area: delivery
+    module: delivery-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/delivery-link.ts
+        line: 136
+    trust: proven-in-code
+  - id: node-cli-merge
+    kind: cli-command
+    label: Stamp the pulled merge commit on the branch-matched (or active) feature
+    entry:
+      kind: bin
+      value: merge
+    area: delivery
+    module: delivery-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/delivery-link.ts
+        line: 98
+    trust: proven-in-code
+  - id: node-cli-reconcile
+    kind: cli-command
+    label: Backfill the active feature delivery.json from local git (clone/CI path)
+    entry:
+      kind: bin
+      value: reconcile
+    area: delivery
+    module: delivery-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/delivery-link.ts
+        line: 118
+    trust: proven-in-code
+  - id: node-cli-add-name
+    kind: cli-command
+    label: add <name>
+    entry:
+      kind: bin
+      value: add <name>
+    area: extensibility
+    module: cli-capabilities
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/capabilities.ts
+        line: 27
+    trust: proven-in-code
+  - id: node-cli-available
+    kind: cli-command
+    label: available
+    entry:
+      kind: bin
+      value: available
+    area: extensibility
+    module: cli-capabilities
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/capabilities.ts
+        line: 22
+    trust: proven-in-code
+  - id: node-cli-capabilities
+    kind: cli-command
+    label: Manage active project capabilities
+    entry:
+      kind: bin
+      value: capabilities
+    area: extensibility
+    module: cli-capabilities
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/capabilities.ts
+        line: 12
+    trust: proven-in-code
+  - id: node-cli-create-name
+    kind: cli-command
+    label: Scaffold a minimal valid pack
+    entry:
+      kind: bin
+      value: create <name>
+    area: extensibility
+    module: cli-packs
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/packs.ts
+        line: 82
+    trust: proven-in-code
+  - id: node-cli-export-output
+    kind: cli-command
+    label: Export patterns to a file
+    entry:
+      kind: bin
+      value: export <output>
+    area: extensibility
+    module: cli-patterns
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/patterns.ts
+        line: 45
+    trust: proven-in-code
+  - id: node-cli-install-source
+    kind: cli-command
+    label: Install a pack from a local path, git URL, or configured registry name
+    entry:
+      kind: bin
+      value: install <source>
+    area: extensibility
+    module: cli-packs
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/packs.ts
+        line: 30
+    trust: proven-in-code
+  - id: node-cli-list
+    kind: cli-command
+    label: list
+    entry:
+      kind: bin
+      value: list
+    area: extensibility
+    module: cli-capabilities
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/capabilities.ts
+        line: 15
+    trust: proven-in-code
+  - id: node-cli-packs
+    kind: cli-command
+    label: Manage stack pack installation and scaffolding
+    entry:
+      kind: bin
+      value: packs
+    area: extensibility
+    module: cli-packs
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/packs.ts
+        line: 6
+    trust: proven-in-code
+  - id: node-cli-remove-name
+    kind: cli-command
+    label: remove <name>
+    entry:
+      kind: bin
+      value: remove <name>
+    area: extensibility
+    module: cli-capabilities
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/capabilities.ts
+        line: 36
+    trust: proven-in-code
+  - id: node-cli-validate-path
+    kind: cli-command
+    label: Validate a pack manifest and referenced files
+    entry:
+      kind: bin
+      value: validate <path>
+    area: extensibility
+    module: cli-packs
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/packs.ts
+        line: 64
+    trust: proven-in-code
+  - id: node-cli-checks
+    kind: cli-command
+    label: Run the project format/test/build checks deterministically and record the
+      result
+    entry:
+      kind: bin
+      value: checks
+    area: feature-dev
+    module: verification
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/checks.ts
+        line: 16
+    trust: proven-in-code
+  - id: node-cli-compile
+    kind: cli-command
+    label: Compile the active feature plan.json from a filled JSON template
+    entry:
+      kind: bin
+      value: compile
+    area: feature-dev
+    module: feature-development-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/plan.ts
+        line: 41
+    trust: proven-in-code
+  - id: node-cli-digest
+    kind: cli-command
+    label: Compose the machine-built review evidence digest the review stage reads
+    entry:
+      kind: bin
+      value: digest
+    area: feature-dev
+    module: feature-development-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/review.ts
+        line: 46
+    trust: proven-in-code
+  - id: node-cli-duplication
+    kind: cli-command
+    label: Flag new code that near-copies existing helpers (new-code-only,
+      deterministic)
+    entry:
+      kind: bin
+      value: duplication
+    area: feature-dev
+    module: verification
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/duplication.ts
+        line: 18
+    trust: proven-in-code
+  - id: node-cli-evidence
+    kind: cli-command
+    label: Render verification evidence as a scannable PR comment (Markdown or JSON)
+    entry:
+      kind: bin
+      value: evidence
+    area: feature-dev
+    module: feature-evidence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/evidence.ts
+        line: 26
+    trust: proven-in-code
+  - id: node-cli-feature
+    kind: cli-command
+    label: Export or prune per-feature evidence bundles
+    entry:
+      kind: bin
+      value: feature
+    area: feature-dev
+    module: feature-evidence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/feature.ts
+        line: 18
+    trust: proven-in-code
+  - id: node-cli-freeze
+    kind: cli-command
+    label: Freeze and sign off a feature spec, writing the frozen sidecar
+    entry:
+      kind: bin
+      value: freeze
+    area: feature-dev
+    module: feature-development-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/spec.ts
+        line: 45
+    trust: proven-in-code
+  - id: node-cli-plan
+    kind: cli-command
+    label: Work with the per-feature plan (compile the plan.json from a template)
+    entry:
+      kind: bin
+      value: plan
+    area: feature-dev
+    module: feature-development-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/plan.ts
+        line: 36
+    trust: proven-in-code
+  - id: node-cli-prune
+    kind: cli-command
+    label: "Retention: keep the N most-recent bundles, remove older non-live ones"
+    entry:
+      kind: bin
+      value: prune
+    area: feature-dev
+    module: feature-evidence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/feature.ts
+        line: 118
+    trust: proven-in-code
+  - id: node-cli-review
+    kind: cli-command
+    label: Work with the per-feature review (build the evidence digest, record the
+      review.json)
+    entry:
+      kind: bin
+      value: review
+    area: feature-dev
+    module: feature-development-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/review.ts
+        line: 41
+    trust: proven-in-code
+  - id: node-cli-rules
+    kind: cli-command
+    label: Manage the rules-as-scripts enforcement map
+    entry:
+      kind: bin
+      value: rules
+    area: feature-dev
+    module: rules-runtime
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rules.ts
+        line: 14
+    trust: proven-in-code
+  - id: node-cli-run
+    kind: cli-command
+    label: Run the mapped checks, persist the structured report, and block on failure
+    entry:
+      kind: bin
+      value: run
+    area: feature-dev
+    module: verification
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/checks.ts
+        line: 21
+    trust: proven-in-code
+  - id: node-cli-scan
+    kind: cli-command
+    label: Scan the changed files for near-duplication of existing code and record a
+      report
+    entry:
+      kind: bin
+      value: scan
+    area: feature-dev
+    module: verification
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/duplication.ts
+        line: 23
+    trust: proven-in-code
+  - id: node-cli-spec
+    kind: cli-command
+    label: Work with feature specifications (freeze the spec before code)
+    entry:
+      kind: bin
+      value: spec
+    area: feature-dev
+    module: feature-development-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/spec.ts
+        line: 40
+    trust: proven-in-code
+  - id: node-cli-stage
+    kind: cli-command
+    label: Mark a feature-development stage boundary in the stage-evidence ledger
+    entry:
+      kind: bin
+      value: stage
+    area: feature-dev
+    module: evidence-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/stage.ts
+        line: 38
+    trust: proven-in-code
+  - id: node-cli-create
+    kind: cli-command
+    label: Open a decision packet (mints a D-<ULID> id; validates the category)
+    entry:
+      kind: bin
+      value: create
+    area: governance
+    module: decision-pause-contract
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/decision.ts
+        line: 90
+    trust: proven-in-code
+  - id: node-cli-decision
+    kind: cli-command
+    label: Create, resolve, or list Decision Pause packets (the install-resolved
+      verb the
+    entry:
+      kind: bin
+      value: decision
+    area: governance
+    module: decision-pause-contract
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/decision.ts
+        line: 84
+    trust: proven-in-code
+  - id: node-cli-expire-stale
+    kind: cli-command
+    label: expire-stale
+    entry:
+      kind: bin
+      value: expire-stale
+    area: governance
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-decisions.ts
+        line: 69
+    trust: proven-in-code
+  - id: node-cli-infer
+    kind: cli-command
+    label: Run the module-attribution inferencer against a prompt (use when
+      extractor is empty); emit JSON hypotheses
+    entry:
+      kind: bin
+      value: infer
+    area: governance
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-decisions.ts
+        line: 114
+    trust: proven-in-code
+  - id: node-cli-module-decisions
+    kind: cli-command
+    label: "Inspect MD-XXXX prospective module decisions (issue #80)"
+    entry:
+      kind: bin
+      value: module-decisions
+    area: governance
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-decisions.ts
+        line: 19
+    trust: proven-in-code
+  - id: node-cli-resolve
+    kind: cli-command
+    label: Resolve a pending packet (moves it to resolved/); --other adds a write-in
+    entry:
+      kind: bin
+      value: resolve
+    area: governance
+    module: decision-pause-contract
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/decision.ts
+        line: 121
+    trust: proven-in-code
+  - id: node-cli-show-id
+    kind: cli-command
+    label: Show a single MD-XXXX decision in full
+    entry:
+      kind: bin
+      value: show <id>
+    area: governance
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-decisions.ts
+        line: 55
+    trust: proven-in-code
+  - id: node-cli-for-module-slug
+    kind: cli-command
+    label: List events for a specific module slug
+    entry:
+      kind: bin
+      value: for-module <slug>
+    area: health
+    module: module-health-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-events.ts
+        line: 73
+    trust: proven-in-code
+  - id: node-cli-health
+    kind: cli-command
+    label: Audit the project for dead code, unused/risky packages, secrets, stale
+      docs, and AI slop
+    entry:
+      kind: bin
+      value: health
+    area: health
+    module: cli-health
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/health.ts
+        line: 26
+    trust: proven-in-code
+  - id: node-cli-metrics
+    kind: cli-command
+    label: Report the per-change shape metrics (duplication on new code + cross-file
+      reuse rate)
+    entry:
+      kind: bin
+      value: metrics
+    area: health
+    module: cli-health
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/metrics.ts
+        line: 14
+    trust: proven-in-code
+  - id: node-cli-module-events
+    kind: cli-command
+    label: "Inspect the module-map events.jsonl audit trail (issue #80)"
+    entry:
+      kind: bin
+      value: module-events
+    area: health
+    module: module-health-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-events.ts
+        line: 38
+    trust: proven-in-code
+  - id: node-cli-module-health
+    kind: cli-command
+    label: Maintain module health ledgers
+    entry:
+      kind: bin
+      value: module-health
+    area: health
+    module: module-health-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-health.ts
+        line: 13
+    trust: proven-in-code
+  - id: node-cli-module-map
+    kind: cli-command
+    label: "Reconcile module-map.yml against the source tree (issue #80 Phase 2)"
+    entry:
+      kind: bin
+      value: module-map
+    area: health
+    module: cli-module-map
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-map.ts
+        line: 11
+    trust: proven-in-code
+  - id: node-cli-record
+    kind: cli-command
+    label: Record normalized module health evidence
+    entry:
+      kind: bin
+      value: record
+    area: health
+    module: module-health-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-health.ts
+        line: 112
+    trust: proven-in-code
+  - id: node-cli-retest
+    kind: cli-command
+    label: Re-run the evidence and reclassify each prior finding by its stable id
+    entry:
+      kind: bin
+      value: retest
+    area: health
+    module: cli-health
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/health.ts
+        line: 76
+    trust: proven-in-code
+  - id: node-cli-rollup
+    kind: cli-command
+    label: rollup
+    entry:
+      kind: bin
+      value: rollup
+    area: health
+    module: module-health-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-health.ts
+        line: 82
+    trust: proven-in-code
+  - id: node-cli-since-iso
+    kind: cli-command
+    label: List events at or after the given ISO timestamp
+    entry:
+      kind: bin
+      value: since <iso>
+    area: health
+    module: module-health-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-events.ts
+        line: 59
+    trust: proven-in-code
+  - id: node-cli-sync
+    kind: cli-command
+    label: Sync pending module health evidence into profiles
+    entry:
+      kind: bin
+      value: sync
+    area: health
+    module: module-health-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/module-health.ts
+        line: 16
+    trust: proven-in-code
+  - id: node-cli-fetch
+    kind: cli-command
+    label: fetch
+    entry:
+      kind: bin
+      value: fetch
+    area: intake
+    module: context-intelligence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/intake.ts
+        line: 114
+    trust: proven-in-code
+  - id: node-cli-intake
+    kind: cli-command
+    label: "Deterministic ticket intake — fetch the real ticket a request references
+      (issue #322)"
+    entry:
+      kind: bin
+      value: intake
+    area: intake
+    module: context-intelligence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/intake.ts
+        line: 109
+    trust: proven-in-code
+  - id: node-cli-build
+    kind: cli-command
+    label: Build the code-knowledge index at .paqad/indexes/code-knowledge.json
+    entry:
+      kind: bin
+      value: build
+    area: knowledge
+    module: context-intelligence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/index-cmd.ts
+        line: 42
+    trust: proven-in-code
+  - id: node-cli-clear
+    kind: cli-command
+    label: Delete the vector index and disable RAG
+    entry:
+      kind: bin
+      value: clear
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 298
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-eval
+    kind: cli-command
+    label: Run deterministic RAG evals against the project index and compare
+      configurations
+    entry:
+      kind: bin
+      value: eval
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 540
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-framework-api
+    kind: cli-command
+    label: Build and query the installed framework-API index (does a framework
+      symbol exist, and is it deprecated?)
+    entry:
+      kind: bin
+      value: framework-api
+    area: knowledge
+    module: context-intelligence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/index-cmd.ts
+        line: 133
+    trust: proven-in-code
+  - id: node-cli-index
+    kind: cli-command
+    label: Build and query the code-knowledge index (exported symbols + import
+      reachability)
+    entry:
+      kind: bin
+      value: index
+    area: knowledge
+    module: context-intelligence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/index-cmd.ts
+        line: 37
+    trust: proven-in-code
+  - id: node-cli-init
+    kind: cli-command
+    label: Enable RAG for the current project and build the vector index
+    entry:
+      kind: bin
+      value: init
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 244
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-probe-query
+    kind: cli-command
+    label: Print the top pre-floor retrieval scores for a query (diagnostic; no
+      floor filter)
+    entry:
+      kind: bin
+      value: probe <query>
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 333
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-query
+    kind: cli-command
+    label: Look up a symbol name or a project-relative file path in the index
+    entry:
+      kind: bin
+      value: query
+    area: knowledge
+    module: context-intelligence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/index-cmd.ts
+        line: 92
+    trust: proven-in-code
+  - id: node-cli-rag
+    kind: cli-command
+    label: Manage optional hybrid RAG context retrieval
+    entry:
+      kind: bin
+      value: rag
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 241
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-rag-evidence
+    kind: cli-command
+    label: Read or record the script-written RAG-evidence ledger (refresh / call /
+      use / fallback)
+    entry:
+      kind: bin
+      value: rag-evidence
+    area: knowledge
+    module: rag-evidence-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag-evidence.ts
+        line: 68
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-rebuild
+    kind: cli-command
+    label: Force a full vector-index rebuild
+    entry:
+      kind: bin
+      value: rebuild
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 286
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-refresh-context
+    kind: cli-command
+    label: Sync the index, retrieve slices, and recompose session context
+      (background worker)
+    entry:
+      kind: bin
+      value: refresh-context
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 383
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-show
+    kind: cli-command
+    label: Fold a session into a use-rate / fallback rollup (paqad-voice or JSON)
+    entry:
+      kind: bin
+      value: show
+    area: knowledge
+    module: rag-evidence-ledger
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag-evidence.ts
+        line: 73
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-status
+    kind: cli-command
+    label: Show the current RAG configuration and index state
+    entry:
+      kind: bin
+      value: status
+    area: knowledge
+    module: cli-rag
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rag.ts
+        line: 321
+    guard: flag-rag
+    trust: proven-in-code
+  - id: node-cli-config
+    kind: cli-command
+    label: Inspect the framework configuration
+    entry:
+      kind: bin
+      value: config
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/config.ts
+        line: 121
+    trust: proven-in-code
+  - id: node-cli-disable
+    kind: cli-command
+    label: Disable paqad for this project (vanilla mode) — gates, hooks, and the
+      verification backstop become a no-op until re-enabled
+    entry:
+      kind: bin
+      value: disable
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/disable.ts
+        line: 6
+    trust: proven-in-code
+  - id: node-cli-effective
+    kind: cli-command
+    label: Print, per knob, the value that actually binds, its source surface, and
+      the gate
+    entry:
+      kind: bin
+      value: effective
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/config.ts
+        line: 124
+    trust: proven-in-code
+  - id: node-cli-enable
+    kind: cli-command
+    label: Re-enable paqad for this project — restores full framework behavior with
+      no re-onboarding
+    entry:
+      kind: bin
+      value: enable
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/enable.ts
+        line: 6
+    trust: proven-in-code
+  - id: node-cli-join
+    kind: cli-command
+    label: Set up an already-onboarded project on your machine (no re-onboarding)
+    entry:
+      kind: bin
+      value: join
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/join.ts
+        line: 49
+    trust: proven-in-code
+  - id: node-cli-onboard
+    kind: cli-command
+    label: Full project onboarding
+    entry:
+      kind: bin
+      value: onboard
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/onboard.ts
+        line: 10
+    trust: proven-in-code
+  - id: node-cli-refresh
+    kind: cli-command
+    label: Refresh derived framework artifacts
+    entry:
+      kind: bin
+      value: refresh
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/refresh.ts
+        line: 22
+    trust: proven-in-code
+  - id: node-cli-resume
+    kind: cli-command
+    label: Reactivate a paused feature-development change by ref (ULID / issue / slug)
+    entry:
+      kind: bin
+      value: resume
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/resume.ts
+        line: 21
+    trust: proven-in-code
+  - id: node-cli-update
+    kind: cli-command
+    label: Update framework-managed artifacts
+    entry:
+      kind: bin
+      value: update
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/update.ts
+        line: 8
+    trust: proven-in-code
+  - id: node-cli-answer
+    kind: cli-command
+    label: Record the answered creation questions and stamp their provenance onto
+      the map (one-step creation)
+    entry:
+      kind: bin
+      value: answer
+    area: sitemap
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/sitemap.ts
+        line: 109
+    guard: flag-site-map
+    trust: proven-in-code
+  - id: node-cli-journey
+    kind: cli-command
+    label: Curate proposed journeys — the human sign-off that confirms or removes them
+    entry:
+      kind: bin
+      value: journey
+    area: sitemap
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/sitemap.ts
+        line: 146
+    guard: flag-site-map
+    trust: proven-in-code
+  - id: node-cli-questions
+    kind: cli-command
+    label: List the closed-list creation questions the authored map still needs
+      answered (one-step creation)
+    entry:
+      kind: bin
+      value: questions
+    area: sitemap
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/sitemap.ts
+        line: 76
+    guard: flag-site-map
+    trust: proven-in-code
+  - id: node-cli-sitemap
+    kind: cli-command
+    label: Map the application — surfaces, transitions, guards, and curated journeys
+    entry:
+      kind: bin
+      value: sitemap
+    area: sitemap
+    module: module-map-engine
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/sitemap.ts
+        line: 27
+    guard: flag-site-map
+    trust: proven-in-code
+  - id: node-cli-x
+    kind: cli-command
+    label: Extractor artifact (not a real command)
+    entry:
+      kind: bin
+      value: x
+    area: sitemap
+    module: module-map-engine
+    status: excluded
+    derivation: static
+    confidence: low
+    evidence:
+      - file: src/site-map/gatherer.ts
+        line: 155
+    note: "False positive: the node-cli command regex in src/site-map/gatherer.ts
+      matches its own JSDoc example `.command('x')`. Excluded — not a shipped
+      command. Tracked for a code fix."
+    trust: proven-in-code
+  - id: node-cli-dashboard
+    kind: cli-command
+    label: Open the paqad-ai project dashboard in a local web view
+    entry:
+      kind: bin
+      value: dashboard
+    area: visualization
+    module: cli-dashboard
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/dashboard.ts
+        line: 43
+    trust: proven-in-code
+  - id: node-cli-graph
+    kind: cli-command
+    label: "Deprecated: opens the dashboard on the Graph view"
+    entry:
+      kind: bin
+      value: graph
+    area: visualization
+    module: cli-graph
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/graph.ts
+        line: 51
+    trust: proven-in-code
+journeys:
+  - id: onboard-first-run
+    label: Onboard a repository and run the first workflow
+    actor: developer
+    priority: high
+    status: proposed
+  - id: ship-a-change
+    label: Plan, spec, verify and deliver a code change
+    actor: developer
+    priority: high
+    status: proposed
+  - id: map-the-app
+    label: Create and verify the application site map
+    actor: developer
+    priority: medium
+    status: proposed

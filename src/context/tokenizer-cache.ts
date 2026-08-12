@@ -2,7 +2,7 @@
 //
 // `computeBudget` needs a real tokenizer to size each context slice. Loading a
 // tokenizer is expensive, so we keep one per `tokenizer_version` for the process
-// lifetime (no disk I/O). `@xenova/transformers` is an optional runtime peer dep
+// lifetime (no disk I/O). `@huggingface/transformers` is an optional runtime peer dep
 // (declared external in tsup.config.ts); when it is unavailable we fall back to
 // the character/4 heuristic and report a `tokenizer_version` of `"heuristic"`.
 
@@ -43,7 +43,7 @@ function heuristicTokenizer(): LoadedTokenizer {
 async function loadTokenizer(version: string): Promise<LoadedTokenizer> {
   try {
     const { AutoTokenizer } =
-      (await import('@xenova/transformers')) as unknown as AutoTokenizerModule;
+      (await import('@huggingface/transformers')) as unknown as AutoTokenizerModule;
     const native = await AutoTokenizer.from_pretrained(version);
     return {
       tokenizer_version: version,

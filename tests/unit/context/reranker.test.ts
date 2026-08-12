@@ -59,8 +59,8 @@ describe('LocalReranker', () => {
   });
 
   it('scores chunks and reorders them by descending score', async () => {
-    // Stub @xenova/transformers so that 'auth' chunk gets higher score
-    vi.doMock('@xenova/transformers', () => ({
+    // Stub @huggingface/transformers so that 'auth' chunk gets higher score
+    vi.doMock('@huggingface/transformers', () => ({
       pipeline: async (task: string, model: string) => {
         void task;
         void model;
@@ -83,7 +83,7 @@ describe('LocalReranker', () => {
   });
 
   it('bounded by candidatePoolSize', async () => {
-    vi.doMock('@xenova/transformers', () => ({
+    vi.doMock('@huggingface/transformers', () => ({
       pipeline: async () => async () => ({ score: 0.5, label: 'LABEL_1' }),
     }));
 
@@ -96,7 +96,7 @@ describe('LocalReranker', () => {
   });
 
   it('handles array result from pipeline', async () => {
-    vi.doMock('@xenova/transformers', () => ({
+    vi.doMock('@huggingface/transformers', () => ({
       pipeline: async () => async (input: { text: string; text_pair: string }) => {
         const score = input.text_pair.includes('canAuth') ? 0.8 : 0.2;
         return [{ score, label: 'LABEL_1' }];

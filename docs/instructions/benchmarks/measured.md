@@ -117,7 +117,7 @@ Both numbers apply differently across the 11 providers, matching
 - **Small project count.** N = 2 projects for the footprint, N = 0 runs for the findings.
   A range from two projects is a range from two projects, not a population.
 - **Heuristic tokenizer.** Both footprint rows used the char/4 fallback because
-  `@xenova/transformers` was not loadable at measurement time. The script labels this in
+  `@huggingface/transformers` was not loadable at measurement time. The script labels this in
   its output; install the optional peer dep for exact token counts, and the reduction
   percentages are stable under either tokenizer because both sides are counted the same way.
 - **Snapshot, not incremental, findings.** The findings metric is per-fresh-run presence,

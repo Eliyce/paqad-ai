@@ -54,7 +54,7 @@ export default defineConfig({
   target: 'node22',
   splitting: false,
   shims: true,
-  external: ['@xenova/transformers', 'openai', 'voyageai'],
+  external: ['@huggingface/transformers', 'openai', 'voyageai'],
   outDir: 'dist',
   // Inject package version at build time so VERSION never drifts from
   // package.json. Vitest has its own define block in vitest.config.ts.

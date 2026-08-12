@@ -93,8 +93,8 @@
     "prepublishOnly": "pnpm run ci"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.0",
     "@inquirer/prompts": "^8.5.2",
-    "@xenova/transformers": "^2.17.2",
     "ajv": "^8.20.0",
     "chalk": "^6.0.0",
     "commander": "^15.0.0",

@@ -1,0 +1,9 @@
+schema_version: 1
+generated_by: paqad-ai
+answers:
+  - question_id: journey-priority:proposed
+    category: journey-priority
+    question: 3 journey(s) are still proposed. Which are real, and which matter most?
+    answer: keep-all-proposed
+    decided_by: human
+    anchors: []

@@ -252,7 +252,7 @@ export function renderFootprintMarkdown(aggregate, meta) {
   lines.push('');
   lines.push(
     `Measured ${meta.date} at commit \`${meta.commit}\` with tokenizer \`${meta.tokenizerVersion}\`` +
-      `${heuristic ? ' (char/4 heuristic — install @xenova/transformers for exact counts)' : ''}.`,
+      `${heuristic ? ' (char/4 heuristic — install @huggingface/transformers for exact counts)' : ''}.`,
   );
   lines.push('');
   lines.push('| Area | Load | Files | Chars | Tokens |');

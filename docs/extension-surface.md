@@ -166,7 +166,7 @@ retrieved chunk larger than the remaining budget is dropped and recorded in
 `context_window_tokens` yields an explicit error union — never a default window.
 The tokenizer is loaded once per `tokenizer_version` and reused for the process
 lifetime via `getOrLoad`, degrading to a character/4 heuristic when
-`@xenova/transformers` is unavailable.
+`@huggingface/transformers` is unavailable.
 
 | Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
 | --- | --- | --- | --- | --- | --- | --- |

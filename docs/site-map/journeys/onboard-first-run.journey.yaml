@@ -1,0 +1,24 @@
+# Proposed journey — becomes `confirmed` only via human sign-off through the dashboard
+# (`paqad-ai sitemap journey confirm`), never self-approved.
+schema_version: 1
+id: onboard-first-run
+label: Onboard a repository and run the first workflow
+actor: developer
+goal: Install paqad into a repo and prove immediate value with one workflow run.
+entry: node-cli-onboard
+priority: high
+status: proposed
+derivation: agent
+steps:
+  - surface: node-cli-onboard
+    action: Run `paqad-ai onboard` in the target repository.
+    expect: Framework installed; entry files, config layers and instructions written.
+  - surface: node-cli-index
+    action: Run `paqad-ai index build` to build the code-knowledge index.
+    expect: Symbol and import-reachability index ready for reuse and retrieval.
+  - surface: node-cli-sitemap
+    action: Run `paqad-ai sitemap run` to map and verify the app.
+    expect: A verified site map of record, stamped with trust and freshness.
+ends:
+  success: A repository onboarded with at least one workflow run producing evidence.
+  abandoned: Onboarding started but no workflow was run.

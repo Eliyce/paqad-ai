@@ -42,10 +42,14 @@
 # team_agents=true
 # Opt in to complementary analytics instrumentation (issue #241, refined #279). OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc. (env: PAQAD_ANALYTICS_INSTRUMENTATION)
 # analytics_instrumentation=false
+# Opt in to the Site Map & Journeys capability — a verified behavioural map of the app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). OFF (default) is completely inert; ON also requires the coding capability at its consumers. (env: PAQAD_SITE_MAP)
+# site_map=false
 # Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
 # lean_rules=true
 # Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)
 # feature_report=true
+# Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is local, deterministic, and zero-LLM — it folds over caches the gates already produced. OFF stops computing and recording them. (env: PAQAD_METRICS_ENABLED)
+# metrics_enabled=true
 
 # ── Intelligence / RAG ──────────────────────────────────────
 # Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
@@ -114,6 +118,8 @@
 # analytics_strictness=warn
 # off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in. (env: PAQAD_DUPLICATION_MODE)
 # duplication_mode=warn
+# off | warn — completion check that the per-feature bundle carries its evidence files (rule-run / duplication / change-metrics / rag). warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks (there is no strict tier). off disables it (issue #468 Phase C). (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
+# evidence_existence_gate=warn
 # Minimum similarity (0..1) for a blocking duplication finding (issue #358). Default 0.90 — conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks. (env: PAQAD_DUPLICATION_SIMILARITY_THRESHOLD)
 # duplication_similarity_threshold=0.9
 # Minimum meaningful-line span a new code block must have to be scored for duplication (issue #358). Default 8 — shorter snippets are never flagged. (env: PAQAD_DUPLICATION_MIN_LINES)

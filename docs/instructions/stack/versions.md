@@ -13,7 +13,7 @@ Source: `package.json`, `graph-ui/package.json`, `.paqad/stack-snapshot.json`.
 ## Root Package — Production
 
 - `@inquirer/prompts ^7.3.3`
-- `@xenova/transformers ^2.17.2`
+- `@huggingface/transformers ^3.8.0`
 - `ajv ^8.17.1`
 - `chalk ^5.4.1`
 - `commander ^14.0.1`

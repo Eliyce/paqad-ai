@@ -62,10 +62,16 @@ export class LocalReranker implements Reranker {
   }
 
   private async loadPipeline(): Promise<CrossEncoderPipeline> {
-    const { pipeline } = (await import('@xenova/transformers')) as {
-      pipeline: (task: string, model: string) => Promise<CrossEncoderPipeline>;
+    const { pipeline } = (await import('@huggingface/transformers')) as {
+      pipeline: (
+        task: string,
+        model: string,
+        options?: { dtype?: 'q8' },
+      ) => Promise<CrossEncoderPipeline>;
     };
-    return pipeline('text-classification', this.model);
+    // Pin q8 so the quantized cross-encoder loads as under the @xenova v2
+    // default (@huggingface v3+ otherwise defaults to fp32).
+    return pipeline('text-classification', this.model, { dtype: 'q8' });
   }
 
   async rerank(query: string, chunks: Chunk[], candidatePoolSize = 50): Promise<RerankResult> {

@@ -4,10 +4,10 @@ import { ContextBudgetEnforcer } from '@/context/budget-enforcer.js';
 import { clearTokenizerCache } from '@/context/tokenizer-cache.js';
 import type { ComputeBudgetInput, ModelCatalogEntry } from '@/core/types/context.js';
 
-// Mock @xenova/transformers so the native tokenizer path is deterministic: one
+// Mock @huggingface/transformers so the native tokenizer path is deterministic: one
 // token per character. The fallback path is exercised by rejecting the load.
 const { fromPretrained } = vi.hoisted(() => ({ fromPretrained: vi.fn() }));
-vi.mock('@xenova/transformers', () => ({
+vi.mock('@huggingface/transformers', () => ({
   AutoTokenizer: { from_pretrained: fromPretrained },
 }));
 
@@ -185,7 +185,7 @@ describe('ContextBudgetEnforcer.computeBudget', () => {
     expect(result.total_used).toBe(4096);
   });
 
-  it('falls back to the heuristic tokenizer when @xenova/transformers is unavailable', async () => {
+  it('falls back to the heuristic tokenizer when @huggingface/transformers is unavailable', async () => {
     fromPretrained.mockRejectedValue(new Error('module not installed'));
 
     const result = await ContextBudgetEnforcer.computeBudget(
