@@ -1,14 +1,24 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createAuditCommand } from '@/cli/commands/audit';
-import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger';
+import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger';
+import { buildEvidenceRow } from '@/evidence/ledger';
+import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths';
+
+// Issue #468 Phase B — `audit export` projects evidence from the per-feature bundle union.
+function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
+  const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
+  const path = join(root, featureFilePath(dir, 'evidence'));
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8');
+}
 
 function seed(root: string) {
-  appendEvidenceRows(root, [
+  seedBundleEvidence(root, [
     buildEvidenceRow({
       ts: '2026-06-10T00:00:00.000Z',
       engine: 'verification-gate',
@@ -93,7 +103,7 @@ describe('createAuditCommand', () => {
   });
 
   it('honours --format jsonl and --redact together', async () => {
-    appendEvidenceRows(root, [
+    seedBundleEvidence(root, [
       buildEvidenceRow({
         ts: '2026-06-10T00:00:00.000Z',
         engine: 'verification-gate',

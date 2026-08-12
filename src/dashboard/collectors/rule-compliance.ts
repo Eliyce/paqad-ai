@@ -4,8 +4,10 @@
 // to derive a band + the exact prompt the user should type next. `unknown`
 // until `analyze rules` has produced a map (onboarding plants the prompt).
 
+import { readAllFeatureRuleRuns } from '@/feature-evidence/projections.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
-import { readLatestRuleDrift, readLatestRuleFindings } from '@/rule-scripts/rule-ledger.js';
+import { readDrift } from '@/rule-scripts/reconciler.js';
+import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import type { AttentionItem, SectionData } from '../types.js';
 
@@ -14,6 +16,23 @@ const HELPER = {
   goodLooksLike:
     'Every verifiable rule covered by a passing script, no drift, findings report fresh.',
 } as const;
+
+/**
+ * The latest-by-`ts` `findings` row's deterministic count across the per-feature
+ * `rule-run.jsonl` bundles, or `null` when no findings row was recorded. The bundle
+ * replacement for the retired `readLatestRuleFindings` (issue #468 Phase B, D2). The
+ * bundle rule-run row stores `counts: { deterministic, heuristic, skipped }` at the top
+ * level, exactly the shape the old project-ledger row carried.
+ */
+function latestFindingsRow(rows: readonly SessionLedgerRow[]): { deterministic: number } | null {
+  const findings = rows.filter((row) => row.kind === 'findings');
+  if (findings.length === 0) {
+    return null;
+  }
+  const latest = findings.reduce((best, row) => (row.ts >= best.ts ? row : best));
+  const counts = latest.counts as { deterministic?: number } | undefined;
+  return { deterministic: counts?.deterministic ?? 0 };
+}
 
 export function collectRuleCompliance(projectRoot: string): {
   section: SectionData;
@@ -52,14 +71,17 @@ export function collectRuleCompliance(projectRoot: string): {
   const covered = verifiable.filter((r) => r.scripts.length > 0).length;
   const uncovered = verifiable.length - covered;
 
-  // Buildout F6 (hard cutover, D1) — read compliance evidence from the
-  // session-ledger, not the engine cache files. report.json / drift.json remain
-  // the engine's own caches; the dashboard + SIEM read the folded rows.
-  const drift = readLatestRuleDrift(projectRoot);
-  const findings = readLatestRuleFindings(projectRoot);
+  // Issue #468 Phase B — read compliance evidence from the per-feature bundles + the
+  // live drift cache, not the retired `rule-evidence/_project` session ledger. Findings
+  // come from the latest-by-`ts` `rule-run.jsonl` row across bundles (D2: the bundle
+  // rule-run row is now the only ledger record a change's rules fired); drift stays the
+  // reconciler's own `.cache/drift.json` (D2: drift describes the project, not a change,
+  // so it never enters a bundle).
+  const drift = readDrift(projectRoot);
+  const findings = latestFindingsRow(readAllFeatureRuleRuns(projectRoot));
 
   const driftBlocking = drift?.blocked ?? false;
-  const deterministicFindings = findings?.counts.deterministic ?? 0;
+  const deterministicFindings = findings?.deterministic ?? 0;
 
   // Band: red on blocking drift or deterministic findings; amber on uncovered
   // verifiable rules; green when everything is covered and clean.

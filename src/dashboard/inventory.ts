@@ -7,6 +7,8 @@ import YAML from 'yaml';
 import { PATHS } from '@/core/constants/paths.js';
 import { listFeatureDirs } from '@/feature-evidence/delivery.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
+import { readAllFeatureEvidence } from '@/feature-evidence/projections.js';
+import { projectAiBomFromFeatures, readAllFeatureReceipts } from '@/feature-evidence/receipt.js';
 
 /**
  * Issue #146 — the functionality inventory behind `/api/inventory`.
@@ -426,6 +428,9 @@ export function buildInventory(
     },
 
     // ── Evidence (spec section 3C) ───────────────────────────────────────
+    // Issue #468 Phase B — evidence, receipts, and the AI-BOM are projected from the
+    // per-feature bundle union, not the retired top-level `evidence.jsonl` / `receipts.jsonl`
+    // / `ai-bom.json` snapshots. The source of truth is the feature-evidence bundle dir.
     {
       key: 'evidence-ledger',
       name: 'Evidence ledger',
@@ -434,8 +439,13 @@ export function buildInventory(
       managedBy: 'paqad',
       area: 'trust',
       route: '#/trust',
-      source: PATHS.EVIDENCE_LEDGER,
-      state: counted(countLines(at(PATHS.EVIDENCE_LEDGER)), 'entry', 'entries', 'No entries yet'),
+      source: PATHS.FEATURE_EVIDENCE_DIR,
+      state: counted(
+        readAllFeatureEvidence(projectRoot).length,
+        'entry',
+        'entries',
+        'No entries yet',
+      ),
     },
     {
       key: 'receipts',
@@ -445,9 +455,9 @@ export function buildInventory(
       managedBy: 'paqad',
       area: 'trust',
       route: '#/trust',
-      source: PATHS.EVIDENCE_RECEIPT_CHAIN,
+      source: PATHS.FEATURE_EVIDENCE_DIR,
       state: counted(
-        countLines(at(PATHS.EVIDENCE_RECEIPT_CHAIN)),
+        readAllFeatureReceipts(projectRoot).length,
         'receipt',
         'receipts',
         'No receipts yet',
@@ -461,8 +471,12 @@ export function buildInventory(
       managedBy: 'paqad',
       area: 'trust',
       route: '#/trust',
-      source: PATHS.EVIDENCE_AI_BOM,
-      state: presence(existsSync(at(PATHS.EVIDENCE_AI_BOM)), 'Document present', 'No document yet'),
+      source: PATHS.FEATURE_EVIDENCE_DIR,
+      state: presence(
+        projectAiBomFromFeatures(projectRoot, '0.0.0', '') !== null,
+        'Document present',
+        'No document yet',
+      ),
     },
     {
       key: 'audit-log',

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 
-import { readChangeMetricsRows } from '@/change-metrics/index.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
+import { readFeatureChangeMetricsWindow } from '@/feature-evidence/projections.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 /**
@@ -27,7 +27,7 @@ export function createMetricsCommand(): Command {
         return;
       }
       const limit = Math.max(1, Number.parseInt(options.limit, 10) || 20);
-      const rows = readChangeMetricsRows(options.projectRoot, limit);
+      const rows = readFeatureChangeMetricsWindow(options.projectRoot, limit);
 
       if (options.json) {
         console.log(JSON.stringify({ count: rows.length, rows }, null, 2));

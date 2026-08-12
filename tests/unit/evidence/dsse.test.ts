@@ -9,6 +9,7 @@ import {
   pae,
   signReceipt,
   verifyReceiptChain,
+  verifyReceiptSeal,
 } from '@/evidence/receipt/dsse.js';
 
 function statement(version = '1.0.0'): InTotoStatement {
@@ -23,6 +24,25 @@ function statement(version = '1.0.0'): InTotoStatement {
 describe('pae', () => {
   it('follows the DSSE PAE layout', () => {
     expect(pae('t', Buffer.from('body')).toString('utf8')).toBe('DSSEv1 1 t 4 body');
+  });
+});
+
+describe('verifyReceiptSeal', () => {
+  it('is true iff the receipt_hash recomputes from its own PAE + prev (#468 AC-7)', () => {
+    const genesis = signReceipt({ statement: statement(), mode: 'hash-chained' });
+    expect(verifyReceiptSeal(genesis)).toBe(true);
+    // A non-genesis receipt whose prev is some prior hash still self-verifies in isolation,
+    // even though verifyReceiptChain (which also checks linkage) would reject it as element 0.
+    const chained = signReceipt({
+      statement: statement(),
+      prevReceiptHash: 'a'.repeat(64),
+      mode: 'hash-chained',
+    });
+    expect(verifyReceiptSeal(chained)).toBe(true);
+    expect(verifyReceiptChain([chained])).toBe(0); // linkage fails at genesis
+    // Tampering the recorded hash breaks the seal.
+    const tampered = { ...genesis, paqad: { ...genesis.paqad, receipt_hash: 'f'.repeat(64) } };
+    expect(verifyReceiptSeal(tampered)).toBe(false);
   });
 });
 

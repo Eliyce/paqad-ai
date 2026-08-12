@@ -444,6 +444,13 @@ export async function runRepositoryVerification(
           verifierVersion: verifierVersion(),
           timeVerified: completedAt,
           write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
+          // Issue #468 Phase B — carry the SAME authorship/compliance/reproducibility the
+          // whole-project receipt above already resolved, so the per-feature receipt is a
+          // complete attestation record when it becomes the only one (D5). All three are
+          // already computed for the projectReceipt call; each is omitted when absent.
+          authorship,
+          ...(complianceCitations !== undefined ? { complianceCitations } : {}),
+          ...(reproducibility !== undefined ? { reproducibility } : {}),
           // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
           ...(changeMetrics
             ? {

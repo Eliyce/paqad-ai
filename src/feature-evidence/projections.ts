@@ -52,6 +52,23 @@ export function readAllFeatureChangeMetrics(projectRoot: string): SessionLedgerR
   );
 }
 
+/**
+ * Issue #468, Phase B — the last `limit` change-metrics rows across all bundles, oldest
+ * first, ordered by `ts`. The bundle replacement for `readChangeMetricsRows(limit)`: the
+ * Change Shape collector and `metrics report` render "the last N changes" as this ts-sorted
+ * tail, since rows can now interleave across feature bundles (the accepted latest-by-ts
+ * tradeoff, issue #468). `ts` is a stable ISO-8601 string, so a lexical sort is chronological.
+ */
+export function readFeatureChangeMetricsWindow(
+  projectRoot: string,
+  limit: number,
+): SessionLedgerRow[] {
+  const rows = readAllFeatureChangeMetrics(projectRoot)
+    .slice()
+    .sort((a, b) => a.ts.localeCompare(b.ts));
+  return limit >= rows.length ? rows : rows.slice(rows.length - limit);
+}
+
 /** Every per-feature graded gate row across all bundles (issue #468, Phase A, D5). */
 export function readAllFeatureEvidence(projectRoot: string): EvidenceLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
