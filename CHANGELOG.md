@@ -1,5 +1,33 @@
 # paqad-ai
 
+## 1.76.1
+
+### Patch Changes
+
+- 721b434: feat(#468): Phase C — writer cutover, retire the old evidence paths, add a warn-only existence gate
+
+  Third and final PR of the #339/#468 evidence-in-bundle cutover — the only phase that changes the on-disk layout, now that both writers (Phase A) and readers (Phase B) are proven.
+
+  - RAG (the deferred piece): the `runtime/scripts/rag-evidence-record.mjs` prompt seam and the TS recorder now write retrieval rows to the two-home `rag.jsonl` (the active feature's bundle, else `_chat/<session>/`), with the conversation ordinal re-homed to `_chat/<session>/`; the retired `paqad.rag-evidence/` substrate is gone. `foldRagEvidenceSession` reads `_chat` + the bundle projection (`readAllFeatureRag`) filtered by session.
+  - Writer cutover: the completion seam stops the old-home writes — the `rule-evidence` project ledger, the top-level `evidence.jsonl` / `receipts.jsonl` / `receipt.dsse.json` / `ai-bom.json`, and the duplication/change-metrics project ledgers — keeping every engine cache (`report.json`, `drift.json`, `duplication.json`) and the per-feature bundle receipt/evidence. The reproducibility context stamp moves to `.paqad/session/context-stamp.json`. `src/rule-scripts/rule-ledger.ts` is retired.
+  - Existence gate: a new `evidence_existence_gate=off|warn` knob (default `warn`, no exit-blocking tier) verifies the bundle's `rule-run.jsonl` / `duplication.jsonl` / `change-metrics.jsonl` / `rag.jsonl` exist backfill-first — minting the recoverable three deterministically from the caches (marked `backfilled: true`), and reporting an unrecoverable RAG absence as Inconclusive. Flag-aware: a flag-off / RAG-dark / copy-only / non-feature-dev change reads skipped, never a hard block. The gate runs at the completion backstop alongside the #394 plan/spec/review assertions and can only surface (pass/skipped/inconclusive), never fail.
+
+- 721b434: Evidence-in-bundle cutover, Phase B (#468): re-point every evidence reader off the retired
+  session-ledger and top-level homes and onto the per-feature bundle projections. The Rule
+  Compliance collector reads findings from the bundle `rule-run.jsonl` (latest by `ts`) and
+  drift live from the `.cache/drift.json`; the Change Shape collector and `metrics report`
+  read the ts-sorted window of the bundle `change-metrics.jsonl`; the SIEM `audit export`
+  aggregate unions the bundle projections and projects attestation/evidence from per-feature
+  receipts; and the Trust panel (evidence feed, receipt feed, AI-BOM, attestation,
+  onboarding, inventory) projects from the bundle union via `projectAiBomFromFeatures` and new
+  per-feature receipt readers. The per-feature receipt now additionally carries the
+  authorship/compliance/reproducibility predicates the attestation surfaces read, so a bundle
+  receipt is a complete attestation record. The RAG session fold stays on the substrate in
+  this phase: its re-point is coupled to the prompt-seam writer and moves with it in Phase C.
+  No old-home write is removed and no path is retired — every old-home write still fires, so
+  rollback is a single revert. Phase C removes the old writes and adds the existence gates.
+- 9ff0f23: Evidence-in-bundle cutover, Phase A (#468): add additive per-feature bundle writers for duplication counts (`duplication.jsonl`), change-metrics ratios (`change-metrics.jsonl`), and the graded gate rows (`evidence.jsonl`), plus their whole-project projections. Every existing project/session-scoped write is left untouched — this is a dual-write parity window, not a cutover. A parity test asserts the new bundle rows agree with the old-home rows for a real feature-development change. No reader is re-pointed and no path is retired yet (Phases B and C).
+
 ## 1.76.0
 
 ### Minor Changes
