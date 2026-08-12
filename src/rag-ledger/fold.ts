@@ -3,10 +3,11 @@
 // is deliberately absent — this rollup is occurrence/use-rate only, never a
 // proof-of-benefit claim (issue #249 §3).
 
-import { foldByOrdinal, readSessionDoc, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { foldByOrdinal, readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { chatRagPath } from '@/feature-evidence/paths.js';
+import { readAllFeatureRag } from '@/feature-evidence/projections.js';
 
 import {
-  RAG_EVIDENCE_DOC_TYPE,
   type RagEvidenceConversationFold,
   type RagEvidenceRow,
   type RagEvidenceSessionFold,
@@ -91,15 +92,21 @@ export function foldRagEvidenceRows(
   };
 }
 
-/** Read a session's rag-evidence ledger and fold it. */
+/**
+ * Read a session's rag-evidence rows from the two-home layout and fold them (issue #468
+ * Phase C). The retired `paqad.rag-evidence/<session>` substrate is gone: a row lives in
+ * the session's `_chat/<session>/rag.jsonl` (chat turns) or in a feature bundle's
+ * `rag.jsonl` (feature-attributed turns), so the fold unions the `_chat` home with every
+ * bundle's rag rows filtered to this session. `foldByOrdinal` groups by
+ * `conversation_ordinal`, so the union order does not matter.
+ */
 export function foldRagEvidenceSession(
   projectRoot: string,
   sessionId: string,
 ): RagEvidenceSessionFold {
-  return foldRagEvidenceRows(
-    sessionId,
-    readSessionDoc(projectRoot, RAG_EVIDENCE_DOC_TYPE, sessionId),
-  );
+  const chatRows = readUnitFile(projectRoot, chatRagPath(sessionId));
+  const featureRows = readAllFeatureRag(projectRoot).filter((row) => row.session_id === sessionId);
+  return foldRagEvidenceRows(sessionId, [...chatRows, ...featureRows]);
 }
 
 function sum<T>(items: readonly T[], pick: (item: T) => number): number {

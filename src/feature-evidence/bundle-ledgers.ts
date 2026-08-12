@@ -14,7 +14,9 @@
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import { readEvidenceRowsAt } from '@/evidence/ledger.js';
 import {
+  allocateOrdinal,
   appendStampedRowToUnit,
+  currentOrdinal,
   readUnitFile,
   stampSessionRow,
   type SessionLedgerRow,
@@ -47,6 +49,26 @@ export const CHANGE_METRICS_RUN_SCHEMA_VERSION = 1;
 export function resolveRagHome(projectRoot: string, sessionId: string): string {
   const dirName = currentFeature(projectRoot, sessionId);
   return dirName ? featureFilePath(dirName, 'rag') : chatRagPath(sessionId);
+}
+
+/**
+ * DocType whose session-ledger directory coincides exactly with `_chat/<session>`
+ * (`join('.paqad/ledger', '_chat', session)` === `chatDir(session)`), so the RAG
+ * conversation ordinal — the `.open` pointer and the race-safe exclusive-create
+ * allocation markers — lives in the same `_chat` home as the chat `rag.jsonl` rows
+ * (issue #468 Phase C). Reusing the canonical session-ledger allocator keeps the
+ * background worker, the TS recorder, and the mjs prompt seam on one ordinal.
+ */
+const CHAT_ORDINAL_DOC = '_chat';
+
+/** Allocate the next RAG conversation ordinal in the session's `_chat` home. */
+export function allocateChatOrdinal(projectRoot: string, sessionId: string): number {
+  return allocateOrdinal(projectRoot, CHAT_ORDINAL_DOC, sessionId);
+}
+
+/** The current open RAG conversation ordinal for the session's `_chat` home, or 0. */
+export function currentChatOrdinal(projectRoot: string, sessionId: string): number {
+  return currentOrdinal(projectRoot, CHAT_ORDINAL_DOC, sessionId);
 }
 
 /**
