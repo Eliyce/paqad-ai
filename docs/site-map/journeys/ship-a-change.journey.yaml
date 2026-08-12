@@ -1,0 +1,30 @@
+# Proposed journey — becomes `confirmed` only via human sign-off through the dashboard
+# (`paqad-ai sitemap journey confirm`), never self-approved.
+schema_version: 1
+id: ship-a-change
+label: Plan, spec, verify and deliver a code change
+actor: developer
+goal: Take a code change through the full feature-development lane to a shippable, evidenced state.
+entry: node-cli-plan
+priority: high
+status: proposed
+derivation: agent
+steps:
+  - surface: node-cli-plan
+    action: Run `paqad-ai plan compile` to record the plan (with its reuse section).
+    expect: A plan.json artifact minted into the feature bundle.
+  - surface: node-cli-spec
+    action: Run `paqad-ai spec freeze` to freeze the specification.
+    expect: A specification.json artifact with confirmed invariants.
+  - surface: node-cli-checks
+    action: Run `paqad-ai checks run` to execute the deterministic verification gates.
+    expect: Gate results recorded; failures block the change.
+  - surface: node-cli-review
+    action: Run `paqad-ai review record` to capture the review.
+    expect: A review.json artifact in the bundle.
+  - surface: node-cli-deliver
+    action: Run `paqad-ai deliver` to produce the end-of-change delivery receipt.
+    expect: A delivery receipt with the contract verdict.
+ends:
+  success: The change reaches a "Safe to merge" verdict with a complete evidence bundle.
+  failure: A blocking gate leaves the change "Needs your attention".

@@ -1,0 +1,24 @@
+# Proposed journey — becomes `confirmed` only via human sign-off through the dashboard
+# (`paqad-ai sitemap journey confirm`), never self-approved.
+schema_version: 1
+id: map-the-app
+label: Create and verify the application site map
+actor: developer
+goal: Author the behavioural map and prove it against the code with the deterministic engine.
+entry: node-cli-sitemap
+priority: medium
+status: proposed
+derivation: agent
+steps:
+  - surface: node-cli-questions
+    action: Run `paqad-ai sitemap questions` to list the open creation questions.
+    expect: Only the closed-list questions the authored map still needs.
+  - surface: node-cli-answer
+    action: Run `paqad-ai sitemap answer` to record the decisions and stamp provenance.
+    expect: answers.yaml written; each decision marked human or default.
+  - surface: node-cli-sitemap
+    action: Run `paqad-ai sitemap run` to reconcile and stamp trust and freshness.
+    expect: Findings computed; trust tiers and map-vs-code freshness stamped into the map.
+ends:
+  success: A verified map of record with every surface grounded in resolving evidence.
+  abandoned: The map is authored but never verified against code.
