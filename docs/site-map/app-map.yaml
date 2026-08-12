@@ -8,8 +8,8 @@ app:
   generated_from: paqad-ai sitemap run — node-cli extractor
   language: en
   freshness:
-    anchors_total: 94
-    anchors_resolved: 94
+    anchors_total: 95
+    anchors_resolved: 95
     anchors_broken: 0
 actors:
   - id: developer
@@ -1367,6 +1367,24 @@ surfaces:
       - file: src/cli/commands/sitemap.ts
         line: 27
     guard: flag-site-map
+    trust: proven-in-code
+  - id: node-cli-x
+    kind: cli-command
+    label: Extractor artifact (not a real command)
+    entry:
+      kind: bin
+      value: x
+    area: sitemap
+    module: module-map-engine
+    status: excluded
+    derivation: static
+    confidence: low
+    evidence:
+      - file: src/site-map/gatherer.ts
+        line: 155
+    note: "False positive: the node-cli command regex in src/site-map/gatherer.ts
+      matches its own JSDoc example `.command('x')`. Excluded — not a shipped
+      command. Tracked for a code fix."
     trust: proven-in-code
   - id: node-cli-dashboard
     kind: cli-command
