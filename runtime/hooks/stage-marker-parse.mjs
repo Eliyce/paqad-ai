@@ -31,22 +31,17 @@ async function main(input) {
     if (!transcriptText) return 0;
 
     const distUrl = new URL('../../dist/stage-evidence/marker-parse.js', import.meta.url);
-    const narrationUrl = new URL('../../dist/stage-evidence/narration.js', import.meta.url);
-    const [{ parseAndRecordMarkers }, { markerBatchNarration }] = await Promise.all([
-      import(distUrl.href),
-      import(narrationUrl.href),
-    ]);
-    const recorded = parseAndRecordMarkers({
+    const { parseAndRecordMarkers } = await import(distUrl.href);
+    // Record every parsed marker to the ledger (issue #307 — the ledger write is
+    // non-negotiable). The chat echo that used to ride `{systemMessage}` is gone: this is a
+    // Stop hook, and Claude Code now RENDERS a Stop-hook `{systemMessage}` on Desktop as
+    // literal "Stop says:" lines, so echoing here duplicated the stage lines the agent
+    // already speaks itself (issue #409) and leaked into the developer's chat.
+    parseAndRecordMarkers({
       projectRoot,
       transcriptText,
       sessionId: payload?.session_id ?? null,
     });
-    // Narration and ledger are both non-negotiable (issue #307): every row this
-    // parse just minted is shown to the user via the host's user-message channel.
-    const narration = markerBatchNarration(recorded);
-    if (narration) {
-      process.stdout.write(`${JSON.stringify({ systemMessage: narration })}\n`);
-    }
     return 0;
   } catch {
     /* v8 ignore next */

@@ -13,8 +13,11 @@ import { createVerificationContext } from '../verification/shared.fixture.js';
 // change that reaches completion missing mandatory stages (review, documentation_sync)
 // must:
 //   1. compute a real "Needs your attention" verdict (never a hidden clean pass), and
-//   2. surface that receipt to the DEVELOPER through the real Stop-hook backstop as a
-//      visible {systemMessage} + a {decision:block} that keeps the model working.
+//   2. surface that verdict through the real Stop-hook backstop as a {decision:block} that
+//      keeps the model working, carrying the failing gates in its (model-only) reason.
+// The Stop hook emits NO {systemMessage}: Claude Code now renders a Stop {systemMessage} as
+// literal "Stop says:" lines, so the developer-facing receipt is the agent's own final
+// message (the #409 contract), and the hook's job here is enforcement, not narration.
 // Both halves are exercised for real: the verdict is computed by the real
 // runRepositoryVerification over a real on-disk stage-evidence ledger; the surfacing is
 // the real runVerificationBackstop. The dist api is stubbed ONLY to hand the already-real
@@ -58,7 +61,7 @@ describe('#368 E2E — an incomplete change surfaces a visible "Needs your atten
     endStage(root, stageName, {}, { sessionId: SES, ordinal, adapter: 'claude-code' });
   }
 
-  it('AC-10: verdict is FAIL, the receipt is developer-visible, and it never reads clean', async () => {
+  it('AC-10: verdict is FAIL, enforcement rides {decision:block} (no systemMessage leak), and it never reads clean', async () => {
     // A real feature ledger: planning+spec+development+checks recorded, but review and
     // documentation_sync were never run — exactly the #353 shape.
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
@@ -92,7 +95,7 @@ describe('#368 E2E — an incomplete change surfaces a visible "Needs your atten
     expect(verdict.receipt).toMatch(/documentation_sync/);
     expect(verdict.receipt).not.toContain('Safe to merge');
 
-    // (2) Real surfacing: the Stop-hook backstop makes that verdict developer-visible.
+    // (2) Real surfacing: the Stop-hook backstop enforces the verdict on the model.
     vi.doMock(DIST, () => ({ runRepositoryVerification: async () => verdict }));
     const { runVerificationBackstop } =
       await import('../../../runtime/scripts/verify-backstop.mjs');
@@ -109,9 +112,10 @@ describe('#368 E2E — an incomplete change surfaces a visible "Needs your atten
 
     expect(code).toBe(0); // Stop hooks block via JSON, not exit code.
     const parsed = JSON.parse(out.read());
-    expect(parsed.systemMessage).toContain('Needs your attention'); // developer sees it (AC-C1)
-    expect(parsed.systemMessage).toMatch(/review/);
     expect(parsed.decision).toBe('block'); // model told to fix (AC-A1 teeth)
+    expect(parsed.reason).toContain(verdict.summary); // failing gates ride the model-only reason
+    expect(parsed.reason).toContain('documentation_sync'); // remediation names the missing stages
+    expect(parsed.systemMessage).toBeUndefined(); // no "Stop says:" leak — the agent speaks the receipt
     expect(err.read()).toBe(''); // nothing hidden on stderr anymore
   });
 });
