@@ -46,11 +46,16 @@ from turning into a nuisance:
 ## Who speaks the receipt (issue #409)
 
 The completion hook writes the ledger and computes the verdict, but it does **not**
-reliably speak. Its narration rides Claude's `{systemMessage}` channel, and the
-Desktop app records that as a hook attachment it never renders in the chat — a
+speak in chat. It used to echo the receipt on Claude's `{systemMessage}` channel,
+which the Desktop app once recorded as a hook attachment it never rendered — a
 verified six-stage run emitted eleven `▸ paqad` stage lines and the developer saw
-none of them, while the evidence bundle was complete. Recorded but unnarrated, the
-inverse of the JetBrains gap (#389).
+none of them, while the evidence bundle was complete. Claude Code later flipped
+that: a Stop-hook `{systemMessage}` now renders verbatim as `Stop says:` lines, so
+the echo went from invisible to a loud duplicate of the receipt the agent already
+speaks, and it leaked the model-only narration advisory into the chat. Either way
+the hook is the wrong mouth. So the Stop hooks no longer emit user-facing
+`{systemMessage}` prose at all; they write the ledger and, on a hard failure, ride
+the model-only `{decision:'block'}` reason.
 
 So the voice belongs to the agent, and the hook keeps a deterministic backstop:
 
@@ -63,12 +68,15 @@ So the voice belongs to the agent, and the hook keeps a deterministic backstop:
   matching visible stage line in an assistant **text** block. A line found only in a
   hook attachment or `systemMessage` payload does not count as visible.
 - **The check is advisory, never a gate.** An unnarrated turn is a voice defect, not
-  a broken change, so the finding rides along as an instruction to the model and can
+  a broken change, so the finding rides along as an instruction to the model (folded
+  into the `{decision:'block'}` reason when a real gate is already blocking) and can
   never turn a passing verdict into a failing one or block a turn. A missing,
   unreadable, or malformed transcript yields no findings at all.
 
-The hook's `{systemMessage}` emission is deliberately kept as belt-and-braces for
-the surfaces where it does render; removing it would regress those for no gain.
+The Stop hooks emit no user-facing `{systemMessage}` prose: since Claude Code renders
+a Stop `{systemMessage}` as `Stop says:` lines, an echo there would only duplicate the
+agent's receipt and leak model-only advisories. The agent's final message is the sole
+developer-facing channel; enforcement rides `{decision:'block'}` plus the git/CI backstop.
 
 ## The gate bank
 
