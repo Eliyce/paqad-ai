@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { PAQAD_STATUS_GLYPH } from '@/core/constants/paqad-voice.js';
+import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import {
   composeChangeReceipt,
   formatStageEvidenceReceipt,
+  unrecordedMandatoryStages,
 } from '@/verification/repository/receipt.js';
+import { formatVerdictSummary } from '@/verification/repository/verdict.js';
 import type { FoldedChange, FoldedStage, StageState } from '@/stage-evidence/types.js';
 
 function stage(name: string, state: StageState, extra: Partial<FoldedStage> = {}): FoldedStage {
@@ -255,5 +257,92 @@ describe('composeChangeReceipt (#325)', () => {
       reuse: { reused: 1, newJustified: 0 },
     });
     expect(receipt).not.toContain('reuse:');
+  });
+});
+
+describe('unrecordedMandatoryStages (#472)', () => {
+  it('returns the mandatory stages that are not provably done, excluding optional/skipped', () => {
+    const gaps = unrecordedMandatoryStages(
+      fold([
+        stage('planning', 'complete'),
+        stage('specification', 'complete'),
+        stage('development', 'complete', { evidence_source: 'inferred-git' }),
+        stage('review', 'missing'),
+        stage('checks', 'missing'),
+        stage('documentation_sync', 'complete'),
+        // A skipped mandatory stage is intentional non-work → not a gap.
+        stage('delivery', 'skipped'),
+      ]),
+    );
+    expect(gaps).toEqual(['review', 'checks']);
+  });
+
+  it('counts an inconclusive or failed mandatory stage as a gap', () => {
+    const gaps = unrecordedMandatoryStages(
+      fold([
+        stage('planning', 'inconclusive'),
+        stage('specification', 'failed'),
+        stage('development', 'complete'),
+      ]),
+    );
+    expect(gaps).toEqual(['planning', 'specification']);
+  });
+
+  it('excludes a not-applicable mandatory stage', () => {
+    expect(unrecordedMandatoryStages(fold([stage('development', 'not-applicable')]))).toEqual([]);
+  });
+
+  it('treats a checks stage the completion gate could not verify as a gap (checksVerified=false)', () => {
+    // A "done" checks marker with no passing report → 🟡, so it is a gap.
+    expect(unrecordedMandatoryStages(fold([stage('checks', 'complete')]), false)).toEqual([
+      'checks',
+    ]);
+    // With a passing report it is provably done → not a gap.
+    expect(unrecordedMandatoryStages(fold([stage('checks', 'complete')]), true)).toEqual([]);
+  });
+
+  it('returns [] when every mandatory stage is provably done', () => {
+    const gaps = unrecordedMandatoryStages(
+      fold([
+        stage('planning', 'complete'),
+        stage('specification', 'complete'),
+        stage('development', 'complete'),
+        stage('review', 'complete'),
+        stage('checks', 'complete'),
+        stage('documentation_sync', 'complete'),
+      ]),
+      true,
+    );
+    expect(gaps).toEqual([]);
+  });
+
+  // AC-5 — the exact #472 repro: a passing verdict + unrecorded review/checks must not
+  // render "Safe to merge" beside 🟡 stage lines. The reconciled headline agrees with the block.
+  it('composes a self-consistent receipt: Inconclusive headline agrees with the 🟡 stage lines', () => {
+    const repro = fold([
+      stage('planning', 'complete'),
+      stage('specification', 'complete'),
+      stage('development', 'complete', { evidence_source: 'inferred-git' }),
+      stage('review', 'missing'),
+      stage('checks', 'missing'),
+      stage('documentation_sync', 'complete'),
+    ]);
+    const gaps = unrecordedMandatoryStages(repro);
+    const reconciledHeadline = formatVerdictSummary({
+      ok: true,
+      gates: [{ gate: 'change-completeness', status: 'pass', detail: 'ok', remediation: null }],
+      escalations: [],
+      unrecordedMandatoryStages: gaps,
+    });
+    const receipt = composeChangeReceipt({ verdictSummary: reconciledHeadline, fold: repro });
+
+    // Headline is honest and never contradicts the block.
+    expect(receipt).toContain(paqadFrameLead(PAQAD_VERDICT.inconclusive));
+    expect(receipt).not.toContain(PAQAD_VERDICT.pass);
+    // The block still shows the two unrecorded stages 🟡.
+    expect(receipt).toContain(`${PAQAD_STATUS_GLYPH.needsLook} review — not recorded`);
+    expect(receipt).toContain(`${PAQAD_STATUS_GLYPH.needsLook} checks — not recorded`);
+    // The stages the headline names are exactly the ones the block flags.
+    expect(receipt).toContain('mandatory stage(s) not recorded: review, checks');
   });
 });
