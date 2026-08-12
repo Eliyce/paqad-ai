@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { CONTEXT_HASH_ALGO_VERSION } from '@/context/context-hash.js';
 import { PATHS } from '@/core/constants/paths.js';
@@ -37,7 +37,9 @@ describe('reproducibility stamp', () => {
   });
 
   it('tolerates a malformed stamp file (degrades to null)', () => {
-    mkdirSync(join(root, '.paqad', 'ledger'), { recursive: true });
+    // Issue #468 Phase C — the stamp relocated to `.paqad/session/`; create its dir via the
+    // constant so the test moves with the path.
+    mkdirSync(dirname(join(root, PATHS.EVIDENCE_CONTEXT_STAMP)), { recursive: true });
     writeFileSync(join(root, PATHS.EVIDENCE_CONTEXT_STAMP), '{ not json', 'utf8');
     expect(readReproducibilityStamp(root)).toBeNull();
   });

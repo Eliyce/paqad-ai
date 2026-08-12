@@ -14,7 +14,6 @@ import { PATHS } from '@/core/constants/paths.js';
 import { collectRuleFiles, computeRuleFilesHash } from './analyzer.js';
 import { runFixtures } from './fixture-runner.js';
 import { loadRuleScriptMap } from './map.js';
-import { recordRuleDrift } from './rule-ledger.js';
 import { readReport } from './runner.js';
 import { parseRuleFile } from './rule-file.js';
 
@@ -102,9 +101,9 @@ function mergeDrift(
     blocked: findings.some((f) => f.code !== 'RS-CACHE-INVALID'),
   };
   writeDrift(projectRoot, report);
-  // Evidence sink (buildout F6) — record the drift state on the session-ledger for
-  // the dashboard + SIEM fold-view. drift.json stays as the reconciler's own cache.
-  recordRuleDrift(projectRoot, { blocked: report.blocked, counts: report.counts });
+  // Issue #468 Phase C — `drift.json` stays as the reconciler's own cache (the
+  // rule-compliance collector reads it live since Phase B); the retired project-scoped
+  // `rule-evidence` drift ledger write is gone.
   return report;
 }
 

@@ -6,15 +6,8 @@ import {
   isoWeek,
   METRIC_DEFINITION,
   renderFindingsMarkdown,
-  RULE_EVIDENCE_DOC_TYPE,
   // @ts-expect-error -- pure JS helper shared with the runnable rule-findings-stats.mjs script
 } from '../../../scripts/lib/findings-stats.mjs';
-
-describe('RULE_EVIDENCE_DOC_TYPE', () => {
-  it('matches the ledger doc type the rule runner records under', () => {
-    expect(RULE_EVIDENCE_DOC_TYPE).toBe('rule-evidence');
-  });
-});
 
 describe('isoWeek', () => {
   it('labels a mid-week date with its ISO week', () => {

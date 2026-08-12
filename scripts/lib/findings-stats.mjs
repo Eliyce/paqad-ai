@@ -1,6 +1,7 @@
-// Deterministic-findings stats over the rule-evidence ledger (issue #285, headline b).
-// Pure helpers only — no I/O. The runnable CLI (rule-findings-stats.mjs) reads the
-// ledger via readProjectEvents and pipes the rows through bucketFindings.
+// Deterministic-findings stats over the per-feature rule-run bundle files (issue #285,
+// headline b; re-pointed for issue #468 Phase C). Pure helpers only — no I/O. The runnable
+// CLI (rule-findings-stats.mjs) globs every `feature-evidence/<feature>/rule-run.jsonl` and
+// pipes the rows through bucketFindings.
 //
 // Honesty note baked into the metric: the rule runner appends a row only on a FRESH
 // run (cache hits return early), and each row's `counts.deterministic` is a snapshot
@@ -8,15 +9,12 @@
 // rows double-counts a persistent finding across runs. So the metric is defined as the
 // per-fresh-run snapshot, reported per ISO week as median and max — never a running sum.
 
-/** Ledger doc type the rule runner records findings under (mirrors RULE_EVIDENCE_DOC_TYPE). */
-export const RULE_EVIDENCE_DOC_TYPE = 'rule-evidence';
-
 /** The metric definition, embedded in every rendered report so the number is never bare. */
 export const METRIC_DEFINITION =
   'Deterministic findings PRESENT per fresh rule-script run (a snapshot, not a running ' +
   'sum — cache hits append no row, and each row counts findings present at that run). ' +
-  'Bucketed by ISO-8601 week; reported as weekly median and max. Source: the rule-evidence ' +
-  'ledger read via readProjectEvents.';
+  'Bucketed by ISO-8601 week; reported as weekly median and max. Source: the per-feature ' +
+  'rule-run.jsonl bundle files.';
 
 /**
  * ISO-8601 week label (`YYYY-Www`) for an ISO timestamp. Uses the Thursday-of-week rule
@@ -130,7 +128,7 @@ export function renderFindingsMarkdown(bucketed, meta) {
   lines.push(`> ${bucketed.definition}`);
   lines.push('');
   if (bucketed.weeks.length === 0) {
-    lines.push('No data: the rule-evidence ledger holds no findings rows for this project yet.');
+    lines.push('No data: no per-feature rule-run bundle holds a findings row for this project yet.');
     return lines.join('\n');
   }
   lines.push('| ISO week | Fresh runs | Median deterministic | Max deterministic |');

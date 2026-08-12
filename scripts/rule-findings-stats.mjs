@@ -1,19 +1,21 @@
 #!/usr/bin/env node
-// Weekly deterministic-findings stats from the rule-evidence ledger (issue #285,
-// headline b). Read-only consumer of the EXISTING ledger — reads via readProjectEvents,
-// adds no new evidence store and never touches .paqad/scripts/rules/.cache/report.json.
+// Weekly deterministic-findings stats from the per-feature rule-run bundle files (issue
+// #285, headline b; re-pointed for issue #468 Phase C, decision D-01KZV4A1). Read-only
+// consumer of the EXISTING bundle evidence — reads the fresh-run findings rows from every
+// `.paqad/ledger/feature-evidence/<feature>/rule-run.jsonl`, adds no new evidence store and
+// never touches `.paqad/scripts/rules/.cache/report.json`.
 //
 //   node scripts/rule-findings-stats.mjs [--project <path>] [--json]
 //
 // --project defaults to the current directory. --json prints only the JSON report.
-// Exit codes: 0 = read (including a project with no ledger rows, which prints "no data"),
+// Exit codes: 0 = read (including a project with no bundle rows, which prints "no data"),
 // 2 = usage error.
 
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 
 import {
-  RULE_EVIDENCE_DOC_TYPE,
   bucketFindings,
   buildFindingsReport,
   renderFindingsMarkdown,
@@ -50,25 +52,50 @@ function parseArgs(argv) {
 }
 
 /**
- * Read the rule-evidence ledger via readProjectEvents from the built dist bundle
- * (dedicated tsup entry), mirroring the runtime/hooks/*.mjs dist-import pattern. When
- * the dist bundle is absent (repo not built) there is nothing to read, so treat it as
- * an empty ledger rather than erroring.
+ * Read every fresh-run findings row from the per-feature `rule-run.jsonl` bundle files
+ * (issue #468 Phase C — the findings home since Phase B). Globs the feature-evidence
+ * container, skipping the `_session` / `_chat` control dirs (which carry no rule-run
+ * file), and tolerantly parses each JSONL line. No dist import is needed — the bundle is
+ * plain JSONL on disk. A missing container / unreadable file is treated as no rows.
  */
-async function readLedgerRows(projectRoot) {
+function readBundleFindingsRows(projectRoot) {
+  const container = join(projectRoot, '.paqad', 'ledger', 'feature-evidence');
+  let entries;
   try {
-    const distUrl = new URL('../dist/session-ledger/project-ledger.js', import.meta.url);
-    const { readProjectEvents } = await import(distUrl.href);
-    return readProjectEvents(projectRoot, RULE_EVIDENCE_DOC_TYPE);
+    entries = readdirSync(container, { withFileTypes: true });
   } catch {
     return [];
   }
+  const rows = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('_')) {
+      continue;
+    }
+    let text;
+    try {
+      text = readFileSync(join(container, entry.name, 'rule-run.jsonl'), 'utf8');
+    } catch {
+      continue; // no rule-run.jsonl in this bundle
+    }
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.length === 0) {
+        continue;
+      }
+      try {
+        rows.push(JSON.parse(trimmed));
+      } catch {
+        // Tolerant: skip a partial/corrupt line (an append-only log survives a mid-crash write).
+      }
+    }
+  }
+  return rows;
 }
 
-async function main() {
+function main() {
   const args = parseArgs(process.argv.slice(2));
   const projectRoot = resolve(args.project);
-  const rows = await readLedgerRows(projectRoot);
+  const rows = readBundleFindingsRows(projectRoot);
   const bucketed = bucketFindings(rows);
   const meta = {
     project: projectRoot,
@@ -84,7 +111,9 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((error) => {
+try {
+  main();
+} catch (error) {
   process.stderr.write(`Error: ${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(2);
-});
+}
