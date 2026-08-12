@@ -130,12 +130,20 @@ export async function main(input, seam = SEAM) {
       }
       return 2;
     }
-    // Allow path: surface narration + advisory findings through the host's
-    // user-message channel (`systemMessage`), not bare stdout — bare stdout is
+    // Allow path: on the pre-mutation (PreToolUse) seam, surface narration + advisory
+    // findings through the host's user-message channel (`systemMessage`) — bare stdout is
     // only visible in verbose mode, and narration is non-negotiable (issue #307).
-    const visible = [result.narration, result.summary].filter(Boolean).join('\n');
-    if (visible) {
-      process.stdout.write(`${JSON.stringify({ systemMessage: visible })}\n`);
+    //
+    // The completion (Stop) seam no longer emits here. Claude Code changed: a Stop-hook
+    // `{systemMessage}` now RENDERS on Desktop as literal "Stop says:" lines, and the agent
+    // already speaks its end-of-change narration in its final message (issue #409), so a
+    // Stop echo would duplicate that and leak into the developer's chat (the "Stop says:"
+    // narration leak). A PreToolUse `{systemMessage}` is still not rendered, so it stays.
+    if (seam !== 'completion') {
+      const visible = [result.narration, result.summary].filter(Boolean).join('\n');
+      if (visible) {
+        process.stdout.write(`${JSON.stringify({ systemMessage: visible })}\n`);
+      }
     }
     return 0;
   } catch {
