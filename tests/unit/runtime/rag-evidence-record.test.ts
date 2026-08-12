@@ -8,7 +8,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { validateRagEvidenceRow } from '@/rag-ledger/schema.js';
 import { foldRagEvidenceSession } from '@/rag-ledger/fold.js';
-import { chatRagPath, featureFilePath, featureSessionControlPath } from '@/feature-evidence/paths.js';
+import {
+  chatRagPath,
+  featureFilePath,
+  featureSessionControlPath,
+} from '@/feature-evidence/paths.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
 
 // The pure-mjs seam recorder must produce rows the TS reader reads and the AJV schema

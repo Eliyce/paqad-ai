@@ -48,6 +48,7 @@ import { runDuplicationScan } from '@/duplication/scan.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
 import { computeChangeMetrics, type ChangeMetrics } from '@/change-metrics/index.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { type FoldedChange } from '@/stage-evidence/types.js';
@@ -55,6 +56,8 @@ import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '../evidence.js';
+import { evidenceExistenceGate } from './evidence-existence-gate.js';
+import { resolveEvidenceExistenceMode } from './evidence-existence-mode.js';
 
 // Injected at build time by tsup/vitest (see tsup.config.ts); the unreplaced
 // placeholder is tolerated so a dev/test run still produces a receipt.
@@ -348,6 +351,40 @@ export async function runRepositoryVerification(
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: change-metrics skipped (${message})`);
       changeMetrics = null;
+    }
+  }
+
+  // Issue #468 Phase C — the evidence-existence gate. Warn-only: it verifies the active
+  // feature bundle carries its rule-run / duplication / change-metrics / rag files,
+  // backfilling any recoverable gap from the caches (marked `backfilled`) and reporting an
+  // unrecoverable RAG gap as Inconclusive. It NEVER fails/blocks (no strict tier). Placed
+  // with the other appended gates so it rides both the evidence artifact and the verdict;
+  // best-effort by contract (the gate swallows its own errors).
+  const existenceMode = resolveEvidenceExistenceMode(context.project_root);
+  if (existenceMode !== 'off') {
+    const existenceSession = resolveSessionId(context.project_root, options.hostSessionId ?? null);
+    const existenceActive = currentFeature(context.project_root, existenceSession);
+    const config = resolveFrameworkConfig(context.project_root);
+    const existenceGate = evidenceExistenceGate({
+      projectRoot: context.project_root,
+      sessionId: existenceSession,
+      // Issue #390 — a route we can prove is non-feature-development is treated as no active
+      // bundle, so a non-feature turn skips the gate even with a pointer active.
+      dirName:
+        existenceActive &&
+        !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
+          ? existenceActive
+          : null,
+      mode: existenceMode,
+      isFeatureDev,
+      ragEnabled: config.intelligence.rag_enabled,
+      ruleComplianceOn: resolveRuleComplianceMode(context.project_root) !== 'off',
+      duplicationOn: resolveDuplicationMode(context.project_root) !== 'off',
+      metricsOn: config.features.metrics_enabled,
+      changeMetrics,
+    });
+    if (existenceGate) {
+      evidence.gates.push(existenceGate);
     }
   }
 

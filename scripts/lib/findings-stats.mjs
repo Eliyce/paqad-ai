@@ -128,7 +128,9 @@ export function renderFindingsMarkdown(bucketed, meta) {
   lines.push(`> ${bucketed.definition}`);
   lines.push('');
   if (bucketed.weeks.length === 0) {
-    lines.push('No data: no per-feature rule-run bundle holds a findings row for this project yet.');
+    lines.push(
+      'No data: no per-feature rule-run bundle holds a findings row for this project yet.',
+    );
     return lines.join('\n');
   }
   lines.push('| ISO week | Fresh runs | Median deterministic | Max deterministic |');

@@ -99,6 +99,8 @@ export interface RuleRunEntry {
   blocking: boolean;
   adapter?: string;
   note?: string | null;
+  /** Issue #468 Phase C — true when minted by the existence gate's backfill (not a live run). */
+  backfilled?: boolean;
   now?: () => Date;
 }
 
@@ -127,6 +129,7 @@ export function appendRuleRun(
         blocking: entry.blocking,
         adapter: entry.adapter ?? 'claude-code',
         note: entry.note ?? null,
+        ...(entry.backfilled ? { backfilled: true } : {}),
       },
       { schemaVersion: RULE_RUN_SCHEMA_VERSION, now: entry.now },
     );
@@ -154,6 +157,7 @@ export function appendDuplicationRun(
   sessionId: string,
   report: DuplicationReport,
   now?: () => Date,
+  backfilled = false,
 ): SessionLedgerRow | null {
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) {
@@ -169,6 +173,7 @@ export function appendDuplicationRun(
         min_lines: report.min_lines,
         mode: report.mode,
         blocking: report.blocking,
+        ...(backfilled ? { backfilled: true } : {}),
       },
       { schemaVersion: DUPLICATION_RUN_SCHEMA_VERSION, now },
     );
@@ -195,6 +200,7 @@ export function appendChangeMetrics(
   sessionId: string,
   metrics: ChangeMetrics,
   now?: () => Date,
+  backfilled = false,
 ): SessionLedgerRow | null {
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) {
@@ -210,6 +216,7 @@ export function appendChangeMetrics(
         meaningful_changed_lines: metrics.meaningful_changed_lines,
         flagged_lines: metrics.inputs.flagged_lines,
         reuse_calls: metrics.inputs.reuse_calls,
+        ...(backfilled ? { backfilled: true } : {}),
       },
       { schemaVersion: CHANGE_METRICS_RUN_SCHEMA_VERSION, now },
     );

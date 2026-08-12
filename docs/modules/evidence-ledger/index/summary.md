@@ -40,18 +40,26 @@ total. `src/evidence/grading.ts` is the single source of truth for the A/B split
 | in-toto Statement (v1) + SLSA-VSA-modelled predicate | `src/evidence/receipt/statement.ts` (`buildInTotoStatement`, `summarizeGradedEvidence`) |
 | DSSE envelope + hash-chain signing + chain verification | `src/evidence/receipt/dsse.ts` (`signReceipt`, `verifyReceiptChain`, `pae`) |
 | CycloneDX-adjacent AI-BOM view | `src/evidence/receipt/ai-bom.ts` (`buildAiBom`) |
-| Project + persist the receipt at merge | `src/evidence/receipt/project.ts` (`projectReceipt`, `latestReceiptAuthorship`) |
+| Project + persist the per-feature receipt at merge | `src/feature-evidence/receipt.ts` (`projectFeatureReceipt`, `latestFeatureReceipt`); `latestReceiptAuthorship` in `src/evidence/receipt/project.ts` reads the latest bundle receipt |
 | Resolve change authorship (agent/model/provider/human) | `src/evidence/receipt/authorship.ts` (`resolveChangeAuthorship`, `buildChangeAuthorship`) |
 | Wired into the merge-time backstop | `src/verification/repository/run-repository-verification.ts` |
 
 ## On-disk layout
 
+Issue #468 (finishing #339) moved the evidence home into the per-feature bundle. The
+graded rows, the signed receipt, and the AI-BOM now live inside each change's
+`.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` directory; the retired top-level
+`.paqad/ledger/{evidence.jsonl,receipt.dsse.json,receipts.jsonl,ai-bom.json}` writes are
+gone (every reader projects the whole-project view from the bundle union). The receipt is
+no longer a single cross-feature hash chain — each bundle carries its own sealed snapshot,
+verified independently with `verifyReceiptSeal`.
+
 | Path | What |
 | ---- | ---- |
-| `.paqad/ledger/evidence.jsonl` | the unified append-only ledger (one graded row per line) |
-| `.paqad/ledger/receipt.dsse.json` | the latest signed receipt (DSSE envelope wrapping the in-toto Statement) |
-| `.paqad/ledger/receipts.jsonl` | the tamper-evident receipt **chain** (one envelope per line) |
-| `.paqad/ledger/ai-bom.json` | the CycloneDX-adjacent AI-BOM view |
+| `.paqad/ledger/feature-evidence/<feature>/evidence.jsonl` | the change's graded rows (one per line) |
+| `.paqad/ledger/feature-evidence/<feature>/receipt.json` | the change's signed receipt (DSSE envelope wrapping the in-toto Statement), sealed independently |
+| `.paqad/ledger/feature-evidence/<feature>/ai-bom.json` | the CycloneDX-adjacent AI-BOM view |
+| `.paqad/session/context-stamp.json` | the latest reproducibility stamp (relocated out of `.paqad/ledger/`) |
 
 ## Subject identity (resolved decision)
 
