@@ -128,33 +128,34 @@ export async function runVerificationBackstop({
     // hook (it is a PreToolUse mechanism), so the old `return 2` was both invisible AND
     // a no-op. git/CI keep the exit-code-gated path below.
     if (origin === 'hook-completion') {
-      // Issue #409 — the voice backstop. `{systemMessage}` is exactly backwards for a
-      // receipt (the model reads it, the Desktop developer never sees it), which is why
-      // the agent must speak the receipt itself. But that same property makes it the
-      // right channel for an advisory ABOUT the narration: the audience is the model.
-      // So when this change recorded stages the agent never said out loud, the advisory
-      // rides along here, and is folded into the block reason below when a block is
-      // already firing for a real gate failure. It never causes a block of its own — a
-      // silent turn is a voice defect, not a broken change (INV-1).
-      const payload = {
-        systemMessage: verdict.narrationAdvisory
-          ? `${receipt}\n\n${verdict.narrationAdvisory}`
-          : receipt,
-      };
+      // The Stop hook no longer emits a `{systemMessage}`. Claude Code changed: a
+      // Stop-hook `{systemMessage}` now RENDERS on Desktop as literal "Stop says:" lines,
+      // inverting the #368/#409 premise that this channel was invisible. Routing the
+      // receipt through it duplicated the narration the agent already speaks (the #409
+      // contract) and leaked the model-only narration advisory into the developer's chat
+      // (the "Stop says:" narration leak). So the developer-facing channel is the agent's
+      // own final message; enforcement rides the `{decision:'block'}` reason below, which
+      // is NOT rendered on either host (it reaches the model only), plus the git/CI
+      // backstop.
+      const payload = {};
       // Give the gate real teeth on a HARD failure (a gate reported `fail`, e.g. a
       // mandatory stage missing or a red checks report): tell the model to keep working
       // and resolve it before the turn ends. An Inconclusive verdict (no failing gate —
-      // only unproven signals) is surfaced but never blocks: "do not over-trust", not
-      // "you must fix". The loop guard (`loopActive`, from Claude's `stop_hook_active`)
-      // means the gate already bit once this turn, so a second block would loop — step
-      // aside and let the session end (git/CI remains the hard gate).
+      // only unproven signals) never blocks: "do not over-trust", not "you must fix". The
+      // loop guard (`loopActive`, from Claude's `stop_hook_active`) means the gate already
+      // bit once this turn, so a second block would loop — step aside and let the session
+      // end (git/CI remains the hard gate). The narration advisory (issue #409) still rides
+      // the model-only reason when a block is already firing; on a clean turn there is no
+      // model-facing decision to convey, so the hook stays silent.
       if (verdictHasHardFailure(verdict) && !loopActive) {
         payload.decision = 'block';
         payload.reason = verdict.narrationAdvisory
           ? `${blockReason(verdict)}\n\n${verdict.narrationAdvisory}`
           : blockReason(verdict);
       }
-      out.write(`${JSON.stringify(payload)}\n`);
+      if (payload.decision) {
+        out.write(`${JSON.stringify(payload)}\n`);
+      }
       return 0;
     }
 
