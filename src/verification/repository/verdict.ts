@@ -98,22 +98,41 @@ export function buildRepositoryVerificationVerdict(input: {
  * Verdict vocabulary and glyphs come from `paqad-voice.ts`, fulfilling that file's
  * single-source claim so the chat verdict, the PR comment, and the dashboard all say
  * the same words.
+ *
+ * `unrecordedMandatoryStages` (issue #472) reconciles the headline with the per-stage
+ * block: when the GATES all passed but a mandatory feature-development stage has no
+ * evidence, "Safe to merge" over-claims relative to the stage block (which shows the
+ * stage 🟡/🔴). In that case the word is downgraded to Inconclusive — the contract's
+ * over-trust guard — while the true "N/N checks held" line is kept so the gates that
+ * held are still credited. It never affects the caller's `ok` (exit/block) signal.
  */
 export function formatVerdictSummary(input: {
   ok: boolean;
   gates: RepositoryVerificationGateVerdict[];
   escalations: string[];
+  unrecordedMandatoryStages?: string[];
 }): string {
   const ran = input.gates.filter((gate) => gate.status !== 'skipped');
   const passed = ran.filter((gate) => gate.status === 'pass').length;
   const failing = ran.filter((gate) => gate.status === 'fail');
   const inconclusive = ran.filter((gate) => gate.status === 'inconclusive');
+  const stageGaps = input.unrecordedMandatoryStages ?? [];
 
   const lines: string[] = [];
 
-  if (input.ok) {
+  if (input.ok && stageGaps.length === 0) {
     lines.push(paqadFrameLead(PAQAD_VERDICT.pass));
     lines.push(`> ${PAQAD_STATUS_GLYPH.good} ${passed}/${ran.length} checks held for you.`);
+  } else if (input.ok) {
+    // Issue #472 — gates passed, but mandatory feature-development stages have no evidence.
+    // The gate headline over-claims relative to the stage block, so read Inconclusive (the
+    // over-trust guard) while still crediting the gates that held.
+    lines.push(paqadFrameLead(PAQAD_VERDICT.inconclusive));
+    lines.push(`> ${PAQAD_STATUS_GLYPH.good} ${passed}/${ran.length} checks held for you.`);
+    lines.push(
+      `> ${PAQAD_STATUS_GLYPH.needsLook} needs a look — mandatory stage(s) not recorded: ` +
+        `${stageGaps.join(', ')}. Mark them so the change is provably complete.`,
+    );
   } else if (failing.length > 0) {
     lines.push(paqadFrameLead(PAQAD_VERDICT.fail));
     for (const gate of [...failing, ...inconclusive]) {
