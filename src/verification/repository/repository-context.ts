@@ -24,6 +24,7 @@ import {
   detectStaleDocTargets,
   isCodeFile,
   isDocumentationFile,
+  isPaqadArtifactPath,
   isTestFile,
   loadChangeEvidence,
 } from '@/pipeline/change-evidence.js';
@@ -71,7 +72,12 @@ export async function buildRepositoryVerificationContext(
   const { projectRoot, origin } = options;
 
   const changeEvidence = await loadChangeEvidence(projectRoot);
-  const changedFiles = changeEvidence.files;
+  // Issue #205 — strip every `.paqad/` home (root or a self-hosted nested
+  // `runtime/base/.paqad/`) from the verification changed-file scan. Generated
+  // framework artifacts are never a unit of implementation, so they must not
+  // reach codeChanged, the test-evidence preview, the quality ratchet, or scope
+  // drift, where they would falsely demand test evidence and doc updates.
+  const changedFiles = changeEvidence.files.filter((filePath) => !isPaqadArtifactPath(filePath));
   const codeChanged = changedFiles.some((filePath) => isCodeFile(filePath));
   const staleDocTargets = await detectStaleDocTargets(projectRoot, changedFiles);
 

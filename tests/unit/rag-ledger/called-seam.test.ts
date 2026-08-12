@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { gatherWorkingSetSlices, type RetrievalSource } from '@/context/retrieval-context.js';
 import type { RagRetrievalResult } from '@/rag/types.js';
-import { readSessionDoc } from '@/session-ledger/ledger.js';
-import { RAG_EVIDENCE_DOC_TYPE } from '@/rag-ledger/types.js';
+import { readUnitFile } from '@/session-ledger/ledger.js';
+import { chatRagPath } from '@/feature-evidence/paths.js';
 
 function resultWith(files: string[]): RagRetrievalResult {
   const chunks = files.map((file, i) => ({
@@ -47,7 +47,7 @@ describe('called retrieval seam (#249 P2)', () => {
       recordEvidence: { sessionId: 'ses_called', adapter: 'engine' },
     });
 
-    const rows = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_called');
+    const rows = readUnitFile(root, chatRagPath('ses_called'));
     const called = rows.find((r) => r.kind === 'called');
     expect(called).toMatchObject({ query_scope: 'docs', candidates: 2 });
   });
@@ -61,6 +61,6 @@ describe('called retrieval seam (#249 P2)', () => {
       changedPaths: ['docs/instructions/a.md'],
       scope: 'docs',
     });
-    expect(readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_called')).toEqual([]);
+    expect(readUnitFile(root, chatRagPath('ses_called'))).toEqual([]);
   });
 });

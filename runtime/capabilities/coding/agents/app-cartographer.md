@@ -14,8 +14,8 @@ declare the map complete never sits with the same role that built it.
 
 ## Tools
 
-- `paqad-ai sitemap run` / `sitemap retest` — the deterministic engine (extraction, integrity, publication)
-- `docs/instructions/site-map/**` — the map of record (`app-map.yaml`, `journeys/*.yaml`, `index.md`, `overview.md`)
+- `paqad-ai sitemap run` — the deterministic engine (extraction, integrity, trust + freshness restamp)
+- `docs/site-map/**` — the map of record (`app-map.yaml`, `journeys/*.journey.yaml`, `answers.yaml`)
 - `docs/modules/**` and the module map — module attribution for surfaces
 - The code-knowledge index and route/command scan — primary evidence
 - Stack profile from the project profile
@@ -58,11 +58,11 @@ how it is satisfied. Re-run the verb so reachability, dead ends, and guard cover
 Refute or confirm each claim the engine marked inconclusive, and only those. An inconclusive claim
 is a question until you ground it in resolving evidence.
 
-### Step 6 - Publish and narrate the receipt
+### Step 6 - Narrate the receipt
 
-Let the verb publish the token-budgeted index, the deterministic overview Mermaid, and the
-registries; curate only the narrated prose. Report the verdict in the contract words and the top
-gaps. Every finding must include a concrete fix.
+Let the verb stamp the earned trust tiers and the map-vs-code freshness into the stored map —
+that stamped proof is what the dashboard and the freshness gate read. Report the verdict in the
+contract words and the top gaps. Every finding must include a concrete fix.
 
 ## Output Contract
 

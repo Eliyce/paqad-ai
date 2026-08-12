@@ -17,6 +17,7 @@ import {
   detectStaleDocTargets,
   isCodeFile,
   isDocumentationFile,
+  isPaqadArtifactPath,
   isTestFile,
   loadChangeEvidence,
 } from '@/pipeline/change-evidence.js';
@@ -118,6 +119,42 @@ describe('isCodeFile', () => {
 
   it('does not match test files', () => {
     expect(isCodeFile('tests/unit/foo.test.ts')).toBe(false);
+  });
+
+  // Issue #205 — generated `.paqad/` artifacts (any `.paqad/` home) are never code,
+  // even under `runtime/` where the prefix rule would otherwise match them.
+  it('does not match root .paqad/ artifacts', () => {
+    expect(isCodeFile('.paqad/session/verification-evidence.json')).toBe(false);
+  });
+
+  it('does not match a nested runtime/base/.paqad/ artifact', () => {
+    expect(isCodeFile('runtime/base/.paqad/audit.log')).toBe(false);
+    expect(isCodeFile('runtime/base/.paqad/quality-baseline.json')).toBe(false);
+    expect(isCodeFile('runtime/base/.paqad/module-health-evidence/mh-1.json')).toBe(false);
+  });
+});
+
+describe('isPaqadArtifactPath (issue #205)', () => {
+  it('matches the bare .paqad root', () => {
+    expect(isPaqadArtifactPath('.paqad')).toBe(true);
+  });
+
+  it('matches a root .paqad/ path', () => {
+    expect(isPaqadArtifactPath('.paqad/session/verification-evidence.json')).toBe(true);
+  });
+
+  it('matches a nested .paqad/ home (self-hosted runtime)', () => {
+    expect(isPaqadArtifactPath('runtime/base/.paqad/audit.log')).toBe(true);
+  });
+
+  it('normalizes Windows separators', () => {
+    expect(isPaqadArtifactPath('runtime\\base\\.paqad\\logs\\module-health.log')).toBe(true);
+  });
+
+  it('does not match paths that merely resemble the marker', () => {
+    expect(isPaqadArtifactPath('src/paqad.ts')).toBe(false);
+    expect(isPaqadArtifactPath('docs/.paqadx/file.md')).toBe(false);
+    expect(isPaqadArtifactPath('src/pipeline/change-evidence.ts')).toBe(false);
   });
 });
 

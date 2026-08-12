@@ -5,11 +5,39 @@ import { dirname, join } from 'node:path';
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
 
 import { buildInventory, type InventoryItem } from '@/dashboard/inventory.js';
+import { buildEvidenceRow } from '@/evidence/ledger.js';
+import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths.js';
 
 function write(root: string, relative: string, content: string): void {
   const full = join(root, relative);
   mkdirSync(dirname(full), { recursive: true });
   writeFileSync(full, content);
+}
+
+// Issue #468 Phase B — the evidence/receipt inventory cards count the per-feature bundle
+// union, so tests seed a bundle `evidence.jsonl` (N graded rows) + `receipt.json`.
+function seedBundle(root: string, evidenceRows: number): void {
+  const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
+  const evidencePath = join(root, featureFilePath(dir, 'evidence'));
+  mkdirSync(dirname(evidencePath), { recursive: true });
+  const rows = Array.from({ length: evidenceRows }, (_, i) =>
+    JSON.stringify(
+      buildEvidenceRow({
+        ts: '2026-06-11T00:00:00.000Z',
+        engine: 'verification-gate',
+        code: `gate-${i}`,
+        subject_digest: 's',
+        verdict: 'pass',
+        strength_class: 'deterministic',
+      }),
+    ),
+  );
+  writeFileSync(evidencePath, `${rows.join('\n')}\n`, 'utf8');
+  writeFileSync(
+    join(root, featureFilePath(dir, 'receipt')),
+    JSON.stringify({ payload: 'x', paqad: { receipt_hash: 'h' } }),
+    'utf8',
+  );
 }
 
 function byKey(items: InventoryItem[], key: string): InventoryItem {
@@ -97,8 +125,7 @@ describe('buildInventory', () => {
     write(root, '.paqad/vectors/index.json', '{}');
     write(root, '.paqad/decisions/pending/D-1.json', '{}');
     write(root, '.paqad/decisions/module-decisions/MD-0001.json', '{}');
-    write(root, '.paqad/ledger/evidence.jsonl', '{"a":1}\n{"a":2}\n');
-    write(root, '.paqad/ledger/receipts.jsonl', '{"r":1}\n');
+    seedBundle(root, 2); // 2 bundle evidence rows + 1 bundle receipt
     write(root, '.paqad/audit.log', 'line one\nline two\nline three\n');
     write(root, '.paqad/module-map/drift.json', '{"findings":[{"code":"MM-ADD"}]}');
     write(root, 'CLAUDE.md', '# entry');

@@ -1,12 +1,14 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { exportAuditEvents } from '@/audit/export';
 import type { SiemFormat } from '@/audit/types';
-import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger';
+import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger';
+import { buildEvidenceRow } from '@/evidence/ledger';
+import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths';
 import { recordDecisionOpened } from '@/planning/decision-ledger';
 
 function row(code: string, ts: string, detail?: string) {
@@ -19,6 +21,15 @@ function row(code: string, ts: string, detail?: string) {
     strength_class: 'deterministic',
     ...(detail !== undefined ? { detail } : {}),
   });
+}
+
+/** Seed graded evidence rows into a feature bundle's `evidence.jsonl` (issue #468 Phase B —
+ *  the SIEM export projects evidence from the bundle union, not the top-level ledger). */
+function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
+  const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
+  const path = join(root, featureFilePath(dir, 'evidence'));
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8');
 }
 
 describe('exportAuditEvents', () => {
@@ -39,7 +50,7 @@ describe('exportAuditEvents', () => {
   });
 
   it('emits one line per event in every format', () => {
-    appendEvidenceRows(root, [
+    seedBundleEvidence(root, [
       row('a', '2026-06-10T00:00:00.000Z'),
       row('b', '2026-06-10T01:00:00.000Z'),
     ]);
@@ -52,7 +63,7 @@ describe('exportAuditEvents', () => {
   });
 
   it('jsonl is a canonical passthrough of the normalized event', () => {
-    appendEvidenceRows(root, [row('mutation-testing', '2026-06-10T00:00:00.000Z', 'd')]);
+    seedBundleEvidence(root, [row('mutation-testing', '2026-06-10T00:00:00.000Z', 'd')]);
     const result = exportAuditEvents(root, { format: 'jsonl', productVersion: '1.0.0' });
     const parsed = JSON.parse(result.output) as Record<string, unknown>;
     expect(parsed.kind).toBe('evidence');
@@ -98,7 +109,7 @@ describe('exportAuditEvents', () => {
   });
 
   it('--since keeps only events at or after the cutoff and drops undated ones', () => {
-    appendEvidenceRows(root, [
+    seedBundleEvidence(root, [
       row('old', '2026-06-01T00:00:00.000Z'),
       row('new', '2026-06-10T00:00:00.000Z'),
     ]);
@@ -112,7 +123,7 @@ describe('exportAuditEvents', () => {
   });
 
   it('--redact blanks free-text detail before formatting', () => {
-    appendEvidenceRows(root, [row('mutation-testing', '2026-06-10T00:00:00.000Z', 'token=secret')]);
+    seedBundleEvidence(root, [row('mutation-testing', '2026-06-10T00:00:00.000Z', 'token=secret')]);
     const result = exportAuditEvents(root, {
       format: 'jsonl',
       redact: true,

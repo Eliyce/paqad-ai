@@ -15,8 +15,8 @@ role that drew it.
 
 ## Tools
 
-- The compiled `docs/instructions/site-map/app-map.yaml` — the surfaces, transitions, and guards journeys compose
-- `docs/instructions/site-map/journeys/*.journey.yaml` — the curated journey files
+- The stored `docs/site-map/app-map.yaml` — the surfaces, transitions, and guards journeys compose
+- `docs/site-map/journeys/*.journey.yaml` — the curated journey files
 - Tests, analytics, and README hints — the signals that a path actually matters
 - The module map — to keep each journey's steps attributed to real surfaces
 

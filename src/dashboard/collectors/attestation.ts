@@ -6,7 +6,8 @@
 // vouched for it. Informational only — receipt presence is the signal; the
 // collector never pushes attention items by itself.
 
-import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
+import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
+import { latestFeatureReceipt, readAllFeatureReceipts } from '@/feature-evidence/receipt.js';
 import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
 
 import type { SectionData } from '../types.js';
@@ -31,9 +32,12 @@ function authorLabel(authorship: ChangeAuthorship | null): string {
 }
 
 export function collectAttestation(projectRoot: string): AttestationResult {
-  const chain = readReceiptChain(projectRoot);
+  // Issue #468 Phase B — the receipts are the union of the per-feature bundle receipts,
+  // and "latest" is the most-recent one by `time_verified`, not the last link of the
+  // retired whole-project chain.
+  const receipts = readAllFeatureReceipts(projectRoot);
 
-  if (chain.length === 0) {
+  if (receipts.length === 0) {
     return {
       section: {
         id: 'attestation',
@@ -47,8 +51,8 @@ export function collectAttestation(projectRoot: string): AttestationResult {
     };
   }
 
-  const latest = chain[chain.length - 1];
-  const statement = decodeReceiptStatement(latest);
+  const latest = latestFeatureReceipt(projectRoot);
+  const statement = latest ? decodeReceiptStatement(latest) : null;
   const authorship = statement?.predicate.change_authorship ?? null;
   const result = statement?.predicate.verification_result ?? 'FAILED';
   const acceptedBy = authorship?.accepting_human?.name;
@@ -67,11 +71,11 @@ export function collectAttestation(projectRoot: string): AttestationResult {
       // receipts exist; consumers read `details` for the real story.
       band: 'green',
       score: 100,
-      summary: `${chain.length} receipt(s) · latest ${result} · ${authorLabel(authorship)}`,
+      summary: `${receipts.length} receipt(s) · latest ${result} · ${authorLabel(authorship)}`,
       metrics,
       helper: HELPER,
       details: {
-        total: chain.length,
+        total: receipts.length,
         latest_result: result,
         latest_authorship: authorship,
       },

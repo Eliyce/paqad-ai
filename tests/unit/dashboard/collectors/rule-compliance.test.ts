@@ -7,7 +7,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 
 import { collectRuleCompliance } from '@/dashboard/collectors/rule-compliance.js';
-import { recordRuleDrift } from '@/rule-scripts/rule-ledger.js';
+import { appendRuleRun } from '@/feature-evidence/bundle-ledgers.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import type { RuleScriptDriftReport } from '@/rule-scripts/reconciler.js';
 import { RULE_SCRIPT_MAP_SCHEMA_VERSION, type RuleScriptMap } from '@/rule-scripts/types.js';
 
 const roots: string[] = [];
@@ -47,6 +49,33 @@ function baseMap(rules: RuleScriptMap['rules']): RuleScriptMap {
     rule_files_hash: 'sha256-x',
     rules,
   };
+}
+
+/**
+ * Seed the live drift cache the dashboard now reads (issue #468 Phase B, D2). `counts`
+ * accepts a partial and is filled with zeros so a test only names the codes it cares about.
+ */
+function writeDriftCache(
+  root: string,
+  blocked: boolean,
+  counts: Record<string, number> = {},
+): void {
+  const report: RuleScriptDriftReport = {
+    generated_at: '2026-08-12T00:00:00.000Z',
+    findings: [],
+    counts: {
+      'RS-RULE-ADDED': 0,
+      'RS-RULE-EDITED': 0,
+      'RS-RULE-REMOVED': 0,
+      'RS-SCRIPT-STALE': 0,
+      'RS-FIXTURE-FAIL': 0,
+      'RS-CONFLICT': 0,
+      'RS-CACHE-INVALID': 0,
+      ...counts,
+    },
+    blocked,
+  };
+  write(join(root, '.paqad/scripts/rules/.cache/drift.json'), JSON.stringify(report));
 }
 
 afterEach(() => {
@@ -117,34 +146,57 @@ describe('collectRuleCompliance', () => {
         }),
       ]),
     );
-    // Buildout F6 — the dashboard reads drift evidence from the session-ledger,
-    // not the legacy drift.json cache. Seed it via the recorder.
-    recordRuleDrift(root, {
-      blocked: true,
-      counts: {
-        'RS-RULE-ADDED': 0,
-        'RS-RULE-EDITED': 1,
-        'RS-RULE-REMOVED': 0,
-        'RS-SCRIPT-STALE': 1,
-        'RS-FIXTURE-FAIL': 0,
-        'RS-CACHE-INVALID': 0,
-      },
-    });
+    // Issue #468 Phase B (D2) — the dashboard reads drift LIVE from the reconciler's
+    // `.cache/drift.json`, since drift describes the project, not a change.
+    writeDriftCache(root, true, { 'RS-RULE-EDITED': 1, 'RS-SCRIPT-STALE': 1 });
     const { section, attention } = collectRuleCompliance(root);
     expect(section.band).toBe('red');
     expect(attention.some((a) => a.message.includes('generate rule scripts'))).toBe(true);
   });
 
-  it('reads drift evidence from the ledger, not the legacy cache file (F6 cutover)', () => {
+  it('is red on deterministic findings from the latest bundle rule-run row (#468 Phase B)', () => {
+    const root = createRoot();
+    writeMap(
+      root,
+      baseMap([
+        ruleEntry('RL-aaaa', {
+          scripts: [
+            {
+              path: '.paqad/scripts/rules/coding/q/001-x.mjs',
+              kind: 'deterministic',
+              runtime: 'node',
+              scope: 'changed-files',
+              last_validated_at: '2026-05-29T00:00:00Z',
+              fixtures_passed: true,
+            },
+          ],
+        }),
+      ]),
+    );
+    // Findings now come from the per-feature bundle's rule-run.jsonl, latest by ts.
+    openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    appendRuleRun(root, 'ses_1', {
+      kind: 'findings',
+      counts: { deterministic: 0, heuristic: 0, skipped: 0 },
+      blocking: false,
+    });
+    appendRuleRun(root, 'ses_1', {
+      kind: 'findings',
+      counts: { deterministic: 2, heuristic: 0, skipped: 0 },
+      blocking: true,
+    });
+    const { section } = collectRuleCompliance(root);
+    expect(section.band).toBe('red');
+    expect(section.details?.deterministic_findings).toBe(2);
+  });
+
+  it('drift lives only in the cache, findings only in the bundle (#468 Phase B, D2)', () => {
     const root = createRoot();
     writeMap(root, baseMap([ruleEntry('RL-aaaa')]));
-    // A blocking drift report that exists ONLY in the legacy cache file must be
-    // invisible — the evidence read cut over to the ledger.
-    write(
-      join(root, '.paqad/scripts/rules/.cache/drift.json'),
-      JSON.stringify({ generated_at: 'x', findings: [], counts: {}, blocked: true }),
-    );
+    // Drift blocked in the cache → red; no bundle findings row needed.
+    writeDriftCache(root, true);
     const { section } = collectRuleCompliance(root);
-    expect(section.band).not.toBe('red'); // file-only drift ignored
+    expect(section.band).toBe('red');
+    expect(section.details?.drift_blocking).toBe(true);
   });
 });

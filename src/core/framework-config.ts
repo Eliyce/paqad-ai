@@ -52,6 +52,12 @@ const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
 const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
 /** Enforced capability-mode values, weakest → strictest (buildout F2). */
 const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
+/**
+ * Evidence-existence-gate modes (issue #468 Phase C). Deliberately has NO `strict` tier:
+ * the completion existence check is warn-only, never exit-blocking (the #310/#394/
+ * pre-mutation false-block history). `off` disables it entirely.
+ */
+const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
 
 /** Tokens that mean boolean true / false in a config value (case-insensitive). */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
@@ -226,8 +232,8 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Opt in to the Site Map & Journeys capability — a deterministic behavioural map of the ' +
-      'app under docs/instructions/site-map/ (the `paqad-ai sitemap` verb + `site-map` workflow). ' +
+      'Opt in to the Site Map & Journeys capability — a verified behavioural map of the ' +
+      'app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). ' +
       'OFF (default) is completely inert; ON also requires the coding capability at its consumers.',
   },
   {
@@ -547,6 +553,20 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment:
       'off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a ' +
       'near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in.',
+  },
+  {
+    key: 'evidence_existence_gate',
+    env: 'PAQAD_EVIDENCE_EXISTENCE_GATE',
+    type: 'enum',
+    enumValues: EVIDENCE_EXISTENCE_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'off | warn — completion check that the per-feature bundle carries its evidence files ' +
+      '(rule-run / duplication / change-metrics / rag). warn (default) backfills the recoverable ' +
+      'ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks ' +
+      '(there is no strict tier). off disables it (issue #468 Phase C).',
   },
   {
     key: 'duplication_similarity_threshold',
@@ -1744,6 +1764,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'duplication_mode',
       'duplication_similarity_threshold',
       'duplication_min_lines',
+      'evidence_existence_gate',
       'decision_arm_mode',
       'decision_arm_plan_threshold',
       'decision_arm_max_per_change',

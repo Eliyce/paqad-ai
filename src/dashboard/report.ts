@@ -116,7 +116,7 @@ export function buildReport(
   const { section: pentestSection, attention: pentestAttention } = collectPentest(root, now);
   const { section: codebaseHealthSection, attention: codebaseHealthAttention } =
     collectCodebaseHealth(root, now);
-  const { section: siteMapSection, attention: siteMapAttention } = collectSiteMap(root, now);
+  const { section: siteMapSection, attention: siteMapAttention } = collectSiteMap(root);
   const { section: ruleComplianceSection, attention: ruleComplianceAttention } =
     collectRuleCompliance(root);
   const { section: changeMetricsSection, attention: changeMetricsAttention } =

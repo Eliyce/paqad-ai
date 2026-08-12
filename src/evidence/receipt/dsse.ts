@@ -93,6 +93,25 @@ export function signReceipt(input: SignReceiptInput): ReceiptEnvelope {
 }
 
 /**
+ * Verify ONE receipt's own byte integrity: its recorded `receipt_hash` must recompute
+ * from its own PAE folded with its recorded `prev_receipt_hash`. This is the per-link
+ * integrity check, WITHOUT the chain-linkage requirement that the prev hash equal a prior
+ * receipt in a sequence. It is what a single per-feature bundle receipt (issue #468) can
+ * prove from its own snapshot — a bundle keeps only its latest receipt, so cross-receipt
+ * linkage is not observable, but the receipt's bytes are still tamper-evident on their own.
+ * Returns `true` when the receipt is intact.
+ */
+export function verifyReceiptSeal(envelope: ReceiptEnvelope): boolean {
+  const payload = Buffer.from(envelope.payload, 'base64');
+  const encoded = pae(envelope.payloadType, payload);
+  const expected = createHash('sha256')
+    .update(encoded)
+    .update(envelope.paqad.prev_receipt_hash)
+    .digest('hex');
+  return envelope.paqad.receipt_hash === expected;
+}
+
+/**
  * Verify a receipt chain is intact: each receipt's recorded `receipt_hash` must
  * recompute from its own PAE + the previous link, and `prev_receipt_hash` must
  * equal the prior receipt's `receipt_hash` (genesis = {@link ZERO_DIGEST}).
@@ -102,11 +121,11 @@ export function verifyReceiptChain(envelopes: readonly ReceiptEnvelope[]): numbe
   let prev = ZERO_DIGEST;
   for (let i = 0; i < envelopes.length; i += 1) {
     const envelope = envelopes[i];
+    // Chain linkage: this receipt's prev must equal the previous receipt's hash.
     if (envelope.paqad.prev_receipt_hash !== prev) return i;
-    const payload = Buffer.from(envelope.payload, 'base64');
-    const encoded = pae(envelope.payloadType, payload);
-    const expected = createHash('sha256').update(encoded).update(prev).digest('hex');
-    if (envelope.paqad.receipt_hash !== expected) return i;
+    // Byte integrity: the receipt's own hash must recompute. Reuses the single-receipt
+    // seal check so the recompute logic lives in exactly one place.
+    if (!verifyReceiptSeal(envelope)) return i;
     prev = envelope.paqad.receipt_hash;
   }
   return null;

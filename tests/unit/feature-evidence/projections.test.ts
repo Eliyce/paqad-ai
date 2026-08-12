@@ -5,11 +5,21 @@ import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  readAllFeatureChangeMetrics,
+  readAllFeatureDuplication,
+  readAllFeatureEvidence,
   readAllFeatureRuleRuns,
   readAllFeatureSpecifications,
   readAllFeatureStageRows,
+  readFeatureChangeMetricsWindow,
 } from '@/feature-evidence/projections.js';
-import { appendRuleRun } from '@/feature-evidence/bundle-ledgers.js';
+import {
+  appendChangeMetrics,
+  appendDuplicationRun,
+  appendFeatureEvidenceRows,
+  appendRuleRun,
+} from '@/feature-evidence/bundle-ledgers.js';
+import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
@@ -91,6 +101,113 @@ describe('whole-project projections from feature bundles', () => {
     expect(readAllFeatureStageRows(root)).toEqual([]);
     expect(readAllFeatureRuleRuns(root)).toEqual([]);
     expect(readAllFeatureSpecifications(root)).toEqual([]);
+    expect(readAllFeatureDuplication(root)).toEqual([]);
+    expect(readAllFeatureChangeMetrics(root)).toEqual([]);
+    expect(readAllFeatureEvidence(root)).toEqual([]);
+  });
+
+  it('unions duplication, change-metrics, and evidence rows across feature dirs (#468)', () => {
+    const root = tempRoot();
+    const a = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+      ulidSeed: 1,
+    });
+    const b = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'B',
+      issue: null,
+      ulidSeed: 2,
+    });
+    // Two features are open; the active one (b) receives the rows.
+    appendDuplicationRun(root, 'ses_1', {
+      schema_version: 1,
+      generated_at: '2026-08-12T00:00:00.000Z',
+      mode: 'warn',
+      similarity_threshold: 0.8,
+      min_lines: 5,
+      elapsed_ms: 1,
+      findings: [],
+      counts: { deterministic: 0, heuristic: 1 },
+      blocking: false,
+    });
+    appendChangeMetrics(root, 'ses_1', {
+      dup_new_pct: 0,
+      reuse_rate: 2,
+      meaningful_changed_lines: 10,
+      inputs: {
+        flagged_lines: 0,
+        reuse_calls: 2,
+        duplication_report_present: true,
+        index_present: true,
+      },
+    });
+    appendFeatureEvidenceRows(root, 'ses_1', [
+      buildEvidenceRow({
+        ts: '2026-08-12T00:00:00.000Z',
+        engine: 'verification-gate',
+        code: 'code-tests-lint',
+        subject_digest: 'sd',
+        verdict: 'pass',
+        strength_class: 'deterministic',
+      }),
+    ]);
+
+    expect(readAllFeatureDuplication(root)).toHaveLength(1);
+    expect(readAllFeatureChangeMetrics(root)).toHaveLength(1);
+    expect(readAllFeatureEvidence(root)).toHaveLength(1);
+    expect(readAllFeatureEvidence(root)[0]).toMatchObject({ code: 'code-tests-lint' });
+    expect(a).not.toBe(b);
+  });
+
+  it('windows the ts-sorted change-metrics tail across feature dirs (#468 Phase B)', () => {
+    const root = tempRoot();
+    // Two features whose change-metrics rows interleave by ts; the window is ts-sorted, not
+    // per-dir. Feature A gets ts 1 and 3, feature B gets ts 2 and 4.
+    const a = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+      ulidSeed: 1,
+    });
+    const at =
+      (n: number): (() => Date) =>
+      () =>
+        new Date(Date.UTC(2026, 7, 12, 0, 0, n));
+    const metrics = (dup: number) => ({
+      dup_new_pct: dup,
+      reuse_rate: 1,
+      meaningful_changed_lines: 10,
+      inputs: {
+        flagged_lines: 0,
+        reuse_calls: 1,
+        duplication_report_present: true,
+        index_present: true,
+      },
+    });
+    appendChangeMetrics(root, 'ses_1', metrics(1), at(1));
+    const b = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'B',
+      issue: null,
+      ulidSeed: 2,
+    });
+    appendChangeMetrics(root, 'ses_1', metrics(2), at(2));
+    // Re-activate A and add its later row (ts 3); then B's ts 4.
+    openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A2',
+      issue: null,
+      ulidSeed: 3,
+    });
+    appendChangeMetrics(root, 'ses_1', metrics(3), at(3));
+
+    const all = readFeatureChangeMetricsWindow(root, 20).map((r) => r.dup_new_pct);
+    expect(all).toEqual([1, 2, 3]); // ts-sorted across dirs, oldest first
+    const windowed = readFeatureChangeMetricsWindow(root, 2).map((r) => r.dup_new_pct);
+    expect(windowed).toEqual([2, 3]); // last 2 by ts
+    expect(a).not.toBe(b);
   });
 
   it('projects every FROZEN bundle specification and skips unfrozen/corrupt ones (#343 A1)', () => {

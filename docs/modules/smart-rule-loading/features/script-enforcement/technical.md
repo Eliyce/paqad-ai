@@ -16,14 +16,15 @@
   shared kernel seam; replaces the retired single-purpose
   `rule-script-enforce.mjs`).
 - `src/adapters/claude/claude-adapter.ts` — registers the hook.
-- `src/rule-scripts/rule-ledger.ts` — rule-compliance evidence on the
-  session-ledger (buildout F6, decision D1 hard cutover). The runner records a
-  `findings` row (mirrors `report.json`'s counts) and the reconciler a `drift` row
-  (mirrors `drift.json`'s `blocked` + counts) to a project-scoped `rule-evidence`
-  doc; the dashboard `collectRuleCompliance` reads them from the ledger, not the
-  cache files. The `report.json` / `drift.json` caches STAY (the engine reads them
-  for cache validity); the ledger is the evidence read for the dashboard + SIEM.
-  Shared substrate helper: `src/session-ledger/project-ledger.ts`.
+- Rule-compliance evidence lives in the per-feature bundle (issue #468 Phase C, finishing
+  #339 — the retired project-scoped `rule-evidence` doc and `src/rule-scripts/rule-ledger.ts`
+  are gone). The runner records a `findings` row (mirrors `report.json`'s counts) via
+  `appendRuleRun` into the active feature's `rule-run.jsonl`; the reconciler records a `drift`
+  row (mirrors `drift.json`'s `blocked` + counts) the same way. The dashboard
+  `collectRuleCompliance` reads findings from the bundle projection (`readAllFeatureRuleRuns`)
+  and drift live from the `drift.json` cache. The `report.json` / `drift.json` caches STAY
+  (the engine reads them for cache validity, and the evidence-existence backfill mints missing
+  bundle rows from them). Bundle writer: `src/feature-evidence/bundle-ledgers.ts`.
 
 ## Entry Points
 

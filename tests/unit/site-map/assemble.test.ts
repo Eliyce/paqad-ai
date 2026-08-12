@@ -152,19 +152,15 @@ describe('detectUnmappedSurfaces', () => {
 });
 
 describe('assembleSiteMapReport', () => {
-  it('produces a schema-versioned report with a deterministic id and paths', () => {
+  it('produces a schema-versioned report with a deterministic id and bundle dir', () => {
     const { report, findings, findingIds } = assembleSiteMapReport(input());
     expect(report.schema_version).toBe('1');
     expect(report.report_id).toBe('SITEMAP-2026-01-02-03-04-05');
-    expect(report.report_path).toBe('docs/site-map/2026-01-02-03-04-05.md');
-    expect(report.sidecar_path).toBe('docs/site-map/2026-01-02-03-04-05.json');
     expect(report.bundle_dir).toBe('.paqad/site-map/runs/SITEMAP-2026-01-02-03-04-05');
     expect(report.generated_at).toBe(new Date(2026, 0, 2, 3, 4, 5).toISOString());
     expect(report.findings).toHaveLength(1);
     expect(findings).toHaveLength(1);
     expect(findingIds).toEqual(findings.map((f) => f.id));
-    expect(report.source_report_path).toBeNull();
-    expect(report.source_report_id).toBeNull();
   });
 
   it('counts mapped surfaces from the map and extracted surfaces from the extraction', () => {
@@ -221,25 +217,34 @@ describe('assembleSiteMapReport', () => {
     expect(report.baseline).toEqual({ existed: false, new_since_baseline: 0, pre_existing: 0 });
   });
 
+  it('folds an overstated trust tier into the findings as SM-TRUST', () => {
+    // A surface claiming proven-in-code whose cited file is gone: the trust proof catches it
+    // alongside the evidence check, so both categories reach the assembled report.
+    const map: AppMap = {
+      schema_version: 1,
+      app: { name: 'paqad-ai', kind: 'cli' },
+      surfaces: [
+        {
+          id: 's-a',
+          kind: 'cli-command',
+          label: 'A',
+          trust: 'proven-in-code',
+          evidence: [{ file: 'gone.ts', line: 1 }],
+        },
+      ],
+    };
+    const { findings } = assembleSiteMapReport(
+      input({ map, evidenceResolutions: [{ file: 'gone.ts', line: 1, status: 'file-missing' }] }),
+    );
+    const categories = findings.map((finding) => finding.category);
+    expect(categories).toContain('SM-TRUST');
+    expect(categories).toContain('SM-REMOVE');
+  });
+
   it('de-duplicates and sorts sources_used', () => {
     const report = assembleSiteMapReport(
       input({ sources: ['node-cli', 'app-map.yaml', 'node-cli'] }),
     ).report;
     expect(report.sources_used).toEqual(['app-map.yaml', 'node-cli']);
-  });
-
-  it('carries through source-report provenance when supplied', () => {
-    const report = assembleSiteMapReport(
-      input({ sourceReportPath: 'docs/site-map/prior.json', sourceReportId: 'SITEMAP-prior' }),
-    ).report;
-    expect(report.source_report_path).toBe('docs/site-map/prior.json');
-    expect(report.source_report_id).toBe('SITEMAP-prior');
-  });
-
-  it('lists a placeholder remediation priority when there are no findings', () => {
-    const report = assembleSiteMapReport(
-      input({ map: mapWith([{ file: 'a.ts', line: 1 }]) }),
-    ).report;
-    expect(report.next_remediation_priorities).toEqual(['No findings recorded.']);
   });
 });

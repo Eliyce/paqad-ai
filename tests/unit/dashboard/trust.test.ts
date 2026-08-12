@@ -1,10 +1,15 @@
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { PATHS } from '@/core/constants/paths.js';
+import type {
+  ComplianceCitation,
+  EvidenceLedgerRow,
+  ReceiptEnvelope,
+  ReproducibilityStampPredicate,
+} from '@/core/types/evidence-ledger.js';
 import type { VerificationEvidence } from '@/core/types/verification-evidence';
 import {
   buildEvidenceFeed,
@@ -12,8 +17,10 @@ import {
   buildReceiptFeed,
   readAiBomDocument,
 } from '@/dashboard/trust.js';
-import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger.js';
-import { projectReceipt } from '@/evidence/receipt/project.js';
+import { buildEvidenceRow } from '@/evidence/ledger.js';
+import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths.js';
+import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 
 function row(code: string, verdict: 'pass' | 'fail' = 'pass', ts = '2026-06-11T00:00:00.000Z') {
@@ -27,14 +34,45 @@ function row(code: string, verdict: 'pass' | 'fail' = 'pass', ts = '2026-06-11T0
   });
 }
 
-async function project(root: string, code: string) {
-  return projectReceipt({
-    projectRoot: root,
-    fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
-    rows: [row(code)],
-    verifierVersion: '1.0.0',
-    timeVerified: '2026-06-11T00:00:00.000Z',
+/**
+ * Issue #468 Phase B — the Trust surface projects from the per-feature bundles. Seed graded
+ * rows straight into a bundle's `evidence.jsonl` (a single dir; the feed only reverses the
+ * append order it reads), and receipts via `projectFeatureReceipt` into DISTINCT features.
+ */
+function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
+  const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
+  const path = join(root, featureFilePath(dir, 'evidence'));
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8');
+}
+
+let seed = 0;
+function projectFeature(
+  root: string,
+  opts: {
+    code: string;
+    ts?: string;
+    compliance?: ComplianceCitation[];
+    reproducibility?: ReproducibilityStampPredicate;
+  },
+): string {
+  seed += 1;
+  const ts = opts.ts ?? '2026-06-11T00:00:00.000Z';
+  const dir = openFeatureChange(root, 'ses_1', {
+    adapter: 'claude-code',
+    title: `f${seed}`,
+    issue: null,
+    ulidSeed: seed,
   });
+  projectFeatureReceipt(root, dir, {
+    fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+    rows: [row(opts.code, 'pass', ts)],
+    verifierVersion: '1.0.0',
+    timeVerified: ts,
+    ...(opts.compliance ? { complianceCitations: opts.compliance } : {}),
+    ...(opts.reproducibility ? { reproducibility: opts.reproducibility } : {}),
+  });
+  return dir;
 }
 
 describe('dashboard trust', () => {
@@ -56,7 +94,7 @@ describe('dashboard trust', () => {
     });
 
     it('returns rows newest first with gate and verdict filters', () => {
-      appendEvidenceRows(root, [
+      seedBundleEvidence(root, [
         row('code-tests-lint', 'pass', '2026-06-10T00:00:00.000Z'),
         row('mutation-testing', 'fail', '2026-06-11T00:00:00.000Z'),
         row('code-tests-lint', 'fail', '2026-06-12T00:00:00.000Z'),
@@ -80,7 +118,7 @@ describe('dashboard trust', () => {
     });
 
     it('caps rows at the limit and clamps out-of-range limits', () => {
-      appendEvidenceRows(root, [
+      seedBundleEvidence(root, [
         row('a', 'pass', '2026-06-10T00:00:00.000Z'),
         row('b', 'pass', '2026-06-11T00:00:00.000Z'),
         row('c', 'pass', '2026-06-12T00:00:00.000Z'),
@@ -92,24 +130,24 @@ describe('dashboard trust', () => {
   });
 
   describe('buildReceiptFeed', () => {
-    it('returns an empty feed when no chain exists', () => {
+    it('returns an empty feed when no receipts exist', () => {
       const feed = buildReceiptFeed(root);
       expect(feed.receipts).toEqual([]);
       expect(feed.brokenAt).toBeNull();
     });
 
-    it('shapes sealed receipt cards newest first from a sound chain', async () => {
-      await project(root, 'mutation-testing');
-      await project(root, 'spec-review');
+    it('shapes sealed receipt cards newest first from the bundle union', () => {
+      projectFeature(root, { code: 'mutation-testing', ts: '2026-06-11T00:00:00.000Z' });
+      projectFeature(root, { code: 'spec-review', ts: '2026-06-11T01:00:00.000Z' });
 
       const feed = buildReceiptFeed(root);
       expect(feed.brokenAt).toBeNull();
       expect(feed.receipts).toHaveLength(2);
-      // newest first
-      expect(feed.receipts[0].index).toBe(1);
+      // Newest first by time_verified; each per-feature receipt is its own genesis.
+      expect(feed.receipts[0].index).toBe(0);
       expect(feed.receipts[0].sealed).toBe(true);
       expect(feed.receipts[0].verification_result).toBe('PASSED');
-      expect(feed.receipts[0].time_verified).toBe('2026-06-11T00:00:00.000Z');
+      expect(feed.receipts[0].time_verified).toBe('2026-06-11T01:00:00.000Z');
       expect(feed.receipts[0].checks).toEqual([
         {
           code: 'spec-review',
@@ -119,17 +157,15 @@ describe('dashboard trust', () => {
         },
       ]);
       expect(feed.receipts[0].subjects).toEqual([{ name: 'src/a.ts', digest: 'aaa' }]);
+      // Both are genesis receipts (self-chained per feature), so both prev hashes are zero.
+      expect(feed.receipts[0].prev_receipt_hash).toMatch(/^0+$/);
       expect(feed.receipts[1].prev_receipt_hash).toMatch(/^0+$/);
     });
 
-    it('surfaces compliance citations and the reproducibility stamp on the card (#122/#123)', async () => {
-      await projectReceipt({
-        projectRoot: root,
-        fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
-        rows: [row('mutation-testing')],
-        verifierVersion: '1.0.0',
-        timeVerified: '2026-06-11T00:00:00.000Z',
-        complianceCitations: [
+    it('surfaces compliance citations and the reproducibility stamp on the card (#122/#123)', () => {
+      projectFeature(root, {
+        code: 'mutation-testing',
+        compliance: [
           {
             framework_id: 'eu-ai-act',
             framework_title: 'EU AI Act',
@@ -156,44 +192,37 @@ describe('dashboard trust', () => {
       expect(card.reproducibility?.context_hash).toBe('deadbeef');
     });
 
-    it('defaults compliance to [] and reproducibility to null when absent', async () => {
-      await project(root, 'mutation-testing');
+    it('defaults compliance to [] and reproducibility to null when absent', () => {
+      projectFeature(root, { code: 'mutation-testing' });
       const card = buildReceiptFeed(root).receipts[0];
       expect(card.compliance).toEqual([]);
       expect(card.reproducibility).toBeNull();
     });
 
-    it('marks receipts from the first broken link as unsealed', async () => {
-      const first = await project(root, 'mutation-testing');
-      // Tamper: append a forged envelope whose prev hash skips the real chain.
-      const forged = {
-        ...first.envelope,
-        paqad: { ...first.envelope.paqad, prev_receipt_hash: 'f'.repeat(64) },
-      };
-      appendFileSync(
-        join(root, PATHS.EVIDENCE_RECEIPT_CHAIN),
-        `${JSON.stringify(forged)}\n`,
-        'utf8',
-      );
+    it('marks a tampered feature receipt as unsealed, independently of the others', () => {
+      projectFeature(root, { code: 'mutation-testing', ts: '2026-06-11T00:00:00.000Z' });
+      // A second feature whose receipt bytes are tampered: valid JSON + decodable payload
+      // (so it still sorts newest by time_verified), but its receipt_hash no longer recomputes.
+      const dir = projectFeature(root, { code: 'spec-review', ts: '2026-06-11T01:00:00.000Z' });
+      const path = join(root, featureFilePath(dir, 'receipt'));
+      const env = JSON.parse(readFileSync(path, 'utf8')) as ReceiptEnvelope;
+      env.paqad.receipt_hash = 'f'.repeat(64);
+      writeFileSync(path, JSON.stringify(env), 'utf8');
 
       const feed = buildReceiptFeed(root);
-      expect(feed.brokenAt).toBe(1);
-      expect(feed.receipts[0].sealed).toBe(false); // the forged latest
-      expect(feed.receipts[1].sealed).toBe(true); // the genuine genesis
+      expect(feed.brokenAt).toBe(0); // the tampered receipt is newest → first card
+      expect(feed.receipts[0].sealed).toBe(false); // tampered
+      expect(feed.receipts[1].sealed).toBe(true); // the untouched one
     });
   });
 
   describe('readAiBomDocument', () => {
-    it('returns null when absent or unparseable', () => {
-      expect(readAiBomDocument(root)).toBeNull();
-      const path = join(root, PATHS.EVIDENCE_AI_BOM);
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, '{broken', 'utf8');
+    it('returns null when no bundle receipt exists', () => {
       expect(readAiBomDocument(root)).toBeNull();
     });
 
-    it('returns the persisted CycloneDX document', async () => {
-      await project(root, 'mutation-testing');
+    it('projects the CycloneDX document on demand from the bundle union', () => {
+      projectFeature(root, { code: 'mutation-testing' });
       const doc = readAiBomDocument(root);
       expect(doc?.bomFormat).toBe('CycloneDX');
       expect(doc?.components[0]?.name).toBe('src/a.ts');

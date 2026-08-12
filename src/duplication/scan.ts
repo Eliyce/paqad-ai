@@ -6,6 +6,7 @@
 // caching, and telemetry in one place means the checks-stage rule-script and the Stop-seam gate
 // always read a single, consistent report.
 
+import { appendDuplicationRun } from '@/feature-evidence/bundle-ledgers.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { armDecisionFromDuplicationFinding } from '@/planning/decision-evidence-arm.js';
@@ -16,7 +17,6 @@ import { detectNewCodeDuplication } from './detect.js';
 import { applyResolvedDecisions, type ResolvedDuplicationDecision } from './decisions.js';
 import {
   buildDuplicationReport,
-  recordDuplicationRun,
   writeDuplicationReport,
   type DuplicationReport,
 } from './report.js';
@@ -75,7 +75,15 @@ export async function runDuplicationScan(options: ScanOptions): Promise<Duplicat
   });
 
   writeDuplicationReport(options.projectRoot, report);
-  recordDuplicationRun(options.projectRoot, report);
+  // Issue #468 Phase C — the run's counts are recorded ONLY in the active feature's
+  // `duplication.jsonl` bundle file now; the retired project-scoped duplication ledger
+  // write is gone (the SIEM reads the bundle since Phase B). The `.cache/duplication.json`
+  // report above stays as the gate's cache. A no-op when no feature is active.
+  appendDuplicationRun(
+    options.projectRoot,
+    resolveSessionId(options.projectRoot, options.sessionId ?? null),
+    report,
+  );
   armStrongestBlockingFinding(options, findings);
   return report;
 }

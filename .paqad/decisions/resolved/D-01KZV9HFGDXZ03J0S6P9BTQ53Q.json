@@ -1,0 +1,26 @@
+{
+  "id": "D-01KZV9HFGDXZ03J0S6P9BTQ53Q",
+  "category": "architecture-path",
+  "title": "Fix 'Stop says:' narration leak",
+  "context": "Claude Code now RENDERS Stop-hook {systemMessage} as 'Stop says:' on Desktop, inverting the #368/#409 premise that it is invisible. paqad's Stop hooks (verify-backstop hook-completion, capability-gate completion seam, stage-marker-parse) emit user-facing prose there, so it leaks into chat across all repos/machines, duplicating what the agent already speaks and exposing model-only advisories.",
+  "options": [
+    {
+      "option_key": "silence",
+      "label": "Silence Stop-hook systemMessage prose; agent stays the visible channel; enforcement rides decision:block + git/CI"
+    },
+    {
+      "option_key": "capability_switch",
+      "label": "Detect host capability and branch old/new rendering"
+    },
+    {
+      "option_key": "diagnose_only",
+      "label": "RCA only, defer fix"
+    }
+  ],
+  "recommendation": "silence",
+  "created_at": "2026-08-12T15:30:33.101Z",
+  "status": "resolved",
+  "chosen": "silence",
+  "rationale": "User chose Silence Stop hooks via AskUserQuestion: agent already speaks the receipt (#409), so the hook echo is pure duplication + leak; enforcement stays on decision:block + git/CI.",
+  "resolved_at": "2026-08-12T15:30:40.965Z"
+}

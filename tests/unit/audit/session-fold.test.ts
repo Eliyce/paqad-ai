@@ -1,21 +1,40 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { aggregateSiemEvents } from '@/audit/aggregate';
 import type { SiemEvent } from '@/audit/types';
-import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger';
+import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger';
+import { buildEvidenceRow } from '@/evidence/ledger';
 import { recordDeliveryEvidence } from '@/delivery/delivery-ledger';
 import { detectDelivery } from '@/delivery/detection';
 import { recordDecisionOpened } from '@/planning/decision-ledger';
-import { recordRuleDrift, recordRuleFindings } from '@/rule-scripts/rule-ledger';
 import { recordDisabledSession } from '@/session-ledger/disabled-audit';
 import { recordHealthRun } from '@/codebase-health/ledger';
-import { CHANGE_METRICS_DOC_TYPE, recordChangeMetrics } from '@/change-metrics/index';
+import {
+  appendChangeMetrics,
+  appendRuleRun,
+  CHANGE_METRICS_RUN_DOC_TYPE,
+  RULE_RUN_DOC_TYPE,
+} from '@/feature-evidence/bundle-ledgers';
+import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types';
+
+/**
+ * Seed graded evidence rows into a feature bundle WITHOUT a stage `open` row (issue #468
+ * Phase B). Writing the bundle `evidence.jsonl` directly (rather than via openFeatureChange)
+ * keeps these evidence-only assertions free of the stage-projection noise an opened feature
+ * would add.
+ */
+function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
+  const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
+  const path = join(root, featureFilePath(dir, 'evidence'));
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8');
+}
 
 // Buildout F6 (last increment) — the SIEM export unions the always-on #249
 // session-ledger doc types into the fold-view, so an external SOC sees the same
@@ -69,20 +88,21 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     expect(event.detail).toBe('detected host=github');
   });
 
-  it('grades a blocking rule-compliance row as blocked (a SOC finding)', () => {
-    recordRuleFindings(root, {
+  it('grades a blocking rule-run finding row as blocked (a SOC finding, #468 Phase B)', () => {
+    // Findings now project from the per-feature bundle rule-run.jsonl (doc_type paqad.rule-run).
+    openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    appendRuleRun(root, 'ses_1', {
+      kind: 'findings',
       counts: { deterministic: 3, heuristic: 0, skipped: 1 },
       blocking: true,
     });
-    const event = withVerdict(aggregateSiemEvents(root), 'rule-evidence', 'blocked');
+    const event = withVerdict(aggregateSiemEvents(root), RULE_RUN_DOC_TYPE, 'blocked');
     expect(event.detail).toBe('findings blocking');
   });
 
-  it('grades a blocked rule-drift row as blocked', () => {
-    recordRuleDrift(root, { blocked: true, counts: { 'RS-001': 2 } });
-    const event = withVerdict(aggregateSiemEvents(root), 'rule-evidence', 'blocked');
-    expect(event.detail).toBe('drift blocked');
-  });
+  // Rule DRIFT is no longer folded into the SIEM export (issue #468 Phase B, D2): drift
+  // describes the project, not a change, so it stays in the reconciler's cache and never
+  // enters a feature bundle. Only the bundle rule-run FINDINGS row reaches the export.
 
   it('folds a codebase-health run into the SIEM feed with a finding-count detail (#355 AC-7)', () => {
     recordHealthRun(
@@ -104,8 +124,9 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     expect(event.detail).toContain('4 finding(s)');
   });
 
-  it('folds a change-metrics row into the SIEM feed with a change-shape detail (#362 AC-3)', () => {
-    recordChangeMetrics(root, {
+  it('folds a bundle change-metrics row into the SIEM feed with a change-shape detail (#362/#468)', () => {
+    openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    appendChangeMetrics(root, 'ses_1', {
       dup_new_pct: 2,
       reuse_rate: 4.2,
       meaningful_changed_lines: 120,
@@ -116,7 +137,7 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
         index_present: true,
       },
     });
-    const event = bySource(aggregateSiemEvents(root), CHANGE_METRICS_DOC_TYPE).find((e) =>
+    const event = bySource(aggregateSiemEvents(root), CHANGE_METRICS_RUN_DOC_TYPE).find((e) =>
       e.detail.includes('change shape'),
     );
     expect(event).toBeDefined();
@@ -125,8 +146,9 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     expect(event!.detail).toContain('120 lines');
   });
 
-  it('renders n/a change-metrics parts in the SIEM detail', () => {
-    recordChangeMetrics(root, {
+  it('renders n/a change-metrics parts in the SIEM detail (#468 Phase B)', () => {
+    openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    appendChangeMetrics(root, 'ses_1', {
       dup_new_pct: null,
       reuse_rate: null,
       meaningful_changed_lines: 0,
@@ -137,7 +159,7 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
         index_present: false,
       },
     });
-    const event = bySource(aggregateSiemEvents(root), CHANGE_METRICS_DOC_TYPE).find((e) =>
+    const event = bySource(aggregateSiemEvents(root), CHANGE_METRICS_RUN_DOC_TYPE).find((e) =>
       e.detail.includes('change shape'),
     );
     expect(event!.detail).toContain('n/a dup, n/a reuse/100');
@@ -182,7 +204,7 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
   });
 
   it('merges session events into one chronological stream with evidence + ledger ts order', () => {
-    appendEvidenceRows(root, [
+    seedBundleEvidence(root, [
       buildEvidenceRow({
         ts: '2026-06-10T00:00:00.000Z',
         engine: 'verification-gate',
@@ -208,7 +230,7 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
   });
 
   it('adds nothing when the session-ledger is empty (additive over #118)', () => {
-    appendEvidenceRows(root, [
+    seedBundleEvidence(root, [
       buildEvidenceRow({
         ts: '2026-06-10T00:00:00.000Z',
         engine: 'verification-gate',

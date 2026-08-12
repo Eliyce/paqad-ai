@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { AppMap } from '@/core/types/site-map.js';
-import type { SiteMapReportIndex } from '@/core/types/site-map-run.js';
+import type { SiteMapFinding } from '@/core/types/site-map-run.js';
 import { readBaseline } from '@/site-map/baseline.js';
 import {
   blockedExtractor,
@@ -14,7 +14,8 @@ import {
   type ExtractorOutput,
 } from '@/site-map/extraction.js';
 import { SITE_MAP_RUN_DOC_TYPE } from '@/site-map/ledger.js';
-import { runSiteMapAudit, type SiteMapGatherer } from '@/site-map/run.js';
+import { gatherSiteMapReport, runSiteMapAudit, type SiteMapGatherer } from '@/site-map/run.js';
+import { readCanonicalSiteMap, writeCanonicalSiteMap } from '@/site-map/store.js';
 import { readAllSessionRows } from '@/session-ledger/ledger.js';
 
 function repo(): string {
@@ -47,6 +48,23 @@ const coveringMap: AppMap = {
   ],
 };
 
+// An AI-authored canonical map (docs/site-map/app-map.yaml) whose one surface cites a resolving
+// anchor but authors no trust tier — so a run that resolves the anchor earns it `proven-in-code`
+// and stamps freshness, exercising the C8 restampCanonicalTrust wire independent of the run's own
+// (legacy) map, which is null here.
+const canonicalMap: AppMap = {
+  schema_version: 1,
+  app: { name: 'paqad-ai', kind: 'cli' },
+  surfaces: [
+    {
+      id: 's-home',
+      kind: 'page',
+      label: 'Home',
+      evidence: [{ file: 'src/app.ts', line: 1 }],
+    },
+  ],
+};
+
 function gatherer(overrides: Partial<SiteMapGatherer> = {}): SiteMapGatherer {
   return {
     appKind: () => 'cli',
@@ -63,12 +81,18 @@ function gatherer(overrides: Partial<SiteMapGatherer> = {}): SiteMapGatherer {
   };
 }
 
-function readSidecar(root: string, path: string): SiteMapReportIndex {
-  return JSON.parse(readFileSync(join(root, path), 'utf8')) as SiteMapReportIndex;
+function readFindingIndex(
+  root: string,
+  bundleDir: string,
+): { report_id: string; findings: SiteMapFinding[] } {
+  return JSON.parse(readFileSync(join(root, bundleDir, 'finding-index.json'), 'utf8')) as {
+    report_id: string;
+    findings: SiteMapFinding[];
+  };
 }
 
 describe('runSiteMapAudit', () => {
-  it('runs offline through a fake gatherer, dual-writes the report, and creates the baseline (AC-4)', async () => {
+  it('runs offline through a fake gatherer, persists the evidence bundle, and creates the baseline (AC-4)', async () => {
     const root = repo();
     const result = await runSiteMapAudit({
       projectRoot: root,
@@ -82,28 +106,17 @@ describe('runSiteMapAudit', () => {
     expect(result.finding_count).toBe(1);
     expect(result.baseline_created).toBe(true);
     expect(result.blocked_checks).toEqual([]);
-    // No map yet → publication is skipped entirely (nothing to project).
-    expect(result.published).toEqual([]);
-    expect(result.publish_skipped).toEqual([]);
-    expect(existsSync(join(root, PATHS.SITE_MAP_INDEX))).toBe(false);
 
-    const sidecar = readSidecar(root, result.sidecar_path);
-    expect(sidecar.report_id).toBe(result.report_id);
-    expect(sidecar.findings).toHaveLength(1);
-    expect(sidecar.sources_used).toEqual(['node-cli']);
-
-    expect(existsSync(join(root, result.report_path))).toBe(true);
-    expect(readFileSync(join(root, result.report_path), 'utf8')).toContain(result.report_id);
-
-    const findingIndex = JSON.parse(
-      readFileSync(join(root, result.bundle_dir, 'finding-index.json'), 'utf8'),
-    );
+    const findingIndex = readFindingIndex(root, result.bundle_dir);
     expect(findingIndex.report_id).toBe(result.report_id);
     expect(findingIndex.findings).toHaveLength(1);
     const extraction = JSON.parse(
       readFileSync(join(root, result.bundle_dir, 'extraction.json'), 'utf8'),
     );
     expect(extraction.surfaces).toHaveLength(1);
+
+    // ART-3: a run writes no report dumps and no derived views — docs/ stays untouched.
+    expect(existsSync(join(root, 'docs'))).toBe(false);
 
     expect(readBaseline(root)).not.toBeNull();
   });
@@ -124,24 +137,27 @@ describe('runSiteMapAudit', () => {
 
   it('exits clean over a covering map and records app-map + journeys as sources (AC-8)', async () => {
     const root = repo();
+    const covering = gatherer({ loadAppMap: () => coveringMap, journeyCount: () => 2 });
     const result = await runSiteMapAudit({
       projectRoot: root,
-      gatherer: gatherer({ loadAppMap: () => coveringMap, journeyCount: () => 2 }),
+      gatherer: covering,
       sessionId: 's-clean',
       now: () => new Date(2026, 0, 2, 3, 4, 5),
     });
     expect(result.exit_code).toBe(0);
     expect(result.finding_count).toBe(0);
-    // A map exists → the derived views are published (index + overview; no screens/apis here).
-    expect(result.published.sort()).toEqual([PATHS.SITE_MAP_INDEX, PATHS.SITE_MAP_OVERVIEW].sort());
-    expect(result.publish_skipped).toEqual([]);
-    expect(existsSync(join(root, PATHS.SITE_MAP_INDEX))).toBe(true);
-    expect(existsSync(join(root, PATHS.SITE_MAP_OVERVIEW))).toBe(true);
+    // ART-3: even with a map, a run publishes no derived views — docs/ stays untouched.
+    expect(existsSync(join(root, 'docs'))).toBe(false);
 
-    const sidecar = readSidecar(root, result.sidecar_path);
-    expect(sidecar.surface_count).toBe(1);
-    expect(sidecar.journey_count).toBe(2);
-    expect(sidecar.sources_used).toEqual(['app-map.yaml', 'journeys', 'node-cli']);
+    const { report } = await gatherSiteMapReport({
+      projectRoot: root,
+      gatherer: covering,
+      workflow: 'site-map',
+      now: new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(report.surface_count).toBe(1);
+    expect(report.journey_count).toBe(2);
+    expect(report.sources_used).toEqual(['app-map.yaml', 'journeys', 'node-cli']);
     expect(readAllSessionRows(root, SITE_MAP_RUN_DOC_TYPE)[0]!.event_status).toBe('clean');
   });
 
@@ -160,27 +176,27 @@ describe('runSiteMapAudit', () => {
       now: () => new Date(2026, 0, 3, 3, 4, 5),
     });
     expect(second.baseline_created).toBe(false);
-    const sidecar = readSidecar(root, second.sidecar_path);
-    expect(sidecar.baseline.existed).toBe(true);
-    expect(sidecar.baseline.pre_existing).toBe(1);
-    expect(sidecar.baseline.new_since_baseline).toBe(0);
+    const { report } = await gatherSiteMapReport({
+      projectRoot: root,
+      gatherer: gatherer(),
+      workflow: 'site-map',
+      now: new Date(2026, 0, 4, 3, 4, 5),
+    });
+    expect(report.baseline.existed).toBe(true);
+    expect(report.baseline.pre_existing).toBe(1);
+    expect(report.baseline.new_since_baseline).toBe(0);
   });
 
-  it('defaults the clock and workflow, and carries source-report provenance when supplied', async () => {
+  it('defaults the clock and the workflow name', async () => {
     const root = repo();
     const result = await runSiteMapAudit({
       projectRoot: root,
       gatherer: gatherer(),
       sessionId: 's-defaults',
-      workflow: 'site-map-retest',
-      sourceReportPath: 'docs/site-map/prior.json',
-      sourceReportId: 'SITEMAP-prior',
-      // now omitted → the real-time default clock is used.
+      // now and workflow omitted → the real-time clock and the 'site-map' workflow are used.
     });
-    const sidecar = readSidecar(root, result.sidecar_path);
-    expect(sidecar.workflow).toBe('site-map-retest');
-    expect(sidecar.source_report_path).toBe('docs/site-map/prior.json');
-    expect(sidecar.source_report_id).toBe('SITEMAP-prior');
+    expect(result.report_id).toMatch(/^SITEMAP-\d{4}-/);
+    expect(readAllSessionRows(root, SITE_MAP_RUN_DOC_TYPE)[0]!.workflow).toBe('site-map');
   });
 
   it('resolves cited evidence through the gatherer and records Tier-A findings (AC-7)', async () => {
@@ -217,8 +233,8 @@ describe('runSiteMapAudit', () => {
       now: () => new Date(2026, 0, 2, 3, 4, 5),
     });
     expect(result.exit_code).toBe(1);
-    const sidecar = readSidecar(root, result.sidecar_path);
-    const categories = sidecar.findings.map((finding) => finding.category).sort();
+    const { findings } = readFindingIndex(root, result.bundle_dir);
+    const categories = findings.map((finding) => finding.category).sort();
     // SM-REMOVE (evidence file gone) + SM-XREF (transition to a missing surface).
     expect(categories).toContain('SM-REMOVE');
     expect(categories).toContain('SM-XREF');
@@ -240,8 +256,7 @@ describe('runSiteMapAudit', () => {
       sessionId: 's-blocked-graph',
       now: () => new Date(2026, 0, 2, 3, 4, 5),
     });
-    const sidecar = readSidecar(root, result.sidecar_path);
-    expect(sidecar.blocked_checks.map((check) => check.check)).toContain('reachability');
+    expect(result.blocked_checks.map((check) => check.check)).toContain('reachability');
   });
 
   it('records a blocked extractor as a gap and still completes the run (FR-3)', async () => {
@@ -256,8 +271,66 @@ describe('runSiteMapAudit', () => {
     });
     expect(result.exit_code).toBe(0); // nothing extracted → no findings
     expect(result.blocked_checks).toHaveLength(1);
-    const sidecar = readSidecar(root, result.sidecar_path);
-    expect(sidecar.extraction.low_confidence_fallback).toBe(true);
-    expect(sidecar.blocked_checks[0]!.check).toBe('rails-routes surface extraction');
+    expect(result.blocked_checks[0]!.check).toBe('rails-routes surface extraction');
+    const extraction = JSON.parse(
+      readFileSync(join(root, result.bundle_dir, 'extraction.json'), 'utf8'),
+    ) as { low_confidence_fallback: boolean };
+    expect(extraction.low_confidence_fallback).toBe(true);
+  });
+
+  // C8: the run wires restampCanonicalTrust in, so a real run re-earns the canonical map's honest
+  // trust tiers + map-vs-code freshness from the same evidence and writes them back.
+  it('reports no-map and writes nothing when no canonical map is authored yet (C8)', async () => {
+    const root = repo();
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer(),
+      sessionId: 's-no-canonical',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.trust_restamp.status).toBe('no-map');
+    expect(existsSync(join(root, PATHS.SITE_MAP_CANONICAL_APP_MAP))).toBe(false);
+  });
+
+  it('stamps earned trust + freshness into the canonical map from the resolved evidence (C8)', async () => {
+    const root = repo();
+    writeCanonicalSiteMap(root, canonicalMap);
+    const result = await runSiteMapAudit({
+      // The run's own (legacy) map is null; restampCanonicalTrust still operates on the canonical
+      // map, and the default gatherer resolves every cited pointer.
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => null }),
+      sessionId: 's-stamp',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.trust_restamp.status).toBe('stamped');
+    if (result.trust_restamp.status === 'stamped') {
+      expect(result.trust_restamp.path).toBe(join(root, PATHS.SITE_MAP_CANONICAL_APP_MAP));
+    }
+    const stamped = readCanonicalSiteMap(root);
+    expect(stamped?.surfaces[0]!.trust).toBe('proven-in-code');
+    expect(stamped?.app.freshness).toEqual({
+      anchors_total: 1,
+      anchors_resolved: 1,
+      anchors_broken: 0,
+    });
+  });
+
+  it('reports unchanged on a second run over a steady canonical map and steady code (C8)', async () => {
+    const root = repo();
+    writeCanonicalSiteMap(root, canonicalMap);
+    await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => null }),
+      sessionId: 's-stamp-1',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    const second = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => null }),
+      sessionId: 's-stamp-2',
+      now: () => new Date(2026, 0, 3, 3, 4, 5),
+    });
+    expect(second.trust_restamp.status).toBe('unchanged');
   });
 });

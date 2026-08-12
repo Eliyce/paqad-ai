@@ -1,5 +1,78 @@
 # paqad-ai
 
+## 1.76.2
+
+### Patch Changes
+
+- 7ce4c34: fix: stop the `Stop says:` narration leak — silence Stop-hook `{systemMessage}` prose
+
+  Claude Code changed how it renders Stop-hook output: a Stop-hook `{systemMessage}` now renders on Desktop as literal `Stop says:` lines, inverting the premise the #368/#409 narration design was built on (that the channel was invisible, so the agent speaks the receipt and the hook echo is a silent backchannel). With the host inverted, paqad's three Stop-event emitters poured user-facing prose into that channel on every turn, across every onboarded repo and machine — duplicating the receipt the agent already speaks and leaking the model-only narration advisory into the developer's chat.
+
+  The Stop hooks no longer emit user-facing `{systemMessage}` prose:
+
+  - `runtime/scripts/verify-backstop.mjs` (`hook-completion`): writes nothing on a pass/inconclusive turn and only a model-only `{decision:'block'}` reason on a hard failure. Enforcement is unchanged — the block reason reaches the model (never rendered on either host) and the git/CI backstop still hard-fails with exit 2.
+  - `runtime/hooks/capability-gate.mjs` (`completion` seam): no longer echoes narration on the allow path; the `pre-mutation` (PreToolUse) seam is unchanged.
+  - `runtime/hooks/stage-marker-parse.mjs`: still records every parsed marker to the ledger; only the chat echo is removed.
+
+  The developer-facing channel is the agent's own final message (the #409 contract), which was always the intended primary channel. The narration contract docs and the verification module doc are corrected to state the new host behavior. Decision `D-01KZV9HFGDXZ03J0S6P9BTQ53Q` records the approach.
+
+## 1.76.1
+
+### Patch Changes
+
+- 721b434: feat(#468): Phase C — writer cutover, retire the old evidence paths, add a warn-only existence gate
+
+  Third and final PR of the #339/#468 evidence-in-bundle cutover — the only phase that changes the on-disk layout, now that both writers (Phase A) and readers (Phase B) are proven.
+
+  - RAG (the deferred piece): the `runtime/scripts/rag-evidence-record.mjs` prompt seam and the TS recorder now write retrieval rows to the two-home `rag.jsonl` (the active feature's bundle, else `_chat/<session>/`), with the conversation ordinal re-homed to `_chat/<session>/`; the retired `paqad.rag-evidence/` substrate is gone. `foldRagEvidenceSession` reads `_chat` + the bundle projection (`readAllFeatureRag`) filtered by session.
+  - Writer cutover: the completion seam stops the old-home writes — the `rule-evidence` project ledger, the top-level `evidence.jsonl` / `receipts.jsonl` / `receipt.dsse.json` / `ai-bom.json`, and the duplication/change-metrics project ledgers — keeping every engine cache (`report.json`, `drift.json`, `duplication.json`) and the per-feature bundle receipt/evidence. The reproducibility context stamp moves to `.paqad/session/context-stamp.json`. `src/rule-scripts/rule-ledger.ts` is retired.
+  - Existence gate: a new `evidence_existence_gate=off|warn` knob (default `warn`, no exit-blocking tier) verifies the bundle's `rule-run.jsonl` / `duplication.jsonl` / `change-metrics.jsonl` / `rag.jsonl` exist backfill-first — minting the recoverable three deterministically from the caches (marked `backfilled: true`), and reporting an unrecoverable RAG absence as Inconclusive. Flag-aware: a flag-off / RAG-dark / copy-only / non-feature-dev change reads skipped, never a hard block. The gate runs at the completion backstop alongside the #394 plan/spec/review assertions and can only surface (pass/skipped/inconclusive), never fail.
+
+- 721b434: Evidence-in-bundle cutover, Phase B (#468): re-point every evidence reader off the retired
+  session-ledger and top-level homes and onto the per-feature bundle projections. The Rule
+  Compliance collector reads findings from the bundle `rule-run.jsonl` (latest by `ts`) and
+  drift live from the `.cache/drift.json`; the Change Shape collector and `metrics report`
+  read the ts-sorted window of the bundle `change-metrics.jsonl`; the SIEM `audit export`
+  aggregate unions the bundle projections and projects attestation/evidence from per-feature
+  receipts; and the Trust panel (evidence feed, receipt feed, AI-BOM, attestation,
+  onboarding, inventory) projects from the bundle union via `projectAiBomFromFeatures` and new
+  per-feature receipt readers. The per-feature receipt now additionally carries the
+  authorship/compliance/reproducibility predicates the attestation surfaces read, so a bundle
+  receipt is a complete attestation record. The RAG session fold stays on the substrate in
+  this phase: its re-point is coupled to the prompt-seam writer and moves with it in Phase C.
+  No old-home write is removed and no path is retired — every old-home write still fires, so
+  rollback is a single revert. Phase C removes the old writes and adds the existence gates.
+- 9ff0f23: Evidence-in-bundle cutover, Phase A (#468): add additive per-feature bundle writers for duplication counts (`duplication.jsonl`), change-metrics ratios (`change-metrics.jsonl`), and the graded gate rows (`evidence.jsonl`), plus their whole-project projections. Every existing project/session-scoped write is left untouched — this is a dual-write parity window, not a cutover. A parity test asserts the new bundle rows agree with the old-home rows for a real feature-development change. No reader is re-pointed and no path is retired yet (Phases B and C).
+
+## 1.76.0
+
+### Minor Changes
+
+- 2cbd0de: Begin the interactive visual site map (#466). The dashboard "Site map" area becomes an explorable, non-technical diagram of the app rendered statically from a single AI-authored YML at `docs/site-map/`, and creating the map is gated on the documentation family. This first slice lays the data foundation: an honest 5-level trust tier on every map element (surface, transition, guard, journey), a reader for the canonical `docs/site-map/` location, and a write path that stamps each element's earned trust tier into the stored map so the dashboard renders proven tiers statically with no work at view time. The `sitemap run` verb now wires that proof in: each run re-earns the canonical map's trust tiers and its map-vs-code freshness from the same code evidence it already resolves and writes them back when either moved, so the dashboard honesty strip and the freshness gate read earned proof instead of "not yet checked". The run now also reads the map and journeys it verifies from that same canonical `docs/site-map/` location, so it checks, resolves evidence for, and restamps exactly the map the dashboard renders rather than a separate copy. The one-step creation flow can now stamp each recorded answer's provenance back onto the surfaces it settled: a surface a person decided about reads as human-confirmed and a defaulted decision reads as a low-confidence guess, so the map is honest about which choices had a human behind them. That one-step creation flow now has a surface the agent can drive: `sitemap questions` lists only the closed-list questions the map still needs (with each question's plain reason, its `file:line` evidence, and a recommended default), and `sitemap answer` records the person's decisions to `docs/site-map/answers.yaml` and stamps their provenance onto the map in one step, so a settled human answer is never re-asked and a question whose code moved is reopened. The superseded report machinery is retired: a run no longer dumps timestamped reports under `docs/site-map/` or publishes derived index/overview/registry views under `docs/instructions/site-map/`, the `sitemap retest` verb and its dashboard action are gone (a re-run is simply the same run again), and the freshness gate now reads one deterministic signal, the map-vs-code freshness stamped into the stored map. The dashboard's Site map pulse section likewise reads the stored canonical map statically instead of the latest report dump. Everything stays inert while the `site_map` flag is off.
+
+## 1.75.4
+
+### Patch Changes
+
+- 92b4710: fix(#205): never count generated `.paqad/` artifacts as changed code in verification
+
+  When the runtime self-hosts, its generated artifacts land under a nested
+  `.paqad/` home (`runtime/base/.paqad/`) that the root-only managed gitignore does
+  not cover, so they leak into the working tree. The change-evidence classifier
+  treated anything under `runtime/` as code, so the change-completeness gate demanded
+  test evidence and doc updates for generated logs and evidence JSON. `isCodeFile`
+  now excludes every `.paqad/` home (root or nested) via the new
+  `isPaqadArtifactPath` predicate, and the verification changed-file scan strips
+  `.paqad/` artifacts entirely, so they never reach `code_changed`, the test-evidence
+  preview, the quality ratchet, or scope drift. (The invisible Stop-hook loop and the
+  silent exit-2 from the original report were already resolved by #303/#368.)
+
+## 1.75.3
+
+### Patch Changes
+
+- dc6976f: Reframe the security workflow copy to remove two overclaims (#206). User-facing text no longer calls the security pass a "full OWASP pentest" with "full OWASP coverage" or claims it proves code is "safe"; it is now described as an OWASP WSTG-structured security self-review that hardens code before a certified pentest, it does not replace one. Copy-only: workflow ids, routing patterns, the `pentest` invocation alias, and all code are unchanged.
+
 ## 1.75.2
 
 ### Patch Changes

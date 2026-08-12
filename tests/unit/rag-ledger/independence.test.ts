@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { recordRagEvidence } from '@/rag-ledger/recorder.js';
-import { readSessionDoc } from '@/session-ledger/ledger.js';
-import { RAG_EVIDENCE_DOC_TYPE } from '@/rag-ledger/types.js';
+import { readUnitFile } from '@/session-ledger/ledger.js';
+import { chatRagPath } from '@/feature-evidence/paths.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(here, '../../../src');
@@ -59,7 +59,7 @@ describe('rag-evidence ledger independence (#249 P3 / C1)', () => {
         { sessionId: 'ses_ent', adapter: 'engine', ragEnabled: true },
       );
       expect(row).not.toBeNull();
-      const rows = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_ent');
+      const rows = readUnitFile(root, chatRagPath('ses_ent'));
       expect(rows.some((r) => r.kind === 'refreshed')).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });

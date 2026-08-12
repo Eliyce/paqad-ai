@@ -44,7 +44,7 @@ each step.
 2. Propose at most the configured cap: each journey names one actor, one goal, an entry, ordered
    steps (surface + action + expectation), branches, and dual ends; every step references an
    existing surface (and, where it moves, an existing transition). Mark each `proposed`.
-3. Write the journey files to `docs/instructions/site-map/journeys/<id>.journey.yaml` and re-run
+3. Write the journey files to `docs/site-map/journeys/<id>.journey.yaml` and re-run
    `paqad-ai sitemap run` so the engine lints each journey's shape and step references.
 
 ## Output Contract

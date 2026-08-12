@@ -79,13 +79,9 @@ function shouldRunAfterFailure(gate: Gate, context: VerificationContext): boolea
   }
 
   if (gate.gate === 'site-map-freshness') {
-    return context.changed_files.some((filePath) => {
-      const normalized = normalizePath(filePath);
-      return (
-        normalized.startsWith('docs/instructions/site-map/') ||
-        normalized.startsWith('docs/site-map/')
-      );
-    });
+    return context.changed_files.some((filePath) =>
+      normalizePath(filePath).startsWith('docs/site-map/'),
+    );
   }
 
   return false;

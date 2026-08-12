@@ -309,13 +309,13 @@ const pillars = [
   },
   {
     kicker: 'Security workflow',
-    title: 'A full OWASP pentest pass, with retests',
+    title: 'An OWASP WSTG-structured security self-review, with retests',
     body: 'Find issues, prove them with a local playbook, fix them, then replay the findings to confirm. Built in, not bolted on.',
   },
   {
     kicker: 'Design workflow',
     title: 'Your UI, audited against your design system',
-    body: 'design-test checks the interface for token, component, accessibility, and responsive drift, the way pentest checks the code.',
+    body: 'design-test checks the interface for token, component, accessibility, and responsive drift, the way the security review checks the code.',
   },
   {
     kicker: 'Living docs',

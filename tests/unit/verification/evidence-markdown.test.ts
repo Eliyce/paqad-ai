@@ -13,8 +13,9 @@ import {
   renderReproducibilityLine,
 } from '@/verification/evidence-markdown';
 import type { ComplianceCitation } from '@/core/types/evidence-ledger';
-import { projectReceipt } from '@/evidence/receipt/project';
 import { buildEvidenceRow } from '@/evidence/ledger';
+import { projectFeatureReceipt } from '@/feature-evidence/receipt';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 import type {
   VerificationEvidence,
@@ -321,13 +322,13 @@ describe('buildEvidenceComment', () => {
     expect(body).toMatch(/## paqad evidence — deadbee {2}🟢 Safe to merge/);
   });
 
-  it('folds in authorship from the latest receipt', async () => {
+  it('folds in authorship from the latest feature receipt (#468 Phase B)', () => {
     const path = join(root, VERIFICATION_EVIDENCE_RELATIVE_PATH);
     mkdirSync(join(path, '..'), { recursive: true });
     writeFileSync(path, JSON.stringify(PASSING), 'utf8');
 
-    await projectReceipt({
-      projectRoot: root,
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    projectFeatureReceipt(root, dir, {
       fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
       rows: [
         buildEvidenceRow({

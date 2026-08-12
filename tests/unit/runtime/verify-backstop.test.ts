@@ -4,14 +4,16 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Issue #368 — the Stop-hook backstop must surface the end-of-change receipt to the
-// DEVELOPER whether the verdict passes, fails, or is inconclusive (no more pass-only
-// visibility). On the Claude Stop hook the developer channel is the JSON
-// `{systemMessage}` on stdout at exit 0; a HARD failure additionally carries
-// `{decision:'block'}` so the model keeps working (exit 2 is a no-op on a Stop hook).
-// The git/CI backstop keeps the plain-text + exit-code contract. These exercise the
-// real runVerificationBackstop with an injected {stdout,stderr} pair and a mocked dist
-// api, so the channel decision is asserted without a built dist.
+// The Stop-hook completion backstop no longer emits a user-facing `{systemMessage}`.
+// Claude Code changed: a Stop-hook `{systemMessage}` now RENDERS on Desktop as literal
+// `Stop says:` lines, inverting the #368/#409 premise that the channel was invisible.
+// Routing the receipt through it duplicated what the agent already speaks (#409) and
+// leaked the model-only narration advisory into chat (the "Stop says:" leak). So the
+// hook-completion origin now writes NOTHING on a clean/inconclusive turn and only a
+// model-only `{decision:'block'}` (no `systemMessage`) on a HARD failure. The git/CI
+// backstop keeps the plain-text + exit-code contract unchanged. These exercise the real
+// runVerificationBackstop with an injected {stdout,stderr} pair and a mocked dist api, so
+// the channel decision is asserted without a built dist.
 const DIST = resolve(process.cwd(), 'dist/index.js');
 
 function capture() {
@@ -27,7 +29,7 @@ async function loadBackstop() {
   return import('../../../runtime/scripts/verify-backstop.mjs');
 }
 
-describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () => {
+describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enforcement', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -42,7 +44,7 @@ describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () =>
     vi.doUnmock(DIST);
   });
 
-  it('AC-1: a HARD-FAIL verdict at hook-completion emits a visible {systemMessage} AND {decision:block}, exit 0', async () => {
+  it('AC-2: a HARD-FAIL verdict at hook-completion emits {decision:block} and NO systemMessage, exit 0', async () => {
     const receipt = '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]';
     mockVerdict({
       ok: false,
@@ -65,17 +67,17 @@ describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () =>
 
     expect(code).toBe(0);
     const parsed = JSON.parse(out.read());
-    // The developer sees the full receipt (AC-C1 / AC-D1) …
-    expect(parsed.systemMessage).toBe(receipt);
-    // … and the model is told to keep working (real teeth — AC-A1).
+    // The model is told to keep working (real teeth — the enforcement channel).
     expect(parsed.decision).toBe('block');
     expect(parsed.reason).toContain('Needs your attention');
     expect(parsed.reason).toContain('paqad-ai checks run');
+    // No user-facing prose leaks: the receipt is the agent's job to speak, not the hook's.
+    expect(parsed.systemMessage).toBeUndefined();
     // Nothing leaks to stderr on the Stop hook.
     expect(err.read()).toBe('');
   });
 
-  it('AC-2: loopActive downgrades a HARD-FAIL — still visible, but no {decision:block} (no loop)', async () => {
+  it('AC-3: loopActive downgrades a HARD-FAIL — no {decision:block} and nothing written (no loop)', async () => {
     const receipt = '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]';
     mockVerdict({ ok: false, summary: 'blocked', receipt, gates: [{ status: 'fail' }] });
     const { runVerificationBackstop } = await loadBackstop();
@@ -91,12 +93,11 @@ describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () =>
     });
 
     expect(code).toBe(0);
-    const parsed = JSON.parse(out.read());
-    expect(parsed.systemMessage).toBe(receipt); // still visible
-    expect(parsed.decision).toBeUndefined(); // but does not re-block → no infinite loop
+    // No decision → nothing to convey → the hook stays silent so it cannot loop.
+    expect(out.read()).toBe('');
   });
 
-  it('AC-3: an INCONCLUSIVE verdict (no failing gate) is visible but never blocks', async () => {
+  it('AC-1: an INCONCLUSIVE verdict (no failing gate) is silent and never blocks', async () => {
     const receipt = '**▸ paqad** · Inconclusive\n> 🟡 code-tests-lint: tests not verified';
     mockVerdict({
       ok: false,
@@ -117,12 +118,11 @@ describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () =>
     });
 
     expect(code).toBe(0);
-    const parsed = JSON.parse(out.read());
-    expect(parsed.systemMessage).toBe(receipt);
-    expect(parsed.decision).toBeUndefined(); // "do not over-trust", not "you must fix"
+    // "do not over-trust", not "you must fix" → no block, and no prose leak.
+    expect(out.read()).toBe('');
   });
 
-  it('AC-4: a PASS verdict at hook-completion is a visible {systemMessage}, no block, exit 0', async () => {
+  it('AC-1: a PASS verdict at hook-completion writes nothing, no block, exit 0', async () => {
     const receipt = '**▸ paqad** · Safe to merge\n> 🟢 planning — done';
     mockVerdict({ ok: true, summary: 'ignored', receipt, gates: [{ status: 'pass' }] });
     const { runVerificationBackstop } = await loadBackstop();
@@ -138,13 +138,11 @@ describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () =>
     });
 
     expect(code).toBe(0);
-    const parsed = JSON.parse(out.read());
-    expect(parsed.systemMessage).toBe(receipt);
-    expect(parsed.decision).toBeUndefined();
+    expect(out.read()).toBe('');
     expect(err.read()).toBe('');
   });
 
-  it('AC-5a: a FAIL at the git backstop stays plain-text on STDERR and exits 2 (hard gate unchanged)', async () => {
+  it('AC-4: a FAIL at the git backstop stays plain-text on STDERR and exits 2 (hard gate unchanged)', async () => {
     const receipt = '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]';
     mockVerdict({ ok: false, summary: 'blocked', receipt, gates: [{ status: 'fail' }] });
     const { runVerificationBackstop } = await loadBackstop();
@@ -165,7 +163,7 @@ describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () =>
     expect(out.read()).toBe('');
   });
 
-  it('AC-5b: a PASS at the git backstop stays plain text on STDOUT (terminal), not a systemMessage', async () => {
+  it('AC-4: a PASS at the git backstop stays plain text on STDOUT (terminal), not a systemMessage', async () => {
     const receipt = '**▸ paqad** · Safe to merge\n> 🟢 planning — done';
     mockVerdict({ ok: true, summary: 'ignored', receipt, gates: [{ status: 'pass' }] });
     const { runVerificationBackstop } = await loadBackstop();
@@ -184,18 +182,18 @@ describe('runtime/scripts/verify-backstop.mjs — #368 verdict surfacing', () =>
     expect(out.read()).not.toContain('systemMessage');
   });
 
-  it('falls back to the plain summary when no receipt was composed', async () => {
+  it('git-backstop still falls back to the plain summary when no receipt was composed', async () => {
     mockVerdict({ ok: true, summary: '✓ 3/3 checks held.', gates: [{ status: 'pass' }] });
     const { runVerificationBackstop } = await loadBackstop();
     const out = capture();
     await runVerificationBackstop({
-      origin: 'hook-completion',
+      origin: 'git-backstop',
       softFail: true,
       projectRoot,
       stdout: out.stream,
       stderr: capture().stream,
     });
-    expect(JSON.parse(out.read()).systemMessage).toBe('✓ 3/3 checks held.');
+    expect(out.read().trim()).toBe('✓ 3/3 checks held.');
   });
 });
 
@@ -222,9 +220,10 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
     expect(blockReason({})).toContain('A verification gate is blocking');
   });
 
-  // Issue #409 — the voice backstop. `{systemMessage}` reaches the MODEL but not the
-  // Desktop developer, which is why the receipt must be spoken by the agent and why
-  // this channel is the right one for an advisory telling it to do so.
+  // Issue #409 — the narration advisory. It is written FOR the model, and now rides the
+  // model-only `{decision:'block'}` reason ONLY (never a user-facing systemMessage, which
+  // would render as `Stop says:` on Desktop). On a non-blocking turn there is no channel to
+  // the model, so the advisory is simply dropped — a silent voice is a defect, not a block.
   describe('#409 narration advisory', () => {
     let projectRoot: string;
 
@@ -283,7 +282,7 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
       expect(seen).toBeNull();
     });
 
-    it('AC-4: appends the advisory to the systemMessage on a GREEN verdict, without blocking', async () => {
+    it('drops the advisory on a GREEN verdict — nothing is written, and it never blocks', async () => {
       mockVerdict({
         ok: true,
         summary: 'Safe to merge',
@@ -304,11 +303,8 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
       });
 
       expect(code).toBe(0);
-      const parsed = JSON.parse(out.read());
-      expect(parsed.systemMessage).toContain('Safe to merge');
-      expect(parsed.systemMessage).toContain('never said out loud');
-      // INV-1 — a silent turn is a voice defect, not a broken change.
-      expect(parsed.decision).toBeUndefined();
+      // INV-1 — a silent turn is a voice defect, not a broken change: no block, no leak.
+      expect(out.read()).toBe('');
     });
 
     it('INV-1: the advisory alone never blocks, even with no other finding', async () => {
@@ -331,7 +327,7 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
         stderr: capture().stream,
       });
 
-      expect(JSON.parse(out.read()).decision).toBeUndefined();
+      expect(out.read()).toBe('');
     });
 
     it('folds the advisory into the block reason when a real gate failure is already blocking', async () => {
@@ -358,30 +354,8 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
       expect(parsed.decision).toBe('block');
       expect(parsed.reason).toContain('paqad-ai checks run');
       expect(parsed.reason).toContain('never said out loud');
-    });
-
-    it('leaves the receipt untouched when nothing was silent', async () => {
-      const receipt = '**▸ paqad** · Safe to merge';
-      mockVerdict({
-        ok: true,
-        summary: 'Safe to merge',
-        receipt,
-        gates: [],
-        narrationAdvisory: '',
-      });
-      const { runVerificationBackstop } = await loadBackstop();
-      const out = capture();
-
-      await runVerificationBackstop({
-        origin: 'hook-completion',
-        softFail: true,
-        projectRoot,
-        loopActive: false,
-        stdout: out.stream,
-        stderr: capture().stream,
-      });
-
-      expect(JSON.parse(out.read()).systemMessage).toBe(receipt);
+      // The advisory rides the model-only reason, not a user-facing systemMessage.
+      expect(parsed.systemMessage).toBeUndefined();
     });
   });
 });

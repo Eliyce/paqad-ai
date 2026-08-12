@@ -13,6 +13,7 @@ import { VERSION } from '@/index.js';
 import { startPaqadWatcher, type RunningWatcher } from '@/graph/watcher.js';
 import { runJourneyCuration } from '@/site-map/journey-curation.js';
 import { readAllJourneys } from '@/site-map/store.js';
+import { buildSiteMapView } from '@/site-map/dashboard-view.js';
 
 import {
   acceptModuleProposal,
@@ -467,6 +468,14 @@ export async function startDashboardServer(
     // Issue #448 — the site map is a dashboard area, so journey curation (the human sign-off on
     // proposed journeys) happens here. List is read-only; curate goes through the mutation guard
     // and runs the same runJourneyCuration the (hidden) CLI verb runs.
+    // Issue #466 — the full behavioural map (surfaces, transitions, areas, actors, guards, and
+    // per-journey step detail) the dashboard renders as the interactive visual. Read statically
+    // from the canonical docs/site-map/ YML; no LLM at view time (NFR-4). Inert when the flag is
+    // off (the payload's own `disabled` status carries that; DATA-1, DATA-2).
+    if (pathname === '/api/site-map/map' && req.method === 'GET') {
+      writeJson(res, req, buildSiteMapView(options.projectRoot));
+      return;
+    }
     if (pathname === '/api/site-map/journeys' && req.method === 'GET') {
       const journeys = readAllJourneys(options.projectRoot).map((journey) => ({
         id: journey.id,

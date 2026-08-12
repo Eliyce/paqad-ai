@@ -7,9 +7,11 @@
 // feature bundle's `stage-evidence.jsonl` (and `rule-run.jsonl`) and returns the merged
 // rows, so external tooling still sees one whole document while nothing double-writes.
 
+import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
+import { readFeatureEvidence } from './bundle-ledgers.js';
 import { readFeatureSpecification } from './artifacts.js';
 import { listFeatureDirs } from './delivery.js';
 import { featureFilePath } from './paths.js';
@@ -29,6 +31,61 @@ export function readAllFeatureStageRows(projectRoot: string): SessionLedgerRow[]
 export function readAllFeatureRuleRuns(projectRoot: string): SessionLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'ruleRun')),
+  );
+}
+
+/**
+ * Every per-feature duplication row across all bundles (issue #468, Phase A). The
+ * whole-project projection consumed by the parity window now and the Phase-B readers
+ * later, mirroring {@link readAllFeatureRuleRuns}.
+ */
+export function readAllFeatureDuplication(projectRoot: string): SessionLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readUnitFile(projectRoot, featureFilePath(dirName, 'duplication')),
+  );
+}
+
+/** Every per-feature change-metrics row across all bundles (issue #468, Phase A). */
+export function readAllFeatureChangeMetrics(projectRoot: string): SessionLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readUnitFile(projectRoot, featureFilePath(dirName, 'changeMetrics')),
+  );
+}
+
+/**
+ * Every per-feature RAG row across all bundles (issue #468, Phase C). The whole-project
+ * projection of the feature-attributed retrieval rows, mirroring {@link readAllFeatureRuleRuns}.
+ * `foldRagEvidenceSession` unions this (filtered by `session_id`) with the session's `_chat`
+ * `rag.jsonl` — the two homes the two-home router writes to — so a re-pointed fold sees a
+ * retrieval row wherever the feature was active when it was recorded.
+ */
+export function readAllFeatureRag(projectRoot: string): SessionLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readUnitFile(projectRoot, featureFilePath(dirName, 'rag')),
+  );
+}
+
+/**
+ * Issue #468, Phase B — the last `limit` change-metrics rows across all bundles, oldest
+ * first, ordered by `ts`. The bundle replacement for `readChangeMetricsRows(limit)`: the
+ * Change Shape collector and `metrics report` render "the last N changes" as this ts-sorted
+ * tail, since rows can now interleave across feature bundles (the accepted latest-by-ts
+ * tradeoff, issue #468). `ts` is a stable ISO-8601 string, so a lexical sort is chronological.
+ */
+export function readFeatureChangeMetricsWindow(
+  projectRoot: string,
+  limit: number,
+): SessionLedgerRow[] {
+  const rows = readAllFeatureChangeMetrics(projectRoot)
+    .slice()
+    .sort((a, b) => a.ts.localeCompare(b.ts));
+  return limit >= rows.length ? rows : rows.slice(rows.length - limit);
+}
+
+/** Every per-feature graded gate row across all bundles (issue #468, Phase A, D5). */
+export function readAllFeatureEvidence(projectRoot: string): EvidenceLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readFeatureEvidence(projectRoot, dirName),
   );
 }
 

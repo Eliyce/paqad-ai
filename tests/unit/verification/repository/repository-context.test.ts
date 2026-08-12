@@ -219,4 +219,50 @@ describe('buildRepositoryVerificationContext', () => {
 
     expect(escalations.join('\n')).not.toContain('test-evidence');
   });
+
+  // Issue #205 — generated `.paqad/` artifacts leak into the working tree when the
+  // runtime self-hosts (runtime/base/.paqad/). They must never be counted as changed
+  // code by verification, or the completion gate loops demanding test evidence for logs.
+  it('excludes generated .paqad/ artifacts from the changed-file scan (issue #205)', async () => {
+    const root = makeProject();
+    setChangedFiles(root, [
+      'runtime/base/.paqad/audit.log',
+      'runtime/base/.paqad/logs/module-health.log',
+      'runtime/base/.paqad/module-health-evidence/mh-40ca14cd.json',
+      'runtime/base/.paqad/quality-baseline.json',
+      '.paqad/session/verification-evidence.json',
+    ]);
+
+    const { context, escalations } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+    });
+
+    // No .paqad/ home reaches the changed-file set...
+    expect(context.changed_files).toEqual([]);
+    // ...so nothing is treated as changed code and no test-evidence is demanded.
+    expect(context.code_changed).toBe(false);
+    expect(escalations.join('\n')).not.toContain('test-evidence');
+
+    // And the completeness gate passes rather than blocking on generated artifacts.
+    const verdict = await runRepositoryVerification({
+      projectRoot: root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations },
+    });
+    expect(verdict.ok).toBe(true);
+  });
+
+  it('keeps real code while dropping .paqad/ artifacts in a mixed change (issue #205)', async () => {
+    const root = makeProject();
+    setChangedFiles(root, ['src/feature.ts', 'runtime/base/.paqad/audit.log']);
+
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+    });
+
+    expect(context.changed_files).toEqual(['src/feature.ts']);
+    expect(context.code_changed).toBe(true);
+  });
 });

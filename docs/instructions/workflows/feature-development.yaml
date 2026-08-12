@@ -176,6 +176,7 @@ stages:
     instructions:
       - Sync canonical docs affected by the feature diff after verification passes.
       - "Design-system (issue #76): when the diff adds a token, component, or breakpoint to source, invoke design-system-sync to propose contract updates to docs/instructions/design-system/*. Proposals are surfaced via the Decision Pause Contract — never auto-applied."
+      - "Site map (issue #466, LIVE-3): the stored site map at docs/site-map/ is a living doc. When the diff moves surfaces, navigation, or guards, treat that map as a canonical doc to keep in sync. Re-run the Site map area so it re-verifies and restamps earned trust and freshness, and stale anchors do not linger. Inert while the site_map flag is off or no map exists."
     required_inputs:
       - changed files
     strictness:

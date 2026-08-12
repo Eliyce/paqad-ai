@@ -5,7 +5,7 @@
 // on the latest duplication reading — SonarQube's 3% precedent for the green ceiling, 10% for
 // the amber/red boundary. `unknown` until a change has been measured.
 
-import { readChangeMetricsRows } from '@/change-metrics/index.js';
+import { readFeatureChangeMetricsWindow } from '@/feature-evidence/projections.js';
 
 import type { AttentionItem, ScoreBand, SectionData } from '../types.js';
 
@@ -40,7 +40,7 @@ export function collectChangeMetrics(projectRoot: string): {
   section: SectionData;
   attention: AttentionItem[];
 } {
-  const rows = readChangeMetricsRows(projectRoot, WINDOW);
+  const rows = readFeatureChangeMetricsWindow(projectRoot, WINDOW);
 
   if (rows.length === 0) {
     return {

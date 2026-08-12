@@ -96,6 +96,21 @@ describe('agent bootstrap document', () => {
     expect(loadSection).toContain('run **no** rule-scripts');
   });
 
+  it('loads docs/site-map/ as documentation on the site-map route (ART-10)', () => {
+    // The living-doc contract: the site-map workflow builds on the stored map, and
+    // the framework treats it as documentation a project question can read. Honest
+    // when absent so a flag-off or map-less project loads nothing (INV-1).
+    const doc = buildAgentBootstrapDocument();
+    const loadSection = doc.slice(
+      doc.indexOf('## 3. Load only what the routed workflow needs'),
+      doc.indexOf('### Workflow handling'),
+    );
+    expect(loadSection).toContain('`docs/site-map/`');
+    expect(loadSection).toMatch(/routed to \*\*site-map\*\*/);
+    expect(loadSection).toContain('build on it');
+    expect(loadSection).toMatch(/only when it is present/i);
+  });
+
   it('preserves the workflow-handling trigger (create documentation / feature workflows)', () => {
     // Relocated verbatim from the entry-file templates (issue #229). Without this,
     // an enabled agent would stop treating `create documentation` as a Paqad

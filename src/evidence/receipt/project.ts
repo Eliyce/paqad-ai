@@ -16,7 +16,6 @@ import {
   type ComplianceCitation,
   type EvidenceFileDigest,
   type EvidenceLedgerRow,
-  type InTotoStatement,
   type ReceiptEnvelope,
   type ReproducibilityStampPredicate,
 } from '@/core/types/evidence-ledger.js';
@@ -25,6 +24,13 @@ import { ZERO_DIGEST } from '../digests.js';
 import { buildInTotoStatement } from './statement.js';
 import { signReceipt, detectSigningMode } from './dsse.js';
 import { buildAiBom, type AiBomDocument } from './ai-bom.js';
+import { latestFeatureReceipt } from '@/feature-evidence/receipt.js';
+
+// Issue #468 Phase B — `decodeReceiptStatement` moved to the leaf `./envelope.js` so the
+// per-feature receipt readers can import it without a cycle. Re-exported here so every
+// existing `@/evidence/receipt/project.js` importer keeps working unchanged.
+export { decodeReceiptStatement } from './envelope.js';
+import { decodeReceiptStatement } from './envelope.js';
 
 function chainPath(projectRoot: string): string {
   return join(projectRoot, PATHS.EVIDENCE_RECEIPT_CHAIN);
@@ -55,39 +61,33 @@ export function latestReceiptHash(projectRoot: string): string {
   return chain.length === 0 ? ZERO_DIGEST : chain[chain.length - 1].paqad.receipt_hash;
 }
 
-/** Decode a receipt envelope's wrapped in-toto Statement, or `null` when the
- *  base64 payload is unparseable. */
-export function decodeReceiptStatement(envelope: ReceiptEnvelope): InTotoStatement | null {
-  try {
-    return JSON.parse(Buffer.from(envelope.payload, 'base64').toString('utf8')) as InTotoStatement;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Issue #120 — the change authorship attested by the most recent receipt, or
  * `null` when no receipt exists or it carried no authorship. The single source
  * of truth every surface (PR comment, dashboard) reads, so the moat is shown
  * from the signed record rather than re-derived per surface.
+ *
+ * Issue #468 Phase B — "most recent receipt" is now the latest per-feature bundle
+ * receipt (by `time_verified`), not the retired whole-project chain snapshot.
  */
 export function latestReceiptAuthorship(projectRoot: string): ChangeAuthorship | null {
-  const chain = readReceiptChain(projectRoot);
-  if (chain.length === 0) return null;
-  const statement = decodeReceiptStatement(chain[chain.length - 1]);
+  const latest = latestFeatureReceipt(projectRoot);
+  if (latest === null) return null;
+  const statement = decodeReceiptStatement(latest);
   return statement?.predicate.change_authorship ?? null;
 }
 
 /** Issue #122/#123 — the compliance citations and reproducibility stamp attested
  *  by the most recent receipt. The single source every surface reads, so the PR
- *  comment and dashboard always agree with the signed record. */
+ *  comment and dashboard always agree with the signed record. Issue #468 Phase B:
+ *  sourced from the latest per-feature bundle receipt. */
 export function latestReceiptTrustExtras(projectRoot: string): {
   compliance: ComplianceCitation[];
   reproducibility: ReproducibilityStampPredicate | null;
 } {
-  const chain = readReceiptChain(projectRoot);
-  if (chain.length === 0) return { compliance: [], reproducibility: null };
-  const statement = decodeReceiptStatement(chain[chain.length - 1]);
+  const latest = latestFeatureReceipt(projectRoot);
+  if (latest === null) return { compliance: [], reproducibility: null };
+  const statement = decodeReceiptStatement(latest);
   return {
     compliance: statement?.predicate.compliance_citations ?? [],
     reproducibility: statement?.predicate.reproducibility ?? null,

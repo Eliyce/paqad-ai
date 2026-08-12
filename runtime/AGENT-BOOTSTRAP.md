@@ -63,6 +63,8 @@ Always load these and treat them as the canonical contract for documentation and
 
 When you work inside a specific module, also load that module's documentation under `docs/modules/` as those rules direct.
 
+When you routed to **site-map**, load the app's authored map from `docs/site-map/` (its `app-map.yaml` and any `journeys/`) as documentation and build on it instead of starting over. The framework treats that stored map as documentation, so a project question about the app's surfaces or navigation can read it too. Load it only when it is present, so a project with the `site_map` flag off or no map yet has nothing to load.
+
 ### Workflow handling
 
 - Interpret short Paqad workflow prompts such as `create documentation` as workflow invocations.
@@ -153,12 +155,15 @@ Emit the `start` marker as you begin the stage and the `end` marker as you finis
 
 | Channel | Claude Code CLI | Claude Code Desktop |
 | --- | --- | --- |
-| Hook `{systemMessage}` (PreToolUse / Stop) | rendered | **not rendered** — recorded as a hook attachment |
+| Hook `{systemMessage}` — PreToolUse | rendered | **not rendered** — recorded as a hook attachment |
+| Hook `{systemMessage}` — Stop | rendered | **rendered as literal `Stop says:` lines** |
 | Hook `{decision:'block'}` `reason` | reaches the model only | reaches the model only |
 | CLI verb stdout (`stage start`, `plan compile`) | inside the tool-result block | collapsed — invisible unless expanded |
 | Your assistant text, final message of the turn | **rendered** | **rendered** |
 
-**Per host — who speaks.** On **Claude Code** YOU speak. The stage hooks do fire on your edits and at turn end, and they do write the ledger — but their narration rides `{systemMessage}`, so on Desktop it is recorded and never shown (issue #409: a full six-stage run emitted eleven stage lines and the developer saw none of them, while the evidence bundle was complete). Never treat a hook as having spoken for you. On **Codex** and **Gemini** the record hook is deliberately record-only — it writes the ledger at turn end but says nothing in chat — so there too YOU must narrate your own `▸ paqad` stage lines and speak the end-of-change verdict in prose. On **advisory hosts** (JetBrains "Claude Agent" / AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) **no native hook fires at all** — nothing blocks an edit, nothing writes the ledger for you, nothing speaks a verdict. Never rely on a hook-spoken line or a hook-written ledger row on an advisory host. Narrating alone is **not enough**: a narrated-but-unrecorded stage leaves the ledger empty, exactly the JetBrains Claude Agent gap (issue #389) — "framework followed" but "no evidence".
+A Stop-hook `{systemMessage}` used to be invisible on Desktop, so paqad kept a receipt echo there as belt-and-braces. Claude Code changed that: a Stop `{systemMessage}` now renders verbatim as `Stop says:` lines, which duplicated the receipt the agent already speaks and leaked model-only advisories into the chat. So paqad's Stop hooks no longer emit user-facing `{systemMessage}` prose at all — they write the ledger and, on a hard failure, ride the model-only `{decision:'block'}` `reason`. The developer-facing channel is your own final message, full stop.
+
+**Per host — who speaks.** On **Claude Code** YOU speak. The stage hooks do fire on your edits and at turn end, and they do write the ledger — but they no longer narrate in chat: their `{systemMessage}` echo was removed once Claude Code began rendering a Stop `{systemMessage}` as `Stop says:` lines, because it duplicated the receipt you already speak and leaked model-only advisories to the developer. Before that it was the opposite failure — the echo was recorded and never shown on Desktop (issue #409: a full six-stage run emitted eleven stage lines and the developer saw none of them, while the evidence bundle was complete). Either way the lesson holds. Never treat a hook as having spoken for you. On **Codex** and **Gemini** the record hook is deliberately record-only — it writes the ledger at turn end but says nothing in chat — so there too YOU must narrate your own `▸ paqad` stage lines and speak the end-of-change verdict in prose. On **advisory hosts** (JetBrains "Claude Agent" / AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) **no native hook fires at all** — nothing blocks an edit, nothing writes the ledger for you, nothing speaks a verdict. Never rely on a hook-spoken line or a hook-written ledger row on an advisory host. Narrating alone is **not enough**: a narrated-but-unrecorded stage leaves the ledger empty, exactly the JetBrains Claude Agent gap (issue #389) — "framework followed" but "no evidence".
 
 **Advisory-host stage protocol — run the CLI, do not just narrate.** On an advisory host, for any **feature-development** change you MUST populate the ledger yourself by running the host-independent CLI (plain `npx paqad-ai …` in the IDE's shell — no hook required), in this order, and narrate each `▸ paqad` stage line as you go:
 

@@ -1,0 +1,22 @@
+{
+  "id": "D-01KZTSZMDW365GT4NA8KC92HQQ",
+  "category": "spec.change",
+  "title": "Per-feature receipts lack authorship needed by the attestation re-point",
+  "context": "Issue #468 Phase B change map re-points attestationEvents (SIEM), collectAttestation, latestReceiptAuthorship and latestReceiptTrustExtras to per-feature bundle receipts. But projectFeatureReceipt is called in run-repository-verification.ts WITHOUT authorship/compliance/reproducibility, so per-feature receipts carry no authorship (only the retired whole-project receipt does). The frozen spec INV-1/INV-3 said no writer is modified and the spine file is untouched. Two ways forward.",
+  "options": [
+    {
+      "option_key": "extend_writer",
+      "label": "Extend projectFeatureReceipt (additive) + pass the already-computed authorship/compliance/reproducibility from the caller so per-feature receipts are complete; re-point all attestation readers now"
+    },
+    {
+      "option_key": "defer_to_c",
+      "label": "Keep collectAttestation/attestationEvents/latestReceipt* on the still-written whole-project chain in Phase B; re-point them in Phase C alongside the writer cutover"
+    }
+  ],
+  "recommendation": "extend_writer",
+  "created_at": "2026-08-12T10:58:39.677Z",
+  "status": "resolved",
+  "chosen": "extend_writer",
+  "rationale": "Per-feature receipt must be complete for the attestation re-point the issue mandates; additive field extension + pass caller-computed values, surgical spine touch, re-freeze spec.",
+  "resolved_at": "2026-08-12T11:03:13.283Z"
+}
