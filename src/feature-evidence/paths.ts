@@ -29,6 +29,11 @@ export const FEATURE_BUNDLE_FILES = {
   receipt: 'receipt.json',
   aiBom: 'ai-bom.json',
   rag: 'rag.jsonl',
+  // Issue #468, Phase A — the bundle homes the duplication counts, change-metrics
+  // ratios, and graded gate rows dual-write into during the parity window (D4/D5).
+  duplication: 'duplication.jsonl',
+  changeMetrics: 'change-metrics.jsonl',
+  evidence: 'evidence.jsonl',
 } as const;
 
 /** A key into {@link FEATURE_BUNDLE_FILES}. */

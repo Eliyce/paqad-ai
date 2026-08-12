@@ -11,6 +11,8 @@
 //   bundle (a no-op when no feature is active). Rows are stamped + hashed by the shared
 //   session-ledger primitives, so the bytes are script-owned.
 
+import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
+import { readEvidenceRowsAt } from '@/evidence/ledger.js';
 import {
   appendStampedRowToUnit,
   readUnitFile,
@@ -18,12 +20,23 @@ import {
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 
+import type { ChangeMetrics } from '@/change-metrics/types.js';
+import type { DuplicationReport } from '@/duplication/report.js';
+
 import { chatRagPath, featureFilePath } from './paths.js';
 import { currentFeature } from './stage-ledger.js';
 
 /** Doc type stamped on a per-feature `rule-run.jsonl` row. */
 export const RULE_RUN_DOC_TYPE = 'paqad.rule-run';
 export const RULE_RUN_SCHEMA_VERSION = 1;
+
+/** Doc type stamped on a per-feature `duplication.jsonl` row (issue #468, Phase A). */
+export const DUPLICATION_RUN_DOC_TYPE = 'paqad.duplication-run';
+export const DUPLICATION_RUN_SCHEMA_VERSION = 1;
+
+/** Doc type stamped on a per-feature `change-metrics.jsonl` row (issue #468, Phase A). */
+export const CHANGE_METRICS_RUN_DOC_TYPE = 'paqad.change-metrics';
+export const CHANGE_METRICS_RUN_SCHEMA_VERSION = 1;
 
 /**
  * The project-relative home a RAG row for `sessionId` belongs to: the active feature's
@@ -105,4 +118,121 @@ export function appendRuleRun(
 /** Tolerant read of a feature's `rule-run.jsonl` rows. */
 export function readRuleRun(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readUnitFile(projectRoot, featureFilePath(dirName, 'ruleRun'));
+}
+
+/**
+ * Issue #468, Phase A — append one duplication row into the ACTIVE feature's
+ * `duplication.jsonl`, recording the scan's counts/threshold/mode for this change. A
+ * no-op (returns null) when no feature is active, mirroring {@link appendRuleRun}. The
+ * payload fields match the old-home `recordDuplicationRun` row so the parity window can
+ * prove the two agree. Additive and best-effort: a failure never breaks the scan.
+ */
+export function appendDuplicationRun(
+  projectRoot: string,
+  sessionId: string,
+  report: DuplicationReport,
+  now?: () => Date,
+): SessionLedgerRow | null {
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) {
+    return null;
+  }
+  try {
+    const stamped = stampSessionRow(
+      DUPLICATION_RUN_DOC_TYPE,
+      sessionId,
+      {
+        counts: report.counts,
+        similarity_threshold: report.similarity_threshold,
+        min_lines: report.min_lines,
+        mode: report.mode,
+        blocking: report.blocking,
+      },
+      { schemaVersion: DUPLICATION_RUN_SCHEMA_VERSION, now },
+    );
+    appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'duplication'), stamped);
+    return stamped;
+  } catch {
+    return null;
+  }
+}
+
+/** Tolerant read of a feature's `duplication.jsonl` rows. */
+export function readDuplication(projectRoot: string, dirName: string): SessionLedgerRow[] {
+  return readUnitFile(projectRoot, featureFilePath(dirName, 'duplication'));
+}
+
+/**
+ * Issue #468, Phase A — append one change-metrics row into the ACTIVE feature's
+ * `change-metrics.jsonl`. A no-op (returns null) when no feature is active, mirroring
+ * {@link appendRuleRun}. The payload fields match the old-home `recordChangeMetrics` row
+ * so the parity window can prove the two agree. Additive and best-effort.
+ */
+export function appendChangeMetrics(
+  projectRoot: string,
+  sessionId: string,
+  metrics: ChangeMetrics,
+  now?: () => Date,
+): SessionLedgerRow | null {
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) {
+    return null;
+  }
+  try {
+    const stamped = stampSessionRow(
+      CHANGE_METRICS_RUN_DOC_TYPE,
+      sessionId,
+      {
+        dup_new_pct: metrics.dup_new_pct,
+        reuse_rate: metrics.reuse_rate,
+        meaningful_changed_lines: metrics.meaningful_changed_lines,
+        flagged_lines: metrics.inputs.flagged_lines,
+        reuse_calls: metrics.inputs.reuse_calls,
+      },
+      { schemaVersion: CHANGE_METRICS_RUN_SCHEMA_VERSION, now },
+    );
+    appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'changeMetrics'), stamped);
+    return stamped;
+  } catch {
+    return null;
+  }
+}
+
+/** Tolerant read of a feature's `change-metrics.jsonl` rows. */
+export function readChangeMetrics(projectRoot: string, dirName: string): SessionLedgerRow[] {
+  return readUnitFile(projectRoot, featureFilePath(dirName, 'changeMetrics'));
+}
+
+/**
+ * Issue #468, Phase A (D5) — append the graded gate rows into the ACTIVE feature's
+ * `evidence.jsonl`. The rows are already self-stamped {@link EvidenceLedgerRow}s (their
+ * own `content_hash` identity), so they are written verbatim — no re-stamping — beside
+ * the identical top-level `.paqad/ledger/evidence.jsonl` write, which is untouched here.
+ * A no-op (returns `[]`) when no feature is active or the row set is empty. Best-effort.
+ */
+export function appendFeatureEvidenceRows(
+  projectRoot: string,
+  sessionId: string,
+  rows: readonly EvidenceLedgerRow[],
+): EvidenceLedgerRow[] {
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName || rows.length === 0) {
+    return [];
+  }
+  try {
+    const path = featureFilePath(dirName, 'evidence');
+    for (const row of rows) {
+      // `EvidenceLedgerRow` carries its own envelope; append it verbatim as one JSONL
+      // line via the shared writer (which only stringifies). Cast is the shape bridge.
+      appendStampedRowToUnit(projectRoot, path, row as unknown as SessionLedgerRow);
+    }
+    return [...rows];
+  } catch {
+    return [];
+  }
+}
+
+/** Tolerant read of a feature's `evidence.jsonl` graded gate rows. */
+export function readFeatureEvidence(projectRoot: string, dirName: string): EvidenceLedgerRow[] {
+  return readEvidenceRowsAt(projectRoot, featureFilePath(dirName, 'evidence'));
 }

@@ -67,9 +67,13 @@ export function appendEvidenceRows(projectRoot: string, rows: readonly EvidenceL
   appendFileSync(path, payload, 'utf8');
 }
 
-/** Read all ledger rows; malformed or wrong-shaped lines are skipped. */
-export function readEvidenceLedger(projectRoot: string): EvidenceLedgerRow[] {
-  const path = ledgerPath(projectRoot);
+/**
+ * Read graded evidence rows from an ARBITRARY project-relative JSONL file, skipping
+ * malformed or wrong-shaped lines. The path-agnostic reader the per-feature bundle
+ * `evidence.jsonl` (issue #468) rides on, alongside the top-level ledger.
+ */
+export function readEvidenceRowsAt(projectRoot: string, relPath: string): EvidenceLedgerRow[] {
+  const path = join(projectRoot, relPath);
   if (!existsSync(path)) return [];
   const raw = readFileSync(path, 'utf8');
   const out: EvidenceLedgerRow[] = [];
@@ -87,6 +91,11 @@ export function readEvidenceLedger(projectRoot: string): EvidenceLedgerRow[] {
     }
   }
   return out;
+}
+
+/** Read all top-level ledger rows; malformed or wrong-shaped lines are skipped. */
+export function readEvidenceLedger(projectRoot: string): EvidenceLedgerRow[] {
+  return readEvidenceRowsAt(projectRoot, PATHS.EVIDENCE_LEDGER);
 }
 
 /** Rows whose `subject_digest` matches a given change — the receipt's window. */

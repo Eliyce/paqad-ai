@@ -7,9 +7,11 @@
 // feature bundle's `stage-evidence.jsonl` (and `rule-run.jsonl`) and returns the merged
 // rows, so external tooling still sees one whole document while nothing double-writes.
 
+import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
+import { readFeatureEvidence } from './bundle-ledgers.js';
 import { readFeatureSpecification } from './artifacts.js';
 import { listFeatureDirs } from './delivery.js';
 import { featureFilePath } from './paths.js';
@@ -29,6 +31,31 @@ export function readAllFeatureStageRows(projectRoot: string): SessionLedgerRow[]
 export function readAllFeatureRuleRuns(projectRoot: string): SessionLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'ruleRun')),
+  );
+}
+
+/**
+ * Every per-feature duplication row across all bundles (issue #468, Phase A). The
+ * whole-project projection consumed by the parity window now and the Phase-B readers
+ * later, mirroring {@link readAllFeatureRuleRuns}.
+ */
+export function readAllFeatureDuplication(projectRoot: string): SessionLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readUnitFile(projectRoot, featureFilePath(dirName, 'duplication')),
+  );
+}
+
+/** Every per-feature change-metrics row across all bundles (issue #468, Phase A). */
+export function readAllFeatureChangeMetrics(projectRoot: string): SessionLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readUnitFile(projectRoot, featureFilePath(dirName, 'changeMetrics')),
+  );
+}
+
+/** Every per-feature graded gate row across all bundles (issue #468, Phase A, D5). */
+export function readAllFeatureEvidence(projectRoot: string): EvidenceLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readFeatureEvidence(projectRoot, dirName),
   );
 }
 
