@@ -61,3 +61,7 @@
 # decision_arm_plan_threshold=0.85
 # How many evidence-armed decision pauses one change may open (issue #361). Default 1 — only the strongest fork is asked; the rest are reported as warnings. (env: PAQAD_DECISION_ARM_MAX_PER_CHANGE)
 # decision_arm_max_per_change=1
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn — completion check that the per-feature bundle carries its evidence files (rule-run / duplication / change-metrics / rag). warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks (there is no strict tier). off disables it (issue #468 Phase C). (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
+# evidence_existence_gate=warn

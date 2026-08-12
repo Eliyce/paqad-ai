@@ -105,7 +105,7 @@ detection-report.json   onboarding-manifest.json
 
 - **OpenAI API** — default reasoning model (`gpt-5`), fast model (`gpt-5-mini`).
 - **VoyageAI** — cloud embedding provider (optional).
-- **Local embeddings** — `Xenova/all-MiniLM-L6-v2` via `@xenova/transformers` (default when
+- **Local embeddings** — `Xenova/all-MiniLM-L6-v2` via `@huggingface/transformers` (default when
   `rag_embedding_provider=local`, a framework knob in the config layer).
 - **MCP servers** — none configured (`mcp.servers: []` in `project-profile.yaml`).
 

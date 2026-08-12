@@ -145,11 +145,15 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
         : `Preparing local embedding model ${this.model}. This shared download only happens once.`,
     });
     try {
-      const { pipeline, env } = (await import('@xenova/transformers')) as {
+      const { pipeline, env } = (await import('@huggingface/transformers')) as {
         pipeline: (
           task: 'feature-extraction',
           model: string,
           options: {
+            // Pin q8 so the *_quantized.onnx files load exactly as under the
+            // @xenova v2 default; @huggingface v3+ otherwise defaults to fp32,
+            // which would change the download size and shift embedding output.
+            dtype?: 'q8';
             progress_callback?: (progress: LocalEmbeddingProgress) => void;
           },
         ) => Promise<LocalEmbeddingExtractor>;
@@ -163,6 +167,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
       env.allowLocalModels = true;
       env.allowRemoteModels = !cached;
       return pipeline('feature-extraction', this.model, {
+        dtype: 'q8',
         progress_callback: (progress: LocalEmbeddingProgress) => {
           const loaded = progress.loaded ?? 0;
           const total = progress.total ?? 0;

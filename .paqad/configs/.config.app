@@ -51,3 +51,9 @@ market_research=true
 # ── Added in a newer paqad version ────────────────────────────
 # Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)
 feature_report=true
+
+# ── Added in a newer paqad version ────────────────────────────
+# Opt in to the Site Map & Journeys capability — a verified behavioural map of the app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). OFF (default) is completely inert; ON also requires the coding capability at its consumers. (env: PAQAD_SITE_MAP)
+site_map=true
+# Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is local, deterministic, and zero-LLM — it folds over caches the gates already produced. OFF stops computing and recording them. (env: PAQAD_METRICS_ENABLED)
+# metrics_enabled=true

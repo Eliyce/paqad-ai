@@ -34,7 +34,7 @@
 - `yaml` — config / profile parsing
 - `ajv` — JSON Schema validation
 - `openai` — model API client (default routing target)
-- `voyageai`, `@xenova/transformers` — embeddings (cloud + local)
+- `voyageai`, `@huggingface/transformers` — embeddings (cloud + local)
 
 ### Embedded UI (`graph-ui/`)
 

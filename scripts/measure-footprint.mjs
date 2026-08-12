@@ -7,7 +7,7 @@
 //
 // --project defaults to the current directory. --json prints only the JSON report.
 // Token counts use src/context/tokenizer-cache.ts (real tokenizer when
-// @xenova/transformers is installed, else a labelled char/4 heuristic). Exit codes:
+// @huggingface/transformers is installed, else a labelled char/4 heuristic). Exit codes:
 // 0 = measured (including an empty project with no .paqad/ or docs/instructions),
 // 2 = usage error.
 

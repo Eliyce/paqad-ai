@@ -22,7 +22,7 @@ vi.mock('@inquirer/prompts', () => ({
   select: mockSelect,
 }));
 
-vi.mock('@xenova/transformers', () => ({
+vi.mock('@huggingface/transformers', () => ({
   env: transformerEnv,
   pipeline: transformerPipeline,
 }));

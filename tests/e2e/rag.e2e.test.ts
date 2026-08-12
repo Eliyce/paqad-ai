@@ -22,7 +22,7 @@ const voyageCtor = vi.fn().mockImplementation(() => ({
   embed: voyageEmbed,
 }));
 
-vi.mock('@xenova/transformers', () => ({
+vi.mock('@huggingface/transformers', () => ({
   env: transformerEnv,
   pipeline: transformerPipeline,
 }));
