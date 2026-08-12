@@ -95,6 +95,27 @@ function applyChecksHonesty(
 }
 
 /**
+ * The mandatory stages whose end-of-change receipt line is NOT 🟢 — the stages that are
+ * not provably done (missing, inconclusive, failed, complete-but-near-zero, or a `checks`
+ * stage the completion gate could not verify). Computed from the SAME `stageStatus` +
+ * `applyChecksHonesty` the per-stage block renders, so a headline that names these stages
+ * and the block that shows them can never disagree — the reconcile seam for issue #472.
+ *
+ * ⚪ skipped / not-applicable stages are intentional non-work and are excluded, as are the
+ * optional bookend stages (only `isMandatoryStage` rows are considered). Returns [] when
+ * every mandatory stage is provably done.
+ */
+export function unrecordedMandatoryStages(fold: FoldedChange, checksVerified?: boolean): string[] {
+  return fold.stages
+    .filter((stage) => isMandatoryStage(stage.stage))
+    .filter((stage) => {
+      const { glyph } = applyChecksHonesty(stage, stageStatus(stage), checksVerified);
+      return glyph === PAQAD_STATUS_GLYPH.needsLook || glyph === PAQAD_STATUS_GLYPH.failed;
+    })
+    .map((stage) => stage.stage);
+}
+
+/**
  * Render the per-stage evidence block: one line per mandatory stage, plus any
  * optional stage that actually ran (has a start). Returns '' when there is nothing
  * to show. Each line is a blockquote so it nests under the verdict headline.

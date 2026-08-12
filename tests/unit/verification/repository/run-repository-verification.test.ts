@@ -11,6 +11,7 @@ import {
 import { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { EngineEvent, VerificationVerdictEvent } from '@/event-bus/types.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
+import type { StructuredTestResult } from '@/core/types/test-output.js';
 
 import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
 import { readChangeMetrics } from '@/feature-evidence/bundle-ledgers.js';
@@ -78,6 +79,145 @@ describe('runRepositoryVerification receipt (#325)', () => {
     expect(verdict.receipt).toBeDefined();
     expect(verdict.receipt).toContain(verdict.summary);
     expect(verdict.receipt).toContain('planning — done');
+  });
+});
+
+// Issue #472 — reconcile: a feature-development change whose gates pass but whose
+// mandatory stages are not all recorded reads "Inconclusive", not "Safe to merge".
+describe('runRepositoryVerification mandatory-stage reconcile (#472)', () => {
+  function passingChecks(): StructuredTestResult {
+    return {
+      schema_version: '1.0.0',
+      summary: {
+        total: 12,
+        passed: 12,
+        failed: 0,
+        skipped: 0,
+        errored: 0,
+        duration_ms: 0,
+        timestamp: '2026-01-01T00:00:00.000Z',
+        runner_id: 'vitest',
+      },
+      failures: [],
+      warnings: [],
+      parse_metadata: {
+        raw_byte_size: 0,
+        structured_byte_size: 0,
+        compression_ratio: 1,
+        original_size: 0,
+        compact_size: 0,
+        reduction_ratio: 0,
+        delta_mode_used: false,
+        escalation_occurred: false,
+        escalation_reason: null,
+        delta_summary: null,
+        parse_strategy: 'structured',
+        parse_warnings: [],
+      },
+      errors: [],
+      evidence_scope: { related_paths: ['src/feature.ts'] },
+    };
+  }
+
+  /** Record a proven artifact-bearing stage (planning/specification) under a session. */
+  function recordStage(root: string, stage: string, ses: string, ordinal: number): void {
+    startStage(root, stage, { sessionId: ses, ordinal, adapter: 'claude-code' });
+    const rel = `.paqad/artifacts/${stage}.md`;
+    mkdirSync(join(root, '.paqad/artifacts'), { recursive: true });
+    writeFileSync(join(root, rel), `# ${stage}\n`);
+    endStage(
+      root,
+      stage,
+      { artifactPaths: [rel] },
+      { sessionId: ses, ordinal, adapter: 'claude-code' },
+    );
+  }
+
+  /** Record a mutation stage (development/documentation_sync) — no artifact needed. */
+  function recordMutationStage(root: string, stage: string, ses: string, ordinal: number): void {
+    startStage(root, stage, { sessionId: ses, ordinal, adapter: 'claude-code' });
+    endStage(root, stage, {}, { sessionId: ses, ordinal, adapter: 'claude-code' });
+  }
+
+  // ci-backstop is a non-hard origin, so the stage-evidence gate is informational
+  // (skipped) even in strict mode — isolating the receipt reconcile: verdict.ok stays
+  // true (gates + passing checks) while the fold still shows unrecorded stages. The
+  // expected-module lists are cleared so change-completeness does not block on the
+  // fixture's placeholder module-doc structure (unrelated to this reconcile).
+  function featureDevContext(root: string) {
+    return createVerificationContext({
+      project_root: root,
+      verification_origin: 'ci-backstop',
+      verification_stage: 'backstop-completion',
+      code_changed: true,
+      test_files_changed: true,
+      changed_files: ['src/feature.ts', 'tests/feature.test.ts'],
+      changed_files_source: 'git-status',
+      structured_test_results: [passingChecks()],
+      modules: [],
+      expected_ui_modules: [],
+      expected_api_modules: [],
+      expected_integration_modules: [],
+      expected_error_catalog_modules: [],
+    });
+  }
+
+  it('downgrades "Safe to merge" to Inconclusive and names the unrecorded mandatory stages', async () => {
+    const root = makeProject();
+    const context = featureDevContext(root);
+    const SES = 'rv-472-gap';
+    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    // Everything but review + checks is recorded.
+    recordStage(root, 'planning', SES, ordinal);
+    recordStage(root, 'specification', SES, ordinal);
+    recordMutationStage(root, 'development', SES, ordinal);
+    recordMutationStage(root, 'documentation_sync', SES, ordinal);
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: root,
+      origin: 'ci-backstop',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    // Gates held, so ok stays true (exit codes / warn-mode semantics untouched)...
+    expect(verdict.ok).toBe(true);
+    // ...but the developer-facing verdict word is honest about the missing stages.
+    expect(verdict.summary).toContain('Inconclusive');
+    expect(verdict.summary).not.toContain('Safe to merge');
+    expect(verdict.summary).toContain('mandatory stage(s) not recorded');
+    expect(verdict.summary).toContain('review');
+    expect(verdict.summary).toContain('checks');
+    // The composed receipt embeds the reconciled headline and agrees with its 🟡 lines.
+    expect(verdict.receipt).toContain(verdict.summary);
+    expect(verdict.receipt).toContain('review — not recorded');
+    expect(verdict.receipt).toContain('checks — not recorded');
+  });
+
+  it('leaves "Safe to merge" intact when every mandatory stage is recorded', async () => {
+    const root = makeProject();
+    const context = featureDevContext(root);
+    const SES = 'rv-472-complete';
+    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
+    recordStage(root, 'planning', SES, ordinal);
+    recordStage(root, 'specification', SES, ordinal);
+    recordMutationStage(root, 'development', SES, ordinal);
+    recordStage(root, 'review', SES, ordinal);
+    recordMutationStage(root, 'checks', SES, ordinal);
+    recordMutationStage(root, 'documentation_sync', SES, ordinal);
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: root,
+      origin: 'ci-backstop',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(verdict.ok).toBe(true);
+    expect(verdict.summary).toContain('Safe to merge');
+    expect(verdict.summary).not.toContain('mandatory stage(s) not recorded');
   });
 });
 

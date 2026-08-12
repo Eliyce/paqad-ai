@@ -137,4 +137,58 @@ describe('formatVerdictSummary', () => {
     expect(summary).toContain(PAQAD_VERDICT.inconclusive);
     expect(summary).toContain('spec-review');
   });
+
+  // Issue #472 — reconcile down: passing gates + a mandatory-stage gap reads Inconclusive.
+  describe('mandatory-stage reconcile (#472)', () => {
+    const passingGates = [
+      {
+        gate: 'change-completeness' as const,
+        status: 'pass' as const,
+        detail: 'ok',
+        remediation: null,
+      },
+    ];
+
+    it('downgrades a passing verdict to Inconclusive and names the unrecorded stages', () => {
+      const summary = formatVerdictSummary({
+        ok: true,
+        gates: passingGates,
+        escalations: [],
+        unrecordedMandatoryStages: ['review', 'checks'],
+      });
+      expect(summary).toContain(PAQAD_VERDICT.inconclusive);
+      expect(summary).not.toContain(PAQAD_VERDICT.pass);
+      // The gates that held are still credited.
+      expect(summary).toContain('1/1 checks held');
+      // The offending stages are named.
+      expect(summary).toContain('mandatory stage(s) not recorded: review, checks');
+    });
+
+    it('is byte-for-byte unchanged when the gap list is empty or absent', () => {
+      const baseline = formatVerdictSummary({ ok: true, gates: passingGates, escalations: [] });
+      expect(
+        formatVerdictSummary({
+          ok: true,
+          gates: passingGates,
+          escalations: [],
+          unrecordedMandatoryStages: [],
+        }),
+      ).toBe(baseline);
+      expect(baseline).toContain(PAQAD_VERDICT.pass);
+      expect(baseline).not.toContain('not recorded');
+    });
+
+    it('ignores the gap list when a gate already failed (fail rendering is unchanged)', () => {
+      const summary = formatVerdictSummary({
+        ok: false,
+        gates: [
+          { gate: 'ac-test-mapping', status: 'fail', detail: 'AC-2 unproven', remediation: null },
+        ],
+        escalations: [],
+        unrecordedMandatoryStages: ['review', 'checks'],
+      });
+      expect(summary).toContain(PAQAD_VERDICT.fail);
+      expect(summary).not.toContain('mandatory stage(s) not recorded');
+    });
+  });
 });

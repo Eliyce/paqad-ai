@@ -84,9 +84,10 @@ import {
   buildRepositoryVerificationContext,
   type BuildRepositoryVerificationContextOptions,
 } from './repository-context.js';
-import { composeChangeReceipt } from './receipt.js';
+import { composeChangeReceipt, unrecordedMandatoryStages } from './receipt.js';
 import {
   buildRepositoryVerificationVerdict,
+  formatVerdictSummary,
   type RepositoryVerificationVerdict,
 } from './verdict.js';
 
@@ -529,6 +530,26 @@ export async function runRepositoryVerification(
         .map((stage) => stage.stage),
     }),
   );
+
+  // Issue #472 — reconcile the receipt: when a feature-development change's gates all pass
+  // but a mandatory stage has no evidence, the "Safe to merge" headline over-claims relative
+  // to the per-stage block (which shows the stage 🟡/🔴). Recompute the verdict WORD to
+  // Inconclusive (the over-trust guard) so `verdict.summary`, the composed receipt, and the
+  // event stream all agree with the block. `verdict.ok` is left gate-derived, so exit codes
+  // and warn-mode non-blocking semantics are untouched: a strict-mode gap already fails the
+  // stage-evidence gate (verdict.ok=false), so this branch is skipped and the headline is
+  // already "Needs your attention".
+  if (isFeatureDev && verdict.ok && fold) {
+    const stageGaps = unrecordedMandatoryStages(fold, checksVerified);
+    if (stageGaps.length > 0) {
+      verdict.summary = formatVerdictSummary({
+        ok: verdict.ok,
+        gates: verdict.gates,
+        escalations,
+        unrecordedMandatoryStages: stageGaps,
+      });
+    }
+  }
 
   const receiptFeature = currentFeature(
     context.project_root,

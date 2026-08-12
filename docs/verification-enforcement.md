@@ -229,6 +229,14 @@ The backstop runs only the gates it can evaluate from artifacts:
 - **Inconclusive escalation:** a signal that cannot be proven either way
   (e.g. "code changed but no frozen spec on record") is surfaced in the verdict
   as an escalation rather than silently passed or used to block every change.
+- **Mandatory-stage reconcile (#472):** the end-of-change receipt reconciles its
+  headline with the per-stage evidence block. When a feature-development change's
+  gates all pass but a mandatory stage (for example `review` or `checks`) has no
+  evidence, the developer-facing verdict word is **Inconclusive**, not **Safe to
+  merge** — the over-trust guard — and the receipt names the unrecorded stages so
+  the headline and the per-stage block never contradict each other. The gate-derived
+  `verdict.ok` is unchanged, so exit codes and warn-mode non-blocking semantics stay
+  the same; only the verdict word is downgraded.
 
 ## Honest limitations
 
