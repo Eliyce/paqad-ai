@@ -3,13 +3,12 @@
 // envelope-stamped + AJV-validated by the shared substrate, and best-effort: a recorder
 // failure must never break the prompt path, so errors are swallowed (returns null).
 
+import { stampSessionRow, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import {
-  appendSessionEvent,
-  currentOrdinal,
-  openSessionDoc,
-  type SessionLedgerRow,
-} from '@/session-ledger/ledger.js';
-import { mirrorRagRow } from '@/feature-evidence/bundle-ledgers.js';
+  allocateChatOrdinal,
+  currentChatOrdinal,
+  mirrorRagRow,
+} from '@/feature-evidence/bundle-ledgers.js';
 import { redactSecrets } from '@/rag/secrets.js';
 
 import { validateRagEvidenceRow } from './schema.js';
@@ -57,6 +56,10 @@ const APPEND_OPTS = (now?: () => Date) => ({
 /**
  * Open a new conversation (prompt turn) for the session and return its ordinal. Called
  * by the prompt seam once per prompt. Returns null on any failure (best-effort).
+ *
+ * Issue #468 Phase C — the ordinal is allocated in the session's `_chat` home and the
+ * `open` row is written to its two-home `rag.jsonl` (the active feature's bundle, else
+ * `_chat`), replacing the retired `paqad.rag-evidence/<session>` substrate.
  */
 export function openRagConversation(
   projectRoot: string,
@@ -64,17 +67,38 @@ export function openRagConversation(
 ): { sessionId: string; ordinal: number } | null {
   try {
     const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
-    const { ordinal } = openSessionDoc(
-      projectRoot,
-      RAG_EVIDENCE_DOC_TYPE,
-      sessionId,
-      { rag_enabled: ctx.ragEnabled, adapter: ctx.adapter },
-      APPEND_OPTS(ctx.now),
-    );
+    const ordinal = openChatConversation(projectRoot, sessionId, ctx);
     return { sessionId, ordinal };
   } catch {
     return null;
   }
+}
+
+/**
+ * Allocate a fresh `_chat` conversation ordinal and write its `open` row to the two-home
+ * `rag.jsonl` (issue #468 Phase C). Shared by {@link openRagConversation} (the prompt seam)
+ * and the auto-open path in {@link recordRagEvidence} (a background event with no open
+ * conversation), so both produce the same `open`-then-data record the substrate used to.
+ */
+function openChatConversation(
+  projectRoot: string,
+  sessionId: string,
+  ctx: RagEvidenceContext,
+): number {
+  const ordinal = allocateChatOrdinal(projectRoot, sessionId);
+  const openRow = stampSessionRow(
+    RAG_EVIDENCE_DOC_TYPE,
+    sessionId,
+    {
+      kind: 'open',
+      conversation_ordinal: ordinal,
+      rag_enabled: ctx.ragEnabled,
+      adapter: ctx.adapter,
+    },
+    APPEND_OPTS(ctx.now),
+  );
+  mirrorRagRow(projectRoot, sessionId, openRow);
+  return ordinal;
 }
 
 /**
@@ -103,17 +127,10 @@ export function recordRagEvidence(
       ...fields,
       note,
     };
-    const stamped = appendSessionEvent(
-      projectRoot,
-      RAG_EVIDENCE_DOC_TYPE,
-      sessionId,
-      ordinal,
-      row,
-      APPEND_OPTS(ctx.now),
-    );
-    // Issue #339 — co-locate the same row in its two-home destination (the active
-    // feature's `rag.jsonl` or `_chat`), so the retrieval that served a feature lives in
-    // its bundle. Additive + best-effort: the session-substrate write above is untouched.
+    // Issue #468 Phase C — stamp the row (envelope + AJV validation, unchanged) and write
+    // it ONLY to its two-home destination (the active feature's `rag.jsonl` or `_chat`).
+    // The retired session substrate is no longer written; the fold reads the two homes.
+    const stamped = stampSessionRow(RAG_EVIDENCE_DOC_TYPE, sessionId, row, APPEND_OPTS(ctx.now));
     mirrorRagRow(projectRoot, sessionId, stamped);
     return stamped as unknown as RagEvidenceRow;
   } catch {
@@ -122,21 +139,19 @@ export function recordRagEvidence(
   }
 }
 
-/** Use the supplied ordinal, else the current open one, else open a fresh conversation. */
+/**
+ * Use the supplied ordinal, else the current open `_chat` ordinal, else open a fresh
+ * conversation (issue #468 Phase C — the ordinal home moved to `_chat`). The fresh path
+ * writes an `open` row so a background event with no open conversation records the same
+ * `open`-then-data pair the retired substrate produced.
+ */
 function resolveOrdinal(projectRoot: string, sessionId: string, ctx: RagEvidenceContext): number {
   if (ctx.ordinal && ctx.ordinal > 0) {
     return ctx.ordinal;
   }
-  const current = currentOrdinal(projectRoot, RAG_EVIDENCE_DOC_TYPE, sessionId);
+  const current = currentChatOrdinal(projectRoot, sessionId);
   if (current > 0) {
     return current;
   }
-  const { ordinal } = openSessionDoc(
-    projectRoot,
-    RAG_EVIDENCE_DOC_TYPE,
-    sessionId,
-    { rag_enabled: ctx.ragEnabled, adapter: ctx.adapter },
-    APPEND_OPTS(ctx.now),
-  );
-  return ordinal;
+  return openChatConversation(projectRoot, sessionId, ctx);
 }

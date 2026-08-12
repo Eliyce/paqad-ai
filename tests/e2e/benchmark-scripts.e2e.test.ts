@@ -3,16 +3,17 @@
 // not only on the paqad-ai repo. This drives the scripts' pure logic against a real
 // onboarded tree using the same primitives the CLIs use (tokenizer-cache, readProjectEvents).
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runCli } from '@/cli/index.js';
 import { getOrLoad } from '@/context/tokenizer-cache.js';
-import { readProjectEvents } from '@/session-ledger/project-ledger.js';
-import { recordRuleFindings } from '@/rule-scripts/rule-ledger.js';
+import { appendRuleRun } from '@/feature-evidence/bundle-ledgers.js';
+import { featureSessionControlPath } from '@/feature-evidence/paths.js';
+import { readAllFeatureRuleRuns } from '@/feature-evidence/projections.js';
 
 import {
   aggregateFootprint,
@@ -21,7 +22,6 @@ import {
 } from '../../scripts/lib/footprint.mjs';
 import {
   bucketFindings,
-  RULE_EVIDENCE_DOC_TYPE,
   // @ts-expect-error -- pure JS helper shared with the runnable rule-findings-stats.mjs script
 } from '../../scripts/lib/findings-stats.mjs';
 import { seedDetectionFixtures } from '../shared/detection-fixtures.js';
@@ -70,7 +70,7 @@ describe('benchmark scripts on a fresh onboarded fixture', () => {
     expect(aggregate.reduction.tokens).toBeLessThan(1);
   });
 
-  it('reads weekly deterministic-findings stats from the rule-evidence ledger it wrote', async () => {
+  it('reads weekly deterministic-findings stats from the per-feature rule-run bundles it wrote', async () => {
     const projectRoot = join(root, 'new-react');
     await runCli([
       'node',
@@ -83,21 +83,40 @@ describe('benchmark scripts on a fresh onboarded fixture', () => {
     ]);
 
     // No rows yet → "no data" shape.
-    expect(bucketFindings(readProjectEvents(projectRoot, RULE_EVIDENCE_DOC_TYPE)).total_runs).toBe(
-      0,
+    expect(bucketFindings(readAllFeatureRuleRuns(projectRoot)).total_runs).toBe(0);
+
+    // Issue #468 Phase C — the findings home is the active feature's `rule-run.jsonl`.
+    // Mark a feature active so the canonical writer (appendRuleRun) records into its bundle.
+    const sessionId = 'ses_bench';
+    const featureDir = 'PQD-1-bench-01ARZ3NDEKTSV4RRFFQ69G5FAV';
+    const control = join(projectRoot, featureSessionControlPath(sessionId));
+    mkdirSync(dirname(control), { recursive: true });
+    writeFileSync(
+      control,
+      JSON.stringify({
+        schema_version: 1,
+        doc_type: 'paqad.feature-session',
+        session_id: sessionId,
+        active: featureDir,
+        paused: [],
+        lane: null,
+      }),
+      'utf8',
     );
 
-    // Two fresh-run snapshots land on the ledger the stats script reads.
-    recordRuleFindings(projectRoot, {
+    // Two fresh-run snapshots land in the bundle the stats script globs.
+    appendRuleRun(projectRoot, sessionId, {
+      kind: 'findings',
       counts: { deterministic: 3, heuristic: 1, skipped: 0 },
       blocking: false,
     });
-    recordRuleFindings(projectRoot, {
+    appendRuleRun(projectRoot, sessionId, {
+      kind: 'findings',
       counts: { deterministic: 5, heuristic: 0, skipped: 2 },
       blocking: true,
     });
 
-    const rows = readProjectEvents(projectRoot, RULE_EVIDENCE_DOC_TYPE);
+    const rows = readAllFeatureRuleRuns(projectRoot);
     const bucketed = bucketFindings(rows);
 
     expect(bucketed.total_runs).toBe(2);

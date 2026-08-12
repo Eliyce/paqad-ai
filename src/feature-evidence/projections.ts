@@ -53,6 +53,19 @@ export function readAllFeatureChangeMetrics(projectRoot: string): SessionLedgerR
 }
 
 /**
+ * Every per-feature RAG row across all bundles (issue #468, Phase C). The whole-project
+ * projection of the feature-attributed retrieval rows, mirroring {@link readAllFeatureRuleRuns}.
+ * `foldRagEvidenceSession` unions this (filtered by `session_id`) with the session's `_chat`
+ * `rag.jsonl` — the two homes the two-home router writes to — so a re-pointed fold sees a
+ * retrieval row wherever the feature was active when it was recorded.
+ */
+export function readAllFeatureRag(projectRoot: string): SessionLedgerRow[] {
+  return listFeatureDirs(projectRoot).flatMap((dirName) =>
+    readUnitFile(projectRoot, featureFilePath(dirName, 'rag')),
+  );
+}
+
+/**
  * Issue #468, Phase B — the last `limit` change-metrics rows across all bundles, oldest
  * first, ordered by `ts`. The bundle replacement for `readChangeMetricsRows(limit)`: the
  * Change Shape collector and `metrics report` render "the last N changes" as this ts-sorted

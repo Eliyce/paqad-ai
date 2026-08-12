@@ -19,11 +19,9 @@ import type { VerificationEvidenceGate } from '@/core/types/verification-evidenc
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
 import {
-  appendEvidenceRows,
   computeChangeSubjectDigest,
   computeFileDigests,
   gateResultsToRows,
-  projectReceipt,
   ratchetResultToRows,
   readReproducibilityPredicate,
   resolveChangeAuthorship,
@@ -48,12 +46,9 @@ import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { runDuplicationScan } from '@/duplication/scan.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
-import {
-  computeChangeMetrics,
-  recordChangeMetrics,
-  type ChangeMetrics,
-} from '@/change-metrics/index.js';
+import { computeChangeMetrics, type ChangeMetrics } from '@/change-metrics/index.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { type FoldedChange } from '@/stage-evidence/types.js';
@@ -61,6 +56,8 @@ import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '../evidence.js';
+import { evidenceExistenceGate } from './evidence-existence-gate.js';
+import { resolveEvidenceExistenceMode } from './evidence-existence-mode.js';
 
 // Injected at build time by tsup/vitest (see tsup.config.ts); the unreplaced
 // placeholder is tolerated so a dev/test run still produces a receipt.
@@ -340,11 +337,11 @@ export async function runRepositoryVerification(
         projectRoot: context.project_root,
         changedFiles: context.changed_files,
       });
-      recordChangeMetrics(context.project_root, changeMetrics);
-      // Issue #468, Phase A — additive dual-write of the same metrics into the active
-      // feature's `change-metrics.jsonl`. A no-op when no feature is active; the old-home
-      // write above is untouched. Inside this best-effort try/catch, so it cannot change
-      // the verdict.
+      // Issue #468 Phase C — the metrics are recorded ONLY in the active feature's
+      // `change-metrics.jsonl` bundle file now (the collector + `metrics report` read the
+      // bundle window since Phase B); the retired project-scoped change-metrics ledger
+      // write is gone. A no-op when no feature is active; inside this best-effort try/catch,
+      // so it cannot change the verdict.
       appendChangeMetrics(
         context.project_root,
         resolveSessionId(context.project_root, options.hostSessionId ?? null),
@@ -354,6 +351,40 @@ export async function runRepositoryVerification(
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: change-metrics skipped (${message})`);
       changeMetrics = null;
+    }
+  }
+
+  // Issue #468 Phase C — the evidence-existence gate. Warn-only: it verifies the active
+  // feature bundle carries its rule-run / duplication / change-metrics / rag files,
+  // backfilling any recoverable gap from the caches (marked `backfilled`) and reporting an
+  // unrecoverable RAG gap as Inconclusive. It NEVER fails/blocks (no strict tier). Placed
+  // with the other appended gates so it rides both the evidence artifact and the verdict;
+  // best-effort by contract (the gate swallows its own errors).
+  const existenceMode = resolveEvidenceExistenceMode(context.project_root);
+  if (existenceMode !== 'off') {
+    const existenceSession = resolveSessionId(context.project_root, options.hostSessionId ?? null);
+    const existenceActive = currentFeature(context.project_root, existenceSession);
+    const config = resolveFrameworkConfig(context.project_root);
+    const existenceGate = evidenceExistenceGate({
+      projectRoot: context.project_root,
+      sessionId: existenceSession,
+      // Issue #390 — a route we can prove is non-feature-development is treated as no active
+      // bundle, so a non-feature turn skips the gate even with a pointer active.
+      dirName:
+        existenceActive &&
+        !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
+          ? existenceActive
+          : null,
+      mode: existenceMode,
+      isFeatureDev,
+      ragEnabled: config.intelligence.rag_enabled,
+      ruleComplianceOn: resolveRuleComplianceMode(context.project_root) !== 'off',
+      duplicationOn: resolveDuplicationMode(context.project_root) !== 'off',
+      metricsOn: config.features.metrics_enabled,
+      changeMetrics,
+    });
+    if (existenceGate) {
+      evidence.gates.push(existenceGate);
     }
   }
 
@@ -386,9 +417,6 @@ export async function runRepositoryVerification(
         ...gateResultsToRows(results, rowCtx),
         ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
       ];
-      if (policy.evidence_ledger) {
-        appendEvidenceRows(context.project_root, rows);
-      }
       // Issue #120 — fold change authorship (which adapter/model wrote it, who
       // accepted it) into the receipt so the attestation is gate-derived yet
       // producer-attributed. Resolution never throws; absent authorship simply
@@ -407,21 +435,15 @@ export async function runRepositoryVerification(
         ? resolveComplianceCitations({ projectRoot: context.project_root, rows })
         : undefined;
       const reproducibility = readReproducibilityPredicate(context.project_root) ?? undefined;
-      await projectReceipt({
-        projectRoot: context.project_root,
-        fileDigests,
-        rows,
-        verifierVersion: verifierVersion(),
-        timeVerified: completedAt,
-        authorship,
-        complianceCitations,
-        reproducibility,
-        env: process.env,
-        write: { evidenceReceipt: policy.evidence_ledger, aiBom: policy.ai_bom },
-      });
-      // Issue #343 B — also project the per-feature receipt + AI-BOM into the active
-      // feature's bundle from the SAME graded rows, honouring the SAME enterprise flags
-      // (`evidence_ledger` → receipt.json, `ai_bom` → ai-bom.json). Best-effort: no active
+      // Issue #468 Phase C — the per-feature bundle is the ONLY receipt/evidence projection
+      // now; the retired top-level `.paqad/ledger/{evidence.jsonl,receipts.jsonl,
+      // receipt.dsse.json,ai-bom.json}` writes are gone (every reader re-pointed to the
+      // bundle union in Phase B). The authorship/compliance/reproducibility resolved above
+      // now feed only the bundle receipt below.
+      //
+      // Issue #343 B — project the per-feature receipt + AI-BOM into the active feature's
+      // bundle from the graded rows, honouring the enterprise flags (`evidence_ledger` →
+      // receipt.json + evidence.jsonl, `ai_bom` → ai-bom.json). Best-effort: no active
       // feature (a framework-internal change, or none open) simply skips the bundle write.
       const bundleSessionId = resolveSessionId(context.project_root, options.hostSessionId ?? null);
       const activeFeature = currentFeature(context.project_root, bundleSessionId);
@@ -431,10 +453,9 @@ export async function runRepositoryVerification(
         activeFeature &&
         !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
       ) {
-        // Issue #468, Phase A — additive dual-write of the SAME graded rows into the
-        // active feature's `evidence.jsonl`, honouring the same `evidence_ledger` flag as
-        // the top-level `appendEvidenceRows` above (which is untouched). Best-effort:
-        // riding the enclosing try/catch, it introduces no throw into verdict computation.
+        // Issue #468 — the SAME graded rows land in the active feature's `evidence.jsonl`,
+        // honouring the `evidence_ledger` flag. Best-effort: riding the enclosing try/catch,
+        // it introduces no throw into verdict computation.
         if (policy.evidence_ledger) {
           appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
         }
@@ -444,10 +465,9 @@ export async function runRepositoryVerification(
           verifierVersion: verifierVersion(),
           timeVerified: completedAt,
           write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
-          // Issue #468 Phase B — carry the SAME authorship/compliance/reproducibility the
-          // whole-project receipt above already resolved, so the per-feature receipt is a
-          // complete attestation record when it becomes the only one (D5). All three are
-          // already computed for the projectReceipt call; each is omitted when absent.
+          // Issue #468 Phase B — carry the authorship/compliance/reproducibility resolved
+          // above so the per-feature receipt is a complete attestation record now that it is
+          // the only one (D5). Each is omitted when absent.
           authorship,
           ...(complianceCitations !== undefined ? { complianceCitations } : {}),
           ...(reproducibility !== undefined ? { reproducibility } : {}),

@@ -13,7 +13,9 @@ import type { EngineEvent, VerificationVerdictEvent } from '@/event-bus/types.js
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 
 import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
-import { readChangeMetricsRows } from '@/change-metrics/index.js';
+import { readChangeMetrics } from '@/feature-evidence/bundle-ledgers.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { createVerificationContext } from '../shared.fixture.js';
 
@@ -252,17 +254,28 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
       changed_files: ['src/feature.ts'],
       changed_files_source: 'git-status',
     });
+    // Issue #468 Phase C — the change-metrics row lands in the ACTIVE feature's bundle now
+    // (the retired project-scoped ledger write is gone), so open a feature under a known session.
+    const SES = 'rv-metrics-sess';
+    const sessionId = resolveSessionId(context.project_root, SES);
+    const dir = openFeatureChange(context.project_root, sessionId, {
+      adapter: 'claude-code',
+      title: 'Feature',
+      issue: null,
+    });
 
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,
       origin: 'hook-completion',
       prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
       now: () => '2026-01-01T00:00:00.000Z',
     });
 
     expect(verdict.receipt).toContain('change shape');
-    // A row was folded onto the project ledger (no caches present → n/a parts, but still recorded).
-    expect(readChangeMetricsRows(context.project_root, 20).length).toBe(1);
+    // A row was recorded into the feature bundle's change-metrics.jsonl (no caches present
+    // → n/a parts, but still recorded).
+    expect(readChangeMetrics(context.project_root, dir).length).toBe(1);
   });
 
   it('emits no change-shape line and no row for a docs-only (non-feature-dev) change', async () => {
@@ -273,16 +286,26 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
       changed_files: ['docs/thing.md'],
       changed_files_source: 'git-status',
     });
+    // Open a feature so the bundle assertion is meaningful: even with an active bundle, a
+    // docs-only (non-feature-dev) change computes no metrics, so no row lands (issue #468 Phase C).
+    const SES = 'rv-metrics-docs';
+    const sessionId = resolveSessionId(context.project_root, SES);
+    const dir = openFeatureChange(context.project_root, sessionId, {
+      adapter: 'claude-code',
+      title: 'Feature',
+      issue: null,
+    });
 
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,
       origin: 'hook-completion',
       prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
       now: () => '2026-01-01T00:00:00.000Z',
     });
 
     expect(verdict.receipt ?? '').not.toContain('change shape');
-    expect(readChangeMetricsRows(context.project_root, 20)).toHaveLength(0);
+    expect(readChangeMetrics(context.project_root, dir)).toHaveLength(0);
   });
 });
 

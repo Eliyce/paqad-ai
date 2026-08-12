@@ -14,7 +14,9 @@
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import { readEvidenceRowsAt } from '@/evidence/ledger.js';
 import {
+  allocateOrdinal,
   appendStampedRowToUnit,
+  currentOrdinal,
   readUnitFile,
   stampSessionRow,
   type SessionLedgerRow,
@@ -50,6 +52,26 @@ export function resolveRagHome(projectRoot: string, sessionId: string): string {
 }
 
 /**
+ * DocType whose session-ledger directory coincides exactly with `_chat/<session>`
+ * (`join('.paqad/ledger', '_chat', session)` === `chatDir(session)`), so the RAG
+ * conversation ordinal — the `.open` pointer and the race-safe exclusive-create
+ * allocation markers — lives in the same `_chat` home as the chat `rag.jsonl` rows
+ * (issue #468 Phase C). Reusing the canonical session-ledger allocator keeps the
+ * background worker, the TS recorder, and the mjs prompt seam on one ordinal.
+ */
+const CHAT_ORDINAL_DOC = '_chat';
+
+/** Allocate the next RAG conversation ordinal in the session's `_chat` home. */
+export function allocateChatOrdinal(projectRoot: string, sessionId: string): number {
+  return allocateOrdinal(projectRoot, CHAT_ORDINAL_DOC, sessionId);
+}
+
+/** The current open RAG conversation ordinal for the session's `_chat` home, or 0. */
+export function currentChatOrdinal(projectRoot: string, sessionId: string): number {
+  return currentOrdinal(projectRoot, CHAT_ORDINAL_DOC, sessionId);
+}
+
+/**
  * Best-effort mirror of an already-stamped RAG row into its two-home destination (the
  * active feature's bundle or `_chat`). Additive: the session-substrate write the RAG
  * recorder already does is untouched; this co-locates the same row with the feature it
@@ -77,6 +99,8 @@ export interface RuleRunEntry {
   blocking: boolean;
   adapter?: string;
   note?: string | null;
+  /** Issue #468 Phase C — true when minted by the existence gate's backfill (not a live run). */
+  backfilled?: boolean;
   now?: () => Date;
 }
 
@@ -105,6 +129,7 @@ export function appendRuleRun(
         blocking: entry.blocking,
         adapter: entry.adapter ?? 'claude-code',
         note: entry.note ?? null,
+        ...(entry.backfilled ? { backfilled: true } : {}),
       },
       { schemaVersion: RULE_RUN_SCHEMA_VERSION, now: entry.now },
     );
@@ -132,6 +157,7 @@ export function appendDuplicationRun(
   sessionId: string,
   report: DuplicationReport,
   now?: () => Date,
+  backfilled = false,
 ): SessionLedgerRow | null {
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) {
@@ -147,6 +173,7 @@ export function appendDuplicationRun(
         min_lines: report.min_lines,
         mode: report.mode,
         blocking: report.blocking,
+        ...(backfilled ? { backfilled: true } : {}),
       },
       { schemaVersion: DUPLICATION_RUN_SCHEMA_VERSION, now },
     );
@@ -173,6 +200,7 @@ export function appendChangeMetrics(
   sessionId: string,
   metrics: ChangeMetrics,
   now?: () => Date,
+  backfilled = false,
 ): SessionLedgerRow | null {
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) {
@@ -188,6 +216,7 @@ export function appendChangeMetrics(
         meaningful_changed_lines: metrics.meaningful_changed_lines,
         flagged_lines: metrics.inputs.flagged_lines,
         reuse_calls: metrics.inputs.reuse_calls,
+        ...(backfilled ? { backfilled: true } : {}),
       },
       { schemaVersion: CHANGE_METRICS_RUN_SCHEMA_VERSION, now },
     );
