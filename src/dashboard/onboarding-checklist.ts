@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readAllFeatureEvidence } from '@/feature-evidence/projections.js';
+import { readAllFeatureReceipts } from '@/feature-evidence/receipt.js';
 
 /**
  * Issue #146 — `/api/onboarding-checklist` (spec section 10).
@@ -33,14 +35,6 @@ export interface OnboardingChecklist {
   receiptAvailable: boolean;
 }
 
-function fileHasContent(path: string): boolean {
-  try {
-    return existsSync(path) && readFileSync(path, 'utf8').trim().length > 0;
-  } catch {
-    return false;
-  }
-}
-
 function dirHasEntries(path: string): boolean {
   try {
     return existsSync(path) && readdirSync(path).some((name) => !name.startsWith('.'));
@@ -57,20 +51,12 @@ export function buildOnboardingChecklist(projectRoot: string): OnboardingCheckli
       existsSync(at(entry)),
     ) && existsSync(at(PATHS.ONBOARDING_MANIFEST));
 
-  const ledger = at(PATHS.EVIDENCE_LEDGER);
-  let firstGatePassed = false;
-  if (existsSync(ledger)) {
-    try {
-      firstGatePassed = readFileSync(ledger, 'utf8')
-        .split('\n')
-        .some((line) => line.includes('"verdict":"pass"') || line.includes('"verdict": "pass"'));
-    } catch {
-      firstGatePassed = false;
-    }
-  }
+  // Issue #468 Phase B — the first passing gate and the first receipt are read from the
+  // per-feature bundle union, not the retired top-level `evidence.jsonl` / `receipts.jsonl`.
+  const firstGatePassed = readAllFeatureEvidence(projectRoot).some((row) => row.verdict === 'pass');
 
   const firstDecisionResolved = dirHasEntries(at(PATHS.DECISIONS_RESOLVED_DIR));
-  const receiptAvailable = fileHasContent(at(PATHS.EVIDENCE_RECEIPT_CHAIN));
+  const receiptAvailable = readAllFeatureReceipts(projectRoot).length > 0;
 
   let instructionEdited = false;
   const audit = at(PATHS.AUDIT_LOG);

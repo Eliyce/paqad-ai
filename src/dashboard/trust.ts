@@ -3,10 +3,6 @@
 // worthless), so every function here is a projection over the ledgers the
 // verification pipeline already writes — no mutation routes exist at all.
 
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import { PATHS } from '@/core/constants/paths.js';
 import type {
   ChangeAuthorship,
   ComplianceCitation,
@@ -14,10 +10,15 @@ import type {
   ReceiptEnvelope,
   ReproducibilityStampPredicate,
 } from '@/core/types/evidence-ledger.js';
-import { readEvidenceLedger } from '@/evidence/ledger.js';
-import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
-import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
+import { verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
+import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 import type { AiBomDocument } from '@/evidence/receipt/ai-bom.js';
+import { readAllFeatureEvidence } from '@/feature-evidence/projections.js';
+import {
+  latestFeatureReceipt,
+  projectAiBomFromFeatures,
+  readAllFeatureReceipts,
+} from '@/feature-evidence/receipt.js';
 import { buildEvidenceComment } from '@/verification/evidence-markdown.js';
 
 export interface EvidenceFeedQuery {
@@ -45,7 +46,7 @@ export function buildEvidenceFeed(
   projectRoot: string,
   query: EvidenceFeedQuery = {},
 ): EvidenceFeed {
-  const all = readEvidenceLedger(projectRoot);
+  const all = readAllFeatureEvidence(projectRoot);
   const limit = Math.min(
     Math.max(1, Math.trunc(query.limit ?? DEFAULT_EVIDENCE_LIMIT)),
     MAX_EVIDENCE_LIMIT,
@@ -88,19 +89,37 @@ export interface ReceiptFeed {
   receipts: ReceiptCard[];
 }
 
-/** The receipt chain shaped as cards, with per-link seal status. */
+/**
+ * The per-feature receipts shaped as cards, newest first, each with its own seal status
+ * (issue #468 Phase B). After the cutover there is no single whole-project chain — each
+ * feature bundle carries its own self-chained receipt — so every card is verified
+ * INDEPENDENTLY (`verifyReceiptSeal`) and `brokenAt` reports the first card (newest first)
+ * whose bytes do not recompute, preserving the UI's "something is broken" signal.
+ */
 export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
-  const chain = readReceiptChain(projectRoot);
-  const brokenAt = verifyReceiptChain(chain);
-  const receipts = chain.map((envelope, index): ReceiptCard => {
-    const statement = decodeReceiptStatement(envelope);
+  const decoded = readAllFeatureReceipts(projectRoot).map((envelope) => ({
+    envelope,
+    statement: decodeReceiptStatement(envelope),
+  }));
+  // Newest first by decoded `time_verified` (ISO-8601, so a lexical sort is chronological).
+  decoded.sort((a, b) =>
+    (b.statement?.predicate.time_verified ?? '').localeCompare(
+      a.statement?.predicate.time_verified ?? '',
+    ),
+  );
+  let brokenAt: number | null = null;
+  const receipts = decoded.map(({ envelope, statement }, index): ReceiptCard => {
     const predicate = statement?.predicate ?? null;
+    const sealed = verifyReceiptSeal(envelope);
+    if (!sealed && brokenAt === null) {
+      brokenAt = index;
+    }
     return {
       index,
       receipt_hash: envelope.paqad.receipt_hash,
       prev_receipt_hash: envelope.paqad.prev_receipt_hash,
       signing_mode: envelope.paqad.signing_mode,
-      sealed: brokenAt === null || index < brokenAt,
+      sealed,
       time_verified: predicate?.time_verified ?? null,
       verification_result: predicate?.verification_result ?? null,
       authorship: predicate?.change_authorship ?? null,
@@ -118,19 +137,24 @@ export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
       })),
     };
   });
-  receipts.reverse();
   return { generatedAt: new Date().toISOString(), brokenAt, receipts };
 }
 
-/** The persisted CycloneDX AI-BOM, or null when no receipt has been projected yet. */
+/**
+ * The whole-project CycloneDX AI-BOM, projected on demand from the union of the feature
+ * bundles (issue #468 Phase B, D5), or null when no bundle carries a receipt yet. The
+ * tool version + verification time are taken from the latest per-feature receipt so the
+ * projected document matches the record it summarizes, with no separate version source.
+ */
 export function readAiBomDocument(projectRoot: string): AiBomDocument | null {
-  const path = join(projectRoot, PATHS.EVIDENCE_AI_BOM);
-  if (!existsSync(path)) return null;
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as AiBomDocument;
-  } catch {
-    return null;
-  }
+  const latest = latestFeatureReceipt(projectRoot);
+  if (latest === null) return null;
+  const predicate = decodeReceiptStatement(latest)?.predicate ?? null;
+  return projectAiBomFromFeatures(
+    projectRoot,
+    predicate?.verifier.version ?? '0.0.0-dev',
+    predicate?.time_verified ?? '',
+  );
 }
 
 /**

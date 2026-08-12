@@ -7,9 +7,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { EVIDENCE_LEDGER_SCHEMA_VERSION } from '@/core/types/evidence-ledger.js';
 import type { EvidenceFileDigest, EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import {
+  latestFeatureReceipt,
   projectAiBomFromFeatures,
   projectFeatureAiBom,
   projectFeatureReceipt,
+  readAllFeatureReceipts,
   readFeatureAiBom,
   readFeatureReceipt,
 } from '@/feature-evidence/receipt.js';
@@ -154,5 +156,89 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
     const root = tempRoot();
     openFeatureChange(root, 'ses_1', { adapter: 'claude-code', title: 'A', issue: null });
     expect(projectAiBomFromFeatures(root, '1.52.0', '2026-07-10T00:00:00.000Z')).toBeNull();
+  });
+
+  describe('#468 Phase B — bundle receipt union + latest', () => {
+    it('unions every feature receipt and skips dirs with none', () => {
+      const root = tempRoot();
+      const a = openFeatureChange(root, 'ses_1', {
+        adapter: 'claude-code',
+        title: 'A',
+        issue: null,
+      });
+      projectFeatureReceipt(root, a, INPUT);
+      // A second feature dir exists (opened) but never projected a receipt → skipped.
+      openFeatureChange(root, 'ses_1', { adapter: 'claude-code', title: 'B', issue: null });
+      const receipts = readAllFeatureReceipts(root);
+      expect(receipts).toHaveLength(1);
+      expect(receipts[0].paqad.receipt_hash).toEqual(
+        readFeatureReceipt(root, a)!.paqad.receipt_hash,
+      );
+    });
+
+    it('latestFeatureReceipt picks the max time_verified across bundles', () => {
+      const root = tempRoot();
+      const a = openFeatureChange(root, 'ses_1', {
+        adapter: 'claude-code',
+        title: 'A',
+        issue: null,
+      });
+      projectFeatureReceipt(root, a, { ...INPUT, timeVerified: '2026-07-10T00:00:00.000Z' });
+      const b = openFeatureChange(root, 'ses_1', {
+        adapter: 'claude-code',
+        title: 'B',
+        issue: null,
+      });
+      projectFeatureReceipt(root, b, { ...INPUT, timeVerified: '2026-07-11T00:00:00.000Z' });
+
+      const latest = latestFeatureReceipt(root)!;
+      expect(decodeReceiptStatement(latest)!.predicate.time_verified).toBe(
+        '2026-07-11T00:00:00.000Z',
+      );
+    });
+
+    it('returns null latest when no bundle carries a receipt', () => {
+      const root = tempRoot();
+      expect(latestFeatureReceipt(root)).toBeNull();
+    });
+
+    it('carries authorship / compliance / reproducibility into the predicate (#468 FR-7)', () => {
+      const root = tempRoot();
+      const dir = openFeatureChange(root, 'ses_1', {
+        adapter: 'claude-code',
+        title: 'A',
+        issue: null,
+      });
+      projectFeatureReceipt(root, dir, {
+        ...INPUT,
+        authorship: {
+          agent: 'claude-code',
+          model_id: 'anthropic/claude-opus-4-8',
+          provenance: 'declared',
+        },
+        complianceCitations: [
+          {
+            framework_id: 'eu-ai-act',
+            framework_title: 'EU AI Act',
+            clause_id: 'Art.15',
+            clause_title: 'Robustness',
+            gate: 'tests',
+            relation: 'subset-of',
+            evidence_strength: 'partial',
+            disclaimer: 'Evidence toward, not compliance.',
+          },
+        ],
+        reproducibility: {
+          context_hash: 'deadbeef',
+          determinism: 'input-replay',
+          algo_version: 1,
+          replayable: true,
+        },
+      });
+      const predicate = decodeReceiptStatement(readFeatureReceipt(root, dir)!)!.predicate;
+      expect(predicate.change_authorship?.model_id).toBe('anthropic/claude-opus-4-8');
+      expect(predicate.compliance_citations?.[0].clause_id).toBe('Art.15');
+      expect(predicate.reproducibility?.context_hash).toBe('deadbeef');
+    });
   });
 });

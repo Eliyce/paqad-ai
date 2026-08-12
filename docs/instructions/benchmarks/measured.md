@@ -73,18 +73,19 @@ works in a repo with no `.paqad/` at all (it reports what it finds and exits 0).
 ## Headline (b): deterministic findings caught
 
 **What it measures.** How many deterministic rule findings were present per fresh
-rule-script run, read from the `rule-evidence` ledger, bucketed by ISO week.
+rule-script run, read from the per-feature `rule-run.jsonl` bundles (issue #468 Phase C —
+re-pointed off the retired `rule-evidence` ledger), bucketed by ISO week.
 
-**The honest definition.** The rule runner appends a ledger row only on a fresh run (a
+**The honest definition.** The rule runner appends a bundle row only on a fresh run (a
 cache hit appends nothing), and each row counts the findings **present** at that run, not
 new catches since last time. Summing rows would double-count a persistent finding. So the
 metric is the per-fresh-run snapshot, reported as a weekly **median and max**, never a
 running total.
 
-**Data today: none yet.** The dogfooded paqad-ai repo has no `rule-evidence` rows, so
-there is no weekly table to publish here (N = 0 runs). The metric and the command are
-defined so any onboarded project can populate and read it. This is the honest state, not
-a placeholder for an invented number.
+**Data today: none yet.** The dogfooded paqad-ai repo has no per-feature `rule-run.jsonl`
+findings rows to publish here (N = 0 runs). The metric and the command are defined so any
+onboarded project can populate and read it. This is the honest state, not a placeholder
+for an invented number.
 
 **Reproduce it:**
 
@@ -140,9 +141,9 @@ Both numbers apply differently across the 11 providers, matching
 ## Method notes
 
 - Token counts come from `src/context/tokenizer-cache.ts` (the one tokenizer path), with a
-  labelled char/4 fallback. The findings reader is the existing `rule-evidence` ledger via
-  `readProjectEvents` (`src/session-ledger/project-ledger.ts`); no new evidence store was
-  added, and `.paqad/scripts/rules/.cache/report.json` is the engine's hash-cache, not a
+  labelled char/4 fallback. The findings reader globs the per-feature `rule-run.jsonl`
+  bundles (issue #468 Phase C — off the retired `rule-evidence` ledger); no new evidence
+  store was added, and `.paqad/scripts/rules/.cache/report.json` is the engine's hash-cache, not a
   data source for this page.
 - The scripts live in `scripts/` (repo tooling), outside the coverage gate, and change no
   product behavior. `rag_enabled` stays default off.

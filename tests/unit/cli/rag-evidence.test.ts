@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createRagEvidenceCommand } from '@/cli/commands/rag-evidence.js';
-import { readSessionDoc } from '@/session-ledger/ledger.js';
-import { RAG_EVIDENCE_DOC_TYPE } from '@/rag-ledger/types.js';
+import { readUnitFile } from '@/session-ledger/ledger.js';
+import { chatRagPath } from '@/feature-evidence/paths.js';
 
 async function run(root: string, args: string[]): Promise<string> {
   const out: string[] = [];
@@ -54,7 +54,7 @@ describe('rag-evidence CLI', () => {
         score_top: 0.7,
       }),
     ]);
-    const rows = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_cli');
+    const rows = readUnitFile(root, chatRagPath('ses_cli'));
     expect(rows.map((r) => r.kind)).toEqual(['open', 'used']);
     expect(rows[1]).toMatchObject({ injected: true, slice_count: 2 });
   });
@@ -117,7 +117,7 @@ describe('rag-evidence CLI', () => {
       '--json',
       '{"refresh_kind":"rule-context"}',
     ]);
-    const rows = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_auto');
+    const rows = readUnitFile(root, chatRagPath('ses_auto'));
     expect(rows.some((r) => r.kind === 'refreshed')).toBe(true);
   });
 });

@@ -9,8 +9,10 @@ import YAML from 'yaml';
 import { exportAuditEvents } from '@/audit/index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { VerificationEvidence } from '@/core/types/verification-evidence';
+import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import { startDashboardServer, type RunningDashboardServer } from '@/dashboard/server';
-import { appendEvidenceRows, buildEvidenceRow } from '@/evidence/ledger.js';
+import { buildEvidenceRow } from '@/evidence/ledger.js';
+import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths.js';
 import { VERSION } from '@/index.js';
 import { writeDecision } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
@@ -22,6 +24,15 @@ import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 
 const STATIC_DIR = mkdtempSync(join(tmpdir(), 'paqad-dash-static-'));
 writeFileSync(join(STATIC_DIR, 'index.html'), '<!doctype html><title>x</title>');
+
+// Issue #468 Phase B — the trust + SIEM endpoints project evidence from the per-feature
+// bundle union, so seed a bundle `evidence.jsonl` rather than the top-level ledger.
+function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
+  const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
+  const path = join(root, featureFilePath(dir, 'evidence'));
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${rows.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf8');
+}
 
 function bootstrap(root: string): void {
   mkdirSync(join(root, '.paqad'), { recursive: true });
@@ -874,7 +885,7 @@ describe('startDashboardServer', () => {
   describe('trust endpoints', () => {
     it('serves the evidence feed with filters on GET /api/ledger/evidence', async () => {
       bootstrap(root);
-      appendEvidenceRows(root, [
+      seedBundleEvidence(root, [
         buildEvidenceRow({
           ts: '2026-06-11T00:00:00.000Z',
           engine: 'verification-gate',
@@ -959,7 +970,7 @@ describe('startDashboardServer', () => {
 
   describe('SIEM export endpoint', () => {
     function seedLedger(): void {
-      appendEvidenceRows(root, [
+      seedBundleEvidence(root, [
         buildEvidenceRow({
           ts: '2026-06-10T00:00:00.000Z',
           engine: 'verification-gate',

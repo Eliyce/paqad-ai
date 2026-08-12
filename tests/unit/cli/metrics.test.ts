@@ -5,11 +5,23 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createMetricsCommand, trendOf } from '@/cli/commands/metrics.js';
-import { recordChangeMetrics } from '@/change-metrics/index.js';
 import type { ChangeMetrics } from '@/change-metrics/index.js';
+import { appendChangeMetrics } from '@/feature-evidence/bundle-ledgers.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 function root(): string {
-  return mkdtempSync(join(tmpdir(), 'paqad-cli-metrics-'));
+  const r = mkdtempSync(join(tmpdir(), 'paqad-cli-metrics-'));
+  // Issue #468 Phase B — `metrics report` reads the per-feature bundle change-metrics rows.
+  openFeatureChange(r, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+  return r;
+}
+
+/** Append a change-metrics row into the active bundle with a controlled, increasing ts. */
+let seq = 0;
+function recordChangeMetrics(r: string, m: ChangeMetrics): void {
+  seq += 1;
+  const ts = new Date(Date.UTC(2026, 7, 12, 0, 0, seq));
+  appendChangeMetrics(r, 'ses_1', m, () => ts);
 }
 
 function metrics(dup: number | null, reuse: number | null, lines = 100): ChangeMetrics {

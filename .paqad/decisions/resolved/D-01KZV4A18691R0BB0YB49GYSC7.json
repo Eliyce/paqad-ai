@@ -1,0 +1,26 @@
+{
+  "id": "D-01KZV4A18691R0BB0YB49GYSC7",
+  "category": "architecture-path",
+  "title": "rule-findings-stats benchmark (#285) reads the retired rule-evidence ledger — where does it read post-cutover?",
+  "context": "Phase C retires recordRuleFindings (the rule-evidence project-ledger writer) and deletes rule-ledger.ts. But scripts/rule-findings-stats.mjs + scripts/lib/findings-stats.mjs (issue #285, weekly deterministic-findings benchmark) read that ledger via readProjectEvents(RULE_EVIDENCE_DOC_TYPE) from dist, and tests/e2e/benchmark-scripts.e2e.test.ts seeds it via recordRuleFindings. Phase B re-pointed the dashboard/SIEM to the bundle but NOT this benchmark. Retiring the writer leaves the benchmark permanently 'no data'. Findings now live in the per-feature bundle rule-run.jsonl (same {kind:findings,counts.deterministic,ts} shape appendRuleRun writes on fresh runs). No feature-evidence/projections tsup entry exists in dist today.",
+  "options": [
+    {
+      "option_key": "repoint_glob",
+      "label": "Re-point the benchmark to the bundle: glob .paqad/ledger/feature-evidence/*/rule-run.jsonl in the .mjs (self-contained at the mjs boundary, like the mjs resolveRagHome), seed the e2e test with bundle rule-run rows. Benchmark stays honest post-cutover."
+    },
+    {
+      "option_key": "repoint_tsup",
+      "label": "Add a feature-evidence/projections tsup entry and re-point the benchmark to import readAllFeatureRuleRuns from dist (reuses the canonical reader, adds a build entry + dist dependency)."
+    },
+    {
+      "option_key": "keep_writer",
+      "label": "Keep recordRuleFindings writing the rule-evidence project ledger solely to feed this benchmark; retire only recordRuleDrift + the drift half — narrower cutover, but leaves a live old-home write the task asked to retire."
+    }
+  ],
+  "recommendation": "repoint_glob",
+  "created_at": "2026-08-12T13:59:06.246Z",
+  "status": "resolved",
+  "chosen": "repoint_glob",
+  "rationale": "Findings live in the per-feature bundle rule-run.jsonl post-cutover; re-point the .mjs benchmark to glob the bundle dirs (self-contained at the mjs/TS boundary) rather than keep a live old-home write or add a build entry.",
+  "resolved_at": "2026-08-12T14:01:14.298Z"
+}

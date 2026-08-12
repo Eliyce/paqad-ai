@@ -9,8 +9,8 @@ import { appendRagAudit } from '@/rag/audit.js';
 import { mapAuditEventToEvidence, mapFallbackReason } from '@/rag-ledger/audit-bridge.js';
 import { foldRagEvidenceSession } from '@/rag-ledger/fold.js';
 import { validateRagEvidenceRow } from '@/rag-ledger/schema.js';
-import { readSessionDoc } from '@/session-ledger/ledger.js';
-import { RAG_EVIDENCE_DOC_TYPE } from '@/rag-ledger/types.js';
+import { readUnitFile } from '@/session-ledger/ledger.js';
+import { chatRagPath } from '@/feature-evidence/paths.js';
 
 describe('mapFallbackReason', () => {
   it('maps known reason substrings to the closed enum', () => {
@@ -68,8 +68,8 @@ describe('appendRagAudit dual-write (#249 P2)', () => {
     const flat = readFileSync(join(root, PATHS.AUDIT_LOG), 'utf8');
     expect(flat).toContain('rag-incremental-update');
 
-    // Structured ledger now carries the event (read via the substrate reader).
-    const sessions = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, readSessionId(root));
+    // Structured ledger now carries the event (read from the two-home `_chat` rag.jsonl).
+    const sessions = readUnitFile(root, chatRagPath(readSessionId(root)));
     const refreshed = sessions.find((r) => r.kind === 'refreshed');
     expect(refreshed).toMatchObject({ refresh_kind: 'incremental-sync', changed_files: 1 });
     for (const row of sessions) {

@@ -5,7 +5,11 @@ import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
-import type { EvidenceLedgerRow, ReceiptEnvelope } from '@/core/types/evidence-ledger.js';
+import type {
+  ChangeAuthorship,
+  EvidenceLedgerRow,
+  ReceiptEnvelope,
+} from '@/core/types/evidence-ledger.js';
 import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
 import {
@@ -15,6 +19,27 @@ import {
   projectReceipt,
   readReceiptChain,
 } from '@/evidence/receipt/project.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
+import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+
+/**
+ * Issue #468 Phase B — `latestReceiptAuthorship` now reads the per-feature bundle receipts,
+ * so its tests seed a feature bundle receipt (with optional authorship) rather than the
+ * whole-project chain.
+ */
+let featureSeed = 0;
+function projectFeature(root: string, authorship?: ChangeAuthorship): void {
+  featureSeed += 1;
+  const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: featureSeed });
+  projectFeatureReceipt(root, dir, {
+    fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
+    rows: [row('mutation-testing')],
+    verifierVersion: '1.0.0',
+    timeVerified: '2026-06-11T00:00:00.000Z',
+    ...(authorship ? { authorship } : {}),
+  });
+}
 
 /** Append a raw line to the receipt chain to exercise the tolerant reader. */
 function appendChainLine(root: string, line: string): void {
@@ -70,24 +95,17 @@ describe('projectReceipt', () => {
     expect(verifyReceiptChain(chain)).toBeNull();
   });
 
-  it('reads back the authorship attested by the latest receipt', async () => {
+  it('reads back the authorship attested by the latest feature receipt (#468 Phase B)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-receipt-'));
     expect(latestReceiptAuthorship(root)).toBeNull();
 
-    await projectReceipt({
-      projectRoot: root,
-      fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
-      rows: [row('mutation-testing')],
-      verifierVersion: '1.0.0',
-      timeVerified: '2026-06-11T00:00:00.000Z',
-      authorship: {
-        agent: 'claude-code',
-        model: 'claude-opus-4-8',
-        provider: 'anthropic',
-        model_id: 'anthropic/claude-opus-4-8',
-        accepting_human: { name: 'Jane', email: 'jane@example.com' },
-        provenance: 'declared',
-      },
+    projectFeature(root, {
+      agent: 'claude-code',
+      model: 'claude-opus-4-8',
+      provider: 'anthropic',
+      model_id: 'anthropic/claude-opus-4-8',
+      accepting_human: { name: 'Jane', email: 'jane@example.com' },
+      provenance: 'declared',
     });
 
     expect(latestReceiptAuthorship(root)).toMatchObject({
@@ -98,9 +116,9 @@ describe('projectReceipt', () => {
     });
   });
 
-  it('returns null authorship when the receipt carried none', async () => {
+  it('returns null authorship when the feature receipt carried none', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-receipt-'));
-    await project(root, 'mutation-testing');
+    projectFeature(root);
     expect(latestReceiptAuthorship(root)).toBeNull();
   });
 
@@ -120,11 +138,15 @@ describe('projectReceipt', () => {
     expect(decodeReceiptStatement(envelope)).toBeNull();
   });
 
-  it('latestReceiptAuthorship returns null when the latest payload is undecodable', () => {
+  it('latestReceiptAuthorship returns null when the latest feature payload is undecodable', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-receipt-'));
-    appendChainLine(
-      root,
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 7 });
+    const path = join(root, featureFilePath(dir, 'receipt'));
+    mkdirSync(dirname(path), { recursive: true });
+    appendFileSync(
+      path,
       JSON.stringify({ payload: '!!!not-base64-json', paqad: { receipt_hash: 'h' } }),
+      'utf8',
     );
     expect(latestReceiptAuthorship(root)).toBeNull();
   });

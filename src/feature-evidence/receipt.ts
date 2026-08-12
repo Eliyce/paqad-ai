@@ -17,16 +17,22 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import type {
+  ChangeAuthorship,
+  ComplianceCitation,
   EvidenceFileDigest,
   EvidenceLedgerRow,
   MetricsPredicate,
   ReceiptEnvelope,
+  ReproducibilityStampPredicate,
 } from '@/core/types/evidence-ledger.js';
 import { ZERO_DIGEST } from '@/evidence/digests.js';
 import { buildAiBom, type AiBomDocument } from '@/evidence/receipt/ai-bom.js';
 import { signReceipt } from '@/evidence/receipt/dsse.js';
 import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
-import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
+// Issue #468 Phase B — import from the leaf `envelope.js`, NOT `project.js`: this module
+// is now imported BY `project.js` (for `latestFeatureReceipt`), so importing it back would
+// form a cycle.
+import { decodeReceiptStatement } from '@/evidence/receipt/envelope.js';
 
 import { listFeatureDirs } from './delivery.js';
 import { featureFilePath } from './paths.js';
@@ -56,6 +62,45 @@ export function readFeatureAiBom(projectRoot: string, dirName: string): AiBomDoc
   return readJson<AiBomDocument>(join(projectRoot, featureFilePath(dirName, 'aiBom')));
 }
 
+/**
+ * Issue #468 Phase B — every feature bundle's `receipt.json`, in feature-dir order, skipping
+ * any dir with no receipt yet. The whole-project projection of the retired append-only
+ * receipt chain: after the cutover each bundle keeps its own self-chained receipt, so the
+ * "all receipts" view is the union of the per-feature receipts. Each verifies independently
+ * (issue #468, AC-10) via `verifyReceiptSeal`.
+ */
+export function readAllFeatureReceipts(projectRoot: string): ReceiptEnvelope[] {
+  const receipts: ReceiptEnvelope[] = [];
+  for (const dirName of listFeatureDirs(projectRoot)) {
+    const receipt = readFeatureReceipt(projectRoot, dirName);
+    if (receipt) {
+      receipts.push(receipt);
+    }
+  }
+  return receipts;
+}
+
+/**
+ * Issue #468 Phase B — the most-recent per-feature receipt across all bundles, by decoded
+ * `time_verified` (ISO-8601, so a lexical max is chronological). The replacement for
+ * "the last link in the whole-project chain": every "latest receipt" surface (authorship,
+ * compliance/reproducibility extras) reads this so they agree. A receipt whose statement
+ * cannot be decoded carries no `time_verified` and loses ties to a decodable one; `null`
+ * when no bundle carries a receipt.
+ */
+export function latestFeatureReceipt(projectRoot: string): ReceiptEnvelope | null {
+  let latest: ReceiptEnvelope | null = null;
+  let latestTime = '';
+  for (const receipt of readAllFeatureReceipts(projectRoot)) {
+    const time = decodeReceiptStatement(receipt)?.predicate.time_verified ?? '';
+    if (latest === null || time >= latestTime) {
+      latest = receipt;
+      latestTime = time;
+    }
+  }
+  return latest;
+}
+
 export interface ProjectFeatureReceiptInput {
   fileDigests: readonly EvidenceFileDigest[];
   rows: readonly EvidenceLedgerRow[];
@@ -71,6 +116,16 @@ export interface ProjectFeatureReceiptInput {
   /** Issue #362 — the per-change shape metrics to carry on this receipt's predicate.
    *  Omitted when none were computed, so the statement stays byte-identical to before. */
   metrics?: MetricsPredicate;
+  /**
+   * Issue #468 Phase B — the same trust predicates the whole-project receipt carries, so a
+   * per-feature receipt is a COMPLETE attestation record once it becomes the only one (D5):
+   * who wrote/accepted the change (#120), the `gate → clause` compliance citations (#122),
+   * and the frozen-context reproducibility stamp (#123). Each is omitted from the predicate
+   * when absent, so a receipt without them stays byte-identical to before this change.
+   */
+  authorship?: ChangeAuthorship;
+  complianceCitations?: readonly ComplianceCitation[];
+  reproducibility?: ReproducibilityStampPredicate;
 }
 
 export interface ProjectFeatureReceiptResult {
@@ -97,6 +152,11 @@ export function projectFeatureReceipt(
     verifierVersion: input.verifierVersion,
     timeVerified: input.timeVerified,
     ...(input.metrics !== undefined ? { metrics: input.metrics } : {}),
+    ...(input.authorship !== undefined ? { authorship: input.authorship } : {}),
+    ...(input.complianceCitations !== undefined
+      ? { complianceCitations: input.complianceCitations }
+      : {}),
+    ...(input.reproducibility !== undefined ? { reproducibility: input.reproducibility } : {}),
   });
   const prior = readFeatureReceipt(projectRoot, dirName);
   const envelope = signReceipt({

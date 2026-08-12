@@ -5,7 +5,8 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { readSessionDoc } from '@/session-ledger/ledger.js';
+import { readUnitFile } from '@/session-ledger/ledger.js';
+import { chatRagPath } from '@/feature-evidence/paths.js';
 import { foldRagEvidenceSession } from '@/rag-ledger/fold.js';
 import { openRagConversation, recordRagEvidence } from '@/rag-ledger/recorder.js';
 import { validateRagEvidenceRow } from '@/rag-ledger/schema.js';
@@ -176,7 +177,8 @@ describe('recorder + fold (round trip)', () => {
       CTX({ ordinal: 1 }),
     );
 
-    const rows = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_test');
+    // Issue #468 Phase C — no active feature, so the two-home rows land in `_chat`.
+    const rows = readUnitFile(root, chatRagPath('ses_test'));
     expect(rows.map((r) => r.kind)).toEqual(['open', 'refreshed', 'called', 'used']);
     // Every persisted row is a valid rag-evidence row.
     for (const row of rows) {
@@ -192,7 +194,7 @@ describe('recorder + fold (round trip)', () => {
       CTX({ sessionId: 'ses_bg', ordinal: undefined }),
     );
     expect(row?.conversation_ordinal).toBe(1);
-    const rows = readSessionDoc(root, RAG_EVIDENCE_DOC_TYPE, 'ses_bg');
+    const rows = readUnitFile(root, chatRagPath('ses_bg'));
     // open (auto) + refreshed
     expect(rows.map((r) => r.kind)).toEqual(['open', 'refreshed']);
   });

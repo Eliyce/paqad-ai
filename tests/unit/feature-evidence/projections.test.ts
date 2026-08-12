@@ -11,6 +11,7 @@ import {
   readAllFeatureRuleRuns,
   readAllFeatureSpecifications,
   readAllFeatureStageRows,
+  readFeatureChangeMetricsWindow,
 } from '@/feature-evidence/projections.js';
 import {
   appendChangeMetrics,
@@ -157,6 +158,55 @@ describe('whole-project projections from feature bundles', () => {
     expect(readAllFeatureChangeMetrics(root)).toHaveLength(1);
     expect(readAllFeatureEvidence(root)).toHaveLength(1);
     expect(readAllFeatureEvidence(root)[0]).toMatchObject({ code: 'code-tests-lint' });
+    expect(a).not.toBe(b);
+  });
+
+  it('windows the ts-sorted change-metrics tail across feature dirs (#468 Phase B)', () => {
+    const root = tempRoot();
+    // Two features whose change-metrics rows interleave by ts; the window is ts-sorted, not
+    // per-dir. Feature A gets ts 1 and 3, feature B gets ts 2 and 4.
+    const a = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+      ulidSeed: 1,
+    });
+    const at =
+      (n: number): (() => Date) =>
+      () =>
+        new Date(Date.UTC(2026, 7, 12, 0, 0, n));
+    const metrics = (dup: number) => ({
+      dup_new_pct: dup,
+      reuse_rate: 1,
+      meaningful_changed_lines: 10,
+      inputs: {
+        flagged_lines: 0,
+        reuse_calls: 1,
+        duplication_report_present: true,
+        index_present: true,
+      },
+    });
+    appendChangeMetrics(root, 'ses_1', metrics(1), at(1));
+    const b = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'B',
+      issue: null,
+      ulidSeed: 2,
+    });
+    appendChangeMetrics(root, 'ses_1', metrics(2), at(2));
+    // Re-activate A and add its later row (ts 3); then B's ts 4.
+    openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A2',
+      issue: null,
+      ulidSeed: 3,
+    });
+    appendChangeMetrics(root, 'ses_1', metrics(3), at(3));
+
+    const all = readFeatureChangeMetricsWindow(root, 20).map((r) => r.dup_new_pct);
+    expect(all).toEqual([1, 2, 3]); // ts-sorted across dirs, oldest first
+    const windowed = readFeatureChangeMetricsWindow(root, 2).map((r) => r.dup_new_pct);
+    expect(windowed).toEqual([2, 3]); // last 2 by ts
     expect(a).not.toBe(b);
   });
 

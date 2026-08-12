@@ -7,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildModuleSnapshot, buildReceiptSnapshot } from '@/dashboard/snapshot.js';
 import { buildReceiptFeed } from '@/dashboard/trust.js';
 import { buildEvidenceRow } from '@/evidence/ledger.js';
-import { projectReceipt } from '@/evidence/receipt/project.js';
+import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 describe('dashboard snapshots (#161)', () => {
   let root: string;
@@ -64,9 +65,11 @@ describe('dashboard snapshots (#161)', () => {
   });
 
   describe('buildReceiptSnapshot', () => {
-    async function seedReceipt(): Promise<string> {
-      await projectReceipt({
-        projectRoot: root,
+    function seedReceipt(): string {
+      // Issue #468 Phase B — the snapshot reads the bundle receipt feed, so project a
+      // per-feature bundle receipt.
+      const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+      projectFeatureReceipt(root, dir, {
         fileDigests: [{ name: 'src/pay.ts', sha256: 'aaa' }],
         rows: [
           buildEvidenceRow({
@@ -84,8 +87,8 @@ describe('dashboard snapshots (#161)', () => {
       return buildReceiptFeed(root).receipts[0]!.receipt_hash;
     }
 
-    it('renders a receipt by full hash and by short-hash prefix', async () => {
-      const hash = await seedReceipt();
+    it('renders a receipt by full hash and by short-hash prefix', () => {
+      const hash = seedReceipt();
       const full = buildReceiptSnapshot(root, hash);
       expect(full).not.toBeNull();
       expect(full).toContain('Receipt ' + hash.slice(0, 16));

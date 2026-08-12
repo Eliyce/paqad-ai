@@ -1,0 +1,22 @@
+{
+  "id": "D-01KZTW6ZDFR3G05C8CZJH729JP",
+  "category": "spec.change",
+  "title": "RAG fold re-point needs the mjs prompt-seam to also mirror (or defer to Phase C)",
+  "context": "The RAG fold (foldRagEvidenceSession) re-point reads _chat + bundle rag.jsonl. The TS recorder dual-writes both homes (since #339), but the mjs prompt-seam writer (runtime/scripts/rag-evidence-record.mjs) — the PRIMARY RAG writer in production — writes only the substrate and never mirrors. So the re-pointed fold goes dark for seam-written rows (2 seam tests now fail). The issue's change map item 1 says the seam must make the identical two-home change, but that is a writer change to a global-install hook .mjs with the version-skew risk Finding 3.4 flags. RAG is the issue's 'largest change' spanning writer+reader+ordinal-rehome.",
+  "options": [
+    {
+      "option_key": "defer_rag_fold_to_c",
+      "label": "Revert the fold.ts change; keep foldRagEvidenceSession reading the substrate in Phase B. Move RAG's reader + mjs-seam mirror + ordinal re-home together in Phase C (clean phase boundary, lowest risk, every other Phase B reader still re-points)"
+    },
+    {
+      "option_key": "add_seam_mirror_now",
+      "label": "Add the two-home mirror to the mjs seam now so the fold re-point works in Phase B as the change map lists; accept the extra writer surface + version-skew risk on the hook .mjs"
+    }
+  ],
+  "recommendation": "defer_rag_fold_to_c",
+  "created_at": "2026-08-12T11:37:37.455Z",
+  "status": "resolved",
+  "chosen": "defer_rag_fold_to_c",
+  "rationale": "RAG fold is uniquely coupled to the mjs seam writer + ordinal re-home; move reader+writer together in Phase C. Keep Phase B a clean reader-only re-point for the other surfaces.",
+  "resolved_at": "2026-08-12T11:38:43.786Z"
+}

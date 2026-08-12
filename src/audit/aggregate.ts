@@ -9,18 +9,25 @@
 // Exporting that is both less code and strictly richer evidence.
 
 import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
-import { readEvidenceLedger } from '@/evidence/ledger.js';
-import { verifyReceiptChain } from '@/evidence/receipt/dsse.js';
-import { decodeReceiptStatement, readReceiptChain } from '@/evidence/receipt/project.js';
+import { verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
+import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
 import { DECISION_EVIDENCE_DOC_TYPE } from '@/planning/decision-ledger.js';
-import { RULE_EVIDENCE_DOC_TYPE } from '@/rule-scripts/rule-ledger.js';
 import { readAllSessionRows, type SessionLedgerRow } from '@/session-ledger/ledger.js';
-import { readAllFeatureStageRows } from '@/feature-evidence/projections.js';
+import {
+  readAllFeatureChangeMetrics,
+  readAllFeatureEvidence,
+  readAllFeatureRuleRuns,
+  readAllFeatureStageRows,
+} from '@/feature-evidence/projections.js';
+import { readAllFeatureReceipts } from '@/feature-evidence/receipt.js';
+import {
+  CHANGE_METRICS_RUN_DOC_TYPE,
+  RULE_RUN_DOC_TYPE,
+} from '@/feature-evidence/bundle-ledgers.js';
 import { DISABLED_SESSION_DOC_TYPE } from '@/session-ledger/disabled-audit.js';
 import { HEALTH_RUN_DOC_TYPE } from '@/codebase-health/ledger.js';
 import { SITE_MAP_RUN_DOC_TYPE } from '@/site-map/ledger.js';
-import { CHANGE_METRICS_DOC_TYPE } from '@/change-metrics/index.js';
 import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import type { SiemAuthorship, SiemEvent } from './types.js';
@@ -45,9 +52,9 @@ function mapAuthorship(authorship: ChangeAuthorship): SiemAuthorship {
   };
 }
 
-/** Each graded ledger row → one evidence event. */
+/** Each graded ledger row → one evidence event (issue #468: from the bundle union). */
 function evidenceEvents(projectRoot: string): SiemEvent[] {
-  return readEvidenceLedger(projectRoot).map((row) => ({
+  return readAllFeatureEvidence(projectRoot).map((row) => ({
     kind: 'evidence',
     ts: row.ts,
     engine: row.engine,
@@ -60,17 +67,17 @@ function evidenceEvents(projectRoot: string): SiemEvent[] {
   }));
 }
 
-/** Each receipt → one attestation event, stamped with its chain seal status. */
+/**
+ * Each per-feature receipt → one attestation event (issue #468 Phase B). After the cutover
+ * each feature bundle carries its own self-chained receipt, so there is no single whole-
+ * project chain: every bundle receipt is verified INDEPENDENTLY for its own byte integrity
+ * (`verifyReceiptSeal`), and `sealed` reflects that per-feature check.
+ */
 function attestationEvents(projectRoot: string): SiemEvent[] {
-  const chain = readReceiptChain(projectRoot);
-  // verifyReceiptChain returns the index of the first broken link, or null when
-  // the whole chain recomputes cleanly. A receipt is sealed iff it precedes the
-  // first break (or there is none).
-  const brokenAt = verifyReceiptChain(chain);
-  return chain.map((envelope, index): SiemEvent => {
+  return readAllFeatureReceipts(projectRoot).map((envelope, index): SiemEvent => {
     const statement = decodeReceiptStatement(envelope);
     const predicate = statement?.predicate ?? null;
-    const sealed = brokenAt === null || index < brokenAt;
+    const sealed = verifyReceiptSeal(envelope);
     return {
       kind: 'attestation',
       ts: predicate?.time_verified ?? '',
@@ -102,21 +109,19 @@ function summarizeReceipt(result: 'PASSED' | 'FAILED' | 'INCONCLUSIVE', sealed: 
 
 // ── #249 session-ledger fold ──────────────────────────────────────────────────
 // The always-on session-ledger carries the governance feed the dashboard reads
-// (decision lifecycle, delivery detection, rule compliance, stage evidence, plus
-// the disabled-session audit). Union it into the SIEM stream so an external SOC
-// sees the same evidence — not just the enterprise-gated #118 ledger. These doc
-// types are the same five the dashboard collectors consume after the F6 cutover.
-// Stage evidence is PROJECTED from the per-feature bundles (issue #339), not read from
-// the session-scoped ledger layout — the Phase-2 cutover moved it into the feature dirs.
-// The other four doc types stay project/session-scoped, so they are still walked here.
+// (decision lifecycle, delivery detection, stage evidence, plus the disabled-session
+// audit, health, and site-map runs). Union it into the SIEM stream so an external SOC
+// sees the same evidence — not just the enterprise-gated #118 ledger.
+// Stage evidence is PROJECTED from the per-feature bundles (issue #339); rule-run and
+// change-metrics evidence are likewise PROJECTED from the bundles (issue #468 Phase B) —
+// the retired `rule-evidence/` and `change-metrics/` project-ledger dirs are no longer
+// walked. The remaining doc types below stay project/session-scoped.
 const SESSION_LEDGER_DOC_TYPES = [
   DECISION_EVIDENCE_DOC_TYPE,
   DELIVERY_EVIDENCE_DOC_TYPE,
-  RULE_EVIDENCE_DOC_TYPE,
   DISABLED_SESSION_DOC_TYPE,
   HEALTH_RUN_DOC_TYPE,
   SITE_MAP_RUN_DOC_TYPE,
-  CHANGE_METRICS_DOC_TYPE,
 ] as const;
 
 /**
@@ -144,7 +149,7 @@ function sessionDetail(row: SessionLedgerRow): string {
       const host = (row.detected as { host?: { value?: string } } | undefined)?.host?.value;
       return host !== undefined ? `detected host=${host}` : kind;
     }
-    case RULE_EVIDENCE_DOC_TYPE:
+    case RULE_RUN_DOC_TYPE:
       if (kind === 'drift') return `drift ${row.blocked === true ? 'blocked' : 'clean'}`;
       if (kind === 'findings') return `findings ${row.blocking === true ? 'blocking' : 'clean'}`;
       return kind;
@@ -161,9 +166,10 @@ function sessionDetail(row: SessionLedgerRow): string {
       const surfaces = typeof row.surface_count === 'number' ? row.surface_count : 0;
       return `site-map run ${typeof row.report_id === 'string' ? row.report_id : ''} · ${surfaces} surface(s) · ${count} finding(s)`.trim();
     }
-    case CHANGE_METRICS_DOC_TYPE: {
-      // The project-ledger opens each doc with a `kind:'open'` marker that carries no
-      // metrics — surface it as the plain kind, not a misleading `change shape · n/a` line.
+    case CHANGE_METRICS_RUN_DOC_TYPE: {
+      // A bundle change-metrics row carries the ratios directly; guard the (absent) open
+      // marker shape defensively so a marker row would surface as the plain kind, not a
+      // misleading `change shape · n/a` line.
       if (typeof row.meaningful_changed_lines !== 'number') {
         return kind;
       }
@@ -201,7 +207,15 @@ function sessionLedgerEvents(projectRoot: string): SiemEvent[] {
   const fromLedger = SESSION_LEDGER_DOC_TYPES.flatMap((docType) =>
     readAllSessionRows(projectRoot, docType).map(sessionEvent),
   );
-  const fromFeatures = readAllFeatureStageRows(projectRoot).map(sessionEvent);
+  // Issue #339 / #468 Phase B — stage evidence, rule-run findings, and change-metrics are
+  // projected from the per-feature bundles, not the session-scoped ledger layout. Each row
+  // keeps its own `doc_type`/shape, so the same `sessionEvent`/`sessionDetail` mapper grades
+  // them (RULE_RUN_DOC_TYPE / CHANGE_METRICS_RUN_DOC_TYPE cases above).
+  const fromFeatures = [
+    ...readAllFeatureStageRows(projectRoot),
+    ...readAllFeatureRuleRuns(projectRoot),
+    ...readAllFeatureChangeMetrics(projectRoot),
+  ].map(sessionEvent);
   return [...fromLedger, ...fromFeatures];
 }
 
