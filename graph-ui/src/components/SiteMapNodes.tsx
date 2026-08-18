@@ -70,7 +70,9 @@ export function SurfaceNode({ data }: NodeProps) {
   const node = data as SurfaceNodeData;
   const surface = node.surface;
   const meta = kindMeta(surface.kind);
-  const lowTrust = trustMeta(surface.trust).rank < 2; // inferred/unverified reads dashed, not colour
+  const rank = trustMeta(surface.trust).rank;
+  const lowTrust = rank < 2; // inferred/unverified reads dashed, not colour
+  const unverified = rank === 0; // the least-earned tier gets the sketchy, foggy treatment
   const label = surface.label.length > 26 ? `${surface.label.slice(0, 25)}…` : surface.label;
   // Semantic zoom (LOD): hide any text whose effective on-screen size drops below 10px, so a
   // zoomed-out district reads as tinted blocks (tier k < 0.5) and detail appears as you zoom in.
@@ -78,6 +80,11 @@ export function SurfaceNode({ data }: NodeProps) {
   const showLabel = 12.5 * zoom >= 10;
   const showTag = 9 * zoom >= 10;
   const fullDetail = zoom >= 1.5; // entry markers + guard labels only at the closest tier
+  // Status fidelity (Phase 3): the trust tier changes the RENDERING, not just a badge, and is
+  // distinguishable without colour (A11Y-3). Proven surfaces are crisp and never fogged; inferred
+  // is dashed and lightly fogged; unverified adds a slight sketch offset and desaturation. The
+  // fog fades (200ms) when a refreshed map raises a surface's trust (proven is filter:none).
+  const fog = node.dead ? 0.4 : node.dimmed ? 0.25 : unverified ? 0.72 : lowTrust ? 0.86 : 1;
   return (
     <div
       role="button"
@@ -95,7 +102,10 @@ export function SurfaceNode({ data }: NodeProps) {
         background: 'var(--color-surface)',
         border: node.selected ? '2px solid var(--color-accent)' : '1.5px solid var(--color-border)',
         borderStyle: lowTrust ? 'dashed' : 'solid',
-        opacity: node.dead ? 0.4 : node.dimmed ? 0.25 : 1,
+        opacity: fog,
+        filter: unverified ? 'saturate(0.55)' : undefined,
+        transform: unverified ? 'rotate(-0.5deg)' : undefined,
+        transition: 'opacity 200ms ease, filter 200ms ease',
         outline: 'none',
       }}
     >

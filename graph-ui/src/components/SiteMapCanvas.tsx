@@ -39,6 +39,8 @@ interface Props {
   /** The current walk station (drives the camera flight); null when not walking. */
   walkStationId: string | null;
   selectedId: string | null;
+  /** A focus request (from the insight line / gaps chip); the camera flies to `id` on each nonce. */
+  focus: { id: string; nonce: number } | null;
   onSelect: (id: string | null) => void;
   onPickJourney: (id: string | null) => void;
 }
@@ -89,6 +91,7 @@ function Flow({
   activeJourneyId,
   walkStationId,
   selectedId,
+  focus,
   onSelect,
   onPickJourney,
 }: Props) {
@@ -208,6 +211,12 @@ function Flow({
     },
     [fitView, reducedMotion],
   );
+
+  // Focus request from the insight line / gaps chip: fly to the named node whenever the nonce ticks.
+  useEffect(() => {
+    if (focus === null) return;
+    flyToNode(focus.id);
+  }, [focus, flyToNode]);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
