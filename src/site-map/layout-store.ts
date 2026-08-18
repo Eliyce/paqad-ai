@@ -70,14 +70,24 @@ export function validateLayout(raw: unknown): SiteMapStoredLayout {
   if (typeof raw !== 'object' || raw === null) {
     throw new SiteMapLayoutError('layout must be a map of area id to placement');
   }
-  const layout: SiteMapStoredLayout = Object.create(null) as SiteMapStoredLayout;
+  // Accumulate validated [id, placement] pairs and BUILD the map from them, rather than
+  // writing `layout[areaId] = …` with an id that traces back to the request. The allowlist
+  // guard above is the only path a key can take into `entries`, so there is no dynamic
+  // computed-property write for static analysis to (correctly, but redundantly) flag as
+  // property injection. The result is merged onto a null-prototype object so a later lookup
+  // by an untrusted area id can never reach an inherited `Object.prototype` member —
+  // Object.fromEntries alone would reintroduce that prototype.
+  const entries: [string, DistrictPlacement][] = [];
   for (const [areaId, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!AREA_ID_RE.test(areaId) || UNSAFE_KEYS.has(areaId)) {
       throw new SiteMapLayoutError(`district id "${areaId}" is not allowed`);
     }
-    layout[areaId] = cleanPlacement(areaId, value);
+    entries.push([areaId, cleanPlacement(areaId, value)]);
   }
-  return layout;
+  return Object.assign(
+    Object.create(null) as SiteMapStoredLayout,
+    Object.fromEntries(entries),
+  ) as SiteMapStoredLayout;
 }
 
 /** Read the stored layout, or null when absent/corrupt/invalid (canvas then uses its own layout). */
