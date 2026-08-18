@@ -35,7 +35,7 @@ import type {
   ValidationIssue,
 } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
-import type { SiteMapView } from './site-map-types';
+import type { SiteMapStoredLayout, SiteMapView } from './site-map-types';
 
 export async function fetchDashboard(): Promise<DashboardReport> {
   const res = await fetch('/api/dashboard');
@@ -100,6 +100,22 @@ export async function curateSiteMapJourney(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id, action }),
   });
+  if (!res.ok) throw new Error(await errorMessage(res));
+}
+
+/** Persist the team-shared district curation (issue #489, Phase 3). */
+export async function saveSiteMapLayout(districts: SiteMapStoredLayout): Promise<void> {
+  const res = await fetch('/api/site-map/layout', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ districts }),
+  });
+  if (!res.ok) throw new Error(await errorMessage(res));
+}
+
+/** Delete the stored curation so the canvas reverts to its computed layout. */
+export async function resetSiteMapLayout(): Promise<void> {
+  const res = await fetch('/api/site-map/layout/reset', { method: 'POST' });
   if (!res.ok) throw new Error(await errorMessage(res));
 }
 

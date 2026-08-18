@@ -235,6 +235,10 @@ export const PATHS = {
   // (ART-1), are diffable, and are shared with the team. Reused across a re-creation so a
   // settled question is not re-asked unless the code it was about changed.
   SITE_MAP_CANONICAL_ANSWERS: 'docs/site-map/answers.yaml',
+  // Team-shared district curation for the interactive canvas (issue #489, Phase 3). A sibling of
+  // the canonical map so a hand-arranged city plan rides PR diffs like the rest of the map family.
+  // Written only through the dashboard's audited write path; absent until someone drags a district.
+  SITE_MAP_CANONICAL_LAYOUT: 'docs/site-map/layout.yaml',
   DOCS_DIR: 'docs',
   FRAMEWORK_DOCS_DIR: 'docs/framework',
   FRAMEWORK_STACK_DIR: 'docs/instructions/stack',

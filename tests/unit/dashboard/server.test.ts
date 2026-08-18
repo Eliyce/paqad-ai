@@ -18,6 +18,7 @@ import { writeDecision } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
+import { readSiteMapLayout } from '@/site-map/layout-store.js';
 import { writeJourney } from '@/site-map/store.js';
 import type { Journey } from '@/core/types/site-map.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
@@ -366,6 +367,51 @@ describe('startDashboardServer', () => {
         body: JSON.stringify({ id: 'nope', action: 'reject' }),
       });
       expect(unknown.status).toBe(400);
+    });
+
+    it('persists and resets district curation on POST /api/site-map/layout (#489)', async () => {
+      bootstrap(root);
+      await startServer();
+
+      const save = await fetch(`${server!.url}/api/site-map/layout`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ districts: { billing: { x: 10, y: 20, w: 300, h: 200 } } }),
+      });
+      expect(save.status).toBe(200);
+      const saved = (await save.json()) as {
+        ok: boolean;
+        result: { layout: Record<string, unknown> };
+      };
+      expect(saved.ok).toBe(true);
+      expect(saved.result.layout.billing).toEqual({ x: 10, y: 20, w: 300, h: 200 });
+      expect(readSiteMapLayout(root)).toEqual({ billing: { x: 10, y: 20, w: 300, h: 200 } });
+
+      // A malformed placement is refused (400) and nothing new is written.
+      const bad = await fetch(`${server!.url}/api/site-map/layout`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ districts: { billing: { x: 1, y: 2 } } }),
+      });
+      expect(bad.status).toBe(400);
+
+      // Reset removes the file so the canvas reverts to its computed layout.
+      const reset = await fetch(`${server!.url}/api/site-map/layout/reset`, { method: 'POST' });
+      expect(reset.status).toBe(200);
+      expect(readSiteMapLayout(root)).toBeNull();
+    });
+
+    it('refuses layout curation in read-only mode (#489)', async () => {
+      bootstrap(root);
+      await startServer({ readOnly: true });
+
+      const res = await fetch(`${server!.url}/api/site-map/layout`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ districts: { a: { x: 1, y: 2, w: 3, h: 4 } } }),
+      });
+      expect(res.status).toBe(403);
+      expect(readSiteMapLayout(root)).toBeNull();
     });
 
     it('maps mutation failures onto 400/404/409', async () => {

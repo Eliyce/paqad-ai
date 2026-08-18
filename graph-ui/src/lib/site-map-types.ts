@@ -151,12 +151,32 @@ export interface MissingSiteMapPrerequisite {
   reason: string;
 }
 
+/** One district's persisted placement in the team-shared layout (issue #489, Phase 3). */
+export interface DistrictPlacement {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color?: string;
+  label?: string;
+}
+
+/** The stored district curation: a placement per area id. */
+export type SiteMapStoredLayout = Record<string, DistrictPlacement>;
+
 /** The discriminated union the server returns; the client renders exactly one honest state. */
 export type SiteMapView =
   | { status: 'disabled' }
   | { status: 'blocked'; missing: MissingSiteMapPrerequisite[] }
   | { status: 'empty' }
-  | { status: 'ready'; map: AppMap; journeys: Journey[]; freshness: SiteMapFreshness };
+  | {
+      status: 'ready';
+      map: AppMap;
+      journeys: Journey[];
+      freshness: SiteMapFreshness;
+      layout: SiteMapStoredLayout | null;
+      readOnly: boolean;
+    };
 
 /** Normalize a single-or-list evidence ref to an array (empty when absent). */
 export function evidenceList(ref: EvidenceRef | undefined): Evidence[] {

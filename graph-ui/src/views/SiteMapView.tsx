@@ -6,7 +6,8 @@ import { WhySentence } from '../components/WhySentence';
 import { SiteMapCanvas } from '../components/SiteMapCanvas';
 import { SiteMapDetail } from '../components/SiteMapDetail';
 import { SiteMapList } from '../components/SiteMapList';
-import { fetchDashboard, fetchSiteMap } from '../lib/api';
+import { fetchDashboard, fetchSiteMap, resetSiteMapLayout, saveSiteMapLayout } from '../lib/api';
+import { brokenJourneyRefs, danglingTargets, deadSurfaceIds } from '../lib/site-map-derive';
 import type {
   AppMap,
   Journey,
@@ -47,6 +48,12 @@ export function SiteMapView() {
   const [activeJourneyId, setActiveJourneyId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<ViewMode>('map');
+  // A monotonically ticking focus request: selecting a gap/insight target flies the camera to it.
+  const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
+  const focusOn = useCallback((id: string): void => {
+    setSelectedId(id);
+    setFocus((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }));
+  }, []);
 
   const load = useCallback((): void => {
     fetchSiteMap()
@@ -90,6 +97,18 @@ export function SiteMapView() {
     if (map === null || selectedId === null) return null;
     return map.surfaces.find((surface) => surface.id === selectedId) ?? null;
   }, [map, selectedId]);
+
+  // The map's real gaps, computed from the payload (no LLM): dead surfaces, dangling transition
+  // targets, and journey steps referencing an unknown surface. Drives the insight line and chip.
+  const gaps = useMemo(() => {
+    if (map === null) return { dead: [] as string[], dangling: [], broken: [] };
+    return {
+      dead: [...deadSurfaceIds(map)],
+      dangling: danglingTargets(map),
+      broken: brokenJourneyRefs(map, ready?.journeys ?? []),
+    };
+  }, [map, ready]);
+  const gapCount = gaps.dead.length + gaps.dangling.length + gaps.broken.length;
 
   const pickJourney = useCallback((id: string | null): void => {
     setActiveJourneyId(id);
@@ -219,17 +238,51 @@ export function SiteMapView() {
                     {entry.family}
                   </span>
                 ))}
+                <span aria-hidden="true" style={{ color: 'var(--color-border)' }}>
+                  |
+                </span>
+                <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
+                  Solid = proven · Dashed = inferred or unverified
+                </span>
               </div>
             </div>
+
+            {mode === 'map' && gapCount > 0 && (
+              <InsightBar
+                map={map}
+                gaps={gaps}
+                gapCount={gapCount}
+                onFocus={focusOn}
+                onPickJourney={pickJourney}
+              />
+            )}
 
             <div className="flex min-h-0 flex-1">
               <div className="min-w-0 flex-1">
                 {mode === 'map' ? (
                   <SiteMapCanvas
                     map={map}
-                    activeJourney={activeJourney}
+                    journeys={ready.journeys}
+                    activeJourneyId={activeJourneyId}
+                    walkStationId={
+                      activeJourney ? (activeJourney.steps[step]?.surface ?? null) : null
+                    }
                     selectedId={selectedId}
+                    focus={focus}
+                    stored={ready.layout ?? null}
+                    readOnly={ready.readOnly ?? false}
                     onSelect={setSelectedId}
+                    onPickJourney={pickJourney}
+                    onPersistLayout={(districts) => {
+                      void saveSiteMapLayout(districts).catch((err: unknown) =>
+                        setLoadError(err instanceof Error ? err.message : String(err)),
+                      );
+                    }}
+                    onResetLayout={() => {
+                      void resetSiteMapLayout().catch((err: unknown) =>
+                        setLoadError(err instanceof Error ? err.message : String(err)),
+                      );
+                    }}
                   />
                 ) : (
                   <SiteMapList map={map} selectedId={selectedId} onSelect={setSelectedId} />
@@ -252,6 +305,131 @@ export function SiteMapView() {
         )}
       </div>
     </DashboardChrome>
+  );
+}
+
+interface Gaps {
+  dead: string[];
+  dangling: { from: string; to: string }[];
+  broken: { journey: string; surface: string }[];
+}
+
+function surfaceLabel(map: AppMap, id: string): string {
+  return map.surfaces.find((surface) => surface.id === id)?.label ?? id;
+}
+
+/**
+ * The first-open insight line + gaps chip (issue #489, Phase 3). One true line computed from the
+ * payload in priority order (dead surfaces first), and a chip that opens the full gap list; each
+ * row flies the camera to its node. Hidden entirely when the map has no gaps (the caller gates it).
+ */
+function InsightBar({
+  map,
+  gaps,
+  gapCount,
+  onFocus,
+  onPickJourney,
+}: {
+  map: AppMap;
+  gaps: Gaps;
+  gapCount: number;
+  onFocus: (id: string) => void;
+  onPickJourney: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const insight =
+    gaps.dead.length > 0
+      ? `${gaps.dead.length} surface${gaps.dead.length === 1 ? '' : 's'} look dead: no entry, no connections.`
+      : gaps.broken.length > 0
+        ? `${gaps.broken.length} journey step${gaps.broken.length === 1 ? '' : 's'} point to a surface that isn't on the map.`
+        : `${gaps.dangling.length} transition${gaps.dangling.length === 1 ? '' : 's'} point to a surface that isn't on the map.`;
+  const firstFocus = gaps.dead[0] ?? gaps.dangling[0]?.from ?? map.surfaces[0]?.id ?? null;
+  return (
+    <div
+      className="relative flex items-center gap-3 border-b px-6 py-2"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-canvas)' }}
+    >
+      <button
+        type="button"
+        onClick={() => firstFocus !== null && onFocus(firstFocus)}
+        className="truncate text-left text-caption"
+        style={{ color: 'var(--color-canvas-fg)' }}
+      >
+        <span aria-hidden="true" style={{ color: 'var(--color-mod-amber)' }}>
+          ▲
+        </span>{' '}
+        {insight}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="ml-auto rounded-full px-2.5 py-0.5 text-caption font-medium"
+        style={{
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-muted)',
+        }}
+      >
+        {gapCount} gap{gapCount === 1 ? '' : 's'}
+      </button>
+      {open && (
+        <div
+          className="absolute right-6 top-full z-20 mt-1 w-96 max-w-[92vw] overflow-hidden rounded-[10px] border"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
+        >
+          <div className="max-h-72 overflow-y-auto py-1">
+            {gaps.dead.map((id) => (
+              <GapRow
+                key={`dead:${id}`}
+                tag="DEAD"
+                text={surfaceLabel(map, id)}
+                onClick={() => {
+                  onFocus(id);
+                  setOpen(false);
+                }}
+              />
+            ))}
+            {gaps.dangling.map((edge) => (
+              <GapRow
+                key={`dangling:${edge.from}->${edge.to}`}
+                tag="DANGLING"
+                text={`${surfaceLabel(map, edge.from)} → ${edge.to}`}
+                onClick={() => {
+                  onFocus(edge.from);
+                  setOpen(false);
+                }}
+              />
+            ))}
+            {gaps.broken.map((ref) => (
+              <GapRow
+                key={`broken:${ref.journey}:${ref.surface}`}
+                tag="BROKEN"
+                text={`${ref.journey} → ${ref.surface}`}
+                onClick={() => {
+                  onPickJourney(ref.journey);
+                  setOpen(false);
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GapRow({ tag, text, onClick }: { tag: string; text: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-caption hover:opacity-80"
+    >
+      <span style={{ color: 'var(--color-muted)', fontSize: 10, letterSpacing: 0.4 }}>{tag}</span>
+      <span className="truncate" style={{ color: 'var(--color-canvas-fg)' }}>
+        {text}
+      </span>
+    </button>
   );
 }
 

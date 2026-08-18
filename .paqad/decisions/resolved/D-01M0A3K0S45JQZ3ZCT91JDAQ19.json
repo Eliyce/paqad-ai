@@ -1,0 +1,22 @@
+{
+  "id": "D-01M0A3K0S45JQZ3ZCT91JDAQ19",
+  "category": "ux-pattern",
+  "title": "Site map canvas: scroll wheel default is pan or zoom",
+  "context": "Design canvases (Figma, FigJam, Miro trackpad mode, tldraw) default scroll to PAN and reserve ctrl/cmd+scroll plus pinch for zoom at the cursor. Graph viewers (React Flow default) zoom on scroll. Device sniffing is a dead end (tldraw closed it not-planned). Either way ships a small user setting (Miro precedent), so this locks only the DEFAULT.",
+  "options": [
+    {
+      "option_key": "scroll-pans",
+      "label": "Scroll pans; ctrl/cmd+scroll and pinch zoom"
+    },
+    {
+      "option_key": "scroll-zooms",
+      "label": "Scroll zooms (React Flow default)"
+    }
+  ],
+  "recommendation": "scroll-pans",
+  "created_at": "2026-08-18T09:35:08.580Z",
+  "status": "resolved",
+  "chosen": "scroll-pans",
+  "rationale": "Owner locked via tray 2026-08-18: default follows the design-canvas convention (scroll pans, ctrl/cmd+scroll and pinch zoom at cursor) matching the spatial city-map metaphor; a small setting flips it per user.",
+  "resolved_at": "2026-08-18T09:35:45.603Z"
+}
