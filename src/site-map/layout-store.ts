@@ -59,13 +59,21 @@ function cleanPlacement(areaId: string, raw: unknown): DistrictPlacement {
   return placement;
 }
 
+/** Object keys that would pollute the prototype chain, never a legitimate area id. */
+const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 /** Validate a whole layout map (used by the write path and by tolerant reads). */
 export function validateLayout(raw: unknown): SiteMapStoredLayout {
   if (typeof raw !== 'object' || raw === null) {
     throw new SiteMapLayoutError('layout must be a map of area id to placement');
   }
-  const layout: SiteMapStoredLayout = {};
+  // Null-prototype target + an explicit unsafe-key reject: a POST body key can be attacker
+  // controlled, so writing it onto a plain object would allow prototype pollution.
+  const layout: SiteMapStoredLayout = Object.create(null) as SiteMapStoredLayout;
   for (const [areaId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (UNSAFE_KEYS.has(areaId)) {
+      throw new SiteMapLayoutError(`district id "${areaId}" is not allowed`);
+    }
     layout[areaId] = cleanPlacement(areaId, value);
   }
   return layout;

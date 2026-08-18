@@ -62,6 +62,17 @@ describe('site-map layout store (issue #489, Phase 3)', () => {
     );
   });
 
+  it('rejects prototype-polluting district ids', () => {
+    for (const key of ['__proto__', 'constructor', 'prototype']) {
+      expect(() => writeSiteMapLayout(root, { [key]: { x: 1, y: 2, w: 3, h: 4 } })).toThrow(
+        /not allowed/,
+      );
+    }
+    // A benign write does not leave the prototype polluted.
+    writeSiteMapLayout(root, { billing: { x: 1, y: 2, w: 3, h: 4 } });
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+  });
+
   it('validateLayout keeps only string color/label', () => {
     const layout = validateLayout({
       a: { x: 1, y: 2, w: 3, h: 4, color: 5, label: 'ok' },
