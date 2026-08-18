@@ -249,12 +249,20 @@ function groupIntoDistricts(map: AppMap): { id: string; label: string; surfaces:
   return districts;
 }
 
+/** A stored placement the caller has curated: only x,y is authoritative (size stays computed). */
+export type StoredPositions = Record<string, { x: number; y: number }>;
+
 /**
  * Compute the whole-map layout. Districts are laid out interior-first, then flowed into rows at a
  * target canvas aspect so the map never degenerates to a column (fixes D1). Same map in, same
  * geometry out.
+ *
+ * When `stored` positions are given (team-shared district curation, issue #489, Phase 3), a stored
+ * district is pinned at its saved x,y and never auto-reflowed; districts with no stored position
+ * flow into rows below the pinned bounding box, so new areas appear without disturbing the curated
+ * ones. Passing no positions is byte-identical to the pure computed layout.
  */
-export function layoutSiteMapDistricts(map: AppMap): DistrictLayout {
+export function layoutSiteMapDistricts(map: AppMap, stored?: StoredPositions): DistrictLayout {
   const grouped = groupIntoDistricts(map);
   const sized = grouped.map((district) => {
     const interior = layoutDistrictInterior(district.surfaces);
@@ -273,18 +281,37 @@ export function layoutSiteMapDistricts(map: AppMap): DistrictLayout {
     return { districts: [], width: 0, height: 0 };
   }
 
-  const totalArea = sized.reduce((sum, district) => sum + district.width * district.height, 0);
+  const pins = stored ?? {};
+  const pinned: LaidOutDistrict[] = [];
+  const flowing: typeof sized = [];
+  for (const district of sized) {
+    const pin = pins[district.id];
+    if (pin === undefined) {
+      flowing.push(district);
+    } else {
+      pinned.push({ ...district, x: pin.x, y: pin.y });
+    }
+  }
+
+  // New (unpinned) districts start below the pinned bounding box so they never cover a placed one.
+  let canvasWidth = 0;
+  let pinnedBottom = 0;
+  for (const district of pinned) {
+    canvasWidth = Math.max(canvasWidth, district.x + district.width);
+    pinnedBottom = Math.max(pinnedBottom, district.y + district.height);
+  }
+
+  const totalArea = flowing.reduce((sum, district) => sum + district.width * district.height, 0);
   const targetRowWidth = Math.max(
     Math.sqrt(totalArea * ASPECT_BIAS),
-    sized.reduce((max, district) => Math.max(max, district.width), 0),
+    flowing.reduce((max, district) => Math.max(max, district.width), 0),
   );
 
-  const districts: LaidOutDistrict[] = [];
+  const districts: LaidOutDistrict[] = [...pinned];
   let cursorX = 0;
-  let cursorY = 0;
+  let cursorY = pinned.length > 0 ? pinnedBottom + DISTRICT_GUTTER : 0;
   let rowHeight = 0;
-  let canvasWidth = 0;
-  for (const district of sized) {
+  for (const district of flowing) {
     if (cursorX > 0 && cursorX + district.width > targetRowWidth) {
       cursorX = 0;
       cursorY += rowHeight + DISTRICT_GUTTER;
@@ -295,7 +322,7 @@ export function layoutSiteMapDistricts(map: AppMap): DistrictLayout {
     rowHeight = Math.max(rowHeight, district.height);
     canvasWidth = Math.max(canvasWidth, cursorX - DISTRICT_GUTTER);
   }
-  const canvasHeight = cursorY + rowHeight;
+  const canvasHeight = flowing.length > 0 ? cursorY + rowHeight : pinnedBottom;
   return { districts, width: canvasWidth, height: canvasHeight };
 }
 

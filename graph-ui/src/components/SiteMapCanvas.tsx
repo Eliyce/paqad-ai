@@ -6,6 +6,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useNodesState,
   useReactFlow,
   type ColorMode,
   type Edge,
@@ -14,9 +15,13 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/base.css';
 
-import { cardCenter, layoutSiteMapDistricts } from '../lib/site-map-district-layout';
+import {
+  cardCenter,
+  layoutSiteMapDistricts,
+  type StoredPositions,
+} from '../lib/site-map-district-layout';
 import { deadSurfaceIds, journeySurfaceIds } from '../lib/site-map-derive';
-import type { AppMap, Journey } from '../lib/site-map-types';
+import type { AppMap, Journey, SiteMapStoredLayout } from '../lib/site-map-types';
 import { guardList } from '../lib/site-map-types';
 import { JourneyLines, type Station } from './JourneyLines';
 import { SiteMapSearch } from './SiteMapSearch';
@@ -41,9 +46,17 @@ interface Props {
   selectedId: string | null;
   /** A focus request (from the insight line / gaps chip); the camera flies to `id` on each nonce. */
   focus: { id: string; nonce: number } | null;
+  /** Team-shared district curation to honor; null before anyone has arranged the map. */
+  stored: SiteMapStoredLayout | null;
+  /** True in --read-only mode: the canvas hides its drag affordances and never persists. */
+  readOnly: boolean;
   onSelect: (id: string | null) => void;
   onPickJourney: (id: string | null) => void;
+  onPersistLayout: (districts: SiteMapStoredLayout) => void;
+  onResetLayout: () => void;
 }
+
+const DISTRICT_PREFIX = 'district::';
 
 const nodeTypes = {
   district: (props: NodeProps) => <DistrictNode {...props} />,
@@ -54,7 +67,17 @@ const WHEEL_KEY = 'paqad.sitemap.wheel';
 type WheelMode = 'pan' | 'zoom';
 
 function districtNodeId(areaId: string): string {
-  return `district::${areaId}`;
+  return `${DISTRICT_PREFIX}${areaId}`;
+}
+
+/** The stored layout carries x,y,w,h; the layout pass pins on x,y only (size stays computed). */
+function toStoredPositions(stored: SiteMapStoredLayout | null): StoredPositions | undefined {
+  if (stored === null || stored === undefined) return undefined;
+  const positions: StoredPositions = {};
+  for (const [areaId, placement] of Object.entries(stored)) {
+    positions[areaId] = { x: placement.x, y: placement.y };
+  }
+  return positions;
 }
 
 /** Follow the dashboard's theme (set as data-theme on the root) so React Flow matches it. */
@@ -92,8 +115,12 @@ function Flow({
   walkStationId,
   selectedId,
   focus,
+  stored,
+  readOnly,
   onSelect,
   onPickJourney,
+  onPersistLayout,
+  onResetLayout,
 }: Props) {
   const { zoomIn, zoomOut, fitView, setCenter } = useReactFlow();
   const colorMode = useDashboardColorMode();
@@ -103,7 +130,11 @@ function Flow({
     [],
   );
 
-  const layout = useMemo(() => layoutSiteMapDistricts(map), [map]);
+  const storedPositions = useMemo(() => toStoredPositions(stored), [stored]);
+  const layout = useMemo(
+    () => layoutSiteMapDistricts(map, storedPositions),
+    [map, storedPositions],
+  );
   const dead = useMemo(() => deadSurfaceIds(map), [map]);
   const activeJourney = useMemo(
     () => journeys.find((journey) => journey.id === activeJourneyId) ?? null,
@@ -136,7 +167,7 @@ function Flow({
         width: district.width,
         height: district.height,
         selectable: false,
-        draggable: false,
+        draggable: !readOnly,
         zIndex: 0,
       });
       for (const card of district.cards) {
@@ -162,7 +193,32 @@ function Flow({
       }
     }
     return out;
-  }, [layout, dead, selectedId, journeyActive, journeyIds, onSelect]);
+  }, [layout, dead, selectedId, journeyActive, journeyIds, onSelect, readOnly]);
+
+  // React Flow needs stateful nodes for dragging to stick; resync whenever the derived layout
+  // changes (map/journey/selection/stored refresh), so a persisted drag reappears at its new home.
+  const [rfNodes, setRfNodes, onNodesChange] = useNodesState(nodes);
+  useEffect(() => setRfNodes(nodes), [nodes, setRfNodes]);
+
+  // On a district drop, persist the WHOLE current arrangement so every district becomes an
+  // authoritative pin (new areas still append), and the team-shared layout survives refreshes.
+  const onNodeDragStop = useCallback(() => {
+    setRfNodes((current) => {
+      const districts: SiteMapStoredLayout = {};
+      for (const node of current) {
+        if (node.type !== 'district') continue;
+        const areaId = node.id.slice(DISTRICT_PREFIX.length);
+        districts[areaId] = {
+          x: Math.round(node.position.x),
+          y: Math.round(node.position.y),
+          w: Math.round(node.width ?? node.measured?.width ?? 0),
+          h: Math.round(node.height ?? node.measured?.height ?? 0),
+        };
+      }
+      onPersistLayout(districts);
+      return current;
+    });
+  }, [setRfNodes, onPersistLayout]);
 
   const edges = useMemo<Edge[]>(() => {
     const known = new Set(map.surfaces.map((surface) => surface.id));
@@ -245,8 +301,10 @@ function Flow({
       onKeyDown={onKeyDown}
     >
       <ReactFlow
-        nodes={nodes}
+        nodes={rfNodes}
         edges={edges}
+        onNodesChange={onNodesChange}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         colorMode={colorMode}
         proOptions={{ hideAttribution: true }}
@@ -261,7 +319,7 @@ function Flow({
         panActivationKeyCode="Space"
         preventScrolling
         onlyRenderVisibleElements
-        nodesDraggable={false}
+        nodesDraggable={!readOnly}
         nodesConnectable={false}
         onNodeClick={(_, node) => {
           if (node.type === 'surface') onSelect(node.id);
@@ -328,6 +386,21 @@ function Flow({
         >
           Reset
         </button>
+        {!readOnly && stored !== null && Object.keys(stored).length > 0 && (
+          <button
+            type="button"
+            onClick={onResetLayout}
+            title="Discard the saved district arrangement and revert to the computed layout"
+            className="rounded-[8px] px-2.5 py-1 text-caption font-medium"
+            style={{
+              background: 'var(--color-surface)',
+              color: 'var(--color-canvas-fg)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            Reset layout
+          </button>
+        )}
       </div>
     </div>
   );

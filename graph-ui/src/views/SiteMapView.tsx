@@ -6,7 +6,7 @@ import { WhySentence } from '../components/WhySentence';
 import { SiteMapCanvas } from '../components/SiteMapCanvas';
 import { SiteMapDetail } from '../components/SiteMapDetail';
 import { SiteMapList } from '../components/SiteMapList';
-import { fetchDashboard, fetchSiteMap } from '../lib/api';
+import { fetchDashboard, fetchSiteMap, resetSiteMapLayout, saveSiteMapLayout } from '../lib/api';
 import { brokenJourneyRefs, danglingTargets, deadSurfaceIds } from '../lib/site-map-derive';
 import type {
   AppMap,
@@ -269,8 +269,20 @@ export function SiteMapView() {
                     }
                     selectedId={selectedId}
                     focus={focus}
+                    stored={ready.layout ?? null}
+                    readOnly={ready.readOnly ?? false}
                     onSelect={setSelectedId}
                     onPickJourney={pickJourney}
+                    onPersistLayout={(districts) => {
+                      void saveSiteMapLayout(districts).catch((err: unknown) =>
+                        setLoadError(err instanceof Error ? err.message : String(err)),
+                      );
+                    }}
+                    onResetLayout={() => {
+                      void resetSiteMapLayout().catch((err: unknown) =>
+                        setLoadError(err instanceof Error ? err.message : String(err)),
+                      );
+                    }}
                   />
                 ) : (
                   <SiteMapList map={map} selectedId={selectedId} onSelect={setSelectedId} />

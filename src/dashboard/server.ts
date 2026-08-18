@@ -14,6 +14,7 @@ import { startPaqadWatcher, type RunningWatcher } from '@/graph/watcher.js';
 import { runJourneyCuration } from '@/site-map/journey-curation.js';
 import { readAllJourneys } from '@/site-map/store.js';
 import { buildSiteMapView } from '@/site-map/dashboard-view.js';
+import { deleteSiteMapLayout, writeSiteMapLayout } from '@/site-map/layout-store.js';
 
 import {
   acceptModuleProposal,
@@ -473,7 +474,30 @@ export async function startDashboardServer(
     // from the canonical docs/site-map/ YML; no LLM at view time (NFR-4). Inert when the flag is
     // off (the payload's own `disabled` status carries that; DATA-1, DATA-2).
     if (pathname === '/api/site-map/map' && req.method === 'GET') {
-      writeJson(res, req, buildSiteMapView(options.projectRoot));
+      writeJson(
+        res,
+        req,
+        buildSiteMapView(options.projectRoot, process.env, {
+          readOnly: options.readOnly === true,
+        }),
+      );
+      return;
+    }
+    // Issue #489, Phase 3 — team-shared district curation. Dragging a district persists its
+    // arrangement to docs/site-map/layout.yaml through the mutation guard (refused in --read-only),
+    // and reset removes the file so the canvas reverts to its computed layout.
+    if (pathname === '/api/site-map/layout' && req.method === 'POST') {
+      await handleMutation(req, res, async () => {
+        const body = (await readJsonBody(req)) as { districts?: unknown };
+        return { layout: writeSiteMapLayout(options.projectRoot, body.districts ?? {}) };
+      });
+      return;
+    }
+    if (pathname === '/api/site-map/layout/reset' && req.method === 'POST') {
+      await handleMutation(req, res, async () => {
+        deleteSiteMapLayout(options.projectRoot);
+        return { reset: true };
+      });
       return;
     }
     if (pathname === '/api/site-map/journeys' && req.method === 'GET') {

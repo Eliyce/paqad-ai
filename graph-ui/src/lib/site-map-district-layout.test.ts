@@ -138,6 +138,32 @@ describe('layoutSiteMapDistricts', () => {
     const second = layoutSiteMapDistricts(richMap());
     expect(JSON.stringify(second)).toBe(JSON.stringify(first));
   });
+
+  it('pins a stored district at its saved position and flows the rest below it (Phase 3)', () => {
+    const layout = layoutSiteMapDistricts(richMap(), { a1: { x: 1000, y: 2000 } });
+    const a1 = layout.districts.find((d) => d.id === 'a1');
+    expect(a1).toMatchObject({ x: 1000, y: 2000 });
+    // Every unpinned district flows strictly below the pinned one's bottom edge.
+    const pinnedBottom = 2000 + (a1?.height ?? 0);
+    for (const district of layout.districts) {
+      if (district.id !== 'a1') expect(district.y).toBeGreaterThan(pinnedBottom);
+    }
+  });
+
+  it('handles a fully pinned map (no flowing districts)', () => {
+    const layout = layoutSiteMapDistricts(
+      {
+        schema_version: 1,
+        app: { name: 't', kind: 'cli' },
+        areas: [{ id: 'solo', label: 'Solo' }],
+        surfaces: [surface('only', 'solo')],
+      },
+      { solo: { x: 40, y: 60 } },
+    );
+    expect(layout.districts).toHaveLength(1);
+    expect(layout.districts[0]).toMatchObject({ id: 'solo', x: 40, y: 60 });
+    expect(layout.height).toBe(60 + layout.districts[0].height);
+  });
 });
 
 describe('cardCenter', () => {

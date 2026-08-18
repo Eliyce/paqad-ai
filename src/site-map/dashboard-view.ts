@@ -14,6 +14,7 @@ import {
   type MissingSiteMapPrerequisite,
   type SiteMapPrerequisites,
 } from './prerequisites.js';
+import { readSiteMapLayout, type SiteMapStoredLayout } from './layout-store.js';
 import { readAllJourneys, readCanonicalSiteMap } from './store.js';
 
 /**
@@ -66,16 +67,26 @@ export type SiteMapView =
       prerequisites: SiteMapPrerequisites;
     }
   | { status: 'empty' }
-  | { status: 'ready'; map: AppMap; journeys: Journey[]; freshness: SiteMapFreshness };
+  | {
+      status: 'ready';
+      map: AppMap;
+      journeys: Journey[];
+      freshness: SiteMapFreshness;
+      /** Team-shared district curation (issue #489); absent until someone drags a district. */
+      layout: SiteMapStoredLayout | null;
+      /** True when the dashboard is read-only, so the canvas hides its drag affordances. */
+      readOnly: boolean;
+    };
 
 /**
  * Build the static site-map payload for the dashboard. Reads only the stored canonical artifact
- * (`docs/site-map/app-map.yaml` + `journeys/*.journey.yaml`); it never runs the model, so it is
- * safe to call on every dashboard poll.
+ * (`docs/site-map/app-map.yaml` + `journeys/*.journey.yaml` + the curated `layout.yaml`); it never
+ * runs the model, so it is safe to call on every dashboard poll.
  */
 export function buildSiteMapView(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
+  options: { readOnly?: boolean } = {},
 ): SiteMapView {
   if (!resolveFrameworkConfig(projectRoot, env).features.site_map) {
     return { status: 'disabled' };
@@ -100,5 +111,7 @@ export function buildSiteMapView(
     map,
     journeys: readAllJourneys(projectRoot),
     freshness: freshnessOf(map),
+    layout: readSiteMapLayout(projectRoot),
+    readOnly: options.readOnly === true,
   };
 }
