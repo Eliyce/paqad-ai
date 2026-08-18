@@ -1,0 +1,26 @@
+{
+  "id": "D-01M0A3P0JBCJFGA0DRB0CG5Y2A",
+  "category": "ux-pattern",
+  "title": "Site map canvas: where district curation is stored",
+  "context": "Phase 3 lets people make the map theirs: drag districts to rearrange, rename, recolor, with positions persisted and never auto-reflowed (IKEA effect + spatial memory). The persistence home decides whether that spatial memory is shared: team-shared rides docs/site-map/ next to answers.yaml (in PR diffs, one map everyone recognizes), personal lives in a git-ignored .paqad local file (no PR churn, but every teammate arranges their own city), hybrid is team base plus local override (most flexible, most code and merge semantics).",
+  "options": [
+    {
+      "option_key": "team-shared",
+      "label": "Team-shared in docs/site-map/"
+    },
+    {
+      "option_key": "personal-local",
+      "label": "Personal git-ignored .paqad file"
+    },
+    {
+      "option_key": "hybrid",
+      "label": "Team base with local override"
+    }
+  ],
+  "recommendation": "team-shared",
+  "created_at": "2026-08-18T09:36:46.667Z",
+  "status": "resolved",
+  "chosen": "team-shared",
+  "rationale": "Owner locked via tray 2026-08-18: the map is shared documentation, so spatial memory is shared too; layout file lives in docs/site-map/ next to answers.yaml and rides PR diffs. Hybrid local-override can evolve later if demanded.",
+  "resolved_at": "2026-08-18T09:37:14.418Z"
+}

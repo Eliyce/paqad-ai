@@ -1,0 +1,26 @@
+{
+  "id": "D-01M0A3M6A5VBPEJKFY0396E3EQ",
+  "category": "workflow-or-tool",
+  "title": "Site map canvas: React Flow attribution link",
+  "context": "React Flow renders a small 'React Flow' link on the canvas by default. It is NOT a license condition: the library is MIT and their docs confirm removal via proOptions hideAttribution is permitted; the team asks removers to consider supporting them (Pro is 169 USD/month, not required). Categorically different from tldraw's contractual watermark. The dashboard is paqad's client-facing product surface (ASICS rollout: never third-party branding in client material).",
+  "options": [
+    {
+      "option_key": "hide",
+      "label": "Hide the link (proOptions.hideAttribution)"
+    },
+    {
+      "option_key": "keep",
+      "label": "Keep the small link"
+    },
+    {
+      "option_key": "hide-sponsor",
+      "label": "Hide the link and sponsor xyflow"
+    }
+  ],
+  "recommendation": "hide",
+  "created_at": "2026-08-18T09:35:47.014Z",
+  "status": "resolved",
+  "chosen": "hide",
+  "rationale": "Owner locked via tray 2026-08-18: hide via proOptions.hideAttribution (MIT-legal per xyflow docs); dashboard is paqad's client-facing surface and third-party branding is out for the ASICS rollout. Revisit sponsorship if the map becomes core to paid paqad.",
+  "resolved_at": "2026-08-18T09:36:45.169Z"
+}

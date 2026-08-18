@@ -1,0 +1,22 @@
+{
+  "id": "D-01M0A3HQEF43B0Z00SZM7M57KA",
+  "category": "architecture-path",
+  "title": "Site map canvas: React Flow 12 or headless d3",
+  "context": "Rebuilding the Site map canvas (post-#466). Research verdict: @xyflow/react 12 is MIT, ~61KB gzip marginal + 19KB CSS, nodes are React/Tailwind components, ships minimap/fitView/animated viewport flights/dark mode, active (12.11.3, React 19 support). Headless d3 stack (d3-force/zoom/hierarchy/selection, ISC, ~26KB) gives full control but we own 1-2k LOC of pan/zoom, minimap, culling, hit-testing before the first delightful pixel.",
+  "options": [
+    {
+      "option_key": "react-flow",
+      "label": "Adopt @xyflow/react 12"
+    },
+    {
+      "option_key": "headless-d3",
+      "label": "Build on headless d3 stack"
+    }
+  ],
+  "recommendation": "react-flow",
+  "created_at": "2026-08-18T09:34:26.255Z",
+  "status": "resolved",
+  "chosen": "react-flow",
+  "rationale": "Owner locked via tray 2026-08-18: React Flow 12 wins on MIT license, React/Tailwind component nodes, built-in minimap/fitView/camera flights, and battle-tested gesture handling; d3 path costs 1-2k LOC of owned infrastructure for ~70KB savings.",
+  "resolved_at": "2026-08-18T09:35:07.107Z"
+}
