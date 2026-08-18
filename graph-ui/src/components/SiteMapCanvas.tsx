@@ -14,10 +14,12 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/base.css';
 
-import { layoutSiteMapDistricts } from '../lib/site-map-district-layout';
+import { cardCenter, layoutSiteMapDistricts } from '../lib/site-map-district-layout';
 import { deadSurfaceIds, journeySurfaceIds } from '../lib/site-map-derive';
 import type { AppMap, Journey } from '../lib/site-map-types';
 import { guardList } from '../lib/site-map-types';
+import { JourneyLines, type Station } from './JourneyLines';
+import { SiteMapSearch } from './SiteMapSearch';
 import { DistrictNode, districtTint, SurfaceNode, type DistrictNodeData } from './SiteMapNodes';
 
 /**
@@ -25,15 +27,20 @@ import { DistrictNode, districtTint, SurfaceNode, type DistrictNodeData } from '
  * containment, so a CLI-shaped map with zero transitions is a first-class citizen, not the
  * degenerate sliver the old edge-driven SVG produced (D1). React Flow 12 supplies the correct
  * gesture substrate — cursor-anchored zoom, pinch, non-passive wheel, fitView, minimap — so all of
- * D2..D5 die in the swap. It renders only the static layout it is handed, statically from the
- * served payload (NFR-1), so the same map always looks the same (LAY-2).
+ * D2..D5 die in the swap. Journeys draw as metro lines from their own step order (Phase 2, fixes
+ * D6). It renders only the static layout it is handed, from the served payload (NFR-1), so the same
+ * map always looks the same (LAY-2).
  */
 
 interface Props {
   map: AppMap;
-  activeJourney: Journey | null;
+  journeys: Journey[];
+  activeJourneyId: string | null;
+  /** The current walk station (drives the camera flight); null when not walking. */
+  walkStationId: string | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onPickJourney: (id: string | null) => void;
 }
 
 const nodeTypes = {
@@ -76,15 +83,40 @@ function useWheelMode(): [WheelMode, (next: WheelMode) => void] {
   return [mode, set];
 }
 
-function Flow({ map, activeJourney, selectedId, onSelect }: Props) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+function Flow({
+  map,
+  journeys,
+  activeJourneyId,
+  walkStationId,
+  selectedId,
+  onSelect,
+  onPickJourney,
+}: Props) {
+  const { zoomIn, zoomOut, fitView, setCenter } = useReactFlow();
   const colorMode = useDashboardColorMode();
   const [wheelMode, setWheelMode] = useWheelMode();
+  const reducedMotion = useMemo(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
 
   const layout = useMemo(() => layoutSiteMapDistricts(map), [map]);
   const dead = useMemo(() => deadSurfaceIds(map), [map]);
+  const activeJourney = useMemo(
+    () => journeys.find((journey) => journey.id === activeJourneyId) ?? null,
+    [journeys, activeJourneyId],
+  );
   const journeyIds = useMemo(() => journeySurfaceIds(activeJourney), [activeJourney]);
   const journeyActive = activeJourney !== null;
+
+  // Absolute centre of every surface card — the stations for the metro lines and camera flights.
+  const centers = useMemo(() => {
+    const map2 = new Map<string, Station>();
+    for (const district of layout.districts) {
+      for (const card of district.cards) map2.set(card.id, cardCenter(district, card));
+    }
+    return map2;
+  }, [layout]);
 
   const nodes = useMemo<Node[]>(() => {
     const out: Node[] = [];
@@ -157,6 +189,26 @@ function Flow({ map, activeJourney, selectedId, onSelect }: Props) {
     return out;
   }, [map]);
 
+  // Walk mode: fly the camera to the current station (UXR-15). Jump-cut under reduced motion.
+  useEffect(() => {
+    if (walkStationId === null) return;
+    const station = centers.get(walkStationId);
+    if (station === undefined) return;
+    void setCenter(station.x, station.y, { zoom: 1.4, duration: reducedMotion ? 0 : 700 });
+  }, [walkStationId, centers, setCenter, reducedMotion]);
+
+  const flyToNode = useCallback(
+    (id: string) => {
+      void fitView({
+        nodes: [{ id }],
+        duration: reducedMotion ? 0 : 800,
+        padding: 0.4,
+        maxZoom: 1.5,
+      });
+    },
+    [fitView, reducedMotion],
+  );
+
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key === '+' || event.key === '=') {
@@ -220,7 +272,25 @@ function Flow({ map, activeJourney, selectedId, onSelect }: Props) {
           maskColor="var(--color-canvas)"
           style={{ background: 'var(--color-surface)' }}
         />
+        <JourneyLines
+          journeys={journeys}
+          activeJourneyId={activeJourneyId}
+          centers={centers}
+          walkStationId={walkStationId}
+          reducedMotion={reducedMotion}
+        />
       </ReactFlow>
+
+      <SiteMapSearch
+        map={map}
+        journeys={journeys}
+        onSelectSurface={(id) => {
+          onSelect(id);
+          flyToNode(id);
+        }}
+        onSelectArea={(id) => flyToNode(districtNodeId(id))}
+        onPickJourney={onPickJourney}
+      />
 
       <div className="absolute right-3 top-3 z-10 flex gap-1.5">
         <button

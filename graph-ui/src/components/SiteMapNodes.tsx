@@ -1,4 +1,4 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, useStore, type NodeProps } from '@xyflow/react';
 
 import type { Surface } from '../lib/site-map-types';
 import { kindMeta, trustMeta } from '../lib/site-map-vocab';
@@ -27,6 +27,11 @@ export interface DistrictNodeData {
 
 export function DistrictNode({ data }: NodeProps) {
   const district = data as DistrictNodeData;
+  const zoom = useStore((state) => state.transform[2]);
+  // Counter-scale the district name so it stays a roughly constant ~13px on screen: at the zoomed
+  // out overview the districts are the primary content and must read (LOD tier k < 0.5), capped so
+  // it never dominates the district box.
+  const labelSize = Math.min(Math.max(13, 13 / zoom), 34);
   return (
     <div
       className="h-full w-full rounded-[14px]"
@@ -36,11 +41,13 @@ export function DistrictNode({ data }: NodeProps) {
       }}
     >
       <div
-        className="flex items-center gap-2 px-3 pt-2 text-caption font-semibold"
-        style={{ color: 'var(--color-canvas-fg)' }}
+        className="flex items-center gap-2 px-3 pt-2 font-semibold"
+        style={{ color: 'var(--color-canvas-fg)', fontSize: labelSize, lineHeight: 1.1 }}
       >
         <span className="truncate">{district.label}</span>
-        <span style={{ color: 'var(--color-muted)' }}>{district.surfaceCount}</span>
+        <span style={{ color: 'var(--color-muted)', fontSize: '0.8em' }}>
+          {district.surfaceCount}
+        </span>
       </div>
     </div>
   );
@@ -65,6 +72,12 @@ export function SurfaceNode({ data }: NodeProps) {
   const meta = kindMeta(surface.kind);
   const lowTrust = trustMeta(surface.trust).rank < 2; // inferred/unverified reads dashed, not colour
   const label = surface.label.length > 26 ? `${surface.label.slice(0, 25)}…` : surface.label;
+  // Semantic zoom (LOD): hide any text whose effective on-screen size drops below 10px, so a
+  // zoomed-out district reads as tinted blocks (tier k < 0.5) and detail appears as you zoom in.
+  const zoom = useStore((state) => state.transform[2]);
+  const showLabel = 12.5 * zoom >= 10;
+  const showTag = 9 * zoom >= 10;
+  const fullDetail = zoom >= 1.5; // entry markers + guard labels only at the closest tier
   return (
     <div
       role="button"
@@ -87,19 +100,33 @@ export function SurfaceNode({ data }: NodeProps) {
       }}
     >
       <Handle type="target" position={Position.Left} style={hiddenHandle} isConnectable={false} />
-      <div
-        className="max-w-full truncate text-center text-caption font-semibold"
-        style={{ color: 'var(--color-canvas-fg)' }}
-      >
-        {label}
-      </div>
-      <div
-        className="text-center"
-        style={{ color: 'var(--color-muted)', fontSize: 9, letterSpacing: 0.4 }}
-      >
-        {meta.tag}
-        {node.dead ? ' · dead' : ''}
-      </div>
+      {showLabel && (
+        <div
+          className="max-w-full truncate text-center font-semibold"
+          style={{ color: 'var(--color-canvas-fg)', fontSize: 12.5 }}
+        >
+          {label}
+        </div>
+      )}
+      {showTag && (
+        <div
+          className="text-center"
+          style={{ color: 'var(--color-muted)', fontSize: 9, letterSpacing: 0.4 }}
+        >
+          {meta.tag}
+          {node.dead ? ' · dead' : ''}
+        </div>
+      )}
+      {fullDetail && surface.entry !== undefined && (
+        <span
+          aria-hidden="true"
+          title="Entry point"
+          className="absolute left-1.5 top-1"
+          style={{ color: 'var(--color-accent)', fontSize: 10 }}
+        >
+          ▶
+        </span>
+      )}
       {node.guarded && (
         <span
           aria-hidden="true"

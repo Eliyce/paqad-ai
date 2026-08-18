@@ -72,6 +72,54 @@
   animation: palette-in 150ms ease-out both;
 }
 
+/* Metro-line reveal (issue #489, Phase 2). pathLength is normalized to 1 so this is
+   resolution-independent. Guarded by prefers-reduced-motion at the call site. */
+@keyframes sm-metro-reveal {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* React Flow attribution is hidden via proOptions (locked decision), but belt-and-braces the
+   node/edge chrome uses our tokens rather than the library default theme. */
+.react-flow__attribution {
+  display: none;
+}
+
+/* cmd+K search palette (issue #489, Phase 2). cmdk ships unstyled; theme it with our tokens. */
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  background: rgba(2, 6, 23, 0.4);
+}
+[cmdk-group-heading] {
+  padding: 6px 10px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--color-muted);
+}
+.sm-search-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sm-search-item[data-selected='true'] {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+.sm-search-item[data-selected='true'] span {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
 html,
 body,
 #root {

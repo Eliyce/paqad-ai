@@ -227,9 +227,14 @@ export function SiteMapView() {
                 {mode === 'map' ? (
                   <SiteMapCanvas
                     map={map}
-                    activeJourney={activeJourney}
+                    journeys={ready.journeys}
+                    activeJourneyId={activeJourneyId}
+                    walkStationId={
+                      activeJourney ? (activeJourney.steps[step]?.surface ?? null) : null
+                    }
                     selectedId={selectedId}
                     onSelect={setSelectedId}
+                    onPickJourney={pickJourney}
                   />
                 ) : (
                   <SiteMapList map={map} selectedId={selectedId} onSelect={setSelectedId} />
