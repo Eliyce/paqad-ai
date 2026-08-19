@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
+import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 
 // stage-writer.mjs is a NON-BLOCKING writer: it always exits 0 and never wedges
 // the agent. These exercise the dist-less guards (paqad disabled, malformed
@@ -62,14 +63,20 @@ describe('runtime/hooks/stage-writer.mjs (non-blocking writer guards)', () => {
   });
 });
 
-// Step 5a — the on-entry narration line. Needs the dist bundle the hook lazy-imports,
-// so it is gated on the build (CI builds before running the suite; a bare `vitest run`
-// without a build skips it). The narration LOGIC is covered src-side in
-// tests/unit/stage-evidence/narration.test.ts.
-const DIST_NARRATION = resolve(__dirname, '../../../dist/stage-evidence/narration.js');
-const hasDist = existsSync(DIST_NARRATION);
+// The on-entry stage record. The hook lazy-imports the compiled live-writer, so these
+// are gated on the build (CI builds before running the suite; a bare `vitest run`
+// without a build skips them). The record LOGIC is covered src-side in
+// tests/unit/stage-evidence/live-writer.test.ts.
+//
+// Regression guard for the PreToolUse `{systemMessage}` leak: the writer USED to print a
+// "▸ paqad · <stage>" line via a top-level `{systemMessage}`, on the (now-false) premise
+// that a PreToolUse `{systemMessage}` was invisible on Desktop. Claude Code now renders it
+// as a literal "PreToolUse:<Tool> says:" line, so the writer no longer prints ANY
+// systemMessage — the model speaks the narration. The ledger write must still happen.
+const DIST_LIVE_WRITER = resolve(__dirname, '../../../dist/stage-evidence/live-writer.js');
+const hasDist = existsSync(DIST_LIVE_WRITER);
 
-describe.skipIf(!hasDist)('runtime/hooks/stage-writer.mjs — on-entry narration (Step 5a)', () => {
+describe.skipIf(!hasDist)('runtime/hooks/stage-writer.mjs — on-entry record, no chat leak', () => {
   let projectRoot: string;
   const SES = 'ses_narr_hook';
   beforeEach(() => {
@@ -87,7 +94,7 @@ describe.skipIf(!hasDist)('runtime/hooks/stage-writer.mjs — on-entry narration
   }
 
   /** Record planning + specification (issue #310) so the writer no longer defers a
-   *  code edit — narration only fires once the workflow's pre-code stages exist. */
+   *  code edit — a stage is only recorded once the workflow's pre-code stages exist. */
   function seedPreCode() {
     recordMarkedStage(projectRoot, { sessionId: SES, stage: 'planning', phase: 'start' });
     recordMarkedStage(projectRoot, { sessionId: SES, stage: 'planning', phase: 'end' });
@@ -98,22 +105,27 @@ describe.skipIf(!hasDist)('runtime/hooks/stage-writer.mjs — on-entry narration
   it('#310: prints nothing for a code edit before the pre-code stages are recorded (defer)', () => {
     const result = edit('src/a.ts');
     expect(result.status).toBe(0);
-    expect(result.stdout).not.toContain('building it to the spec');
+    expect(result.stdout).toBe('');
   });
 
-  it('prints "▸ paqad · <stage>" the first time a change enters a stage, exit 0', () => {
+  it('writes NO systemMessage the first time a change enters a stage (no chat leak), exit 0', () => {
     seedPreCode();
     const result = edit('src/a.ts');
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('building it to the spec');
-    expect(result.stdout).toContain('systemMessage');
+    expect(result.stdout).not.toContain('systemMessage');
+    expect(result.stdout).not.toContain('building it to the spec');
+    expect(result.stdout).toBe('');
   });
 
-  it('does not re-print within the same stage (idempotent)', () => {
+  it('still records the development stage in the ledger despite emitting no narration (INV-2)', () => {
     seedPreCode();
-    edit('src/a.ts'); // records development + prints
-    const second = edit('src/b.ts'); // same stage → no new line
-    expect(second.status).toBe(0);
-    expect(second.stdout).not.toContain('building it to the spec');
+    const result = edit('src/a.ts');
+    expect(result.status).toBe(0);
+    // The hook subprocess wrote the ledger via the compiled live-writer; the stage
+    // record is present even though nothing was printed to chat.
+    const dir = currentFeature(projectRoot, SES);
+    expect(dir).toBeTruthy();
+    const fold = foldFeature(projectRoot, SES, dir!);
+    expect(fold.stages.some((stage) => stage.stage === 'development')).toBe(true);
   });
 });

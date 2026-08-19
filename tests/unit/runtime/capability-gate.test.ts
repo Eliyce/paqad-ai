@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -88,3 +88,61 @@ describe('runtime/hooks/capability-gate.mjs (gating fast-paths)', () => {
     expect(result.stdout).toBe('');
   });
 });
+
+// Regression guard for the PreToolUse `{systemMessage}` leak. On the allow path (exit 0)
+// the gate used to write a top-level `{systemMessage}` with the warn advisory + narration,
+// on the (now-false) premise that a PreToolUse `{systemMessage}` was invisible on Desktop.
+// Claude Code now renders it as a literal "PreToolUse:<Tool> says:" line, so the allow path
+// must emit NOTHING user-facing. Needs the compiled gate the hook lazy-imports.
+const DIST_GATE = resolve(__dirname, '../../../dist/kernel/gate.js');
+const hasDist = existsSync(DIST_GATE);
+
+function runWithPayload(
+  projectRoot: string,
+  seam: string,
+  payload: unknown,
+  env: NodeJS.ProcessEnv = {},
+): RunResult {
+  try {
+    const stdout = execFileSync('node', [HOOK, seam], {
+      input: JSON.stringify(payload),
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot, ...env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
+  } catch (error) {
+    const err = error as { status: number; stdout: Buffer; stderr: Buffer };
+    return {
+      status: err.status,
+      stdout: err.stdout?.toString('utf8') ?? '',
+      stderr: err.stderr?.toString('utf8') ?? '',
+    };
+  }
+}
+
+describe.skipIf(!hasDist)(
+  'runtime/hooks/capability-gate.mjs — no PreToolUse systemMessage leak',
+  () => {
+    let projectRoot: string;
+    beforeEach(() => {
+      projectRoot = mkdtempSync(join(tmpdir(), 'paqad-capgate-leak-'));
+      mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+    });
+    afterEach(() => rmSync(projectRoot, { recursive: true, force: true }));
+
+    it('a WARN missing-stage finding on a feature-dev edit allows (exit 0) and writes NO systemMessage (INV-1)', () => {
+      // stages_mode=warn → a feature-dev edit with no planning/specification recorded yields
+      // a NON-blocking (warn) missing-stage summary. That summary used to ride a
+      // `{systemMessage}` on the allow path; it must now be silent in chat.
+      writeFileSync(join(projectRoot, '.paqad/configs/.config.policy'), 'stages_mode=warn\n');
+      const result = runWithPayload(projectRoot, 'pre-mutation', {
+        session_id: 'ses_leak',
+        tool_name: 'Edit',
+        tool_input: { file_path: join(projectRoot, 'src/x.ts') },
+      });
+      expect(result.status).toBe(0);
+      expect(result.stdout).not.toContain('systemMessage');
+      expect(result.stdout).toBe('');
+    });
+  },
+);
