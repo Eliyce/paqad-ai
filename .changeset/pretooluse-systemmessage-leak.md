@@ -1,5 +1,5 @@
 ---
-"paqad-ai": patch
+'paqad-ai': patch
 ---
 
 Fix: PreToolUse hooks no longer leak `{systemMessage}` into Claude Code Desktop chat
