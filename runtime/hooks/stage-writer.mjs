@@ -34,21 +34,15 @@ async function main(input) {
     const sessionId = payload?.session_id ?? null;
 
     const liveUrl = new URL('../../dist/stage-evidence/live-writer.js', import.meta.url);
-    const narrationUrl = new URL('../../dist/stage-evidence/narration.js', import.meta.url);
-    const [{ recordLiveStageEdit }, { narrateStageEntry }] = await Promise.all([
-      import(liveUrl.href),
-      import(narrationUrl.href),
-    ]);
+    const { recordLiveStageEdit } = await import(liveUrl.href);
 
-    // On-entry narration (Step 5a): compute the "▸ paqad · <stage>" line BEFORE
-    // recording, so the first-entry check reads the pre-edit ledger state, then print
-    // it as a user-visible line via Claude's `systemMessage` hook channel. Null when
-    // this edit does not newly enter a stage (idempotent / out-of-order / non-source).
-    const line = narrateStageEntry({ projectRoot, sessionId, targetPath });
-    if (line) {
-      process.stdout.write(`${JSON.stringify({ systemMessage: line })}\n`);
-    }
-
+    // Record the edit into the stage-evidence ledger. The on-entry "▸ paqad · <stage>"
+    // narration is NOT printed from this hook: the model speaks that line itself in its
+    // final message (the narration contract). A top-level `{systemMessage}` is a
+    // user-facing warning field, and Claude Code now renders a PreToolUse one on Desktop
+    // as a literal "PreToolUse:<Tool> says:" line (the same leak the Stop seam hit), so
+    // echoing it here would duplicate the model's narration in the developer's chat on
+    // every edit. The ledger write below still runs, so the record is never silent.
     recordLiveStageEdit({ projectRoot, sessionId, toolName, targetPath });
     return 0;
   } catch {

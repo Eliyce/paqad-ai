@@ -130,21 +130,18 @@ export async function main(input, seam = SEAM) {
       }
       return 2;
     }
-    // Allow path: on the pre-mutation (PreToolUse) seam, surface narration + advisory
-    // findings through the host's user-message channel (`systemMessage`) — bare stdout is
-    // only visible in verbose mode, and narration is non-negotiable (issue #307).
+    // Allow path: emit NOTHING user-facing, on either seam. paqad narration is the
+    // model's job — it speaks each `▸ paqad` line in its final message (the narration
+    // contract), and the ledger is written regardless of what this hook prints.
     //
-    // The completion (Stop) seam no longer emits here. Claude Code changed: a Stop-hook
-    // `{systemMessage}` now RENDERS on Desktop as literal "Stop says:" lines, and the agent
-    // already speaks its end-of-change narration in its final message (issue #409), so a
-    // Stop echo would duplicate that and leak into the developer's chat (the "Stop says:"
-    // narration leak). A PreToolUse `{systemMessage}` is still not rendered, so it stays.
-    if (seam !== 'completion') {
-      const visible = [result.narration, result.summary].filter(Boolean).join('\n');
-      if (visible) {
-        process.stdout.write(`${JSON.stringify({ systemMessage: visible })}\n`);
-      }
-    }
+    // Neither seam emits a `{systemMessage}` any more. A top-level `systemMessage` is a
+    // documented USER-FACING warning field, not the invisible back-channel this path once
+    // assumed. Claude Code now renders it on Desktop for BOTH hook kinds: a Stop-hook one
+    // as literal "Stop says:" lines, and a PreToolUse one as literal "PreToolUse:<Tool>
+    // says:" lines. Either would duplicate the narration the agent already speaks and leak
+    // framework prose into the developer's chat on every edit (the "Stop says:" leak,
+    // extended to PreToolUse). A strict violation still reaches the model on the blocking
+    // path above (stderr + exit 2); warn findings are advisory and non-blocking by contract.
     return 0;
   } catch {
     // Soft-fail: an infra error (missing build, import failure) must never wedge

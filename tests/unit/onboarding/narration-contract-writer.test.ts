@@ -41,7 +41,9 @@ describe('narration-contract-writer', () => {
       const body = buildNarrationContractBody();
       expect(body).toContain('Claude Code CLI');
       expect(body).toContain('Claude Code Desktop');
-      expect(body).toContain('recorded as a hook attachment');
+      // A PreToolUse `{systemMessage}` now renders on Desktop (the `Stop says:` leak,
+      // extended) — so the contract names the leak, not the old "invisible" premise.
+      expect(body).toContain('PreToolUse:<Tool> says:');
       // The channel the agent controls is named as the one that renders.
       expect(body).toContain('Your assistant text, final message of the turn');
     });
