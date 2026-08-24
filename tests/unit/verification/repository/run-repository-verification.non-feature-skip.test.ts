@@ -167,7 +167,11 @@ describe('runRepositoryVerification — non-feature route skip (issue #499)', ()
     const root = tempRoot();
     writeWorkflowState(root, SES, { active: { workflow: 'project-question' }, paused: [] });
     // A real edit would pass the pre-mutation gate and live-mark a stage; simulate that.
-    const dirName = openFeatureChange(root, SES, { adapter: 'claude-code', title: 'x', issue: null });
+    const dirName = openFeatureChange(root, SES, {
+      adapter: 'claude-code',
+      title: 'x',
+      issue: null,
+    });
     startStage(root, 'development', { sessionId: SES, dirName, adapter: 'claude-code' });
 
     await runRepositoryVerification({
