@@ -50,6 +50,9 @@ import { computeChangeMetrics, type ChangeMetrics } from '@/change-metrics/index
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
+import { classifySessionRouteForEnforcement } from '@/pipeline/route-enforcement.js';
+import { recordNonFeatureVerificationSkip } from '@/session-ledger/non-feature-skip-audit.js';
+import { PAQAD_STATUS_GLYPH, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { type FoldedChange } from '@/stage-evidence/types.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
@@ -173,6 +176,53 @@ export async function runRepositoryVerification(
       started_at: at,
       completed_at: at,
     };
+  }
+
+  // Issue #499 — the route-aware enforcement short-circuit. When the IN-SESSION
+  // completion seam fires for a session that never routed to feature-development, there
+  // is nothing to verify: a question / pentest / docs task / RCA / small-talk turn owes
+  // no planning/spec/review/checks stages, so a dirty working tree swept up by the
+  // `git status` fallback must not be forced through them. Placed AFTER the enabled-check
+  // and BEFORE the context build so no context, gate, inferred-git record, evidence file,
+  // receipt, or `{decision:'block'}` is ever produced for such a turn.
+  //
+  // Fail-closed and unspoofable by conjunction: it fires only at `hook-completion`
+  // origin (commit/push/CI stay purely path-based), only when the per-session route
+  // state EXISTS and is affirmatively non-feature (an absent/unknown route runs the full
+  // pass, unchanged, so cross-provider seams that write no route state keep today's
+  // behaviour), and only when the session recorded no agent-authored mutation — a real
+  // code edit always passes the path-scoped pre-mutation gate, which live-marks a stage,
+  // so an actual edit re-arms enforcement even under a misrouted or tampered route file.
+  if (options.origin === 'hook-completion') {
+    const route = classifySessionRouteForEnforcement(
+      options.projectRoot,
+      options.hostSessionId ?? null,
+    );
+    if (
+      route.verdict === 'non-feature' &&
+      !sessionHasAgentAuthoredStage(options.projectRoot, options.hostSessionId ?? null)
+    ) {
+      recordNonFeatureVerificationSkip(options.projectRoot, {
+        sessionId: options.hostSessionId ?? null,
+        workflow: route.activeWorkflow,
+        origin: options.origin,
+      });
+      const at = now();
+      const workflowLabel = route.activeWorkflow ?? 'non-feature';
+      return {
+        origin: options.origin,
+        ok: true,
+        summary:
+          `${paqadFrameLead('verification not applicable')}\n` +
+          `> ${PAQAD_STATUS_GLYPH.skipped} This turn ran the ${workflowLabel} workflow, ` +
+          `not feature-development — no end-of-change checks to run.`,
+        gates: [],
+        escalations: [],
+        evidence_path: null,
+        started_at: at,
+        completed_at: at,
+      };
+    }
   }
 
   const startedAt = now();
@@ -614,6 +664,23 @@ function readChangeFold(projectRoot: string, hostSessionId: string | null): Fold
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether the session's active change carries any AGENT-authored (`live-mark`/`redo`)
+ * stage row (issue #499 hardening). Every real code edit passes the path-scoped
+ * pre-mutation gate, which live-marks a stage, so a genuine edit records one; a question
+ * session records none. Hook/backstop-inferred rows (`inferred-git`/`inferred-artifact`)
+ * are NOT agent-authored and do not count. Used to keep the non-feature skip unspoofable:
+ * even under a misrouted or tampered route file, once the agent actually edits code the
+ * skip cannot fire. Best-effort — an unreadable fold reads as "no agent stage".
+ */
+function sessionHasAgentAuthoredStage(projectRoot: string, hostSessionId: string | null): boolean {
+  const fold = readChangeFold(projectRoot, hostSessionId);
+  if (!fold) {
+    return false;
+  }
+  return fold.stages.some((stage) => isAgentNarratableStage(stage.evidence_source));
 }
 
 /**
