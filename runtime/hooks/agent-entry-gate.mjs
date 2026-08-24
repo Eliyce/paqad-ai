@@ -18,6 +18,7 @@ import { realpathSync } from 'node:fs';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
+import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive.mjs';
 import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
@@ -54,15 +55,17 @@ export function main(input) {
     return 0;
   }
 
+  // This gate, like the prompt-gate, short-circuits to a no-op when paqad is OFF
+  // (above), so reaching here proves paqad is ON — state that verdict, and build the
+  // numbered steps from the one shared module so the two directives cannot drift
+  // (issue #498, Part A).
   const ef = entryFile();
   process.stderr.write(
     [
       '[paqad] Blocked: load the paqad framework before editing.',
+      ENABLEMENT_VERIFIED_LINE,
       '[paqad] Required steps:',
-      `[paqad]   1. Read ${ef}`,
-      '[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)',
-      '[paqad]   3. Route the message to one of the 9 workflows, then load docs/instructions/{stack,design-system,workflows}; load the rule contract (.paqad/context/session-context.md, else docs/instructions/rules) ONLY for feature-development',
-      '[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path',
+      ...loadSteps(ef),
       '',
     ].join('\n'),
   );

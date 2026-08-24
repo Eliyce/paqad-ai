@@ -147,9 +147,14 @@ describe('packaging truth — user-facing remediation surfaces (issue #307)', ()
     });
   });
 
-  it('the shipped framework bootstrap is honest', () => {
+  it('the shipped framework bootstrap gate is honest', () => {
     const bootstrap = readFileSync(join(REPO_ROOT, 'runtime/AGENT-BOOTSTRAP.md'), 'utf8');
     expectSurfaceIsHonest('runtime/AGENT-BOOTSTRAP.md', bootstrap);
+  });
+
+  it('the shipped framework router is honest (#498)', () => {
+    const router = readFileSync(join(REPO_ROOT, 'runtime/AGENT-ROUTER.md'), 'utf8');
+    expectSurfaceIsHonest('runtime/AGENT-ROUTER.md', router);
   });
 
   it('every shipped skill doc is honest', () => {

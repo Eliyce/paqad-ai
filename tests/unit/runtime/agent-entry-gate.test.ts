@@ -169,6 +169,44 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
     expect(result.stdout).toContain('docs/instructions/{stack,design-system,workflows}');
   });
 
+  // Issue #498, Part A / AC-1 — the fired directive proves paqad is ON (the gate
+  // short-circuits silently when OFF), so it states that verdict first and marks the
+  // enablement step done; the agent must not spend a tool call re-checking it.
+  it('opens with the enablement verdict and marks enablement a done step (#498 AC-1)', () => {
+    const result = runPromptGate(projectRoot);
+    const lines = result.stdout.split('\n').filter((line) => line.startsWith('[paqad]'));
+    // First [paqad] content line states enablement is ON and already verified.
+    expect(lines[0]).toMatch(/Enablement: ON — verified by this gate/);
+    expect(lines[0]).toMatch(/do not re-check it/i);
+    // The step list carries an explicit, done enablement step and the router chain.
+    expect(result.stdout).toMatch(/1\. Enablement — ON, already resolved by this gate/);
+    expect(result.stdout).toContain('AGENT-BOOTSTRAP.md');
+    expect(result.stdout).toContain('AGENT-ROUTER.md');
+    // The stale hardcoded workflow count is gone (AC-3).
+    expect(result.stdout).not.toContain('9 workflows');
+  });
+
+  // Issue #498, Part A / AC-3 — the numbered step prose lives in exactly one shared
+  // module, so the prompt-gate and the PreToolUse gate cannot drift. Both directives
+  // must therefore carry the identical step lines.
+  it('shares its step prose with the PreToolUse gate (#498 AC-3)', () => {
+    const promptSteps = runPromptGate(projectRoot)
+      .stdout.split('\n')
+      .filter((line) => /^\[paqad] {3}\d\./.test(line));
+    const gateSteps = runGate(projectRoot)
+      .stderr.split('\n')
+      .filter((line) => /^\[paqad] {3}\d\./.test(line));
+    expect(promptSteps.length).toBeGreaterThan(0);
+    expect(gateSteps).toEqual(promptSteps);
+  });
+
+  it('the PreToolUse gate block message also states enablement ON (#498)', () => {
+    const result = runGate(projectRoot);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/Enablement: ON — verified by this gate/);
+    expect(result.stderr).toContain('AGENT-ROUTER.md');
+  });
+
   it('hard mode exits 2 with a blocking message on stderr when the sentinel is missing', () => {
     const result = runPromptGate(projectRoot, 'hard');
     expect(result.status).toBe(2);

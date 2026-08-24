@@ -30,6 +30,7 @@ import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive.mjs';
 import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
 import { emitContext } from './lib/context-seam-emit.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
@@ -51,16 +52,19 @@ function reasonFor(state, ef) {
   }
 }
 
+// The directive opens with the enablement verdict (issue #498, Part A): this gate
+// already resolved enablement and short-circuits to silence when OFF (see main()),
+// so its firing PROVES paqad is ON — the agent must not spend a tool call re-checking
+// it. The numbered load steps come from the one shared module so this directive and
+// the PreToolUse gate cannot drift.
 function directive(state, ef) {
   return [
+    ENABLEMENT_VERIFIED_LINE,
     '[paqad] You MUST load the paqad framework before responding.',
     `[paqad] Reason: ${reasonFor(state, ef)}.`,
     '[paqad] Required steps, in order, before any other tool call or response:',
-    `[paqad]   1. Read ${ef}`,
-    '[paqad]   2. Resolve .paqad/framework-path.txt and load + follow the framework bootstrap (AGENT-BOOTSTRAP.md in the install)',
-    '[paqad]   3. Route the message to one of the 9 workflows, then load docs/instructions/{stack,design-system,workflows}; load the rule contract (.paqad/context/session-context.md, else docs/instructions/rules) ONLY for feature-development',
-    '[paqad]   4. Write .paqad/.agent-entry-loaded with timestamp + entry-file path',
-    '[paqad] Only after step 4 may you address the prompt.',
+    ...loadSteps(ef),
+    '[paqad] Only after the final step may you address the prompt.',
     '',
   ].join('\n');
 }
