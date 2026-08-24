@@ -22,9 +22,10 @@ GEMINI.md
 .continue
 .vscode/mcp.json
 
-# Generated framework bootstrap — byte-identical to its builder (golden test),
+# Generated framework gate + router — byte-identical to their builders (golden test),
 # regenerated with `pnpm vitest run agent-bootstrap-writer -u`, not hand-formatted.
 runtime/AGENT-BOOTSTRAP.md
+runtime/AGENT-ROUTER.md
 
 # pnpm manages its own lockfile format — don't fight it.
 pnpm-lock.yaml

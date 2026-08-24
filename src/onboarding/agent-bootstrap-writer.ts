@@ -2,49 +2,57 @@ import { buildDecisionPauseContractBody } from './decision-pause-contract-writer
 import { buildNarrationContractBody } from './narration-contract-writer.js';
 
 /**
- * Issue #229 — the single core-owned framework bootstrap.
+ * Issue #229 / #498 — the two core-owned framework docs, gate + router.
  *
- * Every provider's entry file (CLAUDE.md, AGENTS.md, GEMINI.md, …) is now a lean
- * stub that does one thing: resolve `.paqad/framework-path.txt` to the framework
- * install directory (`~/.paqad-ai/current`, a symlink to this package's
- * `runtime/`) and load+follow the bootstrap doc that lives there
- * (`AGENT-BOOTSTRAP.md`, the rendered output of this builder).
+ * Every provider's entry file (CLAUDE.md, AGENTS.md, GEMINI.md, …) is a lean stub
+ * that does one thing: resolve `.paqad/framework-path.txt` to the framework install
+ * directory (`~/.paqad-ai/current`, a symlink to this package's `runtime/`) and
+ * load+follow the bootstrap doc that lives there (`AGENT-BOOTSTRAP.md`, the rendered
+ * output of {@link buildAgentBootstrapDocument}).
  *
- * The bootstrap is the ONLY place the load order and the contracts live now:
+ * Issue #498 split the former monolith into two install docs so the enablement
+ * verdict is provably resolved before any router / narration / stage prose is
+ * loaded, and a DISABLED project ingests none of it:
  *
- *  1. **Enablement check FIRST.** It reads `paqad_enable` straight off the
- *     existing config surfaces (no new artifact) with the exact precedence the
- *     shell/TS/.mjs primitives use, and halts before loading anything when paqad
- *     is off — so a disabled project loads zero `docs/instructions` and zero
- *     `docs/modules` on every provider.
- *  2. The framework load order (rules / stack / design-system / workflows) and
- *     the workflow-handling note — formerly inlined into every entry file.
- *  3. The sentinel write.
- *  4. The FULL narration contract and the FULL decision-pause contract inline
- *     (including the per-adapter UI table — its `claude-code` row is what keeps
- *     the Claude Code decision "tray" / `AskUserQuestion` firing). Both are
- *     sourced from the canonical body builders so the bootstrap cannot drift.
+ *  - **{@link buildAgentBootstrapDocument} → `AGENT-BOOTSTRAP.md` (the gate).** Just
+ *    the enablement check: it reads `paqad_enable` off the existing config surfaces
+ *    (no new artifact) with the exact precedence the shell/TS/.mjs primitives use,
+ *    the OFF bail-out (load nothing, write no sentinel, act normal), and a single
+ *    pointer to load the router next when ON. Host-neutral: the self-probe is the
+ *    default, and one conditional line lets the agent trust a host gate that already
+ *    stated the verdict this turn (Claude Code's prompt-time hook, issue #498 Part A).
+ *  - **{@link buildAgentRouterDocument} → `AGENT-ROUTER.md` (the router).** Loaded
+ *    only when the gate resolves ON. It carries the workflow router, the always-load
+ *    list (rules / stack / design-system / workflows) and workflow-handling note, the
+ *    sentinel write, and the FULL narration and decision-pause contracts inline
+ *    (including the per-adapter UI table — its `claude-code` row keeps the Claude Code
+ *    decision tray / `AskUserQuestion` firing). Both contracts are sourced from the
+ *    canonical body builders so the router cannot drift.
  *
- * The rendered doc is committed at `runtime/AGENT-BOOTSTRAP.md` (it ships in the
- * install and is reached via the symlink — never written into a project). A
- * golden test (`tests/unit/onboarding/agent-bootstrap-writer.test.ts`) asserts
- * the committed file is byte-identical to this builder; regenerate it with
+ * Both rendered docs are committed under `runtime/` (they ship in the install and are
+ * reached via the symlink — never written into a project). A golden test
+ * (`tests/unit/onboarding/agent-bootstrap-writer.test.ts`) asserts each committed
+ * file is byte-identical to its builder; regenerate them with
  * `pnpm vitest run agent-bootstrap-writer -u`.
  */
 
 const BOOTSTRAP_HEADER =
   '<!-- managed by paqad-ai — generated from src/onboarding/agent-bootstrap-writer.ts; regenerate with `pnpm vitest run agent-bootstrap-writer -u`. Do not edit by hand. -->';
 
+/**
+ * The enablement **gate** (`AGENT-BOOTSTRAP.md`): resolve whether paqad is on, bail
+ * out when off, and point at the router when on. Nothing else loads here.
+ */
 export function buildAgentBootstrapDocument(): string {
   return `${BOOTSTRAP_HEADER}
 
 # Paqad Framework Bootstrap
 
-This is the framework entry that every provider's lean entry file points to (it is reached by resolving \`.paqad/framework-path.txt\` to the paqad install directory and loading this file from there). Work through it top to bottom before doing any repository work.
+This is the framework entry that every provider's lean entry file points to (it is reached by resolving \`.paqad/framework-path.txt\` to the paqad install directory and loading this file from there). It resolves ONE thing — whether paqad is enabled for this project — and, when it is, points you at the router. Work through it top to bottom before doing any repository work.
 
 ## 1. Enablement check — do this first
 
-Decide whether paqad is enabled for this project BEFORE loading anything else. Resolve \`paqad_enable\` across these surfaces, highest precedence first (first match wins):
+Decide whether paqad is enabled for this project BEFORE loading anything else. If a host gate has already told you the enablement verdict this turn (some hosts, like Claude Code, resolve it in a prompt-time hook and state it), trust that and skip to the matching branch below. Otherwise resolve \`paqad_enable\` yourself across these surfaces, highest precedence first (first match wins):
 
 1. **\`PAQAD_DISABLED\` environment variable** — if set to \`1\`, \`true\`, \`yes\`, or \`on\` (case-insensitive), paqad is **OFF**, full stop. (Most hosts do not expose environment variables to you. If you cannot read it, move to the next surface.)
 2. **\`PAQAD_ENABLE\` environment variable** — if set, it wins over the files below.
@@ -56,9 +64,26 @@ A value of \`false\`, \`0\`, \`no\`, or \`off\` (case-insensitive) means **OFF**
 
 **If paqad resolves to OFF:** stop here. Load no \`docs/instructions\`, no \`docs/modules\`, no rules, and no contracts; write no sentinel; add no paqad behavior. Just act as a normal assistant. Do not block, warn, or mention paqad.
 
-**If paqad resolves to ON:** continue.
+## 2. When paqad is ON — load the router next
 
-## 2. Route first — pick one workflow, then load only what it needs
+paqad is enabled, so load \`AGENT-ROUTER.md\` from this same install directory next and follow it top to bottom. That is where the rest of the flow lives: it routes the message to exactly one workflow, lists what to load for that workflow, defines the sentinel you write to confirm the load, and carries the paqad narration contract and the Decision Pause Contract. Nothing about that flow changes per host — the only host difference is the one conditional above (trust a host gate that already stated the verdict, otherwise probe it yourself).
+`;
+}
+
+/**
+ * The **router** (`AGENT-ROUTER.md`): loaded only after the gate resolves paqad ON.
+ * Everything the old monolith carried below the enablement check — routing, the
+ * always-load contract, the sentinel, and the full narration + decision-pause
+ * contracts — lives here, so a disabled project never ingests any of it.
+ */
+export function buildAgentRouterDocument(): string {
+  return `${BOOTSTRAP_HEADER}
+
+# Paqad Framework Router
+
+You reach this file from the framework gate (\`AGENT-BOOTSTRAP.md\`) once enablement has resolved to **ON**. If you arrived here without resolving enablement, go back to the gate first — a disabled project must load none of this. Work through it top to bottom before doing any repository work.
+
+## 1. Route first — pick one workflow, then load only what it needs
 
 Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 11 workflows by intent, and narrate the pick in one \`▸ paqad\` line (see the narration contract):
 
@@ -87,7 +112,7 @@ Routing runs on **every** message, and it is stateful — it does not reset:
 - **Resuming continues.** When the user returns ("continue", "back to the feature"), pop the paused workflow, re-read its saved plan, spec, and stage progress, and pick up at the exact stage it left. Do not re-plan or re-write the spec. For feature-development, reload the rules at this point.
 - **New work is not a resume.** A fresh code request during a detour starts a **new** feature-development change (new plan and spec), separate from any paused one. If "continue" is ambiguous about which change it means, ask.
 
-## 3. Load only what the routed workflow needs
+## 2. Load only what the routed workflow needs
 
 Always load these and treat them as the canonical contract for documentation and implementation behavior:
 
@@ -109,9 +134,9 @@ When you routed to **site-map**, load the app's authored map from \`docs/site-ma
 - Do not ask the user to choose a document type when a Paqad workflow already matches the request.
 - Generate or update the canonical project documentation and registries defined by Paqad instead of defaulting to generic templates.
 
-## 4. Confirm the load (sentinel)
+## 3. Confirm the load (sentinel)
 
-Once steps 1–3 are complete, write \`.paqad/.agent-entry-loaded\` with a JSON payload of \`{ "loaded_at": "<ISO timestamp>", "entry_file": "<the entry file you were given, e.g. CLAUDE.md>", "framework_version": "<resolved version>" }\`. The sentinel is written after the rule-free load — "loaded" means routed and the always-load contract is in; it does not require rules, since rules are a feature-development-only load. On Claude Code the PreToolUse gate blocks Edit/Write/NotebookEdit until this sentinel exists; read-only tools stay available so you can finish steps 1–3 first. Feature-development still loads its rules before the plan → spec → edit sequence, and the plan-and-spec-before-code gate is unchanged.
+Once the gate's enablement check and the routing and loading above are complete, write \`.paqad/.agent-entry-loaded\` with a JSON payload of \`{ "loaded_at": "<ISO timestamp>", "entry_file": "<the entry file you were given, e.g. CLAUDE.md>", "framework_version": "<resolved version>" }\`. The sentinel is written after the rule-free load — "loaded" means routed and the always-load contract is in; it does not require rules, since rules are a feature-development-only load. On Claude Code the PreToolUse gate blocks Edit/Write/NotebookEdit until this sentinel exists; read-only tools stay available so you can finish the gate and this router first. Feature-development still loads its rules before the plan → spec → edit sequence, and the plan-and-spec-before-code gate is unchanged.
 
 The sentinel is invalidated automatically if the entry file, \`.paqad/framework-path.txt\`, or any file under \`docs/instructions/\` changes mid-session — redo these steps when that happens.
 
