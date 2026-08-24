@@ -1,6 +1,6 @@
 # Decision Pause Contract — where the contract lives
 
-> **Status:** relocated to the framework bootstrap in #229 (was a managed project doc, #37) &nbsp;·&nbsp; **Owner:** framework-internals
+> **Status:** relocated to the framework bootstrap in #229 (was a managed project doc, #37); moved into the router half of the gate/router split in #498 &nbsp;·&nbsp; **Owner:** framework-internals
 
 ## Why the contract lives in the framework install
 
@@ -19,22 +19,25 @@ file in the install.
 
 ## The architecture
 
-1. **One framework-owned bootstrap** at `runtime/AGENT-BOOTSTRAP.md`, shipped in
+1. **Two framework-owned docs, a gate + a router** (split in #498), both shipped in
    the install (`~/.paqad-ai/current`, the directory `.paqad/framework-path.txt`
-   resolves to). Its **first instruction is an enablement check**; only when paqad
-   is enabled does it list the load order and inline the full contracts. It is
-   assembled by
+   resolves to) and both **never written into a project** — they are reached via the
+   install symlink. `runtime/AGENT-BOOTSTRAP.md` is the **gate**: its only job is the
+   enablement check plus a pointer to load `runtime/AGENT-ROUTER.md` when paqad is ON.
+   The **router** is what inlines the full contracts (and the load order). A disabled
+   project loads neither the router nor any contract prose. Both are assembled by the
+   same builder file —
    [`buildAgentBootstrapDocument()`](../../../src/onboarding/agent-bootstrap-writer.ts)
-   and kept byte-identical to the committed file by a golden test
-   (`tests/unit/onboarding/agent-bootstrap-writer.test.ts`). It is **never written
-   into a project** — it is reached via the install symlink.
+   for the gate and `buildAgentRouterDocument()` for the router — and each is kept
+   byte-identical to its committed file by a golden test
+   (`tests/unit/onboarding/agent-bootstrap-writer.test.ts`).
 
 2. **The contract body** is built by
    [`buildDecisionPauseContractBody()`](../../../src/onboarding/decision-pause-contract-writer.ts)
-   and inlined into the bootstrap, including the per-adapter UI table. The agent
-   selects the row matching the `Adapter:` footer in the lean entry file that
-   pointed it to the bootstrap (e.g. `AskUserQuestion` — the Claude Code decision
-   "tray" — for `claude-code`).
+   and inlined into the **router** (`AGENT-ROUTER.md`), including the per-adapter UI
+   table. The agent selects the row matching the `Adapter:` footer in the lean entry
+   file that pointed it (via the gate) to the router (e.g. `AskUserQuestion` — the
+   Claude Code decision "tray" — for `claude-code`).
 
 3. **A per-adapter UI shim** at
    [`src/adapters/shared/decision-pause-ui-shim.ts`](../../../src/adapters/shared/decision-pause-ui-shim.ts)
@@ -50,8 +53,8 @@ Onboarding and `paqad refresh --providers` prune any stale pre-#229 copy via
 The `## Categories` block in the contract body is generated from
 `DECISION_CATEGORIES` in
 [`src/planning/decision-packet.ts`](../../../src/planning/decision-packet.ts). The
-bootstrap golden test asserts the rendered bootstrap lists every member, so the
-contract cannot drift from the runtime as categories are added.
+router golden test asserts the rendered router lists every member, so the contract
+cannot drift from the runtime as categories are added.
 
 ## Drift detection
 
@@ -79,9 +82,9 @@ there is nothing per-project to refresh for the contract itself.
 | Change | Edit |
 | --- | --- |
 | Add a new Decision category | [`src/planning/decision-packet.ts`](../../../src/planning/decision-packet.ts) — the bootstrap updates on next golden-test regen. |
-| Reword the resolution flow | [`src/onboarding/decision-pause-contract-writer.ts`](../../../src/onboarding/decision-pause-contract-writer.ts), then regenerate the bootstrap. |
+| Reword the resolution flow | [`src/onboarding/decision-pause-contract-writer.ts`](../../../src/onboarding/decision-pause-contract-writer.ts), then regenerate the router. |
 | Adjust a per-adapter UI note | [`src/adapters/shared/decision-pause-ui-shim.ts`](../../../src/adapters/shared/decision-pause-ui-shim.ts). |
-| Change the bootstrap structure | [`src/onboarding/agent-bootstrap-writer.ts`](../../../src/onboarding/agent-bootstrap-writer.ts) (regenerate `runtime/AGENT-BOOTSTRAP.md` with `pnpm vitest run agent-bootstrap-writer -u`). |
+| Change the gate or router structure | [`src/onboarding/agent-bootstrap-writer.ts`](../../../src/onboarding/agent-bootstrap-writer.ts) (regenerate `runtime/AGENT-BOOTSTRAP.md` and `runtime/AGENT-ROUTER.md` with `pnpm vitest run agent-bootstrap-writer -u`). |
 | Change the lean entry-file shape | [`runtime/templates/agent-configs/*.md.hbs`](../../../runtime/templates/agent-configs/) — kept lean per `docs/instructions/rules/coding/agent-entry-files.md`. |
 
 ## Related
