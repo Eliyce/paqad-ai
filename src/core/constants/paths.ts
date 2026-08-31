@@ -212,6 +212,10 @@ export const PATHS = {
   SITE_MAP_ROOT_DIR: '.paqad/site-map',
   SITE_MAP_RUNS_DIR: '.paqad/site-map/runs',
   SITE_MAP_BASELINE: '.paqad/site-map/baseline.json',
+  // Issue D7 (S5) — the resumable authoring-progress store: a per-unit ledger so the same
+  // prompt in a new session resumes instead of restarting. Deliberately git-ignored and
+  // local (a person resumes their own sessions; a teammate starts fresh), like the baseline.
+  SITE_MAP_PROGRESS: '.paqad/site-map/progress.json',
   INDEXES_DIR: '.paqad/indexes',
   // Issue #353 — the deterministic, offline code-knowledge index: every exported
   // symbol (with signature + caller_count) and the file->file / file->symbol edges
