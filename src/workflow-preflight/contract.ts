@@ -52,6 +52,13 @@ export interface PreflightRequirement {
    * that boots the app is exactly what a preflight question is for, so the person decides it first.
    */
   probe: (projectRoot: string) => Promise<ProbeOutcome>;
+  /**
+   * Optional project gate. When present and it returns `false` for this project, the requirement
+   * is not declared for the run at all: it is never probed and never becomes a question. Used for a
+   * requirement that only makes sense on some stacks (for example a Laravel route list on a Laravel
+   * project). A requirement with no `applies` is always declared.
+   */
+  applies?: (projectRoot: string) => boolean;
   /** What to ask when the probe does not come back `ok`. */
   options: PreflightOption[];
 }

@@ -25,6 +25,10 @@ export async function evaluateRequirements(
   // out do not run all at once. There are only a handful of requirements per workflow.
   const results: PreflightRequirementResult[] = [];
   for (const requirement of requirements) {
+    // A requirement gated to certain stacks is simply not declared here when its gate is false, so
+    // it is never probed and never becomes a question (for example a Laravel-only requirement on a
+    // non-Laravel project).
+    if (requirement.applies && !requirement.applies(projectRoot)) continue;
     const outcome = await requirement.probe(projectRoot);
     results.push({
       id: requirement.id,

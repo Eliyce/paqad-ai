@@ -31,6 +31,25 @@ describe('evaluateRequirements', () => {
   });
 });
 
+describe('evaluateRequirements applies gate', () => {
+  it('skips a requirement whose applies() is false, never probing it', async () => {
+    const gated = req('gated', 'unavailable');
+    gated.applies = () => false;
+    const always = req('always', 'ok');
+    const results = await evaluateRequirements([gated, always], '/proj');
+
+    expect(results.map((r) => r.id)).toEqual(['always']);
+    expect(gated.probe).not.toHaveBeenCalled();
+  });
+
+  it('keeps a requirement whose applies() is true', async () => {
+    const gated = req('gated', 'ok');
+    gated.applies = () => true;
+    const results = await evaluateRequirements([gated], '/proj');
+    expect(results.map((r) => r.id)).toEqual(['gated']);
+  });
+});
+
 describe('runPreflight', () => {
   beforeEach(() => requirementsFor.mockReset());
 
