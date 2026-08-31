@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 1 of 10 |
+| **Tasks done** | 2 of 10 |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S2** (honest verdict when the map is absent or link-less). No dependency, DEC-1 not needed. |
+| **Next action** | Start **S4** (report the surface inventory before any write). No dependency, DEC-1 not needed. |
 | **Blocked on** | **DEC-1** blocks S3 only. See `plan.md` §5. Raise the decision packet early so it is answered by the time S3 comes up. |
-| **Last updated** | 2026-08-31, session 2: S1 landed, changeset added, PR #509 opened |
+| **Last updated** | 2026-08-31, session 3: S2 landed |
 
 ---
 
@@ -27,7 +27,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | Task | What it does | Fixes | Size | Status | Commit |
 | --- | --- | --- | --- | --- | --- |
 | **S1** | Recompile the rulebook when it goes stale | D1 | S | `done` | `3c2949a7` |
-| **S2** | Honest verdict when the map is absent or link-less | D4 | S | `todo` | |
+| **S2** | Honest verdict when the map is absent or link-less | D4 | S | `done` | `255d4287` |
 | **S3a** | Preflight: requirement contract and registry | D5 D6 | M | `blocked` (DEC-1) | |
 | **S3b** | Preflight: site-map requirements and the tray | D5 D6 | M | `blocked` (DEC-1) | |
 | **S3c** | Preflight: persist answers into the answer store | D6 | M | `blocked` (DEC-1) | |
@@ -56,7 +56,7 @@ Tick a defect only when every task that fixes it is done.
 - [ ] **D1** Stale rulebook served to the agent, describing the wrong folder and claiming the verb writes the map. `S1`, `S10`
 - [ ] **D2** Nothing writes the map; the AI hand-types it; the command is hidden. `S8a`, `S8b`, `S8c`
 - [ ] **D3** Nothing detects links; 0 transitions in a 112-surface map. `S9a`, `S9b`, `S9c`
-- [ ] **D4** An absent or link-less map reads "Safe to merge". `S2`
+- [x] **D4** An absent or link-less map reads "Safe to merge". `S2`
 - [ ] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
 - [ ] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
 - [ ] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b`
@@ -79,6 +79,24 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 3: S2
+
+- **S2 done** (`255d4287`): `collectVerificationFindings` now records a `map-present` blocked
+  check when there is no stored map, and `detectGraphInvariants` records a `reachability`
+  blocked check when a map records zero transitions (the checks still short-circuit; the skip
+  is just visible now). `SiteMapRunResult` gains `verdict: 'safe' | 'attention' | 'inconclusive'`
+  via a pure `deriveSiteMapVerdict`; the CLI prints it in the contract words and adds it to the
+  JSON line. Exit codes are unchanged. The 8 stale `docs/instructions/site-map/app-map.yaml`
+  resolution strings now point at `PATHS.SITE_MAP_CANONICAL_APP_MAP`. Tests: rewrote the no-map
+  and zero-transition verification tests, updated the two run tests whose null-map path now
+  carries `map-present`, and added four verdict-scenario run tests plus a five-branch unit test
+  of `deriveSiteMapVerdict` and a CLI Inconclusive test. `pnpm run ci` green.
+- Note on the DoD line: `sitemap run` in this repo now reports **Needs your attention**, not
+  Inconclusive. The plan's snapshot (112 surfaces, 0 transitions) is stale — the live map has
+  since gained transitions and carries 4 real findings, so `attention` (findings outrank the
+  inconclusive reasons, AC-3) is the honest verdict. The D4 fix itself is proven by the unit
+  tests: a zero-findings absent/link-less map now reads `inconclusive`, never `safe`.
 
 ### 2026-08-31, session 2: S1
 
