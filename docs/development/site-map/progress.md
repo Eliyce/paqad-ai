@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 4 of 10 |
+| **Tasks done** | 5 of 10 |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S5b** (`sitemap status` reads the progress file). Depends on S5a (done). See `plan.md` §6 S5b: a read-only readout verb over `readProgress`, always exit `0`, no writes (no crash-recovery reset). |
+| **Next action** | Start **S6** (show the run progress in the dashboard). Depends on S5 (done). See `plan.md` §6 S6: reuse `OpButton` (SSE + poll backstop), add `GET /api/site-map/progress` (static read, `null` when none), emit one `progress()` per completed unit, and render a strip only when a progress file exists. |
 | **Blocked on** | **DEC-1** blocks S3 only. See `plan.md` §5. Raise the decision packet early so it is answered by the time S3 comes up. |
-| **Last updated** | 2026-08-31, session 5: S5a landed |
+| **Last updated** | 2026-08-31, session 6: S5b landed |
 
 ---
 
@@ -33,7 +33,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S3c** | Preflight: persist answers into the answer store | D6 | M | `blocked` (DEC-1) | |
 | **S4** | Report the surface inventory before any write | D7 | S | `done` | `d29896b1` |
 | **S5a** | Progress store with crash recovery | D7 | M | `done` | `e5583cde` |
-| **S5b** | `sitemap status` reads the progress file | D7 | S | `todo` | |
+| **S5b** | `sitemap status` reads the progress file | D7 | S | `done` | `bfdb57ac` |
 | **S6** | Show run progress in the dashboard | D8 | S | `todo` | |
 | **S7** | Full-screen map and a readable zoom floor | D8 | S | `todo` | |
 | **S8a** | Draft the map skeleton from the extraction | D2 | L | `todo` | |
@@ -59,7 +59,7 @@ Tick a defect only when every task that fixes it is done.
 - [x] **D4** An absent or link-less map reads "Safe to merge". `S2`
 - [ ] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
 - [ ] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
-- [ ] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b`
+- [ ] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b` (S8b still open)
 - [ ] **D8** No full screen anywhere; no run progress shown. `S6`, `S7`
 
 ---
@@ -79,6 +79,30 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 6: S5b
+
+- **S5b done** (`bfdb57ac`): the read-only `paqad-ai sitemap status` verb. A new pure
+  `summarizeProgress(progress) -> { total, done, writing, failed, remaining, next }`
+  (`src/site-map/progress-store.ts`, with `SiteMapProgressSummary` in
+  `src/core/types/site-map-progress.ts`) counts units by state — `remaining` is the
+  `not_started` count so `total = done + writing + failed + remaining` — and picks the first
+  `not_started` unit in declaration order as `next` (null when none remain). The `status` verb
+  (`src/cli/commands/sitemap.ts`) reads through `readProgress` only, prints a human counts line +
+  next-unit line + a JSON line, and with no file prints the from-the-beginning line +
+  `{"status":"none"}`. It always exits `0` and performs no writes (no crash-recovery reset), so it
+  is safe while a run is in flight. Tests: `summarizeProgress` directly (mixed states, all-done →
+  next null, first-of-two not_started, empty); CLI (registered, populated, absent, and a
+  `writing`-only file asserting `saveProgress`/`recoverInFlight` are never called). `pnpm run ci`
+  green (exit 0); `paqad-ai checks run` green (format/test/build). Smoke-tested in this repo: no
+  progress file → the from-the-beginning line + `{"status":"none"}`, exit 0; `sitemap --help`
+  lists the verb.
+- **Spec-driven divergence recorded.** Unlike the sibling verbs, `status` has no
+  try/catch → exit 2: `readProgress` is tolerant (never throws) and `summarizeProgress` is pure, so
+  a catch branch would be unreachable and break the 95% branch floor; AC-3 mandates always-`0`
+  anyway. Documented at the call site and in the plan decisions.
+- D7 stays open: S5b (status readout) is done, but `S8b` (draft resumes from the progress file)
+  still remains before D7 can be ticked.
 
 ### 2026-08-31, session 5: S5a
 
