@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 3 of 10 |
+| **Tasks done** | 4 of 10 |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S5a** (progress store with crash recovery). Depends on S4 (done). Copy `src/document/progress-tracker.ts`; see `plan.md` §6 S5a. |
+| **Next action** | Start **S5b** (`sitemap status` reads the progress file). Depends on S5a (done). See `plan.md` §6 S5b: a read-only readout verb over `readProgress`, always exit `0`, no writes (no crash-recovery reset). |
 | **Blocked on** | **DEC-1** blocks S3 only. See `plan.md` §5. Raise the decision packet early so it is answered by the time S3 comes up. |
-| **Last updated** | 2026-08-31, session 4: S4 landed |
+| **Last updated** | 2026-08-31, session 5: S5a landed |
 
 ---
 
@@ -32,7 +32,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S3b** | Preflight: site-map requirements and the tray | D5 D6 | M | `blocked` (DEC-1) | |
 | **S3c** | Preflight: persist answers into the answer store | D6 | M | `blocked` (DEC-1) | |
 | **S4** | Report the surface inventory before any write | D7 | S | `done` | `d29896b1` |
-| **S5a** | Progress store with crash recovery | D7 | M | `todo` | |
+| **S5a** | Progress store with crash recovery | D7 | M | `done` | `e5583cde` |
 | **S5b** | `sitemap status` reads the progress file | D7 | S | `todo` | |
 | **S6** | Show run progress in the dashboard | D8 | S | `todo` | |
 | **S7** | Full-screen map and a readable zoom floor | D8 | S | `todo` | |
@@ -79,6 +79,32 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 5: S5a
+
+- **S5a done** (`e5583cde`): the resumable progress store. New persisted shape
+  `SiteMapProgressFile` / `SiteMapProgressUnit` (`src/core/types/site-map-progress.ts`) with a
+  registered JSON schema (`src/validators/schemas/site-map-progress.schema.json`), a new
+  `PATHS.SITE_MAP_PROGRESS` (`.paqad/site-map/progress.json`), and a functional
+  `src/site-map/progress-store.ts`: tolerant `readProgress` (missing/corrupt/schema-invalid →
+  `null`, never throws), atomic `saveProgress` (writes through `writeJsonFile` to a unique temp
+  path + rename, stamps `updated_at`), `recoverInFlight` crash recovery (every `writing` unit →
+  `not_started`, `started_at`/`error` cleared, its `artifact` file **deleted**), and
+  `reconcileDoneUnits` skip rule (a `done` unit whose `source_hash` still matches is skipped; a
+  changed hash resets it), plus the `createEmptyProgress`/`createUnit`/`startUnit`/
+  `completeUnit`/`failUnit` mutators. Reuses `hashSourceFiles` (`src/document/staleness.ts`) for
+  staleness. This is the store only; the `sitemap status` verb is S5b. Tests: every state
+  transition, the reset-and-delete on load (artifact asserted gone), hash-match skip, hash-change
+  reset, corrupt and schema-invalid reads → empty, and two concurrent writes not interleaving.
+  Store file at 100% coverage; `pnpm run ci` green (8325 tests, 95.36% branches). No CLI or
+  dashboard touched; no dependency added; no API/exit-code change.
+- **Plan gap resolved (AC-3).** The plan says "atomic write: temp file plus rename" *and* "reuse
+  `writeJsonFile`", but `writeJsonFile` is a plain `mkdir`+`writeFile` (not atomic). Recorded
+  reading, honoured in code and in the plan's decisions: `saveProgress` writes the JSON through
+  `writeJsonFile` to a **unique** temp path (pid + a monotonic counter) and then `rename`s it onto
+  the target — satisfying both clauses and the "two writes do not interleave" criterion.
+- D7 stays open: S5a is the store; `S5b` (status readout) and `S8b` (draft resumes from it) still
+  remain before D7 can be ticked.
 
 ### 2026-08-31, session 4: S4
 
