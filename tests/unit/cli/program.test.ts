@@ -45,6 +45,7 @@ describe('createProgram', () => {
       'update',
       'patterns',
       'plan',
+      'preflight',
       'spec',
       'review',
       'stage',
