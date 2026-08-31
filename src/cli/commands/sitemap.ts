@@ -15,6 +15,7 @@ import {
   parseCreationDecisions,
   recordCreationAnswers,
 } from '@/site-map/creation-flow.js';
+import { buildSiteMapDraft } from '@/site-map/draft.js';
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
 import { runJourneyCuration, type JourneyCurationAction } from '@/site-map/journey-curation.js';
 import { readProgress, summarizeProgress } from '@/site-map/progress-store.js';
@@ -24,6 +25,7 @@ import {
   gatherSiteMapReport,
   runSiteMapAudit,
 } from '@/site-map/run.js';
+import { writeCanonicalSiteMap } from '@/site-map/store.js';
 
 interface RunFlags {
   projectRoot: string;
@@ -79,6 +81,37 @@ export function createSitemapCommand(): Command {
         }
       } catch (error) {
         console.error(`**▸ paqad** · sitemap run failed: ${(error as Error).message}`);
+        process.exitCode = 2;
+      }
+    });
+
+  command
+    .command('draft')
+    .description(
+      'Write the map skeleton from the extracted surfaces — the engine drafts, you add meaning',
+    )
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action(async (options: { projectRoot: string }) => {
+      try {
+        // Gather read-only through the same seam `inventory` uses, then write the skeleton straight
+        // from what extraction proved (S8a). Nothing is invented here — one surface per extracted
+        // surface, evidence unchanged, no transitions or journeys — so the model adds meaning to a
+        // grounded map instead of retyping hundreds of entries (D2). `writeCanonicalSiteMap`
+        // validates before persisting, so a schema-invalid draft can never land on disk.
+        const gathered = await gatherSiteMapReport({
+          projectRoot: options.projectRoot,
+          gatherer: createSiteMapGatherer(options.projectRoot),
+          workflow: 'site-map',
+          now: new Date(),
+        });
+        const map = buildSiteMapDraft(gathered.extraction, gathered.report.app);
+        const path = writeCanonicalSiteMap(options.projectRoot, map);
+        console.log(
+          `**▸ paqad** · site map — drafted ${map.surfaces.length} surface(s) into ${path}. Add the meaning the code does not carry, then run \`sitemap run\` to prove it.`,
+        );
+        process.exitCode = 0;
+      } catch (error) {
+        console.error(`**▸ paqad** · sitemap draft failed: ${(error as Error).message}`);
         process.exitCode = 2;
       }
     });

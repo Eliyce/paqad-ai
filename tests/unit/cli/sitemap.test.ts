@@ -13,6 +13,7 @@ const recordCreationAnswers = vi.fn();
 const readProgress = vi.fn();
 const saveProgress = vi.fn();
 const recoverInFlight = vi.fn();
+const writeCanonicalSiteMap = vi.fn(() => 'docs/site-map/app-map.yaml');
 
 // Mock the two fs-touching run entry points but keep the real pure inventory helpers
 // (deriveSiteMapInventory / describeSiteMapInventory).
@@ -37,6 +38,12 @@ vi.mock('@/site-map/progress-store.js', async (importOriginal) => ({
   saveProgress,
   recoverInFlight,
 }));
+// Mock only the fs-touching canonical writer; keep the real, pure buildSiteMapDraft so `draft`
+// is proven to build a real skeleton off the gathered extraction.
+vi.mock('@/site-map/store.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/site-map/store.js')>()),
+  writeCanonicalSiteMap,
+}));
 
 const { createSitemapCommand } = await import('@/cli/commands/sitemap.js');
 const { createProgram } = await import('@/cli/program.js');
@@ -60,6 +67,8 @@ describe('paqad-ai sitemap command', () => {
     readProgress.mockReset();
     saveProgress.mockReset();
     recoverInFlight.mockReset();
+    writeCanonicalSiteMap.mockClear();
+    writeCanonicalSiteMap.mockReturnValue('docs/site-map/app-map.yaml');
   });
 
   afterEach(() => {
@@ -192,6 +201,62 @@ describe('paqad-ai sitemap command', () => {
     const out = await invoke(['inventory']);
     expect(process.exitCode).toBe(2);
     expect(out.join('\n')).toContain('sitemap inventory failed: scan blew up');
+  });
+
+  it('draft is a registered subcommand (S8a)', () => {
+    const names = createSitemapCommand().commands.map((c) => c.name());
+    expect(names).toContain('draft');
+  });
+
+  it('draft: gathers, writes the skeleton, prints the count + path, exits 0 (S8a, AC-1)', async () => {
+    gatherSiteMapReport.mockResolvedValue({
+      extraction: {
+        surfaces: [
+          {
+            raw_id: 'node-cli-a',
+            kind: 'cli-command',
+            label: 'A',
+            evidence: [{ file: 'a.ts', line: 1 }],
+          },
+        ],
+      },
+      report: { app: { name: 'paqad-ai', kind: 'cli', frameworks: ['commander'] } },
+    });
+    const out = await invoke(['draft', '--project-root', '/tmp/app']);
+    expect(process.exitCode).toBe(0);
+    expect(createSiteMapGatherer).toHaveBeenCalledWith('/tmp/app');
+    // The writer is driven with the projectRoot and a real skeleton built off the extraction.
+    expect(writeCanonicalSiteMap).toHaveBeenCalledTimes(1);
+    const [rootArg, mapArg] = writeCanonicalSiteMap.mock.calls[0] as [
+      string,
+      { surfaces: unknown[] },
+    ];
+    expect(rootArg).toBe('/tmp/app');
+    expect(mapArg.surfaces).toHaveLength(1);
+    expect(out.join('\n')).toContain('drafted 1 surface(s) into docs/site-map/app-map.yaml');
+  });
+
+  it('draft: a schema-invalid draft (writer throws) exits 2 (S8a, AC-4)', async () => {
+    gatherSiteMapReport.mockResolvedValue({
+      extraction: { surfaces: [] },
+      report: { app: { name: 'paqad-ai', kind: 'cli', frameworks: [] } },
+    });
+    writeCanonicalSiteMap.mockImplementation(() => {
+      throw new Error('canonical app-map failed schema validation');
+    });
+    const out = await invoke(['draft']);
+    expect(process.exitCode).toBe(2);
+    expect(out.join('\n')).toContain(
+      'sitemap draft failed: canonical app-map failed schema validation',
+    );
+  });
+
+  it('draft: an unexpected gather error exits 2 (S8a)', async () => {
+    gatherSiteMapReport.mockRejectedValue(new Error('scan blew up'));
+    const out = await invoke(['draft']);
+    expect(process.exitCode).toBe(2);
+    expect(out.join('\n')).toContain('sitemap draft failed: scan blew up');
+    expect(writeCanonicalSiteMap).not.toHaveBeenCalled();
   });
 
   it('status is a registered subcommand (S5b)', () => {

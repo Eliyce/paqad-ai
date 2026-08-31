@@ -8,6 +8,7 @@ export * from './shared.js';
 export * from './baseline.js';
 export * from './ledger.js';
 export * from './extraction.js';
+export * from './draft.js';
 export * from './verification.js';
 export * from './trust.js';
 export * from './freshness.js';
