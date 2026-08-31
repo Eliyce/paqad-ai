@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 2 of 10 |
+| **Tasks done** | 3 of 10 |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S4** (report the surface inventory before any write). No dependency, DEC-1 not needed. |
+| **Next action** | Start **S5a** (progress store with crash recovery). Depends on S4 (done). Copy `src/document/progress-tracker.ts`; see `plan.md` §6 S5a. |
 | **Blocked on** | **DEC-1** blocks S3 only. See `plan.md` §5. Raise the decision packet early so it is answered by the time S3 comes up. |
-| **Last updated** | 2026-08-31, session 3: S2 landed |
+| **Last updated** | 2026-08-31, session 4: S4 landed |
 
 ---
 
@@ -31,7 +31,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S3a** | Preflight: requirement contract and registry | D5 D6 | M | `blocked` (DEC-1) | |
 | **S3b** | Preflight: site-map requirements and the tray | D5 D6 | M | `blocked` (DEC-1) | |
 | **S3c** | Preflight: persist answers into the answer store | D6 | M | `blocked` (DEC-1) | |
-| **S4** | Report the surface inventory before any write | D7 | S | `todo` | |
+| **S4** | Report the surface inventory before any write | D7 | S | `done` | `d29896b1` |
 | **S5a** | Progress store with crash recovery | D7 | M | `todo` | |
 | **S5b** | `sitemap status` reads the progress file | D7 | S | `todo` | |
 | **S6** | Show run progress in the dashboard | D8 | S | `todo` | |
@@ -79,6 +79,25 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 4: S4
+
+- **S4 done** (`d29896b1`): a run now says how big the job is before any write. Added a pure
+  `deriveSiteMapInventory(extraction) -> { screens, groups, guards }` and a shared
+  `describeSiteMapInventory` sentence in `run.ts`; `SiteMapRunResult` carries an `inventory` block
+  and `runSiteMapAudit` gained an optional `onInventory` callback fired once after gather. New
+  read-only `paqad-ai sitemap inventory` verb (gathers via `gatherSiteMapReport`, prints the
+  sentence + a JSON line, `--quiet` suppresses the JSON, no writes). The dashboard `site-map` ops
+  job now reports the inventory as its first progress line, replacing the generic "Mapping the app"
+  sentence. No journey count (AC-4). Tests: inventory helper (modules/guards + empty), the CLI verb
+  (read-only, JSON shape, `--quiet`, error path), and the ops first-progress sentence. `pnpm run ci`
+  green (8315 + 13 tests, coverage floors met). Exit codes and the verdict are unchanged.
+- **`guards` semantics (plan gap resolved).** The plan fixes `inventory.guards: number` but only
+  defines `groups`. Recorded reading: `guards` is the count of **distinct guard tokens** across the
+  extracted surfaces — the numeric parallel of `groups` (distinct modules). Documented on the type,
+  in the spec, and tested directly.
+- D7 stays open: S4 is the inventory the resumable store (S5) will tick off; `S5a`, `S5b`, `S8b`
+  still remain.
 
 ### 2026-08-31, session 3: S2
 
