@@ -102,7 +102,7 @@
     "execa": "^9.6.0",
     "fast-glob": "^3.3.3",
     "handlebars": "^4.7.9",
-    "openai": "^7.5.0",
+    "openai": "^7.8.0",
     "ora": "^9.4.1",
     "pathe": "^2.0.3",
     "voyageai": "^0.4.0",
