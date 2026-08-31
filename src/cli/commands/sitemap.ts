@@ -17,6 +17,7 @@ import {
 } from '@/site-map/creation-flow.js';
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
 import { runJourneyCuration, type JourneyCurationAction } from '@/site-map/journey-curation.js';
+import { readProgress, summarizeProgress } from '@/site-map/progress-store.js';
 import {
   deriveSiteMapInventory,
   describeSiteMapInventory,
@@ -107,6 +108,37 @@ export function createSitemapCommand(): Command {
         console.error(`**▸ paqad** · sitemap inventory failed: ${(error as Error).message}`);
         process.exitCode = 2;
       }
+    });
+
+  command
+    .command('status')
+    .description('Show how far the last mapping run got and what a resumed run would do next')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .action(async (options: { projectRoot: string }) => {
+      // A readout, not a gate (S5b). It reads through `readProgress` only — a tolerant, write-free
+      // read that never resets a `writing` unit (AC-4) — so `status` is safe to run at any moment,
+      // including while a run is in flight. There is deliberately no try/catch → exit 2: readProgress
+      // never throws and summarizeProgress is pure, so a catch branch would be unreachable, and AC-3
+      // requires status to always exit 0 regardless.
+      const progress = await readProgress(options.projectRoot);
+      if (progress === null) {
+        console.log(
+          '**▸ paqad** · site map — no progress recorded yet, so a run would start from the beginning.',
+        );
+        console.log(JSON.stringify({ status: 'none' }));
+        process.exitCode = 0;
+        return;
+      }
+      const summary = summarizeProgress(progress);
+      const nextLine =
+        summary.next === null
+          ? 'Nothing left to do.'
+          : `Next up: ${summary.next.id} (${summary.next.label}).`;
+      console.log(
+        `**▸ paqad** · site map — ${summary.done} of ${summary.total} done, ${summary.writing} writing, ${summary.failed} failed, ${summary.remaining} to go. ${nextLine}`,
+      );
+      console.log(JSON.stringify({ status: 'ready', ...summary }));
+      process.exitCode = 0;
     });
 
   command

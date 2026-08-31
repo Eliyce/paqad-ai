@@ -10,6 +10,9 @@ const runJourneyCuration = vi.fn();
 const createSiteMapGatherer = vi.fn(() => ({}) as never);
 const deriveCreationQuestions = vi.fn();
 const recordCreationAnswers = vi.fn();
+const readProgress = vi.fn();
+const saveProgress = vi.fn();
+const recoverInFlight = vi.fn();
 
 // Mock the two fs-touching run entry points but keep the real pure inventory helpers
 // (deriveSiteMapInventory / describeSiteMapInventory).
@@ -25,6 +28,14 @@ vi.mock('@/site-map/creation-flow.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/creation-flow.js')>()),
   deriveCreationQuestions,
   recordCreationAnswers,
+}));
+// Mock the fs-touching read/write of the progress store but keep the real, pure summarizeProgress:
+// `status` must be proven to read only, never write.
+vi.mock('@/site-map/progress-store.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/site-map/progress-store.js')>()),
+  readProgress,
+  saveProgress,
+  recoverInFlight,
 }));
 
 const { createSitemapCommand } = await import('@/cli/commands/sitemap.js');
@@ -46,6 +57,9 @@ describe('paqad-ai sitemap command', () => {
     createSiteMapGatherer.mockClear();
     deriveCreationQuestions.mockReset();
     recordCreationAnswers.mockReset();
+    readProgress.mockReset();
+    saveProgress.mockReset();
+    recoverInFlight.mockReset();
   });
 
   afterEach(() => {
@@ -178,6 +192,60 @@ describe('paqad-ai sitemap command', () => {
     const out = await invoke(['inventory']);
     expect(process.exitCode).toBe(2);
     expect(out.join('\n')).toContain('sitemap inventory failed: scan blew up');
+  });
+
+  it('status is a registered subcommand (S5b)', () => {
+    const names = createSitemapCommand().commands.map((c) => c.name());
+    expect(names).toContain('status');
+  });
+
+  it('status: a populated file prints the counts, the next unit, JSON, and exits 0 (S5b, AC-1)', async () => {
+    readProgress.mockResolvedValue({
+      units: {
+        'group:a': { id: 'group:a', label: 'Billing', state: 'done' },
+        'group:b': { id: 'group:b', label: 'Auth', state: 'writing' },
+        'group:c': { id: 'group:c', label: 'Checkout', state: 'not_started' },
+      },
+    });
+    const out = await invoke(['status', '--project-root', '/tmp/app']);
+    expect(process.exitCode).toBe(0);
+    expect(readProgress).toHaveBeenCalledWith('/tmp/app');
+    expect(out.join('\n')).toContain('1 of 3 done, 1 writing, 0 failed, 1 to go');
+    expect(out.join('\n')).toContain('Next up: group:c (Checkout).');
+    expect(out.join('\n')).toContain('"status":"ready"');
+    expect(out.join('\n')).toContain('"remaining":1');
+    expect(out.join('\n')).toContain('"next":{"id":"group:c","label":"Checkout"}');
+    // A readout never writes, and never runs crash recovery (AC-4).
+    expect(saveProgress).not.toHaveBeenCalled();
+    expect(recoverInFlight).not.toHaveBeenCalled();
+  });
+
+  it('status: no progress file says it would start from the beginning, JSON none, exits 0 (S5b, AC-2)', async () => {
+    readProgress.mockResolvedValue(null);
+    const out = await invoke(['status']);
+    expect(process.exitCode).toBe(0);
+    expect(out.join('\n')).toContain('no progress recorded yet');
+    expect(out.join('\n')).toContain('start from the beginning');
+    expect(out.join('\n')).toContain('"status":"none"');
+    expect(saveProgress).not.toHaveBeenCalled();
+    expect(recoverInFlight).not.toHaveBeenCalled();
+  });
+
+  it('status: a writing unit is reported as writing and is NOT reset by status (S5b, AC-3/AC-4)', async () => {
+    readProgress.mockResolvedValue({
+      units: {
+        'journey:checkout': { id: 'journey:checkout', label: 'Checkout, guest', state: 'writing' },
+      },
+    });
+    const out = await invoke(['status']);
+    expect(process.exitCode).toBe(0);
+    expect(out.join('\n')).toContain('0 of 1 done, 1 writing, 0 failed, 0 to go');
+    // No not_started unit remains, so there is nothing to do next.
+    expect(out.join('\n')).toContain('Nothing left to do.');
+    expect(out.join('\n')).toContain('"writing":1');
+    expect(out.join('\n')).toContain('"next":null');
+    expect(saveProgress).not.toHaveBeenCalled();
+    expect(recoverInFlight).not.toHaveBeenCalled();
   });
 
   it('retest is retired: the subcommand no longer exists (ART-3)', async () => {

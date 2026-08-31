@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import type {
   SiteMapProgressFile,
+  SiteMapProgressSummary,
   SiteMapProgressUnit,
   SiteMapProgressUnitKind,
 } from '@/core/types/site-map-progress.js';
@@ -165,6 +166,44 @@ export async function recoverInFlight(
     reset.push(unit.id);
   }
   return reset;
+}
+
+/**
+ * Summarise the store for the read-only `sitemap status` verb (S5b): count the units by state
+ * and pick the next one to work on. Pure — no filesystem, network, or clock (INV-3), so `status`
+ * can call it after a plain `readProgress` without ever writing. `remaining` is the `not_started`
+ * count, so total = done + writing + failed + remaining (FR-5). `next` is the first `not_started`
+ * unit in the store's declaration order, or null when none remain (FR-6). A `writing` unit is
+ * counted as writing and is never treated as `next` — a run resets `writing` to `not_started` on
+ * load before such a unit is next, and `status` must not assume the reset it may not perform.
+ */
+export function summarizeProgress(progress: SiteMapProgressFile): SiteMapProgressSummary {
+  const units = Object.values(progress.units);
+  let done = 0;
+  let writing = 0;
+  let failed = 0;
+  let remaining = 0;
+  let next: { id: string; label: string } | null = null;
+  for (const unit of units) {
+    switch (unit.state) {
+      case 'done':
+        done += 1;
+        break;
+      case 'writing':
+        writing += 1;
+        break;
+      case 'failed':
+        failed += 1;
+        break;
+      case 'not_started':
+        remaining += 1;
+        if (next === null) {
+          next = { id: unit.id, label: unit.label };
+        }
+        break;
+    }
+  }
+  return { total: units.length, done, writing, failed, remaining, next };
 }
 
 /**

@@ -31,6 +31,21 @@ export interface SiteMapProgressUnit {
   error: string | null;
 }
 
+/**
+ * A read-only projection of the store for the `sitemap status` verb (S5b): the per-state unit
+ * counts and the next unit to work on. `remaining` is the `not_started` count, so
+ * total = done + writing + failed + remaining. `next` is the first `not_started` unit, or null
+ * when none remain.
+ */
+export interface SiteMapProgressSummary {
+  total: number;
+  done: number;
+  writing: number;
+  failed: number;
+  remaining: number;
+  next: { id: string; label: string } | null;
+}
+
 /** The persisted progress file. `progress-store.ts` is its only writer. */
 export interface SiteMapProgressFile {
   schema_version: '1';

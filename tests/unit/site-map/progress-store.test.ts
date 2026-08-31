@@ -18,6 +18,7 @@ import {
   recoverInFlight,
   saveProgress,
   startUnit,
+  summarizeProgress,
 } from '@/site-map/progress-store.js';
 
 const T0 = new Date('2026-08-31T10:00:00.000Z');
@@ -254,6 +255,89 @@ describe('site-map progress store (S5a)', () => {
       expect(progress.units['group:a'].state).toBe('not_started');
       expect(progress.units['group:a'].source_hash).toBeNull();
       expect(progress.units['group:a'].completed_at).toBeNull();
+    });
+  });
+
+  describe('summarizeProgress (S5b, AC-4)', () => {
+    function seed(): ReturnType<typeof createEmptyProgress> {
+      return createEmptyProgress({ screens: 0, groups: [] }, T0);
+    }
+
+    function put(
+      progress: ReturnType<typeof createEmptyProgress>,
+      id: string,
+      apply?: (unit: SiteMapProgressUnit) => void,
+    ): void {
+      const unit = createUnit({
+        id,
+        kind: 'group',
+        label: `label:${id}`,
+        artifact: null,
+        source_files: [],
+      });
+      apply?.(unit);
+      progress.units[id] = unit;
+    }
+
+    it('counts every state, sets remaining = not_started, and picks the first not_started as next', () => {
+      const progress = seed();
+      put(progress, 'group:done', (u) => completeUnit(u, 'h', T1));
+      put(progress, 'group:writing', (u) => startUnit(u, T1));
+      put(progress, 'group:failed', (u) => failUnit(u, 'boom', T1));
+      put(progress, 'group:todo-1'); // not_started
+      put(progress, 'group:todo-2'); // not_started
+
+      const summary = summarizeProgress(progress);
+
+      expect(summary).toEqual({
+        total: 5,
+        done: 1,
+        writing: 1,
+        failed: 1,
+        remaining: 2,
+        next: { id: 'group:todo-1', label: 'label:group:todo-1' },
+      });
+      // total = done + writing + failed + remaining (FR-5).
+      expect(summary.done + summary.writing + summary.failed + summary.remaining).toBe(
+        summary.total,
+      );
+    });
+
+    it('next is the FIRST not_started unit in declaration order, not a later one', () => {
+      const progress = seed();
+      put(progress, 'group:first'); // not_started
+      put(progress, 'group:second'); // not_started
+
+      expect(summarizeProgress(progress).next).toEqual({
+        id: 'group:first',
+        label: 'label:group:first',
+      });
+    });
+
+    it('an all-done store has no next unit and zero remaining', () => {
+      const progress = seed();
+      put(progress, 'group:a', (u) => completeUnit(u, 'h', T1));
+      put(progress, 'group:b', (u) => completeUnit(u, 'h', T1));
+
+      expect(summarizeProgress(progress)).toEqual({
+        total: 2,
+        done: 2,
+        writing: 0,
+        failed: 0,
+        remaining: 0,
+        next: null,
+      });
+    });
+
+    it('an empty store summarises to all zeroes and no next', () => {
+      expect(summarizeProgress(seed())).toEqual({
+        total: 0,
+        done: 0,
+        writing: 0,
+        failed: 0,
+        remaining: 0,
+        next: null,
+      });
     });
   });
 });
