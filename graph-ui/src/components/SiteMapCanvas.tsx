@@ -21,6 +21,7 @@ import {
   type StoredPositions,
 } from '../lib/site-map-district-layout';
 import { deadSurfaceIds, journeySurfaceIds } from '../lib/site-map-derive';
+import { isMapOversized, SITE_MAP_MIN_ZOOM } from '../lib/site-map-fullscreen';
 import type { AppMap, Journey, SiteMapStoredLayout } from '../lib/site-map-types';
 import { guardList } from '../lib/site-map-types';
 import { JourneyLines, type Station } from './JourneyLines';
@@ -125,6 +126,9 @@ function Flow({
   const { zoomIn, zoomOut, fitView, setCenter } = useReactFlow();
   const colorMode = useDashboardColorMode();
   const [wheelMode, setWheelMode] = useWheelMode();
+  // True when a fit-to-view was clamped at the zoom floor: the map is wider than the window can show
+  // at a readable zoom, so we point the reader at the minimap instead of shrinking cards (S7, FR-5).
+  const [oversized, setOversized] = useState(false);
   const reducedMotion = useMemo(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     [],
@@ -310,8 +314,9 @@ function Flow({
         proOptions={{ hideAttribution: true }}
         fitView
         fitViewOptions={{ padding: 0.1 }}
-        minZoom={0.05}
+        minZoom={SITE_MAP_MIN_ZOOM}
         maxZoom={2}
+        onMoveEnd={(_, viewport) => setOversized(isMapOversized(viewport.zoom, SITE_MAP_MIN_ZOOM))}
         panOnScroll={wheelMode === 'pan'}
         zoomOnScroll={wheelMode === 'zoom'}
         zoomOnPinch
@@ -402,6 +407,21 @@ function Flow({
           </button>
         )}
       </div>
+
+      {/* Over-size hint (S7, FR-5): shown only when a fit was clamped at the zoom floor, so cards
+          stay readable. It points at the minimap (bottom-right) rather than shrinking the map. */}
+      {oversized && (
+        <div
+          className="absolute bottom-3 left-3 z-10 max-w-[60%] rounded-[8px] px-2.5 py-1 text-caption"
+          style={{
+            background: 'var(--color-surface)',
+            color: 'var(--color-muted)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          This map is larger than the window at a readable zoom. Use the minimap to move around.
+        </div>
+      )}
     </div>
   );
 }

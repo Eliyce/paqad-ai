@@ -12,6 +12,12 @@ interface Props {
   projectName: string | null;
   frameworkVersion: string | null;
   sseLive: boolean;
+  /**
+   * Suppress the left sidebar entirely (S7): the Site map area sets this when it goes full screen so
+   * the sidebar hides with the rest of the chrome. Optional and defaults to showing the sidebar, so
+   * every other caller is unchanged.
+   */
+  hideSidebar?: boolean;
   children?: React.ReactNode;
 }
 
@@ -56,7 +62,13 @@ function NavIcon({ name }: { name: DashboardArea }) {
  * footer. Content renders to the right via children. Dimmer than the
  * content, spacing over borders.
  */
-export function DashboardChrome({ projectName, frameworkVersion, sseLive, children }: Props) {
+export function DashboardChrome({
+  projectName,
+  frameworkVersion,
+  sseLive,
+  hideSidebar = false,
+  children,
+}: Props) {
   const { route, navigate } = useHashRoute();
   const [mode, setMode] = useState(() => getThemeMode());
   const [pendingCount, setPendingCount] = useState<number | null>(null);
@@ -157,84 +169,86 @@ export function DashboardChrome({ projectName, frameworkVersion, sseLive, childr
       className="flex h-full w-full overflow-hidden"
       style={{ background: 'var(--color-canvas)', color: 'var(--color-canvas-fg)' }}
     >
-      <aside
-        className={'flex shrink-0 flex-col px-3 py-4 ' + (collapsed ? 'w-[60px]' : 'w-[216px]')}
-        style={{
-          background: 'var(--color-canvas)',
-          borderRight: '1px solid color-mix(in srgb, var(--color-border) 60%, transparent)',
-        }}
-      >
-        <div className={'flex items-center gap-2 px-1 ' + (collapsed ? 'justify-center' : '')}>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <div className="text-secondary font-semibold">paqad-ai</div>
-              <div className="truncate text-caption" style={{ color: 'var(--color-muted)' }}>
-                {projectName ?? '(unnamed project)'}
-                {frameworkVersion ? ' · v' + frameworkVersion : ''}
-              </div>
-            </div>
-          )}
-          <button
-            type="button"
-            className="rounded-[6px] p-1.5"
-            style={{ color: 'var(--color-muted)' }}
-            title={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
-            aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
-            onClick={toggleCollapsed}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              {collapsed ? <path d="M5 3l4 4-4 4" /> : <path d="M9 3L5 7l4 4" />}
-            </svg>
-          </button>
-        </div>
-        <nav className="mt-5 flex flex-col gap-0.5">
-          {navItem('pulse', 'Pulse')}
-          {navItem('approvals', 'Approvals', pendingCount)}
-          {navItem('trust', 'Trust')}
-          {navItem('build', 'Build')}
-          {navItem('site-map', 'Site map')}
-          {navItem('graph', 'Graph')}
-          {navItem('automation', 'Automation')}
-          {navItem('knowledge', 'Knowledge')}
-          {navItem('setup', 'Setup')}
-        </nav>
-        <div
-          className={
-            'mt-auto flex items-center gap-2 px-1 pt-4 ' +
-            (collapsed ? 'flex-col justify-center' : '')
-          }
+      {!hideSidebar && (
+        <aside
+          className={'flex shrink-0 flex-col px-3 py-4 ' + (collapsed ? 'w-[60px]' : 'w-[216px]')}
+          style={{
+            background: 'var(--color-canvas)',
+            borderRight: '1px solid color-mix(in srgb, var(--color-border) 60%, transparent)',
+          }}
         >
-          <button
-            type="button"
-            className="rounded-[6px] px-2 py-1 text-caption"
-            style={{ color: 'var(--color-muted)' }}
-            onClick={cycleTheme}
-            title={'Theme: ' + mode}
+          <div className={'flex items-center gap-2 px-1 ' + (collapsed ? 'justify-center' : '')}>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <div className="text-secondary font-semibold">paqad-ai</div>
+                <div className="truncate text-caption" style={{ color: 'var(--color-muted)' }}>
+                  {projectName ?? '(unnamed project)'}
+                  {frameworkVersion ? ' · v' + frameworkVersion : ''}
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              className="rounded-[6px] p-1.5"
+              style={{ color: 'var(--color-muted)' }}
+              title={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
+              aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
+              onClick={toggleCollapsed}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                {collapsed ? <path d="M5 3l4 4-4 4" /> : <path d="M9 3L5 7l4 4" />}
+              </svg>
+            </button>
+          </div>
+          <nav className="mt-5 flex flex-col gap-0.5">
+            {navItem('pulse', 'Pulse')}
+            {navItem('approvals', 'Approvals', pendingCount)}
+            {navItem('trust', 'Trust')}
+            {navItem('build', 'Build')}
+            {navItem('site-map', 'Site map')}
+            {navItem('graph', 'Graph')}
+            {navItem('automation', 'Automation')}
+            {navItem('knowledge', 'Knowledge')}
+            {navItem('setup', 'Setup')}
+          </nav>
+          <div
+            className={
+              'mt-auto flex items-center gap-2 px-1 pt-4 ' +
+              (collapsed ? 'flex-col justify-center' : '')
+            }
           >
-            ◐{!collapsed && ' ' + mode}
-          </button>
-          <span
-            className={'flex items-center gap-1 text-caption ' + (collapsed ? '' : 'ml-auto')}
-            style={{ color: sseLive ? 'var(--color-mod-green)' : 'var(--color-muted)' }}
-            title={sseLive ? 'Live (SSE connected)' : 'Reconnecting'}
-          >
+            <button
+              type="button"
+              className="rounded-[6px] px-2 py-1 text-caption"
+              style={{ color: 'var(--color-muted)' }}
+              onClick={cycleTheme}
+              title={'Theme: ' + mode}
+            >
+              ◐{!collapsed && ' ' + mode}
+            </button>
             <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ background: sseLive ? 'var(--color-mod-green)' : 'var(--color-muted)' }}
-            />
-            {!collapsed && (sseLive ? 'live' : '…')}
-          </span>
-        </div>
-      </aside>
+              className={'flex items-center gap-1 text-caption ' + (collapsed ? '' : 'ml-auto')}
+              style={{ color: sseLive ? 'var(--color-mod-green)' : 'var(--color-muted)' }}
+              title={sseLive ? 'Live (SSE connected)' : 'Reconnecting'}
+            >
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: sseLive ? 'var(--color-mod-green)' : 'var(--color-muted)' }}
+              />
+              {!collapsed && (sseLive ? 'live' : '…')}
+            </span>
+          </div>
+        </aside>
+      )}
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">{children}</main>
       <CommandPalette />
     </div>

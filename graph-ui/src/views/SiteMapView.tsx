@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { DashboardChrome } from '../components/DashboardChrome';
 import { OpButton } from '../components/OpButton';
@@ -15,6 +15,13 @@ import {
   saveSiteMapLayout,
 } from '../lib/api';
 import { brokenJourneyRefs, danglingTargets, deadSurfaceIds } from '../lib/site-map-derive';
+import {
+  chromeVisibility,
+  fullscreenKeyAction,
+  fullscreenTransitionMs,
+  resolveFullscreenMethod,
+  type FullscreenMethod,
+} from '../lib/site-map-fullscreen';
 import {
   summarizeSiteMapProgress,
   type SiteMapProgressFile,
@@ -61,6 +68,79 @@ export function SiteMapView() {
   const [activeJourneyId, setActiveJourneyId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<ViewMode>('map');
+  // Full screen (S7, D8). Deliberately not persisted (FR-7): a page load never opens in full screen.
+  // `method` records how we entered so the CSS fallback can style a fixed overlay and the native
+  // path can be exited cleanly.
+  const [fullscreen, setFullscreen] = useState(false);
+  const [fsMethod, setFsMethod] = useState<FullscreenMethod | null>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = useMemo(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
+  const chrome = chromeVisibility(fullscreen);
+
+  const enterFullscreen = useCallback((): void => {
+    const el = shellRef.current;
+    const request = el?.requestFullscreen?.bind(el);
+    const apply = (method: FullscreenMethod): void => {
+      setFsMethod(method);
+      setFullscreen(true);
+    };
+    if (request) {
+      request()
+        .then(() => apply(resolveFullscreenMethod(true, false)))
+        .catch(() => apply(resolveFullscreenMethod(true, true)));
+    } else {
+      // No Fullscreen API (older or embedded host): the CSS fixed-container fallback (FR-3).
+      apply(resolveFullscreenMethod(false, false));
+    }
+  }, []);
+
+  const exitFullscreen = useCallback((): void => {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      void document.exitFullscreen().catch(() => {
+        /* already out of native full screen; the state below still clears */
+      });
+    }
+    setFsMethod(null);
+    setFullscreen(false);
+  }, []);
+
+  const toggleFullscreen = useCallback((): void => {
+    if (fullscreen) exitFullscreen();
+    else enterFullscreen();
+  }, [fullscreen, enterFullscreen, exitFullscreen]);
+
+  // Keyboard: `f` toggles, `Escape` exits — but never while the user is typing (FR-1).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      const editable =
+        target !== null &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      const action = fullscreenKeyAction(event.key, { active: fullscreen, editable });
+      if (action === 'none') return;
+      event.preventDefault();
+      if (action === 'toggle') toggleFullscreen();
+      else exitFullscreen();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen, toggleFullscreen, exitFullscreen]);
+
+  // When the user leaves native full screen by the browser's own control, sync our state (FR-3).
+  useEffect(() => {
+    const onChange = (): void => {
+      if (!document.fullscreenElement && fsMethod === 'api') {
+        setFsMethod(null);
+        setFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, [fsMethod]);
+
   // A monotonically ticking focus request: selecting a gap/insight target flies the camera to it.
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
   const focusOn = useCallback((id: string): void => {
@@ -149,46 +229,85 @@ export function SiteMapView() {
       projectName={projectName}
       frameworkVersion={frameworkVersion}
       sseLive={sseLive}
+      hideSidebar={fullscreen}
     >
-      <div className="flex h-full flex-col">
-        <div className="border-b px-6 py-4" style={{ borderColor: 'var(--color-border)' }}>
-          <div className="flex items-center gap-3">
-            <h1 className="text-page font-semibold">Site map</h1>
-            <OwnershipBadge managedBy="shared" />
-            {ready && (
-              <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
-                {ready.map.surfaces.length} surfaces
-                {ready.freshness.generated_from ? ` · from ${ready.freshness.generated_from}` : ''}
-              </span>
-            )}
-            <div className="ml-auto flex items-center gap-3">
-              {/* Reuse the shared ops button (SSE progress + poll backstop) to run the map from
-                  here; finishing reloads the view and the progress strip (S6, D8). */}
-              <OpButton action="site-map" label="Run site map" onDone={load} />
+      <div
+        ref={shellRef}
+        className="flex h-full flex-col"
+        style={
+          // In the CSS fallback (embedded / API rejected) a fixed, full-viewport container gives the
+          // map the whole window (FR-3); the native path already fills the screen. The transition
+          // honours prefers-reduced-motion (FR-6).
+          fullscreen && fsMethod === 'css'
+            ? {
+                position: 'fixed',
+                inset: 0,
+                zIndex: 50,
+                background: 'var(--color-canvas)',
+                transition: `opacity ${fullscreenTransitionMs(reducedMotion)}ms ease`,
+              }
+            : undefined
+        }
+      >
+        {chrome.titleBand && (
+          <div className="border-b px-6 py-4" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="flex items-center gap-3">
+              <h1 className="text-page font-semibold">Site map</h1>
+              <OwnershipBadge managedBy="shared" />
               {ready && (
-                <div
-                  className="inline-flex overflow-hidden rounded-[8px] border"
-                  style={{ borderColor: 'var(--color-border)' }}
-                >
-                  <ModeButton active={mode === 'map'} onClick={() => setMode('map')}>
-                    Map
-                  </ModeButton>
-                  <ModeButton active={mode === 'list'} onClick={() => setMode('list')}>
-                    List
-                  </ModeButton>
-                </div>
+                <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
+                  {ready.map.surfaces.length} surfaces
+                  {ready.freshness.generated_from
+                    ? ` · from ${ready.freshness.generated_from}`
+                    : ''}
+                </span>
               )}
+              <div className="ml-auto flex items-center gap-3">
+                {/* Reuse the shared ops button (SSE progress + poll backstop) to run the map from
+                    here; finishing reloads the view and the progress strip (S6, D8). */}
+                <OpButton action="site-map" label="Run site map" onDone={load} />
+                {ready && (
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    title="Full screen (press f, Escape to exit)"
+                    className="rounded-[8px] px-3 py-1 text-caption font-medium"
+                    style={{
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-canvas-fg)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    Full screen
+                  </button>
+                )}
+                {ready && (
+                  <div
+                    className="inline-flex overflow-hidden rounded-[8px] border"
+                    style={{ borderColor: 'var(--color-border)' }}
+                  >
+                    <ModeButton active={mode === 'map'} onClick={() => setMode('map')}>
+                      Map
+                    </ModeButton>
+                    <ModeButton active={mode === 'list'} onClick={() => setMode('list')}>
+                      List
+                    </ModeButton>
+                  </div>
+                )}
+              </div>
             </div>
+            <WhySentence>
+              How your app really behaves, as a picture you can explore: every screen, journey, and
+              gate, each traceable to the code.
+            </WhySentence>
           </div>
-          <WhySentence>
-            How your app really behaves, as a picture you can explore: every screen, journey, and
-            gate, each traceable to the code.
-          </WhySentence>
-        </div>
+        )}
 
-        {progressStrip && <ProgressStrip model={progressStrip} />}
+        {chrome.titleBand && progressStrip && <ProgressStrip model={progressStrip} />}
 
-        {ready && map && <HonestyStrip freshness={ready.freshness} map={map} />}
+        {chrome.honestyStrip && ready && map && (
+          <HonestyStrip freshness={ready.freshness} map={map} />
+        )}
 
         {loadError && <Banner tone="red">Could not load the site map: {loadError}</Banner>}
         {payload === null && !loadError && <Banner tone="muted">Loading…</Banner>}
@@ -236,45 +355,48 @@ export function SiteMapView() {
 
         {ready && map && (
           <div className="flex min-h-0 flex-1 flex-col">
-            {/* Journey picker: journeys are the default unit (UXR-2). */}
-            <div
-              className="flex flex-wrap items-center gap-2 border-b px-6 py-2.5"
-              style={{ borderColor: 'var(--color-border)' }}
-            >
-              <span className="text-caption font-medium" style={{ color: 'var(--color-muted)' }}>
-                Journey
-              </span>
-              <JourneyChip active={activeJourneyId === null} onClick={() => pickJourney(null)}>
-                Whole map
-              </JourneyChip>
-              {ready.journeys.map((journey) => (
-                <JourneyChip
-                  key={journey.id}
-                  active={activeJourneyId === journey.id}
-                  onClick={() => pickJourney(journey.id)}
-                >
-                  {journey.label}
+            {/* Journey picker: journeys are the default unit (UXR-2). Hidden in full screen; the
+                floating bar over the canvas carries the journeys and an exit control then (S7). */}
+            {chrome.journeyBand && (
+              <div
+                className="flex flex-wrap items-center gap-2 border-b px-6 py-2.5"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <span className="text-caption font-medium" style={{ color: 'var(--color-muted)' }}>
+                  Journey
+                </span>
+                <JourneyChip active={activeJourneyId === null} onClick={() => pickJourney(null)}>
+                  Whole map
                 </JourneyChip>
-              ))}
-              <div className="ml-auto flex items-center gap-2.5">
-                {KIND_LEGEND.map((entry) => (
-                  <span
-                    key={entry.family}
-                    className="inline-flex items-center gap-1 text-caption"
-                    style={{ color: 'var(--color-muted)' }}
+                {ready.journeys.map((journey) => (
+                  <JourneyChip
+                    key={journey.id}
+                    active={activeJourneyId === journey.id}
+                    onClick={() => pickJourney(journey.id)}
                   >
-                    <span aria-hidden="true">{shapeGlyph(entry.shape)}</span>
-                    {entry.family}
-                  </span>
+                    {journey.label}
+                  </JourneyChip>
                 ))}
-                <span aria-hidden="true" style={{ color: 'var(--color-border)' }}>
-                  |
-                </span>
-                <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
-                  Solid = proven · Dashed = inferred or unverified
-                </span>
+                <div className="ml-auto flex items-center gap-2.5">
+                  {KIND_LEGEND.map((entry) => (
+                    <span
+                      key={entry.family}
+                      className="inline-flex items-center gap-1 text-caption"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
+                      <span aria-hidden="true">{shapeGlyph(entry.shape)}</span>
+                      {entry.family}
+                    </span>
+                  ))}
+                  <span aria-hidden="true" style={{ color: 'var(--color-border)' }}>
+                    |
+                  </span>
+                  <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
+                    Solid = proven · Dashed = inferred or unverified
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             {mode === 'map' && gapCount > 0 && (
               <InsightBar
@@ -287,7 +409,17 @@ export function SiteMapView() {
             )}
 
             <div className="flex min-h-0 flex-1">
-              <div className="min-w-0 flex-1">
+              <div className="relative min-w-0 flex-1">
+                {/* In full screen the chrome is gone, so a bar floats over the content with an
+                    always-visible exit control and the journey picker (S7, FR-2). */}
+                {fullscreen && (
+                  <FullscreenBar
+                    journeys={ready.journeys}
+                    activeJourneyId={activeJourneyId}
+                    onPick={pickJourney}
+                    onExit={exitFullscreen}
+                  />
+                )}
                 {mode === 'map' ? (
                   <SiteMapCanvas
                     map={map}
@@ -531,6 +663,63 @@ function ModeButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * The floating full-screen bar (S7, FR-2). In full screen the four chrome pieces are gone, so this
+ * one bar floats over the canvas carrying the journey picker and an always-visible exit control. The
+ * canvas's own controls (zoom, minimap, wheel toggle) keep floating from the canvas itself.
+ */
+function FullscreenBar({
+  journeys,
+  activeJourneyId,
+  onPick,
+  onExit,
+}: {
+  journeys: Journey[];
+  activeJourneyId: string | null;
+  onPick: (id: string | null) => void;
+  onExit: () => void;
+}) {
+  return (
+    <div
+      className="absolute left-1/2 top-3 z-20 flex max-w-[92%] -translate-x-1/2 items-center gap-2 overflow-x-auto rounded-[10px] border px-3 py-1.5"
+      style={{
+        background: 'var(--color-surface)',
+        borderColor: 'var(--color-border)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={onExit}
+        title="Exit full screen (Escape)"
+        className="shrink-0 rounded-[8px] px-3 py-1 text-caption font-medium"
+        style={{
+          background: 'var(--color-canvas)',
+          color: 'var(--color-canvas-fg)',
+          border: '1px solid var(--color-border)',
+        }}
+      >
+        Exit full screen
+      </button>
+      <span aria-hidden="true" style={{ color: 'var(--color-border)' }}>
+        |
+      </span>
+      <JourneyChip active={activeJourneyId === null} onClick={() => onPick(null)}>
+        Whole map
+      </JourneyChip>
+      {journeys.map((journey) => (
+        <JourneyChip
+          key={journey.id}
+          active={activeJourneyId === journey.id}
+          onClick={() => onPick(journey.id)}
+        >
+          {journey.label}
+        </JourneyChip>
+      ))}
+    </div>
   );
 }
 
