@@ -104,6 +104,15 @@ One entry per session. Newest at the top. Keep entries short and factual.
   - Stages recorded against this session's bundle (`…-s8a-01M1CHS09S…`): planning → specification →
     development → checks → review, each with its rigid artifact.
 - D2 stays open: S8a (skeleton write) is done; `S8b` (additive/resumable) and `S8c` (unhide) remain.
+- **Stage-ledger note (same class as sessions 6/7/8).** After the S8a commits, the end-of-change
+  gate's git reconcile (#450) minted a fresh active change bundle for the post-commit working set
+  (the two pre-existing framework-churn files — `.paqad/checks/last-run.json` and the
+  `runtime/hooks/lib/agent-entry-directive.mjs` exec-bit flip — were the only uncommitted changes),
+  orphaning the `…-s8a-01M1CHS09S…` bundle the stages were first recorded into, so the Stop gate saw
+  the change with no stages. Planning, specification, review, checks and documentation_sync were
+  re-recorded against the active bundle (same session), `paqad-ai checks run` re-run green, and this
+  note records `documentation_sync`. No code changed in the re-record; the S8a commit `8a1f219d` is
+  unchanged.
 
 ### 2026-08-31, session 9: S3 (S3a, S3b, S3c) + DEC-1
 
