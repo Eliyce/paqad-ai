@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 6 of 10 |
+| **Tasks done** | 7 of 10 |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S7** (full-screen map and a readable zoom floor). No dependency. See `plan.md` §6 S7: a `Full screen` button + `f`/`Escape`, hide all four chrome pieces together, Fullscreen API with a CSS fallback, raise `minZoom` 0.05 → 0.25, an over-size hint at the floor, respect `prefers-reduced-motion`, and never persist the full-screen preference. |
+| **Next action** | Start **S8a** (draft the map skeleton from the extraction). Depends on **S4** and **S5**, both done. See `plan.md` §6 S8a: a new `paqad-ai sitemap draft` writes a schema-valid `docs/site-map/app-map.yaml` with one surface entry per extracted surface (id/kind/label/evidence/entry/module/guards), areas derived from the module map, `schema_version` the integer `1`, no invented transitions/journeys/actors, written through the existing `writeCanonicalSiteMap`. |
 | **Blocked on** | **DEC-1** blocks S3 only. See `plan.md` §5. Raise the decision packet early so it is answered by the time S3 comes up. |
-| **Last updated** | 2026-08-31, session 7: S6 landed |
+| **Last updated** | 2026-08-31, session 8: S7 landed |
 
 ---
 
@@ -35,7 +35,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S5a** | Progress store with crash recovery | D7 | M | `done` | `e5583cde` |
 | **S5b** | `sitemap status` reads the progress file | D7 | S | `done` | `bfdb57ac` |
 | **S6** | Show run progress in the dashboard | D8 | S | `done` | `8d57e5f4` |
-| **S7** | Full-screen map and a readable zoom floor | D8 | S | `todo` | |
+| **S7** | Full-screen map and a readable zoom floor | D8 | S | `done` | `8593b854` |
 | **S8a** | Draft the map skeleton from the extraction | D2 | L | `todo` | |
 | **S8b** | Draft resumes from the progress file | D2 D7 | L | `todo` | |
 | **S8c** | Unhide the `sitemap` command | D2 | S | `todo` | |
@@ -60,7 +60,7 @@ Tick a defect only when every task that fixes it is done.
 - [ ] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
 - [ ] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
 - [ ] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b` (S8b still open)
-- [ ] **D8** No full screen anywhere; no run progress shown. `S6` (done), `S7` (S7 still open)
+- [x] **D8** No full screen anywhere; no run progress shown. `S6` (done), `S7` (done)
 
 ---
 
@@ -79,6 +79,44 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 8: S7
+
+- **S7 done** (`8593b854`): the Site map area can take the whole window and its cards stay readable.
+  - **New pure lib** `graph-ui/src/lib/site-map-fullscreen.ts` holds the whole S7 decision surface so
+    it is unit-testable in the build-gated graph-ui project (only pure lib logic is tested there, per
+    `vitest.config.ts`): `SITE_MAP_MIN_ZOOM = 0.25`; `fullscreenKeyAction` (`f` toggles, `Escape`
+    exits only while active, ignored while typing); `resolveFullscreenMethod` (`api` when present and
+    accepted, else `css`); `chromeVisibility` (the four pieces show/hide as one); `isMapOversized`
+    (true at/within-ε of the floor); `fullscreenTransitionMs` (0 under reduced motion). 15 tests.
+  - **`SiteMapView`:** a `Full screen` header button; a window `keydown` listener mapping keys through
+    `fullscreenKeyAction` with an `editable` guard off the event target; `enterFullscreen` tries
+    `shellRef.requestFullscreen()` and resolves the method in `.then`/`.catch`, with a fixed
+    full-viewport CSS overlay in `css` mode; a `fullscreenchange` listener syncs state on native exit.
+    The title band, honesty strip, progress strip and journey picker band are gated on
+    `chromeVisibility`; `hideSidebar={fullscreen}` removes the sidebar; a `FullscreenBar` floats over
+    the canvas with an always-visible `Exit full screen` control and the journey chips (map and list).
+    The preference is never persisted (state starts `false`, no storage key).
+  - **`SiteMapCanvas`:** `minZoom` raised `0.05 → 0.25` (`fitViewOptions.padding` unchanged); an
+    `onMoveEnd → isMapOversized` flag drives one over-size hint line pointing at the minimap, shown
+    only at the floor.
+  - **`DashboardChrome`:** a new optional `hideSidebar` prop skips the `<aside>` when true; the other
+    11 callers omit it and are unchanged.
+  - `pnpm run ci` green (typecheck / lint / format:check / test:coverage / graph-ui:test / build);
+    `paqad-ai checks run` green (format / test / build). No dependency added; no route/exit-code/data
+    shape change; `runtime/graph-ui/` build output is git-ignored.
+- **D8 ticked:** S6 (run progress) and S7 (full screen + readable zoom floor) are both done.
+- **Interpretation recorded (AC-8).** The plan lists "graph-ui tests: toggle by button/f, exit by
+  Escape, chrome hidden, fallback path, over-size hint". graph-ui has **no** component/DOM test
+  harness (no jsdom, no testing-library) and is build-gated — only pure lib logic is unit-tested. So
+  that behaviour is implemented in the pure `site-map-fullscreen.ts` and unit-tested there, and the
+  React wiring is verified by `vite build` inside `pnpm run ci`. This mirrors S6 exactly.
+- **Stage-ledger note (same class as session 7's).** The first stage records this session used the
+  wrong session id: the CLI `SE_SESSION` was set to a stale `_chat` session (`acebff94…`) while the
+  PreToolUse hook keys off this session (`ccb22e31…`), so the first edit was blocked. Re-ran
+  `export SE_SESSION=$CLAUDE_SESSION_ID` (the real id) and re-recorded planning + specification into
+  the active `…-s7-…` bundle before editing; review and checks then recorded cleanly. No code was
+  affected; commit `8593b854` is unchanged.
 
 ### 2026-08-31, session 7: S6
 
