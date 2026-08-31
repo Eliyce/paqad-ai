@@ -15,6 +15,7 @@ import { runJourneyCuration } from '@/site-map/journey-curation.js';
 import { readAllJourneys } from '@/site-map/store.js';
 import { buildSiteMapView } from '@/site-map/dashboard-view.js';
 import { deleteSiteMapLayout, writeSiteMapLayout } from '@/site-map/layout-store.js';
+import { readProgress as readSiteMapProgress } from '@/site-map/progress-store.js';
 
 import {
   acceptModuleProposal,
@@ -481,6 +482,13 @@ export async function startDashboardServer(
           readOnly: options.readOnly === true,
         }),
       );
+      return;
+    }
+    // S6 — the resumable run progress the Site map area's strip reads. A static read of the S5
+    // progress store (`readProgress` is tolerant and never writes), returning the progress file or
+    // null when none, so it is safe to poll while a run is in flight.
+    if (pathname === '/api/site-map/progress' && req.method === 'GET') {
+      writeJson(res, req, await readSiteMapProgress(options.projectRoot));
       return;
     }
     // Issue #489, Phase 3 — team-shared district curation. Dragging a district persists its

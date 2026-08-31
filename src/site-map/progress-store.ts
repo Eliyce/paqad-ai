@@ -206,6 +206,37 @@ export function summarizeProgress(progress: SiteMapProgressFile): SiteMapProgres
   return { total: units.length, done, writing, failed, remaining, next };
 }
 
+/** Human label per unit kind, used to word the dashboard run progress lines (S6). */
+const KIND_LABEL: Record<SiteMapProgressUnitKind, string> = {
+  group: 'Group',
+  journey: 'Journey',
+  stage: 'Stage',
+};
+
+/**
+ * Word each completed (`done`) unit as a plain-language progress line for the dashboard run
+ * stream (S6, FR-3): `<Kind> <ordinal> of <total-of-kind>: <label>`, e.g.
+ * `Journey 8 of 12: Checkout, guest`. The ordinal is the unit's position among units of the SAME
+ * kind, and the total is the count of that kind, both in the store's declaration order — so the
+ * numbers read against the whole set of journeys/groups, not only the finished ones. Pure — no
+ * I/O. A store with no `done` units returns an empty list, so the caller emits nothing.
+ */
+export function describeCompletedUnits(progress: SiteMapProgressFile): string[] {
+  const units = Object.values(progress.units);
+  const totals: Record<SiteMapProgressUnitKind, number> = { group: 0, journey: 0, stage: 0 };
+  for (const unit of units) totals[unit.kind] += 1;
+  const seen: Record<SiteMapProgressUnitKind, number> = { group: 0, journey: 0, stage: 0 };
+  const lines: string[] = [];
+  for (const unit of units) {
+    seen[unit.kind] += 1;
+    if (unit.state !== 'done') continue;
+    lines.push(
+      `${KIND_LABEL[unit.kind]} ${seen[unit.kind]} of ${totals[unit.kind]}: ${unit.label}`,
+    );
+  }
+  return lines;
+}
+
 /**
  * The skip rule (FR-6): a `done` unit whose `source_hash` still equals the current hash of its
  * `source_files` is skipped on the next run; a `done` unit whose hash changed is reset to

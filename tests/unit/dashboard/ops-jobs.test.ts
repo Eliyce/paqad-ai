@@ -6,6 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { PLACEHOLDER_DESIGN_TOKENS } from '@/design-tokens/defaults.js';
+import {
+  completeUnit,
+  createEmptyProgress,
+  createUnit,
+  saveProgress,
+} from '@/site-map/progress-store.js';
 
 import {
   isOpsAction,
@@ -250,6 +256,38 @@ describe('ops job runner', () => {
       expect(job.progress[0]).toMatch(/^Found \d+ screens across \d+ groups\.$/);
       expect(job.progress.join('\n')).not.toContain('Mapping the app');
       expect(readAudit(root)).toContain('dashboard.ops.site-map');
+    });
+
+    it('site-map emits one worded progress line per completed unit from the store (S6)', async () => {
+      // Seed the S5 progress store a previous draft would have written, with two done units.
+      const progress = createEmptyProgress({ screens: 0, groups: [] }, new Date());
+      const billing = createUnit({
+        id: 'group:billing',
+        kind: 'group',
+        label: 'Billing',
+        artifact: null,
+        source_files: [],
+      });
+      completeUnit(billing, 'h', new Date());
+      const checkout = createUnit({
+        id: 'journey:checkout',
+        kind: 'journey',
+        label: 'Checkout, guest',
+        artifact: null,
+        source_files: [],
+      });
+      completeUnit(checkout, 'h', new Date());
+      progress.units[billing.id] = billing;
+      progress.units[checkout.id] = checkout;
+      await saveProgress(root, progress, new Date());
+
+      const job = await run('site-map');
+      expect(job.status).toBe('done');
+      expect(job.progress).toContain('Group 1 of 1: Billing');
+      expect(job.progress).toContain('Journey 1 of 1: Checkout, guest');
+      // The inventory sentence still leads (S4) and the summary still trails.
+      expect(job.progress[0]).toMatch(/^Found \d+ screens across \d+ groups\.$/);
+      expect(job.progress.join('\n')).toContain('Mapped the app:');
     });
 
     it('site-map-retest is retired: a re-run is the same site-map action (ART-3)', () => {

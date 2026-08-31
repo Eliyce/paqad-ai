@@ -12,6 +12,7 @@ import {
   completeUnit,
   createEmptyProgress,
   createUnit,
+  describeCompletedUnits,
   failUnit,
   readProgress,
   reconcileDoneUnits,
@@ -20,6 +21,7 @@ import {
   startUnit,
   summarizeProgress,
 } from '@/site-map/progress-store.js';
+import type { SiteMapProgressUnitKind } from '@/core/types/site-map-progress.js';
 
 const T0 = new Date('2026-08-31T10:00:00.000Z');
 const T1 = new Date('2026-08-31T10:05:00.000Z');
@@ -338,6 +340,56 @@ describe('site-map progress store (S5a)', () => {
         remaining: 0,
         next: null,
       });
+    });
+  });
+
+  describe('describeCompletedUnits (S6, FR-3)', () => {
+    function put(
+      progress: ReturnType<typeof createEmptyProgress>,
+      id: string,
+      kind: SiteMapProgressUnitKind,
+      label: string,
+      apply?: (unit: SiteMapProgressUnit) => void,
+    ): void {
+      const unit = createUnit({ id, kind, label, artifact: null, source_files: [] });
+      apply?.(unit);
+      progress.units[id] = unit;
+    }
+
+    it('words each done unit as "<Kind> <ordinal> of <total-of-kind>: <label>", per kind', () => {
+      const progress = createEmptyProgress({ screens: 0, groups: [] }, T0);
+      // Two groups (one done), three journeys (two done), one done stage. Ordinals count within a
+      // kind in declaration order, and the total is the count of that kind, not just the done ones.
+      put(progress, 'group:billing', 'group', 'Billing', (u) => completeUnit(u, 'h', T1));
+      put(progress, 'group:admin', 'group', 'Admin'); // not_started — no line
+      put(progress, 'journey:checkout', 'journey', 'Checkout, guest', (u) =>
+        completeUnit(u, 'h', T1),
+      );
+      put(progress, 'journey:signup', 'journey', 'Sign up'); // not_started — no line
+      put(progress, 'journey:reset', 'journey', 'Reset password', (u) => completeUnit(u, 'h', T1));
+      put(progress, 'stage:links', 'stage', 'Links', (u) => completeUnit(u, 'h', T1));
+
+      expect(describeCompletedUnits(progress)).toEqual([
+        'Group 1 of 2: Billing',
+        'Journey 1 of 3: Checkout, guest',
+        'Journey 3 of 3: Reset password',
+        'Stage 1 of 1: Links',
+      ]);
+    });
+
+    it('returns no lines when nothing is done (writing/failed/not_started are not reported)', () => {
+      const progress = createEmptyProgress({ screens: 0, groups: [] }, T0);
+      put(progress, 'group:a', 'group', 'A', (u) => startUnit(u, T1));
+      put(progress, 'group:b', 'group', 'B', (u) => failUnit(u, 'boom', T1));
+      put(progress, 'group:c', 'group', 'C'); // not_started
+
+      expect(describeCompletedUnits(progress)).toEqual([]);
+    });
+
+    it('returns an empty list for a store with no units', () => {
+      expect(describeCompletedUnits(createEmptyProgress({ screens: 0, groups: [] }, T0))).toEqual(
+        [],
+      );
     });
   });
 });

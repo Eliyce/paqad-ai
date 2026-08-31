@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DashboardChrome } from '../components/DashboardChrome';
+import { OpButton } from '../components/OpButton';
 import { OwnershipBadge } from '../components/OwnershipBadge';
 import { WhySentence } from '../components/WhySentence';
 import { SiteMapCanvas } from '../components/SiteMapCanvas';
 import { SiteMapDetail } from '../components/SiteMapDetail';
 import { SiteMapList } from '../components/SiteMapList';
-import { fetchDashboard, fetchSiteMap, resetSiteMapLayout, saveSiteMapLayout } from '../lib/api';
+import {
+  fetchDashboard,
+  fetchSiteMap,
+  fetchSiteMapProgress,
+  resetSiteMapLayout,
+  saveSiteMapLayout,
+} from '../lib/api';
 import { brokenJourneyRefs, danglingTargets, deadSurfaceIds } from '../lib/site-map-derive';
+import {
+  summarizeSiteMapProgress,
+  type SiteMapProgressFile,
+  type SiteMapProgressStrip,
+} from '../lib/site-map-progress';
 import type {
   AppMap,
   Journey,
@@ -40,6 +52,7 @@ function shapeGlyph(shape: string): string {
 
 export function SiteMapView() {
   const [payload, setPayload] = useState<SiteMapPayload | null>(null);
+  const [progress, setProgress] = useState<SiteMapProgressFile | null>(null);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -70,6 +83,11 @@ export function SiteMapView() {
       .catch(() => {
         /* chrome metadata is best-effort; the map still renders */
       });
+    // The resumable run progress (S6): null when no run has recorded any yet, so the strip stays
+    // hidden until there is real progress to show.
+    fetchSiteMapProgress()
+      .then(setProgress)
+      .catch(() => setProgress(null));
   }, []);
 
   useEffect(() => {
@@ -110,6 +128,10 @@ export function SiteMapView() {
   }, [map, ready]);
   const gapCount = gaps.dead.length + gaps.dangling.length + gaps.broken.length;
 
+  // The run-progress strip's fields, or null when there is no progress file (S6): render nothing
+  // rather than an empty bar.
+  const progressStrip = useMemo(() => summarizeSiteMapProgress(progress), [progress]);
+
   const pickJourney = useCallback((id: string | null): void => {
     setActiveJourneyId(id);
     setStep(0);
@@ -139,25 +161,32 @@ export function SiteMapView() {
                 {ready.freshness.generated_from ? ` · from ${ready.freshness.generated_from}` : ''}
               </span>
             )}
-            {ready && (
-              <div
-                className="ml-auto inline-flex overflow-hidden rounded-[8px] border"
-                style={{ borderColor: 'var(--color-border)' }}
-              >
-                <ModeButton active={mode === 'map'} onClick={() => setMode('map')}>
-                  Map
-                </ModeButton>
-                <ModeButton active={mode === 'list'} onClick={() => setMode('list')}>
-                  List
-                </ModeButton>
-              </div>
-            )}
+            <div className="ml-auto flex items-center gap-3">
+              {/* Reuse the shared ops button (SSE progress + poll backstop) to run the map from
+                  here; finishing reloads the view and the progress strip (S6, D8). */}
+              <OpButton action="site-map" label="Run site map" onDone={load} />
+              {ready && (
+                <div
+                  className="inline-flex overflow-hidden rounded-[8px] border"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <ModeButton active={mode === 'map'} onClick={() => setMode('map')}>
+                    Map
+                  </ModeButton>
+                  <ModeButton active={mode === 'list'} onClick={() => setMode('list')}>
+                    List
+                  </ModeButton>
+                </div>
+              )}
+            </div>
           </div>
           <WhySentence>
             How your app really behaves, as a picture you can explore: every screen, journey, and
             gate, each traceable to the code.
           </WhySentence>
         </div>
+
+        {progressStrip && <ProgressStrip model={progressStrip} />}
 
         {ready && map && <HonestyStrip freshness={ready.freshness} map={map} />}
 
@@ -536,6 +565,40 @@ function toneColor(tone: FreshnessTone): string {
   if (tone === 'fresh') return 'var(--color-mod-green)';
   if (tone === 'stale') return 'var(--color-mod-amber)';
   return 'var(--color-mod-unknown)';
+}
+
+/**
+ * The run-progress strip (S6, D8). While a run authors the map it shows how far along it is: the
+ * current unit, a done / writing / remaining count, and one line naming what a previous session
+ * already finished. Read statically from the served progress file; the caller renders it only when
+ * a progress file exists, so it never shows an empty or zeroed bar.
+ */
+function ProgressStrip({ model }: { model: SiteMapProgressStrip }) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b px-6 py-2"
+      style={{ borderColor: 'var(--color-border)', background: 'var(--color-canvas)' }}
+    >
+      <span
+        className="inline-flex items-center gap-1.5 text-caption font-medium"
+        style={{ color: 'var(--color-canvas-fg)' }}
+      >
+        <span aria-hidden="true" style={{ color: 'var(--color-accent)' }}>
+          ●
+        </span>
+        {model.current}
+      </span>
+      <span className="text-caption" style={{ color: 'var(--color-muted)' }}>
+        <strong style={{ color: 'var(--color-canvas-fg)' }}>{model.done}</strong> done ·{' '}
+        {model.writing} writing · {model.remaining} to go
+      </span>
+      {model.skipped && (
+        <span className="ml-auto text-caption" style={{ color: 'var(--color-muted)' }}>
+          {model.skipped}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /**

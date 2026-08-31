@@ -16,6 +16,7 @@ import { discoverSourceRoots } from '@/module-map/source-roots.js';
 import { refreshProjectRules } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
+import { describeCompletedUnits, readProgress } from '@/site-map/progress-store.js';
 import { describeSiteMapInventory, runSiteMapAudit } from '@/site-map/run.js';
 
 import { appendDashboardAudit } from './approvals.js';
@@ -225,6 +226,13 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
       // Say how big the job is as the first progress line, straight off the extraction (S4).
       onInventory: (inventory) => progress(describeSiteMapInventory(inventory)),
     });
+    // Report how far the resumable authoring got: one plain line per completed unit read from the
+    // S5 progress store (S6). The store is authored by `sitemap draft` (S8); until then this run
+    // reports the units a previous draft finished, and emits nothing when no progress file exists.
+    const progressFile = await readProgress(projectRoot);
+    if (progressFile !== null) {
+      for (const line of describeCompletedUnits(progressFile)) progress(line);
+    }
     progress(`Mapped the app: ${result.finding_count} finding(s) worth a look.`);
     return {
       report_id: result.report_id,
