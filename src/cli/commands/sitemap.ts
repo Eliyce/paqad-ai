@@ -17,7 +17,12 @@ import {
 } from '@/site-map/creation-flow.js';
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
 import { runJourneyCuration, type JourneyCurationAction } from '@/site-map/journey-curation.js';
-import { runSiteMapAudit } from '@/site-map/run.js';
+import {
+  deriveSiteMapInventory,
+  describeSiteMapInventory,
+  gatherSiteMapReport,
+  runSiteMapAudit,
+} from '@/site-map/run.js';
 
 interface RunFlags {
   projectRoot: string;
@@ -73,6 +78,33 @@ export function createSitemapCommand(): Command {
         }
       } catch (error) {
         console.error(`**▸ paqad** · sitemap run failed: ${(error as Error).message}`);
+        process.exitCode = 2;
+      }
+    });
+
+  command
+    .command('inventory')
+    .description('Report how many screens, groups and guards the code has — a read-only preview')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--quiet', 'Suppress the machine-readable summary line', false)
+    .action(async (options: RunFlags) => {
+      try {
+        // A read-only gather (no bundle, no baseline, no ledger row), so `inventory` is safe to
+        // run at any time — it only says how big the job is before any write (S4, AC-2).
+        const gathered = await gatherSiteMapReport({
+          projectRoot: options.projectRoot,
+          gatherer: createSiteMapGatherer(options.projectRoot),
+          workflow: 'site-map',
+          now: new Date(),
+        });
+        const inventory = deriveSiteMapInventory(gathered.extraction);
+        console.log(`**▸ paqad** · site map — ${describeSiteMapInventory(inventory)}`);
+        process.exitCode = 0;
+        if (!options.quiet) {
+          console.log(JSON.stringify(inventory));
+        }
+      } catch (error) {
+        console.error(`**▸ paqad** · sitemap inventory failed: ${(error as Error).message}`);
         process.exitCode = 2;
       }
     });

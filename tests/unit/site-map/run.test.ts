@@ -11,11 +11,14 @@ import { readBaseline } from '@/site-map/baseline.js';
 import {
   blockedExtractor,
   type ExtractedSurface,
+  type ExtractionResult,
   type ExtractorOutput,
 } from '@/site-map/extraction.js';
 import { SITE_MAP_RUN_DOC_TYPE } from '@/site-map/ledger.js';
 import {
+  deriveSiteMapInventory,
   deriveSiteMapVerdict,
+  describeSiteMapInventory,
   gatherSiteMapReport,
   runSiteMapAudit,
   type SiteMapGatherer,
@@ -465,5 +468,72 @@ describe('deriveSiteMapVerdict', () => {
 
   it('is safe only when there is a navigable map, no finding, and no blocked check', () => {
     expect(deriveSiteMapVerdict(clean)).toBe('safe');
+  });
+});
+
+// S4 (D7): the run says how big the job is before it writes anything.
+function extractionOf(surfaces: ExtractedSurface[]): ExtractionResult {
+  return {
+    schema_version: 1,
+    app_kind: 'cli',
+    surfaces,
+    blocked_checks: [],
+    fingerprint: 'deadbeef',
+    extractors_ran: 1,
+    low_confidence_fallback: false,
+  };
+}
+
+describe('deriveSiteMapInventory', () => {
+  it('counts screens, gathers sorted distinct groups, and counts distinct guard tokens (AC-1)', () => {
+    const inventory = deriveSiteMapInventory(
+      extractionOf([
+        surface({ raw_id: 'a', module: 'Billing', guards: ['web', 'auth'] }),
+        surface({ raw_id: 'b', module: 'Auth', guards: ['web'] }),
+        // A guard repeated across surfaces is one distinct token; a surface may carry no module.
+        surface({ raw_id: 'c', module: 'Billing', guards: ['auth', 'verified'] }),
+        surface({ raw_id: 'd' }),
+      ]),
+    );
+    expect(inventory.screens).toBe(4);
+    expect(inventory.groups).toEqual(['Auth', 'Billing']);
+    expect(inventory.guards).toBe(3); // web, auth, verified
+  });
+
+  it('reports zeroes and an empty group set for an empty extraction (AC-2)', () => {
+    const inventory = deriveSiteMapInventory(extractionOf([]));
+    expect(inventory).toEqual({ screens: 0, groups: [], guards: 0 });
+  });
+});
+
+describe('describeSiteMapInventory', () => {
+  it('is the one shared human sentence (AC-4)', () => {
+    expect(describeSiteMapInventory({ screens: 214, groups: ['a', 'b'], guards: 3 })).toBe(
+      'Found 214 screens across 2 groups.',
+    );
+  });
+});
+
+describe('runSiteMapAudit inventory (S4)', () => {
+  it('returns the inventory and fires onInventory once, before the exit code changes (AC-5)', async () => {
+    const root = repo();
+    const seen: unknown[] = [];
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        extractors: async () => [
+          {
+            extractor: 'node-cli',
+            available: true,
+            surfaces: [surface({ raw_id: 'a', module: 'Cli', guards: ['auth'] })],
+          },
+        ],
+      }),
+      sessionId: 's-inventory',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+      onInventory: (inventory) => seen.push(inventory),
+    });
+    expect(result.inventory).toEqual({ screens: 1, groups: ['Cli'], guards: 1 });
+    expect(seen).toEqual([result.inventory]);
   });
 });

@@ -246,6 +246,9 @@ describe('ops job runner', () => {
       });
       expect(job.result).toHaveProperty('report_id');
       expect(job.progress.length).toBeGreaterThan(1);
+      // S4: the first progress line reports the inventory, replacing the generic scan sentence.
+      expect(job.progress[0]).toMatch(/^Found \d+ screens across \d+ groups\.$/);
+      expect(job.progress.join('\n')).not.toContain('Mapping the app');
       expect(readAudit(root)).toContain('dashboard.ops.site-map');
     });
 

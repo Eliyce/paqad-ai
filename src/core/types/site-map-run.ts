@@ -113,6 +113,19 @@ export interface SiteMapAppSummary {
   frameworks: string[];
 }
 
+/**
+ * How big the mapping job is, read straight off the extraction before any write (S4). `screens`
+ * is the extracted surface count; `groups` is the sorted, distinct set of module attributions the
+ * extraction found; `guards` is the count of distinct guard tokens (e.g. route middleware) across
+ * the surfaces. It is a deterministic size readout, never a journey count — journeys are proposed
+ * by the model, so counting them here would be false precision.
+ */
+export interface SiteMapInventory {
+  screens: number;
+  groups: string[];
+  guards: number;
+}
+
 /** What the extraction stage produced, distilled for the run header and the freshness gate. */
 export interface SiteMapExtractionSummary {
   extractors_ran: number;

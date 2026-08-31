@@ -16,7 +16,7 @@ import { discoverSourceRoots } from '@/module-map/source-roots.js';
 import { refreshProjectRules } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
-import { runSiteMapAudit } from '@/site-map/run.js';
+import { describeSiteMapInventory, runSiteMapAudit } from '@/site-map/run.js';
 
 import { appendDashboardAudit } from './approvals.js';
 
@@ -219,10 +219,11 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
   // shelling out. runSiteMapAudit is flag-gated at its consumers, so this is inert with the
   // site_map capability off.
   'site-map': async (_job, { projectRoot, progress }) => {
-    progress('Mapping the app — scanning surfaces and reconciling against the map.');
     const result = await runSiteMapAudit({
       projectRoot,
       gatherer: createSiteMapGatherer(projectRoot),
+      // Say how big the job is as the first progress line, straight off the extraction (S4).
+      onInventory: (inventory) => progress(describeSiteMapInventory(inventory)),
     });
     progress(`Mapped the app: ${result.finding_count} finding(s) worth a look.`);
     return {

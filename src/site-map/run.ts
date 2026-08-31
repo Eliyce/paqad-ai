@@ -17,6 +17,7 @@ import type {
   SiteMapAppSummary,
   SiteMapBaseline,
   SiteMapBlockedCheck,
+  SiteMapInventory,
   SiteMapReportIndex,
   SiteMapVerdict,
   SiteMapWorkflowName,
@@ -53,6 +54,11 @@ export interface SiteMapRunOptions {
   workflow?: SiteMapWorkflowName;
   sessionId?: string | null;
   now?: () => Date;
+  /**
+   * Called once with the run's inventory right after the gather, before any write (S4). A caller
+   * uses it to report how big the job is as its first progress line; the run itself is unaffected.
+   */
+  onInventory?: (inventory: SiteMapInventory) => void;
 }
 
 export interface SiteMapRunResult {
@@ -73,8 +79,34 @@ export interface SiteMapRunResult {
    * blocked check), else `safe`. Distinct from `exit_code`, which is unchanged.
    */
   verdict: SiteMapVerdict;
+  /** How big the mapping job is, read off the extraction before any write (S4). */
+  inventory: SiteMapInventory;
   /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
+}
+
+/**
+ * Read the run inventory off an extraction (pure — no I/O). `screens` is the extracted surface
+ * count; `groups` is the sorted, distinct set of module attributions; `guards` is the count of
+ * distinct guard tokens across the surfaces. It reports size, never a journey count (S4, AC-4).
+ */
+export function deriveSiteMapInventory(extraction: ExtractionResult): SiteMapInventory {
+  const groups = new Set<string>();
+  const guards = new Set<string>();
+  for (const surface of extraction.surfaces) {
+    if (surface.module !== undefined) groups.add(surface.module);
+    for (const guard of surface.guards ?? []) guards.add(guard);
+  }
+  return {
+    screens: extraction.surfaces.length,
+    groups: [...groups].sort((a, b) => a.localeCompare(b)),
+    guards: guards.size,
+  };
+}
+
+/** The one shared, human sentence for an inventory — used by the CLI verb and the dashboard job. */
+export function describeSiteMapInventory(inventory: SiteMapInventory): string {
+  return `Found ${inventory.screens} screens across ${inventory.groups.length} groups.`;
 }
 
 /**
@@ -164,6 +196,12 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     now: runNow,
   });
 
+  // Report how big the job is before any write (S4). The callback fires once, straight off the
+  // gathered extraction, so a caller (the dashboard job) can say the size as its first progress
+  // line while the run goes on to persist its bundle.
+  const inventory = deriveSiteMapInventory(extraction);
+  options.onInventory?.(inventory);
+
   await writeJsonFile(join(projectRoot, report.bundle_dir, 'finding-index.json'), {
     report_id: report.report_id,
     findings: report.findings,
@@ -216,6 +254,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     baseline_created: baselineCreated,
     trust_restamp: trustRestamp,
     verdict,
+    inventory,
     exit_code: report.findings.length > 0 ? 1 : 0,
   };
 }

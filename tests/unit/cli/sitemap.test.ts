@@ -5,12 +5,19 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runSiteMapAudit = vi.fn();
+const gatherSiteMapReport = vi.fn();
 const runJourneyCuration = vi.fn();
 const createSiteMapGatherer = vi.fn(() => ({}) as never);
 const deriveCreationQuestions = vi.fn();
 const recordCreationAnswers = vi.fn();
 
-vi.mock('@/site-map/run.js', () => ({ runSiteMapAudit }));
+// Mock the two fs-touching run entry points but keep the real pure inventory helpers
+// (deriveSiteMapInventory / describeSiteMapInventory).
+vi.mock('@/site-map/run.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/site-map/run.js')>()),
+  runSiteMapAudit,
+  gatherSiteMapReport,
+}));
 vi.mock('@/site-map/journey-curation.js', () => ({ runJourneyCuration }));
 vi.mock('@/site-map/gatherer.js', () => ({ createSiteMapGatherer }));
 // Mock the two fs-touching composers but keep the real parseCreationDecisions.
@@ -34,6 +41,7 @@ async function invoke(args: string[]): Promise<string[]> {
 describe('paqad-ai sitemap command', () => {
   beforeEach(() => {
     runSiteMapAudit.mockReset();
+    gatherSiteMapReport.mockReset();
     runJourneyCuration.mockReset();
     createSiteMapGatherer.mockClear();
     deriveCreationQuestions.mockReset();
@@ -130,6 +138,46 @@ describe('paqad-ai sitemap command', () => {
     const out = await invoke(['run']);
     expect(process.exitCode).toBe(2);
     expect(out.join('\n')).toContain('sitemap run failed: boom');
+  });
+
+  it('inventory is a registered subcommand (S4)', () => {
+    const names = createSitemapCommand().commands.map((c) => c.name());
+    expect(names).toContain('inventory');
+  });
+
+  it('inventory: gathers read-only, prints the sentence + JSON line, exits 0 (S4, AC-2/AC-3)', async () => {
+    gatherSiteMapReport.mockResolvedValue({
+      extraction: {
+        surfaces: [
+          { module: 'Billing', guards: ['web', 'auth'] },
+          { module: 'Auth', guards: ['web'] },
+        ],
+      },
+    });
+    const out = await invoke(['inventory', '--project-root', '/tmp/app']);
+    expect(process.exitCode).toBe(0);
+    expect(createSiteMapGatherer).toHaveBeenCalledWith('/tmp/app');
+    // `inventory` never persists — it must not drive the writing run.
+    expect(runSiteMapAudit).not.toHaveBeenCalled();
+    expect(out.join('\n')).toContain('Found 2 screens across 2 groups.');
+    expect(out.join('\n')).toContain('"screens":2');
+    expect(out.join('\n')).toContain('"groups":["Auth","Billing"]');
+    expect(out.join('\n')).toContain('"guards":2');
+  });
+
+  it('inventory: --quiet suppresses the JSON line', async () => {
+    gatherSiteMapReport.mockResolvedValue({ extraction: { surfaces: [] } });
+    const out = await invoke(['inventory', '--quiet']);
+    expect(process.exitCode).toBe(0);
+    expect(out.join('\n')).toContain('Found 0 screens across 0 groups.');
+    expect(out.join('\n')).not.toContain('"screens"');
+  });
+
+  it('inventory: an unexpected error exits 2 (S4)', async () => {
+    gatherSiteMapReport.mockRejectedValue(new Error('scan blew up'));
+    const out = await invoke(['inventory']);
+    expect(process.exitCode).toBe(2);
+    expect(out.join('\n')).toContain('sitemap inventory failed: scan blew up');
   });
 
   it('retest is retired: the subcommand no longer exists (ART-3)', async () => {
