@@ -61,17 +61,20 @@ describe('paqad-ai sitemap command', () => {
       ],
       baseline_created: true,
       trust_restamp: { status: 'stamped', path: 'docs/site-map/app-map.yaml' },
+      verdict: 'attention',
       exit_code: 1,
     });
     const out = await invoke(['run', '--project-root', '/tmp/app']);
     expect(process.exitCode).toBe(1);
     expect(createSiteMapGatherer).toHaveBeenCalledWith('/tmp/app');
     expect(out.join('\n')).toContain('worth a look');
+    expect(out.join('\n')).toContain('Needs your attention');
     expect(out.join('\n')).toContain('web-surfaces skipped');
     expect(out.join('\n')).toContain(
       'Stamped earned trust and freshness into docs/site-map/app-map.yaml',
     );
     expect(out.join('\n')).toContain('Baseline recorded');
+    expect(out.join('\n')).toContain('"verdict":"attention"');
     expect(out.join('\n')).toContain('"findings":2');
   });
 
@@ -85,14 +88,41 @@ describe('paqad-ai sitemap command', () => {
       blocked_checks: [],
       baseline_created: false,
       trust_restamp: { status: 'no-map' },
+      verdict: 'safe',
       exit_code: 0,
     });
     const out = await invoke(['run', '--quiet']);
     expect(process.exitCode).toBe(0);
     expect(out.join('\n')).toContain('the map matches the code');
+    expect(out.join('\n')).toContain('Safe to merge');
     // no-map means nothing was stamped, so no stamped line is printed.
     expect(out.join('\n')).not.toContain('Stamped earned trust');
     expect(out.join('\n')).not.toContain('"findings"');
+  });
+
+  it('run: an absent or link-less map reads Inconclusive, not clean, and exits 0 (S2, D4)', async () => {
+    runSiteMapAudit.mockResolvedValue({
+      report_id: 'SITEMAP-z',
+      bundle_dir: '.paqad/site-map/runs/z',
+      finding_count: 0,
+      blocked_checks: [
+        {
+          check: 'map-present',
+          reason: 'no site map has been authored at docs/site-map/app-map.yaml yet',
+          install_hint: 'Author the site map at docs/site-map/app-map.yaml',
+        },
+      ],
+      baseline_created: true,
+      trust_restamp: { status: 'no-map' },
+      verdict: 'inconclusive',
+      exit_code: 0,
+    });
+    const out = await invoke(['run']);
+    expect(process.exitCode).toBe(0);
+    expect(out.join('\n')).toContain('Inconclusive');
+    expect(out.join('\n')).not.toContain('Safe to merge');
+    expect(out.join('\n')).toContain('map-present skipped');
+    expect(out.join('\n')).toContain('"verdict":"inconclusive"');
   });
 
   it('run: an unexpected error exits 2 (AC-8)', async () => {

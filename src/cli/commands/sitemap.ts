@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 
 import { Command } from 'commander';
 
+import type { SiteMapVerdict } from '@/core/types/site-map-run.js';
 import {
   deriveCreationQuestions,
   parseCreationDecisions,
@@ -39,13 +40,16 @@ export function createSitemapCommand(): Command {
           projectRoot: options.projectRoot,
           gatherer: createSiteMapGatherer(options.projectRoot),
         });
-        if (result.finding_count === 0) {
-          console.log('**▸ paqad** · site map — the map matches the code. Safe to merge.');
-        } else {
-          console.log(
-            `**▸ paqad** · site map — found ${result.finding_count} thing(s) worth a look. Needs your attention.`,
-          );
-        }
+        // Speak the verdict in the paqad contract words. A run over an absent or link-less map
+        // reads Inconclusive, never "Safe to merge" (D4): only a real, navigable, unblocked map
+        // with no findings earns the clean line.
+        const verdictLine: Record<SiteMapVerdict, string> = {
+          safe: '**▸ paqad** · site map — the map matches the code. Safe to merge.',
+          attention: `**▸ paqad** · site map — found ${result.finding_count} thing(s) worth a look. Needs your attention.`,
+          inconclusive:
+            '**▸ paqad** · site map — could not confirm the map against the code. Inconclusive.',
+        };
+        console.log(verdictLine[result.verdict]);
         for (const blocked of result.blocked_checks) {
           console.log(`> ⚪ ${blocked.check} skipped — ${blocked.reason}`);
         }
@@ -60,6 +64,7 @@ export function createSitemapCommand(): Command {
           console.log(
             JSON.stringify({
               report_id: result.report_id,
+              verdict: result.verdict,
               findings: result.finding_count,
               blocked_checks: result.blocked_checks.length,
               baseline_created: result.baseline_created,

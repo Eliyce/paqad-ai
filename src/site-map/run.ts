@@ -18,6 +18,7 @@ import type {
   SiteMapBaseline,
   SiteMapBlockedCheck,
   SiteMapReportIndex,
+  SiteMapVerdict,
   SiteMapWorkflowName,
 } from '@/core/types/site-map-run.js';
 
@@ -66,8 +67,33 @@ export interface SiteMapRunResult {
    * so the wire is a no-op on a project that has not authored its map yet.
    */
   trust_restamp: RestampCanonicalTrustResult;
+  /**
+   * The paqad verdict for this run (issue D4): `attention` on any finding, `inconclusive` when a
+   * check could not reach a confident result (no stored map, a map with no navigation, or any
+   * blocked check), else `safe`. Distinct from `exit_code`, which is unchanged.
+   */
+  verdict: SiteMapVerdict;
   /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
+}
+
+/**
+ * Decide a run's verdict from its outcome (pure — no I/O). A run reads `attention` when it found
+ * anything; otherwise it is only `safe` when there is a stored map that records navigation and no
+ * check was blocked — anything less is `inconclusive`, so a run over an absent or link-less map can
+ * never masquerade as clean (D4). The exit code is decided separately and is not affected.
+ */
+export function deriveSiteMapVerdict(input: {
+  findingCount: number;
+  hasStoredMap: boolean;
+  hasTransitions: boolean;
+  blockedChecks: SiteMapBlockedCheck[];
+}): SiteMapVerdict {
+  if (input.findingCount > 0) return 'attention';
+  if (!input.hasStoredMap || !input.hasTransitions || input.blockedChecks.length > 0) {
+    return 'inconclusive';
+  }
+  return 'safe';
 }
 
 /** Everything the gather+assemble step produces, before any writes. */
@@ -131,7 +157,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
   const now = options.now ?? (() => new Date());
   const runNow = now();
 
-  const { report, findingIds, extraction, baseline } = await gatherSiteMapReport({
+  const { report, findingIds, extraction, baseline, map } = await gatherSiteMapReport({
     projectRoot,
     gatherer,
     workflow,
@@ -175,6 +201,13 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     { sessionId: options.sessionId, now },
   );
 
+  const verdict = deriveSiteMapVerdict({
+    findingCount: report.findings.length,
+    hasStoredMap: map !== null,
+    hasTransitions: map !== null && map.surfaces.some((s) => (s.transitions?.length ?? 0) > 0),
+    blockedChecks: report.blocked_checks,
+  });
+
   return {
     report_id: report.report_id,
     bundle_dir: report.bundle_dir,
@@ -182,6 +215,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     blocked_checks: report.blocked_checks,
     baseline_created: baselineCreated,
     trust_restamp: trustRestamp,
+    verdict,
     exit_code: report.findings.length > 0 ? 1 : 0,
   };
 }
