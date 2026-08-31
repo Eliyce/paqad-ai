@@ -24,7 +24,9 @@
               "sensitive-surface",
               "journey-priority",
               "labels-language",
-              "grouping"
+              "grouping",
+              "tool-access",
+              "journey-scope"
             ]
           },
           "question": { "type": "string", "minLength": 1 },

@@ -19,12 +19,15 @@
 import {
   SITE_MAP_ANSWER_CATEGORIES,
   type AnswerDecidedBy,
+  type CandidateQuestion,
   type QuestionReconciliation,
   type SiteMapAnswer,
 } from '@/core/types/site-map-answers.js';
+import type { PreflightResult } from '@/workflow-preflight/contract.js';
 
 import {
   buildCandidateQuestions,
+  buildPreflightQuestions,
   reconcileQuestions,
   readCreationAnswers,
   recordAnswers,
@@ -104,17 +107,34 @@ export type RecordCreationResult =
  * code. A decision whose id is not a current candidate is stale and is reported under `unknown`,
  * never persisted. When at least one decision matches, the reconciled answers are written to
  * `docs/site-map/answers.yaml` and `stampAnswerProvenance` writes each decision's provenance onto
- * the surfaces it settled, rewriting the map only when the stamp changed it. Returns `no-map` when
- * the map is absent. Pure composition; the caller is flag-gated.
+ * the surfaces it settled, rewriting the map only when the stamp changed it.
+ *
+ * A `preflight` result may be passed so preflight decisions (for example DEC-1's tool-access
+ * choice) are recorded through the same store and writer (S3c, D5/D6): the candidate lookup then
+ * consults both the map's questions and `buildPreflightQuestions(preflight)`. Preflight runs before
+ * a map exists, so a `preflight`-bearing call records even when the map is absent; the provenance
+ * stamp only runs when a map is present (a preflight answer carries `anchors: []` and settles no
+ * surface). Returns `no-map` only when the map is absent AND no preflight result was passed. Pure
+ * composition; the caller is flag-gated.
  */
 export function recordCreationAnswers(
   projectRoot: string,
   decisions: CreationDecision[],
+  preflight?: PreflightResult,
 ): RecordCreationResult {
   const map = readCanonicalSiteMap(projectRoot);
-  if (map === null) return { status: 'no-map' };
+  if (map === null && preflight === undefined) return { status: 'no-map' };
 
-  const candidates = new Map(buildCandidateQuestions(map).map((c) => [c.question_id, c]));
+  const candidates = new Map<string, CandidateQuestion>();
+  if (map !== null) {
+    for (const candidate of buildCandidateQuestions(map))
+      candidates.set(candidate.question_id, candidate);
+  }
+  if (preflight !== undefined) {
+    for (const candidate of buildPreflightQuestions(preflight)) {
+      candidates.set(candidate.question_id, candidate);
+    }
+  }
   const decided: SiteMapAnswer[] = [];
   const unknown: string[] = [];
   for (const decision of decisions) {
@@ -148,6 +168,19 @@ export function recordCreationAnswers(
 
   const file = recordAnswers(readCreationAnswers(projectRoot), decided);
   const answers_path = writeCreationAnswers(projectRoot, file);
+
+  // A preflight-only run (no map yet) records the answer but stamps nothing: a preflight answer
+  // settles tooling, not a surface, so there is no map element to write provenance onto.
+  if (map === null) {
+    return {
+      status: 'recorded',
+      recorded: decided.length,
+      unknown,
+      answers_path,
+      stamped: false,
+      map_path: null,
+    };
+  }
 
   const { map: stampedMap, changed } = stampAnswerProvenance(map, file.answers);
   const map_path = changed ? writeCanonicalSiteMap(projectRoot, stampedMap) : null;
