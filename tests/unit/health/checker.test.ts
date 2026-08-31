@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { HealthChecker } from '@/health/checker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { compileRules, writeCompiledRules } from '@/planning/rule-compiler.js';
 import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { DocumentationWorkflow } from '@/document/workflow.js';
@@ -120,6 +121,37 @@ describe('HealthChecker', () => {
     const check = report.checks.find((c) => c.name === 'Lean rule footprint acceptable');
     expect(check?.status).toBe('pass');
     expect(check?.detail).toContain('fallback');
+  });
+
+  it('fails the compiled-rules-current check when the store is stale (S1/D1)', async () => {
+    mkdirSync(join(projectRoot, PATHS.RULES_DIR), { recursive: true });
+    writeFileSync(join(projectRoot, PATHS.RULES_DIR, 'a.md'), '# A rule\nrule body');
+    // A compiled store whose hash does not match the rules dir → stale.
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, PATHS.COMPILED_RULES),
+      JSON.stringify({
+        schema_version: 1,
+        generated_at: 'now',
+        source_hash: 'sha256:stale',
+        rules: [],
+      }),
+    );
+
+    const report = await new HealthChecker().run(projectRoot);
+    const check = report.checks.find((c) => c.name === 'Compiled rules are current');
+    expect(check?.status).toBe('fail');
+    expect(check?.remediation).toContain('paqad-ai rag refresh-context');
+  });
+
+  it('passes the compiled-rules-current check when the store matches the rules (S1/D1)', async () => {
+    mkdirSync(join(projectRoot, PATHS.RULES_DIR), { recursive: true });
+    writeFileSync(join(projectRoot, PATHS.RULES_DIR, 'a.md'), '# A rule\nrule body');
+    await writeCompiledRules(projectRoot, await compileRules(projectRoot));
+
+    const report = await new HealthChecker().run(projectRoot);
+    const check = report.checks.find((c) => c.name === 'Compiled rules are current');
+    expect(check?.status).toBe('pass');
   });
 
   it('treats the decision workspace as ready without the git-ignored audit log', async () => {
