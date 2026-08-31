@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 5 of 10 |
+| **Tasks done** | 6 of 10 |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S6** (show the run progress in the dashboard). Depends on S5 (done). See `plan.md` §6 S6: reuse `OpButton` (SSE + poll backstop), add `GET /api/site-map/progress` (static read, `null` when none), emit one `progress()` per completed unit, and render a strip only when a progress file exists. |
+| **Next action** | Start **S7** (full-screen map and a readable zoom floor). No dependency. See `plan.md` §6 S7: a `Full screen` button + `f`/`Escape`, hide all four chrome pieces together, Fullscreen API with a CSS fallback, raise `minZoom` 0.05 → 0.25, an over-size hint at the floor, respect `prefers-reduced-motion`, and never persist the full-screen preference. |
 | **Blocked on** | **DEC-1** blocks S3 only. See `plan.md` §5. Raise the decision packet early so it is answered by the time S3 comes up. |
-| **Last updated** | 2026-08-31, session 6: S5b landed |
+| **Last updated** | 2026-08-31, session 7: S6 landed |
 
 ---
 
@@ -34,7 +34,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S4** | Report the surface inventory before any write | D7 | S | `done` | `d29896b1` |
 | **S5a** | Progress store with crash recovery | D7 | M | `done` | `e5583cde` |
 | **S5b** | `sitemap status` reads the progress file | D7 | S | `done` | `bfdb57ac` |
-| **S6** | Show run progress in the dashboard | D8 | S | `todo` | |
+| **S6** | Show run progress in the dashboard | D8 | S | `done` | `8d57e5f4` |
 | **S7** | Full-screen map and a readable zoom floor | D8 | S | `todo` | |
 | **S8a** | Draft the map skeleton from the extraction | D2 | L | `todo` | |
 | **S8b** | Draft resumes from the progress file | D2 D7 | L | `todo` | |
@@ -60,7 +60,7 @@ Tick a defect only when every task that fixes it is done.
 - [ ] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
 - [ ] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
 - [ ] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b` (S8b still open)
-- [ ] **D8** No full screen anywhere; no run progress shown. `S6`, `S7`
+- [ ] **D8** No full screen anywhere; no run progress shown. `S6` (done), `S7` (S7 still open)
 
 ---
 
@@ -79,6 +79,39 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 7: S6
+
+- **S6 done** (`8d57e5f4`): the Site map dashboard area now shows how far a run has got.
+  - **Server:** new static `GET /api/site-map/progress` (`src/dashboard/server.ts`) returns the
+    S5 progress file through `readProgress` (tolerant, write-free), or `null` when none — safe to
+    poll while a run is in flight.
+  - **Ops job:** the `site-map` executor (`src/dashboard/ops-jobs.ts`) now reads the progress
+    store after the audit and emits one plain-language line per completed unit, via a new pure
+    `describeCompletedUnits(progress)` in `src/site-map/progress-store.ts` that words each `done`
+    unit as `<Kind> <ordinal> of <total-of-kind>: <label>` (e.g. `Journey 8 of 12: Checkout,
+    guest`), ordinal/total per kind in declaration order. The S4 inventory sentence still leads
+    and the `Mapped the app:` summary still trails; with no store it emits none.
+  - **graph-ui:** a new pure `graph-ui/src/lib/site-map-progress.ts` mirrors the progress shape
+    and projects it to the strip fields via `summarizeSiteMapProgress` (null when the file is null
+    or unit-less); `fetchSiteMapProgress` added to `api.ts`. `SiteMapView` reuses the existing
+    `OpButton action="site-map"` (SSE + poll backstop, `onDone` reloads) and renders a
+    `ProgressStrip` (current unit · done/writing/remaining · a "finished earlier" line) only when a
+    progress file exists — nothing rendered otherwise (AC-4/AC-5).
+  - Tests: `describeCompletedUnits` (per-kind wording, nothing-done, empty) and
+    `summarizeSiteMapProgress` (populated, null, empty, singular/plural skipped, writing→next→
+    all-mapped precedence); ops-jobs (worded per-unit lines from a seeded store, existing no-store
+    test still green); server route (file present → returns it, absent → null). `pnpm run ci`
+    green (typecheck/lint/format/coverage/graph-ui/build); `paqad-ai checks run` green. No
+    dependency added, no new state library, no change to existing routes/exit codes/data shapes.
+- **Plan seam recorded (AC-2).** AC-2 ("one `progress()` per completed unit") describes authoring
+  progress, but the `site-map` ops action runs the verification audit (`runSiteMapAudit`), which
+  authors **no** units — unit authoring is **S8** (`sitemap draft`). S6 implements AC-2 honestly:
+  the job reports the store's already-`done` units (resumable state), which is forward-compatible —
+  once S8 populates the store live, the same emission reflects live authoring. See "Found on the
+  way".
+- D8 stays open: S6 (run progress) is done; `S7` (full screen + readable zoom floor) still remains
+  before D8 can be ticked.
 
 ### 2026-08-31, session 6: S5b
 
@@ -206,6 +239,12 @@ here rather than fixing them, so the PR stays reviewable. A human triages them l
 - A paqad session process flips the exec bit on `runtime/hooks/lib/agent-entry-directive.mjs`
   (`100644` → `100755`) mid-session on macOS. It is not a source change and was kept out of the
   S1 commit; worth checking whether the on-disk hook file should just ship with the exec bit set.
+- **The dashboard `site-map` ops action still runs the verification audit, not the draft.** So the
+  S6 per-unit progress lines report the units a previous `sitemap draft` (S8) finished, not live
+  authoring. Once S8 lands and the ops action drives (or is followed by) `draft`, the same
+  `describeCompletedUnits` emission and the `GET /api/site-map/progress` strip will reflect a live
+  authoring run with no further wiring. This is the S6→S8 seam the plan's task order creates; it is
+  not a defect.
 
 ---
 
