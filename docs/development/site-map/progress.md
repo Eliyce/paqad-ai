@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 7 of 10 |
+| **Tasks done** | 8 of 10 (S3 done; S8, S9, S10 remain) |
 | **Currently in flight** | nothing |
 | **Next action** | Start **S8a** (draft the map skeleton from the extraction). Depends on **S4** and **S5**, both done. See `plan.md` §6 S8a: a new `paqad-ai sitemap draft` writes a schema-valid `docs/site-map/app-map.yaml` with one surface entry per extracted surface (id/kind/label/evidence/entry/module/guards), areas derived from the module map, `schema_version` the integer `1`, no invented transitions/journeys/actors, written through the existing `writeCanonicalSiteMap`. |
-| **Blocked on** | **DEC-1** blocks S3 only. See `plan.md` §5. Raise the decision packet early so it is answered by the time S3 comes up. |
-| **Last updated** | 2026-08-31, session 8: S7 landed |
+| **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
+| **Last updated** | 2026-08-31, session 9: S3a/S3b/S3c landed |
 
 ---
 
@@ -28,9 +28,9 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | --- | --- | --- | --- | --- | --- |
 | **S1** | Recompile the rulebook when it goes stale | D1 | S | `done` | `3c2949a7` |
 | **S2** | Honest verdict when the map is absent or link-less | D4 | S | `done` | `255d4287` |
-| **S3a** | Preflight: requirement contract and registry | D5 D6 | M | `blocked` (DEC-1) | |
-| **S3b** | Preflight: site-map requirements and the tray | D5 D6 | M | `blocked` (DEC-1) | |
-| **S3c** | Preflight: persist answers into the answer store | D6 | M | `blocked` (DEC-1) | |
+| **S3a** | Preflight: requirement contract and registry | D5 D6 | M | `done` | `9ac382d5` |
+| **S3b** | Preflight: site-map requirements and the tray | D5 D6 | M | `done` | `d08d6925` |
+| **S3c** | Preflight: persist answers into the answer store | D6 | M | `done` | `28d067c9` |
 | **S4** | Report the surface inventory before any write | D7 | S | `done` | `d29896b1` |
 | **S5a** | Progress store with crash recovery | D7 | M | `done` | `e5583cde` |
 | **S5b** | `sitemap status` reads the progress file | D7 | S | `done` | `bfdb57ac` |
@@ -57,8 +57,8 @@ Tick a defect only when every task that fixes it is done.
 - [ ] **D2** Nothing writes the map; the AI hand-types it; the command is hidden. `S8a`, `S8b`, `S8c`
 - [ ] **D3** Nothing detects links; 0 transitions in a 112-surface map. `S9a`, `S9b`, `S9c`
 - [x] **D4** An absent or link-less map reads "Safe to merge". `S2`
-- [ ] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
-- [ ] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
+- [x] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
+- [x] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
 - [ ] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b` (S8b still open)
 - [x] **D8** No full screen anywhere; no run progress shown. `S6` (done), `S7` (done)
 
@@ -68,7 +68,7 @@ Tick a defect only when every task that fixes it is done.
 
 | id | Question | Status | Answer | Packet |
 | --- | --- | --- | --- | --- |
-| **DEC-1** | When the site map needs the output of a project command (for example `php artisan route:list`), does paqad run it, or print it and wait for pasted output? | **open** | recommendation on record: run it, read-only commands only, with print-and-paste kept as a tray option | not yet created |
+| **DEC-1** | When the site map needs the output of a project command (for example `php artisan route:list`), does paqad run it, or print it and wait for pasted output? | **resolved** | **run** — paqad runs read-only commands itself, in-session; print-and-paste only as a last-resort fallback | `D-01M1CBV8WNZWXXGTHSETY2NMQG` (resolved, committed with S3a) |
 
 Create the packet with `paqad-ai decision create` (never by hand), surface it with
 `AskUserQuestion`, resolve it with `paqad-ai decision resolve`, and commit the resolved file
@@ -79,6 +79,40 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 9: S3 (S3a, S3b, S3c) + DEC-1
+
+- **DEC-1 resolved `run`** (`D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). The user pre-answered:
+  paqad runs read-only introspection commands itself in-session (stack from the dependency manifest,
+  via `execa`, timeout-bounded), degrading to a static scan + a blocked check on failure; print-and-paste
+  is kept only as a last-resort fallback. Created with `decision create`, resolved with `decision resolve`.
+- **S3a done** (`9ac382d5`): a generic `src/workflow-preflight/` module — `contract.ts` (a requirement is
+  `id`/`label`/`kind`/`why`/async `probe`/`options`; `ProbeOutcome` = `ok`|`unavailable`|`needs-decision`),
+  `registry.ts` (`requirementsFor(workflow)` → its list or `[]`, ships `site-map` only), `run.ts`
+  (`evaluateRequirements` preserves declaration order; `runPreflight` derives questions from every non-ok
+  result and is `ok` only when none remain), `index.ts`. New `paqad-ai preflight <workflow>` CLI (0 ok / 1
+  questions / 2 error). The runner knows nothing site-map-specific.
+- **S3b done** (`d08d6925`): filled the site-map requirement list — `documentation-foundation` and
+  `module-docs` (delegating to `detectSiteMapPrerequisites`), `node-cli-program`, and `laravel-route-list`
+  declared **only** for a Laravel project (an additive optional `applies` project-gate on the contract).
+  Its probe checks presence (an `artisan` file + `php --version`), returns `needs-decision`/`unavailable`,
+  and **never spawns `php artisan route:list`** — the test asserts on the mocked `execa`.
+- **S3c done** (`28d067c9`): added `tool-access` and `journey-scope` answer categories (type + JSON schema),
+  `buildPreflightQuestions` (command-kind preflight questions → `tool-access` candidates, the probe outcome
+  baked into `question_id` so a settled answer is reused while the probe is unchanged and re-asked when it
+  flips, `anchors: []`), and a preflight-aware `recordCreationAnswers(projectRoot, decisions, preflight?)`
+  that records a preflight answer on a **map-less** project through the existing writer, category/anchors
+  re-derived, stamping no surface.
+- `pnpm run ci` green on each commit (8368 tests on the final; 95% branch floor met). `paqad-ai preflight
+  site-map` smoke-tested in this repo: `ok:true`, exit 0, `laravel-route-list` correctly not declared (no
+  composer.json). No dependency added; no exit-code/API/data-shape change to existing verbs.
+- **D5 and D6 ticked**: S3a+S3b close D5; S3b+S3c close D6.
+- **Interpretation recorded (S3c seam).** AC-3 mandates a preflight answer carries `anchors: []` while AC-5
+  mandates it reopen when the probe result changes; anchors cannot carry that signal, so the probe outcome
+  is encoded into the `question_id` (`tool-access:<id>:<outcome>`). The **live** wiring of preflight into the
+  `sitemap answer` flow is deferred to S10 (its Step 1 records with `sitemap answer`); S3c ships the store
+  capability and proves it with a direct round-trip test, so no unused CLI path was added now. See
+  "Found on the way".
 
 ### 2026-08-31, session 8: S7
 
@@ -288,6 +322,13 @@ here rather than fixing them, so the PR stays reviewable. A human triages them l
 - A paqad session process flips the exec bit on `runtime/hooks/lib/agent-entry-directive.mjs`
   (`100644` → `100755`) mid-session on macOS. It is not a source change and was kept out of the
   S1 commit; worth checking whether the on-disk hook file should just ship with the exec bit set.
+- **Preflight is a library capability until S10 wires it into the live flow.** S3c extended
+  `recordCreationAnswers` with an optional `preflight` parameter and added `buildPreflightQuestions`, but
+  the `sitemap answer` CLI verb still calls `recordCreationAnswers(projectRoot, decisions)` without a
+  preflight result. Running preflight inside `answer` would spawn `php --version` on every call and change
+  that verb's behaviour, so it was left for S10, whose Step 1 documents running `paqad-ai preflight site-map`
+  and recording the returned questions with `sitemap answer`. The store capability is proven by a direct
+  round-trip test today. This is the S3→S10 seam the task order creates; it is not a defect.
 - **The dashboard `site-map` ops action still runs the verification audit, not the draft.** So the
   S6 per-unit progress lines report the units a previous `sitemap draft` (S8) finished, not live
   authoring. Once S8 lands and the ops action drives (or is followed by) `draft`, the same
