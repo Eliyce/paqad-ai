@@ -112,6 +112,12 @@ One entry per session. Newest at the top. Keep entries short and factual.
   way".
 - D8 stays open: S6 (run progress) is done; `S7` (full screen + readable zoom floor) still remains
   before D8 can be ticked.
+- **Stage ledger note.** After the S6 commits, the end-of-change gate's git reconcile (#450) minted
+  a fresh active change bundle for the post-commit working set and orphaned the bundle the stages
+  were first recorded into, so the Stop gate saw only `development`. The planning, specification,
+  review and checks stages were re-recorded against the active bundle (same session), `paqad-ai
+  checks run` re-run green, and this doc note records `documentation_sync`. No code changed in the
+  re-record; the S6 commit `8d57e5f4` is unchanged.
 
 ### 2026-08-31, session 6: S5b
 
