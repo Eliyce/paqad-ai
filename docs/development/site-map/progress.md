@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 8 of 10 (S3 done; S8, S9, S10 remain) |
+| **Tasks done** | 8 of 10 tasks; S8a done (S8b, S8c, S9, S10 remain) |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S8a** (draft the map skeleton from the extraction). Depends on **S4** and **S5**, both done. See `plan.md` §6 S8a: a new `paqad-ai sitemap draft` writes a schema-valid `docs/site-map/app-map.yaml` with one surface entry per extracted surface (id/kind/label/evidence/entry/module/guards), areas derived from the module map, `schema_version` the integer `1`, no invented transitions/journeys/actors, written through the existing `writeCanonicalSiteMap`. |
+| **Next action** | Start **S8b** (make `draft` additive and resumable). Depends on **S8a** (done) and **S5** (done). See `plan.md` §6 S8b: re-running `draft` merges (an existing surface keeps human-authored fields; only missing entries are added; a vanished surface is not deleted), `draft` seeds the progress file from the S4 inventory and marks each group `writing` then `done` with its `source_files`/`source_hash`, resumes by skipping unchanged `done` units, and an interrupt leaves exactly one `writing` unit for S5a's loader to reset. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
-| **Last updated** | 2026-08-31, session 9: S3a/S3b/S3c landed |
+| **Last updated** | 2026-08-31, session 10: S8a landed |
 
 ---
 
@@ -36,7 +36,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S5b** | `sitemap status` reads the progress file | D7 | S | `done` | `bfdb57ac` |
 | **S6** | Show run progress in the dashboard | D8 | S | `done` | `8d57e5f4` |
 | **S7** | Full-screen map and a readable zoom floor | D8 | S | `done` | `8593b854` |
-| **S8a** | Draft the map skeleton from the extraction | D2 | L | `todo` | |
+| **S8a** | Draft the map skeleton from the extraction | D2 | L | `done` | `8a1f219d` |
 | **S8b** | Draft resumes from the progress file | D2 D7 | L | `todo` | |
 | **S8c** | Unhide the `sitemap` command | D2 | S | `todo` | |
 | **S9a** | Transition detectors | D3 | L | `todo` | |
@@ -79,6 +79,31 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-08-31, session 10: S8a
+
+- **S8a done** (`8a1f219d`): a new `paqad-ai sitemap draft` verb writes the map skeleton straight
+  from the extraction, so the model adds meaning instead of retyping hundreds of surface entries (D2).
+  - **New pure lib** `src/site-map/draft.ts` — `buildSiteMapDraft(extraction, app): AppMap` (no I/O,
+    mirroring `extraction.ts`): one surface per extracted surface in extraction order (`id` from
+    `raw_id`, `kind`, `label`, `evidence` passed through byte-for-byte, `entry`/`module` when present,
+    the raw middleware `guards` hints onto the map's `guard` ref when non-empty), areas derived from
+    the module map (`deriveSiteMapInventory(extraction).groups`, deduped by slugged id, with a
+    raw-name fallback when a module has no word chars), `schema_version` the integer `1`, and nothing
+    invented (no transitions, journeys, actors, or top-level guards). 12 tests.
+  - **`sitemap draft` verb** (`src/cli/commands/sitemap.ts`): gathers read-only through the same
+    `gatherSiteMapReport` seam `inventory` uses, reads the app summary off `gathered.report.app`,
+    builds the draft, and persists via the existing `writeCanonicalSiteMap` (validate-before-write,
+    atomic temp+rename inherited). Prints the surface count + path; exit 0 on success, 2 on any error
+    (a schema-invalid draft is refused by the writer and surfaces as exit 2). Registered but the
+    `sitemap` command stays `{ hidden: true }` until S8c. 4 CLI tests.
+  - `pnpm run ci` green (typecheck / lint / format:check / test:coverage at the 95% floor /
+    graph-ui:test / build). No dependency added; no change to existing verb output, exit codes, public
+    API shapes, or the map schema. The verb was **not** run against this repo's own authored live map:
+    a plain overwrite would clobber human-authored fields, and the additive merge is S8b.
+  - Stages recorded against this session's bundle (`…-s8a-01M1CHS09S…`): planning → specification →
+    development → checks → review, each with its rigid artifact.
+- D2 stays open: S8a (skeleton write) is done; `S8b` (additive/resumable) and `S8c` (unhide) remain.
 
 ### 2026-08-31, session 9: S3 (S3a, S3b, S3c) + DEC-1
 
@@ -329,6 +354,12 @@ here rather than fixing them, so the PR stays reviewable. A human triages them l
   that verb's behaviour, so it was left for S10, whose Step 1 documents running `paqad-ai preflight site-map`
   and recording the returned questions with `sitemap answer`. The store capability is proven by a direct
   round-trip test today. This is the S3→S10 seam the task order creates; it is not a defect.
+- **S8a carries raw middleware guard hints onto the map's `guard` ref, not a `guards` field.** The
+  map `Surface` type has no `guards` field — only `guard` (a guard-ref: `string | string[]`). S8a's
+  AC-1 says "`guards` from the middleware hints", so `buildSiteMapDraft` puts the extractor's raw
+  `guards` tokens onto `surface.guard` verbatim. The skeleton carries the proven hint; resolving those
+  tokens into typed top-level `Guard` entries is the later guard-inference stage's job, not S8a's. This
+  is the honest minimal reading — it invents no typed guard. Recorded here as the S8a interpretation.
 - **The dashboard `site-map` ops action still runs the verification audit, not the draft.** So the
   S6 per-unit progress lines report the units a previous `sitemap draft` (S8) finished, not live
   authoring. Once S8 lands and the ops action drives (or is followed by) `draft`, the same
