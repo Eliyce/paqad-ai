@@ -111,12 +111,17 @@ One entry per session. Newest at the top. Keep entries short and factual.
   harness (no jsdom, no testing-library) and is build-gated — only pure lib logic is unit-tested. So
   that behaviour is implemented in the pure `site-map-fullscreen.ts` and unit-tested there, and the
   React wiring is verified by `vite build` inside `pnpm run ci`. This mirrors S6 exactly.
-- **Stage-ledger note (same class as session 7's).** The first stage records this session used the
-  wrong session id: the CLI `SE_SESSION` was set to a stale `_chat` session (`acebff94…`) while the
-  PreToolUse hook keys off this session (`ccb22e31…`), so the first edit was blocked. Re-ran
-  `export SE_SESSION=$CLAUDE_SESSION_ID` (the real id) and re-recorded planning + specification into
-  the active `…-s7-…` bundle before editing; review and checks then recorded cleanly. No code was
-  affected; commit `8593b854` is unchanged.
+- **Stage-ledger note (same class as session 7's).** Two ledger reconciles happened, both cosmetic:
+  1. The first stage records used the wrong session id: the CLI `SE_SESSION` was set to a stale
+     `_chat` session (`acebff94…`) while the PreToolUse hook keys off this session (`ccb22e31…`), so
+     the first edit was blocked. Re-ran `export SE_SESSION=$CLAUDE_SESSION_ID` (the real id) and
+     re-recorded planning + specification into the active `…-s7-…` bundle before editing.
+  2. After the S7 commits, the end-of-change gate's git reconcile (#450) minted a fresh active change
+     bundle for the post-commit working set (`…-s7-01M1C9F8…`) and orphaned the bundle the stages
+     were first recorded into, so the Stop gate saw the code change with no stages. The planning,
+     specification and review stages were re-recorded against the active bundle (same session),
+     `paqad-ai checks run` re-run green, and this note records `documentation_sync`.
+  No code changed in either re-record; the S7 commit `8593b854` is unchanged.
 
 ### 2026-08-31, session 7: S6
 
