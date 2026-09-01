@@ -594,6 +594,11 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
     journeyCount: () => readAllJourneys(projectRoot).length,
     resolveEvidence: (pointers: Evidence[]): EvidenceResolution[] =>
       pointers.map((pointer) => resolvePointer(projectRoot, pointer)),
+    // S9c: the run's transition seam delegates to the S9b detector-over-source-files gatherer, so
+    // `sitemap run` reconciles the code's proven edges against the stored map (this is the impure
+    // I/O half; resolution and reconciliation are pure in `assemble`).
+    gatherTransitions: (surfaces: ExtractedSurface[]): ExtractedTransition[] =>
+      gatherSiteMapTransitions(projectRoot, surfaces),
     async extractors(): Promise<ExtractorOutput[]> {
       const outputs: ExtractorOutput[] = [];
       if (isNodeCli) {

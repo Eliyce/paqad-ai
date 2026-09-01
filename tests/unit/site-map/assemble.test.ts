@@ -4,10 +4,12 @@ import type { AppMap } from '@/core/types/site-map.js';
 import type { SiteMapBaseline } from '@/core/types/site-map-run.js';
 import {
   assembleSiteMapReport,
+  detectMissingEdges,
   detectUnmappedSurfaces,
   type SiteMapAssemblyInput,
 } from '@/site-map/assemble.js';
 import type { ExtractedSurface, ExtractionResult } from '@/site-map/extraction.js';
+import type { ExtractedTransition } from '@/site-map/transitions.js';
 
 function extracted(overrides: Partial<ExtractedSurface> = {}): ExtractedSurface {
   return {
@@ -50,6 +52,7 @@ function input(overrides: Partial<SiteMapAssemblyInput> = {}): SiteMapAssemblyIn
     map: null,
     extraction: extraction([extracted()]),
     evidenceResolutions: [],
+    codeTransitions: [],
     journeyCount: 0,
     blockedChecks: [],
     baseline: null,
@@ -246,5 +249,161 @@ describe('assembleSiteMapReport', () => {
       input({ sources: ['node-cli', 'app-map.yaml', 'node-cli'] }),
     ).report;
     expect(report.sources_used).toEqual(['app-map.yaml', 'node-cli']);
+  });
+});
+
+// --- S9c: reconcile missing links ------------------------------------------------------------
+
+function codeEdge(overrides: Partial<ExtractedTransition> = {}): ExtractedTransition {
+  return {
+    from_raw_id: 's-a',
+    to_target: '/b',
+    trigger: 'navigate',
+    evidence: [{ file: 'src/a.ts', line: 7 }],
+    confidence: 'high',
+    ...overrides,
+  };
+}
+
+/** A two-surface map: origin `s-a`, target `s-b` reachable at entry value `/b`. */
+function twoSurfaceMap(overrides: Partial<AppMap['surfaces'][number]> = {}): AppMap {
+  return {
+    schema_version: 1,
+    app: { name: 'paqad-ai', kind: 'cli' },
+    surfaces: [
+      { id: 's-a', kind: 'page', label: 'A', ...overrides },
+      { id: 's-b', kind: 'page', label: 'B', entry: { kind: 'url', value: '/b' } },
+    ],
+  };
+}
+
+describe('detectMissingEdges', () => {
+  it('raises one SM-EDGE-MISSING when the code proves an edge the origin does not record (AC-2)', () => {
+    const findings = detectMissingEdges(twoSurfaceMap(), [
+      { from_id: 's-a', transition: { to: 's-b', trigger: 'navigate', confidence: 'high' } },
+    ]);
+    expect(findings).toHaveLength(1);
+    const finding = findings[0]!;
+    expect(finding.category).toBe('SM-EDGE-MISSING');
+    expect(finding.title).toBe('Unmapped link: s-a → s-b');
+    expect(finding.affected_surfaces).toEqual(['s-a', 's-b']);
+  });
+
+  it('raises nothing when the map already records the edge (AC-2)', () => {
+    const map = twoSurfaceMap({ transitions: [{ to: 's-b', trigger: 'go' }] });
+    const findings = detectMissingEdges(map, [
+      { from_id: 's-a', transition: { to: 's-b', trigger: 'navigate', confidence: 'high' } },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  it('matches origin+target, not trigger — a different trigger to the same target is still recorded', () => {
+    const map = twoSurfaceMap({ transitions: [{ to: 's-b', trigger: 'link' }] });
+    const findings = detectMissingEdges(map, [
+      { from_id: 's-a', transition: { to: 's-b', trigger: 'redirect', confidence: 'high' } },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  it('raises nothing when the origin surface is not on the map (SM-ADD covers it) (AC-3)', () => {
+    const findings = detectMissingEdges(twoSurfaceMap(), [
+      { from_id: 's-ghost', transition: { to: 's-b', trigger: 'navigate', confidence: 'high' } },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  it('collapses two identical edges (same origin and target) into one finding (AC-3)', () => {
+    const edge = {
+      from_id: 's-a',
+      transition: { to: 's-b', trigger: 'navigate', confidence: 'high' as const },
+    };
+    const findings = detectMissingEdges(twoSurfaceMap(), [edge, { ...edge }]);
+    expect(findings).toHaveLength(1);
+  });
+
+  it('grades a high-confidence edge medium and a low-confidence edge low (AC-4)', () => {
+    const map: AppMap = {
+      schema_version: 1,
+      app: { name: 'paqad-ai', kind: 'cli' },
+      surfaces: [
+        { id: 's-a', kind: 'page', label: 'A' },
+        { id: 's-b', kind: 'page', label: 'B' },
+        { id: 's-c', kind: 'page', label: 'C' },
+      ],
+    };
+    const findings = detectMissingEdges(map, [
+      {
+        from_id: 's-a',
+        transition: {
+          to: 's-b',
+          trigger: 'navigate',
+          confidence: 'high',
+          evidence: [{ file: 'a.ts', line: 1 }],
+        },
+      },
+      {
+        from_id: 's-a',
+        transition: {
+          to: 's-c',
+          trigger: 'invoke',
+          confidence: 'low',
+          evidence: [{ file: 'a.ts', line: 2 }],
+        },
+      },
+    ]);
+    const byTarget = new Map(findings.map((f) => [f.affected_surfaces[1], f.severity]));
+    expect(byTarget.get('s-b')).toBe('medium');
+    expect(byTarget.get('s-c')).toBe('low');
+  });
+
+  it('carries the code evidence (with and without a line) and a concrete resolution', () => {
+    const findings = detectMissingEdges(twoSurfaceMap(), [
+      {
+        from_id: 's-a',
+        transition: {
+          to: 's-b',
+          trigger: 'navigate',
+          confidence: 'high',
+          evidence: [{ file: 'src/a.ts', line: 7 }, { file: 'src/b.ts' }],
+        },
+      },
+    ]);
+    expect(findings[0]!.evidence).toEqual([
+      'code — src/a.ts:7 navigates s-a → s-b',
+      'code — src/b.ts navigates s-a → s-b',
+    ]);
+    expect(findings[0]!.affected_files).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(findings[0]!.resolution).toContain('"navigate" transition from "s-a" to "s-b"');
+  });
+});
+
+describe('assembleSiteMapReport — edge reconciliation (S9c)', () => {
+  it('adds an SM-EDGE-MISSING finding when the code proves an unrecorded resolvable edge', () => {
+    const { findings } = assembleSiteMapReport(
+      input({ map: twoSurfaceMap(), codeTransitions: [codeEdge()] }),
+    );
+    expect(findings.map((f) => f.category)).toContain('SM-EDGE-MISSING');
+  });
+
+  it('records a transition-resolution blocked check when a code edge resolves to no surface (AC-5)', () => {
+    const report = assembleSiteMapReport(
+      input({ map: twoSurfaceMap(), codeTransitions: [codeEdge({ to_target: '/nowhere' })] }),
+    ).report;
+    expect(report.blocked_checks.map((c) => c.check)).toContain('transition-resolution');
+  });
+
+  it('adds no transition-resolution blocked check when every code edge resolves (AC-5)', () => {
+    const report = assembleSiteMapReport(
+      input({ map: twoSurfaceMap(), codeTransitions: [codeEdge()] }),
+    ).report;
+    expect(report.blocked_checks.map((c) => c.check)).not.toContain('transition-resolution');
+  });
+
+  it('ignores code transitions entirely when there is no stored map (INV-4)', () => {
+    const report = assembleSiteMapReport(
+      input({ map: null, codeTransitions: [codeEdge({ to_target: '/nowhere' })] }),
+    ).report;
+    expect(report.findings.map((f) => f.category)).not.toContain('SM-EDGE-MISSING');
+    expect(report.blocked_checks.map((c) => c.check)).not.toContain('transition-resolution');
   });
 });

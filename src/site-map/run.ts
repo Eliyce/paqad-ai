@@ -26,9 +26,15 @@ import type {
 import { assembleSiteMapReport } from './assemble.js';
 import { readBaseline, writeBaseline } from './baseline.js';
 import { restampCanonicalTrust, type RestampCanonicalTrustResult } from './canonical-trust.js';
-import { assembleExtraction, type ExtractionResult, type ExtractorOutput } from './extraction.js';
+import {
+  assembleExtraction,
+  type ExtractedSurface,
+  type ExtractionResult,
+  type ExtractorOutput,
+} from './extraction.js';
 import { recordSiteMapRun } from './ledger.js';
 import { writeJsonFile } from './shared.js';
+import type { ExtractedTransition } from './transitions.js';
 import { collectMapEvidence, type EvidenceResolution } from './verification.js';
 
 /** Everything the run needs from the outside world — injected for tests, provided by the CLI. */
@@ -43,6 +49,10 @@ export interface SiteMapGatherer {
   journeyCount(): number;
   /** Each extractor's contribution: its surfaces, or a blocked check when unavailable (FR-3). */
   extractors(): Promise<ExtractorOutput[]>;
+  /** The raw navigation edges the code proves, gathered from the extracted surfaces' sources
+   * (S9a/S9b detection). The only transition I/O, kept behind the gatherer so the run stays
+   * deterministic offline; resolution to surfaces and reconciliation to findings are pure (S9c). */
+  gatherTransitions(surfaces: ExtractedSurface[]): ExtractedTransition[];
   /** Resolve each `file:line` the map cites against the tree — the only I/O Tier-A verification
    * depends on, so the whole run stays deterministic behind a fake gatherer in tests. */
   resolveEvidence(pointers: Evidence[]): EvidenceResolution[];
@@ -81,6 +91,10 @@ export interface SiteMapRunResult {
   verdict: SiteMapVerdict;
   /** How big the mapping job is, read off the extraction before any write (S4). */
   inventory: SiteMapInventory;
+  /** How many navigation transitions the stored map records (S9c). 0 when no map exists or the
+   * map records no links — the same source the verdict's `hasTransitions` reads, so the count and
+   * the verdict move together. */
+  transition_count: number;
   /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
 }
@@ -107,6 +121,16 @@ export function deriveSiteMapInventory(extraction: ExtractionResult): SiteMapInv
 /** The one shared, human sentence for an inventory — used by the CLI verb and the dashboard job. */
 export function describeSiteMapInventory(inventory: SiteMapInventory): string {
   return `Found ${inventory.screens} screens across ${inventory.groups.length} groups.`;
+}
+
+/**
+ * Count the navigation transitions the stored map records (0 when there is no map). Shared by the
+ * run's `transition_count` readout and the verdict's has-transitions check so the two never
+ * diverge — the count and the "no links" verdict always agree (S9c).
+ */
+export function countMapTransitions(map: AppMap | null): number {
+  if (map === null) return 0;
+  return map.surfaces.reduce((total, surface) => total + (surface.transitions?.length ?? 0), 0);
 }
 
 /**
@@ -159,6 +183,10 @@ export async function gatherSiteMapReport(options: {
   const outputs = await gatherer.extractors();
   const extraction = assembleExtraction(outputs, gatherer.appKind());
 
+  // Detect the code's navigation edges (S9a/S9b) so the run can reconcile them against the stored
+  // map (S9c). The gatherer owns the I/O; resolution and reconciliation are pure in `assemble`.
+  const codeTransitions = gatherer.gatherTransitions(extraction.surfaces);
+
   const sources: string[] = outputs
     .filter((output) => output.available)
     .map((output) => output.extractor);
@@ -173,6 +201,7 @@ export async function gatherSiteMapReport(options: {
     map,
     extraction,
     evidenceResolutions,
+    codeTransitions,
     journeyCount,
     blockedChecks: extraction.blocked_checks,
     baseline,
@@ -239,10 +268,11 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     { sessionId: options.sessionId, now },
   );
 
+  const transitionCount = countMapTransitions(map);
   const verdict = deriveSiteMapVerdict({
     findingCount: report.findings.length,
     hasStoredMap: map !== null,
-    hasTransitions: map !== null && map.surfaces.some((s) => (s.transitions?.length ?? 0) > 0),
+    hasTransitions: transitionCount > 0,
     blockedChecks: report.blocked_checks,
   });
 
@@ -255,6 +285,7 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     trust_restamp: trustRestamp,
     verdict,
     inventory,
+    transition_count: transitionCount,
     exit_code: report.findings.length > 0 ? 1 : 0,
   };
 }

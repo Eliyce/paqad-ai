@@ -157,6 +157,7 @@ describe('paqad-ai sitemap command', () => {
       baseline_created: true,
       trust_restamp: { status: 'stamped', path: 'docs/site-map/app-map.yaml' },
       verdict: 'attention',
+      transition_count: 3,
       exit_code: 1,
     });
     const out = await invoke(['run', '--project-root', '/tmp/app']);
@@ -169,8 +170,27 @@ describe('paqad-ai sitemap command', () => {
       'Stamped earned trust and freshness into docs/site-map/app-map.yaml',
     );
     expect(out.join('\n')).toContain('Baseline recorded');
+    // S9c: the run reports how many links the map records, in prose and in the JSON line.
+    expect(out.join('\n')).toContain('3 navigation links recorded in the map.');
     expect(out.join('\n')).toContain('"verdict":"attention"');
     expect(out.join('\n')).toContain('"findings":2');
+    expect(out.join('\n')).toContain('"transitions":3');
+  });
+
+  it('run: reports a single recorded link in the singular (S9c)', async () => {
+    runSiteMapAudit.mockResolvedValue({
+      report_id: 'SITEMAP-s',
+      bundle_dir: '.paqad/site-map/runs/s',
+      finding_count: 0,
+      blocked_checks: [],
+      baseline_created: false,
+      trust_restamp: { status: 'no-map' },
+      verdict: 'safe',
+      transition_count: 1,
+      exit_code: 0,
+    });
+    const out = await invoke(['run']);
+    expect(out.join('\n')).toContain('1 navigation link recorded in the map.');
   });
 
   it('run: a matching map exits 0 and honours --quiet (AC-8)', async () => {
@@ -184,6 +204,7 @@ describe('paqad-ai sitemap command', () => {
       baseline_created: false,
       trust_restamp: { status: 'no-map' },
       verdict: 'safe',
+      transition_count: 0,
       exit_code: 0,
     });
     const out = await invoke(['run', '--quiet']);
@@ -210,6 +231,7 @@ describe('paqad-ai sitemap command', () => {
       baseline_created: true,
       trust_restamp: { status: 'no-map' },
       verdict: 'inconclusive',
+      transition_count: 0,
       exit_code: 0,
     });
     const out = await invoke(['run']);

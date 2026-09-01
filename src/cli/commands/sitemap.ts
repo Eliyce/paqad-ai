@@ -78,6 +78,8 @@ export function createSitemapCommand(): Command {
             '**▸ paqad** · site map — could not confirm the map against the code. Inconclusive.',
         };
         console.log(verdictLine[result.verdict]);
+        const linkNoun = result.transition_count === 1 ? 'link' : 'links';
+        console.log(`> ${result.transition_count} navigation ${linkNoun} recorded in the map.`);
         for (const blocked of result.blocked_checks) {
           console.log(`> ⚪ ${blocked.check} skipped — ${blocked.reason}`);
         }
@@ -94,6 +96,7 @@ export function createSitemapCommand(): Command {
               report_id: result.report_id,
               verdict: result.verdict,
               findings: result.finding_count,
+              transitions: result.transition_count,
               blocked_checks: result.blocked_checks.length,
               baseline_created: result.baseline_created,
             }),

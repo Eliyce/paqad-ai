@@ -27,6 +27,12 @@ import type {
 import { applyBaselineStatus } from './baseline.js';
 import type { ExtractionResult } from './extraction.js';
 import { assignSiteMapFindingIds, sortFindings, toSiteMapReportId } from './shared.js';
+import {
+  buildUnresolvedLinksCheck,
+  resolveTransitions,
+  type ExtractedTransition,
+  type ResolvedTransition,
+} from './transitions.js';
 import { deriveTrustFindings } from './trust.js';
 import { collectVerificationFindings, type EvidenceResolution } from './verification.js';
 
@@ -39,6 +45,8 @@ export interface SiteMapAssemblyInput {
   extraction: ExtractionResult;
   /** How each `file:line` the map cites resolved against the tree (the gatherer's Tier-A I/O). */
   evidenceResolutions: EvidenceResolution[];
+  /** Raw navigation edges detected in the code (S9a), reconciled against the map at S9c. */
+  codeTransitions: ExtractedTransition[];
   journeyCount: number;
   blockedChecks: SiteMapBlockedCheck[];
   baseline: SiteMapBaseline | null;
@@ -114,21 +122,109 @@ export function detectUnmappedSurfaces(
 }
 
 /**
+ * SM-EDGE-MISSING: every navigation edge the code proves must be recorded on the map. Given the
+ * code's edges already resolved to surface ids (S9b's `resolveTransitions`), an edge is "recorded"
+ * when its origin surface carries a transition to the same target; otherwise the map
+ * under-describes how users move. The edge analogue of `detectUnmappedSurfaces` — pure over the
+ * map + the resolved edges. An edge whose origin surface is absent from the map raises nothing
+ * here (SM-ADD already reports that surface, and an edge cannot be recorded on a surface the map
+ * does not carry); an edge the map already records raises nothing; two identical edges (same
+ * origin and target) raise at most one finding. Kept distinct from SM-ADD, which is surface-only.
+ */
+export function detectMissingEdges(
+  map: AppMap,
+  resolved: ResolvedTransition[],
+): Array<Omit<SiteMapFinding, 'id'>> {
+  const recorded = new Map<string, Set<string>>();
+  for (const surface of map.surfaces) {
+    recorded.set(
+      surface.id,
+      new Set((surface.transitions ?? []).map((transition) => transition.to)),
+    );
+  }
+  const seen = new Set<string>();
+  const candidates: Array<Omit<SiteMapFinding, 'id'>> = [];
+  for (const edge of resolved) {
+    const from = edge.from_id;
+    const to = edge.transition.to;
+    const recordedFrom = recorded.get(from);
+    if (recordedFrom === undefined) continue; // origin surface not on the map — SM-ADD covers it
+    const key = `${from} -> ${to}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (recordedFrom.has(to)) continue; // the map already records this navigation
+    const pointers = normalizeEvidence(edge.transition.evidence);
+    const files = [...new Set(pointers.map((pointer) => pointer.file))].sort();
+    candidates.push({
+      title: `Unmapped link: ${from} → ${to}`,
+      description:
+        `The code navigates from "${from}" to "${to}" (${edge.transition.trigger}), but the site ` +
+        'map records no such transition, so the map under-describes how users move through the product.',
+      category: 'SM-EDGE-MISSING',
+      // A high-confidence framework navigation call is a firmer signal than a convention-based
+      // match, mirroring the SM-ADD severity split.
+      severity: edge.transition.confidence === 'high' ? 'medium' : 'low',
+      tier: 'deterministic',
+      confidence: 1,
+      evidence: pointers.map(
+        (pointer) =>
+          `code — ${pointer.file}${pointer.line === undefined ? '' : `:${pointer.line}`} ` +
+          `navigates ${from} → ${to}`,
+      ),
+      resolution:
+        `Add a "${edge.transition.trigger}" transition from "${from}" to "${to}" in ` +
+        `${PATHS.SITE_MAP_CANONICAL_APP_MAP} (or re-run \`sitemap draft\` to record it), or exclude ` +
+        'it with a documented reason.',
+      affected_surfaces: [from, to],
+      affected_files: files,
+      baseline_status: 'unknown',
+      status: 'open',
+    });
+  }
+  return candidates;
+}
+
+/**
+ * Reconcile the code's navigation edges against the stored map (S9c). Resolves the raw code edges
+ * to surfaces with S9b's pure resolver, turns each proven-but-unrecorded edge into an
+ * SM-EDGE-MISSING finding, and surfaces any edge that resolves to no mapped surface as the S9b
+ * unresolved-links blocked check — so a dropped link is a visible gap, never a silent pass (D4).
+ */
+function reconcileEdges(
+  map: AppMap,
+  codeTransitions: ExtractedTransition[],
+): { candidates: Array<Omit<SiteMapFinding, 'id'>>; blockedChecks: SiteMapBlockedCheck[] } {
+  const resolution = resolveTransitions(codeTransitions, map.surfaces);
+  const unresolved = buildUnresolvedLinksCheck(resolution.dropped);
+  return {
+    candidates: detectMissingEdges(map, resolution.resolved),
+    blockedChecks: unresolved === null ? [] : [unresolved],
+  };
+}
+
+/**
  * Concatenate every category's candidates in a stable order — SM-ADD (extraction reconciliation)
- * then the Tier-A verification categories — plus any check the verification could not run.
+ * then the Tier-A verification categories, then SM-EDGE-MISSING (edge reconciliation) — plus any
+ * check the verification could not run. Edge reconciliation runs only when a map exists; with no
+ * map the `map-present` blocked check and SM-ADD already cover the gap.
  */
 function collectCandidates(input: SiteMapAssemblyInput): {
   candidates: Array<Omit<SiteMapFinding, 'id'>>;
   blockedChecks: SiteMapBlockedCheck[];
 } {
   const verification = collectVerificationFindings(input.map, input.evidenceResolutions);
+  const edges =
+    input.map === null
+      ? { candidates: [], blockedChecks: [] }
+      : reconcileEdges(input.map, input.codeTransitions);
   return {
     candidates: [
       ...detectUnmappedSurfaces(input.map, input.extraction),
       ...verification.candidates,
+      ...edges.candidates,
       ...deriveTrustFindings(input.map, input.evidenceResolutions),
     ],
-    blockedChecks: verification.blockedChecks,
+    blockedChecks: [...verification.blockedChecks, ...edges.blockedChecks],
   };
 }
 

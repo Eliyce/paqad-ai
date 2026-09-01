@@ -26,6 +26,7 @@ export type SiteMapVerdict = (typeof SITE_MAP_VERDICTS)[number];
  */
 export const SITE_MAP_CATEGORIES = [
   'SM-ADD', // surface exists in code, missing from the map
+  'SM-EDGE-MISSING', // code proves a transition the map does not record (edge analogue of SM-ADD)
   'SM-REMOVE', // mapped surface no longer in code
   'SM-EDGE-STALE', // a transition's evidence no longer matches
   'SM-GUARD-DRIFT', // a guard changed (e.g. middleware removed) — security-relevant

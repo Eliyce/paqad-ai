@@ -102,6 +102,8 @@ function gatherer(overrides: Partial<SiteMapGatherer> = {}): SiteMapGatherer {
     extractors: async (): Promise<ExtractorOutput[]> => [
       { extractor: 'node-cli', available: true, surfaces: [surface()] },
     ],
+    // Default: the code proves no navigation edge, so the run reconciles none unless a test says so.
+    gatherTransitions: () => [],
     ...overrides,
   };
 }
@@ -437,6 +439,147 @@ describe('runSiteMapAudit', () => {
       expect(result.verdict).toBe('attention');
       expect(result.exit_code).toBe(1);
     });
+  });
+});
+
+// S9c (D3): the run reconciles the code's navigation edges against the stored map.
+describe('runSiteMapAudit — reconcile missing links (S9c)', () => {
+  // Origin s-a and two link targets reachable at entry values /b and /c; the map records no
+  // transitions itself, so every proven edge is a candidate SM-EDGE-MISSING.
+  const linkMap: AppMap = {
+    schema_version: 1,
+    app: { name: 'paqad-ai', kind: 'cli' },
+    surfaces: [
+      { id: 's-a', kind: 'page', label: 'A' },
+      { id: 's-b', kind: 'page', label: 'B', entry: { kind: 'url', value: '/b' } },
+      { id: 's-c', kind: 'page', label: 'C', entry: { kind: 'url', value: '/c' } },
+    ],
+  };
+  const edgeToB: ExtractedTransition = {
+    from_raw_id: 's-a',
+    to_target: '/b',
+    trigger: 'navigate',
+    evidence: [{ file: 'src/a.ts', line: 5 }],
+    confidence: 'high',
+  };
+
+  it('raises SM-EDGE-MISSING for a code-proven edge the map does not record (AC-1)', async () => {
+    const root = repo();
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [edgeToB],
+      }),
+      sessionId: 's-edge',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    const findingIndex = readFindingIndex(root, result.bundle_dir);
+    expect(findingIndex.findings.map((f) => f.category)).toContain('SM-EDGE-MISSING');
+  });
+
+  it('reports transition_count from the transitions the stored map records (AC-6)', async () => {
+    const root = repo();
+    const withLinks = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => navigableMap, extractors: async () => [] }),
+      sessionId: 's-count-1',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(withLinks.transition_count).toBe(1);
+
+    const noMap = await runSiteMapAudit({
+      projectRoot: repo(),
+      gatherer: gatherer({ loadAppMap: () => null, extractors: async () => [] }),
+      sessionId: 's-count-0',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(noMap.transition_count).toBe(0);
+  });
+
+  it('fires reachability findings for real once the map records transitions (AC-7)', async () => {
+    const root = repo();
+    // A rooted graph with one transition, plus an unreachable surface → SM-ORPHAN now fires.
+    const graphMap: AppMap = {
+      schema_version: 1,
+      app: { name: 'paqad-ai', kind: 'cli' },
+      surfaces: [
+        {
+          id: 's-a',
+          kind: 'page',
+          label: 'A',
+          entry: { kind: 'url', value: '/' },
+          transitions: [{ to: 's-b', trigger: 'go' }],
+        },
+        { id: 's-b', kind: 'page', label: 'B', ends: { success: true } },
+        { id: 's-orphan', kind: 'page', label: 'Orphan', ends: { success: true } },
+      ],
+    };
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => graphMap, extractors: async () => [] }),
+      sessionId: 's-orphan',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.transition_count).toBe(1);
+    const findingIndex = readFindingIndex(root, result.bundle_dir);
+    expect(findingIndex.findings.map((f) => f.category)).toContain('SM-ORPHAN');
+  });
+
+  it('the baseline ratchet marks a known edge pre-existing and a new one new-since-baseline (AC-7)', async () => {
+    const root = repo();
+    const edgeToC: ExtractedTransition = {
+      from_raw_id: 's-a',
+      to_target: '/c',
+      trigger: 'navigate',
+      evidence: [{ file: 'src/a.ts', line: 9 }],
+      confidence: 'high',
+    };
+    // First run: one proven edge, writes the baseline.
+    await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [edgeToB],
+      }),
+      sessionId: 's-ratchet-1',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    // Second run: the original edge plus a new one.
+    const second = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [edgeToB, edgeToC],
+      }),
+      sessionId: 's-ratchet-2',
+      now: () => new Date(2026, 0, 3, 3, 4, 5),
+    });
+    const findings = readFindingIndex(root, second.bundle_dir).findings.filter(
+      (f) => f.category === 'SM-EDGE-MISSING',
+    );
+    const toB = findings.find((f) => f.affected_surfaces[1] === 's-b');
+    const toC = findings.find((f) => f.affected_surfaces[1] === 's-c');
+    expect(toB!.baseline_status).toBe('pre-existing');
+    expect(toC!.baseline_status).toBe('new-since-baseline');
+  });
+
+  it('surfaces an unresolvable code edge as a transition-resolution blocked check (AC-5)', async () => {
+    const root = repo();
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [{ ...edgeToB, to_target: '/nowhere' }],
+      }),
+      sessionId: 's-dropped',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.blocked_checks.map((c) => c.check)).toContain('transition-resolution');
   });
 });
 
