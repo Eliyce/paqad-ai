@@ -144,6 +144,14 @@ One entry per session. Newest at the top. Keep entries short and factual.
   cache can be stale — confirm the gate's session from the just-touched
   `.paqad/ledger/feature-evidence/_session/<id>.json` and set `SE_SESSION` to it before any
   stage/plan/spec/review call.
+- **Stage-ledger note (ordering re-record, session-11 class).** The first Stop gate read the change
+  `incomplete` with `missing=[]` — an **ordering** violation, not a missing stage. Re-recording
+  `planning`/`specification` ends into this session's active bundle (to fix the session-id fork
+  above) stamped them at 11:37, **after** `development` had already started at 11:34, so a later
+  stage started before an earlier one ended. Fix: re-record `development` → `checks` →
+  `documentation_sync` fresh and in order as the final mutations, so every stage's last boundary is
+  monotonic (`review` is completion-anchored and exempt). No code changed; the S9b commits
+  `00ecd8d0` / `f2745fbf` are unchanged, and PR #509 CI + CodeQL are green.
 
 ### 2026-09-01, session 13: S9a
 
