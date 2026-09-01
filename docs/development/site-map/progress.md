@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 9 of 10 tasks; S8b done (S8c, S9, S10 remain) |
+| **Tasks done** | S1–S8 all done (S8c landed); **S9, S10 remain** |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S8c** (unhide the `sitemap` command). Depends on **S8a** (done) and **S8b** (done). See `plan.md` §6 S8c: `src/cli/program.ts:65` no longer registers `sitemap` with `{ hidden: true }`; `paqad-ai sitemap --help` lists `run`, `draft`, `inventory`, `status`, `questions`, `answer`, `journey`; every verb's description is one plain sentence; a test asserts the help output includes `sitemap` and each verb. |
+| **Next action** | Start **S9a** (transition detectors). Depends on **S8** (done). See `plan.md` §6 S9a: a new pure `src/site-map/transitions.ts` (no I/O, mirroring `extraction.ts`) with an `ExtractedTransition` type (`from_raw_id`, `to_target`, `trigger`, `evidence[]`, `confidence`); detectors for Laravel (`redirect()->route`, `to_route`, `Inertia::render`, `view()` in a routed action), React Router (`navigate`, `<Link to>`, `<Navigate to>`) and a Node-CLI command-invokes-command; a transition is recorded only when a resolving `file:line` shows navigation actually occurring; `confidence` is `high` for a framework nav call and `low` for a convention match; one positive plus one negative fixture per detector. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
-| **Last updated** | 2026-09-01, session 11: S8b landed |
+| **Last updated** | 2026-09-01, session 12: S8c landed |
 
 ---
 
@@ -38,7 +38,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S7** | Full-screen map and a readable zoom floor | D8 | S | `done` | `8593b854` |
 | **S8a** | Draft the map skeleton from the extraction | D2 | L | `done` | `8a1f219d` |
 | **S8b** | Draft resumes from the progress file | D2 D7 | L | `done` | `d0aa87f3` |
-| **S8c** | Unhide the `sitemap` command | D2 | S | `todo` | |
+| **S8c** | Unhide the `sitemap` command | D2 | S | `done` | `2bb384d4` |
 | **S9a** | Transition detectors | D3 | L | `todo` | |
 | **S9b** | Resolve transition targets to surfaces | D3 | L | `todo` | |
 | **S9c** | Reconcile missing links as findings | D3 | L | `todo` | |
@@ -54,7 +54,7 @@ S10 needs S3, S5, S8 and S9. S1, S2, S4, S7 have no dependencies and can go any 
 Tick a defect only when every task that fixes it is done.
 
 - [ ] **D1** Stale rulebook served to the agent, describing the wrong folder and claiming the verb writes the map. `S1`, `S10`
-- [ ] **D2** Nothing writes the map; the AI hand-types it; the command is hidden. `S8a`, `S8b`, `S8c`
+- [x] **D2** Nothing writes the map; the AI hand-types it; the command is hidden. `S8a`, `S8b`, `S8c`
 - [ ] **D3** Nothing detects links; 0 transitions in a 112-surface map. `S9a`, `S9b`, `S9c`
 - [x] **D4** An absent or link-less map reads "Safe to merge". `S2`
 - [x] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
@@ -79,6 +79,35 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-09-01, session 12: S8c
+
+- **S8c done** (`2bb384d4`): the `sitemap` command is discoverable and every verb reads plainly,
+  closing the last piece of **D2**.
+  - **`src/cli/program.ts`**: dropped the `{ hidden: true }` option on
+    `program.addCommand(createSitemapCommand())` and replaced the stale issue-#448 "hidden" comment
+    with one saying the command is both a dashboard area and a listed command. Hidden commands still
+    appear in `program.commands`, so the existing top-level registration test is unchanged; only the
+    help output changes (commander omits hidden commands from `helpInformation()`).
+  - **`src/cli/commands/sitemap.ts`**: reworded the five verb descriptions that used an em dash or
+    jargon into one plain sentence each — `draft` ("Write the map's starting skeleton from the code
+    so you only fill in the meaning"), `inventory` ("Report how many screens, groups and guards the
+    code has without changing anything"), `questions` ("List the questions the map still needs you to
+    answer"), `answer` ("Record your answers to those questions and note who decided each"), `journey`
+    ("Confirm or remove the journeys the map has proposed"). `run` and `status` were already plain and
+    left untouched. No verb behaviour, option, exit code, or output shape changed.
+  - **Tests** (3 new in `tests/unit/cli/sitemap.test.ts`, an `S8c` describe block): the program help
+    now contains `sitemap` (proving it is not hidden, AC-1); `sitemap --help` lists all seven verbs
+    (AC-2); every verb description carries no em dash and none of the reworded-away jargon tokens
+    (`closed-list`, `provenance`, `one-step creation`) and is a single sentence (AC-3).
+  - `pnpm run ci` green (typecheck / lint / format:check / test:coverage — 8406 tests, 95.37%
+    branches, above the 95% floor / graph-ui:test / build). `paqad-ai checks run` green (format /
+    test / build). No dependency added; no public-API/exit-code/schema change.
+- **D2 ticked**: S8a (skeleton write), S8b (additive/resumable) and S8c (unhide) are all done — the
+  engine now writes the map and the command is discoverable and drivable by a human.
+- Stages recorded against this session's bundle (`unhide-the-sitemap-command-s8c-01M1E1T0H7…`):
+  planning → specification → development → checks → review, each with its rigid artifact;
+  `documentation_sync` recorded last (this edit), after the code and checks, per session 11's lesson.
 
 ### 2026-09-01, session 11: S8b
 
