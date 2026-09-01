@@ -1414,6 +1414,36 @@ surfaces:
       - file: src/cli/commands/graph.ts
         line: 51
     trust: proven-in-code
+  - id: node-cli-draft
+    kind: cli-command
+    label: Write the map skeleton from the extracted surfaces — the engine drafts,
+      you add meaning
+    evidence:
+      - file: src/cli/commands/sitemap.ts
+        line: 104
+    entry:
+      kind: bin
+      value: draft
+  - id: node-cli-inventory
+    kind: cli-command
+    label: Report how many screens, groups and guards the code has — a read-only
+      preview
+    evidence:
+      - file: src/cli/commands/sitemap.ts
+        line: 213
+    entry:
+      kind: bin
+      value: inventory
+  - id: node-cli-preflight
+    kind: cli-command
+    label: Check what a workflow needs before it runs, and list any questions in one
+      place
+    evidence:
+      - file: src/cli/commands/preflight.ts
+        line: 12
+    entry:
+      kind: bin
+      value: preflight
 journeys:
   - id: onboard-first-run
     label: Onboard a repository and run the first workflow

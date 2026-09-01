@@ -4,9 +4,9 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { SurfaceKind } from '@/core/types/site-map.js';
+import type { AppMap, SurfaceKind } from '@/core/types/site-map.js';
 import type { SiteMapAppSummary } from '@/core/types/site-map-run.js';
-import { buildSiteMapDraft } from '@/site-map/draft.js';
+import { buildSiteMapDraft, deriveDraftUnits, mergeSiteMapDraft } from '@/site-map/draft.js';
 import type { ExtractedSurface, ExtractionResult } from '@/site-map/extraction.js';
 import { validateAppMap } from '@/site-map/schema.js';
 import {
@@ -175,5 +175,208 @@ describe('buildSiteMapDraft (S8a)', () => {
       const path = writeCanonicalSiteMap(dir, map);
       expect(existsSync(path)).toBe(true);
     });
+  });
+});
+
+describe('deriveDraftUnits (S8b)', () => {
+  it('derives one unit per distinct module in sorted order, with its surfaces and sorted distinct source files (AC-3)', () => {
+    const units = deriveDraftUnits(
+      extraction([
+        extracted({ raw_id: 'a', module: 'Billing', evidence: [{ file: 'b2.ts', line: 2 }] }),
+        extracted({ raw_id: 'b', module: 'Auth', evidence: [{ file: 'auth.ts', line: 1 }] }),
+        extracted({
+          raw_id: 'c',
+          module: 'Billing',
+          evidence: [{ file: 'b1.ts' }, { file: 'b2.ts', line: 9 }],
+        }),
+      ]),
+    );
+    expect(units).toEqual([
+      { id: 'group:auth', label: 'Auth', surface_ids: ['b'], source_files: ['auth.ts'] },
+      {
+        id: 'group:billing',
+        label: 'Billing',
+        surface_ids: ['a', 'c'],
+        source_files: ['b1.ts', 'b2.ts'],
+      },
+    ]);
+  });
+
+  it('buckets module-less surfaces into one group:ungrouped unit (AC-7)', () => {
+    const units = deriveDraftUnits(
+      extraction([
+        extracted({ raw_id: 'x', evidence: [{ file: 'x.ts' }] }),
+        extracted({ raw_id: 'a', module: 'Billing', evidence: [{ file: 'b.ts' }] }),
+        extracted({ raw_id: 'y', evidence: [{ file: 'y.ts' }] }),
+      ]),
+    );
+    expect(units.map((unit) => unit.id)).toEqual(['group:billing', 'group:ungrouped']);
+    const ungrouped = units[1];
+    expect(ungrouped.label).toBe('Ungrouped surfaces');
+    expect(ungrouped.surface_ids).toEqual(['x', 'y']);
+    expect(ungrouped.source_files).toEqual(['x.ts', 'y.ts']);
+  });
+
+  it('merges module names slugging to one id into a single unit (first label wins)', () => {
+    const units = deriveDraftUnits(
+      extraction([
+        extracted({ raw_id: 'a', module: 'Foo Bar', evidence: [{ file: 'a.ts' }] }),
+        extracted({ raw_id: 'b', module: 'Foo-Bar', evidence: [{ file: 'b.ts' }] }),
+      ]),
+    );
+    expect(units).toEqual([
+      {
+        id: 'group:foo-bar',
+        label: 'Foo Bar',
+        surface_ids: ['a', 'b'],
+        source_files: ['a.ts', 'b.ts'],
+      },
+    ]);
+  });
+
+  it('returns no units for an empty extraction', () => {
+    expect(deriveDraftUnits(extraction([]))).toEqual([]);
+  });
+});
+
+describe('mergeSiteMapDraft (S8b)', () => {
+  const app = { name: 'paqad-ai', kind: 'cli' as const };
+
+  function draftOf(...surfaces: Parameters<typeof extracted>[0][]): AppMap {
+    return buildSiteMapDraft(extraction(surfaces.map((overrides) => extracted(overrides))), APP);
+  }
+
+  it('keeps an authored entry byte-identical and appends only the missing surface (AC-1)', () => {
+    const authored = {
+      id: 'node-cli-a',
+      kind: 'cli-command' as const,
+      label: 'Curated label',
+      note: 'hand-written note',
+      trust: 'human-confirmed' as const,
+      evidence: [{ file: 'somewhere-else.ts', line: 99 }],
+    };
+    const existing: AppMap = { schema_version: 1, app, surfaces: [authored] };
+    const draft = draftOf({ raw_id: 'node-cli-a' }, { raw_id: 'node-cli-b', label: 'B' });
+    const merged = mergeSiteMapDraft(existing, draft, new Set(['node-cli-a', 'node-cli-b']));
+    expect(merged.surfaces.map((surface) => surface.id)).toEqual(['node-cli-a', 'node-cli-b']);
+    expect(merged.surfaces[0]).toEqual(authored);
+    expect(merged.surfaces[0]).toBe(authored);
+  });
+
+  it('keeps a surface the extraction no longer produces (AC-2)', () => {
+    const existing: AppMap = {
+      schema_version: 1,
+      app,
+      surfaces: [{ id: 'node-cli-legacy', kind: 'cli-command', label: 'Legacy' }],
+    };
+    const merged = mergeSiteMapDraft(
+      existing,
+      draftOf({ raw_id: 'node-cli-a' }),
+      new Set(['node-cli-a']),
+    );
+    expect(merged.surfaces.map((surface) => surface.id)).toEqual(['node-cli-legacy', 'node-cli-a']);
+  });
+
+  it('filters the draft to the given surface ids', () => {
+    const draft = draftOf({ raw_id: 'a' }, { raw_id: 'b' }, { raw_id: 'c' });
+    const merged = mergeSiteMapDraft(null, draft, new Set(['b']));
+    expect(merged.surfaces.map((surface) => surface.id)).toEqual(['b']);
+    expect(merged.schema_version).toBe(draft.schema_version);
+    expect(merged.app).toEqual(draft.app);
+  });
+
+  it('with no existing map carries only the areas the picked surfaces reference', () => {
+    const draft = draftOf(
+      { raw_id: 'a', module: 'Auth', evidence: [{ file: 'a.ts' }] },
+      { raw_id: 'b', module: 'Billing', evidence: [{ file: 'b.ts' }] },
+    );
+    const merged = mergeSiteMapDraft(null, draft, new Set(['b']));
+    expect(merged.areas).toEqual([{ id: 'billing', label: 'Billing' }]);
+  });
+
+  it('with no existing map and no referenced areas emits no areas key', () => {
+    const merged = mergeSiteMapDraft(null, draftOf({ raw_id: 'a' }), new Set(['a']));
+    expect(merged.areas).toBeUndefined();
+  });
+
+  it('adds only newly referenced areas to an existing map, never duplicating one (AC-1)', () => {
+    const existing: AppMap = {
+      schema_version: 1,
+      app,
+      areas: [{ id: 'auth', label: 'Auth (curated)' }],
+      surfaces: [{ id: 'node-cli-a', kind: 'cli-command', label: 'A', area: 'auth' }],
+    };
+    const draft = draftOf(
+      { raw_id: 'node-cli-a', module: 'Auth' },
+      { raw_id: 'node-cli-b', module: 'Billing', evidence: [{ file: 'b.ts' }] },
+    );
+    const merged = mergeSiteMapDraft(existing, draft, new Set(['node-cli-a', 'node-cli-b']));
+    expect(merged.areas).toEqual([
+      { id: 'auth', label: 'Auth (curated)' },
+      { id: 'billing', label: 'Billing' },
+    ]);
+  });
+
+  it('adds areas to an existing map that had none when an appended surface references one', () => {
+    const existing: AppMap = {
+      schema_version: 1,
+      app,
+      surfaces: [{ id: 'node-cli-old', kind: 'cli-command', label: 'Old' }],
+    };
+    const draft = draftOf({
+      raw_id: 'node-cli-b',
+      module: 'Billing',
+      evidence: [{ file: 'b.ts' }],
+    });
+    const merged = mergeSiteMapDraft(existing, draft, new Set(['node-cli-b']));
+    expect(merged.areas).toEqual([{ id: 'billing', label: 'Billing' }]);
+  });
+
+  it('adds no areas key when the appended surfaces reference none', () => {
+    const existing: AppMap = {
+      schema_version: 1,
+      app,
+      surfaces: [{ id: 'node-cli-old', kind: 'cli-command', label: 'Old' }],
+    };
+    const merged = mergeSiteMapDraft(
+      existing,
+      draftOf({ raw_id: 'node-cli-b' }),
+      new Set(['node-cli-b']),
+    );
+    expect(merged.areas).toBeUndefined();
+    expect(merged.surfaces.map((surface) => surface.id)).toEqual(['node-cli-old', 'node-cli-b']);
+  });
+
+  it('does not mutate the existing map or the draft', () => {
+    const existing: AppMap = {
+      schema_version: 1,
+      app,
+      surfaces: [{ id: 'node-cli-old', kind: 'cli-command', label: 'Old' }],
+    };
+    const draft = draftOf({
+      raw_id: 'node-cli-b',
+      module: 'Billing',
+      evidence: [{ file: 'b.ts' }],
+    });
+    const existingBefore = structuredClone(existing);
+    const draftBefore = structuredClone(draft);
+    mergeSiteMapDraft(existing, draft, new Set(['node-cli-b']));
+    expect(existing).toEqual(existingBefore);
+    expect(draft).toEqual(draftBefore);
+  });
+
+  it('the merged map of a skeleton over an authored map stays schema-valid (INV-3)', () => {
+    const existing: AppMap = {
+      schema_version: 1,
+      app,
+      surfaces: [{ id: 'node-cli-old', kind: 'cli-command', label: 'Old', note: 'kept' }],
+    };
+    const draft = draftOf({
+      raw_id: 'node-cli-b',
+      module: 'Billing',
+      evidence: [{ file: 'b.ts' }],
+    });
+    const merged = mergeSiteMapDraft(existing, draft, new Set(['node-cli-b']));
+    expect(validateAppMap(merged).valid).toBe(true);
   });
 });

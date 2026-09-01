@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,7 +13,10 @@ const recordCreationAnswers = vi.fn();
 const readProgress = vi.fn();
 const saveProgress = vi.fn();
 const recoverInFlight = vi.fn();
+const reconcileDoneUnits = vi.fn();
 const writeCanonicalSiteMap = vi.fn(() => 'docs/site-map/app-map.yaml');
+const readCanonicalSiteMap = vi.fn();
+const hashSourceFiles = vi.fn();
 
 // Mock the two fs-touching run entry points but keep the real pure inventory helpers
 // (deriveSiteMapInventory / describeSiteMapInventory).
@@ -30,20 +33,26 @@ vi.mock('@/site-map/creation-flow.js', async (importOriginal) => ({
   deriveCreationQuestions,
   recordCreationAnswers,
 }));
-// Mock the fs-touching read/write of the progress store but keep the real, pure summarizeProgress:
-// `status` must be proven to read only, never write.
+// Mock the fs-touching read/write/recover/reconcile of the progress store but keep the real,
+// pure pieces (summarizeProgress and the unit creators/mutators): `status` must be proven to
+// read only, and `draft` must be proven to advance real unit state.
 vi.mock('@/site-map/progress-store.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/progress-store.js')>()),
   readProgress,
   saveProgress,
   recoverInFlight,
+  reconcileDoneUnits,
 }));
-// Mock only the fs-touching canonical writer; keep the real, pure buildSiteMapDraft so `draft`
-// is proven to build a real skeleton off the gathered extraction.
+// Mock only the fs-touching canonical reader/writer; keep the real, pure buildSiteMapDraft,
+// deriveDraftUnits and mergeSiteMapDraft so `draft` is proven to build and merge a real
+// skeleton off the gathered extraction. `canonicalAppMapPath` stays real (a pure join).
 vi.mock('@/site-map/store.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/store.js')>()),
   writeCanonicalSiteMap,
+  readCanonicalSiteMap,
 }));
+// The staleness hash is fs-touching; `draft` stamps it on every completed unit.
+vi.mock('@/document/staleness.js', () => ({ hashSourceFiles }));
 
 const { createSitemapCommand } = await import('@/cli/commands/sitemap.js');
 const { createProgram } = await import('@/cli/program.js');
@@ -67,8 +76,18 @@ describe('paqad-ai sitemap command', () => {
     readProgress.mockReset();
     saveProgress.mockReset();
     recoverInFlight.mockReset();
+    reconcileDoneUnits.mockReset();
+    readCanonicalSiteMap.mockReset();
+    hashSourceFiles.mockReset();
     writeCanonicalSiteMap.mockClear();
     writeCanonicalSiteMap.mockReturnValue('docs/site-map/app-map.yaml');
+    // Draft-flow defaults: no stored map, no progress yet, nothing recovered or skipped.
+    readCanonicalSiteMap.mockReturnValue(null);
+    readProgress.mockResolvedValue(null);
+    saveProgress.mockResolvedValue(undefined);
+    recoverInFlight.mockResolvedValue([]);
+    reconcileDoneUnits.mockResolvedValue({ skipped: [], reset: [] });
+    hashSourceFiles.mockResolvedValue('sha1:abc1234');
   });
 
   afterEach(() => {
@@ -208,55 +227,233 @@ describe('paqad-ai sitemap command', () => {
     expect(names).toContain('draft');
   });
 
-  it('draft: gathers, writes the skeleton, prints the count + path, exits 0 (S8a, AC-1)', async () => {
-    gatherSiteMapReport.mockResolvedValue({
-      extraction: {
-        surfaces: [
-          {
-            raw_id: 'node-cli-a',
-            kind: 'cli-command',
-            label: 'A',
-            evidence: [{ file: 'a.ts', line: 1 }],
+  describe('draft (S8a + S8b)', () => {
+    let root: string;
+
+    beforeEach(() => {
+      // A real empty tmp root so the never-clobber existence probe is exercised for real
+      // (no app-map.yaml on disk unless a test writes one).
+      root = mkdtempSync(join(tmpdir(), 'paqad-sitemap-draft-cli-'));
+    });
+
+    afterEach(() => {
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    function surface(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+      return {
+        raw_id: 'node-cli-a',
+        kind: 'cli-command',
+        label: 'A',
+        evidence: [{ file: 'a.ts', line: 1 }],
+        ...overrides,
+      };
+    }
+
+    function gathered(surfaces: Array<Record<string, unknown>>): void {
+      gatherSiteMapReport.mockResolvedValue({
+        extraction: { surfaces },
+        report: { app: { name: 'paqad-ai', kind: 'cli', frameworks: ['commander'] } },
+      });
+    }
+
+    interface SavedProgress {
+      inventory: { screens: number; groups: string[] };
+      units: Record<
+        string,
+        { state: string; source_files: string[]; source_hash: string | null; label: string }
+      >;
+    }
+
+    /** The progress object handed to every saveProgress call (mutated in place by draft). */
+    function savedProgress(): SavedProgress {
+      expect(saveProgress).toHaveBeenCalled();
+      return saveProgress.mock.calls.at(-1)![1] as SavedProgress;
+    }
+
+    it('draft: first run seeds the store from the inventory and ends every unit done (S8b, AC-3)', async () => {
+      gathered([
+        surface(),
+        surface({
+          raw_id: 'node-cli-b',
+          label: 'B',
+          module: 'Billing',
+          evidence: [{ file: 'b.ts', line: 2 }],
+        }),
+      ]);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(0);
+      expect(createSiteMapGatherer).toHaveBeenCalledWith(root);
+      expect(recoverInFlight).toHaveBeenCalled();
+      expect(reconcileDoneUnits).toHaveBeenCalled();
+      const progress = savedProgress();
+      expect(progress.inventory).toEqual({ screens: 2, groups: ['Billing'] });
+      expect(Object.keys(progress.units).sort()).toEqual(['group:billing', 'group:ungrouped']);
+      for (const unit of Object.values(progress.units)) {
+        expect(unit.state).toBe('done');
+        expect(unit.source_hash).toBe('sha1:abc1234');
+      }
+      expect(progress.units['group:billing'].source_files).toEqual(['b.ts']);
+      expect(progress.units['group:ungrouped'].source_files).toEqual(['a.ts']);
+      // One canonical write per unit, each a merge of the accumulated map.
+      expect(writeCanonicalSiteMap).toHaveBeenCalledTimes(2);
+      const [, finalMap] = writeCanonicalSiteMap.mock.calls.at(-1)! as [
+        string,
+        { surfaces: Array<{ id: string }> },
+      ];
+      expect(finalMap.surfaces.map((s) => s.id).sort()).toEqual(['node-cli-a', 'node-cli-b']);
+      expect(out.join('\n')).toContain(
+        'drafted 2 new surface(s) into docs/site-map/app-map.yaml (kept 0 existing, skipped 0 unchanged group(s))',
+      );
+    });
+
+    it('draft: re-running merges — authored entries and vanished surfaces survive, only missing entries are added (S8b, AC-1/AC-2)', async () => {
+      const authored = {
+        id: 'node-cli-a',
+        kind: 'cli-command',
+        label: 'Curated label',
+        note: 'hand-written note',
+        evidence: [{ file: 'a.ts', line: 1 }],
+      };
+      const vanished = { id: 'node-cli-legacy', kind: 'cli-command', label: 'Legacy' };
+      readCanonicalSiteMap.mockReturnValue({
+        schema_version: 1,
+        app: { name: 'paqad-ai', kind: 'cli' },
+        surfaces: [authored, vanished],
+      });
+      gathered([surface(), surface({ raw_id: 'node-cli-new', label: 'New' })]);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(0);
+      const [, finalMap] = writeCanonicalSiteMap.mock.calls.at(-1)! as [
+        string,
+        { surfaces: Array<{ id: string; label: string; note?: string }> },
+      ];
+      // The authored entry is untouched, the vanished one still present, the new one appended.
+      expect(finalMap.surfaces.map((s) => s.id)).toEqual([
+        'node-cli-a',
+        'node-cli-legacy',
+        'node-cli-new',
+      ]);
+      expect(finalMap.surfaces[0]).toEqual(authored);
+      expect(out.join('\n')).toContain(
+        'drafted 1 new surface(s) into docs/site-map/app-map.yaml (kept 2 existing, skipped 0 unchanged group(s))',
+      );
+    });
+
+    it('draft: a done unit with an unchanged hash is skipped without any map write (S8b, AC-4)', async () => {
+      readCanonicalSiteMap.mockReturnValue({
+        schema_version: 1,
+        app: { name: 'paqad-ai', kind: 'cli' },
+        surfaces: [{ id: 'node-cli-a', kind: 'cli-command', label: 'A' }],
+      });
+      readProgress.mockResolvedValue({
+        schema_version: '1',
+        inventory: { screens: 1, groups: [] },
+        units: {
+          'group:ungrouped': {
+            id: 'group:ungrouped',
+            kind: 'group',
+            label: 'Ungrouped surfaces',
+            state: 'done',
+            started_at: null,
+            completed_at: '2026-08-30T00:00:00.000Z',
+            artifact: null,
+            source_files: ['a.ts'],
+            source_hash: 'sha1:abc1234',
+            error: null,
           },
-        ],
-      },
-      report: { app: { name: 'paqad-ai', kind: 'cli', frameworks: ['commander'] } },
+        },
+      });
+      reconcileDoneUnits.mockResolvedValue({ skipped: ['group:ungrouped'], reset: [] });
+      gathered([surface()]);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(0);
+      expect(writeCanonicalSiteMap).not.toHaveBeenCalled();
+      const progress = savedProgress();
+      expect(progress.units['group:ungrouped'].state).toBe('done');
+      // The staleness inputs were refreshed from the current extraction before reconciling.
+      expect(progress.units['group:ungrouped'].source_files).toEqual(['a.ts']);
+      expect(out.join('\n')).toContain('nothing to redraw: 1 unchanged group(s)');
+      expect(out.join('\n')).toContain('kept 1 existing surface(s)');
     });
-    const out = await invoke(['draft', '--project-root', '/tmp/app']);
-    expect(process.exitCode).toBe(0);
-    expect(createSiteMapGatherer).toHaveBeenCalledWith('/tmp/app');
-    // The writer is driven with the projectRoot and a real skeleton built off the extraction.
-    expect(writeCanonicalSiteMap).toHaveBeenCalledTimes(1);
-    const [rootArg, mapArg] = writeCanonicalSiteMap.mock.calls[0] as [
-      string,
-      { surfaces: unknown[] },
-    ];
-    expect(rootArg).toBe('/tmp/app');
-    expect(mapArg.surfaces).toHaveLength(1);
-    expect(out.join('\n')).toContain('drafted 1 surface(s) into docs/site-map/app-map.yaml');
-  });
 
-  it('draft: a schema-invalid draft (writer throws) exits 2 (S8a, AC-4)', async () => {
-    gatherSiteMapReport.mockResolvedValue({
-      extraction: { surfaces: [] },
-      report: { app: { name: 'paqad-ai', kind: 'cli', frameworks: [] } },
+    it('draft: an interrupted run leaves exactly one unit writing (S8b, AC-5)', async () => {
+      gathered([
+        surface({ raw_id: 'a', module: 'Alpha', evidence: [{ file: 'alpha.ts' }] }),
+        surface({ raw_id: 'b', module: 'Beta', evidence: [{ file: 'beta.ts' }] }),
+      ]);
+      writeCanonicalSiteMap
+        .mockReturnValueOnce('docs/site-map/app-map.yaml')
+        .mockImplementationOnce(() => {
+          throw new Error('disk gone');
+        });
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(2);
+      expect(out.join('\n')).toContain('sitemap draft failed: disk gone');
+      const progress = savedProgress();
+      const states = Object.values(progress.units).map((unit) => unit.state);
+      expect(states.filter((state) => state === 'writing')).toHaveLength(1);
+      expect(states.filter((state) => state === 'done')).toHaveLength(1);
     });
-    writeCanonicalSiteMap.mockImplementation(() => {
-      throw new Error('canonical app-map failed schema validation');
-    });
-    const out = await invoke(['draft']);
-    expect(process.exitCode).toBe(2);
-    expect(out.join('\n')).toContain(
-      'sitemap draft failed: canonical app-map failed schema validation',
-    );
-  });
 
-  it('draft: an unexpected gather error exits 2 (S8a)', async () => {
-    gatherSiteMapReport.mockRejectedValue(new Error('scan blew up'));
-    const out = await invoke(['draft']);
-    expect(process.exitCode).toBe(2);
-    expect(out.join('\n')).toContain('sitemap draft failed: scan blew up');
-    expect(writeCanonicalSiteMap).not.toHaveBeenCalled();
+    it('draft: refuses when app-map.yaml exists but is not a readable map (S8b, AC-1 guard)', async () => {
+      mkdirSync(join(root, 'docs', 'site-map'), { recursive: true });
+      writeFileSync(join(root, 'docs', 'site-map', 'app-map.yaml'), '{{{ not yaml', 'utf8');
+      readCanonicalSiteMap.mockReturnValue(null);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(2);
+      expect(out.join('\n')).toContain('sitemap draft refused');
+      expect(gatherSiteMapReport).not.toHaveBeenCalled();
+      expect(writeCanonicalSiteMap).not.toHaveBeenCalled();
+      expect(saveProgress).not.toHaveBeenCalled();
+    });
+
+    it('draft: a stored unit whose group vanished merges nothing and converges to done (S8b)', async () => {
+      readProgress.mockResolvedValue({
+        schema_version: '1',
+        inventory: { screens: 0, groups: ['Ghost'] },
+        units: {
+          'group:ghost': {
+            id: 'group:ghost',
+            kind: 'group',
+            label: 'Ghost',
+            state: 'not_started',
+            started_at: null,
+            completed_at: null,
+            artifact: null,
+            source_files: ['ghost.ts'],
+            source_hash: null,
+            error: null,
+          },
+        },
+      });
+      gathered([surface()]);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(0);
+      const progress = savedProgress();
+      expect(progress.units['group:ghost'].state).toBe('done');
+      expect(progress.units['group:ungrouped'].state).toBe('done');
+      // The ghost unit's write merged no surface; only the real one was appended.
+      expect(out.join('\n')).toContain('drafted 1 new surface(s)');
+    });
+
+    it('draft: an empty extraction still writes the empty skeleton on first run (S8a parity)', async () => {
+      gathered([]);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(0);
+      expect(writeCanonicalSiteMap).toHaveBeenCalledTimes(1);
+      const [, mapArg] = writeCanonicalSiteMap.mock.calls[0] as [string, { surfaces: unknown[] }];
+      expect(mapArg.surfaces).toHaveLength(0);
+      expect(out.join('\n')).toContain('drafted 0 new surface(s)');
+    });
+
+    it('draft: an unexpected gather error exits 2 (S8a)', async () => {
+      gatherSiteMapReport.mockRejectedValue(new Error('scan blew up'));
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(2);
+      expect(out.join('\n')).toContain('sitemap draft failed: scan blew up');
+      expect(writeCanonicalSiteMap).not.toHaveBeenCalled();
+    });
   });
 
   it('status is a registered subcommand (S5b)', () => {

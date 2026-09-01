@@ -5,27 +5,42 @@
 // retest engine. Exit codes follow the audit convention: 0 clean · 1 findings · 2 an
 // unexpected error.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { Command } from 'commander';
 
 import type { SiteMapVerdict } from '@/core/types/site-map-run.js';
+import { hashSourceFiles } from '@/document/staleness.js';
 import {
   deriveCreationQuestions,
   parseCreationDecisions,
   recordCreationAnswers,
 } from '@/site-map/creation-flow.js';
-import { buildSiteMapDraft } from '@/site-map/draft.js';
+import { buildSiteMapDraft, deriveDraftUnits, mergeSiteMapDraft } from '@/site-map/draft.js';
 import { createSiteMapGatherer } from '@/site-map/gatherer.js';
 import { runJourneyCuration, type JourneyCurationAction } from '@/site-map/journey-curation.js';
-import { readProgress, summarizeProgress } from '@/site-map/progress-store.js';
+import {
+  completeUnit,
+  createEmptyProgress,
+  createUnit,
+  readProgress,
+  reconcileDoneUnits,
+  recoverInFlight,
+  saveProgress,
+  startUnit,
+  summarizeProgress,
+} from '@/site-map/progress-store.js';
 import {
   deriveSiteMapInventory,
   describeSiteMapInventory,
   gatherSiteMapReport,
   runSiteMapAudit,
 } from '@/site-map/run.js';
-import { writeCanonicalSiteMap } from '@/site-map/store.js';
+import {
+  canonicalAppMapPath,
+  readCanonicalSiteMap,
+  writeCanonicalSiteMap,
+} from '@/site-map/store.js';
 
 interface RunFlags {
   projectRoot: string;
@@ -93,22 +108,100 @@ export function createSitemapCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .action(async (options: { projectRoot: string }) => {
       try {
-        // Gather read-only through the same seam `inventory` uses, then write the skeleton straight
-        // from what extraction proved (S8a). Nothing is invented here — one surface per extracted
-        // surface, evidence unchanged, no transitions or journeys — so the model adds meaning to a
-        // grounded map instead of retyping hundreds of entries (D2). `writeCanonicalSiteMap`
-        // validates before persisting, so a schema-invalid draft can never land on disk.
+        const root = options.projectRoot;
+        // Never clobber (S8b, AC-1): a canonical map that exists on disk but reads back null is
+        // corrupt or schema-invalid. Treating it as absent would overwrite authored work on the
+        // first unit's write, so refuse and let a human fix or remove the file.
+        const existing = readCanonicalSiteMap(root);
+        if (existing === null && existsSync(canonicalAppMapPath(root))) {
+          console.error(
+            '**▸ paqad** · sitemap draft refused: docs/site-map/app-map.yaml exists but is not a readable, schema-valid map, and drafting over it would destroy authored content. Fix or remove the file, then re-run.',
+          );
+          process.exitCode = 2;
+          return;
+        }
+
+        // Gather read-only through the same seam `inventory` uses (S8a). Nothing is invented —
+        // one surface per extracted surface, evidence unchanged, no transitions or journeys — so
+        // the model adds meaning to a grounded map instead of retyping hundreds of entries (D2).
         const gathered = await gatherSiteMapReport({
-          projectRoot: options.projectRoot,
-          gatherer: createSiteMapGatherer(options.projectRoot),
+          projectRoot: root,
+          gatherer: createSiteMapGatherer(root),
           workflow: 'site-map',
           now: new Date(),
         });
-        const map = buildSiteMapDraft(gathered.extraction, gathered.report.app);
-        const path = writeCanonicalSiteMap(options.projectRoot, map);
-        console.log(
-          `**▸ paqad** · site map — drafted ${map.surfaces.length} surface(s) into ${path}. Add the meaning the code does not carry, then run \`sitemap run\` to prove it.`,
-        );
+        const inventory = deriveSiteMapInventory(gathered.extraction);
+        const unitDefs = deriveDraftUnits(gathered.extraction);
+
+        // Read or seed the resumable store (S8b, AC-3), reset anything a dead run left in
+        // flight (AC-5), then apply the skip rule (AC-4). The store object is mutated here and
+        // persisted only through `saveProgress` — the progress file has no second writer.
+        let progress = await readProgress(root);
+        if (progress === null) {
+          progress = createEmptyProgress(inventory, new Date());
+        } else {
+          progress.inventory = { screens: inventory.screens, groups: [...inventory.groups] };
+        }
+        await recoverInFlight(root, progress);
+        for (const def of unitDefs) {
+          const unit = progress.units[def.id];
+          if (unit === undefined) {
+            // `artifact` stays null on purpose: units share the canonical map file, and crash
+            // recovery deletes a writing unit's artifact — it must never delete the map.
+            progress.units[def.id] = createUnit({
+              id: def.id,
+              kind: 'group',
+              label: def.label,
+              artifact: null,
+              source_files: def.source_files,
+            });
+          } else {
+            // Refresh the staleness inputs so a group that gained or lost a source file hashes
+            // differently and is redone; an untouched group keeps an identical list and hash.
+            unit.source_files = [...def.source_files];
+          }
+        }
+        const { skipped } = await reconcileDoneUnits(root, progress);
+        await saveProgress(root, progress, new Date());
+
+        // Merge unit by unit (writing → merge → done), persisting the store around every map
+        // write, so an interrupt leaves exactly one `writing` unit for the next run to reset.
+        // A unit whose group vanished from the extraction merges nothing and converges to done.
+        const draft = buildSiteMapDraft(gathered.extraction, gathered.report.app);
+        const defsById = new Map(unitDefs.map((def) => [def.id, def]));
+        let map = existing;
+        let mapPath: string | null = null;
+        let appended = 0;
+        for (const unit of Object.values(progress.units)) {
+          if (unit.state === 'done') continue;
+          const surfaceIds = new Set(defsById.get(unit.id)?.surface_ids ?? []);
+          startUnit(unit, new Date());
+          await saveProgress(root, progress, new Date());
+          const before = map === null ? 0 : map.surfaces.length;
+          map = mergeSiteMapDraft(map, draft, surfaceIds);
+          mapPath = writeCanonicalSiteMap(root, map);
+          appended += map.surfaces.length - before;
+          completeUnit(unit, await hashSourceFiles(root, unit.source_files), new Date());
+          await saveProgress(root, progress, new Date());
+        }
+        if (map === null) {
+          // No stored map and no units at all (an empty extraction): still write the skeleton,
+          // matching the S8a behaviour, so a first run always leaves a canonical map behind.
+          map = draft;
+          mapPath = writeCanonicalSiteMap(root, map);
+          appended = draft.surfaces.length;
+        }
+
+        const kept = existing === null ? 0 : existing.surfaces.length;
+        if (mapPath === null) {
+          console.log(
+            `**▸ paqad** · site map — nothing to redraw: ${skipped.length} unchanged group(s), the map at ${canonicalAppMapPath(root)} is already up to date (kept ${kept} existing surface(s)).`,
+          );
+        } else {
+          console.log(
+            `**▸ paqad** · site map — drafted ${appended} new surface(s) into ${mapPath} (kept ${kept} existing, skipped ${skipped.length} unchanged group(s)). Add the meaning the code does not carry, then run \`sitemap run\` to prove it.`,
+          );
+        }
         process.exitCode = 0;
       } catch (error) {
         console.error(`**▸ paqad** · sitemap draft failed: ${(error as Error).message}`);
