@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | 8 of 10 tasks; S8a done (S8b, S8c, S9, S10 remain) |
+| **Tasks done** | 9 of 10 tasks; S8b done (S8c, S9, S10 remain) |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S8b** (make `draft` additive and resumable). Depends on **S8a** (done) and **S5** (done). See `plan.md` §6 S8b: re-running `draft` merges (an existing surface keeps human-authored fields; only missing entries are added; a vanished surface is not deleted), `draft` seeds the progress file from the S4 inventory and marks each group `writing` then `done` with its `source_files`/`source_hash`, resumes by skipping unchanged `done` units, and an interrupt leaves exactly one `writing` unit for S5a's loader to reset. |
+| **Next action** | Start **S8c** (unhide the `sitemap` command). Depends on **S8a** (done) and **S8b** (done). See `plan.md` §6 S8c: `src/cli/program.ts:65` no longer registers `sitemap` with `{ hidden: true }`; `paqad-ai sitemap --help` lists `run`, `draft`, `inventory`, `status`, `questions`, `answer`, `journey`; every verb's description is one plain sentence; a test asserts the help output includes `sitemap` and each verb. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
-| **Last updated** | 2026-08-31, session 10: S8a landed |
+| **Last updated** | 2026-09-01, session 11: S8b landed |
 
 ---
 
@@ -37,7 +37,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S6** | Show run progress in the dashboard | D8 | S | `done` | `8d57e5f4` |
 | **S7** | Full-screen map and a readable zoom floor | D8 | S | `done` | `8593b854` |
 | **S8a** | Draft the map skeleton from the extraction | D2 | L | `done` | `8a1f219d` |
-| **S8b** | Draft resumes from the progress file | D2 D7 | L | `todo` | |
+| **S8b** | Draft resumes from the progress file | D2 D7 | L | `done` | `d0aa87f3` |
 | **S8c** | Unhide the `sitemap` command | D2 | S | `todo` | |
 | **S9a** | Transition detectors | D3 | L | `todo` | |
 | **S9b** | Resolve transition targets to surfaces | D3 | L | `todo` | |
@@ -59,7 +59,7 @@ Tick a defect only when every task that fixes it is done.
 - [x] **D4** An absent or link-less map reads "Safe to merge". `S2`
 - [x] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
 - [x] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
-- [ ] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b` (S8b still open)
+- [x] **D7** Every session starts from zero. `S4`, `S5a`, `S5b`, `S8b`
 - [x] **D8** No full screen anywhere; no run progress shown. `S6` (done), `S7` (done)
 
 ---
@@ -79,6 +79,51 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-09-01, session 11: S8b
+
+- **S8b done** (`d0aa87f3`): `paqad-ai sitemap draft` is now additive and resumable, closing D7
+  (and moving D2 forward — only S8c, the unhide, remains for D2).
+  - **Two new pure helpers** in `src/site-map/draft.ts` (mirroring `buildSiteMapDraft`, no I/O):
+    - `deriveDraftUnits(extraction): DraftUnit[]` — one resumable unit per distinct module group
+      (deduped by slugged id, in the inventory's sorted order), plus one trailing
+      `group:ungrouped` unit when module-less surfaces exist. Without the bucket a project whose
+      extractor attributes no modules (this repo: 95 surfaces, 0 groups) would seed an empty store
+      and could never resume. Each unit carries its surfaces' distinct, sorted evidence files as
+      `source_files` (a synthetic artisan label hashes as a missing file, so the skip rule stays
+      stable).
+    - `mergeSiteMapDraft(existing, draft, surfaceIds): AppMap` — additive, never destructive. Every
+      existing field and surface entry is kept byte-identical (authored labels, notes, provenance,
+      transitions, journeys), a vanished surface is never deleted (SM-REMOVE reports it), only draft
+      surfaces named by `surfaceIds` and absent from the map are appended, and only areas the
+      appended surfaces newly reference are added. `existing === null` returns the filtered draft, so
+      first-run and resume share one path. Does not mutate its inputs.
+  - **`sitemap draft` verb** rewritten (`src/cli/commands/sitemap.ts`): refuses to draft when
+    `app-map.yaml` exists but reads back null (corrupt/schema-invalid → exit 2, never clobbered);
+    reads or seeds the progress store, `recoverInFlight` (AC-5 reset), `reconcileDoneUnits` (hash
+    skip), then per not-done unit `startUnit` → save → merge → `writeCanonicalSiteMap` → `completeUnit`
+    with `hashSourceFiles` → save. An interrupt therefore leaves exactly one `writing` unit. Reuses
+    the S5a store functions, the S8a builder, the canonical store, `deriveSiteMapInventory`, and the
+    one shared `gatherSiteMapReport` seam — no new store or writer added.
+  - **Dogfooded on this repo**: first `draft` appended 3 surfaces (draft, inventory, preflight — the
+    surfaces S8a/S3 added but never drafted) with 30 insertions / 0 deletions, 92 authored entries
+    untouched; a second run skipped as unchanged and `sitemap status` read `1 of 1 done`. The
+    committed `docs/site-map/app-map.yaml` delta is that additive output — S8 is the only task
+    allowed to write the map, and it wrote it through the real command, not by hand.
+  - Tests: 26 in `draft.test.ts` (unit derivation: sorted groups, ungrouped bucket, slug dedupe,
+    distinct/sorted source files, empty; merge: authored kept by identity, vanished kept, filter,
+    area append rules, no-mutation, schema-valid) and 36 in `sitemap.test.ts` (first-run seeding,
+    merge preservation, unchanged-skip with zero writes, interrupt → exactly one writing unit,
+    clobber-guard exit 2, vanished-group convergence, empty-extraction parity). `pnpm test` green
+    (8403 passing) in isolation; `paqad-ai checks run` green (format / test / build). No dependency,
+    no public-API/exit-code/schema change to existing verbs.
+  - **Flaky-red note.** The first full run reported 7 files red — all the fake-red concurrency
+    signature (10s test-timeouts + `onTaskUpdate` RPC timeouts, e.g. the heavy onboarding
+    `enterprise switches` test) from a `pnpm test` overlapping a `checks run`. Re-run in isolation:
+    822 files / 8403 tests green, `checks run` green. Not touched — a known load flake, unrelated to
+    S8b (which touches only `draft.ts` and `sitemap.ts`).
+- **D7 ticked**: S4, S5a, S5b, S8b are all done — a run now records progress and a new session
+  resumes instead of starting from zero. **D2 stays open**: S8c (unhide) remains.
 
 ### 2026-08-31, session 10: S8a
 
@@ -375,6 +420,16 @@ here rather than fixing them, so the PR stays reviewable. A human triages them l
   `describeCompletedUnits` emission and the `GET /api/site-map/progress` strip will reflect a live
   authoring run with no further wiring. This is the S6→S8 seam the plan's task order creates; it is
   not a defect.
+- **The canonical map write cannot preserve hand-written YAML comments.** `writeCanonicalSiteMap`
+  parses to an object and re-stringifies (the store discipline since S8a), so any `#` comment in
+  `docs/site-map/app-map.yaml` would be dropped on the next `draft` merge. The live map carries
+  none today, so S8b's additive merge is byte-safe in practice, but if a future map gains authored
+  comments the writer would need a comment-preserving YAML round-trip. Recorded here rather than
+  changed — it is pre-existing (S8a/`store.ts`) and out of S8b's scope.
+- **`sitemap draft` group units use `kind: 'group'`, never `'journey'`.** S8b authors only the
+  surface skeleton, so it seeds group units; journey units belong to a later stage. The progress
+  store's `journey` kind stays unused by `draft` for now. Not a defect — the store shape already
+  supports both.
 
 ---
 
