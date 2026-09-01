@@ -102,9 +102,7 @@ export function createSitemapCommand(): Command {
 
   command
     .command('draft')
-    .description(
-      'Write the map skeleton from the extracted surfaces — the engine drafts, you add meaning',
-    )
+    .description("Write the map's starting skeleton from the code so you only fill in the meaning")
     .option('--project-root <path>', 'Project root', process.cwd())
     .action(async (options: { projectRoot: string }) => {
       try {
@@ -211,7 +209,9 @@ export function createSitemapCommand(): Command {
 
   command
     .command('inventory')
-    .description('Report how many screens, groups and guards the code has — a read-only preview')
+    .description(
+      'Report how many screens, groups and guards the code has without changing anything',
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--quiet', 'Suppress the machine-readable summary line', false)
     .action(async (options: RunFlags) => {
@@ -269,9 +269,7 @@ export function createSitemapCommand(): Command {
 
   command
     .command('questions')
-    .description(
-      'List the closed-list creation questions the authored map still needs answered (one-step creation)',
-    )
+    .description('List the questions the map still needs you to answer')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((options: { projectRoot: string }) => {
       try {
@@ -302,9 +300,7 @@ export function createSitemapCommand(): Command {
 
   command
     .command('answer')
-    .description(
-      'Record the answered creation questions and stamp their provenance onto the map (one-step creation)',
-    )
+    .description('Record your answers to those questions and note who decided each')
     .requiredOption('--input <path>', 'JSON file of [{ question_id, answer, decided_by }]')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((options: { input: string; projectRoot: string }) => {
@@ -339,7 +335,7 @@ export function createSitemapCommand(): Command {
 
   const journey = command
     .command('journey')
-    .description('Curate proposed journeys — the human sign-off that confirms or removes them');
+    .description('Confirm or remove the journeys the map has proposed');
 
   for (const action of ['confirm', 'reject'] as JourneyCurationAction[]) {
     journey

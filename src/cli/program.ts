@@ -61,9 +61,10 @@ export function createProgram(): Command {
   program.addCommand(createMetricsCommand());
   program.addCommand(createIndexCommand());
   program.addCommand(createHealthCommand());
-  // Hidden (issue #448): the site map is now a dashboard area (Run it from
-  // `paqad-ai dashboard`). The verb stays registered for CI/scripting.
-  program.addCommand(createSitemapCommand(), { hidden: true });
+  // The site map is both a dashboard area and a discoverable command: `sitemap draft`
+  // writes the map skeleton from the code and `sitemap status`/`run` drive and verify it,
+  // so the command is listed in help (unhidden in S8c) rather than hidden behind the dashboard.
+  program.addCommand(createSitemapCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());

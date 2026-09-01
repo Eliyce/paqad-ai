@@ -99,6 +99,48 @@ describe('paqad-ai sitemap command', () => {
     expect(createProgram().commands.map((c) => c.name())).toContain('sitemap');
   });
 
+  describe('S8c: the command is discoverable and every verb reads plainly', () => {
+    const VERBS = ['run', 'draft', 'inventory', 'status', 'questions', 'answer', 'journey'];
+
+    it('is no longer hidden, so it shows in the program help (S8c, AC-1)', () => {
+      // A hidden command is registered but omitted from help output; unhiding it in S8c
+      // means the top-level help now lists `sitemap` for a human to discover.
+      expect(createProgram().helpInformation()).toContain('sitemap');
+    });
+
+    it('sitemap --help lists every verb (S8c, AC-2)', () => {
+      const help = createSitemapCommand().helpInformation();
+      for (const verb of VERBS) {
+        expect(help).toContain(verb);
+      }
+    });
+
+    it('every verb description is one plain sentence with no jargon (S8c, AC-3)', () => {
+      const byName = new Map(
+        createSitemapCommand().commands.map((c) => [c.name(), c.description()]),
+      );
+      // Tokens deliberately reworded away in S8c, plus the em dash a plain sentence avoids.
+      const jargon = [
+        '—',
+        'closed-list',
+        'provenance',
+        'one-step creation',
+        'skeleton from the extracted',
+      ];
+      for (const verb of VERBS) {
+        const description = byName.get(verb);
+        expect(description, `verb "${verb}" is missing`).toBeTruthy();
+        const text = description as string;
+        // No jargon token and no em dash.
+        for (const token of jargon) {
+          expect(text, `verb "${verb}" description still contains "${token}"`).not.toContain(token);
+        }
+        // One sentence: no mid-string sentence break (a period followed by more words).
+        expect(text, `verb "${verb}" description is more than one sentence`).not.toMatch(/\.\s+\S/);
+      }
+    });
+  });
+
   it('run: reports findings, prints blocked checks + baseline, and exits 1 (AC-8)', async () => {
     runSiteMapAudit.mockResolvedValue({
       report_id: 'SITEMAP-x',
