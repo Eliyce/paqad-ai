@@ -133,6 +133,15 @@ One entry per session. Newest at the top. Keep entries short and factual.
     (`reconcile-missing-links-as-findings-s9c-01M1ERJHB1YXC5QJN50370KGGK`): planning → specification
     → development → checks → review, each with its rigid artifact; `documentation_sync` recorded last
     (this edit), after the code and checks, per session 11's lesson.
+- **Stage-ledger note (missing-`checks` reconcile, session-13 class).** After the two S9c commits the
+  Stop gate read the change `incomplete` with `missing=[checks]`: the active pointer stayed on the S9c
+  bundle (not orphaned this time), but no `checks` stage row was attached — `classifyStage` maps a
+  `*.test.ts` edit to `checks`, yet by the time the fold settled the bundle that test-edit row was
+  gone, and `paqad-ai checks run` proves the gates and stamps `last-run.json` without itself writing a
+  `checks` row (it needs a dev-scope file in the working tree, and everything was already committed).
+  Fix: `stage start/end checks` re-marked into the active bundle (`last-run.json` green: format / test
+  / build) and this `documentation_sync` note re-stamped last, after `checks`, so the order stays
+  clean. No code changed; the S9c commits `5a2d945c` / `e6d09064` are unchanged.
 
 ### 2026-09-01, session 14: S9b
 
