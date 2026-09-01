@@ -124,6 +124,17 @@ One entry per session. Newest at the top. Keep entries short and factual.
     S8b (which touches only `draft.ts` and `sitemap.ts`).
 - **D7 ticked**: S4, S5a, S5b, S8b are all done — a run now records progress and a new session
   resumes instead of starting from zero. **D2 stays open**: S8c (unhide) remains.
+- **Stage-ledger note (ordering, not orphaning).** Unlike sessions 6/7/8/10, the git reconcile did
+  not orphan the bundle — the active pointer stayed on the S8b bundle with every stage recorded. The
+  completion gate still read `incomplete` because the stage order was scrambled: to dodge the
+  first-edit whole-tree scan (§8), `progress.md` was edited before the code, so `documentation_sync`
+  was stamped at 20:01 while `development`/`checks` were stamped by `checks run` at 02:38+ the next
+  day — two ordering violations (`development→documentation_sync`, `checks→documentation_sync`). The
+  fold keys off each stage's *last* start/end, so `documentation_sync` was re-recorded as the final
+  mutation (after development and checks ended), clearing both violations. No code changed in the
+  re-record; the S8b commits `d0aa87f3`/`c9f1a5ed` are unchanged. Lesson for S8c: record
+  `documentation_sync` last, after the code and checks, even when an early doc edit is needed to
+  clear the whole-tree scan.
 
 ### 2026-08-31, session 10: S8a
 
