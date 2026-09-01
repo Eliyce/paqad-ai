@@ -8,6 +8,7 @@ const runSiteMapAudit = vi.fn();
 const gatherSiteMapReport = vi.fn();
 const runJourneyCuration = vi.fn();
 const createSiteMapGatherer = vi.fn(() => ({}) as never);
+const gatherSiteMapTransitions = vi.fn((): unknown[] => []);
 const deriveCreationQuestions = vi.fn();
 const recordCreationAnswers = vi.fn();
 const readProgress = vi.fn();
@@ -26,7 +27,7 @@ vi.mock('@/site-map/run.js', async (importOriginal) => ({
   gatherSiteMapReport,
 }));
 vi.mock('@/site-map/journey-curation.js', () => ({ runJourneyCuration }));
-vi.mock('@/site-map/gatherer.js', () => ({ createSiteMapGatherer }));
+vi.mock('@/site-map/gatherer.js', () => ({ createSiteMapGatherer, gatherSiteMapTransitions }));
 // Mock the two fs-touching composers but keep the real parseCreationDecisions.
 vi.mock('@/site-map/creation-flow.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/creation-flow.js')>()),
@@ -71,6 +72,8 @@ describe('paqad-ai sitemap command', () => {
     gatherSiteMapReport.mockReset();
     runJourneyCuration.mockReset();
     createSiteMapGatherer.mockClear();
+    gatherSiteMapTransitions.mockReset();
+    gatherSiteMapTransitions.mockReturnValue([]);
     deriveCreationQuestions.mockReset();
     recordCreationAnswers.mockReset();
     readProgress.mockReset();
@@ -495,6 +498,81 @@ describe('paqad-ai sitemap command', () => {
       expect(process.exitCode).toBe(2);
       expect(out.join('\n')).toContain('sitemap draft failed: scan blew up');
       expect(writeCanonicalSiteMap).not.toHaveBeenCalled();
+    });
+
+    it('draft: resolves a code link and writes it onto the origin surface (S9b, AC-5)', async () => {
+      gathered([
+        surface({
+          raw_id: 'react-routes-home',
+          label: 'Home',
+          entry: { kind: 'url', value: '/home' },
+        }),
+        surface({
+          raw_id: 'react-routes-cart',
+          label: 'Cart',
+          entry: { kind: 'url', value: '/cart' },
+        }),
+      ]);
+      // Home navigates to /cart — resolves to the cart surface.
+      gatherSiteMapTransitions.mockReturnValue([
+        {
+          from_raw_id: 'react-routes-home',
+          to_target: '/cart',
+          trigger: 'navigate',
+          evidence: [{ file: 'src/Home.tsx', line: 5 }],
+          confidence: 'high',
+        },
+      ]);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(0);
+      expect(gatherSiteMapTransitions).toHaveBeenCalledWith(root, expect.any(Array));
+      const [, finalMap] = writeCanonicalSiteMap.mock.calls.at(-1)! as [
+        string,
+        { surfaces: Array<{ id: string; transitions?: Array<{ to: string; trigger: string }> }> },
+      ];
+      const home = finalMap.surfaces.find((s) => s.id === 'react-routes-home')!;
+      expect(home.transitions).toEqual([
+        {
+          to: 'react-routes-cart',
+          trigger: 'navigate',
+          evidence: [{ file: 'src/Home.tsx', line: 5 }],
+          confidence: 'high',
+        },
+      ]);
+      // A fully resolved run prints no unresolved-links line.
+      expect(out.join('\n')).not.toContain('could not be matched to a mapped surface');
+    });
+
+    it('draft: reports dropped links that resolve to no surface as a blocked check (S9b, AC-3/AC-5)', async () => {
+      gathered([
+        surface({
+          raw_id: 'react-routes-home',
+          label: 'Home',
+          entry: { kind: 'url', value: '/home' },
+        }),
+      ]);
+      gatherSiteMapTransitions.mockReturnValue([
+        {
+          from_raw_id: 'react-routes-home',
+          to_target: '/gone', // no surface carries this entry
+          trigger: 'navigate',
+          evidence: [{ file: 'src/Home.tsx', line: 8 }],
+          confidence: 'high',
+        },
+      ]);
+      const out = await invoke(['draft', '--project-root', root]);
+      expect(process.exitCode).toBe(0);
+      expect(out.join('\n')).toContain(
+        '1 navigation link in the code could not be matched to a mapped surface',
+      );
+      const [, finalMap] = writeCanonicalSiteMap.mock.calls.at(-1)! as [
+        string,
+        { surfaces: Array<{ id: string; transitions?: unknown[] }> },
+      ];
+      // The unresolvable edge was dropped, never guessed onto the surface.
+      expect(
+        finalMap.surfaces.find((s) => s.id === 'react-routes-home')!.transitions,
+      ).toBeUndefined();
     });
   });
 

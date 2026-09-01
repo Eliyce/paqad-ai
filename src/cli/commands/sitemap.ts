@@ -17,7 +17,7 @@ import {
   recordCreationAnswers,
 } from '@/site-map/creation-flow.js';
 import { buildSiteMapDraft, deriveDraftUnits, mergeSiteMapDraft } from '@/site-map/draft.js';
-import { createSiteMapGatherer } from '@/site-map/gatherer.js';
+import { createSiteMapGatherer, gatherSiteMapTransitions } from '@/site-map/gatherer.js';
 import { runJourneyCuration, type JourneyCurationAction } from '@/site-map/journey-curation.js';
 import {
   completeUnit,
@@ -41,6 +41,11 @@ import {
   readCanonicalSiteMap,
   writeCanonicalSiteMap,
 } from '@/site-map/store.js';
+import {
+  attachResolvedTransitions,
+  buildUnresolvedLinksCheck,
+  resolveTransitions,
+} from '@/site-map/transitions.js';
 
 interface RunFlags {
   projectRoot: string;
@@ -165,7 +170,19 @@ export function createSitemapCommand(): Command {
         // Merge unit by unit (writing → merge → done), persisting the store around every map
         // write, so an interrupt leaves exactly one `writing` unit for the next run to reset.
         // A unit whose group vanished from the extraction merges nothing and converges to done.
-        const draft = buildSiteMapDraft(gathered.extraction, gathered.report.app);
+        // Resolve the code's navigation edges to surfaces and attach them to the draft skeleton
+        // (S9b). Detection reads each surface's source files (impure, in the gatherer); resolution
+        // matches each target to a surface `entry.value` and drops the unresolvable rather than
+        // guessing. Edges ride the additive merge on NEW surfaces, so authored transitions on
+        // existing surfaces are never clobbered; a code-proven edge an existing map lacks is S9c's
+        // reconciliation, not a draft-time overwrite. The dropped count is reported below.
+        const skeleton = buildSiteMapDraft(gathered.extraction, gathered.report.app);
+        const transitions = gatherSiteMapTransitions(root, gathered.extraction.surfaces);
+        const resolution = resolveTransitions(transitions, skeleton.surfaces);
+        const draft = {
+          ...skeleton,
+          surfaces: attachResolvedTransitions(skeleton.surfaces, resolution.resolved),
+        };
         const defsById = new Map(unitDefs.map((def) => [def.id, def]));
         let map = existing;
         let mapPath: string | null = null;
@@ -199,6 +216,12 @@ export function createSitemapCommand(): Command {
           console.log(
             `**▸ paqad** · site map — drafted ${appended} new surface(s) into ${mapPath} (kept ${kept} existing, skipped ${skipped.length} unchanged group(s)). Add the meaning the code does not carry, then run \`sitemap run\` to prove it.`,
           );
+        }
+        // Make dropped links visible rather than silently swallowed (S9b, AC-3): a navigation
+        // call the code proves but whose target no surface carries is dropped, never guessed.
+        const unresolved = buildUnresolvedLinksCheck(resolution.dropped);
+        if (unresolved !== null) {
+          console.log(`**▸ paqad** · site map — ${unresolved.reason} ${unresolved.install_hint}`);
         }
         process.exitCode = 0;
       } catch (error) {

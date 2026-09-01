@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
+import type { AppMap, Surface } from '@/core/types/site-map.js';
+import { validateAppMap } from '@/site-map/schema.js';
 import {
+  attachResolvedTransitions,
+  buildUnresolvedLinksCheck,
   detectLaravelTransitions,
   detectNodeCliTransitions,
   detectReactRouterTransitions,
+  resolveTransitions,
   type ExtractedTransition,
   type TransitionSourceRecord,
 } from '@/site-map/transitions.js';
@@ -158,6 +163,247 @@ describe('site-map transitions', () => {
         "  console.log('run the build command');", // a mention in a string
       ].join('\n');
       expect(detectNodeCliTransitions([record(content)])).toEqual([]);
+    });
+  });
+
+  describe('resolveTransitions (S9b)', () => {
+    function surface(id: string, entryValue?: string): Surface {
+      return {
+        id,
+        kind: 'page',
+        label: id,
+        ...(entryValue === undefined ? {} : { entry: { kind: 'url', value: entryValue } }),
+      };
+    }
+
+    function transition(overrides: Partial<ExtractedTransition>): ExtractedTransition {
+      return {
+        from_raw_id: 'from',
+        to_target: '/target',
+        trigger: 'navigate',
+        evidence: [{ file: 'src/from.tsx', line: 4 }],
+        confidence: 'high',
+        ...overrides,
+      };
+    }
+
+    it('resolves a target by route name, by URL path, and by command name (AC-1)', () => {
+      const surfaces = [
+        surface('laravel-routes-get-dashboard', 'dashboard'), // a route name
+        surface('react-routes-cart', '/cart'), // a URL path
+        surface('node-cli-index-build', 'index build'), // a command name
+      ];
+      const transitions = [
+        transition({ from_raw_id: 'a', to_target: 'dashboard', trigger: 'redirect' }),
+        transition({ from_raw_id: 'b', to_target: '/cart', trigger: 'link' }),
+        transition({
+          from_raw_id: 'c',
+          to_target: 'index build',
+          trigger: 'invoke',
+          confidence: 'low',
+          evidence: [{ file: 'src/cli.ts', line: 9 }],
+        }),
+      ];
+
+      const { resolved, dropped } = resolveTransitions(transitions, surfaces);
+
+      expect(dropped).toBe(0);
+      expect(resolved).toEqual([
+        {
+          from_id: 'a',
+          transition: {
+            to: 'laravel-routes-get-dashboard',
+            trigger: 'redirect',
+            evidence: [{ file: 'src/from.tsx', line: 4 }],
+            confidence: 'high',
+          },
+        },
+        {
+          from_id: 'b',
+          transition: {
+            to: 'react-routes-cart',
+            trigger: 'link',
+            evidence: [{ file: 'src/from.tsx', line: 4 }],
+            confidence: 'high',
+          },
+        },
+        {
+          from_id: 'c',
+          transition: {
+            to: 'node-cli-index-build',
+            trigger: 'invoke',
+            evidence: [{ file: 'src/cli.ts', line: 9 }],
+            confidence: 'low',
+          },
+        },
+      ]);
+    });
+
+    it('drops and counts a target that matches no surface, never guessing (AC-2)', () => {
+      const surfaces = [surface('react-routes-cart', '/cart')];
+      const { resolved, dropped } = resolveTransitions(
+        [
+          transition({ to_target: '/cart' }),
+          transition({ to_target: '/nowhere' }), // no surface carries this entry
+        ],
+        surfaces,
+      );
+      expect(dropped).toBe(1);
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0]!.transition.to).toBe('react-routes-cart');
+    });
+
+    it('ignores surfaces with no entry and keeps the first surface for a shared entry value', () => {
+      const surfaces = [
+        surface('no-entry'), // never a resolution target
+        surface('first', '/dup'),
+        surface('second', '/dup'), // same entry.value — first wins
+      ];
+      const { resolved, dropped } = resolveTransitions(
+        [transition({ to_target: '/dup' })],
+        surfaces,
+      );
+      expect(dropped).toBe(0);
+      expect(resolved[0]!.transition.to).toBe('first');
+    });
+  });
+
+  describe('attachResolvedTransitions (S9b)', () => {
+    const base: Surface[] = [
+      { id: 'home', kind: 'page', label: 'Home' },
+      { id: 'cart', kind: 'page', label: 'Cart' },
+      {
+        id: 'checkout',
+        kind: 'page',
+        label: 'Checkout',
+        transitions: [{ to: 'home', trigger: 'link' }],
+      },
+    ];
+
+    it('appends resolved edges to their origin surfaces and leaves the rest untouched (AC-4)', () => {
+      const attached = attachResolvedTransitions(base, [
+        {
+          from_id: 'home',
+          transition: {
+            to: 'cart',
+            trigger: 'link',
+            evidence: [{ file: 'a.tsx', line: 2 }],
+            confidence: 'high',
+          },
+        },
+        {
+          from_id: 'checkout',
+          transition: {
+            to: 'cart',
+            trigger: 'navigate',
+            evidence: [{ file: 'b.tsx', line: 3 }],
+            confidence: 'high',
+          },
+        },
+      ]);
+
+      expect(attached.find((s) => s.id === 'home')!.transitions).toEqual([
+        { to: 'cart', trigger: 'link', evidence: [{ file: 'a.tsx', line: 2 }], confidence: 'high' },
+      ]);
+      // cart has no outgoing edge and is returned unchanged (same reference).
+      expect(attached.find((s) => s.id === 'cart')).toBe(base[1]);
+      // checkout keeps its authored edge and gains the resolved one (appended, not replaced).
+      expect(attached.find((s) => s.id === 'checkout')!.transitions).toEqual([
+        { to: 'home', trigger: 'link' },
+        {
+          to: 'cart',
+          trigger: 'navigate',
+          evidence: [{ file: 'b.tsx', line: 3 }],
+          confidence: 'high',
+        },
+      ]);
+    });
+
+    it('does not mutate its inputs and collapses an exact-duplicate edge', () => {
+      const frozen = JSON.parse(JSON.stringify(base));
+      const dup = {
+        from_id: 'home',
+        transition: {
+          to: 'cart',
+          trigger: 'link',
+          evidence: [{ file: 'a.tsx', line: 2 }],
+          confidence: 'high' as const,
+        },
+      };
+      const attached = attachResolvedTransitions(base, [dup, { ...dup }]);
+      expect(attached.find((s) => s.id === 'home')!.transitions).toHaveLength(1);
+      expect(base).toEqual(frozen);
+    });
+
+    it('dedups by identity when evidence is a single anchor or absent', () => {
+      // A single (non-array) evidence anchor and an edge with no evidence at all both flow through
+      // the de-dup key, so an identical pair collapses in each case.
+      const single = {
+        from_id: 'home',
+        transition: {
+          to: 'cart',
+          trigger: 'link',
+          evidence: { file: 'a.tsx', line: 2 },
+          confidence: 'high' as const,
+        },
+      };
+      const anchorless = {
+        from_id: 'checkout',
+        transition: { to: 'cart', trigger: 'navigate' },
+      };
+      const attached = attachResolvedTransitions(base, [
+        single,
+        { ...single },
+        anchorless,
+        { ...anchorless },
+      ]);
+      expect(attached.find((s) => s.id === 'home')!.transitions).toEqual([
+        { to: 'cart', trigger: 'link', evidence: { file: 'a.tsx', line: 2 }, confidence: 'high' },
+      ]);
+      // checkout keeps its authored edge and gains the single de-duped anchorless one.
+      expect(attached.find((s) => s.id === 'checkout')!.transitions).toEqual([
+        { to: 'home', trigger: 'link' },
+        { to: 'cart', trigger: 'navigate' },
+      ]);
+    });
+
+    it('produces a schema-valid map once transitions are attached (INV-4)', () => {
+      const attached = attachResolvedTransitions(base, [
+        {
+          from_id: 'home',
+          transition: {
+            to: 'cart',
+            trigger: 'link',
+            evidence: [{ file: 'a.tsx', line: 2 }],
+            confidence: 'high',
+          },
+        },
+      ]);
+      const map: AppMap = {
+        schema_version: 1,
+        app: { name: 'demo', kind: 'web' },
+        surfaces: attached,
+      };
+      expect(validateAppMap(map).valid).toBe(true);
+    });
+  });
+
+  describe('buildUnresolvedLinksCheck (S9b)', () => {
+    it('returns null when nothing was dropped (AC-3)', () => {
+      expect(buildUnresolvedLinksCheck(0)).toBeNull();
+      expect(buildUnresolvedLinksCheck(-1)).toBeNull();
+    });
+
+    it('names the exact dropped count, singular and plural (AC-3)', () => {
+      const one = buildUnresolvedLinksCheck(1)!;
+      expect(one.check).toBe('transition-resolution');
+      expect(one.reason).toContain('1 navigation link ');
+      expect(one.reason).toContain('was');
+
+      const many = buildUnresolvedLinksCheck(3)!;
+      expect(many.reason).toContain('3 navigation links ');
+      expect(many.reason).toContain('were');
+      expect(many.install_hint).toContain('docs/site-map/app-map.yaml');
     });
   });
 
