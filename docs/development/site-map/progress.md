@@ -108,6 +108,18 @@ One entry per session. Newest at the top. Keep entries short and factual.
 - Stages recorded against this session's bundle (`unhide-the-sitemap-command-s8c-01M1E1T0H7…`):
   planning → specification → development → checks → review, each with its rigid artifact;
   `documentation_sync` recorded last (this edit), after the code and checks, per session 11's lesson.
+- **Stage-ledger note (same reconcile class as sessions 6/7/8/10).** After the two S8c commits, the
+  end-of-change gate's git reconcile (#450) minted a fresh active change bundle for the post-commit
+  working set (only the two pre-existing framework-churn files — `.paqad/checks/last-run.json` and the
+  `runtime/hooks/lib/agent-entry-directive.mjs` exec-bit flip — were uncommitted), orphaning the
+  `…-s8c-01M1E1T0H7…` bundle the stages were first recorded into, so the Stop gate saw the change with
+  only an inferred `development` row and reported `incomplete`
+  (`missing=[planning,specification,review,checks,documentation_sync]`). Planning, specification and
+  review were re-recorded against the active bundle (`unhide-the-sitemap-command-s8c-01M1E3Q507…`,
+  same session, `plan compile`/`spec freeze`/`review record` writing each rigid artifact into it),
+  `paqad-ai checks run` re-run green (format / test / build), and this note records
+  `documentation_sync` last. No code changed in the re-record; the S8c commit `2bb384d4` is unchanged,
+  and PR #509 CI is green across the full Node 22/24 × ubuntu/macOS/windows matrix plus CodeQL and Snyk.
 
 ### 2026-09-01, session 11: S8b
 
