@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | S1–S8 done, plus **S9a** (transition detectors, landed); **S9b, S9c, S10 remain** |
+| **Tasks done** | S1–S8 done, plus **S9a** and **S9b** (transition detection + resolution, landed); **S9c, S10 remain** |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S9b** (resolve transition targets to surfaces). Depends on **S9a** (done). See `plan.md` §6 S9b: resolve each `to_target` (from `ExtractedTransition`) to an existing surface by matching against surfaces' `entry` values (route name, URL path, command name); an unresolvable target is **dropped, never guessed**; dropped targets are counted and reported as a blocked check naming how many links could not be resolved and why; resolved transitions are written by `draft` (S8) into the surfaces' `transitions` arrays, each carrying its evidence. Tests: resolution by route name / path / command name; an unresolvable target dropped and counted; the blocked check appears with the right count. |
+| **Next action** | Start **S9c** (reconcile missing links as findings). Depends on **S9b** (done). See `plan.md` §6 S9c: new finding category `SM-EDGE-MISSING` for a transition the code proves but the stored map does not record (do **not** overload `SM-ADD`); with transitions now present `hasGraph` becomes true so the reachability and dead-end invariants start firing for real (new findings on existing maps; the baseline ratchet marks them `pre-existing` on the run after the baseline is written); re-running `sitemap run` on this repo after S9 must report a non-zero transition count and a verdict no longer `inconclusive` for the "no links" reason. Tests: a map missing a proven edge raises `SM-EDGE-MISSING`; a map recording it does not; reachability findings appear once transitions exist; the baseline ratchet classifies them. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
-| **Last updated** | 2026-09-01, session 13: S9a landed |
+| **Last updated** | 2026-09-01, session 14: S9b landed |
 
 ---
 
@@ -40,7 +40,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S8b** | Draft resumes from the progress file | D2 D7 | L | `done` | `d0aa87f3` |
 | **S8c** | Unhide the `sitemap` command | D2 | S | `done` | `2bb384d4` |
 | **S9a** | Transition detectors | D3 | L | `done` | `f4e59706` |
-| **S9b** | Resolve transition targets to surfaces | D3 | L | `todo` | |
+| **S9b** | Resolve transition targets to surfaces | D3 | L | `done` | `00ecd8d0` |
 | **S9c** | Reconcile missing links as findings | D3 | L | `todo` | |
 | **S10** | Rewrite the workflow rule | D1 | S | `todo` | |
 
@@ -79,6 +79,71 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-09-01, session 14: S9b
+
+- **S9b done** (`00ecd8d0`): the second third of **D3** — the engine now turns the S9a raw edges
+  into real surface links and writes them into the map, instead of leaving `to_target` unresolved.
+  - **`src/site-map/transitions.ts`** (pure, still 100% coverage): three new functions after the
+    detectors.
+    - `resolveTransitions(transitions, surfaces)` indexes surfaces by `entry.value` (first surface
+      wins for a shared value) and resolves each `ExtractedTransition.to_target` to a surface id,
+      producing a map `Transition` (`to`, `trigger`, `evidence`, `confidence`). The match is
+      **exact** against `entry.value` — a route name, a URL path, or a command name — with no slug
+      or path normalisation (INV-2), so a link is recorded only when the code's target and a
+      mapped surface's entry agree. A target that matches nothing is **dropped and counted**
+      (`{ resolved, dropped }`), never guessed (AC-2).
+    - `attachResolvedTransitions(surfaces, resolved)` appends each resolved edge to its origin
+      surface's `transitions` array (deduped by origin/target/trigger/first-anchor), returns new
+      surface objects, mutates nothing (INV-3), and leaves a surface with no outgoing edge by
+      reference. A surface's existing (authored) transitions are appended to, never replaced.
+    - `buildUnresolvedLinksCheck(dropped)` returns a `SiteMapBlockedCheck` naming the exact dropped
+      count (singular/plural) and how to close the gap, or `null` when nothing dropped (AC-3) — the
+      same make-the-skip-visible discipline D4 established.
+  - **`src/site-map/gatherer.ts`** (coverage-excluded I/O seam): `gatherSiteMapTransitions(root,
+    surfaces)` reads each surface's on-disk evidence file(s) once, normalises them into
+    `TransitionSourceRecord`s attributed to the surface's `raw_id`, and runs all three S9a
+    detectors (a synthetic artisan label or a vanished file simply reads as unavailable and is
+    skipped). Pure resolution of the raw edges is `resolveTransitions`.
+  - **`sitemap draft` verb**: after building the skeleton it gathers transitions, resolves them
+    against the skeleton's surfaces, attaches the resolved edges to the draft surfaces **before**
+    the additive S8b merge, and prints the unresolved-links blocked check when any dropped. Because
+    the merge only appends **new** surfaces, detected edges ride onto new surfaces while authored
+    transitions on existing surfaces stay byte-identical — a code-proven edge an existing map lacks
+    is **S9c's** `SM-EDGE-MISSING` reconciliation, not a draft-time clobber.
+  - **Tests**: 8 new in `transitions.test.ts` (resolution by route name / path / command name;
+    unresolvable dropped + counted; no-entry and shared-entry handling; attach appends/leaves-alone/
+    no-mutation/dedupe/schema-valid; the blocked-check count singular+plural and the null case) and
+    2 new draft-CLI tests in `sitemap.test.ts` (a resolved edge written onto the origin surface with
+    no unresolved line; an unresolvable edge dropped, printed as a blocked check, and never written).
+    `transitions.ts` is at **100%** coverage.
+  - `pnpm run ci` green (typecheck / lint / format:check / test:coverage — 8427 tests, floors met /
+    graph-ui:test / build). `paqad-ai checks run` green (format / test / build). No dependency added;
+    no change to any existing verb's behaviour, public API, exit code, or the map schema. The verb
+    was **not** run against this repo's own committed `app-map.yaml`: S8 is the only task allowed to
+    write it, and this repo's node-CLI surfaces carry no dispatch-style links, so a re-draft would
+    add no transitions to existing surfaces anyway.
+  - **Interpretation recorded (resolution basis + where the blocked check surfaces).** The plan
+    says match against "a route name, a URL path, or a command name". The resolver is generic — it
+    matches `to_target` against any surface's `entry.value` — so all three cases share one exact
+    match. The unresolved-links blocked check is produced by the pure builder and **reported by the
+    draft verb** (printed), since `draft` has no run report; the count is unit-tested on the builder.
+  - Stages recorded against this session's bundle
+    (`s9b-resolve-transition-targets-to-surfaces-01M1EBY80FWGD30WQJHG9HS1YW`): planning →
+    specification → development → checks → review, each with its rigid artifact; `documentation_sync`
+    recorded last (this edit).
+- **D3 stays open**: S9a (detectors) and S9b (resolution) are done; `S9c` (reconcile missing links
+  as findings) remains before D3 can be ticked.
+- **Stage-ledger note (session-id fork on Desktop, sessions-6/7/8/10 class avoided).** The stage CLI
+  first recorded planning/specification under the **stale** shared ledger-session cache
+  (`.paqad/session/ledger-session-id` = `fa57a7e3…`), while the PreToolUse gate keys off this
+  Claude session's real id (`e802f974…`, the scratchpad session), so the first code edit blocked
+  with "run planning". Fix: `export SE_SESSION=e802f974-…` (the real session), then re-run
+  `plan compile` / `spec freeze` / `stage end` so the rigid artifacts landed in **this session's**
+  active feature bundle. The lesson: on Desktop `$CLAUDE_SESSION_ID` is unset in the shell and the
+  cache can be stale — confirm the gate's session from the just-touched
+  `.paqad/ledger/feature-evidence/_session/<id>.json` and set `SE_SESSION` to it before any
+  stage/plan/spec/review call.
 
 ### 2026-09-01, session 13: S9a
 
@@ -538,6 +603,25 @@ here rather than fixing them, so the PR stays reviewable. A human triages them l
   surface skeleton, so it seeds group units; journey units belong to a later stage. The progress
   store's `journey` kind stays unused by `draft` for now. Not a defect — the store shape already
   supports both.
+- **Laravel route-name links resolve only when a surface's `entry.value` equals the name.** S9b's
+  resolver matches `to_target` against surfaces' `entry.value`. Route extraction stores the URL
+  **path** (`/users`) as the entry value, not the route **name**, so a `redirect()->route('users')`
+  target (`users`) matches nothing and is dropped-and-counted (honest per AC-2/AC-3). Making
+  route-name links resolve would mean indexing route names into the surface entry during extraction
+  (`extraction.ts`), which S9b does not name — recorded here rather than widening scope. URL-path
+  and command-name links resolve for real today.
+- **`gatherSiteMapTransitions` attributes a file's nav calls to every surface that cites the file.**
+  It reads each surface's evidence file and runs the detectors, attributing matches to that
+  surface's `raw_id`. A source file shared by several surfaces attributes its calls to each of
+  them. That is acceptable coarseness for S9b (the pure resolver is order-deterministic regardless),
+  but a later stage that wants per-symbol attribution would need finer gathering. Recorded, not
+  changed.
+- **The unresolved-links blocked check is printed by `draft`, not carried in a run report.** S9b's
+  resolution happens at draft time, and `draft` has no `SiteMapReportIndex` to attach a
+  `blocked_check` to, so `buildUnresolvedLinksCheck`'s result is printed as a paqad line. When S9c
+  makes `sitemap run` verify transitions, the run report is the natural home for a persisted
+  unresolved-links blocked check; S9b proves the count on the pure builder. This is the S9b→S9c
+  seam, not a defect.
 
 ---
 
