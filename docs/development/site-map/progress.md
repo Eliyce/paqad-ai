@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | S1–S8 done, plus **S9a** and **S9b** (transition detection + resolution, landed); **S9c, S10 remain** |
+| **Tasks done** | S1–S8 done, plus **S9a**, **S9b** and **S9c** (transition detection + resolution + reconciliation, landed); **D3 closed**; only **S10 remains** |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S9c** (reconcile missing links as findings). Depends on **S9b** (done). See `plan.md` §6 S9c: new finding category `SM-EDGE-MISSING` for a transition the code proves but the stored map does not record (do **not** overload `SM-ADD`); with transitions now present `hasGraph` becomes true so the reachability and dead-end invariants start firing for real (new findings on existing maps; the baseline ratchet marks them `pre-existing` on the run after the baseline is written); re-running `sitemap run` on this repo after S9 must report a non-zero transition count and a verdict no longer `inconclusive` for the "no links" reason. Tests: a map missing a proven edge raises `SM-EDGE-MISSING`; a map recording it does not; reachability findings appear once transitions exist; the baseline ratchet classifies them. |
+| **Next action** | Start **S10** (rewrite the workflow rule). Depends on S3, S5, S8, S9 (all done). See `plan.md` §6 S10: edit the runtime pack `runtime/capabilities/coding/rules/site-map.md` **then** copy it to the mirror `docs/instructions/rules/coding/site-map.md` and diff to prove byte-identical (AC-1); re-arm the entry sentinel after the `docs/instructions/**` edit (AC-2, §8.9); rewrite the steps to Step 0 `sitemap status` first, then `preflight` (one `AskUserQuestion`), `inventory`, `draft`, journeys, `run`, receipt; remove every claim the verb authors the whole map; no path may name `docs/instructions/site-map/`; add the rule-parity test assertions. After the commit, regenerate `session-context.md` and grep it for the new Step 0 wording and the absence of `docs/instructions/site-map`. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
-| **Last updated** | 2026-09-01, session 14: S9b landed |
+| **Last updated** | 2026-09-01, session 15: S9c landed |
 
 ---
 
@@ -41,7 +41,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S8c** | Unhide the `sitemap` command | D2 | S | `done` | `2bb384d4` |
 | **S9a** | Transition detectors | D3 | L | `done` | `f4e59706` |
 | **S9b** | Resolve transition targets to surfaces | D3 | L | `done` | `00ecd8d0` |
-| **S9c** | Reconcile missing links as findings | D3 | L | `todo` | |
+| **S9c** | Reconcile missing links as findings | D3 | L | `done` | `5a2d945c` |
 | **S10** | Rewrite the workflow rule | D1 | S | `todo` | |
 
 **Dependency reminders.** S5 needs S4. S6 needs S5. S8 needs S4 and S5. S9 needs S8.
@@ -55,7 +55,7 @@ Tick a defect only when every task that fixes it is done.
 
 - [ ] **D1** Stale rulebook served to the agent, describing the wrong folder and claiming the verb writes the map. `S1`, `S10`
 - [x] **D2** Nothing writes the map; the AI hand-types it; the command is hidden. `S8a`, `S8b`, `S8c`
-- [ ] **D3** Nothing detects links; 0 transitions in a 112-surface map. `S9a`, `S9b`, `S9c`
+- [x] **D3** Nothing detects links; 0 transitions in a 112-surface map. `S9a`, `S9b`, `S9c`
 - [x] **D4** An absent or link-less map reads "Safe to merge". `S2`
 - [x] **D5** A command that cannot run asks nothing and degrades silently. `S3a`, `S3b`
 - [x] **D6** The question tray fires last and can ask four things. `S3b`, `S3c`
@@ -79,6 +79,60 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-09-01, session 15: S9c
+
+- **S9c done** (`5a2d945c`): the last third of **D3** — `sitemap run` now reconciles the navigation
+  edges the code proves against the edges the stored map records, instead of trusting only what a
+  human typed. **D3 is ticked** (S9a detectors + S9b resolution + S9c reconciliation all done).
+  - **`src/core/types/site-map-run.ts`**: new finding category `SM-EDGE-MISSING` ("code proves a
+    transition the map does not record"), kept **distinct** from the surface-only `SM-ADD` (AC-1).
+  - **`src/site-map/assemble.ts`** (pure, 100% coverage): `detectMissingEdges(map, resolved)` — the
+    edge analogue of `detectUnmappedSurfaces`. It indexes each surface's recorded `(from → to)`
+    edges, dedupes the resolved code edges by `(from, to)`, and raises one finding per code-proven
+    edge whose origin surface exists but records no transition to that target. An edge whose origin
+    surface is **not** on the map raises nothing (SM-ADD already reports that surface); a recorded
+    edge raises nothing; matching is on origin+target, not trigger, so a trigger-label difference is
+    not a false "missing". Severity mirrors SM-ADD (high-confidence → `medium`, low → `low`). A new
+    `reconcileEdges` resolves the code edges against the map with the S9b `resolveTransitions` and
+    surfaces any dropped edge as the S9b `buildUnresolvedLinksCheck` blocked check; `collectCandidates`
+    runs edge reconciliation **only when a map exists** (INV-4).
+  - **`src/site-map/run.ts`** + **`gatherer.ts`**: a `gatherTransitions(surfaces)` seam on
+    `SiteMapGatherer` (production delegates to the S9b `gatherSiteMapTransitions`, the coverage-
+    excluded I/O seam), so `gatherSiteMapReport` feeds the run the code's raw edges and the whole run
+    stays drivable offline behind a fake gatherer. New `transition_count` on `SiteMapRunResult` (the
+    transitions the **stored map** records), computed by a shared `countMapTransitions` that the
+    verdict's has-transitions check now also reads — so the count and the "no links" verdict always
+    agree. Exit codes unchanged.
+  - **`src/cli/commands/sitemap.ts`**: the `run` verb prints the count (singular/plural) and adds
+    `transitions` to the JSON summary line.
+  - With transitions now able to reach the map, the existing reachability (`SM-ORPHAN`) and dead-end
+    (`SM-DEADEND`) invariants fire for real once a map records a transition, and the baseline ratchet
+    classifies the new findings (a known `SM-EDGE-MISSING` → `pre-existing`, a new one →
+    `new-since-baseline`).
+  - **Tests**: 16 in `assemble.test.ts` (detectMissingEdges: raise/recorded/unmapped-origin/dedupe/
+    trigger-insensitive match/confidence→severity/evidence with+without a line; report-level
+    reconciliation: SM-EDGE-MISSING appears, transition-resolution blocked check present when dropped
+    and absent when all resolve, code transitions ignored with no map) and 6 in `run.test.ts`
+    (SM-EDGE-MISSING through the run, `transition_count` from the stored map, reachability fires once
+    transitions exist, baseline ratchet pre-existing vs new, unresolved edge → blocked check) plus 2
+    CLI tests (count printed + `transitions` in JSON; singular case). `assemble.ts` / `run.ts` /
+    `sitemap.ts` at **100%** coverage; `pnpm run ci` green (typecheck / lint / format:check /
+    test:coverage — floors met / graph-ui:test / build); `paqad-ai checks run` green (format / test /
+    build). No dependency added; SM-ADD behaviour, exit codes, public API and the map schema
+    unchanged.
+  - **Interpretation recorded (AC-3 is stale for this repository).** plan.md §6 S9c says re-running
+    `sitemap run` **on this repo** must report a non-zero transition count and a verdict no longer
+    `inconclusive` for the "no links" reason. That clause is stale: this repo is a node CLI with **no
+    dispatch-style command chaining**, and `docs/site-map/app-map.yaml` records **0 transitions**
+    across its 95 surfaces, so **no edge is detectable here** (verified: 0 S9a-detector matches in
+    `src/`). The mechanism is therefore proven end-to-end with fixtures rather than by fabricating an
+    edge in this repo — the same honest treatment S2 and S9b gave their stale repo snapshots. See
+    "Found on the way".
+  - Stages recorded against this session's bundle
+    (`reconcile-missing-links-as-findings-s9c-01M1ERJHB1YXC5QJN50370KGGK`): planning → specification
+    → development → checks → review, each with its rigid artifact; `documentation_sync` recorded last
+    (this edit), after the code and checks, per session 11's lesson.
 
 ### 2026-09-01, session 14: S9b
 
@@ -151,7 +205,22 @@ One entry per session. Newest at the top. Keep entries short and factual.
   stage started before an earlier one ended. Fix: re-record `development` → `checks` →
   `documentation_sync` fresh and in order as the final mutations, so every stage's last boundary is
   monotonic (`review` is completion-anchored and exempt). No code changed; the S9b commits
-  `00ecd8d0` / `f2745fbf` are unchanged, and PR #509 CI + CodeQL are green.
+  `00ecd8d0` / `f2745fbf` are unchanged.
+- **Stage-ledger note (post-commit reconcile, sessions-6/7/8/10 class) + CI flake.** After the S9b
+  commits and push, the end-of-change gate's git reconcile (#450) minted a fresh active change
+  bundle for the post-commit working set (only framework churn — `.paqad/checks/last-run.json`, the
+  `agent-entry-directive.mjs` exec bit, and a `.junie/mcp/mcp.json` host edit — was uncommitted),
+  orphaning the `s9b-…-01M1EBY80F…` feature bundle the stages were recorded into, so a later Stop
+  read reported `missing=[planning,specification,review,checks,documentation_sync]`. Re-recorded all
+  five against the active bundle (planning/specification/review pointed at the same rigid
+  `plan.json`/`specification.json`/`review.json`; `checks` re-run green: format / test / build) and
+  this note re-stamps `documentation_sync` last. No code changed; the S9b commits are unchanged.
+  **CI:** PR #509 is green on Node 22/24 × ubuntu, Node 22 × windows, CodeQL and Snyk; the
+  **Node 22 × macOS** leg flaked twice on unrelated E2E timeouts (attempt 1 `onboarding.e2e`;
+  attempt 2 `rag.e2e` + `cli-interactions.e2e`), each a ~15 s timeout on a badly-starved runner
+  (`orchestrator.test.ts` took 127 s, ~10× normal). None touch site-map; `transitions.test.ts` and
+  `sitemap.test.ts` pass on every leg and locally. Re-running the macOS leg — code is not the cause,
+  so no code change was made for it.
 
 ### 2026-09-01, session 13: S9a
 
@@ -629,7 +698,24 @@ here rather than fixing them, so the PR stays reviewable. A human triages them l
   `blocked_check` to, so `buildUnresolvedLinksCheck`'s result is printed as a paqad line. When S9c
   makes `sitemap run` verify transitions, the run report is the natural home for a persisted
   unresolved-links blocked check; S9b proves the count on the pure builder. This is the S9b→S9c
-  seam, not a defect.
+  seam, not a defect. **Closed by S9c:** `sitemap run` now carries the unresolved-links blocked
+  check in the run report (`reconcileEdges` in `assemble.ts`), alongside the SM-EDGE-MISSING
+  findings. `draft` still prints its own line as before.
+- **S9c's AC-3 repo assertion is stale — this repo has no detectable navigation edges.** plan.md
+  §6 S9c asserts that after S9, re-running `sitemap run` **on this repository** reports a non-zero
+  transition count and a verdict no longer `inconclusive` for the "no links" reason. It cannot be
+  honestly met here: paqad-ai is a node CLI with no dispatch-style command chaining (no
+  `runCommand`/`invokeCommand`/`dispatchCommand` with a quoted target), so the S9a node-CLI detector
+  matches nothing (verified: 0 matches for any detector pattern across `src/`), and its committed
+  `docs/site-map/app-map.yaml` records 0 transitions across 95 surfaces. `sitemap run` on this repo
+  therefore still reports `0 navigation links recorded in the map` and stays `inconclusive` for the
+  no-links reason — which is the **honest** result for a codebase with no code-detectable links. The
+  S9c mechanism (detect → resolve → reconcile → report count → verdict flips) is proven end-to-end
+  by fixtures in `run.test.ts`/`assemble.test.ts`. Making the assertion literally true here would
+  require inventing an edge the code does not contain, which the honesty rules forbid. Recorded here
+  exactly as S2's DoD note and S9b's re-draft note handled their stale repo snapshots. A human can
+  confirm the live capability on any project whose code carries real navigation calls (a Laravel or
+  React-Router app), where the count is non-zero and the verdict is not "no links".
 
 ---
 
