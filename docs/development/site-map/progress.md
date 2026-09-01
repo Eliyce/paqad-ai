@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | S1–S8 all done (S8c landed); **S9, S10 remain** |
+| **Tasks done** | S1–S8 done, plus **S9a** (transition detectors, landed); **S9b, S9c, S10 remain** |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S9a** (transition detectors). Depends on **S8** (done). See `plan.md` §6 S9a: a new pure `src/site-map/transitions.ts` (no I/O, mirroring `extraction.ts`) with an `ExtractedTransition` type (`from_raw_id`, `to_target`, `trigger`, `evidence[]`, `confidence`); detectors for Laravel (`redirect()->route`, `to_route`, `Inertia::render`, `view()` in a routed action), React Router (`navigate`, `<Link to>`, `<Navigate to>`) and a Node-CLI command-invokes-command; a transition is recorded only when a resolving `file:line` shows navigation actually occurring; `confidence` is `high` for a framework nav call and `low` for a convention match; one positive plus one negative fixture per detector. |
+| **Next action** | Start **S9b** (resolve transition targets to surfaces). Depends on **S9a** (done). See `plan.md` §6 S9b: resolve each `to_target` (from `ExtractedTransition`) to an existing surface by matching against surfaces' `entry` values (route name, URL path, command name); an unresolvable target is **dropped, never guessed**; dropped targets are counted and reported as a blocked check naming how many links could not be resolved and why; resolved transitions are written by `draft` (S8) into the surfaces' `transitions` arrays, each carrying its evidence. Tests: resolution by route name / path / command name; an unresolvable target dropped and counted; the blocked check appears with the right count. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
-| **Last updated** | 2026-09-01, session 12: S8c landed |
+| **Last updated** | 2026-09-01, session 13: S9a landed |
 
 ---
 
@@ -39,7 +39,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S8a** | Draft the map skeleton from the extraction | D2 | L | `done` | `8a1f219d` |
 | **S8b** | Draft resumes from the progress file | D2 D7 | L | `done` | `d0aa87f3` |
 | **S8c** | Unhide the `sitemap` command | D2 | S | `done` | `2bb384d4` |
-| **S9a** | Transition detectors | D3 | L | `todo` | |
+| **S9a** | Transition detectors | D3 | L | `done` | `f4e59706` |
 | **S9b** | Resolve transition targets to surfaces | D3 | L | `todo` | |
 | **S9c** | Reconcile missing links as findings | D3 | L | `todo` | |
 | **S10** | Rewrite the workflow rule | D1 | S | `todo` | |
@@ -79,6 +79,50 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-09-01, session 13: S9a
+
+- **S9a done** (`f4e59706`): the first half of **D3** — the engine now has code that detects
+  navigation edges instead of relying on hand-typed links.
+  - **New pure lib** `src/site-map/transitions.ts` (no filesystem, shell, or network, mirroring
+    `extraction.ts` so every branch is fixture-tested): the `ExtractedTransition` type
+    (`from_raw_id`, `to_target`, `trigger`, `evidence[]`, `confidence`) and a
+    `TransitionSourceRecord` input shape (`from_raw_id`, `file`, `content`) the gatherer will
+    fill in S9b. Three detector families over a shared `collect(records, pattern, trigger,
+    confidence)` scanner (posix-safe, resets `lastIndex` per record, stamps the 1-based line via
+    a `lineOf` slice helper):
+    - **Laravel** (`detectLaravelTransitions`): `redirect()->route('name')`, `redirect('/path')`,
+      `to_route('name')`, `Inertia::render('Page')` at **high** confidence, and `view('name')` at
+      **low** (a weaker, convention-based render signal). A bare `route('name')` (URL building, not
+      navigation) has no detector, so it is never recorded.
+    - **React Router** (`detectReactRouterTransitions`): `navigate('/path')`, `<Link to="/path">`,
+      `<Navigate to="/path">`, all **high** (explicit framework navigation). A bare `<a href>` has
+      no detector.
+    - **Node CLI** (`detectNodeCliTransitions`): a command dispatching another through a dispatch
+      helper (`runCommand`/`invokeCommand`/`dispatchCommand`) with a quoted target command name,
+      **low** confidence. A command *declaration* (`program.command('build')`) or a mention in a
+      description string is not an invocation and is not recorded.
+  - **Tests** (10 in `tests/unit/site-map/transitions.test.ts`): one positive and one negative
+    fixture per detector (AC-2/AC-3), the high/low confidence split (AC-4), evidence `file` +
+    correct `line`, an empty-record and no-navigation-content pair returning `[]` (AC-5), a
+    multi-line line-number check with a no-mutation assertion (INV-4), and a two-record batch.
+    `transitions.ts` is at **100%** coverage.
+  - `pnpm run ci` green (typecheck / lint / format:check / test:coverage — 95%+ branches, floors
+    met / graph-ui:test / build). `paqad-ai checks run` green (format / test / build). No
+    dependency added; nothing imports the module yet (S9b wires it into the gatherer), so no
+    existing behaviour, public API, exit code, or map schema changed.
+  - **Interpretation recorded (detector input + confidence split).** The plan says "pure
+    detectors mirroring `extraction.ts`" but does not fix the detector *input* shape, so the
+    gatherer (S9b) hands each detector normalized `{from_raw_id, file, content}` records and the
+    detectors stay pure. AC-5 wants `high` for a framework nav call and `low` for a convention
+    match: `redirect`/`to_route`/`Inertia::render` and all three React-Router constructs are read
+    as high; `view()` and the Node-CLI dispatch match as low.
+  - Stages recorded against this session's bundle
+    (`site-map-transition-detectors-s9a-01M1E7BGHY923HM7VTB040SCAZ`): planning → specification →
+    development → checks → review, each with its rigid artifact; `documentation_sync` recorded
+    last (this edit), after the code and checks, per session 11's lesson.
+- **D3 stays open**: S9a (detectors) is done; `S9b` (resolve targets to surfaces) and `S9c`
+  (reconcile missing links as findings) remain before D3 can be ticked.
 
 ### 2026-09-01, session 12: S8c
 
