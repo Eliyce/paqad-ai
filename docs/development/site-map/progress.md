@@ -123,6 +123,18 @@ One entry per session. Newest at the top. Keep entries short and factual.
     last (this edit), after the code and checks, per session 11's lesson.
 - **D3 stays open**: S9a (detectors) is done; `S9b` (resolve targets to surfaces) and `S9c`
   (reconcile missing links as findings) remain before D3 can be ticked.
+- **Stage-ledger note (missing-`checks` reconcile).** Unlike sessions 6/7/8/10 the git reconcile
+  did not orphan the bundle — the active pointer stayed on the S9a bundle
+  (`…-s9a-01M1E7BGHY…`) with planning, specification, development, review and documentation_sync
+  recorded. The completion gate still read `incomplete` because **no `checks` row** was attached:
+  `classifyStage` maps a `*.test.ts` edit to `checks` (`src/stage-evidence/live-writer.ts:44`),
+  but by the time the fold settled the active bundle, that test-edit row was gone, and
+  `paqad-ai checks run` proves the gates and stamps `last-run.json` without itself writing a
+  `checks` stage row (it needs a dev-scope file in the working tree, and everything was already
+  committed). The `checks` stage was re-marked into the active bundle
+  (`stage start/end checks`, `last-run.json` green: format / test / build) and this
+  `documentation_sync` note re-stamped last, after `checks`, so the order is clean. No code
+  changed in the re-record; the S9a commit `f4e59706` is unchanged.
 
 ### 2026-09-01, session 12: S8c
 
