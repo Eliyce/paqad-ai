@@ -12,11 +12,11 @@ Update it after every commit. It is the handover between sessions.
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
 | **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
-| **Tasks done** | S1–S8 done, plus **S9a**, **S9b** and **S9c** (transition detection + resolution + reconciliation, landed); **D3 closed**; only **S10 remains** |
+| **Tasks done** | **All ten tasks done.** S1–S8, S9a/S9b/S9c, and now **S10** (workflow rule rewritten). **All eight defects D1–D8 closed.** |
 | **Currently in flight** | nothing |
-| **Next action** | Start **S10** (rewrite the workflow rule). Depends on S3, S5, S8, S9 (all done). See `plan.md` §6 S10: edit the runtime pack `runtime/capabilities/coding/rules/site-map.md` **then** copy it to the mirror `docs/instructions/rules/coding/site-map.md` and diff to prove byte-identical (AC-1); re-arm the entry sentinel after the `docs/instructions/**` edit (AC-2, §8.9); rewrite the steps to Step 0 `sitemap status` first, then `preflight` (one `AskUserQuestion`), `inventory`, `draft`, journeys, `run`, receipt; remove every claim the verb authors the whole map; no path may name `docs/instructions/site-map/`; add the rule-parity test assertions. After the commit, regenerate `session-context.md` and grep it for the new Step 0 wording and the absence of `docs/instructions/site-map`. |
+| **Next action** | **The whole rebuild is code-complete.** Wait for PR [#509](https://github.com/Eliyce/paqad-ai/pull/509) CI to go green across the full Node 22/24 × ubuntu/macOS/windows matrix + CodeQL + Snyk, then the PR is ready for a human to review and squash-merge. No further tasks. If CI flakes on the unrelated macOS E2E timeout (sessions 14/15 class), re-run that leg — it is not site-map code. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
-| **Last updated** | 2026-09-01, session 15: S9c landed |
+| **Last updated** | 2026-09-01, session 16: S10 landed — rebuild complete |
 
 ---
 
@@ -42,7 +42,7 @@ Status is one of: `todo`, `in progress`, `done`, `blocked`, `skipped`.
 | **S9a** | Transition detectors | D3 | L | `done` | `f4e59706` |
 | **S9b** | Resolve transition targets to surfaces | D3 | L | `done` | `00ecd8d0` |
 | **S9c** | Reconcile missing links as findings | D3 | L | `done` | `5a2d945c` |
-| **S10** | Rewrite the workflow rule | D1 | S | `todo` | |
+| **S10** | Rewrite the workflow rule | D1 | S | `done` | `f3a2fa6a` |
 
 **Dependency reminders.** S5 needs S4. S6 needs S5. S8 needs S4 and S5. S9 needs S8.
 S10 needs S3, S5, S8 and S9. S1, S2, S4, S7 have no dependencies and can go any time.
@@ -53,7 +53,7 @@ S10 needs S3, S5, S8 and S9. S1, S2, S4, S7 have no dependencies and can go any 
 
 Tick a defect only when every task that fixes it is done.
 
-- [ ] **D1** Stale rulebook served to the agent, describing the wrong folder and claiming the verb writes the map. `S1`, `S10`
+- [x] **D1** Stale rulebook served to the agent, describing the wrong folder and claiming the verb writes the map. `S1`, `S10`
 - [x] **D2** Nothing writes the map; the AI hand-types it; the command is hidden. `S8a`, `S8b`, `S8c`
 - [x] **D3** Nothing detects links; 0 transitions in a 112-surface map. `S9a`, `S9b`, `S9c`
 - [x] **D4** An absent or link-less map reads "Safe to merge". `S2`
@@ -79,6 +79,65 @@ with the S3 commits.
 ## Session log
 
 One entry per session. Newest at the top. Keep entries short and factual.
+
+### 2026-09-01, session 16: S10 — rebuild complete
+
+- **S10 done** (`f3a2fa6a`): the instruction half of **D1** — the site-map workflow rule now
+  documents the resumable Step 0 to 6 flow the S3–S9 tasks built, instead of the stale two-step
+  author-then-verify procedure that named the wrong folder and claimed the verb wrote the map.
+  **D1 is ticked** (S1's live recompile + S10's rewrite). With that, **all ten tasks and all
+  eight defects D1–D8 are done.**
+  - **`runtime/capabilities/coding/rules/site-map.md`** (the shipped pack) rewritten:
+    - **Step 0, always first: `paqad-ai sitemap status`** — "A run never starts from zero when
+      progress exists"; a resumed run's first narrated line says what it is skipping and why.
+    - **Step 1: `paqad-ai preflight site-map`**, then **one** `AskUserQuestion` with every returned
+      question (never one at a time), recorded with `sitemap answer`.
+    - **Step 2: `sitemap inventory`** — say the size out loud.
+    - **Step 3: `sitemap draft`** — the engine writes the skeleton from proven extraction and the
+      resolved links; the agent then adds the meaning the code does not carry; `sitemap run` proves
+      it. Every claim that the verb authors the whole map was removed (AC-4).
+    - **Step 4: journeys**, one at a time, each narrated as it lands; **Step 5: `sitemap run`**;
+      **Step 6: the receipt** in the contract words. A new `## Narration` section states the
+      developer-facing channel is the agent's own final-message text, not a hook `systemMessage`
+      (which leaks as `Stop says:` on Desktop).
+    - The `Source-of-Truth` model and `Rules` list were updated to match (draft writes the
+      skeleton, `SM-EDGE-MISSING` added to the finding categories). **No path names
+      `docs/instructions/site-map/`** anywhere (INV-1, verified 0 occurrences).
+  - **`docs/instructions/rules/coding/site-map.md`** (the mirror) is a **byte-identical** copy of
+    the pack (AC-1): edited the pack, `cp` to the mirror, `diff` clean. The **entry sentinel was
+    re-armed** after the `docs/instructions/**` edit (AC-2), and again after the Prettier reflow.
+  - **`tests/unit/workflows/site-map-rule.test.ts`** (new, 6 tests) mirrors
+    `feature-development-rule.test.ts`: the pack ships; the mirror is identical to the pack modulo
+    `@rule` markers (reusing `stripRuleMarker`); the rule contains `sitemap status` and
+    `sitemap draft` and **does not** contain `docs/instructions/site-map`; the step verbs appear in
+    order; the do-not-improvise + resume-first framing is present.
+  - **AC-8 verified deterministically.** Regenerating `session-context.md` (via `rag
+    refresh-context`, which fires S1's stale-recompile) leaves **0** occurrences of
+    `docs/instructions/site-map`, and RULE-24's triggers now point at `docs/site-map/`. The
+    `.paqad/compiled-rules.json` store that `session-context.md` composes from carries the new
+    Step 0 text (`sitemap status`, "check where the last run left off") and no stale folder, and
+    the S1 doctor check **`Compiled rules are current` passes**.
+  - `pnpm run ci` **green** (exit 0): typecheck / lint / format:check / test:coverage (95.39%
+    branches, above the 95% floor; `src/stage-evidence` at 100%) / graph-ui:test / build. The new
+    parity test (6) and the rule-quality guard (337) both pass. No dependency added; no public API,
+    config default, or exit-code change. `site-map.md` stays on the rule-quality
+    `WORKFLOW_SPEC_ALLOWLIST`, so its `## Trigger` / `### Step N` / `.paqad/` references are exempt
+    from the workflow-spec-marker guard.
+  - **Interpretation recorded (rule-parity test).** plan.md §6 S10 says "the rule-parity test that
+    compares the pack against the mirror must pass", but **no site-map parity test existed** — only
+    `feature-development-rule.test.ts` does this. Created
+    `tests/unit/workflows/site-map-rule.test.ts` on that exact pattern (the honest reading). The
+    AC-8 clause "grep session-context for the new Step 0 wording" is satisfied through the compiled
+    store `session-context.md` is built from: the **full** rule text inlines into `session-context`
+    only when the site-map rule is *applicable to the files in play* (feature-development loads rule
+    text by applicability), which a rule-file edit is not — so the deterministic proof is the
+    compiled store + the absent stale folder, exactly as S2/S9b/S9c recorded their stale-DoD
+    snapshots. On a real site-map session (editing `docs/site-map/`) the inline text appears.
+  - Stages recorded against this session's bundle
+    (`rewrite-the-workflow-rule-for-the-resumable-flow-s10-01M1EZENWE8QKGEX582K5AV3E9`): planning →
+    specification → development → review, each with its rigid artifact; `checks` proven by
+    `pnpm run ci` (exit 0); `documentation_sync` recorded last (this edit), after the code and
+    checks, per session 11's lesson.
 
 ### 2026-09-01, session 15: S9c
 
