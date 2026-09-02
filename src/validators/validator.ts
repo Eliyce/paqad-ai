@@ -18,6 +18,7 @@ import onboardingManifestSchema from './schemas/onboarding-manifest.schema.json'
 import pentestProgressSchema from './schemas/pentest-progress.schema.json';
 import pentestReportSchema from './schemas/pentest-report.schema.json';
 import projectProfileSchema from './schemas/project-profile.schema.json';
+import siteMapProgressSchema from './schemas/site-map-progress.schema.json';
 import skillFrontmatterSchema from './schemas/skill-frontmatter.schema.json';
 import stackPackSchema from './schemas/stack-pack.schema.json';
 import testOutputResultSchema from './schemas/test-output-result.schema.json';
@@ -56,6 +57,7 @@ const SCHEMAS = [
   stackPackSchema,
   compliancePackSchema,
   testOutputResultSchema,
+  siteMapProgressSchema,
 ];
 
 export class SchemaValidator {

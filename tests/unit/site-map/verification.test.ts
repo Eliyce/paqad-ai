@@ -54,8 +54,14 @@ describe('collectMapEvidence', () => {
 });
 
 describe('collectVerificationFindings — no map', () => {
-  it('verifies nothing when the map is absent', () => {
-    expect(collectVerificationFindings(null, [])).toEqual({ candidates: [], blockedChecks: [] });
+  it('records a map-present blocked check and verifies nothing when the map is absent', () => {
+    const result = collectVerificationFindings(null, []);
+    expect(result.candidates).toEqual([]);
+    expect(result.blockedChecks).toHaveLength(1);
+    expect(result.blockedChecks[0]!.check).toBe('map-present');
+    // Points at the canonical map location, and names how to create one.
+    expect(result.blockedChecks[0]!.reason).toContain('docs/site-map/app-map.yaml');
+    expect(result.blockedChecks[0]!.install_hint).toContain('docs/site-map/app-map.yaml');
   });
 });
 
@@ -72,6 +78,9 @@ describe('SM-REMOVE and SM-EVIDENCE', () => {
     expect(finding!.affected_surfaces).toEqual(['s']);
     expect(finding!.affected_files).toEqual(['gone.ts']);
     expect(finding!.evidence[0]).toContain('file not found');
+    // The fix-it text points at the canonical map, not the retired instructions path (S2 FR-6).
+    expect(finding!.resolution).toContain('docs/site-map/app-map.yaml');
+    expect(finding!.resolution).not.toContain('docs/instructions/site-map');
   });
 
   it('flags a partially-broken surface as stale evidence, not a removal', () => {
@@ -260,11 +269,14 @@ describe('graph invariants — SM-ORPHAN and SM-DEADEND', () => {
     expect(result.candidates.some((finding) => finding.category === 'SM-ORPHAN')).toBe(false);
   });
 
-  it('skips reachability and dead-ends entirely when the map models no transitions', () => {
+  it('records reachability as blocked (visibly, not silently) when the map models no transitions', () => {
     const m = map({ surfaces: [surface({ id: 's-a' }), surface({ id: 's-b' })] });
     const result = collectVerificationFindings(m, []);
-    expect(result.blockedChecks).toEqual([]);
+    // The checks themselves still short-circuit — no orphan/dead-end candidates are produced —
+    // but the skip is now recorded so a link-less map cannot read as clean (D4).
     expect(result.candidates).toEqual([]);
+    expect(result.blockedChecks.map((check) => check.check)).toEqual(['reachability']);
+    expect(result.blockedChecks[0]!.reason).toContain('no navigation between screens');
   });
 
   it('flags a navigational dead-end (no exit, ends absent or all-falsy)', () => {

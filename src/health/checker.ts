@@ -18,6 +18,7 @@ import { getPackTestRunners } from '@/packs/project-packs.js';
 import { parseTestOutput } from '@/test-output/index.js';
 import { TEST_OUTPUT_SMOKE_FIXTURES } from '@/test-output/fixtures.js';
 import { deriveHealthTier } from '@/planning/module-health.js';
+import { isCompiledRulesStale } from '@/planning/rule-compiler.js';
 import type {
   HealthCheckResult,
   HealthEfficiencySummary,
@@ -65,6 +66,7 @@ export class HealthChecker {
       this.checkSkillCache(projectRoot),
       this.checkContextHitRate(projectRoot, profile),
       this.checkLeanRuleFootprint(projectRoot),
+      await this.checkCompiledRulesCurrent(projectRoot),
       this.checkClassificationOverrideRate(projectRoot),
       ...(await this.checkRag(projectRoot, profile)),
     ];
@@ -830,6 +832,26 @@ export class HealthChecker {
           `${detail} — lean loading is not reducing the resident footprint`,
           'Ensure lean_rules is on and re-run `paqad-ai rag refresh-context` to recompose the lean artifact.',
         );
+  }
+
+  /**
+   * S1 (defect D1) — the rule-store freshness gate. The per-turn refresh recomposes
+   * the session-context artifact from `.paqad/compiled-rules.json`, so a store whose
+   * `source_hash` no longer matches the authored rules under `docs/instructions/rules/`
+   * means the agent is being served rule text that has drifted from the rules on disk.
+   * That is a fault, not a warning, so this check FAILS when the store is stale and
+   * names the command that rebuilds it. It passes when the store is current (or absent,
+   * which {@link isCompiledRulesStale} reports as stale and the refresh then compiles).
+   */
+  private async checkCompiledRulesCurrent(projectRoot: string): Promise<HealthCheckResult> {
+    const name = 'Compiled rules are current';
+    return (await isCompiledRulesStale(projectRoot))
+      ? fail(
+          name,
+          'The compiled rule store is out of date with docs/instructions/rules/, so the session context can serve rules that have drifted from the authored rules.',
+          'Run `paqad-ai rag refresh-context` to recompile the rule store from docs/instructions/rules/.',
+        )
+      : pass(name, 'Compiled rule store matches the authored rules');
   }
 
   private checkClassificationOverrideRate(projectRoot: string): HealthCheckResult {

@@ -1,0 +1,64 @@
+{
+  "$id": "site-map-progress",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_by",
+    "framework_version",
+    "created_at",
+    "updated_at",
+    "inventory",
+    "units"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "generated_by": { "const": "paqad-ai" },
+    "framework_version": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["screens", "groups"],
+      "properties": {
+        "screens": { "type": "number" },
+        "groups": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "units": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/unit" }
+    }
+  },
+  "$defs": {
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "state",
+        "started_at",
+        "completed_at",
+        "artifact",
+        "source_files",
+        "source_hash",
+        "error"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["group", "journey", "stage"] },
+        "label": { "type": "string" },
+        "state": { "enum": ["not_started", "writing", "done", "failed"] },
+        "started_at": { "type": ["string", "null"] },
+        "completed_at": { "type": ["string", "null"] },
+        "artifact": { "type": ["string", "null"] },
+        "source_files": { "type": "array", "items": { "type": "string" } },
+        "source_hash": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

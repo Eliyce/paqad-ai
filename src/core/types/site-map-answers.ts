@@ -21,6 +21,9 @@ export const SITE_MAP_ANSWERS_SCHEMA_VERSION = 1;
  *  - `journey-priority`  — which proposed journeys are real and which matter most (top-N).
  *  - `labels-language`   — which human label to show for a keyed string, or the default locale.
  *  - `grouping`          — how to name or group areas (districts) when auto-grouping is low.
+ *  - `tool-access`       — how to obtain a project command's output the run needs (a preflight
+ *                          decision, for example whether paqad runs `php artisan route:list`).
+ *  - `journey-scope`     — which journeys matter for this run.
  */
 export const SITE_MAP_ANSWER_CATEGORIES = [
   'app-kind',
@@ -29,6 +32,8 @@ export const SITE_MAP_ANSWER_CATEGORIES = [
   'journey-priority',
   'labels-language',
   'grouping',
+  'tool-access',
+  'journey-scope',
 ] as const;
 export type SiteMapAnswerCategory = (typeof SITE_MAP_ANSWER_CATEGORIES)[number];
 

@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DECISION_PAUSE_REMINDER,
@@ -12,6 +12,7 @@ import {
   refreshRuleContext,
   selectTriggeredRules,
 } from '@/context/rule-context.js';
+import * as ruleCompiler from '@/planning/rule-compiler.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
 
@@ -308,5 +309,81 @@ describe('refreshRuleContext', () => {
     expect(written).toContain('ALWAYS TEXT');
     expect(written).toContain('DRIFT HEADS-UP');
     expect(written.indexOf('ALWAYS TEXT')).toBeLessThan(written.indexOf('DRIFT HEADS-UP'));
+  });
+
+  // S1 (defect D1): the per-turn refresh recompiles a stale rule store, inside the
+  // single-flight lock and before writeRuleContext reads it, so the agent is never
+  // served rule text that has drifted from docs/instructions/rules/.
+  describe('recompiles a stale rule store before reading it (S1)', () => {
+    function writeRuleFile(rel: string, body: string): void {
+      const target = join(projectRoot, PATHS.RULES_DIR, rel);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, body);
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('a stale store is recompiled and the written context carries the fresh rule text', async () => {
+      writeRuleFile('coding/x.md', '# X rule\nNEWRULEMARKER body');
+      // A stale store (source_hash sha256:x) that still carries the OLD rule text.
+      writeCompiled([
+        rule({
+          rule_id: 'RULE-1',
+          trigger_patterns: ['**'],
+          raw_text: '# X rule\nOLDRULEMARKER body',
+        }),
+      ]);
+
+      const target = await refreshRuleContext(projectRoot);
+
+      const written = readFileSync(target as string, 'utf8');
+      expect(written).toContain('NEWRULEMARKER');
+      expect(written).not.toContain('OLDRULEMARKER');
+    });
+
+    it('does not recompile when the store is already current (spy)', async () => {
+      writeRuleFile('coding/x.md', '# X rule\ncurrent body');
+      // A genuinely current store, compiled from the rules dir above.
+      await ruleCompiler.writeCompiledRules(
+        projectRoot,
+        await ruleCompiler.compileRules(projectRoot),
+      );
+
+      const spy = vi.spyOn(ruleCompiler, 'compileRules');
+      await refreshRuleContext(projectRoot);
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('a failing recompile does not abort the refresh and still writes an artifact', async () => {
+      writeRuleFile('coding/x.md', '# X rule\nbody');
+      writeCompiled([
+        rule({ rule_id: 'RULE-1', trigger_patterns: ['**'], raw_text: 'STALE BODY' }),
+      ]);
+      vi.spyOn(ruleCompiler, 'compileRules').mockRejectedValue(new Error('malformed rule file'));
+
+      const target = await refreshRuleContext(projectRoot);
+
+      expect(target).toBe(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT));
+      // Fell through to the stale store rather than throwing.
+      expect(readFileSync(target as string, 'utf8')).toContain('STALE BODY');
+    });
+
+    it('does not recompile on a non-rule-loading refresh (loadRules false)', async () => {
+      writeRuleFile('coding/x.md', '# X rule\nbody');
+      writeCompiled([
+        rule({ rule_id: 'RULE-1', trigger_patterns: ['**'], raw_text: 'STALE BODY' }),
+      ]);
+      const spy = vi.spyOn(ruleCompiler, 'compileRules');
+
+      await refreshRuleContext(projectRoot, {
+        loadRules: false,
+        retrievalSection: '## Retrieved context — 1 slice\nRETRIEVAL BODY',
+      });
+
+      expect(spy).not.toHaveBeenCalled();
+    });
   });
 });

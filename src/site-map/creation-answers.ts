@@ -38,6 +38,7 @@ import type {
   EvidenceRef,
   Surface,
 } from '@/core/types/site-map.js';
+import type { PreflightResult } from '@/workflow-preflight/contract.js';
 
 import { validateSiteMapAnswers } from './schema.js';
 import { SiteMapSchemaError, readYaml, writeYamlAtomic } from './store.js';
@@ -261,6 +262,38 @@ export function buildCandidateQuestions(map: AppMap): CandidateQuestion[] {
   }
 
   return candidates;
+}
+
+/**
+ * Project a preflight result into creation-time candidate questions, so a preflight decision (for
+ * example how to obtain a project command's output — DEC-1) is asked and persisted through the same
+ * answer store as the map's own questions, rather than a second file (S3c, D5/D6). Only
+ * `command`-kind requirements become questions, under the `tool-access` category, because those are
+ * the ones about reaching a command's output.
+ *
+ * The probe outcome is baked into the `question_id` (`tool-access:<requirement-id>:<outcome>`) so
+ * that {@link reconcileQuestions} reuses a settled answer while the probe result is unchanged and
+ * re-asks it when the probe result changes (for example PHP appears or disappears) — the answer
+ * carries `anchors: []` because it describes tooling, not code, so the usual code-anchor reopening
+ * does not apply. Pure over its input.
+ */
+export function buildPreflightQuestions(preflight: PreflightResult): CandidateQuestion[] {
+  const commandIds = new Set(
+    preflight.requirements.filter((requirement) => requirement.kind === 'command').map((r) => r.id),
+  );
+  return preflight.questions
+    .filter((question) => commandIds.has(question.id))
+    .map((question) => {
+      const recommended =
+        question.options.find((option) => option.recommended) ?? question.options[0]!;
+      return {
+        question_id: `tool-access:${question.id}:${question.outcome}`,
+        category: 'tool-access' as const,
+        question: `${question.label}: ${question.why}`,
+        anchors: [],
+        recommended_default: { answer: recommended.id, reason: recommended.label },
+      };
+    });
 }
 
 // ---------------------------------------------------------------------------

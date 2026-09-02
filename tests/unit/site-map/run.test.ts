@@ -11,10 +11,18 @@ import { readBaseline } from '@/site-map/baseline.js';
 import {
   blockedExtractor,
   type ExtractedSurface,
+  type ExtractionResult,
   type ExtractorOutput,
 } from '@/site-map/extraction.js';
 import { SITE_MAP_RUN_DOC_TYPE } from '@/site-map/ledger.js';
-import { gatherSiteMapReport, runSiteMapAudit, type SiteMapGatherer } from '@/site-map/run.js';
+import {
+  deriveSiteMapInventory,
+  deriveSiteMapVerdict,
+  describeSiteMapInventory,
+  gatherSiteMapReport,
+  runSiteMapAudit,
+  type SiteMapGatherer,
+} from '@/site-map/run.js';
 import { readCanonicalSiteMap, writeCanonicalSiteMap } from '@/site-map/store.js';
 import { readAllSessionRows } from '@/session-ledger/ledger.js';
 
@@ -65,6 +73,23 @@ const canonicalMap: AppMap = {
   ],
 };
 
+// A navigable map: a rooted transition to a terminal surface, no cited evidence, so it clears
+// every Tier-A check and blocks nothing — the one shape that earns the `safe` verdict.
+const navigableMap: AppMap = {
+  schema_version: 1,
+  app: { name: 'paqad-ai', kind: 'cli' },
+  surfaces: [
+    {
+      id: 's-a',
+      kind: 'page',
+      label: 'A',
+      entry: { kind: 'url', value: '/' },
+      transitions: [{ to: 's-b', trigger: 'go' }],
+    },
+    { id: 's-b', kind: 'page', label: 'B', ends: { success: true } },
+  ],
+};
+
 function gatherer(overrides: Partial<SiteMapGatherer> = {}): SiteMapGatherer {
   return {
     appKind: () => 'cli',
@@ -77,6 +102,8 @@ function gatherer(overrides: Partial<SiteMapGatherer> = {}): SiteMapGatherer {
     extractors: async (): Promise<ExtractorOutput[]> => [
       { extractor: 'node-cli', available: true, surfaces: [surface()] },
     ],
+    // Default: the code proves no navigation edge, so the run reconciles none unless a test says so.
+    gatherTransitions: () => [],
     ...overrides,
   };
 }
@@ -105,7 +132,9 @@ describe('runSiteMapAudit', () => {
     expect(result.exit_code).toBe(1); // no map → the surface is an SM-ADD
     expect(result.finding_count).toBe(1);
     expect(result.baseline_created).toBe(true);
-    expect(result.blocked_checks).toEqual([]);
+    // No stored map → the map-present gap is recorded; a finding makes the verdict attention (D4).
+    expect(result.blocked_checks.map((check) => check.check)).toEqual(['map-present']);
+    expect(result.verdict).toBe('attention');
 
     const findingIndex = readFindingIndex(root, result.bundle_dir);
     expect(findingIndex.report_id).toBe(result.report_id);
@@ -270,8 +299,12 @@ describe('runSiteMapAudit', () => {
       now: () => new Date(2026, 0, 2, 3, 4, 5),
     });
     expect(result.exit_code).toBe(0); // nothing extracted → no findings
-    expect(result.blocked_checks).toHaveLength(1);
-    expect(result.blocked_checks[0]!.check).toBe('rails-routes surface extraction');
+    // The extractor gap plus the map-present gap (no stored map) are both recorded, and with a
+    // blocked check but no finding the verdict is inconclusive, never clean.
+    const checkNames = result.blocked_checks.map((check) => check.check);
+    expect(checkNames).toContain('rails-routes surface extraction');
+    expect(checkNames).toContain('map-present');
+    expect(result.verdict).toBe('inconclusive');
     const extraction = JSON.parse(
       readFileSync(join(root, result.bundle_dir, 'extraction.json'), 'utf8'),
     ) as { low_confidence_fallback: boolean };
@@ -332,5 +365,318 @@ describe('runSiteMapAudit', () => {
       now: () => new Date(2026, 0, 3, 3, 4, 5),
     });
     expect(second.trust_restamp.status).toBe('unchanged');
+  });
+
+  // S2 (D4): the run's verdict is honest about what it could not confirm.
+  describe('verdict (S2, D4)', () => {
+    it('an absent map with no extracted surfaces is inconclusive with a map-present block, exit 0', async () => {
+      const root = repo();
+      const result = await runSiteMapAudit({
+        projectRoot: root,
+        gatherer: gatherer({ loadAppMap: () => null, extractors: async () => [] }),
+        sessionId: 's-verdict-nomap',
+        now: () => new Date(2026, 0, 2, 3, 4, 5),
+      });
+      expect(result.finding_count).toBe(0);
+      expect(result.blocked_checks.map((check) => check.check)).toEqual(['map-present']);
+      expect(result.verdict).toBe('inconclusive');
+      expect(result.exit_code).toBe(0); // exit code unchanged: inconclusive-with-no-findings is 0
+    });
+
+    it('a map with surfaces but zero transitions is inconclusive with a reachability block, exit 0', async () => {
+      const root = repo();
+      const result = await runSiteMapAudit({
+        projectRoot: root,
+        // coveringMap's one surface is matched by the default extractor, so there is no SM-ADD;
+        // it records no transitions, so reachability is blocked.
+        gatherer: gatherer({ loadAppMap: () => coveringMap }),
+        sessionId: 's-verdict-notransitions',
+        now: () => new Date(2026, 0, 2, 3, 4, 5),
+      });
+      expect(result.finding_count).toBe(0);
+      expect(result.blocked_checks.map((check) => check.check)).toEqual(['reachability']);
+      expect(result.verdict).toBe('inconclusive');
+      expect(result.exit_code).toBe(0);
+    });
+
+    it('a navigable map with no findings and no blocked checks is safe, exit 0', async () => {
+      const root = repo();
+      const result = await runSiteMapAudit({
+        projectRoot: root,
+        gatherer: gatherer({ loadAppMap: () => navigableMap, extractors: async () => [] }),
+        sessionId: 's-verdict-safe',
+        now: () => new Date(2026, 0, 2, 3, 4, 5),
+      });
+      expect(result.finding_count).toBe(0);
+      expect(result.blocked_checks).toEqual([]);
+      expect(result.verdict).toBe('safe');
+      expect(result.exit_code).toBe(0);
+    });
+
+    it('findings alongside a blocked check read as attention, exit 1', async () => {
+      const root = repo();
+      const result = await runSiteMapAudit({
+        projectRoot: root,
+        // coveringMap has zero transitions (→ reachability blocked); the extracted surface cites
+        // a file the map does not (→ one SM-ADD finding).
+        gatherer: gatherer({
+          loadAppMap: () => coveringMap,
+          extractors: async () => [
+            {
+              extractor: 'node-cli',
+              available: true,
+              surfaces: [
+                surface({ raw_id: 'unmapped', evidence: [{ file: 'src/other.ts', line: 1 }] }),
+              ],
+            },
+          ],
+        }),
+        sessionId: 's-verdict-attention',
+        now: () => new Date(2026, 0, 2, 3, 4, 5),
+      });
+      expect(result.finding_count).toBe(1);
+      expect(result.blocked_checks.map((check) => check.check)).toEqual(['reachability']);
+      expect(result.verdict).toBe('attention');
+      expect(result.exit_code).toBe(1);
+    });
+  });
+});
+
+// S9c (D3): the run reconciles the code's navigation edges against the stored map.
+describe('runSiteMapAudit — reconcile missing links (S9c)', () => {
+  // Origin s-a and two link targets reachable at entry values /b and /c; the map records no
+  // transitions itself, so every proven edge is a candidate SM-EDGE-MISSING.
+  const linkMap: AppMap = {
+    schema_version: 1,
+    app: { name: 'paqad-ai', kind: 'cli' },
+    surfaces: [
+      { id: 's-a', kind: 'page', label: 'A' },
+      { id: 's-b', kind: 'page', label: 'B', entry: { kind: 'url', value: '/b' } },
+      { id: 's-c', kind: 'page', label: 'C', entry: { kind: 'url', value: '/c' } },
+    ],
+  };
+  const edgeToB: ExtractedTransition = {
+    from_raw_id: 's-a',
+    to_target: '/b',
+    trigger: 'navigate',
+    evidence: [{ file: 'src/a.ts', line: 5 }],
+    confidence: 'high',
+  };
+
+  it('raises SM-EDGE-MISSING for a code-proven edge the map does not record (AC-1)', async () => {
+    const root = repo();
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [edgeToB],
+      }),
+      sessionId: 's-edge',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    const findingIndex = readFindingIndex(root, result.bundle_dir);
+    expect(findingIndex.findings.map((f) => f.category)).toContain('SM-EDGE-MISSING');
+  });
+
+  it('reports transition_count from the transitions the stored map records (AC-6)', async () => {
+    const root = repo();
+    const withLinks = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => navigableMap, extractors: async () => [] }),
+      sessionId: 's-count-1',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(withLinks.transition_count).toBe(1);
+
+    const noMap = await runSiteMapAudit({
+      projectRoot: repo(),
+      gatherer: gatherer({ loadAppMap: () => null, extractors: async () => [] }),
+      sessionId: 's-count-0',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(noMap.transition_count).toBe(0);
+  });
+
+  it('fires reachability findings for real once the map records transitions (AC-7)', async () => {
+    const root = repo();
+    // A rooted graph with one transition, plus an unreachable surface → SM-ORPHAN now fires.
+    const graphMap: AppMap = {
+      schema_version: 1,
+      app: { name: 'paqad-ai', kind: 'cli' },
+      surfaces: [
+        {
+          id: 's-a',
+          kind: 'page',
+          label: 'A',
+          entry: { kind: 'url', value: '/' },
+          transitions: [{ to: 's-b', trigger: 'go' }],
+        },
+        { id: 's-b', kind: 'page', label: 'B', ends: { success: true } },
+        { id: 's-orphan', kind: 'page', label: 'Orphan', ends: { success: true } },
+      ],
+    };
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({ loadAppMap: () => graphMap, extractors: async () => [] }),
+      sessionId: 's-orphan',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.transition_count).toBe(1);
+    const findingIndex = readFindingIndex(root, result.bundle_dir);
+    expect(findingIndex.findings.map((f) => f.category)).toContain('SM-ORPHAN');
+  });
+
+  it('the baseline ratchet marks a known edge pre-existing and a new one new-since-baseline (AC-7)', async () => {
+    const root = repo();
+    const edgeToC: ExtractedTransition = {
+      from_raw_id: 's-a',
+      to_target: '/c',
+      trigger: 'navigate',
+      evidence: [{ file: 'src/a.ts', line: 9 }],
+      confidence: 'high',
+    };
+    // First run: one proven edge, writes the baseline.
+    await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [edgeToB],
+      }),
+      sessionId: 's-ratchet-1',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    // Second run: the original edge plus a new one.
+    const second = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [edgeToB, edgeToC],
+      }),
+      sessionId: 's-ratchet-2',
+      now: () => new Date(2026, 0, 3, 3, 4, 5),
+    });
+    const findings = readFindingIndex(root, second.bundle_dir).findings.filter(
+      (f) => f.category === 'SM-EDGE-MISSING',
+    );
+    const toB = findings.find((f) => f.affected_surfaces[1] === 's-b');
+    const toC = findings.find((f) => f.affected_surfaces[1] === 's-c');
+    expect(toB!.baseline_status).toBe('pre-existing');
+    expect(toC!.baseline_status).toBe('new-since-baseline');
+  });
+
+  it('surfaces an unresolvable code edge as a transition-resolution blocked check (AC-5)', async () => {
+    const root = repo();
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        loadAppMap: () => linkMap,
+        extractors: async () => [],
+        gatherTransitions: () => [{ ...edgeToB, to_target: '/nowhere' }],
+      }),
+      sessionId: 's-dropped',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+    });
+    expect(result.blocked_checks.map((c) => c.check)).toContain('transition-resolution');
+  });
+});
+
+// The pure verdict helper, exercised branch by branch so the AC-3 ordering is locked
+// independently of the fs-driven run.
+describe('deriveSiteMapVerdict', () => {
+  const clean = { findingCount: 0, hasStoredMap: true, hasTransitions: true, blockedChecks: [] };
+
+  it('is attention whenever there is a finding, even with everything else clean', () => {
+    expect(deriveSiteMapVerdict({ ...clean, findingCount: 1 })).toBe('attention');
+  });
+
+  it('is inconclusive when there is no stored map', () => {
+    expect(deriveSiteMapVerdict({ ...clean, hasStoredMap: false })).toBe('inconclusive');
+  });
+
+  it('is inconclusive when the map records no transitions', () => {
+    expect(deriveSiteMapVerdict({ ...clean, hasTransitions: false })).toBe('inconclusive');
+  });
+
+  it('is inconclusive when a check is blocked', () => {
+    expect(
+      deriveSiteMapVerdict({
+        ...clean,
+        blockedChecks: [{ check: 'x', reason: 'r', install_hint: 'h' }],
+      }),
+    ).toBe('inconclusive');
+  });
+
+  it('is safe only when there is a navigable map, no finding, and no blocked check', () => {
+    expect(deriveSiteMapVerdict(clean)).toBe('safe');
+  });
+});
+
+// S4 (D7): the run says how big the job is before it writes anything.
+function extractionOf(surfaces: ExtractedSurface[]): ExtractionResult {
+  return {
+    schema_version: 1,
+    app_kind: 'cli',
+    surfaces,
+    blocked_checks: [],
+    fingerprint: 'deadbeef',
+    extractors_ran: 1,
+    low_confidence_fallback: false,
+  };
+}
+
+describe('deriveSiteMapInventory', () => {
+  it('counts screens, gathers sorted distinct groups, and counts distinct guard tokens (AC-1)', () => {
+    const inventory = deriveSiteMapInventory(
+      extractionOf([
+        surface({ raw_id: 'a', module: 'Billing', guards: ['web', 'auth'] }),
+        surface({ raw_id: 'b', module: 'Auth', guards: ['web'] }),
+        // A guard repeated across surfaces is one distinct token; a surface may carry no module.
+        surface({ raw_id: 'c', module: 'Billing', guards: ['auth', 'verified'] }),
+        surface({ raw_id: 'd' }),
+      ]),
+    );
+    expect(inventory.screens).toBe(4);
+    expect(inventory.groups).toEqual(['Auth', 'Billing']);
+    expect(inventory.guards).toBe(3); // web, auth, verified
+  });
+
+  it('reports zeroes and an empty group set for an empty extraction (AC-2)', () => {
+    const inventory = deriveSiteMapInventory(extractionOf([]));
+    expect(inventory).toEqual({ screens: 0, groups: [], guards: 0 });
+  });
+});
+
+describe('describeSiteMapInventory', () => {
+  it('is the one shared human sentence (AC-4)', () => {
+    expect(describeSiteMapInventory({ screens: 214, groups: ['a', 'b'], guards: 3 })).toBe(
+      'Found 214 screens across 2 groups.',
+    );
+  });
+});
+
+describe('runSiteMapAudit inventory (S4)', () => {
+  it('returns the inventory and fires onInventory once, before the exit code changes (AC-5)', async () => {
+    const root = repo();
+    const seen: unknown[] = [];
+    const result = await runSiteMapAudit({
+      projectRoot: root,
+      gatherer: gatherer({
+        extractors: async () => [
+          {
+            extractor: 'node-cli',
+            available: true,
+            surfaces: [surface({ raw_id: 'a', module: 'Cli', guards: ['auth'] })],
+          },
+        ],
+      }),
+      sessionId: 's-inventory',
+      now: () => new Date(2026, 0, 2, 3, 4, 5),
+      onInventory: (inventory) => seen.push(inventory),
+    });
+    expect(result.inventory).toEqual({ screens: 1, groups: ['Cli'], guards: 1 });
+    expect(seen).toEqual([result.inventory]);
   });
 });

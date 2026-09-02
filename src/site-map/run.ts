@@ -17,16 +17,24 @@ import type {
   SiteMapAppSummary,
   SiteMapBaseline,
   SiteMapBlockedCheck,
+  SiteMapInventory,
   SiteMapReportIndex,
+  SiteMapVerdict,
   SiteMapWorkflowName,
 } from '@/core/types/site-map-run.js';
 
 import { assembleSiteMapReport } from './assemble.js';
 import { readBaseline, writeBaseline } from './baseline.js';
 import { restampCanonicalTrust, type RestampCanonicalTrustResult } from './canonical-trust.js';
-import { assembleExtraction, type ExtractionResult, type ExtractorOutput } from './extraction.js';
+import {
+  assembleExtraction,
+  type ExtractedSurface,
+  type ExtractionResult,
+  type ExtractorOutput,
+} from './extraction.js';
 import { recordSiteMapRun } from './ledger.js';
 import { writeJsonFile } from './shared.js';
+import type { ExtractedTransition } from './transitions.js';
 import { collectMapEvidence, type EvidenceResolution } from './verification.js';
 
 /** Everything the run needs from the outside world — injected for tests, provided by the CLI. */
@@ -41,6 +49,10 @@ export interface SiteMapGatherer {
   journeyCount(): number;
   /** Each extractor's contribution: its surfaces, or a blocked check when unavailable (FR-3). */
   extractors(): Promise<ExtractorOutput[]>;
+  /** The raw navigation edges the code proves, gathered from the extracted surfaces' sources
+   * (S9a/S9b detection). The only transition I/O, kept behind the gatherer so the run stays
+   * deterministic offline; resolution to surfaces and reconciliation to findings are pure (S9c). */
+  gatherTransitions(surfaces: ExtractedSurface[]): ExtractedTransition[];
   /** Resolve each `file:line` the map cites against the tree — the only I/O Tier-A verification
    * depends on, so the whole run stays deterministic behind a fake gatherer in tests. */
   resolveEvidence(pointers: Evidence[]): EvidenceResolution[];
@@ -52,6 +64,11 @@ export interface SiteMapRunOptions {
   workflow?: SiteMapWorkflowName;
   sessionId?: string | null;
   now?: () => Date;
+  /**
+   * Called once with the run's inventory right after the gather, before any write (S4). A caller
+   * uses it to report how big the job is as its first progress line; the run itself is unaffected.
+   */
+  onInventory?: (inventory: SiteMapInventory) => void;
 }
 
 export interface SiteMapRunResult {
@@ -66,8 +83,73 @@ export interface SiteMapRunResult {
    * so the wire is a no-op on a project that has not authored its map yet.
    */
   trust_restamp: RestampCanonicalTrustResult;
+  /**
+   * The paqad verdict for this run (issue D4): `attention` on any finding, `inconclusive` when a
+   * check could not reach a confident result (no stored map, a map with no navigation, or any
+   * blocked check), else `safe`. Distinct from `exit_code`, which is unchanged.
+   */
+  verdict: SiteMapVerdict;
+  /** How big the mapping job is, read off the extraction before any write (S4). */
+  inventory: SiteMapInventory;
+  /** How many navigation transitions the stored map records (S9c). 0 when no map exists or the
+   * map records no links — the same source the verdict's `hasTransitions` reads, so the count and
+   * the verdict move together. */
+  transition_count: number;
   /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
+}
+
+/**
+ * Read the run inventory off an extraction (pure — no I/O). `screens` is the extracted surface
+ * count; `groups` is the sorted, distinct set of module attributions; `guards` is the count of
+ * distinct guard tokens across the surfaces. It reports size, never a journey count (S4, AC-4).
+ */
+export function deriveSiteMapInventory(extraction: ExtractionResult): SiteMapInventory {
+  const groups = new Set<string>();
+  const guards = new Set<string>();
+  for (const surface of extraction.surfaces) {
+    if (surface.module !== undefined) groups.add(surface.module);
+    for (const guard of surface.guards ?? []) guards.add(guard);
+  }
+  return {
+    screens: extraction.surfaces.length,
+    groups: [...groups].sort((a, b) => a.localeCompare(b)),
+    guards: guards.size,
+  };
+}
+
+/** The one shared, human sentence for an inventory — used by the CLI verb and the dashboard job. */
+export function describeSiteMapInventory(inventory: SiteMapInventory): string {
+  return `Found ${inventory.screens} screens across ${inventory.groups.length} groups.`;
+}
+
+/**
+ * Count the navigation transitions the stored map records (0 when there is no map). Shared by the
+ * run's `transition_count` readout and the verdict's has-transitions check so the two never
+ * diverge — the count and the "no links" verdict always agree (S9c).
+ */
+export function countMapTransitions(map: AppMap | null): number {
+  if (map === null) return 0;
+  return map.surfaces.reduce((total, surface) => total + (surface.transitions?.length ?? 0), 0);
+}
+
+/**
+ * Decide a run's verdict from its outcome (pure — no I/O). A run reads `attention` when it found
+ * anything; otherwise it is only `safe` when there is a stored map that records navigation and no
+ * check was blocked — anything less is `inconclusive`, so a run over an absent or link-less map can
+ * never masquerade as clean (D4). The exit code is decided separately and is not affected.
+ */
+export function deriveSiteMapVerdict(input: {
+  findingCount: number;
+  hasStoredMap: boolean;
+  hasTransitions: boolean;
+  blockedChecks: SiteMapBlockedCheck[];
+}): SiteMapVerdict {
+  if (input.findingCount > 0) return 'attention';
+  if (!input.hasStoredMap || !input.hasTransitions || input.blockedChecks.length > 0) {
+    return 'inconclusive';
+  }
+  return 'safe';
 }
 
 /** Everything the gather+assemble step produces, before any writes. */
@@ -101,6 +183,10 @@ export async function gatherSiteMapReport(options: {
   const outputs = await gatherer.extractors();
   const extraction = assembleExtraction(outputs, gatherer.appKind());
 
+  // Detect the code's navigation edges (S9a/S9b) so the run can reconcile them against the stored
+  // map (S9c). The gatherer owns the I/O; resolution and reconciliation are pure in `assemble`.
+  const codeTransitions = gatherer.gatherTransitions(extraction.surfaces);
+
   const sources: string[] = outputs
     .filter((output) => output.available)
     .map((output) => output.extractor);
@@ -115,6 +201,7 @@ export async function gatherSiteMapReport(options: {
     map,
     extraction,
     evidenceResolutions,
+    codeTransitions,
     journeyCount,
     blockedChecks: extraction.blocked_checks,
     baseline,
@@ -131,12 +218,18 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
   const now = options.now ?? (() => new Date());
   const runNow = now();
 
-  const { report, findingIds, extraction, baseline } = await gatherSiteMapReport({
+  const { report, findingIds, extraction, baseline, map } = await gatherSiteMapReport({
     projectRoot,
     gatherer,
     workflow,
     now: runNow,
   });
+
+  // Report how big the job is before any write (S4). The callback fires once, straight off the
+  // gathered extraction, so a caller (the dashboard job) can say the size as its first progress
+  // line while the run goes on to persist its bundle.
+  const inventory = deriveSiteMapInventory(extraction);
+  options.onInventory?.(inventory);
 
   await writeJsonFile(join(projectRoot, report.bundle_dir, 'finding-index.json'), {
     report_id: report.report_id,
@@ -175,6 +268,14 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     { sessionId: options.sessionId, now },
   );
 
+  const transitionCount = countMapTransitions(map);
+  const verdict = deriveSiteMapVerdict({
+    findingCount: report.findings.length,
+    hasStoredMap: map !== null,
+    hasTransitions: transitionCount > 0,
+    blockedChecks: report.blocked_checks,
+  });
+
   return {
     report_id: report.report_id,
     bundle_dir: report.bundle_dir,
@@ -182,6 +283,9 @@ export async function runSiteMapAudit(options: SiteMapRunOptions): Promise<SiteM
     blocked_checks: report.blocked_checks,
     baseline_created: baselineCreated,
     trust_restamp: trustRestamp,
+    verdict,
+    inventory,
+    transition_count: transitionCount,
     exit_code: report.findings.length > 0 ? 1 : 0,
   };
 }

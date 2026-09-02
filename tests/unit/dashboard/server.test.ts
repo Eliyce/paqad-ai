@@ -19,6 +19,12 @@ import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { readSiteMapLayout } from '@/site-map/layout-store.js';
+import {
+  completeUnit,
+  createEmptyProgress,
+  createUnit,
+  saveProgress,
+} from '@/site-map/progress-store.js';
 import { writeJourney } from '@/site-map/store.js';
 import type { Journey } from '@/core/types/site-map.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
@@ -335,6 +341,36 @@ describe('startDashboardServer', () => {
         journeys: { status: string }[];
       };
       expect(after.journeys[0]!.status).toBe('confirmed');
+    });
+
+    it('serves the run progress on GET /api/site-map/progress, null when none (S6)', async () => {
+      bootstrap(root);
+
+      // With no progress file, the route answers null.
+      await startServer();
+      const none = await (await fetch(`${server!.url}/api/site-map/progress`)).json();
+      expect(none).toBeNull();
+      await server!.close();
+      server = null;
+
+      // With a progress file present, the route returns it verbatim.
+      const progress = createEmptyProgress({ screens: 1, groups: ['billing'] }, new Date());
+      const unit = createUnit({
+        id: 'group:billing',
+        kind: 'group',
+        label: 'Billing',
+        artifact: null,
+        source_files: [],
+      });
+      completeUnit(unit, 'h', new Date());
+      progress.units[unit.id] = unit;
+      await saveProgress(root, progress, new Date());
+
+      await startServer();
+      const body = (await (await fetch(`${server!.url}/api/site-map/progress`)).json()) as {
+        units: Record<string, { state: string; label: string }>;
+      };
+      expect(body.units['group:billing']).toMatchObject({ state: 'done', label: 'Billing' });
     });
 
     it('serves the site-map view on GET /api/site-map/map (disabled while the flag is off, #466)', async () => {

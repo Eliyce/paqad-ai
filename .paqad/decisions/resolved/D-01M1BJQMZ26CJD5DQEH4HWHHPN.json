@@ -1,0 +1,38 @@
+{
+  "decision_id": "D-01M1BJQMZ26CJD5DQEH4HWHHPN",
+  "fingerprint": "sha256:b7154ec9f6695ab2495176cf7049553266fd621dd4e0caa6e763180a18a089d3",
+  "category": "spec.change",
+  "question": "The goal changed mid-build. Update the frozen spec and re-freeze, or keep it as-is?",
+  "context": "Spec .s1-spec-input (.s1-spec-input.md). The frozen spec source changed since it was frozen — the goal may have moved. Confirm the new goal before more is built on the old one.",
+  "options": [
+    {
+      "option_key": "update-and-refreeze",
+      "label": "Take the new goal",
+      "one_line_preview": "If you pick this, we will update .s1-spec-input.md to the new goal and re-freeze it.",
+      "trade_off": "You give up: the first frozen goal, so the new one becomes the bar.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-current-spec",
+      "label": "Keep the current spec",
+      "one_line_preview": "If you pick this, we will keep building to the spec already frozen.",
+      "trade_off": "You give up: capturing the new goal, so the change waits.",
+      "evidence": {}
+    }
+  ],
+  "confidence": 0.5,
+  "requested_by": "spec-stage",
+  "task_session_id": "98271589-485c-44b7-a6e4-0a2aeeb26e18",
+  "linked_requirements": [],
+  "created_at": "2026-08-31T09:34:45.217Z",
+  "status": "resolved",
+  "ttl_until": "2026-09-30T09:34:45.217Z",
+  "invalidation_watch": [
+    ".s1-spec-input.md"
+  ],
+  "recommendation": "update-and-refreeze",
+  "recommendation_reason": "A real goal change must update the spec and re-freeze before work continues.",
+  "chosen": "update-and-refreeze",
+  "rationale": "Re-freeze was a format fix (added FR-/INV-/AC- sections so behaviour and acceptance criteria parse), not a goal change; the re-frozen S1 spec is the bar. Confirmed by Haider.",
+  "resolved_at": "2026-08-31T09:36:22.771Z"
+}

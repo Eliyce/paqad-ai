@@ -35,6 +35,7 @@ import type {
   ValidationIssue,
 } from './dashboard-types';
 import type { ChunkContentResponse, Graph, NodeDetail } from './types';
+import type { SiteMapProgressFile } from './site-map-progress';
 import type { SiteMapStoredLayout, SiteMapView } from './site-map-types';
 
 export async function fetchDashboard(): Promise<DashboardReport> {
@@ -82,6 +83,13 @@ export async function fetchSiteMap(): Promise<SiteMapView> {
   const res = await fetch('/api/site-map/map');
   if (!res.ok) throw new Error(await errorMessage(res));
   return (await res.json()) as SiteMapView;
+}
+
+/** The resumable run progress the Site map strip reads (S6): the store file, or null when none. */
+export async function fetchSiteMapProgress(): Promise<SiteMapProgressFile | null> {
+  const res = await fetch('/api/site-map/progress');
+  if (!res.ok) throw new Error(await errorMessage(res));
+  return (await res.json()) as SiteMapProgressFile | null;
 }
 
 export async function fetchSiteMapJourneys(): Promise<SiteMapJourney[]> {

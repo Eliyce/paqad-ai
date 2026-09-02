@@ -1,0 +1,22 @@
+{
+  "id": "D-01M1CBV8WNZWXXGTHSETY2NMQG",
+  "category": "workflow-or-tool",
+  "title": "How paqad obtains the output of a project command the site map needs",
+  "context": "The site map sometimes needs the output of a project introspection command (e.g. php artisan route:list) because the real router resolves modular routes, middleware and controllers a static scan cannot. Option run: paqad executes the read-only command itself, in-session, detecting the stack from the dependency manifest and invoking the matching read-only command via execa with a 20s timeout; on failure it degrades to a static scan and records a blocked check with the reason and fix. Option print: paqad prints the command and waits for the human to paste the output. Recommendation: run (read-only commands only), with print-and-paste kept only as a last-resort tray fallback when the command cannot run.",
+  "options": [
+    {
+      "option_key": "run",
+      "label": "Paqad executes the read-only command itself, in-session"
+    },
+    {
+      "option_key": "print",
+      "label": "Paqad prints the command and waits for pasted output"
+    }
+  ],
+  "recommendation": "run",
+  "created_at": "2026-08-31T16:53:38.325Z",
+  "status": "resolved",
+  "chosen": "run",
+  "rationale": "Confirmed by Haider: paqad runs read-only introspection commands itself in-session (stack detected from the dependency manifest, invoked via execa with a 20s timeout). On failure it degrades to a static scan and records a blocked check with the reason and fix. Print-and-paste is kept only as a last-resort fallback, never the primary path.",
+  "resolved_at": "2026-08-31T16:53:47.123Z"
+}

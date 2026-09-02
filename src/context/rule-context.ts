@@ -14,6 +14,7 @@
  * single-flight lock and atomic swap, so a reader never sees a half-written
  * artifact and concurrent refreshes never clobber each other.
  */
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { atomicWriteFile } from '@/background/atomic-artifact.js';
@@ -23,7 +24,12 @@ import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js'
 import { generateRuleManifest, scriptedSourcePaths } from '@/context/rule-manifest.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { isAlwaysLoadRule, ruleTriggersMatch } from '@/pipeline/rule-trigger-matcher.js';
-import { readCompiledRules } from '@/planning/rule-compiler.js';
+import {
+  compileRules,
+  isCompiledRulesStale,
+  readCompiledRules,
+  writeCompiledRules,
+} from '@/planning/rule-compiler.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 
 /** A lock older than this (10 min) is treated as a crashed worker and reclaimed. */
@@ -238,6 +244,35 @@ export async function writeRuleContext(
 }
 
 /**
+ * S1 (defect D1): keep the compiled rule store current before it is read. When the
+ * store's `source_hash` no longer matches the authored rules under
+ * `docs/instructions/rules/`, recompile and persist it, so the recomposed
+ * session-context artifact reflects the current rules rather than a stale snapshot.
+ * A store that is already current is left untouched — {@link compileRules} is not
+ * called — so a hot path pays nothing when nothing changed.
+ *
+ * Failure-tolerant by design: one malformed rule file must never brick a session,
+ * so a compile or persist that throws is swallowed and the caller falls through to
+ * its existing behaviour — the stale store if there is one, or the #316
+ * rules-missing fallback marker if there is not.
+ */
+async function ensureCompiledRulesCurrent(projectRoot: string): Promise<void> {
+  // Nothing to compile from when there is no authored rules tree, so never clobber an
+  // existing compiled store with an empty one. In production the tree is always present;
+  // this guards a deleted/absent tree so a stale-looking store is left intact.
+  if (!existsSync(join(projectRoot, PATHS.RULES_DIR))) {
+    return;
+  }
+  try {
+    if (await isCompiledRulesStale(projectRoot)) {
+      await writeCompiledRules(projectRoot, await compileRules(projectRoot));
+    }
+  } catch {
+    // Swallowed on purpose (see doc comment): a bad rule file never aborts a refresh.
+  }
+}
+
+/**
  * Recompose the rule-context artifact under the F1 single-flight lock — the
  * worker the prompt-time trigger spawns. Returns the artifact path when written,
  * or `null` when there are no compiled rules or another refresh already holds the
@@ -254,6 +289,13 @@ export async function refreshRuleContext(
     return null;
   }
   try {
+    // S1 (defect D1): recompile a stale rule store inside this single-flight lock,
+    // before writeRuleContext reads it, so the agent is never served rules that have
+    // drifted from docs/instructions/rules/. Gated on loadRules because that is the
+    // only route that reads the compiled store — other workflows compose no rule slice.
+    if (options.loadRules ?? true) {
+      await ensureCompiledRulesCurrent(projectRoot);
+    }
     return await writeRuleContext(projectRoot, options);
   } finally {
     releaseLock(lockDir);

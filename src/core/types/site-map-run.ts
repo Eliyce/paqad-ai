@@ -11,12 +11,22 @@ export const SITE_MAP_SEVERITIES = ['high', 'medium', 'low'] as const;
 export type SiteMapSeverity = (typeof SITE_MAP_SEVERITIES)[number];
 
 /**
+ * A run's honest verdict, in the paqad contract's three states: `safe` when every check that
+ * ran passed, `attention` when the run found something worth a look, and `inconclusive` when a
+ * check could not reach a confident result (no map to verify, a map with no navigation, or any
+ * blocked check). It is distinct from the exit code, which is unchanged (0 clean, 1 findings).
+ */
+export const SITE_MAP_VERDICTS = ['safe', 'attention', 'inconclusive'] as const;
+export type SiteMapVerdict = (typeof SITE_MAP_VERDICTS)[number];
+
+/**
  * The finding categories for the deterministic core. Each is the `category` field value,
  * never the finding id (the id is a content-addressed `SM-<hash8>`). The i18n (`SM-I18N-*`)
  * and flag-debt (`SM-FLAG-*`) families from the addendum are deferred to a later phase.
  */
 export const SITE_MAP_CATEGORIES = [
   'SM-ADD', // surface exists in code, missing from the map
+  'SM-EDGE-MISSING', // code proves a transition the map does not record (edge analogue of SM-ADD)
   'SM-REMOVE', // mapped surface no longer in code
   'SM-EDGE-STALE', // a transition's evidence no longer matches
   'SM-GUARD-DRIFT', // a guard changed (e.g. middleware removed) — security-relevant
@@ -102,6 +112,19 @@ export interface SiteMapAppSummary {
   /** The primary app kind (the first of a multi-kind app). */
   kind: string;
   frameworks: string[];
+}
+
+/**
+ * How big the mapping job is, read straight off the extraction before any write (S4). `screens`
+ * is the extracted surface count; `groups` is the sorted, distinct set of module attributions the
+ * extraction found; `guards` is the count of distinct guard tokens (e.g. route middleware) across
+ * the surfaces. It is a deterministic size readout, never a journey count — journeys are proposed
+ * by the model, so counting them here would be false precision.
+ */
+export interface SiteMapInventory {
+  screens: number;
+  groups: string[];
+  guards: number;
 }
 
 /** What the extraction stage produced, distilled for the run header and the freshness gate. */

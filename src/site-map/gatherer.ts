@@ -35,6 +35,7 @@ import {
   parseArtisanRouteList,
   parseArtisanScheduleList,
   type CliCommandRecord,
+  type ExtractedSurface,
   type ExtractorOutput,
   type GenericSurfaceRecord,
   type LaravelClassSurfaceRecord,
@@ -43,6 +44,13 @@ import {
 } from './extraction.js';
 import type { SiteMapGatherer } from './run.js';
 import { readAllJourneys, readCanonicalSiteMap } from './store.js';
+import {
+  detectLaravelTransitions,
+  detectNodeCliTransitions,
+  detectReactRouterTransitions,
+  type ExtractedTransition,
+  type TransitionSourceRecord,
+} from './transitions.js';
 import type { EvidenceResolution } from './verification.js';
 
 /** A dependency name → the app kind it implies, most specific first. */
@@ -516,6 +524,55 @@ function resolvePointer(projectRoot: string, pointer: Evidence): EvidenceResolut
   return { file: pointer.file, line: pointer.line, status: inRange ? 'resolved' : 'line-missing' };
 }
 
+/**
+ * Gather raw navigation edges from the extracted surfaces (S9b, the impure half of transition
+ * detection). For each surface it reads that surface's on-disk evidence file(s) — a synthetic
+ * artisan label or a vanished file simply reads as unavailable and is skipped — normalises the
+ * bytes into a `TransitionSourceRecord` attributed to the surface's `raw_id`, and runs all three
+ * S9a detectors over it. The detectors match navigation call syntax, so a PHP controller yields
+ * only Laravel edges and a React component only React-Router edges; running all three is safe and
+ * keeps the gatherer stack-agnostic. Each distinct file is read once even when several surfaces
+ * cite it, and every surface citing it gets its own attributed records. Pure resolution of these
+ * raw edges to surfaces is `resolveTransitions`; this function is the coverage-excluded I/O seam.
+ */
+export function gatherSiteMapTransitions(
+  projectRoot: string,
+  surfaces: ExtractedSurface[],
+): ExtractedTransition[] {
+  const fileCache = new Map<string, string | null>();
+  const readSource = (file: string): string | null => {
+    const cached = fileCache.get(file);
+    if (cached !== undefined) return cached;
+    let content: string | null;
+    try {
+      content = readFileSync(join(projectRoot, file), 'utf8');
+    } catch {
+      content = null;
+    }
+    fileCache.set(file, content);
+    return content;
+  };
+
+  const records: TransitionSourceRecord[] = [];
+  const seen = new Set<string>();
+  for (const surface of surfaces) {
+    for (const evidence of surface.evidence) {
+      const key = `${surface.raw_id} ${evidence.file}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const content = readSource(evidence.file);
+      if (content === null) continue;
+      records.push({ from_raw_id: surface.raw_id, file: evidence.file, content });
+    }
+  }
+
+  return [
+    ...detectLaravelTransitions(records),
+    ...detectReactRouterTransitions(records),
+    ...detectNodeCliTransitions(records),
+  ];
+}
+
 /** Wire the real world: read the manifest, the map, the journeys, and run the extractors. */
 export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
   const manifest = readManifest(projectRoot);
@@ -537,6 +594,11 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
     journeyCount: () => readAllJourneys(projectRoot).length,
     resolveEvidence: (pointers: Evidence[]): EvidenceResolution[] =>
       pointers.map((pointer) => resolvePointer(projectRoot, pointer)),
+    // S9c: the run's transition seam delegates to the S9b detector-over-source-files gatherer, so
+    // `sitemap run` reconciles the code's proven edges against the stored map (this is the impure
+    // I/O half; resolution and reconciliation are pure in `assemble`).
+    gatherTransitions: (surfaces: ExtractedSurface[]): ExtractedTransition[] =>
+      gatherSiteMapTransitions(projectRoot, surfaces),
     async extractors(): Promise<ExtractorOutput[]> {
       const outputs: ExtractorOutput[] = [];
       if (isNodeCli) {
