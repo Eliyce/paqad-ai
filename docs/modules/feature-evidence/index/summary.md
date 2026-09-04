@@ -28,6 +28,45 @@ change, so the live feature-development stage spine is untouched:
   (`additionalProperties: false`) so the stored bytes are script-owned, not a
   free-written hallucination surface. `specification.json` reuses the existing
   `FeatureSpec` shape.
+- **feature.json writer** (`feature-record.ts`, issue #511) — the missing writer for the
+  `feature.json` schema #339 shipped dark. `seedFeatureRecord` writes it when a feature is
+  opened (idempotent); `updateFeatureRecord` patches it on rename / lane / spec-freeze /
+  close, re-stamping the `content_hash`. `featureRecordIsUntitled` is the placeholder check
+  the completeness gate uses (title `change` + no ticket ⇒ the change has no record of what
+  it was).
+- **Bundle manifest** (`manifest.ts`, issue #511) — the single declarative source of truth
+  for **which** bundle files a feature-development change must leave, **when** each is
+  required, and **who** writes it. The `bundle-completeness` gate reads it, and a test
+  asserts it covers every `FEATURE_BUNDLE_FILES` key plus `report.html`, so a file added in
+  a future phase cannot ship without declaring its expectation.
+
+### Bundle files and when each is expected (the manifest)
+
+| File | Expected when | Writer |
+| --- | --- | --- |
+| `feature.json` | always | feature mint (`stage start` / `plan compile`) |
+| `plan.json` | always | `paqad-ai plan compile` |
+| `specification.json` | always | `paqad-ai spec freeze` |
+| `review.json` | always | `paqad-ai review record` |
+| `stage-evidence.jsonl` | always | stage recorder |
+| `delivery.json` | always | feature open + `paqad-ai delivery-link` |
+| `rule-run.jsonl` | `rule_compliance != off` | rule-scripts runner |
+| `change-metrics.jsonl` | `metrics_enabled` | change-metrics collector |
+| `duplication.jsonl` | `duplication_mode != off` | duplication scan |
+| `report.html` | `feature_report` | feature report renderer |
+| `rag.jsonl` | `rag_enabled` | RAG recorder (bundle or `_chat`) |
+| `receipt.json` | `enterprise` + `evidence_ledger` | `projectFeatureReceipt` |
+| `evidence.jsonl` | `enterprise` + `evidence_ledger` | `appendFeatureEvidenceRows` |
+| `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
+
+The **`bundle-completeness` gate** (`src/verification/repository/bundle-completeness-gate.ts`)
+runs last at end-of-change (after every writer). Under `bundle_completeness=strict` (the
+default) a required-but-missing/empty/invalid file **fails** the change (Needs your
+attention), naming the file and its writer, and blocks via the Stop-hook path; `warn`
+surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
+`evidence_existence_gate`. A file recovered by cache backfill is reported `backfilled`
+(never a clean pass); a RAG gap is unrecoverable and reads Inconclusive; a flag-off file is
+`skipped`. Non-feature / no-active-bundle / non-local (CI) turns skip the gate entirely.
 - **Plan reuse gate** (`reuse.ts`, issue #357, Phase A) — the plan must answer "did you
   check what already exists?" before it compiles. `validateReuseSection` returns blocking
   `errors` and non-blocking `warnings` for the template's `reuse` section: `consulted`

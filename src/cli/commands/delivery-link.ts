@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import {
   reconcileDeliveryFromGit,
   recordCommitForBranch,
+  recordLinkAttempt,
   resolveDeliveryFeatureByBranch,
   stampMergeCommit,
 } from '@/feature-evidence/delivery.js';
@@ -83,12 +84,19 @@ export function createDeliveryLinkCommand(): Command {
       console.log(JSON.stringify({ linked: false, reason: 'no HEAD commit' }));
       return;
     }
-    const dir = recordCommitForBranch(
-      options.projectRoot,
-      resolveSession(options),
-      { sha, subject },
-      new Date().toISOString(),
-    );
+    const at = new Date().toISOString();
+    const active = currentFeature(options.projectRoot, resolveSession(options));
+    const dir = recordCommitForBranch(options.projectRoot, active, { sha, subject }, at);
+    if (!dir) {
+      // Issue #511 (RC-2.6) — make the discarded-stdout failure observable. When a branch
+      // has a bundle but the active pointer is gone (the bundle closed before the commit),
+      // stamp WHY the link missed onto that bundle's delivery.json instead of only stdout.
+      const branch = git(options.projectRoot, ['branch', '--show-current']);
+      const fallback = branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch) : null;
+      if (fallback) {
+        recordLinkAttempt(options.projectRoot, fallback, `commit ${sha} not linked`, at);
+      }
+    }
     regenerateReportSafe(options.projectRoot, dir ?? null);
     console.log(JSON.stringify({ linked: Boolean(dir), feature: dir ?? null, sha }));
   });

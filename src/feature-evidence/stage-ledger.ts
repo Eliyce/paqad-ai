@@ -28,6 +28,8 @@ import {
 } from '@/stage-evidence/types.js';
 
 import { reconcileSessionControl } from './adoption.js';
+import { seedFeatureDelivery } from './delivery.js';
+import { seedFeatureRecord, updateFeatureRecord } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import {
@@ -195,8 +197,21 @@ export function openFeatureChange(
   input: OpenFeatureChangeInput,
 ): string {
   const dirName = resolveActiveFeature(projectRoot, sessionId, input);
+  // Issue #511 (RC-1) — seed feature.json when the feature is opened, so every bundle
+  // carries its identity/status record from birth (not just its dir name). Idempotent, so a
+  // re-open is a no-op; best-effort, so a write fault never breaks the open path.
+  seedFeatureRecord(projectRoot, dirName, {
+    adapter: input.adapter,
+    sessionId,
+    lane: input.lane ?? null,
+    now: input.now,
+  });
   const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
   if (!hasOpen) {
+    // The branch this change is being built on (issue #404). Read once, here, so a rotated
+    // session can recognise its own in-flight bundle from row 1 — a session id rotates, a
+    // branch does not. `null` off a branch (detached HEAD, non-git).
+    const gitState = readGitState(projectRoot);
     appendFeatureStageRow(
       projectRoot,
       sessionId,
@@ -205,13 +220,23 @@ export function openFeatureChange(
         kind: 'open',
         adapter: input.adapter,
         lane: input.lane ?? null,
-        // The branch this change is being built on (issue #404). Read once, here, so a
-        // rotated session can recognise its own in-flight bundle from row 1 — a session
-        // id rotates, a branch does not. `null` off a branch (detached HEAD, non-git).
-        branch: readGitState(projectRoot).branch ?? null,
+        branch: gitState.branch ?? null,
       },
       input.now,
     );
+    // Issue #511 (RC-2) — seed delivery.json with the branch + base at open, so the FIRST
+    // commit on this branch links to this bundle (the branch-match had nothing to match on
+    // before). Best-effort — a git/write fault never breaks the open path.
+    try {
+      seedFeatureDelivery(projectRoot, dirName, {
+        branch: gitState.branch ?? null,
+        baseBranch: gitState.base_branch ?? null,
+        capturedAt: (input.now ?? (() => new Date()))().toISOString(),
+      });
+      /* v8 ignore next 3 -- best-effort: a delivery seed fault must not break feature open. */
+    } catch {
+      // Nothing to do — feature.json + the open row are already written.
+    }
   }
   return dirName;
 }
@@ -254,6 +279,9 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
       now,
     );
   }
+  // Issue #511 (RC-1) — record the change is finished on feature.json itself, so a reader
+  // (the report, an export) sees `status:'done'` and not a stale `active`. Best-effort.
+  updateFeatureRecord(projectRoot, active, { status: 'done' }, now);
   markDone(projectRoot, sessionId, active, now);
 }
 

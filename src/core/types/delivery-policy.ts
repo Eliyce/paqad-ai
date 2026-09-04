@@ -67,6 +67,11 @@ export interface DeliveryCommitSection {
   maintained?: MaintenanceMode;
   template?: string;
   sign_off?: boolean;
+  /**
+   * Ask the developer whether to commit when they never said (issue #511, AC-4). The
+   * answer (or its absence) is recorded in the bundle's delivery.json.commit_decision.
+   */
+  ask_when_unspecified?: boolean;
 }
 
 export interface DeliveryPrSection {
@@ -156,6 +161,8 @@ export interface ResolvedDeliveryCommit {
   maintained: MaintenanceMode;
   template: string;
   sign_off: boolean;
+  /** Ask when the developer did not specify whether to commit (issue #511, AC-4). */
+  ask_when_unspecified: boolean;
 }
 
 export interface ResolvedDeliveryPr {

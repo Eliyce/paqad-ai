@@ -555,6 +555,22 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in.',
   },
   {
+    key: 'bundle_completeness',
+    env: 'PAQAD_BUNDLE_COMPLETENESS',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'strict',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'off | warn | strict — end-of-change check that a feature-development bundle carries every ' +
+      'required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the ' +
+      'flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ' +
+      'ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, ' +
+      'naming the file and its writer; warn surfaces it as Inconclusive without blocking; off ' +
+      'falls back to the deprecated evidence_existence_gate (issue #511).',
+  },
+  {
     key: 'evidence_existence_gate',
     env: 'PAQAD_EVIDENCE_EXISTENCE_GATE',
     type: 'enum',
@@ -563,10 +579,10 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn — completion check that the per-feature bundle carries its evidence files ' +
-      '(rule-run / duplication / change-metrics / rag). warn (default) backfills the recoverable ' +
-      'ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks ' +
-      '(there is no strict tier). off disables it (issue #468 Phase C).',
+      'DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file ' +
+      'and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ' +
+      'ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the ' +
+      'caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it.',
   },
   {
     key: 'duplication_similarity_threshold',
@@ -1764,6 +1780,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'duplication_mode',
       'duplication_similarity_threshold',
       'duplication_min_lines',
+      'bundle_completeness',
       'evidence_existence_gate',
       'decision_arm_mode',
       'decision_arm_plan_threshold',

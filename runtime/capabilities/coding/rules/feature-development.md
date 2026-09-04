@@ -132,7 +132,11 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 
 ## Delivery
 
-When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`).
+When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`). When the developer did not say whether to commit and `commit.ask_when_unspecified` is true, ask once at end-of-change and record the answer (or its absence) in the bundle's `delivery.json.commit_decision`.
+
+## End-of-change: a complete evidence bundle
+
+A finished feature-development change must leave a **complete** evidence bundle. The `bundle-completeness` gate runs last (after every writer) and, under `bundle_completeness=strict` (the default), makes the change **Needs your attention** when a required bundle file is missing, empty, or invalid — naming the file and the verb that produces it. Required always: `feature.json`, `plan.json`, `specification.json`, `review.json`, `stage-evidence.jsonl`, `delivery.json`; the rest are required when their flag is on (see the manifest in `docs/modules/feature-evidence/index/summary.md`). `feature.json` must carry a real title or a ticket — a bundle left with the placeholder `change` title and no ticket fails. `warn` surfaces the gap without blocking; `off` falls back to the deprecated `evidence_existence_gate`.
 
 ## Rules
 

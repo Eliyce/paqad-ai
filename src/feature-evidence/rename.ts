@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { computeSessionRowHash } from '@/session-ledger/ledger.js';
 
+import { updateFeatureRecord } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from './paths.js';
 import { readSessionControl, writeSessionControl } from './session-control.js';
@@ -75,6 +76,15 @@ export function backfillFeatureSlug(
   // already-renamed bundle.
   repointSessionControls(projectRoot, dirName, minted.dirName, now);
   rewriteArtifactPaths(projectRoot, dirName, minted.dirName);
+  // Issue #511 (RC-1) — the dir moved with feature.json inside it, but its stored
+  // slug/issue/title still read `change`/null. Patch the moved record to the descriptive
+  // identity so a completeness reader sees a real name, not the placeholder. Best-effort.
+  updateFeatureRecord(
+    projectRoot,
+    minted.dirName,
+    { title, slug: minted.slug, issue: minted.issue },
+    now,
+  );
   return { dirName: minted.dirName, renamed: true };
 }
 

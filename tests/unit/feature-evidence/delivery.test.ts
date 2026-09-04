@@ -116,7 +116,7 @@ describe('branch resolution + commit recording', () => {
     execFileSync('git', ['checkout', '-q', '-b', 'feat/z'], { cwd: root });
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
     const head = gitOut(root, 'rev-parse', 'HEAD');
-    const recorded = recordCommitForBranch(root, 'ses_1', { sha: head, subject: 'feat: z' }, AT);
+    const recorded = recordCommitForBranch(root, dir, { sha: head, subject: 'feat: z' }, AT);
     expect(recorded).toBe(dir);
     const record = readFeatureDelivery(root, dir);
     expect(record.branch).toBe('feat/z');
@@ -125,7 +125,7 @@ describe('branch resolution + commit recording', () => {
 
   it('recordCommitForBranch returns null when no feature can be resolved', () => {
     const root = tempRepo();
-    expect(recordCommitForBranch(root, 'ses_empty', { sha: 'x', subject: 's' }, AT)).toBeNull();
+    expect(recordCommitForBranch(root, null, { sha: 'x', subject: 's' }, AT)).toBeNull();
   });
 
   it('stampMergeCommit records the merge commit', () => {

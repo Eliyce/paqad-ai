@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
 
+import { updateFeatureRecord } from './feature-record.js';
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
 import { parseFeatureDirName, featureFilePath } from './paths.js';
 import { backfillFeatureSlug } from './rename.js';
@@ -188,6 +189,16 @@ export function writeFeaturePlan(
   const rel = featureFilePath(dirName, 'plan');
   atomicWriteJson(join(projectRoot, rel), record);
 
+  // Issue #511 (RC-1) — the plan carries the change's real title and (detected) ticket;
+  // fold both onto feature.json so the bundle records what it is, not the dir-name slug or
+  // the `change` placeholder. Idempotent + best-effort (no-op when identity is unchanged).
+  updateFeatureRecord(
+    projectRoot,
+    dirName,
+    { title: record.title, slug: parts.slug, issue: parts.issue },
+    input.now,
+  );
+
   // Issue #361 — the plan has now DECLARED what it intends to build new. Score those against
   // the code-knowledge index and, in strict mode, open a create-vs-reuse pause for the
   // strongest fork. Runs after the write so a plan is never lost to an arming failure, and
@@ -264,6 +275,8 @@ export function writeFeatureSpecification(
   }
   const rel = featureFilePath(dirName, 'specification');
   atomicWriteJson(join(projectRoot, rel), spec);
+  // Issue #511 (RC-1) — record which frozen spec this feature carries on feature.json.
+  updateFeatureRecord(projectRoot, dirName, { spec_id: spec.spec_id });
   return { dirName, path: rel, record: spec };
 }
 
