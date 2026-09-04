@@ -95,6 +95,11 @@ const MANAGED_GITIGNORE_ENTRIES = [
   // there surfaced as an untracked, committable artifact in a consumer project and fed the
   // "untracked .paqad/ artifact leaks into the changed-file set" class tracked by #205.
   'compliance/',
+  // Issue #512 — the editable spec source and the spec-pipeline scratch (grounding/label/
+  // task/working spec.md) live under `.paqad/_specs/`. Both are transient, per-machine
+  // working state (the durable record is the frozen `specification.json` in the bundle), so
+  // they are never committed — same rationale as `ledger/` and `compliance/`.
+  '_specs/',
 ];
 
 /**
