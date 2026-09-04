@@ -1,12 +1,63 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PATHS } from '@/core/constants/paths.js';
 import { createSpecPipelineCommand } from '@/cli/commands/spec-pipeline.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { pipelineArtifactPath } from '@/spec-pipeline/orchestrator.js';
+
+/** Seed one resolved intake.requirement decision so the S2 auto-answer seam can hit it. */
+function seedResolvedDecision(root: string): void {
+  const dir = join(root, PATHS.DECISIONS_RESOLVED_DIR);
+  mkdirSync(dir, { recursive: true });
+  const now = '2026-09-04T00:00:00.000Z';
+  writeFileSync(
+    join(dir, 'D-900.json'),
+    JSON.stringify({
+      decision_id: 'D-900',
+      fingerprint: 'sha256:D-900',
+      category: 'intake.requirement',
+      question: 'Should exports include archived orders?',
+      context:
+        'It changes which rows appear in the file. Include archived orders Exclude archived orders',
+      options: [
+        {
+          option_key: 'include-archived-orders',
+          label: 'Include archived orders',
+          one_line_preview: 'include',
+          trade_off: 'bigger',
+          evidence: {},
+        },
+        {
+          option_key: 'exclude-archived-orders',
+          label: 'Exclude archived orders',
+          one_line_preview: 'omit',
+          trade_off: 'fewer',
+          evidence: {},
+        },
+      ],
+      confidence: 0.9,
+      requested_by: 'agent',
+      task_session_id: 'task-cli',
+      created_at: now,
+      status: 'resolved',
+      ttl_until: '2026-12-31T00:00:00.000Z',
+      invalidation_watch: [],
+      human_response: {
+        chosen_option_key: 'include-archived-orders',
+        intent: 'explicit',
+        explanation_rounds_used: 0,
+        responded_at: now,
+        responded_by: 'human',
+        carry_over_scope: 'task',
+      },
+    }),
+    'utf8',
+  );
+}
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -160,6 +211,97 @@ describe('spec pipeline CLI', () => {
       outcome: 'non-blocking-review',
       a5_live: false,
     });
+  });
+
+  it('record questions auto-answers a ledger-answerable question and drops it from the batch (AC-1/AC-3)', async () => {
+    const root = tempRoot();
+    seedResolvedDecision(root);
+    const dir = activeFeature(root);
+    await run(root, ['ground']);
+    await run(root, ['label', 'the export must exclude hidden columns and return in 5s']);
+
+    writeFileSync(
+      join(root, 'questions.json'),
+      JSON.stringify({
+        questions: [
+          {
+            business_text: 'Should exports include archived orders?',
+            why_it_matters: 'It changes which rows appear in the file.',
+            options: ['Include archived orders', 'Exclude archived orders'],
+            grounded_in: null,
+          },
+          {
+            business_text: 'How long should the onboarding banner stay visible?',
+            why_it_matters: 'It affects first-run UX.',
+            options: ['Until dismissed', 'For 10 seconds'],
+            grounded_in: null,
+          },
+        ],
+      }),
+      'utf8',
+    );
+    const { out } = await run(root, ['record', 'questions', join(root, 'questions.json')]);
+    expect(JSON.parse(out[0]!)).toMatchObject({ step: 'questions', asked: 1, auto_answered: 1 });
+
+    const persisted = JSON.parse(
+      readFileSync(join(root, pipelineArtifactPath(dir, 'questions')), 'utf8'),
+    );
+    // The ledger-answerable question never survives into the batch handed to the user.
+    expect(persisted.questions).toHaveLength(1);
+    expect(persisted.questions[0].business_text).toBe(
+      'How long should the onboarding banner stay visible?',
+    );
+    expect(persisted.auto_answered).toEqual([
+      {
+        question: 'Should exports include archived orders?',
+        answer: 'Include archived orders',
+        source: 'D-900',
+      },
+    ]);
+    expect(persisted.asked).toBe(1);
+  });
+
+  it('finish provenance lists the auto-answered refs and counts (AC-4/AC-5)', async () => {
+    const root = tempRoot();
+    seedResolvedDecision(root);
+    const dir = activeFeature(root);
+    await run(root, ['ground']);
+    await run(root, ['label', 'the export must exclude hidden columns and return in 5s']);
+    writeFileSync(
+      join(root, 'questions.json'),
+      JSON.stringify({
+        questions: [
+          {
+            business_text: 'Should exports include archived orders?',
+            why_it_matters: 'It changes which rows appear in the file.',
+            options: ['Include archived orders', 'Exclude archived orders'],
+            grounded_in: null,
+          },
+        ],
+      }),
+      'utf8',
+    );
+    await run(root, ['record', 'questions', join(root, 'questions.json')]);
+    writeFileSync(join(root, 'task.json'), JSON.stringify({ intent: 'export rows' }), 'utf8');
+    await run(root, ['record', 'task', join(root, 'task.json')]);
+    writeFileSync(
+      join(root, 'spec.md'),
+      [
+        '## Functional requirements',
+        'FR-1: excludes hidden columns.',
+        '## Acceptance criteria',
+        '- AC-1: Given an admin, when they export, then hidden columns are omitted (proof: automated).',
+      ].join('\n'),
+      'utf8',
+    );
+    await run(root, ['record', 'craft', join(root, 'spec.md')]);
+    await run(root, ['finish']);
+
+    const finish = JSON.parse(
+      readFileSync(join(root, pipelineArtifactPath(dir, 'finish')), 'utf8'),
+    );
+    expect(finish.provenance.answer_refs).toEqual(['D-900']);
+    expect(finish.provenance.questions).toMatchObject({ asked: 0, auto_answered: 1 });
   });
 
   it('redo archives a step and reports what was invalidated', async () => {

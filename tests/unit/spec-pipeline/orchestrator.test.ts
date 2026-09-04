@@ -11,6 +11,7 @@ import {
   pipelineArtifactPath,
   pipelineScratchDir,
   readPipelineLog,
+  readQuestionsArtifact,
   recordStep,
   redoStep,
   stepComplete,
@@ -33,7 +34,13 @@ const DIR = '512-x-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const GROUNDING = JSON.stringify({ references: [], terms: ['export'], sparse: false });
 const LABEL_OKAY = JSON.stringify({ label: 'okay', signals: [], question_budget: 3 });
 const LABEL_CLEAR = JSON.stringify({ label: 'clear', signals: [], question_budget: 0 });
-const QUESTIONS = JSON.stringify({ questions: [], auto_answered: 0 });
+const QUESTIONS = JSON.stringify({
+  questions: [],
+  auto_answered: [],
+  asked: 0,
+  answered: 0,
+  deferred: 0,
+});
 const TASK = JSON.stringify({ intent: 'do the thing', assumptions: [], unresolved: [] });
 const CRAFT = [
   '## Functional requirements',
@@ -75,6 +82,50 @@ describe('validateStepArtifact', () => {
 
   it('rejects a crafted spec that fails the shape check', () => {
     expect(validateStepArtifact('craft', '## Functional requirements\nFR-1: x.\n').ok).toBe(false);
+  });
+
+  it('accepts a raw questions batch carrying only questions[] (INV-3)', () => {
+    expect(validateStepArtifact('questions', JSON.stringify({ questions: [] })).ok).toBe(true);
+  });
+
+  it('rejects a widened questions.json with a non-array auto_answered or a non-number count', () => {
+    expect(
+      validateStepArtifact('questions', JSON.stringify({ questions: [], auto_answered: 0 })).ok,
+    ).toBe(false);
+    expect(
+      validateStepArtifact('questions', JSON.stringify({ questions: [], asked: 'many' })).ok,
+    ).toBe(false);
+  });
+});
+
+describe('readQuestionsArtifact', () => {
+  it('reads the enriched shape with auto-answered refs and counts (issue #517)', () => {
+    const root = tempRoot();
+    writeStepArtifact(
+      root,
+      DIR,
+      'questions',
+      JSON.stringify({
+        questions: [],
+        auto_answered: [{ question: 'q?', answer: 'yes', source: 'D-9' }],
+        asked: 2,
+        answered: 1,
+        deferred: 0,
+      }),
+    );
+    const read = readQuestionsArtifact(root, DIR);
+    expect(read).not.toBeNull();
+    expect(read!.auto_answered).toEqual([{ question: 'q?', answer: 'yes', source: 'D-9' }]);
+    expect(read!.asked).toBe(2);
+    expect(read!.answered).toBe(1);
+  });
+
+  it('returns null when the questions step never ran, and defaults missing fields', () => {
+    const root = tempRoot();
+    expect(readQuestionsArtifact(root, DIR)).toBeNull();
+    writeStepArtifact(root, DIR, 'questions', JSON.stringify({ questions: [] }));
+    const read = readQuestionsArtifact(root, DIR);
+    expect(read).toEqual({ questions: [], auto_answered: [], asked: 0, answered: 0, deferred: 0 });
   });
 });
 

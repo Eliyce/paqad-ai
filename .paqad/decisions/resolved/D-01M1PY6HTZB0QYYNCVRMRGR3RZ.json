@@ -1,0 +1,26 @@
+{
+  "id": "D-01M1PY6HTZB0QYYNCVRMRGR3RZ",
+  "category": "architecture-path",
+  "title": "S2 auto-answer: how to treat the rule seam (resolveByCompiledRule)",
+  "context": "Issue #517 scope point 1 lists the auto-answer chain as findReusableDecision -> resolveByCompiledRule -> findDecisionPrecedents. But resolveByCompiledRule (decision-resolver.ts:60) matches COMPILED RULES by trigger_patterns against a packet's touched FILES, then picks the option carrying per-option file/rule evidence. A PipelineQuestion is plain-language (business_text + outcome-string options + one grounded_in ref); it has no touched files and no per-option rule evidence, so the rule seam can only either no-op always (dead code, hurts the 95% branch gate) or pick options[0] arbitrarily (a wrong 'answer'). The two other seams fit a free-text question naturally: findReusableDecision (exact/fingerprint reuse via a synthesized intake.requirement packet) and findDecisionPrecedents (deterministic textual jaccard, high-confidence only). All three are zero-token lookups.",
+  "options": [
+    {
+      "option_key": "A",
+      "label": "Wire the two applicable seams only (findReusableDecision -> findDecisionPrecedents); document the rule seam as inapplicable to plain-language questions. Cleanest and honest, no dead code."
+    },
+    {
+      "option_key": "B",
+      "label": "Wire all three verbatim; thread grounded_in into the synthetic packet so resolveByCompiledRule CAN fire when a question carries file/rule evidence (rare), covered by a contrived test."
+    },
+    {
+      "option_key": "C",
+      "label": "Replace the rule seam with the exported resolveDecisionPacket full chain (rule->design-system->profile->rag), accepting only source==='rule' so semantic-rag never auto-answers."
+    }
+  ],
+  "recommendation": "A",
+  "created_at": "2026-09-04T19:26:46.623Z",
+  "status": "resolved",
+  "chosen": "A",
+  "rationale": "Rule seam is file-glob-triggered and cannot meaningfully choose among plain-language outcome options; wiring it is dead code or arbitrary picks. Chain the two seams that fit a free-text question: findReusableDecision (exact reuse) then findDecisionPrecedents (textual, high-confidence).",
+  "resolved_at": "2026-09-04T19:28:21.083Z"
+}
