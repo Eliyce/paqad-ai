@@ -202,4 +202,32 @@ describe('buildFeatureSpec', () => {
     expect(spec.invariants).toEqual([]);
     expect(spec.open_questions).toEqual([]);
   });
+
+  it('parses a ## Non-goals section into non_goals (#512, FR-6.4)', () => {
+    const spec = buildFeatureSpec({
+      spec_id: 'S-ng',
+      spec_file: '.paqad/_specs/S-ng.md',
+      spec_markdown: [
+        '## Functional Requirements',
+        'FR-1: does a thing.',
+        '## Acceptance Criteria',
+        'AC-1: Given a, when b, then c (proof: automated).',
+        '## Non-goals',
+        '- does not touch the freeze parser',
+        '- no UI changes',
+        '## Invariants',
+        '- INV-1: never break.',
+      ].join('\n'),
+    });
+    expect(spec.non_goals).toEqual(['does not touch the freeze parser', 'no UI changes']);
+  });
+
+  it('omits non_goals when the section is absent (tolerant reader)', () => {
+    const spec = buildFeatureSpec({
+      spec_id: 'S-none',
+      spec_file: '.paqad/_specs/S-none.md',
+      spec_markdown: '## Functional Requirements\nFR-1: x.\n',
+    });
+    expect(spec.non_goals).toBeUndefined();
+  });
 });
