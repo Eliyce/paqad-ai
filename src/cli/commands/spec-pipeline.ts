@@ -15,6 +15,7 @@ import { Command } from 'commander';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
+import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
 import { groundArea } from '@/spec-pipeline/grounding.js';
@@ -22,13 +23,19 @@ import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
   assertCanRunStep,
   nextStep,
+  readQuestionsArtifact,
   recordStep,
   redoStep,
   validateStepArtifact,
   writeStepArtifact,
 } from '@/spec-pipeline/orchestrator.js';
 import { specCodeCheckLive } from '@/spec-pipeline/spec-code-check.js';
-import type { GroundingArtifact, PipelineStep } from '@/spec-pipeline/types.js';
+import type {
+  GroundingArtifact,
+  PipelineQuestion,
+  PipelineStep,
+  QuestionsArtifact,
+} from '@/spec-pipeline/types.js';
 
 interface CommonOptions {
   projectRoot: string;
@@ -184,6 +191,37 @@ export function createSpecPipelineCommand(): Command {
         process.exitCode = 1;
         return;
       }
+      // S2 auto-answer (issue #517): run the agent's candidate questions through the ledger,
+      // then persist only the surviving batch plus the auto-answered list, so a ledger-answerable
+      // question never reaches the user (AC-1/AC-3). Every other step is written as-is.
+      if (pipelineStep === 'questions') {
+        const parsed = JSON.parse(content) as Partial<QuestionsArtifact>;
+        const candidates = (parsed.questions ?? []) as PipelineQuestion[];
+        const { answered, remaining } = autoAnswerQuestions(options.projectRoot, candidates);
+        const enriched: QuestionsArtifact = {
+          questions: remaining,
+          auto_answered: answered,
+          asked: remaining.length,
+          answered: typeof parsed.answered === 'number' ? parsed.answered : 0,
+          deferred: typeof parsed.deferred === 'number' ? parsed.deferred : 0,
+        };
+        writeStepArtifact(
+          options.projectRoot,
+          resolved.dirName,
+          pipelineStep,
+          JSON.stringify(enriched, null, 2),
+        );
+        recordStep(options.projectRoot, resolved.dirName, pipelineStep, 'complete');
+        console.log(
+          JSON.stringify({
+            step,
+            recorded: true,
+            asked: enriched.asked,
+            auto_answered: answered.length,
+          }),
+        );
+        return;
+      }
       writeStepArtifact(options.projectRoot, resolved.dirName, pipelineStep, content);
       recordStep(options.projectRoot, resolved.dirName, pipelineStep, 'complete');
       console.log(JSON.stringify({ step, recorded: true }));
@@ -206,11 +244,16 @@ export function createSpecPipelineCommand(): Command {
       const config = readPipelineConfig(options.projectRoot);
       const a5Live = specCodeCheckLive(options.projectRoot);
       const decision = decideFinish(config, a5Live);
-      const provenance = buildProvenance(config, a5Live, [], {
-        asked: 0,
-        answered: 0,
-        auto_answered: 0,
-        deferred: 0,
+      // Provenance carries the answer references and FR-7.6 counts from the questions step
+      // (issue #517). The refs are the ledger sources of the auto-answered questions — honest
+      // human-input-by-reference, never a fabricated sign-off.
+      const questions = readQuestionsArtifact(options.projectRoot, resolved.dirName);
+      const answerRefs = questions?.auto_answered.map((entry) => entry.source) ?? [];
+      const provenance = buildProvenance(config, a5Live, answerRefs, {
+        asked: questions?.asked ?? 0,
+        answered: questions?.answered ?? 0,
+        auto_answered: questions?.auto_answered.length ?? 0,
+        deferred: questions?.deferred ?? 0,
       });
       writeStepArtifact(
         options.projectRoot,
