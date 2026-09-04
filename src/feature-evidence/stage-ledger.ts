@@ -28,6 +28,7 @@ import {
 } from '@/stage-evidence/types.js';
 
 import { reconcileSessionControl } from './adoption.js';
+import { seedFeatureDelivery } from './delivery.js';
 import { seedFeatureRecord, updateFeatureRecord } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
@@ -207,6 +208,10 @@ export function openFeatureChange(
   });
   const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
   if (!hasOpen) {
+    // The branch this change is being built on (issue #404). Read once, here, so a rotated
+    // session can recognise its own in-flight bundle from row 1 — a session id rotates, a
+    // branch does not. `null` off a branch (detached HEAD, non-git).
+    const gitState = readGitState(projectRoot);
     appendFeatureStageRow(
       projectRoot,
       sessionId,
@@ -215,13 +220,23 @@ export function openFeatureChange(
         kind: 'open',
         adapter: input.adapter,
         lane: input.lane ?? null,
-        // The branch this change is being built on (issue #404). Read once, here, so a
-        // rotated session can recognise its own in-flight bundle from row 1 — a session
-        // id rotates, a branch does not. `null` off a branch (detached HEAD, non-git).
-        branch: readGitState(projectRoot).branch ?? null,
+        branch: gitState.branch ?? null,
       },
       input.now,
     );
+    // Issue #511 (RC-2) — seed delivery.json with the branch + base at open, so the FIRST
+    // commit on this branch links to this bundle (the branch-match had nothing to match on
+    // before). Best-effort — a git/write fault never breaks the open path.
+    try {
+      seedFeatureDelivery(projectRoot, dirName, {
+        branch: gitState.branch ?? null,
+        baseBranch: gitState.base_branch ?? null,
+        capturedAt: (input.now ?? (() => new Date()))().toISOString(),
+      });
+      /* v8 ignore next 3 -- best-effort: a delivery seed fault must not break feature open. */
+    } catch {
+      // Nothing to do — feature.json + the open row are already written.
+    }
   }
   return dirName;
 }

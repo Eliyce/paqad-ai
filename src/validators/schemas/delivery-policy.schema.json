@@ -56,7 +56,8 @@
           "properties": {
             "maintained": { "$ref": "#/$defs/maintained" },
             "template": { "type": "string" },
-            "sign_off": { "type": "boolean" }
+            "sign_off": { "type": "boolean" },
+            "ask_when_unspecified": { "type": "boolean" }
           }
         },
         "pr": {

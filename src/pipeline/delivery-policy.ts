@@ -63,6 +63,7 @@ export function defaultDeliveryProcess(): ResolvedDeliveryProcess {
       maintained: 'auto',
       template: '{type}({scope}): {summary}\n\nRefs: {ticket}',
       sign_off: false,
+      ask_when_unspecified: true,
     },
     pr: {
       maintained: 'auto',
@@ -257,6 +258,7 @@ process:
     maintained: auto
     template: "{type}({scope}): {summary}\\n\\nRefs: {ticket}"
     sign_off: false
+    ask_when_unspecified: true   # ask + record commit_decision when unspecified (issue #511)
 
   pr:
     maintained: auto

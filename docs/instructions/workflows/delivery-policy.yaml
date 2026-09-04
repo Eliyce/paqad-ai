@@ -49,6 +49,11 @@ process:
     # Issue-less changes (docs/chore) render empty parens — drop them by hand: `docs: …`.
     template: "{type}({ticket}): {summary}"
     sign_off: false             # no DCO sign-off required
+    # Issue #511 (AC-4): when the developer did NOT say whether to commit, the agent asks
+    # once at end-of-change ("Commit this change now?") through the host decision tray and
+    # records the answer (or its absence) in the bundle's delivery.json.commit_decision.
+    # true = ask when unspecified; false = never ask (record `ignored`).
+    ask_when_unspecified: true
 
   pr:
     maintained: manual
