@@ -92,9 +92,7 @@ export function createDeliveryLinkCommand(): Command {
       // has a bundle but the active pointer is gone (the bundle closed before the commit),
       // stamp WHY the link missed onto that bundle's delivery.json instead of only stdout.
       const branch = git(options.projectRoot, ['branch', '--show-current']);
-      const fallback = branch
-        ? resolveDeliveryFeatureByBranch(options.projectRoot, branch)
-        : null;
+      const fallback = branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch) : null;
       if (fallback) {
         recordLinkAttempt(options.projectRoot, fallback, `commit ${sha} not linked`, at);
       }

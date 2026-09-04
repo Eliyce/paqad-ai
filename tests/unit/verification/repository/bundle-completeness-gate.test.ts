@@ -62,7 +62,9 @@ const base = {
 describe('bundleCompletenessGate scope', () => {
   it('returns null when the mode is off', () => {
     const root = tempRoot();
-    expect(bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'off' })).toBeNull();
+    expect(
+      bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'off' }),
+    ).toBeNull();
   });
 
   it('skips a non-feature-development turn', () => {
@@ -79,7 +81,12 @@ describe('bundleCompletenessGate scope', () => {
 
   it('skips a turn with no active bundle', () => {
     const root = tempRoot();
-    const gate = bundleCompletenessGate({ ...base, projectRoot: root, dirName: null, mode: 'strict' });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: null,
+      mode: 'strict',
+    });
     expect(gate!.status).toBe('skipped');
   });
 
@@ -102,7 +109,12 @@ describe('bundleCompletenessGate verdict', () => {
   it('passes when every required file is present and valid', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    const gate = bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    });
     expect(gate!.status).toBe('pass');
   });
 
@@ -110,7 +122,12 @@ describe('bundleCompletenessGate verdict', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
     rmSync(join(root, featureFilePath(DIR, 'review')));
-    const gate = bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('review.json');
     expect(gate!.detail).toContain('review record');
@@ -129,7 +146,12 @@ describe('bundleCompletenessGate verdict', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
     write(root, featureFilePath(DIR, 'plan'), '   '); // present but not valid json
-    const gate = bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('plan.json');
   });
@@ -137,7 +159,12 @@ describe('bundleCompletenessGate verdict', () => {
   it('FAILS when feature.json has the placeholder title and no ticket (AC-2)', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, UNTITLED); // seedFeatureRecord on change-<ULID> → title `change`, issue null
-    const gate = bundleCompletenessGate({ ...base, projectRoot: root, dirName: UNTITLED, mode: 'strict' });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: UNTITLED,
+      mode: 'strict',
+    });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('no title and no ticket');
   });
@@ -145,7 +172,12 @@ describe('bundleCompletenessGate verdict', () => {
   it('reports flag-off files as skipped, never failed (AC-7)', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    const gate = bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict' });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+    });
     expect(gate!.status).toBe('pass');
     expect(gate!.detail).toContain('Skipped (flag off)');
     expect(gate!.detail).toContain('report.html');
@@ -222,8 +254,16 @@ describe('rule-run + duplication backfill (recovery, reported not passed)', () =
   it('backfills rule-run from the report + drift caches', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    write(root, PATHS.RULE_SCRIPTS_REPORT, JSON.stringify({ counts: { deterministic: 1 }, blocking: false }));
-    write(root, PATHS.RULE_SCRIPTS_DRIFT, JSON.stringify({ blocked: false, counts: { 'RS-X': 1 } }));
+    write(
+      root,
+      PATHS.RULE_SCRIPTS_REPORT,
+      JSON.stringify({ counts: { deterministic: 1 }, blocking: false }),
+    );
+    write(
+      root,
+      PATHS.RULE_SCRIPTS_DRIFT,
+      JSON.stringify({ blocked: false, counts: { 'RS-X': 1 } }),
+    );
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
@@ -290,6 +330,60 @@ describe('rule-run + duplication backfill (recovery, reported not passed)', () =
     });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('duplication.jsonl');
+  });
+});
+
+describe('every flag on (no flag-off skip note)', () => {
+  const ALL_ON: BundleCompletenessConfig = {
+    ruleComplianceOn: true,
+    metricsEnabled: true,
+    duplicationOn: true,
+    featureReport: true,
+    ragEnabled: true,
+    enterprise: true,
+    evidenceLedger: true,
+    aiBom: true,
+  };
+
+  it('passes with every required file present and no "Skipped (flag off)" note', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    // The flag-gated files.
+    for (const key of ['ruleRun', 'changeMetrics', 'duplication', 'rag', 'evidence'] as const) {
+      write(root, featureFilePath(DIR, key), '{"row":1}\n');
+    }
+    for (const key of ['receipt', 'aiBom'] as const) {
+      write(root, featureFilePath(DIR, key), '{}');
+    }
+    write(root, featureReportPath(DIR), '<html>report</html>');
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ALL_ON,
+    });
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).not.toContain('Skipped (flag off)');
+  });
+
+  it('FAILS when an enterprise-required file (receipt.json) is missing', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    for (const key of ['ruleRun', 'changeMetrics', 'duplication', 'rag', 'evidence'] as const) {
+      write(root, featureFilePath(DIR, key), '{"row":1}\n');
+    }
+    write(root, featureFilePath(DIR, 'aiBom'), '{}');
+    write(root, featureReportPath(DIR), '<html>report</html>');
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ALL_ON,
+    });
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('receipt.json');
   });
 });
 

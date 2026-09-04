@@ -70,7 +70,8 @@ const KNOB_CONSUMERS: Record<string, string> = {
   rule_compliance: 'rule-scripts capability gate',
   analytics_strictness: 'analytics AC-track gate',
   bundle_completeness: 'bundle-completeness gate (end-of-change)',
-  evidence_existence_gate: 'evidence-existence gate (deprecated; runs only when bundle_completeness=off)',
+  evidence_existence_gate:
+    'evidence-existence gate (deprecated; runs only when bundle_completeness=off)',
 };
 
 interface EffectiveKnob {

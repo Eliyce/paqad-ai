@@ -96,9 +96,8 @@ export function seedFeatureRecord(
   try {
     writeFeatureRecord(projectRoot, dirName, record);
     return record;
-    /* v8 ignore next 3 -- best-effort: a filesystem write fault must not break the recorder;
-       not reproduced in tests. */
   } catch {
+    // Best-effort: a filesystem write fault must not break the recorder hot path.
     return null;
   }
 }
@@ -174,8 +173,8 @@ export function updateFeatureRecord(
   try {
     writeFeatureRecord(projectRoot, dirName, next);
     return next;
-    /* v8 ignore next 3 -- best-effort: a write fault degrades to no update, never a throw. */
   } catch {
+    // Best-effort: a write fault degrades to no update, never a throw into the recorder.
     return null;
   }
 }

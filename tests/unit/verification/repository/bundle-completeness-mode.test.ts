@@ -43,7 +43,9 @@ describe('resolveBundleCompletenessMode', () => {
     const root = tempRoot();
     write(root, '.paqad/configs/.config.policy', 'bundle_completeness=warn\n');
     // env raising to strict wins
-    expect(resolveBundleCompletenessMode(root, { PAQAD_BUNDLE_COMPLETENESS: 'strict' })).toBe('strict');
+    expect(resolveBundleCompletenessMode(root, { PAQAD_BUNDLE_COMPLETENESS: 'strict' })).toBe(
+      'strict',
+    );
     // env lowering to off is clamped away — the team floor holds
     expect(resolveBundleCompletenessMode(root, { PAQAD_BUNDLE_COMPLETENESS: 'off' })).toBe('warn');
   });

@@ -105,10 +105,7 @@ function readBundleFile(
 }
 
 /** Attempt to mint a recoverable file from the engine caches. Returns whether it minted. */
-function backfill(
-  entry: BundleManifestEntry,
-  input: BundleCompletenessGateInput,
-): boolean {
+function backfill(entry: BundleManifestEntry, input: BundleCompletenessGateInput): boolean {
   const { projectRoot, sessionId } = input;
   if (entry.key === 'ruleRun') {
     let minted = false;
@@ -229,7 +226,8 @@ function assertRequired(
       if (record && featureRecordIsUntitled(record)) {
         state.missing.push({
           file: `${entry.file} (no title and no ticket)`,
-          writer: 'paqad-ai plan compile (the plan title names the change), or stage start planning --title',
+          writer:
+            'paqad-ai plan compile (the plan title names the change), or stage start planning --title',
         });
         return;
       }
@@ -273,8 +271,7 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
   // surfaces (warn). Names each missing file and the verb that produces it.
   if (state.missing.length > 0) {
     const named = state.missing.map((m) => `${m.file} (run: ${m.writer})`).join('; ');
-    const detail =
-      `The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${skipNote}`;
+    const detail = `The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${skipNote}`;
     const remediation = `Produce the missing bundle file(s): ${named}.`;
     if (mode === 'strict') {
       return { name: GATE_NAME, status: 'fail', detail, remediation, failures: [] };

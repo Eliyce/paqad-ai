@@ -6,10 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { writeFeaturePlan, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
-import {
-  closeActiveFeature,
-  openFeatureChange,
-} from '@/feature-evidence/stage-ledger.js';
+import { closeActiveFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
 const roots: string[] = [];
@@ -69,7 +66,11 @@ describe('feature.json wiring (issue #511)', () => {
     const compiled = writeFeaturePlan(root, 'ses_1', {
       summary: 'do a thing',
       title: 'Make the map readable',
-      reuse: { consulted: [{ source: 'grep', query: 'x', hits: 0 }], reusing: [], new_constructs: [] },
+      reuse: {
+        consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+        reusing: [],
+        new_constructs: [],
+      },
       now: clock,
     });
     const record = readFeatureRecord(root, compiled.dirName);

@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -61,7 +61,9 @@ describe('seedFeatureRecord', () => {
 
   it('returns null for a dir name that does not parse', () => {
     const root = tempRoot();
-    expect(seedFeatureRecord(root, 'not a feature dir', { adapter: 'a', sessionId: 's' })).toBeNull();
+    expect(
+      seedFeatureRecord(root, 'not a feature dir', { adapter: 'a', sessionId: 's' }),
+    ).toBeNull();
   });
 });
 
@@ -77,12 +79,14 @@ describe('updateFeatureRecord', () => {
     const updated = updateFeatureRecord(
       root,
       UNTITLED_DIR,
-      { title: 'Real Title', status: 'done', spec_id: 'spec-511' },
+      { title: 'Real Title', status: 'done', spec_id: 'spec-511', lane: 'full', issue: 'PQD-9' },
       later,
     );
     expect(updated!.title).toBe('Real Title');
     expect(updated!.status).toBe('done');
     expect(updated!.spec_id).toBe('spec-511');
+    expect(updated!.lane).toBe('full');
+    expect(updated!.issue).toBe('PQD-9');
     expect(updated!.content_hash).not.toBe(seeded.content_hash);
     expect(updated!.created_at).toBe(seeded.created_at); // created_at is stable
     expect(updated!.updated_at).toBe('2026-09-05T00:00:00.000Z');
@@ -130,16 +134,40 @@ describe('readFeatureRecord', () => {
 describe('writeFeatureRecord', () => {
   it('throws on a schema-invalid record', () => {
     const root = tempRoot();
-    const bad = { ...buildFeatureRecord({
-      issue: null,
-      title: 'x',
-      slug: 'x',
-      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
-      session_first_seen: 's',
-      adapter: 'a',
-      now: clock,
-    }), status: 'bogus' as never };
+    const bad = {
+      ...buildFeatureRecord({
+        issue: null,
+        title: 'x',
+        slug: 'x',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+        session_first_seen: 's',
+        adapter: 'a',
+        now: clock,
+      }),
+      status: 'bogus' as never,
+    };
     expect(() => writeFeatureRecord(root, DIR, bad)).toThrow(/Invalid feature\.json/);
+  });
+});
+
+describe('best-effort write failures return null', () => {
+  /** Block writes into the bundle by placing a FILE where the bundle DIR must be. */
+  function blockBundleDir(root: string): void {
+    const bundleDir = dirname(join(root, featureFilePath(DIR, 'feature')));
+    mkdirSync(dirname(bundleDir), { recursive: true });
+    writeFileSync(bundleDir, 'x'); // now mkdirSync(bundleDir) throws → the writer throws
+  }
+
+  it('seedFeatureRecord returns null when the bundle dir cannot be written', () => {
+    const root = tempRoot();
+    blockBundleDir(root);
+    expect(seedFeatureRecord(root, DIR, { adapter: 'a', sessionId: 's' })).toBeNull();
+  });
+
+  it('updateFeatureRecord returns null when the bundle dir cannot be written', () => {
+    const root = tempRoot();
+    blockBundleDir(root);
+    expect(updateFeatureRecord(root, DIR, { status: 'done' })).toBeNull();
   });
 });
 

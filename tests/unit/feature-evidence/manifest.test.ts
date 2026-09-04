@@ -60,7 +60,14 @@ describe('bundle manifest', () => {
       (entry) => entry.key,
     );
     expect(alwaysKeys).toEqual(
-      expect.arrayContaining(['feature', 'plan', 'specification', 'review', 'stageEvidence', 'delivery']),
+      expect.arrayContaining([
+        'feature',
+        'plan',
+        'specification',
+        'review',
+        'stageEvidence',
+        'delivery',
+      ]),
     );
     for (const entry of BUNDLE_MANIFEST) {
       if (entry.required === 'always') {
@@ -72,14 +79,27 @@ describe('bundle manifest', () => {
   it('requires the flag-gated files only when their flag is on', () => {
     const onKeys = requiredBundleFiles(ALL_ON).map((entry) => entry.key);
     const offKeys = requiredBundleFiles(ALL_OFF).map((entry) => entry.key);
-    for (const key of ['ruleRun', 'changeMetrics', 'duplication', 'report', 'rag', 'receipt', 'evidence', 'aiBom']) {
+    for (const key of [
+      'ruleRun',
+      'changeMetrics',
+      'duplication',
+      'report',
+      'rag',
+      'receipt',
+      'evidence',
+      'aiBom',
+    ]) {
       expect(onKeys).toContain(key);
       expect(offKeys).not.toContain(key);
     }
   });
 
   it('gates receipt/evidence on evidence_ledger and ai-bom on ai_bom (both need enterprise)', () => {
-    const ledgerOnly: BundleCompletenessConfig = { ...ALL_OFF, enterprise: true, evidenceLedger: true };
+    const ledgerOnly: BundleCompletenessConfig = {
+      ...ALL_OFF,
+      enterprise: true,
+      evidenceLedger: true,
+    };
     const keys = requiredBundleFiles(ledgerOnly).map((entry) => entry.key);
     expect(keys).toContain('receipt');
     expect(keys).toContain('evidence');

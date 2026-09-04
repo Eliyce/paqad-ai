@@ -605,7 +605,9 @@ export async function runRepositoryVerification(
   // the first write above. Best-effort — the verdict below reads the in-memory evidence
   // regardless, so a re-write failure never changes what the developer sees.
   try {
-    evidencePath = await writeVerificationEvidence(evidence, { project_root: context.project_root });
+    evidencePath = await writeVerificationEvidence(evidence, {
+      project_root: context.project_root,
+    });
     /* v8 ignore next 4 -- best-effort: a re-write fault leaves the pre-gate artifact on disk;
        the in-memory verdict is unaffected and this path is not reproduced in tests. */
   } catch (error) {
