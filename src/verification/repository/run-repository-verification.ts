@@ -34,6 +34,7 @@ import {
   appendFeatureEvidenceRows,
 } from '@/feature-evidence/bundle-ledgers.js';
 import { reuseCounts } from '@/feature-evidence/reuse.js';
+import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
@@ -61,6 +62,8 @@ import { VerificationGateRunner } from '../gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '../evidence.js';
 import { evidenceExistenceGate } from './evidence-existence-gate.js';
 import { resolveEvidenceExistenceMode } from './evidence-existence-mode.js';
+import { bundleCompletenessGate } from './bundle-completeness-gate.js';
+import { resolveBundleCompletenessMode } from './bundle-completeness-mode.js';
 
 // Injected at build time by tsup/vitest (see tsup.config.ts); the unreplaced
 // placeholder is tolerated so a dev/test run still produces a receipt.
@@ -405,40 +408,6 @@ export async function runRepositoryVerification(
     }
   }
 
-  // Issue #468 Phase C — the evidence-existence gate. Warn-only: it verifies the active
-  // feature bundle carries its rule-run / duplication / change-metrics / rag files,
-  // backfilling any recoverable gap from the caches (marked `backfilled`) and reporting an
-  // unrecoverable RAG gap as Inconclusive. It NEVER fails/blocks (no strict tier). Placed
-  // with the other appended gates so it rides both the evidence artifact and the verdict;
-  // best-effort by contract (the gate swallows its own errors).
-  const existenceMode = resolveEvidenceExistenceMode(context.project_root);
-  if (existenceMode !== 'off') {
-    const existenceSession = resolveSessionId(context.project_root, options.hostSessionId ?? null);
-    const existenceActive = currentFeature(context.project_root, existenceSession);
-    const config = resolveFrameworkConfig(context.project_root);
-    const existenceGate = evidenceExistenceGate({
-      projectRoot: context.project_root,
-      sessionId: existenceSession,
-      // Issue #390 — a route we can prove is non-feature-development is treated as no active
-      // bundle, so a non-feature turn skips the gate even with a pointer active.
-      dirName:
-        existenceActive &&
-        !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
-          ? existenceActive
-          : null,
-      mode: existenceMode,
-      isFeatureDev,
-      ragEnabled: config.intelligence.rag_enabled,
-      ruleComplianceOn: resolveRuleComplianceMode(context.project_root) !== 'off',
-      duplicationOn: resolveDuplicationMode(context.project_root) !== 'off',
-      metricsOn: config.features.metrics_enabled,
-      changeMetrics,
-    });
-    if (existenceGate) {
-      evidence.gates.push(existenceGate);
-    }
-  }
-
   let evidencePath: string | null = null;
   try {
     evidencePath = await writeVerificationEvidence(evidence, {
@@ -552,6 +521,97 @@ export async function runRepositoryVerification(
     completedAt,
     verifierVersion(),
   );
+
+  // Issue #511 — the fail-closed bundle-completeness gate. Placed LAST, after every writer
+  // (the receipt/AI-BOM projection and the report render above), so report.html / receipt.json
+  // exist on disk when it checks them. It reads the declarative bundle manifest and, under
+  // `strict` (default), FAILS the change when a required file is missing/empty/invalid —
+  // naming the file and its writer — blocking via the same Stop-hook `overall_status:'fail'`
+  // path the stage-evidence gate uses. `warn` surfaces it as Inconclusive without blocking;
+  // `off` falls back to the deprecated (warn-only) evidence-existence gate. Same scope guard
+  // as before (feature-dev + active bundle + not affirmatively non-feature), so a non-feature
+  // turn skips it entirely. Best-effort: the gate swallows its own read/backfill errors.
+  const completenessSession = resolveSessionId(context.project_root, options.hostSessionId ?? null);
+  const completenessActive = currentFeature(context.project_root, completenessSession);
+  const completenessDir =
+    completenessActive &&
+    !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
+      ? completenessActive
+      : null;
+  const completenessMode = resolveBundleCompletenessMode(context.project_root);
+  const frameworkConfig = resolveFrameworkConfig(context.project_root);
+  if (completenessMode !== 'off') {
+    // Issue #511 (RC-2.2) — reconcile delivery.json from local git before the gate, so a
+    // mid-turn commit is linked even where no post-commit hook fired (advisory hosts, CI
+    // clones). Best-effort — a git fault never changes the verdict.
+    if (completenessDir) {
+      try {
+        reconcileDeliveryFromGit(context.project_root, completenessDir, completedAt);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        engineLog('warn', `paqad: delivery reconcile skipped (${message})`);
+      }
+    }
+    const completenessGate = bundleCompletenessGate({
+      projectRoot: context.project_root,
+      sessionId: completenessSession,
+      dirName: completenessDir,
+      mode: completenessMode,
+      origin,
+      isFeatureDev,
+      config: {
+        ruleComplianceOn: resolveRuleComplianceMode(context.project_root) !== 'off',
+        metricsEnabled: frameworkConfig.features.metrics_enabled,
+        duplicationOn: resolveDuplicationMode(context.project_root) !== 'off',
+        featureReport: frameworkConfig.features.feature_report,
+        ragEnabled: frameworkConfig.intelligence.rag_enabled,
+        enterprise: policy.enabled,
+        evidenceLedger: policy.evidence_ledger,
+        aiBom: policy.ai_bom,
+      },
+      changeMetrics,
+    });
+    if (completenessGate) {
+      evidence.gates.push(completenessGate);
+      if (completenessGate.status === 'fail') {
+        evidence.overall_status = 'fail';
+        evidence.first_failure_gate ??= completenessGate.name;
+      }
+    }
+  } else {
+    // Deprecated fallback (issue #468 Phase C): the warn-only evidence-existence gate. Only
+    // runs when the completeness gate is explicitly disabled, so a team can stay on the old
+    // non-blocking behaviour by setting bundle_completeness=off.
+    const existenceMode = resolveEvidenceExistenceMode(context.project_root);
+    if (existenceMode !== 'off') {
+      const existenceGate = evidenceExistenceGate({
+        projectRoot: context.project_root,
+        sessionId: completenessSession,
+        dirName: completenessDir,
+        mode: existenceMode,
+        isFeatureDev,
+        ragEnabled: frameworkConfig.intelligence.rag_enabled,
+        ruleComplianceOn: resolveRuleComplianceMode(context.project_root) !== 'off',
+        duplicationOn: resolveDuplicationMode(context.project_root) !== 'off',
+        metricsOn: frameworkConfig.features.metrics_enabled,
+        changeMetrics,
+      });
+      if (existenceGate) {
+        evidence.gates.push(existenceGate);
+      }
+    }
+  }
+  // Re-write the evidence artifact so the file reflects the completeness gate appended after
+  // the first write above. Best-effort — the verdict below reads the in-memory evidence
+  // regardless, so a re-write failure never changes what the developer sees.
+  try {
+    evidencePath = await writeVerificationEvidence(evidence, { project_root: context.project_root });
+    /* v8 ignore next 4 -- best-effort: a re-write fault leaves the pre-gate artifact on disk;
+       the in-memory verdict is unaffected and this path is not reproduced in tests. */
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: could not re-write verification-evidence.json (${message})`);
+  }
 
   const verdict = buildRepositoryVerificationVerdict({
     origin: context.verification_origin ?? options.origin,
