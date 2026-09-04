@@ -12,6 +12,8 @@ import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
+import { createSpecPipelineCommand } from './spec-pipeline.js';
+
 /**
  * `paqad-ai spec freeze <spec-file>` — the shell escape hatch that activates the
  * built-but-dead spec sign-off engine (issue #317). The specification stage promises
@@ -212,6 +214,8 @@ export function createSpecCommand(): Command {
         );
       },
     );
+
+  command.addCommand(createSpecPipelineCommand());
 
   return command;
 }
