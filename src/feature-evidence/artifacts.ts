@@ -18,7 +18,8 @@ import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
 
 import { updateFeatureRecord } from './feature-record.js';
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
-import { parseFeatureDirName, featureFilePath } from './paths.js';
+import { parseFeatureDirName, featureFilePath, featureSpecMarkdownPath } from './paths.js';
+import { renderSpecMarkdown } from './spec-markdown.js';
 import { backfillFeatureSlug } from './rename.js';
 import {
   frameworkClaimKey,
@@ -79,6 +80,15 @@ function atomicWriteJson(absPath: string, value: unknown): void {
   mkdirSync(dirname(absPath), { recursive: true });
   const tmp = `${absPath}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  renameSync(tmp, absPath);
+}
+
+/** Atomic text write (temp + rename), the text sibling of {@link atomicWriteJson}. Used for
+ *  the derived `specification.md` projection (issue #512, Part A). */
+function atomicWriteText(absPath: string, text: string): void {
+  mkdirSync(dirname(absPath), { recursive: true });
+  const tmp = `${absPath}.tmp`;
+  writeFileSync(tmp, text, 'utf8');
   renameSync(tmp, absPath);
 }
 
@@ -275,6 +285,12 @@ export function writeFeatureSpecification(
   }
   const rel = featureFilePath(dirName, 'specification');
   atomicWriteJson(join(projectRoot, rel), spec);
+  // Issue #512 (Part A) — write the derived, read-only `specification.md` projection beside
+  // the canonical JSON, so the bundle always carries a human-readable spec. It is rendered
+  // fresh from the frozen spec on every freeze (never hand-maintained), a non-member sibling
+  // like `report.html` (#371), so it can never drift and the completeness gate can pair them.
+  const mdRel = featureSpecMarkdownPath(dirName);
+  atomicWriteText(join(projectRoot, mdRel), renderSpecMarkdown(spec));
   // Issue #511 (RC-1) — record which frozen spec this feature carries on feature.json.
   updateFeatureRecord(projectRoot, dirName, { spec_id: spec.spec_id });
   return { dirName, path: rel, record: spec };

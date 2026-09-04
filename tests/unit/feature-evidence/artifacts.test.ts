@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -18,6 +26,8 @@ import {
 } from '@/feature-evidence/artifacts.js';
 import type { PlanReuse } from '@/feature-evidence/reuse.js';
 import { validatePlanRecord, validateReviewRecord } from '@/feature-evidence/schema.js';
+import { featureSpecMarkdownPath } from '@/feature-evidence/paths.js';
+import { renderSpecMarkdown } from '@/feature-evidence/spec-markdown.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
@@ -118,6 +128,16 @@ describe('writeFeatureSpecification', () => {
     const result = writeFeatureSpecification(root, 'ses_1', frozenSpec());
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/specification.json`);
     expect(readFeatureSpecification(root, dir)?.spec_id).toBe('S-339');
+  });
+
+  it('writes the derived specification.md sibling beside specification.json (#512)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const spec = frozenSpec();
+    writeFeatureSpecification(root, 'ses_1', spec);
+    const mdPath = join(root, featureSpecMarkdownPath(dir));
+    expect(existsSync(mdPath)).toBe(true);
+    expect(readFileSync(mdPath, 'utf8')).toBe(renderSpecMarkdown(spec));
   });
 
   it('refuses an unfrozen spec', () => {

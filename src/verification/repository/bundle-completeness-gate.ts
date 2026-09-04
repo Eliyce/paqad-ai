@@ -39,6 +39,7 @@ import {
   chatRagPath,
   featureFilePath,
   featureReportPath,
+  featureSpecMarkdownPath,
   type FeatureBundleFile,
 } from '@/feature-evidence/paths.js';
 import { readDuplicationReport } from '@/duplication/report.js';
@@ -228,6 +229,21 @@ function assertRequired(
           file: `${entry.file} (no title and no ticket)`,
           writer:
             'paqad-ai plan compile (the plan title names the change), or stage start planning --title',
+        });
+        return;
+      }
+    }
+    // Paired-projection invariant (issue #512, Part A): a bundle with `specification.json`
+    // MUST also carry its derived `specification.md` sibling beside it. `specification.md`
+    // is deliberately NOT a manifest member (it mirrors `report.html`), so the pairing is a
+    // CONDITIONAL check keyed on the JSON's presence, not a standalone required file — a
+    // change that never froze a spec (neither file present) is not failed by it.
+    if (entry.key === 'specification') {
+      const md = readFileSafe(input.projectRoot, featureSpecMarkdownPath(dirName));
+      if (md === null || md.trim().length === 0) {
+        state.missing.push({
+          file: 'specification.md (its human-readable projection is missing)',
+          writer: 'paqad-ai spec freeze (regenerates the projection beside specification.json)',
         });
         return;
       }
