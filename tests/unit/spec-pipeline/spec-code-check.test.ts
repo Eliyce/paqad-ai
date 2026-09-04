@@ -28,9 +28,20 @@ function spec(): FeatureSpec {
     spec_hash: 'a'.repeat(64),
     behaviour: ['FR-1: x'],
     acceptance_criteria: [
-      { criterion_id: 'AC-1', given: 'a', when: 'b', then: 'c', proof_type: 'automated', status: 'uncovered', source: 'planned', linked_requirement_ids: [] },
+      {
+        criterion_id: 'AC-1',
+        given: 'a',
+        when: 'b',
+        then: 'c',
+        proof_type: 'automated',
+        status: 'uncovered',
+        source: 'planned',
+        linked_requirement_ids: [],
+      },
     ],
-    invariants: [{ invariant_id: 'INV-1', statement: 'never', source: 'authored', confirmed: true }],
+    invariants: [
+      { invariant_id: 'INV-1', statement: 'never', source: 'authored', confirmed: true },
+    ],
     open_questions: [],
     frozen: { frozen_at: '2026-09-04T00:00:00Z', spec_hash: 'a'.repeat(64), signed_off_by: 'h' },
   };
@@ -78,7 +89,11 @@ describe('runSpecCodeCheck', () => {
   });
 
   it('needs-attention when a criterion is untraced', () => {
-    const r = runSpecCodeCheck(spec(), { entries: [{ id: 'INV-1', kind: 'INV', source: 'x' }] }, true);
+    const r = runSpecCodeCheck(
+      spec(),
+      { entries: [{ id: 'INV-1', kind: 'INV', source: 'x' }] },
+      true,
+    );
     expect(r.verdict).toBe('needs-attention');
     expect(r.findings.map((f) => f.requirement_id)).toContain('AC-1');
   });

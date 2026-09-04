@@ -12,7 +12,9 @@ describe('checkSpecShape', () => {
 
   it('rejects a dotted AC id, naming the problem (EC-11 sibling of C4)', () => {
     const r = checkSpecShape(
-      ['## Acceptance criteria', '- AC-1.1: Given a, when b, then c (proof: automated).'].join('\n'),
+      ['## Acceptance criteria', '- AC-1.1: Given a, when b, then c (proof: automated).'].join(
+        '\n',
+      ),
     );
     expect(r.ok).toBe(false);
     expect(r.problems.some((p) => /dotted/.test(p))).toBe(true);
@@ -20,7 +22,12 @@ describe('checkSpecShape', () => {
 
   it('rejects an unrecognized heading naming the recognized set (EC-11)', () => {
     const r = checkSpecShape(
-      ['## Wibble', 'FR-1: x.', '## Acceptance criteria', '- AC-1: Given a, when b, then c (proof: automated).'].join('\n'),
+      [
+        '## Wibble',
+        'FR-1: x.',
+        '## Acceptance criteria',
+        '- AC-1: Given a, when b, then c (proof: automated).',
+      ].join('\n'),
     );
     expect(r.ok).toBe(false);
     expect(r.problems.some((p) => /unrecognized heading "Wibble"/.test(p))).toBe(true);

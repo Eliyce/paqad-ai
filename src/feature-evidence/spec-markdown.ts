@@ -31,7 +31,9 @@ function renderCriterionStatement(given: string, when: string, then: string): st
  */
 export function renderSpecMarkdown(spec: FeatureSpec): string {
   if (spec.frozen === null) {
-    throw new Error('renderSpecMarkdown: refusing to render an unfrozen spec (spec.frozen is null)');
+    throw new Error(
+      'renderSpecMarkdown: refusing to render an unfrozen spec (spec.frozen is null)',
+    );
   }
 
   const lines: string[] = [];
@@ -66,11 +68,7 @@ export function renderSpecMarkdown(spec: FeatureSpec): string {
     lines.push('_None recorded._');
   } else {
     for (const criterion of spec.acceptance_criteria) {
-      const statement = renderCriterionStatement(
-        criterion.given,
-        criterion.when,
-        criterion.then,
-      );
+      const statement = renderCriterionStatement(criterion.given, criterion.when, criterion.then);
       lines.push(`- **${criterion.criterion_id}**: ${statement} (proof: ${criterion.proof_type})`);
     }
   }

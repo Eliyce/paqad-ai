@@ -36,16 +36,19 @@ describe('carryForwardIds', () => {
   });
 
   it('is deterministic (exact source match, no fuzzy content matching)', () => {
-    const current = [{ kind: 'AC' as const, source: 's1' }, { kind: 'AC' as const, source: 's2' }];
+    const current = [
+      { kind: 'AC' as const, source: 's1' },
+      { kind: 'AC' as const, source: 's2' },
+    ];
     expect(carryForwardIds(current, null)).toEqual(carryForwardIds(current, null));
   });
 });
 
 describe('validateTrace', () => {
   it('passes when every entry has a source', () => {
-    expect(
-      validateTrace({ entries: [{ id: 'FR-1', kind: 'FR', source: 'task.intent' }] }).ok,
-    ).toBe(true);
+    expect(validateTrace({ entries: [{ id: 'FR-1', kind: 'FR', source: 'task.intent' }] }).ok).toBe(
+      true,
+    );
   });
 
   it('flags an unsourced (invented) requirement, naming it (FR-6.2)', () => {

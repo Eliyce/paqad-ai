@@ -102,7 +102,10 @@ export const DEFAULT_LABEL_THRESHOLDS: LabelThresholds = {
 };
 
 function words(prompt: string): string[] {
-  return prompt.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 0);
+  return prompt
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 0);
 }
 
 /** True when a vague word is resolved by the grounding (a doc/glossary term contains it). */

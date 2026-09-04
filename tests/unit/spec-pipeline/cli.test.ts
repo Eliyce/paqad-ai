@@ -101,11 +101,20 @@ describe('spec pipeline CLI', () => {
     await run(root, ['label', 'the export must exclude hidden columns and return in 5s']);
     writeFileSync(join(root, 'questions.json'), JSON.stringify({ questions: [] }), 'utf8');
     await run(root, ['record', 'questions', join(root, 'questions.json')]);
-    writeFileSync(join(root, 'task.json'), JSON.stringify({ intent: 'exclude hidden columns' }), 'utf8');
+    writeFileSync(
+      join(root, 'task.json'),
+      JSON.stringify({ intent: 'exclude hidden columns' }),
+      'utf8',
+    );
     await run(root, ['record', 'task', join(root, 'task.json')]);
     writeFileSync(
       join(root, 'spec.md'),
-      ['## Functional requirements', 'FR-1: excludes hidden columns.', '## Acceptance criteria', '- AC-1: Given an admin, when they export, then hidden columns are omitted (proof: automated).'].join('\n'),
+      [
+        '## Functional requirements',
+        'FR-1: excludes hidden columns.',
+        '## Acceptance criteria',
+        '- AC-1: Given an admin, when they export, then hidden columns are omitted (proof: automated).',
+      ].join('\n'),
       'utf8',
     );
   }
@@ -146,7 +155,11 @@ describe('spec pipeline CLI', () => {
     await driveToCraft(root);
     await run(root, ['record', 'craft', join(root, 'spec.md')]);
     const { out } = await run(root, ['finish']);
-    expect(JSON.parse(out[0]!)).toMatchObject({ step: 'finish', outcome: 'non-blocking-review', a5_live: false });
+    expect(JSON.parse(out[0]!)).toMatchObject({
+      step: 'finish',
+      outcome: 'non-blocking-review',
+      a5_live: false,
+    });
   });
 
   it('redo archives a step and reports what was invalidated', async () => {

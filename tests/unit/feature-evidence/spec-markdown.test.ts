@@ -53,7 +53,9 @@ describe('renderSpecMarkdown', () => {
     expect(md).toContain('## Behaviour');
     expect(md).toContain('- FR-1: writes a readable spec');
     expect(md).toContain('## Acceptance criteria');
-    expect(md).toContain('**AC-1**: Given a frozen spec, when it is rendered, then markdown is produced (proof: automated)');
+    expect(md).toContain(
+      '**AC-1**: Given a frozen spec, when it is rendered, then markdown is produced (proof: automated)',
+    );
     expect(md).toContain('## Invariants');
     expect(md).toContain('**INV-1**: derived only _(source: authored, confirmed: ✓)_');
     expect(md).toContain('**INV-2**: no IO _(source: authored, confirmed: ✗)_');

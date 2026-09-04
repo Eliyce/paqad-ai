@@ -34,7 +34,8 @@ export function decideFinish(config: PipelineConfig, a5Live: boolean): FinishDec
   if (!a5Live) {
     return {
       outcome: 'non-blocking-review',
-      reason: 'the spec-vs-code check (A5) is not live — showing a non-blocking readable review instead of freezing silently',
+      reason:
+        'the spec-vs-code check (A5) is not live — showing a non-blocking readable review instead of freezing silently',
     };
   }
   return {

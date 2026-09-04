@@ -64,7 +64,12 @@ describe('validateStepArtifact', () => {
   });
 
   it('rejects a bad label value and an empty task intent', () => {
-    expect(validateStepArtifact('label', JSON.stringify({ label: 'meh', signals: [], question_budget: 0 })).ok).toBe(false);
+    expect(
+      validateStepArtifact(
+        'label',
+        JSON.stringify({ label: 'meh', signals: [], question_budget: 0 }),
+      ).ok,
+    ).toBe(false);
     expect(validateStepArtifact('task', JSON.stringify({ intent: '' })).ok).toBe(false);
   });
 

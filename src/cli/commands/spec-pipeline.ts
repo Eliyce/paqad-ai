@@ -51,7 +51,10 @@ function resolveDir(options: CommonOptions): { dirName: string } | null {
 }
 
 const projectRootOpt = ['--project-root <path>', 'Project root', process.cwd()] as const;
-const sessionOpt = ['--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)'] as const;
+const sessionOpt = [
+  '--session <id>',
+  'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)',
+] as const;
 
 export function createSpecPipelineCommand(): Command {
   const command = new Command('pipeline').description(
@@ -83,13 +86,26 @@ export function createSpecPipelineCommand(): Command {
       const resolved = resolveDir(options);
       if (!resolved) return;
       const modules = options.modules
-        ? options.modules.split(',').map((m) => m.trim()).filter((m) => m.length > 0)
+        ? options.modules
+            .split(',')
+            .map((m) => m.trim())
+            .filter((m) => m.length > 0)
         : undefined;
       const grounding = groundArea(options.projectRoot, modules ? { modules } : {});
-      writeStepArtifact(options.projectRoot, resolved.dirName, 'ground', JSON.stringify(grounding, null, 2));
+      writeStepArtifact(
+        options.projectRoot,
+        resolved.dirName,
+        'ground',
+        JSON.stringify(grounding, null, 2),
+      );
       recordStep(options.projectRoot, resolved.dirName, 'ground', 'complete');
       console.log(
-        JSON.stringify({ step: 'ground', references: grounding.references.length, terms: grounding.terms.length, sparse: grounding.sparse }),
+        JSON.stringify({
+          step: 'ground',
+          references: grounding.references.length,
+          terms: grounding.terms.length,
+          sparse: grounding.sparse,
+        }),
       );
     });
 
@@ -114,9 +130,20 @@ export function createSpecPipelineCommand(): Command {
       );
       const grounding = JSON.parse(groundingRaw) as GroundingArtifact;
       const label = labelPrompt(prompt, grounding);
-      writeStepArtifact(options.projectRoot, resolved.dirName, 'label', JSON.stringify(label, null, 2));
+      writeStepArtifact(
+        options.projectRoot,
+        resolved.dirName,
+        'label',
+        JSON.stringify(label, null, 2),
+      );
       recordStep(options.projectRoot, resolved.dirName, 'label', 'complete');
-      console.log(JSON.stringify({ step: 'label', label: label.label, question_budget: label.question_budget }));
+      console.log(
+        JSON.stringify({
+          step: 'label',
+          label: label.label,
+          question_budget: label.question_budget,
+        }),
+      );
     });
 
   command
@@ -130,7 +157,9 @@ export function createSpecPipelineCommand(): Command {
       const resolved = resolveDir(options);
       if (!resolved) return;
       if (step !== 'questions' && step !== 'task' && step !== 'craft') {
-        console.error(`record accepts only the agent steps: questions, task, craft (got "${step}")`);
+        console.error(
+          `record accepts only the agent steps: questions, task, craft (got "${step}")`,
+        );
         process.exitCode = 1;
         return;
       }

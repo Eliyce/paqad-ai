@@ -82,7 +82,11 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
   const obj = data as Record<string, unknown>;
   switch (step) {
     case 'ground':
-      if (!Array.isArray(obj.references) || !isStringArray(obj.terms) || typeof obj.sparse !== 'boolean') {
+      if (
+        !Array.isArray(obj.references) ||
+        !isStringArray(obj.terms) ||
+        typeof obj.sparse !== 'boolean'
+      ) {
         return { ok: false, error: 'grounding.json needs references[], terms[], sparse' };
       }
       return { ok: true };
@@ -117,7 +121,11 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
 }
 
 /** Read whether a step's artifact exists and validates. */
-export function stepArtifactValid(projectRoot: string, dirName: string, step: PipelineStep): boolean {
+export function stepArtifactValid(
+  projectRoot: string,
+  dirName: string,
+  step: PipelineStep,
+): boolean {
   const raw = readFileSafe(join(projectRoot, pipelineArtifactPath(dirName, step)));
   return validateStepArtifact(step, raw).ok;
 }
@@ -126,7 +134,9 @@ export function stepArtifactValid(projectRoot: string, dirName: string, step: Pi
 export function labelIsClear(projectRoot: string, dirName: string): boolean {
   const raw = readFileSafe(join(projectRoot, pipelineArtifactPath(dirName, 'label')));
   const data = raw === null ? undefined : parseJson(raw);
-  return typeof data === 'object' && data !== null && (data as Record<string, unknown>).label === 'clear';
+  return (
+    typeof data === 'object' && data !== null && (data as Record<string, unknown>).label === 'clear'
+  );
 }
 
 /**
@@ -158,7 +168,11 @@ export interface StepGate {
 }
 
 /** Assert a step may run: every earlier step must be complete (FR-1.2 / AC-10). */
-export function assertCanRunStep(projectRoot: string, dirName: string, step: PipelineStep): StepGate {
+export function assertCanRunStep(
+  projectRoot: string,
+  dirName: string,
+  step: PipelineStep,
+): StepGate {
   for (const earlier of PIPELINE_STEPS) {
     if (earlier === step) break;
     if (!stepComplete(projectRoot, dirName, earlier)) {

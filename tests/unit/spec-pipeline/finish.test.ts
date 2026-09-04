@@ -21,7 +21,9 @@ describe('decideFinish', () => {
   });
 
   it('awaits a human when final-review is required, even with A5 live (FR-7.3)', () => {
-    expect(decideFinish(cfg({ final_review: 'strict' }), true).outcome).toBe('await-human-approval');
+    expect(decideFinish(cfg({ final_review: 'strict' }), true).outcome).toBe(
+      'await-human-approval',
+    );
   });
 
   it('advisory final-review shows then freezes when A5 is live', () => {

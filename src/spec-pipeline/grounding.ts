@@ -58,7 +58,7 @@ export function groundArea(projectRoot: string, options: GroundOptions = {}): Gr
       ? options.modules.map((m) => `docs/modules/${m}/**/*.md`)
       : ['docs/modules/**/*.md'];
 
-  let files: string[] = [];
+  let files: string[];
   try {
     files = fg
       .sync(patterns, { cwd: projectRoot, onlyFiles: true, dot: false })

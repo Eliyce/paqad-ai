@@ -12,12 +12,18 @@ const grounding = (over: Partial<GroundingArtifact> = {}): GroundingArtifact => 
 
 describe('labelPrompt', () => {
   it('treats a vague word the docs define as clear/okay, not vague (FR-3-T1)', () => {
-    const r = labelPrompt('make the export cleaner', grounding({ terms: ['clean export', 'export'] }));
+    const r = labelPrompt(
+      'make the export cleaner',
+      grounding({ terms: ['clean export', 'export'] }),
+    );
     expect(r.label).not.toBe('vague');
   });
 
   it('flags concrete nouns that map to nothing real as unclear (FR-3-T2)', () => {
-    const r = labelPrompt('wire the flux capacitor to the widget', grounding({ terms: ['export', 'invoice'] }));
+    const r = labelPrompt(
+      'wire the flux capacitor to the widget',
+      grounding({ terms: ['export', 'invoice'] }),
+    );
     expect(r.label).not.toBe('clear');
     expect(r.signals.some((s) => s.kind === 'nothing-concrete')).toBe(true);
   });
