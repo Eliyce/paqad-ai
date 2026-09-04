@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { resolveStagesMode } from '@/stage-evidence/mode.js';
+import { resolveBundleCompletenessMode } from '@/verification/repository/bundle-completeness-mode.js';
 
 /**
  * `paqad-ai config effective` (issue #326) — print, per knob, the value that ACTUALLY
@@ -68,6 +69,8 @@ const KNOB_CONSUMERS: Record<string, string> = {
   stages_mode: 'stages capability gate (pre-code block)',
   rule_compliance: 'rule-scripts capability gate',
   analytics_strictness: 'analytics AC-track gate',
+  bundle_completeness: 'bundle-completeness gate (end-of-change)',
+  evidence_existence_gate: 'evidence-existence gate (deprecated; runs only when bundle_completeness=off)',
 };
 
 interface EffectiveKnob {
@@ -110,6 +113,9 @@ export function resolveEffectiveConfig(
       surface = `${surface} → floored`;
     } else if (spec.key === 'stages_mode') {
       value = resolveStagesMode(projectRoot, env);
+      surface = `${surface} → floored`;
+    } else if (spec.key === 'bundle_completeness') {
+      value = resolveBundleCompletenessMode(projectRoot, env);
       surface = `${surface} → floored`;
     }
 

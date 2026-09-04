@@ -63,5 +63,7 @@
 # decision_arm_max_per_change=1
 
 # ── Added in a newer paqad version ────────────────────────────
-# off | warn — completion check that the per-feature bundle carries its evidence files (rule-run / duplication / change-metrics / rag). warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks (there is no strict tier). off disables it (issue #468 Phase C). (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
+# off | warn | strict — end-of-change check that a feature-development bundle carries every required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, naming the file and its writer; warn surfaces it as Inconclusive without blocking; off falls back to the deprecated evidence_existence_gate (issue #511). (env: PAQAD_BUNDLE_COMPLETENESS)
+# bundle_completeness=strict
+# DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it. (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
 # evidence_existence_gate=warn
