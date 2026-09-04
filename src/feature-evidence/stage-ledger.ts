@@ -28,6 +28,7 @@ import {
 } from '@/stage-evidence/types.js';
 
 import { reconcileSessionControl } from './adoption.js';
+import { seedFeatureRecord, updateFeatureRecord } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import {
@@ -195,6 +196,15 @@ export function openFeatureChange(
   input: OpenFeatureChangeInput,
 ): string {
   const dirName = resolveActiveFeature(projectRoot, sessionId, input);
+  // Issue #511 (RC-1) — seed feature.json when the feature is opened, so every bundle
+  // carries its identity/status record from birth (not just its dir name). Idempotent, so a
+  // re-open is a no-op; best-effort, so a write fault never breaks the open path.
+  seedFeatureRecord(projectRoot, dirName, {
+    adapter: input.adapter,
+    sessionId,
+    lane: input.lane ?? null,
+    now: input.now,
+  });
   const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
   if (!hasOpen) {
     appendFeatureStageRow(
@@ -254,6 +264,9 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
       now,
     );
   }
+  // Issue #511 (RC-1) — record the change is finished on feature.json itself, so a reader
+  // (the report, an export) sees `status:'done'` and not a stale `active`. Best-effort.
+  updateFeatureRecord(projectRoot, active, { status: 'done' }, now);
   markDone(projectRoot, sessionId, active, now);
 }
 
