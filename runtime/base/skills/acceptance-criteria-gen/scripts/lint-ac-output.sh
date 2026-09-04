@@ -37,8 +37,9 @@ grep -qE '^## Coverage Notes' <<<"$body" \
 crit_lines=$(printf '%s\n' "$body" | grep -E '^[[:space:]]*(([-*+][[:space:]]+))?AC-[0-9]+(\.[0-9]+)?[[:space:]]*:' || true)
 [ -z "$crit_lines" ] && say_issue 'no "- AC-N: ..." criterion lines found'
 
-# Any dotted id is a hard error (the mangled two-level shape #512/C4 removes).
-if printf '%s\n' "$crit_lines" | grep -qE 'AC-[0-9]+\.[0-9]+[[:space:]]*:'; then
+# Any dotted id is a hard error (the mangled two-level shape #512/C4 removes). A here-string
+# (not a pipe) into `grep -q` avoids the SIGPIPE+pipefail race the portability guard forbids.
+if grep -qE 'AC-[0-9]+\.[0-9]+[[:space:]]*:' <<<"$crit_lines"; then
   say_issue 'dotted AC-N.N ids are not allowed — use flat AC-N (the freeze parser reads flat ids)'
 fi
 
@@ -49,11 +50,11 @@ dupes=$(printf '%s\n' "$ids" | sort | uniq -d | { grep -v '^$' || true; })
 # Each criterion line needs Given/When/Then and an explicit proof tag.
 while IFS= read -r line; do
   [ -z "$line" ] && continue
-  id=$(printf '%s' "$line" | grep -Eo 'AC-[0-9]+(\.[0-9]+)?' | head -1)
-  if ! printf '%s' "$line" | grep -qiE 'given .*when .*then'; then
+  id=$(grep -Eo 'AC-[0-9]+(\.[0-9]+)?' <<<"$line" | head -1)
+  if ! grep -qiE 'given .*when .*then' <<<"$line"; then
     say_issue "criterion $id missing Given/When/Then prose"
   fi
-  if ! printf '%s' "$line" | grep -qiE '\(proof:[[:space:]]*(automated|manual|visual)\)'; then
+  if ! grep -qiE '\(proof:[[:space:]]*(automated|manual|visual)\)' <<<"$line"; then
     say_issue "criterion $id missing a (proof: automated|manual|visual) tag"
   fi
 done <<EOF
