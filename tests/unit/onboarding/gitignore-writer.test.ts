@@ -106,6 +106,13 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(read(projectRoot, '.paqad/.gitignore')).toContain('compliance/');
   });
 
+  // Issue #512 — the editable spec source and spec-pipeline scratch under `.paqad/_specs/`
+  // are transient per-machine working state, never committed.
+  it('ignores the _specs directory so the spec source and pipeline scratch are never committed', () => {
+    writeGitignore(projectRoot);
+    expect(read(projectRoot, '.paqad/.gitignore')).toContain('_specs/');
+  });
+
   it('writes a nested .paqad/.gitattributes making the decision index merge cleanly', () => {
     writeGitignore(projectRoot);
 

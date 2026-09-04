@@ -25,12 +25,14 @@ import { FEATURE_BUNDLE_FILES, featureDir, isFeatureDirName } from './paths.js';
 
 /**
  * Every filename allowed to sit in a feature bundle dir: the rigid, script-owned set
- * plus `report.html`, the derived human-readable projection (issue #371) that is
- * deliberately not a `FEATURE_BUNDLE_FILES` member.
+ * plus the derived human-readable projections that are deliberately not
+ * `FEATURE_BUNDLE_FILES` members — `report.html` (issue #371) and `specification.md`
+ * (issue #512, Part A, the read-only projection of `specification.json`).
  */
 export const ALLOWED_BUNDLE_FILENAMES: ReadonlySet<string> = new Set<string>([
   ...Object.values(FEATURE_BUNDLE_FILES),
   'report.html',
+  'specification.md',
 ]);
 
 /**

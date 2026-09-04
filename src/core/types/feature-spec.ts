@@ -65,6 +65,13 @@ export interface FeatureSpec {
    * records frozen before issue #401, so readers must tolerate its absence.
    */
   spec_review?: SpecReviewSummary;
+  /**
+   * Things the change deliberately does NOT do, parsed tolerantly from a `## Non-goals`
+   * section of the spec markdown (issue #512, Part B FR-6.4). Optional and additive: a
+   * spec authored without the section simply omits it, so pre-#512 records still read and
+   * freeze unchanged. The `specification.md` projection renders it only when present.
+   */
+  non_goals?: string[];
 }
 
 /**

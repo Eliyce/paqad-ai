@@ -6,4 +6,6 @@
 
 - {{previous finding now absent — omit the section when there are none}}
 
-<!-- Machine-readable source of truth: .paqad/compliance/<spec-slug>/spec-review.json -->
+<!-- This is an optional pre-pass for a human. It persists no report and is NOT the gate:
+     `paqad-ai spec freeze` runs the authoritative deterministic review and blocks on a
+     critical defect (issue #401). -->

@@ -19,6 +19,9 @@ import { parseTestOutput } from '@/test-output/index.js';
 import { TEST_OUTPUT_SMOKE_FIXTURES } from '@/test-output/fixtures.js';
 import { deriveHealthTier } from '@/planning/module-health.js';
 import { isCompiledRulesStale } from '@/planning/rule-compiler.js';
+import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
+import { readPipelineConfig } from '@/spec-pipeline/config.js';
+import { checkSpecShape, PARITY_CORPUS } from '@/spec-pipeline/parser-parity.js';
 import type {
   HealthCheckResult,
   HealthEfficiencySummary,
@@ -69,6 +72,7 @@ export class HealthChecker {
       await this.checkCompiledRulesCurrent(projectRoot),
       this.checkClassificationOverrideRate(projectRoot),
       ...(await this.checkRag(projectRoot, profile)),
+      this.checkSpecPipeline(projectRoot),
     ];
 
     const overallStatus = deriveOverallStatus(checks);
@@ -852,6 +856,45 @@ export class HealthChecker {
           'Run `paqad-ai rag refresh-context` to recompile the rule store from docs/instructions/rules/.',
         )
       : pass(name, 'Compiled rule store matches the authored rules');
+  }
+
+  /**
+   * Spec pipeline health (issue #512, FR-10): the S4 parser-parity corpus must pass BOTH the
+   * S4 shape check and the real freeze parser (so the two can never drift, FR-10.2), and the
+   * enforcement config must be coherent (no required gate on a disabled pipeline, FR-10-T4).
+   */
+  private checkSpecPipeline(projectRoot: string): HealthCheckResult {
+    const name = 'Spec pipeline is healthy';
+    for (const fixture of PARITY_CORPUS) {
+      if (!checkSpecShape(fixture.markdown).ok) {
+        return fail(
+          name,
+          `Parser-parity fixture "${fixture.name}" no longer passes the S4 shape check.`,
+          'A freeze-parser change broke S4 parity — update the shared corpus and the S4 check together.',
+        );
+      }
+      const spec = buildFeatureSpec({
+        spec_id: 'S-doctor',
+        spec_file: '.paqad/_specs/doctor.md',
+        spec_markdown: fixture.markdown,
+      });
+      if (spec.acceptance_criteria.length === 0 || spec.behaviour.length === 0) {
+        return fail(
+          name,
+          `Parser-parity fixture "${fixture.name}" is no longer ingested by the freeze parser.`,
+          'The freeze parser and the S4 shape check have drifted — reconcile them (FR-10.2).',
+        );
+      }
+    }
+    const config = readPipelineConfig(projectRoot);
+    if (config.final_review === 'strict' && !config.enabled) {
+      return warn(
+        name,
+        'spec_pipeline_final_review is required but spec_pipeline_enabled is off — a required gate on a disabled pipeline never runs.',
+        'Enable the pipeline (spec_pipeline_enabled=true) or relax spec_pipeline_final_review.',
+      );
+    }
+    return pass(name, 'Parser-parity corpus holds and the enforcement config is coherent.');
   }
 
   private checkClassificationOverrideRate(projectRoot: string): HealthCheckResult {

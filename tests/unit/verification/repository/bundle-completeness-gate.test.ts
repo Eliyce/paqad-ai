@@ -6,7 +6,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
-import { chatRagPath, featureFilePath, featureReportPath } from '@/feature-evidence/paths.js';
+import {
+  chatRagPath,
+  featureFilePath,
+  featureReportPath,
+  featureSpecMarkdownPath,
+} from '@/feature-evidence/paths.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
 
@@ -46,6 +51,8 @@ function writeAlwaysFiles(root: string, dir: string): void {
   seedFeatureRecord(root, dir, { adapter: 'claude-code', sessionId: 'ses_1' }); // titled → feature.json
   write(root, featureFilePath(dir, 'plan'), '{}');
   write(root, featureFilePath(dir, 'specification'), '{}');
+  // Issue #512, Part A — the paired-projection sibling must accompany specification.json.
+  write(root, featureSpecMarkdownPath(dir), '# Specification\n');
   write(root, featureFilePath(dir, 'review'), '{}');
   write(root, featureFilePath(dir, 'stageEvidence'), '{"row":1}\n');
   write(root, featureFilePath(dir, 'delivery'), '{"branch":"feat/x"}');
@@ -414,5 +421,65 @@ describe('featureReport required file', () => {
       config: { ...ONLY_ALWAYS, featureReport: true },
     });
     expect(gate!.status).toBe('pass');
+  });
+});
+
+describe('specification.md paired-projection check (#512, Part A)', () => {
+  it('fails closed under strict when specification.json is present but specification.md is missing', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    rmSync(join(root, featureSpecMarkdownPath(DIR)), { force: true });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ONLY_ALWAYS,
+    });
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('specification.md');
+  });
+
+  it('surfaces as inconclusive (not a hard block) under warn when the sibling is missing', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    rmSync(join(root, featureSpecMarkdownPath(DIR)), { force: true });
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'warn',
+      config: ONLY_ALWAYS,
+    });
+    expect(gate!.status).toBe('inconclusive');
+    expect(gate!.detail).toContain('specification.md');
+  });
+
+  it('passes when both specification.json and specification.md are present', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ONLY_ALWAYS,
+    });
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('treats a blank specification.md as missing (fails closed)', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(root, featureSpecMarkdownPath(DIR), '   \n');
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ONLY_ALWAYS,
+    });
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('specification.md');
   });
 });

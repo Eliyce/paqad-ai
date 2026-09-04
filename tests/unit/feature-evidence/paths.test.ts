@@ -8,6 +8,7 @@ import {
   featureEvidenceDir,
   featureFilePath,
   featureSessionControlPath,
+  featureSpecMarkdownPath,
   formatFeatureDirName,
   isFeatureDirName,
   parseFeatureDirName,
@@ -27,6 +28,13 @@ describe('feature-evidence path layer', () => {
       `.paqad/ledger/feature-evidence/339-x-${ULID}/stage-evidence.jsonl`,
     );
     expect(FEATURE_BUNDLE_FILES.rag).toBe('rag.jsonl');
+  });
+
+  it('resolves the derived specification.md sibling (#512) and it is not a bundle member', () => {
+    expect(featureSpecMarkdownPath('339-x-' + ULID)).toBe(
+      `.paqad/ledger/feature-evidence/339-x-${ULID}/specification.md`,
+    );
+    expect(Object.values(FEATURE_BUNDLE_FILES)).not.toContain('specification.md');
   });
 
   it('resolves the session control and chat homes', () => {

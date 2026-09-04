@@ -640,6 +640,56 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'How many evidence-armed decision pauses one change may open (issue #361). Default 1 — ' +
       'only the strongest fork is asked; the rest are reported as warnings.',
   },
+  {
+    key: 'spec_pipeline_enabled',
+    env: 'PAQAD_SPEC_PIPELINE_ENABLED',
+    type: 'boolean',
+    default: false,
+    group: 'policy',
+    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    comment:
+      'Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: ' +
+      'with it off, feature-development is byte-identical to today (FR-11). It sits upstream of ' +
+      'the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on.',
+  },
+  {
+    key: 'spec_pipeline_clarification',
+    env: 'PAQAD_SPEC_PIPELINE_CLARIFICATION',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    comment:
+      'off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). ' +
+      'warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask ' +
+      'and hold until answered or explicitly deferred. off: never ask. The fixed spine ' +
+      '(grounding, no-invented-requirements, traceability) is never switchable.',
+  },
+  {
+    key: 'spec_pipeline_final_review',
+    env: 'PAQAD_SPEC_PIPELINE_FINAL_REVIEW',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'off',
+    group: 'policy',
+    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    comment:
+      'off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). ' +
+      'off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): ' +
+      'a human must approve before freeze, recording a named human. Independent of the A5 gate.',
+  },
+  {
+    key: 'spec_pipeline_token_ceiling',
+    env: 'PAQAD_SPEC_PIPELINE_TOKEN_CEILING',
+    type: 'number',
+    default: 20000,
+    group: 'policy',
+    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    comment:
+      'Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a ' +
+      'recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes.',
+  },
 ] as const;
 
 const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
@@ -1785,6 +1835,10 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'decision_arm_mode',
       'decision_arm_plan_threshold',
       'decision_arm_max_per_change',
+      'spec_pipeline_enabled',
+      'spec_pipeline_clarification',
+      'spec_pipeline_final_review',
+      'spec_pipeline_token_ceiling',
     ],
   },
 ];

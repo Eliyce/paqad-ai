@@ -36,4 +36,4 @@ emit 'unbounded-modal'  '\b(may|might|could|should usually|typically)\b'
 emit 'tbd-leak'         '\b(TODO|FIXME|XXX|placeholder)\b'
 emit 'dangling-ref'     '\bsee section [A-Z0-9.]+|figure [0-9]+\b'
 emit 'goal-collision'   '\b(however|but also|except when|unless)\b'
-emit 'no-negative'      '^### AC-[0-9]+(\.[0-9]+)?\b'   # informational; LLM verifies if a negative AC exists per FR
+emit 'no-negative'      '^[[:space:]]*([-*+][[:space:]]+)?AC-[0-9]+[[:space:]]*:'   # informational; LLM verifies a negative AC exists per FR (flat AC-N, #512/C4)

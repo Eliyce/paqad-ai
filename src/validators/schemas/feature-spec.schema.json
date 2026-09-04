@@ -37,7 +37,11 @@
     "frozen": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/frozenMetadata" }]
     },
-    "spec_review": { "$ref": "#/$defs/specReviewSummary" }
+    "spec_review": { "$ref": "#/$defs/specReviewSummary" },
+    "non_goals": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   },
   "$defs": {
     "specReviewSummary": {

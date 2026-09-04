@@ -66,6 +66,12 @@ export function buildFeatureSpec(options: BuildFeatureSpecOptions): FeatureSpec 
     invariants: collectInvariants(options.spec_markdown, options.suggested_invariants ?? []),
     open_questions: extractOpenQuestions(options.spec_markdown),
     frozen: null,
+    // Issue #512 (FR-6.4) — tolerant `## Non-goals` parse; the field is set only when the
+    // section carries entries, so a spec without it stays byte-identical to before (INV-3).
+    ...(() => {
+      const nonGoals = extractNonGoals(options.spec_markdown);
+      return nonGoals.length > 0 ? { non_goals: nonGoals } : {};
+    })(),
   };
 }
 
@@ -174,4 +180,30 @@ function extractOpenQuestions(markdown: string): string[] {
     }
   }
   return questions;
+}
+
+/**
+ * Tolerant parse of a `## Non-goals` section (issue #512, Part B FR-6.4): the bullet lines
+ * under the first heading whose text is "non-goals" (any level, case-insensitive, hyphen
+ * optional), up to the next heading. Additive and tolerant — a spec without the section
+ * yields an empty list, so pre-#512 specs read and freeze unchanged.
+ */
+function extractNonGoals(markdown: string): string[] {
+  const nonGoals: string[] = [];
+  let inSection = false;
+  for (const line of splitLines(markdown)) {
+    const heading = /^(#{1,6})\s+(.*\S)\s*$/.exec(line);
+    if (heading) {
+      inSection = /^non-?goals?$/i.test(heading[2]!.trim());
+      continue;
+    }
+    if (!inSection) {
+      continue;
+    }
+    const bullet = /^\s*[-*+]\s+(.+\S)\s*$/.exec(line);
+    if (bullet) {
+      nonGoals.push(bullet[1]!.trim());
+    }
+  }
+  return nonGoals;
 }

@@ -82,6 +82,19 @@ export function featureReportPath(dirName: string): string {
   return join(featureDir(dirName), 'report.html');
 }
 
+/**
+ * Project-relative path to a feature's rendered `specification.md` (issue #512, Part A) — a
+ * derived, human-readable projection of the frozen `specification.json`. Like `report.html`
+ * (#371) it is deliberately NOT a member of {@link FEATURE_BUNDLE_FILES}, so
+ * `exportFeatureBundle` never parses it as a bundle JSON. It is regenerated on every freeze
+ * from the JSON, so it can never drift and is never a second source of truth (the
+ * input-deletion contract of #402 stands). It is git-ignored by the managed `ledger/` line,
+ * like the rest of the bundle.
+ */
+export function featureSpecMarkdownPath(dirName: string): string {
+  return join(featureDir(dirName), 'specification.md');
+}
+
 /** Project-relative path to the per-session control JSON. */
 export function featureSessionControlPath(sessionId: string): string {
   return join(PATHS.FEATURE_EVIDENCE_SESSION_DIR, `${sessionId}.json`);

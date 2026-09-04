@@ -31,12 +31,14 @@ describe('bundle-integrity', () => {
   }
 
   describe('ALLOWED_BUNDLE_FILENAMES', () => {
-    it('is exactly the rigid set plus report.html', () => {
+    it('is exactly the rigid set plus the derived report.html and specification.md siblings', () => {
       for (const filename of Object.values(FEATURE_BUNDLE_FILES)) {
         expect(ALLOWED_BUNDLE_FILENAMES.has(filename)).toBe(true);
       }
       expect(ALLOWED_BUNDLE_FILENAMES.has('report.html')).toBe(true);
-      expect(ALLOWED_BUNDLE_FILENAMES.size).toBe(Object.keys(FEATURE_BUNDLE_FILES).length + 1);
+      expect(ALLOWED_BUNDLE_FILENAMES.has('specification.md')).toBe(true);
+      // #512, Part A — specification.md joins report.html as the second non-member sibling.
+      expect(ALLOWED_BUNDLE_FILENAMES.size).toBe(Object.keys(FEATURE_BUNDLE_FILES).length + 2);
     });
 
     it('includes review.json, the artifact this issue added', () => {

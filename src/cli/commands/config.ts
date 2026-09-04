@@ -72,6 +72,10 @@ const KNOB_CONSUMERS: Record<string, string> = {
   bundle_completeness: 'bundle-completeness gate (end-of-change)',
   evidence_existence_gate:
     'evidence-existence gate (deprecated; runs only when bundle_completeness=off)',
+  spec_pipeline_enabled: 'spec pipeline (spec pipeline command)',
+  spec_pipeline_clarification: 'spec pipeline (question-round gate)',
+  spec_pipeline_final_review: 'spec pipeline (finish gate)',
+  spec_pipeline_token_ceiling: 'spec pipeline (per-run token ceiling)',
 };
 
 interface EffectiveKnob {
