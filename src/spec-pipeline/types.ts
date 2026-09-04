@@ -76,3 +76,36 @@ export interface PlainLanguageResult {
   /** Terms that appear in none of the allowed sources (a term from the model's head). */
   flagged: string[];
 }
+
+/**
+ * One ledger-answered question (issue #517, FR-4.5). The answer was injected from a prior
+ * resolved decision, so it carries the ledger `source` it came from — never a fabricated
+ * answer, always auditable in the readable spec (AC-5).
+ */
+export interface AutoAnswer {
+  /** The plain-language question that was auto-answered (its `business_text`). */
+  question: string;
+  /** The recorded answer injected from the ledger (a prior decision's chosen option). */
+  answer: string;
+  /** The ledger reference the answer came from (a resolved decision id). */
+  source: string;
+}
+
+/**
+ * S2 output — `questions.json`. The surviving batch the user is asked, plus the questions the
+ * ledger already answered and the FR-7.6 counts. `questions[]` is the only hard-required field
+ * (INV-3): an agent batch carrying just `questions[]` still validates, and the record command
+ * enriches it with the auto-answer result before the artifact is persisted.
+ */
+export interface QuestionsArtifact {
+  /** The surviving questions actually handed to the user (ledger-answerable ones removed). */
+  questions: PipelineQuestion[];
+  /** Questions answered from the ledger before the batch reached the user. */
+  auto_answered: AutoAnswer[];
+  /** How many questions were asked of the user (the surviving batch size). */
+  asked: number;
+  /** How many the user answered. */
+  answered: number;
+  /** How many were deferred. */
+  deferred: number;
+}

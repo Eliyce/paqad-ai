@@ -14,7 +14,12 @@ import { dirname, join } from 'node:path';
 
 import { checkSpecShape } from './parser-parity.js';
 import { readPipelineConfig, type PipelineConfig } from './config.js';
-import { PIPELINE_STEPS, type PipelineStep } from './types.js';
+import {
+  PIPELINE_STEPS,
+  type AutoAnswer,
+  type PipelineStep,
+  type QuestionsArtifact,
+} from './types.js';
 
 /** The scratch filename each step writes (craft writes the working `spec.md`). */
 export const PIPELINE_ARTIFACT_FILES: Record<PipelineStep, string> = {
@@ -99,11 +104,23 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
         return { ok: false, error: 'label.json needs label, signals[], question_budget' };
       }
       return { ok: true };
-    case 'questions':
+    case 'questions': {
+      // `questions[]` is the only hard requirement (INV-3): a raw agent batch validates. The
+      // enriched fields the record command adds — `auto_answered[]` and the FR-7.6 counts — are
+      // validated only when present, so both the raw and the enriched artifact pass.
       if (!Array.isArray(obj.questions)) {
         return { ok: false, error: 'questions.json needs a questions[] array' };
       }
+      if (obj.auto_answered !== undefined && !Array.isArray(obj.auto_answered)) {
+        return { ok: false, error: 'questions.json auto_answered must be an array' };
+      }
+      for (const count of ['asked', 'answered', 'deferred'] as const) {
+        if (obj[count] !== undefined && typeof obj[count] !== 'number') {
+          return { ok: false, error: `questions.json ${count} must be a number` };
+        }
+      }
       return { ok: true };
+    }
     case 'task':
       if (typeof obj.intent !== 'string' || obj.intent.length === 0) {
         return { ok: false, error: 'task.json needs a non-empty intent' };
@@ -137,6 +154,34 @@ export function labelIsClear(projectRoot: string, dirName: string): boolean {
   return (
     typeof data === 'object' && data !== null && (data as Record<string, unknown>).label === 'clear'
   );
+}
+
+/**
+ * Read the recorded `questions.json` (issue #517). Returns null when the step never ran (the
+ * label was `clear`, so no questions were produced). Missing enriched fields default to empty
+ * so a pre-#517 artifact still reads cleanly.
+ */
+export function readQuestionsArtifact(
+  projectRoot: string,
+  dirName: string,
+): QuestionsArtifact | null {
+  const raw = readFileSafe(join(projectRoot, pipelineArtifactPath(dirName, 'questions')));
+  const data = raw === null ? undefined : parseJson(raw);
+  if (typeof data !== 'object' || data === null) {
+    return null;
+  }
+  const obj = data as Record<string, unknown>;
+  const autoAnswered = Array.isArray(obj.auto_answered) ? (obj.auto_answered as AutoAnswer[]) : [];
+  const asNumber = (v: unknown): number => (typeof v === 'number' ? v : 0);
+  return {
+    questions: Array.isArray(obj.questions)
+      ? (obj.questions as QuestionsArtifact['questions'])
+      : [],
+    auto_answered: autoAnswered,
+    asked: asNumber(obj.asked),
+    answered: asNumber(obj.answered),
+    deferred: asNumber(obj.deferred),
+  };
 }
 
 /**
