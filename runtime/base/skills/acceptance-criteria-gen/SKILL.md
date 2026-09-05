@@ -39,7 +39,7 @@ Use this when a request is entering planning or solutioning and the current brie
 1. Run `scripts/extract-ac-ids.sh <spec-file>` to get the set of AC ids already taken; never reuse a removed id.
 2. For each new criterion, run `scripts/next-ac-id.sh <spec-file>` to allocate the next free flat id.
 3. List the user-visible outcomes and constraints; convert each into one observable Given/When/Then line using `assets/output.template.md` as the shape, ending each line with an explicit `(proof: automated|manual|visual)` tag.
-4. Add negative, empty, stale, retry, or permission criteria only when the request changes those paths. Drop criteria that describe implementation choices instead of behavior.
+4. Surface negative and edge paths with the shared rubric instead of relying on the happy path alone: run `edge-case-detection` (`runtime/base/skills/edge-case-detection/SKILL.md`) over the same request as a sub-step. It is reused as-is — do not clone it — and its category set (empty, stale, loading, retry, permission, concurrency, rollback, integration, overflow, state-skip) already covers the paths acceptance criteria must guard. Follow each returned case's `Apply To:` routing: fold a case that changes an error, empty, or permission path the request actually touches into a flat `AC-n` negative-path criterion here (Given the failing/empty/unauthorized condition, when …, then the observable guard holds); record a case that is a deliberate exclusion — an edge behaviour the change will not handle — under the spec's `## Non-goals` section (parsed into `FeatureSpec.non_goals`) rather than as a criterion. Drop cases that are not credible for this request, and drop criteria that describe implementation choices instead of behavior.
 5. Validate the draft with `scripts/lint-ac-output.sh <draft-file>` — exit 0 means the structural contract is met; non-zero means fix and re-lint before returning.
 
 ## Output Contract
@@ -63,5 +63,6 @@ Use this when a request is entering planning or solutioning and the current brie
 - `scripts/next-ac-id.sh`
 - `scripts/lint-ac-output.sh`
 - `assets/output.template.md`
+- `runtime/base/skills/edge-case-detection/SKILL.md`
 - `runtime/capabilities/coding/checklists/edge-cases-coding.md`
 - `agents/openai.yaml`
