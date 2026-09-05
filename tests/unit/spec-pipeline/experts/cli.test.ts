@@ -184,4 +184,22 @@ describe('spec pipeline experts CLI', () => {
     expect(result.step).toBe('finish');
     expect(result.experts).toBe(1);
   });
+it('finish refuses before the pipeline is ready (step lock)', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    enableExperts(root);
+    const { err } = await run(root, ['finish']);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/earlier step/);
+  });
+
+  it('errors when the notes file cannot be read', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    enableExperts(root);
+    const { err } = await run(root, ['experts', 'notes', join(root, 'missing.json')]);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/could not read notes artifact/);
+  });
 });
+

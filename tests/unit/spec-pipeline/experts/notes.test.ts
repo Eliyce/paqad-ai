@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,12 +6,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { assembleExpertRun } from '@/spec-pipeline/experts/assemble.js';
 import {
+  expertNeedPath,
   readExpertNeed,
   readExpertNotes,
   validateExpertNotes,
   writeExpertNeed,
   writeExpertNotes,
 } from '@/spec-pipeline/experts/notes.js';
+import { dirname, join } from 'node:path';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -87,6 +89,14 @@ describe('need/notes store', () => {
     writeExpertNotes(root, DIR, { notes: [], tokens: {} });
     expect(readExpertNeed(root, DIR)).toEqual({ experts: [{ role: 'db-expert', reason: 'r' }] });
     expect(readExpertNotes(root, DIR)).toEqual({ notes: [], tokens: {} });
+  });
+
+  it('reads null when a stored artifact is corrupt JSON', () => {
+    const root = tempRoot();
+    const abs = join(root, expertNeedPath(DIR));
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, '{ not json', 'utf8');
+    expect(readExpertNeed(root, DIR)).toBeNull();
   });
 });
 
