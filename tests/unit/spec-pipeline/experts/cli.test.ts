@@ -184,7 +184,7 @@ describe('spec pipeline experts CLI', () => {
     expect(result.step).toBe('finish');
     expect(result.experts).toBe(1);
   });
-it('finish refuses before the pipeline is ready (step lock)', async () => {
+  it('finish refuses before the pipeline is ready (step lock)', async () => {
     const root = tempRoot();
     activeFeature(root);
     enableExperts(root);
@@ -202,4 +202,3 @@ it('finish refuses before the pipeline is ready (step lock)', async () => {
     expect(err.join('\n')).toMatch(/could not read notes artifact/);
   });
 });
-
