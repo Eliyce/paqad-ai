@@ -114,4 +114,26 @@ export const PARITY_CORPUS: readonly { name: string; markdown: string }[] = [
       '- INV-1: an export never includes a hidden column.',
     ].join('\n'),
   },
+  {
+    // Issue #519 (B.5.2): a crafted spec that reused `edge-case-detection` in S4 — an empty /
+    // permission negative-path AC folded in, and a deliberately excluded edge behaviour under
+    // `## Non-goals`. It must pass BOTH the S4 shape check and the freeze parser (its non-goals
+    // parse into FeatureSpec.non_goals, FR-6.4).
+    name: 'negative-path AC with edge-case-detection non-goals',
+    markdown: [
+      '## Summary',
+      'Bulk archive of selected records.',
+      '## Functional requirements',
+      'FR-1: an editor can archive the records they selected.',
+      '## Acceptance criteria',
+      '- AC-1: Given selected records, when an editor archives them, then each is marked archived (proof: automated).',
+      '- AC-2: Given an empty selection, when the editor triggers archive, then the action is rejected with a validation message and nothing is archived (proof: automated).',
+      '- AC-3: Given a viewer without archive permission, when they trigger archive, then the request is denied and no record changes (proof: automated).',
+      '## Non-goals',
+      '- does not archive records the editor did not select',
+      '- does not add an undo path for an archive',
+      '## Invariants',
+      '- INV-1: an archive never touches a record outside the current selection.',
+    ].join('\n'),
+  },
 ];

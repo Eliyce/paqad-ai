@@ -47,6 +47,9 @@ export interface GroundingReference {
   ref: string;
 }
 
+/** Which grounding source produced the artifact — recorded so a run is honest (#520, FR-2.1). */
+export type GroundingPath = 'rag' | 'docs-fallback';
+
 /** S0 output — `grounding.json`. References plus the vocabulary terms S1/S2 ground on. */
 export interface GroundingArtifact {
   references: GroundingReference[];
@@ -54,6 +57,11 @@ export interface GroundingArtifact {
   terms: string[];
   /** True when the touched area has thin/no docs; downstream flags rather than assumes (FR-2.3). */
   sparse: boolean;
+  /**
+   * Which path produced this grounding (#520, FR-2.1): `rag` when semantic retrieval supplied
+   * the terms/references, `docs-fallback` when it came from the docs glob (RAG off or empty).
+   */
+  path: GroundingPath;
 }
 
 /** One question object — the FR-4.1 two-layer contract. */
