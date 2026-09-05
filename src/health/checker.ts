@@ -73,6 +73,7 @@ export class HealthChecker {
       this.checkClassificationOverrideRate(projectRoot),
       ...(await this.checkRag(projectRoot, profile)),
       this.checkSpecPipeline(projectRoot),
+      this.checkExpertRoster(projectRoot),
     ];
 
     const overallStatus = deriveOverallStatus(checks);
@@ -895,6 +896,35 @@ export class HealthChecker {
       );
     }
     return pass(name, 'Parser-parity corpus holds and the enforcement config is coherent.');
+  }
+
+  private checkExpertRoster(projectRoot: string): HealthCheckResult {
+    // Expert-roster coherence (issue #521, FR-9 / AC-6). The config always LOADS (graceful
+    // fallback, RULE-16), so the only failure mode is an incoherent combination: experts turned
+    // on where they can never run or never ask. Both are warnings, never a hard fail — an experts
+    // flag is opt-in and off by default.
+    const name = 'Expert roster config is coherent';
+    const config = readPipelineConfig(projectRoot);
+    if (config.experts_enabled && !config.enabled) {
+      return warn(
+        name,
+        'spec_pipeline_experts_enabled is on but spec_pipeline_enabled is off — the expert roster never runs while the pipeline itself is off.',
+        'Enable the pipeline (spec_pipeline_enabled=true), or turn the experts flag off.',
+      );
+    }
+    if (config.experts_enabled && config.clarification === 'off') {
+      return warn(
+        name,
+        'spec_pipeline_experts_enabled is on but spec_pipeline_clarification is off — experts can surface questions, but the question round is disabled so they are dropped.',
+        'Set spec_pipeline_clarification to warn or strict, or turn the experts flag off.',
+      );
+    }
+    return pass(
+      name,
+      config.experts_enabled
+        ? 'Expert roster is enabled and its config is coherent.'
+        : 'Expert roster is off (default); nothing to enforce.',
+    );
   }
 
   private checkClassificationOverrideRate(projectRoot: string): HealthCheckResult {
