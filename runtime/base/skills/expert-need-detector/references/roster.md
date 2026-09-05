@@ -5,17 +5,17 @@ canonical `AGENT_ROLES` (`src/core/types/agent.ts`); the roster itself is derive
 `src/spec-pipeline/experts/roster.ts`, and each role's token budget comes from
 `src/core/constants/budgets.ts`. Do not invent a role outside this list — the guard rejects it.
 
-| Role | Fires when the request touches… |
-| --- | --- |
-| `db-expert` | The data model: a migration, a schema change, indexing, query shape. |
-| `data-modeler` | The conceptual model: entities, relationships, normalisation choices. |
-| `security-auditor` | Auth, a trust boundary, secrets, input validation, access control. |
-| `ux-ui-analyst` | A screen, a component, a user-facing flow or interaction. |
-| `performance-analyst` | A hot path, a scaling concern, a latency/throughput budget. |
-| `integration-architect` | A third-party integration, an external API, a webhook or event. |
-| `solution-architect` | A cross-cutting structural decision spanning several modules. |
-| `devops-engineer` | Build, deploy, CI/CD, infrastructure, runtime configuration. |
-| `market-researcher` | A product/market framing question the spec must answer first. |
+| Role                    | Fires when the request touches…                                       |
+| ----------------------- | --------------------------------------------------------------------- |
+| `db-expert`             | The data model: a migration, a schema change, indexing, query shape.  |
+| `data-modeler`          | The conceptual model: entities, relationships, normalisation choices. |
+| `security-auditor`      | Auth, a trust boundary, secrets, input validation, access control.    |
+| `ux-ui-analyst`         | A screen, a component, a user-facing flow or interaction.             |
+| `performance-analyst`   | A hot path, a scaling concern, a latency/throughput budget.           |
+| `integration-architect` | A third-party integration, an external API, a webhook or event.       |
+| `solution-architect`    | A cross-cutting structural decision spanning several modules.         |
+| `devops-engineer`       | Build, deploy, CI/CD, infrastructure, runtime configuration.          |
+| `market-researcher`     | A product/market framing question the spec must answer first.         |
 
 ## How to decide
 
