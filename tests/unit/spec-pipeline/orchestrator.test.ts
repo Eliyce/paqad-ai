@@ -31,7 +31,12 @@ afterEach(() => {
 
 const DIR = '512-x-01JABCDEFGHJKMNPQRSTVWXYZ0';
 
-const GROUNDING = JSON.stringify({ references: [], terms: ['export'], sparse: false });
+const GROUNDING = JSON.stringify({
+  references: [],
+  terms: ['export'],
+  sparse: false,
+  path: 'docs-fallback',
+});
 const LABEL_OKAY = JSON.stringify({ label: 'okay', signals: [], question_budget: 3 });
 const LABEL_CLEAR = JSON.stringify({ label: 'clear', signals: [], question_budget: 0 });
 const QUESTIONS = JSON.stringify({
