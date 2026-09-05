@@ -7,6 +7,7 @@ const grounding = (over: Partial<GroundingArtifact> = {}): GroundingArtifact => 
   references: [],
   terms: [],
   sparse: false,
+  path: 'docs-fallback',
   ...over,
 });
 
