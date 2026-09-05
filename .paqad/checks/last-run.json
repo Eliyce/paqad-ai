@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-12T20:57:54.480Z",
+  "generated_at": "2026-09-05T16:04:01.171Z",
   "passed": true,
   "ran": true,
   "results": [
@@ -13,7 +13,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-08-12T20:55:49.844Z",
+        "timestamp": "2026-09-05T16:01:56.294Z",
         "runner_id": "format"
       },
       "failures": [],
@@ -35,29 +35,12 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/drop-prebuild-install-warning.md",
-          ".paqad/.config.example",
-          ".paqad/checks/last-run.json",
-          ".paqad/configs/.config.app",
-          ".paqad/configs/.config.policy",
-          "docs/extension-surface.md",
-          "docs/instructions/architecture/overview.md",
-          "docs/instructions/benchmarks/measured.md",
-          "docs/instructions/stack/overview.md",
-          "docs/instructions/stack/versions.md",
-          "package.json",
-          "pnpm-lock.yaml",
-          "scripts/lib/footprint.mjs",
-          "scripts/measure-footprint.mjs",
-          "src/context/reranker.ts",
-          "src/context/tokenizer-cache.ts",
-          "src/rag/providers.ts",
-          "tests/e2e/rag.e2e.test.ts",
-          "tests/unit/context/compute-budget.test.ts",
-          "tests/unit/context/reranker.test.ts",
-          "tests/unit/coverage-focused/prompts-and-providers.test.ts",
-          "tests/unit/rag/providers.test.ts",
-          "tsup.config.ts"
+          "runtime/hooks/lib/agent-entry-directive.mjs",
+          "src/core/framework-config.ts",
+          "src/spec-pipeline/config.ts",
+          "src/spec-pipeline/experts/roster.ts",
+          "tests/unit/spec-pipeline/config.test.ts",
+          "tests/unit/spec-pipeline/experts/roster.test.ts"
         ]
       }
     },
@@ -70,7 +53,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-08-12T20:57:44.131Z",
+        "timestamp": "2026-09-05T16:03:50.526Z",
         "runner_id": "test"
       },
       "failures": [],
@@ -92,29 +75,12 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/drop-prebuild-install-warning.md",
-          ".paqad/.config.example",
-          ".paqad/checks/last-run.json",
-          ".paqad/configs/.config.app",
-          ".paqad/configs/.config.policy",
-          "docs/extension-surface.md",
-          "docs/instructions/architecture/overview.md",
-          "docs/instructions/benchmarks/measured.md",
-          "docs/instructions/stack/overview.md",
-          "docs/instructions/stack/versions.md",
-          "package.json",
-          "pnpm-lock.yaml",
-          "scripts/lib/footprint.mjs",
-          "scripts/measure-footprint.mjs",
-          "src/context/reranker.ts",
-          "src/context/tokenizer-cache.ts",
-          "src/rag/providers.ts",
-          "tests/e2e/rag.e2e.test.ts",
-          "tests/unit/context/compute-budget.test.ts",
-          "tests/unit/context/reranker.test.ts",
-          "tests/unit/coverage-focused/prompts-and-providers.test.ts",
-          "tests/unit/rag/providers.test.ts",
-          "tsup.config.ts"
+          "runtime/hooks/lib/agent-entry-directive.mjs",
+          "src/core/framework-config.ts",
+          "src/spec-pipeline/config.ts",
+          "src/spec-pipeline/experts/roster.ts",
+          "tests/unit/spec-pipeline/config.test.ts",
+          "tests/unit/spec-pipeline/experts/roster.test.ts"
         ]
       }
     },
@@ -127,7 +93,7 @@
         "skipped": 0,
         "errored": 0,
         "duration_ms": 0,
-        "timestamp": "2026-08-12T20:57:54.480Z",
+        "timestamp": "2026-09-05T16:04:01.171Z",
         "runner_id": "build"
       },
       "failures": [],
@@ -149,29 +115,12 @@
       "errors": [],
       "evidence_scope": {
         "related_paths": [
-          ".changeset/drop-prebuild-install-warning.md",
-          ".paqad/.config.example",
-          ".paqad/checks/last-run.json",
-          ".paqad/configs/.config.app",
-          ".paqad/configs/.config.policy",
-          "docs/extension-surface.md",
-          "docs/instructions/architecture/overview.md",
-          "docs/instructions/benchmarks/measured.md",
-          "docs/instructions/stack/overview.md",
-          "docs/instructions/stack/versions.md",
-          "package.json",
-          "pnpm-lock.yaml",
-          "scripts/lib/footprint.mjs",
-          "scripts/measure-footprint.mjs",
-          "src/context/reranker.ts",
-          "src/context/tokenizer-cache.ts",
-          "src/rag/providers.ts",
-          "tests/e2e/rag.e2e.test.ts",
-          "tests/unit/context/compute-budget.test.ts",
-          "tests/unit/context/reranker.test.ts",
-          "tests/unit/coverage-focused/prompts-and-providers.test.ts",
-          "tests/unit/rag/providers.test.ts",
-          "tsup.config.ts"
+          "runtime/hooks/lib/agent-entry-directive.mjs",
+          "src/core/framework-config.ts",
+          "src/spec-pipeline/config.ts",
+          "src/spec-pipeline/experts/roster.ts",
+          "tests/unit/spec-pipeline/config.test.ts",
+          "tests/unit/spec-pipeline/experts/roster.test.ts"
         ]
       }
     }
