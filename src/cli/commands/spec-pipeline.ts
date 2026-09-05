@@ -18,7 +18,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
-import { groundArea } from '@/spec-pipeline/grounding.js';
+import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
   assertCanRunStep,
@@ -89,7 +89,7 @@ export function createSpecPipelineCommand(): Command {
     .option('--modules <list>', 'Comma-separated module slugs to scope grounding to')
     .option(...projectRootOpt)
     .option(...sessionOpt)
-    .action((options: CommonOptions & { modules?: string }) => {
+    .action(async (options: CommonOptions & { modules?: string }) => {
       const resolved = resolveDir(options);
       if (!resolved) return;
       const modules = options.modules
@@ -98,7 +98,9 @@ export function createSpecPipelineCommand(): Command {
             .map((m) => m.trim())
             .filter((m) => m.length > 0)
         : undefined;
-      const grounding = groundArea(options.projectRoot, modules ? { modules } : {});
+      // RAG-aware (#520): draws terms/references from semantic retrieval when rag_enabled is
+      // on, else falls back to the docs glob. Records which path was taken.
+      const grounding = await groundAreaAsync(options.projectRoot, modules ? { modules } : {});
       writeStepArtifact(
         options.projectRoot,
         resolved.dirName,
@@ -112,6 +114,7 @@ export function createSpecPipelineCommand(): Command {
           references: grounding.references.length,
           terms: grounding.terms.length,
           sparse: grounding.sparse,
+          path: grounding.path,
         }),
       );
     });
