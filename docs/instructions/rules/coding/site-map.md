@@ -16,8 +16,8 @@ call at view time.
 
 Run this workflow whenever the user says anything equivalent to:
 
-- "create a site map", "create sitemap", "generate the site map", "map the app"
-- "update the site map", "draw a journey map"
+- "create a site map", "create sitemap", "generate the site map", "map the app" <!-- @rule RL-24ab -->
+- "update the site map", "draw a journey map" <!-- @rule RL-a9e4 -->
 
 Do **not** improvise a site map. Always follow the steps below in order. Re-checking an
 existing map against the current code is the `site-map-retest` workflow — the same
@@ -149,22 +149,22 @@ where the last one stopped instead of starting over.
 
 ## Rules
 
-- Step 0 is always first: `paqad-ai sitemap status`, so a run resumes instead of restarting when
+- Step 0 is always first: `paqad-ai sitemap status`, so a run resumes instead of restarting when <!-- @rule RL-8e09 -->
   progress exists. Never start from zero when the progress file says otherwise.
-- Never skip the verb. The extraction, integrity checks, and the stamped trust and freshness
+- Never skip the verb. The extraction, integrity checks, and the stamped trust and freshness <!-- @rule RL-eac6 -->
   come from `paqad-ai sitemap run`, never from your own reading of the code.
-- `sitemap draft` writes the skeleton from proven extraction and the resolved links; you add the
+- `sitemap draft` writes the skeleton from proven extraction and the resolved links; you add the <!-- @rule RL-df04 -->
   meaning; `sitemap run` proves it. Do not hand-type surfaces the engine can prove, and never
   claim the verb authors the whole map.
-- Ground every surface, transition, and guard in a resolving `file:line`. A claim whose
+- Ground every surface, transition, and guard in a resolving `file:line`. A claim whose <!-- @rule RL-3d1e -->
   evidence does not resolve is a finding, not a fact.
-- Do not flag a transition because a link exists — only when evidence shows navigation actually
+- Do not flag a transition because a link exists — only when evidence shows navigation actually <!-- @rule RL-3d2f -->
   occurs. Do not name a surface the extractor never saw.
-- The role that draws the map does not confirm it: modeling is yours, but journeys are
+- The role that draws the map does not confirm it: modeling is yours, but journeys are <!-- @rule RL-d19d -->
   confirmed by humans through the audited surface, never self-approved.
-- Put every preflight question to the person in one batched prompt, never one at a time. The
+- Put every preflight question to the person in one batched prompt, never one at a time. The <!-- @rule RL-2601 -->
   questions come from a fixed list, and a defaulted answer is recorded as a default, never as a
   human decision. Never ask outside the list, and never mark a deferred or defaulted choice as
   confirmed.
-- `docs/site-map/` holds only the current map. Never write timestamped reports, generated
+- `docs/site-map/` holds only the current map. Never write timestamped reports, generated <!-- @rule RL-ec6f -->
   views, or any second copy of the map there or anywhere else.

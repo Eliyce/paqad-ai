@@ -118,7 +118,9 @@
 # analytics_strictness=warn
 # off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in. (env: PAQAD_DUPLICATION_MODE)
 # duplication_mode=warn
-# off | warn — completion check that the per-feature bundle carries its evidence files (rule-run / duplication / change-metrics / rag). warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks (there is no strict tier). off disables it (issue #468 Phase C). (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
+# off | warn | strict — end-of-change check that a feature-development bundle carries every required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, naming the file and its writer; warn surfaces it as Inconclusive without blocking; off falls back to the deprecated evidence_existence_gate (issue #511). (env: PAQAD_BUNDLE_COMPLETENESS)
+# bundle_completeness=strict
+# DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it. (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
 # evidence_existence_gate=warn
 # Minimum similarity (0..1) for a blocking duplication finding (issue #358). Default 0.90 — conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks. (env: PAQAD_DUPLICATION_SIMILARITY_THRESHOLD)
 # duplication_similarity_threshold=0.9
@@ -130,3 +132,13 @@
 # decision_arm_plan_threshold=0.85
 # How many evidence-armed decision pauses one change may open (issue #361). Default 1 — only the strongest fork is asked; the rest are reported as warnings. (env: PAQAD_DECISION_ARM_MAX_PER_CHANGE)
 # decision_arm_max_per_change=1
+
+# ── Spec pipeline (issue #512 — optional, off by default) ───
+# Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: with it off, feature-development is byte-identical to today (FR-11). It sits upstream of the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on. (env: PAQAD_SPEC_PIPELINE_ENABLED)
+# spec_pipeline_enabled=false
+# off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask and hold until answered or explicitly deferred. off: never ask. The fixed spine (grounding, no-invented-requirements, traceability) is never switchable. (env: PAQAD_SPEC_PIPELINE_CLARIFICATION)
+# spec_pipeline_clarification=warn
+# off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): a human must approve before freeze, recording a named human. Independent of the A5 gate. (env: PAQAD_SPEC_PIPELINE_FINAL_REVIEW)
+# spec_pipeline_final_review=off
+# Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes. (env: PAQAD_SPEC_PIPELINE_TOKEN_CEILING)
+# spec_pipeline_token_ceiling=20000

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Purpose: Validate requirement-enrichment output: 3 sections in order,
-#          flat bullets, Blocked: prefix valid.
+# Purpose: Validate requirement-enrichment output: a JSON question batch
+#          { "questions": [ { business_text, why_it_matters, options[], grounded_in, technical_note? } ] }.
 # Usage:   bash scripts/lint-output.sh <file>   (or stdin)
 # Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
@@ -12,23 +12,31 @@ elif [ -f "$1" ]; then body=$(cat "$1")
 else printf 'error: file not found: %s\n' "$1" >&2; exit 2
 fi
 
-issues=0
-say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
+node -e '
+const txt = process.argv[1];
+let doc;
+try { doc = JSON.parse(txt); } catch (e) { console.error("invalid JSON: " + e.message); process.exit(1); }
+if (typeof doc !== "object" || doc === null || Array.isArray(doc)) {
+  console.error("expected a JSON object with a questions[] array"); process.exit(1);
+}
+if (!Array.isArray(doc.questions)) { console.error("missing questions[] array"); process.exit(1); }
 
-# Required headings
-for h in '## Confirmed Requirements' '## Assumptions' '## Open Questions'; do
-  grep -qE "^${h}\$" <<<"$body" || say "missing \"${h}\""
-done
-
-# Order check: line numbers must be strictly increasing in the listed sequence.
-n_conf=$(printf '%s\n' "$body" | grep -nE '^## Confirmed Requirements$' | head -1 | cut -d: -f1)
-n_assu=$(printf '%s\n' "$body" | grep -nE '^## Assumptions$'            | head -1 | cut -d: -f1)
-n_open=$(printf '%s\n' "$body" | grep -nE '^## Open Questions$'         | head -1 | cut -d: -f1)
-if [ -n "$n_conf" ] && [ -n "$n_assu" ] && [ -n "$n_open" ]; then
-  if ! [ "$n_conf" -lt "$n_assu" ] || ! [ "$n_assu" -lt "$n_open" ]; then
-    say 'sections out of required order (Confirmed Requirements -> Assumptions -> Open Questions)'
-  fi
-fi
-
-[ "$issues" -gt 0 ] && exit 1
-printf 'ok\n'
+const nonEmptyString = (v) => typeof v === "string" && v.trim().length > 0;
+let issues = 0;
+for (const [i, q] of doc.questions.entries()) {
+  if (typeof q !== "object" || q === null || Array.isArray(q)) { console.error(`#${i}: not an object`); issues++; continue; }
+  if (!nonEmptyString(q.business_text)) { console.error(`#${i}: business_text must be a non-empty string`); issues++; }
+  if (!nonEmptyString(q.why_it_matters)) { console.error(`#${i}: why_it_matters must be a non-empty string`); issues++; }
+  if (!Array.isArray(q.options) || q.options.length < 2 || !q.options.every(nonEmptyString)) {
+    console.error(`#${i}: options must be an array of >=2 non-empty strings`); issues++;
+  }
+  if (!("grounded_in" in q) || !(q.grounded_in === null || nonEmptyString(q.grounded_in))) {
+    console.error(`#${i}: grounded_in must be a ref string or null`); issues++;
+  }
+  if ("technical_note" in q && typeof q.technical_note !== "string") {
+    console.error(`#${i}: technical_note, when present, must be a string`); issues++;
+  }
+}
+if (issues) process.exit(1);
+console.log("ok");
+' "$body"

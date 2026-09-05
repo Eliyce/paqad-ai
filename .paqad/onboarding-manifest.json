@@ -1,5 +1,5 @@
 {
-  "adapter": "codex-cli",
+  "adapter": "claude-code",
   "project_root": ".",
   "profile": {
     "project": {
@@ -105,8 +105,10 @@
       "design_research": false,
       "team_agents": true,
       "analytics_instrumentation": false,
+      "site_map": true,
       "lean_rules": true,
-      "feature_report": true
+      "feature_report": true,
+      "metrics_enabled": true
     },
     "enterprise": {
       "enabled": true,
@@ -136,6 +138,7 @@
       "rag_relief_floor": 0.35,
       "rag_top_n": 20,
       "rag_max_file_size": 153600,
+      "existing_surface_tokens": 1000,
       "benchmark_gates": {
         "hit_at_5_improvement_pct": 20,
         "task_success_rate_improvement_pct": 10,
@@ -295,96 +298,6 @@
         "confidence": "medium"
       },
       {
-        "signal": "node-cli detected from package.json manifest fields",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
-        "implies": "node-cli",
-        "confidence": "medium"
-      },
-      {
-        "signal": "node-cli detected from package.json package metadata",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
-        "implies": "node-cli",
-        "confidence": "high"
-      },
-      {
-        "signal": "node-cli detected from package.json package metadata",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
-        "implies": "node-cli",
-        "confidence": "high"
-      },
-      {
-        "signal": "node-cli detected from src/cli",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/src/cli",
-        "implies": "node-cli",
-        "confidence": "medium"
-      },
-      {
-        "signal": "typescript detected from tsconfig.json",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/tsconfig.json",
-        "implies": "typescript",
-        "confidence": "medium"
-      },
-      {
-        "signal": "vitest detected from package metadata",
-        "file": "package metadata",
-        "implies": "vitest",
-        "confidence": "medium"
-      },
-      {
-        "signal": "eslint detected from package metadata",
-        "file": "package metadata",
-        "implies": "eslint",
-        "confidence": "medium"
-      },
-      {
-        "signal": "node-library detected from package.json package metadata",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/package.json",
-        "implies": "node-library",
-        "confidence": "high"
-      },
-      {
-        "signal": "node-library detected from src/index.ts",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/src/index.ts",
-        "implies": "node-library",
-        "confidence": "medium"
-      },
-      {
-        "signal": "typescript detected from tsconfig.json",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/tsconfig.json",
-        "implies": "typescript",
-        "confidence": "medium"
-      },
-      {
-        "signal": "vitest detected from package metadata",
-        "file": "package metadata",
-        "implies": "vitest",
-        "confidence": "medium"
-      },
-      {
-        "signal": "eslint detected from package metadata",
-        "file": "package metadata",
-        "implies": "eslint",
-        "confidence": "medium"
-      },
-      {
-        "signal": "react detected from package.json package metadata",
-        "file": ".claude/worktrees/quirky-cartwright-87f313/graph-ui/package.json",
-        "implies": "react",
-        "confidence": "high"
-      },
-      {
-        "signal": "vite-spa detected from package metadata",
-        "file": "package metadata",
-        "implies": "vite-spa",
-        "confidence": "medium"
-      },
-      {
-        "signal": "tailwind detected from package metadata",
-        "file": "package metadata",
-        "implies": "tailwind",
-        "confidence": "medium"
-      },
-      {
         "signal": "react detected from package.json package metadata",
         "file": "graph-ui/package.json",
         "implies": "react",
@@ -403,19 +316,36 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-07-14T09:46:34.851Z",
+    "timestamp": "2026-09-05T06:48:31.886Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
       "ignored_paths": [
+        ".changeset",
+        ".claude",
+        ".codex",
+        ".editorconfig",
+        ".gemini",
         ".git",
+        ".gitattributes",
+        ".github",
+        ".gitignore",
+        ".junie",
+        ".nvmrc",
+        ".paqad",
+        ".prettierignore",
+        ".prettierrc.json",
+        ".tmp",
+        ".windsurf",
+        ".windsurfrules",
         "coverage",
         "dist",
+        "docs",
         "graph-ui/node_modules",
         "node_modules",
-        "tests/fixtures",
-        "tests/unit/adapters/fixtures",
-        "tests/unit/templates/fixtures"
+        "runtime/graph-ui",
+        "site-map-buildout",
+        "tests"
       ],
       "projects": [
         {
@@ -458,14 +388,31 @@
     "selected_root": ".",
     "scan_max_depth": 5,
     "ignored_paths": [
+      ".changeset",
+      ".claude",
+      ".codex",
+      ".editorconfig",
+      ".gemini",
       ".git",
+      ".gitattributes",
+      ".github",
+      ".gitignore",
+      ".junie",
+      ".nvmrc",
+      ".paqad",
+      ".prettierignore",
+      ".prettierrc.json",
+      ".tmp",
+      ".windsurf",
+      ".windsurfrules",
       "coverage",
       "dist",
+      "docs",
       "graph-ui/node_modules",
       "node_modules",
-      "tests/fixtures",
-      "tests/unit/adapters/fixtures",
-      "tests/unit/templates/fixtures"
+      "runtime/graph-ui",
+      "site-map-buildout",
+      "tests"
     ],
     "projects": [
       {
@@ -503,54 +450,10 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-07-10T09:08:34.248Z",
+  "generated_at": "2026-09-05T06:48:37.596Z",
   "generated_artifacts": [
     {
-      "path": "AGENTS.md",
-      "auto_update": true
-    },
-    {
-      "path": ".codex/.gitignore",
-      "auto_update": true
-    },
-    {
-      "path": ".codex/hooks.json",
-      "auto_update": true
-    },
-    {
-      "path": ".codex/settings.hooks.json",
-      "auto_update": true
-    },
-    {
-      "path": ".codex/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".codex/cache.json",
-      "auto_update": true
-    },
-    {
-      "path": ".codex/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": "CLAUDE.md",
-      "auto_update": true
-    },
-    {
       "path": ".claude/.gitignore",
-      "auto_update": true
-    },
-    {
-      "path": ".claude/settings.json",
-      "auto_update": true
-    },
-    {
-      "path": ".claude/settings.hooks.json",
-      "auto_update": true
-    },
-    {
-      "path": ".claude/settings.mcp.json",
       "auto_update": true
     },
     {
@@ -562,51 +465,31 @@
       "auto_update": true
     },
     {
-      "path": "GEMINI.md",
+      "path": ".claude/settings.hooks.json",
       "auto_update": true
     },
     {
-      "path": ".gemini/.gitignore",
+      "path": ".claude/settings.json",
       "auto_update": true
     },
     {
-      "path": ".gemini/settings.json",
+      "path": ".claude/settings.mcp.json",
       "auto_update": true
     },
     {
-      "path": ".gemini/settings.hooks.json",
+      "path": ".paqad/templates/pr-body.md",
+      "auto_update": false
+    },
+    {
+      "path": "CLAUDE.md",
       "auto_update": true
     },
     {
-      "path": ".gemini/mcp.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/cache.json",
-      "auto_update": true
-    },
-    {
-      "path": ".gemini/memory.json",
-      "auto_update": true
-    },
-    {
-      "path": ".junie/AGENTS.md",
-      "auto_update": true
-    },
-    {
-      "path": ".junie/mcp/mcp.json",
-      "auto_update": true
+      "path": "docs/instructions/rules/_shared/canonical-docs.md",
+      "auto_update": false
     },
     {
       "path": "docs/instructions/rules/_shared/constitution.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/_shared/security.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/security/pentest.md",
       "auto_update": false
     },
     {
@@ -614,11 +497,11 @@
       "auto_update": false
     },
     {
-      "path": "docs/instructions/rules/_shared/testing.md",
+      "path": "docs/instructions/rules/_shared/documentation.md",
       "auto_update": false
     },
     {
-      "path": "docs/instructions/rules/_shared/documentation.md",
+      "path": "docs/instructions/rules/_shared/observability.md",
       "auto_update": false
     },
     {
@@ -630,31 +513,11 @@
       "auto_update": false
     },
     {
-      "path": "docs/instructions/rules/_shared/canonical-docs.md",
+      "path": "docs/instructions/rules/_shared/security.md",
       "auto_update": false
     },
     {
-      "path": "docs/instructions/rules/coding/stacks/react/architecture.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/code-quality.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/stacks/_shared/git.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/stacks/_shared/api-design.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/coding/stacks/react/environment.md",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/rules/_shared/observability.md",
+      "path": "docs/instructions/rules/_shared/testing.md",
       "auto_update": false
     },
     {
@@ -662,7 +525,15 @@
       "auto_update": false
     },
     {
+      "path": "docs/instructions/rules/coding/code-quality.md",
+      "auto_update": false
+    },
+    {
       "path": "docs/instructions/rules/coding/code-review.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/codebase-health.md",
       "auto_update": false
     },
     {
@@ -678,7 +549,31 @@
       "auto_update": false
     },
     {
+      "path": "docs/instructions/rules/coding/health-retest.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/site-map-retest.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/site-map.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/stacks/_shared/api-design.md",
+      "auto_update": false
+    },
+    {
       "path": "docs/instructions/rules/coding/stacks/_shared/ci-cd.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/stacks/_shared/git.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/stacks/react/architecture.md",
       "auto_update": false
     },
     {
@@ -691,6 +586,10 @@
     },
     {
       "path": "docs/instructions/rules/coding/stacks/react/documentation.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/rules/coding/stacks/react/environment.md",
       "auto_update": false
     },
     {
@@ -738,15 +637,7 @@
       "auto_update": false
     },
     {
-      "path": "docs/instructions/workflows/feature-development.yaml",
-      "auto_update": false
-    },
-    {
-      "path": "docs/instructions/workflows/delivery-policy.yaml",
-      "auto_update": false
-    },
-    {
-      "path": ".paqad/templates/pr-body.md",
+      "path": "docs/instructions/rules/security/pentest.md",
       "auto_update": false
     },
     {
@@ -771,6 +662,14 @@
     },
     {
       "path": "docs/instructions/tools/react/testing.md",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/workflows/delivery-policy.yaml",
+      "auto_update": false
+    },
+    {
+      "path": "docs/instructions/workflows/feature-development.yaml",
       "auto_update": false
     }
   ],
