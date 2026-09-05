@@ -8,8 +8,18 @@ describe('planExpertSlices', () => {
     const plan = planExpertSlices(['db-expert', 'ux-ui-analyst'], 100000);
     expect(plan.warnings).toEqual([]);
     expect(plan.slices).toEqual([
-      { role: 'db-expert', budget: ROLE_TOKEN_BUDGETS['db-expert'], granted: ROLE_TOKEN_BUDGETS['db-expert'], clamped: false },
-      { role: 'ux-ui-analyst', budget: ROLE_TOKEN_BUDGETS['ux-ui-analyst'], granted: ROLE_TOKEN_BUDGETS['ux-ui-analyst'], clamped: false },
+      {
+        role: 'db-expert',
+        budget: ROLE_TOKEN_BUDGETS['db-expert'],
+        granted: ROLE_TOKEN_BUDGETS['db-expert'],
+        clamped: false,
+      },
+      {
+        role: 'ux-ui-analyst',
+        budget: ROLE_TOKEN_BUDGETS['ux-ui-analyst'],
+        granted: ROLE_TOKEN_BUDGETS['ux-ui-analyst'],
+        clamped: false,
+      },
     ]);
   });
 

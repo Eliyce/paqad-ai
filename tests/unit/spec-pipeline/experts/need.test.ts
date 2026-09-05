@@ -22,13 +22,17 @@ describe('validateExpertNeed', () => {
   });
 
   it('parses a JSON string input', () => {
-    const result = validateExpertNeed('{"experts":[{"role":"ux-ui-analyst","reason":"new screen"}]}');
+    const result = validateExpertNeed(
+      '{"experts":[{"role":"ux-ui-analyst","reason":"new screen"}]}',
+    );
     expect(result.ok).toBe(true);
     expect(result.artifact?.experts[0]?.role).toBe('ux-ui-analyst');
   });
 
   it('trims the reason', () => {
-    const result = validateExpertNeed({ experts: [{ role: 'db-expert', reason: '  migration  ' }] });
+    const result = validateExpertNeed({
+      experts: [{ role: 'db-expert', reason: '  migration  ' }],
+    });
     expect(result.artifact?.experts[0]?.reason).toBe('migration');
   });
 

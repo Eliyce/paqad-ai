@@ -42,7 +42,12 @@ export function planExpertSlices(roles: readonly AgentRole[], ceiling: number): 
   // Under the ceiling: everyone gets their full budget, nothing clamped.
   if (sum <= ceiling) {
     return {
-      slices: budgets.map(({ role, budget }) => ({ role, budget, granted: budget, clamped: false })),
+      slices: budgets.map(({ role, budget }) => ({
+        role,
+        budget,
+        granted: budget,
+        clamped: false,
+      })),
       warnings: [],
     };
   }

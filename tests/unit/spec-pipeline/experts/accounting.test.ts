@@ -14,7 +14,10 @@ const secNote: ExpertNote = {
 
 describe('buildExpertAccounting', () => {
   it('records role, reason, tokens, and changed_spec per expert (AC-5/AC-7)', () => {
-    const merged: MergedExpertNotes = { findings: [...dbNote.findings, ...secNote.findings], conflicts: [] };
+    const merged: MergedExpertNotes = {
+      findings: [...dbNote.findings, ...secNote.findings],
+      conflicts: [],
+    };
     const result = buildExpertAccounting({
       needs: [
         { role: 'db-expert', reason: 'touches the invoices migration' },
@@ -26,7 +29,12 @@ describe('buildExpertAccounting', () => {
     });
     expect(result.total_tokens).toBe(2000);
     expect(result.experts).toEqual([
-      { role: 'db-expert', reason: 'touches the invoices migration', tokens: 1200, changed_spec: true },
+      {
+        role: 'db-expert',
+        reason: 'touches the invoices migration',
+        tokens: 1200,
+        changed_spec: true,
+      },
       { role: 'security-auditor', reason: 'touches auth', tokens: 800, changed_spec: true },
     ]);
   });
