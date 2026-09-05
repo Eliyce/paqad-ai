@@ -690,6 +690,19 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a ' +
       'recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes.',
   },
+  {
+    key: 'spec_pipeline_experts_enabled',
+    env: 'PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED',
+    type: 'boolean',
+    default: false,
+    group: 'policy',
+    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    comment:
+      'Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts ' +
+      '(db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by ' +
+      'default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 ' +
+      '(P2-INV-1). Needs spec_pipeline_enabled on to have any effect.',
+  },
 ] as const;
 
 const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
@@ -1839,6 +1852,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'spec_pipeline_clarification',
       'spec_pipeline_final_review',
       'spec_pipeline_token_ceiling',
+      'spec_pipeline_experts_enabled',
     ],
   },
 ];

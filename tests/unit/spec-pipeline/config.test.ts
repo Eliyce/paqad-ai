@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { readPipelineConfig } from '@/spec-pipeline/config.js';
+import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -22,17 +22,18 @@ function writeLocalConfig(root: string, body: string): void {
 }
 
 describe('readPipelineConfig', () => {
-  it('defaults: disabled, clarification=warn, final_review=off, ceiling=20000', () => {
+  it('defaults: disabled, clarification=warn, final_review=off, ceiling=20000, experts off', () => {
     const cfg = readPipelineConfig(tempRoot(), {});
     expect(cfg).toEqual({
       enabled: false,
       clarification: 'warn',
       final_review: 'off',
       token_ceiling: 20000,
+      experts_enabled: false,
     });
   });
 
-  it('reads enabled + gate modes + ceiling from the local config', () => {
+  it('reads enabled + gate modes + ceiling + experts from the local config', () => {
     const root = tempRoot();
     writeLocalConfig(
       root,
@@ -41,6 +42,7 @@ describe('readPipelineConfig', () => {
         'spec_pipeline_clarification=strict',
         'spec_pipeline_final_review=warn',
         'spec_pipeline_token_ceiling=5000',
+        'spec_pipeline_experts_enabled=on',
       ].join('\n'),
     );
     expect(readPipelineConfig(root, {})).toEqual({
@@ -48,7 +50,16 @@ describe('readPipelineConfig', () => {
       clarification: 'strict',
       final_review: 'warn',
       token_ceiling: 5000,
+      experts_enabled: true,
     });
+  });
+
+  it('the PAQAD_ env escape hatch drives experts_enabled too', () => {
+    const root = tempRoot();
+    writeLocalConfig(root, 'spec_pipeline_experts_enabled=false');
+    expect(
+      readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED: 'true' }).experts_enabled,
+    ).toBe(true);
   });
 
   it('the PAQAD_ env escape hatch wins over the file', () => {
@@ -66,5 +77,21 @@ describe('readPipelineConfig', () => {
     const cfg = readPipelineConfig(root, {});
     expect(cfg.clarification).toBe('warn');
     expect(cfg.token_ceiling).toBe(20000);
+  });
+});
+
+describe('expertsActive', () => {
+  const base = { clarification: 'warn', final_review: 'off', token_ceiling: 20000 } as const;
+
+  it('is true only when the pipeline AND the experts flag are both on (P2-INV-1)', () => {
+    expect(expertsActive({ ...base, enabled: true, experts_enabled: true })).toBe(true);
+  });
+
+  it('is false when experts is on but the pipeline itself is off', () => {
+    expect(expertsActive({ ...base, enabled: false, experts_enabled: true })).toBe(false);
+  });
+
+  it('is false when the pipeline is on but experts is off', () => {
+    expect(expertsActive({ ...base, enabled: true, experts_enabled: false })).toBe(false);
   });
 });

@@ -58,6 +58,7 @@ export default defineConfig({
         'src/introspection/ecosystems/types.ts',
         'src/patterns/types.ts',
         'src/compliance/types.ts',
+        'src/spec-pipeline/experts/types.ts',
         'src/compliance/spec-review-detectors/missing-negative-detector.ts',
         '**/spec-review-detectors/missing-negative-detector.ts',
         'src/pipeline/phases/phase.interface.ts',

@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { buildProvenance, decideFinish } from '@/spec-pipeline/finish.js';
 import type { PipelineConfig } from '@/spec-pipeline/config.js';
+import type { ExpertRunAccounting } from '@/spec-pipeline/experts/types.js';
 
 const cfg = (over: Partial<PipelineConfig> = {}): PipelineConfig => ({
   enabled: true,
   clarification: 'warn',
   final_review: 'off',
   token_ceiling: 20000,
+  experts_enabled: false,
   ...over,
 });
 
@@ -46,5 +48,32 @@ describe('buildProvenance', () => {
     expect(prov.enforcement.enabled).toBe(true);
     // No `signed_off_by` / signature field is ever present.
     expect('signed_off_by' in prov).toBe(false);
+  });
+
+  it('omits the experts block entirely when no experts ran — byte-identical to v1 (INV-1/AC-7)', () => {
+    const prov = buildProvenance(cfg(), true, [], {
+      asked: 0,
+      answered: 0,
+      auto_answered: 0,
+      deferred: 0,
+    });
+    expect('experts' in prov).toBe(false);
+  });
+
+  it('folds the experts block in only when experts ran (issue #521, FR-8)', () => {
+    const accounting: ExpertRunAccounting = {
+      experts: [{ role: 'db-expert', reason: 'migration', tokens: 900, changed_spec: true }],
+      total_tokens: 900,
+      warnings: [],
+    };
+    const prov = buildProvenance(
+      cfg({ experts_enabled: true }),
+      true,
+      [],
+      { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
+      { accounting, conflicts: [] },
+    );
+    expect(prov.experts?.accounting.total_tokens).toBe(900);
+    expect(prov.experts?.conflicts).toEqual([]);
   });
 });

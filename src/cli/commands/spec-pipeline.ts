@@ -7,6 +7,11 @@
 // review, A5-gated. Every action refuses when its predecessor is incomplete (step locks) and
 // resumes from the first incomplete step. This command reimplements none of the logic — it
 // wires src/spec-pipeline/*.
+//
+// The Phase 2 expert roster (issue #521) rides alongside as the `experts` subcommand group,
+// gated on `spec_pipeline_experts_enabled`: the model-decided need artifact and the experts'
+// notes are handed back the same way the model steps are, validated against the roster before
+// anything is stored, and folded into the finish provenance ONLY when experts actually ran.
 
 import { readFileSync } from 'node:fs';
 
@@ -16,8 +21,15 @@ import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
-import { readPipelineConfig } from '@/spec-pipeline/config.js';
+import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
+import { assembleExpertRun } from '@/spec-pipeline/experts/assemble.js';
+import { validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import {
+  validateExpertNotes,
+  writeExpertNeed,
+  writeExpertNotes,
+} from '@/spec-pipeline/experts/notes.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
@@ -230,6 +242,8 @@ export function createSpecPipelineCommand(): Command {
       console.log(JSON.stringify({ step, recorded: true }));
     });
 
+  command.addCommand(createExpertsCommand());
+
   command
     .command('finish')
     .description('S5 — decide freeze vs non-blocking review (A5-gated) and record provenance')
@@ -252,12 +266,25 @@ export function createSpecPipelineCommand(): Command {
       // human-input-by-reference, never a fabricated sign-off.
       const questions = readQuestionsArtifact(options.projectRoot, resolved.dirName);
       const answerRefs = questions?.auto_answered.map((entry) => entry.source) ?? [];
-      const provenance = buildProvenance(config, a5Live, answerRefs, {
-        asked: questions?.asked ?? 0,
-        answered: questions?.answered ?? 0,
-        auto_answered: questions?.auto_answered.length ?? 0,
-        deferred: questions?.deferred ?? 0,
-      });
+      // Phase 2 (issue #521): fold the expert accounting in ONLY when the roster is active AND a
+      // need artifact was recorded. Off ⇒ null ⇒ provenance has no experts block (INV-1 / AC-7).
+      const expertRun = expertsActive(config)
+        ? assembleExpertRun(options.projectRoot, resolved.dirName, config.token_ceiling)
+        : null;
+      const provenance = buildProvenance(
+        config,
+        a5Live,
+        answerRefs,
+        {
+          asked: questions?.asked ?? 0,
+          answered: questions?.answered ?? 0,
+          auto_answered: questions?.auto_answered.length ?? 0,
+          deferred: questions?.deferred ?? 0,
+        },
+        expertRun
+          ? { accounting: expertRun.accounting, conflicts: expertRun.conflicts }
+          : undefined,
+      );
       writeStepArtifact(
         options.projectRoot,
         resolved.dirName,
@@ -265,7 +292,14 @@ export function createSpecPipelineCommand(): Command {
         JSON.stringify({ outcome: decision.outcome, reason: decision.reason, provenance }, null, 2),
       );
       recordStep(options.projectRoot, resolved.dirName, 'finish', 'complete');
-      console.log(JSON.stringify({ step: 'finish', outcome: decision.outcome, a5_live: a5Live }));
+      console.log(
+        JSON.stringify({
+          step: 'finish',
+          outcome: decision.outcome,
+          a5_live: a5Live,
+          ...(expertRun ? { experts: expertRun.accounting.experts.length } : {}),
+        }),
+      );
     });
 
   command
@@ -288,4 +322,88 @@ export function createSpecPipelineCommand(): Command {
     });
 
   return command;
+}
+
+/**
+ * The `experts` subcommand group (issue #521): `record` stores the model-decided need artifact,
+ * `notes` stores the experts' returned notes + token actuals. Both are hard-gated on
+ * `spec_pipeline_experts_enabled` (the flag off ⇒ the verb refuses, zero Phase 2 state) and
+ * validate their input against the roster before anything is written, so the model can never
+ * store a role outside the roster.
+ */
+function createExpertsCommand(): Command {
+  const experts = new Command('experts').description(
+    'Phase 2 expert roster (issue #521): record the model-decided expert need and their notes',
+  );
+
+  const refuseWhenOff = (options: CommonOptions): boolean => {
+    if (!expertsActive(readPipelineConfig(options.projectRoot))) {
+      console.error(
+        'the expert roster is off — enable spec_pipeline_enabled and spec_pipeline_experts_enabled first',
+      );
+      process.exitCode = 1;
+      return true;
+    }
+    return false;
+  };
+
+  experts
+    .command('record')
+    .description('Store the model-decided expert-need artifact (validated against the roster)')
+    .argument('<file>', 'Path to the need artifact the expert-need-detector produced')
+    .option(...projectRootOpt)
+    .option(...sessionOpt)
+    .action((file: string, options: CommonOptions) => {
+      const resolved = resolveDir(options);
+      if (!resolved) return;
+      if (refuseWhenOff(options)) return;
+      let content: string;
+      try {
+        content = readFileSync(file, 'utf8');
+      } catch {
+        console.error(`could not read need artifact "${file}"`);
+        process.exitCode = 1;
+        return;
+      }
+      const check = validateExpertNeed(content);
+      if (!check.ok || !check.artifact) {
+        console.error(`expert-need artifact is invalid: ${check.error}`);
+        process.exitCode = 1;
+        return;
+      }
+      writeExpertNeed(options.projectRoot, resolved.dirName, check.artifact);
+      console.log(
+        JSON.stringify({ recorded: 'expert-need', experts: check.artifact.experts.length }),
+      );
+    });
+
+  experts
+    .command('notes')
+    .description("Store the experts' notes + token actuals (validated against the roster)")
+    .argument('<file>', 'Path to the notes artifact the experts produced')
+    .option(...projectRootOpt)
+    .option(...sessionOpt)
+    .action((file: string, options: CommonOptions) => {
+      const resolved = resolveDir(options);
+      if (!resolved) return;
+      if (refuseWhenOff(options)) return;
+      let content: string;
+      try {
+        content = readFileSync(file, 'utf8');
+      } catch {
+        console.error(`could not read notes artifact "${file}"`);
+        process.exitCode = 1;
+        return;
+      }
+      const check = validateExpertNotes(content);
+      if (!check.ok || !check.artifact) {
+        console.error(`expert-notes artifact is invalid: ${check.error}`);
+        process.exitCode = 1;
+        return;
+      }
+      writeExpertNotes(options.projectRoot, resolved.dirName, check.artifact);
+      console.log(JSON.stringify({ recorded: 'expert-notes', notes: check.artifact.notes.length }));
+    });
+
+  return experts;
 }

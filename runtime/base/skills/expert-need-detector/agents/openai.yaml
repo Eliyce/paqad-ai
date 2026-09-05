@@ -1,0 +1,6 @@
+interface:
+  display_name: Expert Need Detector
+  short_description: Decides which domain experts (db, security, ui, ...) the spec
+    pipeline needs from the request and the S0 grounding — the one model call that
+    replaces a deterministic signal-scorer. Emits a roster-constrained need artifact
+    the pipeline script validates.
