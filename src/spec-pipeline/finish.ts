@@ -10,6 +10,7 @@
 // approved something they did not (FR-7.4).
 
 import type { PipelineConfig } from './config.js';
+import type { ExpertConflict, ExpertRunAccounting } from './experts/types.js';
 
 export type FinishOutcome = 'freeze' | 'non-blocking-review' | 'await-human-approval';
 
@@ -55,6 +56,16 @@ export interface QuestionCounts {
   deferred: number;
 }
 
+/**
+ * The Phase 2 expert block folded into provenance ONLY when experts ran (issue #521, FR-8). When
+ * the experts flag is off it is absent, so a flag-off run's provenance is byte-identical to v1
+ * (P2-INV-1 / AC-7). Carries the per-expert accounting and any detected cross-expert conflicts.
+ */
+export interface ProvenanceExperts {
+  accounting: ExpertRunAccounting;
+  conflicts: ExpertConflict[];
+}
+
 /** The honest provenance record folded into the finish artifact (FR-7.4). Never a signature. */
 export interface PipelineProvenance {
   pipeline_produced: true;
@@ -64,6 +75,8 @@ export interface PipelineProvenance {
   enforcement: PipelineConfig;
   a5_live: boolean;
   outcome: FinishOutcome;
+  /** Present only when the Phase 2 expert roster ran (issue #521); absent otherwise. */
+  experts?: ProvenanceExperts;
 }
 
 export function buildProvenance(
@@ -71,6 +84,7 @@ export function buildProvenance(
   a5Live: boolean,
   answerRefs: string[],
   questions: QuestionCounts,
+  experts?: ProvenanceExperts,
 ): PipelineProvenance {
   return {
     pipeline_produced: true,
@@ -79,5 +93,8 @@ export function buildProvenance(
     enforcement: config,
     a5_live: a5Live,
     outcome: decideFinish(config, a5Live).outcome,
+    // Optional-and-only-when-present: an undefined experts arg leaves the key off entirely, so a
+    // run without experts serialises exactly as it did before Phase 2 (INV-1).
+    ...(experts ? { experts } : {}),
   };
 }
