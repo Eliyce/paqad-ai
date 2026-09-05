@@ -22,6 +22,11 @@ export interface PipelineConfig {
   final_review: GateMode;
   /** Per-run model-token ceiling; exceeding it is a recorded warning, never a block. */
   token_ceiling: number;
+  /**
+   * Phase 2 expert roster (issue #521). Off by default ⇒ zero Phase 2 code runs and a run is
+   * byte-identical to v1 (P2-INV-1). Only meaningful when {@link PipelineConfig.enabled} is on.
+   */
+  experts_enabled: boolean;
 }
 
 function asGateMode(raw: string | undefined, fallback: GateMode): GateMode {
@@ -37,6 +42,7 @@ export function readPipelineConfig(
 ): PipelineConfig {
   const map = layeredConfigMap(projectRoot, env);
   const enabledRaw = map.get('spec_pipeline_enabled');
+  const expertsRaw = map.get('spec_pipeline_experts_enabled');
   return {
     enabled: enabledRaw !== undefined && TRUTHY.has(enabledRaw.trim().toLowerCase()),
     clarification: asGateMode(map.get('spec_pipeline_clarification'), 'warn'),
@@ -48,5 +54,15 @@ export function readPipelineConfig(
       20000,
       (n) => n > 0,
     ),
+    experts_enabled: expertsRaw !== undefined && TRUTHY.has(expertsRaw.trim().toLowerCase()),
   };
+}
+
+/**
+ * Whether the Phase 2 expert roster is active (issue #521): the master pipeline switch AND the
+ * experts flag both on. A single canonical gate so no caller re-derives the "both on" rule — an
+ * experts flag set while the pipeline itself is off must never run Phase 2 code (P2-INV-1).
+ */
+export function expertsActive(config: PipelineConfig): boolean {
+  return config.enabled && config.experts_enabled;
 }
