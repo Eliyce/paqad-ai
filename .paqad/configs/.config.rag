@@ -10,11 +10,11 @@
 
 # ── Intelligence / RAG ──────────────────────────────────────
 # Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
-# rag_enabled=false
+rag_enabled=true
 # local | openai | voyageai. Unset uses the local model. (env: PAQAD_RAG_EMBEDDING_PROVIDER)
-# rag_embedding_provider=
+rag_embedding_provider=local
 # Override the embedding model id. Unset = provider default. (env: PAQAD_RAG_EMBEDDING_MODEL)
-# rag_embedding_model=
+rag_embedding_model=Xenova/all-MiniLM-L6-v2
 # Minimum cosine similarity for a chunk to be retrieved. (env: PAQAD_RAG_SIMILARITY_THRESHOLD)
 # rag_similarity_threshold=0.75
 # Max chunks retrieved per query. (env: PAQAD_RAG_TOP_N)

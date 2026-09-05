@@ -12,7 +12,7 @@ map-vs-code freshness, so drift shows up as proof in the map itself.
 
 Run this workflow whenever the user says anything equivalent to:
 
-- "site map retest", "retest the site map", "did the map drift?"
+- "site map retest", "retest the site map", "did the map drift?" <!-- @rule RL-ab80 -->
 
 For a fresh map, use the `site-map` workflow instead. This workflow is behind the `site_map`
 flag (env `PAQAD_SITE_MAP`); when the flag is off, nothing here loads or runs.
@@ -40,8 +40,8 @@ to merge only when the run exits clean and no cited anchor is broken.
 
 ## Rules
 
-- Never invent a finding in a re-run, and never soften one: absence of proof is drift, not a
+- Never invent a finding in a re-run, and never soften one: absence of proof is drift, not a <!-- @rule RL-e07d -->
   fix — a surface whose cited evidence no longer resolves is a finding, never silently fine.
-- The stamped freshness in the stored map is the drift signal downstream gates read; never
+- The stamped freshness in the stored map is the drift signal downstream gates read; never <!-- @rule RL-a1b2 -->
   hand-edit it. Only the verb writes it.
-- A re-run writes no reports: `docs/site-map/` holds only the current map.
+- A re-run writes no reports: `docs/site-map/` holds only the current map. <!-- @rule RL-b580 -->
