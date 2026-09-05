@@ -171,6 +171,7 @@ directories.
 - [`spec-diff`](../../runtime/base/skills/spec-diff/SKILL.md) — covered / extension / conflict vs the active spec. Knows: docs/modules.
 - [`spec-quality-review`](../../runtime/base/skills/spec-quality-review/SKILL.md) — find contradictions, gaps, TBD leaks in a spec. Knows: instructions.
 - [`edge-case-detection`](../../runtime/base/skills/edge-case-detection/SKILL.md) — enumerate failure and uncommon paths. Knows: docs/modules.
+- [`expert-need-detector`](../../runtime/base/skills/expert-need-detector/SKILL.md) — decide which domain experts the spec pipeline needs, from the request + S0 grounding (issue #521 Phase 2, off by default; the model decides, the script validates against the roster). Knows: docs/modules, instructions.
 - [Requirement Analyst](../../runtime/base/agents/requirement-analyst.md) (agent) — decompose into FR/NFR/AC/invariants. Knows: docs/modules, source, module-map.
 - [Market Researcher](../../runtime/base/agents/market-researcher.md) (agent) — external benchmarks when needed. Knows: docs/modules, rag.
 
