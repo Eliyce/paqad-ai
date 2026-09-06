@@ -87,6 +87,11 @@ const MANAGED_GITIGNORE_ENTRIES = [
   'schema-migrations.jsonl', // per-machine schema-migration audit log
   'skills/', // per-machine skill/pack failed-load event log
   'delivery-detection.json', // regenerated from git history per machine
+  // Issue #528 — the check report was re-homed into the per-feature bundle (under the ignored
+  // `ledger/` tree). The global `.paqad/checks/last-run.json` survives only as the fallback for
+  // non-feature-dev sessions; it is per-machine runtime evidence rewritten every `checks run`,
+  // so ignoring `checks/` stops the churn and untracks any copy an earlier onboarding committed.
+  'checks/',
   '# compliance ledger (share via dashboard/SIEM, not git)',
   'ledger/',
   // Issue #401 — everything under `compliance/` (the obligation index, the compliance

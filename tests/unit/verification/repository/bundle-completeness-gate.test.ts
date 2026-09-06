@@ -394,6 +394,43 @@ describe('every flag on (no flag-off skip note)', () => {
   });
 });
 
+describe('optional checks.json (#528)', () => {
+  // checks.json is `optional`: never required (absence never fails), and never named in the
+  // "flag off" note (it has no flag). The genuinely flag-gated files still surface there under
+  // ONLY_ALWAYS — the ALL_ON "no flag-off note" case is covered above.
+  it('passes and never names checks.json as skipped when it is absent', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ONLY_ALWAYS,
+    });
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).not.toContain('checks.json');
+  });
+
+  it('counts checks.json among the present files when it exists', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(root, featureFilePath(DIR, 'checks'), '{"passed":true}');
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ONLY_ALWAYS,
+    });
+    expect(gate!.status).toBe('pass');
+    // Present files are counted, not named; and checks.json must never appear in the skip note.
+    // 6 always-required files + the present optional checks.json.
+    expect(gate!.detail).toContain('(7 checked)');
+    expect(gate!.detail).not.toContain('checks.json');
+  });
+});
+
 describe('featureReport required file', () => {
   it('FAILS when report.html is required but missing', () => {
     const root = tempRoot();

@@ -316,7 +316,7 @@
         "confidence": "medium"
       }
     ],
-    "timestamp": "2026-09-05T06:48:31.886Z",
+    "timestamp": "2026-09-05T21:47:19.135Z",
     "repository": {
       "selected_root": ".",
       "scan_max_depth": 5,
@@ -335,7 +335,6 @@
         ".paqad",
         ".prettierignore",
         ".prettierrc.json",
-        ".tmp",
         ".windsurf",
         ".windsurfrules",
         "coverage",
@@ -402,7 +401,6 @@
       ".paqad",
       ".prettierignore",
       ".prettierrc.json",
-      ".tmp",
       ".windsurf",
       ".windsurfrules",
       "coverage",
@@ -450,7 +448,7 @@
     ],
     "primary_project_root": "."
   },
-  "generated_at": "2026-09-05T06:48:37.596Z",
+  "generated_at": "2026-09-05T21:47:23.923Z",
   "generated_artifacts": [
     {
       "path": ".claude/.gitignore",

@@ -29,8 +29,11 @@ verb still runs when the model calls it, but nothing blocks.
    `StructuredTestResult` per command. `evidence_scope.related_paths` is set to the
    change's files so `assessTestEvidence` maps the run to the affected code.
 2. `paqad-ai checks run` (`src/cli/commands/checks.ts`) persists the results via
-   `writeChecksReport` to `.paqad/checks/last-run.json`, prints the `▸ paqad` verdict,
-   and exits non-zero on any red command.
+   `writeChecksReportForFeature` into the active change's feature bundle at
+   `.paqad/ledger/feature-evidence/<change>/checks.json` (issue #528), falling back to the
+   global `.paqad/checks/last-run.json` only when no feature bundle is active, prints the
+   `▸ paqad` verdict, and exits non-zero on any red command. The bundle path lives under the
+   already-ignored `ledger/` tree, so the report no longer churns the git tree on every run.
 3. The completion backstop (`buildRepositoryVerificationContext`) reads the report,
    populates `structured_test_results`, and derives `code_tests_lint_passed` from it —
    no longer a hardcoded `true`.
@@ -48,7 +51,8 @@ unrun or failing tests.
 ## Source Footprint
 
 - `src/checks/run-checks.ts` — resolve + execute + structure.
-- `src/checks/report-store.ts` — atomic persist / tolerant read of the report.
+- `src/checks/report-store.ts` — atomic persist / tolerant read of the report (global + per-bundle).
+- `src/checks/report-target.ts` — active-feature resolution: bundle-vs-global write/read dispatch (#528).
 - `src/cli/commands/checks.ts` — the `paqad-ai checks run` verb.
 - `src/verification/repository/repository-context.ts` — consumes the report.
 - `src/verification/repository/run-repository-verification.ts` — `checksEvidenceGate`.

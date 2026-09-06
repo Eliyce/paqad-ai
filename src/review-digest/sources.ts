@@ -19,7 +19,7 @@
 // digest-evidence.sh`, whose gate-failure flattening is ported here in cross-platform
 // Node — the shell script stays a skill resource, but it is no longer the engine.
 
-import { readChecksReport } from '@/checks/report-store.js';
+import { activeFeatureDirOrNull, readChecksReportForFeature } from '@/checks/report-target.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import { formatRange } from '@/duplication/types.js';
 import { readReport as readRuleScriptReport } from '@/rule-scripts/runner.js';
@@ -113,7 +113,9 @@ function duplicationRows(projectRoot: string): MachineFinding[] {
  * reviewer without ever becoming an anchoring obligation (INV-2).
  */
 function checksRows(projectRoot: string): MachineFinding[] {
-  const report = readChecksReport(projectRoot);
+  // Issue #528 — read the report from the active change's feature bundle (with a global-path
+  // fall back when no bundle is active), so the digest keeps its check rows during feature-dev.
+  const report = readChecksReportForFeature(projectRoot, activeFeatureDirOrNull(projectRoot));
   if (!report) return [];
   const rows: MachineFinding[] = [];
   for (const result of report.results) {

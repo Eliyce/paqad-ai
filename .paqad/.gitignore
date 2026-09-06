@@ -38,6 +38,7 @@ module-map/events.jsonl
 schema-migrations.jsonl
 skills/
 delivery-detection.json
+checks/
 # compliance ledger (share via dashboard/SIEM, not git)
 ledger/
 compliance/

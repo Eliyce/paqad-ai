@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createChecksCommand } from '@/cli/commands/checks.js';
 import { createProgram } from '@/cli/program.js';
-import { readChecksReport } from '@/checks/report-store.js';
+import { readChecksReport, readFeatureChecks } from '@/checks/report-store.js';
+import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
 
 // `paqad-ai checks run` end to end over real subprocesses (deterministic `node -e`
 // exit codes), asserting the verb blocks on red and persists the report the
@@ -23,6 +24,7 @@ describe('paqad-ai checks command', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     process.exitCode = undefined;
+    delete process.env.CLAUDE_SESSION_ID;
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -74,6 +76,16 @@ describe('paqad-ai checks command', () => {
     expect(report?.passed).toBe(false);
     const failed = report?.results.find((r) => r.summary.runner_id === 'test');
     expect(failed?.summary.failed).toBe(1);
+  });
+
+  it('writes the report into the active feature bundle, not the global path (#528)', async () => {
+    process.env.CLAUDE_SESSION_ID = 'ses-cli';
+    const dir = resolveActiveFeature(root, 'ses-cli', { title: 'thing', issue: '528' });
+    mapCommands({ format: 'node -e process.exit(0)' });
+    await run();
+
+    expect(readFeatureChecks(root, dir)?.passed).toBe(true);
+    expect(readChecksReport(root)).toBeNull();
   });
 
   it('reports Inconclusive and does not block when no command is mapped', async () => {

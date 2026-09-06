@@ -1,7 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import fg from 'fast-glob';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
 
@@ -11,9 +13,19 @@ import { readPipelineConfig } from '@/spec-pipeline/config.js';
 // a feature-dev change produces the same bundle artifacts / stage ledger whether or not the
 // pipeline exists.
 describe('FR-11: pipeline is off by default and never runs in the feature-dev flow', () => {
-  it('is disabled by default', () => {
-    const cfg = readPipelineConfig(process.cwd(), {});
-    // The repo itself sets no spec_pipeline_enabled, so the default (false) holds.
+  const roots: string[] = [];
+  afterEach(() => {
+    while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
+  });
+
+  it('is disabled by default (code default, independent of any repo override)', () => {
+    // Test the CODE default, not this repo's own committed config: a project that sets no
+    // spec_pipeline_enabled must read false. Reading process.cwd() here would instead assert
+    // "the dogfood repo carries no override", which is a different (and repo-coupled) claim —
+    // a project may deliberately opt in without weakening the off-by-default guarantee.
+    const clean = mkdtempSync(join(tmpdir(), 'paqad-fr11-'));
+    roots.push(clean);
+    const cfg = readPipelineConfig(clean, {});
     expect(cfg.enabled).toBe(false);
   });
 

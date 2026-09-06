@@ -12,7 +12,7 @@ import fg from 'fast-glob';
 
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
-import { readChecksReport } from '@/checks/report-store.js';
+import { readChecksReportForFeature } from '@/checks/report-target.js';
 import type { Lane } from '@/core/types/routing.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -71,6 +71,12 @@ export async function buildRepositoryVerificationContext(
 ): Promise<RepositoryVerificationContextResult> {
   const { projectRoot, origin } = options;
 
+  // Resolve the active change's bundle ONCE (issue #528): the same `dirName` keys both the
+  // recorded-lane fold and the re-homed check report read below. Fails safe to no active
+  // feature (null) — never a throw — so a non-feature-development run degrades cleanly.
+  const sessionId = resolveActiveSessionId(projectRoot);
+  const dirName = resolveActiveFeatureDir(projectRoot, sessionId);
+
   const changeEvidence = await loadChangeEvidence(projectRoot);
   // Issue #205 — strip every `.paqad/` home (root or a self-hosted nested
   // `runtime/base/.paqad/`) from the verification changed-file scan. Generated
@@ -100,7 +106,7 @@ export async function buildRepositoryVerificationContext(
   // mid-turn. When present, the backstop consumes it so its verdict PROVES the
   // checks ran instead of assuming they passed. When absent, test-evidence stays
   // unproven here (Inconclusive), never a silent pass or a false block.
-  const checksReport = readChecksReport(projectRoot);
+  const checksReport = readChecksReportForFeature(projectRoot, dirName);
   const structuredTestResults =
     checksReport && checksReport.results.length > 0 ? checksReport.results : undefined;
 
@@ -119,7 +125,7 @@ export async function buildRepositoryVerificationContext(
   // lane collects only strictness (the ratchet skips the heavy complexity/dead-code
   // measures), so a small change is no longer forced through the full measurement set.
   // A null/unreadable lane fails safe to `full`.
-  const recordedLane = readRecordedLane(projectRoot);
+  const recordedLane = readRecordedLane(projectRoot, sessionId, dirName);
 
   const qualityRatchetResult = await runQualityRatchetGate({
     projectRoot,
@@ -178,15 +184,33 @@ export async function buildRepositoryVerificationContext(
 }
 
 /**
- * The lane recorded on the current change's open ledger row (issue #324). Resolves
- * the session from the host env (the completion hook runs under `CLAUDE_SESSION_ID`)
- * and reads the open change's folded lane. Fails safe to `full` when no change is
- * open, the lane is unset, or anything throws — never a silent relaxation.
+ * Resolve the session id the completion run is under (the hook runs with `CLAUDE_SESSION_ID`),
+ * falling back to the shared per-machine ledger session. Never throws.
  */
-function readRecordedLane(projectRoot: string): Lane {
+function resolveActiveSessionId(projectRoot: string): string {
+  return resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
+}
+
+/**
+ * The active change's feature bundle dir, or null when none is open. Best-effort — any fault
+ * reads as "no active feature" so a non-feature-development run degrades cleanly (issue #528).
+ */
+function resolveActiveFeatureDir(projectRoot: string, sessionId: string): string | null {
   try {
-    const sessionId = resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
-    const dirName = currentFeature(projectRoot, sessionId);
+    return currentFeature(projectRoot, sessionId);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The lane recorded on the current change's open ledger row (issue #324). Reads the open
+ * change's folded lane from the already-resolved session + bundle dir (issue #528). Fails safe
+ * to `full` when no change is open, the lane is unset, or anything throws — never a silent
+ * relaxation.
+ */
+function readRecordedLane(projectRoot: string, sessionId: string, dirName: string | null): Lane {
+  try {
     if (!dirName) {
       return 'full';
     }

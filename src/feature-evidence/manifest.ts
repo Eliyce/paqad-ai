@@ -54,8 +54,12 @@ export interface BundleManifestEntry {
   key: BundleManifestKey;
   /** The on-disk filename inside the bundle dir. */
   file: string;
-  /** `'always'`, or a predicate over the resolved config flags. */
-  required: 'always' | ((config: BundleCompletenessConfig) => boolean);
+  /**
+   * `'always'` (required in every change), `'optional'` (a known bundle file that is checked
+   * when present but never required and never a "flag off" skip — issue #528), or a predicate
+   * over the resolved config flags (required only when the flag is on).
+   */
+  required: 'always' | 'optional' | ((config: BundleCompletenessConfig) => boolean);
   /** The verb/writer that produces the file (named in a gate failure's remediation). */
   writer: string;
   /** How the gate validates the file's content. */
@@ -124,6 +128,20 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    // Issue #528 — checks.json is re-homed into the bundle, so it must be a KNOWN bundle file
+    // (covered by the manifest guard, allowed by the bundle-integrity guard). It is `optional`,
+    // not flag-gated: the completeness gate has no signal for "were check commands mapped this
+    // change?", so requiring it would false-fail a change that maps none — but it is NOT "flag
+    // off" either (there is no flag), so it must not surface as a "Skipped (flag off)" note.
+    // Checked when present, ignored when absent. Its real enforcement is the completion backstop
+    // reading structured_test_results, not this gate.
+    key: 'checks',
+    file: FEATURE_BUNDLE_FILES.checks,
+    required: 'optional',
+    writer: 'paqad-ai checks run',
+    validate: 'json',
+  },
+  {
     key: 'changeMetrics',
     file: FEATURE_BUNDLE_FILES.changeMetrics,
     required: (config) => config.metricsEnabled,
@@ -180,7 +198,11 @@ export function isBundleFileRequired(
   entry: BundleManifestEntry,
   config: BundleCompletenessConfig,
 ): boolean {
-  return entry.required === 'always' ? true : entry.required(config);
+  if (entry.required === 'always') return true;
+  // `optional` files (issue #528) are never required — they are checked when present but never
+  // gate a change on absence, and are not flag-gated.
+  if (entry.required === 'optional') return false;
+  return entry.required(config);
 }
 
 /** The manifest entries required under the resolved config (the gate's work list). */

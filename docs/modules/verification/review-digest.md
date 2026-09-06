@@ -42,7 +42,7 @@ the digest is stable between runs:
 | --- | --- | --- |
 | Rule scripts (#89) | `.paqad/scripts/rules/.cache/report.json` | Findings with their own severity and `deterministic`/`heuristic` tier. |
 | Duplication (#358) | `.paqad/scripts/rules/.cache/duplication.json` | Near-copies; the detector's band **is** the severity (deterministic → high, heuristic → medium). |
-| Checks (#318) | `.paqad/checks/last-run.json` | One row per command plus one per recorded failure. |
+| Checks (#318, #528) | `.paqad/ledger/feature-evidence/<change>/checks.json` (global `.paqad/checks/last-run.json` fallback) | One row per command plus one per recorded failure. |
 | Verification evidence | `.paqad/session/verification-evidence.json` | Every failing or inconclusive gate, flattened one failure per row — including unresolved doc targets. |
 
 A source that is absent, empty, or unparseable contributes zero rows and never throws.

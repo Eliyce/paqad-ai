@@ -38,9 +38,9 @@
 
 # ── Added in a newer paqad version ────────────────────────────
 # off | warn | strict — feature-development stage-completeness gate (default strict). (env: PAQAD_STAGES_MODE)
-# stages_mode=strict
+stages_mode=strict
 # off | warn | strict — scripted-rule enforcement from the working tree. (env: PAQAD_RULE_COMPLIANCE)
-# rule_compliance=warn
+rule_compliance=strict
 
 # ── Added in a newer paqad version ────────────────────────────
 # off | warn | strict — analytics instrumentation completeness (issue #279). warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated. (env: PAQAD_ANALYTICS_STRICTNESS)
@@ -66,14 +66,18 @@
 # off | warn | strict — end-of-change check that a feature-development bundle carries every required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, naming the file and its writer; warn surfaces it as Inconclusive without blocking; off falls back to the deprecated evidence_existence_gate (issue #511). (env: PAQAD_BUNDLE_COMPLETENESS)
 # bundle_completeness=strict
 # DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it. (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
-# evidence_existence_gate=warn
+evidence_existence_gate=strict
 
 # ── Added in a newer paqad version ────────────────────────────
 # Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: with it off, feature-development is byte-identical to today (FR-11). It sits upstream of the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on. (env: PAQAD_SPEC_PIPELINE_ENABLED)
-# spec_pipeline_enabled=false
+spec_pipeline_enabled=true
 # off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask and hold until answered or explicitly deferred. off: never ask. The fixed spine (grounding, no-invented-requirements, traceability) is never switchable. (env: PAQAD_SPEC_PIPELINE_CLARIFICATION)
-# spec_pipeline_clarification=warn
+spec_pipeline_clarification=strict
 # off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): a human must approve before freeze, recording a named human. Independent of the A5 gate. (env: PAQAD_SPEC_PIPELINE_FINAL_REVIEW)
 # spec_pipeline_final_review=off
 # Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes. (env: PAQAD_SPEC_PIPELINE_TOKEN_CEILING)
 # spec_pipeline_token_ceiling=20000
+
+# ── Added in a newer paqad version ────────────────────────────
+# Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
+spec_pipeline_experts_enabled=true

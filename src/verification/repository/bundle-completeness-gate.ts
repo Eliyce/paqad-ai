@@ -195,6 +195,16 @@ export function bundleCompletenessGate(
 
   try {
     for (const entry of BUNDLE_MANIFEST) {
+      // Optional evidence (issue #528): a known bundle file that is neither required nor
+      // flag-gated (e.g. checks.json). Count it when present, ignore it when absent — never a
+      // "Skipped (flag off)" note (there is no flag), and never a completeness failure.
+      if (entry.required === 'optional') {
+        const content = readBundleFile(input.projectRoot, dirName, entry);
+        if (validateBundleFileContent(entry.validate, content)) {
+          state.present.push(entry.file);
+        }
+        continue;
+      }
       if (!isBundleFileRequired(entry, input.config)) {
         state.flagSkipped.push(entry.file);
         continue;
