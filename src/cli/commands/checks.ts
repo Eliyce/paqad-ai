@@ -2,7 +2,8 @@ import { Command } from 'commander';
 
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { runChecks } from '@/checks/run-checks.js';
-import { writeChecksReport, CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
+import { CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
+import { activeFeatureDirOrNull, writeChecksReportForFeature } from '@/checks/report-target.js';
 
 /**
  * `paqad-ai checks run` — the deterministic checks stage (issue #318). The agent
@@ -26,7 +27,11 @@ export function createChecksCommand(): Command {
       const changedFiles = (await loadChangeEvidence(options.projectRoot)).files;
       const result = await runChecks({ projectRoot: options.projectRoot, changedFiles });
 
-      writeChecksReport(options.projectRoot, {
+      // Issue #528 — write the structured report into the active change's feature bundle (or the
+      // global fallback path when no feature bundle is active), instead of the global tracked path
+      // that churned every commit.
+      const dirName = activeFeatureDirOrNull(options.projectRoot);
+      writeChecksReportForFeature(options.projectRoot, dirName, {
         schema_version: CHECKS_REPORT_SCHEMA_VERSION,
         generated_at: new Date().toISOString(),
         passed: result.passed,

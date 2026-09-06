@@ -29,6 +29,11 @@ export const FEATURE_BUNDLE_FILES = {
   receipt: 'receipt.json',
   aiBom: 'ai-bom.json',
   rag: 'rag.jsonl',
+  // Issue #528 — the deterministic check runner's structured report, re-homed out of the
+  // global tracked `.paqad/checks/last-run.json` (which churned every commit) into the
+  // per-feature bundle so it rides the already-ignored `ledger/` tree like every other
+  // stage's evidence.
+  checks: 'checks.json',
   // Issue #468, Phase A — the bundle homes the duplication counts, change-metrics
   // ratios, and graded gate rows dual-write into during the parity window (D4/D5).
   duplication: 'duplication.jsonl',
