@@ -66,7 +66,10 @@ describe('checks report store', () => {
         results: [],
       });
       expect(target).toBe(featureChecksPath(root, dirName));
-      expect(target).toContain(`ledger/feature-evidence/${dirName}/checks.json`);
+      // Normalise separators so the assertion holds on Windows (backslash) too.
+      expect(target.replaceAll('\\', '/')).toContain(
+        `ledger/feature-evidence/${dirName}/checks.json`,
+      );
       const read = readFeatureChecks(root, dirName);
       expect(read?.passed).toBe(true);
       expect(read?.ran).toBe(true);
