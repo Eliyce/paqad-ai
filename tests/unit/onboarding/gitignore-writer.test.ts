@@ -243,6 +243,22 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(read(projectRoot, '.paqad/audit.log')).toContain('gitignore.untracked-now-ignored');
   });
 
+  it('scrubs a previously-tracked .paqad/checks/last-run.json (#528), keeping the working tree', () => {
+    gitInit(projectRoot);
+    // A repo onboarded before #528 committed the global check report into git.
+    commitFile(projectRoot, '.paqad/checks/last-run.json', '{"passed":true}\n');
+    expect(trackedFiles(projectRoot, '.paqad/checks/last-run.json')).toBe(
+      '.paqad/checks/last-run.json',
+    );
+
+    writeGitignore(projectRoot);
+
+    // Now-ignored (checks/ in the managed block) → untracked, working tree preserved.
+    expect(trackedFiles(projectRoot, '.paqad/checks/last-run.json')).toBe('');
+    expect(existsSync(join(projectRoot, '.paqad', 'checks', 'last-run.json'))).toBe(true);
+    expect(read(projectRoot, '.paqad/.gitignore')).toContain('checks/');
+  });
+
   it('keeps the committed boot pointer tracked (never untracks framework-path.txt)', () => {
     gitInit(projectRoot);
     commitFile(projectRoot, '.paqad/framework-path.txt', '~/.paqad-ai/current\n');

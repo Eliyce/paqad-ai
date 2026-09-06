@@ -109,6 +109,17 @@ describe('bundle manifest', () => {
     expect(requiredBundleFiles(bomWithoutEnterprise).map((e) => e.key)).not.toContain('aiBom');
   });
 
+  it('treats checks.json as optional — never required, never flag-gated (#528)', () => {
+    const checks = BUNDLE_MANIFEST.find((entry) => entry.key === 'checks');
+    expect(checks?.required).toBe('optional');
+    // Optional means never required, under any config.
+    expect(isBundleFileRequired(checks!, ALL_ON)).toBe(false);
+    expect(isBundleFileRequired(checks!, ALL_OFF)).toBe(false);
+    // And so it is never part of the required work list either way.
+    expect(requiredBundleFiles(ALL_ON).map((e) => e.key)).not.toContain('checks');
+    expect(requiredBundleFiles(ALL_OFF).map((e) => e.key)).not.toContain('checks');
+  });
+
   it('flags rag as unrecoverable and nothing else', () => {
     for (const entry of BUNDLE_MANIFEST) {
       expect(Boolean(entry.unrecoverable)).toBe(entry.key === 'rag');

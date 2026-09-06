@@ -9,7 +9,12 @@ import {
   runRepositoryVerification,
 } from '@/verification/repository/run-repository-verification.js';
 import { buildRepositoryVerificationContext } from '@/verification/repository/repository-context.js';
-import { CHECKS_REPORT_SCHEMA_VERSION, writeChecksReport } from '@/checks/report-store.js';
+import {
+  CHECKS_REPORT_SCHEMA_VERSION,
+  writeChecksReport,
+  writeFeatureChecks,
+} from '@/checks/report-store.js';
+import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 
 import { createVerificationContext } from '../shared.fixture.js';
@@ -114,7 +119,28 @@ describe('buildRepositoryVerificationContext reads the persisted report (#318)',
   });
 
   afterEach(() => {
+    delete process.env.CLAUDE_SESSION_ID;
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('reads the report from the active feature bundle when one is open (#528)', async () => {
+    process.env.CLAUDE_SESSION_ID = 'ses-ctx';
+    const dir = resolveActiveFeature(root, 'ses-ctx', { title: 'thing', issue: '528' });
+    writeFeatureChecks(root, dir, {
+      schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+      generated_at: '2026-01-01T00:00:00.000Z',
+      passed: false,
+      ran: true,
+      results: [structuredResult('test', 1)],
+    });
+
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'hook-completion',
+    });
+
+    expect(context.structured_test_results).toHaveLength(1);
+    expect(context.code_tests_lint_passed).toBe(false);
   });
 
   it('populates structured_test_results and derives code_tests_lint_passed from the report', async () => {
