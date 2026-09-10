@@ -20,6 +20,8 @@ import type { CapabilitySeam } from '@/kernel/registry.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { recordProjectEvent } from '@/session-ledger/project-ledger.js';
 
+import { AI_ATTRIBUTION_MARKERS, detectAiAttribution } from './ai-attribution.js';
+import { shouldStripAiAttribution } from './attribution-config.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE, DELIVERY_EVIDENCE_SCHEMA_VERSION } from './delivery-ledger.js';
 
 /** Result of one subprocess run. `exitCode !== 0` is a soft signal, never a throw. */
@@ -35,7 +37,7 @@ export type CommandRunner = (command: string, args: string[]) => Promise<Command
 /** One delivery-convention deviation. `code` is stable (for the ledger); `message` is
  *  the plain-English line surfaced to the developer. */
 export interface DeliveryFinding {
-  code: 'on-base-branch' | 'branch-shape' | 'ci-red';
+  code: 'on-base-branch' | 'branch-shape' | 'ci-red' | 'ai-attribution';
   message: string;
 }
 
@@ -91,6 +93,58 @@ async function readLine(
   }
   const line = result.stdout.trim();
   return line.length > 0 ? line : null;
+}
+
+/**
+ * The commit messages this branch adds on top of the base, as one blob to scan (issue #538).
+ * On the base branch itself there is no range, so the most recent commit is scanned instead —
+ * that is still the commit the developer just made. A failed `git log` yields '' (nothing to
+ * scan) rather than a warning about git.
+ */
+async function readBranchCommitMessages(
+  run: CommandRunner,
+  projectRoot: string,
+  branch: string,
+  base: string,
+): Promise<string> {
+  const range = branch === base ? ['-1'] : [`${base}..HEAD`];
+  const result = await run('git', ['-C', projectRoot, 'log', ...range, '--format=%B']);
+  return result.exitCode === 0 ? result.stdout : '';
+}
+
+/**
+ * Findings for any host-agent AI attribution that reached the commits or the PR body (issue
+ * #538). This is the half of the policy that config cannot deliver: Claude Code and Aider are
+ * configured at onboarding, but Cursor and Codex expose only user-level config that paqad will
+ * not write (INV-1), so for those the honest answer is to detect it and hand back the exact fix.
+ *
+ * One finding per vendor, naming where it was found and what to do about it. Warn only (INV-3).
+ */
+function attributionFindings(commitMessages: string, prBody: string): DeliveryFinding[] {
+  const inCommits = new Map(
+    detectAiAttribution(commitMessages).map((match) => [match.marker.id, match.marker]),
+  );
+  const inPrBody = new Map(
+    detectAiAttribution(prBody).map((match) => [match.marker.id, match.marker]),
+  );
+
+  const findings: DeliveryFinding[] = [];
+  for (const marker of AI_ATTRIBUTION_MARKERS) {
+    const commits = inCommits.has(marker.id);
+    const body = inPrBody.has(marker.id);
+    if (!commits && !body) {
+      continue;
+    }
+    const where =
+      commits && body ? 'your commits and the PR body' : commits ? 'your commits' : 'the PR body';
+    findings.push({
+      code: 'ai-attribution',
+      message:
+        `${marker.vendor} attribution is on ${where}. That trailer is what makes the repo list ` +
+        `an AI vendor as a contributor. ${marker.remediation}`,
+    });
+  }
+  return findings;
 }
 
 /** True when the gh `statusCheckRollup` array carries at least one failing check. */
@@ -157,17 +211,23 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
   // PR / CI is optional: gh may be absent, unauthenticated, or the branch may have no
   // PR yet. Any of those → skip the CI check gracefully (never warn about gh).
   let ghAvailable = false;
+  let prBody = '';
   const prView = await run('gh', [
     'pr',
     'view',
     branch,
     '--json',
-    'number,url,state,statusCheckRollup',
+    'number,url,state,statusCheckRollup,body',
   ]);
   if (prView.exitCode === 0) {
     ghAvailable = true;
     try {
-      const pr = JSON.parse(prView.stdout) as { number?: number; statusCheckRollup?: unknown };
+      const pr = JSON.parse(prView.stdout) as {
+        number?: number;
+        statusCheckRollup?: unknown;
+        body?: unknown;
+      };
+      prBody = typeof pr.body === 'string' ? pr.body : '';
       if (policy.process.ci.gate === 'wait_for_green' && rollupHasFailure(pr.statusCheckRollup)) {
         const label = typeof pr.number === 'number' ? ` for PR #${pr.number}` : '';
         findings.push({
@@ -179,6 +239,13 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
       // gh answered but the JSON was unexpected — treat as no CI signal, never crash.
       ghAvailable = false;
     }
+  }
+
+  // Issue #538 — the AI-attribution backstop. Only runs when the project's policy says strip;
+  // with `ai_attribution=keep` nothing is scanned and nothing is reported.
+  if (shouldStripAiAttribution(projectRoot)) {
+    const commitMessages = await readBranchCommitMessages(run, projectRoot, branch, base);
+    findings.push(...attributionFindings(commitMessages, prBody));
   }
 
   return { ran: true, branch, commit, ghAvailable, findings };

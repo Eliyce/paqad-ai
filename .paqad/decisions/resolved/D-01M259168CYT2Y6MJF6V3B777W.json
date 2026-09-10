@@ -1,0 +1,22 @@
+{
+  "id": "D-01M259168CYT2Y6MJF6V3B777W",
+  "category": "intake.requirement",
+  "title": "AI attribution: default posture for onboarded projects",
+  "context": "Enterprise buyers reject commits/PRs that name an AI vendor as contributor. Claude Code, Cursor, Codex and Aider all add attribution by default. Should paqad strip it for every onboarded project by default, or ship it opt-in so existing users see no behaviour change?",
+  "options": [
+    {
+      "option_key": "strip_by_default",
+      "label": "Strip by default (clean history unless a project opts back in)"
+    },
+    {
+      "option_key": "opt_in",
+      "label": "Opt-in (default keeps attribution; enterprises turn it on)"
+    }
+  ],
+  "recommendation": "strip_by_default",
+  "created_at": "2026-09-10T09:05:27.308Z",
+  "status": "resolved",
+  "chosen": "strip_by_default",
+  "rationale": "Enterprise buyers should get clean history out of the box, not after finding a setting.",
+  "resolved_at": "2026-09-10T13:14:44.404Z"
+}

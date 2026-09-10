@@ -1,0 +1,26 @@
+{
+  "id": "D-01M2591HF6C7HYNPZ1Z3H2FQ98",
+  "category": "architecture-path",
+  "title": "AI attribution: configure-only, or configure plus an enforcing backstop?",
+  "context": "Claude Code and Aider expose PROJECT-level knobs paqad can write at onboarding. Codex and Cursor only expose USER-level config under the developer's home directory, which onboarding should not write. So a config-only fix is provably incomplete across providers. A commit-time/delivery-time backstop that detects known AI attribution trailers works for every provider including ones with no knob at all.",
+  "options": [
+    {
+      "option_key": "configure_and_backstop",
+      "label": "Configure what we can, plus a delivery-time backstop that catches the rest"
+    },
+    {
+      "option_key": "configure_only",
+      "label": "Configure only (write the knobs we can, report honestly on the rest)"
+    },
+    {
+      "option_key": "backstop_only",
+      "label": "Backstop only (no provider config writes)"
+    }
+  ],
+  "recommendation": "configure_and_backstop",
+  "created_at": "2026-09-10T09:05:38.790Z",
+  "status": "resolved",
+  "chosen": "configure_and_backstop",
+  "rationale": "Config alone is provably incomplete (Codex and Cursor are user-level only), so the promise needs a delivery-time backstop to be true on every provider.",
+  "resolved_at": "2026-09-10T13:14:44.937Z"
+}

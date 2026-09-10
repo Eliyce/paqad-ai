@@ -44,6 +44,14 @@ process:
 
   commit:
     maintained: manual
+    # AI attribution is NOT configured here (issue #538). What your coding agent
+    # appends to a commit — `Co-Authored-By: Claude`, "Made with Cursor", and the
+    # rest — is governed by the `ai_attribution` knob in
+    # `.paqad/configs/.config.policy` (keep | strip, default strip), because it is a
+    # per-agent host setting rather than a commit-template concern. strip suppresses
+    # it where the provider exposes a project-level switch (Claude Code, Aider) and
+    # warns at delivery where it does not (Cursor and Codex are user-level only).
+    # paqad's own PR-body footer is deliberately outside that knob.
     # Conventional commits; the GitHub issue rides in the scope position → feat(#158): …
     # No `Refs:` trailer — issues are closed from the PR body ("Closes #N") on GitHub.
     # Issue-less changes (docs/chore) render empty parens — drop them by hand: `docs: …`.

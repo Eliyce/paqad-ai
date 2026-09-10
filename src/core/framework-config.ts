@@ -58,6 +58,13 @@ const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
  * pre-mutation false-block history). `off` disables it entirely.
  */
 const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
+/**
+ * Host-agent AI attribution posture (issue #538), weakest → strictest. `keep` leaves the
+ * coding agent's own vendor attribution alone; `strip` suppresses it where the provider
+ * exposes a project-level knob and warns at delivery where it does not. Floored like the
+ * other enforcement knobs, so a team that commits `strip` cannot have it lowered locally.
+ */
+const AI_ATTRIBUTION_MODES = ['keep', 'strip'] as const;
 
 /** Tokens that mean boolean true / false in a config value (case-insensitive). */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
@@ -639,6 +646,20 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment:
       'How many evidence-armed decision pauses one change may open (issue #361). Default 1 — ' +
       'only the strongest fork is asked; the rest are reported as warnings.',
+  },
+  {
+    key: 'ai_attribution',
+    env: 'PAQAD_AI_ATTRIBUTION',
+    type: 'enum',
+    enumValues: AI_ATTRIBUTION_MODES,
+    default: 'strip',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs ' +
+      '(issue #538). strip (default) suppresses it where the provider exposes a project-level knob ' +
+      '(Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level ' +
+      "only). paqad's own delivery footer is never touched by this knob.",
   },
   {
     key: 'spec_pipeline_enabled',
@@ -1848,6 +1869,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'decision_arm_mode',
       'decision_arm_plan_threshold',
       'decision_arm_max_per_change',
+      'ai_attribution',
       'spec_pipeline_enabled',
       'spec_pipeline_clarification',
       'spec_pipeline_final_review',

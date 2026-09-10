@@ -1,0 +1,26 @@
+{
+  "id": "D-01M2591H8DFAD1AK6JG1SFZWYV",
+  "category": "intake.requirement",
+  "title": "AI attribution: does paqad's own footer follow the same switch?",
+  "context": "paqad's PR body template (.paqad/templates/pr-body.md) ends with the line '(robot) Generated with paqad-ai delivery'. If an enterprise objects to a vendor name in the PR body, paqad's own footer is the same objection.",
+  "options": [
+    {
+      "option_key": "same_switch",
+      "label": "paqad footer follows the same switch (stripped together)"
+    },
+    {
+      "option_key": "always_keep",
+      "label": "Always keep the paqad footer (it is the customer's own tool)"
+    },
+    {
+      "option_key": "separate_knob",
+      "label": "A separate knob for the paqad footer"
+    }
+  ],
+  "recommendation": "same_switch",
+  "created_at": "2026-09-10T09:05:38.573Z",
+  "status": "resolved",
+  "chosen": "always_keep",
+  "rationale": "Keep paqad, because that is what enterprise signed up for. paqad is the customer's own governance tool, not a third-party AI vendor; its delivery footer is a feature they bought, so the strip switch targets host-agent AI attribution only.",
+  "resolved_at": "2026-09-10T13:14:44.672Z"
+}
