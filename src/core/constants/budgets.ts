@@ -72,4 +72,7 @@ export const ROLE_TOKEN_BUDGETS: Record<AgentRole, number> = {
   'performance-analyst': 6000,
   'data-modeler': 6000,
   'integration-architect': 8000,
+  'qa-engineer': 6000,
+  'user-flow-writer': 5000,
+  'chief-architect': 10000,
 };

@@ -52,6 +52,9 @@ const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
 const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
 /** Enforced capability-mode values, weakest → strictest (buildout F2). */
 const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
+// The spec-pipeline adoption knob is warn-or-strict only (issue #547): there is no "off"
+// — "off" is expressed by turning spec_pipeline_enabled off, not by a third adoption level.
+const SPEC_PIPELINE_ADOPTION_MODES = ['warn', 'strict'] as const;
 /**
  * Evidence-existence-gate modes (issue #468 Phase C). Deliberately has NO `strict` tier:
  * the completion existence check is warn-only, never exit-blocking (the #310/#394/
@@ -723,6 +726,22 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       '(db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by ' +
       'default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 ' +
       '(P2-INV-1). Needs spec_pipeline_enabled on to have any effect.',
+  },
+  {
+    key: 'spec_pipeline_adoption',
+    env: 'PAQAD_SPEC_PIPELINE_ADOPTION',
+    type: 'enum',
+    enumValues: SPEC_PIPELINE_ADOPTION_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    comment:
+      'warn | strict: how firmly the specification stage adopts the pipeline once ' +
+      'spec_pipeline_enabled is on. warn (default): the stage tells the agent to produce the ' +
+      'spec through `paqad-ai spec pipeline`; a hand-written spec still freezes, recorded as ' +
+      'pipeline_produced=false and shown in the receipt. strict: `spec freeze` refuses a spec ' +
+      'the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is ' +
+      'recorded on the frozen spec. No effect while spec_pipeline_enabled is off.',
   },
 ] as const;
 
@@ -1875,6 +1894,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'spec_pipeline_final_review',
       'spec_pipeline_token_ceiling',
       'spec_pipeline_experts_enabled',
+      'spec_pipeline_adoption',
     ],
   },
 ];

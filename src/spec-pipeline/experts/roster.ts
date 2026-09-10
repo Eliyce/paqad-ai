@@ -25,6 +25,10 @@ const EXPERT_ROLE_SET: ReadonlySet<AgentRole> = new Set<AgentRole>([
   'solution-architect',
   'devops-engineer',
   'market-researcher',
+  // Issue #547 — two new pickable experts. `chief-architect` is deliberately NOT here:
+  // it is never picked by the detector; it runs automatically once any expert fired.
+  'qa-engineer',
+  'user-flow-writer',
 ]);
 
 /**

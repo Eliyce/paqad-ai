@@ -30,6 +30,7 @@ describe('readPipelineConfig', () => {
       final_review: 'off',
       token_ceiling: 20000,
       experts_enabled: false,
+      adoption: 'warn',
     });
   });
 
@@ -43,6 +44,7 @@ describe('readPipelineConfig', () => {
         'spec_pipeline_final_review=warn',
         'spec_pipeline_token_ceiling=5000',
         'spec_pipeline_experts_enabled=on',
+        'spec_pipeline_adoption=strict',
       ].join('\n'),
     );
     expect(readPipelineConfig(root, {})).toEqual({
@@ -51,7 +53,17 @@ describe('readPipelineConfig', () => {
       final_review: 'warn',
       token_ceiling: 5000,
       experts_enabled: true,
+      adoption: 'strict',
     });
+  });
+
+  it('reads spec_pipeline_adoption (default warn; garbage degrades to warn — RULE-16)', () => {
+    const root = tempRoot();
+    writeLocalConfig(root, 'spec_pipeline_adoption=banana');
+    expect(readPipelineConfig(root, {}).adoption).toBe('warn');
+    expect(
+      readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_ADOPTION: 'strict' }).adoption,
+    ).toBe('strict');
   });
 
   it('the PAQAD_ env escape hatch drives experts_enabled too', () => {
@@ -81,7 +93,12 @@ describe('readPipelineConfig', () => {
 });
 
 describe('expertsActive', () => {
-  const base = { clarification: 'warn', final_review: 'off', token_ceiling: 20000 } as const;
+  const base = {
+    clarification: 'warn',
+    final_review: 'off',
+    token_ceiling: 20000,
+    adoption: 'warn',
+  } as const;
 
   it('is true only when the pipeline AND the experts flag are both on (P2-INV-1)', () => {
     expect(expertsActive({ ...base, enabled: true, experts_enabled: true })).toBe(true);

@@ -136,6 +136,7 @@ export function defaultSimilarityFor(
     case 'delivery.ci_red':
     case 'spec.change':
     case 'spec.contradiction':
+    case 'spec.expert_conflict':
     case 'fix.proof_method':
     case 'test.flaky_judgement':
     case 'finding.triage':

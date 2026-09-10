@@ -55,6 +55,10 @@ export function mergeExpertNotes(notes: readonly ExpertNote[]): MergedExpertNote
       target: group[0]!.finding.target,
       roles: group.map((entry) => entry.role),
       claims: group.map((entry) => entry.finding.claim),
+      // The ids of the clashing findings (issue #547, FR-5.1). A finding recorded through
+      // `experts notes` always carries its `EX-<role>-<n>` id; a hand-built finding without
+      // one contributes an empty string, kept positionally so the arrays stay index-aligned.
+      finding_ids: group.map((entry) => entry.finding.id ?? ''),
     });
   }
 

@@ -16,18 +16,35 @@ describe('mergeExpertNotes', () => {
 
   it('surfaces contradictory claims on the same target as a conflict, choosing nothing (AC-9)', () => {
     const notes: ExpertNote[] = [
-      { role: 'db-expert', findings: [{ target: 'orders', claim: 'denormalise for read speed' }] },
-      { role: 'data-modeler', findings: [{ target: 'orders', claim: 'keep normalised' }] },
+      {
+        role: 'db-expert',
+        findings: [{ id: 'EX-db-expert-1', target: 'orders', claim: 'denormalise for read speed' }],
+      },
+      {
+        role: 'data-modeler',
+        findings: [{ id: 'EX-data-modeler-1', target: 'orders', claim: 'keep normalised' }],
+      },
     ];
     const result = mergeExpertNotes(notes);
     // Neither claim silently wins.
     expect(result.findings).toEqual([]);
     expect(result.conflicts).toHaveLength(1);
+    // Issue #547 — the conflict carries the ids of the clashing findings.
     expect(result.conflicts[0]).toEqual({
       target: 'orders',
       roles: ['db-expert', 'data-modeler'],
       claims: ['denormalise for read speed', 'keep normalised'],
+      finding_ids: ['EX-db-expert-1', 'EX-data-modeler-1'],
     });
+  });
+
+  it('carries an empty finding id positionally for a finding recorded without one', () => {
+    const notes: ExpertNote[] = [
+      { role: 'db-expert', findings: [{ target: 'orders', claim: 'denormalise' }] },
+      { role: 'data-modeler', findings: [{ target: 'orders', claim: 'normalise' }] },
+    ];
+    const result = mergeExpertNotes(notes);
+    expect(result.conflicts[0]?.finding_ids).toEqual(['', '']);
   });
 
   it('treats identical claims on a target (even across experts) as agreement, not conflict', () => {

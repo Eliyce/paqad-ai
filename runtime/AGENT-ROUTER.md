@@ -221,6 +221,7 @@ Before implementing any choice that falls into one of the categories below, writ
 - `delivery.ci_red`
 - `spec.change`
 - `spec.contradiction`
+- `spec.expert_conflict`
 - `fix.proof_method`
 - `test.flaky_judgement`
 - `finding.triage`
