@@ -5,7 +5,13 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ClassificationResult } from '@/core/types/classification.js';
-import { resolvePromptRoute, runPromptRouteSeam } from '@/pipeline/prompt-lane.js';
+import {
+  isSystemNotificationPrompt,
+  resolvePromptRoute,
+  runPromptRouteSeam,
+  SYSTEM_NOTIFICATION_ELEMENTS,
+} from '@/pipeline/prompt-lane.js';
+import { readSessionRoute } from '@/pipeline/session-route.js';
 import { readPendingLane } from '@/stage-evidence/pending-lane.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -168,5 +174,113 @@ describe('runPromptRouteSeam (#336)', () => {
       specId: 'sp',
     });
     expect(result.narration).toContain('Resumed');
+  });
+});
+
+// Issue #540 — a background event reaches UserPromptSubmit exactly like a typed prompt.
+// Verbatim payload from the incident transcript (session b7c32628, 2026-09-10T14:00:08Z).
+const TASK_NOTIFICATION = [
+  '<task-notification>',
+  '<task-id>besdej0sh</task-id>',
+  '<summary>Monitor event: "CI checks on PR #539 until all complete"</summary>',
+  '<event>Analyze (javascript-typescript): pass',
+  'CodeQL: pass</event>',
+  'If this event is something the user would act on now, send a PushNotification.',
+  '</task-notification>',
+].join('\n');
+
+describe('isSystemNotificationPrompt (#540)', () => {
+  it('recognises every wrapper element the host injects', () => {
+    for (const element of SYSTEM_NOTIFICATION_ELEMENTS) {
+      expect(isSystemNotificationPrompt(`<${element}>anything</${element}>`)).toBe(true);
+    }
+  });
+
+  it('recognises the real monitor-event payload, leading whitespace and all', () => {
+    expect(isSystemNotificationPrompt(TASK_NOTIFICATION)).toBe(true);
+    expect(isSystemNotificationPrompt(`\n  ${TASK_NOTIFICATION}`)).toBe(true);
+    expect(isSystemNotificationPrompt('<TASK-NOTIFICATION>x</TASK-NOTIFICATION>')).toBe(true);
+  });
+
+  it('leaves a human prompt that only MENTIONS a wrapper routable', () => {
+    // The prompt that filed this very issue quotes the element mid-sentence.
+    expect(isSystemNotificationPrompt('why did the <task-notification> open a new change?')).toBe(
+      false,
+    );
+    expect(isSystemNotificationPrompt('verify and fix issue 540')).toBe(false);
+    expect(isSystemNotificationPrompt('')).toBe(false);
+  });
+});
+
+describe('runPromptRouteSeam with a background notification (#540)', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-route-notify-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('routes nothing and narrates nothing (AC-6)', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: TASK_NOTIFICATION,
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result).toEqual({
+      routed: 'no-workflow',
+      lane: null,
+      resumed: null,
+      narration: null,
+    });
+  });
+
+  it('leaves an in-flight feature-development route exactly as it was (AC-6)', async () => {
+    const sessionId = resolveSessionId(root, SESSION);
+    const inFlight = {
+      active: {
+        workflow: 'feature-development' as const,
+        changeKey: 'sess#1',
+        lane: 'full' as const,
+      },
+      paused: [],
+    };
+    writeWorkflowState(root, sessionId, inFlight);
+
+    await runPromptRouteSeam({
+      projectRoot: root,
+      request: TASK_NOTIFICATION,
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+
+    // Recording `no-workflow` here would pause the change and make
+    // `routeIsAffirmativelyNonFeature` true — silently suppressing stage recording
+    // for the rest of it. Nothing is written at all instead.
+    expect(readWorkflowState(root, sessionId)).toEqual(inFlight);
+    expect(readPendingLane(root, sessionId)).toBeNull();
+    expect(readSessionRoute(root)).toBeNull();
+  });
+
+  it('never calls the classifier for a notification', async () => {
+    let classified = 0;
+    await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: TASK_NOTIFICATION,
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      },
+      {
+        classify: async () => {
+          classified += 1;
+          return classificationWith('feature-development');
+        },
+      },
+    );
+    expect(classified).toBe(0);
   });
 });

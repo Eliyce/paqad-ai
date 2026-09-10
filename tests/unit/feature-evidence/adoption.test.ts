@@ -11,6 +11,7 @@ import {
   listAdoptableFeatures,
   listInFlightFeatures,
   reconcileSessionControl,
+  sessionClosedAnyFeature,
 } from '@/feature-evidence/adoption.js';
 import { readFeatureDelivery, writeFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
@@ -434,5 +435,43 @@ describe('branch scoping (issue #404)', () => {
     // Nothing to scope by, so the pre-branch rule stands rather than blocking adoption.
     expect(listAdoptableFeatures(root, null)).toEqual([BUNDLE_A]);
     expect(reconcileSessionControl(root, 'ses_new', clock)).toBe(BUNDLE_A);
+  });
+});
+
+// Issue #540 — the one signal that separates a replayed transcript from a change
+// genuinely starting: has THIS session already finished a change?
+describe('sessionClosedAnyFeature (#540)', () => {
+  it('is false when the session has recorded nothing', () => {
+    expect(sessionClosedAnyFeature(tempRoot(), 'ses_a')).toBe(false);
+  });
+
+  it('is false while the session’s change is still in flight', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a');
+    expect(sessionClosedAnyFeature(root, 'ses_a')).toBe(false);
+  });
+
+  it('is true once the session closed a change', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a');
+    close(root, BUNDLE_A, 'ses_a');
+    expect(sessionClosedAnyFeature(root, 'ses_a')).toBe(true);
+  });
+
+  it('attributes the close to the session that wrote it, not to every session', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a');
+    close(root, BUNDLE_A, 'ses_a');
+    // The scope is deliberately session-level (decision D-01M269DKJ3PNEGGXH3HGZMFTFY):
+    // another session's first change keeps the existing auto-open behaviour.
+    expect(sessionClosedAnyFeature(root, 'ses_b')).toBe(false);
+  });
+
+  it('finds the close in any bundle, not only the newest one', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a');
+    close(root, BUNDLE_A, 'ses_a');
+    materialize(root, BUNDLE_B, 'ses_a');
+    expect(sessionClosedAnyFeature(root, 'ses_a')).toBe(true);
   });
 });
