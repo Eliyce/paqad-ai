@@ -122,7 +122,12 @@ their switch in the developer's home directory, which paqad will not touch.
 | Gemini CLI | no | **Backstop only** — nothing to configure |
 
 Both writers merge rather than overwrite, so a value the team set by hand (a
-house trailer instead of no trailer, say) survives re-onboard.
+house trailer instead of no trailer, say) survives re-onboard. The aider writer
+merges through `YAML.parseDocument` rather than parse-then-stringify, so the
+team's own **comments and key order** survive too — a config file people hand-edit
+is one they annotate, and eating those annotations would break the spirit of the
+same promise. A `.claude/settings.json` or `.aider.conf.yml` that cannot be
+parsed is replaced with a valid one rather than failing onboarding.
 
 The **backstop** is what makes the promise true on the four providers config
 cannot reach. At the completion seam `evaluateDelivery` scans the branch's commit
