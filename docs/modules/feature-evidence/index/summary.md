@@ -103,7 +103,10 @@ surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
 - **Session control** (`session-control.ts`) — the `_session/<sessionId>.json`
   active + paused-feature stack + lane store, folding today's `.open` +
   `.pending-lane` role at feature grain (set-active pauses the prior active; resume
-  pops a paused feature; mark-done clears).
+  pops a paused feature; mark-done clears). `setActiveFeature` is the only writer that
+  replaces `active`, and it always pushes the outgoing ref onto `paused[]`, so switching
+  a session's change can never drop the one it was on — every caller that redirects a
+  session goes through it for that reason.
 - **Generic-slug back-fill** (`rename.ts`, issue #403) — a feature opened by a bare
   `paqad:stage planning start` is minted as the untitled `change-<ULID>`
   (`UNTITLED_FEATURE_TITLE` in `mint.ts`); when `plan compile` later carries a
@@ -122,6 +125,19 @@ surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
   reusing the session-ledger row primitives (`stampSessionRow` /
   `appendStampedRowToUnit` / `readUnitFile`) and the stage-evidence `foldRowsWithKey`
   core. Still dark — the live recorder is re-pointed onto it in the cutover.
+
+  `resolveFeatureRef` / `resumeFeatureByRef` are the readers behind
+  `paqad-ai resume --feature <ref>`. A ref resolves against the **session control first**
+  (active, then the paused stack, most-recently-paused first) and then against the
+  **bundles recorded on disk** (issue #540) — each tier matched exactly on dir name, ULID
+  or issue before either falls back to a slug substring, so a precise ref never loses to a
+  loose match. The on-disk tier exists because the control is not the whole record:
+  `markDone` drops a finished change from it, and a session-id rotation leaves a bundle in
+  a control this session never reads, so a control-only lookup made recorded evidence
+  unreachable through every supported command and left hand-editing
+  `_session/<id>.json` as the only recovery. Resuming a bundle from the on-disk tier goes
+  through `setActiveFeature`, so the change the session was on is paused rather than
+  dropped. Neither reader mints.
 - **Bundle enumeration** (`enumerate.ts`) — `listFeatureDirs` lists every feature dir
   under the evidence container. A leaf (paths + `readdir`, nothing else) so both
   `delivery.ts` — which re-exports it, keeping existing importers unchanged — and
@@ -165,6 +181,27 @@ surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
   `kind:'close'` row when the bundle carries none (idempotent with the finalizer's own
   verdict-carrying close row, and skipped for an unmaterialized bundle, which is not in
   flight anyway).
+
+  That close row is also what stops a FINISHED change being re-opened as a phantom
+  (issue #540). `sessionClosedAnyFeature(projectRoot, sessionId)` is true when any bundle
+  carries a close row stamped with this session id — the one signal that tells a replayed
+  transcript from a change genuinely starting. Both retrospective seams consult it when
+  nothing is active: the marker parser (`src/stage-evidence/marker-parse.ts`) re-reads the
+  whole transcript on every turn, and the git backstop (`src/stage-evidence/finalize.ts`)
+  re-reads the whole branch delta, so once the session pointer was released each of them
+  opened a fresh untitled `change-<ULID>` for work that was already done — stealing the
+  pointer and verifying the phantom as `incomplete`, which reported a green change red. A
+  background `<task-notification>` produces exactly such a turn, so ordinary CI watching
+  triggered it.
+
+  The scope is **session-level, not branch-level** (decision
+  `D-01M269DKJ3PNEGGXH3HGZMFTFY`), so a session's FIRST change keeps the existing
+  auto-open behaviour on every host — including the Codex and Gemini completion hooks that
+  share both seams and have no PreToolUse writer. Its known limit is a session-id rotation
+  *after* a close: the close row names the old session, and unlike a change still in flight
+  there is nothing left for adoption to carry. Branch scoping would cover that, but it
+  stops the marker seam opening a bundle on any long-lived branch and would not have caught
+  the second phantom observed on `main`.
 
 Later phases of #339 wire the live recorder onto the feature ledger, plan/spec
 compile, re-homed sub-ledgers, native git hooks, on-demand projections, and cutover
@@ -210,12 +247,20 @@ If anything here disagrees with the map, the **map wins**.
 - `tests/unit/feature-evidence/mint.test.ts` — dir-name mint + record builders + hash.
 - `tests/unit/feature-evidence/schema.test.ts` — AJV validation (unknown-key rejection).
 - `tests/unit/feature-evidence/session-control.test.ts` — active + paused control.
-- `tests/unit/feature-evidence/stage-ledger.test.ts` — feature-scoped stage ledger.
+- `tests/unit/feature-evidence/stage-ledger.test.ts` — feature-scoped stage ledger, plus
+  ref resolution across both tiers (a released bundle, a rotated session, control-wins
+  precedence) and the paused-on-resume guarantee.
 - `tests/unit/feature-evidence/adoption.test.ts` — in-flight detection, branch scoping
   (the open-row stamp, the `delivery.json` fallback, the other-branch and unknown-branch
   refusals, the non-git degrade), the repoint-only
-  reconcile, the ambiguity and paused guards, the durable close row, and the end-to-end
-  session-id rotation (one bundle, not two).
+  reconcile, the ambiguity and paused guards, the durable close row, the end-to-end
+  session-id rotation (one bundle, not two), and `sessionClosedAnyFeature`'s
+  session-level attribution.
+- `tests/unit/stage-evidence/notification-displacement.test.ts` — the issue #540
+  displacement path end to end: a completed change closed, then the turn a background
+  notification produces, asserting no bundle is minted, no row lands in the finished
+  bundle, no failing verdict is reached, the change stays resumable, and the first-change
+  and other-session paths still open exactly as before.
 - `tests/unit/feature-evidence/index.test.ts` — barrel surface.
 - `tests/unit/feature-evidence/report.test.ts` — the pure HTML renderer (self-containment,
   verdict, honesty tags, receipt integrity, graceful empty states, determinism).

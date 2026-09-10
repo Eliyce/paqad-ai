@@ -144,6 +144,22 @@ Why the tiers differ, and why the gap is not closed with prose:
   or template edit. The advisory hosts describe the workflow in prose but the
   contract is explicitly non-binding there.
 
+**Both retrospective seams have a floor (issue #540).** The marker recorder and the
+inferred-git backstop read state that OUTLIVES the change they belong to — the marker
+parser re-reads the whole transcript on every turn, and the backstop re-reads the whole
+branch delta — so once a change was closed and the session pointer released, each of them
+opened a fresh untitled `change-<ULID>` for work that was already finished. The phantom
+took the pointer, absorbed the branch's real diff through the `inferred-git` development
+row, and then verified as `incomplete` with every mandatory stage missing: a green change
+reported red, which is the trust-inverting direction. A background `<task-notification>`
+from an ordinary CI monitor produces such a turn, so this fired on normal use. Both seams
+now record nothing when the session has no active change and has already closed one
+(`sessionClosedAnyFeature`). The floor is session-scoped, so a session's **first** change
+records exactly as it did before on every host in the table above; a **later** change in
+the same session opens from a deliberate signal instead — a titled `stage start`,
+`plan compile`, `spec freeze`, or a real edit — which on Codex and Gemini means the CLI
+verbs the cross-provider protocol already requires.
+
 **Upstream-blocked (scope 4).** A deterministic pre-edit hard block on a non-Claude
 host is a physics-bounded limitation, not an open build item: it requires either
 that host to ship a pre-mutation hook (out of our control) or reintroducing a
