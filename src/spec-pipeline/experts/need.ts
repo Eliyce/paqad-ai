@@ -56,9 +56,7 @@ export function validateExpertNeed(raw: unknown): ExpertNeedValidation {
     // expert fired. A need artifact that names it is refused with its own message, before the
     // generic roster rejection, so the detector's mistake is unambiguous.
     if (role === 'chief-architect') {
-      return fail(
-        '"chief-architect" is never picked: it runs automatically when any expert fires',
-      );
+      return fail('"chief-architect" is never picked: it runs automatically when any expert fires');
     }
     if (typeof role !== 'string' || !isExpertRole(role)) {
       return fail(

@@ -114,9 +114,7 @@ export function validateExpertSynthesis(
   const accepted: string[] = [];
   for (const id of obj.accepted as string[]) {
     if (!knownIds.has(id)) {
-      return fail(
-        'the chief architect may accept, decline or flag a gap; it may not add findings',
-      );
+      return fail('the chief architect may accept, decline or flag a gap; it may not add findings');
     }
     if (seen.has(id)) return fail(`finding ${id} appears twice in accept/decline`);
     seen.add(id);
@@ -130,9 +128,7 @@ export function validateExpertSynthesis(
     }
     const { id, reason } = entry as Record<string, unknown>;
     if (typeof id !== 'string' || !knownIds.has(id)) {
-      return fail(
-        'the chief architect may accept, decline or flag a gap; it may not add findings',
-      );
+      return fail('the chief architect may accept, decline or flag a gap; it may not add findings');
     }
     if (typeof reason !== 'string' || reason.trim().length === 0) {
       return fail(`declined[${index}] ("${id}") needs a non-empty reason`);
@@ -227,7 +223,10 @@ function validateConflicts(raw: unknown, merged: MergedExpertNotes): ConflictRes
       return { ok: false, error: `conflicts names "${target}" twice`, conflicts };
     }
     seenTargets.add(key);
-    if (typeof recommendation !== 'string' || !claimsByTarget.get(key)!.includes(normalize(recommendation))) {
+    if (
+      typeof recommendation !== 'string' ||
+      !claimsByTarget.get(key)!.includes(normalize(recommendation))
+    ) {
       return {
         ok: false,
         error: `conflicts[${index}] recommendation must be one of the conflicting claims verbatim`,
@@ -290,7 +289,11 @@ function writeJson(abs: string, value: unknown): void {
 }
 
 /** Write the merge artifact to scratch (FR-5.1). */
-export function writeExpertMerge(projectRoot: string, dirName: string, value: MergedExpertNotes): void {
+export function writeExpertMerge(
+  projectRoot: string,
+  dirName: string,
+  value: MergedExpertNotes,
+): void {
   writeJson(join(projectRoot, expertMergePath(dirName)), value);
 }
 

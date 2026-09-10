@@ -436,9 +436,21 @@ describe('paqad-ai spec command', () => {
       const dir = openFeature();
       enablePipeline('strict');
       const path = writeSpec('S-manual.md', COMPLETE_SPEC);
-      await run('freeze', path, '--session', SES, '--confirm-invariants', '--manual', '--reason', 'urgent hotfix');
+      await run(
+        'freeze',
+        path,
+        '--session',
+        SES,
+        '--confirm-invariants',
+        '--manual',
+        '--reason',
+        'urgent hotfix',
+      );
       const stored = readFeatureSpecification(root, dir);
-      expect(stored?.provenance).toEqual({ pipeline_produced: false, manual_reason: 'urgent hotfix' });
+      expect(stored?.provenance).toEqual({
+        pipeline_produced: false,
+        manual_reason: 'urgent hotfix',
+      });
     });
 
     it('embeds provenance with --from-pipeline and refuses a hash mismatch (AC-10)', async () => {
@@ -462,7 +474,14 @@ describe('paqad-ai spec command', () => {
       expect(dir2).toBe(dir);
       const drifted = writeSpec('S-drift.md', COMPLETE_SPEC + '\n<!-- edited -->');
       process.exitCode = undefined;
-      const { err } = await run('freeze', drifted, '--session', SES, '--confirm-invariants', '--from-pipeline');
+      const { err } = await run(
+        'freeze',
+        drifted,
+        '--session',
+        SES,
+        '--confirm-invariants',
+        '--from-pipeline',
+      );
       expect(process.exitCode).toBe(1);
       expect(err.join('\n')).toMatch(/not the one the pipeline crafted/);
     });
@@ -474,6 +493,68 @@ describe('paqad-ai spec command', () => {
       await run('freeze', path, '--session', SES, '--confirm-invariants');
       const stored = readFeatureSpecification(root, dir);
       expect(stored && 'provenance' in stored).toBe(false);
+    });
+
+    it('refuses --from-pipeline before the run has finished', async () => {
+      openFeature();
+      enablePipeline('strict');
+      const path = writeSpec('S-nofinish.md', COMPLETE_SPEC);
+      const { err } = await run(
+        'freeze',
+        path,
+        '--session',
+        SES,
+        '--confirm-invariants',
+        '--from-pipeline',
+      );
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toMatch(/spec pipeline finish/);
+    });
+
+    it('refuses --from-pipeline with no active feature', async () => {
+      enablePipeline('strict'); // no openFeature()
+      const path = writeSpec('S-nofeature.md', COMPLETE_SPEC);
+      const { err } = await run(
+        'freeze',
+        path,
+        '--session',
+        SES,
+        '--confirm-invariants',
+        '--from-pipeline',
+      );
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toMatch(/no active feature/);
+    });
+
+    it('embeds a minimal provenance (no experts, no metrics) from --from-pipeline', async () => {
+      const dir = openFeature();
+      enablePipeline('strict');
+      writeRun(dir, COMPLETE_SPEC, {
+        pipeline_produced: true,
+        questions: { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
+      });
+      const path = writeSpec('S-min.md', COMPLETE_SPEC);
+      await run('freeze', path, '--session', SES, '--confirm-invariants', '--from-pipeline');
+      const stored = readFeatureSpecification(root, dir);
+      expect(stored?.provenance?.pipeline_produced).toBe(true);
+      expect(stored?.provenance?.experts).toBeUndefined();
+      expect(stored?.provenance?.label).toBeUndefined();
+    });
+
+    it('strict --manual without --reason is refused', async () => {
+      openFeature();
+      enablePipeline('strict');
+      const path = writeSpec('S-noreason.md', COMPLETE_SPEC);
+      const { err } = await run(
+        'freeze',
+        path,
+        '--session',
+        SES,
+        '--confirm-invariants',
+        '--manual',
+      );
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toMatch(/--manual needs --reason/);
     });
   });
 });

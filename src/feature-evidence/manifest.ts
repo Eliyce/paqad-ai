@@ -205,7 +205,10 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
  * the pipeline off this is not called, so the gate is unchanged there. Pure: parses the JSON and
  * inspects the provenance field, importing nothing from the pipeline.
  */
-export function validateSpecificationAdoption(content: string | null): { ok: boolean; error?: string } {
+export function validateSpecificationAdoption(content: string | null): {
+  ok: boolean;
+  error?: string;
+} {
   const failure = {
     ok: false,
     error:

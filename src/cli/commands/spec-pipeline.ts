@@ -211,7 +211,9 @@ export function createSpecPipelineCommand(): Command {
     .option(...projectRootOpt)
     .option(...sessionOpt)
     .action(
-      async (options: CommonOptions & { requestFile?: string; ticket?: string; modules?: string }) => {
+      async (
+        options: CommonOptions & { requestFile?: string; ticket?: string; modules?: string },
+      ) => {
         const resolved = resolveDir(options);
         if (!resolved) return;
 
@@ -226,10 +228,7 @@ export function createSpecPipelineCommand(): Command {
           : undefined;
 
         // S0 grounding (RAG-aware) then S1 labeling, both zero model tokens.
-        const grounding = await groundAreaAsync(
-          options.projectRoot,
-          modules ? { modules } : {},
-        );
+        const grounding = await groundAreaAsync(options.projectRoot, modules ? { modules } : {});
         writeStepArtifact(
           options.projectRoot,
           resolved.dirName,
@@ -457,7 +456,9 @@ export function createSpecPipelineCommand(): Command {
         const config = readPipelineConfig(options.projectRoot);
         if (config.enabled) {
           if (!options.trace) {
-            console.error('craft needs --trace <trace.json> while the spec pipeline is on (FR-8.3)');
+            console.error(
+              'craft needs --trace <trace.json> while the spec pipeline is on (FR-8.3)',
+            );
             process.exitCode = 1;
             return;
           }
@@ -471,7 +472,9 @@ export function createSpecPipelineCommand(): Command {
           }
           const agentTrace = parseTraceArtifact(traceRaw);
           if (!agentTrace) {
-            console.error('trace.json is malformed — each entry needs an id (FR/NFR/AC/INV) and a source');
+            console.error(
+              'trace.json is malformed — each entry needs an id (FR/NFR/AC/INV) and a source',
+            );
             process.exitCode = 1;
             return;
           }

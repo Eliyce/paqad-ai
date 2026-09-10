@@ -61,9 +61,9 @@ describe('readPipelineConfig', () => {
     const root = tempRoot();
     writeLocalConfig(root, 'spec_pipeline_adoption=banana');
     expect(readPipelineConfig(root, {}).adoption).toBe('warn');
-    expect(
-      readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_ADOPTION: 'strict' }).adoption,
-    ).toBe('strict');
+    expect(readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_ADOPTION: 'strict' }).adoption).toBe(
+      'strict',
+    );
   });
 
   it('the PAQAD_ env escape hatch drives experts_enabled too', () => {

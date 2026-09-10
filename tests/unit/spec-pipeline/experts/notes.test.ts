@@ -87,10 +87,18 @@ describe('validateExpertNotes', () => {
           role: 'db-expert',
           findings: [
             { target: 'invoices', claim: 'index it' },
-            { target: 'line_items', claim: 'add a foreign key', kind: 'invariant', severity: 'must' },
+            {
+              target: 'line_items',
+              claim: 'add a foreign key',
+              kind: 'invariant',
+              severity: 'must',
+            },
           ],
         },
-        { role: 'security-auditor', findings: [{ target: 'export', claim: 'scope to the customer' }] },
+        {
+          role: 'security-auditor',
+          findings: [{ target: 'export', claim: 'scope to the customer' }],
+        },
       ],
     });
     expect(result.ok).toBe(true);
@@ -100,14 +108,20 @@ describe('validateExpertNotes', () => {
       kind: 'requirement',
       severity: 'should',
     });
-    expect(dbFindings[1]).toMatchObject({ id: 'EX-db-expert-2', kind: 'invariant', severity: 'must' });
+    expect(dbFindings[1]).toMatchObject({
+      id: 'EX-db-expert-2',
+      kind: 'invariant',
+      severity: 'must',
+    });
     expect(result.artifact!.notes[1]!.findings[0]!.id).toBe('EX-security-auditor-1');
   });
 
   it('keeps an optional evidence string and rejects a non-string one', () => {
     expect(
       validateExpertNotes({
-        notes: [{ role: 'db-expert', findings: [{ target: 't', claim: 'c', evidence: 'doc: x.md' }] }],
+        notes: [
+          { role: 'db-expert', findings: [{ target: 't', claim: 'c', evidence: 'doc: x.md' }] },
+        ],
       }).artifact!.notes[0]!.findings[0]!.evidence,
     ).toBe('doc: x.md');
     expect(
@@ -125,7 +139,9 @@ describe('validateExpertNotes', () => {
     ).toMatch(/unknown kind/);
     expect(
       validateExpertNotes({
-        notes: [{ role: 'db-expert', findings: [{ target: 't', claim: 'c', severity: 'blocker' }] }],
+        notes: [
+          { role: 'db-expert', findings: [{ target: 't', claim: 'c', severity: 'blocker' }] },
+        ],
       }).error,
     ).toMatch(/unknown severity/);
   });

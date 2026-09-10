@@ -31,7 +31,11 @@ const merged: MergedExpertNotes = {
   ],
 };
 const synthesisConflicts: SynthesisConflict[] = [
-  { target: 'orders', recommendation: 'generate in a background job', rationale: 'a bulk export is slow' },
+  {
+    target: 'orders',
+    recommendation: 'generate in a background job',
+    rationale: 'a bulk export is slow',
+  },
 ];
 
 function pending(root: string) {
@@ -74,7 +78,11 @@ describe('mintExpertConflictDecisions', () => {
     const second = mintExpertConflictDecisions(root, merged, synthesisConflicts);
     expect(second.minted).toEqual([]);
     expect(second.autoResolved).toEqual([
-      { target: 'orders', chosen: 'generate in a background job — performance-analyst', source: id },
+      {
+        target: 'orders',
+        chosen: 'generate in a background job — performance-analyst',
+        source: id,
+      },
     ]);
     expect(pending(root)).toHaveLength(0);
   });
@@ -91,5 +99,29 @@ describe('mintExpertConflictDecisions', () => {
     const result = mintExpertConflictDecisions(root, { findings: [], conflicts: [] }, []);
     expect(result).toEqual({ minted: [], autoResolved: [] });
     expect(pending(root)).toEqual([]);
+  });
+});
+
+// Issue #547 — remaining branches (coverage).
+describe('mintExpertConflictDecisions edge branches', () => {
+  it('dedupes option keys derived from claims that slug the same, and tolerates a short roles array', () => {
+    const merged2: MergedExpertNotes = {
+      findings: [],
+      conflicts: [
+        {
+          target: 'orders',
+          roles: ['db-expert'], // shorter than claims — the second option falls back to "unknown"
+          claims: ['Stream it!', 'stream it'],
+          finding_ids: [],
+        },
+      ],
+    };
+    const root = tempRoot();
+    const result = mintExpertConflictDecisions(root, merged2, []);
+    expect(result.minted).toHaveLength(1);
+    const packet = pending(root)[0]!.packet;
+    // Two distinct option keys even though the claims normalise to similar slugs.
+    expect(new Set(packet.options.map((o) => o.option_key)).size).toBe(2);
+    expect(packet.options[1]!.label).toContain('unknown');
   });
 });

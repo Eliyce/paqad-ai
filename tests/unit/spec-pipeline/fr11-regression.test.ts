@@ -56,7 +56,9 @@ describe('FR-11: pipeline is off by default and never runs in the feature-dev fl
     expect(yaml).toContain(
       'Spec pipeline (issue #512): when `spec_pipeline_enabled` is on, produce the spec through',
     );
-    expect(yaml).toContain('spec_pipeline_adoption=strict a hand-written spec is refused at freeze');
+    expect(yaml).toContain(
+      'spec_pipeline_adoption=strict a hand-written spec is refused at freeze',
+    );
   });
 
   it('no feature-development execution-path module imports the pipeline', () => {

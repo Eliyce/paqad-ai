@@ -250,13 +250,22 @@ describe('specificationReceiptLine', () => {
     expect(
       specificationReceiptLine({
         pipeline_produced: true,
-        experts: { roles: ['db-expert', 'security-auditor', 'qa-engineer'], accepted: 2, declined: 0, conflicts: 2 },
+        experts: {
+          roles: ['db-expert', 'security-auditor', 'qa-engineer'],
+          accepted: 2,
+          declined: 0,
+          conflicts: 2,
+        },
       }),
-    ).toBe('🟢 specification: pipeline-produced, experts: db-expert, security-auditor, qa-engineer (2 conflicts decided)');
+    ).toBe(
+      '🟢 specification: pipeline-produced, experts: db-expert, security-auditor, qa-engineer (2 conflicts decided)',
+    );
   });
 
   it('renders pipeline-produced without experts', () => {
-    expect(specificationReceiptLine({ pipeline_produced: true })).toBe('🟢 specification: pipeline-produced');
+    expect(specificationReceiptLine({ pipeline_produced: true })).toBe(
+      '🟢 specification: pipeline-produced',
+    );
   });
 
   it('renders a manual-reason line', () => {
@@ -271,7 +280,7 @@ describe('specificationReceiptLine', () => {
     );
   });
 
-  it('renders today\'s line when provenance is absent', () => {
+  it("renders today's line when provenance is absent", () => {
     expect(specificationReceiptLine()).toBe('🟢 specification: recorded');
   });
 });

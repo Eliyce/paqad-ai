@@ -97,12 +97,24 @@ describe('buildProvenance metrics', () => {
   };
 
   it('includes metrics when provided', () => {
-    const p = buildProvenance(cfg(), true, [], { asked: 0, answered: 0, auto_answered: 0, deferred: 0 }, undefined, metrics);
+    const p = buildProvenance(
+      cfg(),
+      true,
+      [],
+      { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
+      undefined,
+      metrics,
+    );
     expect(p.metrics).toBe(metrics);
   });
 
   it('omits the metrics key when not provided (unchanged record)', () => {
-    const p = buildProvenance(cfg(), true, [], { asked: 0, answered: 0, auto_answered: 0, deferred: 0 });
+    const p = buildProvenance(cfg(), true, [], {
+      asked: 0,
+      answered: 0,
+      auto_answered: 0,
+      deferred: 0,
+    });
     expect('metrics' in p).toBe(false);
   });
 });

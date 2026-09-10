@@ -132,7 +132,11 @@ describe('renderSpecMarkdown provenance', () => {
       acceptance_criteria: [],
       invariants: [],
       open_questions: [],
-      frozen: { frozen_at: '2026-09-10T00:00:00.000Z', spec_hash: 'c'.repeat(64), signed_off_by: 'h' },
+      frozen: {
+        frozen_at: '2026-09-10T00:00:00.000Z',
+        spec_hash: 'c'.repeat(64),
+        signed_off_by: 'h',
+      },
     };
   }
 
@@ -148,7 +152,13 @@ describe('renderSpecMarkdown provenance', () => {
         label: 'okay',
         grounding: { sparse: true, path: 'rag' },
         questions: { asked: 2, answered: 2, auto_answered: 1, deferred: 0 },
-        experts: { roles: ['db-expert', 'security-auditor'], accepted: 3, declined: 1, conflicts: 2, auto_resolved: 1 },
+        experts: {
+          roles: ['db-expert', 'security-auditor'],
+          accepted: 3,
+          declined: 1,
+          conflicts: 2,
+          auto_resolved: 1,
+        },
       },
     });
     expect(md).toContain('## Provenance');
@@ -158,6 +168,16 @@ describe('renderSpecMarkdown provenance', () => {
     expect(md).toContain('- Questions: asked 2, answered 2, auto-answered 1, deferred 0');
     expect(md).toContain('- Experts: db-expert, security-auditor (accepted 3, declined 1)');
     expect(md).toContain('- Conflicts: 2 (auto-resolved 1)');
+  });
+
+  it('renders a non-sparse grounding and omits the experts line when absent', () => {
+    const md = renderSpecMarkdown({
+      ...frozenBase(),
+      provenance: { pipeline_produced: true, grounding: { sparse: false, path: 'docs-fallback' } },
+    });
+    expect(md).toContain('- Grounding: docs-fallback');
+    expect(md).not.toContain('(sparse)');
+    expect(md).not.toContain('- Experts:');
   });
 
   it('renders a manual-reason provenance block', () => {

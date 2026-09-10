@@ -124,9 +124,7 @@ function fitGroundingToBudget(grounding: GroundingArtifact, granted: number): Fi
   const dropped = new Set<number>();
   if (total > budgetChars) {
     let running = total;
-    const byLength = [...items].sort(
-      (a, b) => b.text.length - a.text.length || a.index - b.index,
-    );
+    const byLength = [...items].sort((a, b) => b.text.length - a.text.length || a.index - b.index);
     for (const item of byLength) {
       if (running <= budgetChars) break;
       dropped.add(item.index);

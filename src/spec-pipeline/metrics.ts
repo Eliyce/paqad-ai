@@ -110,9 +110,7 @@ export function buildRunMetrics(
     }
   }
 
-  const freezeChecksFired = spec
-    ? evaluateSpecFreeze(spec.spec).blockers
-    : [];
+  const freezeChecksFired = spec ? evaluateSpecFreeze(spec.spec).blockers : [];
 
   return {
     grounding_sparse: grounding?.sparse ?? false,
@@ -150,7 +148,10 @@ function readSpec(
   const markdown = readFileSync(abs, 'utf8');
   const words = markdown.split(/\s+/).filter((token) => token.length > 0).length;
   try {
-    return { spec: buildFeatureSpec({ spec_id: 'metrics', spec_file: 'spec.md', spec_markdown: markdown }), words };
+    return {
+      spec: buildFeatureSpec({ spec_id: 'metrics', spec_file: 'spec.md', spec_markdown: markdown }),
+      words,
+    };
   } catch {
     return null;
   }

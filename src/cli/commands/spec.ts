@@ -124,7 +124,11 @@ export function createSpecCommand(): Command {
       'Session id whose active feature receives specification.json (issue #339)',
     )
     .option('--keep-input', 'Keep the transient spec markdown instead of deleting it', false)
-    .option('--from-pipeline', 'Freeze a spec the spec pipeline crafted, copying its provenance', false)
+    .option(
+      '--from-pipeline',
+      'Freeze a spec the spec pipeline crafted, copying its provenance',
+      false,
+    )
     .option('--manual', 'Freeze a hand-written spec under strict adoption (needs --reason)', false)
     .option('--reason <why>', 'Why the spec was frozen without the pipeline (recorded)')
     .action(
@@ -224,11 +228,7 @@ export function createSpecCommand(): Command {
               process.exitCode = 1;
               return;
             }
-            const runSpecPath = join(
-              options.projectRoot,
-              pipelineScratchDir(dirName),
-              'spec.md',
-            );
+            const runSpecPath = join(options.projectRoot, pipelineScratchDir(dirName), 'spec.md');
             const runSpec = existsSync(runSpecPath) ? readFileSync(runSpecPath, 'utf8') : null;
             if (runSpec === null || sha256Hex(runSpec) !== built.spec_hash) {
               console.error('the spec you are freezing is not the one the pipeline crafted');

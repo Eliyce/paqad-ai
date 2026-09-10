@@ -50,14 +50,20 @@ async function run(root: string, args: string[]): Promise<{ out: string[]; err: 
   const err: string[] = [];
   vi.spyOn(console, 'log').mockImplementation((m?: unknown) => void out.push(String(m)));
   vi.spyOn(console, 'error').mockImplementation((m?: unknown) => void err.push(String(m)));
-  await createSpecPipelineCommand().parseAsync([...args, '--project-root', root, '--session', SES], {
-    from: 'user',
-  });
+  await createSpecPipelineCommand().parseAsync(
+    [...args, '--project-root', root, '--session', SES],
+    {
+      from: 'user',
+    },
+  );
   return { out, err };
 }
 
 /** Run S0 ground + S1 label so the experts step lock (FR-2.3) is satisfied. */
-async function groundAndLabel(root: string, prompt = 'add a customer_id index to invoices'): Promise<void> {
+async function groundAndLabel(
+  root: string,
+  prompt = 'add a customer_id index to invoices',
+): Promise<void> {
   await run(root, ['ground']);
   await run(root, ['label', prompt]);
 }
@@ -192,7 +198,9 @@ describe('spec pipeline experts CLI', () => {
     });
     await run(root, ['experts', 'record', need]);
     const notes = writeArtifact(root, 'notes.json', {
-      notes: [{ role: 'db-expert', findings: [{ target: 'invoices', claim: 'index customer_id' }] }],
+      notes: [
+        { role: 'db-expert', findings: [{ target: 'invoices', claim: 'index customer_id' }] },
+      ],
       tokens: { 'db-expert': 1100 },
     });
     await run(root, ['experts', 'notes', notes]);

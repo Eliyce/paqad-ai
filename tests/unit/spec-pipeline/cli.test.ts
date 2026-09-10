@@ -440,7 +440,11 @@ describe('spec pipeline CLI — craft trace + question merge (issue #547)', () =
         tokens: 0,
       }),
     ]);
-    const { out } = await run(root, ['record', 'questions', writeJson(root, 'q.json', { questions: [] })]);
+    const { out } = await run(root, [
+      'record',
+      'questions',
+      writeJson(root, 'q.json', { questions: [] }),
+    ]);
     // The expert's question survived into the asked batch.
     expect(JSON.parse(out[0]!).asked).toBe(1);
   });
@@ -490,5 +494,96 @@ describe('spec pipeline CLI — start (issue #547)', () => {
     const { err } = await run(root, ['start', '--ticket', 'PROJ-123']);
     expect(process.exitCode).toBe(1);
     expect(err.join('\n')).toMatch(/Atlassian MCP/);
+  });
+});
+
+// Issue #547 — the metrics verb and remaining start/craft branches (coverage).
+describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
+  function writeRun(root: string, dir: string, file: string, value: unknown): void {
+    const scratch = join(root, '.paqad', '_specs', dir, 'pipeline');
+    mkdirSync(scratch, { recursive: true });
+    writeFileSync(join(scratch, file), typeof value === 'string' ? value : JSON.stringify(value));
+  }
+
+  it('metrics reports the active run', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    writeRun(root, dir, 'finish.json', {
+      provenance: {
+        experts: {
+          accounting: { experts: [{ role: 'db-expert', tokens: 500, changed_spec: true }] },
+          conflicts: [],
+        },
+        metrics: { label: 'okay', grounding_sparse: false, tokens_by_step: {} },
+      },
+    });
+    const { out } = await run(root, ['metrics']);
+    const report = JSON.parse(out[0]!);
+    expect(report.runs).toBe(1);
+    // The table renders because a role has a changed_spec rate.
+    expect(out.join('\n')).toMatch(/db-expert/);
+  });
+
+  it('metrics --all aggregates across runs without an active feature', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    writeRun(root, 'run-a', 'finish.json', {
+      provenance: { metrics: { label: 'clear', grounding_sparse: false, tokens_by_step: {} } },
+    });
+    const { out } = await run(root, ['metrics', '--all']);
+    expect(JSON.parse(out[0]!).runs).toBe(1);
+  });
+
+  it('start refuses an unrecognised ticket ref', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start', '--ticket', 'not-a-ref']);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/not a GitHub issue ref/);
+  });
+
+  it('record craft refuses a malformed trace', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad', '.config'), 'spec_pipeline_enabled=true', 'utf8');
+    await run(root, ['ground']);
+    await run(root, ['label', 'add a customer_id index to the invoices table']);
+    await run(root, [
+      'record',
+      'questions',
+      (() => {
+        const p = join(root, 'q.json');
+        writeFileSync(p, JSON.stringify({ questions: [] }));
+        return p;
+      })(),
+    ]);
+    await run(root, [
+      'record',
+      'task',
+      (() => {
+        const p = join(root, 't.json');
+        writeFileSync(p, JSON.stringify({ intent: 'x' }));
+        return p;
+      })(),
+    ]);
+    const spec = join(root, 'spec.md');
+    writeFileSync(
+      spec,
+      [
+        '## Functional requirements',
+        '- FR-1: x',
+        '## Acceptance criteria',
+        '- AC-1: given a, when b, then c (proof: automated)',
+        '## Invariants',
+        '- INV-1: y',
+      ].join('\n'),
+    );
+    const badTrace = join(root, 'bad-trace.json');
+    writeFileSync(badTrace, JSON.stringify({ entries: [{ id: 'ZZ-1', source: 's' }] }));
+    process.exitCode = 0;
+    const { err } = await run(root, ['record', 'craft', spec, '--trace', badTrace]);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/malformed/);
   });
 });

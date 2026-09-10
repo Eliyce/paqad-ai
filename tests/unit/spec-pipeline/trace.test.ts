@@ -64,7 +64,7 @@ describe('validateTrace', () => {
 });
 
 // Issue #547 — the craft-trace gate, the writer/reader, and the raw parser.
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -156,5 +156,22 @@ describe('trace scratch io + parseTraceArtifact', () => {
     expect(parseTraceArtifact({ entries: [{ id: 'FR-1' }] })).toBeNull();
     expect(parseTraceArtifact({ nope: true })).toBeNull();
     expect(parseTraceArtifact(null)).toBeNull();
+  });
+});
+
+// Issue #547 — remaining branches (coverage).
+describe('trace io edge branches', () => {
+  it('readTrace returns null on corrupt json and on a non-array entries', () => {
+    const root = _tempRoot();
+    writeTrace(root, 'c9', { entries: [] });
+    // Corrupt the file.
+    const abs = join(root, '.paqad', '_specs', 'c9', 'pipeline', 'trace.json');
+    writeFileSync(abs, '{not json');
+    expect(readTrace(root, 'c9')).toBeNull();
+  });
+
+  it('parseTraceArtifact rejects a non-object entry', () => {
+    expect(parseTraceArtifact({ entries: ['x'] })).toBeNull();
+    expect(parseTraceArtifact('nope')).toBeNull();
   });
 });

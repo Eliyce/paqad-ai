@@ -111,6 +111,9 @@ describe('validateExpertNeed', () => {
       ],
     });
     expect(result.ok).toBe(true);
-    expect(result.artifact?.experts.map((e) => e.role)).toEqual(['qa-engineer', 'user-flow-writer']);
+    expect(result.artifact?.experts.map((e) => e.role)).toEqual([
+      'qa-engineer',
+      'user-flow-writer',
+    ]);
   });
 });

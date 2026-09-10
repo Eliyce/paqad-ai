@@ -55,7 +55,12 @@ const SPEC = [
 describe('buildRunMetrics', () => {
   it('measures the run from its artifacts (FR-11.1)', () => {
     const root = tempRoot();
-    write(root, 'grounding.json', { references: [], terms: ['invoice'], sparse: true, path: 'rag' });
+    write(root, 'grounding.json', {
+      references: [],
+      terms: ['invoice'],
+      sparse: true,
+      path: 'rag',
+    });
     write(root, 'label.json', {
       label: 'okay',
       signals: [{ kind: 'x', span: 'y' }],

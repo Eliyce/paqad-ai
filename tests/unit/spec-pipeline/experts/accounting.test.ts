@@ -28,7 +28,12 @@ describe('buildExpertAccounting', () => {
     });
     expect(result.total_tokens).toBe(2000);
     expect(result.experts).toEqual([
-      { role: 'db-expert', reason: 'touches the invoices migration', tokens: 1200, changed_spec: true },
+      {
+        role: 'db-expert',
+        reason: 'touches the invoices migration',
+        tokens: 1200,
+        changed_spec: true,
+      },
       { role: 'security-auditor', reason: 'touches auth', tokens: 800, changed_spec: true },
     ]);
   });

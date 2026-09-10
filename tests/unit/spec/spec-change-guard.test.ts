@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -241,16 +241,17 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
     // The packet context names the changed section.
     const pendingDir = join(root, '.paqad/decisions/pending');
     const file = readdirSync(pendingDir).find((f) => f.endsWith('.json'))!;
-    const packet = JSON.parse(
-      require('node:fs').readFileSync(join(pendingDir, file), 'utf8'),
-    ) as { context: string; category: string };
+    const packet = JSON.parse(readFileSync(join(pendingDir, file), 'utf8')) as {
+      context: string;
+      category: string;
+    };
     expect(packet.category).toBe('spec.change');
     expect(packet.context).toMatch(/Changed sections: acceptance_criteria\./);
 
     // A correction row was appended under the run's scratch.
     const corrections = join(root, '.paqad/_specs/change-x/pipeline/corrections.jsonl');
     expect(existsSync(corrections)).toBe(true);
-    const row = JSON.parse(require('node:fs').readFileSync(corrections, 'utf8').trim());
+    const row = JSON.parse(readFileSync(corrections, 'utf8').trim());
     expect(row.changed_sections).toEqual(['acceptance_criteria']);
   });
 });

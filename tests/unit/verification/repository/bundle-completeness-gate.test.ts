@@ -543,7 +543,11 @@ describe('spec pipeline strict adoption gate', () => {
   it('passes under strict with a pipeline-produced spec', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    write(root, featureFilePath(DIR, 'specification'), JSON.stringify({ provenance: { pipeline_produced: true } }));
+    write(
+      root,
+      featureFilePath(DIR, 'specification'),
+      JSON.stringify({ provenance: { pipeline_produced: true } }),
+    );
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,

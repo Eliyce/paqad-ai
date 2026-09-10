@@ -6,7 +6,9 @@ Return exactly this JSON shape:
 {
   "verdict": "needs-answers",
   "accepted": ["EX-db-expert-1", "EX-security-auditor-1"],
-  "declined": [{ "id": "EX-performance-analyst-2", "reason": "duplicates the db-expert index finding" }],
+  "declined": [
+    { "id": "EX-performance-analyst-2", "reason": "duplicates the db-expert index finding" }
+  ],
   "conflicts": [
     {
       "target": "orders",

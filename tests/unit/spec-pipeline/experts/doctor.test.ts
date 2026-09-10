@@ -81,7 +81,9 @@ describe('doctor: Expert roster check', () => {
     const report = await new HealthChecker().run(root);
     const check = report.checks.find((c) => c.name === 'Spec pipeline adoption is coherent');
     expect(check?.status).toBe('warning');
-    expect(check?.detail).toBe('adoption is strict but the pipeline is off; the setting does nothing');
+    expect(check?.detail).toBe(
+      'adoption is strict but the pipeline is off; the setting does nothing',
+    );
   });
 
   it('warns when the token ceiling is too low for the experts (FR-12.2c)', async () => {
@@ -101,9 +103,7 @@ describe('doctor: Expert roster check', () => {
   });
 
   it('confirms every roster role ships a lens (FR-12.2b — passes, the lenses ship)', async () => {
-    writeConfig(
-      ['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'),
-    );
+    writeConfig(['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'));
     const report = await new HealthChecker().run(root);
     const check = report.checks.find((c) => c.name === 'Expert lens files are shipped');
     // The lenses ship in the framework runtime, so the packaging-truth check does not fail.

@@ -27,7 +27,13 @@ afterEach(() => {
 
 const merged: MergedExpertNotes = {
   findings: [
-    { id: 'EX-db-expert-1', target: 'invoices', claim: 'index it', kind: 'requirement', severity: 'should' },
+    {
+      id: 'EX-db-expert-1',
+      target: 'invoices',
+      claim: 'index it',
+      kind: 'requirement',
+      severity: 'should',
+    },
   ],
   conflicts: [
     {
@@ -44,7 +50,9 @@ function validSynthesis(): ExpertSynthesis {
     verdict: 'ready',
     accepted: ['EX-db-expert-1'],
     declined: [],
-    conflicts: [{ target: 'orders', recommendation: 'denormalise for reads', rationale: 'reads dominate' }],
+    conflicts: [
+      { target: 'orders', recommendation: 'denormalise for reads', rationale: 'reads dominate' },
+    ],
     gaps: [],
     questions: [],
     tokens: 0,
@@ -79,7 +87,11 @@ describe('validateExpertSynthesis', () => {
   });
 
   it('rejects a declined entry with an empty reason', () => {
-    const bad = { ...validSynthesis(), accepted: [], declined: [{ id: 'EX-db-expert-1', reason: '' }] };
+    const bad = {
+      ...validSynthesis(),
+      accepted: [],
+      declined: [{ id: 'EX-db-expert-1', reason: '' }],
+    };
     expect(validateExpertSynthesis(bad, merged).error).toMatch(/non-empty reason/);
   });
 
@@ -95,7 +107,9 @@ describe('validateExpertSynthesis', () => {
 
   it('rejects a conflict count that does not match the merge', () => {
     const bad = { ...validSynthesis(), conflicts: [] };
-    expect(validateExpertSynthesis(bad, merged).error).toMatch(/resolve each exactly once|conflict rows/);
+    expect(validateExpertSynthesis(bad, merged).error).toMatch(
+      /resolve each exactly once|conflict rows/,
+    );
   });
 
   it('rejects a recommendation that is not one of the conflicting claims', () => {
@@ -143,7 +157,10 @@ describe('validateExpertSynthesis', () => {
         },
       ],
     };
-    const result = validateExpertSynthesis(withJargonGap, merged, { terms: [], prompt: 'plain words' });
+    const result = validateExpertSynthesis(withJargonGap, merged, {
+      terms: [],
+      prompt: 'plain words',
+    });
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/plain language|flagged/);
   });
@@ -151,7 +168,14 @@ describe('validateExpertSynthesis', () => {
   it('accepts a needs-answers verdict with no conflicts when the merge has none', () => {
     const noConflicts: MergedExpertNotes = { findings: merged.findings, conflicts: [] };
     const result = validateExpertSynthesis(
-      { verdict: 'needs-answers', accepted: ['EX-db-expert-1'], declined: [], gaps: [], questions: [], tokens: 5 },
+      {
+        verdict: 'needs-answers',
+        accepted: ['EX-db-expert-1'],
+        declined: [],
+        gaps: [],
+        questions: [],
+        tokens: 5,
+      },
       noConflicts,
     );
     expect(result.ok).toBe(true);
@@ -175,5 +199,136 @@ describe('synthesis scratch io', () => {
     expect(isSynthesisShaped('not json')).toBe(false);
     expect(isSynthesisShaped(JSON.stringify({ verdict: 'ready' }))).toBe(false);
     expect(isSynthesisShaped(JSON.stringify(validSynthesis()))).toBe(true);
+  });
+});
+
+// Issue #547 — remaining validation branches (coverage).
+describe('validateExpertSynthesis edge branches', () => {
+  it('rejects a non-array accepted, declined, conflicts, gaps, or questions', () => {
+    expect(validateExpertSynthesis({ verdict: 'ready', accepted: 'x' }, merged).error).toMatch(
+      /accepted\[\]/,
+    );
+    expect(
+      validateExpertSynthesis(
+        { verdict: 'ready', accepted: [], declined: 'x' },
+        { findings: [], conflicts: [] },
+      ).error,
+    ).toMatch(/declined\[\]/);
+    const noConf: MergedExpertNotes = { findings: [], conflicts: [] };
+    expect(
+      validateExpertSynthesis(
+        { verdict: 'ready', accepted: [], declined: [], conflicts: 'x', gaps: [] },
+        noConf,
+      ).error,
+    ).toMatch(/conflicts must be an array/);
+    expect(
+      validateExpertSynthesis(
+        { verdict: 'ready', accepted: [], declined: [], conflicts: [], gaps: 'x' },
+        noConf,
+      ).error,
+    ).toMatch(/gaps must be an array/);
+    expect(
+      validateExpertSynthesis(
+        { verdict: 'ready', accepted: [], declined: [], conflicts: [], gaps: [], questions: 'x' },
+        noConf,
+      ).error,
+    ).toMatch(/questions must be an array/);
+  });
+
+  it('rejects a declined entry that is not an object', () => {
+    expect(
+      validateExpertSynthesis(
+        { verdict: 'ready', accepted: [], declined: ['x'] },
+        { findings: [], conflicts: [] },
+      ).error,
+    ).toMatch(/declined\[0\] must be an object/);
+  });
+
+  it('rejects a conflict row that is not an object and a gap that is not an object', () => {
+    expect(
+      validateExpertSynthesis(
+        {
+          verdict: 'ready',
+          accepted: ['EX-db-expert-1'],
+          declined: [],
+          conflicts: ['x'],
+          gaps: [],
+        },
+        merged,
+      ).error,
+    ).toMatch(/conflicts\[0\] must be an object/);
+    const noConf: MergedExpertNotes = { findings: merged.findings, conflicts: [] };
+    expect(
+      validateExpertSynthesis(
+        {
+          verdict: 'ready',
+          accepted: ['EX-db-expert-1'],
+          declined: [],
+          conflicts: [],
+          gaps: ['x'],
+        },
+        noConf,
+      ).error,
+    ).toMatch(/gaps\[0\] must be an object/);
+  });
+
+  it('rejects a duplicate conflict target and a gap missing its fields', () => {
+    const twoConflicts: MergedExpertNotes = {
+      findings: [],
+      conflicts: [
+        {
+          target: 'orders',
+          roles: ['db-expert', 'data-modeler'],
+          claims: ['a', 'b'],
+          finding_ids: [],
+        },
+        {
+          target: 'orders',
+          roles: ['db-expert', 'data-modeler'],
+          claims: ['a', 'b'],
+          finding_ids: [],
+        },
+      ],
+    };
+    expect(
+      validateExpertSynthesis(
+        {
+          verdict: 'ready',
+          accepted: [],
+          declined: [],
+          conflicts: [
+            { target: 'orders', recommendation: 'a', rationale: 'r' },
+            { target: 'orders', recommendation: 'b', rationale: 'r' },
+          ],
+          gaps: [],
+        },
+        twoConflicts,
+      ).error,
+    ).toMatch(/twice/);
+    const noConf: MergedExpertNotes = { findings: merged.findings, conflicts: [] };
+    expect(
+      validateExpertSynthesis(
+        {
+          verdict: 'ready',
+          accepted: ['EX-db-expert-1'],
+          declined: [],
+          conflicts: [],
+          gaps: [{ area: '', why_it_matters: 'w' }],
+        },
+        noConf,
+      ).error,
+    ).toMatch(/non-empty area/);
+    expect(
+      validateExpertSynthesis(
+        {
+          verdict: 'ready',
+          accepted: ['EX-db-expert-1'],
+          declined: [],
+          conflicts: [],
+          gaps: [{ area: 'a', why_it_matters: '' }],
+        },
+        noConf,
+      ).error,
+    ).toMatch(/non-empty why_it_matters/);
   });
 });
