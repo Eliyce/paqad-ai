@@ -7,9 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createResumeCommand } from '@/cli/commands/resume.js';
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { createProgram } from '@/cli/program.js';
-import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import { readSessionControl } from '@/feature-evidence/session-control.js';
+import { closeActiveFeature, currentFeature } from '@/feature-evidence/stage-ledger.js';
 
-// `paqad-ai resume --feature <ref>` — reactivate a paused feature (issue #339).
+// `paqad-ai resume --feature <ref>` — reactivate a feature-development change (issue
+// #339), whether the session control still holds it or it is only recorded on disk (#540).
 describe('paqad-ai resume command', () => {
   let root: string;
   const SES = 'ses_cli_resume';
@@ -59,12 +61,30 @@ describe('paqad-ai resume command', () => {
     expect(currentFeature(root, SES)!.startsWith('339-')).toBe(true);
   });
 
-  it('exits non-zero when the ref matches no paused feature', async () => {
+  it('exits non-zero when the ref matches no recorded change', async () => {
     await stage('start', 'planning', '--title', 'Only feature', '--issue', '339');
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((line: string) => errors.push(String(line)));
     await resume('--feature', 'does-not-exist');
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain('could not resume');
+  });
+
+  // Issue #540, AC-3: a change the session control has released — closed, or displaced
+  // while a rollover took the pointer — is reachable from the CLI, with no hand-edit to
+  // `.paqad/ledger/feature-evidence/_session/<id>.json`.
+  it('reaches a change the session control no longer holds (#540)', async () => {
+    await stage('start', 'planning', '--title', 'Displaced feature', '--issue', '540');
+    const displaced = currentFeature(root, SES)!;
+    expect(displaced.startsWith('540-')).toBe(true);
+    // Release it exactly as the finalizer does when the change passes.
+    closeActiveFeature(root, SES);
+    expect(currentFeature(root, SES)).toBeNull();
+    expect(readSessionControl(root, SES)).toMatchObject({ active: null, paused: [] });
+
+    const lines = await resume('--feature', '540');
+
+    expect(lines.some((line) => line.includes('"resumed":true'))).toBe(true);
+    expect(currentFeature(root, SES)).toBe(displaced);
   });
 });
