@@ -85,6 +85,51 @@ the provider layer, not a stage registry.
 - **Decision categories**: `delivery.open_pr` (PR gate) and `delivery.ci_red`
   (red build needing a human call) follow the existing Decision Pause Contract.
 
+## AI attribution — keeping the vendor out of the contributor graph (issue #538)
+
+A coding agent writes its own vendor's attribution into the change it produces:
+Claude Code appends a `Co-Authored-By: Claude` trailer to the commit and an
+attribution line to the PR body, Cursor appends "Made with Cursor", and so on.
+paqad writes none of those strings. The trailer is what makes a git host list the
+AI vendor as a **contributor** on the repository, which is the part an enterprise
+buyer rejects: their history and their contributor list end up naming an outside
+vendor.
+
+One floored knob decides the posture: **`ai_attribution`** (`keep` | `strip`,
+default **`strip`**, policy group, resolved by
+`src/delivery/attribution-config.ts`). Like the other enforcement knobs, the team
+value is a floor — a developer's local config or `PAQAD_AI_ATTRIBUTION` may raise
+it but never lower it, so dropping the policy takes a reviewable team commit.
+
+**In scope: the host agent only.** paqad's own
+`🤖 Generated with paqad-ai delivery` footer stays, by resolved decision
+(`D-01M2591H8DFAD1AK6JG1SFZWYV`) — paqad is the customer's own governance tool,
+not a third-party AI vendor, and that footer is a feature they bought. Every
+pattern in the marker table is anchored on a vendor name so the footer, and a
+human colleague's co-author trailer, are never matched.
+
+Coverage is honest about what config can and cannot reach. Only two providers
+expose a **project-level** knob paqad may write at onboarding; the rest keep
+their switch in the developer's home directory, which paqad will not touch.
+
+| Provider | Attributes by default | How paqad covers it |
+| --- | --- | --- |
+| Claude Code | yes | **Configured** — `attribution: { commit: '', pr: '', sessionUrl: false }` in `.claude/settings.json` (never the deprecated `includeCoAuthoredBy`) |
+| Aider | yes, and it rewrites the git author + committer too | **Configured** — `attribute-author`, `attribute-committer`, `attribute-co-authored-by` false in `.aider.conf.yml` |
+| Cursor | yes | **Backstop only** — its switch lives in `~/.cursor/cli-config.json` or the admin dashboard |
+| Codex CLI | yes, configurable | **Backstop only** — its switch lives in `~/.codex/config.toml` |
+| GitHub Copilot | commits under its own identity | **Backstop only** — controlled by org Copilot policy |
+| Gemini CLI | no | **Backstop only** — nothing to configure |
+
+Both writers merge rather than overwrite, so a value the team set by hand (a
+house trailer instead of no trailer, say) survives re-onboard.
+
+The **backstop** is what makes the promise true on the four providers config
+cannot reach. At the completion seam `evaluateDelivery` scans the branch's commit
+messages and, when `gh` answers, the PR body, and emits one `ai-attribution`
+finding per vendor detected, carrying that vendor's exact remediation. It is
+**warn-only** and never blocks — delivery is warn-floor, and this stays inside it.
+
 ## On-disk + dashboard
 
 | Path | What |
@@ -103,7 +148,8 @@ detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
 
 - **Owns:** the provider contracts + Jira/GitHub adapters, the delivery-policy
   schema/loader/onboard writer, convention detection + overlay, the CI gate, the
-  degradation planner, and the dashboard section.
+  degradation planner, the dashboard section, and the AI-attribution policy (the
+  `ai_attribution` knob, the vendor marker table, and the delivery backstop).
 - **Does not own:** the Decision Pause runtime (reused, not extended — no new
   autonomy mode); the feature-development stage engine (delivery is two stages in
   it); non-Jira trackers and non-GitHub hosts (additive adapters behind the
