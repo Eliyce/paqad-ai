@@ -137,6 +137,33 @@ export function listInFlightFeatures(projectRoot: string): string[] {
 }
 
 /**
+ * Whether `sessionId` has already FINISHED a change — any bundle carrying a `kind:'close'`
+ * row stamped with this session id (issue #540).
+ *
+ * The one signal that separates a replayed transcript from a change that is genuinely
+ * starting. The marker seam re-reads the WHOLE transcript on every turn, so once
+ * `closeActiveFeature` has released the session pointer, every stale `paqad:stage` line
+ * reads as unrecorded and would auto-open a phantom bundle for a change that is already
+ * done. This says "that session's markers are spent", so the seam records nothing instead.
+ *
+ * Deliberately SESSION-scoped, not branch-scoped (decision D-01M269DKJ3PNEGGXH3HGZMFTFY):
+ * the close row names the session that finished the change, so a session's FIRST change —
+ * on any host, including the Codex/Gemini completion hooks that share the marker seam —
+ * keeps the existing auto-open behaviour untouched. A session-id rotation after a close is
+ * the known limit of that scope; adoption already carries rotation for changes still in
+ * flight, and a closed change has nothing left to adopt.
+ *
+ * Tolerant like the rest of this module: an absent or unreadable bundle reads as no rows.
+ */
+export function sessionClosedAnyFeature(projectRoot: string, sessionId: string): boolean {
+  return listFeatureDirs(projectRoot).some((dirName) =>
+    stageRows(projectRoot, dirName).some(
+      (row) => row.kind === 'close' && row.session_id === sessionId,
+    ),
+  );
+}
+
+/**
  * Reconcile a session's control and return the feature it should be working on, or
  * `null` when there is none.
  *
