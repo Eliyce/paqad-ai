@@ -191,7 +191,7 @@ A built-in router reads each request, judges its complexity and risk, and sends 
 - **graduated** lane for everyday features
 - **full** lane for risky or wide-reaching changes, with a frozen spec and story breakdown first
 
-Along the way it coordinates **20 built-in specialist roles**, each with one job and no conflicting incentives:
+Along the way it coordinates **23 built-in specialist roles**, each with one job and no conflicting incentives:
 
 | Group             | Roles                                                                                                                                                                      |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

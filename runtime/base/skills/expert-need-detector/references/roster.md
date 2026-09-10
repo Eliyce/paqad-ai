@@ -16,6 +16,10 @@ canonical `AGENT_ROLES` (`src/core/types/agent.ts`); the roster itself is derive
 | `solution-architect`    | A cross-cutting structural decision spanning several modules.         |
 | `devops-engineer`       | Build, deploy, CI/CD, infrastructure, runtime configuration.          |
 | `market-researcher`     | A product/market framing question the spec must answer first.         |
+| `user-flow-writer`      | A user-facing change with more than one step, or how the user arrives or leaves. |
+| `qa-engineer`           | Any observable behaviour that needs testable acceptance criteria.     |
+
+`chief-architect` is never named by the detector. It runs automatically once any expert fires.
 
 ## How to decide
 

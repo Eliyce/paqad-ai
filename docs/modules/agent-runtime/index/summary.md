@@ -4,11 +4,12 @@
 
 ## Purpose
 
-20 built-in specialist agent roles shipped in `runtime/base/agents`
+23 built-in specialist agent roles shipped in `runtime/base/agents`
 and capability sub-trees: 11 base workflow agents (router, verifier,
-story-designer, test-planner, product-owner, …), 8 coding specialists
+story-designer, test-planner, product-owner, …), 11 coding specialists
 (solution-architect, database-expert, devops-engineer, doc-maintainer,
-…), and 1 security specialist (security-auditor).
+qa-engineer, user-flow-writer, chief-architect, …), and 1 security
+specialist (security-auditor).
 
 ## Source Footprint
 

@@ -1,0 +1,6 @@
+interface:
+  display_name: Expert Notes
+  short_description: Read one expert's brief and, through that expert's lens, write
+    short request-time notes for the spec pipeline — findings (target, claim, kind,
+    severity) plus plain-language questions. One runner, one lens per expert; the
+    pipeline script validates the output against the roster.
