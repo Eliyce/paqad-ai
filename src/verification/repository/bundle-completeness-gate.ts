@@ -32,6 +32,7 @@ import {
   BUNDLE_MANIFEST,
   isBundleFileRequired,
   validateBundleFileContent,
+  validateSpecificationAdoption,
   type BundleCompletenessConfig,
   type BundleManifestEntry,
 } from '@/feature-evidence/manifest.js';
@@ -256,6 +257,19 @@ function assertRequired(
           writer: 'paqad-ai spec freeze (regenerates the projection beside specification.json)',
         });
         return;
+      }
+      // Strict-adoption content check (issue #547, FR-10.2): under strict adoption the frozen spec
+      // must record that the pipeline produced it, or a manual reason. Not applied under warn or
+      // with the pipeline off, so the gate is unchanged there.
+      if (input.config.specPipelineStrict) {
+        const adoption = validateSpecificationAdoption(content);
+        if (!adoption.ok) {
+          state.missing.push({
+            file: adoption.error!,
+            writer: 'paqad-ai spec freeze --from-pipeline (or --manual --reason)',
+          });
+          return;
+        }
       }
     }
     state.present.push(entry.file);

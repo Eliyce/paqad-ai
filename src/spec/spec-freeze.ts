@@ -2,6 +2,7 @@ import type {
   FeatureSpec,
   FrozenSpecMetadata,
   SpecFreezeEvaluation,
+  SpecProvenance,
   SpecReviewSummary,
 } from '@/core/types/feature-spec.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
@@ -10,6 +11,12 @@ export interface FreezeSpecInput {
   signed_off_by: string;
   frozen_at: string;
   spec_review?: SpecReviewReport | null;
+  /**
+   * How the spec was produced (issue #547, FR-9.1). Copied verbatim into the frozen record when
+   * present; absent for a spec frozen with the pipeline off, so the record stays byte-identical to
+   * a pre-#547 freeze.
+   */
+  provenance?: SpecProvenance;
 }
 
 /**
@@ -87,7 +94,14 @@ export function freezeSpec(spec: FeatureSpec, input: FreezeSpecInput): FeatureSp
   // had to generate by hand, which is the stray artifact this issue was filed over.
   const specReview = input.spec_review ? summarizeSpecReview(input.spec_review) : undefined;
 
-  return { ...spec, frozen, ...(specReview === undefined ? {} : { spec_review: specReview }) };
+  return {
+    ...spec,
+    frozen,
+    ...(specReview === undefined ? {} : { spec_review: specReview }),
+    // Issue #547 — carry the pipeline provenance into the record of truth when the freeze was
+    // handed one. Absent ⇒ no `provenance` key, so a non-pipeline freeze is unchanged (INV-9).
+    ...(input.provenance === undefined ? {} : { provenance: input.provenance }),
+  };
 }
 
 /**

@@ -112,6 +112,33 @@ export function renderSpecMarkdown(spec: FeatureSpec): string {
     lines.push('');
   }
 
+  // Provenance — only when present (issue #547, FR-9.4). Absent field ⇒ absent section, so a
+  // pre-#547 record renders byte-identically.
+  if (spec.provenance !== undefined) {
+    const p = spec.provenance;
+    lines.push('## Provenance');
+    lines.push('');
+    lines.push(`- Pipeline-produced: ${p.pipeline_produced ? 'yes' : 'no'}`);
+    if (p.label !== undefined) lines.push(`- Clarity label: ${p.label}`);
+    if (p.grounding !== undefined) {
+      lines.push(`- Grounding: ${p.grounding.path}${p.grounding.sparse ? ' (sparse)' : ''}`);
+    }
+    if (p.questions !== undefined) {
+      lines.push(
+        `- Questions: asked ${p.questions.asked}, answered ${p.questions.answered}, auto-answered ${p.questions.auto_answered}, deferred ${p.questions.deferred}`,
+      );
+    }
+    if (p.experts !== undefined) {
+      const e = p.experts;
+      lines.push(
+        `- Experts: ${e.roles.length > 0 ? e.roles.join(', ') : 'none'} (accepted ${e.accepted}, declined ${e.declined})`,
+      );
+      lines.push(`- Conflicts: ${e.conflicts} (auto-resolved ${e.auto_resolved})`);
+    }
+    if (p.manual_reason !== undefined) lines.push(`- Manual reason: ${p.manual_reason}`);
+    lines.push('');
+  }
+
   lines.push(
     '_This file is a generated, read-only projection of `specification.json`. Do not hand-edit; it is regenerated on every `paqad-ai spec freeze`._',
   );

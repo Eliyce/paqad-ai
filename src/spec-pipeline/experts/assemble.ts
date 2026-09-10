@@ -5,6 +5,7 @@
 // per-expert accounting. Returns null when the experts step never ran — the finish provenance
 // then carries NO experts block, so a flag-off run stays byte-identical to v1 (INV-1 / AC-7).
 
+import { readTrace } from '../trace.js';
 import { buildExpertAccounting } from './accounting.js';
 import { mergeExpertNotes } from './merge.js';
 import { validateExpertNeed } from './need.js';
@@ -45,11 +46,16 @@ export function assembleExpertRun(
   const notesArtifact = notes.ok && notes.artifact ? notes.artifact : { notes: [], tokens: {} };
 
   const merged = mergeExpertNotes(notesArtifact.notes);
+  // changed_spec is trace-based (issue #547, FR-11.2): an expert changed the spec only when one of
+  // its finding ids appears as a source in the run's trace.json. No trace yet (craft not run) means
+  // no expert has changed the spec, which is the honest state before the craft step.
+  const trace = readTrace(projectRoot, dirName);
+  const tracedFindingIds = new Set((trace?.entries ?? []).map((entry) => entry.source));
   const accounting = buildExpertAccounting({
     needs: need.artifact.experts,
     notes: notesArtifact.notes,
     tokens: notesArtifact.tokens,
-    merged,
+    tracedFindingIds,
     warnings: slicePlan.warnings,
   });
 

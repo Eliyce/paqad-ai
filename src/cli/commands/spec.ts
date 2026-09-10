@@ -3,16 +3,73 @@ import { basename } from 'node:path';
 
 import { Command } from 'commander';
 
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { reviewSpecification } from '@/compliance/spec-review.js';
+import { sha256Hex } from '@/compliance/markdown.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze, freezeSpec } from '@/spec/spec-freeze.js';
 import { NoActiveFeatureError, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import type { FeatureSpec } from '@/core/types/feature-spec.js';
+import type { FeatureSpec, SpecProvenance } from '@/core/types/feature-spec.js';
+import { readPipelineConfig } from '@/spec-pipeline/config.js';
+import type { PipelineProvenance } from '@/spec-pipeline/finish.js';
+import { pipelineScratchDir } from '@/spec-pipeline/orchestrator.js';
+import { readExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import { readTrace } from '@/spec-pipeline/trace.js';
 
 import { createSpecPipelineCommand } from './spec-pipeline.js';
+
+/**
+ * Build the frozen spec's provenance from a completed pipeline run (issue #547, FR-9.2). Reads the
+ * run's finish.json (its metrics carry the label and grounding), its synthesis (for the expert
+ * accept/decline/auto-resolve counts), and its trace. Returns null when `finish` has not run, so
+ * the freeze can refuse a `--from-pipeline` before the run is finished.
+ */
+function buildSpecProvenanceFromRun(projectRoot: string, dirName: string): SpecProvenance | null {
+  const scratch = join(projectRoot, pipelineScratchDir(dirName));
+  const finishPath = join(scratch, 'finish.json');
+  if (!existsSync(finishPath)) return null;
+  let finish: { provenance?: PipelineProvenance };
+  try {
+    finish = JSON.parse(readFileSync(finishPath, 'utf8')) as { provenance?: PipelineProvenance };
+  } catch {
+    return null;
+  }
+  const p = finish.provenance;
+  if (!p) return null;
+
+  const synthesis = readExpertSynthesis(projectRoot, dirName);
+  const provenance: SpecProvenance = {
+    pipeline_produced: true,
+    run_dir: pipelineScratchDir(dirName),
+    ...(p.metrics ? { label: p.metrics.label } : {}),
+    ...(p.metrics
+      ? { grounding: { sparse: p.metrics.grounding_sparse, path: p.metrics.grounding_path } }
+      : {}),
+    questions: p.questions,
+    ...(p.experts
+      ? {
+          experts: {
+            roles: p.experts.accounting.experts.map((expert) => expert.role),
+            accepted: synthesis?.accepted.length ?? 0,
+            declined: synthesis?.declined.length ?? 0,
+            conflicts: p.experts.conflicts.length,
+            auto_resolved: synthesis?.auto_resolved?.length ?? 0,
+          },
+        }
+      : {}),
+    ...(() => {
+      const trace = readTrace(projectRoot, dirName);
+      return trace ? { trace } : {};
+    })(),
+  };
+  return provenance;
+}
 
 /**
  * `paqad-ai spec freeze <spec-file>` — the shell escape hatch that activates the
@@ -67,6 +124,9 @@ export function createSpecCommand(): Command {
       'Session id whose active feature receives specification.json (issue #339)',
     )
     .option('--keep-input', 'Keep the transient spec markdown instead of deleting it', false)
+    .option('--from-pipeline', 'Freeze a spec the spec pipeline crafted, copying its provenance', false)
+    .option('--manual', 'Freeze a hand-written spec under strict adoption (needs --reason)', false)
+    .option('--reason <why>', 'Why the spec was frozen without the pipeline (recorded)')
     .action(
       (
         specFile: string,
@@ -77,6 +137,9 @@ export function createSpecCommand(): Command {
           confirmInvariants: boolean;
           session?: string;
           keepInput?: boolean;
+          fromPipeline?: boolean;
+          manual?: boolean;
+          reason?: string;
         },
       ) => {
         // Issue #401: a spec that resolves outside the project root is rejected outright.
@@ -136,6 +199,62 @@ export function createSpecCommand(): Command {
           ? { ...built, invariants: built.invariants.map((inv) => ({ ...inv, confirmed: true })) }
           : built;
 
+        // Issue #547 — spec-pipeline adoption. When the pipeline is on, freeze either copies the
+        // run provenance (`--from-pipeline`) or records why it did not; under strict adoption a
+        // hand-written spec is refused unless `--manual --reason` is given. With the pipeline off,
+        // freeze writes no provenance key and behaves exactly as before.
+        const pipelineConfig = readPipelineConfig(options.projectRoot);
+        let provenance: SpecProvenance | undefined;
+        let frozenWithoutPipeline = false;
+        if (pipelineConfig.enabled) {
+          if (options.fromPipeline) {
+            const sessionId = resolveSessionId(
+              options.projectRoot,
+              options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+            );
+            const dirName = currentFeature(options.projectRoot, sessionId);
+            if (!dirName) {
+              console.error('no active feature — run `paqad-ai stage start planning` first');
+              process.exitCode = 1;
+              return;
+            }
+            const runProvenance = buildSpecProvenanceFromRun(options.projectRoot, dirName);
+            if (!runProvenance) {
+              console.error('run `paqad-ai spec pipeline finish` first');
+              process.exitCode = 1;
+              return;
+            }
+            const runSpecPath = join(
+              options.projectRoot,
+              pipelineScratchDir(dirName),
+              'spec.md',
+            );
+            const runSpec = existsSync(runSpecPath) ? readFileSync(runSpecPath, 'utf8') : null;
+            if (runSpec === null || sha256Hex(runSpec) !== built.spec_hash) {
+              console.error('the spec you are freezing is not the one the pipeline crafted');
+              process.exitCode = 1;
+              return;
+            }
+            provenance = runProvenance;
+          } else if (options.manual) {
+            if (!options.reason) {
+              console.error('--manual needs --reason "<why>" (recorded on the frozen spec)');
+              process.exitCode = 1;
+              return;
+            }
+            provenance = { pipeline_produced: false, manual_reason: options.reason };
+          } else if (pipelineConfig.adoption === 'strict') {
+            console.error(
+              'this project requires the spec pipeline (spec_pipeline_adoption=strict); run it, or freeze with --manual --reason "<why>"',
+            );
+            process.exitCode = 1;
+            return;
+          } else {
+            provenance = { pipeline_produced: false };
+            frozenWithoutPipeline = true;
+          }
+        }
+
         // Issue #401 — the freeze contract has always promised "no critical spec-review
         // defects", but this command evaluated the freeze with no review attached, so the
         // clause was enforced nowhere and agents hand-ran `compliance review` to satisfy it
@@ -165,7 +284,12 @@ export function createSpecCommand(): Command {
           signed_off_by: options.signedOffBy,
           frozen_at: new Date().toISOString(),
           spec_review: specReview,
+          ...(provenance ? { provenance } : {}),
         });
+
+        if (frozenWithoutPipeline) {
+          console.log('▸ paqad · frozen without the pipeline; the record says so');
+        }
 
         // Issue #343 (Phase-7 cutover) — the frozen spec's ONLY home is the active feature's
         // bundle `specification.json` (the legacy `.paqad/specs/<id>.frozen.json` sidecar is

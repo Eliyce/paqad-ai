@@ -184,3 +184,23 @@ describe('isFrozenSpecStale', () => {
     expect(isFrozenSpecStale(frozen, 'hash-2')).toBe(true);
   });
 });
+
+// Issue #547 — freezeSpec copies an optional provenance verbatim (FR-9.1 / INV-9).
+describe('freezeSpec provenance (issue #547)', () => {
+  it('copies provenance into the frozen record when given', () => {
+    const frozen = freezeSpec(frozenReadySpec(), {
+      signed_off_by: 'h',
+      frozen_at: '2026-09-10T00:00:00.000Z',
+      provenance: { pipeline_produced: true, label: 'okay' },
+    });
+    expect(frozen.provenance).toEqual({ pipeline_produced: true, label: 'okay' });
+  });
+
+  it('writes no provenance key when none is given (unchanged record)', () => {
+    const frozen = freezeSpec(frozenReadySpec(), {
+      signed_off_by: 'h',
+      frozen_at: '2026-09-10T00:00:00.000Z',
+    });
+    expect('provenance' in frozen).toBe(false);
+  });
+});

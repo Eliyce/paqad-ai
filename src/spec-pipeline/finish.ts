@@ -9,8 +9,12 @@
 // the enforcement config in effect, and whether A5 was live — and NEVER claims a human
 // approved something they did not (FR-7.4).
 
+import type { AgentRole } from '@/core/types/agent.js';
+import type { SkillModelTier } from '@/core/types/skill.js';
+
 import type { PipelineConfig } from './config.js';
 import type { ExpertConflict, ExpertRunAccounting } from './experts/types.js';
+import type { ClarityLabel, GroundingPath, PipelineStep } from './types.js';
 
 export type FinishOutcome = 'freeze' | 'non-blocking-review' | 'await-human-approval';
 
@@ -66,6 +70,27 @@ export interface ProvenanceExperts {
   conflicts: ExpertConflict[];
 }
 
+/**
+ * The full run metrics recorded in provenance (issue #547, FR-11.1). Every field is measured from
+ * the run's own artifacts (grounding, label, questions, spec, experts, trace); paqad measures no
+ * tokens from Node, so `tokens_by_step` carries only the actuals the artifacts reported.
+ */
+export interface SpecPipelineMetrics {
+  grounding_sparse: boolean;
+  grounding_path: GroundingPath;
+  label: ClarityLabel;
+  signal_count: number;
+  questions: QuestionCounts;
+  expert_count: number;
+  spec_words: number;
+  tokens_by_step: Partial<Record<PipelineStep | AgentRole, number>>;
+  tiers_by_step: Partial<Record<PipelineStep, SkillModelTier>>;
+  ceiling_warnings: string[];
+  a5_live: boolean;
+  a5_verdict: string;
+  freeze_checks_fired: string[];
+}
+
 /** The honest provenance record folded into the finish artifact (FR-7.4). Never a signature. */
 export interface PipelineProvenance {
   pipeline_produced: true;
@@ -77,6 +102,8 @@ export interface PipelineProvenance {
   outcome: FinishOutcome;
   /** Present only when the Phase 2 expert roster ran (issue #521); absent otherwise. */
   experts?: ProvenanceExperts;
+  /** The full run metrics (issue #547, FR-11.1); absent on a run recorded before this. */
+  metrics?: SpecPipelineMetrics;
 }
 
 export function buildProvenance(
@@ -85,6 +112,7 @@ export function buildProvenance(
   answerRefs: string[],
   questions: QuestionCounts,
   experts?: ProvenanceExperts,
+  metrics?: SpecPipelineMetrics,
 ): PipelineProvenance {
   return {
     pipeline_produced: true,
@@ -96,5 +124,6 @@ export function buildProvenance(
     // Optional-and-only-when-present: an undefined experts arg leaves the key off entirely, so a
     // run without experts serialises exactly as it did before Phase 2 (INV-1).
     ...(experts ? { experts } : {}),
+    ...(metrics ? { metrics } : {}),
   };
 }

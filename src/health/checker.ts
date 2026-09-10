@@ -21,6 +21,8 @@ import { deriveHealthTier } from '@/planning/module-health.js';
 import { isCompiledRulesStale } from '@/planning/rule-compiler.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
+import { EXPERT_ROLES } from '@/spec-pipeline/experts/roster.js';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { checkSpecShape, PARITY_CORPUS } from '@/spec-pipeline/parser-parity.js';
 import type {
   HealthCheckResult,
@@ -73,7 +75,7 @@ export class HealthChecker {
       this.checkClassificationOverrideRate(projectRoot),
       ...(await this.checkRag(projectRoot, profile)),
       this.checkSpecPipeline(projectRoot),
-      this.checkExpertRoster(projectRoot),
+      ...this.checkExpertRoster(projectRoot),
     ];
 
     const overallStatus = deriveOverallStatus(checks);
@@ -898,33 +900,87 @@ export class HealthChecker {
     return pass(name, 'Parser-parity corpus holds and the enforcement config is coherent.');
   }
 
-  private checkExpertRoster(projectRoot: string): HealthCheckResult {
-    // Expert-roster coherence (issue #521, FR-9 / AC-6). The config always LOADS (graceful
-    // fallback, RULE-16), so the only failure mode is an incoherent combination: experts turned
-    // on where they can never run or never ask. Both are warnings, never a hard fail — an experts
-    // flag is opt-in and off by default.
+  private checkExpertRoster(projectRoot: string): HealthCheckResult[] {
+    // Expert-roster coherence (issue #521, FR-9 / AC-6) plus the issue #547 checks (FR-12.2). The
+    // config always LOADS (graceful fallback, RULE-16). Most failure modes are warnings (the
+    // experts flag is opt-in), but a MISSING lens file for a roster role is a hard fail: it is a
+    // packaging gap that would break the run.
     const name = 'Expert roster config is coherent';
     const config = readPipelineConfig(projectRoot);
+    const results: HealthCheckResult[] = [];
+
+    // The coherence result is ALWAYS emitted (pass or warn), so `name` never goes missing.
     if (config.experts_enabled && !config.enabled) {
-      return warn(
-        name,
-        'spec_pipeline_experts_enabled is on but spec_pipeline_enabled is off — the expert roster never runs while the pipeline itself is off.',
-        'Enable the pipeline (spec_pipeline_enabled=true), or turn the experts flag off.',
+      results.push(
+        warn(
+          name,
+          'spec_pipeline_experts_enabled is on but spec_pipeline_enabled is off — the expert roster never runs while the pipeline itself is off.',
+          'Enable the pipeline (spec_pipeline_enabled=true), or turn the experts flag off.',
+        ),
+      );
+    } else if (config.experts_enabled && config.clarification === 'off') {
+      results.push(
+        warn(
+          name,
+          'spec_pipeline_experts_enabled is on but spec_pipeline_clarification is off — experts can surface questions, but the question round is disabled so they are dropped.',
+          'Set spec_pipeline_clarification to warn or strict, or turn the experts flag off.',
+        ),
+      );
+    } else {
+      results.push(
+        pass(
+          name,
+          config.experts_enabled
+            ? 'Expert roster is enabled and its config is coherent.'
+            : 'Expert roster is off (default); nothing to enforce.',
+        ),
       );
     }
-    if (config.experts_enabled && config.clarification === 'off') {
-      return warn(
-        name,
-        'spec_pipeline_experts_enabled is on but spec_pipeline_clarification is off — experts can surface questions, but the question round is disabled so they are dropped.',
-        'Set spec_pipeline_clarification to warn or strict, or turn the experts flag off.',
+
+    // (a) adoption strict but the pipeline is off (FR-12.2a).
+    if (config.adoption === 'strict' && !config.enabled) {
+      results.push(
+        warn(
+          'Spec pipeline adoption is coherent',
+          'adoption is strict but the pipeline is off; the setting does nothing',
+          'Enable spec_pipeline_enabled=true, or set spec_pipeline_adoption=warn.',
+        ),
       );
     }
-    return pass(
-      name,
-      config.experts_enabled
-        ? 'Expert roster is enabled and its config is coherent.'
-        : 'Expert roster is off (default); nothing to enforce.',
-    );
+
+    if (config.experts_enabled) {
+      // (b) every pickable expert must ship a lens (FR-12.2b) — a packaging truth, a hard fail.
+      const lensDir = join(
+        getRuntimeRoot(),
+        'base',
+        'skills',
+        'expert-notes',
+        'references',
+        'lenses',
+      );
+      const missing = EXPERT_ROLES.filter((role) => !existsSync(join(lensDir, `${role}.md`)));
+      if (missing.length > 0) {
+        results.push(
+          fail(
+            'Expert lens files are shipped',
+            `the expert roster is on but these roles ship no lens: ${missing.join(', ')}`,
+            'Add the missing lens file(s) under runtime/base/skills/expert-notes/references/lenses/.',
+          ),
+        );
+      }
+      // (c) a low ceiling clamps most runs (FR-12.2c).
+      if (config.token_ceiling < 26000) {
+        results.push(
+          warn(
+            'Spec pipeline token ceiling fits the experts',
+            'expert slices will be clamped on most runs (three typical experts need 26000); raise spec_pipeline_token_ceiling or accept clamped briefs',
+            'Raise spec_pipeline_token_ceiling to at least 26000.',
+          ),
+        );
+      }
+    }
+
+    return results;
   }
 
   private checkClassificationOverrideRate(projectRoot: string): HealthCheckResult {

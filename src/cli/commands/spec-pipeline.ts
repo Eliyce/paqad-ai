@@ -39,6 +39,11 @@ import {
 } from '@/spec-pipeline/experts/notes.js';
 import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
 import {
+  aggregateSpecPipelineMetrics,
+  buildRunMetrics,
+  listRunDirs,
+} from '@/spec-pipeline/metrics.js';
+import {
   readExpertMerge,
   readExpertSynthesis,
   validateExpertSynthesis,
@@ -405,6 +410,14 @@ export function createSpecPipelineCommand(): Command {
       const expertRun = expertsActive(config)
         ? assembleExpertRun(options.projectRoot, resolved.dirName, config.token_ceiling)
         : null;
+      // Full run metrics (issue #547, FR-11.1): measured from the run's own artifacts.
+      const metrics = buildRunMetrics(
+        options.projectRoot,
+        resolved.dirName,
+        config,
+        a5Live,
+        a5Live ? 'live' : 'absent',
+      );
       const provenance = buildProvenance(
         config,
         a5Live,
@@ -418,6 +431,7 @@ export function createSpecPipelineCommand(): Command {
         expertRun
           ? { accounting: expertRun.accounting, conflicts: expertRun.conflicts }
           : undefined,
+        metrics,
       );
       writeStepArtifact(
         options.projectRoot,
@@ -461,6 +475,36 @@ export function createSpecPipelineCommand(): Command {
       }
       const invalidated = redoStep(options.projectRoot, resolved.dirName, step as PipelineStep);
       console.log(JSON.stringify({ redo: step, invalidated }));
+    });
+
+  command
+    .command('metrics')
+    .description('Report what the pipeline runs cost and changed (issue #547, FR-11.4)')
+    .option('--all', 'Aggregate across every run under .paqad/_specs/, not just the active feature')
+    .option(...projectRootOpt)
+    .option(...sessionOpt)
+    .action((options: CommonOptions & { all?: boolean }) => {
+      // Zero model tokens: this reads finish.json and corrections.jsonl across runs.
+      const dirNames = options.all ? listRunDirs(options.projectRoot) : [];
+      if (!options.all) {
+        const resolved = resolveDir(options);
+        if (!resolved) return;
+        dirNames.push(resolved.dirName);
+      }
+      const report = aggregateSpecPipelineMetrics(options.projectRoot, dirNames);
+      console.log(JSON.stringify(report, null, 2));
+      // A short table: which experts earn their keep.
+      const roles = Object.keys(report.changed_spec_rate).sort();
+      if (roles.length > 0) {
+        console.log('\nrole                    fired  changed  tokens');
+        for (const role of roles) {
+          const rate = report.changed_spec_rate[role as keyof typeof report.changed_spec_rate]!;
+          const tokens = report.tokens_by_role[role as keyof typeof report.tokens_by_role] ?? 0;
+          console.log(
+            `${role.padEnd(22)}  ${String(rate.fired).padStart(5)}  ${String(rate.changed).padStart(7)}  ${String(tokens).padStart(6)}`,
+          );
+        }
+      }
     });
 
   return command;

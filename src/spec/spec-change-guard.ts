@@ -20,9 +20,32 @@ import { DecisionStore } from '@/planning/decision-store.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
 import { readAllFeatureSpecifications } from '@/feature-evidence/projections.js';
+// src/spec/** is outside the FR-11 import ban, so the guard may reach the pipeline's corrections
+// writer (issue #547, FR-11.3). It stays deterministic and still mints exactly one pause.
+import { recordSpecCorrection } from '@/spec-pipeline/metrics.js';
+import { buildFeatureSpec } from './feature-spec-builder.js';
 
 import { buildSpecChangePacket } from './spec-decisions.js';
 import { isFrozenSpecStale } from './spec-freeze.js';
+
+/** The frozen-spec sections the guard diffs when a spec's source moves (issue #547, FR-11.3). */
+function diffSpecSections(frozen: FeatureSpec, current: FeatureSpec): string[] {
+  const changed: string[] = [];
+  const differs = (a: unknown, b: unknown): boolean => JSON.stringify(a) !== JSON.stringify(b);
+  if (differs(frozen.behaviour, current.behaviour)) changed.push('behaviour');
+  if (differs(frozen.acceptance_criteria, current.acceptance_criteria)) {
+    changed.push('acceptance_criteria');
+  }
+  if (differs(frozen.invariants, current.invariants)) changed.push('invariants');
+  if (differs(frozen.non_goals ?? [], current.non_goals ?? [])) changed.push('non_goals');
+  return changed;
+}
+
+/** Derive the run scratch dir name from a spec's provenance run_dir, or null when non-pipeline. */
+function runDirNameFor(spec: FeatureSpec): string | null {
+  const runDir = spec.provenance?.run_dir;
+  return runDir ? (/_specs\/([^/]+)\/pipeline/.exec(runDir)?.[1] ?? null) : null;
+}
 
 /** A non-blocking capability outcome — structurally a kernel `CapabilityOutcome`. */
 export interface SpecChangeGuardOutcome {
@@ -81,20 +104,42 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
   const now = input.now?.() ?? new Date();
 
   for (const spec of specs) {
-    let currentHash: string;
+    let currentMarkdown: string;
     try {
-      currentHash = sha256Hex(readMarkdown(spec.spec_file));
+      currentMarkdown = readMarkdown(spec.spec_file);
     } catch {
       // Source unreadable this run → skip rather than mint on a transient error.
       continue;
     }
-    if (!isFrozenSpecStale(spec, currentHash)) continue;
+    if (!isFrozenSpecStale(spec, sha256Hex(currentMarkdown))) continue;
+
+    // Which sections moved (issue #547, FR-11.3). Recorded as a correction (when the spec came
+    // from a pipeline run) and carried into the packet so the human sees exactly what changed.
+    const changedSections = diffSpecSections(
+      spec,
+      buildFeatureSpec({
+        spec_id: spec.spec_id,
+        spec_file: spec.spec_file,
+        spec_markdown: currentMarkdown,
+      }),
+    );
+    const runDirName = runDirNameFor(spec);
+    if (runDirName) {
+      recordSpecCorrection(input.projectRoot, runDirName, {
+        spec_id: spec.spec_id,
+        changed_sections: changedSections,
+        at: now.toISOString(),
+      });
+    }
 
     const packet = buildSpecChangePacket({
       decision_id: store.nextDecisionId(),
       spec_id: spec.spec_id,
       spec_file: spec.spec_file,
-      detail: STALE_DETAIL,
+      detail:
+        changedSections.length > 0
+          ? `${STALE_DETAIL} Changed sections: ${changedSections.join(', ')}.`
+          : STALE_DETAIL,
       task_session_id: input.sessionId,
       created_at: now.toISOString(),
     });

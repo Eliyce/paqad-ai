@@ -48,7 +48,7 @@ import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { runDuplicationScan } from '@/duplication/scan.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
 import { computeChangeMetrics, type ChangeMetrics } from '@/change-metrics/index.js';
-import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { layeredConfigMap, resolveFrameworkConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { classifySessionRouteForEnforcement } from '@/pipeline/route-enforcement.js';
@@ -568,6 +568,14 @@ export async function runRepositoryVerification(
         enterprise: policy.enabled,
         evidenceLedger: policy.evidence_ledger,
         aiBom: policy.ai_bom,
+        // Issue #547 (FR-10.1). Read via layeredConfigMap (not src/spec-pipeline) so the FR-11
+        // import ban holds: src/verification/** must not import the pipeline.
+        specPipelineStrict: (() => {
+          const map = layeredConfigMap(context.project_root);
+          const truthy = new Set(['1', 'true', 'yes', 'on']);
+          const enabled = truthy.has((map.get('spec_pipeline_enabled') ?? '').trim().toLowerCase());
+          return enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict';
+        })(),
       },
       changeMetrics,
     });

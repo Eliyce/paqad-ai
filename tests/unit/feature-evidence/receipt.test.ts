@@ -14,6 +14,7 @@ import {
   readAllFeatureReceipts,
   readFeatureAiBom,
   readFeatureReceipt,
+  specificationReceiptLine,
 } from '@/feature-evidence/receipt.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
@@ -240,5 +241,37 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
       expect(predicate.compliance_citations?.[0].clause_id).toBe('Art.15');
       expect(predicate.reproducibility?.context_hash).toBe('deadbeef');
     });
+  });
+});
+
+// Issue #547 — the end-of-change receipt's specification line (FR-12.3 / AC-18).
+describe('specificationReceiptLine', () => {
+  it('renders a pipeline-produced line with experts and conflicts', () => {
+    expect(
+      specificationReceiptLine({
+        pipeline_produced: true,
+        experts: { roles: ['db-expert', 'security-auditor', 'qa-engineer'], accepted: 2, declined: 0, conflicts: 2 },
+      }),
+    ).toBe('🟢 specification: pipeline-produced, experts: db-expert, security-auditor, qa-engineer (2 conflicts decided)');
+  });
+
+  it('renders pipeline-produced without experts', () => {
+    expect(specificationReceiptLine({ pipeline_produced: true })).toBe('🟢 specification: pipeline-produced');
+  });
+
+  it('renders a manual-reason line', () => {
+    expect(specificationReceiptLine({ pipeline_produced: false, manual_reason: 'hotfix' })).toBe(
+      '🟡 specification: frozen without the pipeline (reason: hotfix)',
+    );
+  });
+
+  it('renders a plain warn line without a reason', () => {
+    expect(specificationReceiptLine({ pipeline_produced: false })).toBe(
+      '🟡 specification: frozen without the pipeline',
+    );
+  });
+
+  it('renders today\'s line when provenance is absent', () => {
+    expect(specificationReceiptLine()).toBe('🟢 specification: recorded');
   });
 });
