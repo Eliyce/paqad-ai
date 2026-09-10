@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { shouldStripAiAttribution } from '@/delivery/attribution-config.js';
+
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
 import {
@@ -95,12 +97,47 @@ function buildAgentEntryGateSettings(projectRoot: string): GeneratedFile {
   const settingsPath = '.claude/settings.json';
   const existingPath = join(projectRoot, settingsPath);
   const existing = existsSync(existingPath) ? safeParse(existingPath) : {};
-  const merged = mergeAgentEntryGate(existing);
+  const merged = mergeAttribution(mergeAgentEntryGate(existing), projectRoot);
   return {
     path: settingsPath,
     content: `${JSON.stringify(merged, null, 2)}\n`,
     autoUpdate: true,
   };
+}
+
+/**
+ * Suppress Claude Code's own commit/PR attribution when the project's `ai_attribution` policy
+ * says `strip` (issue #538). Claude Code appends a `Co-Authored-By: Claude` trailer to commits
+ * and an attribution line to PR bodies by default, and that trailer is what makes a git host
+ * list the AI vendor as a CONTRIBUTOR — the thing an enterprise buyer rejects.
+ *
+ * Writes the CURRENT `attribution` object, never the deprecated `includeCoAuthoredBy` (INV-5).
+ * Each of the three sub-keys is filled in only when absent, so a value the team set by hand
+ * survives re-onboard (INV-4) — for example a team that wants its own house trailer rather than
+ * no trailer at all.
+ */
+function mergeAttribution(
+  settings: Record<string, unknown>,
+  projectRoot: string,
+): Record<string, unknown> {
+  if (!shouldStripAiAttribution(projectRoot)) {
+    return settings;
+  }
+  const next = { ...settings };
+  const current =
+    next.attribution && typeof next.attribution === 'object'
+      ? (next.attribution as Record<string, unknown>)
+      : {};
+  next.attribution = {
+    commit: current.commit ?? '',
+    pr: current.pr ?? '',
+    sessionUrl: current.sessionUrl ?? false,
+    // Preserve anything Claude Code adds to this object that paqad does not know about.
+    ...Object.fromEntries(
+      Object.entries(current).filter(([key]) => !['commit', 'pr', 'sessionUrl'].includes(key)),
+    ),
+  };
+  return next;
 }
 
 function safeParse(path: string): Record<string, unknown> {
