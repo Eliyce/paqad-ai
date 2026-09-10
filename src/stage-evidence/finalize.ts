@@ -13,7 +13,13 @@
 // provider with no live hooks, or an agent that skipped the verbs), it writes a
 // single inferred-git backstop record anchored to the real working-tree delta and
 // verifies that — honestly `incomplete`, never a false `complete`.
+//
+// That backstop needs a floor (issue #540): the working-tree delta is the whole branch,
+// so it still shows a change this session already finished and closed. Without the floor
+// every later turn minted a fresh backstop bundle for that same finished work and read it
+// as `incomplete` — a green change reported red.
 
+import { sessionClosedAnyFeature } from '@/feature-evidence/adoption.js';
 import {
   appendFeatureStageRow,
   closeActiveFeature,
@@ -96,6 +102,22 @@ export function finalizeStageEvidence(
       // No record open. Only write a backstop record when a real code change exists;
       // otherwise there is nothing to prove (a read-only or no-op turn).
       if (!input.changedFilesCount || input.changedFilesCount <= 0) {
+        return null;
+      }
+      // Issue #540 — and the delta is not one this session has ALREADY evidenced. The
+      // working-tree delta is the whole branch, so it still shows a change that was
+      // finished and closed minutes ago; every later turn (a background notification is
+      // enough to produce one) would mint a backstop bundle for that same finished work
+      // and verify it as `incomplete`, turning a green change red. A session that closed a
+      // change has already proven this diff, so there is nothing left to back up.
+      //
+      // Same session scope as the marker seam (decision D-01M269DKJ3PNEGGXH3HGZMFTFY), so
+      // a session's FIRST change still gets the inferred-git backstop on a host with no
+      // live hooks. A later change in the same session is recorded once the agent runs the
+      // stage verbs the cross-provider protocol already requires — which opens a bundle,
+      // so the `if (dirName)` branch above (development backfill included) applies as
+      // before.
+      if (sessionClosedAnyFeature(projectRoot, sessionId)) {
         return null;
       }
       dirName = openStageEvidence(projectRoot, {
