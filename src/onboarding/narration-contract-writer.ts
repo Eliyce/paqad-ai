@@ -147,6 +147,28 @@ Then speak the end-of-change verdict (${PAQAD_VERDICT.pass} / ${PAQAD_VERDICT.fa
 
 **Code edits are gated on this.** Until \`planning\` and \`specification\` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, \`npx paqad-ai stage start <stage>\` / \`npx paqad-ai stage end <stage> --artifact <path>\` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the \`▸ paqad\` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 
+### Specification through the pipeline (issue #512)
+
+When \`spec_pipeline_enabled\` is on for the project, the specification stage is not "write a spec by hand". Run the pipeline and let it produce the spec:
+
+\`\`\`
+npx paqad-ai spec pipeline start --request-file <request.md>   # or --ticket <ref>; S0 ground + S1 label in one go
+# experts (only when spec_pipeline_experts_enabled is on):
+#   run the expert-need-detector skill, then
+npx paqad-ai spec pipeline experts record <need.json>          # writes one brief per needed expert
+#   run the expert-notes skill once per brief, then
+npx paqad-ai spec pipeline experts notes <notes.json>
+#   run the expert-synthesis skill (the chief architect), then
+npx paqad-ai spec pipeline experts synthesis <synthesis.json>  # each conflict becomes a decision packet
+npx paqad-ai spec pipeline record questions <batch.json>       # skipped when nothing needs asking
+npx paqad-ai spec pipeline record task <task.json>
+npx paqad-ai spec pipeline record craft <spec.md> --trace <trace.json>
+npx paqad-ai spec pipeline finish
+npx paqad-ai spec freeze <spec.md> --from-pipeline --signed-off-by <name> --confirm-invariants
+\`\`\`
+
+Speak one \`▸ paqad\` line when experts are brought in, naming them and why ("brought in the db-expert and the security-auditor: this touches the invoices migration and the export permission"). Under \`spec_pipeline_adoption=strict\` the freeze refuses a spec the pipeline did not produce; \`--manual --reason "<why>"\` is the only exit and it is recorded. Under \`warn\` a hand-written spec still freezes and the receipt says the pipeline was skipped.
+
 ## Plain-English translations
 
 Say the right-hand phrasing, never the internal term:

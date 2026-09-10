@@ -134,6 +134,8 @@ Three steps turn AI coding from a prompt you hope works into a pipeline you can 
 | **Follow** | Agents run your workflows and rules the same way every time, instead of guessing.         | Represent a workflow once, and every agent follows it.      |
 | **Prove**  | Automatic checks confirm tests, spec coverage, docs, security, and quality before "done." | "Done" means proven, not claimed.                           |
 
+When you turn the flags on, the spec itself can be produced by a pipeline: it grounds the request in your own docs, brings in the domain experts the request needs, asks one small batch of plain-language questions, and writes the spec with every line traced to where it came from.
+
 ---
 
 ## Set up every agent once

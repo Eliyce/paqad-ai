@@ -13,12 +13,17 @@
 // notes are handed back the same way the model steps are, validated against the roster before
 // anything is stored, and folded into the finish provenance ONLY when experts actually ran.
 
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { Command } from 'commander';
+import { execa } from 'execa';
 
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { GithubIssuesTicketProvider, type GhInvoke } from '@/providers/index.js';
+
+import { classifyRef } from './intake.js';
 
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
@@ -133,6 +138,59 @@ function hasPendingExpertConflict(projectRoot: string): boolean {
   );
 }
 
+/**
+ * Resolve the request text for `spec pipeline start`, from `--request-file` or `--ticket` (FR-1.5).
+ * Returns null after printing an error when neither is usable — a Jira ref (MCP-only), an
+ * unrecognised ref, an unreadable file, or a fetch failure. A fetched ticket becomes the title, a
+ * blank line, the description, then the acceptance criteria as a bullet list.
+ */
+async function resolveRequestText(options: {
+  projectRoot: string;
+  requestFile?: string;
+  ticket?: string;
+}): Promise<string | null> {
+  if (options.requestFile) {
+    try {
+      return readFileSync(options.requestFile, 'utf8');
+    } catch {
+      console.error(`could not read request file "${options.requestFile}"`);
+      process.exitCode = 1;
+      return null;
+    }
+  }
+  if (options.ticket) {
+    const kind = classifyRef(options.ticket);
+    if (kind !== 'github-issues') {
+      console.error(
+        kind === 'jira'
+          ? `Jira tickets are fetched through the Atlassian MCP in your session — paste the request with --request-file instead`
+          : `"${options.ticket}" is not a GitHub issue ref — use --request-file, or a GitHub #123`,
+      );
+      process.exitCode = 1;
+      return null;
+    }
+    const ghInvoke: GhInvoke = async (args) => {
+      const result = await execa('gh', args, { cwd: options.projectRoot, reject: false });
+      if (result.exitCode !== 0) throw new Error(result.stderr || 'gh failed');
+      return result.stdout;
+    };
+    try {
+      const ticket = await new GithubIssuesTicketProvider(ghInvoke).fetchTicket(options.ticket);
+      const criteria = ticket.acceptance_criteria.map((c) => `- ${c}`).join('\n');
+      return `${ticket.title}\n\n${ticket.description}${criteria ? `\n\n${criteria}` : ''}`;
+    } catch (error) {
+      console.error(
+        `could not fetch ${options.ticket}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      process.exitCode = 1;
+      return null;
+    }
+  }
+  console.error('start needs --request-file <path> or --ticket <ref>');
+  process.exitCode = 1;
+  return null;
+}
+
 const projectRootOpt = ['--project-root <path>', 'Project root', process.cwd()] as const;
 const sessionOpt = [
   '--session <id>',
@@ -143,6 +201,68 @@ export function createSpecPipelineCommand(): Command {
   const command = new Command('pipeline').description(
     'Grounded prompt->spec pipeline: ground, label, questions, task, craft, finish (issue #512)',
   );
+
+  command
+    .command('start')
+    .description('S0 + S1 in one go: ground and label the request (from a file or a ticket)')
+    .option('--request-file <path>', 'Path to the request text to spec')
+    .option('--ticket <ref>', 'A ticket ref to fetch instead (GitHub #123 via gh)')
+    .option('--modules <list>', 'Comma-separated module slugs to scope grounding to')
+    .option(...projectRootOpt)
+    .option(...sessionOpt)
+    .action(
+      async (options: CommonOptions & { requestFile?: string; ticket?: string; modules?: string }) => {
+        const resolved = resolveDir(options);
+        if (!resolved) return;
+
+        const request = await resolveRequestText(options);
+        if (request === null) return; // error already printed
+
+        const modules = options.modules
+          ? options.modules
+              .split(',')
+              .map((m) => m.trim())
+              .filter((m) => m.length > 0)
+          : undefined;
+
+        // S0 grounding (RAG-aware) then S1 labeling, both zero model tokens.
+        const grounding = await groundAreaAsync(
+          options.projectRoot,
+          modules ? { modules } : {},
+        );
+        writeStepArtifact(
+          options.projectRoot,
+          resolved.dirName,
+          'ground',
+          JSON.stringify(grounding, null, 2),
+        );
+        recordStep(options.projectRoot, resolved.dirName, 'ground', 'complete');
+
+        // Persist the request so every later step reads the SAME text (FR-1.5).
+        const scratch = join(options.projectRoot, pipelineScratchDir(resolved.dirName));
+        mkdirSync(scratch, { recursive: true });
+        writeFileSync(join(scratch, 'request.md'), request, 'utf8');
+
+        const label = labelPrompt(request, grounding);
+        writeStepArtifact(
+          options.projectRoot,
+          resolved.dirName,
+          'label',
+          JSON.stringify(label, null, 2),
+        );
+        recordStep(options.projectRoot, resolved.dirName, 'label', 'complete');
+
+        const config = readPipelineConfig(options.projectRoot);
+        console.log(
+          JSON.stringify({
+            next_step: nextStep(options.projectRoot, resolved.dirName),
+            label: label.label,
+            sparse: grounding.sparse,
+            experts: expertsActive(config) ? 'on' : 'off',
+          }),
+        );
+      },
+    );
 
   command
     .command('status')

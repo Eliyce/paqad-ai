@@ -445,3 +445,50 @@ describe('spec pipeline CLI — craft trace + question merge (issue #547)', () =
     expect(JSON.parse(out[0]!).asked).toBe(1);
   });
 });
+
+// Issue #547 — the `start` verb grounds + labels a request in one go (FR-1.5).
+describe('spec pipeline CLI — start (issue #547)', () => {
+  function writeReq(root: string, body: string): string {
+    const p = join(root, 'request.md');
+    writeFileSync(p, body, 'utf8');
+    return p;
+  }
+
+  it('grounds and labels from a request file, writing request.md and printing the next step', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const req = writeReq(root, 'Let customers download their invoices as CSV.');
+    const { out } = await run(root, ['start', '--request-file', req]);
+    const result = JSON.parse(out[0]!);
+    expect(result).toHaveProperty('label');
+    expect(result).toHaveProperty('next_step');
+    expect(result.experts).toBe('off');
+    expect(existsSync(join(root, '.paqad', '_specs', dir, 'pipeline', 'request.md'))).toBe(true);
+    expect(existsSync(join(root, pipelineArtifactPath(dir, 'ground')))).toBe(true);
+    expect(existsSync(join(root, pipelineArtifactPath(dir, 'label')))).toBe(true);
+  });
+
+  it('errors when neither --request-file nor --ticket is given', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start']);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/needs --request-file/);
+  });
+
+  it('errors on an unreadable request file', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start', '--request-file', join(root, 'missing.md')]);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/could not read request file/);
+  });
+
+  it('refuses a Jira ticket ref (MCP-only)', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start', '--ticket', 'PROJ-123']);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/Atlassian MCP/);
+  });
+});

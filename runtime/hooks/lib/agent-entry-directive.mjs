@@ -42,3 +42,40 @@ export function loadSteps(entryFile) {
     '[paqad]   5. Write .paqad/.agent-entry-loaded with timestamp + entry-file path',
   ];
 }
+
+const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+
+/**
+ * The spec-pipeline nudge (issue #547, FR-1.4). When paqad is ON and `spec_pipeline_enabled` is
+ * on, one belt-and-braces line telling the agent the specification stage runs the pipeline, not a
+ * hand-written spec. Returns null when the pipeline is off, so a flag-off project's prompt-gate
+ * output is byte-identical to before (INV-1). The cross-host path is the router (FR-1.3); this is
+ * the Claude Code convenience.
+ *
+ * @param {(projectRoot: string, key: string, envName: string, env?: NodeJS.ProcessEnv) => string | undefined} readKey
+ * @param {string} projectRoot
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string | null}
+ */
+export function specPipelineNudge(readKey, projectRoot, env = process.env) {
+  const enabled = readKey(projectRoot, 'spec_pipeline_enabled', 'PAQAD_SPEC_PIPELINE_ENABLED', env);
+  if (!enabled || !TRUTHY.has(String(enabled).trim().toLowerCase())) return null;
+  const experts = readKey(
+    projectRoot,
+    'spec_pipeline_experts_enabled',
+    'PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED',
+    env,
+  );
+  const expertsOn = Boolean(experts) && TRUTHY.has(String(experts).trim().toLowerCase());
+  const adoptionRaw = readKey(
+    projectRoot,
+    'spec_pipeline_adoption',
+    'PAQAD_SPEC_PIPELINE_ADOPTION',
+    env,
+  );
+  const adoption = String(adoptionRaw ?? 'warn').trim() === 'strict' ? 'strict' : 'warn';
+  return (
+    `[paqad] Spec pipeline: ON (experts: ${expertsOn ? 'ON' : 'OFF'}, adoption: ${adoption}). ` +
+    'For a code change, the specification stage runs `paqad-ai spec pipeline start`, not a hand-written spec.'
+  );
+}
