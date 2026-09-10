@@ -177,7 +177,14 @@ export function recordSpecCorrection(
 ): void {
   const abs = join(projectRoot, correctionsPath(dirName));
   mkdirSync(dirname(abs), { recursive: true });
-  const existing = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
+  // Single read + catch, never stat-then-read: a stat-then-read is a TOCTOU race CodeQL flags
+  // (js/file-system-race), the same pattern the bundle-completeness gate avoids.
+  let existing = '';
+  try {
+    existing = readFileSync(abs, 'utf8');
+  } catch {
+    // No prior corrections file: start fresh.
+  }
   writeFileSync(abs, `${existing}${JSON.stringify(correction)}\n`, 'utf8');
 }
 
