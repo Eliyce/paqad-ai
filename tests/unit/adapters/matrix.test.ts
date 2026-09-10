@@ -62,7 +62,12 @@ describe('adapter stack matrix', () => {
         // these three ALSO emits a nested .gitignore marking that per-machine hook
         // config git-ignored (issue #240) — so two extra files, not one.
         const adaptersWithExtraConfigFile = ['claude-code', 'codex-cli', 'gemini-cli'];
-        const extraConfigFiles = adaptersWithExtraConfigFile.includes(adapterType) ? 2 : 0;
+        // Aider is the other adapter with a project-level AI-attribution knob (issue #538), so
+        // it emits one extra file — `.aider.conf.yml` — while `ai_attribution` says strip (the
+        // default). It has no per-machine hook config, so there is no nested .gitignore with it.
+        const attributionConfigFiles = adapterType === 'aider' ? 1 : 0;
+        const extraConfigFiles =
+          (adaptersWithExtraConfigFile.includes(adapterType) ? 2 : 0) + attributionConfigFiles;
         const expectedLength =
           1 +
           extraConfigFiles +

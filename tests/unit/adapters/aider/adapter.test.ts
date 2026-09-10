@@ -22,13 +22,15 @@ describe('AiderAdapter', () => {
     expect(content).not.toContain('## ');
   });
 
-  it('generates only CONVENTIONS.md with no sidecar files', async () => {
+  // Issue #538 changed this: the only sidecar aider now gets is the attribution config, and
+  // only while the `ai_attribution` policy says strip (the default). Nothing else is written.
+  it('generates CONVENTIONS.md plus the attribution config and nothing else', async () => {
     const configFiles = await adapter.generateConfig({
       frameworkPath: '.paqad/framework-path.txt',
       rulesPath: 'docs/instructions/rules',
       projectRoot: '/tmp/project',
     });
-    expect(configFiles).toHaveLength(1);
+    expect(configFiles.map((file) => file.path)).toEqual(['CONVENTIONS.md', '.aider.conf.yml']);
   });
 
   it('supports config generation only — no skills, agents, hooks, mcp, caching, or memory', () => {
