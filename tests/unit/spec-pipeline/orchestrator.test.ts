@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   assertCanRunStep,
+  hasExpertOrChiefQuestions,
   labelIsClear,
   nextStep,
   pipelineArtifactPath,
@@ -207,5 +208,96 @@ describe('run log + resume + redo', () => {
     expect(scratch).toBe(join('.paqad', '_specs', DIR, 'pipeline'));
     expect(readFileSync(join(root, pipelineArtifactPath(DIR, 'ground')), 'utf8')).toBe(GROUNDING);
     expect(existsSync(join(root, '.paqad', 'ledger'))).toBe(false);
+  });
+});
+
+// Issue #547 — the experts step and the tightened questions skip.
+describe('experts step', () => {
+  const NEED_ONE = JSON.stringify({ experts: [{ role: 'db-expert', reason: 'x' }] });
+  const NEED_NONE = JSON.stringify({ experts: [] });
+  const SYNTHESIS = JSON.stringify({
+    verdict: 'ready',
+    accepted: [],
+    declined: [],
+    conflicts: [],
+    gaps: [],
+  });
+
+  function enableExperts(root: string): void {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad', '.config'),
+      ['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'),
+    );
+  }
+  function writeScratch(root: string, file: string, body: string): void {
+    const abs = join(root, pipelineScratchDir(DIR), file);
+    mkdirSync(join(root, pipelineScratchDir(DIR)), { recursive: true });
+    writeFileSync(abs, body);
+  }
+
+  it('validateStepArtifact accepts a shaped synthesis and rejects a malformed one', () => {
+    expect(validateStepArtifact('experts', SYNTHESIS).ok).toBe(true);
+    expect(validateStepArtifact('experts', JSON.stringify({ verdict: 'ready' })).ok).toBe(false);
+  });
+
+  it('is complete-by-skip when the roster is off', () => {
+    const root = tempRoot();
+    expect(stepComplete(root, DIR, 'experts')).toBe(true);
+  });
+
+  it('is complete-by-skip when the recorded need names zero experts', () => {
+    const root = tempRoot();
+    enableExperts(root);
+    writeScratch(root, 'experts.json', NEED_NONE);
+    expect(stepComplete(root, DIR, 'experts')).toBe(true);
+  });
+
+  it('needs a valid synthesis when the roster is on and an expert was named', () => {
+    const root = tempRoot();
+    enableExperts(root);
+    writeScratch(root, 'experts.json', NEED_ONE);
+    expect(stepComplete(root, DIR, 'experts')).toBe(false);
+    writeStepArtifact(root, DIR, 'experts', SYNTHESIS);
+    expect(stepComplete(root, DIR, 'experts')).toBe(true);
+  });
+
+  it('questions is NOT skipped on a clear label when an expert question is pending (FR-7.3)', () => {
+    const root = tempRoot();
+    writeStepArtifact(root, DIR, 'label', LABEL_CLEAR);
+    writeScratch(
+      root,
+      'expert-notes.json',
+      JSON.stringify({
+        notes: [{ role: 'db-expert', findings: [], questions: [{ business_text: 'q?' }] }],
+      }),
+    );
+    expect(hasExpertOrChiefQuestions(root, DIR)).toBe(true);
+    expect(stepComplete(root, DIR, 'questions')).toBe(false);
+  });
+
+  it('sees a chief gap question and a top-level synthesis question', () => {
+    const root = tempRoot();
+    writeStepArtifact(root, DIR, 'experts', JSON.stringify({ gaps: [{ question: { x: 1 } }] }));
+    expect(hasExpertOrChiefQuestions(root, DIR)).toBe(true);
+    const root2 = tempRoot();
+    writeStepArtifact(root2, DIR, 'experts', JSON.stringify({ questions: [{ x: 1 }] }));
+    expect(hasExpertOrChiefQuestions(root2, DIR)).toBe(true);
+  });
+
+  it('questions IS skipped on a clear label when nothing is pending', () => {
+    const root = tempRoot();
+    writeStepArtifact(root, DIR, 'label', LABEL_CLEAR);
+    expect(hasExpertOrChiefQuestions(root, DIR)).toBe(false);
+    expect(stepComplete(root, DIR, 'questions')).toBe(true);
+  });
+
+  it('locks questions while an expert conflict is pending (FR-6.4)', () => {
+    const root = tempRoot();
+    writeStepArtifact(root, DIR, 'ground', GROUNDING);
+    writeStepArtifact(root, DIR, 'label', LABEL_CLEAR);
+    const gate = assertCanRunStep(root, DIR, 'questions', { hasPendingExpertConflict: true });
+    expect(gate.allowed).toBe(false);
+    expect(gate.message).toMatch(/expert conflict is still pending/);
   });
 });

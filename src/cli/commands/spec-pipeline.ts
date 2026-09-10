@@ -20,30 +20,43 @@ import { Command } from 'commander';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
+import { readContractDecisions } from '@/decisions/authoring.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
 import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
 import { decideFinish, buildProvenance } from '@/spec-pipeline/finish.js';
 import { assembleExpertRun } from '@/spec-pipeline/experts/assemble.js';
+import { buildExpertBriefs, writeExpertBriefs } from '@/spec-pipeline/experts/brief.js';
+import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
+import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
 import { validateExpertNeed } from '@/spec-pipeline/experts/need.js';
 import {
   validateExpertNotes,
   writeExpertNeed,
   writeExpertNotes,
 } from '@/spec-pipeline/experts/notes.js';
+import {
+  readExpertMerge,
+  validateExpertSynthesis,
+  writeExpertMerge,
+  writeExpertSynthesis,
+} from '@/spec-pipeline/experts/synthesis.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
   assertCanRunStep,
   nextStep,
+  pipelineScratchDir,
   readQuestionsArtifact,
   recordStep,
   redoStep,
   validateStepArtifact,
   writeStepArtifact,
 } from '@/spec-pipeline/orchestrator.js';
+import type { PlainLanguageSources } from '@/spec-pipeline/plain-language.js';
 import { specCodeCheckLive } from '@/spec-pipeline/spec-code-check.js';
 import type {
   GroundingArtifact,
+  LabelArtifact,
   PipelineQuestion,
   PipelineStep,
   QuestionsArtifact,
@@ -67,6 +80,39 @@ function resolveDir(options: CommonOptions): { dirName: string } | null {
     return null;
   }
   return { dirName };
+}
+
+/** Read a JSON scratch artifact for a run, or null when it is missing or malformed. */
+function readScratchJson<T>(projectRoot: string, dirName: string, file: string): T | null {
+  try {
+    return JSON.parse(
+      readFileSync(`${projectRoot}/${pipelineScratchDir(dirName)}/${file}`, 'utf8'),
+    ) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Read the run's request text (written by `spec pipeline start`), or '' when absent. */
+function readRequest(projectRoot: string, dirName: string): string {
+  try {
+    return readFileSync(`${projectRoot}/${pipelineScratchDir(dirName)}/request.md`, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+/** Build the plain-language sources (grounding terms + request) for a run's question checks. */
+function plainLanguageSources(projectRoot: string, dirName: string): PlainLanguageSources {
+  const grounding = readScratchJson<GroundingArtifact>(projectRoot, dirName, 'grounding.json');
+  return { terms: grounding?.terms ?? [], prompt: readRequest(projectRoot, dirName) };
+}
+
+/** Whether any `spec.expert_conflict` packet is still pending a human decision (FR-6.4). */
+function hasPendingExpertConflict(projectRoot: string): boolean {
+  return readContractDecisions(projectRoot).some(
+    ({ packet, status }) => status === 'pending' && packet.category === 'spec.expert_conflict',
+  );
 }
 
 const projectRootOpt = ['--project-root <path>', 'Project root', process.cwd()] as const;
@@ -186,7 +232,11 @@ export function createSpecPipelineCommand(): Command {
         return;
       }
       const pipelineStep = step as PipelineStep;
-      const gate = assertCanRunStep(options.projectRoot, resolved.dirName, pipelineStep);
+      const gate = assertCanRunStep(options.projectRoot, resolved.dirName, pipelineStep, {
+        // The question batch is locked while an expert conflict is unresolved (FR-6.4).
+        hasPendingExpertConflict:
+          pipelineStep === 'questions' && hasPendingExpertConflict(options.projectRoot),
+      });
       if (!gate.allowed) {
         console.error(gate.message);
         process.exitCode = 1;
@@ -311,7 +361,15 @@ export function createSpecPipelineCommand(): Command {
     .action((step: string, options: CommonOptions) => {
       const resolved = resolveDir(options);
       if (!resolved) return;
-      const valid: PipelineStep[] = ['ground', 'label', 'questions', 'task', 'craft', 'finish'];
+      const valid: PipelineStep[] = [
+        'ground',
+        'label',
+        'experts',
+        'questions',
+        'task',
+        'craft',
+        'finish',
+      ];
       if (!valid.includes(step as PipelineStep)) {
         console.error(`unknown step "${step}" — one of: ${valid.join(', ')}`);
         process.exitCode = 1;
@@ -347,16 +405,28 @@ function createExpertsCommand(): Command {
     return false;
   };
 
+  /** Refuse when the roster is off OR an earlier step is incomplete (FR-2.3). */
+  const gateExperts = (options: CommonOptions, dirName: string): boolean => {
+    if (refuseWhenOff(options)) return true;
+    const gate = assertCanRunStep(options.projectRoot, dirName, 'experts');
+    if (!gate.allowed) {
+      console.error(gate.message);
+      process.exitCode = 1;
+      return true;
+    }
+    return false;
+  };
+
   experts
     .command('record')
-    .description('Store the model-decided expert-need artifact (validated against the roster)')
+    .description('Store the model-decided expert-need artifact and write one brief per expert')
     .argument('<file>', 'Path to the need artifact the expert-need-detector produced')
     .option(...projectRootOpt)
     .option(...sessionOpt)
     .action((file: string, options: CommonOptions) => {
       const resolved = resolveDir(options);
       if (!resolved) return;
-      if (refuseWhenOff(options)) return;
+      if (gateExperts(options, resolved.dirName)) return;
       let content: string;
       try {
         content = readFileSync(file, 'utf8');
@@ -372,21 +442,48 @@ function createExpertsCommand(): Command {
         return;
       }
       writeExpertNeed(options.projectRoot, resolved.dirName, check.artifact);
+      // One bounded brief per needed expert (FR-3): request + grounding pointers + label + budget.
+      const grounding = readScratchJson<GroundingArtifact>(
+        options.projectRoot,
+        resolved.dirName,
+        'grounding.json',
+      );
+      const label = readScratchJson<LabelArtifact>(
+        options.projectRoot,
+        resolved.dirName,
+        'label.json',
+      );
+      const config = readPipelineConfig(options.projectRoot);
+      let briefPaths: string[] = [];
+      if (grounding && label) {
+        const { briefs } = buildExpertBriefs({
+          needs: check.artifact.experts,
+          request: readRequest(options.projectRoot, resolved.dirName),
+          grounding,
+          label,
+          ceiling: config.token_ceiling,
+        });
+        briefPaths = writeExpertBriefs(options.projectRoot, resolved.dirName, briefs);
+      }
       console.log(
-        JSON.stringify({ recorded: 'expert-need', experts: check.artifact.experts.length }),
+        JSON.stringify({
+          recorded: 'expert-need',
+          experts: check.artifact.experts.length,
+          briefs: briefPaths,
+        }),
       );
     });
 
   experts
     .command('notes')
-    .description("Store the experts' notes + token actuals (validated against the roster)")
+    .description("Store the experts' notes + token actuals and merge them for the chief")
     .argument('<file>', 'Path to the notes artifact the experts produced')
     .option(...projectRootOpt)
     .option(...sessionOpt)
     .action((file: string, options: CommonOptions) => {
       const resolved = resolveDir(options);
       if (!resolved) return;
-      if (refuseWhenOff(options)) return;
+      if (gateExperts(options, resolved.dirName)) return;
       let content: string;
       try {
         content = readFileSync(file, 'utf8');
@@ -395,14 +492,86 @@ function createExpertsCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      const check = validateExpertNotes(content);
+      const check = validateExpertNotes(
+        content,
+        plainLanguageSources(options.projectRoot, resolved.dirName),
+      );
       if (!check.ok || !check.artifact) {
         console.error(`expert-notes artifact is invalid: ${check.error}`);
         process.exitCode = 1;
         return;
       }
       writeExpertNotes(options.projectRoot, resolved.dirName, check.artifact);
-      console.log(JSON.stringify({ recorded: 'expert-notes', notes: check.artifact.notes.length }));
+      // Merge deterministically and persist the merge the chief reads (FR-5.1).
+      const merged = mergeExpertNotes(check.artifact.notes);
+      writeExpertMerge(options.projectRoot, resolved.dirName, merged);
+      console.log(
+        JSON.stringify({
+          recorded: 'expert-notes',
+          notes: check.artifact.notes.length,
+          findings: merged.findings.length,
+          conflicts: merged.conflicts.length,
+        }),
+      );
+    });
+
+  experts
+    .command('synthesis')
+    .description('Store the chief architect synthesis; each conflict becomes a decision packet')
+    .argument('<file>', 'Path to the synthesis artifact the expert-synthesis skill produced')
+    .option(...projectRootOpt)
+    .option(...sessionOpt)
+    .action((file: string, options: CommonOptions) => {
+      const resolved = resolveDir(options);
+      if (!resolved) return;
+      if (gateExperts(options, resolved.dirName)) return;
+      const merged = readExpertMerge(options.projectRoot, resolved.dirName);
+      if (!merged) {
+        console.error('no merged notes — run `paqad-ai spec pipeline experts notes` first');
+        process.exitCode = 1;
+        return;
+      }
+      let content: string;
+      try {
+        content = readFileSync(file, 'utf8');
+      } catch {
+        console.error(`could not read synthesis artifact "${file}"`);
+        process.exitCode = 1;
+        return;
+      }
+      const check = validateExpertSynthesis(
+        content,
+        merged,
+        plainLanguageSources(options.projectRoot, resolved.dirName),
+      );
+      if (!check.ok || !check.artifact) {
+        console.error(`expert-synthesis artifact is invalid: ${check.error}`);
+        process.exitCode = 1;
+        return;
+      }
+      // Each conflict becomes one decision packet, reusing a resolved fork when one exists (FR-6).
+      const { minted, autoResolved } = mintExpertConflictDecisions(
+        options.projectRoot,
+        merged,
+        check.artifact.conflicts,
+      );
+      const synthesis =
+        autoResolved.length > 0
+          ? { ...check.artifact, auto_resolved: autoResolved }
+          : check.artifact;
+      writeExpertSynthesis(options.projectRoot, resolved.dirName, synthesis);
+      recordStep(options.projectRoot, resolved.dirName, 'experts', 'complete');
+      console.log(
+        JSON.stringify({
+          recorded: 'expert-synthesis',
+          verdict: synthesis.verdict,
+          accepted: synthesis.accepted.length,
+          declined: synthesis.declined.length,
+          conflicts_pending: minted.length,
+          auto_resolved: autoResolved.length,
+          gaps: synthesis.gaps.length,
+        }),
+      );
     });
 
   return experts;

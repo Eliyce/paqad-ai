@@ -10,6 +10,7 @@
 export const PIPELINE_STEPS = [
   'ground', // S0 — assemble the business vocabulary/rules for the touched area
   'label', // S1 — rate clarity against the grounding (vague/okay/clear)
+  'experts', // S1.5 — domain experts read the request and the chief architect synthesises (issue #547)
   'questions', // S2 — one batched round of plain-language questions (only if needed)
   'task', // S3 — an internal structured restatement of prompt + answers
   'craft', // S4 — write the spec in the freeze-accepted format, every line traced
