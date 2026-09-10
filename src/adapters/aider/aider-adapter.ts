@@ -69,34 +69,39 @@ export class AiderAdapter extends BaseAdapter {
  * project that did not ask for one.
  *
  * Merges rather than overwrites: an existing `.aider.conf.yml` keeps every key it already has,
- * including an explicit attribution value the team set by hand (INV-4).
+ * including an explicit attribution value the team set by hand (INV-4). The merge goes through
+ * `parseDocument` rather than parse-then-stringify so the team's own COMMENTS and key order
+ * survive too — a config file people hand-edit is one they annotate, and silently eating those
+ * annotations on re-onboard would be its own small betrayal of INV-4.
  */
 function buildAiderAttributionConfig(projectRoot: string): GeneratedFile | null {
   if (!shouldStripAiAttribution(projectRoot)) {
     return null;
   }
   const path = '.aider.conf.yml';
-  const existing = readAiderConfig(join(projectRoot, path));
-  const merged: Record<string, unknown> = { ...existing };
+  const doc = readAiderConfig(join(projectRoot, path));
   for (const key of AIDER_ATTRIBUTION_KEYS) {
-    if (!(key in merged)) {
-      merged[key] = false;
+    if (!doc.has(key)) {
+      doc.set(key, false);
     }
   }
-  return { path, content: YAML.stringify(merged), autoUpdate: true };
+  return { path, content: doc.toString(), autoUpdate: true };
 }
 
-/** Parse an existing `.aider.conf.yml`; absent, unreadable or non-mapping ⇒ empty. */
-function readAiderConfig(path: string): Record<string, unknown> {
+/**
+ * Parse an existing `.aider.conf.yml` as an editable document. Absent, unreadable or
+ * non-mapping content yields an empty mapping document, so a corrupt config is replaced with a
+ * valid one rather than throwing during onboarding.
+ */
+function readAiderConfig(path: string): YAML.Document {
+  const empty = () => new YAML.Document({});
   if (!existsSync(path)) {
-    return {};
+    return empty();
   }
   try {
-    const parsed: unknown = YAML.parse(readFileSync(path, 'utf8'));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
+    const doc = YAML.parseDocument(readFileSync(path, 'utf8'));
+    return doc.errors.length === 0 && YAML.isMap(doc.contents) ? doc : empty();
   } catch {
-    return {};
+    return empty();
   }
 }

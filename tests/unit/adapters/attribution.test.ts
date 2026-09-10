@@ -112,10 +112,32 @@ describe('AiderAdapter attribution (issue #538)', () => {
     });
   });
 
+  // INV-4 — a config people hand-edit is a config they annotate; re-onboard must not eat it.
+  it("preserves the team's own comments and key order", async () => {
+    const root = makeProject({
+      '.aider.conf.yml': ['# our house model, do not change', 'model: gpt-4o', ''].join('\n'),
+    });
+    const config = await fileAt(adapter, root, '.aider.conf.yml');
+    expect(config?.content).toContain('# our house model, do not change');
+    expect(config?.content?.indexOf('model:')).toBeLessThan(
+      config?.content?.indexOf('attribute-author') ?? -1,
+    );
+  });
+
   it('survives an unparseable existing config rather than throwing', async () => {
     const root = makeProject({ '.aider.conf.yml': '{{{ not yaml' });
     const config = await fileAt(adapter, root, '.aider.conf.yml');
     expect(YAML.parse(config?.content ?? '')['attribute-author']).toBe(false);
+  });
+
+  it('replaces a config whose top level is not a mapping', async () => {
+    const root = makeProject({ '.aider.conf.yml': '- just\n- a list\n' });
+    const config = await fileAt(adapter, root, '.aider.conf.yml');
+    expect(YAML.parse(config?.content ?? '')).toEqual({
+      'attribute-author': false,
+      'attribute-committer': false,
+      'attribute-co-authored-by': false,
+    });
   });
 
   // AC-6
