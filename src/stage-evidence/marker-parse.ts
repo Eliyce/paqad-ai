@@ -8,7 +8,14 @@
 // script-minted (clock + validation) even though the boundary token came from the
 // model. Best-effort and idempotent: a marker already in the ledger is skipped, so
 // re-parsing a growing transcript on every Stop never double-records.
+//
+// Idempotence needs a second guard once a change is CLOSED (issue #540). The skip set is
+// built from the ACTIVE bundle, so with the session pointer released there is no bundle to
+// compare against and every stale marker reads as new — which auto-opened a phantom
+// untitled bundle on the next turn, and a background notification is enough to produce
+// one. A session that has already closed a change therefore records nothing here.
 
+import { sessionClosedAnyFeature } from '@/feature-evidence/adoption.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -135,6 +142,15 @@ export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
     // which never write route state) is NOT proven non-feature, so it records as before.
     if (routeIsAffirmativelyNonFeature(input.projectRoot, sessionId)) return [];
     const dirName = currentFeature(input.projectRoot, sessionId);
+    // Issue #540: the transcript is re-read in full on every turn, so a change that is
+    // already CLOSED still carries its markers here. With nothing active, the
+    // already-recorded set below is built from no bundle at all, every stale marker reads
+    // as new, and the recorder auto-opens a phantom untitled change-<ULID> for it — which
+    // steals the session pointer and fails a completion gate the real change had passed.
+    // A session that has closed a change has spent its markers: record nothing. A genuine
+    // next change opens from a deliberate signal (a titled `stage start`, `plan compile`,
+    // `spec freeze`, or a real edit) and its markers record against that bundle.
+    if (!dirName && sessionClosedAnyFeature(input.projectRoot, sessionId)) return [];
     const existing = dirName ? readFeatureStageUnit(input.projectRoot, dirName) : [];
     const seen = new Set<string>();
     for (const row of existing) {

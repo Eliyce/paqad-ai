@@ -16,7 +16,7 @@ import {
   resolveFeatureRef,
   resumeFeatureByRef,
 } from '@/feature-evidence/stage-ledger.js';
-import { readSessionControl } from '@/feature-evidence/session-control.js';
+import { markDone, readSessionControl } from '@/feature-evidence/session-control.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -248,5 +248,48 @@ describe('resolveFeatureRef / resumeFeatureByRef', () => {
     const root = tempRoot();
     twoFeatures(root);
     expect(resumeFeatureByRef(root, 'ses_1', 'missing')).toBeNull();
+  });
+
+  // Issue #540 — the session control is not the whole record. `markDone` drops a
+  // finished change from it, so a control-only lookup left a complete bundle
+  // unreachable through every supported command.
+  it('resolves a ref against a bundle the session control has released (#540)', () => {
+    const root = tempRoot();
+    const { a } = twoFeatures(root);
+    closeActiveFeature(root, 'ses_1'); // closes B, clearing `active`
+    markDone(root, 'ses_1', a); // and drop A, so the control holds neither
+    expect(readSessionControl(root, 'ses_1')).toMatchObject({ active: null, paused: [] });
+    expect(resolveFeatureRef(root, 'ses_1', '339')).toBe(a);
+    expect(resolveFeatureRef(root, 'ses_1', '01JABCDEFGHJKMNPQRSTVWXYZ0')).toBe(a);
+    expect(resolveFeatureRef(root, 'ses_1', 'route')).toBe(a);
+  });
+
+  it('resolves a ref for a session that never saw the bundle (a rotated id) — #540', () => {
+    const root = tempRoot();
+    const { a } = twoFeatures(root);
+    expect(resolveFeatureRef(root, 'ses_rotated', '339')).toBe(a);
+  });
+
+  it('prefers the session control over the on-disk sweep for the same ref (#540)', () => {
+    const root = tempRoot();
+    const { a, b } = twoFeatures(root);
+    // Both slugs contain "thing"-free text, so make the substring ambiguous: `b` is
+    // active (control tier) and `a` is only on disk, so the control tier must win.
+    expect(resolveFeatureRef(root, 'ses_1', b)).toBe(b);
+    markDone(root, 'ses_1', a);
+    expect(resolveFeatureRef(root, 'ses_1', b)).toBe(b);
+  });
+
+  it('resumeFeatureByRef activates a released bundle and pauses the outgoing one (#540)', () => {
+    const root = tempRoot();
+    const { a, b } = twoFeatures(root);
+    markDone(root, 'ses_1', a); // A is now on disk only; B stays active
+    expect(currentFeature(root, 'ses_1')).toBe(b);
+
+    expect(resumeFeatureByRef(root, 'ses_1', '339')).toBe(a);
+
+    expect(currentFeature(root, 'ses_1')).toBe(a);
+    // AC-2: replacing `active` never drops the outgoing change.
+    expect(readSessionControl(root, 'ses_1').paused).toContain(b);
   });
 });

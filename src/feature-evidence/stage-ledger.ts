@@ -29,6 +29,7 @@ import {
 
 import { reconcileSessionControl } from './adoption.js';
 import { seedFeatureDelivery } from './delivery.js';
+import { listFeatureDirs } from './enumerate.js';
 import { seedFeatureRecord, updateFeatureRecord } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
@@ -297,10 +298,17 @@ function lastAdapter(rows: readonly SessionLedgerRow[]): string | null {
 }
 
 /**
- * Resolve a user-supplied feature ref to a known feature dir name for this session,
- * or `null` when nothing matches. A ref matches when it equals the full dir name, the
- * ULID, the issue, or (as a fallback) is a substring of the slug — checked against the
- * active feature and the paused stack (most-recently-paused first). Used by `resume`.
+ * Resolve a user-supplied feature ref to a feature dir name, or `null` when nothing
+ * matches. A ref matches when it equals the full dir name, the ULID, the issue, or (as a
+ * fallback) is a substring of the slug. Used by `resume`.
+ *
+ * The session control is searched FIRST and wins — the active feature and the paused stack
+ * (most-recently-paused first) — then, when nothing there matches, every bundle recorded on
+ * disk (issue #540). The control is not the whole record: `markDone` drops a finished
+ * change from it, and a session-id rotation leaves a bundle in a control this session never
+ * reads, so a control-only lookup made recorded evidence unreachable through any supported
+ * command and left hand-editing `_session/<id>.json` as the only recovery (INV-1, INV-2).
+ * The sweep only resolves a ref the developer typed, and it mints nothing.
  */
 export function resolveFeatureRef(
   projectRoot: string,
@@ -308,11 +316,29 @@ export function resolveFeatureRef(
   ref: string,
 ): string | null {
   const control = readSessionControl(projectRoot, sessionId);
-  const candidates = [...control.paused].reverse();
+  const known = [...control.paused].reverse();
   if (control.active) {
-    candidates.push(control.active);
+    known.push(control.active);
   }
+  // Control first, then the on-disk sweep — and each tier is matched exactly before either
+  // falls back to a slug substring, so a precise ref never loses to a loose match.
+  const onDisk = listFeatureDirs(projectRoot).filter((dirName) => !known.includes(dirName));
   const needle = ref.trim().replace(/^#/, '');
+  for (const candidates of [known, onDisk]) {
+    const match = matchFeatureRef(candidates, ref, needle);
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+}
+
+/** Exact match (dir name / ULID / issue / slug) across `candidates`, else a slug substring. */
+function matchFeatureRef(
+  candidates: readonly string[],
+  ref: string,
+  needle: string,
+): string | null {
   for (const dirName of candidates) {
     if (dirName === ref || dirName === needle) {
       return dirName;
@@ -336,9 +362,14 @@ export function resolveFeatureRef(
 }
 
 /**
- * Reactivate a paused feature by ref (ULID / issue / slug / dir name) — the writer
- * behind `paqad-ai resume --feature <ref>`. Returns the reactivated dir name, or
- * `null` when the ref matches no known feature or the match is not resumable.
+ * Reactivate a feature by ref (ULID / issue / slug / dir name) — the writer behind
+ * `paqad-ai resume --feature <ref>`. Returns the reactivated dir name, or `null` when the
+ * ref matches no recorded feature.
+ *
+ * A ref the session control holds is popped off the paused stack as before. A ref that
+ * resolved from the on-disk sweep is made active through `setActiveFeature` (issue #540),
+ * which pushes the outgoing active onto `paused[]` — so redirecting the session at a
+ * displaced change never drops the one it was on.
  */
 export function resumeFeatureByRef(
   projectRoot: string,
@@ -350,5 +381,9 @@ export function resumeFeatureByRef(
   if (!dirName) {
     return null;
   }
-  return resumeFeature(projectRoot, sessionId, dirName, now) ? dirName : null;
+  if (resumeFeature(projectRoot, sessionId, dirName, now)) {
+    return dirName;
+  }
+  setActiveFeature(projectRoot, sessionId, dirName, { now });
+  return dirName;
 }

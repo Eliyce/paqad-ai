@@ -1,0 +1,26 @@
+{
+  "id": "D-01M269DKJ3PNEGGXH3HGZMFTFY",
+  "category": "architecture-path",
+  "title": "Scope of the guard that stops replayed stage markers re-opening a closed change",
+  "context": "Issue #540 root cause (verified): parseAndRecordMarkers re-parses the WHOLE transcript on every Stop. After closeActiveFeature the session control has active:null, so currentFeature() returns null, the per-bundle 'seen' set is empty, and every stale 'paqad:stage ...' marker in the transcript looks unrecorded. recordMarkedStage then auto-opens a fresh untitled change-<ULID> bundle. A background <task-notification> (Monitor/CI event) is what produced the extra Stop. Position/novelty is the only thing separating a legitimate first-marker open from a replay, so the guard needs a scope. Options differ in blast radius.",
+  "options": [
+    {
+      "option_key": "session-scoped",
+      "label": "Suppress only when THIS session already closed a change"
+    },
+    {
+      "option_key": "branch-scoped",
+      "label": "Suppress when the current branch has a closed change and nothing in flight"
+    },
+    {
+      "option_key": "never-open",
+      "label": "The retrospective marker seam never opens a bundle at all"
+    }
+  ],
+  "recommendation": "session-scoped",
+  "created_at": "2026-09-10T18:31:28.579Z",
+  "status": "resolved",
+  "chosen": "session-scoped",
+  "rationale": "Matches both phantoms observed on disk (same session closed 538 then minted change-01M25SX and change-01M268WT); narrowest blast radius, no change to a session's first change or to cross-provider first-change minting. Session-id rotation after a close is documented as a known limit rather than over-built.",
+  "resolved_at": "2026-09-10T18:33:29.261Z"
+}

@@ -11,6 +11,10 @@
 // (pausing/resuming per #336), stashes the lane for the next change-open (feature-
 // development only), and returns a lean `▸ paqad`-style line naming the outcome.
 // `no-workflow` (small talk) stashes nothing and narrates nothing.
+//
+// A host-injected system/background event (a `Monitor` firing, a task completing) reaches
+// this seam exactly like a typed prompt, so it is filtered out FIRST (issue #540): it is
+// not classified, records no state, and leaves the route the last human prompt set alone.
 
 import type { ClassificationResult } from '@/core/types/classification.js';
 import type { Lane } from '@/core/types/routing.js';
@@ -54,6 +58,38 @@ const ROUTE_REASON: Record<RoutedWorkflow, string> = {
   'root-cause-analysis': 'a post-incident root-cause analysis',
   'no-workflow': 'just chatting — nothing to set up',
 };
+
+/**
+ * Host wrapper elements that mark a turn as a SYSTEM/BACKGROUND event rather than
+ * something the developer said (issue #540). One exported constant so a new wrapper is a
+ * data change, not an edit to the matcher.
+ *
+ * These arrive on `UserPromptSubmit` exactly like a typed prompt — a `Monitor` firing on a
+ * CI run, a background task finishing — because the host injects them as user turns. The
+ * observed payload opens with the element and carries no human request:
+ * `<task-notification><task-id>…</task-id><summary>Monitor event: "CI checks on PR #539
+ * until all complete"</summary>…</task-notification>`.
+ */
+export const SYSTEM_NOTIFICATION_ELEMENTS: readonly string[] = [
+  'task-notification',
+  'ci-monitor-event',
+  'background-task-notification',
+];
+
+/**
+ * Whether `prompt` is a host-injected system/background event rather than a developer
+ * request (issue #540). Nothing about a monitor event is an ask to build software, so the
+ * seam must not route one.
+ *
+ * Anchored at the START of the payload, so a prompt that merely MENTIONS a wrapper —
+ * "why did the `<task-notification>` open a change?", the prompt that filed this very
+ * issue — still routes normally. The host emits the element as the whole payload, so the
+ * anchor costs nothing and keeps a real question routable.
+ */
+export function isSystemNotificationPrompt(prompt: string): boolean {
+  const head = prompt.trimStart().toLowerCase();
+  return SYSTEM_NOTIFICATION_ELEMENTS.some((element) => head.startsWith(`<${element}>`));
+}
 
 /** Injectable classify/route seam, so the outcome→lane branches are all testable. */
 export interface PromptRouteDeps {
@@ -141,6 +177,14 @@ export async function runPromptRouteSeam(
   input: PromptRouteSeamInput,
   deps: PromptRouteDeps = {},
 ): Promise<PromptRouteSeamResult> {
+  // Issue #540 — a background notification is not a request. Classify nothing, write no
+  // state, narrate nothing: the route the last HUMAN prompt set stays exactly as it is.
+  // Recording `no-workflow` here would be worse than doing nothing, because it would pause
+  // an in-flight feature-development route and make `routeIsAffirmativelyNonFeature` true,
+  // silently suppressing stage recording for the rest of the change.
+  if (isSystemNotificationPrompt(input.request)) {
+    return { routed: 'no-workflow', lane: null, resumed: null, narration: null };
+  }
   const { routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps);
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
 
