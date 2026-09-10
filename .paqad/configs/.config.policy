@@ -81,3 +81,7 @@ spec_pipeline_clarification=strict
 # ── Added in a newer paqad version ────────────────────────────
 # Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
 spec_pipeline_experts_enabled=true
+
+# issue #547 — this repo runs the spec pipeline in strict adoption, with a higher ceiling.
+spec_pipeline_adoption=strict
+spec_pipeline_token_ceiling=60000
