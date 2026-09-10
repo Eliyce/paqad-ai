@@ -10,12 +10,16 @@ interface ResumeOptions {
 }
 
 /**
- * `paqad-ai resume --feature <ref>` — reactivate a paused feature (issue #339). A
- * detour to another feature or a question pauses the active feature onto the session's
- * paused stack; this pops the one the `<ref>` names (its ULID, issue, slug, or full dir
- * name) back to active so the next stage/edit attaches to it again. Resolves the SAME
- * session the recorder + block-forward gate key on, so a resume actually redirects the
- * live change. A ref that matches no known feature exits non-zero.
+ * `paqad-ai resume --feature <ref>` — reactivate a feature-development change (issue
+ * #339). A detour to another feature or a question pauses the active feature onto the
+ * session's paused stack; this pops the one the `<ref>` names (its ULID, issue, slug, or
+ * full dir name) back to active so the next stage/edit attaches to it again. Resolves the
+ * SAME session the recorder + block-forward gate key on, so a resume actually redirects the
+ * live change. A ref that matches no recorded change exits non-zero.
+ *
+ * A change the session control has released — finished, or displaced while a rollover took
+ * the pointer — is reachable too (issue #540): the ref resolves against the recorded
+ * bundles on disk, so recovering one never means hand-editing `.paqad/ledger/`.
  */
 export function createResumeCommand(): Command {
   return new Command('resume')
@@ -38,7 +42,7 @@ export function createResumeCommand(): Command {
       const resumed = resumeFeatureByRef(root, sessionId, options.feature);
       if (!resumed) {
         console.error(
-          `could not resume "${options.feature}" — no paused feature matches that ref.`,
+          `could not resume "${options.feature}" — no recorded change matches that ref.`,
         );
         process.exitCode = 1;
         return;
