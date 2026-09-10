@@ -52,6 +52,12 @@ export function validateExpertNeed(raw: unknown): ExpertNeedValidation {
       return fail(`experts[${index}] must be an object with role and reason`);
     }
     const { role, reason } = entry as Record<string, unknown>;
+    // The chief architect is never picked (issue #547, FR-2.4): it runs automatically once any
+    // expert fired. A need artifact that names it is refused with its own message, before the
+    // generic roster rejection, so the detector's mistake is unambiguous.
+    if (role === 'chief-architect') {
+      return fail('"chief-architect" is never picked: it runs automatically when any expert fires');
+    }
     if (typeof role !== 'string' || !isExpertRole(role)) {
       return fail(
         `experts[${index}].role "${String(role)}" is not an expert in the roster — the detector may not invent an expert (AC-8)`,

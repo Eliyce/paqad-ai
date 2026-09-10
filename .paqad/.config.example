@@ -132,6 +132,8 @@
 # decision_arm_plan_threshold=0.85
 # How many evidence-armed decision pauses one change may open (issue #361). Default 1 — only the strongest fork is asked; the rest are reported as warnings. (env: PAQAD_DECISION_ARM_MAX_PER_CHANGE)
 # decision_arm_max_per_change=1
+# keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs (issue #538). strip (default) suppresses it where the provider exposes a project-level knob (Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level only). paqad's own delivery footer is never touched by this knob. (env: PAQAD_AI_ATTRIBUTION)
+# ai_attribution=strip
 
 # ── Spec pipeline (issue #512 — optional, off by default) ───
 # Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: with it off, feature-development is byte-identical to today (FR-11). It sits upstream of the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on. (env: PAQAD_SPEC_PIPELINE_ENABLED)
@@ -144,3 +146,5 @@
 # spec_pipeline_token_ceiling=20000
 # Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
 # spec_pipeline_experts_enabled=false
+# warn | strict: how firmly the specification stage adopts the pipeline once spec_pipeline_enabled is on. warn (default): the stage tells the agent to produce the spec through `paqad-ai spec pipeline`; a hand-written spec still freezes, recorded as pipeline_produced=false and shown in the receipt. strict: `spec freeze` refuses a spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is recorded on the frozen spec. No effect while spec_pipeline_enabled is off. (env: PAQAD_SPEC_PIPELINE_ADOPTION)
+# spec_pipeline_adoption=warn

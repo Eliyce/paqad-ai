@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,10 @@ import fg from 'fast-glob';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
+import {
+  loadFeatureDevelopmentPolicy,
+  renderDefaultFeatureDevelopmentPolicyYaml,
+} from '@/pipeline/feature-development-policy.js';
 
 // FR-11 (supercritical): with the pipeline disabled (the default), feature-development behaves
 // exactly as today. The pipeline is opt-in and sits UPSTREAM of the edit lock as a separate
@@ -27,6 +31,34 @@ describe('FR-11: pipeline is off by default and never runs in the feature-dev fl
     roots.push(clean);
     const cfg = readPipelineConfig(clean, {});
     expect(cfg.enabled).toBe(false);
+  });
+
+  it('the specification stage text is identical whether the pipeline flag is on or off (AC-1)', () => {
+    const off = mkdtempSync(join(tmpdir(), 'paqad-fr11-off-'));
+    const on = mkdtempSync(join(tmpdir(), 'paqad-fr11-on-'));
+    roots.push(off, on);
+    // The ON root actually carries the flags on; the OFF root carries nothing.
+    mkdirSync(join(on, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(on, '.paqad', '.config'),
+      ['spec_pipeline_enabled=true', 'spec_pipeline_adoption=strict'].join('\n'),
+    );
+    const offPolicy = loadFeatureDevelopmentPolicy(off).policy.stages.specification;
+    const onPolicy = loadFeatureDevelopmentPolicy(on).policy.stages.specification;
+    // The stage instructions do not branch on the flag — the pipeline clause is static.
+    expect(onPolicy.instructions).toEqual(offPolicy.instructions);
+    // And the clause is present regardless (AC-3, default policy surface).
+    expect(offPolicy.instructions.some((i) => i.includes('produce the spec through'))).toBe(true);
+  });
+
+  it('the rendered YAML carries the spec-pipeline instruction verbatim (AC-3)', () => {
+    const yaml = renderDefaultFeatureDevelopmentPolicyYaml();
+    expect(yaml).toContain(
+      'Spec pipeline (issue #512): when `spec_pipeline_enabled` is on, produce the spec through',
+    );
+    expect(yaml).toContain(
+      'spec_pipeline_adoption=strict a hand-written spec is refused at freeze',
+    );
   });
 
   it('no feature-development execution-path module imports the pipeline', () => {

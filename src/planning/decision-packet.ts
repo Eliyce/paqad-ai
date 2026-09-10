@@ -15,6 +15,9 @@ export const DECISION_CATEGORIES = [
   'delivery.ci_red',
   'spec.change',
   'spec.contradiction',
+  // Spec-pipeline expert conflict (issue #547): two experts make contradictory claims about the
+  // same target; the chief architect recommends but never applies — the human decides.
+  'spec.expert_conflict',
   'fix.proof_method',
   'test.flaky_judgement',
   'finding.triage',
@@ -143,6 +146,9 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   // change spec) and is never resolved silently.
   'spec.change': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
   'spec.contradiction': { create_new: false, reversibility: 'hard', ttl_days: 7 },
+  // Expert conflict (issue #547). Moderate: re-picking a different expert claim later reworks
+  // the spec but not the code; asked once per fork and reused when the same fork recurs.
+  'spec.expert_conflict': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
   // Fix protocol (issue #103). How to confirm an un-auto-checkable problem
   // (timing/appearance) is fixed — asked once, reused by kind. Reversible: the
   // agent can re-ask if the confirmation method stops fitting.

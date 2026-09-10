@@ -53,6 +53,34 @@ function readJson<T>(absPath: string): T | null {
 }
 
 /** Tolerant read of a feature bundle's signed `receipt.json`, or null when absent/corrupt. */
+/**
+ * The specification line for the end-of-change receipt (issue #547, FR-12.3), read from the
+ * frozen spec's provenance. Absent provenance renders today's plain line, so a pre-#547 record is
+ * unchanged. Pure and deterministic.
+ */
+export function specificationReceiptLine(provenance?: {
+  pipeline_produced: boolean;
+  manual_reason?: string;
+  experts?: { roles: string[]; accepted: number; declined: number; conflicts: number };
+}): string {
+  if (!provenance) return '🟢 specification: recorded';
+  if (provenance.pipeline_produced) {
+    const experts = provenance.experts;
+    if (experts && experts.roles.length > 0) {
+      const conflicts =
+        experts.conflicts > 0
+          ? ` (${experts.conflicts} conflict${experts.conflicts === 1 ? '' : 's'} decided)`
+          : '';
+      return `🟢 specification: pipeline-produced, experts: ${experts.roles.join(', ')}${conflicts}`;
+    }
+    return '🟢 specification: pipeline-produced';
+  }
+  if (provenance.manual_reason !== undefined && provenance.manual_reason.length > 0) {
+    return `🟡 specification: frozen without the pipeline (reason: ${provenance.manual_reason})`;
+  }
+  return '🟡 specification: frozen without the pipeline';
+}
+
 export function readFeatureReceipt(projectRoot: string, dirName: string): ReceiptEnvelope | null {
   return readJson<ReceiptEnvelope>(join(projectRoot, featureFilePath(dirName, 'receipt')));
 }

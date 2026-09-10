@@ -5,6 +5,7 @@ import {
   isBundleFileRequired,
   requiredBundleFiles,
   validateBundleFileContent,
+  validateSpecificationAdoption,
   type BundleCompletenessConfig,
 } from '@/feature-evidence/manifest.js';
 import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
@@ -19,6 +20,7 @@ const ALL_ON: BundleCompletenessConfig = {
   enterprise: true,
   evidenceLedger: true,
   aiBom: true,
+  specPipelineStrict: true,
 };
 
 /** All flags off — only the `always` files are required. */
@@ -31,7 +33,38 @@ const ALL_OFF: BundleCompletenessConfig = {
   enterprise: false,
   evidenceLedger: false,
   aiBom: false,
+  specPipelineStrict: false,
 };
+
+// Issue #547 — the strict-adoption content check (FR-10.2 / AC-12).
+describe('validateSpecificationAdoption', () => {
+  it('passes a pipeline-produced spec', () => {
+    expect(
+      validateSpecificationAdoption(JSON.stringify({ provenance: { pipeline_produced: true } })).ok,
+    ).toBe(true);
+  });
+
+  it('passes a spec with a non-empty manual reason', () => {
+    expect(
+      validateSpecificationAdoption(
+        JSON.stringify({ provenance: { pipeline_produced: false, manual_reason: 'hotfix' } }),
+      ).ok,
+    ).toBe(true);
+  });
+
+  it('fails a spec with no provenance, an empty reason, malformed JSON, or absent content', () => {
+    expect(validateSpecificationAdoption(JSON.stringify({})).ok).toBe(false);
+    expect(
+      validateSpecificationAdoption(
+        JSON.stringify({ provenance: { pipeline_produced: false, manual_reason: '  ' } }),
+      ).ok,
+    ).toBe(false);
+    const failure = validateSpecificationAdoption('{not json');
+    expect(failure.ok).toBe(false);
+    expect(failure.error).toMatch(/spec_pipeline_adoption=strict/);
+    expect(validateSpecificationAdoption(null).ok).toBe(false);
+  });
+});
 
 describe('bundle manifest', () => {
   it('covers every FEATURE_BUNDLE_FILES key plus report (guard for future files)', () => {

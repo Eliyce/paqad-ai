@@ -30,10 +30,14 @@ import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive.mjs';
+import {
+  ENABLEMENT_VERIFIED_LINE,
+  loadSteps,
+  specPipelineNudge,
+} from './lib/agent-entry-directive.mjs';
 import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
 import { emitContext } from './lib/context-seam-emit.mjs';
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -146,6 +150,13 @@ async function main(stdin) {
   // [paqad-context] block (F2), then route THIS prompt + record the outcome.
   emitContext(stdin, projectRoot);
   await emitRoute(stdin, projectRoot);
+  // Issue #547 (FR-1.4) — one spec-pipeline nudge when the pipeline is on; silent otherwise, so a
+  // flag-off project's output is unchanged (INV-1). Belt and braces for Claude Code; the router
+  // (FR-1.3) is the cross-host path.
+  const nudge = specPipelineNudge(readLayeredKey, projectRoot);
+  if (nudge) {
+    process.stdout.write(`${nudge}\n`);
+  }
   return 0;
 }
 

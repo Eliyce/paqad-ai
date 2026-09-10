@@ -119,3 +119,73 @@ describe('renderSpecMarkdown', () => {
     expect(renderSpecMarkdown(fullSpec())).toBe(renderSpecMarkdown(fullSpec()));
   });
 });
+
+// Issue #547 — the ## Provenance section renders only when the field is present (FR-9.4 / AC-11).
+describe('renderSpecMarkdown provenance', () => {
+  function frozenBase(): FeatureSpec {
+    return {
+      schema_version: '1',
+      spec_id: 'S-547',
+      spec_file: 'spec.md',
+      spec_hash: 'c'.repeat(64),
+      behaviour: ['FR-1: x'],
+      acceptance_criteria: [],
+      invariants: [],
+      open_questions: [],
+      frozen: {
+        frozen_at: '2026-09-10T00:00:00.000Z',
+        spec_hash: 'c'.repeat(64),
+        signed_off_by: 'h',
+      },
+    };
+  }
+
+  it('omits ## Provenance when the field is absent (byte-identical to a pre-#547 record)', () => {
+    expect(renderSpecMarkdown(frozenBase())).not.toContain('## Provenance');
+  });
+
+  it('renders a full pipeline provenance block', () => {
+    const md = renderSpecMarkdown({
+      ...frozenBase(),
+      provenance: {
+        pipeline_produced: true,
+        label: 'okay',
+        grounding: { sparse: true, path: 'rag' },
+        questions: { asked: 2, answered: 2, auto_answered: 1, deferred: 0 },
+        experts: {
+          roles: ['db-expert', 'security-auditor'],
+          accepted: 3,
+          declined: 1,
+          conflicts: 2,
+          auto_resolved: 1,
+        },
+      },
+    });
+    expect(md).toContain('## Provenance');
+    expect(md).toContain('- Pipeline-produced: yes');
+    expect(md).toContain('- Clarity label: okay');
+    expect(md).toContain('- Grounding: rag (sparse)');
+    expect(md).toContain('- Questions: asked 2, answered 2, auto-answered 1, deferred 0');
+    expect(md).toContain('- Experts: db-expert, security-auditor (accepted 3, declined 1)');
+    expect(md).toContain('- Conflicts: 2 (auto-resolved 1)');
+  });
+
+  it('renders a non-sparse grounding and omits the experts line when absent', () => {
+    const md = renderSpecMarkdown({
+      ...frozenBase(),
+      provenance: { pipeline_produced: true, grounding: { sparse: false, path: 'docs-fallback' } },
+    });
+    expect(md).toContain('- Grounding: docs-fallback');
+    expect(md).not.toContain('(sparse)');
+    expect(md).not.toContain('- Experts:');
+  });
+
+  it('renders a manual-reason provenance block', () => {
+    const md = renderSpecMarkdown({
+      ...frozenBase(),
+      provenance: { pipeline_produced: false, manual_reason: 'urgent hotfix' },
+    });
+    expect(md).toContain('- Pipeline-produced: no');
+    expect(md).toContain('- Manual reason: urgent hotfix');
+  });
+});

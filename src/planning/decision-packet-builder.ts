@@ -115,6 +115,8 @@ export function decisionQuestionForCategory(category: DecisionCategory): string 
       return 'The goal changed mid-build — update the frozen spec and re-freeze?';
     case 'spec.contradiction':
       return 'Work conflicts with the frozen spec — fix the code or change the spec?';
+    case 'spec.expert_conflict':
+      return 'Two experts disagree about the same target — which claim should the spec take?';
     case 'fix.proof_method':
       return 'This problem cannot be auto-checked — how should we confirm it is fixed?';
     case 'test.flaky_judgement':
@@ -283,6 +285,7 @@ export function decisionOptionsForCategory(
     case 'delivery.ci_red':
     case 'spec.change':
     case 'spec.contradiction':
+    case 'spec.expert_conflict':
     case 'fix.proof_method':
     case 'test.flaky_judgement':
     case 'finding.triage':

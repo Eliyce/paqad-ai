@@ -1,0 +1,6 @@
+interface:
+  display_name: Expert Synthesis (Chief Architect)
+  short_description: Read the request, the grounding, every expert note and the merge,
+    then accept or decline each finding, recommend a resolution for each conflict
+    (never applied), list the gaps, and give a readiness verdict. Never picked by the
+    detector; runs once any expert fired. The pipeline script validates the output.

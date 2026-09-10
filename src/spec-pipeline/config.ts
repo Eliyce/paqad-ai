@@ -13,6 +13,16 @@ export type GateMode = 'off' | 'warn' | 'strict';
 const GATE_MODES: readonly GateMode[] = ['off', 'warn', 'strict'];
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 
+/**
+ * How firmly the specification stage adopts the pipeline once it is enabled (issue #547, FR-1.1):
+ * `warn` (default) tells the agent to use the pipeline but still freezes a hand-written spec,
+ * recording `pipeline_produced=false`; `strict` refuses a non-pipeline spec at freeze unless
+ * `--manual --reason` is given. No effect while the pipeline is off.
+ */
+export type AdoptionMode = 'warn' | 'strict';
+
+const ADOPTION_MODES: readonly AdoptionMode[] = ['warn', 'strict'];
+
 export interface PipelineConfig {
   /** Master switch. Off by default ⇒ feature-development is byte-identical to today (FR-11). */
   enabled: boolean;
@@ -27,12 +37,23 @@ export interface PipelineConfig {
    * byte-identical to v1 (P2-INV-1). Only meaningful when {@link PipelineConfig.enabled} is on.
    */
   experts_enabled: boolean;
+  /**
+   * How firmly the specification stage adopts the pipeline (issue #547). `warn` by default; only
+   * meaningful when {@link PipelineConfig.enabled} is on.
+   */
+  adoption: AdoptionMode;
 }
 
 function asGateMode(raw: string | undefined, fallback: GateMode): GateMode {
   if (raw === undefined) return fallback;
   const v = raw.trim().toLowerCase();
   return (GATE_MODES as readonly string[]).includes(v) ? (v as GateMode) : fallback;
+}
+
+function asAdoptionMode(raw: string | undefined, fallback: AdoptionMode): AdoptionMode {
+  if (raw === undefined) return fallback;
+  const v = raw.trim().toLowerCase();
+  return (ADOPTION_MODES as readonly string[]).includes(v) ? (v as AdoptionMode) : fallback;
 }
 
 /** Resolve the spec-pipeline config snapshot for a project. Pure read; zero model tokens. */
@@ -55,6 +76,7 @@ export function readPipelineConfig(
       (n) => n > 0,
     ),
     experts_enabled: expertsRaw !== undefined && TRUTHY.has(expertsRaw.trim().toLowerCase()),
+    adoption: asAdoptionMode(map.get('spec_pipeline_adoption'), 'warn'),
   };
 }
 

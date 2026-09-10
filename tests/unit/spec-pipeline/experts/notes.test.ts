@@ -78,6 +78,128 @@ describe('validateExpertNotes', () => {
     expect(validateExpertNotes({ notes: [], tokens: { 'db-expert': -1 } }).ok).toBe(false);
     expect(validateExpertNotes({ notes: [], tokens: { 'db-expert': 'x' } }).ok).toBe(false);
   });
+
+  // Issue #547 — the additive FR-4.4 validation.
+  it('defaults kind/severity and assigns EX-<role>-<n> ids in note order', () => {
+    const result = validateExpertNotes({
+      notes: [
+        {
+          role: 'db-expert',
+          findings: [
+            { target: 'invoices', claim: 'index it' },
+            {
+              target: 'line_items',
+              claim: 'add a foreign key',
+              kind: 'invariant',
+              severity: 'must',
+            },
+          ],
+        },
+        {
+          role: 'security-auditor',
+          findings: [{ target: 'export', claim: 'scope to the customer' }],
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    const dbFindings = result.artifact!.notes[0]!.findings;
+    expect(dbFindings[0]).toMatchObject({
+      id: 'EX-db-expert-1',
+      kind: 'requirement',
+      severity: 'should',
+    });
+    expect(dbFindings[1]).toMatchObject({
+      id: 'EX-db-expert-2',
+      kind: 'invariant',
+      severity: 'must',
+    });
+    expect(result.artifact!.notes[1]!.findings[0]!.id).toBe('EX-security-auditor-1');
+  });
+
+  it('keeps an optional evidence string and rejects a non-string one', () => {
+    expect(
+      validateExpertNotes({
+        notes: [
+          { role: 'db-expert', findings: [{ target: 't', claim: 'c', evidence: 'doc: x.md' }] },
+        ],
+      }).artifact!.notes[0]!.findings[0]!.evidence,
+    ).toBe('doc: x.md');
+    expect(
+      validateExpertNotes({
+        notes: [{ role: 'db-expert', findings: [{ target: 't', claim: 'c', evidence: 5 }] }],
+      }).error,
+    ).toMatch(/evidence must be a string/);
+  });
+
+  it('rejects an unknown kind or severity', () => {
+    expect(
+      validateExpertNotes({
+        notes: [{ role: 'db-expert', findings: [{ target: 't', claim: 'c', kind: 'wish' }] }],
+      }).error,
+    ).toMatch(/unknown kind/);
+    expect(
+      validateExpertNotes({
+        notes: [
+          { role: 'db-expert', findings: [{ target: 't', claim: 'c', severity: 'blocker' }] },
+        ],
+      }).error,
+    ).toMatch(/unknown severity/);
+  });
+
+  it('accepts a note question and rejects a malformed one', () => {
+    const ok = validateExpertNotes({
+      notes: [
+        {
+          role: 'db-expert',
+          findings: [],
+          questions: [
+            {
+              business_text: 'How large is the invoices table expected to get?',
+              why_it_matters: 'a bulk export on a big table needs a plan',
+              options: ['thousands', 'millions'],
+              grounded_in: null,
+            },
+          ],
+        },
+      ],
+    });
+    expect(ok.ok).toBe(true);
+    expect(ok.artifact!.notes[0]!.questions).toHaveLength(1);
+    expect(
+      validateExpertNotes({
+        notes: [{ role: 'db-expert', findings: [], questions: [{ business_text: '' }] }],
+      }).error,
+    ).toMatch(/business_text/);
+    expect(
+      validateExpertNotes({
+        notes: [{ role: 'db-expert', findings: [], questions: 'nope' }],
+      }).error,
+    ).toMatch(/questions must be an array/);
+  });
+
+  it('runs the plain-language check over questions when sources are supplied', () => {
+    const result = validateExpertNotes(
+      {
+        notes: [
+          {
+            role: 'db-expert',
+            findings: [],
+            questions: [
+              {
+                business_text: 'idempotency key on the mutation endpoint',
+                why_it_matters: 'matters',
+                options: ['a', 'b'],
+                grounded_in: null,
+              },
+            ],
+          },
+        ],
+      },
+      { terms: [], prompt: 'plain words only' },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/plain language|flagged/);
+  });
 });
 
 describe('need/notes store', () => {

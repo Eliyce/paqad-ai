@@ -38,6 +38,7 @@ const ONLY_ALWAYS: BundleCompletenessConfig = {
   enterprise: false,
   evidenceLedger: false,
   aiBom: false,
+  specPipelineStrict: false,
 };
 
 function write(root: string, rel: string, content: string): void {
@@ -518,5 +519,73 @@ describe('specification.md paired-projection check (#512, Part A)', () => {
     });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('specification.md');
+  });
+});
+
+// Issue #547 — the strict-adoption content check on specification.json (FR-10.2 / AC-12).
+describe('spec pipeline strict adoption gate', () => {
+  const STRICT = { ...ONLY_ALWAYS, specPipelineStrict: true };
+
+  it('fails closed under strict when specification.json records no pipeline provenance', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR); // specification.json is '{}' — no provenance
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: STRICT,
+    });
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toMatch(/spec_pipeline_adoption=strict/);
+  });
+
+  it('passes under strict with a pipeline-produced spec', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(
+      root,
+      featureFilePath(DIR, 'specification'),
+      JSON.stringify({ provenance: { pipeline_produced: true } }),
+    );
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: STRICT,
+    });
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('passes under strict with a manual reason', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(
+      root,
+      featureFilePath(DIR, 'specification'),
+      JSON.stringify({ provenance: { pipeline_produced: false, manual_reason: 'hotfix' } }),
+    );
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: STRICT,
+    });
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('does not apply the check under warn (specPipelineStrict off)', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR); // no provenance
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ONLY_ALWAYS,
+    });
+    expect(gate!.status).toBe('pass');
   });
 });

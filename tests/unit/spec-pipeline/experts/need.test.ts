@@ -92,4 +92,28 @@ describe('validateExpertNeed', () => {
     const result = validateExpertNeed({ experts: [{ reason: 'no role' }] });
     expect(result.ok).toBe(false);
   });
+
+  it('rejects chief-architect with its own message — it is never picked (FR-2.4)', () => {
+    const result = validateExpertNeed({
+      experts: [{ role: 'chief-architect', reason: 'run the chief' }],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe(
+      '"chief-architect" is never picked: it runs automatically when any expert fires',
+    );
+  });
+
+  it('accepts the two new pickable experts (issue #547)', () => {
+    const result = validateExpertNeed({
+      experts: [
+        { role: 'qa-engineer', reason: 'observable behaviour' },
+        { role: 'user-flow-writer', reason: 'a multi-step user path' },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.artifact?.experts.map((e) => e.role)).toEqual([
+      'qa-engineer',
+      'user-flow-writer',
+    ]);
+  });
 });

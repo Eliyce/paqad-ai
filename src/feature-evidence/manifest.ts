@@ -30,6 +30,11 @@ export interface BundleCompletenessConfig {
   evidenceLedger: boolean;
   /** enterprise_ai_bom (gates ai-bom.json). */
   aiBom: boolean;
+  /**
+   * spec_pipeline_enabled && spec_pipeline_adoption === 'strict' (issue #547, FR-10.1). When on,
+   * the specification file must record that the pipeline produced it, or a manual reason.
+   */
+  specPipelineStrict: boolean;
 }
 
 /** How the gate proves a required file is not just present but real. */
@@ -192,6 +197,38 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
 ];
+
+/**
+ * The strict-adoption content check for `specification.json` (issue #547, FR-10.2). When
+ * `specPipelineStrict` is on, the frozen spec must carry `provenance.pipeline_produced === true`
+ * or a non-empty `provenance.manual_reason`; otherwise the gate fails closed. Under warn or with
+ * the pipeline off this is not called, so the gate is unchanged there. Pure: parses the JSON and
+ * inspects the provenance field, importing nothing from the pipeline.
+ */
+export function validateSpecificationAdoption(content: string | null): {
+  ok: boolean;
+  error?: string;
+} {
+  const failure = {
+    ok: false,
+    error:
+      'specification.json was not produced by the spec pipeline and records no manual reason (spec_pipeline_adoption=strict); re-freeze with --from-pipeline or --manual --reason',
+  };
+  if (content === null) return failure;
+  let spec: { provenance?: { pipeline_produced?: unknown; manual_reason?: unknown } };
+  try {
+    spec = JSON.parse(content) as typeof spec;
+  } catch {
+    return failure;
+  }
+  const provenance = spec.provenance;
+  if (!provenance) return failure;
+  if (provenance.pipeline_produced === true) return { ok: true };
+  if (typeof provenance.manual_reason === 'string' && provenance.manual_reason.trim().length > 0) {
+    return { ok: true };
+  }
+  return failure;
+}
 
 /** Whether a manifest entry is required under the resolved config. */
 export function isBundleFileRequired(

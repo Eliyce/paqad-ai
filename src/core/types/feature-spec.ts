@@ -1,4 +1,42 @@
 import type { VerificationCriterion } from './planning.js';
+import type { AgentRole } from './agent.js';
+import type { ClarityLabel, GroundingPath } from '@/spec-pipeline/types.js';
+import type { QuestionCounts } from '@/spec-pipeline/finish.js';
+import type { TraceArtifact } from '@/spec-pipeline/trace.js';
+
+/**
+ * How a frozen spec was produced (issue #547, FR-9.1). Additive and optional, like
+ * {@link SpecReviewSummary} and `non_goals`: a spec frozen with the pipeline off carries no
+ * `provenance` key at all, so pre-existing records read and render byte-identically. When the
+ * pipeline produced the spec, this records the run's grounding, its clarity label, the question
+ * counts, the experts consulted, and the traceability artifact; when a spec was frozen without
+ * the pipeline while it was enabled, `pipeline_produced` is `false` and `manual_reason` explains
+ * the exit.
+ */
+export interface SpecProvenance {
+  /** Whether the spec pipeline crafted this spec. */
+  pipeline_produced: boolean;
+  /** The run scratch directory the provenance was read from. */
+  run_dir?: string;
+  /** The S1 clarity label the run recorded. */
+  label?: ClarityLabel;
+  /** The grounding shape: whether the touched area was sparse, and which path grounded it. */
+  grounding?: { sparse: boolean; path: GroundingPath };
+  /** The S2 question counts (asked / answered / auto-answered / deferred). */
+  questions?: QuestionCounts;
+  /** The experts consulted and how their notes fared. */
+  experts?: {
+    roles: AgentRole[];
+    accepted: number;
+    declined: number;
+    conflicts: number;
+    auto_resolved: number;
+  };
+  /** The traceability artifact tying every spec line to its source (issue #547, FR-8.2). */
+  trace?: TraceArtifact;
+  /** Why the spec was frozen without the pipeline, under strict adoption (FR-9.3). */
+  manual_reason?: string;
+}
 
 /**
  * Where an invariant ("a rule the feature must never break") came from. Compiled
@@ -72,6 +110,12 @@ export interface FeatureSpec {
    * freeze unchanged. The `specification.md` projection renders it only when present.
    */
   non_goals?: string[];
+  /**
+   * How the spec was produced (issue #547, FR-9.1). Set by `spec freeze` when the spec pipeline
+   * is enabled; absent otherwise, so a spec frozen with the pipeline off is byte-identical to a
+   * pre-#547 record.
+   */
+  provenance?: SpecProvenance;
 }
 
 /**

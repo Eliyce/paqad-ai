@@ -320,3 +320,270 @@ describe('spec pipeline CLI', () => {
     expect(err.join('\n')).toMatch(/unknown step/);
   });
 });
+
+// Issue #547 — the craft-trace gate and the question merge through the CLI.
+describe('spec pipeline CLI — craft trace + question merge (issue #547)', () => {
+  function enablePipeline(root: string, experts = false): void {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    const lines = ['spec_pipeline_enabled=true'];
+    if (experts) lines.push('spec_pipeline_experts_enabled=true');
+    writeFileSync(join(root, '.paqad', '.config'), lines.join('\n'), 'utf8');
+  }
+  function writeJson(root: string, name: string, value: unknown): string {
+    const path = join(root, name);
+    writeFileSync(path, JSON.stringify(value), 'utf8');
+    return path;
+  }
+  const SPEC = [
+    '# Spec',
+    '## Functional requirements',
+    '- FR-1: index invoices.customer_id',
+    '## Acceptance criteria',
+    '- AC-1: given a lookup, when it runs, then it uses the index (proof: automated)',
+    '## Invariants',
+    '- INV-1: the index exists',
+  ].join('\n');
+
+  async function driveToCraft(root: string): Promise<void> {
+    await run(root, ['ground']);
+    await run(root, ['label', 'add a customer_id index to the invoices table']);
+    await run(root, ['record', 'questions', writeJson(root, 'q.json', { questions: [] })]);
+    await run(root, ['record', 'task', writeJson(root, 'task.json', { intent: 'index invoices' })]);
+  }
+
+  it('refuses craft without --trace while the pipeline is on (FR-8.3)', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    enablePipeline(root);
+    await driveToCraft(root);
+    const spec = join(root, 'spec.md');
+    writeFileSync(spec, SPEC, 'utf8');
+    const { err } = await run(root, ['record', 'craft', spec]);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/needs --trace/);
+  });
+
+  it('refuses an untraced requirement line and accepts a fully traced spec, writing trace.json', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enablePipeline(root);
+    await driveToCraft(root);
+    const spec = join(root, 'spec.md');
+    writeFileSync(spec, SPEC, 'utf8');
+
+    const partial = writeJson(root, 'trace-partial.json', {
+      entries: [
+        { id: 'FR-1', source: 'task.intent' },
+        { id: 'AC-1', source: 'task.intent' },
+      ],
+    });
+    const bad = await run(root, ['record', 'craft', spec, '--trace', partial]);
+    expect(process.exitCode).toBe(1);
+    expect(bad.err.join('\n')).toMatch(/line "INV-1" has no source/);
+
+    process.exitCode = 0;
+    const full = writeJson(root, 'trace.json', {
+      entries: [
+        { id: 'FR-1', source: 'task.intent' },
+        { id: 'AC-1', source: 'task.intent' },
+        { id: 'INV-1', source: 'task.intent' },
+      ],
+    });
+    const good = await run(root, ['record', 'craft', spec, '--trace', full]);
+    expect(process.exitCode).toBe(0);
+    expect(JSON.parse(good.out[0]!)).toMatchObject({ recorded: true, traced: true });
+    expect(existsSync(join(root, '.paqad', '_specs', dir, 'pipeline', 'trace.json'))).toBe(true);
+  });
+
+  it('merges expert and chief questions into the S2 batch (FR-7)', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    enablePipeline(root, true);
+    await run(root, ['ground']);
+    await run(root, ['label', 'add a customer_id index to the invoices table']);
+    await run(root, [
+      'experts',
+      'record',
+      writeJson(root, 'need.json', { experts: [{ role: 'db-expert', reason: 'index' }] }),
+    ]);
+    await run(root, [
+      'experts',
+      'notes',
+      writeJson(root, 'notes.json', {
+        notes: [
+          {
+            role: 'db-expert',
+            findings: [{ target: 'invoices', claim: 'index it' }],
+            questions: [
+              {
+                business_text: 'How many invoices should one customer download at once?',
+                why_it_matters: 'a bulk export needs a plan',
+                options: ['a few', 'thousands'],
+                grounded_in: null,
+              },
+            ],
+          },
+        ],
+        tokens: {},
+      }),
+    ]);
+    await run(root, [
+      'experts',
+      'synthesis',
+      writeJson(root, 'synth.json', {
+        verdict: 'ready',
+        accepted: ['EX-db-expert-1'],
+        declined: [],
+        conflicts: [],
+        gaps: [],
+        questions: [],
+        tokens: 0,
+      }),
+    ]);
+    const { out } = await run(root, [
+      'record',
+      'questions',
+      writeJson(root, 'q.json', { questions: [] }),
+    ]);
+    // The expert's question survived into the asked batch.
+    expect(JSON.parse(out[0]!).asked).toBe(1);
+  });
+});
+
+// Issue #547 — the `start` verb grounds + labels a request in one go (FR-1.5).
+describe('spec pipeline CLI — start (issue #547)', () => {
+  function writeReq(root: string, body: string): string {
+    const p = join(root, 'request.md');
+    writeFileSync(p, body, 'utf8');
+    return p;
+  }
+
+  it('grounds and labels from a request file, writing request.md and printing the next step', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const req = writeReq(root, 'Let customers download their invoices as CSV.');
+    const { out } = await run(root, ['start', '--request-file', req]);
+    const result = JSON.parse(out[0]!);
+    expect(result).toHaveProperty('label');
+    expect(result).toHaveProperty('next_step');
+    expect(result.experts).toBe('off');
+    expect(existsSync(join(root, '.paqad', '_specs', dir, 'pipeline', 'request.md'))).toBe(true);
+    expect(existsSync(join(root, pipelineArtifactPath(dir, 'ground')))).toBe(true);
+    expect(existsSync(join(root, pipelineArtifactPath(dir, 'label')))).toBe(true);
+  });
+
+  it('errors when neither --request-file nor --ticket is given', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start']);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/needs --request-file/);
+  });
+
+  it('errors on an unreadable request file', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start', '--request-file', join(root, 'missing.md')]);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/could not read request file/);
+  });
+
+  it('refuses a Jira ticket ref (MCP-only)', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start', '--ticket', 'PROJ-123']);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/Atlassian MCP/);
+  });
+});
+
+// Issue #547 — the metrics verb and remaining start/craft branches (coverage).
+describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
+  function writeRun(root: string, dir: string, file: string, value: unknown): void {
+    const scratch = join(root, '.paqad', '_specs', dir, 'pipeline');
+    mkdirSync(scratch, { recursive: true });
+    writeFileSync(join(scratch, file), typeof value === 'string' ? value : JSON.stringify(value));
+  }
+
+  it('metrics reports the active run', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    writeRun(root, dir, 'finish.json', {
+      provenance: {
+        experts: {
+          accounting: { experts: [{ role: 'db-expert', tokens: 500, changed_spec: true }] },
+          conflicts: [],
+        },
+        metrics: { label: 'okay', grounding_sparse: false, tokens_by_step: {} },
+      },
+    });
+    const { out } = await run(root, ['metrics']);
+    const report = JSON.parse(out[0]!);
+    expect(report.runs).toBe(1);
+    // The table renders because a role has a changed_spec rate.
+    expect(out.join('\n')).toMatch(/db-expert/);
+  });
+
+  it('metrics --all aggregates across runs without an active feature', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    writeRun(root, 'run-a', 'finish.json', {
+      provenance: { metrics: { label: 'clear', grounding_sparse: false, tokens_by_step: {} } },
+    });
+    const { out } = await run(root, ['metrics', '--all']);
+    expect(JSON.parse(out[0]!).runs).toBe(1);
+  });
+
+  it('start refuses an unrecognised ticket ref', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    const { err } = await run(root, ['start', '--ticket', 'not-a-ref']);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/not a GitHub issue ref/);
+  });
+
+  it('record craft refuses a malformed trace', async () => {
+    const root = tempRoot();
+    activeFeature(root);
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad', '.config'), 'spec_pipeline_enabled=true', 'utf8');
+    await run(root, ['ground']);
+    await run(root, ['label', 'add a customer_id index to the invoices table']);
+    await run(root, [
+      'record',
+      'questions',
+      (() => {
+        const p = join(root, 'q.json');
+        writeFileSync(p, JSON.stringify({ questions: [] }));
+        return p;
+      })(),
+    ]);
+    await run(root, [
+      'record',
+      'task',
+      (() => {
+        const p = join(root, 't.json');
+        writeFileSync(p, JSON.stringify({ intent: 'x' }));
+        return p;
+      })(),
+    ]);
+    const spec = join(root, 'spec.md');
+    writeFileSync(
+      spec,
+      [
+        '## Functional requirements',
+        '- FR-1: x',
+        '## Acceptance criteria',
+        '- AC-1: given a, when b, then c (proof: automated)',
+        '## Invariants',
+        '- INV-1: y',
+      ].join('\n'),
+    );
+    const badTrace = join(root, 'bad-trace.json');
+    writeFileSync(badTrace, JSON.stringify({ entries: [{ id: 'ZZ-1', source: 's' }] }));
+    process.exitCode = 0;
+    const { err } = await run(root, ['record', 'craft', spec, '--trace', badTrace]);
+    expect(process.exitCode).toBe(1);
+    expect(err.join('\n')).toMatch(/malformed/);
+  });
+});

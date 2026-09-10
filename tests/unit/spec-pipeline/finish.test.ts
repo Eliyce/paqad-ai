@@ -77,3 +77,44 @@ describe('buildProvenance', () => {
     expect(prov.experts?.conflicts).toEqual([]);
   });
 });
+
+// Issue #547 — buildProvenance folds the metrics in only when given (FR-11.1).
+describe('buildProvenance metrics', () => {
+  const metrics = {
+    grounding_sparse: false,
+    grounding_path: 'docs-fallback' as const,
+    label: 'clear' as const,
+    signal_count: 0,
+    questions: { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
+    expert_count: 0,
+    spec_words: 10,
+    tokens_by_step: {},
+    tiers_by_step: {},
+    ceiling_warnings: [],
+    a5_live: true,
+    a5_verdict: 'live',
+    freeze_checks_fired: [],
+  };
+
+  it('includes metrics when provided', () => {
+    const p = buildProvenance(
+      cfg(),
+      true,
+      [],
+      { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
+      undefined,
+      metrics,
+    );
+    expect(p.metrics).toBe(metrics);
+  });
+
+  it('omits the metrics key when not provided (unchanged record)', () => {
+    const p = buildProvenance(cfg(), true, [], {
+      asked: 0,
+      answered: 0,
+      auto_answered: 0,
+      deferred: 0,
+    });
+    expect('metrics' in p).toBe(false);
+  });
+});

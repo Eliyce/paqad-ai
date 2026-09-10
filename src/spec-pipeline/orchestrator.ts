@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 
 import { checkSpecShape } from './parser-parity.js';
-import { readPipelineConfig, type PipelineConfig } from './config.js';
+import { expertsActive, readPipelineConfig, type PipelineConfig } from './config.js';
 import {
   PIPELINE_STEPS,
   type AutoAnswer,
@@ -25,11 +25,17 @@ import {
 export const PIPELINE_ARTIFACT_FILES: Record<PipelineStep, string> = {
   ground: 'grounding.json',
   label: 'label.json',
+  experts: 'expert-synthesis.json',
   questions: 'questions.json',
   task: 'task.json',
   craft: 'spec.md',
   finish: 'finish.json',
 };
+
+/** The need scratch file the experts step reads to decide whether it is skippable (FR-2.2). */
+const EXPERT_NEED_FILE = 'experts.json';
+/** The notes scratch file whose questions join the S2 batch (FR-7.1). */
+const EXPERT_NOTES_FILE = 'expert-notes.json';
 
 /** Project-relative scratch dir for a feature's pipeline run (git-ignored, `_specs/`). */
 export function pipelineScratchDir(dirName: string): string {
@@ -102,6 +108,22 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
         typeof obj.question_budget !== 'number'
       ) {
         return { ok: false, error: 'label.json needs label, signals[], question_budget' };
+      }
+      return { ok: true };
+    case 'experts':
+      // The step-lock is a light shape check (issue #547); the full FR-5.4 chief-architect
+      // validation runs in the `experts synthesis` CLI verb before this artifact is written.
+      if (
+        typeof obj.verdict !== 'string' ||
+        !Array.isArray(obj.accepted) ||
+        !Array.isArray(obj.declined) ||
+        !Array.isArray(obj.conflicts) ||
+        !Array.isArray(obj.gaps)
+      ) {
+        return {
+          ok: false,
+          error: 'expert-synthesis.json needs verdict, accepted[], declined[], conflicts[], gaps[]',
+        };
       }
       return { ok: true };
     case 'questions': {
@@ -184,12 +206,66 @@ export function readQuestionsArtifact(
   };
 }
 
+/** The number of experts the recorded need artifact names, or null when it never ran (FR-2.2). */
+function recordedExpertCount(projectRoot: string, dirName: string): number | null {
+  const raw = readFileSafe(join(projectRoot, pipelineScratchDir(dirName), EXPERT_NEED_FILE));
+  const data = raw === null ? undefined : parseJson(raw);
+  if (typeof data !== 'object' || data === null) return null;
+  const experts = (data as Record<string, unknown>).experts;
+  return Array.isArray(experts) ? experts.length : null;
+}
+
 /**
- * Whether a step counts as complete for sequencing. `questions` is complete-by-skip when the
- * label is `clear` (FR-3.4 / FR-8.4 — an empty step is skipped, never run "to be safe").
+ * Whether any expert or chief question is waiting to join the S2 batch (issue #547, FR-7.3). Reads
+ * the notes' `questions[]` and the synthesis' `gaps[].question` + `questions[]` directly, so a
+ * `clear`-labelled prompt that nonetheless drew expert questions still runs S2.
+ */
+export function hasExpertOrChiefQuestions(projectRoot: string, dirName: string): boolean {
+  const notes = parseJson(
+    readFileSafe(join(projectRoot, pipelineScratchDir(dirName), EXPERT_NOTES_FILE)) ?? '',
+  );
+  if (typeof notes === 'object' && notes !== null) {
+    const list = (notes as Record<string, unknown>).notes;
+    if (Array.isArray(list)) {
+      for (const note of list) {
+        const questions = (note as Record<string, unknown>)?.questions;
+        if (Array.isArray(questions) && questions.length > 0) return true;
+      }
+    }
+  }
+  const synthesis = parseJson(
+    readFileSafe(join(projectRoot, pipelineArtifactPath(dirName, 'experts'))) ?? '',
+  );
+  if (typeof synthesis === 'object' && synthesis !== null) {
+    const obj = synthesis as Record<string, unknown>;
+    if (Array.isArray(obj.questions) && obj.questions.length > 0) return true;
+    if (Array.isArray(obj.gaps)) {
+      for (const gap of obj.gaps) {
+        if ((gap as Record<string, unknown>)?.question !== undefined) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether a step counts as complete for sequencing.
+ *   - `experts` is complete-by-skip when the roster is off or the recorded need names zero experts
+ *     (issue #547, FR-2.2); otherwise it needs a valid `expert-synthesis.json`.
+ *   - `questions` is complete-by-skip when the label is `clear` AND no expert or chief question is
+ *     pending (FR-7.3; the base rule is FR-3.4 — an empty step is skipped, never run "to be safe").
  */
 export function stepComplete(projectRoot: string, dirName: string, step: PipelineStep): boolean {
-  if (step === 'questions' && labelIsClear(projectRoot, dirName)) {
+  if (step === 'experts') {
+    if (!expertsActive(readPipelineConfig(projectRoot))) return true;
+    if (recordedExpertCount(projectRoot, dirName) === 0) return true;
+    return stepArtifactValid(projectRoot, dirName, step);
+  }
+  if (
+    step === 'questions' &&
+    labelIsClear(projectRoot, dirName) &&
+    !hasExpertOrChiefQuestions(projectRoot, dirName)
+  ) {
     return true;
   }
   return stepArtifactValid(projectRoot, dirName, step);
@@ -212,11 +288,21 @@ export interface StepGate {
   message?: string;
 }
 
+export interface AssertStepOptions {
+  /**
+   * Whether an unresolved `spec.expert_conflict` decision packet is pending for this change
+   * (issue #547, FR-6.4). The CLI reads the decision store and passes it; `questions` cannot run
+   * while one is pending, so the human resolves the conflict before the batch is asked.
+   */
+  hasPendingExpertConflict?: boolean;
+}
+
 /** Assert a step may run: every earlier step must be complete (FR-1.2 / AC-10). */
 export function assertCanRunStep(
   projectRoot: string,
   dirName: string,
   step: PipelineStep,
+  options: AssertStepOptions = {},
 ): StepGate {
   for (const earlier of PIPELINE_STEPS) {
     if (earlier === step) break;
@@ -227,6 +313,14 @@ export function assertCanRunStep(
         message: `cannot run "${step}": earlier step "${earlier}" is not complete (${PIPELINE_ARTIFACT_FILES[earlier]} missing or invalid)`,
       };
     }
+  }
+  if (step === 'questions' && options.hasPendingExpertConflict) {
+    return {
+      allowed: false,
+      missing: 'experts',
+      message:
+        'cannot run "questions": an expert conflict is still pending a decision — resolve it first (FR-6.4)',
+    };
   }
   return { allowed: true };
 }

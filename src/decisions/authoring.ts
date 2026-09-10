@@ -42,7 +42,7 @@ import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/deci
  * `paqad-ai decision create`; `evidence-armed` on one the machine minted from computed
  * evidence (issue #361), so a reader can tell an asked question from a detected one.
  */
-export type ContractDecisionOrigin = 'evidence-armed';
+export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict';
 
 /**
  * A single option offered by a decision packet.
