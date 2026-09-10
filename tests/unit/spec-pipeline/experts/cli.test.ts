@@ -96,7 +96,8 @@ describe('spec pipeline experts CLI', () => {
     const result = JSON.parse(out[0]!);
     expect(result).toMatchObject({ recorded: 'expert-need', experts: 1 });
     expect(result.briefs).toHaveLength(1);
-    expect(result.briefs[0]).toMatch(/briefs\/db-expert\.md$/);
+    // Separator-agnostic: the path uses the OS separator (backslash on Windows).
+    expect(result.briefs[0]).toContain(join('briefs', 'db-expert.md'));
     expect(readExpertNeed(root, dir)).toEqual({
       experts: [{ role: 'db-expert', reason: 'adds the invoices migration' }],
     });
