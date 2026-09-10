@@ -225,7 +225,14 @@ describe('spec pipeline experts CLI', () => {
       ].join('\n'),
       'utf8',
     );
-    await run(root, ['record', 'craft', craftFile]);
+    const trace = writeArtifact(root, 'trace.json', {
+      entries: [
+        { id: 'FR-1', source: 'EX-db-expert-1' },
+        { id: 'AC-1', source: 'task.intent' },
+        { id: 'INV-1', source: 'EX-db-expert-1' },
+      ],
+    });
+    await run(root, ['record', 'craft', craftFile, '--trace', trace]);
 
     const { out } = await run(root, ['finish']);
     const result = JSON.parse(out[0]!);

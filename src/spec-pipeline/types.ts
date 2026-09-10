@@ -117,4 +117,10 @@ export interface QuestionsArtifact {
   answered: number;
   /** How many were deferred. */
   deferred: number;
+  /**
+   * Expert/chief questions dropped by the `MAX_EXPERT_QUESTIONS` cap (issue #547, FR-7.2). Never
+   * silently lost — recorded so the metrics can show whether the cap is too tight. Absent on a run
+   * with the experts off.
+   */
+  deferred_from_experts?: PipelineQuestion[];
 }

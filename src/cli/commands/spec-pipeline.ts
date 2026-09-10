@@ -30,16 +30,22 @@ import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.j
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
 import { validateExpertNeed } from '@/spec-pipeline/experts/need.js';
 import {
+  readExpertNeed,
+  readExpertNotes,
   validateExpertNotes,
   writeExpertNeed,
   writeExpertNotes,
+  type ExpertNotesArtifact,
 } from '@/spec-pipeline/experts/notes.js';
+import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
 import {
   readExpertMerge,
+  readExpertSynthesis,
   validateExpertSynthesis,
   writeExpertMerge,
   writeExpertSynthesis,
 } from '@/spec-pipeline/experts/synthesis.js';
+import type { ExpertNeedArtifact } from '@/spec-pipeline/experts/types.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
@@ -54,6 +60,13 @@ import {
 } from '@/spec-pipeline/orchestrator.js';
 import type { PlainLanguageSources } from '@/spec-pipeline/plain-language.js';
 import { specCodeCheckLive } from '@/spec-pipeline/spec-code-check.js';
+import {
+  carryForwardIds,
+  parseTraceArtifact,
+  readTrace,
+  validateCraftTrace,
+  writeTrace,
+} from '@/spec-pipeline/trace.js';
 import type {
   GroundingArtifact,
   LabelArtifact,
@@ -219,9 +232,10 @@ export function createSpecPipelineCommand(): Command {
     .description('Hand an agent-produced step artifact back to the pipeline (validated + advanced)')
     .argument('<step>', 'One of: questions, task, craft')
     .argument('<file>', 'Path to the artifact the agent produced')
+    .option('--trace <path>', 'For craft: the trace.json tying every spec line to a source')
     .option(...projectRootOpt)
     .option(...sessionOpt)
-    .action((step: string, file: string, options: CommonOptions) => {
+    .action((step: string, file: string, options: CommonOptions & { trace?: string }) => {
       const resolved = resolveDir(options);
       if (!resolved) return;
       if (step !== 'questions' && step !== 'task' && step !== 'craft') {
@@ -261,14 +275,39 @@ export function createSpecPipelineCommand(): Command {
       // question never reaches the user (AC-1/AC-3). Every other step is written as-is.
       if (pipelineStep === 'questions') {
         const parsed = JSON.parse(content) as Partial<QuestionsArtifact>;
-        const candidates = (parsed.questions ?? []) as PipelineQuestion[];
-        const { answered, remaining } = autoAnswerQuestions(options.projectRoot, candidates);
+        const enrichment = (parsed.questions ?? []) as PipelineQuestion[];
+        // Merge the expert and chief questions into the one batch (issue #547, FR-7) ONLY when the
+        // roster is on; with it off this path is byte-identical to the v1 behaviour (INV-2).
+        const config = readPipelineConfig(options.projectRoot);
+        let batch = enrichment;
+        let deferredFromExperts: PipelineQuestion[] = [];
+        if (expertsActive(config)) {
+          const label = readScratchJson<LabelArtifact>(
+            options.projectRoot,
+            resolved.dirName,
+            'label.json',
+          );
+          const expertChief = collectExpertQuestions(
+            readExpertNeed(options.projectRoot, resolved.dirName) as ExpertNeedArtifact | null,
+            readExpertNotes(options.projectRoot, resolved.dirName) as ExpertNotesArtifact | null,
+            readExpertSynthesis(options.projectRoot, resolved.dirName),
+          );
+          const merged = mergeQuestionBatch(
+            enrichment,
+            expertChief,
+            label?.question_budget ?? enrichment.length,
+          );
+          batch = merged.questions;
+          deferredFromExperts = merged.deferred_from_experts;
+        }
+        const { answered, remaining } = autoAnswerQuestions(options.projectRoot, batch);
         const enriched: QuestionsArtifact = {
           questions: remaining,
           auto_answered: answered,
           asked: remaining.length,
           answered: typeof parsed.answered === 'number' ? parsed.answered : 0,
           deferred: typeof parsed.deferred === 'number' ? parsed.deferred : 0,
+          ...(deferredFromExperts.length > 0 ? { deferred_from_experts: deferredFromExperts } : {}),
         };
         writeStepArtifact(
           options.projectRoot,
@@ -285,6 +324,51 @@ export function createSpecPipelineCommand(): Command {
             auto_answered: answered.length,
           }),
         );
+        return;
+      }
+      // Craft trace gate (issue #547, FR-8): when the pipeline is on, `--trace` is required and
+      // every spec line must trace to a source, with every accepted expert finding reflected.
+      if (pipelineStep === 'craft') {
+        const config = readPipelineConfig(options.projectRoot);
+        if (config.enabled) {
+          if (!options.trace) {
+            console.error('craft needs --trace <trace.json> while the spec pipeline is on (FR-8.3)');
+            process.exitCode = 1;
+            return;
+          }
+          let traceRaw: unknown;
+          try {
+            traceRaw = JSON.parse(readFileSync(options.trace, 'utf8'));
+          } catch {
+            console.error(`could not read or parse trace "${options.trace}"`);
+            process.exitCode = 1;
+            return;
+          }
+          const agentTrace = parseTraceArtifact(traceRaw);
+          if (!agentTrace) {
+            console.error('trace.json is malformed — each entry needs an id (FR/NFR/AC/INV) and a source');
+            process.exitCode = 1;
+            return;
+          }
+          const accepted = expertsActive(config)
+            ? (readExpertSynthesis(options.projectRoot, resolved.dirName)?.accepted ?? [])
+            : [];
+          const gate = validateCraftTrace(content, agentTrace, accepted);
+          if (!gate.ok) {
+            console.error(gate.errors.join('; '));
+            process.exitCode = 1;
+            return;
+          }
+          // Stable ids carry forward by source lineage so A5 tracks a requirement across re-craft.
+          const stable = carryForwardIds(
+            agentTrace.entries.map((entry) => ({ kind: entry.kind, source: entry.source })),
+            readTrace(options.projectRoot, resolved.dirName),
+          );
+          writeTrace(options.projectRoot, resolved.dirName, stable);
+        }
+        writeStepArtifact(options.projectRoot, resolved.dirName, pipelineStep, content);
+        recordStep(options.projectRoot, resolved.dirName, pipelineStep, 'complete');
+        console.log(JSON.stringify({ step, recorded: true, traced: config.enabled }));
         return;
       }
       writeStepArtifact(options.projectRoot, resolved.dirName, pipelineStep, content);
