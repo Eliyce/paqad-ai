@@ -125,4 +125,19 @@ describe('runStages (AC-5)', () => {
     expect(results[0]!.passed).toBe(false);
     expect(results[0]!.invalid).toContain('Unsupported shell syntax');
   });
+
+  it('uses real default clocks when none are injected', async () => {
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const results = await runStages(
+      [{ logical_command: 'format', command: 'fmt', stage: 1 }],
+      shell,
+      { cwd: '/tmp', parallel: true, availableParallelism: 2 },
+    );
+    expect(results[0]!.started_at).not.toBe('');
+    expect(results[0]!.duration_ms).toBeGreaterThanOrEqual(0);
+  });
 });

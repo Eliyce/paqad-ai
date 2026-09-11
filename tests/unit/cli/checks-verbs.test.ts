@@ -124,6 +124,7 @@ describe('renderReceipt (issue #554)', () => {
       ['too-few-cores', 'fewer than 4 cores'],
       ['harness-failure:x', 'the parallel harness failed'],
       ['unknown', 'run the test-runner-discovery skill'],
+      ['no-parallel-command', 'no-parallel-command'],
     ] as const) {
       const seq = baseResult({
         mode: {
@@ -316,5 +317,53 @@ describe('checks plan / record-runner verbs', () => {
     const out = await run(['record-runner', join(root, 'x.json'), '--project-root', root]);
     expect(process.exitCode).toBe(2);
     expect(out.join('\n')).toContain('no project profile');
+  });
+
+  it('checks plan handles a project with no profile', async () => {
+    const out = await run(['plan', '--project-root', root]);
+    expect(out.join('\n')).toContain('test: sequential');
+  });
+
+  it('checks plan does not re-derive when the profile already records testing', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: pnpm test -- --reporter=tap',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+        'testing:',
+        '  runner_id: vitest',
+        '  parallel: native',
+        '  detected_by: script',
+        '  recorded_at: 2026-09-11T00:00:00.000Z',
+      ].join('\n') + '\n',
+    );
+    expect((await run(['plan', '--project-root', root])).join('\n')).toContain('test: native');
+  });
+
+  it('checks record-runner rejects a metacharacter token after the prefix', async () => {
+    writeFileSync(join(root, 'package.json'), '{}');
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      ['commands:', '  test: pnpm test -- --reporter=tap'].join('\n') + '\n',
+    );
+    writeFileSync(
+      join(root, 'm.json'),
+      JSON.stringify({
+        schema_version: 1,
+        runner_id: 'x',
+        parallel: 'available',
+        reason: null,
+        test_parallel: 'pnpm test -- --jobs=<processes> `evil`',
+        single_test_selector: 'file',
+        evidence: ['package.json'],
+      }),
+    );
+    await run(['record-runner', join(root, 'm.json'), '--project-root', root]);
+    expect(process.exitCode).toBe(2);
   });
 });
