@@ -924,6 +924,7 @@ function renderSubmenu(): string {
     ['aibom', 'AI-BOM'],
     ['delivery', 'Delivery'],
     ['review', 'Review'],
+    ['checks', 'Checks'],
     ['visual-evidence', 'Visual evidence'],
   ];
   return `<nav class="submenu">${items
@@ -978,6 +979,63 @@ function renderVisualEvidence(bundle: FeatureBundleExport): string {
     );
   }
   return panel('visual-evidence', 'Visual evidence', parts.join(''));
+}
+
+/**
+ * Render the Checks section (issue #554): each command with its verdict glyph and duration, how the
+ * run executed (mode), and the tests that failed under parallel but passed alone. Reads the v2
+ * `checks.json` from the bundle; a v1 report (no `commands`) shows the plain empty note. Zero LLM.
+ */
+function renderChecks(bundle: FeatureBundleExport): string {
+  const checks = bundle.files.checks as
+    | {
+        commands?: Array<{ logical_command: string | null; command: string; passed: boolean; duration_ms: number }>;
+        mode?: { test_mode: string; processes: number | null; parallel_commands: boolean; fallback_reason: string | null };
+        flaky_under_parallel?: Array<{ test_id: string; file_path: string | null; line_number: number | null }>;
+        critical_path?: { logical_command: string | null; duration_ms: number };
+      }
+    | undefined;
+  if (!checks || !Array.isArray(checks.commands) || checks.commands.length === 0) {
+    return panel(
+      'checks',
+      'Checks',
+      '',
+      'No check commands were recorded for this change. `paqad-ai checks run` writes them into the bundle.',
+    );
+  }
+  const parts: string[] = [];
+  if (checks.mode) {
+    const proc = checks.mode.processes ? ` ×${checks.mode.processes}` : '';
+    const fallback = checks.mode.fallback_reason ? ` — fell back: ${checks.mode.fallback_reason}` : '';
+    parts.push(
+      `<p class="muted">Test mode: <span class="word">${escapeHtml(`${checks.mode.test_mode}${proc}`)}</span>${escapeHtml(fallback)}</p>`,
+    );
+  }
+  const rows = checks.commands
+    .map((command) => {
+      const glyph = GLYPH_FOR[command.passed ? 'good' : 'failed'];
+      const name = command.logical_command ?? command.command;
+      return `<tr><td>${glyph} ${escapeHtml(name)}</td><td class="dur">${formatDuration(command.duration_ms)}</td></tr>`;
+    })
+    .join('');
+  parts.push(`<table><thead><tr><th>Command</th><th>Duration</th></tr></thead><tbody>${rows}</tbody></table>`);
+  if (checks.critical_path && checks.critical_path.logical_command) {
+    parts.push(
+      `<p class="muted">Critical path: <span class="word">${escapeHtml(checks.critical_path.logical_command)}</span> (${formatDuration(checks.critical_path.duration_ms)}).</p>`,
+    );
+  }
+  if (Array.isArray(checks.flaky_under_parallel) && checks.flaky_under_parallel.length > 0) {
+    const items = checks.flaky_under_parallel
+      .map((flaky) => {
+        const loc = flaky.file_path
+          ? `${flaky.file_path}${flaky.line_number !== null ? `:${flaky.line_number}` : ''}`
+          : '';
+        return `<li>${escapeHtml(flaky.test_id)}${loc ? ` <span class="muted">(${escapeHtml(loc)})</span>` : ''}</li>`;
+      })
+      .join('');
+    parts.push(`<h3>Flaky under parallel — recorded, not blocking</h3><ul>${items}</ul>`);
+  }
+  return panel('checks', 'Checks', parts.join(''));
 }
 
 // ── Assembly ────────────────────────────────────────────────────────────────
@@ -1113,6 +1171,7 @@ export function renderFeatureReportHtml(
     renderAiBom(bundle),
     renderDelivery(bundle),
     renderReview(bundle),
+    renderChecks(bundle),
     renderVisualEvidence(bundle),
     renderFooter(),
   ].join('\n');
