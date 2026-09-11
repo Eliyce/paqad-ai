@@ -52,6 +52,8 @@ export interface ProjectFeatureFlags {
   feature_report: boolean;
   /** Issue #362 — compute + surface the per-change shape metrics (dup on new code + reuse rate). */
   metrics_enabled: boolean;
+  /** Issue #551 — capture screenshots of documented flows for frontend changes (default off, coding-gated). */
+  visual_evidence: boolean;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;

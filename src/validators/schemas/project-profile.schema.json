@@ -164,7 +164,8 @@
         "site_map": { "type": "boolean" },
         "lean_rules": { "type": "boolean" },
         "feature_report": { "type": "boolean" },
-        "metrics_enabled": { "type": "boolean" }
+        "metrics_enabled": { "type": "boolean" },
+        "visual_evidence": { "type": "boolean" }
       }
     },
     "enterprise": {

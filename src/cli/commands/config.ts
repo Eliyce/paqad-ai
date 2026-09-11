@@ -4,6 +4,7 @@ import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/fr
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { resolveStagesMode } from '@/stage-evidence/mode.js';
 import { resolveBundleCompletenessMode } from '@/verification/repository/bundle-completeness-mode.js';
+import { resolveVisualEvidenceMode } from '@/verification/repository/visual-evidence-mode.js';
 
 /**
  * `paqad-ai config effective` (issue #326) — print, per knob, the value that ACTUALLY
@@ -42,6 +43,8 @@ const KNOB_CONSUMERS: Record<string, string> = {
   team_agents: 'full-lane team routing',
   analytics_instrumentation: 'analytics gate + classifier',
   site_map: 'site-map engine + workflow',
+  visual_evidence: 'visual-evidence capture (frontend trigger + gate + CLI)',
+  visual_evidence_mode: 'visual-evidence gate (end-of-change enforcement)',
   lean_rules: 'context seam (rule injection)',
   rag_enabled: 'context seam / retrieval',
   rag_embedding_provider: 'RAG embedding provider',
@@ -121,6 +124,9 @@ export function resolveEffectiveConfig(
       surface = `${surface} → floored`;
     } else if (spec.key === 'bundle_completeness') {
       value = resolveBundleCompletenessMode(projectRoot, env);
+      surface = `${surface} → floored`;
+    } else if (spec.key === 'visual_evidence_mode') {
+      value = resolveVisualEvidenceMode(projectRoot, env);
       surface = `${surface} → floored`;
     }
 
