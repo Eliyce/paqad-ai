@@ -30,5 +30,6 @@ export function selectTestRunner(
 
   const normalized = command.toLowerCase();
   const byCommand = runners.find((runner) => normalized.includes(runner.runner_id.toLowerCase()));
-  return byCommand ?? runners[0] ?? null;
+  // runners is non-empty here, so runners[0] is defined — no `?? null` dead branch.
+  return byCommand ?? runners[0]!;
 }

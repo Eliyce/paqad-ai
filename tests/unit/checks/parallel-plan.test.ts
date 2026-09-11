@@ -142,4 +142,14 @@ describe('resolveTestPlan (AC-3)', () => {
     expect(plan.mode).toBe('sequential');
     expect(plan.reason).toBe('unknown');
   });
+
+  it('available but no recorded parallel command → sequential, no-parallel-command', () => {
+    const plan = resolveTestPlan(
+      make('t', undefined, AVAILABLE()),
+      os(12, 64 * GiB),
+      DEFAULT_KNOBS,
+    );
+    expect(plan.mode).toBe('sequential');
+    expect(plan.reason).toBe('no-parallel-command');
+  });
 });

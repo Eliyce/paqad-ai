@@ -313,4 +313,27 @@ describe('runChecks (issue #554)', () => {
     expect(result.recovered).toBe(1);
     expect(result.passed).toBe(true);
   });
+
+  it('a failing test with no resolvable runner reads red via the plain-text fallback', async () => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      ['commands:', '  test: some-runner'].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: '', stderr: 'suite failed', exitCode: 1 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * 1024 ** 3 },
+      ...CLOCK,
+    });
+    expect(result.passed).toBe(false);
+    expect(result.test_result?.parse_metadata.parse_strategy).toBe('plain-text-fallback');
+    expect(result.isolation_reruns.performed).toBe(false);
+  });
 });

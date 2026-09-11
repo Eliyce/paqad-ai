@@ -28,4 +28,9 @@ describe('selectTestRunner', () => {
   it('returns null when the stack has no structured runner', () => {
     expect(selectTestRunner({ frameworks: ['does-not-exist'], traits: [] }, 'x')).toBeNull();
   });
+
+  it('handles a stack profile with no traits field', () => {
+    const runner = selectTestRunner({ frameworks: ['laravel'] } as never, 'php artisan test');
+    expect(runner?.runner_id).toBe('pest');
+  });
 });
