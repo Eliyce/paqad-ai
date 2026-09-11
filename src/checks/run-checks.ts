@@ -121,7 +121,8 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
 
   const plan: TestPlan = profile
     ? resolveTestPlan(profile, osFacts, { checksParallel, checksMaxProcesses })
-    : { command: '', mode: 'sequential', processes: null, reason: 'no-profile' };
+    : /* v8 ignore next -- no profile ⇒ no mapped commands ⇒ emptyResult below; the plan is unused */
+      { command: '', mode: 'sequential', processes: null, reason: 'no-profile' };
 
   const runner = profile?.stack_profile
     ? selectTestRunner(profile.stack_profile, profile.commands.test, projectRoot)
@@ -212,7 +213,8 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
           const rerunRunner =
             outputOverride && runner.output_source === 'file'
               ? { ...runner, output_path_pattern: outputOverride }
-              : runner;
+              : /* v8 ignore next -- stdout runners parse from captured output, no redirect override */
+                runner;
           return {
             exitCode: outcome.exit_code,
             result: await parseTestCommandOutputAsync(
@@ -330,6 +332,7 @@ async function runOneCommand(
     stderr,
     ...(invalid ? { invalid } : {}),
   });
+  /* v8 ignore next 3 -- runOneCommand only runs commands the scheduler already validated (fallback + re-runs) */
   if (!parsed.ok) {
     return finish(1, '', '', `Unsupported shell syntax in mapped command: ${parsed.invalidToken}`);
   }
@@ -476,7 +479,8 @@ function persistHarnessFallback(
 ): ProjectProfile {
   const ecosystem = profile.stack_profile
     ? resolvePackageEcosystem(profile.stack_profile.frameworks, projectRoot)
-    : null;
+    : /* v8 ignore next -- a harness fallback only happens on a parallel run, which requires a stack_profile */
+      null;
   const hash = lockfileHash(projectRoot, ecosystem);
   const next: ProjectProfile = {
     ...profile,

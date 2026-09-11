@@ -336,4 +336,30 @@ describe('runChecks (issue #554)', () => {
     expect(result.test_result?.parse_metadata.parse_strategy).toBe('plain-text-fallback');
     expect(result.isolation_reruns.performed).toBe(false);
   });
+
+  it('attaches changed files as evidence and records non-zero durations', async () => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      ['commands:', '  format: pnpm format', '  build: pnpm build'].join('\n') + '\n',
+    );
+    let clock = 0;
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      changedFiles: ['src/app.ts'],
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * 1024 ** 3 },
+      now: () => '2026-01-01T00:00:00.000Z',
+      nowMs: () => (clock += 7),
+    });
+    expect(result.results[0].evidence_scope?.related_paths).toEqual(['src/app.ts']);
+    expect(result.commands.every((c) => c.duration_ms > 0)).toBe(true);
+    expect(result.critical_path.duration_ms).toBeGreaterThan(0);
+  });
 });

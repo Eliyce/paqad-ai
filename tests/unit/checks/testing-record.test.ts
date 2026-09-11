@@ -8,6 +8,7 @@ import {
   deriveTestingForProfile,
   deriveTestingRecord,
   insertParallelFlag,
+  lockfileHash,
   upsertStackDocCommandRow,
 } from '@/checks/testing-record.js';
 import type { StackPackTestRunner } from '@/core/types/pack.js';
@@ -242,5 +243,24 @@ describe('upsertStackDocCommandRow', () => {
     const bare = mkdtempSync(join(tmpdir(), 'paqad-nostack-'));
     expect(() => upsertStackDocCommandRow(bare, 'Test (parallel)', 'x')).not.toThrow();
     rmSync(bare, { recursive: true, force: true });
+  });
+});
+
+describe('lockfileHash', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-hash-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('hashes python requirements*.txt files', () => {
+    writeFileSync(join(root, 'requirements.txt'), 'pytest==8\n');
+    writeFileSync(join(root, 'requirements-dev.txt'), 'pytest-xdist==3\n');
+    expect(lockfileHash(root, 'python')).toMatch(/^sha256:/);
+  });
+
+  it('returns undefined when no lockfile exists or ecosystem is null', () => {
+    expect(lockfileHash(root, 'composer')).toBeUndefined();
+    expect(lockfileHash(root, null)).toBeUndefined();
   });
 });
