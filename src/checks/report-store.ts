@@ -11,16 +11,78 @@ import { PATHS } from '@/core/constants/paths.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 
-export const CHECKS_REPORT_SCHEMA_VERSION = 1;
+// Issue #554 — schema 2, ADDITIVE: `passed`, `ran`, `results[]` keep their meaning, so every v1
+// reader (readReportAt, checksEvidenceGate, checksRows) reads a v2 file unchanged (INV-6).
+export const CHECKS_REPORT_SCHEMA_VERSION = 2;
+
+/** How the run was executed (issue #554). */
+export interface ChecksReportMode {
+  parallel_commands: boolean;
+  test_mode: 'native' | 'parallel' | 'sequential';
+  processes: number | null;
+  fallback_reason: string | null;
+}
+
+/** One command's timed outcome (issue #554). */
+export interface ChecksReportCommand {
+  logical_command: string | null;
+  command: string;
+  exit_code: number;
+  passed: boolean;
+  stage: 1 | 2 | 3;
+  started_at: string;
+  ended_at: string;
+  duration_ms: number;
+  /** Last lines of combined output, only when the command was red. */
+  output_tail?: string[];
+}
+
+export interface ChecksReportIsolationEntry {
+  test_id: string;
+  file_path: string | null;
+  line_number: number | null;
+  selector: string | null;
+  attempts: number;
+  passes: number;
+  verdict: 'real' | 'recovered' | 'flaky';
+  blocking: boolean;
+  reason?: string;
+}
+
+export interface ChecksReportIsolation {
+  performed: boolean;
+  skipped_reason: string | null;
+  rerun_count: number;
+  entries: ChecksReportIsolationEntry[];
+}
+
+export interface ChecksReportFlaky {
+  test_id: string;
+  file_path: string | null;
+  line_number: number | null;
+  suspected_causes: string[];
+}
+
+export interface ChecksReportCriticalPath {
+  logical_command: string | null;
+  duration_ms: number;
+}
 
 export interface ChecksReport {
-  schema_version: typeof CHECKS_REPORT_SCHEMA_VERSION;
+  schema_version: number;
   generated_at: string;
-  /** Every executed command exited 0. */
+  /** Every non-test command exited 0 and the test result has zero blocking failures. */
   passed: boolean;
   /** At least one command was resolved and executed. */
   ran: boolean;
   results: StructuredTestResult[];
+  // ── issue #554, additive (absent on a v1 file) ──
+  mode?: ChecksReportMode;
+  commands?: ChecksReportCommand[];
+  isolation_reruns?: ChecksReportIsolation;
+  flaky_under_parallel?: ChecksReportFlaky[];
+  meaningful_green?: boolean;
+  critical_path?: ChecksReportCriticalPath;
 }
 
 export function checksReportPath(projectRoot: string): string {

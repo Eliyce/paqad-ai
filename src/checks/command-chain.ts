@@ -38,6 +38,10 @@ const SHELL_METACHARACTERS = /[;|`$()<>]/;
  * are dropped, so `--filter="Foo Bar"` becomes the single argv `--filter=Foo Bar`. There is no
  * escaping, variable expansion, or globbing — this is not a shell.
  */
+export function tokenizeCommand(input: string): string[] {
+  return tokenize(input);
+}
+
 function tokenize(input: string): string[] {
   const tokens: string[] = [];
   let current = '';

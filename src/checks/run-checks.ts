@@ -1,134 +1,375 @@
-// Deterministic check runner (issue #318) — the missing producer of real
-// test/format/build evidence.
+// Deterministic check runner (issue #318, made fast without lowering the bar by #554).
 //
-// paqad promises: after code is written it runs your format/test/build commands
-// and a red result stops the change from being "done". In reality nothing ran
-// them — the command resolver was built and tested but had zero callers, and the
-// completion backstop hardcoded `code_tests_lint_passed: true`, so a change with
-// failing tests could still be reported green by the framework layer.
-//
-// This module executes the project's own mapped commands and parses each into a
-// `StructuredTestResult` — the exact shape the `code-tests-lint` gate already
-// consumes — so the framework stops ASSUMING green and starts PROVING it. It is
-// strictly deterministic: no LLM, no heuristic — a command's exit code is the
-// verdict. It reuses `resolveFeatureDevelopmentCheckCommands` (the existing
-// resolver) and the shared delivery shell; it invents no parallel parser.
+// It executes the project's mapped format/test/build commands and parses each into a
+// `StructuredTestResult` — the shape the `code-tests-lint` gate consumes. Since #554 it runs the
+// commands as `&&` argv chains (never a shell), overlaps them with a scheduler, runs the test suite
+// with the runner's own parallel mode when the project has it, falls back to the sequential command
+// on a harness failure, and confirms every parallel-run failure alone before it blocks. Everything
+// at runtime is deterministic: exit codes, parsed result files, arithmetic. No LLM call from Node.
+
+import { availableParallelism as osAvailableParallelism, totalmem as osTotalmem } from 'node:os';
+import { rmSync } from 'node:fs';
+
+import fg from 'fast-glob';
 
 import type { DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
-import { readProjectProfile } from '@/core/project-profile.js';
+import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import {
   loadFeatureDevelopmentPolicy,
   resolveFeatureDevelopmentCheckCommands,
 } from '@/pipeline/feature-development-policy.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { parseCommandChain, runCommandChain } from '@/checks/command-chain.js';
+import { runStages } from '@/checks/scheduler.js';
+import type { ScheduledCommand, ScheduledCommandResult } from '@/checks/scheduler.js';
+import { resolveTestPlan } from '@/checks/parallel-plan.js';
+import type { OsFacts, TestPlan } from '@/checks/parallel-plan.js';
+import { selectTestRunner } from '@/checks/test-runner.js';
+import {
+  deriveTestingForProfile,
+  lockfileHash,
+  resolvePackageEcosystem,
+} from '@/checks/testing-record.js';
+import { confirmFailures } from '@/checks/isolation-rerun.js';
+import type { ChecksFlakyMode } from '@/checks/isolation-rerun.js';
+import { resolveChecksFlakyMode } from '@/checks/flaky-mode.js';
+import { resolveRerunCount } from '@/flaky/stability.js';
+import { OUTPUT_TAIL_LINES } from '@/checks/constants.js';
+import { parseTestOutput } from '@/test-output/service.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { TEST_OUTPUT_SCHEMA_VERSION } from '@/core/types/test-output.js';
-
-/** One command's outcome — the deterministic signal is the exit code. */
-export interface CheckCommandOutcome {
-  /** `format` / `test` / `build`, or null for a raw policy shell command. */
-  logical_command: string | null;
-  command: string;
-  exit_code: number;
-  passed: boolean;
-}
+import type { ProjectProfile } from '@/core/types/project-profile.js';
+import type { StackPackTestRunner } from '@/core/types/pack.js';
+import type {
+  ChecksReportCommand,
+  ChecksReportCriticalPath,
+  ChecksReportFlaky,
+  ChecksReportIsolation,
+  ChecksReportMode,
+} from '@/checks/report-store.js';
 
 export interface ChecksRunResult {
-  /** At least one command was resolved and executed. */
   ran: boolean;
-  /** Every executed command exited 0. Vacuously true when nothing ran. */
   passed: boolean;
-  outcomes: CheckCommandOutcome[];
-  /** One structured result per executed command, for the verification context. */
   results: StructuredTestResult[];
-  /** Resolver warnings (e.g. a logical command missing from the project profile). */
   warnings: string[];
+  mode: ChecksReportMode;
+  commands: ChecksReportCommand[];
+  isolation_reruns: ChecksReportIsolation;
+  flaky_under_parallel: ChecksReportFlaky[];
+  meaningful_green: boolean;
+  critical_path: ChecksReportCriticalPath;
+  /** Count of tests set aside as flaky-under-parallel (for the --silent line). */
+  recovered: number;
+  /** Total work time across every command (sum of durations). */
+  duration_ms: number;
+  /** Why the test ran sequentially (paratest-missing, too-few-cores, harness-failure:…, unknown), for
+   *  the receipt line; null when it ran parallel/native or sequential by the user's own choice. */
+  sequential_reason: string | null;
+  /** The parsed test result's total test count and the pre-isolation parallel failure count. */
+  test_total: number;
+  parallel_failures: number;
+  /** The final (post-isolation) parsed test result, for the failing-test list; null when no test ran. */
+  test_result: StructuredTestResult | null;
 }
 
 export interface RunChecksOptions {
   projectRoot: string;
-  /** The files the change touched — attached as each result's evidence scope so the
-   *  test-evidence assessment maps the run to the affected code (strong evidence). */
   changedFiles?: readonly string[];
-  /** Injectable for tests; defaults to the real execa-backed delivery shell. */
   shell?: DeliveryShell;
-  /** Injectable clock for deterministic test timestamps. */
   now?: () => string;
+  /** Injectable ms clock and os facts so a unit test never depends on the host. */
+  nowMs?: () => number;
+  osFacts?: OsFacts;
+  checksParallel?: boolean;
+  checksMaxProcesses?: number;
+  flakyMode?: ChecksFlakyMode;
 }
 
-/**
- * Resolve and run the feature-development `checks` commands (format / test /
- * build, plus any policy shell commands) against `projectRoot`, returning one
- * structured result per command. Never throws on a failing command — the shell
- * captures the non-zero exit and it surfaces as a `failed` result, so a caller
- * decides the verdict. When no command is mapped (e.g. a project profile without
- * a `test` command) `ran` is false and `results` is empty, so the caller reports
- * Inconclusive rather than a vacuous pass.
- */
-export async function runChecks(options: RunChecksOptions): Promise<ChecksRunResult> {
-  const now = options.now ?? (() => new Date().toISOString());
-  const shell = options.shell ?? createDeliveryShell(options.projectRoot);
-  const changedFiles = [...(options.changedFiles ?? [])];
+const EMPTY_ISOLATION: ChecksReportIsolation = {
+  performed: false,
+  skipped_reason: null,
+  rerun_count: 0,
+  entries: [],
+};
 
-  const profile = readProjectProfile(options.projectRoot);
-  const { policy } = loadFeatureDevelopmentPolicy(options.projectRoot, profile);
-  const { commands, warnings } = resolveFeatureDevelopmentCheckCommands(
+export async function runChecks(options: RunChecksOptions): Promise<ChecksRunResult> {
+  const projectRoot = options.projectRoot;
+  const nowIso = options.now ?? (() => new Date().toISOString());
+  const nowMs = options.nowMs ?? (() => Date.now());
+  const shell = options.shell ?? createDeliveryShell(projectRoot);
+  const changedFiles = [...(options.changedFiles ?? [])];
+  const osFacts = options.osFacts ?? {
+    availableParallelism: osAvailableParallelism(),
+    totalmem: osTotalmem(),
+  };
+
+  let profile = readProjectProfile(projectRoot);
+  const { policy } = loadFeatureDevelopmentPolicy(projectRoot, profile);
+  const { commands: resolvedCommands, warnings } = resolveFeatureDevelopmentCheckCommands(
     policy.stages.checks.checks,
     profile,
   );
 
-  const outcomes: CheckCommandOutcome[] = [];
-  const results: StructuredTestResult[] = [];
+  const config = resolveFrameworkConfig(projectRoot);
+  const checksParallel = options.checksParallel ?? config.features.checks_parallel;
+  const checksMaxProcesses = options.checksMaxProcesses ?? config.features.checks_max_processes;
+  const flakyMode = options.flakyMode ?? resolveChecksFlakyMode(projectRoot);
 
-  for (const resolved of commands) {
-    const [bin, ...args] = tokenize(resolved.command);
-    // A blank command string yields no bin — skip it rather than spawn nothing.
-    if (!bin) continue;
+  if (profile) profile = refreshTestingRecord(profile, projectRoot, nowIso());
 
-    const { stderr, exitCode } = await shell.run(bin, args);
-    const passed = exitCode === 0;
-    const runnerId = resolved.logical_command ?? resolved.command;
+  const plan: TestPlan = profile
+    ? resolveTestPlan(profile, osFacts, { checksParallel, checksMaxProcesses })
+    : { command: '', mode: 'sequential', processes: null, reason: 'no-profile' };
 
-    outcomes.push({
-      logical_command: resolved.logical_command,
-      command: resolved.command,
-      exit_code: exitCode,
-      passed,
-    });
-    results.push(toStructuredResult(runnerId, passed, stderr, changedFiles, now()));
+  const runner = profile?.stack_profile
+    ? selectTestRunner(profile.stack_profile, profile.commands.test, projectRoot)
+    : null;
+
+  const scheduled: ScheduledCommand[] = [];
+  let hasTest = false;
+  for (const resolved of resolvedCommands) {
+    if (resolved.command.trim().length === 0) continue;
+    if (resolved.logical_command === 'format' || resolved.logical_command === 'lint') {
+      scheduled.push({ logical_command: resolved.logical_command, command: resolved.command, stage: 1 });
+    } else if (resolved.logical_command === 'test') {
+      hasTest = true;
+      scheduled.push({ logical_command: 'test', command: plan.command, stage: 3 });
+    } else {
+      scheduled.push({ logical_command: resolved.logical_command, command: resolved.command, stage: 2 });
+    }
   }
 
+  if (scheduled.length === 0) return emptyResult(warnings, checksParallel);
+
+  if (runner) deleteRunnerOutput(projectRoot, runner);
+
+  const runResults = await runStages(scheduled, shell, {
+    cwd: projectRoot,
+    parallel: checksParallel,
+    availableParallelism: osFacts.availableParallelism,
+    nowMs,
+    nowIso,
+  });
+
+  const reportCommands: ChecksReportCommand[] = [];
+  const results: StructuredTestResult[] = [];
+  let testMode = plan.mode;
+  let fallbackReason: string | null = null;
+  let isolation: ChecksReportIsolation = { ...EMPTY_ISOLATION };
+  let flaky: ChecksReportFlaky[] = [];
+  let meaningfulGreen = true;
+  let recovered = 0;
+  let testResult: StructuredTestResult | null = null;
+
+  for (const runResult of runResults) {
+    reportCommands.push(toReportCommand(runResult));
+    if (runResult.logical_command !== 'test') {
+      results.push(exitCodeResult(runResult, changedFiles, nowIso()));
+      continue;
+    }
+
+    let parsed = await parseTestCommandOutputAsync(runner, runResult, projectRoot, changedFiles);
+
+    // Harness-failure fallback: a parallel run that produced no parsed test result means the
+    // parallel harness itself failed (paratest missing, DB denied, …) — run sequentially once.
+    if (
+      plan.mode === 'parallel' &&
+      runResult.exit_code !== 0 &&
+      (parsed.summary.total === 0 || parsed.parse_metadata.parse_strategy === 'degraded')
+    ) {
+      const seq = await runOneCommand(shell, profile!.commands.test, projectRoot, nowMs, nowIso);
+      reportCommands.push(toReportCommand(seq));
+      parsed = await parseTestCommandOutputAsync(runner, seq, projectRoot, changedFiles);
+      testMode = 'sequential';
+      fallbackReason = `harness-failure:${firstLine(runResult.stderr).slice(0, 200)}`;
+      if (profile) profile = persistHarnessFallback(profile, projectRoot, nowIso());
+    }
+
+    if (profile && runner && parsed.summary.failed + parsed.summary.errored > 0) {
+      const confirmed = await confirmFailures({
+        result: parsed,
+        projectRoot,
+        singleCommandTemplate: profile.commands.test_single,
+        singleSelector: runner.single_test_selector ?? 'test_id',
+        outputPathPattern: runner.output_path_pattern,
+        flakyMode,
+        rerunCount: resolveRerunCount(projectRoot),
+        now: nowIso,
+        runSingle: async (command) => {
+          const outcome = await runOneCommand(shell, command, projectRoot, nowMs, nowIso);
+          return {
+            exitCode: outcome.exit_code,
+            result: await parseTestCommandOutputAsync(runner, outcome, projectRoot, changedFiles),
+          };
+        },
+      });
+      parsed = confirmed.result;
+      isolation = confirmed.isolation_reruns;
+      flaky = confirmed.flaky_under_parallel;
+      meaningfulGreen = confirmed.meaningful_green;
+      recovered = flaky.length;
+    }
+
+    testResult = parsed;
+    results.push(parsed);
+  }
+
+  const nonTestPassed = runResults.filter((r) => r.logical_command !== 'test').every((r) => r.passed);
+  const blocking = testResult ? testResult.summary.failed + testResult.summary.errored : 0;
+  const passed = nonTestPassed && blocking === 0;
+  const sequentialReason =
+    hasTest && testMode === 'sequential'
+      ? (fallbackReason ?? (plan.reason && plan.reason !== 'disabled' ? plan.reason : null))
+      : null;
+  const parallelFailures = isolation.performed ? isolation.entries.length : blocking;
+
+  const durationTotal = reportCommands.reduce((acc, command) => acc + command.duration_ms, 0);
+  const criticalPath = reportCommands.reduce<ChecksReportCriticalPath>(
+    (max, command) =>
+      command.duration_ms > max.duration_ms
+        ? { logical_command: command.logical_command, duration_ms: command.duration_ms }
+        : max,
+    { logical_command: null, duration_ms: 0 },
+  );
+
   return {
-    ran: outcomes.length > 0,
-    passed: outcomes.every((outcome) => outcome.passed),
-    outcomes,
+    ran: true,
+    passed,
     results,
     warnings,
+    mode: {
+      parallel_commands: checksParallel,
+      test_mode: hasTest ? testMode : 'sequential',
+      processes: testMode === 'parallel' ? plan.processes : null,
+      fallback_reason: fallbackReason,
+    },
+    commands: reportCommands,
+    isolation_reruns: isolation,
+    flaky_under_parallel: flaky,
+    meaningful_green: meaningfulGreen,
+    critical_path: criticalPath,
+    recovered,
+    duration_ms: durationTotal,
+    sequential_reason: sequentialReason,
+    test_total: testResult?.summary.total ?? 0,
+    parallel_failures: parallelFailures,
+    test_result: testResult,
   };
 }
 
-/**
- * Split a command string into `[bin, ...args]`. These are the simple,
- * whitespace-separated commands the project profile carries (`pnpm test --
- * --reporter=tap`); there is deliberately no shell interpretation, so the run is
- * reproducible and free of shell-injection surface.
- */
-function tokenize(command: string): string[] {
-  return command.trim().split(/\s+/).filter(Boolean);
+function toReportCommand(result: ScheduledCommandResult): ChecksReportCommand {
+  const tail =
+    !result.passed && (result.stdout || result.stderr || result.invalid)
+      ? [result.invalid ?? '', result.stdout, result.stderr]
+          .filter(Boolean)
+          .join('\n')
+          .split('\n')
+          .slice(-OUTPUT_TAIL_LINES)
+      : undefined;
+  return {
+    logical_command: result.logical_command,
+    command: result.command,
+    exit_code: result.exit_code,
+    passed: result.passed,
+    stage: result.stage,
+    started_at: result.started_at,
+    ended_at: result.ended_at,
+    duration_ms: result.duration_ms,
+    ...(tail && tail.length > 0 ? { output_tail: tail } : {}),
+  };
 }
 
-/**
- * Build one `StructuredTestResult` from a command's exit code. A command is
- * modelled as a single check: exit 0 → one passed check, non-zero → one failed
- * check carrying a captured-stderr issue. `evidence_scope.related_paths` is the
- * change's files so `assessTestEvidence` maps the run to the affected code.
- */
-function toStructuredResult(
-  runnerId: string,
-  passed: boolean,
-  stderr: string,
+async function runOneCommand(
+  shell: DeliveryShell,
+  command: string,
+  cwd: string,
+  nowMs: () => number,
+  nowIso: () => string,
+): Promise<ScheduledCommandResult> {
+  const started_at = nowIso();
+  const startMs = nowMs();
+  const parsed = parseCommandChain(command);
+  const finish = (
+    exit: number,
+    stdout: string,
+    stderr: string,
+    invalid?: string,
+  ): ScheduledCommandResult => ({
+    logical_command: 'test',
+    command,
+    stage: 3,
+    exit_code: exit,
+    passed: exit === 0,
+    started_at,
+    ended_at: nowIso(),
+    duration_ms: Math.max(0, nowMs() - startMs),
+    stdout,
+    stderr,
+    ...(invalid ? { invalid } : {}),
+  });
+  if (!parsed.ok) {
+    return finish(1, '', '', `Unsupported shell syntax in mapped command: ${parsed.invalidToken}`);
+  }
+  const res = await runCommandChain(shell, parsed.steps, cwd);
+  return finish(res.exitCode, res.stdout, res.stderr);
+}
+
+async function parseTestCommandOutputAsync(
+  runner: StackPackTestRunner | null,
+  result: ScheduledCommandResult,
+  projectRoot: string,
+  changedFiles: string[],
+): Promise<StructuredTestResult> {
+  if (!runner || runner.structured_format === 'none') {
+    return plainTextResult(result, changedFiles);
+  }
+  const parsed = await parseTestOutput({
+    runner,
+    cwd: projectRoot,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  });
+  return withEvidence(parsed, changedFiles);
+}
+
+function plainTextResult(
+  result: ScheduledCommandResult,
+  changedFiles: string[],
+): StructuredTestResult {
+  return withEvidence(
+    baseResult('test', result.passed, firstLine(result.stderr), 'plain-text-fallback', {
+      raw_byte_size: (result.stdout.length + result.stderr.length) | 0,
+    }),
+    changedFiles,
+  );
+}
+
+function exitCodeResult(
+  result: ScheduledCommandResult,
   changedFiles: string[],
   timestamp: string,
+): StructuredTestResult {
+  const runnerId = result.logical_command ?? result.command;
+  const message =
+    result.invalid ?? (firstLine(result.stderr) || `Command "${runnerId}" exited non-zero`);
+  return withEvidence(
+    baseResult(runnerId, result.passed, message, 'structured', {
+      raw_byte_size: 0,
+      duration_ms: result.duration_ms,
+      timestamp,
+    }),
+    changedFiles,
+  );
+}
+
+function baseResult(
+  runnerId: string,
+  passed: boolean,
+  message: string,
+  strategy: 'structured' | 'plain-text-fallback',
+  extra: { raw_byte_size: number; duration_ms?: number; timestamp?: string },
 ): StructuredTestResult {
   const failure = passed
     ? []
@@ -136,7 +377,7 @@ function toStructuredResult(
         {
           test_id: runnerId,
           suite: null,
-          message: firstLine(stderr) || `Command "${runnerId}" exited non-zero`,
+          message,
           stack_trace: null,
           file_path: null,
           line_number: null,
@@ -144,7 +385,6 @@ function toStructuredResult(
           duration_ms: null,
         },
       ];
-
   return {
     schema_version: TEST_OUTPUT_SCHEMA_VERSION,
     summary: {
@@ -153,14 +393,14 @@ function toStructuredResult(
       failed: passed ? 0 : 1,
       skipped: 0,
       errored: 0,
-      duration_ms: 0,
-      timestamp,
+      duration_ms: extra.duration_ms ?? 0,
+      timestamp: extra.timestamp ?? '1970-01-01T00:00:00.000Z',
       runner_id: runnerId,
     },
     failures: failure,
     warnings: [],
     parse_metadata: {
-      raw_byte_size: 0,
+      raw_byte_size: extra.raw_byte_size,
       structured_byte_size: 0,
       compression_ratio: 1,
       original_size: 0,
@@ -170,13 +410,102 @@ function toStructuredResult(
       escalation_occurred: false,
       escalation_reason: null,
       delta_summary: null,
-      // Exit-code driven, not text-parsed: the strategy is `structured`, never the
-      // `degraded` fallback that would make the gate return Inconclusive.
-      parse_strategy: 'structured',
+      parse_strategy: strategy,
       parse_warnings: [],
     },
     errors: [],
-    evidence_scope: changedFiles.length > 0 ? { related_paths: changedFiles } : {},
+    evidence_scope: {},
+  };
+}
+
+function withEvidence(result: StructuredTestResult, changedFiles: string[]): StructuredTestResult {
+  return changedFiles.length > 0
+    ? { ...result, evidence_scope: { related_paths: changedFiles } }
+    : result;
+}
+
+function refreshTestingRecord(
+  profile: ProjectProfile,
+  projectRoot: string,
+  now: string,
+): ProjectProfile {
+  if (!profile.stack_profile) return profile;
+  const ecosystem = resolvePackageEcosystem(profile.stack_profile.frameworks, projectRoot);
+  const currentHash = lockfileHash(projectRoot, ecosystem);
+  const recorded = profile.testing;
+  const stale = !recorded || (currentHash !== undefined && recorded.lockfile_hash !== currentHash);
+  if (!stale) return profile;
+
+  const derived = deriveTestingForProfile({
+    stackProfile: profile.stack_profile,
+    commands: profile.commands,
+    projectRoot,
+    now,
+  });
+  if (!derived.testing) return profile;
+  const next: ProjectProfile = { ...profile, commands: derived.commands, testing: derived.testing };
+  writeProjectProfile(projectRoot, next, 'checks: recorded test runner parallel mode');
+  return next;
+}
+
+function persistHarnessFallback(
+  profile: ProjectProfile,
+  projectRoot: string,
+  now: string,
+): ProjectProfile {
+  const ecosystem = profile.stack_profile
+    ? resolvePackageEcosystem(profile.stack_profile.frameworks, projectRoot)
+    : null;
+  const hash = lockfileHash(projectRoot, ecosystem);
+  const next: ProjectProfile = {
+    ...profile,
+    testing: {
+      runner_id: profile.testing?.runner_id ?? 'unknown',
+      parallel: 'unavailable',
+      reason: 'harness-failure',
+      detected_by: 'script',
+      ...(hash ? { lockfile_hash: hash } : {}),
+      recorded_at: now,
+    },
+  };
+  writeProjectProfile(projectRoot, next, 'checks: parallel harness failure — pinned sequential');
+  return next;
+}
+
+function deleteRunnerOutput(projectRoot: string, runner: StackPackTestRunner): void {
+  if (runner.output_source !== 'file' || !runner.output_path_pattern) return;
+  try {
+    for (const match of fg.sync(runner.output_path_pattern, { cwd: projectRoot, absolute: true })) {
+      rmSync(match, { force: true });
+    }
+  } catch {
+    /* v8 ignore next -- a failed pre-clean just means the parser may read a stale file; not fatal */
+  }
+}
+
+function emptyResult(warnings: string[], checksParallel: boolean): ChecksRunResult {
+  return {
+    ran: false,
+    passed: true,
+    results: [],
+    warnings,
+    mode: {
+      parallel_commands: checksParallel,
+      test_mode: 'sequential',
+      processes: null,
+      fallback_reason: null,
+    },
+    commands: [],
+    isolation_reruns: { ...EMPTY_ISOLATION },
+    flaky_under_parallel: [],
+    meaningful_green: true,
+    critical_path: { logical_command: null, duration_ms: 0 },
+    recovered: 0,
+    duration_ms: 0,
+    sequential_reason: null,
+    test_total: 0,
+    parallel_failures: 0,
+    test_result: null,
   };
 }
 
