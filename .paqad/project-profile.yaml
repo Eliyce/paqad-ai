@@ -18,6 +18,12 @@ custom:
   classification_dimensions: []
   verification_plugins: []
   escalation_rules: []
+testing:
+  runner_id: vitest
+  detected_by: script
+  recorded_at: 2026-09-11T14:10:29.208Z
+  lockfile_hash: sha256:035075a26d229867254a7821359012da957290c9bbaa2b51010499fbae601d01
+  parallel: native
 active_capabilities:
   - content
   - coding

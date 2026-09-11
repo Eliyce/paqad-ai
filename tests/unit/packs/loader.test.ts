@@ -232,6 +232,80 @@ describe('StackPackLoader', () => {
     ).toBe(true);
   });
 
+  it('errors when parallel.mode=flag has a flag missing <processes> (issue #554)', () => {
+    const packRoot = join(projectRoot, '.paqad', 'packs', 'bad-parallel');
+    mkdirSync(join(packRoot, 'rules'), { recursive: true });
+    writeFileSync(join(packRoot, 'rules', 'conventions.md'), '# conventions\n');
+    writeFileSync(
+      join(packRoot, 'pack.yaml'),
+      [
+        'name: bad-parallel',
+        'display_name: Bad Parallel',
+        'ecosystem: node',
+        'version: 1.0.0',
+        'description: Parallel flag without processes placeholder',
+        'maintainer: test',
+        'detection:',
+        '  manifests:',
+        '    - file: package.json',
+        '      packages: [bad-parallel]',
+        'test_runners:',
+        '  - runner_id: vitest',
+        '    structured_format: tap',
+        '    parallel:',
+        '      mode: flag',
+        '      flag: --parallel',
+        'docs:',
+        '  conventions_template: rules/conventions.md',
+      ].join('\n'),
+    );
+
+    const pack = new StackPackLoader().validatePack(packRoot);
+
+    expect(pack.validation.valid).toBe(false);
+    expect(
+      pack.validation.issues.some((issue) =>
+        issue.message.includes('must contain <processes> exactly once'),
+      ),
+    ).toBe(true);
+  });
+
+  it('errors when a non-flag parallel mode carries a flag (issue #554)', () => {
+    const packRoot = join(projectRoot, '.paqad', 'packs', 'native-with-flag');
+    mkdirSync(join(packRoot, 'rules'), { recursive: true });
+    writeFileSync(join(packRoot, 'rules', 'conventions.md'), '# conventions\n');
+    writeFileSync(
+      join(packRoot, 'pack.yaml'),
+      [
+        'name: native-with-flag',
+        'display_name: Native With Flag',
+        'ecosystem: node',
+        'version: 1.0.0',
+        'description: Native mode should not carry a flag',
+        'maintainer: test',
+        'detection:',
+        '  manifests:',
+        '    - file: package.json',
+        '      packages: [native-with-flag]',
+        'test_runners:',
+        '  - runner_id: vitest',
+        '    structured_format: tap',
+        '    parallel:',
+        '      mode: native',
+        '      flag: --parallel --processes=<processes>',
+        'docs:',
+        '  conventions_template: rules/conventions.md',
+      ].join('\n'),
+    );
+
+    const pack = new StackPackLoader().validatePack(packRoot);
+
+    expect(pack.validation.valid).toBe(false);
+    expect(
+      pack.validation.issues.some((issue) => issue.message.includes('only valid when mode=flag')),
+    ).toBe(true);
+  });
+
   it('errors when archetype pack has no ecosystem', () => {
     const packRoot = join(projectRoot, '.paqad', 'packs', 'bad-archetype');
     mkdirSync(join(packRoot, 'rules'), { recursive: true });

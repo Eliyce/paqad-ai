@@ -175,7 +175,19 @@
           "structured_flags": { "type": "string" },
           "default_command": { "type": "string" },
           "output_source": { "type": "string", "enum": ["stdout", "file"] },
-          "output_path_pattern": { "type": "string" }
+          "output_path_pattern": { "type": "string" },
+          "single_test_selector": { "type": "string", "enum": ["test_id", "file"] },
+          "parallel": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode"],
+            "properties": {
+              "mode": { "type": "string", "enum": ["native", "flag", "unavailable"] },
+              "flag": { "type": "string" },
+              "requires_package": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
         }
       }
     },

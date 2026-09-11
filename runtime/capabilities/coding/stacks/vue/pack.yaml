@@ -82,12 +82,18 @@ test_runners:
     structured_format: tap
     structured_flags: --reporter=tap
     default_command: pnpm test
+    single_test_selector: file
+    parallel:
+      mode: native
   - runner_id: playwright
     structured_format: junit-xml
     structured_flags: --reporter=junit --outputFile=.paqad/test-results/playwright.xml
     default_command: pnpm playwright test
     output_source: file
     output_path_pattern: .paqad/test-results/playwright.xml
+    single_test_selector: file
+    parallel:
+      mode: native
 docs:
   overview_template: rules/foundation/guide.md
   conventions_template: rules/conventions/guide.md

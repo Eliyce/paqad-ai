@@ -45,6 +45,11 @@ test_runners:
     structured_format: rspec-json
     structured_flags: --format json
     default_command: bundle exec rspec
+    single_test_selector: file
+    parallel:
+      mode: unavailable
+      reason: RSpec runs one example at a time; parallel_tests is a project-level
+        setup paqad does not install.
 docs:
   conventions_template: rules/conventions.md
 module_health:

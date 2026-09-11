@@ -44,6 +44,9 @@ test_runners:
   - runner_id: angular-test
     structured_format: none
     default_command: ng test
+    single_test_selector: file
+    parallel:
+      mode: native
 docs:
   conventions_template: rules/conventions.md
 module_health:

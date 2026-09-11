@@ -64,6 +64,7 @@ export class HealthChecker {
       this.checkProviderEntryBootstrapPointer(projectRoot),
       this.checkProviderEntryFallbackClause(projectRoot),
       this.checkStackCommands(profile),
+      this.checkTestRunnerParallel(profile),
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
       this.checkBrokenScaffold(projectRoot),
@@ -468,6 +469,34 @@ export class HealthChecker {
           `Missing command definitions: ${missing.join(', ')}`,
           'Populate the missing command entries in the project profile.',
         );
+  }
+
+  /**
+   * Warn when the recorded test-runner parallel mode is unavailable or unknown (issue #554), so a
+   * team knows their suite runs sequentially and how to make it parallel. Pass on native/available.
+   */
+  private checkTestRunnerParallel(profile: ProjectProfile | null): HealthCheckResult {
+    const name = 'Test runner parallel mode';
+    const testing = profile?.testing;
+    if (!testing) {
+      return pass(
+        name,
+        'No parallel-test decision recorded yet; it is derived on the next `paqad-ai checks run`.',
+      );
+    }
+    if (testing.parallel === 'native' || testing.parallel === 'available') {
+      return pass(
+        name,
+        `The suite runs in parallel (${testing.parallel}) via ${testing.runner_id}.`,
+      );
+    }
+    const reason = testing.reason ?? testing.parallel;
+    let suggestion = `Recorded ${testing.parallel} for ${testing.runner_id}: ${reason}.`;
+    if (testing.parallel === 'unavailable' && reason.endsWith('-missing')) {
+      const pkg = reason.replace(/-missing$/, '');
+      suggestion += ` Add ${pkg} as a dev dependency to run the suite in parallel.`;
+    }
+    return warn(name, `The suite runs sequentially (${testing.parallel}).`, suggestion);
   }
 
   private async checkStructuredTestOutput(

@@ -275,6 +275,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Run the project command checks after implementation and before finalizing the feature.',
           'Run them deterministically with `npx paqad-ai checks run`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is `Needs your attention` — fix it before finalizing.',
+          'Before `npx paqad-ai checks run`, run `npx paqad-ai checks plan`. If it prints `test: sequential (unknown)`, run the test-runner-discovery skill and record its result with `npx paqad-ai checks record-runner <file>` before running the checks. Never ask the developer to add a parallel flag or install a package; a missing prerequisite is reported and the sequential command is used.',
         ],
         required_inputs: ['working tree diff'],
         strictness: {
@@ -749,6 +750,7 @@ stages:
     instructions:
       - Run the project command checks after implementation and before finalizing the feature.
       - "Run them deterministically with \`npx paqad-ai checks run\`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is \`Needs your attention\` — fix it before finalizing."
+      - "Before \`npx paqad-ai checks run\`, run \`npx paqad-ai checks plan\`. If it prints \`test: sequential (unknown)\`, run the test-runner-discovery skill and record its result with \`npx paqad-ai checks record-runner <file>\` before running the checks. Never ask the developer to add a parallel flag or install a package; a missing prerequisite is reported and the sequential command is used."
     required_inputs:
       - working tree diff
     strictness:

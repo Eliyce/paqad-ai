@@ -23,6 +23,9 @@ export interface ProjectCommands {
   format: string;
   migrate: string;
   build: string;
+  /** Issue #554 — the sequential `test` command with the runner's parallel flag inserted. Present
+   *  only when the runner has a `flag` parallel mode whose prerequisite is installed. */
+  test_parallel?: string;
 }
 
 export interface StrictnessConfig {
@@ -54,6 +57,10 @@ export interface ProjectFeatureFlags {
   metrics_enabled: boolean;
   /** Issue #551 — capture screenshots of documented flows for frontend changes (default off, coding-gated). */
   visual_evidence: boolean;
+  /** Issue #554 — run the checks stage concurrently and use the runner's own parallel mode (default on). */
+  checks_parallel: boolean;
+  /** Issue #554 — cap on parallel test processes; 0 = auto (cores minus one, capped by mem/container). */
+  checks_max_processes: number;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;
@@ -257,6 +264,23 @@ export interface PaqadConfig {
   enabled?: boolean;
 }
 
+/** Issue #554 — how the recorded test suite parallelizes: `native` runs in parallel already,
+ *  `available` has a `test_parallel` command to run, `unavailable`/`unknown` fall back to the
+ *  sequential command. Written by onboarding, `checks run`, and `checks record-runner`. */
+export type ProjectTestingParallel = 'native' | 'available' | 'unavailable' | 'unknown';
+
+export interface ProjectTesting {
+  runner_id: string;
+  parallel: ProjectTestingParallel;
+  /** Present when unavailable/unknown — the reason the sequential command is used. */
+  reason?: string;
+  /** How the decision was reached. */
+  detected_by: 'script' | 'agent';
+  /** sha256 of the ecosystem lockfile(s) used for the decision, so a stale record is re-derived. */
+  lockfile_hash?: string;
+  recorded_at: string;
+}
+
 /** Issue #551 — the shared app-boot contract (visual evidence + design-test). */
 export interface AppPreviewConfig {
   /** Base URL the app is served at; steps' `goto` paths resolve against it. */
@@ -279,6 +303,9 @@ export interface ProjectProfile {
   };
   stack_profile?: DetectedStackProfile;
   commands: ProjectCommands;
+  /** Issue #554 — the recorded parallel-test decision (runner, mode, provenance). Absent until
+   *  onboarding or `checks run` derives it. */
+  testing?: ProjectTesting;
   /**
    * Issue #551 — the shared boot contract for visual evidence (and, going forward, design-test):
    * the base URL the app is served at, an optional boot command (defaults to `commands.dev`),

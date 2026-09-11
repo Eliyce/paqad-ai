@@ -44,6 +44,9 @@ test_runners:
   - runner_id: cargo-test
     structured_format: none
     default_command: cargo test
+    single_test_selector: test_id
+    parallel:
+      mode: native
 docs:
   conventions_template: rules/conventions.md
 module_health:

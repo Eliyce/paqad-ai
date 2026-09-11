@@ -52,6 +52,8 @@ const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
 const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
 /** Enforced capability-mode values, weakest → strictest (buildout F2). */
 const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
+/** issue #554 — pass < warn < fail, matching src/checks/flaky-mode.ts (kept local to avoid a cycle). */
+const CHECKS_FLAKY_MODES = ['pass', 'warn', 'fail'] as const;
 // The spec-pipeline adoption knob is warn-or-strict only (issue #547): there is no "off"
 // — "off" is expressed by turning spec_pipeline_enabled off, not by a third adoption level.
 const SPEC_PIPELINE_ADOPTION_MODES = ['warn', 'strict'] as const;
@@ -293,6 +295,28 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is ' +
       'local, deterministic, and zero-LLM — it folds over caches the gates already produced. ' +
       'OFF stops computing and recording them.',
+  },
+  {
+    key: 'checks_parallel',
+    env: 'PAQAD_CHECKS_PARALLEL',
+    type: 'boolean',
+    default: true,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      "Run the checks stage concurrently and use the test runner's own parallel mode when the " +
+      'project has it. OFF restores the one-after-another run.',
+  },
+  {
+    key: 'checks_max_processes',
+    env: 'PAQAD_CHECKS_MAX_PROCESSES',
+    type: 'number',
+    default: 0,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container ' +
+      'limits).',
   },
 
   // ── rag group ──────────────────────────────────────────────────────────
@@ -591,6 +615,19 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, ' +
       'naming the file and its writer; warn surfaces it as Inconclusive without blocking; off ' +
       'falls back to the deprecated evidence_existence_gate (issue #511).',
+  },
+  {
+    key: 'checks_flaky_under_parallel',
+    env: 'PAQAD_CHECKS_FLAKY_UNDER_PARALLEL',
+    type: 'enum',
+    enumValues: CHECKS_FLAKY_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'pass | warn | fail — what a test that fails in the parallel run but passes alone does. warn ' +
+      '(default): never blocks, recorded, one receipt line. pass: recorded only. fail: blocks. Team ' +
+      'value is the floor; local/env may only raise it.',
   },
   {
     key: 'visual_evidence_mode',
@@ -1195,6 +1232,8 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       feature_report: rb('feature_report'),
       metrics_enabled: rb('metrics_enabled'),
       visual_evidence: rb('visual_evidence'),
+      checks_parallel: rb('checks_parallel'),
+      checks_max_processes: rn('checks_max_processes'),
     },
     research: {
       depth: asEnum(
@@ -1743,6 +1782,8 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
     put('lean_rules', f.lean_rules, d.features.lean_rules);
     put('feature_report', f.feature_report, d.features.feature_report);
     put('metrics_enabled', f.metrics_enabled, d.features.metrics_enabled);
+    put('checks_parallel', f.checks_parallel, d.features.checks_parallel);
+    put('checks_max_processes', f.checks_max_processes, d.features.checks_max_processes);
   }
   if (overrides.research) {
     put('research_depth', overrides.research.depth, d.research.depth);
@@ -1880,6 +1921,8 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'feature_report',
       'metrics_enabled',
       'visual_evidence',
+      'checks_parallel',
+      'checks_max_processes',
     ],
   },
   { present: (p) => p.research !== undefined, keys: ['research_depth'] },
@@ -1926,6 +1969,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'spec_pipeline_experts_enabled',
       'spec_pipeline_adoption',
       'visual_evidence_mode',
+      'checks_flaky_under_parallel',
     ],
   },
 ];

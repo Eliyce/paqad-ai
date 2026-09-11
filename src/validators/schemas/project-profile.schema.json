@@ -131,7 +131,22 @@
         "lint": { "type": "string" },
         "format": { "type": "string" },
         "migrate": { "type": "string" },
-        "build": { "type": "string" }
+        "build": { "type": "string" },
+        "test_parallel": { "type": "string" }
+      }
+    },
+    "testing": {
+      "type": "object",
+      "additionalProperties": false,
+      "$comment": "Issue #554 — the recorded parallel-test decision. Optional; written by onboarding, checks run, and checks record-runner.",
+      "required": ["runner_id", "parallel", "detected_by", "recorded_at"],
+      "properties": {
+        "runner_id": { "type": "string" },
+        "parallel": { "type": "string", "enum": ["native", "available", "unavailable", "unknown"] },
+        "reason": { "type": "string" },
+        "detected_by": { "type": "string", "enum": ["script", "agent"] },
+        "lockfile_hash": { "type": "string" },
+        "recorded_at": { "type": "string" }
       }
     },
     "strictness": {
@@ -176,7 +191,9 @@
         "lean_rules": { "type": "boolean" },
         "feature_report": { "type": "boolean" },
         "metrics_enabled": { "type": "boolean" },
-        "visual_evidence": { "type": "boolean" }
+        "visual_evidence": { "type": "boolean" },
+        "checks_parallel": { "type": "boolean" },
+        "checks_max_processes": { "type": "integer", "minimum": 0 }
       }
     },
     "enterprise": {

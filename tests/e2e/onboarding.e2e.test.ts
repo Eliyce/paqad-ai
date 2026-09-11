@@ -173,7 +173,7 @@ describe('framework end-to-end onboarding', () => {
 
     assertFiveOutputGroups(projectRoot);
     expect(readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8')).toContain(
-      'vendor/bin/sail artisan test',
+      'vendor/bin/sail test',
     );
     await new DocumentationWorkflow().run({ projectRoot });
     expect(readFileSync(join(projectRoot, 'docs/instructions/stack/tooling.md'), 'utf8')).toContain(

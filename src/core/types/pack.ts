@@ -75,6 +75,27 @@ export type StructuredTestFormat = (typeof STRUCTURED_TEST_FORMATS)[number];
 export const TEST_RUNNER_OUTPUT_SOURCES = ['stdout', 'file'] as const;
 export type TestRunnerOutputSource = (typeof TEST_RUNNER_OUTPUT_SOURCES)[number];
 
+/** How a runner parallelizes (issue #554). `native` already runs in parallel; `flag` needs the
+ *  `parallel.flag` added to the command; `unavailable` has no parallel mode paqad can drive. */
+export const TEST_RUNNER_PARALLEL_MODES = ['native', 'flag', 'unavailable'] as const;
+export type TestRunnerParallelMode = (typeof TEST_RUNNER_PARALLEL_MODES)[number];
+
+/** What replaces `<pattern>` in `commands.test_single` for the isolated re-run (issue #554). */
+export const SINGLE_TEST_SELECTORS = ['test_id', 'file'] as const;
+export type SingleTestSelector = (typeof SINGLE_TEST_SELECTORS)[number];
+
+/** A runner's parallel capability (issue #554, Part B.1). */
+export interface StackPackTestRunnerParallel {
+  mode: TestRunnerParallelMode;
+  /** The flag inserted after the runner invocation; required when `mode = flag`; carries
+   *  `<processes>` exactly once. */
+  flag?: string;
+  /** An ecosystem package the parallel mode needs, looked up in the lockfile (e.g. paratest). */
+  requires_package?: string;
+  /** Human sentence shown when `mode = unavailable`. */
+  reason?: string;
+}
+
 export interface StackPackTestRunner {
   runner_id: string;
   structured_format: StructuredTestFormat;
@@ -82,6 +103,9 @@ export interface StackPackTestRunner {
   default_command?: string;
   output_source?: TestRunnerOutputSource;
   output_path_pattern?: string;
+  parallel?: StackPackTestRunnerParallel;
+  /** Default `test_id`; what replaces `<pattern>` in `commands.test_single` (issue #554). */
+  single_test_selector?: SingleTestSelector;
 }
 
 export interface StackPackDocsManifest {

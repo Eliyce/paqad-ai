@@ -641,3 +641,79 @@ describe('renderFeatureReportHtml — determinism (AC-9)', () => {
     expect(path.includes('\\')).toBe(false);
   });
 });
+
+describe('renderFeatureReportHtml — Checks section (issue #554)', () => {
+  it('renders commands, mode, and flaky-under-parallel from a v2 checks report', () => {
+    const bundle: FeatureBundleExport = {
+      dir_name: DIR,
+      exported_at: AT,
+      files: {
+        checks: {
+          schema_version: 2,
+          passed: true,
+          ran: true,
+          results: [],
+          mode: {
+            parallel_commands: true,
+            test_mode: 'parallel',
+            processes: 11,
+            fallback_reason: null,
+          },
+          commands: [
+            {
+              logical_command: 'format',
+              command: 'pnpm format',
+              exit_code: 0,
+              passed: true,
+              stage: 1,
+              started_at: '',
+              ended_at: '',
+              duration_ms: 13000,
+            },
+            {
+              logical_command: 'test',
+              command: 'pnpm test',
+              exit_code: 0,
+              passed: true,
+              stage: 3,
+              started_at: '',
+              ended_at: '',
+              duration_ms: 122000,
+            },
+          ],
+          isolation_reruns: { performed: true, skipped_reason: null, rerun_count: 3, entries: [] },
+          flaky_under_parallel: [
+            {
+              test_id: 'flaky one',
+              file_path: 'tests/FlakyTest.php',
+              line_number: 7,
+              suspected_causes: ['timing'],
+            },
+          ],
+          meaningful_green: false,
+          critical_path: { logical_command: 'test', duration_ms: 122000 },
+        },
+      },
+      strays: [],
+    };
+    const html = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
+    expect(html).toContain('id="checks"');
+    expect(html).toContain('Test mode');
+    expect(html).toContain('parallel ×11');
+    expect(html).toContain('format');
+    expect(html).toContain('Critical path');
+    expect(html).toContain('flaky one');
+    expect(html).toContain('tests/FlakyTest.php:7');
+  });
+
+  it('shows the empty note when no v2 checks commands are present', () => {
+    const bundle: FeatureBundleExport = {
+      dir_name: DIR,
+      exported_at: AT,
+      files: {},
+      strays: [],
+    };
+    const html = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
+    expect(html).toContain('No check commands were recorded');
+  });
+});

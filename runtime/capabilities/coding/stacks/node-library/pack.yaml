@@ -3,7 +3,8 @@ display_name: Node.js Library
 ecosystem: node
 version: 1.0.0
 tier: archetype
-description: Built-in archetype pack for Node.js packages that publish a library (not a CLI, not a framework app)
+description: Built-in archetype pack for Node.js packages that publish a library
+  (not a CLI, not a framework app)
 maintainer: paqad-ai
 detection:
   manifests:
@@ -108,10 +109,16 @@ test_runners:
     structured_format: tap
     structured_flags: --reporter=tap
     default_command: pnpm test
+    single_test_selector: file
+    parallel:
+      mode: native
   - runner_id: jest
     structured_format: jest-json
     structured_flags: --json
     default_command: pnpm test
+    single_test_selector: file
+    parallel:
+      mode: native
 docs:
   conventions_template: rules/conventions.md
 module_health:
