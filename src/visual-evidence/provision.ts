@@ -51,11 +51,17 @@ export function resolvePlaywrightModulePath(veRuntime: string): string {
  * `provisioned` when the record is present and Playwright resolves.
  */
 export function browserStatus(veRuntime: string = resolveVeRuntimeDir()): BrowserStatus {
-  if (!existsSync(provisionRecordPath(veRuntime))) {
+  // Read the record directly and catch — never stat-then-read (the TOCTOU race CodeQL flags,
+  // mirroring bundle-completeness-gate's readFileSafe). An absent record file with no dir is
+  // `missing`; an absent record beside an existing dir, or an unusable Playwright, is `broken`.
+  let raw: string;
+  try {
+    raw = readFileSync(provisionRecordPath(veRuntime), 'utf8');
+  } catch {
     return existsSync(veRuntime) ? 'broken' : 'missing';
   }
   try {
-    readProvisionRecord(veRuntime);
+    JSON.parse(raw);
     resolvePlaywrightModulePath(veRuntime);
     return 'provisioned';
   } catch {
@@ -81,9 +87,9 @@ export async function provisionBrowser(
 ): Promise<ProvisionRecord> {
   mkdirSync(veRuntime, { recursive: true });
   const pkgPath = join(veRuntime, 'package.json');
-  if (!existsSync(pkgPath)) {
-    writeFileSync(pkgPath, `${JSON.stringify({ private: true }, null, 2)}\n`, 'utf8');
-  }
+  // Fixed, idempotent content — write unconditionally rather than check-then-write (no
+  // file-system race). It only marks the dir as a private npm root for the install below.
+  writeFileSync(pkgPath, `${JSON.stringify({ private: true }, null, 2)}\n`, 'utf8');
   const env = { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browsersPath(veRuntime) };
   await execa('npm', ['install', 'playwright@^1', '--no-audit', '--no-fund'], {
     cwd: veRuntime,

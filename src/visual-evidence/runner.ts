@@ -180,11 +180,9 @@ export async function runVisualEvidence(
   }
 
   // Ensure the browser runtime is provisioned (auto-attempt once when missing).
-  let status = browserStatus();
-  if (status !== 'provisioned') {
+  if (browserStatus() !== 'provisioned') {
     try {
       await provisionBrowser();
-      status = 'provisioned';
     } catch {
       skips.push({
         reason: 'playwright-not-provisioned',

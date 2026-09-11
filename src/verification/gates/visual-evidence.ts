@@ -16,7 +16,7 @@
 // same seam. It uses the `as VerificationGate` cast the other evidence gates use.
 
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { VerificationGate, VerificationOrigin } from '@/core/types/verification.js';
@@ -94,8 +94,10 @@ function readManifest(projectRoot: string, dirName: string): VisualEvidenceManif
 /** Verify one referenced file's byte length + SHA-256 against the manifest record. */
 function fileMatches(absPath: string, expectedBytes: number, expectedSha: string): boolean {
   try {
+    // A single read, then compare against the buffer's own length — never stat-then-read the
+    // same path (the TOCTOU pattern CodeQL flags), and one fewer syscall.
     const bytes = readFileSync(absPath);
-    if (statSync(absPath).size !== expectedBytes) return false;
+    if (bytes.length !== expectedBytes) return false;
     return createHash('sha256').update(bytes).digest('hex') === expectedSha;
   } catch {
     return false;
