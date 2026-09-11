@@ -38,6 +38,8 @@ import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 
+import type { VisualEvidenceManifest } from '@/visual-evidence/types.js';
+
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
 
@@ -922,10 +924,58 @@ function renderSubmenu(): string {
     ['aibom', 'AI-BOM'],
     ['delivery', 'Delivery'],
     ['review', 'Review'],
+    ['visual-evidence', 'Visual evidence'],
   ];
   return `<nav class="submenu">${items
     .map(([id, label]) => `<a href="#${id}">${escapeHtml(label)}</a>`)
     .join('')}</nav>`;
+}
+
+/**
+ * Render the visual-evidence section (issue #551): the overview GIF, the ordered per-step
+ * screenshots with their business-language captions, and explicit "absent because <reason>"
+ * notes. Images are referenced by RELATIVE path to the sibling `screenshots/` files, so the
+ * report keeps working from a `file://` origin with no script and no external request.
+ */
+function renderVisualEvidence(bundle: FeatureBundleExport): string {
+  const ve = bundle.files.visualEvidence as VisualEvidenceManifest | undefined;
+  if (!ve) {
+    return panel(
+      'visual-evidence',
+      'Visual evidence',
+      '',
+      'No visual evidence captured. Turn on visual_evidence and add a capture script for a confirmed journey so frontend changes record their documented flows.',
+    );
+  }
+  const parts: string[] = [];
+  const captured = ve.steps.filter((step) => step.status === 'captured');
+  parts.push(
+    `<p>${escapeHtml(`${captured.length} step(s) captured across ${ve.plan.length} flow(s) — result: ${ve.result}.`)}</p>`,
+  );
+  if (ve.gif) {
+    parts.push(
+      `<figure class="ve-gif"><img src="${escapeHtml(ve.gif.file)}" alt="Overview of the captured flow"><figcaption>Overview (${ve.gif.frames} frame${ve.gif.frames === 1 ? '' : 's'}, ${ve.gif.frame_ms}ms each)</figcaption></figure>`,
+    );
+  }
+  if (captured.length > 0) {
+    const items = captured
+      .map(
+        (step) =>
+          `<figure class="ve-step"><img src="${escapeHtml(step.dir)}/image.png" alt="${escapeHtml(step.caption)}" loading="lazy"><figcaption>${escapeHtml(`${step.index}. ${step.caption}`)}</figcaption></figure>`,
+      )
+      .join('');
+    parts.push(`<div class="ve-grid">${items}</div>`);
+  }
+  const failed = ve.steps.filter((step) => step.status === 'failed');
+  for (const step of failed) {
+    parts.push(
+      `<p class="empty">${escapeHtml(`Step ${step.index} (${step.caption}) failed: ${step.failure ?? 'selector-not-found'}.`)}</p>`,
+    );
+  }
+  for (const skip of ve.skips) {
+    parts.push(`<p class="empty">${escapeHtml(`Absent because ${skip.reason}: ${skip.detail}`)}</p>`);
+  }
+  return panel('visual-evidence', 'Visual evidence', parts.join(''));
 }
 
 // ── Assembly ────────────────────────────────────────────────────────────────
@@ -976,6 +1026,10 @@ h1,h2,.h2,h3,.h3{margin:0}
 h3,.h3{font-size:13px;font-weight:620;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
 .empty{color:var(--muted);font-style:italic;margin:6px 0}
 .muted{color:var(--muted);font-weight:400}
+.ve-gif{margin:10px 0}.ve-gif img{max-width:100%;border:1px solid var(--line);border-radius:8px}
+.ve-gif figcaption,.ve-step figcaption{color:var(--muted);font-size:13px;margin-top:4px}
+.ve-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:10px 0}
+.ve-step{margin:0}.ve-step img{max-width:100%;border:1px solid var(--line);border-radius:8px;display:block}
 ul,ol{margin:6px 0;padding-left:20px}
 li{margin:4px 0}
 .timeline{list-style:none;padding:0}
@@ -1057,6 +1111,7 @@ export function renderFeatureReportHtml(
     renderAiBom(bundle),
     renderDelivery(bundle),
     renderReview(bundle),
+    renderVisualEvidence(bundle),
     renderFooter(),
   ].join('\n');
 

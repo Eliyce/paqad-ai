@@ -122,6 +122,17 @@ export function activeFrontendGlobs(projectRoot: string): Array<{ pack: string; 
 }
 
 /**
+ * Whether any of the given changed files (any separator form) matches an active pack's frontend
+ * glob. Synchronous — for callers that already hold the change's file list (the verification gate).
+ */
+export function isFrontendTriggering(projectRoot: string, changedFiles: string[]): boolean {
+  const globs = activeFrontendGlobs(projectRoot);
+  return changedFiles.some((file) =>
+    globs.some(({ glob }) => matchesFrontendGlob(toPosix(file), glob)),
+  );
+}
+
+/**
  * Evaluate the frontend trigger for the current change. Reads the git-reconciled changed
  * files (issue #450) and matches them against the active packs' frontend globs.
  */
