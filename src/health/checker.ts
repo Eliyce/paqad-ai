@@ -5,7 +5,11 @@ import { join, relative } from 'node:path';
 import { AdapterFactory } from '@/adapters/factory.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
+import { readAllJourneys } from '@/site-map/store.js';
+import { listCaptureScriptIds } from '@/visual-evidence/capture-script.js';
+import { browserStatus } from '@/visual-evidence/provision.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { getSecretPermissionWarning } from '@/rag/secrets.js';
 import { RagService } from '@/rag/service.js';
@@ -76,6 +80,7 @@ export class HealthChecker {
       ...(await this.checkRag(projectRoot, profile)),
       this.checkSpecPipeline(projectRoot),
       ...this.checkExpertRoster(projectRoot),
+      ...this.checkVisualEvidence(projectRoot),
     ];
 
     const overallStatus = deriveOverallStatus(checks);
@@ -898,6 +903,66 @@ export class HealthChecker {
       );
     }
     return pass(name, 'Parser-parity corpus holds and the enforcement config is coherent.');
+  }
+
+  /**
+   * Visual-evidence coherence (issue #551, Part A.5). Warns (never fails) when the feature is
+   * on but a prerequisite is missing, so a team that turned it on but cannot yet capture sees
+   * exactly why. Fully silent when the flag is off.
+   */
+  private checkVisualEvidence(projectRoot: string): HealthCheckResult[] {
+    const name = 'Visual evidence is ready';
+    const config = resolveFrameworkConfig(projectRoot);
+    if (!config.features.visual_evidence) {
+      return [pass(name, 'Visual evidence is off (default); nothing to check.')];
+    }
+
+    const results: HealthCheckResult[] = [];
+    if (!config.features.site_map) {
+      results.push(
+        warn(
+          name,
+          'visual_evidence is on but site_map is off — capture scripts derive from confirmed site-map journeys, so nothing can be captured.',
+          'Turn on site_map (env PAQAD_SITE_MAP) and author a confirmed journey + capture script.',
+        ),
+      );
+    }
+
+    const hasConfirmedJourney = readAllJourneys(projectRoot).some((j) => j.status === 'confirmed');
+    if (!hasConfirmedJourney) {
+      results.push(
+        warn(
+          name,
+          'visual_evidence is on but no confirmed journey exists under docs/site-map/journeys/ — only confirmed journeys produce evidence.',
+          'Confirm a journey (paqad-ai sitemap journey confirm) so it can back a capture script.',
+        ),
+      );
+    }
+
+    if (listCaptureScriptIds(projectRoot).length === 0) {
+      results.push(
+        warn(
+          name,
+          'visual_evidence is on but no *.capture.yaml exists under docs/site-map/journeys/ — there is nothing to capture.',
+          'Author a docs/site-map/journeys/<id>.capture.yaml for a confirmed journey (see docs/modules/visual-evidence).',
+        ),
+      );
+    }
+
+    if (browserStatus() !== 'provisioned') {
+      results.push(
+        warn(
+          name,
+          'visual_evidence is on but the capture browser is not provisioned — a capture run would record playwright-not-provisioned.',
+          'Run `paqad-ai visual-evidence setup` to provision Playwright + Chromium under ~/.paqad-ai/ve-runtime.',
+        ),
+      );
+    }
+
+    if (results.length === 0) {
+      results.push(pass(name, 'Visual evidence is on and every prerequisite is in place.'));
+    }
+    return results;
   }
 
   private checkExpertRoster(projectRoot: string): HealthCheckResult[] {
