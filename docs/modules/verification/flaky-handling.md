@@ -1,6 +1,16 @@
 # Flaky-Test Handling — Trust in a Pass
 
-> **Slug:** `flaky-handling` &nbsp;·&nbsp; **Issue:** #106 &nbsp;·&nbsp; **Owns:** the test-trust signal
+> **Slug:** `flaky-handling` &nbsp;·&nbsp; **Issue:** #106, #554 &nbsp;·&nbsp; **Owns:** the test-trust signal
+
+> **Wired since #554.** The check runner now uses this module: after a parallel test run,
+> `confirmFailures` (`src/checks/isolation-rerun.ts`) re-runs each failing test alone through
+> `judgeStability`, and a test that passes every isolated re-run is quarantined via `upsertQuarantine`
+> + `writeFlakyRegistry`, with `suspected_causes` from `detectFlakinessSmells`/`smellCategories` and
+> `modules` from `modulesForFile`. The runner **writes** the registry for tracking and the touch gate;
+> it **never reads** it to change a verdict — the isolated re-run is the only tie-breaker. The
+> `test.flaky_judgement` Decision Pause is NOT raised by the check runner (zero developer involvement).
+> The `checks_flaky_under_parallel` knob (`pass|warn|fail`, default `warn`) decides what a pass-alone
+> test does; `fail` keeps it blocking.
 
 ## Why this exists
 

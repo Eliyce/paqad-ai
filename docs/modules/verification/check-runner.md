@@ -1,60 +1,88 @@
 # Deterministic Check Runner
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Slug:** `verification/check-runner` &nbsp;·&nbsp; **Issue:** #318
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Slug:** `verification/check-runner` &nbsp;·&nbsp; **Issue:** #318, #554
 
 ## Purpose
 
 The `checks` stage is the one the product thesis says must be **100% deterministic**:
-run the project's format / test / build commands and block on red. Before this, the
-command resolver existed but had no caller, and the agent-independent completion
-backstop hardcoded `code_tests_lint_passed: true` — so a change with failing tests
-could still be reported green by the framework layer. The check runner closes that:
-it executes the mapped commands and turns each exit code into a `StructuredTestResult`,
-the exact shape the `code-tests-lint` gate already consumes. No LLM, no heuristic — a
-command's exit code is the verdict.
+run the project's format / test / build commands and block on red. It executes the mapped
+commands and turns each into a `StructuredTestResult`, the exact shape the `code-tests-lint`
+gate consumes. Since #554 it does this **fast without lowering the bar**: it runs the commands
+as `&&` argv chains (never a shell), overlaps them, runs the test suite with the runner's own
+parallel mode when the project has it, and confirms every parallel-run failure alone before it
+blocks. No LLM, no heuristic — exit codes and parsed result files are the verdict.
 
 ## How it runs (per host)
 
-The agent invokes `npx paqad-ai checks run` mid-turn, the same proven pattern as
-`paqad-ai stage`. It is never typed by a human. On **Claude Code** a red report also
-blocks the completion verdict (the only PreToolUse/Stop-capable host); on
-**Codex/Gemini** the report is recorded and read at completion; on advisory hosts the
-verb still runs when the model calls it, but nothing blocks.
+The agent invokes `npx paqad-ai checks run` mid-turn, the same pattern as `paqad-ai stage`. On
+**Claude Code** a red report also blocks the completion verdict; on **Codex/Gemini** the report is
+recorded and read at completion; on advisory hosts the verb still runs but nothing blocks.
 
-## Flow
+Before running, the agent runs `npx paqad-ai checks plan`; if it prints `test: sequential (unknown)`
+it runs the **test-runner-discovery** skill and records the result with `npx paqad-ai checks
+record-runner <file>`, so the next run is fast. paqad never asks the developer to add a flag or
+install a package.
 
-1. `runChecks()` (`src/checks/run-checks.ts`) resolves the `checks` stage commands via
-   `resolveFeatureDevelopmentCheckCommands` (project profile → `format` / `test` /
-   `build`), runs each through the shared delivery shell, and builds one
-   `StructuredTestResult` per command. `evidence_scope.related_paths` is set to the
-   change's files so `assessTestEvidence` maps the run to the affected code.
-2. `paqad-ai checks run` (`src/cli/commands/checks.ts`) persists the results via
-   `writeChecksReportForFeature` into the active change's feature bundle at
-   `.paqad/ledger/feature-evidence/<change>/checks.json` (issue #528), falling back to the
-   global `.paqad/checks/last-run.json` only when no feature bundle is active, prints the
-   `▸ paqad` verdict, and exits non-zero on any red command. The bundle path lives under the
-   already-ignored `ledger/` tree, so the report no longer churns the git tree on every run.
-3. The completion backstop (`buildRepositoryVerificationContext`) reads the report,
-   populates `structured_test_results`, and derives `code_tests_lint_passed` from it —
-   no longer a hardcoded `true`.
-4. `runRepositoryVerification` replaces the `code-tests-lint` gate's `skipped`
-   placeholder with the report-driven verdict: red → `fail` (verdict blocks), green →
-   `pass`, no report → left `skipped` so the run reads Inconclusive via the escalation.
+## Flow (#554)
+
+1. **Execute correctly (Part A).** `parseCommandChain` / `runCommandChain`
+   (`src/checks/command-chain.ts`) split a mapped command on the standalone `&&` token into
+   quote-aware argv steps, run `mkdir -p` in-process, and reject every other shell metacharacter
+   before spawning (INV-7). stdout is captured and the `test` command's output is parsed by the
+   existing `parseTestOutput`, so a `mkdir && …` command can no longer read green without running a
+   test (INV-4). The Laravel test command is always the Artisan wrapper.
+2. **Plan (Part B).** Each stack pack test runner declares its `parallel` capability and a
+   `single_test_selector`. Onboarding and `checks run` record the decision (`commands.test_parallel`
+   + a `testing` block) from the pack entry and the ecosystem lockfile (`hasPackage`), mirrored in
+   the stack doc. `resolveTestPlan` (`src/checks/parallel-plan.ts`, pure) maps that record + injected
+   OS facts + the config knobs to `{ command, mode, processes, reason }`; the process count is
+   `clamp(cores-1, 2, 16)`, capped for low memory and container wrappers.
+3. **Schedule (Part C).** `runStages` (`src/checks/scheduler.ts`) runs formatters serially first,
+   then overlaps the build + shell commands, then the test command alone. Every stage runs even
+   after a red command; `passed` is computed at the end.
+4. **Confirm failures alone (Part D).** `confirmFailures` (`src/checks/isolation-rerun.ts`) re-runs
+   each failing test by itself. Fails alone → real, blocking, reported with test name / file / line.
+   Passes alone → quarantined in the flaky registry and not blocking (under the `warn`/`pass` modes).
+   The runner WRITES the registry, never READS it to change a verdict (INV-3). A mass failure
+   (> 10 or > 5%) skips the re-runs and reports red.
+5. **Fallback.** A parallel run that produced no parsed result (harness failure) re-runs the
+   sequential command once and pins `testing.parallel: unavailable` until the lockfile changes.
+6. **One report (Part E).** `checks.json` is `schema_version: 2`, **additive** — `passed`, `ran`,
+   `results[]` keep their meaning, so every v1 reader keeps working (INV-6). New fields: `mode`,
+   `commands[]`, `isolation_reruns`, `flaky_under_parallel`, `meaningful_green`, `critical_path`.
+   The feature report page renders a Checks section from it.
 
 ## Inconclusive, never a false pass
 
-When no command is mapped, or `paqad-ai checks run` was not run this change, there is
-no report: `structured_test_results` stays undefined, the gate stays `skipped`, and the
-context escalates "test-evidence Inconclusive". The framework never reports green on
-unrun or failing tests.
+When no command is mapped, or `checks run` was not run, there is no report:
+`structured_test_results` stays undefined, the `code-tests-lint` gate stays `skipped`, and the
+context escalates "test-evidence Inconclusive". The framework never reports green on unrun or
+failing tests.
+
+## Config
+
+- `checks_parallel` (default on) — OFF restores the one-after-another run end to end.
+- `checks_max_processes` (default 0 = auto) — cap on parallel test processes.
+- `checks_flaky_under_parallel` (`pass|warn|fail`, default `warn`, floored) — what a pass-alone test
+  does; `resolveChecksFlakyMode` (`src/checks/flaky-mode.ts`).
 
 ## Source Footprint
 
-- `src/checks/run-checks.ts` — resolve + execute + structure.
-- `src/checks/report-store.ts` — atomic persist / tolerant read of the report (global + per-bundle).
-- `src/checks/report-target.ts` — active-feature resolution: bundle-vs-global write/read dispatch (#528).
-- `src/cli/commands/checks.ts` — the `paqad-ai checks run` verb.
-- `src/verification/repository/repository-context.ts` — consumes the report.
+- `src/checks/run-checks.ts` — resolve + plan + schedule + parse + fallback + isolation.
+- `src/checks/command-chain.ts` — the `&&` argv chain runner.
+- `src/checks/parallel-plan.ts` — the pure test-plan resolver.
+- `src/checks/scheduler.ts` — the concurrent command scheduler.
+- `src/checks/isolation-rerun.ts` — the isolated re-run verdict + flaky quarantine.
+- `src/checks/testing-record.ts` — derive + record the parallel decision + the stack-doc mirror.
+- `src/checks/prerequisites.ts` — lockfile package lookup.
+- `src/checks/test-runner.ts` — the one runner selector (shared with onboarding).
+- `src/checks/flaky-mode.ts` — the floored `checks_flaky_under_parallel` resolver.
+- `src/checks/record-runner.ts` — validate the agent-discovered runner record.
+- `src/checks/constants.ts` — the shared tunables.
+- `src/checks/report-store.ts` — v2 report persist / tolerant read.
+- `src/checks/report-target.ts` — bundle-vs-global write/read dispatch (#528).
+- `src/cli/commands/checks.ts` — the `run` / `plan` / `record-runner` verbs + the receipt.
+- `runtime/base/skills/test-runner-discovery` — the agent discovery skill (Part B.5).
 - `src/verification/repository/run-repository-verification.ts` — `checksEvidenceGate`.
 
 ## Authority
