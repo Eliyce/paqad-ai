@@ -139,4 +139,59 @@ describe('validateRecordRunner (AC-9)', () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it('rejects a non-object payload', () => {
+    expect(validateRecordRunner(null, profile('pnpm test'), root, NOW).ok).toBe(false);
+    expect(validateRecordRunner(42, profile('pnpm test'), root, NOW).ok).toBe(false);
+  });
+
+  it('rejects an empty runner_id', () => {
+    expect(
+      validateRecordRunner(discovery({ runner_id: '' }), profile('pnpm test'), root, NOW).ok,
+    ).toBe(false);
+  });
+
+  it('rejects a bad single_test_selector', () => {
+    expect(
+      validateRecordRunner(
+        discovery({ single_test_selector: 'nope' }),
+        profile('pnpm test'),
+        root,
+        NOW,
+      ).ok,
+    ).toBe(false);
+  });
+
+  it('rejects a non-array or empty evidence', () => {
+    expect(
+      validateRecordRunner(discovery({ evidence: [] }), profile('pnpm test'), root, NOW).ok,
+    ).toBe(false);
+    expect(
+      validateRecordRunner(discovery({ evidence: 'x' }), profile('pnpm test'), root, NOW).ok,
+    ).toBe(false);
+    expect(
+      validateRecordRunner(discovery({ evidence: [5] }), profile('pnpm test'), root, NOW).ok,
+    ).toBe(false);
+  });
+
+  it('rejects available with a missing test_parallel', () => {
+    expect(
+      validateRecordRunner(
+        discovery({ test_parallel: null }),
+        profile('pnpm test -- --reporter=tap'),
+        root,
+        NOW,
+      ).ok,
+    ).toBe(false);
+  });
+
+  it('rejects a test_parallel that does not preserve the runner invocation', () => {
+    const result = validateRecordRunner(
+      discovery({ test_parallel: '--parallel --jobs=<processes>' }),
+      profile('pnpm test -- --reporter=tap'),
+      root,
+      NOW,
+    );
+    expect(result.ok).toBe(false);
+  });
 });

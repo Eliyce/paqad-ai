@@ -230,4 +230,87 @@ describe('runChecks (issue #554)', () => {
     expect(result.mode.test_mode).toBe('native');
     expect(result.passed).toBe(true);
   });
+
+  it('reports an unsupported-syntax test command red without spawning it', async () => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      ['commands:', '  test: node -e process.exit(0)'].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        throw new Error('must not spawn');
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * 1024 ** 3 },
+      ...CLOCK,
+    });
+    expect(result.passed).toBe(false);
+    const test = result.commands.find((c) => c.logical_command === 'test');
+    expect(test?.output_tail?.join('\n')).toContain('Unsupported shell syntax');
+  });
+
+  it('runs parallel, confirms a failure alone, and sets aside a recovered flaky test', async () => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(root, 'composer.lock'),
+      JSON.stringify({ 'packages-dev': [{ name: 'brianium/paratest' }] }),
+    );
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/pest.xml',
+        '  test_single: php artisan test --filter="<pattern>" --log-junit .paqad/test-results/pest.xml',
+        '  test_parallel: mkdir -p .paqad/test-results && php artisan test --parallel --processes=<processes> --log-junit .paqad/test-results/pest.xml',
+        'stack_profile:',
+        '  frameworks: [laravel]',
+        '  traits: [pest]',
+        '  languages: []',
+        '  runtimes: []',
+        'testing:',
+        '  runner_id: pest',
+        '  parallel: available',
+        '  detected_by: script',
+        '  recorded_at: 2026-09-11T00:00:00.000Z',
+      ].join('\n') + '\n',
+    );
+    const padding = Array.from(
+      { length: 30 },
+      (_, i) => `<testcase name="ok ${i}" classname="C" file="tests/OkTest.php" line="1"/>`,
+    ).join('');
+    const failing = `<?xml version="1.0"?><testsuites><testsuite name="F"><testcase name="flaky one" classname="C" file="tests/FlakyTest.php" line="7"><failure>crowd</failure></testcase>${padding}</testsuite></testsuites>`;
+    const passing =
+      '<?xml version="1.0"?><testsuites><testsuite name="F"><testcase name="flaky one" classname="C" file="tests/FlakyTest.php" line="7"/></testsuite></testsuites>';
+    const shell: DeliveryShell = {
+      async run(bin, args) {
+        if (bin === 'php') {
+          const single = args.includes('--filter=flaky one');
+          // Write the junit to whatever --log-junit path this invocation names (the re-run
+          // redirects it to rerun-0.xml so the main result is never overwritten).
+          const outPath = args[args.indexOf('--log-junit') + 1] ?? '.paqad/test-results/pest.xml';
+          writeFileSync(join(root, outPath), single ? passing : failing);
+          return { stdout: '', stderr: '', exitCode: single ? 0 : 1 };
+        }
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 12, totalmem: 64 * 1024 ** 3 },
+      flakyMode: 'warn',
+      ...CLOCK,
+    });
+    expect(result.mode.test_mode).toBe('parallel');
+    expect(result.mode.processes).toBe(11);
+    expect(result.flaky_under_parallel).toHaveLength(1);
+    expect(result.recovered).toBe(1);
+    expect(result.passed).toBe(true);
+  });
 });

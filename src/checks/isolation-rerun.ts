@@ -58,8 +58,9 @@ export interface ConfirmFailuresInput {
   /** `resolveRerunCount(projectRoot)`; how many isolated re-runs per failure. */
   rerunCount: number;
   now: () => string;
-  /** Run one isolated test command and return its parsed result + exit code. */
-  runSingle: (command: string) => Promise<SingleRunOutcome>;
+  /** Run one isolated test command (with the re-run output file it should parse) and return its
+   *  parsed result + exit code. `outputOverride` is the redirected result file for this re-run. */
+  runSingle: (command: string, outputOverride?: string) => Promise<SingleRunOutcome>;
   /** Injected for tests; defaults to reading the test file from disk. */
   readTestFile?: (absPath: string) => string | null;
 }
@@ -103,11 +104,18 @@ function buildRerunCommand(
   index: number,
 ): string {
   let command = template.split('<pattern>').join(selector).split('<path_or_file>').join(selector);
-  if (outputPathPattern && command.includes(outputPathPattern)) {
-    const ext = extname(outputPathPattern).replace(/^\./, '') || 'out';
-    command = command.split(outputPathPattern).join(`.paqad/test-results/rerun-${index}.${ext}`);
+  const redirected = rerunOutputPath(outputPathPattern, index);
+  if (outputPathPattern && redirected && command.includes(outputPathPattern)) {
+    command = command.split(outputPathPattern).join(redirected);
   }
   return command;
+}
+
+/** The redirected result file for a given failure index, or undefined for a stdout runner. */
+function rerunOutputPath(outputPathPattern: string | undefined, index: number): string | undefined {
+  if (!outputPathPattern) return undefined;
+  const ext = extname(outputPathPattern).replace(/^\./, '') || 'out';
+  return `.paqad/test-results/rerun-${index}.${ext}`;
 }
 
 function readSource(
@@ -183,10 +191,11 @@ export async function confirmFailures(input: ConfirmFailuresInput): Promise<Conf
       input.outputPathPattern,
       index,
     );
+    const rerunOutput = rerunOutputPath(input.outputPathPattern, index);
     const outcomes: boolean[] = [];
     let allMatchedNothing = true;
     for (let attempt = 0; attempt < input.rerunCount; attempt += 1) {
-      const outcome = await input.runSingle(command);
+      const outcome = await input.runSingle(command, rerunOutput);
       const summary = outcome.result.summary;
       const matchedNothing = summary.total === 0;
       if (!matchedNothing) allMatchedNothing = false;

@@ -235,4 +235,34 @@ describe('confirmFailures', () => {
     expect(flaky.isolation_reruns.entries[0]!.verdict).toBe('flaky');
     expect(flaky.isolation_reruns.entries[0]!.blocking).toBe(true);
   });
+
+  it('under pass, recovered tests are set aside and recorded (AC-6)', async () => {
+    const out = await confirmFailures({
+      result: result([issue('a'), issue('b')], 100),
+      projectRoot: root,
+      singleCommandTemplate: 'run <pattern>',
+      singleSelector: 'test_id',
+      flakyMode: 'pass',
+      rerunCount: 3,
+      now: NOW,
+      runSingle: runSingleFor(new Set(['a', 'b'])),
+    });
+    expect(out.result.summary.failed).toBe(0);
+    expect(out.flaky_under_parallel).toHaveLength(2);
+  });
+
+  it('returns performed=false when there are no failures', async () => {
+    const out = await confirmFailures({
+      result: result([], 10),
+      projectRoot: root,
+      singleCommandTemplate: 'run <pattern>',
+      singleSelector: 'test_id',
+      flakyMode: 'warn',
+      rerunCount: 3,
+      now: NOW,
+      runSingle: async () => outcome(true),
+    });
+    expect(out.isolation_reruns.performed).toBe(false);
+    expect(out.isolation_reruns.skipped_reason).toBeNull();
+  });
 });

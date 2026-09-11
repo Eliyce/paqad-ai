@@ -60,4 +60,9 @@ describe('hasPackage', () => {
     expect(hasPackage(root, 'ruby', 'parallel-tests')).toBe(true);
     expect(hasPackage(root, 'ruby', 'rspec-rails')).toBe(false);
   });
+
+  it('returns false for an unparseable composer.lock', () => {
+    writeFileSync(join(root, 'composer.lock'), 'not json{');
+    expect(hasPackage(root, 'composer', 'brianium/paratest')).toBe(false);
+  });
 });

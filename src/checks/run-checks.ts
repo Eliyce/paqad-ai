@@ -205,11 +205,22 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
         flakyMode,
         rerunCount: resolveRerunCount(projectRoot),
         now: nowIso,
-        runSingle: async (command) => {
+        runSingle: async (command, outputOverride) => {
           const outcome = await runOneCommand(shell, command, projectRoot, nowMs, nowIso);
+          // Parse the re-run's REDIRECTED output file (rerun-<index>), not the runner's default one,
+          // so an isolated re-run never reads the crowd run's result file.
+          const rerunRunner =
+            outputOverride && runner.output_source === 'file'
+              ? { ...runner, output_path_pattern: outputOverride }
+              : runner;
           return {
             exitCode: outcome.exit_code,
-            result: await parseTestCommandOutputAsync(runner, outcome, projectRoot, changedFiles),
+            result: await parseTestCommandOutputAsync(
+              rerunRunner,
+              outcome,
+              projectRoot,
+              changedFiles,
+            ),
           };
         },
       });
