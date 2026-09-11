@@ -485,6 +485,7 @@ function persistHarnessFallback(
   const next: ProjectProfile = {
     ...profile,
     testing: {
+      /* v8 ignore next -- a parallel run recorded a runner_id, so the `?? 'unknown'` never fires */
       runner_id: profile.testing?.runner_id ?? 'unknown',
       parallel: 'unavailable',
       reason: 'harness-failure',

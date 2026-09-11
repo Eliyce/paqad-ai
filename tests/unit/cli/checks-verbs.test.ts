@@ -190,6 +190,34 @@ describe('renderReceipt (issue #554)', () => {
     expect(renderReceipt(nullLine, 'warn').join('\n')).toContain('a.ts › bare');
   });
 
+  it('names a shell command by its command string when it has no logical name', () => {
+    const withShell = baseResult({
+      commands: [
+        {
+          logical_command: null,
+          command: 'echo hi',
+          exit_code: 0,
+          passed: true,
+          stage: 2,
+          started_at: '',
+          ended_at: '',
+          duration_ms: 100,
+        },
+        {
+          logical_command: 'test',
+          command: 'pnpm test',
+          exit_code: 0,
+          passed: true,
+          stage: 3,
+          started_at: '',
+          ended_at: '',
+          duration_ms: 100,
+        },
+      ],
+    });
+    expect(renderReceipt(withShell, 'warn').join('\n')).toContain('echo hi passed');
+  });
+
   it('a red run lists each failing test by file:line', () => {
     const red = baseResult({
       passed: false,

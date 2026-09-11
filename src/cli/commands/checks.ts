@@ -312,6 +312,7 @@ function renderTestLines(result: ChecksRunResult, durationMs: number): string[] 
 function humanReason(reason: string): string {
   if (reason.endsWith('-missing')) {
     const pkg = reason.replace(/-missing$/, '');
+    /* v8 ignore next -- split always yields ≥1 element, so pop() is defined */
     const short = pkg.split('/').pop() ?? pkg;
     return `${short} missing (${pkg})`;
   }
