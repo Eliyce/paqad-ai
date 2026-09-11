@@ -489,6 +489,7 @@ function persistHarnessFallback(
       parallel: 'unavailable',
       reason: 'harness-failure',
       detected_by: 'script',
+      /* v8 ignore next -- a parallel run implies a resolvable lockfile, so `hash` is present here */
       ...(hash ? { lockfile_hash: hash } : {}),
       recorded_at: now,
     },
@@ -535,5 +536,6 @@ function emptyResult(warnings: string[], checksParallel: boolean): ChecksRunResu
 }
 
 function firstLine(text: string): string {
+  /* v8 ignore next -- split always yields at least one element, so [0] is defined */
   return text.split('\n')[0]?.trim() ?? '';
 }

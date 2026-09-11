@@ -97,14 +97,23 @@ describe('renderReceipt (issue #554)', () => {
         { test_id: 'b', file_path: 'y', line_number: 2, suspected_causes: [] },
       ],
     });
-    expect(renderReceipt(withFlaky, 'warn').join('\n')).toContain('passed alone; recorded, not blocking');
+    expect(renderReceipt(withFlaky, 'warn').join('\n')).toContain(
+      'passed alone; recorded, not blocking',
+    );
     expect(renderReceipt(withFlaky, 'pass').join('\n')).not.toContain('passed alone');
-    expect(renderReceipt(withFlaky, 'fail').join('\n')).toContain('checks_flaky_under_parallel=fail');
+    expect(renderReceipt(withFlaky, 'fail').join('\n')).toContain(
+      'checks_flaky_under_parallel=fail',
+    );
   });
 
   it('native mode prints native parallel', () => {
     const native = baseResult({
-      mode: { parallel_commands: true, test_mode: 'native', processes: null, fallback_reason: null },
+      mode: {
+        parallel_commands: true,
+        test_mode: 'native',
+        processes: null,
+        fallback_reason: null,
+      },
     });
     expect(renderReceipt(native, 'warn').join('\n')).toContain('native parallel');
   });
@@ -117,7 +126,12 @@ describe('renderReceipt (issue #554)', () => {
       ['unknown', 'run the test-runner-discovery skill'],
     ] as const) {
       const seq = baseResult({
-        mode: { parallel_commands: true, test_mode: 'sequential', processes: null, fallback_reason: null },
+        mode: {
+          parallel_commands: true,
+          test_mode: 'sequential',
+          processes: null,
+          fallback_reason: null,
+        },
         sequential_reason: reason,
       });
       expect(renderReceipt(seq, 'warn').join('\n')).toContain(text);
@@ -254,5 +268,53 @@ describe('checks plan / record-runner verbs', () => {
     const out = await run(['record-runner', join(root, 'bad.json'), '--project-root', root]);
     expect(process.exitCode).toBe(2);
     expect(out.join('\n')).toContain('rm');
+  });
+
+  it('checks record-runner exits 2 on an unparseable discovery file', async () => {
+    writeFileSync(join(root, '.paqad/project-profile.yaml'), 'commands:\n  test: pnpm test\n');
+    writeFileSync(join(root, 'bad.json'), 'not json{');
+    const out = await run(['record-runner', join(root, 'bad.json'), '--project-root', root]);
+    expect(process.exitCode).toBe(2);
+    expect(out.join('\n')).toContain('could not read or parse');
+  });
+
+  it('checks record-runner records a native discovery with no test_parallel', async () => {
+    writeFileSync(join(root, 'package.json'), '{}');
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: go test ./...',
+        'stack_profile:',
+        '  frameworks: [go-web]',
+        '  traits: []',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    writeFileSync(
+      join(root, 'disc.json'),
+      JSON.stringify({
+        schema_version: 1,
+        runner_id: 'go-test',
+        parallel: 'native',
+        reason: null,
+        test_parallel: null,
+        single_test_selector: 'test_id',
+        evidence: ['package.json'],
+      }),
+    );
+    const out = await run(['record-runner', join(root, 'disc.json'), '--project-root', root]);
+    expect(out.join('\n')).toContain('recorded testing.parallel=native');
+    expect(readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8')).not.toContain(
+      'test_parallel:',
+    );
+  });
+
+  it('checks record-runner exits 2 when there is no project profile', async () => {
+    writeFileSync(join(root, 'x.json'), '{}');
+    const out = await run(['record-runner', join(root, 'x.json'), '--project-root', root]);
+    expect(process.exitCode).toBe(2);
+    expect(out.join('\n')).toContain('no project profile');
   });
 });

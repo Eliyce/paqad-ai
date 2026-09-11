@@ -110,4 +110,19 @@ describe('runStages (AC-5)', () => {
     expect(results[0]!.passed).toBe(false);
     expect(results[0]!.invalid).toContain('Unsupported shell syntax');
   });
+
+  it('reports an unsupported-syntax command red in parallel mode too', async () => {
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const results = await runStages(
+      [{ logical_command: 'build', command: 'pnpm build | tee', stage: 2 }],
+      shell,
+      { cwd: '/tmp', parallel: true, availableParallelism: 4, nowMs: () => 1, nowIso: () => 'x' },
+    );
+    expect(results[0]!.passed).toBe(false);
+    expect(results[0]!.invalid).toContain('Unsupported shell syntax');
+  });
 });
