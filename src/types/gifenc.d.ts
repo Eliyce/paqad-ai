@@ -35,4 +35,12 @@ declare module 'gifenc' {
     palette: number[][],
     format?: string,
   ): Uint8Array;
+
+  // gifenc ships as CommonJS; Node ESM interop requires the default import.
+  const gifenc: {
+    GIFEncoder: typeof GIFEncoder;
+    quantize: typeof quantize;
+    applyPalette: typeof applyPalette;
+  };
+  export default gifenc;
 }

@@ -66,6 +66,10 @@ export default defineConfig({
         'src/verification/gates/gate.interface.ts',
         'src/workflows/types.ts',
         'src/cli/commands/refresh.ts',
+        // Issue #551 — the visual-evidence CLI orchestrates the excluded impure capture path
+        // (runner/provision/boot); its resolution/formatting is covered via the pure modules it
+        // calls (trigger, resolve-plan) and their own tests.
+        'src/cli/commands/visual-evidence.ts',
         'src/context/ast-chunker.ts',
         'src/context/budget-optimizer.ts',
         'src/context/chunk-index.ts',

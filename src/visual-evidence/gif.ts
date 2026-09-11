@@ -11,7 +11,9 @@
 
 import { readFileSync } from 'node:fs';
 
-import { GIFEncoder, applyPalette, quantize } from 'gifenc';
+import gifenc from 'gifenc';
+
+const { GIFEncoder, applyPalette, quantize } = gifenc;
 
 /** One frame's source: the clean screenshot on disk and its business-language caption. */
 export interface GifFrameInput {
