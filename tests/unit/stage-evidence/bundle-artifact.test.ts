@@ -81,6 +81,14 @@ describe('bundle-artifact', () => {
       expect(check.rejected).toEqual([stray]);
     });
 
+    // Issue #551 — a valid screenshots entry is allowed-in-bundle but never a stage artifact.
+    it('rejects a screenshots-subtree path as a non-rigid stage artifact', () => {
+      const shot = `.paqad/ledger/feature-evidence/${DIR}/screenshots/01-open/image.png`;
+      const check = checkBundleArtifacts(root, SES, 'development', [shot, 'src/app.tsx']);
+      expect(check.accepted).toEqual(['src/app.tsx']);
+      expect(check.rejected).toEqual([shot]);
+    });
+
     it('still accepts a rigid bundle file named by a non-rigid stage', () => {
       const check = checkBundleArtifacts(root, SES, 'development', [featureFilePath(DIR, 'plan')]);
       expect(check.accepted).toEqual([featureFilePath(DIR, 'plan')]);

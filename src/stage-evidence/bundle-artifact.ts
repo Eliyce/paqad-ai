@@ -81,7 +81,10 @@ export function checkBundleArtifacts(
     const rejected: string[] = [];
     for (const path of normalizedPaths) {
       const inBundle = classifyBundlePath(path);
-      if (inBundle && !inBundle.allowed) {
+      // A non-rigid stage may not prove itself with a bundle-dir file that is either not
+      // allowed OR anywhere under the `screenshots/` subtree (issue #551): screenshots are
+      // capture output, never a stage-end artifact, even when they are valid bundle entries.
+      if (inBundle && (!inBundle.allowed || inBundle.screenshotSubtree)) {
         rejected.push(path);
       } else {
         accepted.push(path);
