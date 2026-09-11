@@ -57,6 +57,10 @@ export interface ProjectFeatureFlags {
   metrics_enabled: boolean;
   /** Issue #551 — capture screenshots of documented flows for frontend changes (default off, coding-gated). */
   visual_evidence: boolean;
+  /** Issue #554 — run the checks stage concurrently and use the runner's own parallel mode (default on). */
+  checks_parallel: boolean;
+  /** Issue #554 — cap on parallel test processes; 0 = auto (cores minus one, capped by mem/container). */
+  checks_max_processes: number;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;

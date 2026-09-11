@@ -679,6 +679,8 @@ function buildProjectProfile(
       feature_report: true,
       metrics_enabled: true,
       visual_evidence: false,
+      checks_parallel: true,
+      checks_max_processes: 0,
     },
     // Issue #187 — emit the enterprise block at onboarding so the opt-in
     // evidence-ledger / AI-BOM / compliance-citation switches are visible and

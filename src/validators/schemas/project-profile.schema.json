@@ -191,7 +191,9 @@
         "lean_rules": { "type": "boolean" },
         "feature_report": { "type": "boolean" },
         "metrics_enabled": { "type": "boolean" },
-        "visual_evidence": { "type": "boolean" }
+        "visual_evidence": { "type": "boolean" },
+        "checks_parallel": { "type": "boolean" },
+        "checks_max_processes": { "type": "integer", "minimum": 0 }
       }
     },
     "enterprise": {

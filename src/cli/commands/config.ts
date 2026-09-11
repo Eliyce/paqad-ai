@@ -5,6 +5,7 @@ import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { resolveStagesMode } from '@/stage-evidence/mode.js';
 import { resolveBundleCompletenessMode } from '@/verification/repository/bundle-completeness-mode.js';
 import { resolveVisualEvidenceMode } from '@/verification/repository/visual-evidence-mode.js';
+import { resolveChecksFlakyMode } from '@/checks/flaky-mode.js';
 
 /**
  * `paqad-ai config effective` (issue #326) — print, per knob, the value that ACTUALLY
@@ -79,6 +80,9 @@ const KNOB_CONSUMERS: Record<string, string> = {
   spec_pipeline_clarification: 'spec pipeline (question-round gate)',
   spec_pipeline_final_review: 'spec pipeline (finish gate)',
   spec_pipeline_token_ceiling: 'spec pipeline (per-run token ceiling)',
+  checks_parallel: 'checks stage (scheduler + parallel test plan)',
+  checks_max_processes: 'checks stage (parallel process cap)',
+  checks_flaky_under_parallel: 'checks isolated-re-run verdict (pass-alone policy)',
 };
 
 interface EffectiveKnob {
@@ -127,6 +131,9 @@ export function resolveEffectiveConfig(
       surface = `${surface} → floored`;
     } else if (spec.key === 'visual_evidence_mode') {
       value = resolveVisualEvidenceMode(projectRoot, env);
+      surface = `${surface} → floored`;
+    } else if (spec.key === 'checks_flaky_under_parallel') {
+      value = resolveChecksFlakyMode(projectRoot, env);
       surface = `${surface} → floored`;
     }
 
