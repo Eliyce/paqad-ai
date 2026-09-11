@@ -27,17 +27,21 @@ const loadChange = vi.mocked(loadChangeEvidence);
 const getPacks = vi.mocked(getPacksForFrameworks);
 const readProfile = vi.mocked(readProjectProfile);
 
-function pack(name: string, globs: string[]): { manifest: { name: string; visual_evidence?: { frontend_globs?: string[] } } } {
+function pack(
+  name: string,
+  globs: string[],
+): { manifest: { name: string; visual_evidence?: { frontend_globs?: string[] } } } {
   return { manifest: { name, visual_evidence: { frontend_globs: globs } } };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   readProfile.mockReturnValue({ stack_profile: { frameworks: ['react'] } } as never);
-  getPacks.mockImplementation((frameworks) =>
-    (frameworks.includes('react')
-      ? [pack('react', ['src/**/*.{jsx,tsx}', 'src/**/*.css'])]
-      : []) as never,
+  getPacks.mockImplementation(
+    (frameworks) =>
+      (frameworks.includes('react')
+        ? [pack('react', ['src/**/*.{jsx,tsx}', 'src/**/*.css'])]
+        : []) as never,
   );
 });
 

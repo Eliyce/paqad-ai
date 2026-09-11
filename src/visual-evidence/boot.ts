@@ -79,9 +79,10 @@ export async function bootApp(
     return { ok: true, url, stop: async () => undefined };
   }
 
-  const commandString = preview.command && preview.command.trim().length > 0
-    ? preview.command
-    : (profile?.commands?.dev ?? '');
+  const commandString =
+    preview.command && preview.command.trim().length > 0
+      ? preview.command
+      : (profile?.commands?.dev ?? '');
   if (commandString.trim().length === 0) {
     return {
       ok: false,

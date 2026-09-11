@@ -308,7 +308,15 @@ export const VISUAL_EVIDENCE_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['index', 'journey_id', 'journey_step', 'caption', 'dir', 'captured_at', 'status'],
+        required: [
+          'index',
+          'journey_id',
+          'journey_step',
+          'caption',
+          'dir',
+          'captured_at',
+          'status',
+        ],
         properties: {
           index: { type: 'integer', minimum: 1 },
           journey_id: { type: 'string', minLength: 1 },

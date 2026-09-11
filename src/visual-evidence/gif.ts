@@ -113,7 +113,13 @@ async function renderFrame(
         img.src = payload.dataUrl;
       });
     },
-    { dataUrl: toDataUrl(input.imageAbsPath), caption: input.caption, frameWidth, frameHeight, bar: CAPTION_BAR },
+    {
+      dataUrl: toDataUrl(input.imageAbsPath),
+      caption: input.caption,
+      frameWidth,
+      frameHeight,
+      bar: CAPTION_BAR,
+    },
   );
   return { data: Uint8Array.from(raw.data), width: raw.width, height: raw.height };
 }

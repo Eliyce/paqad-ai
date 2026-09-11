@@ -25,7 +25,9 @@ export function createVisualEvidenceCommand(): Command {
 
   command
     .command('run')
-    .description('Resolve the plan, boot the app, capture the flows, and write the bundle artifacts')
+    .description(
+      'Resolve the plan, boot the app, capture the flows, and write the bundle artifacts',
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--json', 'Emit a machine-readable summary line', false)
     .action(async (options: { projectRoot: string; json: boolean }) => {
@@ -34,7 +36,11 @@ export function createVisualEvidenceCommand(): Command {
       const flag = resolveFrameworkConfig(projectRoot).features.visual_evidence;
       const coding = profile?.active_capabilities?.includes('coding') ?? false;
       if (!flag || !coding) {
-        report(options.json, 'skipped', 'visual evidence is off (flag off or coding capability absent).');
+        report(
+          options.json,
+          'skipped',
+          'visual evidence is off (flag off or coding capability absent).',
+        );
         return;
       }
       const dirName = activeFeatureDirOrNull(projectRoot);
@@ -44,7 +50,11 @@ export function createVisualEvidenceCommand(): Command {
       }
       const trigger = await evaluateFrontendTrigger(projectRoot);
       if (!trigger.triggered) {
-        report(options.json, 'skipped', 'not-frontend — no changed file matched a frontend surface.');
+        report(
+          options.json,
+          'skipped',
+          'not-frontend — no changed file matched a frontend surface.',
+        );
         return;
       }
 
@@ -68,13 +78,17 @@ export function createVisualEvidenceCommand(): Command {
         console.log(`> ⚪ ${skip.reason}: ${skip.detail}`);
       }
       if (options.json) {
-        console.log(JSON.stringify({ result: result.result, captured, skips: result.skips.length }));
+        console.log(
+          JSON.stringify({ result: result.result, captured, skips: result.skips.length }),
+        );
       }
     });
 
   command
     .command('plan')
-    .description('Print the resolved capture plan (journeys, matched files, scripts, skips) — no browser')
+    .description(
+      'Print the resolved capture plan (journeys, matched files, scripts, skips) — no browser',
+    )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--json', 'Emit JSON', false)
     .action(async (options: { projectRoot: string; json: boolean }) => {
@@ -99,7 +113,9 @@ export function createVisualEvidenceCommand(): Command {
       console.log('**▸ paqad** · visual-evidence plan');
       console.log(`> ${trigger.triggered ? '🟢' : '⚪'} frontend-triggering: ${trigger.triggered}`);
       for (const entry of plan.entries) {
-        console.log(`> 🟢 ${entry.journey_id} ← ${entry.capture_script} (${entry.matched_by.length} anchor(s))`);
+        console.log(
+          `> 🟢 ${entry.journey_id} ← ${entry.capture_script} (${entry.matched_by.length} anchor(s))`,
+        );
       }
       for (const skip of plan.skips) {
         console.log(`> ⚪ ${skip.reason}: ${skip.detail}`);
@@ -108,7 +124,9 @@ export function createVisualEvidenceCommand(): Command {
 
   command
     .command('setup')
-    .description('Provision the Playwright + Chromium runtime under ~/.paqad-ai/ve-runtime (idempotent)')
+    .description(
+      'Provision the Playwright + Chromium runtime under ~/.paqad-ai/ve-runtime (idempotent)',
+    )
     .option('--json', 'Emit JSON', false)
     .action(async (options: { json: boolean }) => {
       const veRuntime = resolveVeRuntimeDir();

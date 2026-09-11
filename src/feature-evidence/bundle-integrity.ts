@@ -179,7 +179,7 @@ function strayScreenshotEntries(bundleAbs: string): string[] {
       }
       const abs = join(absDir, name);
       const rel = `${relPrefix}/${name}`;
-      let isDir = false;
+      let isDir: boolean;
       try {
         isDir = statSync(abs).isDirectory();
       } catch {

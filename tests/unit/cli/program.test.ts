@@ -49,6 +49,7 @@ describe('createProgram', () => {
       'spec',
       'review',
       'stage',
+      'visual-evidence',
       'resume',
       'decision',
       'config',

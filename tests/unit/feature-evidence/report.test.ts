@@ -343,9 +343,13 @@ describe('renderFeatureReportHtml — visual evidence section (issue #551)', () 
         result: 'captured',
       },
     });
-    const html = renderFeatureReportHtml(bundle, fold([{ kind: 'open', ts: AT, adapter: 'claude-code' } as never]), {
-      generatedAt: AT,
-    });
+    const html = renderFeatureReportHtml(
+      bundle,
+      fold([{ kind: 'open', ts: AT, adapter: 'claude-code' } as never]),
+      {
+        generatedAt: AT,
+      },
+    );
     expect(html).toContain('Visual evidence');
     expect(html).toContain('src="screenshots/overview.gif"');
     expect(html).toContain('src="screenshots/01-open-the-cart/image.png"');
@@ -380,9 +384,13 @@ describe('renderFeatureReportHtml — visual evidence section (issue #551)', () 
         result: 'partial',
       },
     });
-    const html = renderFeatureReportHtml(bundle, fold([{ kind: 'open', ts: AT, adapter: 'claude-code' } as never]), {
-      generatedAt: AT,
-    });
+    const html = renderFeatureReportHtml(
+      bundle,
+      fold([{ kind: 'open', ts: AT, adapter: 'claude-code' } as never]),
+      {
+        generatedAt: AT,
+      },
+    );
     expect(html).toContain('failed: selector-not-found');
     expect(html).toContain('Absent because no-capture-script');
   });

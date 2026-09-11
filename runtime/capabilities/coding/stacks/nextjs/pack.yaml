@@ -79,4 +79,4 @@ visual_evidence:
     - pages/**/*.{jsx,tsx}
     - src/app/**/*.{jsx,tsx}
     - src/pages/**/*.{jsx,tsx}
-    - "**/*.module.css"
+    - '**/*.module.css'

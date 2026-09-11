@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  VISUAL_EVIDENCE_SCHEMA,
-  validateVisualEvidenceRecord,
-} from '@/feature-evidence/schema.js';
+import { VISUAL_EVIDENCE_SCHEMA, validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
 import type { VisualEvidenceManifest } from '@/visual-evidence/types.js';
 
 function validManifest(): VisualEvidenceManifest {
@@ -92,8 +89,12 @@ describe('validateVisualEvidenceRecord', () => {
   });
 
   it('rejects a wrong doc_type and a wrong schema_version', () => {
-    expect(validateVisualEvidenceRecord({ ...validManifest(), doc_type: 'nope' }).length).toBeGreaterThan(0);
-    expect(validateVisualEvidenceRecord({ ...validManifest(), schema_version: 2 }).length).toBeGreaterThan(0);
+    expect(
+      validateVisualEvidenceRecord({ ...validManifest(), doc_type: 'nope' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validateVisualEvidenceRecord({ ...validManifest(), schema_version: 2 }).length,
+    ).toBeGreaterThan(0);
   });
 
   it('rejects a step with an unknown status', () => {

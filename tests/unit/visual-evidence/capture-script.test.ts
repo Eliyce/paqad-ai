@@ -17,7 +17,11 @@ function journeysDir(): string {
   return join(root, 'docs', 'site-map', 'journeys');
 }
 
-function writeJourney(id: string, status: string, steps: Array<{ surface: string; action?: string; expect?: string }>): void {
+function writeJourney(
+  id: string,
+  status: string,
+  steps: Array<{ surface: string; action?: string; expect?: string }>,
+): void {
   const doc = {
     schema_version: 1,
     id,

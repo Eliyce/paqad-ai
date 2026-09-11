@@ -42,7 +42,9 @@ describe('resolveVisualEvidenceMode', () => {
   it('lets the env RAISE above the team floor, never lower it', () => {
     const root = tempRoot();
     write(root, '.paqad/configs/.config.policy', 'visual_evidence_mode=warn\n');
-    expect(resolveVisualEvidenceMode(root, { PAQAD_VISUAL_EVIDENCE_MODE: 'strict' })).toBe('strict');
+    expect(resolveVisualEvidenceMode(root, { PAQAD_VISUAL_EVIDENCE_MODE: 'strict' })).toBe(
+      'strict',
+    );
     // a team floor of strict cannot be lowered by env
     write(root, '.paqad/configs/.config.policy', 'visual_evidence_mode=strict\n');
     expect(resolveVisualEvidenceMode(root, { PAQAD_VISUAL_EVIDENCE_MODE: 'warn' })).toBe('strict');

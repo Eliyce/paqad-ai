@@ -22,7 +22,10 @@ declare module 'gifenc' {
     reset(): void;
   }
 
-  export function GIFEncoder(options?: { auto?: boolean; initialCapacity?: number }): GifEncoderInstance;
+  export function GIFEncoder(options?: {
+    auto?: boolean;
+    initialCapacity?: number;
+  }): GifEncoderInstance;
 
   export function quantize(
     rgba: Uint8Array | Uint8ClampedArray,

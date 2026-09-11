@@ -7,13 +7,7 @@
 // excluded from unit coverage; exercised by the env-gated integration test.
 
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -100,7 +94,11 @@ interface PwBrowser {
   close(): Promise<void>;
 }
 
-async function runAction(page: PwPage, action: CaptureAction, env: NodeJS.ProcessEnv): Promise<void> {
+async function runAction(
+  page: PwPage,
+  action: CaptureAction,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
   const value = resolveValue(action.value, env);
   switch (action.do) {
     case 'click':
@@ -322,14 +320,20 @@ async function captureFlow(
       if (setup.goto) await page.goto(resolveUrl(baseUrl, setup.goto));
       for (const action of setup.actions ?? []) {
         if (missingEnvVar(action, env)) {
-          skips.push({ reason: 'env-var-missing', detail: `${entry.journey_id}: ${action.value} is not set` });
+          skips.push({
+            reason: 'env-var-missing',
+            detail: `${entry.journey_id}: ${action.value} is not set`,
+          });
           return { steps, frames, skips };
         }
         await runAction(page, action, env);
       }
     }
   } catch {
-    skips.push({ reason: 'selector-not-found', detail: `${entry.journey_id}: setup selector failed` });
+    skips.push({
+      reason: 'selector-not-found',
+      detail: `${entry.journey_id}: setup selector failed`,
+    });
     return { steps, frames, skips };
   }
 
@@ -353,7 +357,10 @@ async function captureFlow(
         status: 'failed',
         failure: `selector-not-found while running journey_step ${step.journey_step}`,
       });
-      skips.push({ reason: 'selector-not-found', detail: `${entry.journey_id} step ${step.journey_step}` });
+      skips.push({
+        reason: 'selector-not-found',
+        detail: `${entry.journey_id} step ${step.journey_step}`,
+      });
       break;
     }
   }
@@ -470,7 +477,9 @@ function writeManifest(
 
   const errors = validateVisualEvidenceRecord(manifest);
   if (errors.length > 0) {
-    throw new Error(`internal: visual-evidence manifest failed its own schema: ${errors.join('; ')}`);
+    throw new Error(
+      `internal: visual-evidence manifest failed its own schema: ${errors.join('; ')}`,
+    );
   }
 
   const target = join(projectRoot, featureFilePath(dirName, 'visualEvidence'));

@@ -973,7 +973,9 @@ function renderVisualEvidence(bundle: FeatureBundleExport): string {
     );
   }
   for (const skip of ve.skips) {
-    parts.push(`<p class="empty">${escapeHtml(`Absent because ${skip.reason}: ${skip.detail}`)}</p>`);
+    parts.push(
+      `<p class="empty">${escapeHtml(`Absent because ${skip.reason}: ${skip.detail}`)}</p>`,
+    );
   }
   return panel('visual-evidence', 'Visual evidence', parts.join(''));
 }

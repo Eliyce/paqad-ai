@@ -112,7 +112,9 @@ function crossCheck(script: CaptureScript, basename: string, journey: Journey | 
       );
     }
     if (step.journey_step < previous) {
-      problems.push(`steps must be ordered ascending by journey_step (saw ${step.journey_step} after ${previous})`);
+      problems.push(
+        `steps must be ordered ascending by journey_step (saw ${step.journey_step} after ${previous})`,
+      );
     }
     previous = step.journey_step;
     for (const [i, action] of (step.actions ?? []).entries()) {

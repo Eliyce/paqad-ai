@@ -5,7 +5,10 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { visualEvidenceGate, type VisualEvidenceGateInput } from '@/verification/gates/visual-evidence.js';
+import {
+  visualEvidenceGate,
+  type VisualEvidenceGateInput,
+} from '@/verification/gates/visual-evidence.js';
 import type { VisualEvidenceManifest } from '@/visual-evidence/types.js';
 
 let root: string;
@@ -41,8 +44,14 @@ function baseManifest(): VisualEvidenceManifest {
     doc_type: 'paqad.visual-evidence',
     generated_at: '2026-09-11T00:00:00.000Z',
     content_hash: 'x',
-    trigger: { changed_files: ['src/a.tsx'], matched_globs: ['src/**/*.{jsx,tsx}'], packs: ['react'] },
-    plan: [{ journey_id: 'j', capture_script: 'docs/site-map/journeys/j.capture.yaml', matched_by: [] }],
+    trigger: {
+      changed_files: ['src/a.tsx'],
+      matched_globs: ['src/**/*.{jsx,tsx}'],
+      packs: ['react'],
+    },
+    plan: [
+      { journey_id: 'j', capture_script: 'docs/site-map/journeys/j.capture.yaml', matched_by: [] },
+    ],
     steps: [],
     gif: null,
     skips: [],
@@ -210,7 +219,12 @@ describe('visualEvidenceGate — manifest outcomes', () => {
     writeManifest(m);
     writeFileSync(
       join(bundleDir(), 'specification.json'),
-      JSON.stringify({ acceptance_criteria: [{ id: 'AC-12', proof_type: 'visual' }, { id: 'AC-1', proof_type: 'automated' }] }),
+      JSON.stringify({
+        acceptance_criteria: [
+          { id: 'AC-12', proof_type: 'visual' },
+          { id: 'AC-1', proof_type: 'automated' },
+        ],
+      }),
       'utf8',
     );
     const gate = visualEvidenceGate(input())!;
