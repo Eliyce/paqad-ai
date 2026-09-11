@@ -101,6 +101,7 @@
     "commander": "^15.0.0",
     "execa": "^9.6.0",
     "fast-glob": "^3.3.3",
+    "gifenc": "1.0.3",
     "handlebars": "^4.7.9",
     "openai": "^7.10.0",
     "ora": "^9.4.1",
