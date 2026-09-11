@@ -1,0 +1,3 @@
+interface:
+  display_name: Test Runner Discovery
+  short_description: Classify how a project's test runner parallelizes and record it, without installing anything.
