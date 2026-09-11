@@ -176,4 +176,58 @@ describe('runChecks (issue #554)', () => {
     expect(result.results).toHaveLength(0);
     expect(result.warnings.length).toBeGreaterThan(0);
   });
+
+  it('a red non-test command makes the run fail and records an output tail', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      ['commands:', '  format: pnpm format', '  build: pnpm build'].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run(bin, args) {
+        if (args[0] === 'format')
+          return { stdout: '', stderr: 'prettier found issues', exitCode: 2 };
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * 1024 ** 3 },
+      ...CLOCK,
+    });
+    expect(result.passed).toBe(false);
+    const format = result.commands.find((c) => c.logical_command === 'format');
+    expect(format?.passed).toBe(false);
+    expect(format?.output_tail?.join('\n')).toContain('prettier found issues');
+    expect(result.mode.test_mode).toBe('sequential');
+  });
+
+  it('runs a native runner in native mode without a parallel command', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: pnpm test -- --reporter=tap',
+        '  test_single: pnpm test -- <pattern>',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: 'TAP version 13\n1..0\n', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * 1024 ** 3 },
+      ...CLOCK,
+    });
+    expect(result.mode.test_mode).toBe('native');
+    expect(result.passed).toBe(true);
+  });
 });

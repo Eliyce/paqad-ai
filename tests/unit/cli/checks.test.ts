@@ -48,9 +48,9 @@ describe('paqad-ai checks command', () => {
 
   it('exits 0 and persists a green report when every command passes (AC-3)', async () => {
     mapCommands({
-      format: 'node -e process.exit(0)',
-      test: 'node -e process.exit(0)',
-      build: 'node -e process.exit(0)',
+      format: 'node -e process.exitCode=0',
+      test: 'node -e process.exitCode=0',
+      build: 'node -e process.exitCode=0',
     });
     const out = await run();
 
@@ -64,9 +64,9 @@ describe('paqad-ai checks command', () => {
 
   it('exits non-zero and persists a red report when a command fails (AC-2)', async () => {
     mapCommands({
-      format: 'node -e process.exit(0)',
-      test: 'node -e process.exit(1)',
-      build: 'node -e process.exit(0)',
+      format: 'node -e process.exitCode=0',
+      test: 'node -e process.exitCode=1',
+      build: 'node -e process.exitCode=0',
     });
     const out = await run();
 
@@ -81,7 +81,7 @@ describe('paqad-ai checks command', () => {
   it('writes the report into the active feature bundle, not the global path (#528)', async () => {
     process.env.CLAUDE_SESSION_ID = 'ses-cli';
     const dir = resolveActiveFeature(root, 'ses-cli', { title: 'thing', issue: '528' });
-    mapCommands({ format: 'node -e process.exit(0)' });
+    mapCommands({ format: 'node -e process.exitCode=0' });
     await run();
 
     expect(readFeatureChecks(root, dir)?.passed).toBe(true);
@@ -89,7 +89,7 @@ describe('paqad-ai checks command', () => {
   });
 
   it('reports Inconclusive and does not block when no command is mapped', async () => {
-    mapCommands({ dev: 'node -e process.exit(0)' });
+    mapCommands({ dev: 'node -e process.exitCode=0' });
     const out = await run();
 
     expect(process.exitCode).toBeUndefined();

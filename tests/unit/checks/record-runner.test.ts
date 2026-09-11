@@ -103,4 +103,40 @@ describe('validateRecordRunner (AC-9)', () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it('accepts a native discovery with no test_parallel', () => {
+    const result = validateRecordRunner(
+      discovery({ parallel: 'native', test_parallel: null }),
+      profile('go test ./...'),
+      root,
+      NOW,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.testing.parallel).toBe('native');
+    expect(result.testParallel).toBeNull();
+  });
+
+  it('accepts an unavailable discovery with a reason', () => {
+    const result = validateRecordRunner(
+      discovery({ parallel: 'unavailable', reason: 'no parallel mode', test_parallel: null }),
+      profile('bundle exec rspec'),
+      root,
+      NOW,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.testing.parallel).toBe('unavailable');
+    expect(result.testing.reason).toBe('no parallel mode');
+  });
+
+  it('rejects a bad parallel enum value', () => {
+    const result = validateRecordRunner(
+      discovery({ parallel: 'sometimes' }),
+      profile('pnpm test'),
+      root,
+      NOW,
+    );
+    expect(result.ok).toBe(false);
+  });
 });
