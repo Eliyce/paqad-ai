@@ -139,6 +139,57 @@ describe('renderReceipt (issue #554)', () => {
     }
   });
 
+  it('renders a red non-test command and a null-line failure and no test result', () => {
+    const noTest = baseResult({
+      passed: false,
+      test_total: 0,
+      test_result: null,
+      commands: [
+        {
+          logical_command: 'format',
+          command: 'pnpm format',
+          exit_code: 2,
+          passed: false,
+          stage: 1,
+          started_at: '',
+          ended_at: '',
+          duration_ms: 1000,
+        },
+      ],
+      critical_path: { logical_command: 'format', duration_ms: 1000 },
+      mode: {
+        parallel_commands: true,
+        test_mode: 'sequential',
+        processes: null,
+        fallback_reason: null,
+      },
+    });
+    const lines = renderReceipt(noTest, 'warn').join('\n');
+    expect(lines).toContain('format failed (exit 2)');
+
+    const nullLine = baseResult({
+      passed: false,
+      parallel_failures: 1,
+      test_result: {
+        ...baseResult({}).test_result!,
+        summary: { ...baseResult({}).test_result!.summary, failed: 1 },
+        failures: [
+          {
+            test_id: 'bare',
+            suite: null,
+            message: 'm',
+            stack_trace: null,
+            file_path: 'a.ts',
+            line_number: null,
+            category: 'assertion',
+            duration_ms: null,
+          },
+        ],
+      },
+    });
+    expect(renderReceipt(nullLine, 'warn').join('\n')).toContain('a.ts › bare');
+  });
+
   it('a red run lists each failing test by file:line', () => {
     const red = baseResult({
       passed: false,

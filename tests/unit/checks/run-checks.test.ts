@@ -362,4 +362,36 @@ describe('runChecks (issue #554)', () => {
     expect(result.commands.every((c) => c.duration_ms > 0)).toBe(true);
     expect(result.critical_path.duration_ms).toBeGreaterThan(0);
   });
+
+  it('leaves the profile untouched when the stack has no resolvable runner', async () => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: run-tests',
+        'stack_profile:',
+        '  frameworks: [nonexistent-stack]',
+        '  traits: []',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * 1024 ** 3 },
+      ...CLOCK,
+    });
+    expect(result.ran).toBe(true);
+    expect(readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8')).not.toContain(
+      'testing:',
+    );
+  });
 });
