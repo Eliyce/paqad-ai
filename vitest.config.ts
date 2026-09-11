@@ -112,6 +112,16 @@ export default defineConfig({
         // filesystem scanning of the target project; the pure extractors it feeds and the
         // run orchestrator around it are covered on their own via an injected fake gatherer.
         'src/site-map/gatherer.ts',
+        // The visual-evidence capture path (issue #551) is real browser + subprocess + fs work,
+        // like the pentest engine and site-map gatherer: provision (npm install + dynamic import),
+        // boot (spawn + HTTP probe), the runner (Playwright), and gif (Chromium screenshots) are
+        // exercised by the env-gated integration test (PAQAD_VE_INTEGRATION=1), while the pure
+        // inputs they feed (trigger, capture-script, resolve-plan, gate, mode, schema) are covered
+        // on their own.
+        'src/visual-evidence/provision.ts',
+        'src/visual-evidence/boot.ts',
+        'src/visual-evidence/runner.ts',
+        'src/visual-evidence/gif.ts',
         'src/pentest/file-check-mapper.ts',
         'src/pentest/findings.ts',
         'src/pentest/incremental-scanner.ts',

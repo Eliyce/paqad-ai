@@ -108,6 +108,17 @@
         }
       }
     },
+    "app_preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "$comment": "Issue #551 — the single shared boot contract for visual evidence (and, going forward, design-test). Named app_preview, NOT design_test.* or visual_evidence.*: the design-test spec's dev_command/app_url block was never implemented, so this block replaces it as the one place both features read the app URL and boot command from.",
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "command": { "type": "string" },
+        "wait_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
     "commands": {
       "type": "object",
       "additionalProperties": false,
