@@ -55,6 +55,7 @@ const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
 // The spec-pipeline adoption knob is warn-or-strict only (issue #547): there is no "off"
 // — "off" is expressed by turning spec_pipeline_enabled off, not by a third adoption level.
 const SPEC_PIPELINE_ADOPTION_MODES = ['warn', 'strict'] as const;
+const VISUAL_EVIDENCE_MODES = ['warn', 'strict'] as const;
 /**
  * Evidence-existence-gate modes (issue #468 Phase C). Deliberately has NO `strict` tier:
  * the completion existence check is warn-only, never exit-blocking (the #310/#394/
@@ -245,6 +246,17 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'Opt in to the Site Map & Journeys capability — a verified behavioural map of the ' +
       'app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). ' +
       'OFF (default) is completely inert; ON also requires the coding capability at its consumers.',
+  },
+  {
+    key: 'visual_evidence',
+    env: 'PAQAD_VISUAL_EVIDENCE',
+    type: 'boolean',
+    default: false,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Capture screenshots of documented flows for frontend changes as feature-bundle ' +
+      'evidence. ON also requires the coding capability at its consumers.',
   },
   {
     key: 'lean_rules',
@@ -579,6 +591,22 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, ' +
       'naming the file and its writer; warn surfaces it as Inconclusive without blocking; off ' +
       'falls back to the deprecated evidence_existence_gate (issue #511).',
+  },
+  {
+    key: 'visual_evidence_mode',
+    env: 'PAQAD_VISUAL_EVIDENCE_MODE',
+    type: 'enum',
+    enumValues: VISUAL_EVIDENCE_MODES,
+    default: 'warn',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on ' +
+      'and a change is frontend-triggering (issue #551). warn (default): an environmental miss ' +
+      '(browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) ' +
+      'reads Inconclusive without blocking. strict: the same misses FAIL the change. Documented ' +
+      'skips (no documented flow, no capture script) never fail in either mode. Team value is the ' +
+      'floor; local/env may only raise warn to strict.',
   },
   {
     key: 'evidence_existence_gate',
@@ -1166,6 +1194,7 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
       lean_rules: rb('lean_rules'),
       feature_report: rb('feature_report'),
       metrics_enabled: rb('metrics_enabled'),
+      visual_evidence: rb('visual_evidence'),
     },
     research: {
       depth: asEnum(
@@ -1850,6 +1879,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'lean_rules',
       'feature_report',
       'metrics_enabled',
+      'visual_evidence',
     ],
   },
   { present: (p) => p.research !== undefined, keys: ['research_depth'] },
@@ -1895,6 +1925,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'spec_pipeline_token_ceiling',
       'spec_pipeline_experts_enabled',
       'spec_pipeline_adoption',
+      'visual_evidence_mode',
     ],
   },
 ];

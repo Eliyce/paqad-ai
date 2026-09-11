@@ -57,3 +57,6 @@ module_health:
   test_report_format: junit-xml
   test_report_path: coverage/junit.xml
   git_window_days: 14
+visual_evidence:
+  frontend_globs:
+    - src/**/*.component.{ts,html,css,scss}

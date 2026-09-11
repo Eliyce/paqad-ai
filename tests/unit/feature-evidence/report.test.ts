@@ -302,7 +302,97 @@ describe('renderFeatureReportHtml — partial bundle graceful empty states (AC-2
     expect(html).toContain('No AI-BOM was written');
     expect(html).toContain('No delivery record yet');
     expect(html).toContain('No review was recorded for this change');
+    expect(html).toContain('No visual evidence captured');
     expect(html).not.toMatch(/https?:\/\//);
+  });
+});
+
+describe('renderFeatureReportHtml — visual evidence section (issue #551)', () => {
+  function withVisualEvidence(files: Record<string, unknown>): FeatureBundleExport {
+    return {
+      dir_name: DIR,
+      exported_at: AT,
+      files: { plan: { title: 'VE', summary: 's' }, ...files },
+    } as FeatureBundleExport;
+  }
+
+  it('renders the GIF, ordered captioned steps, and relative image refs', () => {
+    const bundle = withVisualEvidence({
+      visualEvidence: {
+        schema_version: 1,
+        doc_type: 'paqad.visual-evidence',
+        generated_at: AT,
+        content_hash: 'x',
+        trigger: { changed_files: [], matched_globs: [], packs: [] },
+        plan: [{ journey_id: 'j', capture_script: 'x', matched_by: [] }],
+        steps: [
+          {
+            index: 1,
+            journey_id: 'j',
+            journey_step: 1,
+            caption: 'Open the cart',
+            dir: 'screenshots/01-open-the-cart',
+            captured_at: AT,
+            image_sha256: 'a',
+            image_bytes: 1,
+            status: 'captured',
+          },
+        ],
+        gif: { file: 'screenshots/overview.gif', frames: 1, frame_ms: 2000, sha256: 'g', bytes: 1 },
+        skips: [],
+        result: 'captured',
+      },
+    });
+    const html = renderFeatureReportHtml(
+      bundle,
+      fold([{ kind: 'open', ts: AT, adapter: 'claude-code' } as never]),
+      {
+        generatedAt: AT,
+      },
+    );
+    expect(html).toContain('Visual evidence');
+    expect(html).toContain('src="screenshots/overview.gif"');
+    expect(html).toContain('src="screenshots/01-open-the-cart/image.png"');
+    expect(html).toContain('Open the cart');
+    expect(html).not.toMatch(/https?:\/\//);
+    expect(html).not.toContain('<script');
+  });
+
+  it('renders failed-step and skip notes', () => {
+    const bundle = withVisualEvidence({
+      visualEvidence: {
+        schema_version: 1,
+        doc_type: 'paqad.visual-evidence',
+        generated_at: AT,
+        content_hash: 'x',
+        trigger: { changed_files: [], matched_globs: [], packs: [] },
+        plan: [],
+        steps: [
+          {
+            index: 1,
+            journey_id: 'j',
+            journey_step: 1,
+            caption: 'Broken',
+            dir: '',
+            captured_at: AT,
+            status: 'failed',
+            failure: 'selector-not-found',
+          },
+        ],
+        gif: null,
+        skips: [{ reason: 'no-capture-script', detail: 'journey x has no script' }],
+        result: 'partial',
+      },
+    });
+    const html = renderFeatureReportHtml(
+      bundle,
+      fold([{ kind: 'open', ts: AT, adapter: 'claude-code' } as never]),
+      {
+        generatedAt: AT,
+      },
+    );
+    expect(html).toContain('failed: selector-not-found');
+    expect(html).toContain('Absent because no-capture-script');
   });
 });
 

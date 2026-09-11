@@ -64,6 +64,9 @@ import { evidenceExistenceGate } from './evidence-existence-gate.js';
 import { resolveEvidenceExistenceMode } from './evidence-existence-mode.js';
 import { bundleCompletenessGate } from './bundle-completeness-gate.js';
 import { resolveBundleCompletenessMode } from './bundle-completeness-mode.js';
+import { visualEvidenceGate } from '../gates/visual-evidence.js';
+import { resolveVisualEvidenceMode } from './visual-evidence-mode.js';
+import { isFrontendTriggering } from '@/visual-evidence/trigger.js';
 
 // Injected at build time by tsup/vitest (see tsup.config.ts); the unreplaced
 // placeholder is tolerated so a dev/test run still produces a receipt.
@@ -609,6 +612,30 @@ export async function runRepositoryVerification(
       }
     }
   }
+  // Issue #551 — the visual-evidence gate. Same seam + local-origin scope as bundle-completeness:
+  // it reads the git-ignored visual-evidence.json a capture run wrote and turns it into pass /
+  // skipped / inconclusive|fail. Off (flag off or coding absent) → skipped, never a block.
+  {
+    const veProfile = readProjectProfile(context.project_root);
+    const codingPresent = veProfile?.active_capabilities?.includes('coding') ?? false;
+    const veGate = visualEvidenceGate({
+      projectRoot: context.project_root,
+      dirName: completenessDir,
+      mode: resolveVisualEvidenceMode(context.project_root),
+      origin,
+      isFeatureDev,
+      flagOn: frameworkConfig.features.visual_evidence && codingPresent,
+      frontendTriggered: isFrontendTriggering(context.project_root, context.changed_files),
+    });
+    if (veGate) {
+      evidence.gates.push(veGate);
+      if (veGate.status === 'fail') {
+        evidence.overall_status = 'fail';
+        evidence.first_failure_gate ??= veGate.name;
+      }
+    }
+  }
+
   // Re-write the evidence artifact so the file reflects the completeness gate appended after
   // the first write above. Best-effort — the verdict below reads the in-memory evidence
   // regardless, so a re-write failure never changes what the developer sees.

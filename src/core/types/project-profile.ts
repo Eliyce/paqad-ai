@@ -52,6 +52,8 @@ export interface ProjectFeatureFlags {
   feature_report: boolean;
   /** Issue #362 — compute + surface the per-change shape metrics (dup on new code + reuse rate). */
   metrics_enabled: boolean;
+  /** Issue #551 — capture screenshots of documented flows for frontend changes (default off, coding-gated). */
+  visual_evidence: boolean;
 }
 
 export const TICKET_PROVIDER_KINDS = ['jira', 'linear', 'github-issues', 'generic'] as const;
@@ -255,6 +257,16 @@ export interface PaqadConfig {
   enabled?: boolean;
 }
 
+/** Issue #551 — the shared app-boot contract (visual evidence + design-test). */
+export interface AppPreviewConfig {
+  /** Base URL the app is served at; steps' `goto` paths resolve against it. */
+  url: string;
+  /** Boot command; defaults to `commands.dev`. Empty with a reachable url = attach only. */
+  command?: string;
+  /** Max wait (ms) for the url to respond after starting the command. */
+  wait_ms?: number;
+}
+
 export interface ProjectProfile {
   project: ProjectMetadata;
   active_capabilities: ActiveCapability[];
@@ -267,6 +279,13 @@ export interface ProjectProfile {
   };
   stack_profile?: DetectedStackProfile;
   commands: ProjectCommands;
+  /**
+   * Issue #551 — the shared boot contract for visual evidence (and, going forward, design-test):
+   * the base URL the app is served at, an optional boot command (defaults to `commands.dev`),
+   * and how long to wait for the URL to come up. Absent ⇒ visual evidence records
+   * `app-preview-not-configured`.
+   */
+  app_preview?: AppPreviewConfig;
   strictness: StrictnessConfig;
   compliance_packs: CompliancePackConfig[];
   features: ProjectFeatureFlags;

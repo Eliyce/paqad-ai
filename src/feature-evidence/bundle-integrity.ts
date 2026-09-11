@@ -16,12 +16,12 @@
 // Nothing here deletes. Reporting a stray is honest; silently removing a developer's
 // file would not be.
 
-import { readdirSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
-import { FEATURE_BUNDLE_FILES, featureDir, isFeatureDirName } from './paths.js';
+import { FEATURE_BUNDLE_FILES, SCREENSHOTS_DIR, featureDir, isFeatureDirName } from './paths.js';
 
 /**
  * Every filename allowed to sit in a feature bundle dir: the rigid, script-owned set
@@ -36,6 +36,15 @@ export const ALLOWED_BUNDLE_FILENAMES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /**
+ * The ONLY entries allowed under the `screenshots/` subtree (issue #551): the overview GIF
+ * and, per captured step, a `NN-slug/` dir holding exactly `image.png` + `caption.txt`. The
+ * `NN` is a zero-padded 2-digit position and `slug` is Windows-safe kebab-case (no `:`).
+ * Anything else under `screenshots/` is pollution.
+ */
+export const SCREENSHOT_ENTRY_RE =
+  /^screenshots\/(overview\.gif|\d{2}-[a-z0-9-]{1,40}\/(image\.png|caption\.txt))$/;
+
+/**
  * True for an in-flight atomic-write temp file (`<name>.tmp`, `<name>.tmp-<pid>`). The
  * bundle writers all write temp-then-rename, so one of these can legitimately exist for
  * an instant and must never be reported as a stray.
@@ -48,10 +57,16 @@ function isAtomicWriteTemp(filename: string): boolean {
 export interface BundlePathClassification {
   /** The feature dir name the path lives under. */
   dirName: string;
-  /** The path's filename relative to the bundle dir. */
+  /** The path's filename relative to the bundle dir (may include the `screenshots/` prefix). */
   filename: string;
   /** Whether the file is one the bundle is allowed to contain. */
   allowed: boolean;
+  /**
+   * True when the path is inside the `screenshots/` subtree (issue #551). Such a path may be
+   * allowed-in-bundle (`allowed: true` for a valid entry) yet is NEVER a valid stage-end
+   * artifact — the stage boundary rejects it regardless of `allowed`.
+   */
+  screenshotSubtree: boolean;
 }
 
 /**
@@ -61,7 +76,9 @@ export interface BundlePathClassification {
  * container, or under the `_session` control dir, is not in a bundle either.
  *
  * A nested path (`<bundle>/sub/file`) is classified as NOT allowed: the bundle is a
- * flat set of rigid files, so a subdirectory is pollution just as a stray file is.
+ * flat set of rigid files, so a subdirectory is pollution just as a stray file is — with
+ * the one carve-out for the `screenshots/` subtree (issue #551), whose valid entries are
+ * allowed-in-bundle but are still rejected as stage-end artifacts.
  */
 export function classifyBundlePath(relPath: string): BundlePathClassification | null {
   // Both callers hand this an already-normalized posix path (via `normalizeArtifactPath`),
@@ -85,11 +102,26 @@ export function classifyBundlePath(relPath: string): BundlePathClassification | 
   if (!isFeatureDirName(dirName)) {
     return null;
   }
+  // The `screenshots/` subtree (issue #551): a valid entry is allowed-in-bundle, but every
+  // screenshots path is flagged so the stage boundary can reject it as an artifact.
+  if (filename === SCREENSHOTS_DIR || filename.startsWith(`${SCREENSHOTS_DIR}/`)) {
+    return {
+      dirName,
+      filename,
+      allowed: SCREENSHOT_ENTRY_RE.test(filename),
+      screenshotSubtree: true,
+    };
+  }
   // Deliberately NOT tolerant of a temp file here, unlike `strayBundleFiles`. A stage
   // artifact is never legitimately an in-flight `.tmp`, so accepting one would hand back
   // a bypass: `--artifact <bundle>/notes.tmp` would clear the check AND stay invisible to
   // stray detection. Transience is a reason not to REPORT a file, not a reason to bless it.
-  return { dirName, filename, allowed: ALLOWED_BUNDLE_FILENAMES.has(filename) };
+  return {
+    dirName,
+    filename,
+    allowed: ALLOWED_BUNDLE_FILENAMES.has(filename),
+    screenshotSubtree: false,
+  };
 }
 
 /**
@@ -101,13 +133,65 @@ export function classifyBundlePath(relPath: string): BundlePathClassification | 
  * Names are returned sorted so a caller's output is deterministic.
  */
 export function strayBundleFiles(projectRoot: string, dirName: string): string[] {
+  const bundleAbs = join(projectRoot, featureDir(dirName));
   let entries: string[];
   try {
-    entries = readdirSync(join(projectRoot, featureDir(dirName)));
+    entries = readdirSync(bundleAbs);
   } catch {
     return [];
   }
-  return entries
-    .filter((name) => !ALLOWED_BUNDLE_FILENAMES.has(name) && !isAtomicWriteTemp(name))
-    .sort();
+  const strays: string[] = [];
+  for (const name of entries) {
+    if (isAtomicWriteTemp(name)) {
+      continue;
+    }
+    // Issue #551 — the `screenshots/` subtree is allowed; recurse and report only the
+    // entries inside it that do not match the strict per-step layout.
+    if (name === SCREENSHOTS_DIR) {
+      strays.push(...strayScreenshotEntries(bundleAbs));
+      continue;
+    }
+    if (!ALLOWED_BUNDLE_FILENAMES.has(name)) {
+      strays.push(name);
+    }
+  }
+  return strays.sort();
+}
+
+/**
+ * Walk the `screenshots/` subtree and return every FILE (posix path relative to the bundle,
+ * `screenshots/...`) that does not match {@link SCREENSHOT_ENTRY_RE}. In-flight atomic-write
+ * temp files are tolerated, like everywhere else in the bundle. Returns `[]` when the subtree
+ * is missing or unreadable.
+ */
+function strayScreenshotEntries(bundleAbs: string): string[] {
+  const strays: string[] = [];
+  const walk = (absDir: string, relPrefix: string): void => {
+    let entries: string[];
+    try {
+      entries = readdirSync(absDir);
+    } catch {
+      return;
+    }
+    for (const name of entries) {
+      if (isAtomicWriteTemp(name)) {
+        continue;
+      }
+      const abs = join(absDir, name);
+      const rel = `${relPrefix}/${name}`;
+      let isDir: boolean;
+      try {
+        isDir = statSync(abs).isDirectory();
+      } catch {
+        continue;
+      }
+      if (isDir) {
+        walk(abs, rel);
+      } else if (!SCREENSHOT_ENTRY_RE.test(rel)) {
+        strays.push(rel);
+      }
+    }
+  };
+  walk(join(bundleAbs, SCREENSHOTS_DIR), SCREENSHOTS_DIR);
+  return strays;
 }

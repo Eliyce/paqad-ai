@@ -8,12 +8,14 @@ import Ajv, { type ValidateFunction } from 'ajv';
 
 import appMapSchema from '../validators/schemas/app-map.schema.json';
 import journeySchema from '../validators/schemas/journey.schema.json';
+import journeyCaptureSchema from '../validators/schemas/journey-capture.schema.json';
 import siteMapAnswersSchema from '../validators/schemas/site-map-answers.schema.json';
 import type { AppMap, Journey } from '@/core/types/site-map.js';
 
 const ajv = new Ajv({ allErrors: true, allowUnionTypes: true });
 let compiledAppMap: ValidateFunction | undefined;
 let compiledJourney: ValidateFunction | undefined;
+let compiledJourneyCapture: ValidateFunction | undefined;
 let compiledAnswers: ValidateFunction | undefined;
 
 function appMapValidator(): ValidateFunction {
@@ -28,6 +30,13 @@ function journeyValidator(): ValidateFunction {
     compiledJourney = ajv.compile(journeySchema);
   }
   return compiledJourney;
+}
+
+function journeyCaptureValidator(): ValidateFunction {
+  if (!compiledJourneyCapture) {
+    compiledJourneyCapture = ajv.compile(journeyCaptureSchema);
+  }
+  return compiledJourneyCapture;
 }
 
 function answersValidator(): ValidateFunction {
@@ -66,6 +75,11 @@ export function validateAppMap(data: unknown): SiteMapValidation {
 /** Validate a value against the committed journey schema. */
 export function validateJourney(data: unknown): SiteMapValidation {
   return toValidation(journeyValidator(), data);
+}
+
+/** Validate a value against the committed journey-capture-script schema (issue #551). */
+export function validateJourneyCapture(data: unknown): SiteMapValidation {
+  return toValidation(journeyCaptureValidator(), data);
 }
 
 /** Narrowing helper: a schema-valid value is an {@link AppMap}. */

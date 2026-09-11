@@ -129,3 +129,8 @@ module_health:
   test_report_format: junit-xml
   test_report_path: junit.xml
   git_window_days: 14
+visual_evidence:
+  frontend_globs:
+    - resources/views/**/*.blade.php
+    - resources/js/**/*.{vue,jsx,tsx,js}
+    - resources/css/**/*

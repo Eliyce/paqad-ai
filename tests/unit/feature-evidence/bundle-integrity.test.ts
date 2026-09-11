@@ -109,6 +109,49 @@ describe('bundle-integrity', () => {
       expect(result!.allowed).toBe(false);
       expect(result!.filename).toBe('sub/plan.json');
     });
+
+    // Issue #551 — visual-evidence.json is a new rigid bundle-root file.
+    it('allows visual-evidence.json at the bundle root (not a screenshots path)', () => {
+      const result = classifyBundlePath(
+        `.paqad/ledger/feature-evidence/${DIR}/visual-evidence.json`,
+      );
+      expect(result!.allowed).toBe(true);
+      expect(result!.screenshotSubtree).toBe(false);
+    });
+
+    // Issue #551 — the screenshots/ carve-out: valid entries are allowed-in-bundle but flagged.
+    it('allows exactly overview.gif and NN-slug/{image.png,caption.txt} under screenshots/', () => {
+      for (const rel of [
+        'screenshots/overview.gif',
+        'screenshots/01-open-the-cart/image.png',
+        'screenshots/02-pay/caption.txt',
+        'screenshots/99-a/image.png',
+      ]) {
+        const result = classifyBundlePath(`.paqad/ledger/feature-evidence/${DIR}/${rel}`);
+        expect(result, rel).not.toBeNull();
+        expect(result!.allowed, rel).toBe(true);
+        expect(result!.screenshotSubtree, rel).toBe(true);
+        expect(result!.filename, rel).toBe(rel);
+      }
+    });
+
+    it('flags every other screenshots/ path as not allowed but still in the subtree', () => {
+      for (const rel of [
+        'screenshots', // the dir itself
+        'screenshots/overview.png', // wrong ext
+        'screenshots/1-bad/image.png', // NN not zero-padded 2-digit
+        'screenshots/001-bad/image.png', // three digits
+        'screenshots/01-Bad/image.png', // uppercase in slug
+        'screenshots/01-slug/other.txt', // not image.png/caption.txt
+        'screenshots/01-slug/image.png/extra', // deeper than allowed
+        'screenshots/loose.txt',
+      ]) {
+        const result = classifyBundlePath(`.paqad/ledger/feature-evidence/${DIR}/${rel}`);
+        expect(result, rel).not.toBeNull();
+        expect(result!.allowed, rel).toBe(false);
+        expect(result!.screenshotSubtree, rel).toBe(true);
+      }
+    });
   });
 
   describe('strayBundleFiles', () => {
@@ -140,6 +183,33 @@ describe('bundle-integrity', () => {
       const abs = bundle();
       mkdirSync(join(abs, 'scratch'), { recursive: true });
       expect(strayBundleFiles(root, DIR)).toEqual(['scratch']);
+    });
+
+    // Issue #551 — a well-formed screenshots subtree is clean, not stray.
+    it('does not flag a well-formed screenshots subtree', () => {
+      const abs = bundle();
+      writeFileSync(join(abs, 'visual-evidence.json'), '{}', 'utf8');
+      mkdirSync(join(abs, 'screenshots', '01-open-the-cart'), { recursive: true });
+      writeFileSync(join(abs, 'screenshots', 'overview.gif'), 'GIF', 'utf8');
+      writeFileSync(join(abs, 'screenshots', '01-open-the-cart', 'image.png'), 'PNG', 'utf8');
+      writeFileSync(join(abs, 'screenshots', '01-open-the-cart', 'caption.txt'), 'Open', 'utf8');
+      writeFileSync(join(abs, 'screenshots', 'overview.gif.tmp-7'), 'GIF', 'utf8');
+      expect(strayBundleFiles(root, DIR)).toEqual([]);
+    });
+
+    it('reports only the offending entries inside the screenshots subtree', () => {
+      const abs = bundle();
+      mkdirSync(join(abs, 'screenshots', '01-ok'), { recursive: true });
+      mkdirSync(join(abs, 'screenshots', 'bad-name'), { recursive: true });
+      writeFileSync(join(abs, 'screenshots', '01-ok', 'image.png'), 'PNG', 'utf8');
+      writeFileSync(join(abs, 'screenshots', '01-ok', 'junk.txt'), 'x', 'utf8');
+      writeFileSync(join(abs, 'screenshots', 'bad-name', 'image.png'), 'PNG', 'utf8');
+      writeFileSync(join(abs, 'screenshots', 'loose.gif'), 'x', 'utf8');
+      expect(strayBundleFiles(root, DIR)).toEqual([
+        'screenshots/01-ok/junk.txt',
+        'screenshots/bad-name/image.png',
+        'screenshots/loose.gif',
+      ]);
     });
   });
 });

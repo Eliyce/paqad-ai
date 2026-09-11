@@ -140,6 +140,11 @@ export interface StackPackManifest {
   docs?: StackPackDocsManifest;
   rag?: StackPackRagManifest;
   module_health?: StackPackModuleHealthManifest;
+  // Issue #551 — the globs whose match marks a change as frontend-triggering for visual
+  // evidence. Absent on non-frontend packs (node-cli, fastapi, …), which never trigger.
+  visual_evidence?: {
+    frontend_globs?: string[];
+  };
 }
 
 // --- Compliance packs (issue #122) ------------------------------------------

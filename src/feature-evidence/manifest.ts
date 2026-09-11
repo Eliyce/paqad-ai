@@ -196,6 +196,20 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     writer: 'projectFeatureReceipt (AI-BOM)',
     validate: 'json',
   },
+  {
+    // Issue #551 — the visual-evidence manifest. `optional`, not flag-gated: the completeness
+    // gate cannot see whether THIS change was frontend-triggering (that lives in the Part-F
+    // gate), so requiring it would false-fail the flag-on / non-frontend / file-absent case.
+    // Like checks.json it is checked-when-present here and NOT a "flag off" skip; the real
+    // enforcement (existence on a frontend change + hash/size verification of every referenced
+    // screenshot) is the VisualEvidenceGate, which has the bundle dir the content-only manifest
+    // validator does not.
+    key: 'visualEvidence',
+    file: FEATURE_BUNDLE_FILES.visualEvidence,
+    required: 'optional',
+    writer: 'paqad-ai visual-evidence run',
+    validate: 'json',
+  },
 ];
 
 /**

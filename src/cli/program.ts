@@ -43,6 +43,7 @@ import { createSitemapCommand } from './commands/sitemap.js';
 import { createSpecCommand } from './commands/spec.js';
 import { createStageCommand } from './commands/stage.js';
 import { createStatusCommand } from './commands/status.js';
+import { createVisualEvidenceCommand } from './commands/visual-evidence.js';
 import { createUpdateCommand } from './commands/update.js';
 
 export function createProgram(): Command {
@@ -93,6 +94,7 @@ export function createProgram(): Command {
   program.addCommand(createSpecCommand());
   program.addCommand(createReviewCommand());
   program.addCommand(createStageCommand());
+  program.addCommand(createVisualEvidenceCommand());
   program.addCommand(createResumeCommand());
   program.addCommand(createDecisionCommand());
   program.addCommand(createConfigCommand());

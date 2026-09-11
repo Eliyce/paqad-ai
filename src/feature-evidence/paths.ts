@@ -39,7 +39,14 @@ export const FEATURE_BUNDLE_FILES = {
   duplication: 'duplication.jsonl',
   changeMetrics: 'change-metrics.jsonl',
   evidence: 'evidence.jsonl',
+  // Issue #551 — the visual-evidence manifest at the bundle root; the per-step
+  // screenshots + overview GIF live under the `screenshots/` subtree (the one
+  // structured carve-out in the otherwise flat, text-only bundle).
+  visualEvidence: 'visual-evidence.json',
 } as const;
+
+/** The bundle subdirectory holding visual-evidence screenshots + the overview GIF. */
+export const SCREENSHOTS_DIR = 'screenshots';
 
 /** A key into {@link FEATURE_BUNDLE_FILES}. */
 export type FeatureBundleFile = keyof typeof FEATURE_BUNDLE_FILES;
@@ -85,6 +92,16 @@ export function featureFilePath(dirName: string, file: FeatureBundleFile): strin
  */
 export function featureReportPath(dirName: string): string {
   return join(featureDir(dirName), 'report.html');
+}
+
+/**
+ * Project-relative path to a feature's `screenshots/` subtree (issue #551) — the one
+ * structured directory inside the otherwise flat bundle. It holds `overview.gif` and one
+ * `NN-slug/{image.png,caption.txt}` dir per captured step. Like the rest of the bundle it is
+ * git-ignored by the managed `ledger/` line.
+ */
+export function featureScreenshotsDir(dirName: string): string {
+  return join(featureDir(dirName), SCREENSHOTS_DIR);
 }
 
 /**
