@@ -82,19 +82,27 @@ describe('resolveTestPlan (AC-3)', () => {
   });
 
   it('checks_parallel=false → sequential, disabled', () => {
-    const plan = resolveTestPlan(make('t', 't --processes=<processes>', AVAILABLE()), os(12, 64 * GiB), {
-      checksParallel: false,
-      checksMaxProcesses: 0,
-    });
+    const plan = resolveTestPlan(
+      make('t', 't --processes=<processes>', AVAILABLE()),
+      os(12, 64 * GiB),
+      {
+        checksParallel: false,
+        checksMaxProcesses: 0,
+      },
+    );
     expect(plan.mode).toBe('sequential');
     expect(plan.reason).toBe('disabled');
   });
 
   it('checks_max_processes=3 caps the count at 3', () => {
-    const plan = resolveTestPlan(make('t', 't --processes=<processes>', AVAILABLE()), os(12, 64 * GiB), {
-      checksParallel: true,
-      checksMaxProcesses: 3,
-    });
+    const plan = resolveTestPlan(
+      make('t', 't --processes=<processes>', AVAILABLE()),
+      os(12, 64 * GiB),
+      {
+        checksParallel: true,
+        checksMaxProcesses: 3,
+      },
+    );
     expect(plan.processes).toBe(3);
   });
 

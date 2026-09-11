@@ -485,7 +485,10 @@ export class HealthChecker {
       );
     }
     if (testing.parallel === 'native' || testing.parallel === 'available') {
-      return pass(name, `The suite runs in parallel (${testing.parallel}) via ${testing.runner_id}.`);
+      return pass(
+        name,
+        `The suite runs in parallel (${testing.parallel}) via ${testing.runner_id}.`,
+      );
     }
     const reason = testing.reason ?? testing.parallel;
     let suggestion = `Recorded ${testing.parallel} for ${testing.runner_id}: ${reason}.`;

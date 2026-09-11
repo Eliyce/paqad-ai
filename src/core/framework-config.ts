@@ -304,7 +304,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Run the checks stage concurrently and use the test runner\'s own parallel mode when the ' +
+      "Run the checks stage concurrently and use the test runner's own parallel mode when the " +
       'project has it. OFF restores the one-after-another run.',
   },
   {

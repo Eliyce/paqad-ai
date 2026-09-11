@@ -132,12 +132,20 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   for (const resolved of resolvedCommands) {
     if (resolved.command.trim().length === 0) continue;
     if (resolved.logical_command === 'format' || resolved.logical_command === 'lint') {
-      scheduled.push({ logical_command: resolved.logical_command, command: resolved.command, stage: 1 });
+      scheduled.push({
+        logical_command: resolved.logical_command,
+        command: resolved.command,
+        stage: 1,
+      });
     } else if (resolved.logical_command === 'test') {
       hasTest = true;
       scheduled.push({ logical_command: 'test', command: plan.command, stage: 3 });
     } else {
-      scheduled.push({ logical_command: resolved.logical_command, command: resolved.command, stage: 2 });
+      scheduled.push({
+        logical_command: resolved.logical_command,
+        command: resolved.command,
+        stage: 2,
+      });
     }
   }
 
@@ -216,7 +224,9 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     results.push(parsed);
   }
 
-  const nonTestPassed = runResults.filter((r) => r.logical_command !== 'test').every((r) => r.passed);
+  const nonTestPassed = runResults
+    .filter((r) => r.logical_command !== 'test')
+    .every((r) => r.passed);
   const blocking = testResult ? testResult.summary.failed + testResult.summary.errored : 0;
   const passed = nonTestPassed && blocking === 0;
   const sequentialReason =

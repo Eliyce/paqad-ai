@@ -8,10 +8,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, isAbsolute, resolve } from 'node:path';
 
-import {
-  RERUN_MAX_FAILURE_RATIO,
-  RERUN_MAX_FAILURES,
-} from '@/checks/constants.js';
+import { RERUN_MAX_FAILURE_RATIO, RERUN_MAX_FAILURES } from '@/checks/constants.js';
 import { modulesForFile } from '@/flaky/attribution.js';
 import { readFlakyRegistry, upsertQuarantine, writeFlakyRegistry } from '@/flaky/registry.js';
 import { detectFlakinessSmells, smellCategories } from '@/flaky/smells.js';
@@ -137,9 +134,7 @@ function defaultReadTestFile(absPath: string): string | null {
  * Confirm every failure alone. Called only when the parsed `test` result has ≥ 1 failure or error.
  * See the module header for the invariants. Returns an updated result plus the report fields.
  */
-export async function confirmFailures(
-  input: ConfirmFailuresInput,
-): Promise<ConfirmFailuresOutput> {
+export async function confirmFailures(input: ConfirmFailuresInput): Promise<ConfirmFailuresOutput> {
   const result = structuredClone(input.result);
   const failing = collectFailing(result);
   const readTestFile = input.readTestFile ?? defaultReadTestFile;

@@ -302,9 +302,7 @@ describe('StackPackLoader', () => {
 
     expect(pack.validation.valid).toBe(false);
     expect(
-      pack.validation.issues.some((issue) =>
-        issue.message.includes('only valid when mode=flag'),
-      ),
+      pack.validation.issues.some((issue) => issue.message.includes('only valid when mode=flag')),
     ).toBe(true);
   });
 

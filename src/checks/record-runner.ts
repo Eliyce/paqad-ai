@@ -49,8 +49,7 @@ export interface RunnerDiscovery {
 }
 
 export type RecordRunnerResult =
-  | { ok: true; testing: ProjectTesting; testParallel: string | null }
-  | { ok: false; error: string };
+  { ok: true; testing: ProjectTesting; testParallel: string | null } | { ok: false; error: string };
 
 const REQUIRED_KEYS = [
   'schema_version',
@@ -166,7 +165,10 @@ function validateParallelCommand(
     if (METACHARACTERS.test(token)) {
       return { ok: false, error: `test_parallel rejected: shell metacharacter in "${token}"` };
     }
-    return { ok: false, error: `test_parallel rejected: token "${token}" is not an allowed parallel flag` };
+    return {
+      ok: false,
+      error: `test_parallel rejected: token "${token}" is not an allowed parallel flag`,
+    };
   }
 
   const processesCount = (parallel.match(/<processes>/g) ?? []).length;

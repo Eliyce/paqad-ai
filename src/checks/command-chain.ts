@@ -19,8 +19,7 @@ export interface CommandStep {
 
 /** The result of parsing a mapped command string into argv steps. */
 export type CommandChainParse =
-  | { ok: true; steps: CommandStep[] }
-  | { ok: false; invalidToken: string };
+  { ok: true; steps: CommandStep[] } | { ok: false; invalidToken: string };
 
 /** The combined outcome of running a chain: concatenated output and the deciding exit code. */
 export interface CommandChainResult {

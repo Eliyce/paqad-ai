@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -109,7 +109,9 @@ describe('confirmFailures', () => {
     expect(out.meaningful_green).toBe(false);
     expect(out.result.warnings.filter((w) => w.type === 'flaky-under-parallel')).toHaveLength(2);
 
-    const registry = JSON.parse(readFileSync(join(root, '.paqad/flaky-tests/registry.json'), 'utf8'));
+    const registry = JSON.parse(
+      readFileSync(join(root, '.paqad/flaky-tests/registry.json'), 'utf8'),
+    );
     expect(registry.entries).toHaveLength(2);
     expect(registry.entries[0].first_seen).toBeDefined();
 
@@ -131,7 +133,9 @@ describe('confirmFailures', () => {
       runSingle: runSingleFor(new Set(['d', 'e'])),
     });
     expect(out.result.summary.failed).toBe(5);
-    expect(out.isolation_reruns.entries.filter((e) => e.verdict === 'recovered' && e.blocking)).toHaveLength(2);
+    expect(
+      out.isolation_reruns.entries.filter((e) => e.verdict === 'recovered' && e.blocking),
+    ).toHaveLength(2);
   });
 
   it('skips the re-runs above the caps (AC-7)', async () => {
@@ -157,7 +161,10 @@ describe('confirmFailures', () => {
 
     // 3 of 40 (7.5%) → over ratio
     const ratio = await confirmFailures({
-      result: result(Array.from({ length: 3 }, (_, i) => issue(`r${i}`)), 40),
+      result: result(
+        Array.from({ length: 3 }, (_, i) => issue(`r${i}`)),
+        40,
+      ),
       projectRoot: root,
       singleCommandTemplate: 'run <pattern>',
       singleSelector: 'test_id',

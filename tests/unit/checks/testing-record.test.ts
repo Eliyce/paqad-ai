@@ -172,7 +172,9 @@ describe('deriveTestingForProfile against the real laravel pack (AC-10)', () => 
     writeFileSync(join(root, 'composer.lock'), JSON.stringify({ packages: [] }));
     const out = deriveTestingForProfile({
       stackProfile: { frameworks: ['laravel'], traits: ['pest'] },
-      commands: commands('mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/pest.xml'),
+      commands: commands(
+        'mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/pest.xml',
+      ),
       projectRoot: root,
       now: NOW,
     });
@@ -185,7 +187,9 @@ describe('deriveTestingForProfile against the real laravel pack (AC-10)', () => 
     writeFileSync(join(root, 'composer.lock'), JSON.stringify({ packages: [] }));
     const out = deriveTestingForProfile({
       stackProfile: { frameworks: ['laravel'], traits: ['phpunit'] },
-      commands: commands('mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/phpunit.xml'),
+      commands: commands(
+        'mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/phpunit.xml',
+      ),
       projectRoot: root,
       now: NOW,
     });

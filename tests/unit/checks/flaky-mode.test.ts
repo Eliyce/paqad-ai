@@ -21,14 +21,22 @@ describe('resolveChecksFlakyMode', () => {
   });
 
   it('honors a team floor of fail', () => {
-    writeFileSync(join(root, '.paqad/configs/.config.policy'), 'checks_flaky_under_parallel=fail\n');
+    writeFileSync(
+      join(root, '.paqad/configs/.config.policy'),
+      'checks_flaky_under_parallel=fail\n',
+    );
     expect(resolveChecksFlakyMode(root, {})).toBe('fail');
   });
 
   it('local/env may raise the mode but not lower it below the team floor', () => {
-    writeFileSync(join(root, '.paqad/configs/.config.policy'), 'checks_flaky_under_parallel=warn\n');
+    writeFileSync(
+      join(root, '.paqad/configs/.config.policy'),
+      'checks_flaky_under_parallel=warn\n',
+    );
     // env raises warn -> fail
-    expect(resolveChecksFlakyMode(root, { PAQAD_CHECKS_FLAKY_UNDER_PARALLEL: 'fail' })).toBe('fail');
+    expect(resolveChecksFlakyMode(root, { PAQAD_CHECKS_FLAKY_UNDER_PARALLEL: 'fail' })).toBe(
+      'fail',
+    );
     // a local attempt to lower to pass is clamped up to the team floor warn
     writeFileSync(join(root, '.paqad/.config'), 'checks_flaky_under_parallel=pass\n');
     expect(resolveChecksFlakyMode(root, {})).toBe('warn');

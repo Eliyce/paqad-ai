@@ -19,15 +19,6 @@ describe('runChecks (issue #554)', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  function writeProfile(extra = ''): void {
-    writeFileSync(
-      join(root, '.paqad/project-profile.yaml'),
-      ['commands:', '  format: pnpm format', '  test: pnpm test', '  build: pnpm build', extra]
-        .filter(Boolean)
-        .join('\n') + '\n',
-    );
-  }
-
   it('AC-1: runs mkdir -p in-process and spawns the real pest binary with its args', async () => {
     writeFileSync(
       join(root, '.paqad/project-profile.yaml'),
@@ -45,7 +36,12 @@ describe('runChecks (issue #554)', () => {
         return { stdout: '', stderr: '', exitCode: 0 };
       },
     };
-    await runChecks({ projectRoot: root, shell, osFacts: { availableParallelism: 8, totalmem: 64 * GiB }, ...CLOCK });
+    await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * GiB },
+      ...CLOCK,
+    });
 
     expect(spawns).toContainEqual({
       bin: './vendor/bin/pest',
@@ -123,7 +119,8 @@ describe('runChecks (issue #554)', () => {
     const shell: DeliveryShell = {
       async run(bin, args) {
         const isParallel = args.includes('--parallel');
-        if (bin === 'php' && isParallel) return { stdout: '', stderr: 'paratest exploded', exitCode: 1 };
+        if (bin === 'php' && isParallel)
+          return { stdout: '', stderr: 'paratest exploded', exitCode: 1 };
         if (bin === 'php') {
           writeFileSync(join(root, '.paqad/test-results/pest.xml'), passingJunit);
           return { stdout: '', stderr: '', exitCode: 0 };
@@ -169,7 +166,11 @@ describe('runChecks (issue #554)', () => {
 
   it('reports ran=false (Inconclusive) when no command is mapped', async () => {
     writeFileSync(join(root, '.paqad/project-profile.yaml'), 'commands:\n  dev: pnpm dev\n');
-    const shell: DeliveryShell = { async run() { return { stdout: '', stderr: '', exitCode: 0 }; } };
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
     const result = await runChecks({ projectRoot: root, shell, ...CLOCK });
     expect(result.ran).toBe(false);
     expect(result.results).toHaveLength(0);

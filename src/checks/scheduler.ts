@@ -103,7 +103,9 @@ export async function runStages(
 
   const results: ScheduledCommandResult[] = [];
   for (const cmd of stage1) results.push(await runOne(cmd));
-  results.push(...(await runPool(stage2, Math.min(stage2.length, opts.availableParallelism), runOne)));
+  results.push(
+    ...(await runPool(stage2, Math.min(stage2.length, opts.availableParallelism), runOne)),
+  );
   for (const cmd of stage3) results.push(await runOne(cmd));
   return results;
 }

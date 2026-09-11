@@ -989,9 +989,23 @@ function renderVisualEvidence(bundle: FeatureBundleExport): string {
 function renderChecks(bundle: FeatureBundleExport): string {
   const checks = bundle.files.checks as
     | {
-        commands?: Array<{ logical_command: string | null; command: string; passed: boolean; duration_ms: number }>;
-        mode?: { test_mode: string; processes: number | null; parallel_commands: boolean; fallback_reason: string | null };
-        flaky_under_parallel?: Array<{ test_id: string; file_path: string | null; line_number: number | null }>;
+        commands?: Array<{
+          logical_command: string | null;
+          command: string;
+          passed: boolean;
+          duration_ms: number;
+        }>;
+        mode?: {
+          test_mode: string;
+          processes: number | null;
+          parallel_commands: boolean;
+          fallback_reason: string | null;
+        };
+        flaky_under_parallel?: Array<{
+          test_id: string;
+          file_path: string | null;
+          line_number: number | null;
+        }>;
         critical_path?: { logical_command: string | null; duration_ms: number };
       }
     | undefined;
@@ -1006,7 +1020,9 @@ function renderChecks(bundle: FeatureBundleExport): string {
   const parts: string[] = [];
   if (checks.mode) {
     const proc = checks.mode.processes ? ` ×${checks.mode.processes}` : '';
-    const fallback = checks.mode.fallback_reason ? ` — fell back: ${checks.mode.fallback_reason}` : '';
+    const fallback = checks.mode.fallback_reason
+      ? ` — fell back: ${checks.mode.fallback_reason}`
+      : '';
     parts.push(
       `<p class="muted">Test mode: <span class="word">${escapeHtml(`${checks.mode.test_mode}${proc}`)}</span>${escapeHtml(fallback)}</p>`,
     );
@@ -1018,7 +1034,9 @@ function renderChecks(bundle: FeatureBundleExport): string {
       return `<tr><td>${glyph} ${escapeHtml(name)}</td><td class="dur">${formatDuration(command.duration_ms)}</td></tr>`;
     })
     .join('');
-  parts.push(`<table><thead><tr><th>Command</th><th>Duration</th></tr></thead><tbody>${rows}</tbody></table>`);
+  parts.push(
+    `<table><thead><tr><th>Command</th><th>Duration</th></tr></thead><tbody>${rows}</tbody></table>`,
+  );
   if (checks.critical_path && checks.critical_path.logical_command) {
     parts.push(
       `<p class="muted">Critical path: <span class="word">${escapeHtml(checks.critical_path.logical_command)}</span> (${formatDuration(checks.critical_path.duration_ms)}).</p>`,

@@ -235,7 +235,10 @@ function commandName(logical: string | null, command: string): string {
 }
 
 /** The end-of-change receipt (issue #554, Part E.2). Verbatim shapes, plain language. */
-export function renderReceipt(result: ChecksRunResult, flakyMode: 'pass' | 'warn' | 'fail'): string[] {
+export function renderReceipt(
+  result: ChecksRunResult,
+  flakyMode: 'pass' | 'warn' | 'fail',
+): string[] {
   const lines: string[] = [];
   const header = result.passed
     ? `**▸ paqad** · checks green — Safe to merge (${fmtSecs(result.duration_ms)})`
@@ -289,9 +292,7 @@ function renderTestLines(result: ChecksRunResult, durationMs: number): string[] 
         : '';
   if (blocking === 0) {
     const suffix = modeSuffix ? `, ${modeSuffix}` : '';
-    return [
-      `> - 🟢 test passed: ${result.test_total} tests${suffix} (${fmtSecs(durationMs)})`,
-    ];
+    return [`> - 🟢 test passed: ${result.test_total} tests${suffix} (${fmtSecs(durationMs)})`];
   }
   const lines = [
     `> - 🔴 test failed: ${blocking} tests fail alone (${result.parallel_failures} failed in the parallel run)`,
@@ -316,6 +317,7 @@ function humanReason(reason: string): string {
   }
   if (reason === 'too-few-cores') return 'fewer than 4 cores';
   if (reason.startsWith('harness-failure')) return 'the parallel harness failed';
-  if (reason === 'unknown') return 'parallel mode unknown; run the test-runner-discovery skill, then npx paqad-ai checks record-runner <file>';
+  if (reason === 'unknown')
+    return 'parallel mode unknown; run the test-runner-discovery skill, then npx paqad-ai checks record-runner <file>';
   return reason;
 }

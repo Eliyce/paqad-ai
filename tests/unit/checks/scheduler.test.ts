@@ -53,7 +53,10 @@ describe('runStages (AC-5)', () => {
     // format finished before build started
     expect(events.indexOf('end:fmtbin')).toBeLessThan(events.indexOf('start:buildbin'));
     // build and the shell command overlapped: both started before either ended
-    const bothStarted = Math.max(events.indexOf('start:buildbin'), events.indexOf('start:shellbin'));
+    const bothStarted = Math.max(
+      events.indexOf('start:buildbin'),
+      events.indexOf('start:shellbin'),
+    );
     const firstEnded = Math.min(events.indexOf('end:buildbin'), events.indexOf('end:shellbin'));
     expect(bothStarted).toBeLessThan(firstEnded);
     // test started only after both stage-2 commands ended
@@ -93,13 +96,17 @@ describe('runStages (AC-5)', () => {
         throw new Error('should not spawn');
       },
     };
-    const results = await runStages([{ logical_command: 'test', command: 'pnpm test | tee', stage: 3 }], shell, {
-      cwd: '/tmp',
-      parallel: false,
-      availableParallelism: 4,
-      nowMs: () => 1,
-      nowIso: () => '2026-01-01T00:00:00.000Z',
-    });
+    const results = await runStages(
+      [{ logical_command: 'test', command: 'pnpm test | tee', stage: 3 }],
+      shell,
+      {
+        cwd: '/tmp',
+        parallel: false,
+        availableParallelism: 4,
+        nowMs: () => 1,
+        nowIso: () => '2026-01-01T00:00:00.000Z',
+      },
+    );
     expect(results[0]!.passed).toBe(false);
     expect(results[0]!.invalid).toContain('Unsupported shell syntax');
   });

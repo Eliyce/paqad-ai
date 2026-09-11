@@ -41,7 +41,10 @@ describe('hasPackage', () => {
   });
 
   it('reads pyproject.toml when it is the only python manifest', () => {
-    writeFileSync(join(root, 'pyproject.toml'), '[tool.poetry.dependencies]\npytest-xdist = "^3"\n');
+    writeFileSync(
+      join(root, 'pyproject.toml'),
+      '[tool.poetry.dependencies]\npytest-xdist = "^3"\n',
+    );
     expect(hasPackage(root, 'python', 'pytest-xdist')).toBe(true);
   });
 

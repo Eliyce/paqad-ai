@@ -48,7 +48,11 @@ function runsInContainer(command: string): boolean {
 }
 
 /** Process count: cores minus one, clamped, then capped by memory, container, and the knob. */
-export function computeProcessCount(os: OsFacts, isContainer: boolean, maxOverride: number): number {
+export function computeProcessCount(
+  os: OsFacts,
+  isContainer: boolean,
+  maxOverride: number,
+): number {
   let count = clamp(os.availableParallelism - 1, MIN_PROCESSES, MAX_PROCESSES);
   if (os.totalmem < LOW_MEMORY_BYTES) count = Math.min(count, LOW_MEMORY_PROCESS_CAP);
   if (isContainer) count = Math.min(count, CONTAINER_PROCESS_CAP);
