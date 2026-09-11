@@ -46,6 +46,11 @@ test_runners:
     default_command: ./gradlew test
     output_source: file
     output_path_pattern: '{build/test-results/test/*.xml,target/surefire-reports/*.xml}'
+    single_test_selector: test_id
+    parallel:
+      mode: unavailable
+      reason: Gradle runs one test JVM unless maxParallelForks is set in the build
+        script.
 docs:
   conventions_template: rules/conventions.md
 module_health:

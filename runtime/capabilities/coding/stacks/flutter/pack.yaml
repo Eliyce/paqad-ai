@@ -50,6 +50,9 @@ test_runners:
   - runner_id: flutter-test
     structured_format: none
     default_command: flutter test
+    single_test_selector: file
+    parallel:
+      mode: native
 docs:
   overview_template: rules/foundation/guide.md
   conventions_template: rules/conventions/guide.md

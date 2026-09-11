@@ -316,6 +316,33 @@ function validateTestRunners(manifest: StackPackManifest): PackValidationIssue[]
         message: `Test runner "${runner.runner_id}" declares output_path_pattern but reads from stdout`,
       });
     }
+
+    // Parallel capability (issue #554): `flag` mode must carry a `flag` with `<processes>` exactly
+    // once; the other modes must not carry a flag (nothing would consume it).
+    if (runner.parallel) {
+      const flagCount = (runner.parallel.flag?.match(/<processes>/g) ?? []).length;
+      if (runner.parallel.mode === 'flag') {
+        if (!runner.parallel.flag) {
+          issues.push({
+            level: 'error',
+            path: '/test_runners',
+            message: `Test runner "${runner.runner_id}" parallel.mode=flag needs a flag`,
+          });
+        } else if (flagCount !== 1) {
+          issues.push({
+            level: 'error',
+            path: '/test_runners',
+            message: `Test runner "${runner.runner_id}" parallel.flag must contain <processes> exactly once`,
+          });
+        }
+      } else if (runner.parallel.flag) {
+        issues.push({
+          level: 'error',
+          path: '/test_runners',
+          message: `Test runner "${runner.runner_id}" parallel.flag is only valid when mode=flag`,
+        });
+      }
+    }
   }
 
   issues.push(...validateTestingFrameworkCoverage(manifest));

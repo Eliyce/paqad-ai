@@ -45,6 +45,9 @@ test_runners:
     structured_format: tap
     structured_flags: --reporter=tap
     default_command: pnpm test
+    single_test_selector: file
+    parallel:
+      mode: native
 docs:
   conventions_template: rules/conventions.md
 module_health:

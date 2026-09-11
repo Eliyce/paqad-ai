@@ -109,12 +109,22 @@ test_runners:
     default_command: php artisan test
     output_source: file
     output_path_pattern: .paqad/test-results/pest.xml
+    single_test_selector: test_id
+    parallel:
+      mode: flag
+      flag: --parallel --processes=<processes>
+      requires_package: brianium/paratest
   - runner_id: phpunit
     structured_format: junit-xml
     structured_flags: --log-junit .paqad/test-results/phpunit.xml
     default_command: php artisan test
     output_source: file
     output_path_pattern: .paqad/test-results/phpunit.xml
+    single_test_selector: test_id
+    parallel:
+      mode: flag
+      flag: --parallel --processes=<processes>
+      requires_package: brianium/paratest
 docs:
   overview_template: rules/foundation/guide.md
   conventions_template: rules/conventions/guide.md
