@@ -5,11 +5,25 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  deriveTestingForProfile,
   deriveTestingRecord,
   insertParallelFlag,
   upsertStackDocCommandRow,
 } from '@/checks/testing-record.js';
 import type { StackPackTestRunner } from '@/core/types/pack.js';
+
+function commands(test: string) {
+  return {
+    install: '',
+    dev: '',
+    test,
+    test_single: `${test} --filter="<pattern>"`,
+    lint: '',
+    format: '',
+    migrate: '',
+    build: '',
+  };
+}
 
 const NOW = '2026-09-11T10:00:00.000Z';
 
@@ -124,6 +138,58 @@ describe('deriveTestingRecord', () => {
     });
     expect(out.testing.parallel).toBe('unavailable');
     expect(out.testing.reason).toBe('RSpec runs one example at a time');
+  });
+});
+
+describe('deriveTestingForProfile against the real laravel pack (AC-10)', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-derive-profile-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('sail + pest + paratest → the parallel command and available', () => {
+    writeFileSync(
+      join(root, 'composer.lock'),
+      JSON.stringify({ 'packages-dev': [{ name: 'brianium/paratest' }] }),
+    );
+    const out = deriveTestingForProfile({
+      stackProfile: { frameworks: ['laravel'], traits: ['sail', 'pest'] },
+      commands: commands(
+        'mkdir -p .paqad/test-results && vendor/bin/sail test --log-junit .paqad/test-results/pest.xml',
+      ),
+      projectRoot: root,
+      now: NOW,
+    });
+    expect(out.testing?.parallel).toBe('available');
+    expect(out.testing?.runner_id).toBe('pest');
+    expect(out.commands.test_parallel).toBe(
+      'mkdir -p .paqad/test-results && vendor/bin/sail test --parallel --processes=<processes> --log-junit .paqad/test-results/pest.xml',
+    );
+  });
+
+  it('without paratest → unavailable, brianium/paratest-missing', () => {
+    writeFileSync(join(root, 'composer.lock'), JSON.stringify({ packages: [] }));
+    const out = deriveTestingForProfile({
+      stackProfile: { frameworks: ['laravel'], traits: ['pest'] },
+      commands: commands('mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/pest.xml'),
+      projectRoot: root,
+      now: NOW,
+    });
+    expect(out.testing?.parallel).toBe('unavailable');
+    expect(out.testing?.reason).toBe('brianium/paratest-missing');
+    expect(out.commands.test_parallel).toBeUndefined();
+  });
+
+  it('phpunit trait selects the phpunit runner', () => {
+    writeFileSync(join(root, 'composer.lock'), JSON.stringify({ packages: [] }));
+    const out = deriveTestingForProfile({
+      stackProfile: { frameworks: ['laravel'], traits: ['phpunit'] },
+      commands: commands('mkdir -p .paqad/test-results && php artisan test --log-junit .paqad/test-results/phpunit.xml'),
+      projectRoot: root,
+      now: NOW,
+    });
+    expect(out.testing?.runner_id).toBe('phpunit');
   });
 });
 

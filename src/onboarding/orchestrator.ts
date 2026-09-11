@@ -31,7 +31,8 @@ import { Detector } from '@/detection/detector.js';
 import { VERSION } from '@/index.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
-import { getPackTestRunners } from '@/packs/project-packs.js';
+import { selectTestRunner } from '@/checks/test-runner.js';
+import { deriveTestingForProfile } from '@/checks/testing-record.js';
 import { Resolver } from '@/resolver/resolver.js';
 import { writeStackArtifacts } from '@/stack-docs/generator.js';
 import { SchemaValidator } from '@/validators/validator.js';
@@ -652,6 +653,17 @@ function buildProjectProfile(
 ): ProjectProfile {
   const stackProfile = selections.stack_profile ?? snapshot.profile;
   const defaultCommands = buildDefaultCommands(stackProfile, projectRoot);
+  // Issue #554 — record how the test suite parallelizes (commands.test_parallel + the testing
+  // block) from the selected runner and the project lockfile. Only for coding stacks.
+  const derivedTesting =
+    selections.domain === 'coding'
+      ? deriveTestingForProfile({
+          stackProfile,
+          commands: defaultCommands,
+          projectRoot,
+          now: new Date().toISOString(),
+        })
+      : { commands: defaultCommands, testing: undefined };
   return {
     project: {
       name: overrides?.project?.name ?? 'paqad project',
@@ -660,7 +672,12 @@ function buildProjectProfile(
     },
     active_capabilities: deriveActiveCapabilities(selections.domain, stackProfile),
     stack_profile: selections.domain === 'coding' ? stackProfile : undefined,
-    commands: overrides?.commands ?? defaultCommands,
+    commands: overrides?.commands ?? derivedTesting.commands,
+    ...(overrides?.testing
+      ? { testing: overrides.testing }
+      : derivedTesting.testing && !overrides?.commands
+        ? { testing: derivedTesting.testing }
+        : {}),
     strictness: overrides?.strictness ?? {
       full_lane_default: false,
       require_adversarial_review: true,
@@ -931,18 +948,8 @@ function selectPreferredStructuredRunner(
   testCommand: string,
   projectRoot?: string,
 ) {
-  const runners = getPackTestRunners(stackProfile.frameworks, projectRoot).filter(
-    (runner) => runner.structured_format !== 'none',
-  );
-  if (runners.length === 0) {
-    return null;
-  }
-
-  const normalizedCommand = testCommand.toLowerCase();
-  const exactMatch = runners.find((runner) =>
-    normalizedCommand.includes(runner.runner_id.toLowerCase()),
-  );
-  return exactMatch ?? runners[0] ?? null;
+  // Issue #554 — one runner-selection implementation, shared with the check runner.
+  return selectTestRunner(stackProfile, testCommand, projectRoot);
 }
 
 function buildStructuredTestCommand(
@@ -999,24 +1006,12 @@ function deriveActiveCapabilities(
 }
 
 function resolveLaravelTestTool(traits: string[]): { command: string; single: string } {
+  // Issue #554 — always the Artisan wrapper (never the bare pest/phpunit binary), because
+  // Artisan's --parallel creates the per-process test databases for both Pest and PHPUnit.
   if (traits.includes('sail')) {
     return {
-      command: 'vendor/bin/sail artisan test',
-      single: 'vendor/bin/sail artisan test --filter="<pattern>"',
-    };
-  }
-
-  if (traits.includes('pest')) {
-    return {
-      command: './vendor/bin/pest',
-      single: './vendor/bin/pest --filter="<pattern>"',
-    };
-  }
-
-  if (traits.includes('phpunit')) {
-    return {
-      command: './vendor/bin/phpunit',
-      single: './vendor/bin/phpunit --filter="<pattern>"',
+      command: 'vendor/bin/sail test',
+      single: 'vendor/bin/sail test --filter="<pattern>"',
     };
   }
 

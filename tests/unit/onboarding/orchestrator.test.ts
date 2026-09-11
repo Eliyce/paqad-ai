@@ -425,9 +425,9 @@ describe('OnboardingOrchestrator', () => {
     await new OnboardingOrchestrator().run({ projectRoot, adapters: ['claude-code'] });
 
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
-    expect(profile).toContain('test: mkdir -p .paqad/test-results && ./vendor/bin/phpunit');
+    expect(profile).toContain('test: mkdir -p .paqad/test-results && php artisan test');
     expect(profile).toContain('--log-junit .paqad/test-results/phpunit.xml');
-    expect(profile).toContain('test_single: mkdir -p .paqad/test-results && ./vendor/bin/phpunit');
+    expect(profile).toContain('test_single: mkdir -p .paqad/test-results && php artisan test');
     expect(profile).toContain('--filter="<pattern>" --log-junit');
   });
 
@@ -500,7 +500,7 @@ describe('OnboardingOrchestrator', () => {
     await new OnboardingOrchestrator().run({ projectRoot, adapters: ['claude-code'] });
 
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
-    expect(profile).toContain('test: mkdir -p .paqad/test-results && vendor/bin/sail artisan test');
+    expect(profile).toContain('test: mkdir -p .paqad/test-results && vendor/bin/sail test');
     expect(profile).toContain('--log-junit .paqad/test-results/pest.xml');
     expect(profile).toContain('dev: vendor/bin/sail up -d');
     expect(profile).toContain('migrate: vendor/bin/sail artisan migrate');
@@ -755,9 +755,9 @@ describe('OnboardingOrchestrator', () => {
     await new OnboardingOrchestrator().run({ projectRoot, adapters: ['claude-code'] });
 
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
-    expect(profile).toContain('test: mkdir -p .paqad/test-results && ./vendor/bin/pest');
+    expect(profile).toContain('test: mkdir -p .paqad/test-results && php artisan test');
     expect(profile).toContain('--log-junit .paqad/test-results/pest.xml');
-    expect(profile).toContain('test_single: mkdir -p .paqad/test-results && ./vendor/bin/pest');
+    expect(profile).toContain('test_single: mkdir -p .paqad/test-results && php artisan test');
     expect(profile).toContain('--filter="<pattern>" --log-junit');
   });
 
