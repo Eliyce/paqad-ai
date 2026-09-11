@@ -6,6 +6,13 @@
 
 import Ajv, { type ValidateFunction } from 'ajv';
 
+import {
+  VE_RESULTS,
+  VE_SKIP_REASONS,
+  VE_STEP_STATUSES,
+  VISUAL_EVIDENCE_DOC_TYPE,
+} from '@/visual-evidence/types.js';
+
 import { FEATURE_DOC_TYPE, PLAN_DOC_TYPE, REVIEW_DOC_TYPE } from './types.js';
 
 const nullableString = { type: ['string', 'null'] } as const;
@@ -240,10 +247,121 @@ export const REVIEW_SCHEMA = {
   },
 } as const;
 
+export const VISUAL_EVIDENCE_SCHEMA = {
+  $id: 'paqad://schemas/visual-evidence.json',
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'doc_type',
+    'generated_at',
+    'content_hash',
+    'trigger',
+    'plan',
+    'steps',
+    'gif',
+    'skips',
+    'result',
+  ],
+  properties: {
+    schema_version: { type: 'integer', const: 1 },
+    doc_type: { const: VISUAL_EVIDENCE_DOC_TYPE },
+    generated_at: { type: 'string', minLength: 1 },
+    content_hash: { type: 'string', minLength: 1 },
+    trigger: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['changed_files', 'matched_globs', 'packs'],
+      properties: {
+        changed_files: { type: 'array', items: { type: 'string' } },
+        matched_globs: { type: 'array', items: { type: 'string' } },
+        packs: { type: 'array', items: { type: 'string' } },
+      },
+    },
+    plan: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['journey_id', 'capture_script', 'matched_by'],
+        properties: {
+          journey_id: { type: 'string', minLength: 1 },
+          capture_script: { type: 'string', minLength: 1 },
+          matched_by: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['file', 'surface', 'module'],
+              properties: {
+                file: { type: 'string' },
+                surface: { type: 'string' },
+                module: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+    steps: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['index', 'journey_id', 'journey_step', 'caption', 'dir', 'captured_at', 'status'],
+        properties: {
+          index: { type: 'integer', minimum: 1 },
+          journey_id: { type: 'string', minLength: 1 },
+          journey_step: { type: 'integer', minimum: 1 },
+          caption: { type: 'string' },
+          dir: { type: 'string', minLength: 1 },
+          route: { type: 'string' },
+          captured_at: { type: 'string', minLength: 1 },
+          image_sha256: { type: 'string' },
+          image_bytes: { type: 'integer', minimum: 0 },
+          status: { enum: [...VE_STEP_STATUSES] },
+          failure: { type: 'string' },
+        },
+      },
+    },
+    gif: {
+      oneOf: [
+        { type: 'null' },
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['file', 'frames', 'frame_ms', 'sha256', 'bytes'],
+          properties: {
+            file: { type: 'string', minLength: 1 },
+            frames: { type: 'integer', minimum: 0 },
+            frame_ms: { type: 'integer', minimum: 1 },
+            sha256: { type: 'string', minLength: 1 },
+            bytes: { type: 'integer', minimum: 0 },
+          },
+        },
+      ],
+    },
+    skips: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['reason', 'detail'],
+        properties: {
+          reason: { enum: [...VE_SKIP_REASONS] },
+          detail: { type: 'string' },
+        },
+      },
+    },
+    result: { enum: [...VE_RESULTS] },
+  },
+} as const;
+
 const ajv = new Ajv({ allErrors: true, allowUnionTypes: true });
 let compiledFeature: ValidateFunction | undefined;
 let compiledPlan: ValidateFunction | undefined;
 let compiledReview: ValidateFunction | undefined;
+let compiledVisualEvidence: ValidateFunction | undefined;
 
 /** One human-readable line for a validation error. */
 export function formatValidationError(error: { instancePath?: string; message?: string }): string {
@@ -280,4 +398,12 @@ export function validateReviewRecord(row: unknown): string[] {
     compiledReview = ajv.compile(REVIEW_SCHEMA);
   }
   return runValidator(compiledReview, row);
+}
+
+/** Returns `[]` when `row` is a valid `visual-evidence.json` manifest, else error strings. */
+export function validateVisualEvidenceRecord(row: unknown): string[] {
+  if (!compiledVisualEvidence) {
+    compiledVisualEvidence = ajv.compile(VISUAL_EVIDENCE_SCHEMA);
+  }
+  return runValidator(compiledVisualEvidence, row);
 }
