@@ -39,14 +39,22 @@ const SEAM = process.argv[2] === 'completion' ? 'completion' : 'pre-mutation';
 
 /**
  * Cheap, dist-less check for whether this seam has any kernel work to do, so the
- * common edit pays no dist-import cost. Two kernel-bound capabilities today:
+ * common edit pays no dist-import cost. Kernel-bound capabilities today:
+ *   - rules-loaded (issue #557) — required, mode-less: the pre-mutation seam ALWAYS has
+ *     work on an enabled project, because any edit could be a feature-dev edit that must
+ *     first load the rules. So the pre-mutation seam short-circuits to true regardless of
+ *     the stages/rule-script config (a team that turns stages off still gets rule-loading).
  *   - stages (RCA fix B) — block-forward runs on EVERY enabled project by default
  *     (stages_mode defaults to strict), independent of any rule-script map, so the
  *     executor must load whenever stages is not floored off.
  *   - rule-scripts — has work only when a rule-script map exists AND rule_compliance
  *     is not floored to off (the team value is a floor; local/env may only RAISE).
  */
-function seamHasWork(projectRoot) {
+function seamHasWork(projectRoot, seam) {
+  // Rules-loaded is required with no mode (issue #557): the pre-mutation seam always has work.
+  if (seam === 'pre-mutation') {
+    return true;
+  }
   const stagesMode = readFlooredMode(
     projectRoot,
     'stages_mode',
@@ -96,7 +104,7 @@ export async function main(input, seam = SEAM) {
   try {
     const projectRoot = resolveProjectRoot();
     if (isPaqadDisabled(projectRoot)) return 0;
-    if (!seamHasWork(projectRoot)) return 0;
+    if (!seamHasWork(projectRoot, seam)) return 0;
 
     // Lazy-load the compiled executor only once there is real work. Resolved
     // relative to this module so it works installed, vendored, or in the repo

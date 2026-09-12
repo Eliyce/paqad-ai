@@ -4,9 +4,16 @@ import { KNOWN_CONFIG_KEYS } from '@/core/framework-config';
 import { CAPABILITY_REGISTRY, capabilitiesForSeam, getCapability } from '@/kernel/registry';
 
 describe('CAPABILITY_REGISTRY (buildout F3 — the unifying data model)', () => {
-  it('has five capabilities with unique, stable ids', () => {
+  it('has six capabilities with unique, stable ids', () => {
     const ids = CAPABILITY_REGISTRY.map((c) => c.id);
-    expect(ids).toEqual(['stages', 'rule-scripts', 'decision-pause', 'narration', 'delivery']);
+    expect(ids).toEqual([
+      'stages',
+      'rule-scripts',
+      'rules-loaded',
+      'decision-pause',
+      'narration',
+      'delivery',
+    ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -51,7 +58,10 @@ describe('CAPABILITY_REGISTRY (buildout F3 — the unifying data model)', () => 
     expect(pre).toContain('rule-scripts');
     expect(pre).toContain('decision-pause');
     expect(pre).toContain('stages'); // block-forward runs pre-mutation (RCA fix B)
+    expect(pre).toContain('rules-loaded'); // edit-time rule-loading block (issue #557)
     expect(pre).not.toContain('narration');
+    // rules-loaded is pre-mutation only; the completion half is the dedicated verification gate.
+    expect(capabilitiesForSeam('completion').map((c) => c.id)).not.toContain('rules-loaded');
 
     const completion = capabilitiesForSeam('completion').map((c) => c.id);
     expect(completion).toContain('stages');

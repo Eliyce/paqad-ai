@@ -44,7 +44,7 @@ export interface CapabilityPayload {
 export interface CapabilityDescriptor {
   /** Stable id — NEVER renamed (an alias map handles a rename; a bare rename
    *  orphans the project's lock + config and resets the team's value). */
-  id: 'stages' | 'rule-scripts' | 'decision-pause' | 'narration' | 'delivery';
+  id: 'stages' | 'rule-scripts' | 'rules-loaded' | 'decision-pause' | 'narration' | 'delivery';
   /** Human title for surfaces (dashboard, narration, docs). */
   title: string;
   /** The floored config knob that sets this capability's mode, or null when it
@@ -88,6 +88,21 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freez
     modeKey: 'rule_compliance',
     enforcementFloor: 'block',
     seam: ['pre-mutation', 'completion'],
+    ledgerDocType: null,
+    policySchemaVersion: 1,
+    recordSchemaVersion: 1,
+  },
+  {
+    // Issue #557 — rule LOADING (distinct from rule-scripts, which enforces scripted rules).
+    // Required, not tunable: modeKey null + floor 'block' (the decision-pause shape). It refuses
+    // the first feature-dev source edit until the applicable rule text has been loaded and
+    // recorded (rules-loaded.json). Pre-mutation only — the completion half is the dedicated
+    // rulesLoadedGate on the verification path, not this seam.
+    id: 'rules-loaded',
+    title: 'Rule loading',
+    modeKey: null,
+    enforcementFloor: 'block',
+    seam: ['pre-mutation'],
     ledgerDocType: null,
     policySchemaVersion: 1,
     recordSchemaVersion: 1,
