@@ -57,3 +57,11 @@ feature_report=true
 site_map=true
 # Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is local, deterministic, and zero-LLM — it folds over caches the gates already produced. OFF stops computing and recording them. (env: PAQAD_METRICS_ENABLED)
 # metrics_enabled=true
+
+# ── Added in a newer paqad version ────────────────────────────
+# Capture screenshots of documented flows for frontend changes as feature-bundle evidence. ON also requires the coding capability at its consumers. (env: PAQAD_VISUAL_EVIDENCE)
+# visual_evidence=false
+# Run the checks stage concurrently and use the test runner's own parallel mode when the project has it. OFF restores the one-after-another run. (env: PAQAD_CHECKS_PARALLEL)
+# checks_parallel=true
+# Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
+# checks_max_processes=0

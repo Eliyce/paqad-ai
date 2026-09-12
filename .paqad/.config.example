@@ -44,12 +44,18 @@
 # analytics_instrumentation=false
 # Opt in to the Site Map & Journeys capability — a verified behavioural map of the app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). OFF (default) is completely inert; ON also requires the coding capability at its consumers. (env: PAQAD_SITE_MAP)
 # site_map=false
+# Capture screenshots of documented flows for frontend changes as feature-bundle evidence. ON also requires the coding capability at its consumers. (env: PAQAD_VISUAL_EVIDENCE)
+# visual_evidence=false
 # Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
 # lean_rules=true
 # Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)
 # feature_report=true
 # Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is local, deterministic, and zero-LLM — it folds over caches the gates already produced. OFF stops computing and recording them. (env: PAQAD_METRICS_ENABLED)
 # metrics_enabled=true
+# Run the checks stage concurrently and use the test runner's own parallel mode when the project has it. OFF restores the one-after-another run. (env: PAQAD_CHECKS_PARALLEL)
+# checks_parallel=true
+# Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
+# checks_max_processes=0
 
 # ── Intelligence / RAG ──────────────────────────────────────
 # Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
@@ -120,6 +126,10 @@
 # duplication_mode=warn
 # off | warn | strict — end-of-change check that a feature-development bundle carries every required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, naming the file and its writer; warn surfaces it as Inconclusive without blocking; off falls back to the deprecated evidence_existence_gate (issue #511). (env: PAQAD_BUNDLE_COMPLETENESS)
 # bundle_completeness=strict
+# pass | warn | fail — what a test that fails in the parallel run but passes alone does. warn (default): never blocks, recorded, one receipt line. pass: recorded only. fail: blocks. Team value is the floor; local/env may only raise it. (env: PAQAD_CHECKS_FLAKY_UNDER_PARALLEL)
+# checks_flaky_under_parallel=warn
+# warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on and a change is frontend-triggering (issue #551). warn (default): an environmental miss (browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) reads Inconclusive without blocking. strict: the same misses FAIL the change. Documented skips (no documented flow, no capture script) never fail in either mode. Team value is the floor; local/env may only raise warn to strict. (env: PAQAD_VISUAL_EVIDENCE_MODE)
+# visual_evidence_mode=warn
 # DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it. (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
 # evidence_existence_gate=warn
 # Minimum similarity (0..1) for a blocking duplication finding (issue #358). Default 0.90 — conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks. (env: PAQAD_DUPLICATION_SIMILARITY_THRESHOLD)
