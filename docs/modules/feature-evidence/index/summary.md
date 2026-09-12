@@ -50,6 +50,7 @@ change, so the live feature-development stage spine is untouched:
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
 | `delivery.json` | always | feature open + `paqad-ai delivery-link` |
+| `rules-loaded.json` | checked-when-present (issue #557) | `paqad-ai rules load` |
 | `rule-run.jsonl` | `rule_compliance != off` | rule-scripts runner |
 | `change-metrics.jsonl` | `metrics_enabled` | change-metrics collector |
 | `duplication.jsonl` | `duplication_mode != off` | duplication scan |
@@ -67,6 +68,16 @@ surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
 `evidence_existence_gate`. A file recovered by cache backfill is reported `backfilled`
 (never a clean pass); a RAG gap is unrecoverable and reads Inconclusive; a flag-off file is
 `skipped`. Non-feature / no-active-bundle / non-local (CI) turns skip the gate entirely.
+- **Rule-loading gate** (`rules-loaded-gate.ts`, issue #557) — the completion-seam backstop
+  that a feature-development change actually LOADED its applicable rules, not just that the
+  ceremony ran. `paqad-ai rules load` computes the applicable rules deterministically
+  (reusing `computeRuleApplicability`), prints their full text, and writes `rules-loaded.json`
+  (the applicable rule ids, per-rule matched paths, and a content hash of the loaded text).
+  The edit-time `rules-loaded` kernel capability blocks the first feature-dev source edit
+  until that record exists; this gate **fails** a feature-dev code change with no record
+  (blocks like a missing plan/spec), reads **inconclusive** when the load is stale (a rule
+  became applicable after it ran), and is **skipped** with no compiled rules / no applicable
+  rule / a non-feature change. It attests loading and acknowledgment, never comprehension.
 - **Plan reuse gate** (`reuse.ts`, issue #357, Phase A) — the plan must answer "did you
   check what already exists?" before it compiles. `validateReuseSection` returns blocking
   `errors` and non-blocking `warnings` for the template's `reuse` section: `consulted`

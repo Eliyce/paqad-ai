@@ -83,6 +83,7 @@ stages:
   development:
     instructions:
       - Implement only the requested feature behavior and avoid unrelated refactors.
+      - "Rules loaded (issue #557): SCRIPT-ENFORCED. Before the first source edit, read the applicable rule text (the `## Loaded rule text` section of `.paqad/context/session-context.md`) and run `paqad-ai rules load` to record it. The pre-mutation kernel gate blocks the first feature-dev edit until `rules-loaded.json` exists, and the completion gate FAILS a change whose applicable rules were never loaded (Inconclusive when the load is stale). The record attests loading, never comprehension."
       - "Design-system (issue #76): when the diff touches UI source, run token-conformance-review and component-conformance-review as pre-review lint (non-blocking at this stage). Hard-coded design values (hex, raw px/rem, ad-hoc font stacks) where a token exists surface as developer-visible DT findings before review."
     required_inputs:
       - approved spec

@@ -121,6 +121,12 @@ feature-development stages are named in §2. Throughout:
 - **Verification gates** (17 of them) decide whether the change may land. They run
   transparently in-pipeline **and again at a git/CI backstop independent of the
   agent** ([`verification`](verification/index/summary.md), `src/verification`).
+- **Rule loading is required and evidenced** (issue #557). Materializing the applicable
+  rule text into the session-context artifact does not prove it was read, so a change
+  must record that its rules were loaded: `paqad-ai rules load` writes `rules-loaded.json`
+  into the feature bundle, the `rules-loaded` kernel capability blocks the first source
+  edit until it exists, and the completion-seam `rules-loaded-gate` fails a change whose
+  applicable rules were never loaded. It attests loading, never comprehension.
 - Everything lands in the append-only **Evidence Ledger**, and a per-change
   provenance receipt is projected from it
   ([`evidence-ledger`](evidence-ledger/index/summary.md), `src/evidence`).
