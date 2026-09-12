@@ -8,8 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DECISION_PAUSE_REMINDER,
   RULES_MISSING_FALLBACK_MARKER,
+  composeLoadedRuleText,
   composeRuleContext,
+  computeRuleApplicability,
+  hashRuleText,
   refreshRuleContext,
+  resolveRuleApplicabilityForChange,
   selectTriggeredRules,
 } from '@/context/rule-context.js';
 import * as ruleCompiler from '@/planning/rule-compiler.js';
@@ -385,5 +389,99 @@ describe('refreshRuleContext', () => {
 
       expect(spy).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('composeLoadedRuleText (issue #557 — the one canonical rule-text composer)', () => {
+  it('renders each rule as a `### id · title` block joined by a blank line', () => {
+    const text = composeLoadedRuleText([
+      rule({ rule_id: 'R1', title: 'One', raw_text: 'body one' }),
+      rule({ rule_id: 'R2', title: 'Two', raw_text: 'body two' }),
+    ]);
+    expect(text).toBe('### R1 · One\nbody one\n\n### R2 · Two\nbody two');
+  });
+
+  it('is the same text composeRuleContext renders under the Loaded rule text heading', () => {
+    const rules = [rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'always body' })];
+    const composed = composeRuleContext(store(rules), { changedPaths: [] });
+    expect(composed).toContain(composeLoadedRuleText(rules));
+  });
+
+  it('an empty set composes to the empty string', () => {
+    expect(composeLoadedRuleText([])).toBe('');
+  });
+});
+
+describe('computeRuleApplicability (issue #557)', () => {
+  const rules = [
+    rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'a' }),
+    rule({ rule_id: 'SRC', trigger_patterns: ['src/'], raw_text: 'b' }),
+    rule({ rule_id: 'DOCS', trigger_patterns: ['docs/'], raw_text: 'c' }),
+  ];
+
+  it('marks always-load rules and records matched paths for triggered scoped rules', () => {
+    const { applicable } = computeRuleApplicability(rules, ['src/foo.ts', 'README.md']);
+    const byId = new Map(applicable.map((r) => [r.rule_id, r]));
+    expect(byId.get('ALWAYS')).toMatchObject({ always_load: true, matched_paths: [] });
+    expect(byId.get('SRC')).toMatchObject({ always_load: false, matched_paths: ['src/foo.ts'] });
+    expect(byId.has('DOCS')).toBe(false); // not triggered by these paths
+  });
+
+  it('hashes exactly the composed loaded rule text', () => {
+    const result = computeRuleApplicability(rules, ['src/foo.ts']);
+    expect(result.ruleTextHash).toBe(hashRuleText(result.loadedRuleText));
+  });
+
+  it('the hash changes when the applicable set changes', () => {
+    const a = computeRuleApplicability(rules, []); // only ALWAYS
+    const b = computeRuleApplicability(rules, ['src/foo.ts']); // ALWAYS + SRC
+    expect(a.ruleTextHash).not.toBe(b.ruleTextHash);
+  });
+});
+
+describe('resolveRuleApplicabilityForChange (issue #557)', () => {
+  let projectRoot: string;
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-resolve-appl-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(projectRoot, { recursive: true, force: true }));
+
+  it('reports hasStore false when there is no compiled rule store', async () => {
+    const result = await resolveRuleApplicabilityForChange(projectRoot);
+    expect(result.hasStore).toBe(false);
+    expect(result.applicable).toEqual([]);
+    expect(result.ruleTextHash).toBe(hashRuleText(''));
+  });
+
+  it('reports hasStore false when the compiled store has an empty rules array', async () => {
+    writeFileSync(
+      join(projectRoot, PATHS.COMPILED_RULES),
+      JSON.stringify({ schema_version: 1, generated_at: 'now', source_hash: 'x', rules: [] }),
+    );
+    const result = await resolveRuleApplicabilityForChange(projectRoot);
+    expect(result.hasStore).toBe(false);
+  });
+
+  it('reports hasStore false when the compiled store omits the rules key entirely', async () => {
+    writeFileSync(
+      join(projectRoot, PATHS.COMPILED_RULES),
+      JSON.stringify({ schema_version: 1, generated_at: 'now', source_hash: 'x' }),
+    );
+    const result = await resolveRuleApplicabilityForChange(projectRoot);
+    expect(result.hasStore).toBe(false);
+  });
+
+  it('computes the applicable set + hash when the store has rules', async () => {
+    writeFileSync(
+      join(projectRoot, PATHS.COMPILED_RULES),
+      JSON.stringify(
+        store([rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'always body' })]),
+      ),
+    );
+    const result = await resolveRuleApplicabilityForChange(projectRoot);
+    expect(result.hasStore).toBe(true);
+    expect(result.applicable.map((r) => r.rule_id)).toEqual(['ALWAYS']);
+    expect(result.ruleTextHash).toBe(hashRuleText(result.loadedRuleText));
   });
 });

@@ -100,7 +100,9 @@ export function generateRuleManifest(
 
   const header = `## paqad rule manifest — ${rules.length} ${rules.length === 1 ? 'rule' : 'rules'}`;
   const intro =
-    `> Every rule that governs this repo. Full text loads on demand when a rule's triggers match what you touch. ` +
+    `> Every rule that governs this repo. This is the index; the full text of the rules that ` +
+    `apply to your changed files is below under "Loaded rule text" — read it, then run ` +
+    `\`paqad-ai rules load\` to record that you did (required for a code change, issue #557). ` +
     `${SCRIPT_GLYPH} marks a script-enforced rule: paqad enforces it whether or not its text is loaded.`;
 
   if (rules.length === 0) {

@@ -126,6 +126,18 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'jsonl>=1',
   },
   {
+    // Issue #557 — the rule-loading evidence. `optional`, not flag-gated: like checks.json and
+    // visual-evidence.json its real enforcement is a dedicated gate (rulesLoadedGate), which has
+    // the applicable-rules signal this content-only validator does not. Checked-when-present here
+    // (a written record must be valid JSON) and never a "flag off" skip — rule-loading is
+    // required, not tunable, so there is no flag to be off.
+    key: 'rulesLoaded',
+    file: FEATURE_BUNDLE_FILES.rulesLoaded,
+    required: 'optional',
+    writer: 'paqad-ai rules load',
+    validate: 'json',
+  },
+  {
     key: 'delivery',
     file: FEATURE_BUNDLE_FILES.delivery,
     required: 'always',
