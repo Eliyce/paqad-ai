@@ -63,6 +63,7 @@ import { buildVerificationEvidence, writeVerificationEvidence } from '../evidenc
 import { evidenceExistenceGate } from './evidence-existence-gate.js';
 import { resolveEvidenceExistenceMode } from './evidence-existence-mode.js';
 import { bundleCompletenessGate } from './bundle-completeness-gate.js';
+import { rulesLoadedGate } from './rules-loaded-gate.js';
 import { resolveBundleCompletenessMode } from './bundle-completeness-mode.js';
 import { visualEvidenceGate } from '../gates/visual-evidence.js';
 import { resolveVisualEvidenceMode } from './visual-evidence-mode.js';
@@ -632,6 +633,26 @@ export async function runRepositoryVerification(
       if (veGate.status === 'fail') {
         evidence.overall_status = 'fail';
         evidence.first_failure_gate ??= veGate.name;
+      }
+    }
+  }
+
+  // Issue #557 — the rule-loading gate. A feature-development code change whose applicable
+  // rules were never loaded FAILS (blocks via overall_status:'fail', the same Stop-hook path
+  // as stage-evidence); a stale load reads Inconclusive without blocking. Scoped to a
+  // feature-dev change with an active bundle (same completenessDir scope as bundle-completeness),
+  // so a non-feature turn records nothing.
+  {
+    const rulesGate = await rulesLoadedGate({
+      projectRoot: context.project_root,
+      dirName: completenessDir,
+      isFeatureDev,
+    });
+    if (rulesGate) {
+      evidence.gates.push(rulesGate);
+      if (rulesGate.status === 'fail') {
+        evidence.overall_status = 'fail';
+        evidence.first_failure_gate ??= rulesGate.name;
       }
     }
   }

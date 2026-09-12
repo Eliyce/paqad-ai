@@ -85,3 +85,11 @@ spec_pipeline_experts_enabled=true
 # issue #547 — this repo runs the spec pipeline in strict adoption, with a higher ceiling.
 spec_pipeline_adoption=strict
 spec_pipeline_token_ceiling=60000
+
+# ── Added in a newer paqad version ────────────────────────────
+# pass | warn | fail — what a test that fails in the parallel run but passes alone does. warn (default): never blocks, recorded, one receipt line. pass: recorded only. fail: blocks. Team value is the floor; local/env may only raise it. (env: PAQAD_CHECKS_FLAKY_UNDER_PARALLEL)
+# checks_flaky_under_parallel=warn
+# warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on and a change is frontend-triggering (issue #551). warn (default): an environmental miss (browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) reads Inconclusive without blocking. strict: the same misses FAIL the change. Documented skips (no documented flow, no capture script) never fail in either mode. Team value is the floor; local/env may only raise warn to strict. (env: PAQAD_VISUAL_EVIDENCE_MODE)
+# visual_evidence_mode=warn
+# keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs (issue #538). strip (default) suppresses it where the provider exposes a project-level knob (Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level only). paqad's own delivery footer is never touched by this knob. (env: PAQAD_AI_ATTRIBUTION)
+# ai_attribution=strip

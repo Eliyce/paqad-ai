@@ -30,6 +30,8 @@ import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
+import { readCompiledRules } from '@/planning/rule-compiler.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
@@ -460,6 +462,56 @@ const stagesCapability: Capability = {
   },
 };
 
+/** Block message when a feature-dev edit is attempted before the rules were loaded (#557). */
+function formatRulesNotLoadedSummary(): string {
+  return (
+    `**▸ paqad** · rules not loaded for this change\n` +
+    `> 🔴 Needs your attention — you are editing code but I have no record that the ` +
+    `applicable project rules were loaded. Read them and record it: run \`paqad-ai rules ` +
+    `load\` (it prints the rules that apply to your changed files and writes the evidence), ` +
+    `then re-try the edit.`
+  );
+}
+
+/**
+ * Rule-loading capability (issue #557) — the edit-time half of "rules were actually loaded".
+ * At the pre-mutation seam it refuses the first FEATURE-DEVELOPMENT source edit until
+ * `rules-loaded.json` exists in the active feature bundle, so code can never be written with
+ * the project rules unread. Required, not tunable: it has no mode knob (rule-loading is not
+ * optional), gated only by paqad being enabled and the edit being feature-development.
+ *
+ * Presence-only by design (INV-2): it checks that a load was recorded, never coverage, so a
+ * new-file edit never deadlocks mid-change — staleness is the completion gate's honest,
+ * non-blocking signal. Keyed on the edit target via {@link isFeatureDevEdit}, so it fires
+ * regardless of the routed workflow — code written on a non-feature route is caught here, at
+ * edit time, not only at Stop. No-ops at the completion seam (the dedicated rulesLoadedGate
+ * owns that), when there is no active feature yet (the stages gate blocks that first), and
+ * when the project has no compiled rules (nothing to load — the block would be pointless).
+ */
+const rulesLoadedCapability: Capability = {
+  id: 'rules-loaded',
+  async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
+    if (seam !== 'pre-mutation') return NO_OP;
+    if (!isFeatureDevEdit(payload?.targetPath, projectRoot)) return NO_OP;
+    // Nothing to load ⇒ nothing to block on. A project with no compiled rule store has no
+    // rule text to read, so the edit gate must not demand a load that cannot exist.
+    const store = await readCompiledRules(projectRoot);
+    if (!store || (store.rules?.length ?? 0) === 0) return NO_OP;
+    const sessionId = resolveSessionId(
+      projectRoot,
+      payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null,
+    );
+    const dirName = currentFeature(projectRoot, sessionId);
+    // No feature opened yet → the stages capability blocks first (planning missing); do not
+    // pile a second block on the same edit.
+    if (!dirName) return NO_OP;
+    if (readRulesLoaded(projectRoot, dirName)) {
+      return NO_OP;
+    }
+    return { ran: true, blocking: true, summary: formatRulesNotLoadedSummary() };
+  },
+};
+
 /**
  * Delivery policy — the completion-seam consumer the `delivery-policy.yaml` never had
  * (RCA Step 5b). At Stop it reads HEAD branch/commit and (when `gh` can answer) the
@@ -507,6 +559,7 @@ const decisionPauseSelfArmCapability: Capability = {
 export const CAPABILITY_IMPLS: ReadonlyMap<CapabilityDescriptor['id'], Capability> = new Map([
   [ruleScriptsCapability.id, ruleScriptsCapability],
   [stagesCapability.id, stagesCapability],
+  [rulesLoadedCapability.id, rulesLoadedCapability],
   [deliveryCapability.id, deliveryCapability],
   [decisionPauseSelfArmCapability.id, decisionPauseSelfArmCapability],
 ]);

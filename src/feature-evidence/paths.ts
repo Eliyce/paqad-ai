@@ -25,6 +25,10 @@ export const FEATURE_BUNDLE_FILES = {
   review: 'review.json',
   stageEvidence: 'stage-evidence.jsonl',
   ruleRun: 'rule-run.jsonl',
+  // Issue #557 — which rules applied to the change and that their full text was loaded,
+  // written by `paqad-ai rules load`. Distinct from rule-run.jsonl (scripted-rule FINDINGS):
+  // this records rule LOADING, the half nothing recorded before.
+  rulesLoaded: 'rules-loaded.json',
   delivery: 'delivery.json',
   receipt: 'receipt.json',
   aiBom: 'ai-bom.json',

@@ -128,6 +128,11 @@ npx paqad-ai stage start specification
 npx paqad-ai spec freeze <spec.md> --confirm-invariants   # writes specification.json into the bundle
 npx paqad-ai stage end specification --artifact <specification.json>
 
+# Load the rules before you edit code (issue #557): prints the full text of the rules that
+# apply to your changed files and writes rules-loaded.json into the bundle. Required — the
+# first source edit is blocked and the completion check fails until this record exists.
+npx paqad-ai rules load
+
 npx paqad-ai stage start review
 … review the change …
 npx paqad-ai review record <review-template.json>         # writes review.json into the bundle

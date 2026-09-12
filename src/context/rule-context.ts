@@ -14,6 +14,7 @@
  * single-flight lock and atomic swap, so a reader never sees a half-written
  * artifact and concurrent refreshes never clobber each other.
  */
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -106,6 +107,107 @@ function ruleTextBlock(rule: CompiledRule): string {
   return `### ${rule.rule_id} · ${rule.title}\n${body}`;
 }
 
+/**
+ * Compose the loaded-rule-text body — the `### <id> · <title>` blocks for a set of rules,
+ * in order, joined by a blank line. The single canonical source for the rule text that a
+ * change loads (issue #557, INV-1): `composeRuleContext` renders it under the "Loaded rule
+ * text" heading, and `paqad-ai rules load` + the completion gate hash exactly these bytes,
+ * so the recorded content hash can never drift from what the artifact shows. Returns `''`
+ * for an empty set.
+ */
+export function composeLoadedRuleText(rules: readonly CompiledRule[]): string {
+  return rules.map(ruleTextBlock).join('\n\n');
+}
+
+/** One rule that applies to a change: which rule, whether it is always-on, and — for a
+ *  scoped rule — which changed paths triggered it (issue #557). */
+export interface RuleApplicability {
+  rule_id: string;
+  title: string;
+  always_load: boolean;
+  /** Changed paths that matched this scoped rule's triggers; empty for an always-load rule. */
+  matched_paths: string[];
+}
+
+/** The applicable rules for a change plus the exact loaded rule text and its content hash. */
+export interface ChangeRuleApplicability {
+  applicable: RuleApplicability[];
+  /** The composed loaded-rule-text — byte-identical to what {@link composeRuleContext} renders. */
+  loadedRuleText: string;
+  /** sha256 (hex) of {@link loadedRuleText} — the hash the rules-loaded record carries. */
+  ruleTextHash: string;
+  /** The changed-file working set the applicability was computed against. */
+  changedPaths: string[];
+  /** False when there is no compiled rule store (nothing to load for this project). */
+  hasStore: boolean;
+}
+
+/** sha256 (hex) of a string — the one hash used for the loaded rule text (issue #557). */
+export function hashRuleText(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
+}
+
+/**
+ * Compute which rules apply to a change, deterministically (issue #557). Reuses
+ * {@link selectTriggeredRules} for the set and {@link composeLoadedRuleText} for the text,
+ * so the applicable-rule record, the `rules load` verb, and the completion gate all agree
+ * with the session-context artifact. Per-scoped-rule `matched_paths` re-uses the same
+ * {@link ruleTriggersMatch} the selection used, one path at a time, so the record shows
+ * exactly which changed file pulled each rule in.
+ */
+export function computeRuleApplicability(
+  rules: readonly CompiledRule[],
+  changedPaths: readonly string[],
+): { applicable: RuleApplicability[]; loadedRuleText: string; ruleTextHash: string } {
+  const { alwaysLoad, triggered } = selectTriggeredRules(rules, changedPaths);
+  const applicable: RuleApplicability[] = [
+    ...alwaysLoad.map((rule) => ({
+      rule_id: rule.rule_id,
+      title: rule.title,
+      always_load: true,
+      matched_paths: [] as string[],
+    })),
+    ...triggered.map((rule) => ({
+      rule_id: rule.rule_id,
+      title: rule.title,
+      always_load: false,
+      matched_paths: changedPaths.filter((path) => ruleTriggersMatch(rule, [path])),
+    })),
+  ];
+  const loadedRuleText = composeLoadedRuleText([...alwaysLoad, ...triggered]);
+  return { applicable, loadedRuleText, ruleTextHash: hashRuleText(loadedRuleText) };
+}
+
+/**
+ * Resolve the applicable rules for the CURRENT change from disk (issue #557): read the
+ * compiled rule store and the changed-file working set, then compute the applicability.
+ * Route-independent — it reads the compiled store directly, so `paqad-ai rules load` works
+ * even where the background worker left rules out of the artifact (a non-feature route).
+ * `hasStore` is false when there is no compiled rule store, so a project with no rules
+ * loads nothing and the gate skips rather than blocks.
+ */
+export async function resolveRuleApplicabilityForChange(
+  projectRoot: string,
+): Promise<ChangeRuleApplicability> {
+  const store = await readCompiledRules(projectRoot);
+  const changedPaths = (await loadChangeEvidence(projectRoot)).files;
+  const rules = store?.rules ?? [];
+  if (rules.length === 0) {
+    return {
+      applicable: [],
+      loadedRuleText: '',
+      ruleTextHash: hashRuleText(''),
+      changedPaths,
+      hasStore: false,
+    };
+  }
+  const { applicable, loadedRuleText, ruleTextHash } = computeRuleApplicability(
+    rules,
+    changedPaths,
+  );
+  return { applicable, loadedRuleText, ruleTextHash, changedPaths, hasStore: true };
+}
+
 export interface ComposeRuleContextOptions {
   changedPaths?: readonly string[];
   scriptedPaths?: ReadonlySet<string>;
@@ -134,7 +236,7 @@ export function composeRuleContext(
     triggered.length > 0
       ? `## Loaded rule text — ${loaded.length} rules apply to the files in play`
       : `## Loaded rule text — ${loaded.length} always-on rules`;
-  const blocks = loaded.map(ruleTextBlock).join('\n\n');
+  const blocks = composeLoadedRuleText(loaded);
   return `${manifest}\n${heading}\n\n${blocks}\n`;
 }
 

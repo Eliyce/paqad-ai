@@ -15,6 +15,17 @@ correctness failure.
 This module rides the session-time injection seam (`context-seam`) for delivery
 and the background-worker harness for freshness.
 
+**Loading is required and recorded (issue #557).** Materializing the applicable
+full rule text into the artifact is only half the job — before #557 nothing
+recorded or required that the agent read it, so a change could go fully green with
+every rule unread. `computeRuleApplicability` (in `rule-context.ts`) is the one
+deterministic source of the applicable set and the loaded-rule-text hash, reused by
+`paqad-ai rules load` (which prints the applicable text and writes
+`rules-loaded.json`), the edit-time `rules-loaded` kernel capability (blocks the
+first source edit until that record exists), and the completion-seam
+`rules-loaded-gate` (fails a change that never loaded its rules). The record attests
+loading and acknowledgment, never comprehension.
+
 ## Source Footprint
 
 - `src/context/rule-manifest.ts`

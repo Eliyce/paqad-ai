@@ -17,6 +17,7 @@ import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.
 import { readChangeMetrics } from '@/feature-evidence/bundle-ledgers.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { PATHS } from '@/core/constants/paths.js';
 
 import { createVerificationContext } from '../shared.fixture.js';
 
@@ -382,6 +383,58 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
     expect(gate.name).toBe('code-tests-lint');
     expect(gate.status).toBe('inconclusive');
     expect(gate.detail).toContain('paqad-ai checks run');
+  });
+
+  it('FAILS a feature-dev change whose applicable rules were never loaded (#557)', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      code_changed: true,
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+    });
+    // A compiled rule store with an always-load rule → the change has applicable rules.
+    mkdirSync(join(context.project_root, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(context.project_root, PATHS.COMPILED_RULES),
+      JSON.stringify({
+        schema_version: 1,
+        generated_at: 'now',
+        source_hash: 'x',
+        rules: [
+          {
+            rule_id: 'RULE-2',
+            title: 'Constitution',
+            source_path: 'a.md',
+            trigger_patterns: ['**'],
+            severity: 'must',
+            summary: 's',
+            raw_text: '# body',
+          },
+        ],
+      }),
+    );
+    const SES = 'rv-rules-loaded-sess';
+    const sessionId = resolveSessionId(context.project_root, SES);
+    openFeatureChange(context.project_root, sessionId, {
+      adapter: 'claude-code',
+      title: 'Feature',
+      issue: null,
+    });
+    // No `paqad-ai rules load` was run → no rules-loaded.json in the bundle.
+
+    const verdict = await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: SES,
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+
+    const rules = verdict.gates.find((gate) => gate.gate === 'rules-loaded');
+    expect(rules?.status).toBe('fail');
+    expect(rules?.remediation).toContain('paqad-ai rules load');
+    expect(verdict.ok).toBe(false);
   });
 });
 
