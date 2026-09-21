@@ -10,6 +10,7 @@ import {
   resolveFrameworkInstallPath,
   writeFrameworkMetadata,
 } from '@/onboarding/manifest-writer.js';
+import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
 
 export interface InstallResult {
   framework_home: string;
@@ -44,6 +45,17 @@ export function bootstrapFramework(projectRoot: string, options?: BootstrapOptio
   // bootstrapped project carries the `.paqad/` layout version. Idempotent: an
   // existing marker is left untouched (migration is checkAndMigrateSchema's job).
   ensureSchemaMarkerSync(projectRoot, VERSION);
+
+  // Issue #567 — when stage isolation is on for this project, render the six stage agents at
+  // user scope (~/.claude/agents, ~/.codex/agents). Self-gates on the flag, so a default-off
+  // project's home is untouched; never writes into the project. Best-effort: a render/write
+  // failure must not fail the install (the agents are inert until the orchestrator dispatches
+  // them, and the next update retries).
+  try {
+    writeStageAgents(projectRoot);
+  } catch {
+    /* best-effort: stage-agent generation never blocks install/update */
+  }
 
   return {
     framework_home: frameworkHome,

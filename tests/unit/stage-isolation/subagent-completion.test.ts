@@ -39,7 +39,8 @@ function activeFeature(root: string): string {
 describe('stageFromAgentType', () => {
   it('strips the paqad- prefix to the stage name', () => {
     expect(stageFromAgentType('paqad-development')).toBe('development');
-    expect(stageFromAgentType('paqad-documentation-sync')).toBe('documentation-sync');
+    // The one hyphenated agent maps to the canonical underscore stage name.
+    expect(stageFromAgentType('paqad-documentation-sync')).toBe('documentation_sync');
   });
 
   it('returns null for a non-paqad agent or an empty stage', () => {

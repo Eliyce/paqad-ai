@@ -178,4 +178,51 @@ describe('bootstrapFramework', () => {
     expect(marker.written_by_engine_version).toBe(VERSION);
     expect(typeof marker.written_at).toBe('string');
   });
+
+  // Issue #567 — bootstrap (install/update) writes the stage agents at user scope only when
+  // stage isolation is on. HOME/USERPROFILE point os.homedir() at a temp dir so the test
+  // never touches the developer's real home.
+  describe('stage-agent generation', () => {
+    let userHome: string;
+    let savedHome: string | undefined;
+    let savedUserProfile: string | undefined;
+    let savedFlag: string | undefined;
+
+    beforeEach(() => {
+      userHome = mkdtempSync(join(tmpdir(), 'paqad-install-userhome-'));
+      savedHome = process.env.HOME;
+      savedUserProfile = process.env.USERPROFILE;
+      savedFlag = process.env.PAQAD_STAGE_ISOLATION;
+      process.env.HOME = userHome;
+      process.env.USERPROFILE = userHome;
+    });
+
+    afterEach(() => {
+      rmSync(userHome, { recursive: true, force: true });
+      const restore = (key: 'HOME' | 'USERPROFILE' | 'PAQAD_STAGE_ISOLATION', value?: string) => {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      };
+      restore('HOME', savedHome);
+      restore('USERPROFILE', savedUserProfile);
+      restore('PAQAD_STAGE_ISOLATION', savedFlag);
+    });
+
+    it('writes six Claude stage agents under the user home when stage isolation is on', () => {
+      process.env.PAQAD_STAGE_ISOLATION = 'on';
+      bootstrapFramework(projectRoot);
+      const claudeAgents = join(userHome, '.claude/agents');
+      expect(existsSync(claudeAgents)).toBe(true);
+      expect(readdirSync(claudeAgents).filter((f) => f.endsWith('.md'))).toHaveLength(6);
+      // Never writes into the project.
+      expect(existsSync(join(projectRoot, '.claude'))).toBe(false);
+    });
+
+    it('writes no stage agents when stage isolation is off (default)', () => {
+      process.env.PAQAD_STAGE_ISOLATION = 'off';
+      bootstrapFramework(projectRoot);
+      expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
+      expect(existsSync(join(userHome, '.codex/agents'))).toBe(false);
+    });
+  });
 });

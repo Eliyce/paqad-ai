@@ -38,7 +38,9 @@ export function stageFromAgentType(agentType: string | null | undefined): string
   if (typeof agentType !== 'string' || !agentType.startsWith(STAGE_AGENT_PREFIX)) {
     return null;
   }
-  const stage = agentType.slice(STAGE_AGENT_PREFIX.length).trim();
+  // Agent names use hyphens (`paqad-documentation-sync`); the ledger stage names use
+  // underscores (`documentation_sync`, from STAGE_ORDER), so normalize to the canonical form.
+  const stage = agentType.slice(STAGE_AGENT_PREFIX.length).trim().replace(/-/g, '_');
   return stage.length > 0 ? stage : null;
 }
 
