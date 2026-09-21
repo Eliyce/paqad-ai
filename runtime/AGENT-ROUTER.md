@@ -135,6 +135,19 @@ Emit the `start` marker as you begin the stage and the `end` marker as you finis
 
 **One end-of-change receipt.** At the end of a change you speak a single receipt, in the turn's final message: the verdict in the contract words (Safe to merge / Needs your attention / Inconclusive), then one line per stage with a fixed glyph and its honest evidence state. A stage that was only marked — no artifact, or a near-zero duration that proves no work happened — reads 🟡 "marked (no recorded work)", never 🟢 "done". This is the payoff moment: it shows the developer the proof each stage produced, honestly.
 
+## Stage isolation (issue #567) — dispatch each stage into its own subagent
+
+This section applies ONLY when `stage_isolation` is on for the project (default off) AND the lane is **graduated or full**. When it is off, or on the fast lane, everything above is unchanged: you run the stages yourself in one context. When it is on, you become a lean **orchestrator** — you route, narrate, ask the developer the decision-pause questions, and speak the receipt, but you do not edit code yourself. Each mandatory stage runs in its own fresh host subagent (`paqad-planning`, `paqad-specification`, `paqad-development`, `paqad-review`, `paqad-checks`, `paqad-documentation-sync`), seeded with the paqad contract, the previous stage's pillar file, and its own stage instructions. Its context is gone when it returns; the evidence bundle is the shared memory.
+
+The orchestrator protocol, for each mandatory stage in order:
+
+1. Speak the `▸ paqad` entry line for the stage (you still narrate — the subagent cannot speak to the developer).
+2. Dispatch the stage agent (Claude: the Agent tool with the `paqad-<stage>` agent; Codex: `spawn_agent` then `wait_agent`), passing the change ref, the lane, the previous pillar path(s), and `SE_SESSION` set to **your own** (the orchestrator's) session id — so every row and artifact the stage records carries the one change identity.
+3. On `paused: D-<id>`, the stage hit a decision pause and returned without editing. Present the packet to the developer through the host's decision-pause UI, resolve it with `paqad-ai decision resolve`, then re-dispatch the SAME stage. Edits stay blocked while the packet is pending.
+4. On `completed`, continue to the next stage.
+
+You perform no `Edit`/`Write` on source yourself in this mode — the development stage agent does. The pre-mutation gates (entry, stage-writer, decision-pause, capability kernel, rules-loaded) fire inside each stage agent exactly as they do in a single context. The end-of-change receipt is unchanged except for one added line naming what isolation saved: `context: <n> stages isolated, ~<k> tokens not re-carried (estimate|exact)`, read from the bundle's `context-efficiency.jsonl`. Any estimated figure is labelled `estimate`, never dressed up as exact.
+
 **Where narration has to go.** Say every `▸ paqad` line in your own visible assistant text, and carry the stage lines and the end-of-change receipt into the **final message of the turn**. Two channels look like they work and do not: hook output (below), and your own text emitted mid-turn between tool calls, which the Desktop app does not reliably render. Only the last message of a turn is reliably shown, so a receipt spoken before your last tool call is a receipt the developer never sees.
 
 **Which channels actually render.** Hook narration is belt-and-braces, never the plan:
