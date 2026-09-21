@@ -91,6 +91,10 @@ export interface LiveWriteInput {
   sessionId?: string | null;
   toolName: string;
   targetPath: string;
+  /** Provider that made the edit (issue #566). Defaults to `claude-code`, so the
+   *  original Claude PreToolUse path is unchanged; Codex passes `codex-cli` so the
+   *  live-mark row is attributed to the host that ran. */
+  adapter?: string;
   now?: () => Date;
 }
 
@@ -160,7 +164,7 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     if (!preCodeStagesRecorded(rows)) return null;
     // Past the guard `rows` is non-empty, so `dirName` was non-null (rows come from the
     // feature; an empty read means no active feature and the guard already returned).
-    const ctx = { sessionId, dirName: dirName!, adapter: 'claude-code' as const, now };
+    const ctx = { sessionId, dirName: dirName!, adapter: input.adapter ?? 'claude-code', now };
 
     const started = stagesWithKind(rows, 'stage_start');
     const ended = stagesWithKind(rows, 'stage_end');
@@ -193,6 +197,43 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     // never a thrown hook.
     return null;
   }
+}
+
+/** Input for the multi-path live writer — one host tool call, one or more edited paths. */
+export interface LiveWriteBatchInput {
+  projectRoot: string;
+  sessionId?: string | null;
+  toolName: string;
+  /** Every path the call edited (a Codex `apply_patch` can touch several). */
+  targetPaths: readonly string[];
+  adapter?: string;
+  now?: () => Date;
+}
+
+/**
+ * Record a live-mark stage row for EVERY path a single mutating tool call touched
+ * (issue #566). Claude's Edit/Write/NotebookEdit carry one path; a Codex
+ * `apply_patch` can carry several, so the stage-writer hook hands the parsed list
+ * here and this loops the single-edit recorder — which is forward-only and
+ * idempotent, so several paths mapping to the same stage record it once. Returns the
+ * distinct stages recorded (for tests). Never throws: each path is best-effort.
+ */
+export function recordLiveStageEdits(input: LiveWriteBatchInput): StageId[] {
+  const recorded: StageId[] = [];
+  for (const targetPath of input.targetPaths) {
+    const stage = recordLiveStageEdit({
+      projectRoot: input.projectRoot,
+      sessionId: input.sessionId,
+      toolName: input.toolName,
+      targetPath,
+      adapter: input.adapter,
+      now: input.now,
+    });
+    if (stage && !recorded.includes(stage)) {
+      recorded.push(stage);
+    }
+  }
+  return recorded;
 }
 
 /** Phase of a marked (non-mutation) stage boundary. */

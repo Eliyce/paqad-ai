@@ -39,6 +39,13 @@ export interface CapabilityPayload {
   transcriptPath?: string;
   /** The host session id, when provided. */
   sessionId?: string;
+  /** All files a single tool call edits — a Codex `apply_patch` can touch several.
+   *  When present the feature-dev scope check treats the call as feature development if
+   *  ANY path is (issue #566); `targetPath` stays the representative first path. */
+  targetPaths?: string[];
+  /** The host adapter type (`codex-cli`), so kernel-recorded rows attribute to the
+   *  host that ran (issue #566). Absent → defaults to `claude-code`. */
+  adapter?: string;
 }
 
 export interface CapabilityDescriptor {

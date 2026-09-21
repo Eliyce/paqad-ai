@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // agent-entry-prompt-gate.mjs — UserPromptSubmit hook (cross-platform port of
-// agent-entry-prompt-gate.sh, #240) with the always-load fix (Part 0).
+// agent-entry-prompt-gate.sh, #240) with the always-load fix (Part 0) and Codex
+// parity (issue #566).
 //
 // Fires on every user prompt — including read-only Q&A — so the agent cannot answer
 // in an onboarded project without first loading its provider entry file plus the
@@ -15,12 +16,17 @@
 // instruction that must be obeyed first owns the top of context and cannot be
 // missed. Once loaded, the context block is injected exactly as before.
 //
-// Modes (PAQAD_AGENT_ENTRY_MODE): soft (default) prints the directive on stdout so
-// the host injects it into context and the model loads before planning the turn;
-// hard exits 2. Soft is the default because a hard exit-2 on UserPromptSubmit
-// erases the user's prompt and the model never runs (so it can never load) — the
-// real hard block is the PreToolUse gate, which makes editing impossible until the
-// sentinel is fresh.
+// Host-aware via one argv (default `claude-code`; Codex passes `codex-cli`, #566):
+//   - the routed outcome is recorded against the REAL host, so the session-route row
+//     carries `adapter: "codex-cli"` (AC-8), and
+//   - the injected text (directive or context block) is delivered to Codex through the
+//     documented `additionalContext` JSON envelope, since Codex reads a UserPromptSubmit
+//     hook's JSON output. Claude keeps plain stdout, byte-identical to before.
+//
+// Modes (PAQAD_AGENT_ENTRY_MODE): soft (default) injects the directive so the model
+// loads before planning the turn; hard exits 2. Soft is the default because a hard
+// exit-2 on UserPromptSubmit erases the user's prompt and the model never runs (so it
+// can never load) — the real hard block is the PreToolUse gate.
 //
 // Sentinel-freshness logic is shared with agent-entry-gate.mjs via
 // lib/agent-entry-sentinel.mjs.
@@ -40,6 +46,10 @@ import { emitContext } from './lib/context-seam-emit.mjs';
 import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+
+// The host that invoked the hook (issue #566). Default `claude-code` keeps Claude's
+// behaviour and output unchanged; Codex passes `codex-cli`.
+const ADAPTER = process.argv[2] || undefined;
 
 function reasonFor(state, ef) {
   switch (state) {
@@ -73,6 +83,24 @@ function directive(state, ef) {
   ].join('\n');
 }
 
+// Deliver the gate's injected text to the host. Claude reads plain stdout; Codex reads
+// a UserPromptSubmit hook's JSON output, so its text rides the documented
+// `additionalContext` envelope (issue #566). Nothing is written for an empty string.
+function emitInjection(text) {
+  if (!text) {
+    return;
+  }
+  if (ADAPTER === 'codex-cli') {
+    process.stdout.write(
+      `${JSON.stringify({
+        hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text },
+      })}\n`,
+    );
+    return;
+  }
+  process.stdout.write(text);
+}
+
 // RAG buildout F5 — fire a debounced, detached background refresh of the rule
 // context so it tracks the files in play. Returns immediately; never blocks and
 // never throws into the gate.
@@ -89,14 +117,11 @@ function fireContextRefresh() {
   }
 }
 
-// Issues #324, #336 — route THIS prompt to one of the 9 workflow outcomes with the
-// deterministic classifier, record it in the per-session workflow-state (pause/resume),
-// stash the lane for the next change-open (feature-development only), and emit ONE lean
-// `[paqad]` line naming the outcome. Thin by contract: all logic lives in
-// dist/pipeline/prompt-lane.js so it is coverage-counted; the hook only parses the
-// prompt, lazy-imports, and prints. Best-effort — never breaks or delays a turn on
-// failure, and a `no-workflow` prompt (small talk) prints nothing.
-async function emitRoute(stdin, projectRoot) {
+// Issues #324, #336, #566 — route THIS prompt to one of the workflow outcomes with the
+// deterministic classifier, record it against the REAL host so the session-route row
+// carries the adapter (AC-8), and append the ONE lean `[paqad]` outcome line to `sink`.
+// Thin by contract: all logic lives in dist/pipeline/prompt-lane.js.
+async function emitRoute(stdin, projectRoot, sink) {
   try {
     const parsed = JSON.parse(stdin);
     const request = typeof parsed?.prompt === 'string' ? parsed.prompt : '';
@@ -110,10 +135,10 @@ async function emitRoute(stdin, projectRoot) {
       projectRoot,
       request,
       sessionId,
-      adapter: 'claude-code',
+      adapter: ADAPTER ?? 'claude-code',
     });
     if (narration) {
-      process.stdout.write(`${narration}\n`);
+      sink(`${narration}\n`);
     }
   } catch {
     // Best-effort — a broken build or an unparseable prompt just skips the route line.
@@ -135,27 +160,31 @@ async function main(stdin) {
   const state = sentinelState(projectRoot);
   if (state !== 'fresh') {
     // ALWAYS-LOAD: emit ONLY the load directive — the [paqad-context] dump is
-    // suppressed until the framework is loaded, so the directive can never be
-    // buried under it.
+    // suppressed until the framework is loaded, so the directive can never be buried.
     const message = directive(state, entryFile());
     if ((process.env.PAQAD_AGENT_ENTRY_MODE || 'soft') === 'hard') {
       process.stderr.write(message);
       return 2;
     }
-    process.stdout.write(message);
+    emitInjection(message);
     return 0;
   }
 
-  // Fresh: the framework is loaded — now it is safe to inject the precomputed
-  // [paqad-context] block (F2), then route THIS prompt + record the outcome.
-  emitContext(stdin, projectRoot);
-  await emitRoute(stdin, projectRoot);
-  // Issue #547 (FR-1.4) — one spec-pipeline nudge when the pipeline is on; silent otherwise, so a
-  // flag-off project's output is unchanged (INV-1). Belt and braces for Claude Code; the router
-  // (FR-1.3) is the cross-host path.
+  // Fresh: the framework is loaded — inject the precomputed [paqad-context] block (F2),
+  // then route THIS prompt + record the outcome. On Codex the pieces are buffered and
+  // delivered as one additionalContext envelope; on Claude each is written straight to
+  // stdout, preserving the exact prior output.
+  let buffer = '';
+  const sink = ADAPTER === 'codex-cli' ? (text) => (buffer += text) : (text) => emitInjection(text);
+  emitContext(stdin, projectRoot, sink);
+  await emitRoute(stdin, projectRoot, sink);
+  // Issue #547 (FR-1.4) — one spec-pipeline nudge when the pipeline is on; silent otherwise.
   const nudge = specPipelineNudge(readLayeredKey, projectRoot);
   if (nudge) {
-    process.stdout.write(`${nudge}\n`);
+    sink(`${nudge}\n`);
+  }
+  if (ADAPTER === 'codex-cli') {
+    emitInjection(buffer);
   }
   return 0;
 }

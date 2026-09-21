@@ -25,6 +25,9 @@ const SESSION_ROUTE_FILE = '.session-route.json';
 export interface SessionRoute {
   workflow: RoutedWorkflow;
   query: string;
+  /** The host that routed this prompt (issue #566, AC-8). Optional so a route written by an
+   *  older build still reads; absent → the reader leaves it undefined. */
+  adapter?: string;
 }
 
 /** Directory of the session-context artifact — the pointer sits beside it. */
@@ -74,13 +77,14 @@ export function readSessionRoute(projectRoot: string): SessionRoute | null {
   try {
     const parsed = JSON.parse(
       readFileSync(join(sessionRouteDir(projectRoot), SESSION_ROUTE_FILE), 'utf8'),
-    ) as { workflow?: unknown; query?: unknown };
+    ) as { workflow?: unknown; query?: unknown; adapter?: unknown };
     if (typeof parsed.workflow !== 'string' || !VALID_WORKFLOWS.has(parsed.workflow)) {
       return null;
     }
     return {
       workflow: parsed.workflow as RoutedWorkflow,
       query: typeof parsed.query === 'string' ? parsed.query : '',
+      ...(typeof parsed.adapter === 'string' ? { adapter: parsed.adapter } : {}),
     };
   } catch {
     return null;
