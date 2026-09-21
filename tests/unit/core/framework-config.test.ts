@@ -605,6 +605,21 @@ describe('config value writers — local and tracked group paths', () => {
     );
   });
 
+  it('creates the group file with just the key when none exists yet', () => {
+    // No configs/.config.rag on disk → the read throws, and the empty-file branch writes the
+    // single assignment (covers the missing-file + empty-file paths of setGroupConfigValue).
+    const path = setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
+    expect(readFileSync(path, 'utf8')).toBe('rag_enabled=true\n');
+  });
+
+  it('appends a new group key to an existing file without a matching assignment', () => {
+    writeConfigsFile(root, '.config.rag', '# header\nrag_top_n=5\n');
+    setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
+    expect(readFileSync(join(root, '.paqad/configs/.config.rag'), 'utf8')).toBe(
+      '# header\nrag_top_n=5\nrag_enabled=true\n',
+    );
+  });
+
   it('removeConfigValue deletes the key but keeps comments and other keys', () => {
     writeConfig(root, '# keep\nrag_top_n=5\nmodel_fast=mini\n');
     removeConfigValue(root, 'rag_top_n');

@@ -92,6 +92,16 @@ describe('resolveTokenCounts', () => {
       exact: false,
     });
   });
+
+  it('defaults cached tokens to 0 when usage has input+output but no cache field', () => {
+    const counts = resolveTokenCounts({ usage: { input_tokens: 7, output_tokens: 3 } }, 'ignored');
+    expect(counts).toEqual({
+      tokens_input: 7,
+      tokens_cached: 0,
+      tokens_output: 3,
+      exact: true,
+    });
+  });
 });
 
 describe('recordStageAgentCompletion', () => {
@@ -112,6 +122,21 @@ describe('recordStageAgentCompletion', () => {
     expect(rows[0].agent_id).toBe('agent_x');
     expect(rows[0].orchestrator_session_id).toBe('ses_orch');
     expect(rows[0].exact).toBe(false);
+  });
+
+  it("records agent_id as 'unknown' when the payload omits it", () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const written = recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { agent_type: 'paqad-review' },
+      transcriptText: 'review work',
+      adapter: 'claude-code',
+    });
+    expect(written).toBe(true);
+    const rows = readContextEfficiency(root, dir);
+    expect(rows[0].agent_id).toBe('unknown');
+    expect(rows[0].stage).toBe('review');
   });
 
   it('does nothing for a non-paqad subagent', () => {

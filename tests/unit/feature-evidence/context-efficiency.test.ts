@@ -81,6 +81,16 @@ describe('per-feature context-efficiency.jsonl (issue #567)', () => {
     const rows = readContextEfficiency(root, dir);
     expect(rows[0].exact).toBe(false);
   });
+
+  it('returns null and writes nothing when the row fails validation', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    // A negative token count fails the closed schema, so the stamp throws and the writer
+    // swallows it (never breaks the non-blocking hook) and writes no row.
+    const stamped = appendContextEfficiency(root, 'ses_orch', { ...entry, tokens_input: -1 });
+    expect(stamped).toBeNull();
+    expect(readContextEfficiency(root, dir)).toHaveLength(0);
+  });
 });
 
 describe('context-efficiency row schema', () => {

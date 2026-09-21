@@ -177,4 +177,46 @@ describe('buildNativeHookConfigFile transform (issue #566)', () => {
     expect(file.content).toContain('echo user');
     expect(file.content).toContain('verification-completion.mjs');
   });
+
+  it('treats an existing settings file that is a JSON array (not an object) as empty', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-nhc3-'));
+    const full = join(root, '.host/hooks.json');
+    mkdirSync(dirname(full), { recursive: true });
+    // Valid JSON, but an array — readJsonObject must fall back to `{}` and still merge.
+    writeFileSync(full, '[]');
+    const file = buildNativeHookConfigFile({
+      projectRoot: root,
+      settingsPath: '.host/hooks.json',
+      chain: [{ nativeEvent: 'Stop', command: 'node paqad-b' }],
+    });
+    const json = JSON.parse(file.content) as { hooks: Record<string, { hooks: unknown[] }[]> };
+    expect(json.hooks.Stop[0].hooks).toHaveLength(1);
+  });
+
+  it('treats an existing settings file with unparseable JSON as empty', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-nhc5-'));
+    const full = join(root, '.host/hooks.json');
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(full, '{ this is not json');
+    const file = buildNativeHookConfigFile({
+      projectRoot: root,
+      settingsPath: '.host/hooks.json',
+      chain: [{ nativeEvent: 'Stop', command: 'node paqad-b' }],
+    });
+    const json = JSON.parse(file.content) as { hooks: Record<string, { hooks: unknown[] }[]> };
+    expect(json.hooks.Stop[0].hooks).toHaveLength(1);
+  });
+
+  it('rethrows a non-ENOENT read error (e.g. the settings path is a directory)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-nhc4-'));
+    // The settings path is a directory, so readFileSync throws EISDIR, not ENOENT.
+    mkdirSync(join(root, '.host/hooks.json'), { recursive: true });
+    expect(() =>
+      buildNativeHookConfigFile({
+        projectRoot: root,
+        settingsPath: '.host/hooks.json',
+        chain: [{ nativeEvent: 'Stop', command: 'node paqad-b' }],
+      }),
+    ).toThrow();
+  });
 });

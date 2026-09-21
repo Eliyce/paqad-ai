@@ -16,6 +16,8 @@ import {
   writeFeatureDelivery,
 } from '@/feature-evidence/delivery.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
+import { mkdirSync } from 'node:fs';
 
 const roots: string[] = [];
 function tempRepo(): string {
@@ -54,6 +56,18 @@ describe('delivery.json read/write/append', () => {
 
   it('reads a fresh empty record when delivery.json is absent', () => {
     const record = readFeatureDelivery(tempRepo(), 'nope-01JABCDEFGHJKMNPQRSTVWXYZ0');
+    expect(record.commits).toEqual([]);
+    expect(record.branch).toBeNull();
+  });
+
+  it('reads a fresh empty record when delivery.json is valid JSON but not a delivery record', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 2 });
+    // Valid JSON, but `null` — isDelivery() must reject it and fall back to an empty record.
+    const full = join(root, featureFilePath(dir, 'delivery'));
+    mkdirSync(join(full, '..'), { recursive: true });
+    writeFileSync(full, 'null');
+    const record = readFeatureDelivery(root, dir);
     expect(record.commits).toEqual([]);
     expect(record.branch).toBeNull();
   });
