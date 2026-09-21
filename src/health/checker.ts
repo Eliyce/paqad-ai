@@ -61,6 +61,7 @@ export class HealthChecker {
       this.checkInstructionCopies(projectRoot, profile),
       this.checkIndexesCurrent(projectRoot),
       this.checkAdapterConfig(projectRoot),
+      this.checkCodexHooks(projectRoot),
       this.checkProviderEntryBootstrapPointer(projectRoot),
       this.checkProviderEntryFallbackClause(projectRoot),
       this.checkStackCommands(profile),
@@ -409,6 +410,54 @@ export class HealthChecker {
           'No adapter config files were found',
           'Regenerate the adapter configuration.',
         );
+  }
+
+  /**
+   * Codex hooks wired (issue #566, AC-11). When a project carries a `.codex/` layer it is a
+   * Codex project, so `.codex/hooks.json` must exist and wire paqad's hooks into all four
+   * lifecycle events. A missing or partial file WARNS (never fails — a not-yet-onboarded or
+   * not-yet-trusted project is not a fault) and names the `/hooks` trust step, because doctor
+   * cannot confirm from disk whether Codex has TRUSTED the project hooks — that approval lives
+   * in Codex, not the file. A non-Codex project (no `.codex/`) passes with nothing to check.
+   */
+  private checkCodexHooks(projectRoot: string): HealthCheckResult {
+    const name = 'Codex hooks wired';
+    if (!existsSync(join(projectRoot, '.codex'))) {
+      return pass(name, 'No .codex/ directory — not a Codex project, nothing to check.');
+    }
+    const trustStep =
+      'Re-run onboarding with the codex-cli adapter, then open Codex in the project, run /hooks, and approve paqad\u2019s hooks.';
+    const hooksPath = join(projectRoot, '.codex', 'hooks.json');
+    if (!existsSync(hooksPath)) {
+      return warn(name, 'A .codex/ project has no .codex/hooks.json — paqad hooks are not wired.', trustStep);
+    }
+    let hooks: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(readFileSync(hooksPath, 'utf8')) as { hooks?: unknown };
+      hooks =
+        parsed.hooks && typeof parsed.hooks === 'object' && !Array.isArray(parsed.hooks)
+          ? (parsed.hooks as Record<string, unknown>)
+          : {};
+    } catch {
+      return warn(name, '.codex/hooks.json is unreadable JSON.', 'Re-run onboarding to regenerate .codex/hooks.json.');
+    }
+    // One representative paqad hook per event — its presence proves the event is wired.
+    const required: ReadonlyArray<readonly [string, string]> = [
+      ['PreToolUse', 'agent-entry-gate.mjs'],
+      ['UserPromptSubmit', 'agent-entry-prompt-gate.mjs'],
+      ['SessionStart', 'agent-entry-session-start.mjs'],
+      ['Stop', 'verification-completion.mjs'],
+    ];
+    const missing = required
+      .filter(([event, script]) => !JSON.stringify(hooks[event] ?? []).includes(script))
+      .map(([event]) => event);
+    if (missing.length > 0) {
+      return warn(name, `.codex/hooks.json is missing paqad hooks for: ${missing.join(', ')}.`, trustStep);
+    }
+    return pass(
+      name,
+      'All four Codex events carry paqad hooks. If a gate never fires, run /hooks in Codex and approve them (project hooks load only when the .codex/ layer is trusted).',
+    );
   }
 
   private checkProviderEntryBootstrapPointer(projectRoot: string): HealthCheckResult {
