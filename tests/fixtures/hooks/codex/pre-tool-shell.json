@@ -1,0 +1,7 @@
+{
+  "session_id": "01JCODEXSESSION0000000000",
+  "cwd": "/work/project",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "shell",
+  "tool_input": { "command": "ls -la" }
+}

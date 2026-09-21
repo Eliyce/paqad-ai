@@ -1,0 +1,14 @@
+{
+  "session_id": "01JCODEXSESSION0000000000",
+  "transcript_path": null,
+  "cwd": "/work/project",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5-codex",
+  "permission_mode": "auto",
+  "turn_id": "turn-7",
+  "tool_name": "apply_patch",
+  "tool_use_id": "call-42",
+  "tool_input": {
+    "input": "*** Begin Patch\n*** Add File: src/new.ts\n+export const x = 1;\n*** Update File: src/existing.ts\n@@\n-const a = 0;\n+const a = 1;\n*** Delete File: src/old.ts\n*** Update File: src/moved.ts\n*** Move to: src/renamed.ts\n*** End Patch\n"
+  }
+}

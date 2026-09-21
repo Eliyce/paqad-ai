@@ -1,0 +1,14 @@
+{
+  "session_id": "01JCODEXSESSION0000000000",
+  "transcript_path": null,
+  "cwd": "/work/project",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5-codex",
+  "permission_mode": "auto",
+  "turn_id": "turn-1",
+  "tool_name": "apply_patch",
+  "tool_use_id": "call-1",
+  "tool_input": {
+    "input": "*** Begin Patch\n*** Add File: .paqad/.agent-entry-loaded\n+{\"loaded_at\":\"2026-09-21T00:00:00Z\"}\n*** End Patch\n"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "session_id": "01JCLAUDESESSION000000000",
+  "transcript_path": "/work/project/.claude/transcript.jsonl",
+  "cwd": "/work/project",
+  "hook_event_name": "Stop",
+  "stop_hook_active": false
+}

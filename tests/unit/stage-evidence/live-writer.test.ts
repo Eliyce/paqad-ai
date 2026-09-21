@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   classifyStage,
   recordLiveStageEdit,
+  recordLiveStageEdits,
   recordMarkedStage,
 } from '@/stage-evidence/live-writer.js';
 import { stageIndex } from '@/stage-evidence/stages.js';
@@ -346,5 +347,77 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
       false,
     );
     rmSync(fileRoot, { force: true });
+  });
+});
+
+
+describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)', () => {
+  let root: string;
+  const SES = 'ses_batch';
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-live-batch-'));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function rows(): SessionLedgerRow[] {
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
+  }
+
+  function seedPreCode(now: () => Date, adapter?: string): void {
+    for (const stage of ['planning', 'specification'] as const) {
+      recordMarkedStage(root, { sessionId: SES, stage, phase: 'start', now, adapter });
+      recordMarkedStage(root, { sessionId: SES, stage, phase: 'end', now, adapter });
+    }
+  }
+
+  it('records one row per distinct stage across the patch paths, attributed to the host', () => {
+    const now = clock();
+    seedPreCode(now, 'codex-cli');
+    const recorded = recordLiveStageEdits({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'apply_patch',
+      // src/* → development (recorded once for two src paths), tests/* → checks.
+      targetPaths: ['src/a.ts', 'src/b.ts', 'tests/a.test.ts'],
+      adapter: 'codex-cli',
+      now,
+    });
+    expect(recorded).toEqual(['development', 'checks']);
+    const dev = rows().find((r) => r.kind === 'stage_start' && r.stage === 'development');
+    const checks = rows().find((r) => r.kind === 'stage_start' && r.stage === 'checks');
+    expect(dev?.adapter).toBe('codex-cli');
+    expect(checks?.adapter).toBe('codex-cli');
+  });
+
+  it('defaults attribution to claude-code when no adapter is passed', () => {
+    const now = clock();
+    seedPreCode(now);
+    recordLiveStageEdits({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPaths: ['src/a.ts'],
+      now,
+    });
+    const dev = rows().find((r) => r.kind === 'stage_start' && r.stage === 'development');
+    expect(dev?.adapter).toBe('claude-code');
+  });
+
+  it('records nothing for a patch touching only non-stage-bearing paths', () => {
+    const now = clock();
+    seedPreCode(now, 'codex-cli');
+    const recorded = recordLiveStageEdits({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'apply_patch',
+      targetPaths: ['.paqad/x.json', 'package.json'],
+      adapter: 'codex-cli',
+      now,
+    });
+    expect(recorded).toEqual([]);
   });
 });

@@ -305,4 +305,39 @@ describe('stages capability — block-forward at pre-mutation', () => {
       expect(result.narration).toContain('writing the spec');
     });
   });
+
+  // Issue #566 — a Codex apply_patch can touch several files. The gate classifies the
+  // whole call: feature-development iff ANY path is (via targetPaths), so a docs-only
+  // patch is skipped and a patch with any source file is gated — even when the
+  // representative targetPath is a docs file.
+  it('does NOT block a multi-path patch that touches only docs (#566)', async () => {
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      payload: {
+        targetPath: join(root, 'docs/a.md'),
+        targetPaths: [join(root, 'docs/a.md'), join(root, 'docs/b.md')],
+        sessionId: SES,
+      },
+    });
+    expect(result.block).toBe(false);
+    expect(result.summary).toBe('');
+  });
+
+  it('BLOCKS a multi-path patch when ANY path is source, before planning (#566)', async () => {
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      payload: {
+        // The representative path is docs, but a source path in the set makes the whole
+        // call feature-development, so the gate blocks on the missing planning stage.
+        targetPath: join(root, 'docs/a.md'),
+        targetPaths: [join(root, 'docs/a.md'), join(root, 'src/x.ts')],
+        sessionId: SES,
+      },
+    });
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('planning');
+  });
+
 });
