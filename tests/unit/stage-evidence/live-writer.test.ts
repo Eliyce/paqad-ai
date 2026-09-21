@@ -350,7 +350,6 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
   });
 });
 
-
 describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)', () => {
   let root: string;
   const SES = 'ses_batch';

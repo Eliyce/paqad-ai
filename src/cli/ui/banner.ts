@@ -83,7 +83,6 @@ export function printNextSteps(): void {
   console.log();
 }
 
-
 /**
  * One plain line telling a Codex developer to trust paqad's project hooks (issue #566,
  * step 6). Codex loads project-local `.codex/hooks.json` only when the `.codex/` layer is

@@ -98,19 +98,22 @@ describe('mergeNativeHooks (issue #566)', () => {
     const existing = {
       hooks: {
         PreToolUse: [
-          { matcher: 'X', hooks: [{ type: 'command', command: '~/.paqad-ai/current/hooks/old.sh' }] },
-          { matcher: 'X', hooks: [{ type: 'command', command: 'node "/abs/hooks/rule-script-enforce.mjs"' }] },
+          {
+            matcher: 'X',
+            hooks: [{ type: 'command', command: '~/.paqad-ai/current/hooks/old.sh' }],
+          },
+          {
+            matcher: 'X',
+            hooks: [{ type: 'command', command: 'node "/abs/hooks/rule-script-enforce.mjs"' }],
+          },
           { matcher: 'X', hooks: [{ type: 'command', command: 'node paqad-a' }] },
           { matcher: 'X', hooks: [{ type: 'command', command: 'echo keep-me' }] },
         ],
       },
     };
-    const next = mergeNativeHooks(
-      existing,
-      chain,
-      new Set(['~/.paqad-ai/current/hooks/old.sh']),
-      ['rule-script-enforce.mjs'],
-    ) as { hooks: Record<string, { hooks: { command: string }[] }[]> };
+    const next = mergeNativeHooks(existing, chain, new Set(['~/.paqad-ai/current/hooks/old.sh']), [
+      'rule-script-enforce.mjs',
+    ]) as { hooks: Record<string, { hooks: { command: string }[] }[]> };
     const commands = next.hooks.PreToolUse.flatMap((g) => g.hooks.map((h) => h.command));
     expect(commands).not.toContain('~/.paqad-ai/current/hooks/old.sh');
     expect(commands.some((c) => c.includes('rule-script-enforce.mjs'))).toBe(false);
@@ -140,7 +143,10 @@ describe('buildNativeHookConfigFile transform (issue #566)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-nhc2-'));
     const full = join(root, '.host/hooks.json');
     mkdirSync(dirname(full), { recursive: true });
-    writeFileSync(full, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo user' }] }] } }));
+    writeFileSync(
+      full,
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo user' }] }] } }),
+    );
     const file = buildNativeHookConfigFile({
       projectRoot: root,
       settingsPath: '.host/hooks.json',

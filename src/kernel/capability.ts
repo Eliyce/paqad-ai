@@ -431,7 +431,12 @@ const stagesCapability: Capability = {
     // emitted this turn BEFORE reading the ledger, so the remediation the block
     // message names actually clears the block within the turn. The narration for
     // every recorded marker rides on the outcome — the ledger write is never silent.
-    const narration = sweepSameTurnMarkers(projectRoot, payload?.transcriptPath, sessionId, payload?.adapter);
+    const narration = sweepSameTurnMarkers(
+      projectRoot,
+      payload?.transcriptPath,
+      sessionId,
+      payload?.adapter,
+    );
     const dirName = currentFeature(projectRoot, sessionId);
 
     // The mandatory stages that must exist BEFORE code is written (planning,

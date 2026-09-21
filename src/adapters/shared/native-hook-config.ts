@@ -2,11 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'pathe';
 
 import type { GeneratedFile } from '../adapter.interface.js';
-import {
-  buildHostHookChain,
-  completionRecordCommand,
-  type RenderedHook,
-} from './paqad-hooks.js';
+import { buildHostHookChain, completionRecordCommand, type RenderedHook } from './paqad-hooks.js';
 
 /**
  * The ONE renderer that writes paqad's hooks into a host's native hook-config file

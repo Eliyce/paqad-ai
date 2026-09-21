@@ -59,9 +59,17 @@ describe('CodexCliAdapter — full hook chain (issue #566)', () => {
   const adapter = new CodexCliAdapter();
   const FIXED_HOME = '/fake/home/.paqad-ai/current';
 
-  interface HookCmd { type: string; command: string }
-  interface HookGroup { matcher?: string; hooks: HookCmd[] }
-  interface Hooks { hooks: Record<string, HookGroup[]> }
+  interface HookCmd {
+    type: string;
+    command: string;
+  }
+  interface HookGroup {
+    matcher?: string;
+    hooks: HookCmd[];
+  }
+  interface Hooks {
+    hooks: Record<string, HookGroup[]>;
+  }
 
   async function render(projectRoot: string): Promise<string> {
     const prior = process.env.PAQAD_FRAMEWORK_HOME;
@@ -127,7 +135,9 @@ describe('CodexCliAdapter — full hook chain (issue #566)', () => {
     // The user's hook is preserved…
     expect(cmds(secondJson.hooks.Stop)).toContain('echo my-own-hook');
     // …and paqad's own hooks are not duplicated.
-    const paqadStop = cmds(secondJson.hooks.Stop).filter((c) => c.includes('verification-completion.mjs'));
+    const paqadStop = cmds(secondJson.hooks.Stop).filter((c) =>
+      c.includes('verification-completion.mjs'),
+    );
     expect(paqadStop).toHaveLength(1);
 
     // A third onboard over the second's output is byte-identical (idempotent).

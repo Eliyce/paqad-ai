@@ -429,7 +429,11 @@ export class HealthChecker {
       'Re-run onboarding with the codex-cli adapter, then open Codex in the project, run /hooks, and approve paqad\u2019s hooks.';
     const hooksPath = join(projectRoot, '.codex', 'hooks.json');
     if (!existsSync(hooksPath)) {
-      return warn(name, 'A .codex/ project has no .codex/hooks.json — paqad hooks are not wired.', trustStep);
+      return warn(
+        name,
+        'A .codex/ project has no .codex/hooks.json — paqad hooks are not wired.',
+        trustStep,
+      );
     }
     let hooks: Record<string, unknown>;
     try {
@@ -439,7 +443,11 @@ export class HealthChecker {
           ? (parsed.hooks as Record<string, unknown>)
           : {};
     } catch {
-      return warn(name, '.codex/hooks.json is unreadable JSON.', 'Re-run onboarding to regenerate .codex/hooks.json.');
+      return warn(
+        name,
+        '.codex/hooks.json is unreadable JSON.',
+        'Re-run onboarding to regenerate .codex/hooks.json.',
+      );
     }
     // One representative paqad hook per event — its presence proves the event is wired.
     const required: ReadonlyArray<readonly [string, string]> = [
@@ -452,7 +460,11 @@ export class HealthChecker {
       .filter(([event, script]) => !JSON.stringify(hooks[event] ?? []).includes(script))
       .map(([event]) => event);
     if (missing.length > 0) {
-      return warn(name, `.codex/hooks.json is missing paqad hooks for: ${missing.join(', ')}.`, trustStep);
+      return warn(
+        name,
+        `.codex/hooks.json is missing paqad hooks for: ${missing.join(', ')}.`,
+        trustStep,
+      );
     }
     return pass(
       name,

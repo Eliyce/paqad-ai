@@ -33,6 +33,10 @@ vi.mock('@/onboarding/orchestrator.js', () => ({
 vi.mock('@/cli/ui/banner.js', () => ({
   printBanner: mockPrintBanner,
   printNextSteps: mockPrintNextSteps,
+  // Issue #566 — the onboard command prints a Codex /hooks trust step when codex-cli was
+  // onboarded. The default orchestrator mock returns no adapters, so this returns null here.
+  codexTrustHint: (adapters?: readonly string[]) =>
+    adapters?.includes('codex-cli') ? 'Codex: run /hooks and approve paqad hooks.' : null,
 }));
 
 import { createOnboardCommand } from '@/cli/commands/onboard.js';

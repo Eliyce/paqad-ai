@@ -1,4 +1,3 @@
-
 import { shouldStripAiAttribution } from '@/delivery/attribution-config.js';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';

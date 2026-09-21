@@ -339,5 +339,4 @@ describe('stages capability — block-forward at pre-mutation', () => {
     expect(result.block).toBe(true);
     expect(result.summary).toContain('planning');
   });
-
 });

@@ -93,6 +93,15 @@ describe('framework end-to-end onboarding', () => {
     // Codex executes .codex/hooks.json; Gemini executes .gemini/settings.json —
     // each now carries paqad's native completion hook so the ledger fires there too.
     expect(existsSync(join(projectRoot, '.codex/hooks.json'))).toBe(true);
+    // Codex now renders the full pre-and-completion chain (issue #566): all four lifecycle
+    // events with paqad's hooks, and the blocking completion hook — not the record-only one.
+    const codexHooks = readFileSync(join(projectRoot, '.codex/hooks.json'), 'utf8');
+    for (const event of ['PreToolUse', 'UserPromptSubmit', 'SessionStart', 'Stop']) {
+      expect(codexHooks).toContain(`"${event}"`);
+    }
+    expect(codexHooks).toContain('^apply_patch$');
+    expect(codexHooks).toContain('verification-completion.mjs');
+    expect(codexHooks).not.toContain('verification-record.mjs');
     expect(existsSync(join(projectRoot, '.antigravity/hooks.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.gemini/settings.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.claude/cache.json'))).toBe(true);
