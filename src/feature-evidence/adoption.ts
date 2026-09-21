@@ -210,3 +210,21 @@ export function reconcileSessionControl(
   writeSessionControl(projectRoot, { ...control, active: adopted }, now);
   return adopted;
 }
+
+/**
+ * The unpaused in-flight bundles on the session's current branch — the same set
+ * {@link reconcileSessionControl} adopts from. Exactly one is adopted; zero or two-plus is
+ * ambiguous. Exposed (issue #567) so the mint path can refuse to fork a third bundle under
+ * stage isolation instead of silently minting one (AC-9).
+ */
+export function adoptableInFlightOnBranch(
+  projectRoot: string,
+  sessionId: string,
+  now?: () => Date,
+): string[] {
+  const control = readSessionControl(projectRoot, sessionId, now);
+  const branch = readGitState(projectRoot).branch ?? null;
+  return listAdoptableFeatures(projectRoot, branch).filter(
+    (name) => !control.paused.includes(name),
+  );
+}

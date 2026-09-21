@@ -27,7 +27,8 @@ import {
   type FoldedChange,
 } from '@/stage-evidence/types.js';
 
-import { reconcileSessionControl } from './adoption.js';
+import { adoptableInFlightOnBranch, reconcileSessionControl } from './adoption.js';
+import { isStageIsolationOn } from '@/stage-isolation/mode.js';
 import { seedFeatureDelivery } from './delivery.js';
 import { listFeatureDirs } from './enumerate.js';
 import { seedFeatureRecord, updateFeatureRecord } from './feature-record.js';
@@ -76,6 +77,22 @@ export function resolveActiveFeature(
   const active = reconcileSessionControl(projectRoot, sessionId, input.now);
   if (active) {
     return active;
+  }
+  // Issue #567 (AC-9) — under stage isolation a change must keep ONE identity across its
+  // isolated stages. If the branch already carries two or more in-flight bundles, adoption is
+  // ambiguous (reconcile returned null), so auto-minting here would fork a THIRD. Refuse
+  // loudly with a named reason instead. Gated on the flag, so with stage isolation off the
+  // mint path is byte-identical to before (every existing test runs with the flag off).
+  if (isStageIsolationOn(projectRoot)) {
+    const inFlight = adoptableInFlightOnBranch(projectRoot, sessionId, input.now);
+    if (inFlight.length >= 2) {
+      throw new Error(
+        `stage isolation: ${inFlight.length} in-flight feature bundles on this branch ` +
+          `(${inFlight.join(', ')}) — a change must keep one identity, so paqad will not mint ` +
+          `a third. Close or finish the extra bundle(s), or pass an explicit change (stage ` +
+          `start --title …), before continuing.`,
+      );
+    }
   }
   return mintAndActivate(projectRoot, sessionId, UNTITLED_FEATURE_TITLE, input);
 }
