@@ -203,6 +203,47 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
       expect(edit(AGENT)).toBe(0); // this agent proved its load
       expect(edit('agent_other')).toBe(2); // a different subagent still must load
     });
+
+    it('names the per-agent marker path in the block message for a subagent', () => {
+      const result = runGate(
+        projectRoot,
+        JSON.stringify({
+          agent_id: AGENT,
+          tool_name: 'Edit',
+          tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+        }),
+      );
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain(`.paqad/session/agent-entry/${AGENT}`);
+      expect(result.stderr).toContain('stage subagent');
+    });
+
+    it('a directly-created marker (the Bash path) clears the subagent gate', () => {
+      // Simulate the agent creating its keyed marker with a shell command (ungated by the hook).
+      mkdirSync(join(projectRoot, '.paqad/session/agent-entry'), { recursive: true });
+      writeFileSync(markerPath(projectRoot, AGENT), '{}');
+      const result = runGate(
+        projectRoot,
+        JSON.stringify({
+          agent_id: AGENT,
+          tool_name: 'Edit',
+          tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+        }),
+      );
+      expect(result.status).toBe(0);
+    });
+
+    it('exempts a Write of the per-agent marker itself (so creating it is never blocked)', () => {
+      const result = runGate(
+        projectRoot,
+        JSON.stringify({
+          agent_id: AGENT,
+          tool_name: 'Write',
+          tool_input: { file_path: markerPath(projectRoot, AGENT) },
+        }),
+      );
+      expect(result.status).toBe(0);
+    });
   });
 });
 

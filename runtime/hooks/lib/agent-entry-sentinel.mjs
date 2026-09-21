@@ -42,17 +42,33 @@ export function agentEntryMarkerDir(projectRoot) {
   return join(projectRoot, '.paqad', 'session', 'agent-entry');
 }
 
+/** The sanitized, safe filename for a subagent `agentId`, or `''` when there is no usable id. */
+function safeAgentId(agentId) {
+  return typeof agentId === 'string' ? agentId.trim().replace(/[^A-Za-z0-9_-]/g, '_') : '';
+}
+
 /**
  * The per-agent entry marker path for a subagent `agentId`, or `null` when there is no usable
  * id (main thread, or an empty/space id) — in which case the caller uses the unkeyed sentinel.
  * The id is sanitized to a safe filename so a hostile/odd id can never escape the marker dir.
  */
 export function agentEntryMarkerPath(projectRoot, agentId) {
-  const safe = typeof agentId === 'string' ? agentId.trim().replace(/[^A-Za-z0-9_-]/g, '_') : '';
+  const safe = safeAgentId(agentId);
   if (safe.length === 0) {
     return null;
   }
   return join(agentEntryMarkerDir(projectRoot), safe);
+}
+
+/**
+ * The per-agent marker as a project-relative POSIX path (e.g. `.paqad/session/agent-entry/x`),
+ * or `null` for the main thread. The PreToolUse gate names this in its block message so a stage
+ * subagent knows the exact file that clears its own gate (issue #567) — the agent cannot read
+ * its own `agent_id`, but the gate can, so the gate tells it.
+ */
+export function agentEntryMarkerRelative(agentId) {
+  const safe = safeAgentId(agentId);
+  return safe.length === 0 ? null : `.paqad/session/agent-entry/${safe}`;
 }
 
 /**

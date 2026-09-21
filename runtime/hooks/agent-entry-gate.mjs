@@ -20,23 +20,36 @@ import { pathToFileURL } from 'node:url';
 
 import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive.mjs';
 import { editTargets } from './lib/edit-targets.mjs';
-import { entryFile, sentinelState, stampAgentEntryMarker } from './lib/agent-entry-sentinel.mjs';
+import {
+  agentEntryMarkerRelative,
+  entryFile,
+  sentinelState,
+  stampAgentEntryMarker,
+} from './lib/agent-entry-sentinel.mjs';
 import { agentIdFromStdin } from './lib/context-seam-emit.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 /** True when the pending tool call writes the agent-entry sentinel itself. The
  *  bootstrap's final step IS a Write of `.paqad/.agent-entry-loaded` — gating it
  *  deadlocks turn one (issue #307): this gate's own remediation says "Write the
- *  sentinel" while blocking exactly that Write. Bookkeeping, never a code change. */
+ *  sentinel" while blocking exactly that Write. Bookkeeping, never a code change.
+ *
+ *  Also exempts a write to a per-agent entry marker under `.paqad/session/agent-entry/`
+ *  (issue #567): a stage subagent clears its own keyed gate by creating that marker, and the
+ *  create must not itself be blocked. Bash creation is ungated already; this covers the Write
+ *  tool. */
 export function isSentinelWrite(input) {
   try {
     const payload = JSON.parse(input);
     // Host-agnostic: read the edited path(s) through the shared extractor so a Codex
     // `apply_patch` that writes the sentinel is exempted too (issue #566), not just
-    // Claude's `file_path`. Exempt when ANY edited path is the sentinel.
-    return editTargets(payload).some((target) =>
-      target.replace(/\\/g, '/').endsWith('.paqad/.agent-entry-loaded'),
-    );
+    // Claude's `file_path`. Exempt when ANY edited path is the sentinel or a per-agent marker.
+    return editTargets(payload).some((target) => {
+      const norm = target.replace(/\\/g, '/');
+      return (
+        norm.endsWith('.paqad/.agent-entry-loaded') || norm.includes('/.paqad/session/agent-entry/')
+      );
+    });
   } catch {
     return false;
   }
@@ -77,12 +90,25 @@ export function main(input) {
   // numbered steps from the one shared module so the two directives cannot drift
   // (issue #498, Part A).
   const ef = entryFile();
+  // Issue #567 — inside a subagent the base sentinel belongs to the orchestrator, so name the
+  // per-agent marker THIS agent must record (it cannot read its own agent_id; the gate can).
+  // Appended only when an agent_id is present, so the main-thread directive is unchanged and the
+  // shared step prose (loadSteps) still matches the prompt-gate byte-for-byte (#498 AC-3).
+  const markerRel = agentId ? agentEntryMarkerRelative(agentId) : null;
+  const subagentLine = markerRel
+    ? [
+        `[paqad] You are a paqad stage subagent. After loading, record THIS agent's own load by ` +
+          `creating ${markerRel} (Write it, or \`mkdir -p .paqad/session/agent-entry && touch ${markerRel}\`); ` +
+          'then retry your edit. Writing .paqad/.agent-entry-loaded with the Write tool clears it too.',
+      ]
+    : [];
   process.stderr.write(
     [
       '[paqad] Blocked: load the paqad framework before editing.',
       ENABLEMENT_VERIFIED_LINE,
       '[paqad] Required steps:',
       ...loadSteps(ef),
+      ...subagentLine,
       '',
     ].join('\n'),
   );
