@@ -20,7 +20,8 @@ import { pathToFileURL } from 'node:url';
 
 import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive.mjs';
 import { editTargets } from './lib/edit-targets.mjs';
-import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
+import { entryFile, sentinelState, stampAgentEntryMarker } from './lib/agent-entry-sentinel.mjs';
+import { agentIdFromStdin } from './lib/context-seam-emit.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 /** True when the pending tool call writes the agent-entry sentinel itself. The
@@ -51,11 +52,23 @@ export function main(input) {
     return 0;
   }
 
-  if (sentinelState(projectRoot) === 'fresh') {
+  // Issue #567 — when this call is inside a subagent, the payload carries a distinct
+  // `agent_id` (the `session_id` is the orchestrator's), so the sentinel is keyed on it: a
+  // stage subagent must prove its OWN cold framework load and cannot ride the orchestrator's.
+  // Undefined on the main thread ⇒ the unkeyed sentinel, unchanged.
+  const agentId = agentIdFromStdin(input);
+
+  if (sentinelState(projectRoot, process.env, agentId) === 'fresh') {
     return 0;
   }
 
   if (isSentinelWrite(input)) {
+    // The bootstrap's sentinel Write is the load confirmation. Inside a subagent, promote it
+    // into this agent's per-agent marker (the base sentinel the agent writes is keyed on the
+    // shared parent session, so it cannot represent this agent), clearing its own keyed gate.
+    if (agentId) {
+      stampAgentEntryMarker(projectRoot, agentId);
+    }
     return 0;
   }
 

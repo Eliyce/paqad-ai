@@ -18,6 +18,7 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
+import { clearAgentEntryMarkers } from './lib/agent-entry-sentinel.mjs';
 import { resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 
@@ -26,6 +27,9 @@ async function main(input) {
 
   try {
     rmSync(join(projectRoot, '.paqad', '.agent-entry-loaded'), { force: true });
+    // Issue #567 — reset the per-agent entry markers too, so a new main session starts every
+    // subagent identity ungated, exactly as the base sentinel resets.
+    clearAgentEntryMarkers(projectRoot);
   } catch {
     // best-effort; never fail a session start.
   }

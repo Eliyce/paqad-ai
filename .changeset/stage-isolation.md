@@ -16,5 +16,7 @@ single context, unchanged.
 Install and update always render six stage agents per host at user scope (never into a project
 directory), a record-only `SubagentStop` hook appends a per-bundle `context-efficiency.jsonl`
 stream, and the in-flight fork guard refuses to mint a third bundle on one branch. Every stage
-records under the orchestrator's session id, so the bundle keeps one identity. paqad's Node code
-still calls no LLM; the host's subagent runs the stage.
+records under the orchestrator's session id, so the bundle keeps one identity — and each stage
+subagent proves its own cold framework load through an `agent_id`-keyed entry sentinel (a
+subagent shares its parent's `session_id`, so the sentinel keys on the distinct `agent_id`).
+paqad's Node code still calls no LLM; the host's subagent runs the stage.
