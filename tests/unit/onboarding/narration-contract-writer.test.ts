@@ -31,10 +31,12 @@ describe('narration-contract-writer', () => {
       );
     });
 
-    it('AC-3: puts the voice on the Claude Code agent itself', () => {
+    it('AC-3: puts the voice on the Claude Code and Codex agents themselves (#566)', () => {
       const body = buildNarrationContractBody();
-      expect(body).toContain('On **Claude Code** YOU speak');
+      expect(body).toContain('On **Claude Code and Codex** YOU speak');
       expect(body).toContain('Never treat a hook as having spoken for you');
+      // Only Gemini stays record-only after the Codex parity change.
+      expect(body).toContain('On **Gemini** the record hook is deliberately record-only');
     });
 
     it('AC-3: states per surface which channels actually render', () => {
