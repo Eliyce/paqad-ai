@@ -38,8 +38,18 @@ interface HostTarget {
 
 /** The hosts that get user-scope stage agents (issue #567 scope: Claude + Codex). */
 export const STAGE_AGENT_HOSTS: readonly HostTarget[] = [
-  { adapter: 'claude-code', agentsSubdir: '.claude/agents', extension: 'md', template: 'claude.md.hbs' },
-  { adapter: 'codex-cli', agentsSubdir: '.codex/agents', extension: 'toml', template: 'codex.toml.hbs' },
+  {
+    adapter: 'claude-code',
+    agentsSubdir: '.claude/agents',
+    extension: 'md',
+    template: 'claude.md.hbs',
+  },
+  {
+    adapter: 'codex-cli',
+    agentsSubdir: '.codex/agents',
+    extension: 'toml',
+    template: 'codex.toml.hbs',
+  },
 ];
 
 export interface WriteStageAgentsOptions {
@@ -78,10 +88,7 @@ export function writeStageAgents(
   for (const host of STAGE_AGENT_HOSTS) {
     const dir = join(home, host.agentsSubdir);
     mkdirSync(dir, { recursive: true });
-    const templateSource = readFileSync(
-      join(templatesRoot, 'stage-agents', host.template),
-      'utf8',
-    );
+    const templateSource = readFileSync(join(templatesRoot, 'stage-agents', host.template), 'utf8');
     const template = Handlebars.compile(templateSource);
     for (const def of MANDATORY_STAGE_AGENTS) {
       const content = template(agentContext(def));

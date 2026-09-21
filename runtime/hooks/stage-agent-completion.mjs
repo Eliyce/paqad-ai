@@ -37,7 +37,10 @@ async function main(input) {
 
     const transcriptText = resolveCompletionTranscriptText(input, ADAPTER) || '';
 
-    const recorderUrl = new URL('../../dist/stage-isolation/subagent-completion.js', import.meta.url);
+    const recorderUrl = new URL(
+      '../../dist/stage-isolation/subagent-completion.js',
+      import.meta.url,
+    );
     const { recordStageAgentCompletion } = await import(recorderUrl.href);
     recordStageAgentCompletion({ projectRoot, payload, transcriptText, adapter: ADAPTER });
 

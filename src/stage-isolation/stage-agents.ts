@@ -87,7 +87,7 @@ export function buildStageAgentBody(def: StageAgentDef): string {
     '## What you were dispatched with',
     '',
     'The orchestrator passes you the change ref, the lane, the previous stage pillar file(s), and',
-    '`SE_SESSION` — the orchestrator\'s session id. **Export `SE_SESSION` for every command you run**',
+    "`SE_SESSION` — the orchestrator's session id. **Export `SE_SESSION` for every command you run**",
     'so every row and artifact you write is recorded under the one change identity.',
     '',
     '## Run your stage',

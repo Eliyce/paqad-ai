@@ -110,7 +110,8 @@ describe('context-efficiency row schema', () => {
   });
 
   it('rejects a missing required field', () => {
-    const { exact: _omitted, ...withoutExact } = validRow;
+    const withoutExact: Record<string, unknown> = { ...validRow };
+    delete withoutExact.exact;
     expect(validateContextEfficiencyRow(withoutExact).length).toBeGreaterThan(0);
   });
 

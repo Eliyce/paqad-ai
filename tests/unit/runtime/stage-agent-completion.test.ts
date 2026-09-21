@@ -62,7 +62,10 @@ describe('stage-agent-completion.mjs (issue #567)', () => {
 
     const stream = join(bundleDir(root), 'context-efficiency.jsonl');
     expect(existsSync(stream)).toBe(true);
-    const rows = readFileSync(stream, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    const rows = readFileSync(stream, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
     expect(rows).toHaveLength(1);
     expect(rows[0].stage).toBe('development');
     expect(rows[0].agent_id).toBe('agent_it');
