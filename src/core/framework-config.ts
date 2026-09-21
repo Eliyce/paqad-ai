@@ -71,15 +71,6 @@ const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
  * other enforcement knobs, so a team that commits `strip` cannot have it lowered locally.
  */
 const AI_ATTRIBUTION_MODES = ['keep', 'strip'] as const;
-/**
- * Stage-isolation posture (issue #567), weakest → strictest. `off` (the default) keeps
- * feature-development in a single context, byte-identical to before the feature. `on` runs
- * each mandatory stage in a fresh host subagent with the evidence bundle as shared memory.
- * Floored like the other enforcement knobs, so a team that commits `on` cannot have it
- * lowered locally.
- */
-const STAGE_ISOLATION_MODES = ['off', 'on'] as const;
-
 /** Tokens that mean boolean true / false in a config value (case-insensitive). */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const FALSY = new Set(['0', 'false', 'no', 'off']);
@@ -736,20 +727,6 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       '(issue #538). strip (default) suppresses it where the provider exposes a project-level knob ' +
       '(Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level ' +
       "only). paqad's own delivery footer is never touched by this knob.",
-  },
-  {
-    key: 'stage_isolation',
-    env: 'PAQAD_STAGE_ISOLATION',
-    type: 'enum',
-    enumValues: STAGE_ISOLATION_MODES,
-    default: 'off',
-    group: 'policy',
-    section: 'Enforcement (capability modes — team value is a floor)',
-    comment:
-      'off | on — run each mandatory feature-development stage in a fresh host subagent with ' +
-      'the evidence bundle as shared memory (issue #567). off (default) keeps a single context, ' +
-      'byte-identical to before the feature. Lane threshold is graduated and above; the fast ' +
-      'lane never dispatches a stage agent.',
   },
   {
     key: 'spec_pipeline_enabled',
@@ -1984,7 +1961,6 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'decision_arm_plan_threshold',
       'decision_arm_max_per_change',
       'ai_attribution',
-      'stage_isolation',
       'spec_pipeline_enabled',
       'spec_pipeline_clarification',
       'spec_pipeline_final_review',

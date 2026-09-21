@@ -60,31 +60,27 @@ describe('paqad-hooks command builders (issue #566)', () => {
     return seen;
   };
 
-  it('buildHostHookChain renders each event in the fixed order and throws for an unknown host', () => {
-    // Default (stage isolation off): the gated subagent-completion event is NOT rendered, so
-    // the chain is byte-identical to before that feature (issue #567 AC-2/AC-8).
+  it('buildHostHookChain renders every event in the fixed order and throws for an unknown host', () => {
+    // Stage isolation is core-engine behavior (issue #567) — the subagent-completion event is
+    // rendered unconditionally, so the chain always covers the full event order.
     const chain = buildHostHookChain('claude-code', ENV);
-    const nonGated = PAQAD_HOOK_EVENT_ORDER.filter((event) => event !== 'subagent-completion');
-    expect(distinctEvents(chain)).toEqual(
-      nonGated.map((event) => NATIVE_HOOK_EVENTS['claude-code'].nativeEvent[event]),
-    );
-    expect(distinctEvents(chain)).not.toContain('SubagentStop');
-    expect(() => buildHostHookChain('nope-host', ENV)).toThrow(/no native hook event map/);
-  });
-
-  it('buildHostHookChain adds SubagentStop (agent-type matched) only when stage isolation is on', () => {
-    const chain = buildHostHookChain('claude-code', ENV, { stageIsolation: true });
-    // SubagentStop is appended last, after Stop, matching the full event order.
     expect(distinctEvents(chain)).toEqual(
       PAQAD_HOOK_EVENT_ORDER.map((event) => NATIVE_HOOK_EVENTS['claude-code'].nativeEvent[event]),
     );
+    expect(() => buildHostHookChain('nope-host', ENV)).toThrow(/no native hook event map/);
+  });
+
+  it('buildHostHookChain renders SubagentStop (agent-type matched) last, after Stop', () => {
+    const chain = buildHostHookChain('claude-code', ENV);
+    // SubagentStop is appended last, after Stop, matching the full event order.
+    expect(distinctEvents(chain).at(-1)).toBe('SubagentStop');
     const subagent = chain.find((hook) => hook.nativeEvent === 'SubagentStop');
     expect(subagent?.matcher).toBe('^paqad-');
     expect(subagent?.command).toContain('stage-agent-completion.mjs');
   });
 
-  it('the Codex chain gets the same SubagentStop matcher and host argv when isolation is on', () => {
-    const chain = buildHostHookChain('codex-cli', ENV, { stageIsolation: true });
+  it('the Codex chain gets the same SubagentStop matcher and host argv', () => {
+    const chain = buildHostHookChain('codex-cli', ENV);
     const subagent = chain.find((hook) => hook.nativeEvent === 'SubagentStop');
     expect(subagent?.matcher).toBe('^paqad-');
     expect(subagent?.command).toContain('stage-agent-completion.mjs');

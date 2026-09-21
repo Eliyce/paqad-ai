@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { adoptableInFlightOnBranch } from '@/feature-evidence/adoption';
 import { appendFeatureStageRow, resolveActiveFeature } from '@/feature-evidence/stage-ledger';
@@ -45,35 +45,31 @@ function materialize(root: string, dirName: string, branch = 'main'): string {
   return dirName;
 }
 
-let savedFlag: string | undefined;
-beforeEach(() => {
-  savedFlag = process.env.PAQAD_STAGE_ISOLATION;
-});
 afterEach(() => {
-  if (savedFlag === undefined) delete process.env.PAQAD_STAGE_ISOLATION;
-  else process.env.PAQAD_STAGE_ISOLATION = savedFlag;
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
 describe('stage-isolation fork guard (issue #567, AC-9)', () => {
-  it('refuses loudly to mint a third bundle when two are in flight on the branch (flag on)', () => {
+  it('refuses loudly to mint a third bundle when two are in flight on the branch', () => {
     const root = tempRepo();
     materialize(root, BUNDLE_A);
     materialize(root, BUNDLE_B);
-    process.env.PAQAD_STAGE_ISOLATION = 'on';
 
+    // Stage isolation is core-engine behavior now — the guard is unconditional, no flag.
     expect(() => resolveActiveFeature(root, 'ses_new', { now: clock })).toThrow(
       /in-flight feature bundles|will not mint a third/i,
     );
   });
 
-  it('with the flag off, the mint path is unchanged (mints, does not throw)', () => {
+  it('an explicit change ref (--title) always mints, even with two in flight', () => {
     const root = tempRepo();
     materialize(root, BUNDLE_A);
     materialize(root, BUNDLE_B);
-    process.env.PAQAD_STAGE_ISOLATION = 'off';
 
-    expect(() => resolveActiveFeature(root, 'ses_new', { now: clock })).not.toThrow();
+    // The explicit-title path is a deliberate new change and must never be blocked by the guard.
+    expect(() =>
+      resolveActiveFeature(root, 'ses_new', { title: 'a deliberate new change', now: clock }),
+    ).not.toThrow();
   });
 
   it('a stale in-flight bundle on ANOTHER branch does not count (explicit branch wins)', () => {
@@ -87,8 +83,7 @@ describe('stage-isolation fork guard (issue #567, AC-9)', () => {
     const inFlight = adoptableInFlightOnBranch(root, 'ses_new', clock);
     expect(inFlight).toEqual([BUNDLE_C]);
 
-    // So even with the flag on, there is exactly one in-flight → no fork error.
-    process.env.PAQAD_STAGE_ISOLATION = 'on';
+    // Exactly one in-flight on this branch → adoption resolves it, no fork error.
     expect(() => resolveActiveFeature(root, 'ses_new', { now: clock })).not.toThrow();
   });
 });

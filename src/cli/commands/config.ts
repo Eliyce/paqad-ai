@@ -6,7 +6,6 @@ import { resolveStagesMode } from '@/stage-evidence/mode.js';
 import { resolveBundleCompletenessMode } from '@/verification/repository/bundle-completeness-mode.js';
 import { resolveVisualEvidenceMode } from '@/verification/repository/visual-evidence-mode.js';
 import { resolveChecksFlakyMode } from '@/checks/flaky-mode.js';
-import { resolveStageIsolation } from '@/stage-isolation/mode.js';
 
 /**
  * `paqad-ai config effective` (issue #326) — print, per knob, the value that ACTUALLY
@@ -72,7 +71,6 @@ const KNOB_CONSUMERS: Record<string, string> = {
   decisions_max_screens_per_task: NOTHING,
   decisions_idle_timeout_minutes: NOTHING,
   stages_mode: 'stages capability gate (pre-code block)',
-  stage_isolation: 'stage-isolation orchestrator (subagent dispatch + SubagentStop hook)',
   rule_compliance: 'rule-scripts capability gate',
   analytics_strictness: 'analytics AC-track gate',
   bundle_completeness: 'bundle-completeness gate (end-of-change)',
@@ -136,9 +134,6 @@ export function resolveEffectiveConfig(
       surface = `${surface} → floored`;
     } else if (spec.key === 'checks_flaky_under_parallel') {
       value = resolveChecksFlakyMode(projectRoot, env);
-      surface = `${surface} → floored`;
-    } else if (spec.key === 'stage_isolation') {
-      value = resolveStageIsolation(projectRoot, env);
       surface = `${surface} → floored`;
     }
 

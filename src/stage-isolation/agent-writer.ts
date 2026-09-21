@@ -1,17 +1,16 @@
 // Home-scope stage-agent writer (issue #567).
 //
-// When stage isolation is on, `paqad-ai install` and `paqad-ai update` write the six
-// mandatory stage agents at USER scope — `~/.claude/agents/paqad-<stage>.md` (Claude) and
-// `~/.codex/agents/paqad-<stage>.toml` (Codex) — rendered from one Handlebars template per
-// host in `runtime/templates/stage-agents/`. This deliberately does NOT revive
+// `paqad-ai install` and `paqad-ai update` write the six mandatory stage agents at USER
+// scope — `~/.claude/agents/paqad-<stage>.md` (Claude) and `~/.codex/agents/paqad-<stage>.toml`
+// (Codex) — rendered from one Handlebars template per host in
+// `runtime/templates/stage-agents/`. This deliberately does NOT revive
 // `BaseAdapter.generateAgents()`: that seam is project-scoped and a test asserts agents are
 // never regenerated into a project directory. Stage agents live only in the user's home, so
-// they ride the framework install, never a repo (issue #567 INV-3, and the issue's own
+// they ride the framework install, never a repo (issue #567 INV-2, and the issue's own
 // tripwire against writing agent defs into a project `.claude`/`.codex`).
 //
-// The writer self-gates on `stage_isolation`: with the flag off it writes nothing and returns
-// an empty list, so a default-off project's home is untouched (INV-1). Output is deterministic,
-// so a second run is byte-identical (AC-1).
+// Stage isolation is core-engine behavior (no config knob), so the writer always writes the
+// six agents. Output is deterministic, so a second run is byte-identical.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -22,7 +21,6 @@ import Handlebars from 'handlebars';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
-import { isStageIsolationOn } from './mode.js';
 import { MANDATORY_STAGE_AGENTS, buildStageAgentBody, type StageAgentDef } from './stage-agents.js';
 
 /** One host's stage-agent target: the agents dir under the user home and its file extension. */
@@ -55,7 +53,6 @@ export const STAGE_AGENT_HOSTS: readonly HostTarget[] = [
 export interface WriteStageAgentsOptions {
   /** The user home to write under. Defaults to the OS home; injectable for tests. */
   homeDir?: string;
-  env?: NodeJS.ProcessEnv;
 }
 
 /** The render context one stage agent's template is filled with. */
@@ -69,18 +66,12 @@ function agentContext(def: StageAgentDef): Record<string, unknown> {
 }
 
 /**
- * Write the six stage agents per supported host under the user's home, when stage isolation is
- * on. Returns the project-independent list of absolute paths written (empty when the flag is
- * off). Never writes into any project directory. Synchronous so it can be called from the
- * synchronous `bootstrapFramework`; these templates use no custom Handlebars helpers.
+ * Write the six stage agents per supported host under the user's home. Returns the
+ * project-independent list of absolute paths written. Never writes into any project directory.
+ * Synchronous so it can be called from the synchronous `bootstrapFramework`; these templates
+ * use no custom Handlebars helpers.
  */
-export function writeStageAgents(
-  projectRoot: string,
-  options: WriteStageAgentsOptions = {},
-): string[] {
-  if (!isStageIsolationOn(projectRoot, options.env)) {
-    return [];
-  }
+export function writeStageAgents(options: WriteStageAgentsOptions = {}): string[] {
   const home = options.homeDir ?? homedir();
   const templatesRoot = getRuntimeTemplatesRoot();
   const written: string[] = [];

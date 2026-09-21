@@ -21,7 +21,8 @@ export type PaqadHookEvent =
   | 'pre-tool-mutation'
   | 'completion'
   // Issue #567 — fires when a subagent finishes (host `SubagentStop`). Only paqad's stage
-  // agents match, via the `^paqad-` agent-type matcher, and only when stage isolation is on.
+  // agents match, via the `^paqad-` agent-type matcher. Stage isolation is core-engine
+  // behavior now (no config knob), so this event renders on every full-chain host.
   | 'subagent-completion';
 
 /**
@@ -35,9 +36,8 @@ export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'prompt-submit',
   'session-start',
   'completion',
-  // Appended last (issue #567): `SubagentStop` naturally follows `Stop`, and appending keeps
-  // every existing host's key order byte-identical when stage isolation is off (no such hook
-  // renders then). Only rendered for a host when stage isolation is on.
+  // Appended last (issue #567): `SubagentStop` naturally follows `Stop`, so appending keeps
+  // the historical `Stop`-then-`SubagentStop` key order every full-chain host renders.
   'subagent-completion',
 ];
 
@@ -58,12 +58,6 @@ export interface PaqadLiveHookSpec {
    * change. Every non-default host (Codex) gets the argv.
    */
   hostArgv?: boolean;
-  /**
-   * When true this hook renders ONLY when stage isolation is on (issue #567). Default-off
-   * features must not change a project's generated hook config, so a gated spec is skipped
-   * unless {@link buildHostHookChain} is told stage isolation is on.
-   */
-  gatedByStageIsolation?: boolean;
   description: string;
 }
 
@@ -301,21 +295,16 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     // (matched by the `^paqad-` agent-type matcher), parses its transcript for stage markers
     // (belt and braces — the CLI verbs already recorded them), and appends one
     // context-efficiency row. Never blocks (SubagentStop blocking is undocumented on Claude).
-    // Gated on stage isolation, so a default-off project renders no SubagentStop group.
+    // Stage isolation is core-engine behavior (no config knob), so this always renders; it is a
+    // no-op unless a `paqad-<stage>` subagent actually runs, so a project that never dispatches
+    // one pays nothing.
     id: 'stage-agent-completion',
     event: 'subagent-completion',
     hookFile: 'stage-agent-completion.mjs',
     hostArgv: true,
-    gatedByStageIsolation: true,
     description: 'Record a stage agent’s context-efficiency row on SubagentStop (#567).',
   },
 ];
-
-/** Options that steer which hooks a host renders (issue #567). */
-export interface BuildHookChainOptions {
-  /** When true, stage-isolation-gated hooks (e.g. SubagentStop) are included. Default false. */
-  stageIsolation?: boolean;
-}
 
 /** One rendered hook: the host's native event, an optional matcher, and the command. */
 export interface RenderedHook {
@@ -349,7 +338,6 @@ export function renderHookCommand(
 export function buildHostHookChain(
   adapterType: string,
   env: NodeJS.ProcessEnv = process.env,
-  options: BuildHookChainOptions = {},
 ): RenderedHook[] {
   const host = NATIVE_HOOK_EVENTS[adapterType];
   if (!host) {
@@ -359,11 +347,6 @@ export function buildHostHookChain(
   for (const event of PAQAD_HOOK_EVENT_ORDER) {
     for (const spec of PAQAD_LIVE_HOOKS) {
       if (spec.event !== event) {
-        continue;
-      }
-      // Issue #567 — a stage-isolation-gated hook renders only when the flag is on, so a
-      // default-off project's generated config is byte-identical to before this feature.
-      if (spec.gatedByStageIsolation && !options.stageIsolation) {
         continue;
       }
       chain.push({

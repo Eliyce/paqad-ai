@@ -16,22 +16,10 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-const ON = { PAQAD_STAGE_ISOLATION: 'on' } as NodeJS.ProcessEnv;
-
 describe('writeStageAgents (issue #567)', () => {
-  it('writes nothing when stage isolation is off (default)', () => {
-    const project = tempDir('paqad-sa-project-');
+  it('writes six agents per host at user scope (no config knob)', () => {
     const home = tempDir('paqad-sa-home-');
-    const written = writeStageAgents(project, { homeDir: home, env: {} });
-    expect(written).toEqual([]);
-    expect(existsSync(join(home, '.claude/agents'))).toBe(false);
-    expect(existsSync(join(home, '.codex/agents'))).toBe(false);
-  });
-
-  it('writes six agents per host at user scope when the flag is on', () => {
-    const project = tempDir('paqad-sa-project-');
-    const home = tempDir('paqad-sa-home-');
-    const written = writeStageAgents(project, { homeDir: home, env: ON });
+    const written = writeStageAgents({ homeDir: home });
 
     expect(written).toHaveLength(12);
     const claudeDir = join(home, '.claude/agents');
@@ -55,9 +43,8 @@ describe('writeStageAgents (issue #567)', () => {
   });
 
   it('renders host-correct content: Claude frontmatter, Codex TOML', () => {
-    const project = tempDir('paqad-sa-project-');
     const home = tempDir('paqad-sa-home-');
-    writeStageAgents(project, { homeDir: home, env: ON });
+    writeStageAgents({ homeDir: home });
 
     const claude = readFileSync(join(home, '.claude/agents/paqad-development.md'), 'utf8');
     expect(claude).toMatch(/^---\n/);
@@ -71,20 +58,19 @@ describe('writeStageAgents (issue #567)', () => {
     expect(codex).toContain('SE_SESSION');
   });
 
-  it('a second run is byte-identical (AC-1)', () => {
-    const project = tempDir('paqad-sa-project-');
+  it('a second run is byte-identical (deterministic output)', () => {
     const home = tempDir('paqad-sa-home-');
-    writeStageAgents(project, { homeDir: home, env: ON });
+    writeStageAgents({ homeDir: home });
     const first = readFileSync(join(home, '.claude/agents/paqad-planning.md'), 'utf8');
-    writeStageAgents(project, { homeDir: home, env: ON });
+    writeStageAgents({ homeDir: home });
     const second = readFileSync(join(home, '.claude/agents/paqad-planning.md'), 'utf8');
     expect(second).toBe(first);
   });
 
-  it('never writes into the project directory (INV-3)', () => {
+  it('never writes into any project directory (INV-2)', () => {
     const project = tempDir('paqad-sa-project-');
     const home = tempDir('paqad-sa-home-');
-    writeStageAgents(project, { homeDir: home, env: ON });
+    writeStageAgents({ homeDir: home });
     expect(existsSync(join(project, '.claude'))).toBe(false);
     expect(existsSync(join(project, '.codex'))).toBe(false);
   });

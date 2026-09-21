@@ -10,11 +10,14 @@ import type { AdapterType } from '@/core/types/adapter.js';
 /**
  * Byte-identity guard for the native hook-config renderer (issue #566, AC-3 / AC-10).
  *
- * The Codex-parity change generalizes one renderer to drive every hook-capable host, so the
- * Claude `.claude/settings.json` and the Gemini `.gemini/settings.json` MUST come out
- * byte-identical to before the refactor. These snapshots pin the exact bytes; a snapshot diff
- * on either host is a regression, never an accepted `-u` update. The framework home is pinned so
- * the absolute `node "<abs>"` commands are machine-independent.
+ * The Codex-parity change generalizes one renderer to drive every hook-capable host. These
+ * snapshots pin the exact bytes each host executes; a snapshot diff is a regression to be
+ * scrutinized, never a reflexive `-u`. Two intended movements are baked into the current
+ * bytes: the #566 shared-renderer refactor (which must not have changed output) and the #567
+ * stage-isolation `SubagentStop` hook, which is now core-engine behavior and so appears on the
+ * full-chain host (Claude) unconditionally. Gemini renders the record-only completion chain, no
+ * `SubagentStop`, so its bytes are unchanged. The framework home is pinned so the absolute
+ * `node "<abs>"` commands are machine-independent.
  */
 const FIXED_HOME = '/fake/home/.paqad-ai/current';
 
