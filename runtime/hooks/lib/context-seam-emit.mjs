@@ -33,6 +33,24 @@ export function sessionIdFromStdin(stdin) {
 }
 
 /**
+ * Best-effort `agent_id` from the host hook stdin payload (issue #567). Claude Code sets it
+ * ONLY when a hook fires inside a subagent, and it is distinct per subagent even though the
+ * `session_id` is the parent's — so it is what the entry gate keys the per-agent sentinel on.
+ * Undefined on the main thread (no `agent_id`), or when the payload is missing/unparseable.
+ */
+export function agentIdFromStdin(stdin) {
+  try {
+    const parsed = JSON.parse(stdin);
+    if (parsed && typeof parsed.agent_id === 'string' && parsed.agent_id.trim().length > 0) {
+      return parsed.agent_id;
+    }
+  } catch {
+    // Not JSON / no agent id — treat as the main thread (unkeyed sentinel).
+  }
+  return undefined;
+}
+
+/**
  * Emit the precomputed `[paqad-context]` block to stdout when RAG injection is on
  * and a context artifact exists; otherwise emit nothing. Always best-effort: any
  * failure (disabled project, missing artifact, read error) emits nothing and the

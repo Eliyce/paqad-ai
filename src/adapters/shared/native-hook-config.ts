@@ -175,7 +175,9 @@ export function buildNativeCompletionHookFile(options: NativeCompletionHookOptio
   });
 }
 
-/** The full pre-and-completion chain for a host that renders it (Claude, Codex). */
+/** The full pre-and-completion chain for a host that renders it (Claude, Codex). Includes the
+ *  stage-isolation `SubagentStop` hook unconditionally (issue #567): stage isolation is
+ *  core-engine behavior, so there is no flag to gate it. */
 export function buildFullHookChain(
   adapterType: string,
   env: NodeJS.ProcessEnv = process.env,

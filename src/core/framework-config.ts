@@ -71,7 +71,6 @@ const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
  * other enforcement knobs, so a team that commits `strip` cannot have it lowered locally.
  */
 const AI_ATTRIBUTION_MODES = ['keep', 'strip'] as const;
-
 /** Tokens that mean boolean true / false in a config value (case-insensitive). */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const FALSY = new Set(['0', 'false', 'no', 'off']);

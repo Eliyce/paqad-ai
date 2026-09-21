@@ -268,6 +268,33 @@ describe('specificationReceiptLine', () => {
     );
   });
 
+  it('names the experts and pluralizes decided conflicts', () => {
+    expect(
+      specificationReceiptLine({
+        pipeline_produced: true,
+        experts: { roles: ['db', 'security'], accepted: 2, declined: 0, conflicts: 2 },
+      }),
+    ).toBe('🟢 specification: pipeline-produced, experts: db, security (2 conflicts decided)');
+  });
+
+  it('uses the singular for exactly one decided conflict', () => {
+    expect(
+      specificationReceiptLine({
+        pipeline_produced: true,
+        experts: { roles: ['db'], accepted: 1, declined: 0, conflicts: 1 },
+      }),
+    ).toBe('🟢 specification: pipeline-produced, experts: db (1 conflict decided)');
+  });
+
+  it('names the experts with no conflict suffix when none were decided', () => {
+    expect(
+      specificationReceiptLine({
+        pipeline_produced: true,
+        experts: { roles: ['ui'], accepted: 1, declined: 0, conflicts: 0 },
+      }),
+    ).toBe('🟢 specification: pipeline-produced, experts: ui');
+  });
+
   it('renders a manual-reason line', () => {
     expect(specificationReceiptLine({ pipeline_produced: false, manual_reason: 'hotfix' })).toBe(
       '🟡 specification: frozen without the pipeline (reason: hotfix)',

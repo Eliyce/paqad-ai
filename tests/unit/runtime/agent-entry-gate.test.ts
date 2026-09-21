@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -140,6 +140,111 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
   it('still blocks on a malformed stdin payload (exemption is fail-closed)', () => {
     expect(runGate(projectRoot, '{not json').status).toBe(2);
   });
+
+  // Issue #567 — per-agent entry sentinel. A stage subagent shares the orchestrator's
+  // session_id but carries a distinct agent_id, so the sentinel is keyed on agent_id: a
+  // subagent must prove its OWN cold load and cannot ride the orchestrator's fresh sentinel.
+  describe('per-agent sentinel keying (issue #567)', () => {
+    const AGENT = 'agent_dev1';
+    const markerPath = (root: string, id: string) =>
+      join(root, '.paqad', 'session', 'agent-entry', id);
+
+    /** A fresh, future-dated MAIN-thread sentinel (what the orchestrator leaves behind). */
+    function writeFreshBaseSentinel(root: string): void {
+      writeFileSync(join(root, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
+      const future = new Date(Date.now() + 60_000);
+      utimesSync(join(root, '.paqad/.agent-entry-loaded'), future, future);
+    }
+
+    it('blocks a subagent edit even when the main-thread sentinel is fresh', () => {
+      writeFreshBaseSentinel(projectRoot);
+      const payload = JSON.stringify({
+        session_id: 'orchestrator',
+        agent_id: AGENT,
+        tool_name: 'Edit',
+        tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+      });
+      // The base sentinel is fresh, but this agent has no marker → keyed state is missing.
+      expect(runGate(projectRoot, payload).status).toBe(2);
+      expect(existsSync(markerPath(projectRoot, AGENT))).toBe(false);
+    });
+
+    it('exempts the subagent bootstrap sentinel Write and stamps its per-agent marker', () => {
+      const payload = JSON.stringify({
+        session_id: 'orchestrator',
+        agent_id: AGENT,
+        tool_name: 'Write',
+        tool_input: { file_path: join(projectRoot, '.paqad/.agent-entry-loaded') },
+      });
+      expect(runGate(projectRoot, payload).status).toBe(0);
+      // The exemption promoted the bootstrap write into this agent's keyed marker.
+      expect(existsSync(markerPath(projectRoot, AGENT))).toBe(true);
+    });
+
+    it('allows the subagent edit once its marker is stamped, and keeps other agents blocked', () => {
+      // Stamp AGENT's marker via the sentinel-write exemption.
+      runGate(
+        projectRoot,
+        JSON.stringify({
+          agent_id: AGENT,
+          tool_name: 'Write',
+          tool_input: { file_path: join(projectRoot, '.paqad/.agent-entry-loaded') },
+        }),
+      );
+      const edit = (id: string) =>
+        runGate(
+          projectRoot,
+          JSON.stringify({
+            agent_id: id,
+            tool_name: 'Edit',
+            tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+          }),
+        ).status;
+      expect(edit(AGENT)).toBe(0); // this agent proved its load
+      expect(edit('agent_other')).toBe(2); // a different subagent still must load
+    });
+
+    it('names the per-agent marker path in the block message for a subagent', () => {
+      const result = runGate(
+        projectRoot,
+        JSON.stringify({
+          agent_id: AGENT,
+          tool_name: 'Edit',
+          tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+        }),
+      );
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain(`.paqad/session/agent-entry/${AGENT}`);
+      expect(result.stderr).toContain('stage subagent');
+    });
+
+    it('a directly-created marker (the Bash path) clears the subagent gate', () => {
+      // Simulate the agent creating its keyed marker with a shell command (ungated by the hook).
+      mkdirSync(join(projectRoot, '.paqad/session/agent-entry'), { recursive: true });
+      writeFileSync(markerPath(projectRoot, AGENT), '{}');
+      const result = runGate(
+        projectRoot,
+        JSON.stringify({
+          agent_id: AGENT,
+          tool_name: 'Edit',
+          tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+        }),
+      );
+      expect(result.status).toBe(0);
+    });
+
+    it('exempts a Write of the per-agent marker itself (so creating it is never blocked)', () => {
+      const result = runGate(
+        projectRoot,
+        JSON.stringify({
+          agent_id: AGENT,
+          tool_name: 'Write',
+          tool_input: { file_path: markerPath(projectRoot, AGENT) },
+        }),
+      );
+      expect(result.status).toBe(0);
+    });
+  });
 });
 
 describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
@@ -255,18 +360,19 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
 });
 
 describe('runtime/hooks/agent-entry-session-start.mjs', () => {
-  it('deletes the sentinel so every session starts ungated', () => {
+  it('deletes the sentinel and the per-agent markers so every session starts ungated', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-gate-'));
     try {
-      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      mkdirSync(join(projectRoot, '.paqad/session/agent-entry'), { recursive: true });
       writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{}');
+      // A leftover per-agent marker from a prior session (issue #567).
+      writeFileSync(join(projectRoot, '.paqad/session/agent-entry/agent_x'), '{}');
       execFileSync('node', [RESET_SCRIPT], {
         env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
         stdio: 'ignore',
       });
-      expect(() => {
-        execFileSync('test', ['-e', join(projectRoot, '.paqad/.agent-entry-loaded')]);
-      }).toThrow();
+      expect(existsSync(join(projectRoot, '.paqad/.agent-entry-loaded'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/session/agent-entry'))).toBe(false);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

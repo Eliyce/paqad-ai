@@ -83,7 +83,9 @@ function buildClaudeSettings(projectRoot: string): GeneratedFile {
   return buildNativeHookConfigFile({
     projectRoot,
     settingsPath: CLAUDE_SETTINGS_FILE,
-    chain: buildFullHookChain('claude-code'),
+    // Issue #567 — the SubagentStop hook renders unconditionally; stage isolation is
+    // core-engine behavior with no config knob.
+    chain: buildFullHookChain('claude-code', process.env),
     pruneExact: LEGACY_HOOK_COMMANDS,
     pruneBasenames: RETIRED_HOOK_FILES,
     transform: (merged) => mergeAttribution(merged, projectRoot),

@@ -1,0 +1,9 @@
+{
+  "session_id": "01JCODEXSESSION0000000000",
+  "agent_transcript_path": null,
+  "cwd": "/work/project",
+  "hook_event_name": "SubagentStop",
+  "agent_id": "agent_01JCODEXSUBAGENT0000",
+  "agent_type": "paqad-development",
+  "last_assistant_message": "development stage complete"
+}

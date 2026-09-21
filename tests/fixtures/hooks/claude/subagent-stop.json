@@ -1,0 +1,9 @@
+{
+  "session_id": "01JCLAUDESESSION000000000",
+  "transcript_path": "/work/project/.claude/subagent-transcript.jsonl",
+  "cwd": "/work/project",
+  "hook_event_name": "SubagentStop",
+  "agent_id": "agent_01JCLAUDESUBAGENT0000",
+  "agent_type": "paqad-development",
+  "permission_mode": "default"
+}

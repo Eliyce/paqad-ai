@@ -15,7 +15,15 @@ import { join } from 'node:path';
 
 /** The lifecycle point a live hook binds to, mapped per host to its native event
  *  name (e.g. Claude Code / Codex `PreToolUse` and `Stop`). */
-export type PaqadHookEvent = 'session-start' | 'prompt-submit' | 'pre-tool-mutation' | 'completion';
+export type PaqadHookEvent =
+  | 'session-start'
+  | 'prompt-submit'
+  | 'pre-tool-mutation'
+  | 'completion'
+  // Issue #567 — fires when a subagent finishes (host `SubagentStop`). Only paqad's stage
+  // agents match, via the `^paqad-` agent-type matcher. Stage isolation is core-engine
+  // behavior now (no config knob), so this event renders on every full-chain host.
+  | 'subagent-completion';
 
 /**
  * The order the events are rendered into a host's hook config. Fixed so a
@@ -28,6 +36,9 @@ export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'prompt-submit',
   'session-start',
   'completion',
+  // Appended last (issue #567): `SubagentStop` naturally follows `Stop`, so appending keeps
+  // the historical `Stop`-then-`SubagentStop` key order every full-chain host renders.
+  'subagent-completion',
 ];
 
 export interface PaqadLiveHookSpec {
@@ -58,6 +69,14 @@ export const PAQAD_RUNTIME_PREFIX = '~/.paqad-ai/current';
 /** The canonical mutating-tool matcher used by paqad's Claude pre-tool gates. */
 export const PAQAD_MUTATING_TOOL_MATCHER = 'Edit|Write|NotebookEdit';
 
+/**
+ * The agent-type matcher for the `subagent-completion` hook (issue #567). paqad's stage
+ * agents are all named `paqad-<stage>`, so this anchored prefix fires the hook only for
+ * them and never for a user's own subagents (or the built-in `general-purpose`/`Explore`/
+ * `Plan` agents).
+ */
+export const PAQAD_STAGE_AGENT_MATCHER = '^paqad-';
+
 /** The default host whose shared scripts run without a host argv (issue #566). */
 export const DEFAULT_HOOK_ADAPTER = 'claude-code';
 
@@ -72,6 +91,13 @@ export interface HostHookEventMap {
   nativeEvent: Record<PaqadHookEvent, string>;
   /** The `pre-tool-mutation` event's matcher for this host. */
   mutatingMatcher: string;
+  /**
+   * The `subagent-completion` event's matcher for this host (issue #567). Both hosts match
+   * on the subagent's agent type, so `^paqad-` restricts the hook to paqad's own stage
+   * agents and never fires for a user's own subagents (Claude verified: `SubagentStop`
+   * matches the same agent-type values as `SubagentStart`; Codex matches on `agent_type`).
+   */
+  subagentMatcher: string;
 }
 
 export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
@@ -81,8 +107,10 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
       'prompt-submit': 'UserPromptSubmit',
       'pre-tool-mutation': 'PreToolUse',
       completion: 'Stop',
+      'subagent-completion': 'SubagentStop',
     },
     mutatingMatcher: PAQAD_MUTATING_TOOL_MATCHER,
+    subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
   },
   'codex-cli': {
     nativeEvent: {
@@ -90,9 +118,11 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
       'prompt-submit': 'UserPromptSubmit',
       'pre-tool-mutation': 'PreToolUse',
       completion: 'Stop',
+      'subagent-completion': 'SubagentStop',
     },
     // Codex's mutating tool is `apply_patch`; the matcher is a `tool_name` regex.
     mutatingMatcher: '^apply_patch$',
+    subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
   },
 };
 
@@ -260,6 +290,20 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     hostArgv: true,
     description: 'Run the capability kernel at turn end (F3).',
   },
+  {
+    // Issue #567 — record-only SubagentStop hook. Fires when a paqad stage agent finishes
+    // (matched by the `^paqad-` agent-type matcher), parses its transcript for stage markers
+    // (belt and braces — the CLI verbs already recorded them), and appends one
+    // context-efficiency row. Never blocks (SubagentStop blocking is undocumented on Claude).
+    // Stage isolation is core-engine behavior (no config knob), so this always renders; it is a
+    // no-op unless a `paqad-<stage>` subagent actually runs, so a project that never dispatches
+    // one pays nothing.
+    id: 'stage-agent-completion',
+    event: 'subagent-completion',
+    hookFile: 'stage-agent-completion.mjs',
+    hostArgv: true,
+    description: 'Record a stage agent’s context-efficiency row on SubagentStop (#567).',
+  },
 ];
 
 /** One rendered hook: the host's native event, an optional matcher, and the command. */
@@ -307,12 +351,23 @@ export function buildHostHookChain(
       }
       chain.push({
         nativeEvent: host.nativeEvent[event],
-        matcher: event === 'pre-tool-mutation' ? host.mutatingMatcher : undefined,
+        matcher: matcherForEvent(event, host),
         command: renderHookCommand(spec, adapterType, env),
       });
     }
   }
   return chain;
+}
+
+/** The matcher a given event renders with for a host, or undefined for an unmatched event. */
+function matcherForEvent(event: PaqadHookEvent, host: HostHookEventMap): string | undefined {
+  if (event === 'pre-tool-mutation') {
+    return host.mutatingMatcher;
+  }
+  if (event === 'subagent-completion') {
+    return host.subagentMatcher;
+  }
+  return undefined;
 }
 
 /**

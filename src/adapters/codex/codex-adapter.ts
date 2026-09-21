@@ -64,7 +64,9 @@ export class CodexCliAdapter extends BaseAdapter {
       buildNativeHookConfigFile({
         projectRoot: context.projectRoot,
         settingsPath: CODEX_HOOKS_FILE,
-        chain: buildFullHookChain(this.type),
+        // Issue #567 — the SubagentStop hook renders unconditionally; stage isolation is
+        // core-engine behavior with no config knob.
+        chain: buildFullHookChain(this.type, process.env),
         pruneBasenames: CODEX_RETIRED_HOOK_FILES,
       }),
     ];

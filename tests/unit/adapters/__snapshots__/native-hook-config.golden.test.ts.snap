@@ -102,6 +102,17 @@ exports[`native hook-config byte-identity (issue #566) > renders the Claude sett
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^paqad-",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-agent-completion.mjs\\""
+          }
+        ]
+      }
     ]
   },
   "attribution": {

@@ -178,4 +178,43 @@ describe('bootstrapFramework', () => {
     expect(marker.written_by_engine_version).toBe(VERSION);
     expect(typeof marker.written_at).toBe('string');
   });
+
+  // Issue #567 — bootstrap (install/update) always writes the stage agents at user scope; stage
+  // isolation is core-engine behavior with no config knob. HOME/USERPROFILE point os.homedir()
+  // at a temp dir so the test never touches the developer's real home.
+  describe('stage-agent generation', () => {
+    let userHome: string;
+    let savedHome: string | undefined;
+    let savedUserProfile: string | undefined;
+
+    beforeEach(() => {
+      userHome = mkdtempSync(join(tmpdir(), 'paqad-install-userhome-'));
+      savedHome = process.env.HOME;
+      savedUserProfile = process.env.USERPROFILE;
+      process.env.HOME = userHome;
+      process.env.USERPROFILE = userHome;
+    });
+
+    afterEach(() => {
+      rmSync(userHome, { recursive: true, force: true });
+      const restore = (key: 'HOME' | 'USERPROFILE', value?: string) => {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      };
+      restore('HOME', savedHome);
+      restore('USERPROFILE', savedUserProfile);
+    });
+
+    it('writes six Claude and six Codex stage agents under the user home', () => {
+      bootstrapFramework(projectRoot);
+      const claudeAgents = join(userHome, '.claude/agents');
+      const codexAgents = join(userHome, '.codex/agents');
+      expect(existsSync(claudeAgents)).toBe(true);
+      expect(readdirSync(claudeAgents).filter((f) => f.endsWith('.md'))).toHaveLength(6);
+      expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(6);
+      // Never writes into the project.
+      expect(existsSync(join(projectRoot, '.claude'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.codex'))).toBe(false);
+    });
+  });
 });
