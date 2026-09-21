@@ -27,6 +27,11 @@ import type { DuplicationReport } from '@/duplication/report.js';
 
 import { chatRagPath, featureFilePath } from './paths.js';
 import { currentFeature } from './stage-ledger.js';
+import {
+  CONTEXT_EFFICIENCY_DOC_TYPE,
+  CONTEXT_EFFICIENCY_SCHEMA_VERSION,
+  validateContextEfficiencyRow,
+} from './context-efficiency-schema.js';
 
 /** Doc type stamped on a per-feature `rule-run.jsonl` row. */
 export const RULE_RUN_DOC_TYPE = 'paqad.rule-run';
@@ -230,6 +235,75 @@ export function appendChangeMetrics(
 /** Tolerant read of a feature's `change-metrics.jsonl` rows. */
 export function readChangeMetrics(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readUnitFile(projectRoot, featureFilePath(dirName, 'changeMetrics'));
+}
+
+/** One dispatched stage agent's context-efficiency measurement (issue #567). */
+export interface ContextEfficiencyEntry {
+  /** The feature-development stage the agent ran (planning, development, …). */
+  stage: string;
+  /** The host's id for the dispatched subagent. */
+  agent_id: string;
+  /** The host the agent ran on (claude-code, codex-cli). */
+  adapter: string;
+  tokens_input: number;
+  tokens_cached: number;
+  tokens_output: number;
+  /** true when the counts came from host usage; false when estimated (bytes/4). */
+  exact: boolean;
+  /** Orchestrator transcript size at dispatch vs a single-context run — an estimate. */
+  carried_history_avoided_estimate: number;
+  now?: () => Date;
+}
+
+/**
+ * Issue #567 — append one context-efficiency row into the ACTIVE feature's
+ * `context-efficiency.jsonl`, recording what one dispatched stage agent cost and the
+ * carried history the orchestrator did not re-send. A no-op (returns null) when no feature
+ * is active, mirroring {@link appendRuleRun}. The row carries the orchestrator's session id
+ * both as the ledger `session_id` (via `sessionId`) and as the explicit
+ * `orchestrator_session_id`, so the change keeps one identity across every isolated stage.
+ * Validated against the closed schema before it is written; best-effort, never throws.
+ */
+export function appendContextEfficiency(
+  projectRoot: string,
+  sessionId: string,
+  entry: ContextEfficiencyEntry,
+): SessionLedgerRow | null {
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) {
+    return null;
+  }
+  try {
+    const stamped = stampSessionRow(
+      CONTEXT_EFFICIENCY_DOC_TYPE,
+      sessionId,
+      {
+        stage: entry.stage,
+        agent_id: entry.agent_id,
+        adapter: entry.adapter,
+        orchestrator_session_id: sessionId,
+        tokens_input: entry.tokens_input,
+        tokens_cached: entry.tokens_cached,
+        tokens_output: entry.tokens_output,
+        exact: entry.exact,
+        carried_history_avoided_estimate: entry.carried_history_avoided_estimate,
+      },
+      {
+        schemaVersion: CONTEXT_EFFICIENCY_SCHEMA_VERSION,
+        validate: (row) => validateContextEfficiencyRow(row),
+        now: entry.now,
+      },
+    );
+    appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'contextEfficiency'), stamped);
+    return stamped;
+  } catch {
+    return null;
+  }
+}
+
+/** Tolerant read of a feature's `context-efficiency.jsonl` rows. */
+export function readContextEfficiency(projectRoot: string, dirName: string): SessionLedgerRow[] {
+  return readUnitFile(projectRoot, featureFilePath(dirName, 'contextEfficiency'));
 }
 
 /**

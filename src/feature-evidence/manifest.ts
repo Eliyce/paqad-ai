@@ -222,6 +222,18 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     writer: 'paqad-ai visual-evidence run',
     validate: 'json',
   },
+  {
+    // Issue #567 — one row per dispatched stage agent under stage isolation. `optional`, not
+    // flag-gated: the completeness gate has no signal for whether THIS change ran under stage
+    // isolation (that is the orchestrator's runtime state, not a bundle fact), so requiring it
+    // would false-fail every change made in a single context. Checked-when-present here (a
+    // written stream must be a non-empty JSONL) and never a "flag off" skip.
+    key: 'contextEfficiency',
+    file: FEATURE_BUNDLE_FILES.contextEfficiency,
+    required: 'optional',
+    writer: 'stage-agent-completion hook (SubagentStop)',
+    validate: 'jsonl>=1',
+  },
 ];
 
 /**
