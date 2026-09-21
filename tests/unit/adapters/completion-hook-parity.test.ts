@@ -9,10 +9,14 @@ import type { AdapterType } from '@/core/types/adapter.js';
 
 /**
  * Regression guard for the ledger bug: the verification-completion hook (the
- * only thing that writes the evidence ledger on a host without Claude's Stop
- * hook) must be wired into EVERY hook-capable host's native config — not Claude
- * Code alone — and it must live in the hook layer, never in the host's prose
- * entry file. A new host wired for one provider only fails here.
+ * thing that writes the evidence ledger / surfaces the verdict on a host) must be
+ * wired into EVERY hook-capable host's native config — not Claude Code alone — and
+ * it must live in the hook layer, never in the host's prose entry file. A new host
+ * wired for one provider only fails here.
+ *
+ * Issue #566 — Codex moved to the full pre-and-completion chain, so its completion
+ * hook is now the blocking `verification-completion.mjs` (like Claude), not the
+ * record-only `verification-record.mjs`. Gemini keeps the record-only hook.
  */
 const WIRED_HOSTS: ReadonlyArray<{
   type: AdapterType;
@@ -36,7 +40,7 @@ const WIRED_HOSTS: ReadonlyArray<{
     type: 'codex-cli',
     hookFile: '.codex/hooks.json',
     event: '"Stop"',
-    script: 'verification-record.mjs',
+    script: 'verification-completion.mjs',
     entryFile: 'AGENTS.md',
   },
   {
@@ -73,13 +77,14 @@ describe('cross-provider completion-hook parity', () => {
 });
 
 /**
- * Issue #265, AC-4/AC-6 — the hard block (per-stage `stage-writer.mjs` on
- * PreToolUse + the `capability-gate.mjs pre-mutation` deny) is a PreToolUse-only
- * capability, so it is PRESENT for claude-code and ABSENT everywhere else. This
- * guards the honesty invariant: Codex/Gemini get the record tier at completion but
- * NOT a pre-edit block, and no adapter closes the gap via its entry file.
+ * Issue #265 / #566 — the hard block (per-stage `stage-writer.mjs` on PreToolUse +
+ * the `capability-gate.mjs pre-mutation` deny) is a PreToolUse capability, so it is
+ * PRESENT for the pre-and-completion hosts (claude-code AND codex-cli) and ABSENT
+ * everywhere else. This guards the honesty invariant: Gemini gets the record tier at
+ * completion but NOT a pre-edit block, the advisory hosts get neither, and no adapter
+ * closes the gap via its entry file.
  */
-describe('pre-mutation block is claude-only (no record-tier over-reach)', () => {
+describe('pre-mutation block is limited to the pre-and-completion hosts', () => {
   const PRE_MUTATION_MARKERS = ['stage-writer.mjs', 'capability-gate.mjs'];
 
   async function generate(type: AdapterType): Promise<string> {
@@ -92,15 +97,18 @@ describe('pre-mutation block is claude-only (no record-tier over-reach)', () => 
     return files.map((file) => file.content).join('\n');
   }
 
-  it('claude-code wires the stage-writer AND the pre-mutation deny', async () => {
-    const all = await generate('claude-code');
-    for (const marker of PRE_MUTATION_MARKERS) {
-      expect(all, `claude-code must wire ${marker}`).toContain(marker);
-    }
-  });
+  const PRE_AND_COMPLETION: AdapterType[] = ['claude-code', 'codex-cli'];
 
-  const NON_CLAUDE: AdapterType[] = [
-    'codex-cli',
+  for (const type of PRE_AND_COMPLETION) {
+    it(`${type} wires the stage-writer AND the pre-mutation deny`, async () => {
+      const all = await generate(type);
+      for (const marker of PRE_MUTATION_MARKERS) {
+        expect(all, `${type} must wire ${marker}`).toContain(marker);
+      }
+    });
+  }
+
+  const NON_BLOCKING: AdapterType[] = [
     'gemini-cli',
     'cursor',
     'windsurf',
@@ -112,7 +120,7 @@ describe('pre-mutation block is claude-only (no record-tier over-reach)', () => 
     'aiassistant',
   ];
 
-  for (const type of NON_CLAUDE) {
+  for (const type of NON_BLOCKING) {
     it(`${type} wires no pre-mutation block (writer/deny absent)`, async () => {
       const all = await generate(type);
       for (const marker of PRE_MUTATION_MARKERS) {

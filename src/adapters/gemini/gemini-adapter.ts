@@ -1,6 +1,6 @@
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
-import { buildNativeCompletionHookFile } from '../shared/native-completion-hook.js';
+import { buildNativeCompletionHookFile } from '../shared/native-hook-config.js';
 
 /** Gemini CLI reads hooks from `.gemini/settings.json` (under a `hooks` key) and
  *  fires `AfterAgent` when the agent loop ends. https://geminicli.com/docs/hooks/ */
