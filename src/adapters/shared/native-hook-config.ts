@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'pathe';
 
 import type { GeneratedFile } from '../adapter.interface.js';
-import { buildHostHookChain, completionRecordCommand, type RenderedHook } from './paqad-hooks.js';
+import {
+  buildHostHookChain,
+  completionRecordCommand,
+  type BuildHookChainOptions,
+  type RenderedHook,
+} from './paqad-hooks.js';
 
 /**
  * The ONE renderer that writes paqad's hooks into a host's native hook-config file
@@ -175,12 +180,15 @@ export function buildNativeCompletionHookFile(options: NativeCompletionHookOptio
   });
 }
 
-/** The full pre-and-completion chain for a host that renders it (Claude, Codex). */
+/** The full pre-and-completion chain for a host that renders it (Claude, Codex).
+ *  Pass `{ stageIsolation: true }` to include the stage-isolation-gated hooks (issue #567);
+ *  with it off (the default) the chain is byte-identical to before that feature. */
 export function buildFullHookChain(
   adapterType: string,
   env: NodeJS.ProcessEnv = process.env,
+  options: BuildHookChainOptions = {},
 ): RenderedHook[] {
-  return buildHostHookChain(adapterType, env);
+  return buildHostHookChain(adapterType, env, options);
 }
 
 /**

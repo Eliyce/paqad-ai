@@ -1,6 +1,7 @@
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
 import { buildFullHookChain, buildNativeHookConfigFile } from '../shared/native-hook-config.js';
+import { isStageIsolationOn } from '@/stage-isolation/mode.js';
 
 /** Codex CLI reads project-local hooks from `.codex/hooks.json` and fires the same
  *  lifecycle events Claude Code does — SessionStart, UserPromptSubmit, PreToolUse
@@ -64,7 +65,11 @@ export class CodexCliAdapter extends BaseAdapter {
       buildNativeHookConfigFile({
         projectRoot: context.projectRoot,
         settingsPath: CODEX_HOOKS_FILE,
-        chain: buildFullHookChain(this.type),
+        // Issue #567 — include the SubagentStop hook only when stage isolation is on, so a
+        // default-off project's .codex/hooks.json is byte-identical to before this feature.
+        chain: buildFullHookChain(this.type, process.env, {
+          stageIsolation: isStageIsolationOn(context.projectRoot),
+        }),
         pruneBasenames: CODEX_RETIRED_HOOK_FILES,
       }),
     ];

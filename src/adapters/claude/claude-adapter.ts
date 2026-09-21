@@ -1,4 +1,5 @@
 import { shouldStripAiAttribution } from '@/delivery/attribution-config.js';
+import { isStageIsolationOn } from '@/stage-isolation/mode.js';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
@@ -83,7 +84,11 @@ function buildClaudeSettings(projectRoot: string): GeneratedFile {
   return buildNativeHookConfigFile({
     projectRoot,
     settingsPath: CLAUDE_SETTINGS_FILE,
-    chain: buildFullHookChain('claude-code'),
+    // Issue #567 — include the SubagentStop hook only when stage isolation is on, so a
+    // default-off project's settings.json is byte-identical to before this feature.
+    chain: buildFullHookChain('claude-code', process.env, {
+      stageIsolation: isStageIsolationOn(projectRoot),
+    }),
     pruneExact: LEGACY_HOOK_COMMANDS,
     pruneBasenames: RETIRED_HOOK_FILES,
     transform: (merged) => mergeAttribution(merged, projectRoot),
