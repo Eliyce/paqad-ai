@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { buildNativeCompletionHookFile } from '@/adapters/shared/native-completion-hook.js';
+import { buildNativeCompletionHookFile } from '@/adapters/shared/native-hook-config.js';
 import { completionRecordCommand, PAQAD_RUNTIME_PREFIX } from '@/adapters/shared/paqad-hooks.js';
 
 function tempProject(): string {

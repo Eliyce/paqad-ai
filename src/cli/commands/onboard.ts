@@ -4,7 +4,7 @@ import type { AdapterType } from '@/core/types/adapter.js';
 import type { Capability, Stack } from '@/core/types/domain.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 
-import { printBanner, printNextSteps } from '../ui/banner.js';
+import { codexTrustHint, printBanner, printNextSteps } from '../ui/banner.js';
 
 export function createOnboardCommand(): Command {
   return new Command('onboard')
@@ -56,6 +56,12 @@ export function createOnboardCommand(): Command {
               `in .paqad/configs/.config.* or .paqad/.config:\n    ${reverted.join('\n    ')}\n` +
               `  See the .paqad/configs/ files (every option is listed there, commented out).`,
           );
+        }
+
+        // Codex needs a one-time /hooks trust step for its project hooks (issue #566).
+        const codexHint = codexTrustHint(result?.decision_pause_supported_adapters);
+        if (codexHint) {
+          console.log(`\n${codexHint}`);
         }
       },
     );

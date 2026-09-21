@@ -82,3 +82,20 @@ export function printNextSteps(): void {
   console.log(claudeAccent(borderLine('╚', '═', '╝')));
   console.log();
 }
+
+/**
+ * One plain line telling a Codex developer to trust paqad's project hooks (issue #566,
+ * step 6). Codex loads project-local `.codex/hooks.json` only when the `.codex/` layer is
+ * trusted, so onboarding cannot make the gates fire on its own — the developer approves
+ * them once in Codex's `/hooks` screen. Returns null when Codex was not onboarded, so a
+ * non-Codex onboard prints nothing.
+ */
+export function codexTrustHint(adapters: readonly string[] | undefined): string | null {
+  if (!adapters?.includes('codex-cli')) {
+    return null;
+  }
+  return (
+    'Codex: open Codex in this project, run /hooks, and approve paqad\u2019s hooks so the ' +
+    'feature-development gates fire (project hooks load only when the .codex/ layer is trusted).'
+  );
+}

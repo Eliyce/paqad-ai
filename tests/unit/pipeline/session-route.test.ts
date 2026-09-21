@@ -34,6 +34,21 @@ describe('session-route pointer (#336)', () => {
     });
   });
 
+  it('round-trips the routing host adapter (issue #566, AC-8)', () => {
+    writeSessionRoute(root, { workflow: 'feature-development', query: 'x', adapter: 'codex-cli' });
+    expect(readSessionRoute(root)).toEqual({
+      workflow: 'feature-development',
+      query: 'x',
+      adapter: 'codex-cli',
+    });
+  });
+
+  it('omits adapter when the stored route has none (older build)', () => {
+    mkdirSync(dirname(routePath(root)), { recursive: true });
+    writeFileSync(routePath(root), JSON.stringify({ workflow: 'pentest', query: 'y' }), 'utf8');
+    expect(readSessionRoute(root)).toEqual({ workflow: 'pentest', query: 'y' });
+  });
+
   it('returns null when no pointer was written', () => {
     expect(readSessionRoute(root)).toBeNull();
   });

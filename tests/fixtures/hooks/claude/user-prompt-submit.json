@@ -1,0 +1,6 @@
+{
+  "session_id": "01JCLAUDESESSION000000000",
+  "cwd": "/work/project",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "add a hello function to src/hello.ts"
+}

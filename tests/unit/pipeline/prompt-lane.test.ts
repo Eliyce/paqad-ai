@@ -112,6 +112,19 @@ describe('runPromptRouteSeam (#336)', () => {
     expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
   });
 
+  it('records the routing host on the session route (issue #566, AC-8)', async () => {
+    await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'explain how the router works',
+        sessionId: SESSION,
+        adapter: 'codex-cli',
+      },
+      { classify: async () => classificationWith('project-question') },
+    );
+    expect(readSessionRoute(root)?.adapter).toBe('codex-cli');
+  });
+
   it('records project-question and stashes no lane for a question', async () => {
     const result = await runPromptRouteSeam(
       {

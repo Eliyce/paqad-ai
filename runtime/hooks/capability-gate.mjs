@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
+import { editTargets } from './lib/edit-targets.mjs';
 import { isPaqadDisabled, readFlooredMode, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 
@@ -36,6 +37,9 @@ const STAGES_MODES = ['off', 'warn', 'strict'];
 // The host seam this invocation evaluates. Defaults to pre-mutation; the adapter
 // wires `completion` explicitly on the Stop seam.
 const SEAM = process.argv[2] === 'completion' ? 'completion' : 'pre-mutation';
+// The host that invoked the hook (issue #566): argv[3] after the seam. `claude-code`
+// (default, omitted for byte-identity) → undefined; Codex passes `codex-cli`.
+const ADAPTER = process.argv[3] || undefined;
 
 /**
  * Cheap, dist-less check for whether this seam has any kernel work to do, so the
@@ -87,12 +91,17 @@ function seamHasWork(projectRoot, seam) {
 function parsePayload(input) {
   try {
     const payload = JSON.parse(input);
-    const toolInput = payload?.tool_input ?? {};
+    // The edited paths across both host shapes (Claude file_path, Codex apply_patch).
+    // `targetPath` stays the representative first path; `targetPaths` carries all so a
+    // multi-file patch is gated iff any path is feature-dev (issue #566).
+    const targets = editTargets(payload);
     return {
       toolName: payload?.tool_name,
-      targetPath: toolInput.file_path ?? toolInput.notebook_path,
+      targetPath: targets[0],
+      targetPaths: targets.length > 0 ? targets : undefined,
       transcriptPath: payload?.transcript_path,
       sessionId: payload?.session_id,
+      adapter: ADAPTER,
     };
   } catch {
     /* v8 ignore next 2 */

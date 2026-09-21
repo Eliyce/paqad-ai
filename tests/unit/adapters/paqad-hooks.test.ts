@@ -4,21 +4,26 @@ import {
   HOOK_COVERAGE_MATRIX,
   hookCommand,
   hasPreMutationBlock,
+  NATIVE_HOOK_EVENTS,
   PAQAD_LIVE_HOOKS,
   isLiveHookCapable,
 } from '@/adapters/shared/paqad-hooks.js';
 import { AdapterFactory } from '@/adapters/factory.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 
-describe('paqad live hook definition (#117 C-5)', () => {
-  it('defines a decision-pause pre-tool gate and a completion hook from one source', () => {
+describe('paqad live hook definition (#117 C-5, #566)', () => {
+  it('defines the full ordered chain — entry gate, decision-pause, and completion — from one source', () => {
     const ids = PAQAD_LIVE_HOOKS.map((hook) => hook.id);
+    expect(ids).toContain('agent-entry-gate');
     expect(ids).toContain('decision-pause-gate');
     expect(ids).toContain('verification-completion');
 
     const preTool = PAQAD_LIVE_HOOKS.find((hook) => hook.id === 'decision-pause-gate');
     expect(preTool?.event).toBe('pre-tool-mutation');
-    expect(preTool?.mutatingToolMatcher).toBe('Edit|Write|NotebookEdit');
+    // The mutating-tool matcher now lives on the per-host event map, not the spec, so one
+    // chain renders with each host's own matcher (Claude Edit|Write|NotebookEdit, Codex apply_patch).
+    expect(NATIVE_HOOK_EVENTS['claude-code'].mutatingMatcher).toBe('Edit|Write|NotebookEdit');
+    expect(NATIVE_HOOK_EVENTS['codex-cli'].mutatingMatcher).toBe('^apply_patch$');
     // Cross-platform: a `.mjs` hook file, never the retired `.sh` (issue #240).
     expect(preTool?.hookFile).toBe('decision-pause-gate.mjs');
 
@@ -43,11 +48,11 @@ describe('paqad live hook definition (#117 C-5)', () => {
     expect(win).toBe('node "C:/Users/me/.paqad-ai/current/hooks/x.mjs"');
   });
 
-  it('tiers coverage honestly: only claude/codex/gemini are live (buildout F7b)', () => {
+  it('tiers coverage honestly: claude/codex are pre-and-completion, gemini completion-only (#566)', () => {
     expect(HOOK_COVERAGE_MATRIX['claude-code']).toBe('live-pre-and-completion');
-    expect(HOOK_COVERAGE_MATRIX['codex-cli']).toBe('live-completion-only');
+    expect(HOOK_COVERAGE_MATRIX['codex-cli']).toBe('live-pre-and-completion');
     expect(HOOK_COVERAGE_MATRIX['gemini-cli']).toBe('live-completion-only');
-    // The previously-mislabelled hosts are advisory — no executed host hook.
+    // The advisory hosts have no executed host hook.
     for (const advisory of [
       'cursor',
       'windsurf',
@@ -65,9 +70,10 @@ describe('paqad live hook definition (#117 C-5)', () => {
     expect(isLiveHookCapable('cursor')).toBe(false);
     expect(isLiveHookCapable('unknown-host')).toBe(false);
 
-    // Pre-mutation blocking is Claude-only (the sole PreToolUse-capable host).
+    // Pre-mutation blocking is now Claude AND Codex (the PreToolUse-capable hosts).
     expect(hasPreMutationBlock('claude-code')).toBe(true);
-    expect(hasPreMutationBlock('codex-cli')).toBe(false);
+    expect(hasPreMutationBlock('codex-cli')).toBe(true);
+    expect(hasPreMutationBlock('gemini-cli')).toBe(false);
     expect(hasPreMutationBlock('cursor')).toBe(false);
   });
 

@@ -1,3 +1,7 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+
 import { CodexCliAdapter } from '@/adapters';
 
 import { fixtureProfile, fixtureSkillBundleArtifacts } from '../shared.fixture';
@@ -48,5 +52,96 @@ describe('CodexCliAdapter', () => {
   it('writes Dart MCP config for flutter', async () => {
     const files = await adapter.installMcp([], fixtureProfile('flutter'));
     expect(files[0]?.content).toContain('dart-mcp');
+  });
+});
+
+describe('CodexCliAdapter — full hook chain (issue #566)', () => {
+  const adapter = new CodexCliAdapter();
+  const FIXED_HOME = '/fake/home/.paqad-ai/current';
+
+  interface HookCmd {
+    type: string;
+    command: string;
+  }
+  interface HookGroup {
+    matcher?: string;
+    hooks: HookCmd[];
+  }
+  interface Hooks {
+    hooks: Record<string, HookGroup[]>;
+  }
+
+  async function render(projectRoot: string): Promise<string> {
+    const prior = process.env.PAQAD_FRAMEWORK_HOME;
+    process.env.PAQAD_FRAMEWORK_HOME = FIXED_HOME;
+    try {
+      const files = await adapter.generateConfig({
+        frameworkPath: '.paqad/framework-path.txt',
+        rulesPath: 'docs/instructions/rules',
+        projectRoot,
+      });
+      return files.find((f) => f.path === '.codex/hooks.json')!.content;
+    } finally {
+      if (prior === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
+      else process.env.PAQAD_FRAMEWORK_HOME = prior;
+    }
+  }
+  const cmds = (groups: HookGroup[]): string[] =>
+    groups.flatMap((g) => g.hooks.map((h) => h.command));
+
+  it('writes all four events with paqad commands in order, codex argv where host-aware (AC-1)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-codex-hooks-'));
+    const json = JSON.parse(await render(root)) as Hooks;
+
+    // PreToolUse: matcher ^apply_patch$, four hooks in order.
+    const pre = json.hooks.PreToolUse;
+    expect(pre.every((g) => g.matcher === '^apply_patch$')).toBe(true);
+    expect(cmds(pre)).toEqual([
+      'node "' + FIXED_HOME + '/hooks/agent-entry-gate.mjs"',
+      'node "' + FIXED_HOME + '/hooks/stage-writer.mjs" codex-cli',
+      'node "' + FIXED_HOME + '/hooks/decision-pause-gate.mjs"',
+      'node "' + FIXED_HOME + '/hooks/capability-gate.mjs" pre-mutation codex-cli',
+    ]);
+
+    expect(cmds(json.hooks.UserPromptSubmit)).toEqual([
+      'node "' + FIXED_HOME + '/hooks/agent-entry-prompt-gate.mjs" codex-cli',
+      'node "' + FIXED_HOME + '/hooks/ticket-intake-prompt.mjs" codex-cli',
+    ]);
+    expect(cmds(json.hooks.SessionStart)).toEqual([
+      'node "' + FIXED_HOME + '/hooks/agent-entry-session-start.mjs"',
+      'node "' + FIXED_HOME + '/hooks/silent-update.mjs"',
+    ]);
+    expect(cmds(json.hooks.Stop)).toEqual([
+      'node "' + FIXED_HOME + '/hooks/stage-marker-parse.mjs" codex-cli',
+      'node "' + FIXED_HOME + '/hooks/verification-completion.mjs" codex-cli',
+      'node "' + FIXED_HOME + '/hooks/capability-gate.mjs" completion codex-cli',
+    ]);
+    // The retired record-only hook is gone from Codex — it renders the blocking chain now.
+    expect(await render(root)).not.toContain('verification-record.mjs');
+  });
+
+  it('a second onboard is byte-identical and a hand-added user hook survives (AC-2)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-codex-idem-'));
+    const first = await render(root);
+    // Seed the generated file plus a user's own Stop hook.
+    const parsed = JSON.parse(first) as Hooks;
+    parsed.hooks.Stop.push({ hooks: [{ type: 'command', command: 'echo my-own-hook' }] });
+    const full = join(root, '.codex/hooks.json');
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(full, JSON.stringify(parsed, null, 2) + '\n');
+
+    const second = await render(root);
+    const secondJson = JSON.parse(second) as Hooks;
+    // The user's hook is preserved…
+    expect(cmds(secondJson.hooks.Stop)).toContain('echo my-own-hook');
+    // …and paqad's own hooks are not duplicated.
+    const paqadStop = cmds(secondJson.hooks.Stop).filter((c) =>
+      c.includes('verification-completion.mjs'),
+    );
+    expect(paqadStop).toHaveLength(1);
+
+    // A third onboard over the second's output is byte-identical (idempotent).
+    writeFileSync(full, second);
+    expect(await render(root)).toBe(second);
   });
 });

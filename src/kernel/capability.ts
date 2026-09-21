@@ -36,7 +36,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
-import { isFeatureDevEdit } from '@/stage-evidence/scope.js';
+import { changeIsFeatureDev, isFeatureDevEdit } from '@/stage-evidence/scope.js';
 import { isArtifactBearingStage, PRE_CODE_STAGES } from '@/stage-evidence/stages.js';
 import { type StageLane } from '@/stage-evidence/types.js';
 
@@ -252,6 +252,23 @@ function sessionRoutedToFeatureDevelopment(
   return state.paused.some((entry) => isFeatureDevelopmentRoute(entry.workflow));
 }
 
+/**
+ * Whether a mutating call is a feature-development edit the gate governs. A Codex
+ * `apply_patch` can touch several files ({@link CapabilityPayload.targetPaths}); the
+ * call is feature development when ANY path is (reusing {@link changeIsFeatureDev},
+ * never a second exclude list). A single-path payload falls back to the one target,
+ * and a payload-less call fails closed for code (issue #310 / #566).
+ */
+function payloadFeatureDev(
+  payload: { targetPath?: string; targetPaths?: string[] } | undefined,
+  projectRoot: string,
+): boolean {
+  if (payload?.targetPaths && payload.targetPaths.length > 0) {
+    return changeIsFeatureDev(payload.targetPaths, projectRoot);
+  }
+  return isFeatureDevEdit(payload?.targetPath, projectRoot);
+}
+
 const ruleScriptsCapability: Capability = {
   id: 'rule-scripts',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
@@ -262,7 +279,7 @@ const ruleScriptsCapability: Capability = {
     // (read from the per-session workflow-state). Every other workflow — a question,
     // a pentest, a design-test, a docs task, an RCA, a rules analysis, small talk —
     // runs no rule-scripts.
-    if (seam === 'pre-mutation' && !isFeatureDevEdit(payload?.targetPath, projectRoot)) {
+    if (seam === 'pre-mutation' && !payloadFeatureDev(payload, projectRoot)) {
       return NO_OP;
     }
     if (seam === 'completion' && !sessionRoutedToFeatureDevelopment(projectRoot, payload, env)) {
@@ -363,6 +380,7 @@ function sweepSameTurnMarkers(
   projectRoot: string,
   transcriptPath: string | undefined,
   sessionId: string,
+  adapter: string | undefined,
 ): string {
   if (!transcriptPath) return '';
   let transcriptText: string;
@@ -371,7 +389,7 @@ function sweepSameTurnMarkers(
   } catch {
     return ''; // no transcript to sweep — the ledger check proceeds on what exists
   }
-  const recorded = parseAndRecordMarkers({ projectRoot, transcriptText, sessionId });
+  const recorded = parseAndRecordMarkers({ projectRoot, transcriptText, sessionId, adapter });
   return markerBatchNarration(recorded);
 }
 
@@ -401,7 +419,7 @@ const stagesCapability: Capability = {
     // Only feature-development edits are gated (issue #310). A docs-only or
     // framework-internal edit (incl. the agent-entry sentinel and the .config.policy
     // escape hatch) is not a feature being built — skip it, no stages demanded.
-    if (!isFeatureDevEdit(payload?.targetPath, projectRoot)) return NO_OP;
+    if (!payloadFeatureDev(payload, projectRoot)) return NO_OP;
     const blocking = mode === 'strict';
 
     const sessionId = resolveSessionId(
@@ -413,7 +431,12 @@ const stagesCapability: Capability = {
     // emitted this turn BEFORE reading the ledger, so the remediation the block
     // message names actually clears the block within the turn. The narration for
     // every recorded marker rides on the outcome — the ledger write is never silent.
-    const narration = sweepSameTurnMarkers(projectRoot, payload?.transcriptPath, sessionId);
+    const narration = sweepSameTurnMarkers(
+      projectRoot,
+      payload?.transcriptPath,
+      sessionId,
+      payload?.adapter,
+    );
     const dirName = currentFeature(projectRoot, sessionId);
 
     // The mandatory stages that must exist BEFORE code is written (planning,
@@ -492,7 +515,7 @@ const rulesLoadedCapability: Capability = {
   id: 'rules-loaded',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
     if (seam !== 'pre-mutation') return NO_OP;
-    if (!isFeatureDevEdit(payload?.targetPath, projectRoot)) return NO_OP;
+    if (!payloadFeatureDev(payload, projectRoot)) return NO_OP;
     // Nothing to load ⇒ nothing to block on. A project with no compiled rule store has no
     // rule text to read, so the edit gate must not demand a load that cannot exist.
     const store = await readCompiledRules(projectRoot);

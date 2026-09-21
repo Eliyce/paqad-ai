@@ -1,0 +1,8 @@
+{
+  "session_id": "01JCLAUDESESSION000000000",
+  "transcript_path": "/work/project/.claude/transcript.jsonl",
+  "cwd": "/work/project",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": { "file_path": "src/hello.ts", "old_string": "a", "new_string": "b" }
+}

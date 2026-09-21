@@ -1,32 +1,29 @@
 #!/usr/bin/env node
-// Record-only completion hook for hosts whose native "agent finished" hook must
-// never disrupt the agent — Codex CLI's `Stop`, Gemini CLI's `AfterAgent`, etc.
+// Record-only completion hook for a host whose native "agent finished" hook must
+// never disrupt the agent and cannot block — Gemini CLI's `AfterAgent`.
+//
+// (Codex CLI no longer uses this hook: it renders the full blocking completion chain
+// like Claude Code, issue #566. This remains for Gemini, whose tier is unchanged.)
 //
 // It does two record-only things at turn end, both purely for their side effect:
 //   1. Runs the same verification backstop Claude Code's `Stop` hook runs, so when
 //      enterprise evidence is enabled the evidence ledger / receipt / AI-BOM is
 //      written under `.paqad/ledger/`.
-//   2. Parses the agent's `paqad:stage <stage> <start|end>` control lines out of
-//      the turn transcript and records the non-mutation stages (planning,
-//      specification-as-thinking, review) into the SAME stage-evidence ledger the
-//      backstop folds (issue #265 — the record tier ported from Claude to Codex /
-//      Gemini). The per-stage rows are attributed to the host that ran, via the
-//      adapter type passed as argv (`codex-cli` / `gemini-cli`).
+//   2. Parses the agent's `paqad:stage <stage> <start|end>` control lines out of the
+//      turn transcript and records the non-mutation stages into the SAME stage-evidence
+//      ledger the backstop folds (issue #265), attributed to the host that ran.
 //
-// Unlike `verification-completion.mjs` (Claude's hook, which exits 2 on a blocking
-// verdict so the host surfaces it to the model), this hook ALWAYS exits 0 and
-// emits nothing on stdout/stderr. That guarantees a failing gate, an infra error,
-// our human-readable summary, OR a marker-parse error can never halt the host,
-// trigger a retry loop, or be misread by a host that parses Stop-hook stdout as a
-// control "decision" (Codex rejects plain text on Stop; Gemini requires pure JSON
-// on stdout). There is no in-chat verdict on these hosts — a deliberate,
-// physics-bounded choice: the verdict lives in the ledger, not the chat.
+// Unlike `verification-completion.mjs`, this hook ALWAYS exits 0 and emits nothing on
+// stdout/stderr, so a failing gate, an infra error, or a marker-parse error can never
+// halt the host, trigger a retry loop, or be misread by a host that parses Stop-hook
+// stdout as a control "decision". There is no in-chat verdict on this host — the
+// verdict lives in the ledger, not the chat.
 
-import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
-import { resolveCodexRolloutText } from './lib/codex-rollout.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
+import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
 
 // The host adapter type, passed as argv by the generated hook command so recorded
@@ -34,8 +31,8 @@ import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
 // recorder defaults attribution to claude-code.
 const ADAPTER_TYPE = process.argv[2] || undefined;
 
-// Drain stdin (the host pipes a Stop/AfterAgent JSON payload) so the process does
-// not hang on the pipe, then run the record-only work.
+// Drain stdin (the host pipes an AfterAgent JSON payload) so the process does not hang
+// on the pipe, then run the record-only work.
 let input = '';
 process.stdin.on('data', (chunk) => {
   input += chunk;
@@ -48,45 +45,12 @@ process.stdin.resume();
 
 const silent = { write: () => true };
 
-/**
- * Resolve the transcript text to scan for markers from the completion payload.
- * Prefers a readable `transcript_path` (Claude / Codex expose one; format need not
- * be stable — the parser falls back to a raw scan). Falls back to the inline final
- * message the payload carries when the path is absent, empty, or unreadable —
- * Codex `last_assistant_message`, Gemini `prompt_response` (Gemini's
- * `transcript_path` is currently stubbed to an empty string). '' when neither is
- * available. Never throws.
- */
-function resolveTranscriptText(payload) {
-  const path = payload?.transcript_path;
-  if (typeof path === 'string' && path.trim() !== '') {
-    try {
-      return readFileSync(path, 'utf8');
-    } catch {
-      // Fall through — a stubbed/unreadable path is expected on some hosts and
-      // must never disrupt the record run.
-    }
-  }
-  // Codex Desktop's `Stop` payload carries no readable `transcript_path`, and its
-  // `paqad:stage` markers live in MID-RUN assistant messages — the inline
-  // `last_assistant_message` is the final summary only, which never carries them.
-  // Scanning only that inline field silently records a well-behaved run as
-  // "no stages / blocked" (issue #313, finding 1). So before the marker-less
-  // inline fallback, read the session's own rollout transcript off disk.
-  if (ADAPTER_TYPE === 'codex-cli') {
-    const rollout = resolveCodexRolloutText(payload?.session_id);
-    if (rollout) return rollout;
-  }
-  const inline = payload?.last_assistant_message ?? payload?.prompt_response;
-  return typeof inline === 'string' ? inline : '';
-}
-
 /** Best-effort marker recording: parse the transcript and mint the stage rows the
  *  agent marked. Any failure (no payload, no dist, fs/parse error) is swallowed. */
 async function recordMarkers(projectRoot, rawInput) {
   try {
     const payload = JSON.parse(rawInput);
-    const transcriptText = resolveTranscriptText(payload);
+    const transcriptText = resolveCompletionTranscriptText(rawInput, ADAPTER_TYPE);
     if (!transcriptText) return;
     const distUrl = new URL('../../dist/stage-evidence/marker-parse.js', import.meta.url);
     const { parseAndRecordMarkers } = await import(distUrl.href);
@@ -117,6 +81,9 @@ async function main(rawInput) {
       origin: 'hook-completion',
       softFail: true,
       projectRoot,
+      // Thread the host session id so finalization keys on the LIVE session, not the
+      // stale single-slot cache — the same bug #5 fix verification-completion.mjs makes.
+      hostSessionId: sessionIdFromStdin(rawInput),
       stdout: silent,
       stderr: silent,
     });

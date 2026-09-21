@@ -202,7 +202,11 @@ export async function runPromptRouteSeam(
   // Hand the routed workflow + prompt to the detached context worker (#336) so it
   // loads rules only for feature-development, seeds retrieval with the prompt, and
   // retrieves nothing for no-workflow.
-  writeSessionRoute(input.projectRoot, { workflow: routed, query: input.request });
+  writeSessionRoute(input.projectRoot, {
+    workflow: routed,
+    query: input.request,
+    adapter: input.adapter,
+  });
 
   return {
     routed,

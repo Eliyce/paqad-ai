@@ -18,7 +18,7 @@ layered.
 | Layer | Mechanism | Fires when | Coverage | Bypassable? |
 | --- | --- | --- | --- | --- |
 | **1. Live in-session** | Native pre-tool hooks (`decision-pause-gate.mjs`, `pre-write-check-spec.sh`) | As the offending tool call happens | Hosts with real pre-tool hooks | Yes (host-dependent) |
-| **2. Completion** | Each host's native completion hook, rendered into its own config from one definition: Claude `Stop` (`verification-completion.mjs`), Codex `Stop` and Gemini `AfterAgent` (`verification-record.mjs`, record-only) | The moment the agent finishes a turn | Every host with a native completion hook | Yes (agent can be configured without it) |
+| **2. Completion** | Each host's native completion hook, rendered into its own config from one definition: Claude `Stop` and Codex `Stop` (`verification-completion.mjs`), Gemini `AfterAgent` (`verification-record.mjs`, record-only) | The moment the agent finishes a turn | Every host with a native completion hook | Yes (agent can be configured without it) |
 | **3. Backstop** | Git pre-commit/pre-push (`pre-commit-verify.sh`) + CI step, both running `verify-backstop.mjs` | On commit / in CI | Every agent and every human | Local git: yes (`--no-verify`). **CI: no.** |
 
 Layers 1 and 2 are fast feedback. Layer 3 is the real backstop: an agent cannot
@@ -76,16 +76,18 @@ is still `missing`, so the completeness verdict remains `incomplete` and the hon
 distinction between "reviewed late" and "not reviewed" holds.
 
 The completion hook **soft-fails** on infrastructure errors (a missing build, an
-import failure) so a broken install never wedges the agent. On hosts other than
-Claude Code the completion hook is **record-only** (`verification-record.mjs`):
-it writes the evidence ledger **and records the agent's `paqad:stage` markers**
-(issue #265 — the same non-mutation stages Claude records at Stop, attributed to
-the host that ran via an adapter argv), but always exits 0 and stays silent, so a
-host that reads a Stop-hook's exit code or stdout as a control decision is never
-blocked or retried. There is **no in-chat verdict** on these hosts — Codex rejects
-plain text on `Stop` and Gemini requires pure JSON on stdout, so the only
-non-disruptive channel is the ledger itself. The CI backstop **fails hard**: infra
-errors and blocking verdicts both exit non-zero.
+import failure) so a broken install never wedges the agent. Claude Code and Codex
+both run the blocking completion hook (`verification-completion.mjs`) on their
+`Stop` event (issue #566): it writes the evidence ledger, records the agent's
+`paqad:stage` markers, and surfaces the trust verdict, blocking via a
+`{decision:"block"}`/exit-2 continuation the way the host documents. On **Gemini**
+the completion hook is **record-only** (`verification-record.mjs`): it writes the
+ledger **and records the agent's `paqad:stage` markers** (issue #265 — attributed to
+the host that ran via an adapter argv), but always exits 0 and stays silent, because
+Gemini requires pure JSON on stdout and cannot accept a blocking Stop decision, so
+the only non-disruptive channel is the ledger itself and there is **no in-chat
+verdict**. The CI backstop **fails hard**: infra errors and blocking verdicts both
+exit non-zero.
 
 ## Per-adapter coverage matrix (C-5)
 
@@ -98,8 +100,8 @@ an entry-file contract the model is asked to follow, with no host seam to bind i
 
 | Adapter | Coverage | Binds | Notes |
 | --- | --- | --- | --- |
-| claude-code | `live-pre-and-completion` | block before edit + verify at end | `settings.json` PreToolUse + Stop (only PreToolUse-capable host) |
-| codex-cli | `live-completion-only` | record + verify at turn end | `.codex/hooks.json` `Stop`; records `paqad:stage` markers from `transcript_path`; no pre-mutation block, no in-chat verdict |
+| claude-code | `live-pre-and-completion` | block before edit + verify at end | `settings.json` PreToolUse (`Edit\|Write\|NotebookEdit`) + Stop |
+| codex-cli | `live-pre-and-completion` | block before edit + verify at end | `.codex/hooks.json` PreToolUse (`^apply_patch$`) + Stop; same hook scripts as Claude, host argv `codex-cli`; transcript falls back to the session rollout jsonl (#566) |
 | gemini-cli | `live-completion-only` | record + verify at turn end | `.gemini/settings.json` `AfterAgent`; records markers from the inline `prompt_response` (its `transcript_path` is stubbed empty); no pre-mutation block, no in-chat verdict |
 | cursor | `advisory` | nothing in-session | entry-file contract only |
 | windsurf | `advisory` | nothing in-session | entry-file contract only |

@@ -1,19 +1,28 @@
 #!/usr/bin/env node
-// stage-writer.mjs — the stage-evidence live writer (RCA fix A).
+// stage-writer.mjs — the stage-evidence live writer (RCA fix A; issue #566).
 //
-// A Claude PreToolUse hook on Edit|Write|NotebookEdit. It is a WRITER, not a gate:
-// it script-mints per-stage `live-mark` rows (started_at/ended_at from the script
-// clock) by handing the mutated file to the compiled `recordLiveStageEdit`, giving
-// the stage-evidence recorder the production caller it never had. It ALWAYS exits 0
-// — the block lives on the completion gate and the pre-mutation deny (fix B).
+// A PreToolUse hook on the host's mutating tool (Claude Edit|Write|NotebookEdit,
+// Codex `apply_patch`). It is a WRITER, not a gate: it script-mints per-stage
+// `live-mark` rows (started_at/ended_at from the script clock) by handing the
+// mutated file(s) to the compiled `recordLiveStageEdits`, giving the stage-evidence
+// recorder the production caller it never had. It ALWAYS exits 0 — the block lives
+// on the completion gate and the pre-mutation deny (fix B).
 //
-// Thin by contract (the branch logic lives in dist/stage-evidence/live-writer.js so
-// it is coverage-counted): drain stdin → parse the tool payload → lazy-import →
-// record → exit 0. Claude-only (the sole PreToolUse-capable host).
+// Host-aware via one argv (default `claude-code`): the edited paths come from the
+// shared `editTargets` extractor, which understands Claude's `file_path` and Codex's
+// `apply_patch` text alike, and the adapter argv attributes each row to the host that
+// ran (issue #566). A Codex patch can touch several files, so it records one row per
+// path. Thin by contract: the branch logic lives in dist/stage-evidence/live-writer.js
+// so it is coverage-counted.
 
 import process from 'node:process';
 
+import { editTargets } from './lib/edit-targets.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+
+// The host that invoked the hook (issue #566). `claude-code` is the default so an
+// existing Claude installation is unaffected; Codex passes `codex-cli`.
+const ADAPTER_TYPE = process.argv[2] || undefined;
 
 async function main(input) {
   try {
@@ -28,22 +37,18 @@ async function main(input) {
       return 0;
     }
     const toolName = payload?.tool_name;
-    const toolInput = payload?.tool_input ?? {};
-    const targetPath = toolInput.file_path ?? toolInput.notebook_path;
-    if (!toolName || !targetPath) return 0;
+    const targetPaths = editTargets(payload);
+    if (!toolName || targetPaths.length === 0) return 0;
     const sessionId = payload?.session_id ?? null;
 
     const liveUrl = new URL('../../dist/stage-evidence/live-writer.js', import.meta.url);
-    const { recordLiveStageEdit } = await import(liveUrl.href);
+    const { recordLiveStageEdits } = await import(liveUrl.href);
 
-    // Record the edit into the stage-evidence ledger. The on-entry "▸ paqad · <stage>"
-    // narration is NOT printed from this hook: the model speaks that line itself in its
-    // final message (the narration contract). A top-level `{systemMessage}` is a
-    // user-facing warning field, and Claude Code now renders a PreToolUse one on Desktop
-    // as a literal "PreToolUse:<Tool> says:" line (the same leak the Stop seam hit), so
-    // echoing it here would duplicate the model's narration in the developer's chat on
-    // every edit. The ledger write below still runs, so the record is never silent.
-    recordLiveStageEdit({ projectRoot, sessionId, toolName, targetPath });
+    // Record one live-mark row per edited path (a Codex apply_patch can touch
+    // several). The on-entry "▸ paqad · <stage>" narration is NOT printed from this
+    // hook: the model speaks that line itself in its final message (the narration
+    // contract). The ledger write below still runs, so the record is never silent.
+    recordLiveStageEdits({ projectRoot, sessionId, toolName, targetPaths, adapter: ADAPTER_TYPE });
     return 0;
   } catch {
     // Soft-fail: a writer must never wedge the agent. The completion gate still

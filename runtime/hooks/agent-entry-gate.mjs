@@ -19,6 +19,7 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive.mjs';
+import { editTargets } from './lib/edit-targets.mjs';
 import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
@@ -29,9 +30,12 @@ import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 export function isSentinelWrite(input) {
   try {
     const payload = JSON.parse(input);
-    const toolInput = payload?.tool_input ?? {};
-    const target = toolInput.file_path ?? toolInput.notebook_path ?? '';
-    return target.replace(/\\/g, '/').endsWith('.paqad/.agent-entry-loaded');
+    // Host-agnostic: read the edited path(s) through the shared extractor so a Codex
+    // `apply_patch` that writes the sentinel is exempted too (issue #566), not just
+    // Claude's `file_path`. Exempt when ANY edited path is the sentinel.
+    return editTargets(payload).some((target) =>
+      target.replace(/\\/g, '/').endsWith('.paqad/.agent-entry-loaded'),
+    );
   } catch {
     return false;
   }

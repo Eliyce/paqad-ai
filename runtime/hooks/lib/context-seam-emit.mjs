@@ -39,7 +39,10 @@ export function sessionIdFromStdin(stdin) {
  * agent proceeds with grep/read exactly as today (F3). Records the rag-evidence
  * outcome for the turn (#249), which never affects the emitted block.
  */
-export function emitContext(stdin, projectRoot = resolveProjectRoot()) {
+export function emitContext(stdin, projectRoot = resolveProjectRoot(), write) {
+  // The output sink (issue #566): defaults to stdout, but the prompt gate passes a
+  // buffering sink on Codex so the block can be wrapped in the additionalContext envelope.
+  const emit = typeof write === 'function' ? write : (text) => process.stdout.write(text);
   try {
     // Issue #220: when paqad is disabled the seam is a pure no-op — emitting a
     // `[paqad-context]` line would contaminate the OFF arm of an A/B comparison.
@@ -64,7 +67,7 @@ export function emitContext(stdin, projectRoot = resolveProjectRoot()) {
 
     const block = buildInjection(projectRoot);
     if (block) {
-      process.stdout.write(`${block}\n`);
+      emit(`${block}\n`);
     }
 
     // Issue #249 — record what happened on THIS prompt: `used` when a block was

@@ -188,11 +188,16 @@ describe('onboarding adapter matrix', () => {
           expect(existsSync(join(projectRoot, '.claude/memory.json'))).toBe(true);
         }
         if (adapter === 'codex-cli') {
-          // The real Codex hook file must carry the native `Stop` completion hook
-          // so the evidence ledger fires on Codex out of the box (the ledger bug).
+          // The real Codex hook file carries the full pre-and-completion chain (issue #566):
+          // the PreToolUse `^apply_patch$` gates and the blocking `Stop` completion hook, so
+          // the same feature-development enforcement Claude gets fires on Codex out of the box.
           const codexHooks = readFileSync(join(projectRoot, '.codex/hooks.json'), 'utf8');
           expect(codexHooks).toContain('"Stop"');
-          expect(codexHooks).toContain('verification-record.mjs');
+          expect(codexHooks).toContain('"PreToolUse"');
+          expect(codexHooks).toContain('^apply_patch$');
+          expect(codexHooks).toContain('verification-completion.mjs');
+          // Codex no longer uses the record-only hook — it renders the blocking chain.
+          expect(codexHooks).not.toContain('verification-record.mjs');
           expect(existsSync(join(projectRoot, '.codex/cache.json'))).toBe(true);
           expect(existsSync(join(projectRoot, '.codex/memory.json'))).toBe(true);
         }

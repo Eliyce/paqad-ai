@@ -1,0 +1,132 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`native hook-config byte-identity (issue #566) > renders the Claude settings.json exactly as before the shared-renderer change 1`] = `
+"{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-gate.mjs\\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-writer.mjs\\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/decision-pause-gate.mjs\\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/capability-gate.mjs\\" pre-mutation"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-prompt-gate.mjs\\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/ticket-intake-prompt.mjs\\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-session-start.mjs\\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/silent-update.mjs\\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/stage-marker-parse.mjs\\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/verification-completion.mjs\\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/capability-gate.mjs\\" completion"
+          }
+        ]
+      }
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  }
+}
+"
+`;
+
+exports[`native hook-config byte-identity (issue #566) > renders the Gemini settings.json exactly as before the shared-renderer change 1`] = `
+"{
+  "hooks": {
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/verification-record.mjs\\" gemini-cli"
+          }
+        ]
+      }
+    ]
+  }
+}
+"
+`;

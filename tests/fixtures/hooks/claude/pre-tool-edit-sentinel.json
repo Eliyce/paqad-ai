@@ -1,0 +1,7 @@
+{
+  "session_id": "01JCLAUDESESSION000000000",
+  "cwd": "/work/project",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": { "file_path": ".paqad/.agent-entry-loaded", "content": "{}" }
+}
