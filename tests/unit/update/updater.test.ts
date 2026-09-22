@@ -254,7 +254,11 @@ describe('FrameworkUpdater', () => {
       const claudeAgents = join(userHome, '.claude/agents');
       const codexAgents = join(userHome, '.codex/agents');
       expect(existsSync(claudeAgents)).toBe(true);
-      expect(readdirSync(claudeAgents).filter((f) => f.endsWith('.md')).sort()).toEqual([
+      expect(
+        readdirSync(claudeAgents)
+          .filter((f) => f.endsWith('.md'))
+          .sort(),
+      ).toEqual([
         'paqad-checks.md',
         'paqad-development.md',
         'paqad-documentation-sync.md',

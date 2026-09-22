@@ -11,7 +11,7 @@
 // with no subagent dispatch, and whenever the lane is unresolved (INV-2, INV-5). A gate
 // that false-fails legitimate work is worse than the gap it closes.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
