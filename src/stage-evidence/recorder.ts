@@ -33,6 +33,9 @@ export interface StageEvidenceContext {
   dirName?: string;
   /** Provider adapter (claude-code, codex-cli, …). */
   adapter: string;
+  /** Which agent is recording (issue #573): the dispatched stage agent's name, or absent
+   *  for the orchestrator (the write chokepoint defaults it). */
+  agent?: string;
   lane?: 'fast' | 'graduated' | 'full' | null;
   /** Open a NEW named feature (the "new work" signal) instead of resolving the active. */
   title?: string;
@@ -193,7 +196,7 @@ function append(
     projectRoot,
     sessionId,
     dirName,
-    { adapter: ctx.adapter, lane: ctx.lane ?? null, ...fields },
+    { adapter: ctx.adapter, agent: ctx.agent, lane: ctx.lane ?? null, ...fields },
     ctx.now,
   ) as unknown as StageEvidenceRow;
 }

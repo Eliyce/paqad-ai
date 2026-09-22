@@ -18,6 +18,7 @@ interface StageOptions {
   artifact?: string[];
   title?: string;
   issue?: string;
+  agent?: string;
 }
 
 /**
@@ -59,6 +60,12 @@ export function createStageCommand(): Command {
         'issue #339); pauses any active feature and mints a distinct evidence bundle',
     )
     .option('--issue <ref>', 'Ticket/issue ref for a titled feature (e.g. 339, PQD-123)')
+    .option(
+      '--agent <name>',
+      'The agent recording this boundary (issue #573), e.g. paqad-planning. A dispatched ' +
+        'stage agent passes its own name so the row is attributable; omitted means the ' +
+        'orchestrator marked it inline. Defaults to PAQAD_STAGE_AGENT when set.',
+    )
     .action((phase: string, stage: string, options: StageOptions) => {
       if (phase !== 'start' && phase !== 'end') {
         console.error(`unknown phase "${phase}" — use 'start' or 'end'`);
@@ -126,6 +133,10 @@ export function createStageCommand(): Command {
         // ignored on an end (the boundary attaches to the active change).
         title: phase === 'start' ? options.title : undefined,
         issue: options.issue,
+        // Issue #573 — a dispatched stage agent runs the CLI from its own shell, where no
+        // hook payload is available, so it names itself. The env var is the ergonomic
+        // form for an agent that exports it once per dispatch.
+        agent: options.agent ?? process.env.PAQAD_STAGE_AGENT ?? undefined,
       });
       if (!recorded) {
         // Only an UNKNOWN stage fails now (issue #310): an out-of-order boundary is

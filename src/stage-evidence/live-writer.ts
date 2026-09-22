@@ -34,6 +34,10 @@ function toRelativePosix(projectRoot: string, targetPath: string): string {
  * `docs/instructions/**` is `specification` (the canonical contract) not
  * `documentation_sync`.
  */
+// Re-exported so the stage-writer hook resolves the agent identity from the SAME bundle it
+// already lazy-imports (issue #573) — one dist entry, one import, no second dedicated entry.
+export { resolveAgentIdentity, ORCHESTRATOR_AGENT } from './agent-identity.js';
+
 export function classifyStage(targetPath: string, projectRoot = ''): StageId | null {
   const p = projectRoot ? toRelativePosix(projectRoot, targetPath) : targetPath.replace(/\\/g, '/');
 
@@ -95,6 +99,9 @@ export interface LiveWriteInput {
    *  original Claude PreToolUse path is unchanged; Codex passes `codex-cli` so the
    *  live-mark row is attributed to the host that ran. */
   adapter?: string;
+  /** The agent that made the edit (issue #573): the dispatched stage agent's name
+   *  (`paqad-development`), or absent when the orchestrator edited inline. */
+  agent?: string;
   now?: () => Date;
 }
 
@@ -164,7 +171,13 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     if (!preCodeStagesRecorded(rows)) return null;
     // Past the guard `rows` is non-empty, so `dirName` was non-null (rows come from the
     // feature; an empty read means no active feature and the guard already returned).
-    const ctx = { sessionId, dirName: dirName!, adapter: input.adapter ?? 'claude-code', now };
+    const ctx = {
+      sessionId,
+      dirName: dirName!,
+      adapter: input.adapter ?? 'claude-code',
+      agent: input.agent,
+      now,
+    };
 
     const started = stagesWithKind(rows, 'stage_start');
     const ended = stagesWithKind(rows, 'stage_end');
@@ -207,6 +220,9 @@ export interface LiveWriteBatchInput {
   /** Every path the call edited (a Codex `apply_patch` can touch several). */
   targetPaths: readonly string[];
   adapter?: string;
+  /** The agent that made the edit (issue #573): the dispatched stage agent's name
+   *  (`paqad-development`), or absent when the orchestrator edited inline. */
+  agent?: string;
   now?: () => Date;
 }
 
@@ -227,6 +243,7 @@ export function recordLiveStageEdits(input: LiveWriteBatchInput): StageId[] {
       toolName: input.toolName,
       targetPath,
       adapter: input.adapter,
+      agent: input.agent,
       now: input.now,
     });
     if (stage && !recorded.includes(stage)) {
@@ -241,6 +258,8 @@ export type MarkedStagePhase = 'start' | 'end';
 
 export interface MarkedStageInput {
   sessionId?: string | null;
+  /** The agent recording the boundary (issue #573); absent means the orchestrator. */
+  agent?: string;
   stage: string;
   phase: MarkedStagePhase;
   artifactPaths?: string[];
@@ -315,6 +334,7 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
   const ctx = {
     sessionId: input.sessionId,
     adapter: input.adapter ?? 'claude-code',
+    agent: input.agent,
     now: input.now,
   };
   try {
