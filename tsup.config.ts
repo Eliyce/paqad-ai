@@ -46,6 +46,16 @@ export default defineConfig({
     // pattern the runtime hooks use, so no tokenizer/ledger logic is re-implemented.
     'context/tokenizer-cache': 'src/context/tokenizer-cache.ts',
     'session-ledger/project-ledger': 'src/session-ledger/project-ledger.ts',
+    // Prompt-route seam (issue #573) — lazy-imported by the
+    // runtime/hooks/agent-entry-prompt-gate.mjs UserPromptSubmit hook to classify the
+    // prompt, pick the lane and stash it for the next change-open. It was imported with no
+    // entry here from #324 until #573, so the import threw ERR_MODULE_NOT_FOUND on every
+    // prompt of every installed copy and the recorded lane was always null.
+    'pipeline/prompt-lane': 'src/pipeline/prompt-lane.ts',
+    // Ticket-reference detector (issue #573) — lazy-imported by the
+    // runtime/hooks/ticket-intake-prompt.mjs UserPromptSubmit hook. Same missing-entry bug
+    // as the seam above, from #330.
+    'planning/ticket-ref-detect': 'src/planning/ticket-ref-detect.ts',
     // Stage-agent completion recorder (issue #567) — lazy-imported by the
     // runtime/hooks/stage-agent-completion.mjs SubagentStop hook to append one
     // context-efficiency row when a paqad stage agent finishes, the same dedicated-entry
