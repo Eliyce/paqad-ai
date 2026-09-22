@@ -55,7 +55,7 @@ import { classifySessionRouteForEnforcement } from '@/pipeline/route-enforcement
 import { recordNonFeatureVerificationSkip } from '@/session-ledger/non-feature-skip-audit.js';
 import { PAQAD_STATUS_GLYPH, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { type FoldedChange } from '@/stage-evidence/types.js';
+import { type FoldedChange, type OrderingViolation } from '@/stage-evidence/types.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -869,6 +869,21 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
  *   ledger) → `skipped` (informational; never breaks a fresh CI checkout, and
  *   `off`/`warn` let a team adopt the workflow before turning the teeth on).
  */
+/**
+ * Render ordering violations as `before -> after` pairs for a gate message (issue #573).
+ * A self-inverted stage (its own end before its own start) reports as `stage -> itself`,
+ * which is exactly how it reads in the ledger.
+ */
+export function describeOrderingViolations(violations: readonly OrderingViolation[]): string {
+  return violations
+    .map((violation) =>
+      violation.before === violation.after
+        ? `${violation.before} ended before it started`
+        : `${violation.before} -> ${violation.after}`,
+    )
+    .join('; ');
+}
+
 export function stageEvidenceGate(
   result: VerifyResult | null,
   origin: VerificationOrigin,
@@ -897,14 +912,24 @@ export function stageEvidenceGate(
     const lead = result.live_marked
       ? 'Feature-development workflow left incomplete'
       : 'Feature-development stages were not recorded for this change';
+    // Issue #573 — name the condition that ACTUALLY failed. `computeVerdict` returns
+    // 'incomplete' for a missing stage OR an ordering violation, but this message only ever
+    // printed the missing list, so an ordering failure read as the literal, unactionable
+    // `missing stage(s): []`. `ordering_violations` was already on the result and simply
+    // never read.
+    const orderingOnly = result.missing_stages.length === 0 && result.ordering_violations.length > 0;
     return {
       name,
       status: 'fail',
-      detail: `${lead} — missing stage(s): [${missing}].`,
-      remediation:
-        'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
-        '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
-        'via the Decision Pause Contract.',
+      detail: orderingOnly
+        ? `${lead} — stages ran out of order: ${describeOrderingViolations(result.ordering_violations)}.`
+        : `${lead} — missing stage(s): [${missing}].`,
+      remediation: orderingOnly
+        ? 'Re-mark the stages so each one ends before the next begins, or resolve the redo via ' +
+          'the Decision Pause Contract.'
+        : 'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
+          '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
+          'via the Decision Pause Contract.',
       failures: [],
     };
   }
