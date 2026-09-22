@@ -18,6 +18,7 @@ import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js'
 import { VERSION } from '@/index.js';
 import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
+import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
@@ -110,6 +111,19 @@ export class FrameworkUpdater {
     writeConfigExample(projectRoot);
     syncGroupConfigs(projectRoot);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
+
+    // Issue #573 — render the six stage agents here too, not only in `bootstrapFramework`.
+    // `writeStageAgents` was reachable ONLY from onboarding, but a project that already
+    // exists upgrades through `silent-update.mjs` -> `npm install -g paqad-ai@latest &&
+    // paqad-ai update --silent`, which never calls it. The net effect was that #567 wired a
+    // SubagentStop hook pointing at six agents that were never written on any upgraded
+    // machine. Best-effort with the same contract as the install path: the agents are inert
+    // until the orchestrator dispatches them, so a render fault must not fail the update.
+    try {
+      writeStageAgents();
+    } catch {
+      /* best-effort: stage-agent generation never blocks install/update */
+    }
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });
     writeFrameworkVersionPreservingTimestamp(
