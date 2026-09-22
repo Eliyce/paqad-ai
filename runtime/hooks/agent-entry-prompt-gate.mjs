@@ -43,6 +43,7 @@ import {
 } from './lib/agent-entry-directive.mjs';
 import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
 import { emitContext } from './lib/context-seam-emit.mjs';
+import { logHookFailure } from './lib/hook-log.mjs';
 import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -140,8 +141,11 @@ async function emitRoute(stdin, projectRoot, sink) {
     if (narration) {
       sink(`${narration}\n`);
     }
-  } catch {
-    // Best-effort — a broken build or an unparseable prompt just skips the route line.
+  } catch (error) {
+    // Best-effort for the HOST — the prompt still goes through — but never silent again
+    // (issue #573). A swallowed ERR_MODULE_NOT_FOUND here hid a total routing outage for
+    // ~10 weeks: no lane was ever recorded, so stage isolation could never trigger.
+    logHookFailure(projectRoot, 'agent-entry-prompt-gate', error, 'routing this prompt');
   }
 }
 

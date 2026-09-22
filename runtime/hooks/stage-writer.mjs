@@ -40,15 +40,28 @@ async function main(input) {
     const targetPaths = editTargets(payload);
     if (!toolName || targetPaths.length === 0) return 0;
     const sessionId = payload?.session_id ?? null;
+    // Issue #573 — attribute the row to the agent that actually made the edit. A Claude
+    // subagent's payload carries `agent_type` (its name, e.g. `paqad-development`) and
+    // `agent_id`; the main thread carries neither. Passed through raw: the identity
+    // mapping lives in dist (agent-identity.ts) so it stays coverage-counted.
+    const agentType = typeof payload?.agent_type === 'string' ? payload.agent_type : undefined;
+    const agentId = typeof payload?.agent_id === 'string' ? payload.agent_id : undefined;
 
     const liveUrl = new URL('../../dist/stage-evidence/live-writer.js', import.meta.url);
-    const { recordLiveStageEdits } = await import(liveUrl.href);
+    const { recordLiveStageEdits, resolveAgentIdentity } = await import(liveUrl.href);
 
     // Record one live-mark row per edited path (a Codex apply_patch can touch
     // several). The on-entry "▸ paqad · <stage>" narration is NOT printed from this
     // hook: the model speaks that line itself in its final message (the narration
     // contract). The ledger write below still runs, so the record is never silent.
-    recordLiveStageEdits({ projectRoot, sessionId, toolName, targetPaths, adapter: ADAPTER_TYPE });
+    recordLiveStageEdits({
+      projectRoot,
+      sessionId,
+      toolName,
+      targetPaths,
+      adapter: ADAPTER_TYPE,
+      agent: resolveAgentIdentity({ agentType, agentId }),
+    });
     return 0;
   } catch {
     // Soft-fail: a writer must never wedge the agent. The completion gate still

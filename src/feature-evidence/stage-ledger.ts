@@ -20,6 +20,7 @@ import {
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 import { augmentWithBundleArtifacts, foldRowsWithKey } from '@/stage-evidence/fold.js';
+import { ORCHESTRATOR_AGENT } from '@/stage-evidence/agent-identity.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import {
   STAGE_EVIDENCE_DOC_TYPE,
@@ -131,7 +132,11 @@ export function appendFeatureStageRow(
   const stamped = stampSessionRow(
     STAGE_EVIDENCE_DOC_TYPE,
     sessionId,
-    { conversation_ordinal: 1, ...row },
+    // Issue #573 — `agent` is REQUIRED by the schema and this is the one write
+    // chokepoint, so default it here rather than at every call site. A caller that knows
+    // it is inside a dispatched stage agent passes its own identity and wins; everything
+    // else is the main chat.
+    { conversation_ordinal: 1, ...row, agent: row.agent ?? ORCHESTRATOR_AGENT },
     {
       schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
       validate: (r) => validateStageEvidenceRow(r),

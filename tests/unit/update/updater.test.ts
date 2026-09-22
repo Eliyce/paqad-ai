@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -211,5 +219,61 @@ describe('FrameworkUpdater', () => {
     ]);
     expect(readFileSync(join(projectRoot, 'docs/rules/team.md'), 'utf8')).toBe('current rule');
     expect(existsSync(join(projectRoot, 'scripts/new-script.sh'))).toBe(true);
+  });
+  // Issue #573 — the update path must render the stage agents too, not only onboarding.
+  // `writeStageAgents` was reachable ONLY from `bootstrapFramework` (install/onboard), but an
+  // already-onboarded project upgrades through silent-update -> `paqad-ai update --silent`,
+  // so every upgraded machine got the #567 SubagentStop hook with no agents behind it.
+  // HOME/USERPROFILE point os.homedir() at a temp dir so the test never touches the real home.
+  describe('stage-agent generation on update (issue #573)', () => {
+    let userHome: string;
+    let savedHome: string | undefined;
+    let savedUserProfile: string | undefined;
+
+    beforeEach(() => {
+      userHome = mkdtempSync(join(tmpdir(), 'paqad-update-userhome-'));
+      savedHome = process.env.HOME;
+      savedUserProfile = process.env.USERPROFILE;
+      process.env.HOME = userHome;
+      process.env.USERPROFILE = userHome;
+    });
+
+    afterEach(() => {
+      rmSync(userHome, { recursive: true, force: true });
+      const restore = (key: 'HOME' | 'USERPROFILE', value?: string) => {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      };
+      restore('HOME', savedHome);
+      restore('USERPROFILE', savedUserProfile);
+    });
+
+    it('writes six Claude and six Codex stage agents under the user home', async () => {
+      await new FrameworkUpdater().run(projectRoot);
+
+      const claudeAgents = join(userHome, '.claude/agents');
+      const codexAgents = join(userHome, '.codex/agents');
+      expect(existsSync(claudeAgents)).toBe(true);
+      expect(
+        readdirSync(claudeAgents)
+          .filter((f) => f.endsWith('.md'))
+          .sort(),
+      ).toEqual([
+        'paqad-checks.md',
+        'paqad-development.md',
+        'paqad-documentation-sync.md',
+        'paqad-planning.md',
+        'paqad-review.md',
+        'paqad-specification.md',
+      ]);
+      expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(6);
+    });
+
+    it('never writes the agents into the project', async () => {
+      await new FrameworkUpdater().run(projectRoot);
+
+      expect(existsSync(join(projectRoot, '.claude/agents'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
+    });
   });
 });

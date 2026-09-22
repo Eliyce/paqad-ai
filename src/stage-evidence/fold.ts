@@ -169,6 +169,17 @@ function deriveState(
 function computeOrderingViolations(stages: readonly FoldedStage[]): OrderingViolation[] {
   const violations: OrderingViolation[] = [];
   const ran = stages.filter((stage) => stage.started_at);
+  // Issue #573 — a stage that is inverted against ITSELF. The pair loop below only ever
+  // compares two DIFFERENT stages and skips the completion-anchored one entirely, so a
+  // stage whose end row predates its own start row folded to 'complete' with the verdict
+  // none the wiser. `duration_unreliable` already flagged it, but only the receipt
+  // renderer and the HTML report read that flag — never `computeVerdict`. Reported as
+  // `{ before: stage, after: stage }` so one code path carries both shapes.
+  for (const stage of ran) {
+    if (stage.duration_unreliable) {
+      violations.push({ before: stage.stage, after: stage.stage });
+    }
+  }
   for (const a of ran) {
     for (const b of ran) {
       if (isCompletionAnchoredStage(a.stage) || isCompletionAnchoredStage(b.stage)) {

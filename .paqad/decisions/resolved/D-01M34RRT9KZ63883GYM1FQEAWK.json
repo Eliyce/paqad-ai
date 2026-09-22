@@ -1,0 +1,23 @@
+{
+  "id": "D-01M34RRT9KZ63883GYM1FQEAWK",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on src/feature-evidence/manifest.ts",
+  "context": "Chief architect: The second claim is the test the first must pass, not a rival design. Scoping the requirement to a graduated or full lane on a subagent-capable host is exactly what leaves the fast lane and the non-subagent hosts verifying as they do today.\n\nTarget: src/feature-evidence/manifest.ts\n- solution-architect: The isolation evidence stream must be required only when isolation was actually expected, which is a graduated or full lane on a host that can dispatch subagents.\n- solution-architect: A change on the fast lane, or on a host with no subagent dispatch, must verify exactly as it does today.\n\n[expert-conflict-fork:703fa5cd6eff3f78]",
+  "options": [
+    {
+      "option_key": "the-isolation-evidence-stream-must-be-re",
+      "label": "The isolation evidence stream must be required only when isolation was actually expected, which is a graduated or full lane on a host that can dispatch subagents. — solution-architect"
+    },
+    {
+      "option_key": "a-change-on-the-fast-lane-or-on-a-host-w",
+      "label": "A change on the fast lane, or on a host with no subagent dispatch, must verify exactly as it does today. — solution-architect"
+    }
+  ],
+  "recommendation": "the-isolation-evidence-stream-must-be-re",
+  "created_at": "2026-09-22T14:36:57.523Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "chosen": "the-isolation-evidence-stream-must-be-re",
+  "rationale": "Owner chose the scoped predicate: graduated or full lane AND a subagent-capable recorded adapter. That scoping is exactly what leaves the fast lane and non-subagent hosts unchanged.",
+  "resolved_at": "2026-09-22T14:50:36.136Z"
+}

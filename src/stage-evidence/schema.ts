@@ -20,6 +20,7 @@ export const STAGE_EVIDENCE_SCHEMA = {
     'conversation_ordinal',
     'ts',
     'adapter',
+    'agent',
     'content_hash',
   ],
   properties: {
@@ -50,6 +51,12 @@ export const STAGE_EVIDENCE_SCHEMA = {
     // Optional and nullable: rows written before it existed, and non-git projects,
     // carry no branch and still validate.
     branch: nullableString,
+    // Which agent produced this row (issue #573): `orchestrator` when the main chat wrote
+    // it, or the dispatched stage agent's name (`paqad-development`). REQUIRED, because the
+    // single write chokepoint (`appendFeatureStageRow`) always supplies it, so a row that
+    // reaches validation without one is a script bug, not a legacy row. Reads never run this
+    // validator (`readUnitFile` -> `readJsonl`), so rows written before #573 stay readable.
+    agent: { type: 'string', minLength: 1 },
     note: nullableString,
     content_hash: { type: 'string', minLength: 1 },
   },

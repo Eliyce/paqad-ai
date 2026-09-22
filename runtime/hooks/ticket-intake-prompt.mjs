@@ -13,6 +13,7 @@
 
 import process from 'node:process';
 
+import { logHookFailure } from './lib/hook-log.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 async function main(rawInput) {
@@ -37,8 +38,10 @@ async function main(rawInput) {
     const refs = detectTicketRefs(prompt, 'generic');
     const line = armIntakeNarration(refs);
     if (line) process.stdout.write(line + '\n');
-  } catch {
-    // No dist bundle / import failure → no nudge this turn. Never throws.
+  } catch (error) {
+    // No nudge this turn — but record why, so a missing compiled half is diagnosable
+    // instead of silent (issue #573). Never throws.
+    logHookFailure(projectRoot, 'ticket-intake-prompt', error, 'detecting ticket refs');
   }
   return 0;
 }

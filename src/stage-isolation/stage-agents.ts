@@ -115,3 +115,21 @@ export function buildStageAgentBody(def: StageAgentDef): string {
     '  most five lines of summary. Nothing else.',
   ].join('\n');
 }
+
+/**
+ * Whether a recorded host adapter can dispatch stage subagents at all (issue #573).
+ *
+ * Derived from the SAME roster the agent writer renders for, so the completeness gate and
+ * the installer can never disagree about which hosts isolation applies to (RULE-13
+ * RL-3210). Gemini and the advisory IDEs expose no subagent dispatch, so a change recorded
+ * against one of them must never be asked for isolation evidence.
+ *
+ * Imported lazily by callers that must not pull the writer's filesystem deps; the host
+ * list itself lives in agent-writer.ts beside the templates it drives.
+ */
+export function isSubagentCapableAdapter(
+  adapter: string | null | undefined,
+  hosts: readonly { adapter: string }[],
+): boolean {
+  return typeof adapter === 'string' && hosts.some((host) => host.adapter === adapter);
+}

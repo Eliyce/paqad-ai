@@ -39,6 +39,7 @@ const ONLY_ALWAYS: BundleCompletenessConfig = {
   evidenceLedger: false,
   aiBom: false,
   specPipelineStrict: false,
+  stageIsolationExpected: false,
 };
 
 function write(root: string, rel: string, content: string): void {
@@ -587,5 +588,77 @@ describe('spec pipeline strict adoption gate', () => {
       config: ONLY_ALWAYS,
     });
     expect(gate!.status).toBe('pass');
+  });
+});
+
+describe('the isolation evidence stream (issue #573)', () => {
+  it('fails a graduated/full change on a subagent-capable host with no isolation evidence', () => {
+    // The core #573 scenario: the full pipeline ran, every pillar artifact is present, and
+    // the change nonetheless did all six stages in ONE context. Before this it read
+    // "Safe to merge"; now it must fail, and name the stream that is missing.
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationExpected: true },
+    });
+
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('context-efficiency.jsonl');
+    expect(gate!.remediation).toContain('context-efficiency.jsonl');
+  });
+
+  it('passes that same change once the isolation evidence is there', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(root, featureFilePath(DIR, 'contextEfficiency'), '{"stage":"planning"}\n');
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationExpected: true },
+    });
+
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('does not fail a change that never expected isolation (INV-2)', () => {
+    // Fast lane, or a host with no subagent dispatch. Identical bundle, no failure.
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationExpected: false },
+    });
+
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('never calls the absent stream a flag-off skip, because isolation has no flag', () => {
+    // Issue #528 added the `optional` category so a non-required file is not reported as
+    // a flag-off skip. Stage isolation is deliberately flagless, so that wording would be
+    // an outright lie about why the file is not required for this change.
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationExpected: false },
+    });
+
+    expect(gate!.detail).not.toContain('context-efficiency.jsonl');
   });
 });

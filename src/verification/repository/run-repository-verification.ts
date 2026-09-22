@@ -35,7 +35,13 @@ import {
 } from '@/feature-evidence/bundle-ledgers.js';
 import { reuseCounts } from '@/feature-evidence/reuse.js';
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
-import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import {
+  currentFeature,
+  foldFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
+import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import {
@@ -55,7 +61,7 @@ import { classifySessionRouteForEnforcement } from '@/pipeline/route-enforcement
 import { recordNonFeatureVerificationSkip } from '@/session-ledger/non-feature-skip-audit.js';
 import { PAQAD_STATUS_GLYPH, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { type FoldedChange } from '@/stage-evidence/types.js';
+import { type FoldedChange, type OrderingViolation } from '@/stage-evidence/types.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
 
 import { VerificationGateRunner } from '../gate-runner.js';
@@ -580,6 +586,15 @@ export async function runRepositoryVerification(
           const enabled = truthy.has((map.get('spec_pipeline_enabled') ?? '').trim().toLowerCase());
           return enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict';
         })(),
+        // Issue #573 — was stage isolation EXPECTED for this change? Read from the bundle's
+        // own open row (lane + recorded host adapter), never from config: whether isolation
+        // applied is a property of the change, not a project setting. Fails toward silence —
+        // an unresolved lane yields false, so the requirement cannot false-fail (INV-5).
+        stageIsolationExpected: stageIsolationExpected(
+          context.project_root,
+          completenessSession,
+          completenessDir,
+        ),
       },
       changeMetrics,
     });
@@ -869,6 +884,49 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
  *   ledger) → `skipped` (informational; never breaks a fresh CI checkout, and
  *   `off`/`warn` let a team adopt the workflow before turning the teeth on).
  */
+/**
+ * Whether stage isolation was expected for a change (issue #573): a graduated or full lane
+ * on a host that can dispatch subagents. Both facts come from the bundle's own rows, so a
+ * change is judged by what it actually recorded.
+ *
+ * Returns false for an unresolved lane. That is deliberate — `repository-context` fails
+ * safe to 'full' for OTHER purposes, but here a null lane must not manufacture a blocking
+ * requirement out of nothing (INV-5).
+ */
+export function stageIsolationExpected(
+  projectRoot: string,
+  sessionId: string | null,
+  dirName: string | null,
+): boolean {
+  if (!sessionId || !dirName) return false;
+  try {
+    const fold = foldFeature(projectRoot, sessionId, dirName);
+    if (fold.lane !== 'graduated' && fold.lane !== 'full') return false;
+    const openRow = readFeatureStageUnit(projectRoot, dirName).find((row) => row.kind === 'open');
+    const adapter = typeof openRow?.adapter === 'string' ? openRow.adapter : null;
+    return isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS);
+  } catch {
+    // A missing or unreadable bundle cannot prove isolation was expected, and must not
+    // invent a blocking requirement.
+    return false;
+  }
+}
+
+/**
+ * Render ordering violations as `before -> after` pairs for a gate message (issue #573).
+ * A self-inverted stage (its own end before its own start) reports as `stage -> itself`,
+ * which is exactly how it reads in the ledger.
+ */
+export function describeOrderingViolations(violations: readonly OrderingViolation[]): string {
+  return violations
+    .map((violation) =>
+      violation.before === violation.after
+        ? `${violation.before} ended before it started`
+        : `${violation.before} -> ${violation.after}`,
+    )
+    .join('; ');
+}
+
 export function stageEvidenceGate(
   result: VerifyResult | null,
   origin: VerificationOrigin,
@@ -897,14 +955,25 @@ export function stageEvidenceGate(
     const lead = result.live_marked
       ? 'Feature-development workflow left incomplete'
       : 'Feature-development stages were not recorded for this change';
+    // Issue #573 — name the condition that ACTUALLY failed. `computeVerdict` returns
+    // 'incomplete' for a missing stage OR an ordering violation, but this message only ever
+    // printed the missing list, so an ordering failure read as the literal, unactionable
+    // `missing stage(s): []`. `ordering_violations` was already on the result and simply
+    // never read.
+    const orderingOnly =
+      result.missing_stages.length === 0 && result.ordering_violations.length > 0;
     return {
       name,
       status: 'fail',
-      detail: `${lead} — missing stage(s): [${missing}].`,
-      remediation:
-        'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
-        '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
-        'via the Decision Pause Contract.',
+      detail: orderingOnly
+        ? `${lead} — stages ran out of order: ${describeOrderingViolations(result.ordering_violations)}.`
+        : `${lead} — missing stage(s): [${missing}].`,
+      remediation: orderingOnly
+        ? 'Re-mark the stages so each one ends before the next begins, or resolve the redo via ' +
+          'the Decision Pause Contract.'
+        : 'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
+          '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
+          'via the Decision Pause Contract.',
       failures: [],
     };
   }
