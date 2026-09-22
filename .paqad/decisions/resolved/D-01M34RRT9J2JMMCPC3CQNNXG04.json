@@ -1,0 +1,23 @@
+{
+  "id": "D-01M34RRT9J2JMMCPC3CQNNXG04",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/hooks",
+  "context": "Chief architect: Both hold at once. Logging is the requirement; never throwing back into the hook is the constraint on how it is implemented. A best-effort append that swallows its own errors satisfies the second while delivering the first.\n\nTarget: runtime/hooks\n- devops-engineer: A hook that fails to load its compiled half must leave a diagnosable trace on disk rather than exiting 0 in silence.\n- devops-engineer: Logging a hook failure must never block the host or throw back into the hook.\n\n[expert-conflict-fork:28fe37d17b320b58]",
+  "options": [
+    {
+      "option_key": "a-hook-that-fails-to-load-its-compiled-h",
+      "label": "A hook that fails to load its compiled half must leave a diagnosable trace on disk rather than exiting 0 in silence. — devops-engineer"
+    },
+    {
+      "option_key": "logging-a-hook-failure-must-never-block-",
+      "label": "Logging a hook failure must never block the host or throw back into the hook. — devops-engineer"
+    }
+  ],
+  "recommendation": "a-hook-that-fails-to-load-its-compiled-h",
+  "created_at": "2026-09-22T14:36:57.522Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "chosen": "a-hook-that-fails-to-load-its-compiled-h",
+  "rationale": "Owner chose to log. Best-effort append that swallows its own write errors, so the never-block constraint is met by the implementation rather than by staying silent.",
+  "resolved_at": "2026-09-22T14:50:34.722Z"
+}

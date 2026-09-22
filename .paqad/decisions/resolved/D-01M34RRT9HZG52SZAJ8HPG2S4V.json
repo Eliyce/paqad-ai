@@ -1,0 +1,23 @@
+{
+  "id": "D-01M34RRT9HZG52SZAJ8HPG2S4V",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on tsup.config.ts",
+  "context": "Chief architect: These two are complementary, not opposed. Correctness wins the ordering: a hook that cannot load its compiled half is a total outage, while the package-size concern is bounded because the parity rule only admits modules a hook actually imports. Adopting the first claim already satisfies the second.\n\nTarget: tsup.config.ts\n- devops-engineer: Every module a runtime hook lazy-imports from dist must be a declared bundler entry, so the shipped package can satisfy the import.\n- devops-engineer: Adding bundler entries grows the published package; the added surface should stay limited to modules a hook actually imports.\n\n[expert-conflict-fork:3328a98f8c030f94]",
+  "options": [
+    {
+      "option_key": "every-module-a-runtime-hook-lazy-imports",
+      "label": "Every module a runtime hook lazy-imports from dist must be a declared bundler entry, so the shipped package can satisfy the import. — devops-engineer"
+    },
+    {
+      "option_key": "adding-bundler-entries-grows-the-publish",
+      "label": "Adding bundler entries grows the published package; the added surface should stay limited to modules a hook actually imports. — devops-engineer"
+    }
+  ],
+  "recommendation": "every-module-a-runtime-hook-lazy-imports",
+  "created_at": "2026-09-22T14:36:57.521Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "chosen": "every-module-a-runtime-hook-lazy-imports",
+  "rationale": "Owner chose correctness first. The parity rule only admits modules a hook actually imports, so package growth stays bounded and the size concern is satisfied by the same design.",
+  "resolved_at": "2026-09-22T14:50:33.192Z"
+}

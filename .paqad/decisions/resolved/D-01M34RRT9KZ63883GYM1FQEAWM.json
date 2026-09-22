@@ -1,0 +1,23 @@
+{
+  "id": "D-01M34RRT9KZ63883GYM1FQEAWM",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on src/stage-evidence/schema.ts",
+  "context": "Chief architect: Attribution is the goal; optional-and-nullable is the migration shape that lets it ship without rejecting rows an older engine wrote. The branch field set this precedent, so both are satisfied by one design.\n\nTarget: src/stage-evidence/schema.ts\n- solution-architect: A stage row must record which agent produced it, so an isolated run and a single-context run are distinguishable from the bundle alone.\n- solution-architect: The new attribution field must be optional and nullable so rows written by an older engine still validate.\n\n[expert-conflict-fork:84cd368694f60ee4]",
+  "options": [
+    {
+      "option_key": "a-stage-row-must-record-which-agent-prod",
+      "label": "A stage row must record which agent produced it, so an isolated run and a single-context run are distinguishable from the bundle alone. — solution-architect"
+    },
+    {
+      "option_key": "the-new-attribution-field-must-be-option",
+      "label": "The new attribution field must be optional and nullable so rows written by an older engine still validate. — solution-architect"
+    }
+  ],
+  "recommendation": "a-stage-row-must-record-which-agent-prod",
+  "created_at": "2026-09-22T14:36:57.523Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "chosen": "a-stage-row-must-record-which-agent-prod",
+  "rationale": "Owner OVERRODE the optional-and-nullable recommendation and chose required on every new row. Verified safe: validation is write-side only (readUnitFile -> readJsonl runs no validator), so historical rows stay readable. Every new row is written through appendFeatureStageRow, which will default the field to 'orchestrator' so the writer can always satisfy a required field.",
+  "resolved_at": "2026-09-22T14:50:37.544Z"
+}
