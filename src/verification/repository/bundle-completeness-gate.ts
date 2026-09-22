@@ -200,6 +200,14 @@ export function bundleCompletenessGate(
       // flag-gated (e.g. checks.json). Count it when present, ignore it when absent — never a
       // "Skipped (flag off)" note (there is no flag), and never a completeness failure.
       if (entry.required === 'optional') {
+        // Issue #573 — an optional entry can still be REQUIRED for a change of a given
+        // shape (context-efficiency.jsonl on a graduated/full lane on a subagent-capable
+        // host). That is not a flag, so it upgrades to a hard check here rather than
+        // taking the flag-skipped path, which would report a misleading "flag off".
+        if (entry.requiredWhen?.(input.config) === true) {
+          assertRequired(entry, input, dirName, sessionId, state);
+          continue;
+        }
         const content = readBundleFile(input.projectRoot, dirName, entry);
         if (validateBundleFileContent(entry.validate, content)) {
           state.present.push(entry.file);
