@@ -17,6 +17,7 @@ import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { VERSION } from '@/index.js';
+import { bootstrapFrameworkHome } from '@/install/bootstrap.js';
 import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
 import {
   readExistingOnboardingManifest,
@@ -67,6 +68,21 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
   const profile = readProjectProfile(projectRoot, { persistMigration: false });
   if (!manifest || !profile) {
     throw new Error(JOIN_NOT_ONBOARDED_MESSAGE);
+  }
+
+  // Issue #576 (Finding 2) — set up the GLOBAL install first. `join` used to skip this (only
+  // `onboard`/`install` did it), so on a machine that never onboarded a project, `~/.paqad-ai/
+  // current` and the stage agents did not exist: every generated hook command resolved to a
+  // missing module and the host silently treated the failure as non-blocking, leaving ALL gates
+  // off, and `CLAUDE.md → .paqad/framework-path.txt → ~/.paqad-ai/current/AGENT-BOOTSTRAP.md`
+  // dangled. The HOME-ONLY bootstrap creates the framework symlink and the stage agents under the
+  // user home and writes NOTHING into the project, so join's "no tracked files changed" contract
+  // holds. Best-effort: a home-write failure must not abort join (the local artifacts below are
+  // still worth recreating, and a later `paqad-ai install`/session retries the home install).
+  try {
+    bootstrapFrameworkHome();
+  } catch {
+    // best-effort — a later `paqad-ai install`/session re-attempts the home install.
   }
 
   const providers = deriveRecordedProviders(manifest);

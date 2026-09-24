@@ -29,22 +29,18 @@ export interface BootstrapOptions {
   logger?: EngineLogger;
 }
 
-export function bootstrapFramework(projectRoot: string, options?: BootstrapOptions): InstallResult {
-  if (options?.logger !== undefined) {
-    setEngineLogger(options.logger);
-  }
-
+/**
+ * The HOME-ONLY half of the install: create the `~/.paqad-ai/current` framework symlink and
+ * render the six stage-isolation agents under the user home. It writes NOTHING into the project,
+ * so a caller that must not touch the tracked tree (issue #576, Finding 2 — `paqad-ai join`) can
+ * set up a fresh machine's global install without producing a diff. {@link bootstrapFramework}
+ * layers the project-side metadata writes on top for `onboard`/`install`.
+ */
+export function bootstrapFrameworkHome(): { framework_home: string } {
   const frameworkHome = resolveFrameworkInstallPath();
   const runtimeRoot = getRuntimeRoot();
 
   ensureFrameworkSymlink(runtimeRoot, frameworkHome);
-
-  writeFrameworkMetadata(projectRoot, VERSION);
-
-  // PQD-95 — ensure the cross-artifact schema marker exists so every freshly
-  // bootstrapped project carries the `.paqad/` layout version. Idempotent: an
-  // existing marker is left untouched (migration is checkAndMigrateSchema's job).
-  ensureSchemaMarkerSync(projectRoot, VERSION);
 
   // Issue #567 — render the six stage agents at user scope (~/.claude/agents, ~/.codex/agents).
   // Stage isolation is core-engine behavior (no config knob), so this always runs; it never
@@ -55,6 +51,23 @@ export function bootstrapFramework(projectRoot: string, options?: BootstrapOptio
   } catch {
     /* best-effort: stage-agent generation never blocks install/update */
   }
+
+  return { framework_home: frameworkHome };
+}
+
+export function bootstrapFramework(projectRoot: string, options?: BootstrapOptions): InstallResult {
+  if (options?.logger !== undefined) {
+    setEngineLogger(options.logger);
+  }
+
+  const { framework_home: frameworkHome } = bootstrapFrameworkHome();
+
+  writeFrameworkMetadata(projectRoot, VERSION);
+
+  // PQD-95 — ensure the cross-artifact schema marker exists so every freshly
+  // bootstrapped project carries the `.paqad/` layout version. Idempotent: an
+  // existing marker is left untouched (migration is checkAndMigrateSchema's job).
+  ensureSchemaMarkerSync(projectRoot, VERSION);
 
   return {
     framework_home: frameworkHome,

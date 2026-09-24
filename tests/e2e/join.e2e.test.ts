@@ -68,17 +68,34 @@ function seedTrackedOnboarding(root: string): void {
 
 describe('paqad-ai join — cloned project', () => {
   let temp: string;
+  let home: string;
+  let frameworkHome: string;
+  const savedHome = process.env.HOME;
+  const savedFrameworkHome = process.env.PAQAD_FRAMEWORK_HOME;
 
   beforeEach(() => {
     temp = mkdtempSync(join(tmpdir(), 'paqad-join-e2e-'));
+    // Isolate the global install (issue #576, Finding 2): join now runs bootstrapFramework,
+    // which writes under the user home (~/.paqad-ai/current + ~/.claude|.codex/agents). Point
+    // HOME and the framework home at the temp dir so the test never touches the real install.
+    home = join(temp, 'home');
+    frameworkHome = join(home, '.paqad-ai', 'current');
+    mkdirSync(home, { recursive: true });
+    process.env.HOME = home;
+    process.env.PAQAD_FRAMEWORK_HOME = frameworkHome;
   });
 
   afterEach(() => {
     rmSync(temp, { recursive: true, force: true });
     vi.restoreAllMocks();
+    if (savedHome === undefined) delete process.env.HOME;
+    else process.env.HOME = savedHome;
+    if (savedFrameworkHome === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
+    else process.env.PAQAD_FRAMEWORK_HOME = savedFrameworkHome;
   });
 
-  it('recreates ignored machine files in a fresh clone without a tracked diff', async () => {
+  /** Seed an onboarded source repo and clone it, returning the clone path. */
+  function makeClone(): string {
     const source = join(temp, 'source');
     const clone = join(temp, 'clone');
     mkdirSync(source, { recursive: true });
@@ -89,6 +106,11 @@ describe('paqad-ai join — cloned project', () => {
     execFileSync('git', ['add', '.'], { cwd: source });
     execFileSync('git', ['commit', '--quiet', '-m', 'onboard project'], { cwd: source });
     execFileSync('git', ['clone', '--quiet', source, clone], { cwd: temp });
+    return clone;
+  }
+
+  it('recreates ignored machine files in a fresh clone without a tracked diff', async () => {
+    const clone = makeClone();
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await joinProject({ projectRoot: clone, rag: false });
@@ -98,6 +120,29 @@ describe('paqad-ai join — cloned project', () => {
     expect(existsSync(join(clone, '.paqad/compiled-rules.json'))).toBe(true);
     expect(existsSync(join(clone, '.paqad/context/session-context.md'))).toBe(true);
     expect(existsSync(join(clone, '.paqad/framework-version.txt'))).toBe(true);
+    expect(execFileSync('git', ['status', '--porcelain'], { cwd: clone, encoding: 'utf8' })).toBe(
+      '',
+    );
+  });
+
+  // Issue #576, Finding 2 (AC-5) — join now performs the global install, so a machine that
+  // never onboarded a project still gets ~/.paqad-ai/current and the stage agents, and the
+  // generated hook commands resolve to existing files.
+  it('sets up the global framework install and stage agents (Finding 2)', async () => {
+    const clone = makeClone();
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await joinProject({ projectRoot: clone, rag: false });
+
+    // The framework home symlink exists and its hooks resolve through it.
+    expect(existsSync(frameworkHome)).toBe(true);
+    expect(existsSync(join(frameworkHome, 'hooks/agent-entry-prompt-gate.mjs'))).toBe(true);
+    expect(existsSync(join(frameworkHome, 'AGENT-BOOTSTRAP.md'))).toBe(true);
+    // The six stage-isolation agents are written under the user home (Claude scope).
+    for (const stage of ['planning', 'specification', 'development', 'review', 'checks']) {
+      expect(existsSync(join(home, '.claude/agents', `paqad-${stage}.md`))).toBe(true);
+    }
+    // And the global install is home-only: the clone still has no tracked diff.
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: clone, encoding: 'utf8' })).toBe(
       '',
     );
