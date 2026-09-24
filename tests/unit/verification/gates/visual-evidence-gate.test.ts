@@ -104,6 +104,47 @@ describe('visualEvidenceGate — applicability', () => {
   });
 });
 
+describe('visualEvidenceGate — install fault (issue #579)', () => {
+  const fault = { runtimeRoot: '/opt/paqad/runtime' };
+  const detail =
+    'paqad could not load its built-in stack packs (looked in /opt/paqad/runtime). This is an install fault, not a clean change.';
+
+  it('AC-2: fails under strict with the install-fault text, never not-frontend', () => {
+    const gate = visualEvidenceGate(
+      input({ mode: 'strict', frontendTriggered: false, packRegistryFault: fault }),
+    )!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toBe(detail);
+    expect(gate.remediation).toBe('run `paqad-ai doctor` and reinstall paqad-ai.');
+    expect(gate.detail).not.toContain('not-frontend');
+  });
+
+  it('AC-2: is inconclusive under warn with the same text', () => {
+    const gate = visualEvidenceGate(
+      input({ mode: 'warn', frontendTriggered: false, packRegistryFault: fault }),
+    )!;
+    expect(gate.status).toBe('inconclusive');
+    expect(gate.detail).toBe(detail);
+  });
+
+  it('still honours the flag and origin guards before the fault', () => {
+    expect(visualEvidenceGate(input({ flagOn: false, packRegistryFault: fault }))!.status).toBe(
+      'skipped',
+    );
+    expect(
+      visualEvidenceGate(input({ origin: 'ci-backstop', packRegistryFault: fault }))!.status,
+    ).toBe('skipped');
+  });
+
+  it('AC-8: a not-frontend change with packs loaded still reads skipped', () => {
+    const gate = visualEvidenceGate(
+      input({ mode: 'strict', frontendTriggered: false, packRegistryFault: null }),
+    )!;
+    expect(gate.status).toBe('skipped');
+    expect(gate.detail).toContain('not-frontend');
+  });
+});
+
 describe('visualEvidenceGate — manifest outcomes', () => {
   it('is inconclusive under warn and fail under strict when the manifest is absent on a frontend change', () => {
     expect(visualEvidenceGate(input({ mode: 'warn' }))!.status).toBe('inconclusive');

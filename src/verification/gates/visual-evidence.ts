@@ -4,6 +4,8 @@
 // end-of-change verdict. It validates EXISTENCE + manifest integrity + hashes only — never the
 // screenshot content. Outcomes (house EvidenceGateStatus):
 //   - flag off / coding capability absent / not feature-dev / trigger says not-frontend → skipped
+//   - frameworks declared but no built-in pack loaded (issue #579, an install fault) →
+//     inconclusive under warn, fail under strict, never not-frontend
 //   - manifest present, schema-valid, result: captured, every referenced file's size + SHA-256
 //     match → pass
 //   - manifest present recording only documented skips (no-documented-flow / no-capture-script /
@@ -26,6 +28,10 @@ import { validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
 
 import type { VisualEvidenceMode } from '../repository/visual-evidence-mode.js';
 import type { VeSkipReason, VisualEvidenceManifest } from '@/visual-evidence/types.js';
+import {
+  PACK_REGISTRY_FAULT_REMEDIATION,
+  packRegistryFaultDetail,
+} from '@/visual-evidence/trigger.js';
 
 /** The gate marker (not a registered VERIFICATION_GATES member, like `bundle-completeness`). */
 const GATE_NAME = 'visual-evidence' as VerificationGate;
@@ -58,6 +64,12 @@ export interface VisualEvidenceGateInput {
   flagOn: boolean;
   /** Whether the change is frontend-triggering (a changed file matched a pack's frontend_globs). */
   frontendTriggered: boolean;
+  /**
+   * Issue #579 — set when frameworks are declared but the built-in pack registry loaded none
+   * (a PackRegistryEmptyError). An install fault: fail under strict, inconclusive under warn,
+   * never not-frontend.
+   */
+  packRegistryFault?: { runtimeRoot: string } | null;
 }
 
 function skipped(detail: string): VerificationEvidenceGate {
@@ -140,6 +152,7 @@ export function visualEvidenceGate(
   input: VisualEvidenceGateInput,
 ): VerificationEvidenceGate | null {
   const { projectRoot, dirName, mode, origin, isFeatureDev, flagOn, frontendTriggered } = input;
+  const { packRegistryFault } = input;
 
   if (!isFeatureDev || !dirName) {
     return null;
@@ -149,6 +162,13 @@ export function visualEvidenceGate(
   }
   if (!LOCAL_ORIGINS.has(origin)) {
     return skipped(`visual evidence is informational on ${origin} — no committed local bundle.`);
+  }
+  if (packRegistryFault) {
+    return environmental(
+      mode,
+      packRegistryFaultDetail(packRegistryFault.runtimeRoot),
+      PACK_REGISTRY_FAULT_REMEDIATION,
+    );
   }
   if (!frontendTriggered) {
     return skipped('not-frontend — no changed file matched a frontend surface.');

@@ -73,7 +73,7 @@ import { rulesLoadedGate } from './rules-loaded-gate.js';
 import { resolveBundleCompletenessMode } from './bundle-completeness-mode.js';
 import { visualEvidenceGate } from '../gates/visual-evidence.js';
 import { resolveVisualEvidenceMode } from './visual-evidence-mode.js';
-import { isFrontendTriggering } from '@/visual-evidence/trigger.js';
+import { frontendTriggerOrFault } from '@/visual-evidence/trigger.js';
 
 // Injected at build time by tsup/vitest (see tsup.config.ts); the unreplaced
 // placeholder is tolerated so a dev/test run still produces a receipt.
@@ -634,6 +634,9 @@ export async function runRepositoryVerification(
   {
     const veProfile = readProjectProfile(context.project_root);
     const codingPresent = veProfile?.active_capabilities?.includes('coding') ?? false;
+    // Issue #579 — an empty pack registry with frameworks declared is an install fault the
+    // gate must report, never a silent not-frontend.
+    const veTrigger = frontendTriggerOrFault(context.project_root, context.changed_files);
     const veGate = visualEvidenceGate({
       projectRoot: context.project_root,
       dirName: completenessDir,
@@ -641,7 +644,8 @@ export async function runRepositoryVerification(
       origin,
       isFeatureDev,
       flagOn: frameworkConfig.features.visual_evidence && codingPresent,
-      frontendTriggered: isFrontendTriggering(context.project_root, context.changed_files),
+      frontendTriggered: veTrigger.triggered,
+      packRegistryFault: veTrigger.fault,
     });
     if (veGate) {
       evidence.gates.push(veGate);

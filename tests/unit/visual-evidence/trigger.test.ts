@@ -16,11 +16,17 @@ vi.mock('@/core/stack-profile.js', () => ({
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
 import { readProjectProfile } from '@/core/project-profile.js';
+import { getPrimaryStack } from '@/core/stack-profile.js';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import {
   activeFrontendGlobs,
   evaluateFrontendTrigger,
   frontendGlobToRegExp,
+  frontendTriggerOrFault,
   matchesFrontendGlob,
+  PACK_REGISTRY_FAULT_REMEDIATION,
+  PackRegistryEmptyError,
+  packRegistryFaultDetail,
 } from '@/visual-evidence/trigger.js';
 
 const loadChange = vi.mocked(loadChangeEvidence);
@@ -101,6 +107,66 @@ describe('activeFrontendGlobs', () => {
   it('skips packs with no visual_evidence block', () => {
     getPacks.mockReturnValue([{ manifest: { name: 'node-cli' } }] as never);
     expect(activeFrontendGlobs('/root')).toEqual([]);
+  });
+});
+
+describe('PackRegistryEmptyError (issue #579)', () => {
+  it('is thrown when frameworks are declared but no pack loads', () => {
+    getPacks.mockReturnValue([]);
+    let caught: unknown;
+    try {
+      activeFrontendGlobs('/root');
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(PackRegistryEmptyError);
+    const fault = caught as PackRegistryEmptyError;
+    expect(fault.name).toBe('PackRegistryEmptyError');
+    expect(fault.runtimeRoot).toBe(getRuntimeRoot());
+    expect(fault.frameworks).toEqual(['react']);
+    expect(fault.message).toContain(getRuntimeRoot());
+  });
+
+  it('AC-11: is not thrown when no frameworks are declared, even with an empty registry', () => {
+    readProfile.mockReturnValue({ stack_profile: { frameworks: [] } } as never);
+    vi.mocked(getPrimaryStack)
+      .mockReturnValueOnce(null as never)
+      .mockReturnValueOnce(null as never);
+    getPacks.mockReturnValue([]);
+    expect(activeFrontendGlobs('/root')).toEqual([]);
+    expect(frontendTriggerOrFault('/root', ['src/a.tsx'])).toEqual({
+      triggered: false,
+      fault: null,
+    });
+  });
+
+  it('frontendTriggerOrFault reports the fault instead of throwing', () => {
+    getPacks.mockReturnValue([]);
+    expect(frontendTriggerOrFault('/root', ['src/a.tsx'])).toEqual({
+      triggered: false,
+      fault: { runtimeRoot: getRuntimeRoot() },
+    });
+  });
+
+  it('frontendTriggerOrFault returns the trigger result when packs load', () => {
+    expect(frontendTriggerOrFault('/root', ['src/a.tsx'])).toEqual({
+      triggered: true,
+      fault: null,
+    });
+  });
+
+  it('frontendTriggerOrFault rethrows any other error', () => {
+    getPacks.mockImplementation(() => {
+      throw new Error('registry exploded');
+    });
+    expect(() => frontendTriggerOrFault('/root', ['src/a.tsx'])).toThrow('registry exploded');
+  });
+
+  it('builds the shared install-fault copy', () => {
+    expect(packRegistryFaultDetail('/opt/paqad/runtime')).toBe(
+      'paqad could not load its built-in stack packs (looked in /opt/paqad/runtime). This is an install fault, not a clean change.',
+    );
+    expect(PACK_REGISTRY_FAULT_REMEDIATION).toBe('run `paqad-ai doctor` and reinstall paqad-ai.');
   });
 });
 

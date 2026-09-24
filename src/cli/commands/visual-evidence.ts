@@ -10,7 +10,13 @@ import {
 } from '@/visual-evidence/provision.js';
 import { resolveVisualEvidencePlan } from '@/visual-evidence/resolve-plan.js';
 import { runVisualEvidence } from '@/visual-evidence/runner.js';
-import { evaluateFrontendTrigger } from '@/visual-evidence/trigger.js';
+import {
+  evaluateFrontendTrigger,
+  PACK_REGISTRY_FAULT_REMEDIATION,
+  PackRegistryEmptyError,
+  packRegistryFaultDetail,
+  type FrontendTrigger,
+} from '@/visual-evidence/trigger.js';
 
 /**
  * `paqad-ai visual-evidence` (issue #551) — capture screenshots of the documented flows a
@@ -48,7 +54,8 @@ export function createVisualEvidenceCommand(): Command {
         report(options.json, 'skipped', 'no active feature bundle — nothing to write into.');
         return;
       }
-      const trigger = await evaluateFrontendTrigger(projectRoot);
+      const trigger = await triggerOrInstallFault(projectRoot, options.json);
+      if (!trigger) return;
       if (!trigger.triggered) {
         report(
           options.json,
@@ -93,7 +100,8 @@ export function createVisualEvidenceCommand(): Command {
     .option('--json', 'Emit JSON', false)
     .action(async (options: { projectRoot: string; json: boolean }) => {
       const { projectRoot } = options;
-      const trigger = await evaluateFrontendTrigger(projectRoot);
+      const trigger = await triggerOrInstallFault(projectRoot, options.json);
+      if (!trigger) return;
       const plan = resolveVisualEvidencePlan(projectRoot, trigger.matched_files);
       if (options.json) {
         console.log(
@@ -148,6 +156,28 @@ export function createVisualEvidenceCommand(): Command {
     });
 
   return command;
+}
+
+/**
+ * Evaluate the frontend trigger, or print the install-fault line and set exit code 1 when the
+ * built-in pack registry is empty (issue #579). Returns null on that fault.
+ */
+async function triggerOrInstallFault(
+  projectRoot: string,
+  json: boolean,
+): Promise<FrontendTrigger | null> {
+  try {
+    return await evaluateFrontendTrigger(projectRoot);
+  } catch (error) {
+    if (!(error instanceof PackRegistryEmptyError)) throw error;
+    report(
+      json,
+      'install-fault',
+      `${packRegistryFaultDetail(error.runtimeRoot)} Next: ${PACK_REGISTRY_FAULT_REMEDIATION}`,
+    );
+    process.exitCode = 1;
+    return null;
+  }
 }
 
 /** Emit a one-line human message (and, with --json, a machine line). */
