@@ -643,8 +643,9 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'reads Inconclusive without blocking. strict: the same misses FAIL the change, and so does ' +
       'a frontend change with nothing captured because no documented flow or capture script ' +
       'exists (issue #579), unless you attach screenshots (paqad-ai visual-evidence attach) or ' +
-      'record a waiver on the readiness decision. Under warn those skips stay skipped and show a ' +
-      'skip line. Team value is the floor; local/env may only raise warn to strict.',
+      'record a waiver decision (the gate prints the exact decision command). Under warn those ' +
+      'skips stay skipped and show a skip line. Team value is the floor; local/env may only raise ' +
+      'warn to strict.',
   },
   {
     key: 'evidence_existence_gate',

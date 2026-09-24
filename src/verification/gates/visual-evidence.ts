@@ -34,7 +34,7 @@ import {
   type VeSkipReason,
   type VisualEvidenceManifest,
 } from '@/visual-evidence/types.js';
-import { findVisualEvidenceWaiver } from '@/visual-evidence/readiness.js';
+import { findVisualEvidenceWaiver, visualEvidenceWaiverHint } from '@/visual-evidence/readiness.js';
 import {
   PACK_REGISTRY_FAULT_REMEDIATION,
   packRegistryFaultDetail,
@@ -241,7 +241,8 @@ export function visualEvidenceGate(
         return environmental(
           mode,
           `visual evidence is strict, but nothing was captured for this frontend change (${reasons}).`,
-          'attach screenshots with `paqad-ai visual-evidence attach <png...>`, add a capture script and re-run `paqad-ai visual-evidence run`, or record a waiver by resolving the readiness decision with `waive`.',
+          'attach screenshots with `paqad-ai visual-evidence attach <png...>`, add a capture script for a documented journey and re-run `paqad-ai visual-evidence run`, ' +
+            `or record a waiver: ${visualEvidenceWaiverHint(projectRoot, dirName)}.`,
         );
       }
       return skipped(`no visual evidence to capture (${reasons}).`, phrases.join(', '));

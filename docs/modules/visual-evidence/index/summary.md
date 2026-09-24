@@ -116,7 +116,10 @@ steps as agent-attached so they are never read as scripted captures.
 `no-documented-flow` / `no-capture-script` / `capture-script-invalid` are documented "nothing
 to capture" outcomes and read `skipped` under `warn`. Under `strict` (issue #579), a manifest
 whose only skips are `no-documented-flow` or `no-capture-script` fails unless screenshots were
-attached or a waiver was resolved; `capture-script-invalid` stays skipped in both modes. The
+attached or a waiver was resolved. A waiver is any resolved decision that chose `waive` and
+carries the change's `[paqad-ve-readiness <bundle>]` token: the readiness decision planning
+opened, or, when planning opened none, one created with `paqad-ai decision create` (the failing
+gate prints the exact command). `capture-script-invalid` stays skipped in both modes. The
 rest are environmental: `inconclusive` under `warn`, `fail` under `strict`.
 
 ## Authoring a capture script

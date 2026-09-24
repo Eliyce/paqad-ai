@@ -135,6 +135,46 @@ describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
     expect(gate.status).toBe('fail');
     expect(gate.detail).toContain('nothing was captured');
     expect(gate.remediation).toContain('paqad-ai visual-evidence attach');
+    // No readiness packet was opened at planning, so the waiver hint is a create command that
+    // carries this change's token, which is exactly what findVisualEvidenceWaiver looks for.
+    expect(gate.remediation).toContain('paqad-ai decision create --category workflow-or-tool');
+    expect(gate.remediation).toContain(readinessToken(DIR));
+    expect(gate.remediation).toContain('paqad-ai decision resolve <D-id> waive');
+    expect(gate.remediation).not.toContain('resolving the readiness decision');
+  });
+
+  it('points the strict waiver at the pending readiness decision when planning opened one', () => {
+    documentedManifest(['no-documented-flow']);
+    const { id } = createPendingDecision(root, {
+      category: 'workflow-or-tool',
+      title: READINESS_DECISION_TITLE,
+      context: `reasons ${readinessToken(DIR)}`,
+      options: [
+        { option_key: 'setup', label: 'setup' },
+        { option_key: 'waive', label: 'waive' },
+      ],
+    });
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('fail');
+    expect(gate.remediation).toContain(`paqad-ai decision resolve ${id} waive`);
+    expect(gate.remediation).not.toContain('decision create');
+  });
+
+  it('a waiver created by hand from the strict hint is honored', () => {
+    documentedManifest(['no-documented-flow']);
+    const { id } = createPendingDecision(root, {
+      category: 'workflow-or-tool',
+      title: 'Visual evidence waiver',
+      context: `no screenshots for a copy-only tweak ${readinessToken(DIR)}`,
+      options: [
+        { option_key: 'waive', label: 'Waive visual evidence' },
+        { option_key: 'attach', label: 'Attach screenshots' },
+      ],
+    });
+    resolvePendingDecision(root, id, 'waive');
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('skipped');
+    expect(gate.skip_reason).toBe(`waived by ${id}`);
   });
 
   it('fails under strict for no-capture-script too', () => {

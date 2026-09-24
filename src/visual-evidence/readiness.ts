@@ -156,3 +156,24 @@ export function findVisualEvidenceWaiver(projectRoot: string, dirName: string): 
   }
   return null;
 }
+
+/**
+ * How to record a waiver the gate will honor for this change (issue #579). The waiver lookup
+ * accepts any resolved decision whose context carries this change's readiness token and whose
+ * chosen option is `waive`. Planning opens such a packet only when this machine cannot capture,
+ * so when none is pending the hint gives the `decision create` command that carries the token.
+ */
+export function visualEvidenceWaiverHint(projectRoot: string, dirName: string): string {
+  const token = readinessToken(dirName);
+  const pending = readContractDecisions(projectRoot).find(
+    ({ packet, status }) => status === 'pending' && packet.context.includes(token),
+  );
+  if (pending) {
+    return `resolve the pending readiness decision with \`paqad-ai decision resolve ${pending.packet.id} ${READINESS_WAIVE_OPTION}\``;
+  }
+  return (
+    `create one with \`paqad-ai decision create --category workflow-or-tool --title "Visual evidence waiver" ` +
+    `--context "<why no screenshots> ${token}" --option ${READINESS_WAIVE_OPTION}="Waive visual evidence" ` +
+    `--option attach="Attach screenshots"\` and resolve it with \`paqad-ai decision resolve <D-id> ${READINESS_WAIVE_OPTION}\``
+  );
+}

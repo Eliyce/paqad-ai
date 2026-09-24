@@ -6,7 +6,7 @@
 // hash/size mismatch) as Inconclusive without blocking; `strict` FAILS the change on the same
 // misses. Since issue #579, `strict` also fails a frontend change with nothing captured because
 // no documented flow or capture script exists, unless screenshots were attached
-// (`paqad-ai visual-evidence attach`) or the readiness decision was resolved with `waive` (the
+// (`paqad-ai visual-evidence attach`) or a waiver decision for the change was resolved (the
 // gate then reads skipped, never pass). Under `warn` those skips stay skipped and print a skip
 // line in the verdict. `capture-script-invalid` stays a documented skip in both modes.
 //
