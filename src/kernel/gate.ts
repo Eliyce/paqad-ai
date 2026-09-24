@@ -46,6 +46,30 @@ export interface CapabilityGateResult {
 }
 
 /**
+ * The first-frontend-edit visual-evidence reminder (issue #579), or '' when there is none. It is
+ * advisory context only, so a throw anywhere on its path (config, profile, pack registry, session)
+ * degrades to no reminder instead of throwing out of the gate and dropping a blocking outcome.
+ */
+function reminderContext(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  payload: CapabilityPayload | undefined,
+): string {
+  try {
+    return (
+      visualEvidenceReminder({
+        projectRoot,
+        targetPaths: payload?.targetPaths ?? (payload?.targetPath ? [payload.targetPath] : []),
+        sessionId: payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null,
+      }) ?? ''
+    );
+  } catch {
+    // Advisory only: the fallback is "no reminder"; the capability verdicts above still stand.
+    return '';
+  }
+}
+
+/**
  * Run every kernel-bound capability registered at `seam` and reduce their outcomes
  * to one gate decision. Capabilities without an impl in CAPABILITY_IMPLS are
  * skipped (they still bind through their legacy path until folded in here).
@@ -68,14 +92,7 @@ export async function runCapabilityGate(input: CapabilityGateInput): Promise<Cap
     }
   }
   const narration = narrations.join('\n');
-  const context =
-    seam === 'pre-mutation'
-      ? (visualEvidenceReminder({
-          projectRoot,
-          targetPaths: payload?.targetPaths ?? (payload?.targetPath ? [payload.targetPath] : []),
-          sessionId: payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null,
-        }) ?? '')
-      : '';
+  const context = seam === 'pre-mutation' ? reminderContext(projectRoot, env, payload) : '';
   const blocking = outcomes.filter((outcome) => outcome.blocking);
   if (blocking.length > 0) {
     return {
