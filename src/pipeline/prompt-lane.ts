@@ -95,6 +95,8 @@ export function isSystemNotificationPrompt(prompt: string): boolean {
 export interface PromptRouteDeps {
   classify?: (input: { request: string }) => Promise<ClassificationResult>;
   route?: (classification: ClassificationResult) => { lane: Lane | null };
+  /** Clock seam for the per-turn stamp (issue #582). */
+  now?: () => Date;
 }
 
 export interface PromptRouteResult {
@@ -192,7 +194,14 @@ export async function runPromptRouteSeam(
   const prior = readWorkflowState(input.projectRoot, sessionId);
   const anchors = lane === null ? {} : { lane };
   const transition = routeWorkflow(prior, routed, anchors);
-  writeWorkflowState(input.projectRoot, sessionId, transition.state);
+  // Issue #582 — stamp when this turn began, so the completion check can tell a stage row
+  // written during THIS turn from one left over from an earlier turn. A background
+  // notification returned above, so a monitor event can never reset the turn window.
+  const turnStartedAt = (deps.now ?? (() => new Date()))().toISOString();
+  writeWorkflowState(input.projectRoot, sessionId, {
+    ...transition.state,
+    turn_started_at: turnStartedAt,
+  });
 
   // The lane is stashed for the change-open ONLY on the feature-development route.
   if (isFeatureDevelopmentRoute(routed) && lane !== null) {
