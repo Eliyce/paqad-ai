@@ -9,6 +9,8 @@ import {
   visualEvidenceGate,
   type VisualEvidenceGateInput,
 } from '@/verification/gates/visual-evidence.js';
+import type { FeatureSpec } from '@/core/types/feature-spec.js';
+import type { VerificationCriterion } from '@/core/types/planning.js';
 import type { VisualEvidenceManifest } from '@/visual-evidence/types.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import { READINESS_DECISION_TITLE, readinessToken } from '@/visual-evidence/readiness.js';
@@ -370,7 +372,53 @@ describe('visualEvidenceGate — manifest outcomes', () => {
     expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('fail');
   });
 
-  it('names visual-proof acceptance criteria from the frozen spec', () => {
+  it('names the visual criteria of a real frozen spec (criterion_id)', () => {
+    const shot = writeShot('01-open', 'PNGDATA-1');
+    const m = baseManifest();
+    m.steps = [
+      {
+        index: 1,
+        journey_id: 'j',
+        journey_step: 1,
+        caption: 'Open',
+        dir: 'screenshots/01-open',
+        captured_at: '2026-09-11T00:00:01.000Z',
+        image_sha256: shot.sha256,
+        image_bytes: shot.bytes,
+        status: 'captured',
+      },
+    ];
+    writeManifest(m);
+    const criterion = (id: string, proof: VerificationCriterion['proof_type']) =>
+      ({
+        criterion_id: id,
+        given: 'a saved goal',
+        when: 'the goals page opens',
+        then: `the goal card shows (proof: ${proof})`,
+        proof_type: proof,
+        status: 'uncovered',
+        source: 'planned',
+        linked_requirement_ids: ['FR-1'],
+      }) satisfies VerificationCriterion;
+    const spec: FeatureSpec = {
+      schema_version: '1',
+      spec_id: 'S-1',
+      spec_file: '.paqad/specs/S-1-goals.md',
+      spec_hash: 'h',
+      behaviour: ['Show the saved goal.'],
+      acceptance_criteria: [criterion('AC-1', 'automated'), criterion('AC-3', 'visual')],
+      invariants: [],
+      open_questions: [],
+      frozen: { frozen_at: '2026-09-11T00:00:00.000Z', spec_hash: 'h', signed_off_by: 'dev' },
+    };
+    writeFileSync(join(bundleDir(), 'specification.json'), JSON.stringify(spec), 'utf8');
+    const gate = visualEvidenceGate(input())!;
+    expect(gate.status).toBe('pass');
+    expect(gate.detail).toContain('Visually evidenced: AC-3.');
+    expect(gate.detail).not.toContain('AC-1');
+  });
+
+  it('names visual-proof acceptance criteria from a legacy id-keyed spec', () => {
     const shot = writeShot('01-open', 'PNGDATA-1');
     const m = baseManifest();
     m.steps = [

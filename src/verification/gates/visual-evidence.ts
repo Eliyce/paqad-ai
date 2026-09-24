@@ -290,11 +290,13 @@ function visualAcNote(projectRoot: string, dirName: string): string {
   try {
     const raw = readFileSync(join(projectRoot, featureFilePath(dirName, 'specification')), 'utf8');
     const spec = JSON.parse(raw) as {
-      acceptance_criteria?: Array<{ id?: string; proof_type?: string }>;
+      acceptance_criteria?: Array<{ criterion_id?: string; id?: string; proof_type?: string }>;
     };
+    // A frozen spec names each criterion `criterion_id`; `id` is read only as a fallback.
     const visual = (spec.acceptance_criteria ?? [])
-      .filter((ac) => ac.proof_type === 'visual' && typeof ac.id === 'string')
-      .map((ac) => ac.id as string);
+      .filter((ac) => ac.proof_type === 'visual')
+      .map((ac) => ac.criterion_id ?? ac.id)
+      .filter((id): id is string => typeof id === 'string');
     return visual.length > 0 ? ` Visually evidenced: ${visual.join(', ')}.` : '';
   } catch {
     return '';
