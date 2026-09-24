@@ -89,6 +89,41 @@ describe('buildEvidencePacket', () => {
     expect(packet.markdown).toContain('PASS tests<script>');
   });
 
+  it('shows a skipped gate grey with the skipped glyph, never amber (issue #579)', () => {
+    seedBundleEvidence(root, [
+      buildEvidenceRow({
+        ts: '2026-06-12T00:00:00Z',
+        engine: 'verification-gate',
+        code: 'visual-evidence',
+        subject_digest: 'sha256:abc',
+        verdict: 'skipped',
+        strength_class: 'deterministic',
+      }),
+    ]);
+
+    const packet = buildEvidencePacket(root);
+    expect(packet.markdown).toContain('- ⚪ SKIPPED visual-evidence (verification-gate)');
+    expect(packet.html).toContain('background:#64748b');
+    expect(packet.html).not.toContain('background:#d97706');
+  });
+
+  it('keeps an inconclusive gate amber', () => {
+    seedBundleEvidence(root, [
+      buildEvidenceRow({
+        ts: '2026-06-12T00:00:00Z',
+        engine: 'verification-gate',
+        code: 'visual-evidence',
+        subject_digest: 'sha256:abc',
+        verdict: 'inconclusive',
+        strength_class: 'deterministic',
+      }),
+    ]);
+
+    const packet = buildEvidencePacket(root);
+    expect(packet.markdown).toContain('- INCONCLUSIVE visual-evidence');
+    expect(packet.html).toContain('background:#d97706');
+  });
+
   it('renders sealed receipts with authorship in both forms', () => {
     projectFeature(root, '2026-06-11T00:00:00.000Z');
 

@@ -18,6 +18,7 @@ describe('verdict mappings', () => {
     ['FAILED', 4],
     ['blocked', 3],
     ['inconclusive', 3],
+    ['skipped', 1],
     ['unknown', 0],
   ])('ocsfSeverityId(%s) = %i', (verdict, expected) => {
     expect(ocsfSeverityId(verdict)).toBe(expected);
@@ -29,6 +30,7 @@ describe('verdict mappings', () => {
     ['fail', 2],
     ['FAILED', 2],
     ['blocked', 0],
+    ['skipped', 0],
   ])('ocsfStatusId(%s) = %i', (verdict, expected) => {
     expect(ocsfStatusId(verdict)).toBe(expected);
   });
@@ -39,6 +41,7 @@ describe('verdict mappings', () => {
     ['fail', 'failure'],
     ['FAILED', 'failure'],
     ['blocked', 'unknown'],
+    ['skipped', 'unknown'],
   ])('ecsOutcome(%s) = %s', (verdict, expected) => {
     expect(ecsOutcome(verdict)).toBe(expected);
   });
@@ -50,6 +53,7 @@ describe('verdict mappings', () => {
     ['FAILED', 8],
     ['blocked', 5],
     ['inconclusive', 5],
+    ['skipped', 1],
     ['unknown', 0],
   ])('cefSeverity(%s) = %i', (verdict, expected) => {
     expect(cefSeverity(verdict)).toBe(expected);

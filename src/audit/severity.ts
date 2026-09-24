@@ -1,6 +1,7 @@
 // Issue #121 — shared verdict → severity/outcome mappings so OCSF, ECS, and CEF
 // grade the same verdict identically. A failing or blocked check is a finding a
-// SOC wants surfaced; a pass is informational.
+// SOC wants surfaced; a pass is informational, and so is a gate that did not apply to the
+// change (`skipped`, issue #579): it is not a finding and not an unknown.
 
 import type { SiemEvent } from './types.js';
 
@@ -15,6 +16,7 @@ export function ocsfSeverityId(verdict: string): number {
       return 3;
     case 'pass':
     case 'PASSED':
+    case 'skipped':
       return 1;
     default:
       return 0;
@@ -49,7 +51,7 @@ export function ecsOutcome(verdict: string): 'success' | 'failure' | 'unknown' {
   }
 }
 
-/** CEF severity on its 0–10 scale. */
+/** CEF severity on its 0–10 scale (a skipped gate is 1, the lowest graded value, below a pass). */
 export function cefSeverity(verdict: string): number {
   switch (verdict) {
     case 'fail':
@@ -61,6 +63,8 @@ export function cefSeverity(verdict: string): number {
     case 'pass':
     case 'PASSED':
       return 2;
+    case 'skipped':
+      return 1;
     default:
       return 0;
   }

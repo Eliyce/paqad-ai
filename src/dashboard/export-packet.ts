@@ -31,8 +31,15 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
+/** Dot colour per verdict: a skipped gate (issue #579) is grey, never the amber "needs a look". */
+const VERDICT_COLORS: Record<string, string> = {
+  pass: '#16a34a',
+  fail: '#dc2626',
+  skipped: '#64748b',
+};
+
 function verdictDot(verdict: string): string {
-  const color = verdict === 'pass' ? '#16a34a' : verdict === 'fail' ? '#dc2626' : '#d97706';
+  const color = VERDICT_COLORS[verdict] ?? '#d97706';
   return `<span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:${color};margin-right:6px"></span>`;
 }
 
@@ -77,7 +84,8 @@ export function buildEvidencePacket(
     markdownLines.push('No gate runs recorded yet.');
   } else {
     for (const row of evidence.rows.slice(0, 100)) {
-      markdownLines.push(`- ${row.verdict.toUpperCase()} ${row.code} (${row.engine})`);
+      const glyph = row.verdict === 'skipped' ? '⚪ ' : '';
+      markdownLines.push(`- ${glyph}${row.verdict.toUpperCase()} ${row.code} (${row.engine})`);
     }
   }
   markdownLines.push('', '## AI bill of materials', '');
