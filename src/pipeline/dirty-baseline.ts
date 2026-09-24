@@ -14,7 +14,7 @@
 // path-based and never consult the baseline.
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -50,9 +50,14 @@ function digestFile(projectRoot: string, relativePath: string): string | null {
 
 /**
  * Capture the session-start dirty-file baseline, keyed by the resolved session id. Idempotent:
- * writes ONCE per session (a later call with the baseline already on disk is a no-op), so the
- * snapshot reflects the tree as it was BEFORE the agent ran, not after. Best-effort — every fault
- * is swallowed, since a missing baseline simply means no subtraction (today's behaviour).
+ * writes ONCE per session (a later call is a no-op), so the snapshot reflects the tree as it was
+ * BEFORE the agent ran, not after. Best-effort — every fault is swallowed, since a missing baseline
+ * simply means no subtraction (today's behaviour).
+ *
+ * The write is atomic-exclusive (`flag: 'wx'`) rather than a `existsSync`-then-write guard: the
+ * check-then-use pattern is a filesystem race (CodeQL js/file-system-race). With `wx`, a second
+ * capture in the same session throws EEXIST and is swallowed, giving the same once-per-session
+ * result without the race.
  */
 export async function captureSessionDirtyBaseline(
   projectRoot: string,
@@ -60,9 +65,6 @@ export async function captureSessionDirtyBaseline(
 ): Promise<void> {
   const sessionId = resolveSessionId(projectRoot, sessionHint);
   const path = baselinePath(projectRoot, sessionId);
-  if (existsSync(path)) {
-    return;
-  }
   const dirty = await readGitStatusFiles(projectRoot);
   const files: Record<string, string> = {};
   for (const relativePath of dirty) {
@@ -76,9 +78,10 @@ export async function captureSessionDirtyBaseline(
     writeFileSync(
       path,
       `${JSON.stringify({ captured_at: new Date().toISOString(), files }, null, 2)}\n`,
+      { flag: 'wx' },
     );
   } catch {
-    // best-effort — never fail a session start over the baseline.
+    // best-effort — EEXIST (already captured this session) or any write fault is a no-op.
   }
 }
 
