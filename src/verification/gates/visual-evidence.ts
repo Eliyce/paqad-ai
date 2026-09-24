@@ -72,9 +72,23 @@ export interface VisualEvidenceGateInput {
   packRegistryFault?: { runtimeRoot: string } | null;
 }
 
-function skipped(detail: string): VerificationEvidenceGate {
-  return { name: GATE_NAME, status: 'skipped', detail, remediation: null, failures: [] };
+function skipped(detail: string, skipReason: string): VerificationEvidenceGate {
+  return {
+    name: GATE_NAME,
+    status: 'skipped',
+    detail,
+    remediation: null,
+    failures: [],
+    skip_reason: skipReason,
+  };
 }
+
+/** The short, plain phrase each documented skip reads as in the verdict skip line. */
+const DOCUMENTED_SKIP_PHRASE: Record<string, string> = {
+  'no-documented-flow': 'no documented flow to capture',
+  'no-capture-script': 'no capture script',
+  'capture-script-invalid': 'capture script invalid',
+};
 
 function environmental(
   mode: VisualEvidenceMode,
@@ -158,10 +172,16 @@ export function visualEvidenceGate(
     return null;
   }
   if (!flagOn) {
-    return skipped('visual evidence is off (flag off or coding capability absent).');
+    return skipped(
+      'visual evidence is off (flag off or coding capability absent).',
+      'visual evidence is off',
+    );
   }
   if (!LOCAL_ORIGINS.has(origin)) {
-    return skipped(`visual evidence is informational on ${origin} — no committed local bundle.`);
+    return skipped(
+      `visual evidence is informational on ${origin} — no committed local bundle.`,
+      `informational on ${origin}`,
+    );
   }
   if (packRegistryFault) {
     return environmental(
@@ -171,7 +191,7 @@ export function visualEvidenceGate(
     );
   }
   if (!frontendTriggered) {
-    return skipped('not-frontend — no changed file matched a frontend surface.');
+    return skipped('not-frontend — no changed file matched a frontend surface.', 'not-frontend');
   }
 
   const manifest = readManifest(projectRoot, dirName);
@@ -194,7 +214,8 @@ export function visualEvidenceGate(
     const documented = manifest.skips.every((s) => DOCUMENTED_SKIP_REASONS.has(s.reason));
     const reasons = manifest.skips.map((s) => s.reason).join(', ') || 'no capture';
     if (documented && manifest.skips.length > 0) {
-      return skipped(`no visual evidence to capture (${reasons}).`);
+      const phrases = [...new Set(manifest.skips.map((s) => DOCUMENTED_SKIP_PHRASE[s.reason]))];
+      return skipped(`no visual evidence to capture (${reasons}).`, phrases.join(', '));
     }
     return environmental(
       mode,

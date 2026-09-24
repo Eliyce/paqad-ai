@@ -16,6 +16,8 @@ export interface RepositoryVerificationGateVerdict {
   status: EvidenceGateStatus;
   detail: string;
   remediation: string | null;
+  /** Issue #579 — the short skip reason, carried from the evidence gate when present. */
+  skip_reason?: string;
 }
 
 export interface RepositoryVerificationVerdict {
@@ -63,12 +65,15 @@ export function buildRepositoryVerificationVerdict(input: {
   evidence: VerificationEvidence;
   escalations: string[];
   evidencePath: string | null;
+  /** Issue #579 — gates whose feature flag is on; a skip among them prints a skip line. */
+  flagOnGates?: readonly VerificationGate[];
 }): RepositoryVerificationVerdict {
   const gates: RepositoryVerificationGateVerdict[] = input.evidence.gates.map((gate) => ({
     gate: gate.name,
     status: gate.status,
     detail: gate.detail,
     remediation: gate.remediation,
+    ...(gate.skip_reason !== undefined ? { skip_reason: gate.skip_reason } : {}),
   }));
 
   const failing = gates.filter((gate) => gate.status === 'fail');
@@ -78,7 +83,12 @@ export function buildRepositoryVerificationVerdict(input: {
   return {
     origin: input.origin,
     ok,
-    summary: formatVerdictSummary({ ok, gates, escalations: input.escalations }),
+    summary: formatVerdictSummary({
+      ok,
+      gates,
+      escalations: input.escalations,
+      ...(input.flagOnGates ? { flagOnGates: input.flagOnGates } : {}),
+    }),
     gates,
     escalations: input.escalations,
     evidence_path: input.evidencePath,
@@ -111,6 +121,12 @@ export function formatVerdictSummary(input: {
   gates: RepositoryVerificationGateVerdict[];
   escalations: string[];
   unrecordedMandatoryStages?: string[];
+  /**
+   * Issue #579 — gates whose feature flag is on. A skipped gate in this list adds one
+   * "⚪ <gate words>: skipped (<reason>)" line after the status lines and before the
+   * escalations, so a flag-on gate that did nothing is visible. Skips never move the counts.
+   */
+  flagOnGates?: readonly VerificationGate[];
 }): string {
   const ran = input.gates.filter((gate) => gate.status !== 'skipped');
   const passed = ran.filter((gate) => gate.status === 'pass').length;
@@ -147,6 +163,15 @@ export function formatVerdictSummary(input: {
     for (const gate of inconclusive) {
       lines.push(`> ${PAQAD_STATUS_GLYPH.needsLook} ${gate.gate}: ${gate.detail}`);
     }
+  }
+
+  const flagOn = new Set(input.flagOnGates ?? []);
+  for (const gate of input.gates) {
+    if (gate.status !== 'skipped' || !flagOn.has(gate.gate)) continue;
+    const label = gate.gate.split('-').join(' ');
+    lines.push(
+      `> ${PAQAD_STATUS_GLYPH.skipped} ${label}: skipped (${gate.skip_reason ?? gate.detail})`,
+    );
   }
 
   for (const escalation of input.escalations) {

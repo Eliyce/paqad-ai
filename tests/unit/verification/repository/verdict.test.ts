@@ -33,6 +33,85 @@ function evidence(gates: VerificationEvidenceGate[]): VerificationEvidence {
   };
 }
 
+describe('flag-on skip lines (issue #579)', () => {
+  const skippedVisual = gate({
+    name: 'visual-evidence' as VerificationEvidenceGate['name'],
+    status: 'skipped',
+    detail: 'not-frontend — no changed file matched a frontend surface.',
+    skip_reason: 'not-frontend',
+  });
+  const gates = [gate({ name: 'change-completeness', status: 'pass' }), skippedVisual];
+
+  it('AC-5: prints the skip line when the gate flag is on, and the counts do not move', () => {
+    const withLine = buildRepositoryVerificationVerdict({
+      origin: 'hook-completion',
+      evidence: evidence(gates),
+      escalations: ['spec-review: no frozen spec on record'],
+      evidencePath: null,
+      flagOnGates: ['visual-evidence' as VerificationEvidenceGate['name']],
+    });
+    const without = buildRepositoryVerificationVerdict({
+      origin: 'hook-completion',
+      evidence: evidence(gates),
+      escalations: ['spec-review: no frozen spec on record'],
+      evidencePath: null,
+    });
+    const lines = withLine.summary.split('\n');
+    expect(lines).toContain('> ⚪ visual evidence: skipped (not-frontend)');
+    // After the status lines, before the escalations.
+    const skipAt = lines.indexOf('> ⚪ visual evidence: skipped (not-frontend)');
+    expect(lines[skipAt - 1]).toContain('1/1 checks held');
+    expect(lines[skipAt + 1]).toContain('needs a look');
+    // Same ran/passed counts as the run without the line.
+    expect(without.summary.split('\n')[1]).toBe(lines[1]);
+    expect(withLine.gates.find((g) => g.gate === 'visual-evidence')?.skip_reason).toBe(
+      'not-frontend',
+    );
+  });
+
+  it('AC-12: prints no skip line when the flag is off', () => {
+    const summary = formatVerdictSummary({
+      ok: true,
+      gates: [
+        {
+          gate: 'visual-evidence' as VerificationEvidenceGate['name'],
+          status: 'skipped',
+          detail: 'visual evidence is off (flag off or coding capability absent).',
+          remediation: null,
+          skip_reason: 'visual evidence is off',
+        },
+      ],
+      escalations: [],
+      flagOnGates: [],
+    });
+    expect(summary).not.toContain('skipped (');
+  });
+
+  it('falls back to the detail when a skipped gate carries no short reason', () => {
+    const summary = formatVerdictSummary({
+      ok: true,
+      gates: [
+        {
+          gate: 'visual-evidence' as VerificationEvidenceGate['name'],
+          status: 'skipped',
+          detail: 'nothing to do',
+          remediation: null,
+        },
+        {
+          gate: 'visual-evidence' as VerificationEvidenceGate['name'],
+          status: 'pass',
+          detail: 'ok',
+          remediation: null,
+        },
+      ],
+      escalations: [],
+      flagOnGates: ['visual-evidence' as VerificationEvidenceGate['name']],
+    });
+    expect(summary).toContain('> ⚪ visual evidence: skipped (nothing to do)');
+    expect(summary.match(/skipped \(/g)).toHaveLength(1);
+  });
+});
+
 describe('buildRepositoryVerificationVerdict', () => {
   it('is ok when no gate fails (skipped gates do not count)', () => {
     const verdict = buildRepositoryVerificationVerdict({

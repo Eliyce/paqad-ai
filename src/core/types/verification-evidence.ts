@@ -36,6 +36,11 @@ export interface VerificationEvidenceGate {
   detail: string;
   remediation: string | null;
   failures: VerificationEvidenceFailure[];
+  /**
+   * Issue #579 — a short reason for a `skipped` gate ("not-frontend", "no documented flow to
+   * capture"), shown in the verdict summary's skip line when the gate's flag is on.
+   */
+  skip_reason?: string;
   // Issue #105 — present on the mutation-testing gate. `lower` flags a
   // weak-tooled language whose score must not be over-trusted; `mature` a
   // result from an established per-language tool.

@@ -642,9 +642,13 @@ export async function runRepositoryVerification(
   // Issue #551 — the visual-evidence gate. Same seam + local-origin scope as bundle-completeness:
   // it reads the git-ignored visual-evidence.json a capture run wrote and turns it into pass /
   // skipped / inconclusive|fail. Off (flag off or coding absent) → skipped, never a block.
+  const veProfile = readProjectProfile(context.project_root);
+  const veFlagOn =
+    frameworkConfig.features.visual_evidence &&
+    (veProfile?.active_capabilities?.includes('coding') ?? false);
+  // Issue #579 — a flag-on gate that skipped prints its own skip line in the verdict summary.
+  const flagOnGates = veFlagOn ? ['visual-evidence' as VerificationGate] : [];
   {
-    const veProfile = readProjectProfile(context.project_root);
-    const codingPresent = veProfile?.active_capabilities?.includes('coding') ?? false;
     // Issue #579 — an empty pack registry with frameworks declared is an install fault the
     // gate must report, never a silent not-frontend.
     const veTrigger = frontendTriggerOrFault(context.project_root, context.changed_files);
@@ -654,7 +658,7 @@ export async function runRepositoryVerification(
       mode: resolveVisualEvidenceMode(context.project_root),
       origin,
       isFeatureDev,
-      flagOn: frameworkConfig.features.visual_evidence && codingPresent,
+      flagOn: veFlagOn,
       frontendTriggered: veTrigger.triggered,
       packRegistryFault: veTrigger.fault,
     });
@@ -720,6 +724,7 @@ export async function runRepositoryVerification(
     evidence,
     escalations,
     evidencePath,
+    flagOnGates,
   });
   verdict.reportPath = reportPath;
 
@@ -759,6 +764,7 @@ export async function runRepositoryVerification(
         gates: verdict.gates,
         escalations,
         unrecordedMandatoryStages: stageGaps,
+        flagOnGates,
       });
     }
   }

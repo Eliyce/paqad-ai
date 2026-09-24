@@ -104,6 +104,20 @@ describe('visualEvidenceGate — applicability', () => {
   });
 });
 
+describe('visualEvidenceGate — skip reasons (issue #579)', () => {
+  it('gives every applicability skip a short reason for the verdict skip line', () => {
+    expect(visualEvidenceGate(input({ flagOn: false }))!.skip_reason).toBe(
+      'visual evidence is off',
+    );
+    expect(visualEvidenceGate(input({ origin: 'ci-backstop' }))!.skip_reason).toBe(
+      'informational on ci-backstop',
+    );
+    expect(visualEvidenceGate(input({ frontendTriggered: false }))!.skip_reason).toBe(
+      'not-frontend',
+    );
+  });
+});
+
 describe('visualEvidenceGate — install fault (issue #579)', () => {
   const fault = { runtimeRoot: '/opt/paqad/runtime' };
   const detail =
@@ -210,6 +224,23 @@ describe('visualEvidenceGate — manifest outcomes', () => {
     expect(warn.status).toBe('skipped');
     expect(strict.status).toBe('skipped');
     expect(warn.detail).toContain('no-documented-flow');
+    expect(warn.skip_reason).toBe('no documented flow to capture');
+  });
+
+  it('carries one short skip phrase per distinct documented reason (issue #579)', () => {
+    const m = baseManifest();
+    m.result = 'skipped';
+    m.plan = [];
+    m.skips = [
+      { reason: 'no-documented-flow', detail: 'a' },
+      { reason: 'no-documented-flow', detail: 'b' },
+      { reason: 'no-capture-script', detail: 'c' },
+      { reason: 'capture-script-invalid', detail: 'd' },
+    ];
+    writeManifest(m);
+    expect(visualEvidenceGate(input({ mode: 'warn' }))!.skip_reason).toBe(
+      'no documented flow to capture, no capture script, capture script invalid',
+    );
   });
 
   it('is environmental for a skipped manifest with an environmental reason', () => {
