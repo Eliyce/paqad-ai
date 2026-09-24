@@ -17,6 +17,7 @@ import {
   isRagEnabledValue,
   readContextUnderBudget,
   resolveContextArtifactPath,
+  stripRuleSections,
   // @ts-expect-error — runtime .mjs has no type declarations.
 } from '../../../runtime/scripts/context-seam.mjs';
 
@@ -207,5 +208,109 @@ describe('buildInjection (filesystem)', () => {
   it('exports a stable module path so the hook can import it', () => {
     // Normalise separators so the assertion holds on Windows (backslash paths) too.
     expect(SEAM_PATH.replace(/\\/g, '/')).toMatch(/runtime\/scripts\/context-seam\.mjs$/);
+  });
+});
+
+// Issue #582 (FR-9) — a prompt that is not feature-development drops the rule-contract sections
+// of the shared artifact; every other section is kept as it was.
+describe('stripRuleSections / buildInjection stripRules (issue #582)', () => {
+  const ARTIFACT = [
+    '## paqad rule manifest — 2 rules',
+    '> Every rule that governs this repo.',
+    '',
+    '- RULE-1 Canonical Docs',
+    '',
+    '## Loaded rule text — 1 always-on rules',
+    '',
+    '### RULE-2 · Constitution',
+    '# Constitution',
+    '- Change only what the request requires.',
+    '',
+    '## Verify',
+    '',
+    '```bash',
+    'git diff --name-only',
+    '```',
+    '',
+    '## Decision pause is active',
+    '> Before a create-vs-reuse choice, write a decision packet.',
+    '',
+    '## Existing surface — 1 card',
+    '- src/a.ts: export function a()',
+    '',
+    '## Codebase memory — 1 remembered fact',
+    '- the auth module owns sessions',
+    '',
+    '## Retrieved context — 1 slice (read the live file at each)',
+    '- src/b.ts:1-5',
+  ].join('\n');
+
+  it('drops the manifest, the loaded rule text (with its embedded headings) and existing surface', () => {
+    const out = stripRuleSections(ARTIFACT);
+    expect(out).not.toContain('rule manifest');
+    expect(out).not.toContain('Loaded rule text');
+    expect(out).not.toContain('Constitution');
+    expect(out).not.toContain('## Verify');
+    expect(out).not.toContain('git diff --name-only');
+    expect(out).not.toContain('Existing surface');
+    expect(out).not.toContain('src/a.ts');
+  });
+
+  it('keeps the decision pause, codebase memory and retrieved context unchanged', () => {
+    expect(stripRuleSections(ARTIFACT)).toBe(
+      [
+        '## Decision pause is active',
+        '> Before a create-vs-reuse choice, write a decision packet.',
+        '',
+        '## Codebase memory — 1 remembered fact',
+        '- the auth module owns sessions',
+        '',
+        '## Retrieved context — 1 slice (read the live file at each)',
+        '- src/b.ts:1-5',
+      ].join('\n'),
+    );
+  });
+
+  it('drops the rules-missing marker too, since it tells the reader to load rules', () => {
+    const content =
+      '> ⚠️ No compiled rules in this artifact — load it in full.\n\n## Retrieved context — 1\n- x';
+    expect(stripRuleSections(content)).toBe('## Retrieved context — 1\n- x');
+  });
+
+  it('returns an empty string when only rule sections were present', () => {
+    expect(stripRuleSections('## paqad rule manifest — 1 rule\n- RULE-1\n')).toBe('');
+  });
+
+  describe('buildInjection', () => {
+    let projectRoot: string;
+    beforeEach(() => {
+      projectRoot = mkdtempSync(join(tmpdir(), 'paqad-seam-strip-'));
+    });
+    afterEach(() => {
+      rmSync(projectRoot, { recursive: true, force: true });
+    });
+
+    it('keeps the full block without stripRules', () => {
+      const artifact = join(projectRoot, 'ctx.md');
+      writeFileSync(artifact, ARTIFACT);
+      expect(buildInjection(projectRoot, { path: artifact })).toBe(
+        `${BLOCK_OPEN}\n${ARTIFACT}\n${BLOCK_CLOSE}`,
+      );
+    });
+
+    it('wraps only the kept sections with stripRules', () => {
+      const artifact = join(projectRoot, 'ctx.md');
+      writeFileSync(artifact, ARTIFACT);
+      const block = buildInjection(projectRoot, { path: artifact, stripRules: true });
+      expect(block.startsWith(`${BLOCK_OPEN}\n## Decision pause is active`)).toBe(true);
+      expect(block).not.toContain('rule manifest');
+      expect(block.endsWith(`- src/b.ts:1-5\n${BLOCK_CLOSE}`)).toBe(true);
+    });
+
+    it('emits nothing when stripping leaves nothing', () => {
+      const artifact = join(projectRoot, 'ctx.md');
+      writeFileSync(artifact, '## paqad rule manifest — 1 rule\n- RULE-1\n');
+      expect(buildInjection(projectRoot, { path: artifact, stripRules: true })).toBe('');
+    });
   });
 });

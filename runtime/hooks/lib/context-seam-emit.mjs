@@ -56,8 +56,12 @@ export function agentIdFromStdin(stdin) {
  * failure (disabled project, missing artifact, read error) emits nothing and the
  * agent proceeds with grep/read exactly as today (F3). Records the rag-evidence
  * outcome for the turn (#249), which never affects the emitted block.
+ *
+ * `options.stripRules` (issue #582) drops the rule manifest, loaded rule text and existing
+ * surface sections, for a prompt routed to anything but feature-development. The recorded
+ * outcome describes the block actually injected.
  */
-export function emitContext(stdin, projectRoot = resolveProjectRoot(), write) {
+export function emitContext(stdin, projectRoot = resolveProjectRoot(), write, options = {}) {
   // The output sink (issue #566): defaults to stdout, but the prompt gate passes a
   // buffering sink on Codex so the block can be wrapped in the additionalContext envelope.
   const emit = typeof write === 'function' ? write : (text) => process.stdout.write(text);
@@ -83,7 +87,7 @@ export function emitContext(stdin, projectRoot = resolveProjectRoot(), write) {
       return;
     }
 
-    const block = buildInjection(projectRoot);
+    const block = buildInjection(projectRoot, { stripRules: options.stripRules === true });
     if (block) {
       emit(`${block}\n`);
     }
@@ -114,7 +118,9 @@ export function emitContext(stdin, projectRoot = resolveProjectRoot(), write) {
           fields: {
             injected: false,
             fallback_reason: 'cold',
-            note: 'seam: no precomputed context',
+            note: options.stripRules
+              ? 'seam: no non-rule context for this prompt'
+              : 'seam: no precomputed context',
           },
         });
       }

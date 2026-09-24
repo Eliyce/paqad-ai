@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -235,5 +235,112 @@ describe('issue #284 — lean rule loading injects the artifact by default', () 
     writeFileSync(join(projectRoot, '.paqad/.config'), 'paqad_enable=false\n');
     const result = runHook(projectRoot);
     expect(result.stdout).toBe('');
+  });
+});
+
+// Issue #582 (AC-12) — the artifact is shared by every session in a checkout and the shared route
+// pointer holds whichever session routed last. The prompt gate now routes THIS prompt first and
+// leaves the rule sections out of the injected block unless this prompt is feature-development.
+describe('prompt gate injects rule sections only for a feature-development prompt (issue #582)', () => {
+  const SESSION = 'ac12-session';
+  const ARTIFACT = [
+    '## paqad rule manifest — 1 rule',
+    '- RULE-1 Canonical Docs',
+    '',
+    '## Loaded rule text — 1 always-on rules',
+    '### RULE-1 · Canonical Docs',
+    '# Canonical Docs',
+    '## Verify',
+    'check the docs',
+    '',
+    '## Retrieved context — 1 slice (read the live file at each)',
+    '- src/b.ts:1-5',
+  ].join('\n');
+  let projectRoot: string;
+
+  function runGateWith(prompt: string): RunResult {
+    try {
+      const stdout = execFileSync('node', [PROMPT_GATE], {
+        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot, ...RAG_ON },
+        input: JSON.stringify({ prompt, session_id: SESSION }),
+      });
+      return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
+    } catch (error) {
+      const err = error as { status: number; stdout: Buffer; stderr: Buffer };
+      return {
+        status: err.status,
+        stdout: err.stdout?.toString('utf8') ?? '',
+        stderr: err.stderr?.toString('utf8') ?? '',
+      };
+    }
+  }
+
+  function lastRagRow(): { injected_sections?: string[] } {
+    const rows = readFileSync(
+      join(projectRoot, '.paqad/ledger/_chat', SESSION, 'rag.jsonl'),
+      'utf8',
+    )
+      .trim()
+      .split('\n');
+    return JSON.parse(rows.at(-1) ?? '{}') as { injected_sections?: string[] };
+  }
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-seam-ac12-'));
+    mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
+    mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
+    writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
+    writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+    writeFileSync(join(projectRoot, ARTIFACT_REL), ARTIFACT);
+    // A fresh debounce marker keeps the background refresh from rewriting the artifact mid-test.
+    mkdirSync(join(projectRoot, '.paqad/locks'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/locks/rule-context.marker'), '');
+    // Another session's feature-development prompt was the last to write the shared pointer.
+    writeFileSync(
+      join(projectRoot, '.paqad/context/.session-route.json'),
+      JSON.stringify({ workflow: 'feature-development', query: 'build it' }),
+    );
+    const sentinel = join(projectRoot, '.paqad/.agent-entry-loaded.d', SESSION);
+    mkdirSync(join(projectRoot, '.paqad/.agent-entry-loaded.d'), { recursive: true });
+    writeFileSync(sentinel, '{}');
+    const future = new Date(Date.now() + 60_000);
+    utimesSync(sentinel, future, future);
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['project-question', 'why does the login page throw an error when I submit?'],
+    ['no-workflow', 'thanks!'],
+  ])('a %s prompt gets retrieved context but no rule manifest (AC-12)', (_label, prompt) => {
+    const result = runGateWith(prompt);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[paqad-context]');
+    expect(result.stdout).toContain('## Retrieved context');
+    expect(result.stdout).not.toContain('rule manifest');
+    expect(result.stdout).not.toContain('Loaded rule text');
+    expect(result.stdout).not.toContain('## Verify');
+    // The evidence row describes what was actually injected.
+    expect(lastRagRow().injected_sections).toEqual(['retrieval']);
+  });
+
+  it('a feature-development prompt keeps the full block, after the route line', () => {
+    const result = runGateWith('implement a schema migration adding a pii payment column');
+    expect(result.stdout).toContain('## paqad rule manifest');
+    expect(result.stdout).toContain('## Loaded rule text');
+    const route = result.stdout.indexOf('[paqad] Routed to feature-development');
+    expect(route).toBeGreaterThanOrEqual(0);
+    expect(route).toBeLessThan(result.stdout.indexOf('[paqad-context]'));
+    expect(lastRagRow().injected_sections).toEqual(['rules', 'retrieval']);
+  });
+
+  it('writes this session route pointer, so the worker reads it instead of the shared one', () => {
+    runGateWith('why does the login page throw an error when I submit?');
+    const own = JSON.parse(
+      readFileSync(join(projectRoot, '.paqad/context/.session-route.d', `${SESSION}.json`), 'utf8'),
+    ) as { workflow: string };
+    expect(own.workflow).toBe('project-question');
   });
 });

@@ -125,6 +125,27 @@ describe('runPromptRouteSeam (#336)', () => {
     expect(readSessionRoute(root)?.adapter).toBe('codex-cli');
   });
 
+  // Issue #582 (FR-10) — the route is also written under this session's own pointer.
+  it('writes the route under the session own pointer too (issue #582)', async () => {
+    await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'explain the router',
+        sessionId: SESSION,
+        adapter: 'claude-code',
+      },
+      { classify: async () => classificationWith('project-question') },
+    );
+    await runPromptRouteSeam({
+      projectRoot: root,
+      request: 'implement a schema migration adding a pii payment column',
+      sessionId: 'other-session',
+      adapter: 'claude-code',
+    });
+    expect(readSessionRoute(root, SESSION)?.workflow).toBe('project-question');
+    expect(readSessionRoute(root)?.workflow).toBe('feature-development');
+  });
+
   it('records project-question and stashes no lane for a question', async () => {
     const result = await runPromptRouteSeam(
       {

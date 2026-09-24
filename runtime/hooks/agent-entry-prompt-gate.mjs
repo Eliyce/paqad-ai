@@ -104,11 +104,13 @@ function emitInjection(text) {
 
 // RAG buildout F5 — fire a debounced, detached background refresh of the rule
 // context so it tracks the files in play. Returns immediately; never blocks and
-// never throws into the gate.
-function fireContextRefresh() {
+// never throws into the gate. Issue #582 — fired AFTER routing, with the session id,
+// so the worker reads the route this session just wrote rather than another session's.
+function fireContextRefresh(sessionId) {
   try {
     const refresh = join(HERE, 'context-refresh-trigger.mjs');
-    const child = spawn(process.execPath, [refresh], {
+    const args = sessionId ? [refresh, sessionId] : [refresh];
+    const child = spawn(process.execPath, args, {
       detached: true,
       stdio: 'ignore',
     });
@@ -121,13 +123,14 @@ function fireContextRefresh() {
 // Issues #324, #336, #566 — route THIS prompt to one of the workflow outcomes with the
 // deterministic classifier, record it against the REAL host so the session-route row
 // carries the adapter (AC-8), and append the ONE lean `[paqad]` outcome line to `sink`.
-// Thin by contract: all logic lives in dist/pipeline/prompt-lane.js.
+// Thin by contract: all logic lives in dist/pipeline/prompt-lane.js. Returns the routed
+// workflow, or null when the prompt was empty or routing failed (issue #582).
 async function emitRoute(stdin, projectRoot, sink) {
   try {
     const parsed = JSON.parse(stdin);
     const request = typeof parsed?.prompt === 'string' ? parsed.prompt : '';
     if (!request.trim()) {
-      return;
+      return null;
     }
     const sessionId = typeof parsed?.session_id === 'string' ? parsed.session_id : null;
     const distUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
@@ -146,11 +149,13 @@ async function emitRoute(stdin, projectRoot, sink) {
     if (routed === 'feature-development' && sessionId) {
       sink(`[paqad] session ${sessionId}: prefix paqad-ai commands with SE_SESSION=${sessionId}\n`);
     }
+    return routed;
   } catch (error) {
     // Best-effort for the HOST — the prompt still goes through — but never silent again
     // (issue #573). A swallowed ERR_MODULE_NOT_FOUND here hid a total routing outage for
     // ~10 weeks: no lane was ever recorded, so stage isolation could never trigger.
     logHookFailure(projectRoot, 'agent-entry-prompt-gate', error, 'routing this prompt');
+    return null;
   }
 }
 
@@ -163,8 +168,6 @@ async function main(stdin) {
   if (isPaqadDisabled(projectRoot)) {
     return 0;
   }
-
-  fireContextRefresh();
 
   // Issue #582 — the sentinel is keyed on THIS session's id, so another session's
   // SessionStart cannot ungate it and the directive names the exact file to write.
@@ -180,6 +183,7 @@ async function main(stdin) {
     // and skipped at completion. Best-effort (never throws); the narration line is DROPPED in
     // this branch (no-op sink) so the load directive still owns the top of context.
     await emitRoute(stdin, projectRoot, () => {});
+    fireContextRefresh(sessionId);
     // ALWAYS-LOAD: emit ONLY the load directive — the [paqad-context] dump is
     // suppressed until the framework is loaded, so the directive can never be buried.
     const message = directive(state, entryFile(), sentinelRelative(sessionId));
@@ -191,14 +195,21 @@ async function main(stdin) {
     return 0;
   }
 
-  // Fresh: the framework is loaded — inject the precomputed [paqad-context] block (F2),
-  // then route THIS prompt + record the outcome. On Codex the pieces are buffered and
+  // Fresh: the framework is loaded — route THIS prompt + record the outcome, then inject
+  // the precomputed [paqad-context] block (F2). On Codex the pieces are buffered and
   // delivered as one additionalContext envelope; on Claude each is written straight to
-  // stdout, preserving the exact prior output.
+  // stdout, so the route line now comes before the context block.
+  //
+  // Issue #582 — the artifact is shared by every session in the checkout and may have been
+  // composed for another session's feature-development prompt. Routing first lets a prompt
+  // that is NOT feature-development drop the rule manifest, loaded rule text and existing
+  // surface. When routing gave no answer the full block is kept, exactly as before.
   let buffer = '';
   const sink = ADAPTER === 'codex-cli' ? (text) => (buffer += text) : (text) => emitInjection(text);
-  emitContext(stdin, projectRoot, sink);
-  await emitRoute(stdin, projectRoot, sink);
+  const routed = await emitRoute(stdin, projectRoot, sink);
+  fireContextRefresh(sessionId);
+  const stripRules = typeof routed === 'string' && routed !== 'feature-development';
+  emitContext(stdin, projectRoot, sink, { stripRules });
   // Issue #547 (FR-1.4) — one spec-pipeline nudge when the pipeline is on; silent otherwise.
   const nudge = specPipelineNudge(readLayeredKey, projectRoot);
   if (nudge) {
