@@ -191,7 +191,13 @@ describe('paqad-ai join', () => {
     expect(existsSync(join(root, '.paqad/compiled-rules.json'))).toBe(true);
     expect(existsSync(join(root, '.paqad/context/session-context.md'))).toBe(true);
     expect(existsSync(join(root, '.paqad/framework-version.txt'))).toBe(true);
-    expect(existsSync(join(root, '.paqad/.agent-entry-loaded'))).toBe(true);
+    // Issue #576 (Finding 10) — the dead .agent-entry-loaded write is gone (SessionStart deletes
+    // it every session), and framework-version.txt is seeded at the epoch so the next session's
+    // update check fires immediately.
+    expect(existsSync(join(root, '.paqad/.agent-entry-loaded'))).toBe(false);
+    expect(readFileSync(join(root, '.paqad/framework-version.txt'), 'utf8')).toContain(
+      'updated_at=1970-01-01T00:00:00Z',
+    );
     expect(output.join('')).toContain(JOIN_RAG_OFF_MESSAGE);
     expect(output.join('')).toContain(JOIN_READY_MESSAGE);
     expect(promptConfirm).not.toHaveBeenCalled();

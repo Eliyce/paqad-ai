@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { confirm } from '@inquirer/prompts';
@@ -55,6 +55,13 @@ export const JOIN_RAG_BUILDING_MESSAGE =
 export const JOIN_READY_MESSAGE =
   'Ready. Your machine is set up for this project. No tracked files changed.';
 
+/**
+ * The epoch timestamp join seeds into `framework-version.txt` (issue #576, Finding 10). It matches
+ * the seed silent-update.mjs writes when it self-heals a missing version file, so the next
+ * session's interval check fires immediately instead of a full interval later.
+ */
+const FRAMEWORK_VERSION_EPOCH_SEED = '1970-01-01T00:00:00Z';
+
 export interface JoinProjectOptions {
   projectRoot: string;
   interactive?: boolean;
@@ -102,7 +109,7 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
   }
 
   const providers = deriveRecordedProviders(manifest);
-  await recreateLocalArtifacts(projectRoot, manifest, profile, providers);
+  await recreateLocalArtifacts(projectRoot, profile, providers);
   await regenerateMachineArtifacts(projectRoot);
 
   if (options.rag !== false) {
@@ -128,7 +135,6 @@ export function deriveRecordedProviders(manifest: OnboardingManifest): AdapterTy
 
 async function recreateLocalArtifacts(
   projectRoot: string,
-  manifest: OnboardingManifest,
   profile: ProjectProfile,
   providers: AdapterType[],
 ): Promise<void> {
@@ -165,12 +171,13 @@ async function recreateLocalArtifacts(
     }
   }
 
+  // Issue #576 (Finding 10) — regenerate the git-ignored host-config files paqad OWNS even when
+  // they already exist, so a teammate on an old hook set is refreshed instead of keeping a stale
+  // `.claude/settings.json` forever. Tracked files (a hand-authored entry file) resolve as
+  // not-ignored and are still preserved — join never overwrites a user-authored tracked file.
   writeGeneratedFiles(
     projectRoot,
-    candidates.filter(
-      (candidate) =>
-        !existsSync(join(projectRoot, candidate.path)) && isGitIgnored(projectRoot, candidate.path),
-    ),
+    candidates.filter((candidate) => isGitIgnored(projectRoot, candidate.path)),
   );
 
   if (isGitIgnored(projectRoot, PATHS.COMPILED_RULES)) {
@@ -201,23 +208,19 @@ async function recreateLocalArtifacts(
     );
   }
   if (isGitIgnored(projectRoot, PATHS.FRAMEWORK_VERSION)) {
+    // Issue #576 (Finding 10) — seed at the epoch, exactly as silent-update.mjs does when it
+    // self-heals a missing version file, so the NEXT session's interval check fires immediately.
+    // Stamping "now" here would postpone the teammate's first auto-update by a full interval.
     writeFrameworkVersionPreservingTimestamp(
       join(projectRoot, PATHS.FRAMEWORK_VERSION),
       VERSION,
-      new Date().toISOString(),
+      FRAMEWORK_VERSION_EPOCH_SEED,
     );
   }
-  if (isGitIgnored(projectRoot, PATHS.AGENT_ENTRY_SENTINEL)) {
-    writeFileSync(
-      join(projectRoot, PATHS.AGENT_ENTRY_SENTINEL),
-      `${JSON.stringify({
-        loaded_at: new Date().toISOString(),
-        entry_file: AdapterFactory.create(manifest.adapter).getConfigPath(),
-        framework_version: VERSION,
-      })}\n`,
-      'utf8',
-    );
-  }
+  // Issue #576 (Finding 10) — the `.agent-entry-loaded` write that used to live here was dead:
+  // SessionStart deletes the sentinel unconditionally at the start of every session, so writing it
+  // during join only mattered for a session already open while join ran (which then counted as
+  // loaded without loading the entry file). Removed.
 }
 
 /**
@@ -324,7 +327,26 @@ async function joinRag(
   return true;
 }
 
+/** Whether git actually tracks `path` (a committed file), regardless of ignore patterns. */
+function isGitTracked(projectRoot: string, path: string): boolean {
+  try {
+    execFileSync('git', ['ls-files', '--error-unmatch', '--', path], {
+      cwd: projectRoot,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isGitIgnored(projectRoot: string, path: string): boolean {
+  // Issue #576 (Finding 10) — a TRACKED file that happens to match an ignore pattern must never be
+  // treated as ignored: overwriting it would be a tracked diff. `check-ignore --no-index` reports
+  // such a file as ignored (it does not consult the index), so guard with a tracked check first.
+  if (isGitTracked(projectRoot, path)) {
+    return false;
+  }
   try {
     execFileSync('git', ['check-ignore', '--quiet', '--no-index', '--', path], {
       cwd: projectRoot,
