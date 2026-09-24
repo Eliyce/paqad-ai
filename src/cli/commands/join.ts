@@ -310,6 +310,9 @@ async function joinRag(
     current: status,
     provider,
     model: intelligence.embedding_model ?? getDefaultEmbeddingModel(provider),
+    // Issue #576 (Finding 3) — build the index only; never rewrite the tracked profile or the
+    // dev-local `.config` on a teammate machine (they belong to the team's committed config).
+    buildOnly: true,
   });
   return true;
 }
