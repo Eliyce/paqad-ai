@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -97,12 +97,31 @@ describe('visualEvidenceReminder (issue #579, FR-15)', () => {
     expect(remind(['src/a.tsx'])).toBeNull();
   });
 
+  it('treats an existing marker as already reminded and leaves it untouched (EEXIST)', () => {
+    project(true);
+    const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 6 });
+    const marker = join(root, REMINDER_MARKER_DIR, dir);
+    mkdirSync(join(root, REMINDER_MARKER_DIR), { recursive: true });
+    writeFileSync(marker, 'earlier\n');
+    expect(remind(['src/a.tsx'])).toBeNull();
+    expect(readFileSync(marker, 'utf8')).toBe('earlier\n');
+  });
+
   it('skips the reminder when the marker cannot be written', () => {
     project(true);
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 4 });
     // A file where the marker directory should be makes the mkdir fail on every platform.
     mkdirSync(join(root, '.paqad', 'session'), { recursive: true });
     writeFileSync(join(root, REMINDER_MARKER_DIR), 'not a dir');
+    expect(remind(['src/a.tsx'])).toBeNull();
+  });
+
+  it('skips the reminder on a marker failure other than EEXIST', () => {
+    project(true);
+    openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 7 });
+    // A file where .paqad/session should be: the mkdir fails with ENOTDIR (ENOENT on Windows).
+    rmSync(join(root, '.paqad', 'session'), { recursive: true, force: true });
+    writeFileSync(join(root, '.paqad', 'session'), 'not a dir');
     expect(remind(['src/a.tsx'])).toBeNull();
   });
 });

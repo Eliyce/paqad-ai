@@ -49,12 +49,14 @@ export function visualEvidenceReminder(input: VisualEvidenceReminderInput): stri
   if (!dirName) return null;
   if (existsSync(join(projectRoot, featureFilePath(dirName, 'visualEvidence')))) return null;
   const marker = join(projectRoot, REMINDER_MARKER_DIR, dirName);
-  if (existsSync(marker)) return null;
   try {
     mkdirSync(join(projectRoot, REMINDER_MARKER_DIR), { recursive: true });
-    writeFileSync(marker, `${new Date().toISOString()}\n`, 'utf8');
+    // `wx` creates the marker atomically and fails with EEXIST when it is already there, so the
+    // once-per-change check and the write are one step, with no window between them.
+    writeFileSync(marker, `${new Date().toISOString()}\n`, { encoding: 'utf8', flag: 'wx' });
   } catch {
-    // Could not record the marker: skip the reminder rather than repeat it on every edit.
+    // EEXIST means this change was already reminded. Any other failure means the marker could not
+    // be recorded: skip the reminder rather than repeat it on every edit.
     return null;
   }
   return VISUAL_EVIDENCE_REMINDER;
