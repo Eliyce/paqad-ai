@@ -258,7 +258,45 @@ function resolveWorkflow(
       .map((pattern) => ({ workflow: entry.workflow, priority: entry.priority, pattern })),
   ).sort((left, right) => right.priority - left.priority)[0];
 
-  return winner?.workflow;
+  if (winner) {
+    return winner.workflow;
+  }
+
+  // Issue #576 (Finding 5) — an interrogative request about the codebase is a project-question,
+  // not no-workflow. This is a FALLBACK: it fires only when no explicit workflow keyword matched,
+  // so an imperative code request ("fix the typo", "add a feature") still wins its workflow above.
+  // Without it every "how/where/what/why/explain/show me/example" question fell through to
+  // no-workflow, which per the router contract retrieves no RAG context.
+  if (looksLikeProjectQuestion(normalized)) {
+    return 'project-question';
+  }
+
+  return undefined;
+}
+
+/**
+ * Whole-word interrogative leads that mark a request as a question ABOUT the codebase. Matched on
+ * the normalized (space-separated, alphanumeric) token stream so a substring like "what" inside
+ * "whatever" never counts. Greetings and thanks carry none of these, so they stay no-workflow.
+ */
+const PROJECT_QUESTION_LEADS = new Set([
+  'how',
+  'where',
+  'what',
+  'whats',
+  'why',
+  'which',
+  'explain',
+  'example',
+]);
+
+function looksLikeProjectQuestion(normalized: string): boolean {
+  const tokens = normalized.split(' ');
+  if (tokens.some((token) => PROJECT_QUESTION_LEADS.has(token))) {
+    return true;
+  }
+  // "show me" is a project question ("show me the order flow"); bare "show" is too broad.
+  return normalized.includes('show me');
 }
 
 function normalizeText(value: string): string {
