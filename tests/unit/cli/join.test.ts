@@ -97,14 +97,17 @@ describe('paqad-ai join', () => {
   let output: string[];
   let homeDir: string;
   const savedHome = process.env.HOME;
+  const savedUserProfile = process.env.USERPROFILE;
   const savedFrameworkHome = process.env.PAQAD_FRAMEWORK_HOME;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-join-'));
     // join now runs the home-only bootstrap (issue #576, Finding 2), which writes under HOME.
     // Point HOME + the framework home at a temp dir so tests never touch the real install.
+    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
     homeDir = mkdtempSync(join(tmpdir(), 'paqad-join-home-'));
     process.env.HOME = homeDir;
+    process.env.USERPROFILE = homeDir;
     process.env.PAQAD_FRAMEWORK_HOME = join(homeDir, '.paqad-ai', 'current');
     output = [];
     promptConfirm.mockReset().mockResolvedValue(true);
@@ -141,6 +144,8 @@ describe('paqad-ai join', () => {
     rmSync(homeDir, { recursive: true, force: true });
     if (savedHome === undefined) delete process.env.HOME;
     else process.env.HOME = savedHome;
+    if (savedUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = savedUserProfile;
     if (savedFrameworkHome === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
     else process.env.PAQAD_FRAMEWORK_HOME = savedFrameworkHome;
   });

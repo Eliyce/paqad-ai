@@ -12,7 +12,7 @@
 
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** Marker that identifies (and de-dupes) the paqad block inside a hook file. */
 export const GIT_HOOK_MARKER = '# paqad-ai delivery-link (issue #339)';
@@ -49,10 +49,24 @@ export interface InstallGitHooksResult {
  */
 function hooksDirIsTracked(projectRoot: string, dir: string): boolean {
   const gitDir = git(projectRoot, ['rev-parse', '--absolute-git-dir']);
-  if (gitDir && resolve(dir).startsWith(resolve(gitDir))) {
-    return false; // inside `.git/` — never tracked
+  if (gitDir) {
+    const resolvedGitDir = resolve(gitDir);
+    const resolvedDir = resolve(dir);
+    // Boundary-aware containment: `<root>/.git` must not swallow a sibling like `<root>/.githooks`,
+    // whose string starts with `<root>/.git` but is NOT inside the git dir. A bare `startsWith`
+    // here mis-classified a tracked `.githooks` redirect as internal on Linux (issue #576).
+    if (resolvedDir === resolvedGitDir || resolvedDir.startsWith(resolvedGitDir + sep)) {
+      return false; // inside `.git/` — never tracked
+    }
   }
-  const listed = git(projectRoot, ['ls-files', '--', dir]);
+  // Query with a pathspec RELATIVE to the repo root, forward-slashed. An absolute pathspec is not
+  // portable across git versions/platforms (it read empty on Linux CI while passing on macOS), and
+  // a Windows path needs forward slashes. A dir resolving outside the repo (`..`) is not tracked.
+  const rel = relative(projectRoot, dir).replace(/\\/g, '/');
+  if (rel === '' || rel.startsWith('..')) {
+    return false;
+  }
+  const listed = git(projectRoot, ['ls-files', '--', rel]);
   return listed !== undefined && listed.length > 0;
 }
 

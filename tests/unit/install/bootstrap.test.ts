@@ -57,7 +57,10 @@ describe('bootstrapFramework', () => {
   it('bootstrapFrameworkHome writes the framework home but no project metadata', () => {
     const home = mkdtempSync(join(tmpdir(), 'paqad-home-only-'));
     const savedHome = process.env.HOME;
+    const savedUserProfile = process.env.USERPROFILE;
+    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
     process.env.HOME = home;
+    process.env.USERPROFILE = home;
     try {
       const result = bootstrapFrameworkHome();
 
@@ -70,6 +73,8 @@ describe('bootstrapFramework', () => {
     } finally {
       if (savedHome === undefined) delete process.env.HOME;
       else process.env.HOME = savedHome;
+      if (savedUserProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = savedUserProfile;
       rmSync(home, { recursive: true, force: true });
     }
   });

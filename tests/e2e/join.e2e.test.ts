@@ -72,6 +72,7 @@ describe('paqad-ai join — cloned project', () => {
   let home: string;
   let frameworkHome: string;
   const savedHome = process.env.HOME;
+  const savedUserProfile = process.env.USERPROFILE;
   const savedFrameworkHome = process.env.PAQAD_FRAMEWORK_HOME;
 
   beforeEach(() => {
@@ -79,10 +80,12 @@ describe('paqad-ai join — cloned project', () => {
     // Isolate the global install (issue #576, Finding 2): join now runs bootstrapFramework,
     // which writes under the user home (~/.paqad-ai/current + ~/.claude|.codex/agents). Point
     // HOME and the framework home at the temp dir so the test never touches the real install.
+    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
     home = join(temp, 'home');
     frameworkHome = join(home, '.paqad-ai', 'current');
     mkdirSync(home, { recursive: true });
     process.env.HOME = home;
+    process.env.USERPROFILE = home;
     process.env.PAQAD_FRAMEWORK_HOME = frameworkHome;
   });
 
@@ -91,6 +94,8 @@ describe('paqad-ai join — cloned project', () => {
     vi.restoreAllMocks();
     if (savedHome === undefined) delete process.env.HOME;
     else process.env.HOME = savedHome;
+    if (savedUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = savedUserProfile;
     if (savedFrameworkHome === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
     else process.env.PAQAD_FRAMEWORK_HOME = savedFrameworkHome;
   });
