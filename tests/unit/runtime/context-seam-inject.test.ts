@@ -58,7 +58,9 @@ describe('runtime/hooks/context-seam-inject.mjs', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    // The gate spawns a detached context refresh that can still be writing under .paqad/
+    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
+    rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   function writeArtifact(body: string): void {
@@ -109,7 +111,9 @@ describe('agent-entry-prompt-gate.mjs orders the load directive before context (
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    // The gate spawns a detached context refresh that can still be writing under .paqad/
+    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
+    rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   // Always-load fix (Part 0): when the framework is NOT loaded yet, the gate emits
@@ -162,7 +166,9 @@ describe('F3 + #284 — the true OFF arm needs BOTH lean and rag off', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    // The gate spawns a detached context refresh that can still be writing under .paqad/
+    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
+    rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   it('emits nothing when both lean_rules and rag are off (baseline)', () => {
@@ -205,7 +211,9 @@ describe('issue #284 — lean rule loading injects the artifact by default', () 
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    // The gate spawns a detached context refresh that can still be writing under .paqad/
+    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
+    rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   it('injects the artifact with all flags unset (lean default on, rag off)', () => {
@@ -308,7 +316,9 @@ describe('prompt gate injects rule sections only for a feature-development promp
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    // The gate spawns a detached context refresh that can still be writing under .paqad/
+    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
+    rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   it.each([
