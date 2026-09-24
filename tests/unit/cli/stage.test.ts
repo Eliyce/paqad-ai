@@ -13,6 +13,9 @@ import {
   readFeatureStageUnit,
   resolveFeatureRef,
 } from '@/feature-evidence/stage-ledger.js';
+import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 // `paqad-ai stage <start|end> <stage>` — the shell escape hatch the block-forward
 // gate's remediation names (issue #307). Unlike the never-shipped scripts/se-mark.ts
@@ -301,6 +304,47 @@ describe('paqad-ai stage command', () => {
       // No explicit session anywhere → resolveSessionId mints+caches a local id; the
       // mark still records (exit code stays clean, the ledger-session cache exists).
       expect(process.exitCode).toBeUndefined();
+    });
+
+    // Issue #582 — each row records where its session id came from.
+    it('stamps session_source env when the flag or environment supplied the id', async () => {
+      await run('start', 'planning');
+      expect(rows().find((r) => r.kind === 'stage_start')).toMatchObject({ session_source: 'env' });
+    });
+
+    it('stamps session_source env when only SE_SESSION supplied the id', async () => {
+      vi.stubEnv('SE_SESSION', 'ses_from_se');
+      await runNoSession('start', 'planning');
+      expect(rowsFor('ses_from_se').find((r) => r.kind === 'stage_start')).toMatchObject({
+        session_source: 'env',
+      });
+    });
+
+    it('AC-11: a start resolved from the cache file is stamped cache and is not an edit this turn', async () => {
+      vi.stubEnv('SE_SESSION', undefined);
+      vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+      // The shared cache names SES (the last session that wrote it).
+      resolveSessionId(root, SES);
+      writeWorkflowState(root, SES, {
+        active: { workflow: 'project-question' },
+        paused: [],
+        turn_started_at: '2000-01-01T00:00:00.000Z',
+      });
+
+      await runNoSession('start', 'planning');
+
+      const start = rowsFor(SES).find((r) => r.kind === 'stage_start');
+      expect(start).toMatchObject({ session_source: 'cache' });
+      // SES owns the change, but the only row this turn came from the cache: a detour skip,
+      // never "edited this turn".
+      expect(classifyCompletionEnforcement(root, SES)).toMatchObject({
+        enforce: false,
+        reason: 'detour',
+      });
+
+      // The same start with the id supplied does count as this turn's edit.
+      await run('start', 'planning');
+      expect(classifyCompletionEnforcement(root, SES).reason).toBe('edited-this-turn');
     });
   });
 });

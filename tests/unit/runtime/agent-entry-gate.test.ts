@@ -428,6 +428,39 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  // Issue #582 — the host shell does not export the session id, so a feature-development
+  // prompt tells the model which id to prefix its paqad-ai commands with.
+  it.each([
+    ['implement a schema migration adding a pii payment column', true],
+    ['why does the login page throw an error when I submit?', false],
+  ])(
+    'names the session id for SE_SESSION only on a feature-development prompt (%s)',
+    (prompt, named) => {
+      const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-prompt-session-'));
+      try {
+        mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+        mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
+        writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
+        writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+        writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
+        const future = new Date(Date.now() + 60_000);
+        utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), future, future);
+
+        const result = runPromptGateWithInput(
+          projectRoot,
+          JSON.stringify({ prompt, session_id: 'route-582' }),
+        );
+
+        expect(result.status).toBe(0);
+        const line =
+          '[paqad] session route-582: prefix paqad-ai commands with SE_SESSION=route-582';
+        expect(result.stdout.includes(line)).toBe(named);
+      } finally {
+        rmSync(projectRoot, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe('runtime/hooks/agent-entry-session-start.mjs', () => {

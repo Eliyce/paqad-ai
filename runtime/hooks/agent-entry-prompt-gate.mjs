@@ -132,7 +132,7 @@ async function emitRoute(stdin, projectRoot, sink) {
     const sessionId = typeof parsed?.session_id === 'string' ? parsed.session_id : null;
     const distUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
     const { runPromptRouteSeam } = await import(distUrl.href);
-    const { narration } = await runPromptRouteSeam({
+    const { routed, narration } = await runPromptRouteSeam({
       projectRoot,
       request,
       sessionId,
@@ -140,6 +140,11 @@ async function emitRoute(stdin, projectRoot, sink) {
     });
     if (narration) {
       sink(`${narration}\n`);
+    }
+    // Issue #582 — the host's shell does not export the session id, so a bare `paqad-ai`
+    // call would resolve the shared cache file and could record into another session.
+    if (routed === 'feature-development' && sessionId) {
+      sink(`[paqad] session ${sessionId}: prefix paqad-ai commands with SE_SESSION=${sessionId}\n`);
     }
   } catch (error) {
     // Best-effort for the HOST — the prompt still goes through — but never silent again

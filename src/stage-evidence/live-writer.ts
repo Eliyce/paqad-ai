@@ -19,6 +19,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { endStage, openStageEvidence, startStage } from './recorder.js';
 import { isKnownStage, PRE_CODE_STAGES, stageIndex, type StageId } from './stages.js';
+import type { StageSessionSource } from './types.js';
 
 /** Normalise a hook-supplied path to a project-relative posix path for globbing. */
 function toRelativePosix(projectRoot: string, targetPath: string): string {
@@ -173,6 +174,10 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     // feature; an empty read means no active feature and the guard already returned).
     const ctx = {
       sessionId,
+      // Issue #582 — the only caller is the stage-writer hook, which passes the host
+      // payload's session id; with none, the id came from the cache, and the row is left
+      // unstamped rather than guessed.
+      sessionSource: input.sessionId?.trim() ? ('host' as const) : undefined,
       dirName: dirName!,
       adapter: input.adapter ?? 'claude-code',
       agent: input.agent,
@@ -258,6 +263,8 @@ export type MarkedStagePhase = 'start' | 'end';
 
 export interface MarkedStageInput {
   sessionId?: string | null;
+  /** Where `sessionId` came from (issue #582), stamped on each row this call writes. */
+  sessionSource?: StageSessionSource;
   /** The agent recording the boundary (issue #573); absent means the orchestrator. */
   agent?: string;
   stage: string;
@@ -298,7 +305,12 @@ export interface MarkedStageInput {
 function closeOpenStagesForMarkedStart(
   projectRoot: string,
   targetStage: string,
-  ctx: { sessionId?: string | null; adapter: string; now?: () => Date },
+  ctx: {
+    sessionId?: string | null;
+    sessionSource?: StageSessionSource;
+    adapter: string;
+    now?: () => Date;
+  },
 ): void {
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
   const dirName = currentFeature(projectRoot, sessionId);
@@ -312,7 +324,18 @@ function closeOpenStagesForMarkedStart(
     if (s !== targetStage && started.has(s) && !ended.has(s)) {
       ended.add(s);
       try {
-        endStage(projectRoot, s, {}, { sessionId, dirName, adapter: ctx.adapter, now: ctx.now });
+        endStage(
+          projectRoot,
+          s,
+          {},
+          {
+            sessionId,
+            sessionSource: ctx.sessionSource,
+            dirName,
+            adapter: ctx.adapter,
+            now: ctx.now,
+          },
+        );
       } catch {
         // Best-effort per stage: a forged/registry-unknown open stage the recorder
         // cannot end is skipped so the marked boundary (e.g. `review`) still records.
@@ -333,6 +356,7 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
   if (!isKnownStage(input.stage)) return false;
   const ctx = {
     sessionId: input.sessionId,
+    sessionSource: input.sessionSource,
     adapter: input.adapter ?? 'claude-code',
     agent: input.agent,
     now: input.now,

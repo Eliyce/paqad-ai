@@ -28,6 +28,15 @@ export type StageEvidenceSource =
 
 export type StageLane = 'fast' | 'graduated' | 'full' | null;
 
+/**
+ * Where a row's session id came from (issue #582): `host` when a hook payload supplied it,
+ * `env` when the `--session` flag or the SE_SESSION / CLAUDE_SESSION_ID environment did,
+ * and `cache` when it was read from the shared single-slot `ledger-session-id` file. A
+ * cache-sourced row may belong to another live session, so it never counts as "edited this
+ * turn". Absent on rows written before the field existed and by writers that cannot tell.
+ */
+export type StageSessionSource = 'host' | 'env' | 'cache' | null;
+
 /** One `paqad.stage-evidence` row (envelope fields are stamped by the substrate). */
 export interface StageEvidenceRow {
   schema_version: number;
@@ -50,6 +59,7 @@ export interface StageEvidenceRow {
   /** Git working-tree delta digest; set on development. */
   subject_digest?: string | null;
   lane?: StageLane;
+  session_source?: StageSessionSource;
   note?: string | null;
   content_hash: string;
 }
