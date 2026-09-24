@@ -73,9 +73,18 @@ describe('scope — isHostAgentConfigPath', () => {
     expect(isHostAgentConfigPath('.continue/mcp.json')).toBe(true);
     expect(isHostAgentConfigPath('.aider/cache.json')).toBe(true);
     expect(isHostAgentConfigPath('.aiassistant/agents')).toBe(true);
+    // JetBrains AI writes `.ai/mcp/mcp.json` (issue #576, Finding 1c).
+    expect(isHostAgentConfigPath('.ai/mcp/mcp.json')).toBe(true);
     // the bare directory itself, and the .windsurfrules root entry file
     expect(isHostAgentConfigPath('.claude')).toBe(true);
     expect(isHostAgentConfigPath('.windsurfrules')).toBe(true);
+  });
+
+  it('does not treat a `.ai`-prefixed lookalike dir as host config (issue #576)', () => {
+    // Boundary check: `.aider`/`.aiassistant` are their own entries; a `.airflow` lookalike is not.
+    expect(isHostAgentConfigPath('.airflow/dags.py')).toBe(false);
+    // `.ai/mcp/mcp.json` is not a feature-development change.
+    expect(isFeatureDevEdit('.ai/mcp/mcp.json')).toBe(false);
   });
 
   it('does NOT flag .github (CI workflows are real code), source, or docs', () => {

@@ -12,7 +12,7 @@
 
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** Marker that identifies (and de-dupes) the paqad block inside a hook file. */
 export const GIT_HOOK_MARKER = '# paqad-ai delivery-link (issue #339)';
@@ -29,6 +29,45 @@ export interface InstallGitHooksResult {
   skipped: string[];
   /** True when the target is not a git repo (nothing installed). */
   notAGitRepo: boolean;
+  /**
+   * True when the resolved hooks dir is git-TRACKED (a `core.hooksPath` redirect to a committed
+   * dir, e.g. husky's `.husky/` or a tracked `.githooks/`). In that case nothing is written —
+   * modifying a tracked file would produce a diff (and husky v9 discards appended blocks on
+   * reinstall). {@link snippet} carries the line for the developer to add themselves (issue #576,
+   * Finding 9).
+   */
+  trackedHooksDir?: boolean;
+  /** The one-line snippet to add to the tracked hooks, set only when {@link trackedHooksDir}. */
+  snippet?: string;
+}
+
+/**
+ * Whether the resolved hooks dir is git-tracked. The default hooks dir lives inside the git dir
+ * and is never tracked; a `core.hooksPath` redirect to a working-tree dir is tracked when git
+ * tracks any file under it. Best-effort — an indeterminate result reads as not-tracked (install as
+ * before), so this only ever SUPPRESSES a write it is confident would touch a tracked file.
+ */
+function hooksDirIsTracked(projectRoot: string, dir: string): boolean {
+  const gitDir = git(projectRoot, ['rev-parse', '--absolute-git-dir']);
+  if (gitDir) {
+    const resolvedGitDir = resolve(gitDir);
+    const resolvedDir = resolve(dir);
+    // Boundary-aware containment: `<root>/.git` must not swallow a sibling like `<root>/.githooks`,
+    // whose string starts with `<root>/.git` but is NOT inside the git dir. A bare `startsWith`
+    // here mis-classified a tracked `.githooks` redirect as internal on Linux (issue #576).
+    if (resolvedDir === resolvedGitDir || resolvedDir.startsWith(resolvedGitDir + sep)) {
+      return false; // inside `.git/` — never tracked
+    }
+  }
+  // Query with a pathspec RELATIVE to the repo root, forward-slashed. An absolute pathspec is not
+  // portable across git versions/platforms (it read empty on Linux CI while passing on macOS), and
+  // a Windows path needs forward slashes. A dir resolving outside the repo (`..`) is not tracked.
+  const rel = relative(projectRoot, dir).replace(/\\/g, '/');
+  if (rel === '' || rel.startsWith('..')) {
+    return false;
+  }
+  const listed = git(projectRoot, ['ls-files', '--', rel]);
+  return listed !== undefined && listed.length > 0;
 }
 
 function git(projectRoot: string, args: string[]): string | undefined {
@@ -69,6 +108,19 @@ export function installGitHooks(projectRoot: string): InstallGitHooksResult {
   const dir = resolveHooksDir(projectRoot);
   if (!dir) {
     return { installed: [], skipped: [], notAGitRepo: true };
+  }
+  // Issue #576 (Finding 9) — never write into a git-tracked hooks dir. Report the snippet instead.
+  if (hooksDirIsTracked(projectRoot, dir)) {
+    return {
+      installed: [],
+      skipped: [],
+      notAGitRepo: false,
+      trackedHooksDir: true,
+      snippet:
+        `${GIT_HOOK_MARKER}\n` +
+        `add to post-commit and post-merge in your tracked hooks dir:\n` +
+        `  ${hookBlock('commit').split('\n')[1]}`,
+    };
   }
   mkdirSync(dir, { recursive: true });
   const installed: string[] = [];

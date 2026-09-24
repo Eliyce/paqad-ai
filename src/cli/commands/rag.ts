@@ -147,6 +147,8 @@ async function buildWithRecovery(
   options: {
     provider?: string;
     model?: string;
+    /** Issue #576 (Finding 3) — join builds the index without persisting the profile / `.config`. */
+    buildOnly?: boolean;
   },
 ): Promise<Awaited<ReturnType<RagService['configureAndBuild']>>> {
   let provider = await resolveProvider(options.provider, current.configured_provider);
@@ -166,14 +168,18 @@ async function buildWithRecovery(
         : getDefaultEmbeddingModel(provider));
 
     try {
-      return await service.configureAndBuild(
+      const buildArgs = [
         {
           rag_enabled: true,
           embedding_provider: provider,
           embedding_model: model,
         },
         progressPrinter,
-      );
+      ] as const;
+      // Finding 3 — join must not rewrite the tracked profile or the local `.config`.
+      return options.buildOnly
+        ? await service.buildIndexOnly(...buildArgs)
+        : await service.configureAndBuild(...buildArgs);
     } catch (error) {
       if (!isInteractive()) {
         throw error;
@@ -225,6 +231,12 @@ export interface InitializeRagIndexOptions {
   provider?: string;
   model?: string;
   current?: Awaited<ReturnType<RagService['getStatus']>>;
+  /**
+   * Build the index WITHOUT persisting the project profile or the dev-local `.config` (issue #576,
+   * Finding 3). Set by teammate `join`, which must leave the tracked profile and local config
+   * exactly as the team committed them. `rag init` leaves it false and persists as before.
+   */
+  buildOnly?: boolean;
 }
 
 /** Shared initial-build path used by both `rag init` and teammate `join`. */
@@ -234,7 +246,11 @@ export async function initializeRagIndex(
 ): Promise<Awaited<ReturnType<RagService['configureAndBuild']>>> {
   const service = new RagService(projectRoot);
   const current = options.current ?? (await service.getStatus());
-  return buildWithRecovery(service, current, options);
+  return buildWithRecovery(service, current, {
+    provider: options.provider,
+    model: options.model,
+    buildOnly: options.buildOnly,
+  });
 }
 
 export function createRagCommand(): Command {

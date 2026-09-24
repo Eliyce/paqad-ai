@@ -215,6 +215,39 @@ export class RagService {
     partial: Partial<BuildIndexOptions['intelligence']>,
     onProgress?: BuildIndexOptions['onProgress'],
   ): Promise<RagStatus> {
+    const { profile, intelligence } = await this.buildIndexCore(partial, onProgress);
+    profile.intelligence = intelligence;
+    writeProjectProfile(this.projectRoot, profile);
+    // RAG is a framework knob: persist it to `.paqad/.config`, not the lean profile.
+    syncFrameworkConfig(this.projectRoot, { intelligence });
+    return this.getStatus();
+  }
+
+  /**
+   * Rebuild the RAG index from the ALREADY-RESOLVED framework config WITHOUT persisting the
+   * project profile or the local `.config` (issue #576, Finding 3). `paqad-ai join` uses this: a
+   * teammate's machine must leave the tracked `project-profile.yaml` and the dev-local `.config`
+   * exactly as the team committed them — configureAndBuild rewrites both, which produced a
+   * "tracked files changed" diff and let a local `rag_*` key shadow a later team change. This runs
+   * the same shared build core (rebuild + pattern vectors + audit); it only skips the two writes.
+   */
+  async buildIndexOnly(
+    partial: Partial<BuildIndexOptions['intelligence']>,
+    onProgress?: BuildIndexOptions['onProgress'],
+  ): Promise<RagStatus> {
+    await this.buildIndexCore(partial, onProgress);
+    return this.getStatus();
+  }
+
+  /** Shared build core for {@link configureAndBuild} and {@link buildIndexOnly}: normalize the
+   *  config, rebuild the index, refresh the pattern vectors, and audit — no profile/config write. */
+  private async buildIndexCore(
+    partial: Partial<BuildIndexOptions['intelligence']>,
+    onProgress?: BuildIndexOptions['onProgress'],
+  ): Promise<{
+    profile: NonNullable<ReturnType<typeof readProjectProfile>>;
+    intelligence: ReturnType<typeof normalizeIntelligenceConfig>;
+  }> {
     const profile = readProjectProfile(this.projectRoot);
     if (!profile) {
       throw new Error('Project profile not found');
@@ -231,10 +264,6 @@ export class RagService {
     }
 
     await this.rebuild({ intelligence, onProgress });
-    profile.intelligence = intelligence;
-    writeProjectProfile(this.projectRoot, profile);
-    // RAG is a framework knob: persist it to `.paqad/.config`, not the lean profile.
-    syncFrameworkConfig(this.projectRoot, { intelligence });
     await this.patternVectors.refresh(this.projectRoot, (message) =>
       onProgress?.({ phase: 'build', message }),
     );
@@ -242,7 +271,7 @@ export class RagService {
       provider: intelligence.embedding_provider,
       model: intelligence.embedding_model,
     });
-    return this.getStatus();
+    return { profile, intelligence };
   }
 
   async rebuild(options?: BuildIndexOptions): Promise<void> {

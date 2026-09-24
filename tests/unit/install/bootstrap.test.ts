@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { bootstrapFramework } from '@/install/bootstrap';
+import { bootstrapFramework, bootstrapFrameworkHome } from '@/install/bootstrap';
 import { getRuntimeRoot } from '@/core/runtime-paths';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema';
 import { clearEngineLogger, engineLog, getConsumerLogger } from '@/core/logger-registry';
@@ -49,6 +49,34 @@ describe('bootstrapFramework', () => {
     expect(existsSync(frameworkHome)).toBe(true);
     const stat = lstatSync(frameworkHome);
     expect(stat.isSymbolicLink()).toBe(true);
+  });
+
+  // Issue #576, Finding 2 — the home-only bootstrap creates the framework symlink (and stage
+  // agents under HOME) but writes NOTHING into the project, so `join` can set up a fresh machine
+  // without a tracked diff.
+  it('bootstrapFrameworkHome writes the framework home but no project metadata', () => {
+    const home = mkdtempSync(join(tmpdir(), 'paqad-home-only-'));
+    const savedHome = process.env.HOME;
+    const savedUserProfile = process.env.USERPROFILE;
+    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+    try {
+      const result = bootstrapFrameworkHome();
+
+      expect(result.framework_home).toBe(frameworkHome);
+      expect(lstatSync(frameworkHome).isSymbolicLink()).toBe(true);
+      expect(existsSync(join(home, '.claude/agents/paqad-planning.md'))).toBe(true);
+      // The project side is untouched: no framework-path.txt, no schema-version.json.
+      expect(existsSync(join(projectRoot, '.paqad/framework-path.txt'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.paqad/schema-version.json'))).toBe(false);
+    } finally {
+      if (savedHome === undefined) delete process.env.HOME;
+      else process.env.HOME = savedHome;
+      if (savedUserProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = savedUserProfile;
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it('symlink points to the package runtime directory', () => {

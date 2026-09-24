@@ -203,7 +203,13 @@ async function readTrackedFiles(projectRoot: string): Promise<string[]> {
   }
 }
 
-async function readGitStatusFiles(projectRoot: string): Promise<string[]> {
+/**
+ * The paths git currently reports as changed for the whole working tree (tracked modifications,
+ * staged changes, and untracked files), normalized and de-duplicated. Exported so the session
+ * dirty-file baseline (issue #576, Finding 1b) captures the exact same set the completion
+ * backstop reads, rather than re-deriving the `git status` parse and risking a divergent copy.
+ */
+export async function readGitStatusFiles(projectRoot: string): Promise<string[]> {
   try {
     const result = await execa('git', ['status', '--short', '--untracked-files=all'], {
       cwd: projectRoot,

@@ -95,9 +95,20 @@ function seedOnboardedProject(root: string): void {
 describe('paqad-ai join', () => {
   let root: string;
   let output: string[];
+  let homeDir: string;
+  const savedHome = process.env.HOME;
+  const savedUserProfile = process.env.USERPROFILE;
+  const savedFrameworkHome = process.env.PAQAD_FRAMEWORK_HOME;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-join-'));
+    // join now runs the home-only bootstrap (issue #576, Finding 2), which writes under HOME.
+    // Point HOME + the framework home at a temp dir so tests never touch the real install.
+    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
+    homeDir = mkdtempSync(join(tmpdir(), 'paqad-join-home-'));
+    process.env.HOME = homeDir;
+    process.env.USERPROFILE = homeDir;
+    process.env.PAQAD_FRAMEWORK_HOME = join(homeDir, '.paqad-ai', 'current');
     output = [];
     promptConfirm.mockReset().mockResolvedValue(true);
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
@@ -113,20 +124,30 @@ describe('paqad-ai join', () => {
       chunk_count: 0,
       size_bytes: 0,
     });
-    vi.spyOn(RagService.prototype, 'configureAndBuild').mockResolvedValue({
+    const built = {
       enabled: true,
-      configured_provider: 'local',
+      configured_provider: 'local' as const,
       configured_model: 'Xenova/all-MiniLM-L6-v2',
       index_present: true,
       valid: true,
       chunk_count: 1,
       size_bytes: 100,
-    });
+    };
+    vi.spyOn(RagService.prototype, 'configureAndBuild').mockResolvedValue(built);
+    // Issue #576 (Finding 3) — join builds the index without rewriting the profile / local config.
+    vi.spyOn(RagService.prototype, 'buildIndexOnly').mockResolvedValue(built);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     rmSync(root, { recursive: true, force: true });
+    rmSync(homeDir, { recursive: true, force: true });
+    if (savedHome === undefined) delete process.env.HOME;
+    else process.env.HOME = savedHome;
+    if (savedUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = savedUserProfile;
+    if (savedFrameworkHome === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
+    else process.env.PAQAD_FRAMEWORK_HOME = savedFrameworkHome;
   });
 
   it('is registered with the non-interactive teammate setup flags', () => {
@@ -175,7 +196,13 @@ describe('paqad-ai join', () => {
     expect(existsSync(join(root, '.paqad/compiled-rules.json'))).toBe(true);
     expect(existsSync(join(root, '.paqad/context/session-context.md'))).toBe(true);
     expect(existsSync(join(root, '.paqad/framework-version.txt'))).toBe(true);
-    expect(existsSync(join(root, '.paqad/.agent-entry-loaded'))).toBe(true);
+    // Issue #576 (Finding 10) — the dead .agent-entry-loaded write is gone (SessionStart deletes
+    // it every session), and framework-version.txt is seeded at the epoch so the next session's
+    // update check fires immediately.
+    expect(existsSync(join(root, '.paqad/.agent-entry-loaded'))).toBe(false);
+    expect(readFileSync(join(root, '.paqad/framework-version.txt'), 'utf8')).toContain(
+      'updated_at=1970-01-01T00:00:00Z',
+    );
     expect(output.join('')).toContain(JOIN_RAG_OFF_MESSAGE);
     expect(output.join('')).toContain(JOIN_READY_MESSAGE);
     expect(promptConfirm).not.toHaveBeenCalled();
@@ -231,7 +258,8 @@ describe('paqad-ai join', () => {
     await joinProject({ projectRoot: root, interactive: true, yes: true });
 
     expect(output.join('')).toContain(JOIN_RAG_BUILDING_MESSAGE);
-    expect(RagService.prototype.configureAndBuild).toHaveBeenCalledWith(
+    // Finding 3 — join builds the index only (never rewriting the tracked profile / local config).
+    expect(RagService.prototype.buildIndexOnly).toHaveBeenCalledWith(
       expect.objectContaining({
         rag_enabled: true,
         embedding_provider: 'local',
@@ -239,6 +267,7 @@ describe('paqad-ai join', () => {
       }),
       expect.any(Function),
     );
+    expect(RagService.prototype.configureAndBuild).not.toHaveBeenCalled();
     expect(promptConfirm).not.toHaveBeenCalled();
   });
 

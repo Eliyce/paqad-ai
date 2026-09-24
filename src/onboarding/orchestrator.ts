@@ -45,6 +45,9 @@ import {
 } from '@/planning/index.js';
 
 import { writeRuleContext } from '@/context/rule-context.js';
+import { buildCodeKnowledgeIndex } from '@/code-knowledge/builder.js';
+import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
+import { writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import { bootstrapFramework } from '@/install/bootstrap.js';
 
 import {
@@ -325,6 +328,19 @@ export class OnboardingOrchestrator {
       throw translateDiskFullError(error);
     }
     bootstrapFramework(options.projectRoot);
+    // Issue #576 (Finding 7) — build the git-ignored code-knowledge index so the reuse gate,
+    // evidence-armed reuse forks and the spec code check are live from the first session, and a
+    // teammate who ran `join` (which builds it too) and the lead get the SAME verdicts. Only the
+    // index itself is written here (not the tracked `docs/instructions/registries/` side artifacts
+    // `index build` also refreshes), so onboarding's tracked output stays stable. Best-effort.
+    try {
+      const codeIndex = await buildCodeKnowledgeIndex(options.projectRoot);
+      if (validateCodeKnowledgeIndex(codeIndex).valid) {
+        writeCodeKnowledgeIndex(options.projectRoot, codeIndex);
+      }
+    } catch {
+      // best-effort — a build hiccup must not fail onboarding.
+    }
     new DecisionStore(options.projectRoot).initialize();
     // Issue #387 — heal any legacy sequential `D-{N}.json` decision packets a stale
     // project (or an advisory-host hand-authored packet) left behind, renaming each to a

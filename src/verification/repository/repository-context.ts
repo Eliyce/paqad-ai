@@ -28,6 +28,7 @@ import {
   isTestFile,
   loadChangeEvidence,
 } from '@/pipeline/change-evidence.js';
+import { subtractUnchangedBaselineFiles } from '@/pipeline/dirty-baseline.js';
 import type { VerificationContext, VerificationOrigin } from '@/core/types/verification.js';
 import { engineLog } from '@/core/logger-registry.js';
 
@@ -78,12 +79,21 @@ export async function buildRepositoryVerificationContext(
   const dirName = resolveActiveFeatureDir(projectRoot, sessionId);
 
   const changeEvidence = await loadChangeEvidence(projectRoot);
+  // Issue #576 (Finding 1b) — at the in-session completion origin, subtract files that were
+  // ALREADY dirty when the session started and are byte-for-byte unchanged since. Without this a
+  // pre-existing modified tracked file (a JetBrains-written config, a stale edit from before the
+  // session) is swept in by the whole-tree `git status` and blamed on a read-only turn. Scoped to
+  // `hook-completion`: commit / push / CI origins stay path-based and never consult the baseline.
+  const sessionScopedFiles =
+    origin === 'hook-completion'
+      ? subtractUnchangedBaselineFiles(projectRoot, sessionId, changeEvidence.files)
+      : changeEvidence.files;
   // Issue #205 — strip every `.paqad/` home (root or a self-hosted nested
   // `runtime/base/.paqad/`) from the verification changed-file scan. Generated
   // framework artifacts are never a unit of implementation, so they must not
   // reach codeChanged, the test-evidence preview, the quality ratchet, or scope
   // drift, where they would falsely demand test evidence and doc updates.
-  const changedFiles = changeEvidence.files.filter((filePath) => !isPaqadArtifactPath(filePath));
+  const changedFiles = sessionScopedFiles.filter((filePath) => !isPaqadArtifactPath(filePath));
   const codeChanged = changedFiles.some((filePath) => isCodeFile(filePath));
   const staleDocTargets = await detectStaleDocTargets(projectRoot, changedFiles);
 

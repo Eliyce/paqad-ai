@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -57,6 +57,32 @@ describe('installGitHooks', () => {
     execFileSync('git', ['config', 'core.hooksPath', '.husky'], { cwd: root });
     installGitHooks(root);
     expect(existsSync(join(root, '.husky', 'post-commit'))).toBe(true);
+  });
+
+  // Issue #576 (Finding 9) — a `core.hooksPath` redirect to a git-TRACKED dir must not be written
+  // into (that is a tracked diff, and husky v9 drops the block on reinstall). Report the snippet.
+  it('does not write into a git-tracked hooks dir; reports the snippet instead', () => {
+    const root = tempRepo();
+    execFileSync('git', ['config', 'user.email', 'h@example.test'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'Hooks'], { cwd: root });
+    execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: root });
+    // A tracked, committed hooks dir (as a repo that ships its own hooks would have).
+    mkdirSync(join(root, '.githooks'), { recursive: true });
+    const trackedHook = join(root, '.githooks', 'post-commit');
+    writeFileSync(trackedHook, '#!/bin/sh\necho tracked\n');
+    execFileSync('git', ['add', '.githooks/post-commit'], { cwd: root });
+    execFileSync('git', ['commit', '-q', '-m', 'ship hooks'], { cwd: root });
+
+    const result = installGitHooks(root);
+
+    expect(result.trackedHooksDir).toBe(true);
+    expect(result.installed).toEqual([]);
+    expect(result.snippet).toContain('paqad-ai delivery-link');
+    // The tracked hook file was left byte-for-byte unchanged.
+    expect(readFileSync(trackedHook, 'utf8')).toBe('#!/bin/sh\necho tracked\n');
+    expect(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' })).toBe(
+      '',
+    );
   });
 
   it('is a no-op on a non-git directory', () => {

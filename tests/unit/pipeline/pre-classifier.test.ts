@@ -140,6 +140,39 @@ describe('PreClassifier', () => {
     expect(result.resolved.workflow).toBe('documentation-update');
   });
 
+  // Issue #576 (Finding 5) — interrogative questions about the codebase resolve to
+  // project-question; greetings stay unresolved (→ no-workflow); imperative code requests keep
+  // their code workflow.
+  it('routes interrogative codebase questions to project-question (#576 AC-8)', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+
+    const questions = [
+      'How This project is setup technically?',
+      'How I can run this project locally?',
+      'How is an order sent to the backend, I want an example request and response',
+      'Where is the cart validated?',
+    ];
+    for (const request of questions) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow, `"${request}" → project-question`).toBe('project-question');
+    }
+
+    // Greetings/thanks carry no interrogative lead → unresolved (→ no-workflow downstream).
+    for (const greeting of ['hi', 'thanks']) {
+      const result = await new PreClassifier(process.cwd()).classify({ request: greeting });
+      expect(result.unresolved, `"${greeting}" stays unresolved`).toContain('workflow');
+    }
+
+    // An imperative code request still wins its workflow (not stolen by the question fallback).
+    const fix = await new PreClassifier(process.cwd()).classify({
+      request: 'Fix the typo in the order mapper',
+    });
+    expect(fix.resolved.workflow).toBe('bug-fix');
+  });
+
   it('routes health prompts to codebase-health while pentest phrasings stay pentest (#355 AC-6)', async () => {
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],
