@@ -21,6 +21,19 @@ call, capped to keep the token cost low and best-effort so a missing/corrupt sto
 breaks the pause. It complements `findReusableDecision` (which auto-reuses an exact-kind
 match) by only ADVISING on related-but-not-identical precedents the human still decides.
 
+### The visual-evidence readiness pause (issue #579)
+
+`plan compile` opens one packet itself, through `createPendingDecision`, when visual evidence
+is on, the change is frontend (plan step files plus changed files), and this machine cannot
+capture screenshots yet (the same readiness checks `paqad-ai doctor` shows). It reuses the
+existing `workflow-or-tool` category, is titled "Visual evidence is on, but I can't capture
+screenshots here yet", lists the reasons, and offers `setup`, `attach` and `waive`. Its
+context carries a `[paqad-ve-readiness <bundle>]` token, so a re-run of `plan compile` for
+the same change opens no second packet, and the visual-evidence gate can find the answer: a
+resolved packet with `waive` makes a strict "nothing captured" read `skipped` ("waived by
+D-<id>"), never pass. Like every pending packet it holds the next edit until it is resolved
+(`src/visual-evidence/readiness.ts`).
+
 ## Source Footprint
 
 - `.paqad/decisions`

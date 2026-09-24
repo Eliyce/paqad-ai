@@ -29,6 +29,12 @@ Deterministic and LLM-judged passes are counted separately and **never pooled**;
 blocked / inconclusive rows downgrade the result rather than hiding inside a pass
 total. `src/evidence/grading.ts` is the single source of truth for the A/B split.
 
+A row's `verdict` is one of `pass`, `fail`, `inconclusive`, `blocked` or `skipped`
+(issue #579). `skipped` records a gate that did not apply to the change, such as the
+visual-evidence gate on a change with no frontend files. It is counted as neither a pass nor
+a fail in the graded summary, and it never becomes a compliance citation (only `pass` rows
+do).
+
 ## How it works
 
 | Step | Where |
@@ -36,7 +42,7 @@ total. `src/evidence/grading.ts` is the single source of truth for the A/B split
 | Grade a gate result (Tier A/B/C → verdict + strength) | `src/evidence/grading.ts` (`gradeGateResult`, `GATE_STRENGTH_TIER`) |
 | Per-file digests + one order-independent change subject | `src/evidence/digests.ts` (`computeFileDigests`, `computeChangeSubjectDigest`) |
 | Append-only JSONL ledger + tolerant reader + `content_hash` dedup | `src/evidence/ledger.ts` (`appendEvidenceRows`, `readEvidenceLedger`, `computeRowContentHash`) |
-| Fan engine output into rows (gates, ratchet measures, findings) | `src/evidence/fan-in.ts` (`gateResultsToRows`, `ratchetResultToRows`, `findingRowsFrom`) |
+| Fan engine output into rows (gates, ratchet measures, findings) | `src/evidence/fan-in.ts` (`gateResultsToRows`, `ratchetResultToRows`, `findingRowsFrom`; `evidenceGatesToRows` for the late bundle-completeness / visual-evidence / rules-loaded gates, issue #579) |
 | in-toto Statement (v1) + SLSA-VSA-modelled predicate | `src/evidence/receipt/statement.ts` (`buildInTotoStatement`, `summarizeGradedEvidence`) |
 | DSSE envelope + hash-chain signing + chain verification | `src/evidence/receipt/dsse.ts` (`signReceipt`, `verifyReceiptChain`, `pae`) |
 | CycloneDX-adjacent AI-BOM view | `src/evidence/receipt/ai-bom.ts` (`buildAiBom`) |

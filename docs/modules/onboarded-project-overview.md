@@ -127,6 +127,13 @@ feature-development stages are named in §2. Throughout:
   into the feature bundle, the `rules-loaded` kernel capability blocks the first source
   edit until it exists, and the completion-seam `rules-loaded-gate` fails a change whose
   applicable rules were never loaded. It attests loading, never comprehension.
+- **Visual evidence is asked for at every stage** (issue #579, opt-in `visual_evidence`).
+  A frontend change meets a readiness pause at `plan compile` when screenshots cannot be
+  captured here, a `(proof: visual)` requirement at `spec freeze`, a one-time reminder at the
+  first frontend edit, and the visual-evidence gate at Stop. The late gates
+  (bundle-completeness, visual-evidence, rules-loaded) are recorded in the bundle's
+  `evidence.jsonl`, skips included
+  ([`visual-evidence`](visual-evidence/index/summary.md)).
 - Everything lands in the append-only **Evidence Ledger**, and a per-change
   provenance receipt is projected from it
   ([`evidence-ledger`](evidence-ledger/index/summary.md), `src/evidence`).

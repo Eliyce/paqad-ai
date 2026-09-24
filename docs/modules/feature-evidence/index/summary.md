@@ -106,6 +106,18 @@ surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
   removal). `unknown-dynamic` and an unindexed package warn, and an absent index warns
   with `FRAMEWORK_API_INDEX_ABSENT_WARNING` — a project that never built the index is
   never gated on one. Phase C's non-JS ecosystem adapters are #398.
+- **Plan step files** (issue #579): a plan step may list the `files` it expects to touch
+  (project-relative, posix). The field is optional and additive in `PLAN_SCHEMA`, so an older
+  `plan.json` stays valid. `plan compile` and `spec freeze` union those files with the
+  git-reconciled changed files to tell a frontend change apart before any code exists, which
+  drives the visual-evidence readiness pause and the `(proof: visual)` freeze requirement
+  (see [visual-evidence](../../visual-evidence/index/summary.md)).
+- **Visual evidence in the bundle** (issue #551, #579): `visual-evidence.json` plus the
+  `screenshots/` subtree are written only by `paqad-ai visual-evidence run` and
+  `paqad-ai visual-evidence attach`, through one manifest writer. The manifest's optional
+  `source` reads `agent-attached` or `mixed` when the agent attached screenshots, and attached
+  steps carry `journey_id: agent-attached` (plus an optional `ac`), so they are never shown as
+  scripted captures.
 - **Bundle integrity** (`bundle-integrity.ts`, issue #402) — the rigid-only invariant
   made checkable. `classifyBundlePath` judges whether a project-relative path sits in a
   bundle dir and whether it belongs there (the stage-end boundary uses it to reject a

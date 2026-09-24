@@ -25,6 +25,10 @@ reports `skipped`.
 1. **Trigger** (`trigger.ts`) — the change is *frontend-triggering* when a changed file
    (from the git-reconciled change evidence) matches an active stack pack's
    `visual_evidence.frontend_globs`. Non-frontend ⇒ everything downstream is `not-frontend`.
+   If the profile declares frameworks but paqad loads none of its built-in packs, that is an
+   install fault (`PackRegistryEmptyError`), not a clean change: the gate reads `fail` under
+   `strict` and `inconclusive` under `warn`, and `run` / `plan` print the fault and exit 1
+   (issue #579). It is never reported as `not-frontend`.
 2. **Plan** (`resolve-plan.ts`) — deterministic: changed frontend files → owning modules
    (module-map) **and** surfaces whose `evidence[].file` anchors match → union of surfaces →
    the **confirmed** journeys that reference those surfaces → their capture scripts. No match
@@ -36,12 +40,41 @@ reports `skipped`.
 4. **Provision + boot** (`provision.ts`, `boot.ts`) — Playwright + Chromium are provisioned
    into `~/.paqad-ai/ve-runtime/` (never a paqad dependency, never imported from the target
    project) and the app is booted from the profile's `app_preview` block.
-5. **Runner** (`runner.ts`) — the only writer of the bundle artifacts. Boots, captures each
-   flow's steps (a failed selector stops only that flow and keeps its prior steps), assembles
-   the GIF, and atomically replaces `screenshots/` + `visual-evidence.json` (latest-run-wins).
+5. **Runner** (`runner.ts`): writes the scripted captures. Boots, captures each flow's steps
+   (a failed selector stops only that flow and keeps its prior steps), assembles the GIF, and
+   atomically replaces `screenshots/` + `visual-evidence.json`. Screenshots added with
+   `visual-evidence attach` survive every run path: their folders, files and hashes are carried
+   into the new manifest, and scripted folders are numbered after them (issue #579). Both
+   writers go through the one manifest writer in `manifest.ts`.
 6. **Gate** (`verification/gates/visual-evidence.ts`) — reads the manifest at end-of-change
    and returns pass / skipped / inconclusive|fail, verifying existence + manifest integrity +
    every referenced screenshot's size and SHA-256 (never the screenshot content).
+
+## When a capture cannot run here (issue #579)
+
+A frontend change on a machine with no confirmed journey, no capture script, the `site_map`
+flag off, or no provisioned browser used to find out only at the Stop gate. Now it hears
+about it at every stage:
+
+- **Planning.** Plan steps can list the `files` they expect to touch. When visual evidence is
+  on, the plan step files plus the changed files include a frontend file, and the shared
+  readiness check (`readiness.ts`, the same checks `paqad-ai doctor` reports) finds a problem,
+  `plan compile` opens one decision pause ("Visual evidence is on, but I can't capture
+  screenshots here yet") with three options: set it up now, attach my own screenshots, or
+  record a waiver. A re-run of `plan compile` for the same change opens no second pause.
+- **Specification.** `spec freeze` refuses a spec for a frontend change with no acceptance
+  criterion marked `(proof: visual)`, naming the frontend files.
+- **Development.** The first frontend edit of the change carries one model-facing reminder to
+  run `visual-evidence run` or attach screenshots. It is sent once per change, and the marker
+  lives under `.paqad/session/`, never in the bundle.
+- **Stop gate.** Under `strict`, a manifest whose only skips are `no-documented-flow` or
+  `no-capture-script` now fails. Attached screenshots make it pass (the detail says how many
+  are agent-attached). A resolved readiness pause with the `waive` option makes it read
+  `skipped` with "waived by D-<id>", never pass. Under `warn` these stay skipped, and the
+  verdict prints a "⚪ visual evidence: skipped (<reason>)" line so a turned-on gate that
+  skipped is visible.
+
+A change with no frontend files still reads `skipped (not-frontend)`: no pause, no block.
 
 ## Artifacts (inside the feature bundle)
 
@@ -61,12 +94,18 @@ journey id ascending, steps in capture-script order). `<slug>` is Windows-safe k
 `image.png` is byte-identical to what Playwright produced — captions live only in
 `caption.txt`, the manifest, and the GIF frames.
 
+Attached screenshots use the same folder layout. Their steps carry `journey_id:
+agent-attached` and an optional `ac` (the criterion they prove), and the manifest gains a
+`source` of `agent-attached` (only attached steps) or `mixed` (attached and scripted). A
+manifest with only scripted captures has no `source`. The report and the gate label attached
+steps as agent-attached so they are never read as scripted captures.
+
 ## Config knobs
 
 | Knob | Default | Meaning |
 | --- | --- | --- |
 | `visual_evidence` | `false` (app flag) | Master switch. ON also requires the `coding` capability. |
-| `visual_evidence_mode` | `warn` (floored policy) | `warn`: an environmental miss reads Inconclusive. `strict`: it fails the change. Documented skips never fail. Team value is a floor; local/env may only raise `warn` to `strict`. |
+| `visual_evidence_mode` | `warn` (floored policy) | `warn`: an environmental miss reads Inconclusive, and documented skips stay skipped with a skip line. `strict`: an environmental miss fails the change, and so does nothing captured because no documented flow or capture script exists, unless you attach screenshots or record a waiver. Team value is a floor; local/env may only raise `warn` to `strict`. |
 
 ## Skip reasons
 
@@ -75,8 +114,10 @@ journey id ascending, steps in capture-script order). `<slug>` is Windows-safe k
 `app-not-reachable` / `env-var-missing` / `selector-not-found`.
 
 `no-documented-flow` / `no-capture-script` / `capture-script-invalid` are documented "nothing
-to capture" outcomes — always `skipped`, never a fail. The rest are environmental —
-`inconclusive` under `warn`, `fail` under `strict`.
+to capture" outcomes and read `skipped` under `warn`. Under `strict` (issue #579), a manifest
+whose only skips are `no-documented-flow` or `no-capture-script` fails unless screenshots were
+attached or a waiver was resolved; `capture-script-invalid` stays skipped in both modes. The
+rest are environmental: `inconclusive` under `warn`, `fail` under `strict`.
 
 ## Authoring a capture script
 
@@ -122,8 +163,14 @@ app_preview:
 ## CLI
 
 - `paqad-ai visual-evidence run` — resolve plan, provision check, boot, capture, write the
-  bundle artifacts. The ONLY writer of `visual-evidence.json` + `screenshots/`. Exit 0 on
-  captured/partial/skipped (skips are honest outcomes); non-zero only on an internal error.
+  bundle artifacts. Keeps every agent-attached step. Exit 0 on captured/partial/skipped (skips
+  are honest outcomes); exit 1 on the empty-pack-registry install fault; non-zero on an
+  internal error.
+- `paqad-ai visual-evidence attach <png...> [--ac AC-3] [--label "..."]`: copy your own PNG
+  screenshots into the active bundle as agent-attached steps (numbered folders, caption,
+  SHA-256 and size recorded), merging into an existing manifest. Refuses a non-PNG, a missing
+  file, no active bundle, or visual evidence off, with one line and exit 1, writing nothing.
+  `run` and `attach` are the only writers of `visual-evidence.json` + `screenshots/`.
 - `paqad-ai visual-evidence plan` — print the resolved plan (journeys, matched files, capture
   scripts, skips including invalid/stale scripts) without a browser or app boot. `--json` for
   machine output.

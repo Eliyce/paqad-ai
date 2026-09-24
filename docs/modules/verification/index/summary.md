@@ -97,6 +97,29 @@ and documentation:
 | `architecture-compliance` / `database-quality` / `extension-surface` | Structural and contract conformance. |
 | `documentation-freshness` / `documentation-checks` / `instructions-docs-structure` / `module-docs-structure` | Docs are present, current, and well-formed. |
 
+### The late gates (issue #579)
+
+Three evidence gates run after the bank, at the completion seam, because they read files the
+seam itself writes: `bundle-completeness`, `visual-evidence` (see
+[`visual-evidence`](../../visual-evidence/index/summary.md)) and `rules-loaded`. Each is recorded
+in the active bundle's `evidence.jsonl` too, one row per gate, skips included (verdict
+`skipped`, the skip reason as the detail), under the same `evidence_ledger` policy as the
+graded rows. When the visual-evidence gate has no bundle to read it records nothing.
+
+A gate that skipped while its feature flag is on adds one line to the verdict summary, after
+the status lines and before the escalations: `⚪ visual evidence: skipped (<reason>)`. The line
+also appears when the summary is re-formatted for the receipt. Skips never move the ran or
+passed counts, and no line prints when the flag is off.
+
+### Proven against the built bundles
+
+The Stop hook imports the depth-one `dist/index.js`, while the CLI runs the depth-two
+`dist/cli/index.js`. The package root is found by walking up to the `package.json` named
+`paqad-ai` (`src/core/runtime-paths.ts`), so both resolve the same runtime folder.
+`tests/e2e/dist-runtime-root.e2e.test.ts` imports the built bundles and runs the real
+`verify-backstop.mjs` on a fixture, so a wrong root fails loudly instead of reading as "no
+packs, nothing to check".
+
 ## Feature Pages
 
 - [Mutation Testing — Verification Gate](../mutation-testing.md) — plant mutants in
