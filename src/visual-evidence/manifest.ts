@@ -146,21 +146,28 @@ export function readAttachedSteps(projectRoot: string, dirName: string): VeStep[
 }
 
 /**
- * Carry already-attached steps into a scripted run's manifest (issue #579, FR-13): they go first,
- * keep their dirs and hashes, and a run that captured nothing new still reads `captured`. A run
- * with any failed scripted step reads `partial` instead: the failed step is still a real gap, so
- * attached screenshots never lift an all-failed run above a partly successful one.
+ * The result of a manifest that mixes attached and scripted steps (issue #579): `partial` whenever
+ * any step failed (a failed step is a real gap that attached screenshots never cover), `captured`
+ * when at least one step was captured and none failed, else `skipped`. The one derivation both
+ * attach and a scripted run use, so the order they happen in can never change the verdict.
+ */
+export function mergedVisualEvidenceResult(steps: readonly VeStep[]): VeResult {
+  if (steps.some((step) => step.status === 'failed')) return 'partial';
+  return steps.some((step) => step.status === 'captured') ? 'captured' : 'skipped';
+}
+
+/**
+ * Carry already-attached steps into a scripted run's manifest (issue #579, FR-13): they go first
+ * and keep their dirs and hashes. The result is re-derived over all the steps by
+ * {@link mergedVisualEvidenceResult}.
  */
 export function mergeAttachedSteps(
   attached: readonly VeStep[],
   input: WriteVisualEvidenceManifestInput,
 ): WriteVisualEvidenceManifestInput {
   if (attached.length === 0) return input;
-  const anyFailed = input.steps.some((step) => step.status === 'failed');
-  let result = input.result;
-  if (anyFailed) result = 'partial';
-  else if (result === 'skipped') result = 'captured';
-  return { ...input, steps: [...attached, ...input.steps], result };
+  const steps = [...attached, ...input.steps];
+  return { ...input, steps, result: mergedVisualEvidenceResult(steps) };
 }
 
 /**

@@ -16,6 +16,7 @@ import { featureDir } from '@/feature-evidence/paths.js';
 
 import {
   isAttachedStep,
+  mergedVisualEvidenceResult,
   pad2,
   readVisualEvidenceManifest,
   slugifyCaption,
@@ -149,8 +150,8 @@ export function attachVisualEvidence(input: AttachVisualEvidenceInput): AttachVi
     steps,
     gif: existing?.gif ?? null,
     skips: existing?.skips ?? [],
-    // A partial scripted run stays partial (its failed step is still a real gap).
-    result: existing?.result === 'partial' ? 'partial' : 'captured',
+    // Any failed scripted step keeps the result partial, whichever of run and attach came first.
+    result: mergedVisualEvidenceResult(steps),
     now,
   });
   return acWarning ? { ...written, acWarning } : written;

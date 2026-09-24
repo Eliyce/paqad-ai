@@ -11,6 +11,7 @@ import { attachVisualEvidence, VisualEvidenceAttachError } from '@/visual-eviden
 import {
   copyAttachedStepDirs,
   mergeAttachedSteps,
+  mergedVisualEvidenceResult,
   readAttachedSteps,
   readVisualEvidenceManifest,
   stepDirSlug,
@@ -145,10 +146,20 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
       image_bytes: readFileSync(scripted).length,
       status: 'captured',
     };
+    const failedStep: VeStep = {
+      index: 2,
+      journey_id: 'checkout',
+      journey_step: 2,
+      caption: 'Pay',
+      dir: 'screenshots/02-pay',
+      captured_at: AT,
+      status: 'failed',
+      failure: 'selector-not-found',
+    };
     writeVisualEvidenceManifest(root, DIR, {
       trigger: { changed_files: [], matched_globs: [], packs: [] },
       plan: [{ journey_id: 'checkout', capture_script: 'x.capture.yaml', matched_by: [] }],
-      steps: [scriptedStep],
+      steps: [failedStep, scriptedStep],
       gif: null,
       skips: [],
       result: 'partial',
@@ -168,11 +179,12 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
     expect(manifest.result).toBe('partial');
     expect(manifest.plan).toHaveLength(1);
     expect(manifest.steps.map((s) => s.dir)).toEqual([
+      'screenshots/02-pay',
       'screenshots/03-open',
       'screenshots/04-open-2',
       'screenshots/05-open-3',
     ]);
-    expect(manifest.steps.map((s) => s.journey_step)).toEqual([1, 1, 2]);
+    expect(manifest.steps.map((s) => s.journey_step)).toEqual([2, 1, 1, 2]);
   });
 
   it('AC-15: refuses a missing file, a non-png, a fake png and an empty list, writing nothing', () => {
@@ -272,7 +284,13 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
       captured_at: AT,
       status: 'captured',
     } as VeStep;
-    const scriptedStep = { ...attachedStep, index: 2, journey_id: 'j', dir: 'screenshots/02-b' };
+    const scriptedStep = {
+      ...attachedStep,
+      index: 2,
+      journey_id: 'j',
+      dir: 'screenshots/02-b',
+      status: 'failed',
+    } as VeStep;
     const input = {
       trigger: { changed_files: [], matched_globs: [], packs: [] },
       plan: [],
@@ -287,6 +305,51 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
     expect(merged.steps).toEqual([attachedStep, scriptedStep]);
     expect(merged.result).toBe('partial');
     expect(readAttachedSteps(root, DIR)).toEqual([]);
+  });
+
+  it('an attach after an all-failed scripted run reads partial, so strict fails', () => {
+    // What runner.ts writes when every scripted step failed: result skipped, failed steps kept.
+    writeVisualEvidenceManifest(root, DIR, {
+      trigger: { changed_files: ['src/a.tsx'], matched_globs: [], packs: [] },
+      plan: [{ journey_id: 'checkout', capture_script: 'x.capture.yaml', matched_by: [] }],
+      steps: [
+        {
+          index: 1,
+          journey_id: 'checkout',
+          journey_step: 1,
+          caption: 'pay',
+          dir: 'screenshots/01-pay',
+          captured_at: AT,
+          status: 'failed',
+          failure: 'selector-not-found',
+        },
+      ],
+      gif: null,
+      skips: [],
+      result: 'skipped',
+      now,
+    });
+
+    attachVisualEvidence({ projectRoot: root, dirName: DIR, files: [png('a.png', 'a')], now });
+
+    const manifest = readVisualEvidenceManifest(root, DIR)!;
+    expect(manifest.steps.map((s) => s.status)).toEqual(['failed', 'captured']);
+    expect(manifest.result).toBe('partial');
+    expect(strictGate().status).toBe('fail');
+  });
+
+  it('a clean attach with no scripted run reads captured, so strict passes', () => {
+    attachVisualEvidence({ projectRoot: root, dirName: DIR, files: [png('a.png', 'a')], now });
+    expect(readVisualEvidenceManifest(root, DIR)!.result).toBe('captured');
+    expect(strictGate().status).toBe('pass');
+  });
+
+  it('mergedVisualEvidenceResult: failed wins, then captured, else skipped', () => {
+    const step = (status: VeStep['status']) => ({ status }) as VeStep;
+    expect(mergedVisualEvidenceResult([step('captured'), step('failed')])).toBe('partial');
+    expect(mergedVisualEvidenceResult([step('failed')])).toBe('partial');
+    expect(mergedVisualEvidenceResult([step('captured')])).toBe('captured');
+    expect(mergedVisualEvidenceResult([])).toBe('skipped');
   });
 
   it('an all-failed scripted run after an attach reads partial, so strict fails', () => {
