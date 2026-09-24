@@ -191,7 +191,8 @@ export class HealthChecker {
       relativePath: PATHS.DETECTION_REPORT,
       name: 'Detection report is valid',
       schemaId: 'detection-report',
-      missingRemediation: 'Re-run onboarding to regenerate the detection report.',
+      missingRemediation:
+        'Run `paqad-ai join` to regenerate the detection report (a per-machine artifact).',
       invalidRemediation: 'Fix or regenerate the detection report JSON.',
     });
   }
@@ -213,7 +214,7 @@ export class HealthChecker {
       return fail(
         'Stack snapshot present',
         'Stack snapshot is missing',
-        'Run onboarding or refresh to regenerate the stack snapshot.',
+        'Run `paqad-ai join` (or onboarding/refresh) to regenerate the stack snapshot.',
       );
     }
 
@@ -251,7 +252,7 @@ export class HealthChecker {
       return fail(
         'Stack drift report present',
         'Stack drift report is missing',
-        'Run onboarding or refresh to regenerate the stack drift report.',
+        'Run `paqad-ai join` (or onboarding/refresh) to regenerate the stack drift report.',
       );
     }
 

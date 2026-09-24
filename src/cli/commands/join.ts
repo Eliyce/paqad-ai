@@ -15,12 +15,28 @@ import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js'
 import { ADAPTER_TYPES, type AdapterType } from '@/core/types/adapter.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
+import { buildCodeKnowledgeIndex } from '@/code-knowledge/builder.js';
+import { validateCodeKnowledgeIndex } from '@/code-knowledge/schema.js';
+import { writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
+import { createDeliveryShell } from '@/delivery/shell.js';
+import { runDeliveryDetection } from '@/delivery/detect-run.js';
+import { Detector } from '@/detection/detector.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { VERSION } from '@/index.js';
 import { bootstrapFrameworkHome } from '@/install/bootstrap.js';
+import { StackSnapshotCache } from '@/introspection/cache.js';
+import { StackIntrospector } from '@/introspection/stack-introspector.js';
+import {
+  collectQualityMeasures,
+  createBaseline,
+  readQualityBaseline,
+  writeQualityBaseline,
+} from '@/quality-ratchet/index.js';
+import { writeStackArtifacts } from '@/stack-docs/generator.js';
 import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
 import {
   readExistingOnboardingManifest,
+  writeDetectionReport,
   writeFrameworkVersionPreservingTimestamp,
 } from '@/onboarding/manifest-writer.js';
 import { compileRules, writeCompiledRules } from '@/planning/index.js';
@@ -87,6 +103,7 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
 
   const providers = deriveRecordedProviders(manifest);
   await recreateLocalArtifacts(projectRoot, manifest, profile, providers);
+  await regenerateMachineArtifacts(projectRoot);
 
   if (options.rag !== false) {
     const shouldContinue = await joinRag(projectRoot, options);
@@ -193,6 +210,70 @@ async function recreateLocalArtifacts(
       })}\n`,
       'utf8',
     );
+  }
+}
+
+/**
+ * Regenerate the per-machine artifacts a teammate needs but that never arrive via clone (all
+ * git-ignored, so join's no-tracked-diff contract holds). Before this, only `onboard`/the
+ * documentation workflow produced them, so a teammate who ran `join` hit: `doctor` failing on the
+ * missing detection/stack reports (Finding 4); the reuse gate, evidence-armed reuse forks and the
+ * spec code check all degraded with no code-knowledge index (Finding 7); delivery falling back to
+ * framework defaults with no delivery-detection (Finding 8); and a quality floor captured with the
+ * teammate's first diff baked in (Finding 6). Every step is best-effort — a failure here must not
+ * fail join (the machine is still usable, and the next onboard/refresh/session retries).
+ */
+async function regenerateMachineArtifacts(projectRoot: string): Promise<void> {
+  // Finding 4 — the detection report + stack snapshot/drift that `doctor` reads.
+  try {
+    writeDetectionReport(projectRoot, await new Detector().detect(projectRoot));
+  } catch {
+    // best-effort
+  }
+  try {
+    const previous = await new StackSnapshotCache().read(projectRoot);
+    const snapshot = await new StackIntrospector().snapshot(projectRoot);
+    await writeStackArtifacts(projectRoot, snapshot, previous);
+  } catch {
+    // best-effort
+  }
+
+  // Finding 7 — the git-ignored code-knowledge index (reuse gate, evidence-armed reuse forks,
+  // spec code check). Only the index itself is written here: `index build`'s tracked side
+  // artifacts (the `docs/instructions/registries/` reuse catalog and module-map evidence) are the
+  // lead's committed registries and arrive via clone, so a teammate `join` must not rewrite them.
+  try {
+    const index = await buildCodeKnowledgeIndex(projectRoot);
+    if (validateCodeKnowledgeIndex(index).valid) {
+      writeCodeKnowledgeIndex(projectRoot, index);
+    }
+  } catch {
+    // best-effort
+  }
+
+  // Finding 8 — delivery detection (host, base branch, branch/commit templates).
+  try {
+    await runDeliveryDetection(projectRoot, createDeliveryShell(projectRoot));
+  } catch {
+    // best-effort
+  }
+
+  // Finding 6 — seed the quality-ratchet baseline from the clean HEAD. join runs on a freshly
+  // cloned tree (working tree == HEAD), so measuring now captures the committed baseline instead
+  // of the teammate's first in-progress diff. Only when no baseline exists yet — never clobber one.
+  try {
+    if ((await readQualityBaseline(projectRoot)) === null) {
+      const current = await collectQualityMeasures({
+        projectRoot,
+        changedFiles: [],
+        lane: 'full',
+        stackProfile: null,
+        deadCodeFiles: null,
+      });
+      await writeQualityBaseline(projectRoot, createBaseline(current, new Date().toISOString()));
+    }
+  } catch {
+    // best-effort
   }
 }
 
