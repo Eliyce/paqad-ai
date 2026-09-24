@@ -69,6 +69,11 @@ const HOST_AGENT_CONFIG_DIRS = [
   '.continue',
   '.aider',
   '.aiassistant',
+  // JetBrains AI writes `.ai/mcp/mcp.json` (issue #576, Finding 1c); paqad never writes it
+  // (`git log -S '.ai/mcp'` is empty). Without this a pre-existing `.ai/` edit was swept into the
+  // whole-tree `git status` and mis-classified as a feature-development change, so the Stop gate
+  // failed a read-only turn. It is integration wiring, not product code — the same as the others.
+  '.ai',
 ] as const;
 
 /** The `.windsurfrules` root entry file — Windsurf's equivalent of the (doc-classified)
