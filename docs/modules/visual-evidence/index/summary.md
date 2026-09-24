@@ -45,7 +45,11 @@ reports `skipped`.
    atomically replaces `screenshots/` + `visual-evidence.json`. Screenshots added with
    `visual-evidence attach` survive every run path: their folders, files and hashes are carried
    into the new manifest, and scripted folders are numbered after them (issue #579). Both
-   writers go through the one manifest writer in `manifest.ts`.
+   writers go through the one manifest writer in `manifest.ts`, and both work out the merged
+   result the same way (`mergedVisualEvidenceResult`): `partial` when any step failed,
+   `captured` when at least one step was captured and none failed, else `skipped`. So a failed
+   scripted step stays a real gap whichever of `run` and `attach` came first, and attached
+   screenshots never lift it to `captured`.
 6. **Gate** (`verification/gates/visual-evidence.ts`) — reads the manifest at end-of-change
    and returns pass / skipped / inconclusive|fail, verifying existence + manifest integrity +
    every referenced screenshot's size and SHA-256 (never the screenshot content).
@@ -69,7 +73,8 @@ about it at every stage:
   lives under `.paqad/session/`, never in the bundle.
 - **Stop gate.** Under `strict`, a manifest whose only skips are `no-documented-flow` or
   `no-capture-script` now fails. Attached screenshots make it pass (the detail says how many
-  are agent-attached). A resolved readiness pause with the `waive` option makes it read
+  are agent-attached and names the spec's `(proof: visual)` criteria as "Visually evidenced:
+  AC-n"). A resolved readiness pause with the `waive` option makes it read
   `skipped` with "waived by D-<id>", never pass. Under `warn` these stay skipped, and the
   verdict prints a "⚪ visual evidence: skipped (<reason>)" line so a turned-on gate that
   skipped is visible.
