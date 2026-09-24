@@ -38,6 +38,13 @@ export interface WorkflowEntry {
 export interface WorkflowState {
   active: WorkflowEntry | null;
   paused: WorkflowEntry[];
+  /**
+   * When the session's current turn began (ISO-8601), stamped by the prompt seam on every
+   * routed prompt (issue #582). The completion check counts only this session's stage rows
+   * written at or after it as "edited this turn". Optional: a file written before the stamp
+   * existed reads without it, and the check then falls back to today's behaviour.
+   */
+  turn_started_at?: string;
 }
 
 /** The result of applying a route to a state: the new state, and what happened. */
@@ -93,12 +100,17 @@ export function readWorkflowState(projectRoot: string, sessionId: string): Workf
     const parsed = JSON.parse(readFileSync(workflowStatePath(projectRoot, sessionId), 'utf8')) as {
       active?: unknown;
       paused?: unknown;
+      turn_started_at?: unknown;
     };
     const active = toEntry(parsed.active);
     const paused = Array.isArray(parsed.paused)
       ? parsed.paused.map(toEntry).filter((entry): entry is WorkflowEntry => entry !== null)
       : [];
-    return { active, paused };
+    const state: WorkflowState = { active, paused };
+    if (typeof parsed.turn_started_at === 'string') {
+      state.turn_started_at = parsed.turn_started_at;
+    }
+    return state;
   } catch {
     return { ...EMPTY_STATE, paused: [] };
   }
