@@ -43,4 +43,18 @@ describe('routeIsAffirmativelyNonFeature (#390)', () => {
     writeSessionRoute(root, { workflow: 'feature-development', query: 'fix the bug' });
     expect(routeIsAffirmativelyNonFeature(root, SES)).toBe(false);
   });
+
+  // Issue #582 — the shared pointer holds whichever session routed last; this session's own
+  // pointer wins over it.
+  it("prefers this session's own non-feature pointer over another session's shared one", () => {
+    writeSessionRoute(root, { workflow: 'project-question', query: 'why?' }, SES);
+    writeSessionRoute(root, { workflow: 'feature-development', query: 'build it' }, 'ses_other');
+    expect(routeIsAffirmativelyNonFeature(root, SES)).toBe(true);
+    expect(routeIsAffirmativelyNonFeature(root, 'ses_other')).toBe(false);
+  });
+
+  it('still falls back to the shared pointer when this session wrote none', () => {
+    writeSessionRoute(root, { workflow: 'feature-development', query: 'build it' }, 'ses_other');
+    expect(routeIsAffirmativelyNonFeature(root, SES)).toBe(false);
+  });
 });

@@ -336,6 +336,17 @@ describe('prompt gate injects rule sections only for a feature-development promp
     expect(lastRagRow().injected_sections).toEqual(['rules', 'retrieval']);
   });
 
+  // A background notification is not a request, so it gives no route and the full block stays,
+  // which matters when it lands in the middle of a feature.
+  it('a background notification turn keeps the rule manifest', () => {
+    const result = runGateWith(
+      '<task-notification>\n<status>completed</status>\n</task-notification>',
+    );
+    expect(result.stdout).toContain('## paqad rule manifest');
+    expect(result.stdout).toContain('## Retrieved context');
+    expect(lastRagRow().injected_sections).toEqual(['rules', 'retrieval']);
+  });
+
   it('writes this session route pointer, so the worker reads it instead of the shared one', () => {
     runGateWith('why does the login page throw an error when I submit?');
     const own = JSON.parse(

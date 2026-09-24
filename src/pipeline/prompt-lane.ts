@@ -150,6 +150,9 @@ export interface PromptRouteSeamResult {
   resumed: WorkflowEntry | null;
   /** The `▸ paqad` line to surface, or null when there is nothing to say. */
   narration: string | null;
+  /** True when the prompt was a background notification, not a request (issue #582): the
+   *  prompt gate treats it as "no route" and keeps the full context block. */
+  notification?: true;
 }
 
 /** Build the narration line for a routed outcome (null for silent no-workflow). */
@@ -185,7 +188,13 @@ export async function runPromptRouteSeam(
   // an in-flight feature-development route and make `routeIsAffirmativelyNonFeature` true,
   // silently suppressing stage recording for the rest of the change.
   if (isSystemNotificationPrompt(input.request)) {
-    return { routed: 'no-workflow', lane: null, resumed: null, narration: null };
+    return {
+      routed: 'no-workflow',
+      lane: null,
+      resumed: null,
+      narration: null,
+      notification: true,
+    };
   }
   const { routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps);
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId);

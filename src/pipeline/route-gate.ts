@@ -39,7 +39,8 @@ export function routeIsAffirmativelyNonFeature(
   if (active) {
     return !isFeatureDevelopmentRoute(active);
   }
-  const routed = readSessionRoute(projectRoot)?.workflow;
+  // Issue #582 — this session's own route pointer wins over the shared, last-writer one.
+  const routed = readSessionRoute(projectRoot, resolved)?.workflow;
   if (routed) {
     return !isFeatureDevelopmentRoute(routed);
   }

@@ -135,12 +135,17 @@ async function emitRoute(stdin, projectRoot, sink) {
     const sessionId = typeof parsed?.session_id === 'string' ? parsed.session_id : null;
     const distUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
     const { runPromptRouteSeam } = await import(distUrl.href);
-    const { routed, narration } = await runPromptRouteSeam({
+    const { routed, narration, notification } = await runPromptRouteSeam({
       projectRoot,
       request,
       sessionId,
       adapter: ADAPTER ?? 'claude-code',
     });
+    // Issue #582 — a background notification is not a request, so it gives no route: the
+    // caller keeps the full context block, which matters mid-feature.
+    if (notification) {
+      return null;
+    }
     if (narration) {
       sink(`${narration}\n`);
     }

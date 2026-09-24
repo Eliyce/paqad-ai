@@ -292,7 +292,19 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       lane: null,
       resumed: null,
       narration: null,
+      // Issue #582 — flagged so the prompt gate keeps the full context block.
+      notification: true,
     });
+  });
+
+  it('does not flag a real request as a notification (issue #582)', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: 'thanks!',
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result.notification).toBeUndefined();
   });
 
   it('leaves an in-flight feature-development route exactly as it was (AC-6)', async () => {
