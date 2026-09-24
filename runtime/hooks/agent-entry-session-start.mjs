@@ -4,7 +4,10 @@
 //
 // Two best-effort jobs, both always exit 0:
 //   1. Every new session must start ungated — delete the sentinel so the agent is
-//      forced to load its provider entry file again.
+//      forced to load its provider entry file again. With a session id on stdin only
+//      THIS session's `.paqad/.agent-entry-loaded.d/<id>` is removed, so a second
+//      session in the same checkout never ungates the first (issue #582). Without one,
+//      the legacy single file is removed as before.
 //   2. Align the single-slot ledger-session cache to the LIVE host session id
 //      (issue #380, Issue 1). Claude puts `session_id` on the SessionStart stdin
 //      payload; persisting it here means a shell `paqad-ai stage start --title`
@@ -15,10 +18,9 @@
 //      bug #5 mitigation from finalization to bundle minting.
 
 import { rmSync } from 'node:fs';
-import { join } from 'node:path';
 import process from 'node:process';
 
-import { clearAgentEntryMarkers } from './lib/agent-entry-sentinel.mjs';
+import { clearAgentEntryMarkers, sentinelPath } from './lib/agent-entry-sentinel.mjs';
 import { resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 
@@ -26,7 +28,7 @@ async function main(input) {
   const projectRoot = resolveProjectRoot();
 
   try {
-    rmSync(join(projectRoot, '.paqad', '.agent-entry-loaded'), { force: true });
+    rmSync(sentinelPath(projectRoot, sessionIdFromStdin(input)), { force: true });
     // Issue #567 — reset the per-agent entry markers too, so a new main session starts every
     // subagent identity ungated, exactly as the base sentinel resets.
     clearAgentEntryMarkers(projectRoot);

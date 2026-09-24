@@ -1,5 +1,6 @@
 # >>> paqad-ai managed (do not edit between markers) >>>
 .agent-entry-loaded
+.agent-entry-loaded.d/
 framework-version.txt
 cache/
 session/

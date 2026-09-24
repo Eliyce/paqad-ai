@@ -41,8 +41,8 @@ import {
   loadSteps,
   specPipelineNudge,
 } from './lib/agent-entry-directive.mjs';
-import { entryFile, sentinelState } from './lib/agent-entry-sentinel.mjs';
-import { emitContext } from './lib/context-seam-emit.mjs';
+import { entryFile, sentinelRelative, sentinelState } from './lib/agent-entry-sentinel.mjs';
+import { emitContext, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { logHookFailure } from './lib/hook-log.mjs';
 import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
@@ -52,10 +52,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // behaviour and output unchanged; Codex passes `codex-cli`.
 const ADAPTER = process.argv[2] || undefined;
 
-function reasonFor(state, ef) {
+function reasonFor(state, ef, sentinelRel) {
   switch (state) {
     case 'missing':
-      return 'the per-session sentinel .paqad/.agent-entry-loaded is missing';
+      return `the per-session sentinel ${sentinelRel} is missing`;
     case 'stale:entry-file':
       return `${ef} changed mid-session — the sentinel was invalidated`;
     case 'stale:framework-path':
@@ -72,13 +72,13 @@ function reasonFor(state, ef) {
 // so its firing PROVES paqad is ON — the agent must not spend a tool call re-checking
 // it. The numbered load steps come from the one shared module so this directive and
 // the PreToolUse gate cannot drift.
-function directive(state, ef) {
+function directive(state, ef, sentinelRel) {
   return [
     ENABLEMENT_VERIFIED_LINE,
     '[paqad] You MUST load the paqad framework before responding.',
-    `[paqad] Reason: ${reasonFor(state, ef)}.`,
+    `[paqad] Reason: ${reasonFor(state, ef, sentinelRel)}.`,
     '[paqad] Required steps, in order, before any other tool call or response:',
-    ...loadSteps(ef),
+    ...loadSteps(ef, sentinelRel),
     '[paqad] Only after the final step may you address the prompt.',
     '',
   ].join('\n');
@@ -166,7 +166,10 @@ async function main(stdin) {
 
   fireContextRefresh();
 
-  const state = sentinelState(projectRoot);
+  // Issue #582 — the sentinel is keyed on THIS session's id, so another session's
+  // SessionStart cannot ungate it and the directive names the exact file to write.
+  const sessionId = sessionIdFromStdin(stdin);
+  const state = sentinelState(projectRoot, process.env, undefined, sessionId);
   if (state !== 'fresh') {
     // Issue #576 (Finding 1a) — ROUTE FIRST, even on the not-yet-loaded branch. Before this
     // fix the gate returned here without ever running the route seam, so the FIRST prompt of a
@@ -179,7 +182,7 @@ async function main(stdin) {
     await emitRoute(stdin, projectRoot, () => {});
     // ALWAYS-LOAD: emit ONLY the load directive — the [paqad-context] dump is
     // suppressed until the framework is loaded, so the directive can never be buried.
-    const message = directive(state, entryFile());
+    const message = directive(state, entryFile(), sentinelRelative(sessionId));
     if ((process.env.PAQAD_AGENT_ENTRY_MODE || 'soft') === 'hard') {
       process.stderr.write(message);
       return 2;

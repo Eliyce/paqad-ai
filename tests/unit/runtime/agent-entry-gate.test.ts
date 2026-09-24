@@ -443,9 +443,12 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
         mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
         writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
         writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
-        writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
+        // The payload carries a session id, so the gate checks that session's own sentinel.
+        const sentinel = join(projectRoot, '.paqad/.agent-entry-loaded.d/route-582');
+        mkdirSync(join(projectRoot, '.paqad/.agent-entry-loaded.d'), { recursive: true });
+        writeFileSync(sentinel, '{"loaded_at":"now"}');
         const future = new Date(Date.now() + 60_000);
-        utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), future, future);
+        utimesSync(sentinel, future, future);
 
         const result = runPromptGateWithInput(
           projectRoot,
@@ -513,5 +516,150 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
+  });
+});
+
+// Issue #582 (AC-10) — the entry sentinel is keyed on the host session id, so two sessions in one
+// checkout never ungate each other. The legacy single file is honoured only when the payload
+// carries no session id.
+describe('per-session entry sentinel (issue #582)', () => {
+  let projectRoot: string;
+  const sessionFile = (id: string) => join(projectRoot, '.paqad/.agent-entry-loaded.d', id);
+  const editPayload = (sessionId?: string) =>
+    JSON.stringify({
+      ...(sessionId ? { session_id: sessionId } : {}),
+      tool_name: 'Edit',
+      tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+    });
+
+  /** A future-dated sentinel so it is strictly newer than the entry sources. */
+  function writeFresh(path: string): void {
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, '{"loaded_at":"now"}');
+    const future = new Date(Date.now() + 60_000);
+    utimesSync(path, future, future);
+  }
+
+  function runSessionStart(input: string): void {
+    execFileSync('node', [RESET_SCRIPT], {
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      input,
+    });
+  }
+
+  function runPromptGateFor(input: string): RunResult {
+    const stdout = execFileSync('node', [PROMPT_GATE_SCRIPT], {
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      input,
+    });
+    return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
+  }
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-session-sentinel-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
+    writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
+    writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('SessionStart for session B leaves session A sentinel, and A can still edit (AC-10)', () => {
+    writeFresh(sessionFile('session-A'));
+    writeFresh(sessionFile('session-B'));
+
+    runSessionStart(JSON.stringify({ session_id: 'session-B' }));
+
+    expect(existsSync(sessionFile('session-A'))).toBe(true);
+    expect(existsSync(sessionFile('session-B'))).toBe(false);
+    expect(runGate(projectRoot, editPayload('session-A')).status).toBe(0);
+    expect(runGate(projectRoot, editPayload('session-B')).status).toBe(2);
+  });
+
+  it('SessionStart with a session id leaves the legacy file alone', () => {
+    writeFresh(join(projectRoot, '.paqad/.agent-entry-loaded'));
+    runSessionStart(JSON.stringify({ session_id: 'session-B' }));
+    expect(existsSync(join(projectRoot, '.paqad/.agent-entry-loaded'))).toBe(true);
+  });
+
+  it('blocks session C when only session A has loaded, naming C own sentinel path', () => {
+    writeFresh(sessionFile('session-A'));
+    const result = runGate(projectRoot, editPayload('session-C'));
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain(
+      '5. Write .paqad/.agent-entry-loaded.d/session-C with timestamp + entry-file path',
+    );
+  });
+
+  it('a session payload does not ride the legacy file', () => {
+    writeFresh(join(projectRoot, '.paqad/.agent-entry-loaded'));
+    expect(runGate(projectRoot, editPayload('session-C')).status).toBe(2);
+  });
+
+  it('a payload with no session id still honours the legacy file', () => {
+    writeFresh(join(projectRoot, '.paqad/.agent-entry-loaded'));
+    expect(runGate(projectRoot, editPayload()).status).toBe(0);
+  });
+
+  it('sanitizes the session id into a safe filename', () => {
+    writeFresh(sessionFile('a_b__c'));
+    expect(runGate(projectRoot, editPayload('a:b/.c')).status).toBe(0);
+  });
+
+  it('exempts a Write of the per-session sentinel while it is missing', () => {
+    const payload = JSON.stringify({
+      session_id: 'session-A',
+      tool_name: 'Write',
+      tool_input: { file_path: sessionFile('session-A') },
+    });
+    expect(runGate(projectRoot, payload).status).toBe(0);
+    const relative = JSON.stringify({
+      session_id: 'session-A',
+      tool_name: 'Write',
+      tool_input: { file_path: '.paqad/.agent-entry-loaded.d/session-A' },
+    });
+    expect(runGate(projectRoot, relative).status).toBe(0);
+  });
+
+  it('promotes a main-thread Write of the legacy file into this session own sentinel', () => {
+    const payload = JSON.stringify({
+      session_id: 'session-A',
+      tool_name: 'Write',
+      tool_input: { file_path: join(projectRoot, '.paqad/.agent-entry-loaded') },
+    });
+    expect(runGate(projectRoot, payload).status).toBe(0);
+    expect(existsSync(sessionFile('session-A'))).toBe(true);
+    const stamped = JSON.parse(readFileSync(sessionFile('session-A'), 'utf8')) as {
+      entry_file: string;
+    };
+    expect(stamped.entry_file).toBe('CLAUDE.md');
+  });
+
+  it('the prompt gate checks the payload session and names its exact sentinel path', () => {
+    writeFresh(sessionFile('session-A'));
+    const loaded = runPromptGateFor(JSON.stringify({ prompt: '', session_id: 'session-A' }));
+    expect(loaded.stdout).not.toContain('MUST load the paqad framework');
+
+    const other = runPromptGateFor(JSON.stringify({ prompt: '', session_id: 'session-C' }));
+    expect(other.stdout).toContain('MUST load the paqad framework');
+    expect(other.stdout).toContain(
+      'Reason: the per-session sentinel .paqad/.agent-entry-loaded.d/session-C is missing.',
+    );
+    expect(other.stdout).toContain('5. Write .paqad/.agent-entry-loaded.d/session-C');
+  });
+
+  it('deletes a stale per-session sentinel and leaves other sessions alone', () => {
+    writeFresh(sessionFile('session-A'));
+    const past = new Date(Date.now() - 60_000);
+    mkdirSync(join(projectRoot, '.paqad/.agent-entry-loaded.d'), { recursive: true });
+    writeFileSync(sessionFile('session-B'), '{}');
+    utimesSync(sessionFile('session-B'), past, past);
+
+    expect(runGate(projectRoot, editPayload('session-B')).status).toBe(2);
+    expect(existsSync(sessionFile('session-B'))).toBe(false);
+    expect(existsSync(sessionFile('session-A'))).toBe(true);
   });
 });

@@ -21,9 +21,16 @@
 // load. So when a hook fires inside a subagent (an `agent_id` is present), the sentinel is
 // keyed on that `agent_id` under `.paqad/session/agent-entry/`; on the main thread (no
 // `agent_id`) the unkeyed path is used and behaviour is byte-identical to before.
+//
+// Per-session keying (issue #582). Two host sessions in one checkout used to share the one
+// `.paqad/.agent-entry-loaded` file, so a SessionStart in session B deleted the sentinel that
+// session A had just written, and A's next edit was blocked. When the hook payload carries a
+// `session_id`, the main-thread sentinel now lives at `.paqad/.agent-entry-loaded.d/<id>`
+// (sanitized like an agent id), and SessionStart removes only its own file. The single legacy
+// file is used only when the payload has no session id.
 
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { resolveProjectRoot } from './paqad-disabled.mjs';
 
@@ -32,9 +39,20 @@ export function entryFile(env = process.env) {
   return env.PAQAD_ENTRY_FILE || 'CLAUDE.md';
 }
 
-/** Absolute path to the main-thread sentinel. */
-export function sentinelPath(projectRoot) {
-  return join(projectRoot, '.paqad', '.agent-entry-loaded');
+/**
+ * The main-thread sentinel as a project-relative POSIX path (issue #582):
+ * `.paqad/.agent-entry-loaded.d/<sanitized session id>` when a usable `sessionId` is given,
+ * else the legacy `.paqad/.agent-entry-loaded`. The gates print this so the agent writes the
+ * exact file its own session is checked against.
+ */
+export function sentinelRelative(sessionId) {
+  const safe = safeFileKey(sessionId);
+  return safe.length === 0 ? '.paqad/.agent-entry-loaded' : `.paqad/.agent-entry-loaded.d/${safe}`;
+}
+
+/** Absolute path to the main-thread sentinel for `sessionId` (see `sentinelRelative`). */
+export function sentinelPath(projectRoot, sessionId) {
+  return join(projectRoot, ...sentinelRelative(sessionId).split('/'));
 }
 
 /** The directory holding per-agent entry markers (issue #567). */
@@ -42,9 +60,13 @@ export function agentEntryMarkerDir(projectRoot) {
   return join(projectRoot, '.paqad', 'session', 'agent-entry');
 }
 
-/** The sanitized, safe filename for a subagent `agentId`, or `''` when there is no usable id. */
-function safeAgentId(agentId) {
-  return typeof agentId === 'string' ? agentId.trim().replace(/[^A-Za-z0-9_-]/g, '_') : '';
+/**
+ * The sanitized, safe filename for a subagent `agentId` or a host `sessionId`, or `''` when
+ * there is no usable id. Anything outside `[A-Za-z0-9_-]` becomes `_`, so an odd id can never
+ * escape its directory and never carries a character Windows forbids in a filename.
+ */
+function safeFileKey(id) {
+  return typeof id === 'string' ? id.trim().replace(/[^A-Za-z0-9_-]/g, '_') : '';
 }
 
 /**
@@ -53,7 +75,7 @@ function safeAgentId(agentId) {
  * The id is sanitized to a safe filename so a hostile/odd id can never escape the marker dir.
  */
 export function agentEntryMarkerPath(projectRoot, agentId) {
-  const safe = safeAgentId(agentId);
+  const safe = safeFileKey(agentId);
   if (safe.length === 0) {
     return null;
   }
@@ -67,7 +89,7 @@ export function agentEntryMarkerPath(projectRoot, agentId) {
  * its own `agent_id`, but the gate can, so the gate tells it.
  */
 export function agentEntryMarkerRelative(agentId) {
-  const safe = safeAgentId(agentId);
+  const safe = safeFileKey(agentId);
   return safe.length === 0 ? null : `.paqad/session/agent-entry/${safe}`;
 }
 
@@ -103,6 +125,27 @@ export function clearAgentEntryMarkers(projectRoot) {
 }
 
 /**
+ * Stamp the per-session sentinel for `sessionId` (issue #582). The edit gate calls this when it
+ * exempts a main-thread Write of the legacy `.paqad/.agent-entry-loaded`, so an agent that
+ * follows older wording still clears its own session's gate. Best-effort: never throws.
+ */
+export function stampSessionSentinel(projectRoot, sessionId, entry) {
+  if (safeFileKey(sessionId).length === 0) {
+    return;
+  }
+  const target = sentinelPath(projectRoot, sessionId);
+  try {
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(
+      target,
+      `${JSON.stringify({ loaded_at: new Date().toISOString(), entry_file: entry })}\n`,
+    );
+  } catch {
+    // best-effort; a failed stamp just re-blocks the edit, which is fail-safe.
+  }
+}
+
+/**
  * Echoes one of:
  *   "missing"
  *   "stale:<entry-file|framework-path|docs-instructions>"
@@ -111,10 +154,18 @@ export function clearAgentEntryMarkers(projectRoot) {
  * agent reloads. Mirrors agent-entry-sentinel.sh exactly.
  *
  * `agentId` (issue #567) keys the check on a subagent's per-agent marker; omitted/empty means
- * the main thread and the unkeyed sentinel, byte-identical to before.
+ * the main thread. `sessionId` (issue #582) then keys the main-thread check on that session's
+ * own file; the legacy single file is checked only when there is no usable session id. The
+ * stale deletion removes whichever file was checked.
  */
-export function sentinelState(projectRoot = resolveProjectRoot(), env = process.env, agentId) {
-  const sentinel = agentEntryMarkerPath(projectRoot, agentId) ?? sentinelPath(projectRoot);
+export function sentinelState(
+  projectRoot = resolveProjectRoot(),
+  env = process.env,
+  agentId,
+  sessionId,
+) {
+  const sentinel =
+    agentEntryMarkerPath(projectRoot, agentId) ?? sentinelPath(projectRoot, sessionId);
   let sentinelMtime;
   try {
     sentinelMtime = statSync(sentinel).mtimeMs;

@@ -174,6 +174,9 @@ describe('agent router document (#498)', () => {
     const doc = buildAgentRouterDocument();
     expect(doc).toContain('## 3. Confirm the load (sentinel)');
     expect(doc).toContain('.paqad/.agent-entry-loaded');
+    // Issue #582: the per-session file, removed only by its own session's SessionStart.
+    expect(doc).toContain('`.paqad/.agent-entry-loaded.d/<session id>`');
+    expect(doc).toMatch(/SessionStart removes only its own file/);
     expect(doc).toContain('"loaded_at"');
     expect(doc).toContain('"entry_file"');
     expect(doc).toContain('"framework_version"');
