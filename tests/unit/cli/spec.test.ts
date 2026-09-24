@@ -10,7 +10,10 @@ import {
   defaultFeatureDevelopmentPolicy,
   renderDefaultFeatureDevelopmentPolicyYaml,
 } from '@/pipeline/feature-development-policy.js';
-import { readFeatureSpecification } from '@/feature-evidence/artifacts.js';
+import { readFeatureSpecification, writeFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { writeProjectProfile } from '@/core/project-profile.js';
+
+import { fixtureProfile } from '../adapters/shared.fixture.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
@@ -555,6 +558,73 @@ describe('paqad-ai spec command', () => {
       );
       expect(process.exitCode).toBe(1);
       expect(err.join('\n')).toMatch(/--manual needs --reason/);
+    });
+  });
+
+  describe('visual acceptance criterion at freeze (issue #579, FR-14)', () => {
+    const SES = 'ses_spec_visual';
+
+    function frontendFeature(planFiles: string[]): void {
+      writeProjectProfile(root, {
+        ...fixtureProfile('laravel'),
+        active_capabilities: ['coding'],
+        stack_profile: {
+          frameworks: ['react'],
+          traits: [],
+          toolchains: [],
+          version_bands: [],
+          sources: [],
+        },
+      } as never);
+      writeFileSync(join(root, '.paqad', '.config'), 'visual_evidence=true\n');
+      openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 11 });
+      writeFeaturePlan(root, SES, {
+        summary: 'goals page',
+        steps: [{ id: 's1', description: 'add the page', files: planFiles }],
+        reuse: {
+          consulted: [{ source: 'grep', query: 'x', hits: 0 }],
+          reusing: [],
+          new_constructs: [],
+        },
+      });
+    }
+
+    function freeze(path: string) {
+      return run(
+        'freeze',
+        path,
+        '--signed-off-by',
+        'alice',
+        '--confirm-invariants',
+        '--session',
+        SES,
+      );
+    }
+
+    it('AC-7: refuses a frontend spec with no (proof: visual) criterion', async () => {
+      frontendFeature(['src/pages/Goals.tsx']);
+      const { err } = await freeze(writeSpec('S-7-goals.md', COMPLETE_SPEC));
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toContain(
+        'Visual evidence is on and this change touches frontend files (src/pages/Goals.tsx), so at least one acceptance criterion needs (proof: visual).',
+      );
+      expect(readFeatureSpecification(root, currentFeature(root, SES)!)).toBeNull();
+    });
+
+    it('freezes once a criterion carries (proof: visual)', async () => {
+      frontendFeature(['src/pages/Goals.tsx']);
+      const visualSpec = COMPLETE_SPEC.replace(
+        '(proof: automated)',
+        '(proof: automated)\n- AC-2: given a goal, when saved, then the page shows it. (proof: visual)',
+      );
+      await freeze(writeSpec('S-8-goals.md', visualSpec));
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it('AC-8: adds no requirement for a change with no frontend files', async () => {
+      frontendFeature(['src/server/api.ts']);
+      await freeze(writeSpec('S-9-api.md', COMPLETE_SPEC));
+      expect(process.exitCode).toBeUndefined();
     });
   });
 });

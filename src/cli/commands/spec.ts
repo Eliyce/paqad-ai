@@ -10,7 +10,13 @@ import { reviewSpecification } from '@/compliance/spec-review.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze, freezeSpec } from '@/spec/spec-freeze.js';
-import { NoActiveFeatureError, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
+import {
+  NoActiveFeatureError,
+  readFeaturePlan,
+  writeFeatureSpecification,
+} from '@/feature-evidence/artifacts.js';
+import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { visualAcRequiredFiles } from '@/visual-evidence/readiness.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
@@ -132,7 +138,7 @@ export function createSpecCommand(): Command {
     .option('--manual', 'Freeze a hand-written spec under strict adoption (needs --reason)', false)
     .option('--reason <why>', 'Why the spec was frozen without the pipeline (recorded)')
     .action(
-      (
+      async (
         specFile: string,
         options: {
           projectRoot: string;
@@ -267,7 +273,27 @@ export function createSpecCommand(): Command {
           spec_markdown: markdown,
         });
 
-        const evaluation = evaluateSpecFreeze(spec, specReview);
+        // Issue #579 (FR-14) — a frontend change under visual evidence needs a (proof: visual)
+        // criterion. Frontend-ness comes from the active plan's step files and the changed files.
+        const freezeSession = resolveSessionId(
+          options.projectRoot,
+          options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+        );
+        const freezeFeature = currentFeature(options.projectRoot, freezeSession);
+        const planFiles = freezeFeature
+          ? (readFeaturePlan(options.projectRoot, freezeFeature)?.steps ?? []).flatMap(
+              (step) => step.files ?? [],
+            )
+          : [];
+        const visualFiles = visualAcRequiredFiles(options.projectRoot, [
+          ...planFiles,
+          ...(await loadChangeEvidence(options.projectRoot)).files,
+        ]);
+        const evaluation = evaluateSpecFreeze(
+          spec,
+          specReview,
+          visualFiles.length > 0 ? { requireVisualAc: { files: visualFiles } } : {},
+        );
         if (!evaluation.can_freeze) {
           console.error(
             `**▸ paqad** · can't freeze this spec yet — ${evaluation.blockers.length} ` +

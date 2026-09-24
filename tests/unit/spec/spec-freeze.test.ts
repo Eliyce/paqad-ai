@@ -204,3 +204,34 @@ describe('freezeSpec provenance (issue #547)', () => {
     expect('provenance' in frozen).toBe(false);
   });
 });
+
+describe('evaluateSpecFreeze — visual acceptance criterion (issue #579, FR-14)', () => {
+  const required = { requireVisualAc: { files: ['src/pages/Goals.tsx', 'src/goal.css'] } };
+  const blocker =
+    'Visual evidence is on and this change touches frontend files (src/pages/Goals.tsx, src/goal.css), so at least one acceptance criterion needs (proof: visual).';
+
+  it('AC-7: refuses a frontend spec with no (proof: visual) criterion, naming the files', () => {
+    const evaluation = evaluateSpecFreeze(frozenReadySpec(), null, required);
+    expect(evaluation.can_freeze).toBe(false);
+    expect(evaluation.blockers).toEqual([blocker]);
+  });
+
+  it('is cleared by a visual criterion', () => {
+    const spec = frozenReadySpec();
+    const visual = {
+      ...spec.acceptance_criteria[0]!,
+      criterion_id: 'AC-2',
+      proof_type: 'visual' as const,
+    };
+    const evaluation = evaluateSpecFreeze(
+      { ...spec, acceptance_criteria: [...spec.acceptance_criteria, visual] },
+      null,
+      required,
+    );
+    expect(evaluation.can_freeze).toBe(true);
+  });
+
+  it('adds nothing when the change is not frontend', () => {
+    expect(evaluateSpecFreeze(frozenReadySpec(), null, {}).can_freeze).toBe(true);
+  });
+});

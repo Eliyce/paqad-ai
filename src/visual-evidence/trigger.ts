@@ -157,29 +157,33 @@ export function activeFrontendGlobs(projectRoot: string): Array<{ pack: string; 
 }
 
 /**
- * Whether any of the given changed files (any separator form) matches an active pack's frontend
- * glob. Synchronous — for callers that already hold the change's file list (the verification gate).
+ * The given files (any separator form in, posix form out, sorted, deduped) that match an active
+ * pack's frontend glob. Synchronous, for callers that already hold the change's file list. Throws
+ * PackRegistryEmptyError like {@link activeFrontendGlobs}; use {@link frontendTriggerOrFault}
+ * where that fault must be reported instead.
  */
-export function isFrontendTriggering(projectRoot: string, changedFiles: string[]): boolean {
+export function frontendFilesOf(projectRoot: string, changedFiles: readonly string[]): string[] {
   const globs = activeFrontendGlobs(projectRoot);
-  return changedFiles.some((file) =>
-    globs.some(({ glob }) => matchesFrontendGlob(toPosix(file), glob)),
-  );
+  const matched = changedFiles
+    .map(toPosix)
+    .filter((file) => globs.some(({ glob }) => matchesFrontendGlob(file, glob)));
+  return [...new Set(matched)].sort();
 }
 
 /**
- * isFrontendTriggering, with an empty pack registry reported as an install fault instead of a
+ * frontendFilesOf, with an empty pack registry reported as an install fault instead of a
  * throw (issue #579), for the verification gate. Any other error propagates unchanged.
  */
 export function frontendTriggerOrFault(
   projectRoot: string,
   changedFiles: string[],
-): { triggered: boolean; fault: { runtimeRoot: string } | null } {
+): { triggered: boolean; files: string[]; fault: { runtimeRoot: string } | null } {
   try {
-    return { triggered: isFrontendTriggering(projectRoot, changedFiles), fault: null };
+    const files = frontendFilesOf(projectRoot, changedFiles);
+    return { triggered: files.length > 0, files, fault: null };
   } catch (error) {
     if (error instanceof PackRegistryEmptyError) {
-      return { triggered: false, fault: { runtimeRoot: error.runtimeRoot } };
+      return { triggered: false, files: [], fault: { runtimeRoot: error.runtimeRoot } };
     }
     throw error;
   }

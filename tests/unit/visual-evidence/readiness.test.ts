@@ -29,6 +29,7 @@ import {
   openVisualEvidenceReadinessPause,
   READINESS_DECISION_TITLE,
   readinessToken,
+  visualAcRequiredFiles,
   visualEvidenceFlagOn,
   visualEvidenceReadiness,
 } from '@/visual-evidence/readiness.js';
@@ -259,5 +260,21 @@ describe('findVisualEvidenceWaiver', () => {
     const waived = packet(DIR);
     resolvePendingDecision(root, waived, 'waive');
     expect(findVisualEvidenceWaiver(root, DIR)).toBe(waived);
+  });
+});
+
+describe('visualAcRequiredFiles (issue #579, FR-14)', () => {
+  it('returns the deduped frontend files when visual evidence is on', () => {
+    writeProfile(['coding']);
+    writeConfig('visual_evidence=true\n');
+    expect(
+      visualAcRequiredFiles(root, ['src/b.tsx', 'src/a.ts', 'src/b.tsx', 'src/c.css']),
+    ).toEqual(['src/b.tsx', 'src/c.css']);
+  });
+
+  it('returns nothing when visual evidence is off', () => {
+    writeProfile(['coding']);
+    writeConfig('visual_evidence=false\n');
+    expect(visualAcRequiredFiles(root, ['src/b.tsx'])).toEqual([]);
   });
 });

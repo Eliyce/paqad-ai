@@ -136,6 +136,7 @@ describe('PackRegistryEmptyError (issue #579)', () => {
     expect(activeFrontendGlobs('/root')).toEqual([]);
     expect(frontendTriggerOrFault('/root', ['src/a.tsx'])).toEqual({
       triggered: false,
+      files: [],
       fault: null,
     });
   });
@@ -144,13 +145,17 @@ describe('PackRegistryEmptyError (issue #579)', () => {
     getPacks.mockReturnValue([]);
     expect(frontendTriggerOrFault('/root', ['src/a.tsx'])).toEqual({
       triggered: false,
+      files: [],
       fault: { runtimeRoot: getRuntimeRoot() },
     });
   });
 
   it('frontendTriggerOrFault returns the trigger result when packs load', () => {
-    expect(frontendTriggerOrFault('/root', ['src/a.tsx'])).toEqual({
+    expect(
+      frontendTriggerOrFault('/root', ['src\\b.tsx', 'src/a.tsx', 'src/a.tsx', 'x.ts']),
+    ).toEqual({
       triggered: true,
+      files: ['src/a.tsx', 'src/b.tsx'],
       fault: null,
     });
   });

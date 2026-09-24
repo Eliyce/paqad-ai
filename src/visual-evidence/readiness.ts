@@ -135,6 +135,16 @@ export function openVisualEvidenceReadinessPause(input: {
 }
 
 /**
+ * The frontend files that make spec freeze require a `(proof: visual)` criterion (issue #579,
+ * FR-14): the plan step files and changed files that match a frontend glob, when visual evidence
+ * and coding are on. Empty otherwise (including a broken pack registry, which the gate reports).
+ */
+export function visualAcRequiredFiles(projectRoot: string, files: readonly string[]): string[] {
+  if (!visualEvidenceFlagOn(projectRoot)) return [];
+  return frontendTriggerOrFault(projectRoot, [...new Set(files)]).files;
+}
+
+/**
  * The id of a resolved readiness packet for this change whose chosen option is `waive`, or null.
  * A waiver makes the strict gate read skipped ("waived by D-<id>"), never pass (INV-7).
  */
