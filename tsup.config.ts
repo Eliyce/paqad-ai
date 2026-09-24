@@ -52,6 +52,11 @@ export default defineConfig({
     // entry here from #324 until #573, so the import threw ERR_MODULE_NOT_FOUND on every
     // prompt of every installed copy and the recorded lane was always null.
     'pipeline/prompt-lane': 'src/pipeline/prompt-lane.ts',
+    // Session-start dirty-file baseline (issue #576, Finding 1b) — lazy-imported by the
+    // runtime/hooks/agent-entry-session-start.mjs SessionStart hook to snapshot the already-dirty
+    // tracked files so the completion backstop can subtract inherited dirt. Dedicated entry, same
+    // pattern as the prompt-lane seam above (a missing entry would throw ERR_MODULE_NOT_FOUND).
+    'pipeline/dirty-baseline': 'src/pipeline/dirty-baseline.ts',
     // Ticket-reference detector (issue #573) — lazy-imported by the
     // runtime/hooks/ticket-intake-prompt.mjs UserPromptSubmit hook. Same missing-entry bug
     // as the seam above, from #330.

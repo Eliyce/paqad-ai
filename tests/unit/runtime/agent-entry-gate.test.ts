@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -420,6 +428,39 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
 });
 
 describe('runtime/hooks/agent-entry-session-start.mjs', () => {
+  // Issue #576 (Finding 1b) — SessionStart captures a baseline of the already-dirty tracked files
+  // so the completion backstop can subtract inherited dirt. Drives the real hook (needs dist).
+  it('captures a dirty-file baseline for the session (issue #576)', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-baseline-hook-'));
+    try {
+      execFileSync('git', ['init', '--quiet'], { cwd: projectRoot });
+      execFileSync('git', ['config', 'user.email', 'b@example.test'], { cwd: projectRoot });
+      execFileSync('git', ['config', 'user.name', 'Baseline'], { cwd: projectRoot });
+      writeFileSync(join(projectRoot, 'src.ts'), 'export const a = 1;\n');
+      execFileSync('git', ['add', '.'], { cwd: projectRoot });
+      execFileSync('git', ['commit', '--quiet', '-m', 'init'], { cwd: projectRoot });
+      // The tree is already dirty when the session starts.
+      writeFileSync(join(projectRoot, 'src.ts'), 'export const a = 2;\n');
+
+      execFileSync('node', [RESET_SCRIPT], {
+        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+        input: JSON.stringify({ session_id: 'baseline-1' }),
+      });
+
+      const baselinePath = join(
+        projectRoot,
+        '.paqad/ledger/paqad.stage-evidence/baseline-1/.dirty-baseline.json',
+      );
+      expect(existsSync(baselinePath)).toBe(true);
+      const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as {
+        files: Record<string, string>;
+      };
+      expect(baseline.files['src.ts']).toBeTypeOf('string');
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   it('deletes the sentinel and the per-agent markers so every session starts ungated', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-gate-'));
     try {

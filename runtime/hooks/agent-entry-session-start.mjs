@@ -55,6 +55,14 @@ async function main(input) {
       const adoptUrl = new URL('../../dist/feature-evidence/adoption.js', import.meta.url);
       const { reconcileSessionControl } = await import(adoptUrl.href);
       reconcileSessionControl(projectRoot, hostSessionId);
+
+      // Issue #576 (Finding 1b) — record a baseline of the tracked files that are ALREADY dirty
+      // at session start, so the in-session completion backstop can subtract inherited dirt
+      // instead of blaming a read-only turn for it. Captured once per session, keyed by the same
+      // resolved session id the backstop reads. Best-effort — a failure just means no subtraction.
+      const baselineUrl = new URL('../../dist/pipeline/dirty-baseline.js', import.meta.url);
+      const { captureSessionDirtyBaseline } = await import(baselineUrl.href);
+      await captureSessionDirtyBaseline(projectRoot, hostSessionId);
     }
   } catch {
     // best-effort; never fail a session start over cache alignment.
