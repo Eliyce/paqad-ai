@@ -192,7 +192,14 @@ async function recreateLocalArtifacts(
       mkdirSync(join(projectRoot, dir), { recursive: true });
     }
   }
-  installGitHooks(projectRoot);
+  const hookResult = installGitHooks(projectRoot);
+  if (hookResult.trackedHooksDir && hookResult.snippet) {
+    // Issue #576 (Finding 9) — the hooks dir is git-tracked; we did not write into it. Tell the
+    // teammate the one line to add so a reviewer / husky reinstall does not lose it.
+    process.stdout.write(
+      `Your git hooks directory is tracked, so paqad did not modify it. Add this yourself:\n${hookResult.snippet}\n`,
+    );
+  }
   if (isGitIgnored(projectRoot, PATHS.FRAMEWORK_VERSION)) {
     writeFrameworkVersionPreservingTimestamp(
       join(projectRoot, PATHS.FRAMEWORK_VERSION),
