@@ -44,6 +44,20 @@ describe('summarizeGradedEvidence', () => {
   });
 });
 
+describe('summarizeGradedEvidence — skipped rows (issue #579)', () => {
+  it('INV-4: counts a skipped row as neither pass nor fail', () => {
+    const base = [
+      row({ strength_class: 'deterministic', verdict: 'pass' }),
+      row({ strength_class: 'deterministic', verdict: 'fail', code: 'rules-loaded' }),
+    ];
+    const withSkip = [
+      ...base,
+      row({ strength_class: 'deterministic', verdict: 'skipped', code: 'visual-evidence' }),
+    ];
+    expect(summarizeGradedEvidence(withSkip)).toEqual(summarizeGradedEvidence(base));
+  });
+});
+
 describe('deriveVerificationResult', () => {
   it('PASSES only when nothing failed, blocked, or was inconclusive', () => {
     expect(

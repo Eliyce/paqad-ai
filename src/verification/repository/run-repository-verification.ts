@@ -21,11 +21,13 @@ import { syncModuleHealthFromVerification } from '@/planning/module-health-updat
 import {
   computeChangeSubjectDigest,
   computeFileDigests,
+  evidenceGatesToRows,
   gateResultsToRows,
   ratchetResultToRows,
   readReproducibilityPredicate,
   resolveChangeAuthorship,
   resolveComplianceCitations,
+  type RowContext,
 } from '@/evidence/index.js';
 import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
@@ -438,6 +440,10 @@ export async function runRepositoryVerification(
   // enabled, so a normal user pays zero tokens (no citation resolution) and
   // writes no `.paqad/ledger/` files. Sub-flags gate each write independently.
   const policy = resolveEnterprisePolicy(readProjectProfile(context.project_root));
+  // Issue #579 — where the late gates (bundle-completeness, visual-evidence, rules-loaded) land
+  // in the bundle's evidence.jsonl. Set below under the same scope + evidence_ledger policy as
+  // the graded rows; those gates run after this block, so their rows are appended at the end.
+  let lateGateRowTarget: { sessionId: string; ctx: RowContext } | null = null;
   if (writesLedger(policy)) {
     try {
       const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
@@ -488,6 +494,7 @@ export async function runRepositoryVerification(
         // it introduces no throw into verdict computation.
         if (policy.evidence_ledger) {
           appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
+          lateGateRowTarget = { sessionId: bundleSessionId, ctx: rowCtx };
         }
         projectFeatureReceipt(context.project_root, activeFeature, {
           fileDigests,
@@ -549,6 +556,8 @@ export async function runRepositoryVerification(
       ? completenessActive
       : null;
   const completenessMode = resolveBundleCompletenessMode(context.project_root);
+  // Issue #579 — every late gate pushed below, skips included, for the evidence.jsonl rows.
+  const lateGates: VerificationEvidenceGate[] = [];
   const frameworkConfig = resolveFrameworkConfig(context.project_root);
   if (completenessMode !== 'off') {
     // Issue #511 (RC-2.2) — reconcile delivery.json from local git before the gate, so a
@@ -600,6 +609,7 @@ export async function runRepositoryVerification(
     });
     if (completenessGate) {
       evidence.gates.push(completenessGate);
+      lateGates.push(completenessGate);
       if (completenessGate.status === 'fail') {
         evidence.overall_status = 'fail';
         evidence.first_failure_gate ??= completenessGate.name;
@@ -625,6 +635,7 @@ export async function runRepositoryVerification(
       });
       if (existenceGate) {
         evidence.gates.push(existenceGate);
+        lateGates.push(existenceGate);
       }
     }
   }
@@ -649,6 +660,7 @@ export async function runRepositoryVerification(
     });
     if (veGate) {
       evidence.gates.push(veGate);
+      lateGates.push(veGate);
       if (veGate.status === 'fail') {
         evidence.overall_status = 'fail';
         evidence.first_failure_gate ??= veGate.name;
@@ -669,11 +681,24 @@ export async function runRepositoryVerification(
     });
     if (rulesGate) {
       evidence.gates.push(rulesGate);
+      lateGates.push(rulesGate);
       if (rulesGate.status === 'fail') {
         evidence.overall_status = 'fail';
         evidence.first_failure_gate ??= rulesGate.name;
       }
     }
+  }
+
+  // Issue #579 — record the late gates in the bundle's evidence.jsonl too, so a skipped or
+  // failed visual-evidence / completeness / rules-loaded gate is on the ledger, not only in the
+  // session verdict. Same target (and so the same scope + evidence_ledger policy) as the graded
+  // rows above; the writer is best-effort and never throws.
+  if (lateGateRowTarget) {
+    appendFeatureEvidenceRows(
+      context.project_root,
+      lateGateRowTarget.sessionId,
+      evidenceGatesToRows(lateGates, lateGateRowTarget.ctx),
+    );
   }
 
   // Re-write the evidence artifact so the file reflects the completeness gate appended after

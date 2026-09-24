@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { GateResult } from '@/core/types/verification.js';
 import type { QualityRatchetResult, RatchetMeasureVerdict } from '@/core/types/quality-ratchet.js';
-import { findingRowsFrom, gateResultsToRows, ratchetResultToRows } from '@/evidence/fan-in.js';
+import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
+import {
+  evidenceGatesToRows,
+  findingRowsFrom,
+  gateResultsToRows,
+  ratchetResultToRows,
+} from '@/evidence/fan-in.js';
 
 const ctx = { subjectDigest: 'subject-1', ts: '2026-06-11T00:00:00.000Z' };
 
@@ -33,6 +39,46 @@ describe('gateResultsToRows', () => {
       verdict: 'inconclusive',
       strength_class: 'blocked',
     });
+  });
+});
+
+describe('evidenceGatesToRows (issue #579)', () => {
+  function gate(
+    name: string,
+    status: VerificationEvidenceGate['status'],
+    detail: string,
+  ): VerificationEvidenceGate {
+    return {
+      name: name as VerificationEvidenceGate['name'],
+      status,
+      detail,
+      remediation: null,
+      failures: [],
+    };
+  }
+
+  it('grades all four evidence-gate statuses and keeps the detail', () => {
+    const rows = evidenceGatesToRows(
+      [
+        gate('bundle-completeness', 'pass', 'all present'),
+        gate('rules-loaded', 'fail', 'never loaded'),
+        gate('visual-evidence', 'inconclusive', 'no manifest'),
+        gate('visual-evidence', 'skipped', 'not-frontend'),
+      ],
+      ctx,
+    );
+    expect(rows.map((r) => [r.code, r.verdict, r.strength_class, r.detail])).toEqual([
+      ['bundle-completeness', 'pass', 'deterministic', 'all present'],
+      ['rules-loaded', 'fail', 'deterministic', 'never loaded'],
+      ['visual-evidence', 'inconclusive', 'blocked', 'no manifest'],
+      ['visual-evidence', 'skipped', 'deterministic', 'not-frontend'],
+    ]);
+    expect(rows.every((r) => r.engine === 'verification-gate')).toBe(true);
+    expect(rows.every((r) => r.subject_digest === 'subject-1' && r.ts === ctx.ts)).toBe(true);
+  });
+
+  it('returns nothing for no gates', () => {
+    expect(evidenceGatesToRows([], ctx)).toEqual([]);
   });
 });
 

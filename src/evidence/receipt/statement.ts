@@ -37,6 +37,9 @@ export function summarizeGradedEvidence(rows: readonly EvidenceLedgerRow[]): Gra
       summary.inconclusive += 1;
       continue;
     }
+    // Issue #579 — a skipped gate did not apply to the change: neither a pass nor a fail,
+    // so it never moves the graded counts.
+    if (row.verdict === 'skipped') continue;
     if (row.verdict === 'blocked' || row.strength_class === 'blocked') {
       summary.blocked += 1;
       continue;
