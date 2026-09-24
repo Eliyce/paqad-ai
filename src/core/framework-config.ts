@@ -640,9 +640,12 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on ' +
       'and a change is frontend-triggering (issue #551). warn (default): an environmental miss ' +
       '(browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) ' +
-      'reads Inconclusive without blocking. strict: the same misses FAIL the change. Documented ' +
-      'skips (no documented flow, no capture script) never fail in either mode. Team value is the ' +
-      'floor; local/env may only raise warn to strict.',
+      'reads Inconclusive without blocking. strict: the same misses FAIL the change, and so does ' +
+      'a frontend change with nothing captured because no documented flow or capture script ' +
+      'exists (issue #579), unless you attach screenshots (paqad-ai visual-evidence attach) or ' +
+      'record a waiver decision (the gate prints the exact decision command). Under warn those ' +
+      'skips stay skipped and show a skip line. Team value is the floor; local/env may only raise ' +
+      'warn to strict.',
   },
   {
     key: 'evidence_existence_gate',

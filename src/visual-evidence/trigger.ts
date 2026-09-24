@@ -5,6 +5,7 @@
 // stack pack. Deterministic and model-free. When it is not, everything downstream is a
 // `skipped` outcome with reason `not-frontend`.
 
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { getPacksForFrameworks } from '@/packs/project-packs.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { readProjectProfile } from '@/core/project-profile.js';
@@ -109,11 +110,45 @@ function activeFrameworks(projectRoot: string): string[] {
   return [...new Set([...frameworks, primary].filter((name): name is string => Boolean(name)))];
 }
 
-/** The frontend_globs of every active pack, flattened (posix patterns). */
+/**
+ * Thrown when the profile declares frameworks but the built-in pack registry loads none of
+ * them (issue #579). That is an install fault (paqad looked for its packs in the wrong place),
+ * never a clean change, so callers must not read it as not-frontend.
+ */
+export class PackRegistryEmptyError extends Error {
+  readonly runtimeRoot: string;
+  readonly frameworks: string[];
+
+  constructor(runtimeRoot: string, frameworks: string[]) {
+    super(
+      `paqad could not load its built-in stack packs (looked in ${runtimeRoot}) for ${frameworks.join(', ')}.`,
+    );
+    this.name = 'PackRegistryEmptyError';
+    this.runtimeRoot = runtimeRoot;
+    this.frameworks = frameworks;
+  }
+}
+
+/** The install-fault detail line, shared by the gate and the CLI verbs (issue #579). */
+export function packRegistryFaultDetail(runtimeRoot: string): string {
+  return `paqad could not load its built-in stack packs (looked in ${runtimeRoot}). This is an install fault, not a clean change.`;
+}
+
+/** The install-fault remediation line, shared by the gate and the CLI verbs. */
+export const PACK_REGISTRY_FAULT_REMEDIATION = 'run `paqad-ai doctor` and reinstall paqad-ai.';
+
+/**
+ * The frontend_globs of every active pack, flattened (posix patterns). Throws
+ * PackRegistryEmptyError when frameworks are declared but no pack loads for any of them.
+ */
 export function activeFrontendGlobs(projectRoot: string): Array<{ pack: string; glob: string }> {
   const frameworks = activeFrameworks(projectRoot);
+  const packs = getPacksForFrameworks(frameworks, projectRoot);
+  if (frameworks.length > 0 && packs.length === 0) {
+    throw new PackRegistryEmptyError(getRuntimeRoot(), frameworks);
+  }
   const out: Array<{ pack: string; glob: string }> = [];
-  for (const pack of getPacksForFrameworks(frameworks, projectRoot)) {
+  for (const pack of packs) {
     for (const glob of pack.manifest.visual_evidence?.frontend_globs ?? []) {
       out.push({ pack: pack.manifest.name, glob });
     }
@@ -122,14 +157,36 @@ export function activeFrontendGlobs(projectRoot: string): Array<{ pack: string; 
 }
 
 /**
- * Whether any of the given changed files (any separator form) matches an active pack's frontend
- * glob. Synchronous — for callers that already hold the change's file list (the verification gate).
+ * The given files (any separator form in, posix form out, sorted, deduped) that match an active
+ * pack's frontend glob. Synchronous, for callers that already hold the change's file list. Throws
+ * PackRegistryEmptyError like {@link activeFrontendGlobs}; use {@link frontendTriggerOrFault}
+ * where that fault must be reported instead.
  */
-export function isFrontendTriggering(projectRoot: string, changedFiles: string[]): boolean {
+export function frontendFilesOf(projectRoot: string, changedFiles: readonly string[]): string[] {
   const globs = activeFrontendGlobs(projectRoot);
-  return changedFiles.some((file) =>
-    globs.some(({ glob }) => matchesFrontendGlob(toPosix(file), glob)),
-  );
+  const matched = changedFiles
+    .map(toPosix)
+    .filter((file) => globs.some(({ glob }) => matchesFrontendGlob(file, glob)));
+  return [...new Set(matched)].sort();
+}
+
+/**
+ * frontendFilesOf, with an empty pack registry reported as an install fault instead of a
+ * throw (issue #579), for the verification gate. Any other error propagates unchanged.
+ */
+export function frontendTriggerOrFault(
+  projectRoot: string,
+  changedFiles: string[],
+): { triggered: boolean; files: string[]; fault: { runtimeRoot: string } | null } {
+  try {
+    const files = frontendFilesOf(projectRoot, changedFiles);
+    return { triggered: files.length > 0, files, fault: null };
+  } catch (error) {
+    if (error instanceof PackRegistryEmptyError) {
+      return { triggered: false, files: [], fault: { runtimeRoot: error.runtimeRoot } };
+    }
+    throw error;
+  }
 }
 
 /**

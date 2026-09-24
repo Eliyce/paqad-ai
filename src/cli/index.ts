@@ -5,6 +5,10 @@ import { pathToFileURL } from 'node:url';
 
 import { createProgram, normalizeCliArgv } from './program.js';
 
+// Issue #579 — re-exported so the dist regression test can prove the depth-two CLI bundle
+// resolves the same runtime root as the depth-one dist/index.js the Stop hook imports.
+export { getRuntimeRoot } from '@/core/runtime-paths.js';
+
 export function getCliBanner(): string {
   return 'paqad-ai';
 }

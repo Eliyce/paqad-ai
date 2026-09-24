@@ -25,9 +25,11 @@ export type EvidenceEngine =
 /**
  * The outcome a row records. `blocked` is distinct from `inconclusive`: blocked
  * means the evidence could not be produced (no tool wired, missing config),
- * inconclusive means a check ran but could not reach a confident verdict.
+ * inconclusive means a check ran but could not reach a confident verdict. `skipped`
+ * (issue #579) records a gate that did not apply to this change (for example a
+ * not-frontend change under the visual-evidence gate); it is neither a pass nor a fail.
  */
-export type EvidenceVerdict = 'pass' | 'fail' | 'inconclusive' | 'blocked';
+export type EvidenceVerdict = 'pass' | 'fail' | 'inconclusive' | 'blocked' | 'skipped';
 
 /**
  * How strongly the evidence was established — the anti-theater grade.

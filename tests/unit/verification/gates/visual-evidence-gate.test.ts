@@ -9,7 +9,11 @@ import {
   visualEvidenceGate,
   type VisualEvidenceGateInput,
 } from '@/verification/gates/visual-evidence.js';
+import type { FeatureSpec } from '@/core/types/feature-spec.js';
+import type { VerificationCriterion } from '@/core/types/planning.js';
 import type { VisualEvidenceManifest } from '@/visual-evidence/types.js';
+import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { READINESS_DECISION_TITLE, readinessToken } from '@/visual-evidence/readiness.js';
 
 let root: string;
 const roots: string[] = [];
@@ -104,6 +108,159 @@ describe('visualEvidenceGate — applicability', () => {
   });
 });
 
+describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
+  function documentedManifest(reasons: VisualEvidenceManifest['skips'][number]['reason'][]): void {
+    const m = baseManifest();
+    m.result = 'skipped';
+    m.plan = [];
+    m.skips = reasons.map((reason) => ({ reason, detail: 'x' }));
+    writeManifest(m);
+  }
+
+  function waive(): string {
+    const { id } = createPendingDecision(root, {
+      category: 'workflow-or-tool',
+      title: READINESS_DECISION_TITLE,
+      context: `reasons ${readinessToken(DIR)}`,
+      options: [
+        { option_key: 'setup', label: 'setup' },
+        { option_key: 'waive', label: 'waive' },
+      ],
+    });
+    resolvePendingDecision(root, id, 'waive');
+    return id;
+  }
+
+  it('AC-6: fails under strict when only no-documented-flow was recorded and nothing waived', () => {
+    documentedManifest(['no-documented-flow']);
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toContain('nothing was captured');
+    expect(gate.remediation).toContain('paqad-ai visual-evidence attach');
+    // No readiness packet was opened at planning, so the waiver hint is a create command that
+    // carries this change's token, which is exactly what findVisualEvidenceWaiver looks for.
+    expect(gate.remediation).toContain('paqad-ai decision create --category workflow-or-tool');
+    expect(gate.remediation).toContain(readinessToken(DIR));
+    expect(gate.remediation).toContain('paqad-ai decision resolve <D-id> waive');
+    expect(gate.remediation).not.toContain('resolving the readiness decision');
+  });
+
+  it('points the strict waiver at the pending readiness decision when planning opened one', () => {
+    documentedManifest(['no-documented-flow']);
+    const { id } = createPendingDecision(root, {
+      category: 'workflow-or-tool',
+      title: READINESS_DECISION_TITLE,
+      context: `reasons ${readinessToken(DIR)}`,
+      options: [
+        { option_key: 'setup', label: 'setup' },
+        { option_key: 'waive', label: 'waive' },
+      ],
+    });
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('fail');
+    expect(gate.remediation).toContain(`paqad-ai decision resolve ${id} waive`);
+    expect(gate.remediation).not.toContain('decision create');
+  });
+
+  it('a waiver created by hand from the strict hint is honored', () => {
+    documentedManifest(['no-documented-flow']);
+    const { id } = createPendingDecision(root, {
+      category: 'workflow-or-tool',
+      title: 'Visual evidence waiver',
+      context: `no screenshots for a copy-only tweak ${readinessToken(DIR)}`,
+      options: [
+        { option_key: 'waive', label: 'Waive visual evidence' },
+        { option_key: 'attach', label: 'Attach screenshots' },
+      ],
+    });
+    resolvePendingDecision(root, id, 'waive');
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('skipped');
+    expect(gate.skip_reason).toBe(`waived by ${id}`);
+  });
+
+  it('fails under strict for no-capture-script too', () => {
+    documentedManifest(['no-capture-script', 'no-documented-flow']);
+    expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('fail');
+  });
+
+  it('AC-14: reads skipped with "waived by D-<id>" once a waiver is resolved, never pass', () => {
+    documentedManifest(['no-documented-flow']);
+    const id = waive();
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('skipped');
+    expect(gate.detail).toContain(`waived by ${id}`);
+    expect(gate.skip_reason).toBe(`waived by ${id}`);
+  });
+
+  it('keeps capture-script-invalid a documented skip under strict', () => {
+    documentedManifest(['capture-script-invalid']);
+    expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('skipped');
+    documentedManifest(['no-documented-flow', 'capture-script-invalid']);
+    expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('skipped');
+  });
+
+  it('keeps these skips skipped under warn', () => {
+    documentedManifest(['no-documented-flow']);
+    expect(visualEvidenceGate(input({ mode: 'warn' }))!.status).toBe('skipped');
+  });
+});
+
+describe('visualEvidenceGate — skip reasons (issue #579)', () => {
+  it('gives every applicability skip a short reason for the verdict skip line', () => {
+    expect(visualEvidenceGate(input({ flagOn: false }))!.skip_reason).toBe(
+      'visual evidence is off',
+    );
+    expect(visualEvidenceGate(input({ origin: 'ci-backstop' }))!.skip_reason).toBe(
+      'informational on ci-backstop',
+    );
+    expect(visualEvidenceGate(input({ frontendTriggered: false }))!.skip_reason).toBe(
+      'not-frontend',
+    );
+  });
+});
+
+describe('visualEvidenceGate — install fault (issue #579)', () => {
+  const fault = { runtimeRoot: '/opt/paqad/runtime' };
+  const detail =
+    'paqad could not load its built-in stack packs (looked in /opt/paqad/runtime). This is an install fault, not a clean change.';
+
+  it('AC-2: fails under strict with the install-fault text, never not-frontend', () => {
+    const gate = visualEvidenceGate(
+      input({ mode: 'strict', frontendTriggered: false, packRegistryFault: fault }),
+    )!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toBe(detail);
+    expect(gate.remediation).toBe('run `paqad-ai doctor` and reinstall paqad-ai.');
+    expect(gate.detail).not.toContain('not-frontend');
+  });
+
+  it('AC-2: is inconclusive under warn with the same text', () => {
+    const gate = visualEvidenceGate(
+      input({ mode: 'warn', frontendTriggered: false, packRegistryFault: fault }),
+    )!;
+    expect(gate.status).toBe('inconclusive');
+    expect(gate.detail).toBe(detail);
+  });
+
+  it('still honours the flag and origin guards before the fault', () => {
+    expect(visualEvidenceGate(input({ flagOn: false, packRegistryFault: fault }))!.status).toBe(
+      'skipped',
+    );
+    expect(
+      visualEvidenceGate(input({ origin: 'ci-backstop', packRegistryFault: fault }))!.status,
+    ).toBe('skipped');
+  });
+
+  it('AC-8: a not-frontend change with packs loaded still reads skipped', () => {
+    const gate = visualEvidenceGate(
+      input({ mode: 'strict', frontendTriggered: false, packRegistryFault: null }),
+    )!;
+    expect(gate.status).toBe('skipped');
+    expect(gate.detail).toContain('not-frontend');
+  });
+});
+
 describe('visualEvidenceGate — manifest outcomes', () => {
   it('is inconclusive under warn and fail under strict when the manifest is absent on a frontend change', () => {
     expect(visualEvidenceGate(input({ mode: 'warn' }))!.status).toBe('inconclusive');
@@ -165,10 +322,25 @@ describe('visualEvidenceGate — manifest outcomes', () => {
     m.skips = [{ reason: 'no-documented-flow', detail: 'x' }];
     writeManifest(m);
     const warn = visualEvidenceGate(input({ mode: 'warn' }))!;
-    const strict = visualEvidenceGate(input({ mode: 'strict' }))!;
     expect(warn.status).toBe('skipped');
-    expect(strict.status).toBe('skipped');
     expect(warn.detail).toContain('no-documented-flow');
+    expect(warn.skip_reason).toBe('no documented flow to capture');
+  });
+
+  it('carries one short skip phrase per distinct documented reason (issue #579)', () => {
+    const m = baseManifest();
+    m.result = 'skipped';
+    m.plan = [];
+    m.skips = [
+      { reason: 'no-documented-flow', detail: 'a' },
+      { reason: 'no-documented-flow', detail: 'b' },
+      { reason: 'no-capture-script', detail: 'c' },
+      { reason: 'capture-script-invalid', detail: 'd' },
+    ];
+    writeManifest(m);
+    expect(visualEvidenceGate(input({ mode: 'warn' }))!.skip_reason).toBe(
+      'no documented flow to capture, no capture script, capture script invalid',
+    );
   });
 
   it('is environmental for a skipped manifest with an environmental reason', () => {
@@ -200,7 +372,53 @@ describe('visualEvidenceGate — manifest outcomes', () => {
     expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('fail');
   });
 
-  it('names visual-proof acceptance criteria from the frozen spec', () => {
+  it('names the visual criteria of a real frozen spec (criterion_id)', () => {
+    const shot = writeShot('01-open', 'PNGDATA-1');
+    const m = baseManifest();
+    m.steps = [
+      {
+        index: 1,
+        journey_id: 'j',
+        journey_step: 1,
+        caption: 'Open',
+        dir: 'screenshots/01-open',
+        captured_at: '2026-09-11T00:00:01.000Z',
+        image_sha256: shot.sha256,
+        image_bytes: shot.bytes,
+        status: 'captured',
+      },
+    ];
+    writeManifest(m);
+    const criterion = (id: string, proof: VerificationCriterion['proof_type']) =>
+      ({
+        criterion_id: id,
+        given: 'a saved goal',
+        when: 'the goals page opens',
+        then: `the goal card shows (proof: ${proof})`,
+        proof_type: proof,
+        status: 'uncovered',
+        source: 'planned',
+        linked_requirement_ids: ['FR-1'],
+      }) satisfies VerificationCriterion;
+    const spec: FeatureSpec = {
+      schema_version: '1',
+      spec_id: 'S-1',
+      spec_file: '.paqad/specs/S-1-goals.md',
+      spec_hash: 'h',
+      behaviour: ['Show the saved goal.'],
+      acceptance_criteria: [criterion('AC-1', 'automated'), criterion('AC-3', 'visual')],
+      invariants: [],
+      open_questions: [],
+      frozen: { frozen_at: '2026-09-11T00:00:00.000Z', spec_hash: 'h', signed_off_by: 'dev' },
+    };
+    writeFileSync(join(bundleDir(), 'specification.json'), JSON.stringify(spec), 'utf8');
+    const gate = visualEvidenceGate(input())!;
+    expect(gate.status).toBe('pass');
+    expect(gate.detail).toContain('Visually evidenced: AC-3.');
+    expect(gate.detail).not.toContain('AC-1');
+  });
+
+  it('names visual-proof acceptance criteria from a legacy id-keyed spec', () => {
     const shot = writeShot('01-open', 'PNGDATA-1');
     const m = baseManifest();
     m.steps = [

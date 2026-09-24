@@ -131,7 +131,9 @@ export async function main(input, seam = SEAM) {
       // (e.g. stage markers recorded to the ledger) stays visible even when the
       // edit is refused (issue #307 — a ledger write is never silent).
       const message = result.narration ? `${result.narration}\n${result.summary}` : result.summary;
-      process.stderr.write(`${message}\n`);
+      // Issue #579 — the first-frontend-edit visual-evidence reminder rides the model-only
+      // block reason (stderr), never a user-facing systemMessage.
+      process.stderr.write(result.context ? `${message}\n${result.context}\n` : `${message}\n`);
       // Loop guard (fix #2) — the completion (Stop) seam is the only one the host
       // re-runs after forcing a continuation. When Claude marks this Stop as a
       // continuation of a prior block (`stop_hook_active`), the gate has already
@@ -159,6 +161,19 @@ export async function main(input, seam = SEAM) {
     // framework prose into the developer's chat on every edit (the "Stop says:" leak,
     // extended to PreToolUse). A strict violation still reaches the model on the blocking
     // path above (stderr + exit 2); warn findings are advisory and non-blocking by contract.
+    //
+    // The one exception is MODEL-facing context (issue #579): the first-frontend-edit
+    // visual-evidence reminder goes out as PreToolUse `hookSpecificOutput.additionalContext`,
+    // which reaches the model and is not a user-facing warning. Claude Code only (the default
+    // adapter): other hosts get the reminder on the block path, the plan-time pause, the
+    // spec-freeze requirement and the Stop gate.
+    if (seam === 'pre-mutation' && result.context && ADAPTER === undefined) {
+      process.stdout.write(
+        `${JSON.stringify({
+          hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: result.context },
+        })}\n`,
+      );
+    }
     return 0;
   } catch {
     // Soft-fail: an infra error (missing build, import failure) must never wedge

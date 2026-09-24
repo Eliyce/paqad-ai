@@ -318,3 +318,53 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
     expect(statement?.predicate.compliance_citations).toBeUndefined();
   });
 });
+
+describe('runRepositoryVerification — late gates on the bundle ledger (issue #579)', () => {
+  it('AC-4: records bundle-completeness, visual-evidence and rules-loaded rows, skips included', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+    });
+    const { dir } = openFeature(context.project_root, 'rv-late-gates-sess');
+    enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: false });
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: 'rv-late-gates-sess',
+    });
+
+    const rows = readFeatureEvidence(context.project_root, dir);
+    const late = ['bundle-completeness', 'visual-evidence', 'rules-loaded'].map((code) =>
+      rows.filter((row) => row.code === code),
+    );
+    expect(late.map((found) => found.length)).toEqual([1, 1, 1]);
+    const visual = late[1]![0]!;
+    expect(visual.verdict).toBe('skipped');
+    expect(visual.strength_class).toBe('deterministic');
+    expect(visual.detail).toBe('visual evidence is off (flag off or coding capability absent).');
+  });
+
+  it('writes no late-gate rows when evidence_ledger is off', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+    });
+    const { dir } = openFeature(context.project_root, 'rv-late-off-sess');
+    enableEnterprise(context.project_root, { evidence_ledger: false, ai_bom: true });
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: 'rv-late-off-sess',
+    });
+
+    expect(readFeatureEvidence(context.project_root, dir)).toEqual([]);
+  });
+});

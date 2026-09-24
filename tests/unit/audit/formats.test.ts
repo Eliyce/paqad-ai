@@ -115,6 +115,12 @@ describe('OCSF formatter', () => {
     expect((rec.actor as Record<string, unknown>).user).toEqual({ email_addr: 'a@b.c' });
   });
 
+  it('grades a skipped gate row Informational, not Unknown (issue #579)', () => {
+    const rec = toOcsfRecord({ ...evidence, verdict: 'skipped' }, VER);
+    expect(rec.severity_id).toBe(1);
+    expect(rec.status).toBe('Unknown');
+  });
+
   it('serializes to a single JSON line', () => {
     expect(toOcsf(evidence, VER)).not.toContain('\n');
     expect(JSON.parse(toOcsf(evidence, VER)).class_uid).toBe(6003);
@@ -122,6 +128,15 @@ describe('OCSF formatter', () => {
 });
 
 describe('ECS formatter', () => {
+  it('grades a skipped gate row Informational with an unknown outcome (issue #579)', () => {
+    const event = toEcsRecord({ ...evidence, verdict: 'skipped' }, VER).event as Record<
+      string,
+      unknown
+    >;
+    expect(event.severity).toBe(1);
+    expect(event.outcome).toBe('unknown');
+  });
+
   it('maps an evidence row with outcome + labels + event.id', () => {
     const rec = toEcsRecord(evidence, VER);
     expect(rec['@timestamp']).toBe(evidence.ts);
@@ -217,6 +232,11 @@ describe('CEF formatter', () => {
     expect(line).toContain('cs2=deterministic');
     expect(line).toContain('msg=killed 9/10 mutants');
     expect(line).not.toContain('\n');
+  });
+
+  it('grades a skipped gate row at the lowest graded severity (issue #579)', () => {
+    const line = toCef({ ...evidence, verdict: 'skipped' }, VER);
+    expect(line).toContain('|evidence verification-gate skipped|1|');
   });
 
   it('renders an attestation with file + multi-file count + suser', () => {

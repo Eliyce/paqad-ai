@@ -8,6 +8,10 @@
 // via {@link findingRowsFrom}.
 
 import type { GateResult } from '@/core/types/verification.js';
+import type {
+  EvidenceGateStatus,
+  VerificationEvidenceGate,
+} from '@/core/types/verification-evidence.js';
 import type { QualityRatchetResult, RatchetMeasureVerdict } from '@/core/types/quality-ratchet.js';
 import type {
   EvidenceEngine,
@@ -41,6 +45,39 @@ export function gateResultsToRows(
       detail: result.detail,
     });
   });
+}
+
+/** How each evidence-gate status grades on the ledger (issue #579). */
+const EVIDENCE_GATE_GRADES: Record<
+  EvidenceGateStatus,
+  { verdict: EvidenceVerdict; strength_class: EvidenceStrengthClass }
+> = {
+  pass: { verdict: 'pass', strength_class: 'deterministic' },
+  fail: { verdict: 'fail', strength_class: 'deterministic' },
+  inconclusive: { verdict: 'inconclusive', strength_class: 'blocked' },
+  skipped: { verdict: 'skipped', strength_class: 'deterministic' },
+};
+
+/**
+ * One ledger row per late evidence gate (bundle-completeness, visual-evidence, rules-loaded).
+ * Those gates return the VerificationEvidenceGate shape, which carries `skipped` and
+ * `inconclusive` statuses the GateResult class shape behind gateResultsToRows cannot, so they
+ * get this sibling mapper over the same row builder. A skipped gate is recorded, never dropped.
+ */
+export function evidenceGatesToRows(
+  gates: readonly VerificationEvidenceGate[],
+  ctx: RowContext,
+): EvidenceLedgerRow[] {
+  return gates.map((gate) =>
+    buildEvidenceRow({
+      ts: ctx.ts,
+      engine: 'verification-gate',
+      code: gate.name,
+      subject_digest: ctx.subjectDigest,
+      ...EVIDENCE_GATE_GRADES[gate.status],
+      detail: gate.detail,
+    }),
+  );
 }
 
 /** Map one ratchet measure outcome to a graded verdict. A measure that could

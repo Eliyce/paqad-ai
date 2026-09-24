@@ -72,6 +72,14 @@ describe('resolveComplianceCitations', () => {
     expect(citations).toHaveLength(0);
   });
 
+  it('INV-5: never turns a skipped gate row into a citation (issue #579)', () => {
+    const rows = [
+      gateRow('behavioral-correctness', 'skipped'),
+      gateRow('mutation-testing', 'skipped'),
+    ];
+    expect(resolveComplianceCitations({ projectRoot: '/x', rows, packs: [ART15] })).toHaveLength(0);
+  });
+
   it('does not cite a failed gate', () => {
     const rows = [gateRow('behavioral-correctness', 'fail'), gateRow('mutation-testing', 'fail')];
     expect(resolveComplianceCitations({ projectRoot: '/x', rows, packs: [ART15] })).toHaveLength(0);

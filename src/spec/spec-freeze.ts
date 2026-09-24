@@ -7,6 +7,12 @@ import type {
 } from '@/core/types/feature-spec.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
+/** Extra freeze requirements that depend on the change, not the spec text. */
+export interface SpecFreezeOptions {
+  /** Issue #579 — set when visual evidence is on and these frontend files are in the change. */
+  requireVisualAc?: { files: string[] };
+}
+
 export interface FreezeSpecInput {
   signed_off_by: string;
   frozen_at: string;
@@ -29,6 +35,7 @@ export interface FreezeSpecInput {
 export function evaluateSpecFreeze(
   spec: FeatureSpec,
   specReview?: SpecReviewReport | null,
+  options: SpecFreezeOptions = {},
 ): SpecFreezeEvaluation {
   const blockers: string[] = [];
 
@@ -56,6 +63,15 @@ export function evaluateSpecFreeze(
 
   for (const question of spec.open_questions) {
     blockers.push(`Open question unresolved: ${question}`);
+  }
+
+  // Issue #579 (FR-14) — a frontend change under visual evidence must say which criterion the
+  // screenshots prove, or the evidence has nothing to be checked against.
+  const visual = options.requireVisualAc;
+  if (visual && !spec.acceptance_criteria.some((criterion) => criterion.proof_type === 'visual')) {
+    blockers.push(
+      `Visual evidence is on and this change touches frontend files (${visual.files.join(', ')}), so at least one acceptance criterion needs (proof: visual).`,
+    );
   }
 
   if (specReview) {

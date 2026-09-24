@@ -42,7 +42,10 @@ local session context, because it is projected from paqad's own ledger:
 
 - **Evidence rows** — one per graded verification verdict: gate/finding `code`,
   `verdict`, the deterministic-vs-LLM-judged strength grade, the change-subject
-  digest, and the content-hash dedup key.
+  digest, and the content-hash dedup key. OCSF, ECS and CEF grade a verdict the same way
+  (`src/audit/severity.ts`): a fail or blocked row is a finding, a pass is informational, and so
+  is a `skipped` row (a gate that did not apply to the change, issue #579), which reads OCSF
+  severity 1 and CEF severity 1 rather than unknown.
 - **Attestation events** — one per receipt: `PASSED`/`FAILED`, the hash-chain
   **seal status**, the signing mode, the attested file digests, and the #120
   change authorship (agent, declared model/provider, accepting human).

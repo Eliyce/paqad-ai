@@ -8,6 +8,10 @@ import { createPlanCommand } from '@/cli/commands/plan.js';
 import { createProgram } from '@/cli/program.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { writeProjectProfile } from '@/core/project-profile.js';
+import { readContractDecisions } from '@/decisions/authoring.js';
+
+import { fixtureProfile } from '../adapters/shared.fixture.js';
 
 describe('paqad-ai plan compile', () => {
   let root: string;
@@ -153,5 +157,58 @@ describe('paqad-ai plan compile', () => {
     await run(input);
     expect(process.exitCode).toBeUndefined();
     expect(warnings.join('\n')).toContain('reuse claims unverified: index not built');
+  });
+
+  describe('visual-evidence readiness pause (issue #579)', () => {
+    function frontendProject(): void {
+      writeProjectProfile(root, {
+        ...fixtureProfile('laravel'),
+        active_capabilities: ['coding'],
+        stack_profile: {
+          frameworks: ['react'],
+          traits: [],
+          toolchains: [],
+          version_bands: [],
+          sources: [],
+        },
+      } as never);
+      // site_map stays off, so this machine always fails a readiness check.
+      writeFileSync(join(root, '.paqad', '.config'), 'visual_evidence=true\n');
+    }
+
+    it('AC-13: opens one readiness pause for a frontend plan, and a re-run opens no second', async () => {
+      frontendProject();
+      openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 7 });
+      const warnings: string[] = [];
+      vi.spyOn(console, 'warn').mockImplementation((l: string) => warnings.push(String(l)));
+      const steps = [{ id: 's1', description: 'add the page', files: ['src/pages/Goals.tsx'] }];
+
+      const lines = await run(writeTemplate({ summary: 'goals page', steps }));
+      const packets = readContractDecisions(root);
+      expect(packets).toHaveLength(1);
+      const id = packets[0]!.packet.id;
+      expect(warnings.join('\n')).toContain(
+        `Visual evidence is on, but I can't capture screenshots here yet. Answer ${id}`,
+      );
+      expect(lines.some((l) => l.includes(`"readiness_decision":"${id}"`))).toBe(true);
+      const dir = currentFeature(root, SES)!;
+      expect(readFeaturePlan(root, dir)?.steps[0]?.files).toEqual(['src/pages/Goals.tsx']);
+
+      await run(writeTemplate({ summary: 'goals page again', steps }));
+      expect(readContractDecisions(root)).toHaveLength(1);
+    });
+
+    it('AC-8: opens no pause for a plan with no frontend files', async () => {
+      frontendProject();
+      openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 8 });
+      const lines = await run(
+        writeTemplate({
+          summary: 'server only',
+          steps: [{ id: 's1', description: 'add the api', files: ['src/server/api.ts'] }],
+        }),
+      );
+      expect(readContractDecisions(root)).toEqual([]);
+      expect(lines.some((l) => l.includes('readiness_decision'))).toBe(false);
+    });
   });
 });

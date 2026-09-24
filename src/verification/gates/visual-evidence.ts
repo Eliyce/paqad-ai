@@ -4,10 +4,14 @@
 // end-of-change verdict. It validates EXISTENCE + manifest integrity + hashes only — never the
 // screenshot content. Outcomes (house EvidenceGateStatus):
 //   - flag off / coding capability absent / not feature-dev / trigger says not-frontend → skipped
+//   - frameworks declared but no built-in pack loaded (issue #579, an install fault) →
+//     inconclusive under warn, fail under strict, never not-frontend
 //   - manifest present, schema-valid, result: captured, every referenced file's size + SHA-256
 //     match → pass
 //   - manifest present recording only documented skips (no-documented-flow / no-capture-script /
-//     capture-script-invalid) → skipped, reason surfaced
+//     capture-script-invalid) → skipped, reason surfaced. Under strict (issue #579), a manifest
+//     whose only skips are no-documented-flow / no-capture-script FAILS unless a resolved
+//     readiness waiver exists (then skipped, "waived by D-<id>", never pass)
 //   - an environmental outcome (manifest absent on a frontend change, result partial/skipped with
 //     an environmental reason, or a hash/size mismatch) → inconclusive under warn, fail under strict
 //
@@ -25,7 +29,16 @@ import { featureFilePath } from '@/feature-evidence/paths.js';
 import { validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
 
 import type { VisualEvidenceMode } from '../repository/visual-evidence-mode.js';
-import type { VeSkipReason, VisualEvidenceManifest } from '@/visual-evidence/types.js';
+import {
+  AGENT_ATTACHED_JOURNEY,
+  type VeSkipReason,
+  type VisualEvidenceManifest,
+} from '@/visual-evidence/types.js';
+import { findVisualEvidenceWaiver, visualEvidenceWaiverHint } from '@/visual-evidence/readiness.js';
+import {
+  PACK_REGISTRY_FAULT_REMEDIATION,
+  packRegistryFaultDetail,
+} from '@/visual-evidence/trigger.js';
 
 /** The gate marker (not a registered VERIFICATION_GATES member, like `bundle-completeness`). */
 const GATE_NAME = 'visual-evidence' as VerificationGate;
@@ -58,11 +71,40 @@ export interface VisualEvidenceGateInput {
   flagOn: boolean;
   /** Whether the change is frontend-triggering (a changed file matched a pack's frontend_globs). */
   frontendTriggered: boolean;
+  /**
+   * Issue #579 — set when frameworks are declared but the built-in pack registry loaded none
+   * (a PackRegistryEmptyError). An install fault: fail under strict, inconclusive under warn,
+   * never not-frontend.
+   */
+  packRegistryFault?: { runtimeRoot: string } | null;
 }
 
-function skipped(detail: string): VerificationEvidenceGate {
-  return { name: GATE_NAME, status: 'skipped', detail, remediation: null, failures: [] };
+function skipped(detail: string, skipReason: string): VerificationEvidenceGate {
+  return {
+    name: GATE_NAME,
+    status: 'skipped',
+    detail,
+    remediation: null,
+    failures: [],
+    skip_reason: skipReason,
+  };
 }
+
+/**
+ * Issue #579 — the documented skips that strict mode no longer accepts on their own: nothing was
+ * captured because no flow or script exists. `capture-script-invalid` keeps its documented handling.
+ */
+const STRICT_UNCAPTURED: ReadonlySet<VeSkipReason> = new Set([
+  'no-documented-flow',
+  'no-capture-script',
+]);
+
+/** The short, plain phrase each documented skip reads as in the verdict skip line. */
+const DOCUMENTED_SKIP_PHRASE: Record<string, string> = {
+  'no-documented-flow': 'no documented flow to capture',
+  'no-capture-script': 'no capture script',
+  'capture-script-invalid': 'capture script invalid',
+};
 
 function environmental(
   mode: VisualEvidenceMode,
@@ -140,18 +182,32 @@ export function visualEvidenceGate(
   input: VisualEvidenceGateInput,
 ): VerificationEvidenceGate | null {
   const { projectRoot, dirName, mode, origin, isFeatureDev, flagOn, frontendTriggered } = input;
+  const { packRegistryFault } = input;
 
   if (!isFeatureDev || !dirName) {
     return null;
   }
   if (!flagOn) {
-    return skipped('visual evidence is off (flag off or coding capability absent).');
+    return skipped(
+      'visual evidence is off (flag off or coding capability absent).',
+      'visual evidence is off',
+    );
   }
   if (!LOCAL_ORIGINS.has(origin)) {
-    return skipped(`visual evidence is informational on ${origin} — no committed local bundle.`);
+    return skipped(
+      `visual evidence is informational on ${origin} — no committed local bundle.`,
+      `informational on ${origin}`,
+    );
+  }
+  if (packRegistryFault) {
+    return environmental(
+      mode,
+      packRegistryFaultDetail(packRegistryFault.runtimeRoot),
+      PACK_REGISTRY_FAULT_REMEDIATION,
+    );
   }
   if (!frontendTriggered) {
-    return skipped('not-frontend — no changed file matched a frontend surface.');
+    return skipped('not-frontend — no changed file matched a frontend surface.', 'not-frontend');
   }
 
   const manifest = readManifest(projectRoot, dirName);
@@ -174,7 +230,22 @@ export function visualEvidenceGate(
     const documented = manifest.skips.every((s) => DOCUMENTED_SKIP_REASONS.has(s.reason));
     const reasons = manifest.skips.map((s) => s.reason).join(', ') || 'no capture';
     if (documented && manifest.skips.length > 0) {
-      return skipped(`no visual evidence to capture (${reasons}).`);
+      const phrases = [...new Set(manifest.skips.map((s) => DOCUMENTED_SKIP_PHRASE[s.reason]))];
+      // Issue #579 — under strict, "nothing to capture" because no flow or script exists is not
+      // proof: it fails unless the developer recorded a waiver (which reads skipped, never pass).
+      if (mode === 'strict' && manifest.skips.every((s) => STRICT_UNCAPTURED.has(s.reason))) {
+        const waiver = findVisualEvidenceWaiver(projectRoot, dirName);
+        if (waiver) {
+          return skipped(`waived by ${waiver} (${reasons}).`, `waived by ${waiver}`);
+        }
+        return environmental(
+          mode,
+          `visual evidence is strict, but nothing was captured for this frontend change (${reasons}).`,
+          'attach screenshots with `paqad-ai visual-evidence attach <png...>`, add a capture script for a documented journey and re-run `paqad-ai visual-evidence run`, ' +
+            `or record a waiver: ${visualEvidenceWaiverHint(projectRoot, dirName)}.`,
+        );
+      }
+      return skipped(`no visual evidence to capture (${reasons}).`, phrases.join(', '));
     }
     return environmental(
       mode,
@@ -202,8 +273,12 @@ export function visualEvidenceGate(
     );
   }
 
-  const captured = manifest.steps.filter((s) => s.status === 'captured').length;
-  const detail = `${captured} step(s) captured across ${manifest.plan.length} flow(s); hashes verified.${visualAcNote(projectRoot, dirName)}`;
+  const captured = manifest.steps.filter((s) => s.status === 'captured');
+  // Issue #579 (INV-9) — attached screenshots are named as such, never passed off as scripted.
+  const attached = captured.filter((s) => s.journey_id === AGENT_ATTACHED_JOURNEY).length;
+  const attachedNote =
+    attached > 0 ? ` ${attached} of them agent-attached (not scripted captures).` : '';
+  const detail = `${captured.length} step(s) captured across ${manifest.plan.length} flow(s); hashes verified.${attachedNote}${visualAcNote(projectRoot, dirName)}`;
   return pass(detail);
 }
 
@@ -215,11 +290,13 @@ function visualAcNote(projectRoot: string, dirName: string): string {
   try {
     const raw = readFileSync(join(projectRoot, featureFilePath(dirName, 'specification')), 'utf8');
     const spec = JSON.parse(raw) as {
-      acceptance_criteria?: Array<{ id?: string; proof_type?: string }>;
+      acceptance_criteria?: Array<{ criterion_id?: string; id?: string; proof_type?: string }>;
     };
+    // A frozen spec names each criterion `criterion_id`; `id` is read only as a fallback.
     const visual = (spec.acceptance_criteria ?? [])
-      .filter((ac) => ac.proof_type === 'visual' && typeof ac.id === 'string')
-      .map((ac) => ac.id as string);
+      .filter((ac) => ac.proof_type === 'visual')
+      .map((ac) => ac.criterion_id ?? ac.id)
+      .filter((id): id is string => typeof id === 'string');
     return visual.length > 0 ? ` Visually evidenced: ${visual.join(', ')}.` : '';
   } catch {
     return '';

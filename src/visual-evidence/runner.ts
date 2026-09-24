@@ -11,9 +11,7 @@ import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:f
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { computeContentHash } from '@/feature-evidence/mint.js';
 import { featureFilePath, featureScreenshotsDir } from '@/feature-evidence/paths.js';
-import { validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
 import { bootApp } from './boot.js';
@@ -29,13 +27,22 @@ import {
 import { resolveVisualEvidencePlan, type ResolvedPlanEntry } from './resolve-plan.js';
 import type { CaptureAction, CaptureStep } from './capture-script.js';
 import {
-  VISUAL_EVIDENCE_DOC_TYPE,
-  VISUAL_EVIDENCE_SCHEMA_VERSION,
-  type VeSkip,
-  type VeStep,
-  type VeTrigger,
-  type VisualEvidenceManifest,
-} from './types.js';
+  copyAttachedStepDirs,
+  mergeAttachedSteps,
+  pad2,
+  readAttachedSteps,
+  slugifyCaption,
+  stepDirSlug,
+  uniqueSlug,
+  writeVisualEvidenceManifest,
+  type WriteVisualEvidenceManifestInput,
+  type WriteVisualEvidenceManifestResult,
+} from './manifest.js';
+import type { VeSkip, VeStep, VeTrigger, VisualEvidenceManifest } from './types.js';
+
+// The naming helpers moved to manifest.ts (issue #579) so attach can share them; re-exported so
+// existing importers keep working.
+export { pad2, slugifyCaption } from './manifest.js';
 
 export interface RunVisualEvidenceInput {
   projectRoot: string;
@@ -46,27 +53,19 @@ export interface RunVisualEvidenceInput {
   now?: () => string;
 }
 
-export interface RunVisualEvidenceResult {
-  wrote: boolean;
-  manifest: VisualEvidenceManifest | null;
-  result: 'captured' | 'partial' | 'skipped';
-  skips: VeSkip[];
-}
+export type RunVisualEvidenceResult = WriteVisualEvidenceManifestResult;
 
-/** Windows-safe kebab slug of a caption: [a-z0-9-] only, max 40, non-empty fallback. */
-export function slugifyCaption(caption: string): string {
-  const slug = caption
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/^-+|-+$/g, '');
-  return slug.length > 0 ? slug : 'step';
-}
-
-/** Zero-padded 2-digit position (01..99, clamped at 99 for the dir name). */
-export function pad2(n: number): string {
-  return String(Math.min(n, 99)).padStart(2, '0');
+/**
+ * Write the run's manifest, carrying every agent-attached step forward (issue #579, FR-13 /
+ * INV-8): a scripted run adds to what the agent attached, it never drops it.
+ */
+function writeManifest(
+  projectRoot: string,
+  dirName: string,
+  attached: readonly VeStep[],
+  input: WriteVisualEvidenceManifestInput,
+): RunVisualEvidenceResult {
+  return writeVisualEvidenceManifest(projectRoot, dirName, mergeAttachedSteps(attached, input));
 }
 
 /** Resolve a `$VE_*` reference from the environment; a bare value passes through unchanged. */
@@ -165,10 +164,12 @@ export async function runVisualEvidence(
 
   const plan = resolveVisualEvidencePlan(projectRoot, changedFiles);
   const skips: VeSkip[] = [...plan.skips];
+  // Issue #579 — screenshots the agent attached earlier survive every path below.
+  const attached = readAttachedSteps(projectRoot, dirName);
 
   // Nothing to capture — write a skip-only manifest (documented skips already recorded).
   if (plan.entries.length === 0) {
-    return writeManifest(projectRoot, dirName, {
+    return writeManifest(projectRoot, dirName, attached, {
       trigger,
       plan: [],
       steps: [],
@@ -188,7 +189,7 @@ export async function runVisualEvidence(
         reason: 'playwright-not-provisioned',
         detail: 'Playwright/Chromium is not provisioned and provisioning failed (offline?)',
       });
-      return writeManifest(projectRoot, dirName, {
+      return writeManifest(projectRoot, dirName, attached, {
         trigger,
         plan: planEntries(plan.entries),
         steps: [],
@@ -204,7 +205,7 @@ export async function runVisualEvidence(
   const boot = await bootApp(projectRoot, profile);
   if (!boot.ok) {
     skips.push({ reason: boot.reason, detail: boot.detail });
-    return writeManifest(projectRoot, dirName, {
+    return writeManifest(projectRoot, dirName, attached, {
       trigger,
       plan: planEntries(plan.entries),
       steps: [],
@@ -219,13 +220,16 @@ export async function runVisualEvidence(
   const tmpAbs = join(projectRoot, tmpDir);
   rmSync(tmpAbs, { recursive: true, force: true });
   mkdirSync(tmpAbs, { recursive: true });
+  // Issue #579 — the swap below replaces screenshots/, so bring the attached folders along.
+  copyAttachedStepDirs(projectRoot, dirName, attached, tmpAbs);
 
   const chromium = await loadChromium();
   const browser = await chromium.launch({ headless: true });
   const steps: VeStep[] = [];
   const gifFrames: GifFrameInput[] = [];
-  const usedSlugs = new Set<string>();
-  let index = 0;
+  // Scripted folders continue numbering after the attached ones and never reuse their names.
+  const usedSlugs = new Set<string>(attached.map((step) => stepDirSlug(step.dir)));
+  let index = Math.max(0, ...attached.map((step) => step.index));
 
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -268,7 +272,7 @@ export async function runVisualEvidence(
     const anyFailed = steps.some((step) => step.status === 'failed');
     const result = anyCaptured ? (anyFailed ? 'partial' : 'captured') : 'skipped';
 
-    return writeManifest(projectRoot, dirName, {
+    return writeManifest(projectRoot, dirName, attached, {
       trigger,
       plan: planEntries(plan.entries),
       steps,
@@ -421,72 +425,12 @@ async function captureStep(
   };
 }
 
-function uniqueSlug(slug: string, used: Set<string>): string {
-  if (!used.has(slug)) {
-    used.add(slug);
-    return slug;
-  }
-  let n = 2;
-  while (used.has(`${slug}-${n}`)) n += 1;
-  const out = `${slug}-${n}`;
-  used.add(out);
-  return out;
-}
-
 function planEntries(entries: ResolvedPlanEntry[]): VisualEvidenceManifest['plan'] {
   return entries.map((entry) => ({
     journey_id: entry.journey_id,
     capture_script: entry.capture_script,
     matched_by: entry.matched_by,
   }));
-}
-
-interface WriteManifestInput {
-  trigger: VeTrigger;
-  plan: VisualEvidenceManifest['plan'];
-  steps: VeStep[];
-  gif: VisualEvidenceManifest['gif'];
-  skips: VeSkip[];
-  result: 'captured' | 'partial' | 'skipped';
-  now: () => string;
-}
-
-/** Build, validate, and atomically write the manifest. */
-function writeManifest(
-  projectRoot: string,
-  dirName: string,
-  input: WriteManifestInput,
-): RunVisualEvidenceResult {
-  const base: Omit<VisualEvidenceManifest, 'content_hash'> = {
-    schema_version: VISUAL_EVIDENCE_SCHEMA_VERSION,
-    doc_type: VISUAL_EVIDENCE_DOC_TYPE,
-    generated_at: input.now(),
-    trigger: input.trigger,
-    plan: input.plan,
-    steps: input.steps,
-    gif: input.gif,
-    skips: input.skips,
-    result: input.result,
-  };
-  const manifest: VisualEvidenceManifest = {
-    ...base,
-    content_hash: computeContentHash(base as unknown as Record<string, unknown>),
-  };
-
-  const errors = validateVisualEvidenceRecord(manifest);
-  if (errors.length > 0) {
-    throw new Error(
-      `internal: visual-evidence manifest failed its own schema: ${errors.join('; ')}`,
-    );
-  }
-
-  const target = join(projectRoot, featureFilePath(dirName, 'visualEvidence'));
-  mkdirSync(join(projectRoot, featureScreenshotsDir(dirName), '..'), { recursive: true });
-  const tmp = `${target}.tmp-${process.pid}`;
-  writeFileSync(tmp, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  renameSync(tmp, target);
-
-  return { wrote: true, manifest, result: input.result, skips: input.skips };
 }
 
 /** True when the visual-evidence subtree exists in the bundle (for callers that check). */
