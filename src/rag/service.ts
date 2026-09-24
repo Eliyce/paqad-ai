@@ -244,7 +244,10 @@ export class RagService {
   private async buildIndexCore(
     partial: Partial<BuildIndexOptions['intelligence']>,
     onProgress?: BuildIndexOptions['onProgress'],
-  ): Promise<{ profile: NonNullable<ReturnType<typeof readProjectProfile>>; intelligence: ReturnType<typeof normalizeIntelligenceConfig> }> {
+  ): Promise<{
+    profile: NonNullable<ReturnType<typeof readProjectProfile>>;
+    intelligence: ReturnType<typeof normalizeIntelligenceConfig>;
+  }> {
     const profile = readProjectProfile(this.projectRoot);
     if (!profile) {
       throw new Error('Project profile not found');

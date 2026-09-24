@@ -655,6 +655,13 @@ function normalizeSnapshotValue(file: string, content: string): string {
     delete parsed.generated_at;
   }
 
+  // Issue #576 (Finding 7) — onboard now builds the code-knowledge index; its header carries a
+  // per-run generated_at timestamp. The index is otherwise content-addressed and deterministic,
+  // so strip the timestamp for the idempotency comparison (same as the artifacts above).
+  if (file === '.paqad/indexes/code-knowledge.json' && parsed.header && typeof parsed.header === 'object') {
+    delete (parsed.header as Record<string, unknown>).generated_at;
+  }
+
   return JSON.stringify(parsed, null, 2);
 }
 

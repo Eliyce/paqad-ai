@@ -40,7 +40,9 @@ function baselinePath(projectRoot: string, sessionId: string): string {
 /** sha256 of a file's bytes, or `null` when it cannot be read (e.g. a deleted path). */
 function digestFile(projectRoot: string, relativePath: string): string | null {
   try {
-    return createHash('sha256').update(readFileSync(join(projectRoot, relativePath))).digest('hex');
+    return createHash('sha256')
+      .update(readFileSync(join(projectRoot, relativePath)))
+      .digest('hex');
   } catch {
     return null;
   }
@@ -71,7 +73,10 @@ export async function captureSessionDirtyBaseline(
   }
   try {
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, `${JSON.stringify({ captured_at: new Date().toISOString(), files }, null, 2)}\n`);
+    writeFileSync(
+      path,
+      `${JSON.stringify({ captured_at: new Date().toISOString(), files }, null, 2)}\n`,
+    );
   } catch {
     // best-effort — never fail a session start over the baseline.
   }
@@ -84,7 +89,9 @@ export function readSessionDirtyBaseline(
 ): DirtyBaseline | null {
   const sessionId = resolveSessionId(projectRoot, sessionHint);
   try {
-    const parsed = JSON.parse(readFileSync(baselinePath(projectRoot, sessionId), 'utf8')) as unknown;
+    const parsed = JSON.parse(
+      readFileSync(baselinePath(projectRoot, sessionId), 'utf8'),
+    ) as unknown;
     if (
       parsed !== null &&
       typeof parsed === 'object' &&

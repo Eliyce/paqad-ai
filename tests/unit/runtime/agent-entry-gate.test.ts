@@ -414,7 +414,10 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
       const sessionId = 'route-576';
       const result = runPromptGateWithInput(
         projectRoot,
-        JSON.stringify({ prompt: 'How is this project set up technically?', session_id: sessionId }),
+        JSON.stringify({
+          prompt: 'How is this project set up technically?',
+          session_id: sessionId,
+        }),
       );
       // The load directive still owns the output (routing narration is dropped in this branch).
       expect(result.status).toBe(0);
