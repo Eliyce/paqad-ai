@@ -9,7 +9,9 @@
 //   - manifest present, schema-valid, result: captured, every referenced file's size + SHA-256
 //     match → pass
 //   - manifest present recording only documented skips (no-documented-flow / no-capture-script /
-//     capture-script-invalid) → skipped, reason surfaced
+//     capture-script-invalid) → skipped, reason surfaced. Under strict (issue #579), a manifest
+//     whose only skips are no-documented-flow / no-capture-script FAILS unless a resolved
+//     readiness waiver exists (then skipped, "waived by D-<id>", never pass)
 //   - an environmental outcome (manifest absent on a frontend change, result partial/skipped with
 //     an environmental reason, or a hash/size mismatch) → inconclusive under warn, fail under strict
 //
@@ -28,6 +30,7 @@ import { validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
 
 import type { VisualEvidenceMode } from '../repository/visual-evidence-mode.js';
 import type { VeSkipReason, VisualEvidenceManifest } from '@/visual-evidence/types.js';
+import { findVisualEvidenceWaiver } from '@/visual-evidence/readiness.js';
 import {
   PACK_REGISTRY_FAULT_REMEDIATION,
   packRegistryFaultDetail,
@@ -82,6 +85,15 @@ function skipped(detail: string, skipReason: string): VerificationEvidenceGate {
     skip_reason: skipReason,
   };
 }
+
+/**
+ * Issue #579 — the documented skips that strict mode no longer accepts on their own: nothing was
+ * captured because no flow or script exists. `capture-script-invalid` keeps its documented handling.
+ */
+const STRICT_UNCAPTURED: ReadonlySet<VeSkipReason> = new Set([
+  'no-documented-flow',
+  'no-capture-script',
+]);
 
 /** The short, plain phrase each documented skip reads as in the verdict skip line. */
 const DOCUMENTED_SKIP_PHRASE: Record<string, string> = {
@@ -215,6 +227,19 @@ export function visualEvidenceGate(
     const reasons = manifest.skips.map((s) => s.reason).join(', ') || 'no capture';
     if (documented && manifest.skips.length > 0) {
       const phrases = [...new Set(manifest.skips.map((s) => DOCUMENTED_SKIP_PHRASE[s.reason]))];
+      // Issue #579 — under strict, "nothing to capture" because no flow or script exists is not
+      // proof: it fails unless the developer recorded a waiver (which reads skipped, never pass).
+      if (mode === 'strict' && manifest.skips.every((s) => STRICT_UNCAPTURED.has(s.reason))) {
+        const waiver = findVisualEvidenceWaiver(projectRoot, dirName);
+        if (waiver) {
+          return skipped(`waived by ${waiver} (${reasons}).`, `waived by ${waiver}`);
+        }
+        return environmental(
+          mode,
+          `visual evidence is strict, but nothing was captured for this frontend change (${reasons}).`,
+          'attach screenshots with `paqad-ai visual-evidence attach <png...>`, add a capture script and re-run `paqad-ai visual-evidence run`, or record a waiver by resolving the readiness decision with `waive`.',
+        );
+      }
       return skipped(`no visual evidence to capture (${reasons}).`, phrases.join(', '));
     }
     return environmental(

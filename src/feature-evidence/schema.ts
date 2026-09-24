@@ -100,6 +100,9 @@ export const PLAN_SCHEMA = {
           classification: {
             enum: ['ac-satisfying', 'necessary-setup', 'scaffolding', 'over-build'],
           },
+          // Issue #579 — the files the step expects to touch. Optional and additive, so a
+          // plan.json compiled before it stays valid.
+          files: { type: 'array', items: { type: 'string', minLength: 1 } },
         },
       },
     },

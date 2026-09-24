@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
+import { openVisualEvidenceReadinessPause } from '@/visual-evidence/readiness.js';
 
 import { updateFeatureRecord } from './feature-record.js';
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
@@ -117,6 +118,17 @@ export interface CompiledArtifact<T> {
    * them so the developer knows an edit is now blocked and why.
    */
   armedDecisions?: string[];
+  /**
+   * Issue #579 — the visual-evidence readiness pause this compile opened, when the change is
+   * frontend, visual evidence is on, and this machine cannot capture yet. Null otherwise.
+   */
+  readinessDecision?: string | null;
+}
+
+/** Extra, non-template inputs to {@link writeFeaturePlan}. */
+export interface WriteFeaturePlanOptions {
+  /** The git-reconciled changed files, unioned with the plan step files for the frontend test. */
+  changedFiles?: readonly string[];
 }
 
 /**
@@ -151,6 +163,7 @@ export function writeFeaturePlan(
   projectRoot: string,
   sessionId: string,
   input: PlanCompileInput,
+  options: WriteFeaturePlanOptions = {},
 ): CompiledArtifact<PlanRecord> {
   // Issue #357 — the reuse gate runs BEFORE anything is resolved or renamed, so a plan
   // that has not answered "did you check what already exists?" leaves no trace: no
@@ -223,12 +236,27 @@ export function writeFeaturePlan(
     })),
   });
 
+  // Issue #579 — a frontend change on a machine that cannot capture screenshots gets ONE pause
+  // now, at planning, instead of a surprise at the Stop gate. Frontend-ness comes from the
+  // plan's own step files unioned with the changed files, since no code may exist yet.
+  const readinessDecision = openVisualEvidenceReadinessPause({
+    projectRoot,
+    dirName,
+    files: [
+      ...new Set([
+        ...(input.steps ?? []).flatMap((step) => step.files ?? []),
+        ...(options.changedFiles ?? []),
+      ]),
+    ],
+  });
+
   return {
     dirName,
     path: rel,
     record,
     warnings: [...reuseCheck.warnings, ...armed.warnings],
     armedDecisions: armed.minted,
+    readinessDecision,
   };
 }
 

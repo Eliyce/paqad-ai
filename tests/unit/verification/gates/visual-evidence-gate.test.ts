@@ -10,6 +10,8 @@ import {
   type VisualEvidenceGateInput,
 } from '@/verification/gates/visual-evidence.js';
 import type { VisualEvidenceManifest } from '@/visual-evidence/types.js';
+import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { READINESS_DECISION_TITLE, readinessToken } from '@/visual-evidence/readiness.js';
 
 let root: string;
 const roots: string[] = [];
@@ -101,6 +103,64 @@ describe('visualEvidenceGate — applicability', () => {
     const gate = visualEvidenceGate(input({ frontendTriggered: false }))!;
     expect(gate.status).toBe('skipped');
     expect(gate.detail).toContain('not-frontend');
+  });
+});
+
+describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
+  function documentedManifest(reasons: VisualEvidenceManifest['skips'][number]['reason'][]): void {
+    const m = baseManifest();
+    m.result = 'skipped';
+    m.plan = [];
+    m.skips = reasons.map((reason) => ({ reason, detail: 'x' }));
+    writeManifest(m);
+  }
+
+  function waive(): string {
+    const { id } = createPendingDecision(root, {
+      category: 'workflow-or-tool',
+      title: READINESS_DECISION_TITLE,
+      context: `reasons ${readinessToken(DIR)}`,
+      options: [
+        { option_key: 'setup', label: 'setup' },
+        { option_key: 'waive', label: 'waive' },
+      ],
+    });
+    resolvePendingDecision(root, id, 'waive');
+    return id;
+  }
+
+  it('AC-6: fails under strict when only no-documented-flow was recorded and nothing waived', () => {
+    documentedManifest(['no-documented-flow']);
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toContain('nothing was captured');
+    expect(gate.remediation).toContain('paqad-ai visual-evidence attach');
+  });
+
+  it('fails under strict for no-capture-script too', () => {
+    documentedManifest(['no-capture-script', 'no-documented-flow']);
+    expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('fail');
+  });
+
+  it('AC-14: reads skipped with "waived by D-<id>" once a waiver is resolved, never pass', () => {
+    documentedManifest(['no-documented-flow']);
+    const id = waive();
+    const gate = visualEvidenceGate(input({ mode: 'strict' }))!;
+    expect(gate.status).toBe('skipped');
+    expect(gate.detail).toContain(`waived by ${id}`);
+    expect(gate.skip_reason).toBe(`waived by ${id}`);
+  });
+
+  it('keeps capture-script-invalid a documented skip under strict', () => {
+    documentedManifest(['capture-script-invalid']);
+    expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('skipped');
+    documentedManifest(['no-documented-flow', 'capture-script-invalid']);
+    expect(visualEvidenceGate(input({ mode: 'strict' }))!.status).toBe('skipped');
+  });
+
+  it('keeps these skips skipped under warn', () => {
+    documentedManifest(['no-documented-flow']);
+    expect(visualEvidenceGate(input({ mode: 'warn' }))!.status).toBe('skipped');
   });
 });
 
@@ -220,9 +280,7 @@ describe('visualEvidenceGate — manifest outcomes', () => {
     m.skips = [{ reason: 'no-documented-flow', detail: 'x' }];
     writeManifest(m);
     const warn = visualEvidenceGate(input({ mode: 'warn' }))!;
-    const strict = visualEvidenceGate(input({ mode: 'strict' }))!;
     expect(warn.status).toBe('skipped');
-    expect(strict.status).toBe('skipped');
     expect(warn.detail).toContain('no-documented-flow');
     expect(warn.skip_reason).toBe('no documented flow to capture');
   });

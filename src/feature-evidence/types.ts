@@ -75,6 +75,11 @@ export interface PlanStep {
   module?: string;
   /** The diff-minimizer classification for this step (issue #359), when the skill ran. */
   classification?: PlanStepClassification;
+  /**
+   * Issue #579 — the files this step expects to touch (project-relative, posix), when known.
+   * Lets plan compile and spec freeze tell a frontend change apart before any code exists.
+   */
+  files?: string[];
 }
 
 /** A risk the plan surfaced, paired with its mitigation. */

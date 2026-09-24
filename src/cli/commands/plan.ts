@@ -8,6 +8,7 @@ import {
   writeFeaturePlan,
   type PlanCompileInput,
 } from '@/feature-evidence/artifacts.js';
+import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 interface PlanCompileOptions {
@@ -47,7 +48,7 @@ export function createPlanCommand(): Command {
       'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
     )
     .option('--keep-input', 'Keep the transient input file instead of deleting it', false)
-    .action((inputFile: string, options: PlanCompileOptions) => {
+    .action(async (inputFile: string, options: PlanCompileOptions) => {
       let template: PlanCompileInput;
       try {
         template = JSON.parse(readFileSync(inputFile, 'utf8')) as PlanCompileInput;
@@ -66,9 +67,11 @@ export function createPlanCommand(): Command {
         root,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
+      // Issue #579 — the git-reconciled changed files feed the visual-evidence readiness check.
+      const changedFiles = (await loadChangeEvidence(root)).files;
       let result;
       try {
-        result = writeFeaturePlan(root, sessionId, template);
+        result = writeFeaturePlan(root, sessionId, template, { changedFiles });
       } catch (error) {
         // Issue #357 — a reuse-gate failure is the author's to fix, so its messages print
         // as-is (one per line) rather than wrapped in "could not compile plan": each line
@@ -98,6 +101,14 @@ export function createPlanCommand(): Command {
             `(\`npx paqad-ai decision resolve ${decisionId} <option>\`), then I'll continue.`,
         );
       }
+      // Issue #579 — the readiness pause also blocks the next edit; name it and its options.
+      if (result.readinessDecision) {
+        const id = result.readinessDecision;
+        console.warn(
+          `▸ paqad · Visual evidence is on, but I can't capture screenshots here yet. Answer ${id} ` +
+            `(\`npx paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`,
+        );
+      }
       // Transient scratch: the filled template is deleted so only the rigid JSON
       // persists — the input is never a second, editable source of truth.
       if (!options.keepInput) {
@@ -113,6 +124,7 @@ export function createPlanCommand(): Command {
           compiled: true,
           path: result.path,
           ...(result.armedDecisions?.length ? { armed_decisions: result.armedDecisions } : {}),
+          ...(result.readinessDecision ? { readiness_decision: result.readinessDecision } : {}),
         }),
       );
     });

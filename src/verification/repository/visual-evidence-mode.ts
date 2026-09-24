@@ -4,7 +4,11 @@
 // change is frontend-triggering. `warn` (the default) reads an environmental miss (browser
 // not provisioned, app not reachable, a failed selector, an absent/partial manifest, a
 // hash/size mismatch) as Inconclusive without blocking; `strict` FAILS the change on the same
-// misses. Documented skips (no documented flow, no capture script) never fail in either mode.
+// misses. Since issue #579, `strict` also fails a frontend change with nothing captured because
+// no documented flow or capture script exists, unless screenshots were attached
+// (`paqad-ai visual-evidence attach`) or the readiness decision was resolved with `waive` (the
+// gate then reads skipped, never pass). Under `warn` those skips stay skipped and print a skip
+// line in the verdict. `capture-script-invalid` stays a documented skip in both modes.
 //
 // FLOORED, like every other enforced mode knob: the team-tracked `configs/.config.*` value is
 // a floor; the local `.config` / `PAQAD_VISUAL_EVIDENCE_MODE` env may only RAISE it (warn →
