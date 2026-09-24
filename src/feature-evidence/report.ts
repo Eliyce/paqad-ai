@@ -38,7 +38,7 @@ import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 
-import type { VisualEvidenceManifest } from '@/visual-evidence/types.js';
+import { AGENT_ATTACHED_JOURNEY, type VisualEvidenceManifest } from '@/visual-evidence/types.js';
 
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
@@ -938,6 +938,11 @@ function renderSubmenu(): string {
  * notes. Images are referenced by RELATIVE path to the sibling `screenshots/` files, so the
  * report keeps working from a `file://` origin with no script and no external request.
  */
+function stepProvenance(step: VisualEvidenceManifest['steps'][number]): string {
+  if (step.journey_id !== AGENT_ATTACHED_JOURNEY) return '';
+  return step.ac ? ` (agent-attached, ${step.ac})` : ' (agent-attached)';
+}
+
 function renderVisualEvidence(bundle: FeatureBundleExport): string {
   const ve = bundle.files.visualEvidence as VisualEvidenceManifest | undefined;
   if (!ve) {
@@ -950,8 +955,11 @@ function renderVisualEvidence(bundle: FeatureBundleExport): string {
   }
   const parts: string[] = [];
   const captured = ve.steps.filter((step) => step.status === 'captured');
+  // Issue #579 (INV-9) — say where the screenshots came from, so attached ones are never read
+  // as scripted captures.
+  const source = ve.source ? ` Source: ${ve.source}.` : '';
   parts.push(
-    `<p>${escapeHtml(`${captured.length} step(s) captured across ${ve.plan.length} flow(s) — result: ${ve.result}.`)}</p>`,
+    `<p>${escapeHtml(`${captured.length} step(s) captured across ${ve.plan.length} flow(s) — result: ${ve.result}.${source}`)}</p>`,
   );
   if (ve.gif) {
     parts.push(
@@ -962,7 +970,7 @@ function renderVisualEvidence(bundle: FeatureBundleExport): string {
     const items = captured
       .map(
         (step) =>
-          `<figure class="ve-step"><img src="${escapeHtml(step.dir)}/image.png" alt="${escapeHtml(step.caption)}" loading="lazy"><figcaption>${escapeHtml(`${step.index}. ${step.caption}`)}</figcaption></figure>`,
+          `<figure class="ve-step"><img src="${escapeHtml(step.dir)}/image.png" alt="${escapeHtml(step.caption)}" loading="lazy"><figcaption>${escapeHtml(`${step.index}. ${step.caption}${stepProvenance(step)}`)}</figcaption></figure>`,
       )
       .join('');
     parts.push(`<div class="ve-grid">${items}</div>`);

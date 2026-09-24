@@ -316,6 +316,42 @@ describe('renderFeatureReportHtml — visual evidence section (issue #551)', () 
     } as FeatureBundleExport;
   }
 
+  it('labels agent-attached steps and the manifest source (issue #579, INV-9)', () => {
+    const step = {
+      index: 1,
+      journey_id: 'agent-attached',
+      journey_step: 1,
+      caption: 'Goal saved',
+      dir: 'screenshots/01-goal-saved',
+      captured_at: AT,
+      image_sha256: 'a',
+      image_bytes: 1,
+      status: 'captured',
+    };
+    const html = renderFeatureReportHtml(
+      withVisualEvidence({
+        visualEvidence: {
+          schema_version: 1,
+          doc_type: 'paqad.visual-evidence',
+          generated_at: AT,
+          content_hash: 'x',
+          trigger: { changed_files: [], matched_globs: [], packs: [] },
+          plan: [],
+          steps: [step, { ...step, index: 2, dir: 'screenshots/02-b', ac: 'AC-6', caption: 'B' }],
+          gif: null,
+          skips: [],
+          result: 'captured',
+          source: 'agent-attached',
+        },
+      }),
+      fold([{ kind: 'open', ts: AT, adapter: 'claude-code' } as never]),
+      { generatedAt: AT },
+    );
+    expect(html).toContain('Source: agent-attached.');
+    expect(html).toContain('1. Goal saved (agent-attached)');
+    expect(html).toContain('2. B (agent-attached, AC-6)');
+  });
+
   it('renders the GIF, ordered captioned steps, and relative image refs', () => {
     const bundle = withVisualEvidence({
       visualEvidence: {

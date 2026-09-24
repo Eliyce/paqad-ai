@@ -29,7 +29,11 @@ import { featureFilePath } from '@/feature-evidence/paths.js';
 import { validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
 
 import type { VisualEvidenceMode } from '../repository/visual-evidence-mode.js';
-import type { VeSkipReason, VisualEvidenceManifest } from '@/visual-evidence/types.js';
+import {
+  AGENT_ATTACHED_JOURNEY,
+  type VeSkipReason,
+  type VisualEvidenceManifest,
+} from '@/visual-evidence/types.js';
 import { findVisualEvidenceWaiver } from '@/visual-evidence/readiness.js';
 import {
   PACK_REGISTRY_FAULT_REMEDIATION,
@@ -268,8 +272,12 @@ export function visualEvidenceGate(
     );
   }
 
-  const captured = manifest.steps.filter((s) => s.status === 'captured').length;
-  const detail = `${captured} step(s) captured across ${manifest.plan.length} flow(s); hashes verified.${visualAcNote(projectRoot, dirName)}`;
+  const captured = manifest.steps.filter((s) => s.status === 'captured');
+  // Issue #579 (INV-9) — attached screenshots are named as such, never passed off as scripted.
+  const attached = captured.filter((s) => s.journey_id === AGENT_ATTACHED_JOURNEY).length;
+  const attachedNote =
+    attached > 0 ? ` ${attached} of them agent-attached (not scripted captures).` : '';
+  const detail = `${captured.length} step(s) captured across ${manifest.plan.length} flow(s); hashes verified.${attachedNote}${visualAcNote(projectRoot, dirName)}`;
   return pass(detail);
 }
 

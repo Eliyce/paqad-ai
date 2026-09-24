@@ -9,6 +9,7 @@ import Ajv, { type ValidateFunction } from 'ajv';
 import {
   VE_RESULTS,
   VE_SKIP_REASONS,
+  VE_SOURCES,
   VE_STEP_STATUSES,
   VISUAL_EVIDENCE_DOC_TYPE,
 } from '@/visual-evidence/types.js';
@@ -332,6 +333,8 @@ export const VISUAL_EVIDENCE_SCHEMA = {
           image_bytes: { type: 'integer', minimum: 0 },
           status: { enum: [...VE_STEP_STATUSES] },
           failure: { type: 'string' },
+          // Issue #579 — the criterion an agent-attached screenshot proves. Optional, additive.
+          ac: { type: 'string', minLength: 1 },
         },
       },
     },
@@ -365,6 +368,8 @@ export const VISUAL_EVIDENCE_SCHEMA = {
       },
     },
     result: { enum: [...VE_RESULTS] },
+    // Issue #579 — present only when agent-attached steps are in the manifest.
+    source: { enum: [...VE_SOURCES] },
   },
 } as const;
 

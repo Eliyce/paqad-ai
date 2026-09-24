@@ -31,6 +31,16 @@ export type VeStepStatus = (typeof VE_STEP_STATUSES)[number];
 export const VE_RESULTS = ['captured', 'partial', 'skipped'] as const;
 export type VeResult = (typeof VE_RESULTS)[number];
 
+/**
+ * Issue #579 — where a manifest's captured steps came from, when any were attached by the agent.
+ * Absent on a manifest holding only scripted captures, so older manifests read unchanged.
+ */
+export const VE_SOURCES = ['agent-attached', 'mixed'] as const;
+export type VeSource = (typeof VE_SOURCES)[number];
+
+/** The journey_id every agent-attached step carries, so it is never read as a scripted capture. */
+export const AGENT_ATTACHED_JOURNEY = 'agent-attached';
+
 /** How a changed file tied a planned flow to the change. */
 export interface VeMatchedBy {
   file: string;
@@ -58,6 +68,8 @@ export interface VeStep {
   image_bytes?: number;
   status: VeStepStatus;
   failure?: string;
+  /** Issue #579 — the acceptance criterion an attached screenshot proves (e.g. `AC-3`). */
+  ac?: string;
 }
 
 /** The overview GIF descriptor, or null when no frame was captured. */
@@ -94,4 +106,6 @@ export interface VisualEvidenceManifest {
   gif: VeGif | null;
   skips: VeSkip[];
   result: VeResult;
+  /** Issue #579 — `agent-attached` or `mixed` when attached steps are present; absent otherwise. */
+  source?: VeSource;
 }
