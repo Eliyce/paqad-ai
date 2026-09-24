@@ -17,7 +17,7 @@ import {
 import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 
-import { createVerificationContext } from '../shared.fixture.js';
+import { createVerificationContext, ownInFlightChange } from '../shared.fixture.js';
 
 function structuredResult(runnerId: string, failed: number): StructuredTestResult {
   return {
@@ -79,6 +79,7 @@ describe('runRepositoryVerification consumes the check report (#318)', () => {
       verification_stage: 'backstop-completion',
       structured_test_results: [structuredResult('test', 1)],
     });
+    ownInFlightChange(context.project_root);
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,
       origin: 'hook-completion',
@@ -97,6 +98,7 @@ describe('runRepositoryVerification consumes the check report (#318)', () => {
       verification_stage: 'backstop-completion',
       structured_test_results: [structuredResult('test', 0)],
     });
+    ownInFlightChange(context.project_root);
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,
       origin: 'hook-completion',

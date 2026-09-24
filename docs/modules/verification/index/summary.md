@@ -27,7 +27,7 @@ evidence ledger, never pooled.
 
 The Claude Stop-hook layer (`runtime/hooks/verification-completion.mjs` →
 `runtime/scripts/verify-backstop.mjs`) is a **fast-feedback** layer, not the
-binding one — the git/CI backstop is the non-bypassable teeth. Two rules keep it
+binding one — the git/CI backstop is the non-bypassable teeth. Three rules keep it
 from turning into a nuisance:
 
 - **It reads the flag from the right place.** The hook resolves the project root
@@ -42,6 +42,15 @@ from turning into a nuisance:
   #2, `runtime/hooks/lib/loop-guard.mjs`). The same guard covers the
   capability-gate completion seam. The hard, non-bypassable check remains at
   git/CI.
+- **It checks only the session that owns the change (issue #582).**
+  `runRepositoryVerification` asks `classifyCompletionEnforcement`
+  (`src/pipeline/session-ownership.ts`) first. A session with no agent-written stage
+  rows of its own in an unclosed bundle is skipped with the audit reason `not-owner`,
+  so a question in a second session is never held to another session's change. An
+  owner on a non-feature turn that edited nothing this turn is skipped as `detour`.
+  Both skips are logged by `src/session-ledger/non-feature-skip-audit.ts`. This
+  replaced the older #499 guess, which tried to prove "not feature-development" from
+  state every session shares.
 
 ## Who speaks the receipt (issue #409)
 

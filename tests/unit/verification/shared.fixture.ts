@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import type { EnterpriseConfig } from '@/core/types/project-profile.js';
 import type { VerificationContext } from '@/core/types/verification.js';
+import { startStage } from '@/stage-evidence/recorder.js';
 
 export function createVerificationContext(
   overrides: Partial<VerificationContext> = {},
@@ -109,4 +110,18 @@ export function writeEnterpriseProfile(
     '',
   ];
   writeFileSync(join(projectRoot, '.paqad', 'project-profile.yaml'), lines.join('\n'));
+}
+
+/**
+ * Issue #582 — make `sessionId` (or the cached session, when omitted) OWN an in-flight
+ * change, so the `hook-completion` seam verifies its turn instead of skipping it. A live-mark
+ * `planning` start is the smallest agent-authored row; the change auto-opens when none is
+ * active, or attaches to `dirName` when given.
+ */
+export function ownInFlightChange(projectRoot: string, sessionId?: string, dirName?: string): void {
+  startStage(projectRoot, 'planning', {
+    sessionId: sessionId ?? null,
+    dirName,
+    adapter: 'claude-code',
+  });
 }

@@ -77,10 +77,12 @@ export function createStageCommand(): Command {
       // single-slot ledger-session cache) so a manual mark actually clears the
       // pre-mutation block in the session that hit it. Resolved before the artifact
       // check because the rigid-bundle check (issue #394) needs the active feature.
-      const sessionId = resolveSessionId(
-        root,
-        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-      );
+      const sessionHint =
+        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+      const sessionId = resolveSessionId(root, sessionHint);
+      // Issue #582 — record where the id came from. One read from the shared cache file
+      // may name another live session, so its rows never count as this turn's edit.
+      const sessionSource = sessionHint?.trim() ? 'env' : 'cache';
       // Normalize + validate each `--artifact` at the boundary (issue #350) BEFORE any
       // row is written: an in-tree path (absolute or relative) becomes project-relative
       // so the recorder can hash it; a genuinely out-of-tree path is rejected loudly
@@ -124,6 +126,7 @@ export function createStageCommand(): Command {
       }
       const recorded = recordMarkedStage(root, {
         sessionId,
+        sessionSource,
         stage,
         phase,
         // Artifacts are only meaningful on an `end`; a `start` ignores them. Already

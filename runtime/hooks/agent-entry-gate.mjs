@@ -4,8 +4,10 @@
 // Blocks any code-mutating tool call (Edit/Write/NotebookEdit) until the agent has
 // loaded its provider entry file (CLAUDE.md, AGENTS.md, …) plus the framework entry
 // and docs/instructions/{rules,stack,design-system,workflows}, and written the
-// per-session sentinel at .paqad/.agent-entry-loaded. This is the HARD teeth behind
-// "always load the entry file" (Part 0): no code can change without loading first.
+// per-session sentinel at .paqad/.agent-entry-loaded.d/<session id> (the legacy
+// .paqad/.agent-entry-loaded when the host sends no session id, issue #582). This
+// is the HARD teeth behind "always load the entry file" (Part 0): no code can change
+// without loading first.
 //
 // Sentinel-freshness logic is shared with agent-entry-prompt-gate.mjs via
 // lib/agent-entry-sentinel.mjs so the two gates cannot drift.
@@ -23,10 +25,12 @@ import { editTargets } from './lib/edit-targets.mjs';
 import {
   agentEntryMarkerRelative,
   entryFile,
+  sentinelRelative,
   sentinelState,
   stampAgentEntryMarker,
+  stampSessionSentinel,
 } from './lib/agent-entry-sentinel.mjs';
-import { agentIdFromStdin } from './lib/context-seam-emit.mjs';
+import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 /** True when the pending tool call writes the agent-entry sentinel itself. The
@@ -37,7 +41,10 @@ import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
  *  Also exempts a write to a per-agent entry marker under `.paqad/session/agent-entry/`
  *  (issue #567): a stage subagent clears its own keyed gate by creating that marker, and the
  *  create must not itself be blocked. Bash creation is ungated already; this covers the Write
- *  tool. */
+ *  tool.
+ *
+ *  And exempts a write to a per-session sentinel under `.paqad/.agent-entry-loaded.d/`
+ *  (issue #582), the file the gate names when the host sends a session id. */
 export function isSentinelWrite(input) {
   try {
     const payload = JSON.parse(input);
@@ -47,7 +54,9 @@ export function isSentinelWrite(input) {
     return editTargets(payload).some((target) => {
       const norm = target.replace(/\\/g, '/');
       return (
-        norm.endsWith('.paqad/.agent-entry-loaded') || norm.includes('/.paqad/session/agent-entry/')
+        norm.endsWith('.paqad/.agent-entry-loaded') ||
+        /(^|\/)\.paqad\/\.agent-entry-loaded\.d\/[^/]+$/.test(norm) ||
+        norm.includes('/.paqad/session/agent-entry/')
       );
     });
   } catch {
@@ -70,8 +79,11 @@ export function main(input) {
   // stage subagent must prove its OWN cold framework load and cannot ride the orchestrator's.
   // Undefined on the main thread ⇒ the unkeyed sentinel, unchanged.
   const agentId = agentIdFromStdin(input);
+  // Issue #582 — on the main thread the sentinel is keyed on the payload's session id, so a
+  // SessionStart in another session of this checkout cannot remove it.
+  const sessionId = sessionIdFromStdin(input);
 
-  if (sentinelState(projectRoot, process.env, agentId) === 'fresh') {
+  if (sentinelState(projectRoot, process.env, agentId, sessionId) === 'fresh') {
     return 0;
   }
 
@@ -81,6 +93,10 @@ export function main(input) {
     // shared parent session, so it cannot represent this agent), clearing its own keyed gate.
     if (agentId) {
       stampAgentEntryMarker(projectRoot, agentId);
+    } else if (sessionId) {
+      // Issue #582 — a main-thread Write of the legacy file (older router wording) still
+      // clears THIS session's own gate, the same way #567 promotes it for a subagent.
+      stampSessionSentinel(projectRoot, sessionId, entryFile());
     }
     return 0;
   }
@@ -95,6 +111,9 @@ export function main(input) {
   // Appended only when an agent_id is present, so the main-thread directive is unchanged and the
   // shared step prose (loadSteps) still matches the prompt-gate byte-for-byte (#498 AC-3).
   const markerRel = agentId ? agentEntryMarkerRelative(agentId) : null;
+  // Issue #582 — name the file this session is checked against. Inside a subagent the keyed
+  // marker is what clears the gate, so step 5 keeps the legacy wording the subagent line cites.
+  const sentinelRel = agentId ? sentinelRelative(undefined) : sentinelRelative(sessionId);
   const subagentLine = markerRel
     ? [
         `[paqad] You are a paqad stage subagent. After loading, record THIS agent's own load by ` +
@@ -107,7 +126,7 @@ export function main(input) {
       '[paqad] Blocked: load the paqad framework before editing.',
       ENABLEMENT_VERIFIED_LINE,
       '[paqad] Required steps:',
-      ...loadSteps(ef),
+      ...loadSteps(ef, sentinelRel),
       ...subagentLine,
       '',
     ].join('\n'),

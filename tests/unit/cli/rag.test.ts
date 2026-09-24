@@ -167,6 +167,29 @@ describe('rag command', () => {
     spy.mockRestore();
   });
 
+  // Issue #582 (FR-10) — the worker reads the route of the session that fired it.
+  it('refresh-context reads the route of the --session it was started for', async () => {
+    const routeModule = await import('@/pipeline/session-route.js');
+    const spy = vi.spyOn(routeModule, 'readSessionRoute');
+
+    const createRagCommand = await loadCreateRagCommand();
+    await createRagCommand().parseAsync(
+      [
+        'node',
+        'rag',
+        'refresh-context',
+        '--project-root',
+        projectRoot(tempProjectRoot),
+        '--session',
+        'ses-582',
+      ],
+      { from: 'node' },
+    );
+
+    expect(spy).toHaveBeenCalledWith(projectRoot(tempProjectRoot), 'ses-582');
+    spy.mockRestore();
+  });
+
   it('refresh-context swallows a code-knowledge refresh failure and still recomposes', async () => {
     const writes: string[] = [];
     (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(

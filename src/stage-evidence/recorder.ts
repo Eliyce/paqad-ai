@@ -24,7 +24,7 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { readPendingLane } from './pending-lane.js';
 import { isKnownStage } from './stages.js';
-import { type StageEvidenceRow } from './types.js';
+import { type StageEvidenceRow, type StageSessionSource } from './types.js';
 
 export interface StageEvidenceContext {
   /** Host session id (Claude hook stdin); resolved/minted when absent. */
@@ -37,6 +37,8 @@ export interface StageEvidenceContext {
    *  for the orchestrator (the write chokepoint defaults it). */
   agent?: string;
   lane?: 'fast' | 'graduated' | 'full' | null;
+  /** Where `sessionId` came from (issue #582); stamped on the row only when given. */
+  sessionSource?: StageSessionSource;
   /** Open a NEW named feature (the "new work" signal) instead of resolving the active. */
   title?: string;
   /** Ticket ref for a titled feature (verbatim, or null to force none). */
@@ -196,7 +198,13 @@ function append(
     projectRoot,
     sessionId,
     dirName,
-    { adapter: ctx.adapter, agent: ctx.agent, lane: ctx.lane ?? null, ...fields },
+    {
+      adapter: ctx.adapter,
+      agent: ctx.agent,
+      lane: ctx.lane ?? null,
+      ...(ctx.sessionSource === undefined ? {} : { session_source: ctx.sessionSource }),
+      ...fields,
+    },
     ctx.now,
   ) as unknown as StageEvidenceRow;
 }

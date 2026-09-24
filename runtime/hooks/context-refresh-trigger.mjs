@@ -13,6 +13,9 @@
 //
 // Always exits 0 and stays silent: a missing `paqad-ai` on PATH (e.g. a dev tree)
 // or any error just means no refresh this turn — never a broken prompt.
+//
+// Issue #582: the prompt gate passes the host session id as argv[2], and it is forwarded
+// as `--session <id>` so the worker reads the route of the session that fired it.
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
@@ -72,11 +75,16 @@ function main() {
 
     // Fire-and-forget: the CLI single-flights + atomic-swaps. Detached + unref so
     // it outlives this hook and never blocks the prompt path.
-    const child = spawn(
-      'paqad-ai',
-      ['rag', 'refresh-context', '--project-root', projectRoot, '--quiet'],
-      { detached: true, stdio: 'ignore', windowsHide: true },
-    );
+    const sessionId = process.argv[2];
+    const args = ['rag', 'refresh-context', '--project-root', projectRoot, '--quiet'];
+    if (typeof sessionId === 'string' && sessionId.trim().length > 0) {
+      args.push('--session', sessionId.trim());
+    }
+    const child = spawn('paqad-ai', args, {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
     child.on('error', () => {}); // paqad-ai not on PATH (dev tree) → silently skip
     child.unref();
   } catch {

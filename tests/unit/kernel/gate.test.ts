@@ -14,16 +14,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { runCapabilityGate } from '@/kernel/gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
+import { startStage } from '@/stage-evidence/recorder.js';
 import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
-// Issue #336 — rule-scripts run only on the feature-development route. At the
-// completion seam that is signalled by the per-session workflow-state, so a
-// completion-seam test must first record a feature-development route.
+// Issue #336 / #582 — rule-scripts run at the completion seam only for a session that
+// OWNS the change (a live-mark stage row stamped with its id), so a completion-seam test
+// must record a feature-development route AND make the session own an in-flight change.
 function markFeatureDevelopment(root: string, session: string): string {
   const sessionId = resolveSessionId(root, session);
   writeWorkflowState(root, sessionId, { active: { workflow: 'feature-development' }, paused: [] });
+  startStage(root, 'development', { sessionId, adapter: 'claude-code' });
   return session;
 }
 
@@ -137,19 +139,43 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toBe('');
   });
 
-  it('runs rule-scripts at completion when feature-development is only a paused workflow (#336)', async () => {
+  it('#582 AC-7: skips rule-scripts at completion for a session routed to feature-development that owns no change', async () => {
+    const root = setup('strict', 'debugger;\n');
+    const sessionId = resolveSessionId(root, 'sess-misrouted');
+    // A question misrouted to feature-development: the route says feature work, but the
+    // session never edited anything, so it owns no change.
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'feature-development', lane: 'fast' },
+      paused: [],
+    });
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'completion',
+      payload: { sessionId: 'sess-misrouted' },
+    });
+    expect(result.block).toBe(false);
+    expect(result.summary).toBe('');
+  });
+
+  it('#582: skips rule-scripts at completion for an owner on a detour that edited nothing this turn', async () => {
     const root = setup('strict', 'debugger;\n');
     const sessionId = resolveSessionId(root, 'sess-paused');
+    startStage(root, 'development', {
+      sessionId,
+      adapter: 'claude-code',
+      now: () => new Date('2026-03-01T09:00:00.000Z'),
+    });
     writeWorkflowState(root, sessionId, {
       active: { workflow: 'project-question' },
       paused: [{ workflow: 'feature-development' }],
+      turn_started_at: '2026-03-01T10:00:00.000Z',
     });
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'completion',
       payload: { sessionId: 'sess-paused' },
     });
-    expect(result.block).toBe(true);
+    expect(result.block).toBe(false);
   });
 
   it('skips rule-scripts at the pre-mutation seam for a docs-only edit (#336)', async () => {

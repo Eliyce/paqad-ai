@@ -125,6 +125,27 @@ describe('runPromptRouteSeam (#336)', () => {
     expect(readSessionRoute(root)?.adapter).toBe('codex-cli');
   });
 
+  // Issue #582 (FR-10) — the route is also written under this session's own pointer.
+  it('writes the route under the session own pointer too (issue #582)', async () => {
+    await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'explain the router',
+        sessionId: SESSION,
+        adapter: 'claude-code',
+      },
+      { classify: async () => classificationWith('project-question') },
+    );
+    await runPromptRouteSeam({
+      projectRoot: root,
+      request: 'implement a schema migration adding a pii payment column',
+      sessionId: 'other-session',
+      adapter: 'claude-code',
+    });
+    expect(readSessionRoute(root, SESSION)?.workflow).toBe('project-question');
+    expect(readSessionRoute(root)?.workflow).toBe('feature-development');
+  });
+
   it('records project-question and stashes no lane for a question', async () => {
     const result = await runPromptRouteSeam(
       {
@@ -188,6 +209,29 @@ describe('runPromptRouteSeam (#336)', () => {
     });
     expect(result.narration).toContain('Resumed');
   });
+
+  it('stamps turn_started_at on every routed prompt (#582)', async () => {
+    const sessionId = resolveSessionId(root, SESSION);
+    const ask = (at: string) =>
+      runPromptRouteSeam(
+        { projectRoot: root, request: 'explain the router', sessionId: SESSION, adapter: ADAPTER },
+        {
+          classify: async () => classificationWith('project-question'),
+          now: () => new Date(at),
+        },
+      );
+
+    await ask('2026-03-01T10:00:00.000Z');
+    expect(readWorkflowState(root, sessionId).turn_started_at).toBe('2026-03-01T10:00:00.000Z');
+
+    // A second prompt (continuing the same workflow) moves the stamp to its own turn.
+    await ask('2026-03-01T11:30:00.000Z');
+    expect(readWorkflowState(root, sessionId)).toEqual({
+      active: { workflow: 'project-question' },
+      paused: [],
+      turn_started_at: '2026-03-01T11:30:00.000Z',
+    });
+  });
 });
 
 // Issue #540 — a background event reaches UserPromptSubmit exactly like a typed prompt.
@@ -248,7 +292,19 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       lane: null,
       resumed: null,
       narration: null,
+      // Issue #582 — flagged so the prompt gate keeps the full context block.
+      notification: true,
     });
+  });
+
+  it('does not flag a real request as a notification (issue #582)', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: 'thanks!',
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result.notification).toBeUndefined();
   });
 
   it('leaves an in-flight feature-development route exactly as it was (AC-6)', async () => {
@@ -276,6 +332,23 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
     expect(readWorkflowState(root, sessionId)).toEqual(inFlight);
     expect(readPendingLane(root, sessionId)).toBeNull();
     expect(readSessionRoute(root)).toBeNull();
+  });
+
+  it('AC-13: leaves turn_started_at unchanged (#582)', async () => {
+    const sessionId = resolveSessionId(root, SESSION);
+    const stamped = {
+      active: { workflow: 'project-question' as const },
+      paused: [],
+      turn_started_at: '2026-03-01T10:00:00.000Z',
+    };
+    writeWorkflowState(root, sessionId, stamped);
+
+    await runPromptRouteSeam(
+      { projectRoot: root, request: TASK_NOTIFICATION, sessionId: SESSION, adapter: ADAPTER },
+      { now: () => new Date('2026-03-01T12:00:00.000Z') },
+    );
+
+    expect(readWorkflowState(root, sessionId)).toEqual(stamped);
   });
 
   it('never calls the classifier for a notification', async () => {

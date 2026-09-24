@@ -83,6 +83,26 @@ describe('workflow-state store (#336)', () => {
     });
   });
 
+  it('round-trips a turn stamp and drops a non-string one (#582)', () => {
+    const stamped: WorkflowState = {
+      active: { workflow: 'project-question' },
+      paused: [],
+      turn_started_at: '2026-03-01T10:00:00.000Z',
+    };
+    writeWorkflowState(root, SESSION, stamped);
+    expect(readWorkflowState(root, SESSION)).toEqual(stamped);
+
+    writeFileSync(
+      join(stateDir(root), '.workflow-state.json'),
+      JSON.stringify({ active: { workflow: 'pentest' }, paused: [], turn_started_at: 42 }),
+      'utf8',
+    );
+    expect(readWorkflowState(root, SESSION)).toEqual({
+      active: { workflow: 'pentest' },
+      paused: [],
+    });
+  });
+
   it('continues (does not switch) when routing to the same active workflow, merging anchors', () => {
     const start: WorkflowState = {
       active: { workflow: 'feature-development', lane: 'graduated' },

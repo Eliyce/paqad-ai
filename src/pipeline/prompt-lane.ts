@@ -95,6 +95,8 @@ export function isSystemNotificationPrompt(prompt: string): boolean {
 export interface PromptRouteDeps {
   classify?: (input: { request: string }) => Promise<ClassificationResult>;
   route?: (classification: ClassificationResult) => { lane: Lane | null };
+  /** Clock seam for the per-turn stamp (issue #582). */
+  now?: () => Date;
 }
 
 export interface PromptRouteResult {
@@ -148,6 +150,9 @@ export interface PromptRouteSeamResult {
   resumed: WorkflowEntry | null;
   /** The `▸ paqad` line to surface, or null when there is nothing to say. */
   narration: string | null;
+  /** True when the prompt was a background notification, not a request (issue #582): the
+   *  prompt gate treats it as "no route" and keeps the full context block. */
+  notification?: true;
 }
 
 /** Build the narration line for a routed outcome (null for silent no-workflow). */
@@ -183,7 +188,13 @@ export async function runPromptRouteSeam(
   // an in-flight feature-development route and make `routeIsAffirmativelyNonFeature` true,
   // silently suppressing stage recording for the rest of the change.
   if (isSystemNotificationPrompt(input.request)) {
-    return { routed: 'no-workflow', lane: null, resumed: null, narration: null };
+    return {
+      routed: 'no-workflow',
+      lane: null,
+      resumed: null,
+      narration: null,
+      notification: true,
+    };
   }
   const { routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps);
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
@@ -192,7 +203,14 @@ export async function runPromptRouteSeam(
   const prior = readWorkflowState(input.projectRoot, sessionId);
   const anchors = lane === null ? {} : { lane };
   const transition = routeWorkflow(prior, routed, anchors);
-  writeWorkflowState(input.projectRoot, sessionId, transition.state);
+  // Issue #582 — stamp when this turn began, so the completion check can tell a stage row
+  // written during THIS turn from one left over from an earlier turn. A background
+  // notification returned above, so a monitor event can never reset the turn window.
+  const turnStartedAt = (deps.now ?? (() => new Date()))().toISOString();
+  writeWorkflowState(input.projectRoot, sessionId, {
+    ...transition.state,
+    turn_started_at: turnStartedAt,
+  });
 
   // The lane is stashed for the change-open ONLY on the feature-development route.
   if (isFeatureDevelopmentRoute(routed) && lane !== null) {
@@ -202,11 +220,13 @@ export async function runPromptRouteSeam(
   // Hand the routed workflow + prompt to the detached context worker (#336) so it
   // loads rules only for feature-development, seeds retrieval with the prompt, and
   // retrieves nothing for no-workflow.
-  writeSessionRoute(input.projectRoot, {
-    workflow: routed,
-    query: input.request,
-    adapter: input.adapter,
-  });
+  // Issue #582 — also under this session's own pointer, so another session's route can
+  // never steer the worker started for this prompt.
+  writeSessionRoute(
+    input.projectRoot,
+    { workflow: routed, query: input.request, adapter: input.adapter },
+    sessionId,
+  );
 
   return {
     routed,

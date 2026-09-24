@@ -402,7 +402,8 @@ export function createRagCommand(): Command {
     )
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--quiet', 'Suppress output (used by the background trigger)')
-    .action(async (options: { projectRoot: string; quiet?: boolean }) => {
+    .option('--session <id>', 'Host session the refresh was started for (reads its route)')
+    .action(async (options: { projectRoot: string; quiet?: boolean; session?: string }) => {
       // Issue #353 — keep the code-knowledge index current on this same detached
       // worker, independent of rag_enabled (the index is deterministic, no-LLM). It
       // re-parses only the changed files and no-ops when no index exists yet (the
@@ -417,8 +418,10 @@ export function createRagCommand(): Command {
       // Issue #336 — the routed workflow (from the prompt seam) decides what the
       // artifact carries. Rules load only for feature-development; no-workflow retrieves
       // nothing. With no pointer yet (first prompt), fall back to today's behaviour:
-      // load rules and retrieve, so nothing regresses before routing kicks in.
-      const route = readSessionRoute(options.projectRoot);
+      // load rules and retrieve, so nothing regresses before routing kicks in. Issue #582 —
+      // read the route of the session this refresh was started for, not whichever session
+      // routed last (the shared pointer is the fallback).
+      const route = readSessionRoute(options.projectRoot, options.session);
       const { loadRules, retrieves } = compositionForRoute(route);
 
       const intelligence = resolveFrameworkConfig(options.projectRoot).intelligence;

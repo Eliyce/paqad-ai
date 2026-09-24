@@ -86,6 +86,20 @@ describe('agent-entry-gate — cross-host sentinel detection end to end (issue #
     expect(exitCode).toBe(0);
   });
 
+  // Issue #582 — the gate names the per-session sentinel, so a Codex patch that adds it must
+  // be exempt too, or the agent could never clear its own gate.
+  it('exempts the Codex apply_patch that writes the per-session sentinel', async () => {
+    const payload = readFixture('codex/pre-tool-apply-patch-sentinel.json') as {
+      session_id: string;
+      tool_input: { input: string };
+    };
+    payload.tool_input.input = payload.tool_input.input.replace(
+      '.paqad/.agent-entry-loaded',
+      `.paqad/.agent-entry-loaded.d/${payload.session_id}`,
+    );
+    expect((await runGate(payload)).exitCode).toBe(0);
+  });
+
   it('still blocks / exempts the Claude Edit shapes identically', async () => {
     expect((await runGate(readFixture('claude/pre-tool-edit.json'))).exitCode).toBe(2);
     expect((await runGate(readFixture('claude/pre-tool-edit-sentinel.json'))).exitCode).toBe(0);

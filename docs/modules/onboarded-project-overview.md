@@ -81,8 +81,11 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
 When the provider opens a session it reads the entry file, resolves
 `.paqad/framework-path.txt`, and loads the rules, stack, and design-system docs.
 A **PreToolUse hook blocks every Edit / Write / NotebookEdit until** the AI has
-done this and written the `.paqad/.agent-entry-loaded` sentinel; read-only tools
-stay open so it can load first. Editing `CLAUDE.md` or anything under
+done this and written its sentinel; read-only tools stay open so it can load
+first. The sentinel is per session, at `.paqad/.agent-entry-loaded.d/<session id>`
+(the single `.paqad/.agent-entry-loaded` file is used only when the host gives no
+session id), and each SessionStart removes only its own, so two sessions in one
+checkout never ungate each other. Editing `CLAUDE.md` or anything under
 `docs/instructions/` mid-session invalidates the sentinel and forces a reload.
 This gate is what makes "code with the project's context" non-optional rather than
 a hope pinned to a prompt. See [`CLAUDE.md`](../../CLAUDE.md) and

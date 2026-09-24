@@ -41,6 +41,8 @@ const LEGACY_MARKER = '# paqad-ai';
  */
 const MANAGED_GITIGNORE_ENTRIES = [
   '.agent-entry-loaded',
+  // Issue #582: one entry sentinel per host session.
+  '.agent-entry-loaded.d/',
   'framework-version.txt',
   'cache/',
   'session/',

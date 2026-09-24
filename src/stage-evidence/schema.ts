@@ -57,6 +57,11 @@ export const STAGE_EVIDENCE_SCHEMA = {
     // reaches validation without one is a script bug, not a legacy row. Reads never run this
     // validator (`readUnitFile` -> `readJsonl`), so rows written before #573 stay readable.
     agent: { type: 'string', minLength: 1 },
+    // Where the row's session id came from (issue #582): a hook payload (`host`), the
+    // flag/environment (`env`), or the shared cache file (`cache`). Optional and nullable,
+    // so rows written before it existed still validate; a `cache` row never counts as an
+    // edit made this turn by the completion check.
+    session_source: { type: ['string', 'null'], enum: ['host', 'env', 'cache', null] },
     note: nullableString,
     content_hash: { type: 'string', minLength: 1 },
   },

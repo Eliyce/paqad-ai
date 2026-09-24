@@ -31,9 +31,12 @@ export const ENABLEMENT_VERIFIED_LINE =
  * prose and drifted); the router names the workflows.
  *
  * @param {string} entryFile the provider entry file (CLAUDE.md, AGENTS.md, …)
+ * @param {string} [sentinelRel] the project-relative sentinel this session is checked against
+ *   (issue #582: `.paqad/.agent-entry-loaded.d/<session id>` when the host passed one); both
+ *   gates pass the same value for the same payload, so their step text still matches
  * @returns {string[]} one `[paqad]` line per step, in order
  */
-export function loadSteps(entryFile) {
+export function loadSteps(entryFile, sentinelRel = '.paqad/.agent-entry-loaded') {
   return [
     '[paqad]   1. Enablement — ON, already resolved by this gate; do not re-probe it.',
     // Issue #576 (Finding 11) — steer the agent to its FILE-READ tool for every file below, not a
@@ -43,7 +46,7 @@ export function loadSteps(entryFile) {
     `[paqad]   2. Read ${entryFile} with your file-read tool (not a shell command)`,
     '[paqad]   3. Resolve .paqad/framework-path.txt and read the framework gate (AGENT-BOOTSTRAP.md in the install) with your file-read tool; its enablement step is already satisfied (step 1)',
     '[paqad]   4. Since paqad is ON, read AGENT-ROUTER.md (same install directory) with your file-read tool and route the message to one paqad workflow, then read docs/instructions/{stack,design-system,workflows}; read the rule contract (.paqad/context/session-context.md, else docs/instructions/rules) ONLY for feature-development',
-    '[paqad]   5. Write .paqad/.agent-entry-loaded with timestamp + entry-file path',
+    `[paqad]   5. Write ${sentinelRel} with timestamp + entry-file path`,
   ];
 }
 

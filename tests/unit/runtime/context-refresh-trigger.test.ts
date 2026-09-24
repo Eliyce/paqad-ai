@@ -1,9 +1,17 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TRIGGER = resolve(__dirname, '../../../runtime/hooks/context-refresh-trigger.mjs');
 const MARKER_REL = '.paqad/locks/rule-context.marker';
@@ -62,4 +70,32 @@ describe('runtime/hooks/context-refresh-trigger.mjs', () => {
     }).toString('utf8');
     expect(out).toBe('');
   });
+
+  // Issue #582 — the prompt gate passes the session id; the trigger forwards it as --session so
+  // the worker reads that session's route. A stub `paqad-ai` on PATH records the argv it got.
+  it.skipIf(process.platform === 'win32')(
+    'forwards the session id to refresh-context as --session',
+    async () => {
+      const bin = join(projectRoot, 'bin');
+      const argsFile = join(projectRoot, 'args.txt');
+      mkdirSync(bin, { recursive: true });
+      writeFileSync(join(bin, 'paqad-ai'), `#!/bin/sh\nprintf '%s ' "$@" > '${argsFile}'\n`);
+      chmodSync(join(bin, 'paqad-ai'), 0o755);
+      execFileSync('node', [TRIGGER, 'ses-582'], {
+        env: {
+          ...process.env,
+          CLAUDE_PROJECT_DIR: projectRoot,
+          PATH: `${bin}:${process.env.PATH ?? ''}`,
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      await vi.waitFor(() => expect(existsSync(argsFile)).toBe(true), { timeout: 5000 });
+      await vi.waitFor(
+        () => expect(readFileSync(argsFile, 'utf8')).toContain('--session ses-582'),
+        {
+          timeout: 5000,
+        },
+      );
+    },
+  );
 });

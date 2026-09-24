@@ -157,6 +157,59 @@ export function readContextUnderBudget(path, options = {}) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/**
+ * The artifact sections that belong to the feature-development rule contract (issue #582,
+ * FR-9). The artifact is shared by every session in a checkout and may have been composed
+ * for another session's feature-development prompt, so a prompt routed elsewhere drops these.
+ */
+export const RULE_SECTION_HEADINGS = [
+  '## paqad rule manifest',
+  '## Loaded rule text',
+  '## Existing surface',
+];
+
+/**
+ * Every top-level heading the artifact composer writes. A section runs from one of these to
+ * the next one. Other `## ` lines are NOT boundaries, because the loaded rule text embeds each
+ * rule's own markdown (for example a rule's `## Verify` heading), which must be dropped with
+ * the rest of the rule text rather than end the section early.
+ */
+export const ARTIFACT_SECTION_HEADINGS = [
+  ...RULE_SECTION_HEADINGS,
+  '## Decision pause is active',
+  '## Codebase memory',
+  '## Retrieved context',
+  '## Base drift',
+  '## Repo map',
+];
+
+/** The #316 "no compiled rules, load them in full" marker; rule-contract only as well. */
+const RULES_MISSING_MARKER_PREFIX = '> ⚠️ No compiled rules in this artifact';
+
+/**
+ * Remove the rule-contract sections (and the #316 rules-missing marker) from artifact content,
+ * keeping every other section byte-for-byte. Returns the trimmed remainder, or `''` when
+ * nothing is left.
+ *
+ * @param {string} content the artifact content (without the block markers).
+ * @returns {string}
+ */
+export function stripRuleSections(content) {
+  const kept = [];
+  let dropping = false;
+  for (const line of content.split('\n')) {
+    if (ARTIFACT_SECTION_HEADINGS.some((heading) => line.startsWith(heading))) {
+      dropping = RULE_SECTION_HEADINGS.some((heading) => line.startsWith(heading));
+    }
+    if (dropping || line.startsWith(RULES_MISSING_MARKER_PREFIX)) continue;
+    kept.push(line);
+  }
+  return kept
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Wrap precomputed content in the `[paqad-context]` block the host injects. */
 export function formatContextBlock(content) {
   return `${BLOCK_OPEN}\n${content}\n${BLOCK_CLOSE}`;
@@ -169,12 +222,15 @@ export function formatContextBlock(content) {
  *
  * @param {string} projectRoot
  * @param {object} [options] forwarded to {@link readContextUnderBudget}, plus an
- *   optional `path` override and `env` for path resolution.
+ *   optional `path` override, `env` for path resolution, and `stripRules` (issue #582)
+ *   to drop the rule-contract sections for a prompt that is not feature-development.
  * @returns {string} the block, or `''`.
  */
 export function buildInjection(projectRoot, options = {}) {
   const path = options.path ?? resolveContextArtifactPath(projectRoot, options.env ?? process.env);
-  const content = readContextUnderBudget(path, options);
-  if (content === null) return '';
+  const read = readContextUnderBudget(path, options);
+  if (read === null) return '';
+  const content = options.stripRules ? stripRuleSections(read) : read;
+  if (content.length === 0) return '';
   return formatContextBlock(content);
 }

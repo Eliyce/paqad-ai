@@ -16,7 +16,7 @@ import { featureFilePath, featureReportPath } from '@/feature-evidence/paths.js'
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
-import { createVerificationContext } from '../verification/shared.fixture.js';
+import { createVerificationContext, ownInFlightChange } from '../verification/shared.fixture.js';
 
 /**
  * Issue #187/#220 — the enterprise block moved out of `project-profile.yaml` into
@@ -55,7 +55,8 @@ function noTopLevelLedger(projectRoot: string): void {
   expect(existsSync(join(projectRoot, PATHS.EVIDENCE_AI_BOM))).toBe(false);
 }
 
-/** Open an active feature bundle under a known session (the seam resolves the same id). */
+/** Open an active feature bundle under a known session (the seam resolves the same id).
+ *  The session also live-marks a stage, so it OWNS the change and Stop verifies it (#582). */
 function openFeature(projectRoot: string, ses: string): { sessionId: string; dir: string } {
   const sessionId = resolveSessionId(projectRoot, ses);
   const dir = openFeatureChange(projectRoot, sessionId, {
@@ -63,6 +64,7 @@ function openFeature(projectRoot: string, ses: string): { sessionId: string; dir
     title: 'Feature',
     issue: null,
   });
+  ownInFlightChange(projectRoot, sessionId, dir);
   return { sessionId, dir };
 }
 

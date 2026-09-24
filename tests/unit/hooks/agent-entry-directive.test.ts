@@ -23,6 +23,21 @@ describe('loadSteps (issue #576, Finding 11)', () => {
   });
 });
 
+// Issue #582 — the last step names the exact sentinel file the gate checks for this session.
+describe('loadSteps sentinel path (issue #582)', () => {
+  it('names the legacy sentinel by default', () => {
+    expect(loadSteps('CLAUDE.md').at(-1)).toBe(
+      '[paqad]   5. Write .paqad/.agent-entry-loaded with timestamp + entry-file path',
+    );
+  });
+
+  it('names the per-session sentinel when one is given', () => {
+    expect(loadSteps('CLAUDE.md', '.paqad/.agent-entry-loaded.d/s-1').at(-1)).toBe(
+      '[paqad]   5. Write .paqad/.agent-entry-loaded.d/s-1 with timestamp + entry-file path',
+    );
+  });
+});
+
 describe('specPipelineNudge (FR-1.4)', () => {
   it('is null when the pipeline is off (byte-identical output, INV-1)', () => {
     expect(specPipelineNudge(reader({}), '/x')).toBeNull();

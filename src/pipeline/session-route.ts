@@ -11,6 +11,13 @@
 //
 // One value, last-writer-wins — the same shape as the shared artifact it feeds. The
 // read never throws: an absent or unreadable pointer means "no route recorded yet".
+//
+// Per-session pointer (issue #582). With two sessions in one checkout the shared pointer
+// holds whichever session routed last, so a worker started for a project question could
+// compose the rule slice because another session had just routed to feature-development.
+// When the session id is known the route is ALSO written to
+// `.paqad/context/.session-route.d/<sanitized id>.json`, and a reader given that id prefers
+// it, falling back to the shared pointer (still written, for older readers).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -20,6 +27,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { ROUTED_WORKFLOWS, type RoutedWorkflow } from './routed-workflow.js';
 
 const SESSION_ROUTE_FILE = '.session-route.json';
+const SESSION_ROUTE_DIR = '.session-route.d';
 
 /** The routed workflow of the last prompt, plus the prompt text (retrieval seed). */
 export interface SessionRoute {
@@ -37,12 +45,37 @@ function sessionRouteDir(projectRoot: string): string {
 
 const VALID_WORKFLOWS = new Set<string>(ROUTED_WORKFLOWS);
 
-/** Record the last route for the background worker. Never throws into the caller. */
-export function writeSessionRoute(projectRoot: string, route: SessionRoute): void {
+/**
+ * The per-session pointer path for `sessionId`, or null when there is no usable id. The id is
+ * reduced to `[A-Za-z0-9_-]` (the entry-sentinel rule) so it can never leave the directory and
+ * never carries a character Windows forbids in a filename.
+ */
+function perSessionRoutePath(projectRoot: string, sessionId?: string | null): string | null {
+  const safe =
+    typeof sessionId === 'string' ? sessionId.trim().replace(/[^A-Za-z0-9_-]/g, '_') : '';
+  return safe.length === 0
+    ? null
+    : join(sessionRouteDir(projectRoot), SESSION_ROUTE_DIR, `${safe}.json`);
+}
+
+/**
+ * Record the last route for the background worker: the shared pointer always, plus this
+ * session's own pointer when `sessionId` is known (issue #582). Never throws into the caller.
+ */
+export function writeSessionRoute(
+  projectRoot: string,
+  route: SessionRoute,
+  sessionId?: string | null,
+): void {
   try {
     const dir = sessionRouteDir(projectRoot);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, SESSION_ROUTE_FILE), JSON.stringify(route), 'utf8');
+    const own = perSessionRoutePath(projectRoot, sessionId);
+    if (own) {
+      mkdirSync(dirname(own), { recursive: true });
+      writeFileSync(own, JSON.stringify(route), 'utf8');
+    }
   } catch {
     // Best-effort — the worker falls back to loading rules + retrieving (today's
     // behaviour) when no pointer is present, so a failed write never loses coverage.
@@ -72,12 +105,28 @@ export function compositionForRoute(route: SessionRoute | null): ContextComposit
   };
 }
 
-/** Read the last route, or null when absent/unreadable/invalid. */
-export function readSessionRoute(projectRoot: string): SessionRoute | null {
+/**
+ * Read the last route, or null when absent/unreadable/invalid. Given a `sessionId`, that
+ * session's own pointer wins; the shared pointer is the fallback (issue #582).
+ */
+export function readSessionRoute(
+  projectRoot: string,
+  sessionId?: string | null,
+): SessionRoute | null {
+  const own = perSessionRoutePath(projectRoot, sessionId);
+  return (
+    (own ? parseRouteFile(own) : null) ??
+    parseRouteFile(join(sessionRouteDir(projectRoot), SESSION_ROUTE_FILE))
+  );
+}
+
+function parseRouteFile(path: string): SessionRoute | null {
   try {
-    const parsed = JSON.parse(
-      readFileSync(join(sessionRouteDir(projectRoot), SESSION_ROUTE_FILE), 'utf8'),
-    ) as { workflow?: unknown; query?: unknown; adapter?: unknown };
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
+      workflow?: unknown;
+      query?: unknown;
+      adapter?: unknown;
+    };
     if (typeof parsed.workflow !== 'string' || !VALID_WORKFLOWS.has(parsed.workflow)) {
       return null;
     }

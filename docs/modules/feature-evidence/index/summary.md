@@ -67,7 +67,18 @@ attention), naming the file and its writer, and blocks via the Stop-hook path; `
 surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
 `evidence_existence_gate`. A file recovered by cache backfill is reported `backfilled`
 (never a clean pass); a RAG gap is unrecoverable and reads Inconclusive; a flag-off file is
-`skipped`. Non-feature / no-active-bundle / non-local (CI) turns skip the gate entirely.
+`skipped`. No-active-bundle and non-local (CI) turns skip the gate entirely, and so does
+any turn the session-ownership check skips (see below).
+- **Session ownership at turn end** (`src/pipeline/session-ownership.ts`, issue #582) —
+  `classifyCompletionEnforcement` decides whether this session's turn is checked at all.
+  A session owns a change when an unclosed bundle holds a stage row with its own session id
+  written by the agent (`evidence_source` `live-mark` or `redo`); hook-inferred rows never
+  count. No owned rows skips the turn (`not-owner`). An owner that wrote a row since the
+  turn's `turn_started_at` stamp (in the per-session workflow-state) is checked; an owner
+  on a non-feature route with no row this turn is skipped (`detour`). CLI stage rows carry
+  `session_source` (`host` / `env` / `cache`), and a `cache` row never counts as this
+  turn's edit, since the shared cache file may name another live session. The check only
+  reads bundles; it never repoints a session's active feature.
 - **Rule-loading gate** (`rules-loaded-gate.ts`, issue #557) — the completion-seam backstop
   that a feature-development change actually LOADED its applicable rules, not just that the
   ceremony ran. `paqad-ai rules load` computes the applicable rules deterministically

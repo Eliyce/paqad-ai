@@ -93,6 +93,14 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('framework-version.txt');
   });
 
+  // Issue #582: each host session keeps its own entry sentinel under .agent-entry-loaded.d/.
+  it('ignores both the legacy and the per-session entry sentinels', () => {
+    writeGitignore(projectRoot);
+    const content = read(projectRoot, '.paqad/.gitignore');
+    expect(content).toContain('.agent-entry-loaded\n');
+    expect(content).toContain('.agent-entry-loaded.d/');
+  });
+
   it('ignores the ledger unconditionally, with no project profile present', () => {
     // No `.paqad/project-profile.yaml` / enterprise block at all.
     writeGitignore(projectRoot);
