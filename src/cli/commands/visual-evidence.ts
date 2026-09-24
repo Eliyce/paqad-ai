@@ -180,6 +180,9 @@ export function createVisualEvidenceCommand(): Command {
             ...(options.ac ? { ac: options.ac } : {}),
             ...(options.label ? { label: options.label } : {}),
           });
+          if (result.acWarning) {
+            console.error(`▸ paqad · visual evidence attach: ${result.acWarning}`);
+          }
           const attached =
             result.manifest?.steps.filter((step) => step.journey_id === AGENT_ATTACHED_JOURNEY)
               .length ?? 0;

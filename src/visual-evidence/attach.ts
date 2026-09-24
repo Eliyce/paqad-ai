@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 
+import { readFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { featureDir } from '@/feature-evidence/paths.js';
 
 import {
@@ -48,6 +49,36 @@ export interface AttachVisualEvidenceInput {
   now?: () => string;
 }
 
+/** An attach result, plus a warning when the `--ac` id could not be checked. */
+export interface AttachVisualEvidenceResult extends WriteVisualEvidenceManifestResult {
+  /** Set when `ac` was given but the bundle has no frozen spec to check it against. */
+  acWarning?: string;
+}
+
+/**
+ * Check `ac` against the bundle's frozen spec acceptance criteria. Throws
+ * {@link VisualEvidenceAttachError} naming the valid ids when it is unknown; returns a warning
+ * when there is no frozen spec to check against (the id is then accepted as given).
+ */
+function checkAcceptanceCriterion(
+  projectRoot: string,
+  dirName: string,
+  ac: string,
+): string | undefined {
+  const spec = readFeatureSpecification(projectRoot, dirName);
+  if (!spec?.frozen) {
+    return `no frozen spec in this bundle, so ${ac} was not checked against its acceptance criteria.`;
+  }
+  const ids = (spec.acceptance_criteria ?? []).map((criterion) => criterion.criterion_id);
+  if (!ids.includes(ac)) {
+    const valid = ids.length > 0 ? ids.join(', ') : 'none (the frozen spec has no criteria)';
+    throw new VisualEvidenceAttachError(
+      `${ac} is not an acceptance criterion of the frozen spec. Valid ids: ${valid}.`,
+    );
+  }
+  return undefined;
+}
+
 function readPng(file: string): Buffer {
   let bytes: Buffer;
   try {
@@ -69,11 +100,10 @@ function readPng(file: string): Buffer {
 /**
  * Attach PNG screenshots to the bundle's visual evidence. Merges into an existing manifest (its
  * scripted steps, plan and skips are kept) or writes a new one. Throws
- * {@link VisualEvidenceAttachError} before writing anything when a file is missing or not a PNG.
+ * {@link VisualEvidenceAttachError} before writing anything when a file is missing or not a PNG,
+ * or when `ac` names no acceptance criterion of the bundle's frozen spec.
  */
-export function attachVisualEvidence(
-  input: AttachVisualEvidenceInput,
-): WriteVisualEvidenceManifestResult {
+export function attachVisualEvidence(input: AttachVisualEvidenceInput): AttachVisualEvidenceResult {
   const { projectRoot, dirName } = input;
   const now = input.now ?? (() => new Date().toISOString());
   if (input.files.length === 0) {
@@ -81,6 +111,7 @@ export function attachVisualEvidence(
   }
   // Validate every file first, so a bad one leaves nothing half-written.
   const images = input.files.map((file) => ({ file, bytes: readPng(file) }));
+  const acWarning = input.ac ? checkAcceptanceCriterion(projectRoot, dirName, input.ac) : undefined;
 
   const existing = readVisualEvidenceManifest(projectRoot, dirName);
   const steps: VeStep[] = [...(existing?.steps ?? [])];
@@ -112,7 +143,7 @@ export function attachVisualEvidence(
     });
   }
 
-  return writeVisualEvidenceManifest(projectRoot, dirName, {
+  const written = writeVisualEvidenceManifest(projectRoot, dirName, {
     trigger: existing?.trigger ?? { changed_files: [], matched_globs: [], packs: [] },
     plan: existing?.plan ?? [],
     steps,
@@ -122,4 +153,5 @@ export function attachVisualEvidence(
     result: existing?.result === 'partial' ? 'partial' : 'captured',
     now,
   });
+  return acWarning ? { ...written, acWarning } : written;
 }

@@ -54,6 +54,18 @@ describe('paqad-ai visual-evidence attach', () => {
     return path;
   }
 
+  /** Write a frozen specification.json into the bundle carrying the given criterion ids. */
+  function frozenSpec(dir: string, ids: string[] | null): void {
+    const path = join(root, featureFilePath(dir, 'specification'));
+    mkdirSync(join(root, featureDir(dir)), { recursive: true });
+    const spec: Record<string, unknown> = {
+      spec_id: 'S-1',
+      frozen: { frozen_at: '2026-09-24T00:00:00.000Z' },
+    };
+    if (ids) spec.acceptance_criteria = ids.map((criterion_id) => ({ criterion_id }));
+    writeFileSync(path, JSON.stringify(spec));
+  }
+
   async function attach(...args: string[]): Promise<void> {
     await createVisualEvidenceCommand().parseAsync(
       ['attach', ...args, '--project-root', root, '--session', SES],
@@ -71,6 +83,49 @@ describe('paqad-ai visual-evidence attach', () => {
     expect(manifest.steps[0]!.ac).toBe('AC-3');
     expect(manifest.steps[0]!.caption).toBe('Goal saved');
     expect(logs.join('\n')).toContain('attached 1 screenshot(s)');
+  });
+
+  it('warns and accepts an --ac id when the bundle has no frozen spec to check it against', async () => {
+    codingProject(true);
+    const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 4 });
+    await attach(png('shot.png'), '--ac', 'AC-9');
+    expect(process.exitCode).toBeUndefined();
+    expect(errors).toEqual([
+      '▸ paqad · visual evidence attach: no frozen spec in this bundle, so AC-9 was not checked against its acceptance criteria.',
+    ]);
+    expect(readVisualEvidenceManifest(root, dir)!.steps[0]!.ac).toBe('AC-9');
+  });
+
+  it('accepts an --ac id the frozen spec defines, without a warning', async () => {
+    codingProject(true);
+    const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 5 });
+    frozenSpec(dir, ['AC-1', 'AC-2']);
+    await attach(png('shot.png'), '--ac', 'AC-2');
+    expect(process.exitCode).toBeUndefined();
+    expect(errors).toEqual([]);
+    expect(readVisualEvidenceManifest(root, dir)!.steps[0]!.ac).toBe('AC-2');
+  });
+
+  it('refuses an --ac id the frozen spec does not define, naming the valid ids', async () => {
+    codingProject(true);
+    const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 6 });
+    frozenSpec(dir, ['AC-1', 'AC-2']);
+    await attach(png('shot.png'), '--ac', 'AC-7');
+    expect(process.exitCode).toBe(1);
+    expect(errors).toEqual([
+      '▸ paqad · visual evidence attach refused: AC-7 is not an acceptance criterion of the frozen spec. Valid ids: AC-1, AC-2.',
+    ]);
+    expect(existsSync(join(root, featureDir(dir), 'screenshots'))).toBe(false);
+    expect(existsSync(join(root, featureFilePath(dir, 'visualEvidence')))).toBe(false);
+  });
+
+  it('refuses any --ac id when the frozen spec lists no criteria', async () => {
+    codingProject(true);
+    const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 7 });
+    frozenSpec(dir, null);
+    await attach(png('shot.png'), '--ac', 'AC-1');
+    expect(process.exitCode).toBe(1);
+    expect(errors[0]).toContain('Valid ids: none (the frozen spec has no criteria).');
   });
 
   it('refuses when visual evidence is off', async () => {

@@ -173,6 +173,9 @@ app_preview:
   screenshots into the active bundle as agent-attached steps (numbered folders, caption,
   SHA-256 and size recorded), merging into an existing manifest. Refuses a non-PNG, a missing
   file, no active bundle, or visual evidence off, with one line and exit 1, writing nothing.
+  `--ac` must name an acceptance criterion of the bundle's frozen `specification.json`: an
+  unknown id is refused the same way, naming the valid ids. With no frozen spec yet, the id is
+  accepted and a warning says it was not checked.
   `run` and `attach` are the only writers of `visual-evidence.json` + `screenshots/`.
 - `paqad-ai visual-evidence plan` — print the resolved plan (journeys, matched files, capture
   scripts, skips including invalid/stale scripts) without a browser or app boot. `--json` for
