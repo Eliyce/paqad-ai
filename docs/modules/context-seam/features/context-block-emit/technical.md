@@ -45,6 +45,23 @@
   context block, so the directive owns the top of context (#240). The standalone
   `context-seam-inject.mjs` entry stays available and behaves identically when run
   directly.
+- Route first, then inject (issue #582). The gate routes the prompt before it emits
+  the block. The artifact is shared by every session in the checkout, so for a
+  prompt routed to anything but feature-development it calls
+  `emitContext(..., { stripRules: true })`, and `buildInjection` drops the rule
+  manifest, loaded rule text and existing surface sections. A background
+  notification gives no route and keeps the full block. A feature-development
+  prompt also gets one line naming the session id to put in front of `paqad-ai`
+  calls (`SE_SESSION=<id>`).
+- The sentinel the gate checks is per session:
+  `.paqad/.agent-entry-loaded.d/<session id>` (`runtime/hooks/lib/agent-entry-sentinel.mjs`),
+  with the single `.paqad/.agent-entry-loaded` file only when there is no session id.
+- The route pointer the background refresh reads is per session too.
+  `writeSessionRoute` (`src/pipeline/session-route.ts`) writes the shared
+  `.paqad/context/.session-route.json` and, when the session id is known,
+  `.paqad/context/.session-route.d/<session id>.json`; `readSessionRoute` prefers the
+  session's own file. The gate starts the refresh after routing and passes it the
+  session id, so it composes for this session's route, not another's.
 
 ## State Management
 

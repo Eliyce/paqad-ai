@@ -68,6 +68,12 @@
   call `runCapabilityGate({ projectRoot, seam })` (resolved relative to the module,
   like `verify-backstop.mjs`). The seam (`pre-mutation` | `completion`) is the
   hook's first argv.
+- At the `completion` seam, rule-scripts run only when
+  `classifyCompletionEnforcement` (`src/pipeline/session-ownership.ts`, issue #582)
+  says this session's turn is due its checks, the same decision the Stop backstop
+  uses. A session that owns no change, or an owner on a non-feature turn that edited
+  nothing, runs no rule-scripts. The session id comes from the hook payload, else
+  `CLAUDE_SESSION_ID`.
 - Exit codes: a blocking outcome → 2 (stderr); advisory (warn) findings → 0
   (stdout); otherwise 0. Any thrown error soft-fails to 0.
 - Registered by the Claude adapter on `PreToolUse` (Edit|Write|NotebookEdit,
