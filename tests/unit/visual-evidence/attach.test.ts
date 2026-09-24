@@ -289,6 +289,57 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
     expect(readAttachedSteps(root, DIR)).toEqual([]);
   });
 
+  it('an all-failed scripted run after an attach reads partial, so strict fails', () => {
+    attachVisualEvidence({ projectRoot: root, dirName: DIR, files: [png('one.png', '1')], now });
+    const attached = readAttachedSteps(root, DIR);
+    const failedStep = {
+      index: 2,
+      journey_id: 'checkout',
+      journey_step: 1,
+      caption: 'pay',
+      dir: 'screenshots/02-pay',
+      captured_at: AT,
+      status: 'failed',
+      failure: 'selector-not-found',
+    } as VeStep;
+    const merged = mergeAttachedSteps(attached, {
+      trigger: { changed_files: ['src/a.tsx'], matched_globs: [], packs: [] },
+      plan: [],
+      steps: [failedStep],
+      gif: null,
+      skips: [],
+      result: 'skipped',
+      now,
+    });
+
+    expect(merged.result).toBe('partial');
+    writeVisualEvidenceManifest(root, DIR, merged);
+    expect(readVisualEvidenceManifest(root, DIR)!.result).toBe('partial');
+    expect(strictGate().status).toBe('fail');
+  });
+
+  it('attached steps lift a skipped scripted run with no failed step to captured', () => {
+    const attachedStep = {
+      index: 1,
+      journey_id: 'agent-attached',
+      journey_step: 1,
+      caption: 'a',
+      dir: 'screenshots/01-a',
+      captured_at: AT,
+      status: 'captured',
+    } as VeStep;
+    const merged = mergeAttachedSteps([attachedStep], {
+      trigger: { changed_files: [], matched_globs: [], packs: [] },
+      plan: [],
+      steps: [],
+      gif: null,
+      skips: [],
+      result: 'skipped',
+      now,
+    });
+    expect(merged.result).toBe('captured');
+  });
+
   it('refuses to write a manifest that fails its own schema', () => {
     expect(() =>
       writeVisualEvidenceManifest(root, DIR, {

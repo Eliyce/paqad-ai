@@ -147,18 +147,20 @@ export function readAttachedSteps(projectRoot: string, dirName: string): VeStep[
 
 /**
  * Carry already-attached steps into a scripted run's manifest (issue #579, FR-13): they go first,
- * keep their dirs and hashes, and a run that captured nothing new still reads `captured`.
+ * keep their dirs and hashes, and a run that captured nothing new still reads `captured`. A run
+ * with any failed scripted step reads `partial` instead: the failed step is still a real gap, so
+ * attached screenshots never lift an all-failed run above a partly successful one.
  */
 export function mergeAttachedSteps(
   attached: readonly VeStep[],
   input: WriteVisualEvidenceManifestInput,
 ): WriteVisualEvidenceManifestInput {
   if (attached.length === 0) return input;
-  return {
-    ...input,
-    steps: [...attached, ...input.steps],
-    result: input.result === 'skipped' ? 'captured' : input.result,
-  };
+  const anyFailed = input.steps.some((step) => step.status === 'failed');
+  let result = input.result;
+  if (anyFailed) result = 'partial';
+  else if (result === 'skipped') result = 'captured';
+  return { ...input, steps: [...attached, ...input.steps], result };
 }
 
 /**
