@@ -163,6 +163,15 @@ async function main(stdin) {
 
   const state = sentinelState(projectRoot);
   if (state !== 'fresh') {
+    // Issue #576 (Finding 1a) — ROUTE FIRST, even on the not-yet-loaded branch. Before this
+    // fix the gate returned here without ever running the route seam, so the FIRST prompt of a
+    // session (the sentinel is deleted at every SessionStart) never wrote the per-session
+    // workflow-state. The Stop backstop then read an `unknown` route, fell back to a whole-tree
+    // `git status`, and blamed any pre-existing dirty tracked file on a read-only turn. Routing
+    // here writes the state so a question/docs/small-talk first turn is classified non-feature
+    // and skipped at completion. Best-effort (never throws); the narration line is DROPPED in
+    // this branch (no-op sink) so the load directive still owns the top of context.
+    await emitRoute(stdin, projectRoot, () => {});
     // ALWAYS-LOAD: emit ONLY the load directive — the [paqad-context] dump is
     // suppressed until the framework is loaded, so the directive can never be buried.
     const message = directive(state, entryFile());
