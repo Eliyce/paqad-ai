@@ -19,7 +19,7 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { PATHS } from '@/core/constants/paths.js';
 
-import { createVerificationContext } from '../shared.fixture.js';
+import { createVerificationContext, ownInFlightChange } from '../shared.fixture.js';
 
 const roots: string[] = [];
 
@@ -228,6 +228,7 @@ describe('runRepositoryVerification (prebuilt context)', () => {
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
     });
+    ownInFlightChange(context.project_root);
     const bus = new EngineEventBus();
     const received: VerificationVerdictEvent[] = [];
     bus.subscribe(
@@ -264,6 +265,7 @@ describe('runRepositoryVerification (prebuilt context)', () => {
       modules: ['core'],
       changed_files: ['src/core/thing.ts'],
     });
+    ownInFlightChange(context.project_root);
 
     await runRepositoryVerification({
       projectRoot: context.project_root,
@@ -366,6 +368,7 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
       changed_files: ['docs/thing.md'],
       changed_files_source: 'git-status',
     });
+    ownInFlightChange(context.project_root);
 
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,
@@ -421,6 +424,7 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
       title: 'Feature',
       issue: null,
     });
+    ownInFlightChange(context.project_root, SES);
     // No `paqad-ai rules load` was run → no rules-loaded.json in the bundle.
 
     const verdict = await runRepositoryVerification({
@@ -456,6 +460,7 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
       title: 'Feature',
       issue: null,
     });
+    ownInFlightChange(context.project_root, SES);
 
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,

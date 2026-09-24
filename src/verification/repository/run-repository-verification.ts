@@ -59,7 +59,7 @@ import { computeChangeMetrics, type ChangeMetrics } from '@/change-metrics/index
 import { layeredConfigMap, resolveFrameworkConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
-import { classifySessionRouteForEnforcement } from '@/pipeline/route-enforcement.js';
+import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { recordNonFeatureVerificationSkip } from '@/session-ledger/non-feature-skip-audit.js';
 import { PAQAD_STATUS_GLYPH, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -193,44 +193,42 @@ export async function runRepositoryVerification(
     };
   }
 
-  // Issue #499 — the route-aware enforcement short-circuit. When the IN-SESSION
-  // completion seam fires for a session that never routed to feature-development, there
-  // is nothing to verify: a question / pentest / docs task / RCA / small-talk turn owes
-  // no planning/spec/review/checks stages, so a dirty working tree swept up by the
-  // `git status` fallback must not be forced through them. Placed AFTER the enabled-check
-  // and BEFORE the context build so no context, gate, inferred-git record, evidence file,
-  // receipt, or `{decision:'block'}` is ever produced for such a turn.
+  // Issue #582 — session-owned end-of-turn enforcement (replaces the #499 route guess).
+  // The IN-SESSION completion seam fires for every session on the project, but only the
+  // session that made a change owes its checks. A session that owns no change (no
+  // agent-authored stage row stamped with its id in an unclosed bundle), or an owner on a
+  // non-feature detour that edited nothing this turn, is skipped here: AFTER the
+  // enabled-check and BEFORE the context build, so no context, gate, inferred-git record,
+  // bundle, evidence file, receipt, or `{decision:'block'}` is ever produced for it.
   //
-  // Fail-closed and unspoofable by conjunction: it fires only at `hook-completion`
-  // origin (commit/push/CI stay purely path-based), only when the per-session route
-  // state EXISTS and is affirmatively non-feature (an absent/unknown route runs the full
-  // pass, unchanged, so cross-provider seams that write no route state keep today's
-  // behaviour), and only when the session recorded no agent-authored mutation — a real
-  // code edit always passes the path-scoped pre-mutation gate, which live-marks a stage,
-  // so an actual edit re-arms enforcement even under a misrouted or tampered route file.
+  // Only at `hook-completion` origin: commit/push/CI stay purely path-based and never
+  // read ownership or route. The ownership read never adopts another session's bundle.
   if (options.origin === 'hook-completion') {
-    const route = classifySessionRouteForEnforcement(
+    const decision = classifyCompletionEnforcement(
       options.projectRoot,
       options.hostSessionId ?? null,
     );
-    if (
-      route.verdict === 'non-feature' &&
-      !sessionHasAgentAuthoredStage(options.projectRoot, options.hostSessionId ?? null)
-    ) {
+    if (!decision.enforce) {
       recordNonFeatureVerificationSkip(options.projectRoot, {
         sessionId: options.hostSessionId ?? null,
-        workflow: route.activeWorkflow,
+        workflow: decision.activeWorkflow,
         origin: options.origin,
+        reason: decision.reason,
       });
       const at = now();
-      const workflowLabel = route.activeWorkflow ?? 'non-feature';
+      // A detour always names its active workflow: an owner with no recorded route enforces.
+      const detail =
+        decision.reason === 'detour'
+          ? `This turn ran the ${decision.activeWorkflow!} workflow and made no ` +
+            `code change. The paused change is checked when it resumes.`
+          : 'This session made no code change of its own, so there are no end-of-change ' +
+            'checks to run.';
       return {
         origin: options.origin,
         ok: true,
         summary:
           `${paqadFrameLead('verification not applicable')}\n` +
-          `> ${PAQAD_STATUS_GLYPH.skipped} This turn ran the ${workflowLabel} workflow, ` +
-          `not feature-development — no end-of-change checks to run.`,
+          `> ${PAQAD_STATUS_GLYPH.skipped} ${detail}`,
         gates: [],
         escalations: [],
         evidence_path: null,
@@ -832,23 +830,6 @@ function readChangeFold(projectRoot: string, hostSessionId: string | null): Fold
   } catch {
     return null;
   }
-}
-
-/**
- * Whether the session's active change carries any AGENT-authored (`live-mark`/`redo`)
- * stage row (issue #499 hardening). Every real code edit passes the path-scoped
- * pre-mutation gate, which live-marks a stage, so a genuine edit records one; a question
- * session records none. Hook/backstop-inferred rows (`inferred-git`/`inferred-artifact`)
- * are NOT agent-authored and do not count. Used to keep the non-feature skip unspoofable:
- * even under a misrouted or tampered route file, once the agent actually edits code the
- * skip cannot fire. Best-effort — an unreadable fold reads as "no agent stage".
- */
-function sessionHasAgentAuthoredStage(projectRoot: string, hostSessionId: string | null): boolean {
-  const fold = readChangeFold(projectRoot, hostSessionId);
-  if (!fold) {
-    return false;
-  }
-  return fold.stages.some((stage) => isAgentNarratableStage(stage.evidence_source));
 }
 
 /**

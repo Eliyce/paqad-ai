@@ -8,7 +8,7 @@ import { featureReportPath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
 
-import { createVerificationContext } from '../shared.fixture.js';
+import { createVerificationContext, ownInFlightChange } from '../shared.fixture.js';
 
 const roots: string[] = [];
 function makeProject(): string {
@@ -30,6 +30,7 @@ function run(root: string) {
     verification_origin: 'hook-completion',
     verification_stage: 'backstop-completion',
   });
+  ownInFlightChange(root, SES);
   return runRepositoryVerification({
     projectRoot: root,
     origin: 'hook-completion',

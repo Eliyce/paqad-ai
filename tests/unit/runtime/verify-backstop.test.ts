@@ -142,6 +142,35 @@ describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enfor
     expect(err.read()).toBe('');
   });
 
+  it('#582 AC-9: a session-ownership skip writes nothing to stdout or stderr, exit 0', async () => {
+    // The exact shape runRepositoryVerification returns when the session owns no change.
+    mockVerdict({
+      origin: 'hook-completion',
+      ok: true,
+      summary:
+        '**▸ paqad** · verification not applicable\n> ⏭️ This session made no code change of ' +
+        'its own, so there are no end-of-change checks to run.',
+      gates: [],
+      escalations: [],
+      evidence_path: null,
+    });
+    const { runVerificationBackstop } = await loadBackstop();
+    const out = capture();
+    const err = capture();
+
+    const code = await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      stdout: out.stream,
+      stderr: err.stream,
+    });
+
+    expect(code).toBe(0);
+    expect(out.read()).toBe('');
+    expect(err.read()).toBe('');
+  });
+
   it('AC-4: a FAIL at the git backstop stays plain-text on STDERR and exits 2 (hard gate unchanged)', async () => {
     const receipt = '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]';
     mockVerdict({ ok: false, summary: 'blocked', receipt, gates: [{ status: 'fail' }] });

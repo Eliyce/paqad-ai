@@ -7,7 +7,7 @@ import { execa } from 'execa';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { writeProjectProfile } from '@/core/project-profile.js';
-import { openStageEvidence } from '@/stage-evidence/index.js';
+import { openStageEvidence, startStage } from '@/stage-evidence/index.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence.js';
 
 import { fixtureProfile } from '../unit/adapters/shared.fixture.js';
@@ -70,6 +70,8 @@ describe('dist runtime root (issue #579)', () => {
       'visual_evidence=true\nvisual_evidence_mode=strict\n',
     );
     openStageEvidence(root, { sessionId: SESSION, adapter: 'claude-code' });
+    // Issue #582 — the session must OWN the change (a live-mark row) for Stop to verify it.
+    startStage(root, 'development', { sessionId: SESSION, adapter: 'claude-code' });
 
     mkdirSync(join(root, 'resources', 'js', 'Pages'), { recursive: true });
     writeFileSync(

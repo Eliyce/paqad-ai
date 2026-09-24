@@ -11,6 +11,8 @@ import type { DecisionPacket } from '@/planning/decision-packet.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
+import { ownInFlightChange } from '../shared.fixture.js';
+
 function makeProject(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-repo-ctx-'));
   mkdirSync(join(root, '.paqad/session'), { recursive: true });
@@ -154,6 +156,7 @@ describe('buildRepositoryVerificationContext', () => {
     expect(context.spec_boundary).toContain('src/feature');
     expect(context.spec_boundary).toContain('docs');
 
+    ownInFlightChange(root);
     const verdict = await runRepositoryVerification({
       projectRoot: root,
       origin: 'hook-completion',

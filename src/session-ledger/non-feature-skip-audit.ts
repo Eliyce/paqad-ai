@@ -7,6 +7,10 @@
 // once-per-session, best-effort contract — auditing the skip must never break the
 // verification path it rides. It carries the routed workflow so the trail says WHICH
 // non-feature workflow the turn ran.
+//
+// Issue #582 — the skip now fires on session ownership, so the row also carries WHY:
+// `not-owner` (the session owns no change) or `detour` (an owner on a non-feature turn
+// that edited nothing). `non-feature-route` stays the default for any other caller.
 
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
@@ -15,6 +19,9 @@ import { currentOrdinal, openSessionDoc, type OpenSessionDocResult } from './led
 export const NON_FEATURE_SKIP_DOC_TYPE = 'non-feature-verification-skip';
 export const NON_FEATURE_SKIP_SCHEMA_VERSION = 1 as const;
 
+/** Why a completion turn skipped verification. */
+export type NonFeatureSkipReason = 'non-feature-route' | 'not-owner' | 'detour';
+
 export interface RecordNonFeatureSkipContext {
   /** Host session id hint (Claude threads one on hook stdin); else cache/mint. */
   sessionId?: string | null;
@@ -22,6 +29,8 @@ export interface RecordNonFeatureSkipContext {
   workflow?: string | null;
   /** Where the skip was observed (always `hook-completion` today). */
   origin?: string;
+  /** Why the turn was skipped (defaults to `non-feature-route`). */
+  reason?: NonFeatureSkipReason;
   /** Host adapter, when known. */
   adapter?: string;
   /** Clock seam for tests. */
@@ -49,7 +58,7 @@ export function recordNonFeatureVerificationSkip(
       NON_FEATURE_SKIP_DOC_TYPE,
       sessionId,
       {
-        reason: 'non-feature-route',
+        reason: ctx.reason ?? 'non-feature-route',
         workflow: ctx.workflow ?? 'unknown',
         origin: ctx.origin ?? 'unknown',
         adapter: ctx.adapter ?? 'unknown',

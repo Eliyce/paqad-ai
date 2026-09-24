@@ -24,16 +24,21 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { isFeatureDevelopmentRoute, type RoutedWorkflow } from './routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from './workflow-state.js';
 
-/** Why the completion check enforces or skips. */
-export type CompletionEnforcementReason =
-  'not-owner' | 'detour' | 'edited-this-turn' | 'owner-feature-dev' | 'owner-unknown-route';
+/** Why the completion check skips a turn. */
+export type CompletionSkipReason = 'not-owner' | 'detour';
 
-export interface CompletionEnforcement {
-  enforce: boolean;
-  reason: CompletionEnforcementReason;
+/** Why the completion check enforces a turn. */
+export type CompletionEnforceReason =
+  'edited-this-turn' | 'owner-feature-dev' | 'owner-unknown-route';
+
+/** The completion decision: a skip carries a skip reason, an enforce an enforce reason. */
+export type CompletionEnforcement = (
+  | { enforce: false; reason: CompletionSkipReason }
+  | { enforce: true; reason: CompletionEnforceReason }
+) & {
   /** The ACTIVE routed workflow, when one is recorded; used to name the skip verdict. */
   activeWorkflow: RoutedWorkflow | null;
-}
+};
 
 const AGENT_AUTHORED_SOURCES = new Set(['live-mark', 'redo']);
 
