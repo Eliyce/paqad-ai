@@ -47,4 +47,4 @@ Requirements are where the expensive mistakes hide. Bringing the right specialis
 
 ## Boundaries
 
-This feature owns the pipeline steps, the expert roster, and the run provenance. It hands a freezable spec to the freeze gate and the "done" bar ([spec-and-done-bar](../spec-and-done-bar/business.md)); it does not run the proofs, slice the spec, or build the spec↔code↔test map. Those consume the spec this pipeline produces.
+This feature owns the pipeline steps, the expert roster, and the run record it keeps in the change's evidence bundle. It hands a freezable spec to the freeze gate and the "done" bar ([spec-and-done-bar](../spec-and-done-bar/business.md)); it does not run the proofs, slice the spec, or build the spec↔code↔test map. Those consume the spec this pipeline produces.

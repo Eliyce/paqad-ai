@@ -80,9 +80,15 @@ change, so the live feature-development stage spine is untouched:
 | `feature.json` | always | feature mint (`stage start` / `plan compile`) |
 | `plan.json` | always | `paqad-ai plan compile` |
 | `specification.json` | always | `paqad-ai spec freeze` |
+| `spec.md` | always (issue #581) | `paqad-ai spec freeze` (the signed source, header in front matter) |
+| `request.md` | `spec_pipeline_enabled` | `paqad-ai spec pipeline start` |
+| `clarification.json` | `spec_pipeline_enabled` | `paqad-ai spec pipeline` (label + questions) |
+| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` | `paqad-ai spec pipeline experts` |
+| `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
 | `delivery.json` | always | feature open + `paqad-ai delivery-link` |
+| `checks.json` | checked-when-present | `paqad-ai checks run` |
 | `rules-loaded.json` | checked-when-present (issue #557) | `paqad-ai rules load` |
 | `rule-run.jsonl` | `rule_compliance != off` | rule-scripts runner |
 | `change-metrics.jsonl` | `metrics_enabled` | change-metrics collector |
@@ -92,6 +98,9 @@ change, so the live feature-development stage spine is untouched:
 | `receipt.json` | `enterprise` + `evidence_ledger` | `projectFeatureReceipt` |
 | `evidence.jsonl` | always (issue #581) | `appendFeatureEvidenceRows` |
 | `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
+| `visual-evidence.json` | checked-when-present | `paqad-ai visual-evidence run` |
+
+No other file belongs in a bundle. `specification.md` and `context-efficiency.jsonl` are no longer written, and the retired per-feature spec scratch folder is gone: `paqad-ai evidence migrate [--dry-run]` (also run once on update) moves an old project's runs into their bundles.
 
 The **`bundle-completeness` gate** (`src/verification/repository/bundle-completeness-gate.ts`)
 runs last at end-of-change (after every writer). Under `bundle_completeness=strict` (the

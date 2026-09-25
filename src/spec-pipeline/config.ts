@@ -16,7 +16,7 @@ const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 /**
  * How firmly the specification stage adopts the pipeline once it is enabled (issue #547, FR-1.1):
  * `warn` (default) tells the agent to use the pipeline but still freezes a hand-written spec,
- * recording `pipeline_produced=false`; `strict` refuses a non-pipeline spec at freeze unless
+ * recording `pipeline.produced=false`; `strict` refuses a non-pipeline spec at freeze unless
  * `--manual --reason` is given. No effect while the pipeline is off.
  */
 export type AdoptionMode = 'warn' | 'strict';

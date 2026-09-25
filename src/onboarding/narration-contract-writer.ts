@@ -142,7 +142,7 @@ npx paqad-ai stage end planning --artifact <plan.json>
 
 npx paqad-ai stage start specification
 … write the spec …
-npx paqad-ai spec freeze <spec.md> --confirm-invariants   # writes specification.json into the bundle
+npx paqad-ai spec freeze <spec.md> --confirm-invariants   # copies spec.md and writes specification.json into the bundle
 npx paqad-ai stage end specification --artifact <specification.json>
 
 # Load the rules before you edit code (issue #557): prints the full text of the rules that
@@ -167,7 +167,7 @@ Then speak the end-of-change verdict (${PAQAD_VERDICT.pass} / ${PAQAD_VERDICT.fa
 
 **A thinking stage must point at its RIGID bundle artifact.** planning, specification, and review each prove their work with a script-written file: end them as \`paqad:stage <stage> end -- <artifact-path>\` (or \`npx paqad-ai stage end <stage> --artifact <path>\`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with \`paqad-ai plan compile\`, freeze the spec with \`paqad-ai spec freeze\`, and record the review with \`paqad-ai review record\` (they write \`plan.json\` / \`specification.json\` / \`review.json\` into the active feature's bundle; the legacy \`.paqad/plans/*.md\` and \`.paqad/specs\` free-writes are retired), then end the stage against that file. Any OTHER path is rejected, so a hand-written notes file can never stand in for the real artifact. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
 
-**Never write into a feature bundle directory.** \`.paqad/ledger/feature-evidence/<change>/\` holds only its rigid, script-written artifacts plus the generated \`report.html\`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and clean the transient input up. A stage artifact pointing at a non-rigid file inside a bundle dir is rejected.
+**Never write into a feature bundle directory.** \`.paqad/ledger/feature-evidence/<change>/\` holds only its rigid, script-written artifacts plus the generated \`report.html\`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and clean the transient input up. A stage artifact pointing at a non-rigid file inside a bundle dir is rejected, and an Edit or Write aimed inside a bundle dir is denied with the name of the verb that writes that file (issue #581).
 
 **Code edits are gated on this.** Until \`planning\` and \`specification\` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, \`npx paqad-ai stage start <stage>\` / \`npx paqad-ai stage end <stage> --artifact <path>\` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the \`▸ paqad\` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 
@@ -179,7 +179,8 @@ When \`spec_pipeline_enabled\` is on for the project, the specification stage is
 npx paqad-ai spec pipeline start --request-file <request.md>   # or --ticket <ref>; S0 ground + S1 label in one go
 # experts (only when spec_pipeline_experts_enabled is on):
 #   run the expert-need-detector skill, then
-npx paqad-ai spec pipeline experts record <need.json>          # writes one brief per needed expert
+npx paqad-ai spec pipeline experts record <need.json>          # records the roster in experts.json
+#   print each brief with \`npx paqad-ai spec pipeline experts brief <role>\` (never a file),
 #   run the expert-notes skill once per brief, then
 npx paqad-ai spec pipeline experts notes <notes.json>
 #   run the expert-synthesis skill (the chief architect), then
