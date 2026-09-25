@@ -15,6 +15,7 @@ import {
   type EvidenceEngine,
   type EvidenceFileDigest,
   type EvidenceLedgerRow,
+  type EvidenceSeal,
   type GradedEvidenceSummary,
   type InTotoStatement,
   type InTotoSubject,
@@ -102,6 +103,13 @@ export interface BuildStatementInput {
   reproducibility?: ReproducibilityStampPredicate;
   /** Issue #362 — per-change shape metrics. Omitted when absent, so receipts stay byte-identical. */
   metrics?: MetricsPredicate;
+  /**
+   * Issue #581 — seal the bundle's `evidence.jsonl` instead of copying the rows. When given, the
+   * predicate carries `evidence_sha256` + `evidence_line_count` and no `rows`; the graded
+   * counts and verdict are still computed from `rows`. Omitted by the whole-project receipt,
+   * which keeps carrying its rows.
+   */
+  evidenceSeal?: EvidenceSeal;
 }
 
 /** Build the in-toto Statement: per-file subjects + a graded VSA predicate. */
@@ -129,7 +137,12 @@ export function buildInTotoStatement(input: BuildStatementInput): InTotoStatemen
       : {}),
     ...(input.reproducibility !== undefined ? { reproducibility: input.reproducibility } : {}),
     ...(input.metrics !== undefined ? { metrics: input.metrics } : {}),
-    rows: [...input.rows],
+    ...(input.evidenceSeal !== undefined
+      ? {
+          evidence_sha256: input.evidenceSeal.sha256,
+          evidence_line_count: input.evidenceSeal.line_count,
+        }
+      : { rows: [...input.rows] }),
   };
 
   return {

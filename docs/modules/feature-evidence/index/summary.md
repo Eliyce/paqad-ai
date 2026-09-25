@@ -57,7 +57,7 @@ change, so the live feature-development stage spine is untouched:
 | `report.html` | `feature_report` | feature report renderer |
 | `rag.jsonl` | `rag_enabled` | RAG recorder (bundle or `_chat`) |
 | `receipt.json` | `enterprise` + `evidence_ledger` | `projectFeatureReceipt` |
-| `evidence.jsonl` | `enterprise` + `evidence_ledger` | `appendFeatureEvidenceRows` |
+| `evidence.jsonl` | always (issue #581) | `appendFeatureEvidenceRows` |
 | `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
 
 The **`bundle-completeness` gate** (`src/verification/repository/bundle-completeness-gate.ts`)

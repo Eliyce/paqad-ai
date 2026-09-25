@@ -14,10 +14,13 @@ import { verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 import type { AiBomDocument } from '@/evidence/receipt/ai-bom.js';
 import { readAllFeatureEvidence } from '@/feature-evidence/projections.js';
+import { readFeatureEvidence } from '@/feature-evidence/bundle-ledgers.js';
 import {
   latestFeatureReceipt,
   projectAiBomFromFeatures,
-  readAllFeatureReceipts,
+  readAllFeatureReceiptEntries,
+  receiptEvidenceRows,
+  verifyEvidenceSeal,
 } from '@/feature-evidence/receipt.js';
 import { buildEvidenceComment } from '@/verification/evidence-markdown.js';
 
@@ -95,9 +98,14 @@ export interface ReceiptFeed {
  * feature bundle carries its own self-chained receipt — so every card is verified
  * INDEPENDENTLY (`verifyReceiptSeal`) and `brokenAt` reports the first card (newest first)
  * whose bytes do not recompute, preserving the UI's "something is broken" signal.
+ *
+ * Issue #581 — a receipt sealed since #581 carries no rows: its checks are read from the
+ * bundle's `evidence.jsonl`, and it is sealed only when the evidence lines it covers still
+ * re-hash to its `evidence_sha256` too. A pre-#581 receipt reads its own rows as before.
  */
 export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
-  const decoded = readAllFeatureReceipts(projectRoot).map((envelope) => ({
+  const decoded = readAllFeatureReceiptEntries(projectRoot).map(({ dirName, envelope }) => ({
+    dirName,
     envelope,
     statement: decodeReceiptStatement(envelope),
   }));
@@ -108,9 +116,15 @@ export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
     ),
   );
   let brokenAt: number | null = null;
-  const receipts = decoded.map(({ envelope, statement }, index): ReceiptCard => {
+  const receipts = decoded.map(({ dirName, envelope, statement }, index): ReceiptCard => {
     const predicate = statement?.predicate ?? null;
-    const sealed = verifyReceiptSeal(envelope);
+    const sealed =
+      verifyReceiptSeal(envelope) &&
+      (statement === null || verifyEvidenceSeal(projectRoot, dirName, statement) !== false);
+    const rows =
+      statement === null
+        ? []
+        : receiptEvidenceRows(statement, readFeatureEvidence(projectRoot, dirName));
     if (!sealed && brokenAt === null) {
       brokenAt = index;
     }
@@ -125,7 +139,7 @@ export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
       authorship: predicate?.change_authorship ?? null,
       compliance: predicate?.compliance_citations ?? [],
       reproducibility: predicate?.reproducibility ?? null,
-      checks: (predicate?.rows ?? []).map((row) => ({
+      checks: rows.map((row) => ({
         code: row.code,
         engine: row.engine,
         verdict: row.verdict,

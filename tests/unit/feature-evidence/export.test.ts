@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { exportFeatureBundle, pruneFeatureBundles } from '@/feature-evidence/export.js';
+import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { writeFeaturePlan, writeFeatureReview } from '@/feature-evidence/artifacts.js';
+import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureDir } from '@/feature-evidence/paths.js';
 import { pauseActive } from '@/feature-evidence/session-control.js';
@@ -54,6 +56,27 @@ describe('exportFeatureBundle', () => {
     expect(Array.isArray(bundle.files.stageEvidence)).toBe(true);
     // Absent files (receipt/ai-bom) are omitted.
     expect(bundle.files.receipt).toBeUndefined();
+  });
+
+  // Issue #581 — the report reads a sealing receipt's rows from the exported evidence.jsonl,
+  // whose graded rows carry no session envelope, so they are read with the evidence reader.
+  it('exports the graded evidence.jsonl rows', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+    });
+    const row = buildEvidenceRow({
+      ts: AT,
+      engine: 'verification-gate',
+      code: 'format',
+      subject_digest: 's',
+      verdict: 'pass',
+      strength_class: 'deterministic',
+    });
+    appendFeatureEvidenceRows(root, 'ses_1', [row]);
+    expect(exportFeatureBundle(root, dir, AT).files.evidence).toEqual([row]);
   });
 });
 

@@ -15,6 +15,7 @@ import type {
   VerificationGate,
   VerificationOrigin,
 } from '@/core/types/verification.js';
+import type { EvidenceFileDigest, EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
@@ -433,24 +434,52 @@ export async function runRepositoryVerification(
   // Never block verification on a ledger/receipt failure: a missing receipt is a
   // weaker trust signal, not a verdict.
   //
-  // Issue #187 — the whole ledger is an opt-in enterprise capability, off by
-  // default. Resolve the policy once and skip the entire block when nothing is
-  // enabled, so a normal user pays zero tokens (no citation resolution) and
-  // writes no `.paqad/ledger/` files. Sub-flags gate each write independently.
+  // Issue #581 — the bundle's evidence.jsonl is always on: the graded rows land in the active
+  // feature's bundle whatever the enterprise toggles, so every change records one row per gate
+  // that ran. Only the receipt that seals those rows and the AI-BOM stay enterprise capabilities
+  // (issue #187): they resolve the policy once and skip the whole receipt block when nothing is
+  // enabled, so a normal user pays zero tokens (no citation resolution).
   const policy = resolveEnterprisePolicy(readProjectProfile(context.project_root));
+  // Issue #390 — no bundle write for a route we can prove is non-feature-development, even if
+  // a pointer is active. No active feature (a framework-internal change, or none open) simply
+  // skips the bundle writes.
+  const bundleSessionId = resolveSessionId(context.project_root, options.hostSessionId ?? null);
+  const activeFeature = currentFeature(context.project_root, bundleSessionId);
+  const bundleFeature =
+    activeFeature &&
+    !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
+      ? activeFeature
+      : null;
   // Issue #579 — where the late gates (bundle-completeness, visual-evidence, rules-loaded) land
-  // in the bundle's evidence.jsonl. Set below under the same scope + evidence_ledger policy as
-  // the graded rows; those gates run after this block, so their rows are appended at the end.
+  // in the bundle's evidence.jsonl. Set below under the same scope as the graded rows; those
+  // gates run after this block, so their rows are appended at the end.
   let lateGateRowTarget: { sessionId: string; ctx: RowContext } | null = null;
-  if (writesLedger(policy)) {
+  let graded: {
+    fileDigests: EvidenceFileDigest[];
+    rows: EvidenceLedgerRow[];
+  } | null = null;
+  try {
+    const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
+    const subjectDigest = computeChangeSubjectDigest(fileDigests);
+    const rowCtx = { subjectDigest, ts: completedAt };
+    const rows = [
+      ...gateResultsToRows(results, rowCtx),
+      ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
+    ];
+    graded = { fileDigests, rows };
+    if (bundleFeature) {
+      // Issue #468 — the graded rows land in the active feature's `evidence.jsonl`. Written
+      // BEFORE the receipt below, which seals the file as it stands (issue #581).
+      appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
+      lateGateRowTarget = { sessionId: bundleSessionId, ctx: rowCtx };
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: could not record evidence rows (${message})`);
+  }
+  if (writesLedger(policy) && graded && bundleFeature) {
+    const { fileDigests, rows } = graded;
     try {
-      const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
-      const subjectDigest = computeChangeSubjectDigest(fileDigests);
-      const rowCtx = { subjectDigest, ts: completedAt };
-      const rows = [
-        ...gateResultsToRows(results, rowCtx),
-        ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
-      ];
       // Issue #120 — fold change authorship (which adapter/model wrote it, who
       // accepted it) into the receipt so the attestation is gate-derived yet
       // producer-attributed. Resolution never throws; absent authorship simply
@@ -477,47 +506,31 @@ export async function runRepositoryVerification(
       //
       // Issue #343 B — project the per-feature receipt + AI-BOM into the active feature's
       // bundle from the graded rows, honouring the enterprise flags (`evidence_ledger` →
-      // receipt.json + evidence.jsonl, `ai_bom` → ai-bom.json). Best-effort: no active
-      // feature (a framework-internal change, or none open) simply skips the bundle write.
-      const bundleSessionId = resolveSessionId(context.project_root, options.hostSessionId ?? null);
-      const activeFeature = currentFeature(context.project_root, bundleSessionId);
-      // Issue #390 — do not project receipt.json / ai-bom.json into a feature bundle for
-      // a route we can prove is non-feature-development, even if a pointer is active.
-      if (
-        activeFeature &&
-        !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
-      ) {
-        // Issue #468 — the SAME graded rows land in the active feature's `evidence.jsonl`,
-        // honouring the `evidence_ledger` flag. Best-effort: riding the enclosing try/catch,
-        // it introduces no throw into verdict computation.
-        if (policy.evidence_ledger) {
-          appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
-          lateGateRowTarget = { sessionId: bundleSessionId, ctx: rowCtx };
-        }
-        projectFeatureReceipt(context.project_root, activeFeature, {
-          fileDigests,
-          rows,
-          verifierVersion: verifierVersion(),
-          timeVerified: completedAt,
-          write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
-          // Issue #468 Phase B — carry the authorship/compliance/reproducibility resolved
-          // above so the per-feature receipt is a complete attestation record now that it is
-          // the only one (D5). Each is omitted when absent.
-          authorship,
-          ...(complianceCitations !== undefined ? { complianceCitations } : {}),
-          ...(reproducibility !== undefined ? { reproducibility } : {}),
-          // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
-          ...(changeMetrics
-            ? {
-                metrics: {
-                  dup_new_pct: changeMetrics.dup_new_pct,
-                  reuse_rate: changeMetrics.reuse_rate,
-                  meaningful_changed_lines: changeMetrics.meaningful_changed_lines,
-                },
-              }
-            : {}),
-        });
-      }
+      // receipt.json, `ai_bom` → ai-bom.json). The receipt seals evidence.jsonl rather than
+      // copying its rows (issue #581).
+      projectFeatureReceipt(context.project_root, bundleFeature, {
+        fileDigests,
+        rows,
+        verifierVersion: verifierVersion(),
+        timeVerified: completedAt,
+        write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
+        // Issue #468 Phase B — carry the authorship/compliance/reproducibility resolved
+        // above so the per-feature receipt is a complete attestation record now that it is
+        // the only one (D5). Each is omitted when absent.
+        authorship,
+        ...(complianceCitations !== undefined ? { complianceCitations } : {}),
+        ...(reproducibility !== undefined ? { reproducibility } : {}),
+        // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
+        ...(changeMetrics
+          ? {
+              metrics: {
+                dup_new_pct: changeMetrics.dup_new_pct,
+                reuse_rate: changeMetrics.reuse_rate,
+                meaningful_changed_lines: changeMetrics.meaningful_changed_lines,
+              },
+            }
+          : {}),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: could not project evidence receipt (${message})`);
@@ -693,8 +706,9 @@ export async function runRepositoryVerification(
 
   // Issue #579 — record the late gates in the bundle's evidence.jsonl too, so a skipped or
   // failed visual-evidence / completeness / rules-loaded gate is on the ledger, not only in the
-  // session verdict. Same target (and so the same scope + evidence_ledger policy) as the graded
-  // rows above; the writer is best-effort and never throws.
+  // session verdict. Same target (and so the same scope) as the graded rows above, and like them
+  // always on whatever the enterprise toggles (issue #581). Appended after the receipt sealed the
+  // file, which is why the receipt records how many lines it sealed. Best-effort, never throws.
   if (lateGateRowTarget) {
     appendFeatureEvidenceRows(
       context.project_root,

@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  appendFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,16 +14,23 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { EVIDENCE_LEDGER_SCHEMA_VERSION } from '@/core/types/evidence-ledger.js';
 import type { EvidenceFileDigest, EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
+import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js';
 import {
   latestFeatureReceipt,
   projectAiBomFromFeatures,
   projectFeatureAiBom,
   projectFeatureReceipt,
+  readAllFeatureReceiptEntries,
   readAllFeatureReceipts,
   readFeatureAiBom,
   readFeatureReceipt,
+  receiptEvidenceRows,
+  sealFeatureEvidence,
   specificationReceiptLine,
+  verifyEvidenceSeal,
 } from '@/feature-evidence/receipt.js';
+import { signReceipt, verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
+import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
@@ -245,6 +260,116 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
 });
 
 // Issue #547 — the end-of-change receipt's specification line (FR-12.3 / AC-18).
+describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () => {
+  function openWithEvidence(rows: EvidenceLedgerRow[]): { root: string; dir: string } {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+    });
+    appendFeatureEvidenceRows(root, 'ses_1', rows);
+    return { root, dir };
+  }
+
+  it('seals the file bytes and line count, and carries no rows', () => {
+    const { root, dir } = openWithEvidence(INPUT.rows);
+    const { envelope } = projectFeatureReceipt(root, dir, INPUT);
+    const predicate = decodeReceiptStatement(envelope)!.predicate;
+    expect(predicate.rows).toBeUndefined();
+    expect(predicate.evidence_line_count).toBe(2);
+    const bytes = readFileSync(join(root, featureFilePath(dir, 'evidence')), 'utf8');
+    expect(predicate.evidence_sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
+    // Graded counts and the verdict still come from the rows.
+    expect(predicate.graded_results.deterministic.pass).toBe(2);
+    expect(predicate.verification_result).toBe('PASSED');
+    expect(verifyReceiptSeal(envelope)).toBe(true);
+  });
+
+  it('keeps verifying after later rows are appended, and fails once a sealed line changes', () => {
+    const { root, dir } = openWithEvidence(INPUT.rows);
+    const { envelope } = projectFeatureReceipt(root, dir, INPUT);
+    const statement = decodeReceiptStatement(envelope)!;
+    appendFeatureEvidenceRows(root, 'ses_1', [row('bundle-completeness', 'skipped')]);
+    expect(verifyEvidenceSeal(root, dir, statement)).toBe(true);
+    const path = join(root, featureFilePath(dir, 'evidence'));
+    writeFileSync(path, readFileSync(path, 'utf8').replace('"pass"', '"fail"'));
+    expect(verifyEvidenceSeal(root, dir, statement)).toBe(false);
+  });
+
+  it('fails the seal when sealed lines went missing', () => {
+    const { root, dir } = openWithEvidence(INPUT.rows);
+    const statement = decodeReceiptStatement(projectFeatureReceipt(root, dir, INPUT).envelope)!;
+    writeFileSync(join(root, featureFilePath(dir, 'evidence')), 'only one line\n');
+    expect(verifyEvidenceSeal(root, dir, statement)).toBe(false);
+  });
+
+  it('seals an absent file as zero lines and leaves a partial trailing line out', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+    });
+    expect(sealFeatureEvidence(root, dir)).toEqual({
+      sha256: createHash('sha256').update('').digest('hex'),
+      line_count: 0,
+    });
+    const path = join(root, featureFilePath(dir, 'evidence'));
+    appendFeatureEvidenceRows(root, 'ses_1', [row('format', 'pass')]);
+    const whole = readFileSync(path, 'utf8');
+    appendFileSync(path, '{"partial');
+    expect(sealFeatureEvidence(root, dir)).toEqual({
+      sha256: createHash('sha256').update(whole).digest('hex'),
+      line_count: 1,
+    });
+  });
+
+  it('an old receipt that carries its rows still verifies and reads its own rows', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+    });
+    const statement = buildInTotoStatement(INPUT);
+    const envelope = signReceipt({ statement, mode: 'hash-chained' });
+    writeFileSync(join(root, featureFilePath(dir, 'receipt')), JSON.stringify(envelope));
+    const read = readFeatureReceipt(root, dir)!;
+    expect(verifyReceiptSeal(read)).toBe(true);
+    const decoded = decodeReceiptStatement(read)!;
+    expect(verifyEvidenceSeal(root, dir, decoded)).toBeNull();
+    expect(receiptEvidenceRows(decoded, [row('ignored', 'fail')]).map((r) => r.code)).toEqual([
+      'format',
+      'tests',
+    ]);
+  });
+
+  it("reads a sealing receipt's rows from evidence.jsonl, that run only", () => {
+    const statement = buildInTotoStatement({
+      ...INPUT,
+      evidenceSeal: { sha256: 'x', line_count: 3 },
+    });
+    const earlier = { ...row('format', 'fail'), ts: '2026-07-09T00:00:00.000Z' };
+    const late = row('rules-loaded', 'pass');
+    const rows = receiptEvidenceRows(statement, [earlier, ...INPUT.rows, late]);
+    expect(rows.map((r) => r.code)).toEqual(['format', 'tests', 'rules-loaded']);
+  });
+
+  it('lists receipts with the bundle they came from', () => {
+    const { root, dir } = openWithEvidence(INPUT.rows);
+    projectFeatureReceipt(root, dir, INPUT);
+    expect(readAllFeatureReceiptEntries(root).map((entry) => entry.dirName)).toEqual([dir]);
+  });
+
+  it('the whole-project AI-BOM unions a sealing receipt from its evidence.jsonl rows', () => {
+    const { root, dir } = openWithEvidence([row('tests', 'fail')]);
+    projectFeatureReceipt(root, dir, { ...INPUT, rows: [row('tests', 'fail')] });
+    const whole = projectAiBomFromFeatures(root, '1.52.0', INPUT.timeVerified)!;
+    expect(JSON.stringify(whole)).toContain('"paqad:verification:result","value":"FAILED"');
+  });
+});
+
 describe('specificationReceiptLine', () => {
   it('renders a pipeline-produced line with experts and conflicts', () => {
     expect(

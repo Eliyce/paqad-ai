@@ -8,6 +8,7 @@ import type { ChangeAuthorship, EvidenceLedgerRow } from '@/core/types/evidence-
 import { buildEvidencePacket } from '@/dashboard/export-packet.js';
 import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths.js';
+import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
@@ -28,18 +29,21 @@ function projectFeature(root: string, ts: string, authorship?: ChangeAuthorship)
     issue: null,
     ulidSeed: seed,
   });
+  // Issue #581 — as in a real run, the rows land in evidence.jsonl before the receipt seals it.
+  const rows = [
+    buildEvidenceRow({
+      ts,
+      engine: 'verification-gate',
+      code: 'spec-review',
+      subject_digest: 'subject-1',
+      verdict: 'pass',
+      strength_class: 'deterministic',
+    }),
+  ];
+  appendFeatureEvidenceRows(root, 'ses_1', rows);
   projectFeatureReceipt(root, dir, {
     fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
-    rows: [
-      buildEvidenceRow({
-        ts,
-        engine: 'verification-gate',
-        code: 'spec-review',
-        subject_digest: 'subject-1',
-        verdict: 'pass',
-        strength_class: 'deterministic',
-      }),
-    ],
+    rows,
     verifierVersion: '1.0.0',
     timeVerified: ts,
     ...(authorship ? { authorship } : {}),

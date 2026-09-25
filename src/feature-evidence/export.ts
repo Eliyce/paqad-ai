@@ -10,6 +10,7 @@ import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readEvidenceRowsAt } from '@/evidence/ledger.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
 
 import { strayBundleFiles } from './bundle-integrity.js';
@@ -59,7 +60,11 @@ export function exportFeatureBundle(
   for (const key of Object.keys(FEATURE_BUNDLE_FILES) as FeatureBundleFile[]) {
     const rel = featureFilePath(dirName, key);
     if (FEATURE_BUNDLE_FILES[key].endsWith('.jsonl')) {
-      const rows = readUnitFile(projectRoot, rel);
+      // evidence.jsonl rows are graded gate rows with their own shape (no session envelope),
+      // so they are read with the evidence reader. Issue #581 — the report reads the rows a
+      // sealing receipt stands for from here.
+      const rows =
+        key === 'evidence' ? readEvidenceRowsAt(projectRoot, rel) : readUnitFile(projectRoot, rel);
       if (rows.length > 0) files[key] = rows;
     } else {
       const parsed = readJson(projectRoot, rel);

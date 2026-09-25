@@ -100,6 +100,8 @@ describe('bundle manifest', () => {
         'review',
         'stageEvidence',
         'delivery',
+        // Issue #581 — evidence.jsonl is always on, whatever the enterprise toggles.
+        'evidence',
       ]),
     );
     for (const entry of BUNDLE_MANIFEST) {
@@ -119,7 +121,6 @@ describe('bundle manifest', () => {
       'report',
       'rag',
       'receipt',
-      'evidence',
       'aiBom',
     ]) {
       expect(onKeys).toContain(key);
@@ -127,7 +128,7 @@ describe('bundle manifest', () => {
     }
   });
 
-  it('gates receipt/evidence on evidence_ledger and ai-bom on ai_bom (both need enterprise)', () => {
+  it('gates receipt on evidence_ledger and ai-bom on ai_bom (both need enterprise)', () => {
     const ledgerOnly: BundleCompletenessConfig = {
       ...ALL_OFF,
       enterprise: true,

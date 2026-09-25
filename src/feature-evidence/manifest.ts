@@ -26,7 +26,7 @@ export interface BundleCompletenessConfig {
   ragEnabled: boolean;
   /** enterprise master switch. */
   enterprise: boolean;
-  /** enterprise_evidence_ledger (gates receipt.json + evidence.jsonl). */
+  /** enterprise_evidence_ledger (gates receipt.json; evidence.jsonl is always on since #581). */
   evidenceLedger: boolean;
   /** enterprise_ai_bom (gates ai-bom.json). */
   aiBom: boolean;
@@ -212,9 +212,12 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    // Issue #581 — always on: every change records one row per gate that ran, the late gates
+    // and skipped ones included, whatever the enterprise toggles. Only the receipt that seals
+    // it and the AI-BOM stay enterprise capabilities.
     key: 'evidence',
     file: FEATURE_BUNDLE_FILES.evidence,
-    required: (config) => config.enterprise && config.evidenceLedger,
+    required: 'always',
     writer: 'appendFeatureEvidenceRows',
     validate: 'jsonl>=1',
   },

@@ -58,6 +58,8 @@ function writeAlwaysFiles(root: string, dir: string): void {
   write(root, featureFilePath(dir, 'review'), '{}');
   write(root, featureFilePath(dir, 'stageEvidence'), '{"row":1}\n');
   write(root, featureFilePath(dir, 'delivery'), '{"branch":"feat/x"}');
+  // Issue #581 — evidence.jsonl is always required.
+  write(root, featureFilePath(dir, 'evidence'), '{"code":"format"}\n');
 }
 
 const base = {
@@ -427,8 +429,8 @@ describe('optional checks.json (#528)', () => {
     });
     expect(gate!.status).toBe('pass');
     // Present files are counted, not named; and checks.json must never appear in the skip note.
-    // 6 always-required files + the present optional checks.json.
-    expect(gate!.detail).toContain('(7 checked)');
+    // 7 always-required files (evidence.jsonl since #581) + the present optional checks.json.
+    expect(gate!.detail).toContain('(8 checked)');
     expect(gate!.detail).not.toContain('checks.json');
   });
 });

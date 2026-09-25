@@ -194,8 +194,29 @@ export interface VsaPredicate {
    *  reuse rate). Omitted when none were computed (metrics off, or a non-feature-dev
    *  change), so a change that produces no metrics stays byte-identical. */
   metrics?: MetricsPredicate;
-  /** The graded rows themselves, so the receipt is self-contained. */
-  rows: EvidenceLedgerRow[];
+  /**
+   * The graded rows themselves. Carried by the whole-project receipt and by every per-feature
+   * receipt sealed before issue #581. A per-feature receipt sealed since then carries
+   * `evidence_sha256` + `evidence_line_count` instead: the rows live once, in the bundle's
+   * `evidence.jsonl`, and the receipt seals them rather than copying them.
+   */
+  rows?: EvidenceLedgerRow[];
+  /**
+   * Issue #581 — SHA-256 of the bundle's `evidence.jsonl` bytes at seal time (lowercase hex).
+   * Later gates append more rows after sealing, so a verifier re-hashes only the first
+   * {@link VsaPredicate.evidence_line_count} lines.
+   */
+  evidence_sha256?: string;
+  /** Issue #581 — how many `evidence.jsonl` lines the receipt sealed. */
+  evidence_line_count?: number;
+}
+
+/** Issue #581 — the per-feature receipt's seal over the bundle's `evidence.jsonl`. */
+export interface EvidenceSeal {
+  /** SHA-256 of the sealed bytes (the first `line_count` lines), lowercase hex. */
+  sha256: string;
+  /** How many complete lines were sealed. */
+  line_count: number;
 }
 
 /**

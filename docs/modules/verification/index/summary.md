@@ -112,8 +112,9 @@ Three evidence gates run after the bank, at the completion seam, because they re
 seam itself writes: `bundle-completeness`, `visual-evidence` (see
 [`visual-evidence`](../../visual-evidence/index/summary.md)) and `rules-loaded`. Each is recorded
 in the active bundle's `evidence.jsonl` too, one row per gate, skips included (verdict
-`skipped`, the skip reason as the detail), under the same `evidence_ledger` policy as the
-graded rows. When the visual-evidence gate has no bundle to read it records nothing.
+`skipped`, the skip reason as the detail), like the graded rows always on whatever the
+enterprise toggles (issue #581). They are appended after the receipt sealed the file. When the
+visual-evidence gate has no bundle to read it records nothing.
 
 A gate that skipped while its feature flag is on adds one line to the verdict summary, after
 the status lines and before the escalations: `⚪ visual evidence: skipped (<reason>)`. The line

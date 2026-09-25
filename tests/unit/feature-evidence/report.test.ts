@@ -553,6 +553,37 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(html).toContain('ac-test-mapping');
   });
 
+  // Issue #581 — a sealing receipt carries no rows; the report reads that run's rows from
+  // evidence.jsonl (earlier runs' rows left out, the late gates included).
+  it('renders a sealing receipt from the evidence.jsonl rows of its run', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/x.ts', sha256: 'abc123' }],
+      rows: gradedRows('pass'),
+      verifierVersion: '1.56.0',
+      timeVerified: AT,
+      evidenceSeal: { sha256: 'f'.repeat(64), line_count: 2 },
+    });
+    const receipt = signReceipt({ statement, prevReceiptHash: ZERO_DIGEST, mode: 'hash-chained' });
+    const late = { ...gradedRows('pass')[0]!, code: 'rules-loaded', content_hash: 'h-late' };
+    const earlier = {
+      ...gradedRows('fail')[0]!,
+      code: 'old-run-gate',
+      ts: '2026-07-01T00:00:00.000Z',
+    };
+    const html = render({
+      receipt: receipt as unknown,
+      evidence: [earlier, ...gradedRows('pass'), late],
+      stageEvidence: completeStageRows(),
+    });
+    expect(html).toContain('ac-test-mapping');
+    expect(html).toContain('rules-loaded');
+    expect(html).not.toContain('old-run-gate');
+    expect(deriveReportVerdict(fold(completeStageRows()), statement, [late])).toBe('pass');
+    expect(
+      deriveReportVerdict(fold(completeStageRows()), statement, [{ ...late, verdict: 'fail' }]),
+    ).toBe('fail');
+  });
+
   it('honestly reports a receipt whose payload cannot be decoded', () => {
     const broken = { ...receiptEnvelope('pass'), payload: '@@not-base64-json@@' };
     const html = render({ receipt: broken as unknown });

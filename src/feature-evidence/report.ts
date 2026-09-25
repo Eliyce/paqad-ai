@@ -31,7 +31,11 @@ import {
   paqadGlyphLegend,
   type PaqadStatusKind,
 } from '@/core/constants/paqad-voice.js';
-import type { InTotoStatement, ReceiptEnvelope } from '@/core/types/evidence-ledger.js';
+import type {
+  EvidenceLedgerRow,
+  InTotoStatement,
+  ReceiptEnvelope,
+} from '@/core/types/evidence-ledger.js';
 import { ZERO_DIGEST } from '@/evidence/digests.js';
 import { DSSE_PAYLOAD_TYPE, pae } from '@/evidence/receipt/dsse.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
@@ -42,6 +46,7 @@ import { AGENT_ATTACHED_JOURNEY, type VisualEvidenceManifest } from '@/visual-ev
 
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
+import { receiptEvidenceRows } from './receipt.js';
 
 export interface RenderFeatureReportOptions {
   /** ISO timestamp stamped into the page; supplied so the render is deterministic. */
@@ -101,6 +106,11 @@ export interface ReceiptIntegrity {
   verified: boolean;
   statement: InTotoStatement | null;
   envelope: ReceiptEnvelope | null;
+  /**
+   * The graded rows the receipt stands for: carried by a pre-#581 receipt, read from the
+   * bundle's `evidence.jsonl` for one that seals it (issue #581).
+   */
+  rows: ReceiptRow[];
 }
 
 /**
@@ -127,10 +137,16 @@ export function verifyFeatureReceiptSelf(envelope: ReceiptEnvelope): boolean {
 function readReceiptIntegrity(bundle: FeatureBundleExport): ReceiptIntegrity {
   const envelope = (bundle.files.receipt as ReceiptEnvelope | undefined) ?? null;
   if (!envelope || typeof envelope !== 'object' || !envelope.payload) {
-    return { present: false, verified: false, statement: null, envelope: null };
+    return { present: false, verified: false, statement: null, envelope: null, rows: [] };
   }
   const statement = decodeReceiptStatement(envelope);
-  return { present: true, verified: verifyFeatureReceiptSelf(envelope), statement, envelope };
+  return {
+    present: true,
+    verified: verifyFeatureReceiptSelf(envelope),
+    statement,
+    envelope,
+    rows: receiptRowsOf(statement, bundle.files.evidence),
+  };
 }
 
 // ── Verdict derivation ────────────────────────────────────────────────────────
@@ -147,9 +163,10 @@ type VerdictKind = 'pass' | 'fail' | 'inconclusive';
 export function deriveReportVerdict(
   fold: FoldedChange,
   receiptStatement: InTotoStatement | null,
+  evidenceRows?: unknown,
 ): VerdictKind {
   const hasFailedStage = fold.stages.some((stage) => stage.state === 'failed');
-  const receiptRows = receiptRowsOf(receiptStatement);
+  const receiptRows = receiptRowsOf(receiptStatement, evidenceRows);
   const hasFailedGate =
     receiptRows.some((row) => String(row.verdict).toLowerCase() === 'fail') ||
     String(receiptStatement?.predicate?.verification_result ?? '').toUpperCase() === 'FAILED';
@@ -169,9 +186,14 @@ interface ReceiptRow {
   content_hash?: string;
 }
 
-function receiptRowsOf(statement: InTotoStatement | null): ReceiptRow[] {
-  const rows = (statement?.predicate as { rows?: unknown } | undefined)?.rows;
-  return Array.isArray(rows) ? (rows as ReceiptRow[]) : [];
+/**
+ * The rows a receipt stands for. A pre-#581 receipt carries them; a sealing receipt is paired
+ * with the bundle's `evidence.jsonl` rows of the same run (issue #581). Tolerant of a receipt
+ * whose statement decoded without a predicate.
+ */
+function receiptRowsOf(statement: InTotoStatement | null, evidenceRows: unknown): ReceiptRow[] {
+  if (!statement?.predicate) return [];
+  return receiptEvidenceRows(statement, asRows(evidenceRows) as unknown as EvidenceLedgerRow[]);
 }
 
 /**
@@ -614,7 +636,7 @@ function renderReceipt(integrity: ReceiptIntegrity): string {
   const integrityLine = integrity.verified
     ? `${glyphWord('good', 'Integrity verified')} — the receipt's hash chain recomputes from its own bytes (hash-chained, not a signature).`
     : `${glyphWord('failed', 'Could not verify integrity')} — the receipt's hash chain does not recompute; treat it as tampered or corrupt.`;
-  const rows = dedupeByHash(receiptRowsOf(statement));
+  const rows = dedupeByHash(integrity.rows);
   const rowsHtml =
     rows.length > 0
       ? `<table class="gates"><thead><tr><th>Gate</th><th>Result</th><th>Detail</th></tr></thead><tbody>${rows
@@ -1170,7 +1192,7 @@ export function renderFeatureReportHtml(
       c.toUpperCase(),
     );
   const integrity = readReceiptIntegrity(bundle);
-  const verdict = deriveReportVerdict(fold, integrity.statement);
+  const verdict = deriveReportVerdict(fold, integrity.statement, bundle.files.evidence);
   const rawStageRows = asRows(bundle.files.stageEvidence);
 
   const headerMeta = [
