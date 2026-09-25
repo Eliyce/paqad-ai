@@ -134,6 +134,8 @@ export interface BundleRunOptions {
   untitled?: boolean;
   /** Called with the bundle folder name after every step, for checks beyond AC-2. */
   afterStep?: (root: string, step: string) => void;
+  /** Called with the project root and bundle folder name just before turn-end verification. */
+  beforeVerification?: (root: string, dir: string) => void;
 }
 
 function flagOn(caseId: OracleCase, line: string): boolean {
@@ -433,11 +435,21 @@ export async function runBundleFixture(
     await cli(createChecksCommand, ['run', '--silent'], false);
     await cli(createStageCommand, ['end', 'checks']);
 
+    // 7b. Documentation sync, so the change completes every mandatory stage and the turn-end
+    // verification below is the PASSING turn that closes it (issue #581: the evidence rows,
+    // receipt and metrics must still land in the bundle on the turn the change closes).
+    await cli(createStageCommand, ['start', 'documentation_sync']);
+    await cli(createStageCommand, ['end', 'documentation_sync']);
+
     // 8. The turn-end seams: the rule-scripts runner, then repository verification.
     if (!flagOn(caseId, 'rule_compliance=off')) {
       runRuleScripts({ projectRoot: root, mode: 'warn', changedFiles: [sourceFile] });
       afterStep('rule-scripts run');
     }
+    // The passing verification closes the change and releases the active pointer, so take
+    // the bundle folder name before it runs.
+    const dir = dirNow();
+    options.beforeVerification?.(root, dir);
     await runRepositoryVerification({
       projectRoot: root,
       origin: 'hook-completion',
@@ -446,7 +458,7 @@ export async function runBundleFixture(
     });
     afterStep('repository verification');
 
-    return { root, dir: dirNow(), steps, caseId };
+    return { root, dir, steps, caseId };
   } finally {
     if (previousSession === undefined) delete process.env.SE_SESSION;
     else process.env.SE_SESSION = previousSession;

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdirSync } from 'node:fs';
 
 import {
+  closeVerifiedChange,
   endStage,
   finalizeStageEvidence,
   isArtifactBearingStage,
@@ -14,7 +15,7 @@ import {
   startStage,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
-import { featureFilePath } from '@/feature-evidence/paths.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 const ADAPTER = 'backstop';
@@ -362,5 +363,57 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
     const b = currentFeature(root, sessionId);
     expect(b).not.toBeNull();
     expect(b).not.toBe(a);
+  });
+  it('#581: deferClose leaves a passing change open until closeVerifiedChange closes it', () => {
+    const sessionId = 'ses_defer';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'review',
+      'checks',
+      'documentation_sync',
+    ]) {
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(root, dirName, stage), {
+        sessionId,
+        dirName,
+        adapter: 'claude-code',
+      });
+    }
+
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 1,
+      deferClose: true,
+    });
+    expect(result?.ok).toBe(true);
+    // Still open: the verifier's bundle writers can read the active feature.
+    expect(currentFeature(root, sessionId)).toBe(dirName);
+    expect(readFeatureStageUnit(root, dirName).some((row) => row.kind === 'close')).toBe(false);
+
+    closeVerifiedChange(root, { sessionId, adapter: ADAPTER, verdict: result!.verdict });
+    const close = readFeatureStageUnit(root, dirName).filter((row) => row.kind === 'close');
+    expect(close).toHaveLength(1);
+    expect(close[0]!.note).toBe(`closed; verdict=${result!.verdict}`);
+    expect(currentFeature(root, sessionId)).toBeNull();
+  });
+
+  it('#581: closeVerifiedChange is a no-op when no change is active', () => {
+    closeVerifiedChange(root, { sessionId: 'ses_idle', adapter: ADAPTER, verdict: 'complete' });
+    expect(currentFeature(root, 'ses_idle')).toBeNull();
+  });
+  it('#581: closeVerifiedChange swallows a write failure (best-effort, never breaks verification)', () => {
+    const sessionId = 'ses_close_err';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    // The ledger path turns into a directory, so appending the close row throws.
+    const ledger = join(root, featureDir(dirName), 'stage-evidence.jsonl');
+    rmSync(ledger, { force: true });
+    mkdirSync(ledger);
+    expect(() =>
+      closeVerifiedChange(root, { sessionId, adapter: ADAPTER, verdict: 'complete' }),
+    ).not.toThrow();
   });
 });

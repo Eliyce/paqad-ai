@@ -276,6 +276,12 @@ any turn the session-ownership check skips (see below).
   verdict-carrying close row, and skipped for an unmaterialized bundle, which is not in
   flight anyway).
 
+  The close is the LAST thing the turn-end verification does (issue #581). The evidence
+  rows, receipt, AI-BOM, change metrics, decisions index and the completeness gate all
+  work on the active change, so the verifier passes `deferClose` to the finalizer and
+  calls `closeVerifiedChange` once they have run. A change the completeness gate fails
+  is left open, like an incomplete one, so the next turn checks it again.
+
   That close row is also what stops a FINISHED change being re-opened as a phantom
   (issue #540). `sessionClosedAnyFeature(projectRoot, sessionId)` is true when any bundle
   carries a close row stamped with this session id — the one signal that tells a replayed

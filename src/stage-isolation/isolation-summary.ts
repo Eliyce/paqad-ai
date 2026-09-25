@@ -7,8 +7,7 @@
 // orchestrator did not re-send).
 //
 // Readers accept the old shape too (INV-8): a bundle written before #581 kept the same facts
-// in its own `context-efficiency.jsonl`, so when a bundle has no stage-agent rows that file
-// is read instead. Nothing writes it any more (INV-9).
+// in its own `context-efficiency.jsonl`, which is read alongside the rows. Nothing writes it any more (INV-9).
 
 import { featureDir } from '@/feature-evidence/paths.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
@@ -54,33 +53,30 @@ export function hasStageAgentEvidence(projectRoot: string, dirName: string): boo
 
 /**
  * Summarise what isolation saved for a change, or null when no stage agent was recorded (the
- * receipt then prints no `context:` line rather than a misleading zero). Stage-agent rows are
- * read first; an old bundle's `context-efficiency.jsonl` is the fallback.
+ * receipt then prints no `context:` line rather than a misleading zero).
+ *
+ * Both sources are read and combined. A change that was upgraded to #581 part-way through
+ * has its early stage agents in the old `context-efficiency.jsonl` and its later ones as
+ * `stage-agent` rows; reading only the rows would drop the early stages from the count.
+ * Each dispatched agent was recorded by exactly one writer, old or new, so adding the two
+ * never counts an agent twice.
  */
 export function summarizeStageIsolation(
   projectRoot: string,
   dirName: string,
 ): StageIsolationSummary | null {
   const rows = readStageAgentRows(projectRoot, dirName);
-  if (rows.length > 0) {
-    return {
-      stages: new Set(rows.map((row) => String(row.stage))).size,
-      tokensNotRecarried: rows.reduce((sum, row) => sum + count(row.tokens_not_recarried), 0),
-      estimate: rows.some((row) => row.estimate !== false),
-    };
-  }
   const legacy = legacyRows(projectRoot, dirName);
-  if (legacy.length === 0) {
+  if (rows.length === 0 && legacy.length === 0) {
     return null;
   }
   return {
-    stages: new Set(legacy.map((row) => String(row.stage))).size,
-    tokensNotRecarried: legacy.reduce(
-      (sum, row) => sum + count(row.carried_history_avoided_estimate),
-      0,
-    ),
+    stages: new Set([...rows, ...legacy].map((row) => String(row.stage))).size,
+    tokensNotRecarried:
+      rows.reduce((sum, row) => sum + count(row.tokens_not_recarried), 0) +
+      legacy.reduce((sum, row) => sum + count(row.carried_history_avoided_estimate), 0),
     // The legacy carried-history figure was always an estimate.
-    estimate: true,
+    estimate: legacy.length > 0 || rows.some((row) => row.estimate !== false),
   };
 }
 

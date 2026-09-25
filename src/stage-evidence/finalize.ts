@@ -51,6 +51,15 @@ export interface FinalizeStageEvidenceInput {
    * classify the diff.
    */
   isFeatureDevChange?: boolean;
+  /**
+   * Leave a passing change OPEN and let the caller close it with {@link closeVerifiedChange}
+   * (issue #581). The repository verifier writes the change's evidence rows, receipt, metrics
+   * and decisions index, and runs the bundle-completeness gate, all against the active
+   * feature. Closing here first released that pointer, so on the very turn a change passed
+   * every one of those writers found no feature and skipped. Omitted, a pass closes here as
+   * before.
+   */
+  deferClose?: boolean;
   now?: () => Date;
 }
 
@@ -141,9 +150,14 @@ export function finalizeStageEvidence(
     // feature — so change #2+ in a session no longer free-rides on change #1's markers,
     // and the pre-code gate re-arms for each change. An incomplete/blocked change stays
     // open for the agent's redo loop (re-verified next Stop).
-    if (result.ok) {
-      appendClose(projectRoot, sessionId, dirName, input, result.verdict);
-      closeActiveFeature(projectRoot, sessionId, input.now);
+    // Under `deferClose` the caller closes it once its own bundle writers have run.
+    if (result.ok && !input.deferClose) {
+      closeVerifiedChange(projectRoot, {
+        sessionId,
+        adapter: input.adapter,
+        verdict: result.verdict,
+        now: input.now,
+      });
     }
     return result;
   } catch {
@@ -152,28 +166,44 @@ export function finalizeStageEvidence(
   }
 }
 
-/** Append the `kind:'close'` row that brackets a passing change (issue #321). It marks
- *  the change complete on the ledger before the `.open` pointer advances, so the
- *  open…close bracket is inspectable (one per change). Best-effort caller-side. */
-function appendClose(
-  projectRoot: string,
-  sessionId: string,
-  dirName: string,
-  input: FinalizeStageEvidenceInput,
-  verdict: string,
-): void {
-  appendFeatureStageRow(
-    projectRoot,
-    sessionId,
-    dirName,
-    {
-      kind: 'close',
-      agent: agentForWriter(input.adapter),
-      event_status: 'completed',
-      note: `closed; verdict=${verdict}`,
-    },
-    input.now,
-  );
+export interface CloseVerifiedChangeInput {
+  /** Host session id when known; else resolved from the machine-local cache. */
+  sessionId?: string | null;
+  adapter: string;
+  /** The passing stage verdict, recorded on the close row. */
+  verdict: string;
+  now?: () => Date;
+}
+
+/**
+ * Close the session's active change after it passed (issue #321): append the
+ * `kind:'close'` row carrying the verdict, then release the active pointer, so the
+ * open…close bracket is inspectable (one per change) and the next edit opens a fresh
+ * feature. A no-op when no feature is active. Best-effort: a failure never throws.
+ */
+export function closeVerifiedChange(projectRoot: string, input: CloseVerifiedChangeInput): void {
+  try {
+    const sessionId = resolveSessionId(projectRoot, input.sessionId);
+    const dirName = currentFeature(projectRoot, sessionId);
+    if (!dirName) {
+      return;
+    }
+    appendFeatureStageRow(
+      projectRoot,
+      sessionId,
+      dirName,
+      {
+        kind: 'close',
+        agent: agentForWriter(input.adapter),
+        event_status: 'completed',
+        note: `closed; verdict=${input.verdict}`,
+      },
+      input.now,
+    );
+    closeActiveFeature(projectRoot, sessionId, input.now);
+  } catch {
+    // Best-effort: closing never breaks verification.
+  }
 }
 
 /**
