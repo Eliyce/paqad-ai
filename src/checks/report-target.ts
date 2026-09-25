@@ -30,11 +30,15 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
  */
 export function activeFeatureDirOrNull(projectRoot: string): string | null {
   try {
-    const sessionId = resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
-    return currentFeature(projectRoot, sessionId);
+    return currentFeature(projectRoot, checksSessionId(projectRoot));
   } catch {
     return null;
   }
+}
+
+/** The session the checks verbs run under, the one {@link activeFeatureDirOrNull} resolves. */
+function checksSessionId(projectRoot: string): string {
+  return resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
 }
 
 /**
@@ -64,6 +68,6 @@ export function writeChecksReportForFeature(
   report: ChecksReport,
 ): string {
   return dirName
-    ? writeFeatureChecks(projectRoot, dirName, report)
+    ? writeFeatureChecks(projectRoot, dirName, report, checksSessionId(projectRoot))
     : writeChecksReport(projectRoot, report);
 }

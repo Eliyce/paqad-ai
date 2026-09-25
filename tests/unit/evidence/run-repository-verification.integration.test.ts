@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -8,9 +9,9 @@ import { syncFrameworkConfig } from '@/core/framework-config.js';
 import type { EnterpriseConfig } from '@/core/types/project-profile.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
-import { verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
+import { verifyReceiptChain, verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
 import { readFeatureEvidence } from '@/feature-evidence/bundle-ledgers.js';
-import { readFeatureReceipt } from '@/feature-evidence/receipt.js';
+import { readFeatureReceipt, verifyEvidenceSeal } from '@/feature-evidence/receipt.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureFilePath, featureReportPath } from '@/feature-evidence/paths.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -178,6 +179,7 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
 
     expect(existsSync(join(context.project_root, featureFilePath(dir, 'receipt')))).toBe(false);
     expect(existsSync(join(context.project_root, featureFilePath(dir, 'aiBom')))).toBe(false);
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'evidence')))).toBe(false);
     expect(existsSync(join(context.project_root, featureReportPath(dir)))).toBe(false);
     noTopLevelLedger(context.project_root);
   });
@@ -236,7 +238,8 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
     };
   }
 
-  it('writes nothing to the bundle when no enterprise block is present', async () => {
+  // Issue #581 — evidence.jsonl is always on; only the receipt and the AI-BOM are gated.
+  it('writes only evidence.jsonl to the bundle when no enterprise block is present', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git-status',
@@ -248,14 +251,14 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
     // The verdict is still produced — gating never changes the trust outcome.
     expect(verdict).toBeDefined();
     expect(bundleFiles(context.project_root, dir)).toEqual({
-      evidence: false,
+      evidence: true,
       receipt: false,
       aiBom: false,
     });
     noTopLevelLedger(context.project_root);
   });
 
-  it('master switch off forces every sub-flag off (no writes)', async () => {
+  it('master switch off forces every sub-flag off (no receipt, no AI-BOM)', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git-status',
@@ -271,14 +274,14 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
     await run(context, 'rv-ent-off');
 
     expect(bundleFiles(context.project_root, dir)).toEqual({
-      evidence: false,
+      evidence: true,
       receipt: false,
       aiBom: false,
     });
     noTopLevelLedger(context.project_root);
   });
 
-  it('ai_bom on with evidence_ledger off writes only the bundle ai-bom.json', async () => {
+  it('ai_bom on with evidence_ledger off writes the bundle ai-bom.json but no receipt', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git-status',
@@ -293,7 +296,7 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
     await run(context, 'rv-ent-aibom');
 
     expect(bundleFiles(context.project_root, dir)).toEqual({
-      evidence: false,
+      evidence: true,
       receipt: false,
       aiBom: true,
     });
@@ -350,23 +353,109 @@ describe('runRepositoryVerification — late gates on the bundle ledger (issue #
     expect(visual.detail).toBe('visual evidence is off (flag off or coding capability absent).');
   });
 
-  it('writes no late-gate rows when evidence_ledger is off', async () => {
+  // Issue #581 (AC-13) — M0: enterprise off, and the late gates are still on the ledger.
+  it('AC-13: records the late gates in evidence.jsonl with enterprise off, skips with a reason', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
       changed_files: ['src/feature.ts'],
       changed_files_source: 'git-status',
     });
-    const { dir } = openFeature(context.project_root, 'rv-late-off-sess');
-    enableEnterprise(context.project_root, { evidence_ledger: false, ai_bom: true });
+    const { dir } = openFeature(context.project_root, 'rv-late-m0-sess');
 
     await runRepositoryVerification({
       projectRoot: context.project_root,
       origin: 'hook-completion',
       prebuiltContext: { context, escalations: [] },
-      hostSessionId: 'rv-late-off-sess',
+      hostSessionId: 'rv-late-m0-sess',
     });
 
-    expect(readFeatureEvidence(context.project_root, dir)).toEqual([]);
+    expect(existsSync(join(context.project_root, featureFilePath(dir, 'receipt')))).toBe(false);
+    const rows = readFeatureEvidence(context.project_root, dir);
+    for (const code of ['bundle-completeness', 'visual-evidence', 'rules-loaded']) {
+      expect(rows.filter((row) => row.code === code)).toHaveLength(1);
+    }
+    const skipped = rows.filter((row) => row.verdict === 'skipped');
+    expect(skipped.length).toBeGreaterThan(0);
+    expect(skipped.every((row) => (row.detail ?? '').length > 0)).toBe(true);
+  });
+});
+
+describe('runRepositoryVerification — evidence.jsonl and the completeness gate (issue #581)', () => {
+  // evidence.jsonl is 'always' required, and a fresh change has none until this run writes
+  // it. The gate must not name it missing: this run appends the graded rows before the gate
+  // and the gate's own row right after it.
+  it('never reports evidence.jsonl missing on a change whose first run writes it', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+    });
+    const { dir } = openFeature(context.project_root, 'rv-evidence-first-sess');
+    const evidencePath = join(context.project_root, featureFilePath(dir, 'evidence'));
+    expect(existsSync(evidencePath)).toBe(false);
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: 'rv-evidence-first-sess',
+    });
+
+    const rows = readFeatureEvidence(context.project_root, dir);
+    const completeness = rows.filter((row) => row.code === 'bundle-completeness');
+    expect(completeness).toHaveLength(1);
+    expect(completeness[0]!.detail ?? '').not.toContain('evidence.jsonl');
+    expect(existsSync(evidencePath)).toBe(true);
+  });
+});
+
+describe('runRepositoryVerification — the receipt seals evidence.jsonl (issue #581)', () => {
+  it('AC-12: two runs seal a growing file, copy no rows, and chain', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+    });
+    const { dir } = openFeature(context.project_root, 'rv-seal-sess');
+    enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: false });
+    const evidencePath = join(context.project_root, featureFilePath(dir, 'evidence'));
+    const run = () =>
+      runRepositoryVerification({
+        projectRoot: context.project_root,
+        origin: 'hook-completion',
+        prebuiltContext: { context, escalations: [] },
+        hostSessionId: 'rv-seal-sess',
+      });
+
+    await run();
+    const first = readFeatureReceipt(context.project_root, dir)!;
+    await run();
+    const second = readFeatureReceipt(context.project_root, dir)!;
+
+    const lines = readFileSync(evidencePath, 'utf8').split('\n');
+    for (const envelope of [first, second]) {
+      const predicate = decodeReceiptStatement(envelope)!.predicate;
+      expect(predicate.rows).toBeUndefined();
+      const count = predicate.evidence_line_count!;
+      const prefix = lines
+        .slice(0, count)
+        .map((line) => `${line}\n`)
+        .join('');
+      expect(createHash('sha256').update(prefix).digest('hex')).toBe(predicate.evidence_sha256);
+      expect(verifyEvidenceSeal(context.project_root, dir, decodeReceiptStatement(envelope)!)).toBe(
+        true,
+      );
+    }
+    const firstCount = decodeReceiptStatement(first)!.predicate.evidence_line_count!;
+    const secondCount = decodeReceiptStatement(second)!.predicate.evidence_line_count!;
+    // Late-gate rows were appended after each seal, so the second seal covers more lines.
+    expect(secondCount).toBeGreaterThan(firstCount);
+    expect(lines.filter((line) => line.length > 0).length).toBeGreaterThan(secondCount);
+    // The chain links the second receipt to the first, from genesis.
+    expect(second.paqad.prev_receipt_hash).toBe(first.paqad.receipt_hash);
+    expect(verifyReceiptChain([first, second])).toBeNull();
   });
 });

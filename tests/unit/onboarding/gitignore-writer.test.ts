@@ -116,9 +116,36 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
   // Issue #512 — the editable spec source and spec-pipeline scratch under `.paqad/_specs/`
   // are transient per-machine working state, never committed.
-  it('ignores the _specs directory so the spec source and pipeline scratch are never committed', () => {
+  // Issue #581 — the spec pipeline keeps no scratch folder of its own any more, so a new project
+  // gets no line for it (the evidence migration removes the old line from an existing one).
+  it('writes no line for the retired spec-pipeline scratch folder', () => {
     writeGitignore(projectRoot);
-    expect(read(projectRoot, '.paqad/.gitignore')).toContain('_specs/');
+    expect(read(projectRoot, '.paqad/.gitignore').split('\n')).not.toContain('_specs/');
+  });
+
+  // Issue #581 (review) — the record-verb inputs and the spec-pipeline staging dirs live under
+  // `.paqad/tmp/`, per-machine working files that must never be committable.
+  it('ignores tmp/, which holds the spec-pipeline staging dirs', () => {
+    writeGitignore(projectRoot);
+    expect(read(projectRoot, '.paqad/.gitignore').split('\n')).toContain('tmp/');
+  });
+
+  it('keeps the old spec folder line while that folder still exists, and drops it after', () => {
+    mkdirSync(join(projectRoot, '.paqad', '_specs', 'held-run'), { recursive: true });
+    writeGitignore(projectRoot);
+    expect(read(projectRoot, '.paqad/.gitignore').split('\n')).toContain('_specs/');
+
+    rmSync(join(projectRoot, '.paqad', '_specs'), { recursive: true, force: true });
+    writeGitignore(projectRoot);
+    expect(read(projectRoot, '.paqad/.gitignore').split('\n')).not.toContain('_specs/');
+  });
+
+  it('untracks a committed .paqad/tmp/ file now that tmp/ is ignored', () => {
+    gitInit(projectRoot);
+    commitFile(projectRoot, '.paqad/tmp/spec-pipeline/x/task.json', '{}\n');
+    writeGitignore(projectRoot);
+    expect(trackedFiles(projectRoot, '.paqad/tmp')).toBe('');
+    expect(existsSync(join(projectRoot, '.paqad/tmp/spec-pipeline/x/task.json'))).toBe(true);
   });
 
   it('writes a nested .paqad/.gitattributes making the decision index merge cleanly', () => {

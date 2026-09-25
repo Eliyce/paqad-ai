@@ -28,10 +28,14 @@ import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
 import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
+import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
+import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
+import { SCREENSHOTS_DIR } from '@/feature-evidence/paths.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { readCompiledRules } from '@/planning/rule-compiler.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
@@ -375,6 +379,60 @@ function sweepSameTurnMarkers(
 }
 
 /**
+ * The verb that owns a bundle file, named in the refusal so the agent knows what to run
+ * instead (issue #581, AC-23). Read from the manifest `writer` field, so a new bundle file
+ * names its writer here without a second list. The `screenshots/` subtree belongs to the
+ * visual-evidence verbs; a file no verb writes (a stray, a legacy file) names none.
+ */
+function bundleFileWriter(filename: string): string | null {
+  if (filename === SCREENSHOTS_DIR || filename.startsWith(`${SCREENSHOTS_DIR}/`)) {
+    return 'paqad-ai visual-evidence run (or visual-evidence attach)';
+  }
+  return BUNDLE_MANIFEST.find((entry) => entry.file === filename)?.writer ?? null;
+}
+
+/** Block message for an agent edit aimed at a file inside a feature bundle (issue #581). */
+function formatBundleWriteSummary(relPath: string, writer: string | null): string {
+  const remedy = writer
+    ? `This file is written by \`${writer}\`. Run that verb and hand it your content instead.`
+    : `No verb writes this file, so it does not belong in the bundle. Keep your notes outside ` +
+      `\`.paqad/ledger/feature-evidence/\`.`;
+  return (
+    `**▸ paqad** · bundle files are written by paqad, not by hand\n` +
+    `> 🔴 Needs your attention — \`${relPath}\` sits inside a feature evidence bundle, and ` +
+    `every file there is created by a paqad verb so the record can be trusted. ${remedy}`
+  );
+}
+
+/**
+ * The first bundle file a mutating call targets (a Codex `apply_patch` may name several), as a
+ * project-relative path plus its filename inside the bundle, or null when none is in a bundle.
+ * A path outside the project tree is never a bundle file, so it is skipped.
+ */
+function firstBundleTarget(
+  payload: { targetPath?: string; targetPaths?: string[] } | undefined,
+  projectRoot: string,
+): { rel: string; filename: string } | null {
+  const targets =
+    payload?.targetPaths && payload.targetPaths.length > 0
+      ? payload.targetPaths
+      : payload?.targetPath
+        ? [payload.targetPath]
+        : [];
+  for (const target of targets) {
+    let rel: string;
+    try {
+      rel = normalizeArtifactPath(projectRoot, target);
+    } catch {
+      continue; // out of the project tree: not a bundle file
+    }
+    const classified = classifyBundlePath(rel);
+    if (classified) return { rel, filename: classified.filename };
+  }
+  return null;
+}
+
+/**
  * Feature-development stages — block-forward (RCA fix B). At the pre-mutation seam,
  * refuse a code edit until every MANDATORY stage that precedes `development`
  * (planning, specification) carries a recorded start+end pair in the stage-evidence
@@ -395,6 +453,22 @@ const stagesCapability: Capability = {
   id: 'stages',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
     if (seam !== 'pre-mutation') return NO_OP;
+    // Issue #581 (FR-14) — no agent writes a bundle file directly: every file there is
+    // created by a verb. This runs ahead of the mode and scope checks (`.paqad/**` is out of
+    // feature-dev scope, and the rule is not tunable). Framework scripts write through `fs`,
+    // not a host tool, so they never reach this seam; a Bash write is caught later by the
+    // envelope `content_hash` check in the completeness gate.
+    const bundleTarget = firstBundleTarget(payload, projectRoot);
+    if (bundleTarget) {
+      return {
+        ran: true,
+        blocking: true,
+        summary: formatBundleWriteSummary(
+          bundleTarget.rel,
+          bundleFileWriter(bundleTarget.filename),
+        ),
+      };
+    }
     const mode = resolveStagesMode(projectRoot, env);
     if (mode === 'off') return NO_OP;
     // Only feature-development edits are gated (issue #310). A docs-only or

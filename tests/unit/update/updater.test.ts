@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -155,6 +156,49 @@ describe('FrameworkUpdater', () => {
       to_version: PAQAD_SCHEMA_VERSION,
     });
   });
+
+  it('finishes a pending evidence migration on a later update (issue #581, AC-28)', async () => {
+    // Already at the current schema, so the one-time migrator does not run again; a run the
+    // migration left behind (another session held it then) is still moved on this update.
+    writeFileSync(
+      schemaMarkerPath(projectRoot),
+      JSON.stringify({
+        paqad_schema_version: PAQAD_SCHEMA_VERSION,
+        written_at: '2025-01-01T00:00:00.000Z',
+        written_by_engine_version: VERSION,
+      }),
+    );
+    const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
+    mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(existsSync(join(projectRoot, '.paqad/_specs'))).toBe(false);
+    expect(
+      readFileSync(join(projectRoot, '.paqad/ledger/feature-evidence', run, 'request.md'), 'utf8'),
+    ).toContain('# Gamma');
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'goes on with the update when the evidence migration cannot delete a file (issue #581)',
+    async () => {
+      const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
+      mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
+      writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
+      // A read-only parent refuses the delete, as a Windows lock (EBUSY/EPERM) would.
+      chmodSync(join(projectRoot, '.paqad/_specs'), 0o500);
+      try {
+        const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(
+          projectRoot,
+        );
+        expect(report.target_version).toBe(VERSION);
+        expect(existsSync(join(projectRoot, '.paqad/_specs', run))).toBe(true);
+      } finally {
+        chmodSync(join(projectRoot, '.paqad/_specs'), 0o700);
+      }
+    },
+  );
 
   it('refuses to update a project whose schema is newer than this engine (D2 refuse)', async () => {
     writeFileSync(

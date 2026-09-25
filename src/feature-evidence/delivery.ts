@@ -6,6 +6,11 @@
 // any session (the backfill path, for a clone/CI without the hook). All git reads are
 // best-effort and read-only — a non-git dir or detached HEAD degrades to a partial
 // record rather than throwing.
+//
+// Issue #581 — the file carries the one envelope header (`recorded_at` replaces
+// `captured_at`) and no longer the `branch` / `base_branch`: those are session constants of
+// the change, stored once in feature.json. Branch matching reads feature.json and falls back to
+// the `branch` a pre-#581 delivery.json carried.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -13,9 +18,11 @@ import { dirname, join } from 'node:path';
 
 import { readGitState } from '@/rag/git-state.js';
 
+import { stampFeatureDocument } from './bundle-document.js';
+import type { EnvelopeHeader } from './envelope.js';
 import { listFeatureDirs } from './enumerate.js';
-import { readFeatureRecord } from './feature-record.js';
-import { featureFilePath, parseFeatureDirName } from './paths.js';
+import { readChangeConstants, readFeatureRecord, updateFeatureRecord } from './feature-record.js';
+import { featureChangeKey, featureFilePath } from './paths.js';
 
 // Re-exported from its leaf home (issue #404) so every existing `delivery.js` importer
 // keeps working while `adoption.ts` can reach it without closing an import cycle.
@@ -23,7 +30,8 @@ export { listFeatureDirs };
 
 /** Doc type stamped on a `delivery.json` record. */
 export const DELIVERY_DOC_TYPE = 'paqad.delivery';
-export const DELIVERY_SCHEMA_VERSION = 1;
+/** Version 2 (issue #581): the envelope header, no branch fields. Version 1 still reads. */
+export const DELIVERY_SCHEMA_VERSION = 2;
 
 /** One commit in a feature's trail. */
 export interface DeliveryCommit {
@@ -46,16 +54,25 @@ export interface CommitDecision {
   recorded_at: string | null;
 }
 
-/** The `delivery.json` record — a feature's branch, commit trail, and merge. */
-export interface DeliveryRecord {
+/**
+ * The `delivery.json` record — a feature's commit trail and merge. The header fields are
+ * optional here because a record is read, patched in memory and re-stamped on every write; the
+ * file on disk always carries all six.
+ */
+export interface DeliveryRecord extends Partial<
+  Omit<EnvelopeHeader, 'schema_version' | 'doc_type'>
+> {
   schema_version: number;
   doc_type: typeof DELIVERY_DOC_TYPE;
-  branch: string | null;
-  base_branch: string | null;
   commits: DeliveryCommit[];
   head_sha: string | null;
   merge_commit: string | null;
-  captured_at: string | null;
+  /** Pre-#581 only (INV-8): the branch now lives in feature.json. Never written again. */
+  branch?: string | null;
+  /** Pre-#581 only (INV-8): the base branch now lives in feature.json. Never written again. */
+  base_branch?: string | null;
+  /** Pre-#581 only (INV-8): replaced by the header's `recorded_at`. Never written again. */
+  captured_at?: string | null;
   /**
    * The commit decision (issue #511, AC-4). Optional so a pre-#511 delivery.json stays
    * valid (INV-3); {@link emptyDelivery} seeds the default so every new record carries it.
@@ -77,12 +94,9 @@ function emptyDelivery(): DeliveryRecord {
   return {
     schema_version: DELIVERY_SCHEMA_VERSION,
     doc_type: DELIVERY_DOC_TYPE,
-    branch: null,
-    base_branch: null,
     commits: [],
     head_sha: null,
     merge_commit: null,
-    captured_at: null,
     commit_decision: emptyCommitDecision(),
     last_link_attempt: null,
   };
@@ -114,34 +128,90 @@ export function readFeatureDelivery(projectRoot: string, dirName: string): Deliv
   return emptyDelivery();
 }
 
-/** Write a feature's `delivery.json` (atomic). */
+/**
+ * Write a feature's `delivery.json` (atomic), re-stamped with the envelope header (issue #581).
+ * Only the delivery body is kept: the legacy `branch` / `base_branch` / `captured_at` of a
+ * record read from an old file are dropped, so every write is the new shape (INV-9). A legacy
+ * branch or base that feature.json does not have yet is copied there first, so rewriting an
+ * old record never loses the branch its commits are matched on. `recordedAt` is when the record
+ * was last touched.
+ */
 export function writeFeatureDelivery(
   projectRoot: string,
   dirName: string,
   record: DeliveryRecord,
-): void {
-  atomicWriteJson(join(projectRoot, featureFilePath(dirName, 'delivery')), record);
+  recordedAt?: string,
+  sessionId?: string | null,
+): DeliveryRecord {
+  if (record.branch || record.base_branch) {
+    const current = readFeatureRecord(projectRoot, dirName);
+    recordBranch(
+      projectRoot,
+      dirName,
+      current?.branch ? null : record.branch,
+      current?.base_branch ? null : record.base_branch,
+    );
+  }
+  const stamped = stampFeatureDocument({
+    projectRoot,
+    dirName,
+    docType: DELIVERY_DOC_TYPE,
+    schemaVersion: DELIVERY_SCHEMA_VERSION,
+    sessionId,
+    now: recordedAt === undefined ? undefined : () => new Date(recordedAt),
+    body: {
+      commits: record.commits,
+      head_sha: record.head_sha,
+      merge_commit: record.merge_commit,
+      commit_decision: record.commit_decision ?? emptyCommitDecision(),
+      last_link_attempt: record.last_link_attempt ?? null,
+    },
+  }) as DeliveryRecord;
+  atomicWriteJson(join(projectRoot, featureFilePath(dirName, 'delivery')), stamped);
+  return stamped;
 }
 
 /**
- * Seed a feature's `delivery.json` at open with the branch + base_branch (issue #511, RC-2).
- * This is what makes `resolveDeliveryFeatureByBranch` work for the FIRST commit — before
- * this, delivery.json was written only by the git hook, which resolved "no feature" because
- * nothing seeded the branch to match on. Idempotent: an existing record keeps its commits +
- * commit_decision and only back-fills a still-null branch/base. Best-effort by contract.
+ * The branch a feature is built on: feature.json first (the one home since #581), else the
+ * `branch` a pre-#581 delivery.json recorded (INV-8), else null.
+ */
+export function featureDeliveryBranch(projectRoot: string, dirName: string): string | null {
+  return (
+    readChangeConstants(projectRoot, dirName).branch ??
+    readFeatureDelivery(projectRoot, dirName).branch ??
+    null
+  );
+}
+
+/** Record a branch or base the git state knows on feature.json (a no-op when unchanged). */
+function recordBranch(
+  projectRoot: string,
+  dirName: string,
+  branch: string | null | undefined,
+  baseBranch?: string | null,
+): void {
+  const patch: { branch?: string; base_branch?: string } = {};
+  if (branch) patch.branch = branch;
+  if (baseBranch) patch.base_branch = baseBranch;
+  if (Object.keys(patch).length > 0) {
+    updateFeatureRecord(projectRoot, dirName, patch);
+  }
+}
+
+/**
+ * Seed a feature's `delivery.json` at open (issue #511, RC-2), so every bundle carries its
+ * delivery record (and its commit decision) from birth. The branch to match the FIRST commit on
+ * is seeded on feature.json by the same open (issue #581). Idempotent: an existing record keeps
+ * its commits + commit_decision. Best-effort by contract.
  */
 export function seedFeatureDelivery(
   projectRoot: string,
   dirName: string,
-  input: { branch: string | null; baseBranch: string | null; capturedAt: string },
+  input: { sessionId: string; recordedAt: string },
 ): DeliveryRecord {
   const record = readFeatureDelivery(projectRoot, dirName);
-  record.branch = record.branch ?? input.branch;
-  record.base_branch = record.base_branch ?? input.baseBranch;
   record.commit_decision = record.commit_decision ?? emptyCommitDecision();
-  record.captured_at = input.capturedAt;
-  writeFeatureDelivery(projectRoot, dirName, record);
-  return record;
+  return writeFeatureDelivery(projectRoot, dirName, record, input.recordedAt, input.sessionId);
 }
 
 /** Record the commit decision (issue #511, AC-4) on a feature's delivery record. */
@@ -153,9 +223,7 @@ export function setCommitDecision(
 ): DeliveryRecord {
   const record = readFeatureDelivery(projectRoot, dirName);
   record.commit_decision = { asked: answer !== 'user-requested', answer, recorded_at: recordedAt };
-  record.captured_at = recordedAt;
-  writeFeatureDelivery(projectRoot, dirName, record);
-  return record;
+  return writeFeatureDelivery(projectRoot, dirName, record, recordedAt);
 }
 
 /** Stamp why `delivery-link` could not link a commit (issue #511, RC-2.6). */
@@ -167,8 +235,7 @@ export function recordLinkAttempt(
 ): DeliveryRecord {
   const record = readFeatureDelivery(projectRoot, dirName);
   record.last_link_attempt = `${capturedAt}: ${reason}`;
-  writeFeatureDelivery(projectRoot, dirName, record);
-  return record;
+  return writeFeatureDelivery(projectRoot, dirName, record, capturedAt);
 }
 
 /**
@@ -187,9 +254,7 @@ export function appendCommitToFeature(
     record.commits.push(commit);
   }
   record.head_sha = commit.sha;
-  record.captured_at = capturedAt;
-  writeFeatureDelivery(projectRoot, dirName, record);
-  return record;
+  return writeFeatureDelivery(projectRoot, dirName, record, capturedAt);
 }
 
 function git(projectRoot: string, args: string[]): string | undefined {
@@ -231,7 +296,8 @@ export function commitsSinceBase(
  * that runs on any session so a clone/CI without the `post-commit` hook still gets
  * accurate linkage. Reads the branch/base/head and the full commit trail (base..HEAD),
  * unions the commits with any already recorded (hook-appended), and stamps
- * `captured_at`. Best-effort: a non-git dir yields a record with null git fields.
+ * `recorded_at`. The branch and base go to feature.json (issue #581). Best-effort: a non-git
+ * dir yields a record with null git fields.
  */
 export function reconcileDeliveryFromGit(
   projectRoot: string,
@@ -248,12 +314,9 @@ export function reconcileDeliveryFromGit(
       seen.add(commit.sha);
     }
   }
-  record.branch = state.branch ?? record.branch;
-  record.base_branch = state.base_branch ?? record.base_branch;
+  recordBranch(projectRoot, dirName, state.branch, state.base_branch);
   record.head_sha = state.head_commit ?? record.head_sha;
-  record.captured_at = capturedAt;
-  writeFeatureDelivery(projectRoot, dirName, record);
-  return record;
+  return writeFeatureDelivery(projectRoot, dirName, record, capturedAt);
 }
 
 /** Stamp `merge_commit` on a feature's delivery record (the `post-merge` hook path). */
@@ -265,20 +328,13 @@ export function stampMergeCommit(
 ): DeliveryRecord {
   const record = readFeatureDelivery(projectRoot, dirName);
   record.merge_commit = mergeSha;
-  record.captured_at = capturedAt;
-  writeFeatureDelivery(projectRoot, dirName, record);
-  return record;
-}
-
-/** The trailing ULID of a feature dir name (time-sortable), or the name itself if it
- *  does not parse (defensive — every listed dir is a validated feature name). */
-function ulidOf(dirName: string): string {
-  return parseFeatureDirName(dirName)?.ulid ?? dirName;
+  return writeFeatureDelivery(projectRoot, dirName, record, capturedAt);
 }
 
 /**
  * Resolve which feature a commit on `branch` belongs to (the `post-commit` hook's
- * branch resolution). A feature matches when its `delivery.json` records that branch.
+ * branch resolution). A feature matches when it records that branch (feature.json, or the
+ * `delivery.json` of a pre-#581 bundle).
  * Documented tie-break for a shared branch: the active-feature pointer wins, else the
  * most-recent matching feature (dir names sort by their trailing ULID, which is
  * time-ordered), else null.
@@ -289,7 +345,7 @@ export function resolveDeliveryFeatureByBranch(
   activeDirName?: string | null,
 ): string | null {
   const matches = listFeatureDirs(projectRoot).filter(
-    (dirName) => readFeatureDelivery(projectRoot, dirName).branch === branch,
+    (dirName) => featureDeliveryBranch(projectRoot, dirName) === branch,
   );
   if (matches.length === 0) return null;
   if (activeDirName && matches.includes(activeDirName)) return activeDirName;
@@ -299,7 +355,7 @@ export function resolveDeliveryFeatureByBranch(
   // Most-recent orders by the trailing ULID (time-sortable), NOT the full dir name — the
   // slug prefix would otherwise dominate the ordering. The max ULID is newest.
   const newest = (dirs: string[]): string | null =>
-    [...dirs].sort((x, y) => ulidOf(x).localeCompare(ulidOf(y))).at(-1) ?? null;
+    [...dirs].sort((x, y) => featureChangeKey(x).localeCompare(featureChangeKey(y))).at(-1) ?? null;
   const notDone = matches.filter(
     (dirName) => readFeatureRecord(projectRoot, dirName)?.status !== 'done',
   );
@@ -327,14 +383,13 @@ export function recordCommitForBranch(
     (branch ? resolveDeliveryFeatureByBranch(projectRoot, branch, active) : null) ?? active;
   if (!dirName) return null;
   const record = readFeatureDelivery(projectRoot, dirName);
-  if (record.branch === null && branch) {
-    record.branch = branch;
+  if (featureDeliveryBranch(projectRoot, dirName) === null) {
+    recordBranch(projectRoot, dirName, branch);
   }
   if (!record.commits.some((c) => c.sha === commit.sha)) {
     record.commits.push(commit);
   }
   record.head_sha = commit.sha;
-  record.captured_at = capturedAt;
-  writeFeatureDelivery(projectRoot, dirName, record);
+  writeFeatureDelivery(projectRoot, dirName, record, capturedAt);
   return dirName;
 }

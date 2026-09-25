@@ -4,6 +4,7 @@
 // to derive a band + the exact prompt the user should type next. `unknown`
 // until `analyze rules` has produced a map (onboarding plants the prompt).
 
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readAllFeatureRuleRuns } from '@/feature-evidence/projections.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
@@ -29,7 +30,9 @@ function latestFindingsRow(rows: readonly SessionLedgerRow[]): { deterministic: 
   if (findings.length === 0) {
     return null;
   }
-  const latest = findings.reduce((best, row) => (row.ts >= best.ts ? row : best));
+  // A bundle row since #581 carries `recorded_at`; an older one `ts`. `rowRecordedAt` reads either.
+  const at = (row: SessionLedgerRow): string => rowRecordedAt(row) ?? '';
+  const latest = findings.reduce((best, row) => (at(row) >= at(best) ? row : best));
   const counts = latest.counts as { deterministic?: number } | undefined;
   return { deterministic: counts?.deterministic ?? 0 };
 }

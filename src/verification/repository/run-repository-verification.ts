@@ -15,6 +15,7 @@ import type {
   VerificationGate,
   VerificationOrigin,
 } from '@/core/types/verification.js';
+import type { EvidenceFileDigest, EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { syncModuleHealthFromVerification } from '@/planning/module-health-updater.js';
@@ -36,14 +37,14 @@ import {
   appendFeatureEvidenceRows,
 } from '@/feature-evidence/bundle-ledgers.js';
 import { reuseCounts } from '@/feature-evidence/reuse.js';
+import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
-import {
-  currentFeature,
-  foldFeature,
-  readFeatureStageUnit,
-} from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
+import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import {
@@ -318,7 +319,7 @@ export async function runRepositoryVerification(
   try {
     const stageFileDigests = await computeFileDigests(context.project_root, context.changed_files);
     stageResult = finalizeStageEvidence(context.project_root, {
-      adapter: 'backstop',
+      adapter: BACKSTOP_WRITER,
       // Buildout F5b (#5) — use the live host session id when the hook supplied
       // one, so the completion seam writes under the same session as the prompt
       // seam instead of a stale cached id. Null falls back to the cache as before.
@@ -433,24 +434,52 @@ export async function runRepositoryVerification(
   // Never block verification on a ledger/receipt failure: a missing receipt is a
   // weaker trust signal, not a verdict.
   //
-  // Issue #187 — the whole ledger is an opt-in enterprise capability, off by
-  // default. Resolve the policy once and skip the entire block when nothing is
-  // enabled, so a normal user pays zero tokens (no citation resolution) and
-  // writes no `.paqad/ledger/` files. Sub-flags gate each write independently.
+  // Issue #581 — the bundle's evidence.jsonl is always on: the graded rows land in the active
+  // feature's bundle whatever the enterprise toggles, so every change records one row per gate
+  // that ran. Only the receipt that seals those rows and the AI-BOM stay enterprise capabilities
+  // (issue #187): they resolve the policy once and skip the whole receipt block when nothing is
+  // enabled, so a normal user pays zero tokens (no citation resolution).
   const policy = resolveEnterprisePolicy(readProjectProfile(context.project_root));
+  // Issue #390 — no bundle write for a route we can prove is non-feature-development, even if
+  // a pointer is active. No active feature (a framework-internal change, or none open) simply
+  // skips the bundle writes.
+  const bundleSessionId = resolveSessionId(context.project_root, options.hostSessionId ?? null);
+  const activeFeature = currentFeature(context.project_root, bundleSessionId);
+  const bundleFeature =
+    activeFeature &&
+    !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
+      ? activeFeature
+      : null;
   // Issue #579 — where the late gates (bundle-completeness, visual-evidence, rules-loaded) land
-  // in the bundle's evidence.jsonl. Set below under the same scope + evidence_ledger policy as
-  // the graded rows; those gates run after this block, so their rows are appended at the end.
+  // in the bundle's evidence.jsonl. Set below under the same scope as the graded rows; those
+  // gates run after this block, so their rows are appended at the end.
   let lateGateRowTarget: { sessionId: string; ctx: RowContext } | null = null;
-  if (writesLedger(policy)) {
+  let graded: {
+    fileDigests: EvidenceFileDigest[];
+    rows: EvidenceLedgerRow[];
+  } | null = null;
+  try {
+    const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
+    const subjectDigest = computeChangeSubjectDigest(fileDigests);
+    const rowCtx = { subjectDigest, ts: completedAt };
+    const rows = [
+      ...gateResultsToRows(results, rowCtx),
+      ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
+    ];
+    graded = { fileDigests, rows };
+    if (bundleFeature) {
+      // Issue #468 — the graded rows land in the active feature's `evidence.jsonl`. Written
+      // BEFORE the receipt below, which seals the file as it stands (issue #581).
+      appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
+      lateGateRowTarget = { sessionId: bundleSessionId, ctx: rowCtx };
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: could not record evidence rows (${message})`);
+  }
+  if (writesLedger(policy) && graded && bundleFeature) {
+    const { fileDigests, rows } = graded;
     try {
-      const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
-      const subjectDigest = computeChangeSubjectDigest(fileDigests);
-      const rowCtx = { subjectDigest, ts: completedAt };
-      const rows = [
-        ...gateResultsToRows(results, rowCtx),
-        ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
-      ];
       // Issue #120 — fold change authorship (which adapter/model wrote it, who
       // accepted it) into the receipt so the attestation is gate-derived yet
       // producer-attributed. Resolution never throws; absent authorship simply
@@ -477,47 +506,32 @@ export async function runRepositoryVerification(
       //
       // Issue #343 B — project the per-feature receipt + AI-BOM into the active feature's
       // bundle from the graded rows, honouring the enterprise flags (`evidence_ledger` →
-      // receipt.json + evidence.jsonl, `ai_bom` → ai-bom.json). Best-effort: no active
-      // feature (a framework-internal change, or none open) simply skips the bundle write.
-      const bundleSessionId = resolveSessionId(context.project_root, options.hostSessionId ?? null);
-      const activeFeature = currentFeature(context.project_root, bundleSessionId);
-      // Issue #390 — do not project receipt.json / ai-bom.json into a feature bundle for
-      // a route we can prove is non-feature-development, even if a pointer is active.
-      if (
-        activeFeature &&
-        !routeIsAffirmativelyNonFeature(context.project_root, options.hostSessionId ?? null)
-      ) {
-        // Issue #468 — the SAME graded rows land in the active feature's `evidence.jsonl`,
-        // honouring the `evidence_ledger` flag. Best-effort: riding the enclosing try/catch,
-        // it introduces no throw into verdict computation.
-        if (policy.evidence_ledger) {
-          appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
-          lateGateRowTarget = { sessionId: bundleSessionId, ctx: rowCtx };
-        }
-        projectFeatureReceipt(context.project_root, activeFeature, {
-          fileDigests,
-          rows,
-          verifierVersion: verifierVersion(),
-          timeVerified: completedAt,
-          write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
-          // Issue #468 Phase B — carry the authorship/compliance/reproducibility resolved
-          // above so the per-feature receipt is a complete attestation record now that it is
-          // the only one (D5). Each is omitted when absent.
-          authorship,
-          ...(complianceCitations !== undefined ? { complianceCitations } : {}),
-          ...(reproducibility !== undefined ? { reproducibility } : {}),
-          // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
-          ...(changeMetrics
-            ? {
-                metrics: {
-                  dup_new_pct: changeMetrics.dup_new_pct,
-                  reuse_rate: changeMetrics.reuse_rate,
-                  meaningful_changed_lines: changeMetrics.meaningful_changed_lines,
-                },
-              }
-            : {}),
-        });
-      }
+      // receipt.json, `ai_bom` → ai-bom.json). The receipt seals evidence.jsonl rather than
+      // copying its rows (issue #581).
+      projectFeatureReceipt(context.project_root, bundleFeature, {
+        fileDigests,
+        rows,
+        verifierVersion: verifierVersion(),
+        timeVerified: completedAt,
+        sessionId: bundleSessionId,
+        write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
+        // Issue #468 Phase B — carry the authorship/compliance/reproducibility resolved
+        // above so the per-feature receipt is a complete attestation record now that it is
+        // the only one (D5). Each is omitted when absent.
+        authorship,
+        ...(complianceCitations !== undefined ? { complianceCitations } : {}),
+        ...(reproducibility !== undefined ? { reproducibility } : {}),
+        // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
+        ...(changeMetrics
+          ? {
+              metrics: {
+                dup_new_pct: changeMetrics.dup_new_pct,
+                reuse_rate: changeMetrics.reuse_rate,
+                meaningful_changed_lines: changeMetrics.meaningful_changed_lines,
+              },
+            }
+          : {}),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: could not project evidence receipt (${message})`);
@@ -554,6 +568,19 @@ export async function runRepositoryVerification(
       ? completenessActive
       : null;
   const completenessMode = resolveBundleCompletenessMode(context.project_root);
+  // Issue #581 (FR-11) — rewrite the change's decisions.json index from the tracked packets
+  // before the gate reads the bundle, so a decision resolved outside `decision resolve` (the
+  // dashboard, an older packet) is listed too. Best-effort — it never changes the verdict.
+  if (completenessDir) {
+    try {
+      writeFeatureDecisionsIndex(context.project_root, completenessDir, {
+        sessionId: completenessSession,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      engineLog('warn', `paqad: decisions index skipped (${message})`);
+    }
+  }
   // Issue #579 — every late gate pushed below, skips included, for the evidence.jsonl rows.
   const lateGates: VerificationEvidenceGate[] = [];
   const frameworkConfig = resolveFrameworkConfig(context.project_root);
@@ -569,6 +596,10 @@ export async function runRepositoryVerification(
         engineLog('warn', `paqad: delivery reconcile skipped (${message})`);
       }
     }
+    // Issue #547 (FR-10.1) / #581 — the spec-pipeline flags, read via layeredConfigMap (not
+    // src/spec-pipeline) so the FR-11 import ban holds: src/verification/** must not import the
+    // pipeline.
+    const pipelineFlags = readSpecPipelineFlags(context.project_root);
     const completenessGate = bundleCompletenessGate({
       projectRoot: context.project_root,
       sessionId: completenessSession,
@@ -585,14 +616,9 @@ export async function runRepositoryVerification(
         enterprise: policy.enabled,
         evidenceLedger: policy.evidence_ledger,
         aiBom: policy.ai_bom,
-        // Issue #547 (FR-10.1). Read via layeredConfigMap (not src/spec-pipeline) so the FR-11
-        // import ban holds: src/verification/** must not import the pipeline.
-        specPipelineStrict: (() => {
-          const map = layeredConfigMap(context.project_root);
-          const truthy = new Set(['1', 'true', 'yes', 'on']);
-          const enabled = truthy.has((map.get('spec_pipeline_enabled') ?? '').trim().toLowerCase());
-          return enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict';
-        })(),
+        specPipelineStrict: pipelineFlags.strict,
+        specPipelineEnabled: pipelineFlags.enabled,
+        expertsEnabled: pipelineFlags.experts,
         // Issue #573 — was stage isolation EXPECTED for this change? Read from the bundle's
         // own open row (lane + recorded host adapter), never from config: whether isolation
         // applied is a property of the change, not a project setting. Fails toward silence —
@@ -604,6 +630,9 @@ export async function runRepositoryVerification(
         ),
       },
       changeMetrics,
+      // Issue #581 — the late-gate rows (this gate's included) are appended to evidence.jsonl
+      // below whenever a row target was set, so the file is written by this run.
+      evidenceRowsPending: lateGateRowTarget !== null,
     });
     if (completenessGate) {
       evidence.gates.push(completenessGate);
@@ -693,8 +722,9 @@ export async function runRepositoryVerification(
 
   // Issue #579 — record the late gates in the bundle's evidence.jsonl too, so a skipped or
   // failed visual-evidence / completeness / rules-loaded gate is on the ledger, not only in the
-  // session verdict. Same target (and so the same scope + evidence_ledger policy) as the graded
-  // rows above; the writer is best-effort and never throws.
+  // session verdict. Same target (and so the same scope) as the graded rows above, and like them
+  // always on whatever the enterprise toggles (issue #581). Appended after the receipt sealed the
+  // file, which is why the receipt records how many lines it sealed. Best-effort, never throws.
   if (lateGateRowTarget) {
     appendFeatureEvidenceRows(
       context.project_root,
@@ -793,6 +823,10 @@ export async function runRepositoryVerification(
     checksVerified: isFeatureDev ? checksVerified : undefined,
     // Issue #362 — the change-shape line, present only for feature-development changes.
     changeMetrics,
+    // Issue #581 — the `context:` line, from the bundle's stage-agent rows.
+    isolation: receiptFeature
+      ? summarizeStageIsolation(context.project_root, receiptFeature)
+      : null,
   });
 
   if (options.eventBus) {
@@ -902,8 +936,9 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
  */
 /**
  * Whether stage isolation was expected for a change (issue #573): a graduated or full lane
- * on a host that can dispatch subagents. Both facts come from the bundle's own rows, so a
- * change is judged by what it actually recorded.
+ * on a host that can dispatch subagents. Both facts are the bundle's own session constants
+ * (`feature.json`, else a pre-#581 bundle's open row), so a change is judged by what it
+ * actually recorded.
  *
  * Returns false for an unresolved lane. That is deliberate — `repository-context` fails
  * safe to 'full' for OTHER purposes, but here a null lane must not manufacture a blocking
@@ -916,16 +951,41 @@ export function stageIsolationExpected(
 ): boolean {
   if (!sessionId || !dirName) return false;
   try {
-    const fold = foldFeature(projectRoot, sessionId, dirName);
-    if (fold.lane !== 'graduated' && fold.lane !== 'full') return false;
-    const openRow = readFeatureStageUnit(projectRoot, dirName).find((row) => row.kind === 'open');
-    const adapter = typeof openRow?.adapter === 'string' ? openRow.adapter : null;
+    const { lane, adapter } = readChangeConstants(projectRoot, dirName);
+    if (lane !== 'graduated' && lane !== 'full') return false;
     return isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS);
   } catch {
     // A missing or unreadable bundle cannot prove isolation was expected, and must not
     // invent a blocking requirement.
     return false;
   }
+}
+
+/** The spec-pipeline flags the bundle-completeness manifest reads (issues #547, #581). */
+export interface SpecPipelineFlags {
+  /** spec_pipeline_enabled. */
+  enabled: boolean;
+  /** spec_pipeline_enabled && spec_pipeline_adoption === 'strict'. */
+  strict: boolean;
+  /** spec_pipeline_experts_enabled (the manifest pairs it with `enabled`). */
+  experts: boolean;
+}
+
+/**
+ * Read the spec-pipeline flags from the layered config map. Read here, not through
+ * src/spec-pipeline, so the FR-11 import ban holds (src/verification/** must not import the
+ * pipeline). Unset flags are off, matching the pipeline's own defaults.
+ */
+export function readSpecPipelineFlags(projectRoot: string): SpecPipelineFlags {
+  const map = layeredConfigMap(projectRoot);
+  const truthy = new Set(['1', 'true', 'yes', 'on']);
+  const on = (key: string): boolean => truthy.has((map.get(key) ?? '').trim().toLowerCase());
+  const enabled = on('spec_pipeline_enabled');
+  return {
+    enabled,
+    strict: enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict',
+    experts: on('spec_pipeline_experts_enabled'),
+  };
 }
 
 /**

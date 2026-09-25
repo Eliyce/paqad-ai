@@ -11,10 +11,12 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { buildFeatureRecord, computeContentHash, UNTITLED_FEATURE_TITLE } from './mint.js';
+import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+
+import { buildFeatureRecord, UNTITLED_FEATURE_TITLE } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { validateFeatureRecord } from './schema.js';
-import type { FeatureLane, FeatureRecord, FeatureStatus } from './types.js';
+import type { FeatureLane, FeatureRecord, FeatureStatus, LegacyFeatureRecord } from './types.js';
 
 function atomicWriteJson(absPath: string, value: unknown): void {
   mkdirSync(dirname(absPath), { recursive: true });
@@ -23,14 +25,47 @@ function atomicWriteJson(absPath: string, value: unknown): void {
   renameSync(tmp, absPath);
 }
 
-/** Tolerant read of a feature's `feature.json`, or null when absent/corrupt/invalid. */
+/**
+ * A pre-#581 record (schema version 1) read under the current names (INV-8): `ulid` is the
+ * `change`, `session_first_seen` the `session_id`, `created_at` the `recorded_at`. The
+ * stored `content_hash` is kept, so the next patch sees a changed identity and rewrites the
+ * file in the new shape (writers only write the new header, INV-9).
+ */
+function fromLegacyFeatureRecord(legacy: LegacyFeatureRecord): FeatureRecord {
+  return {
+    schema_version: legacy.schema_version,
+    doc_type: legacy.doc_type,
+    change: legacy.ulid,
+    session_id: legacy.session_first_seen,
+    recorded_at: legacy.created_at,
+    content_hash: legacy.content_hash,
+    issue: legacy.issue,
+    title: legacy.title,
+    slug: legacy.slug,
+    lane: legacy.lane,
+    status: legacy.status,
+    spec_id: legacy.spec_id,
+    adapter: legacy.adapter,
+    branch: legacy.branch ?? null,
+    base_branch: legacy.base_branch ?? null,
+    updated_at: legacy.updated_at,
+  };
+}
+
+/**
+ * Tolerant read of a feature's `feature.json`, or null when absent/corrupt/invalid. A record
+ * written before #581 reads too, mapped onto the current field names.
+ */
 export function readFeatureRecord(projectRoot: string, dirName: string): FeatureRecord | null {
   try {
     const parsed = JSON.parse(
       readFileSync(join(projectRoot, featureFilePath(dirName, 'feature')), 'utf8'),
     ) as unknown;
     if (validateFeatureRecord(parsed).length === 0) {
-      return parsed as FeatureRecord;
+      const record = parsed as FeatureRecord | LegacyFeatureRecord;
+      return record.schema_version === 1
+        ? fromLegacyFeatureRecord(record as LegacyFeatureRecord)
+        : (record as FeatureRecord);
     }
   } catch {
     // Absent / unreadable / malformed — fall through to null.
@@ -55,6 +90,11 @@ export interface SeedFeatureRecordInput {
   adapter: string;
   sessionId: string;
   lane?: FeatureLane;
+  /** Lifecycle status to seed with; `active` unless the evidence migration seeds `spec-only`. */
+  status?: FeatureStatus;
+  /** The git branch at open and its merge base (issue #581); null off a branch. */
+  branch?: string | null;
+  baseBranch?: string | null;
   now?: () => Date;
 }
 
@@ -86,11 +126,13 @@ export function seedFeatureRecord(
     // AC-2's "no title and no ticket" case is exactly `title === 'change' && issue === null`.
     title: parts.slug,
     slug: parts.slug,
-    ulid: parts.ulid,
+    change: parts.ulid,
     lane: input.lane ?? null,
-    status: 'active',
-    session_first_seen: input.sessionId,
+    status: input.status ?? 'active',
+    session_id: input.sessionId,
     adapter: input.adapter,
+    branch: input.branch ?? null,
+    base_branch: input.baseBranch ?? null,
     now: input.now,
   });
   try {
@@ -110,6 +152,10 @@ export interface FeatureRecordPatch {
   lane?: FeatureLane;
   status?: FeatureStatus;
   spec_id?: string | null;
+  /** Session constants (issue #581): updated in place, the latest host wins. */
+  adapter?: string;
+  branch?: string | null;
+  base_branch?: string | null;
 }
 
 /**
@@ -136,40 +182,39 @@ export function updateFeatureRecord(
       issue: parts.issue,
       title: parts.slug,
       slug: parts.slug,
-      ulid: parts.ulid,
+      change: parts.ulid,
       status: 'active',
       // The seed was missed, so provenance is unknown; a valid non-empty placeholder keeps
       // the schema satisfied without inventing a session/adapter that never opened it.
-      session_first_seen: 'unknown',
+      session_id: 'unknown',
       adapter: 'unknown',
       now,
     });
 
-  const base = {
-    schema_version: current.schema_version,
-    doc_type: current.doc_type,
+  // Re-stamped through the one envelope builder: `change` and `session_id` (the opener) and
+  // `recorded_at` (when the change opened) carry over. `updated_at` is outside the identity
+  // hash, so it is only moved (and the clock only read) once the identity has changed.
+  const next = buildFeatureRecord({
+    change: current.change,
+    session_id: current.session_id,
+    recorded_at: current.recorded_at,
     issue: patch.issue !== undefined ? patch.issue : current.issue,
     title: patch.title ?? current.title,
     slug: patch.slug ?? current.slug,
-    ulid: current.ulid,
     lane: patch.lane !== undefined ? patch.lane : current.lane,
     status: patch.status ?? current.status,
     spec_id: patch.spec_id !== undefined ? patch.spec_id : current.spec_id,
-    session_first_seen: current.session_first_seen,
-    adapter: current.adapter,
-  } satisfies Omit<FeatureRecord, 'created_at' | 'updated_at' | 'content_hash'>;
-
-  const contentHash = computeContentHash(base);
+    adapter: patch.adapter ?? current.adapter,
+    branch: patch.branch !== undefined ? patch.branch : (current.branch ?? null),
+    base_branch:
+      patch.base_branch !== undefined ? patch.base_branch : (current.base_branch ?? null),
+    now: () => new Date(current.updated_at),
+  });
   // No identity change → skip the write so a per-stage patch never churns the file.
-  if (contentHash === current.content_hash) {
+  if (next.content_hash === current.content_hash) {
     return current;
   }
-  const next: FeatureRecord = {
-    ...base,
-    created_at: current.created_at,
-    updated_at: now().toISOString(),
-    content_hash: contentHash,
-  };
+  next.updated_at = now().toISOString();
   try {
     writeFeatureRecord(projectRoot, dirName, next);
     return next;
@@ -186,4 +231,61 @@ export function updateFeatureRecord(
  */
 export function featureRecordIsUntitled(record: FeatureRecord): boolean {
   return record.title === UNTITLED_FEATURE_TITLE && record.issue === null;
+}
+
+/** The per-change session constants (issue #581, FR-6). Each is null when unknown. */
+export interface ChangeConstants {
+  adapter: string | null;
+  branch: string | null;
+  base_branch: string | null;
+  lane: FeatureLane;
+}
+
+/** The placeholder adapter a rebuilt record carries when its seed was missed. */
+const UNKNOWN_ADAPTER = 'unknown';
+
+function knownString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 && value !== UNKNOWN_ADAPTER ? value : null;
+}
+
+function knownLane(value: unknown): FeatureLane {
+  return value === 'fast' || value === 'graduated' || value === 'full' ? value : null;
+}
+
+/**
+ * Read a change's session constants (issue #581, FR-6): `feature.json` first, the only
+ * place a bundle written since #581 carries them, then the legacy `kind:'open'` stage row,
+ * where a bundle written before #581 stamped them. Each field falls back on its own, so a
+ * pre-#581 `feature.json` with no `branch` still gets the branch its open row recorded.
+ * `rows` lets a caller that already read the stage ledger skip a second read.
+ */
+export function readChangeConstants(
+  projectRoot: string,
+  dirName: string,
+  rows?: readonly SessionLedgerRow[],
+): ChangeConstants {
+  const record = readFeatureRecord(projectRoot, dirName);
+  const fromRecord: ChangeConstants = {
+    adapter: knownString(record?.adapter),
+    branch: knownString(record?.branch),
+    base_branch: knownString(record?.base_branch),
+    lane: knownLane(record?.lane),
+  };
+  if (
+    fromRecord.adapter !== null &&
+    fromRecord.branch !== null &&
+    fromRecord.base_branch !== null &&
+    fromRecord.lane !== null
+  ) {
+    return fromRecord;
+  }
+  const openRow = (
+    rows ?? readUnitFile(projectRoot, featureFilePath(dirName, 'stageEvidence'))
+  ).find((row) => row.kind === 'open');
+  return {
+    adapter: fromRecord.adapter ?? knownString(openRow?.adapter),
+    branch: fromRecord.branch ?? knownString(openRow?.branch),
+    base_branch: fromRecord.base_branch ?? knownString(openRow?.base_branch),
+    lane: fromRecord.lane ?? knownLane(openRow?.lane),
+  };
 }

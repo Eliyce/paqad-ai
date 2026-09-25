@@ -106,55 +106,54 @@ describe('the write chokepoint always supplies an agent', () => {
   }
 
   it('defaults to the orchestrator when the caller names no agent', () => {
-    appendFeatureStageRow(root, 's1', 'change-1', {
+    appendFeatureStageRow(root, 's1', 'change-01JABCDEFGHJKMNPQRSTVWXYZ1', {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
     });
 
-    expect(rowsOf('change-1')[0].agent).toBe(ORCHESTRATOR_AGENT);
+    expect(rowsOf('change-01JABCDEFGHJKMNPQRSTVWXYZ1')[0].agent).toBe(ORCHESTRATOR_AGENT);
   });
 
   it('keeps the identity a dispatched stage agent supplies', () => {
-    appendFeatureStageRow(root, 's1', 'change-2', {
+    appendFeatureStageRow(root, 's1', 'change-01JABCDEFGHJKMNPQRSTVWXYZ2', {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
       agent: 'paqad-development',
     });
 
-    expect(rowsOf('change-2')[0].agent).toBe('paqad-development');
+    expect(rowsOf('change-01JABCDEFGHJKMNPQRSTVWXYZ2')[0].agent).toBe('paqad-development');
   });
 
   it('defaults rather than failing when a caller passes agent: undefined', () => {
     // A caller threading an optional field through writes `agent: input.agent`, which is
     // an OWN property set to undefined. A naive `{ agent: default, ...row }` spread would
     // overwrite the default with undefined and fail validation.
-    appendFeatureStageRow(root, 's1', 'change-3', {
+    appendFeatureStageRow(root, 's1', 'change-01JABCDEFGHJKMNPQRSTVWXYZ3', {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
       agent: undefined,
     });
 
-    expect(rowsOf('change-3')[0].agent).toBe(ORCHESTRATOR_AGENT);
+    expect(rowsOf('change-01JABCDEFGHJKMNPQRSTVWXYZ3')[0].agent).toBe(ORCHESTRATOR_AGENT);
   });
 
   it('makes an inline run distinguishable from an isolated one', () => {
-    appendFeatureStageRow(root, 's1', 'inline', {
+    appendFeatureStageRow(root, 's1', 'inline-01JABCDEFGHJKMNPQRSTVWXYZ4', {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
     });
-    appendFeatureStageRow(root, 's1', 'isolated', {
+    appendFeatureStageRow(root, 's1', 'isolated-01JABCDEFGHJKMNPQRSTVWXYZ5', {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
       agent: 'paqad-development',
     });
 
-    expect(isStageAgent(rowsOf('inline')[0].agent as string)).toBe(false);
-    expect(isStageAgent(rowsOf('isolated')[0].agent as string)).toBe(true);
+    expect(isStageAgent(rowsOf('inline-01JABCDEFGHJKMNPQRSTVWXYZ4')[0].agent as string)).toBe(
+      false,
+    );
+    expect(isStageAgent(rowsOf('isolated-01JABCDEFGHJKMNPQRSTVWXYZ5')[0].agent as string)).toBe(
+      true,
+    );
   });
 
   it('still reads a row written before the field existed (INV-1)', () => {

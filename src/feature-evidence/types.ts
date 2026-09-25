@@ -1,3 +1,4 @@
+import type { EnvelopeHeader } from './envelope.js';
 import type { PlanReuse } from './reuse.js';
 
 // Per-feature evidence bundle types (issue #339, Phase 1 — dark foundation).
@@ -21,41 +22,100 @@ export const PLAN_DOC_TYPE = 'paqad.plan';
 /** Doc type stamped on a `review.json` record. */
 export const REVIEW_DOC_TYPE = 'paqad.review';
 
+/** Doc type stamped on a `specification.json` record (issue #581). */
+export const SPECIFICATION_DOC_TYPE = 'paqad.specification';
+
+/** Doc type in the front matter of the bundle's signed `spec.md` source (issue #581). */
+export const SPEC_SOURCE_DOC_TYPE = 'paqad.spec';
+
+/** Doc type in the front matter of the spec pipeline's `request.md` (issue #581). */
+export const REQUEST_DOC_TYPE = 'paqad.request';
+
+/** Doc type stamped on the spec pipeline's `clarification.json` (issue #581). */
+export const CLARIFICATION_DOC_TYPE = 'paqad.clarification';
+
+/** Doc type stamped on the spec pipeline's `experts.json` (issue #581). */
+export const EXPERTS_DOC_TYPE = 'paqad.experts';
+
+/** Doc type stamped on the bundle's `decisions.json` index (issue #581). */
+export const DECISIONS_DOC_TYPE = 'paqad.decisions';
+
 /** Doc type stamped on the `_session/<sessionId>.json` control. */
 export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 
-/** Schema version for the Phase-1 per-feature records. */
+/** Schema version for the Phase-1 per-feature records (and the `_session` control). */
 export const FEATURE_EVIDENCE_SCHEMA_VERSION = 1;
+
+/**
+ * Issue #581 — the schema version of `feature.json`, `plan.json`, `review.json`,
+ * `specification.json`, `spec.md`, `request.md`, `clarification.json`, `experts.json` and
+ * `decisions.json` since they carry the one envelope header. Version 1 files still read (INV-8);
+ * writers only write 2.
+ */
+export const FEATURE_DOC_SCHEMA_VERSION = 2;
 
 /** The lane a feature was routed to; `null` when the classifier picked none. */
 export type FeatureLane = 'fast' | 'graduated' | 'full' | null;
 
-/** A feature's lifecycle status within its session control. */
-export type FeatureStatus = 'active' | 'paused' | 'done';
+/**
+ * A feature's lifecycle status within its session control. `spec-only` (issue #581) marks a
+ * bundle the evidence migration created for a spec run whose change never opened.
+ */
+export type FeatureStatus = 'active' | 'paused' | 'done' | 'spec-only';
 
 /**
  * The identity + status record stored as `feature.json`. Rigid and script-owned:
  * the AJV schema rejects unknown keys, and `content_hash` is a SHA-256 over the
  * identity fields (volatile timestamps excluded) so a hand-edit is detectable.
+ *
+ * Issue #581 — it opens with the one envelope header: `change` is the ULID minted at
+ * feature birth (it was `ulid`), `session_id` the session that opened the change (it was
+ * `session_first_seen`), and `recorded_at` when the change opened (it was `created_at`).
+ * It is the only bundle file that carries `issue`, `title` and `slug` (INV-5).
  */
-export interface FeatureRecord {
-  schema_version: number;
+export interface FeatureRecord extends EnvelopeHeader {
   doc_type: typeof FEATURE_DOC_TYPE;
   /** Verbatim ticket/issue ref (`339`, `PQD-123`), or null when none was detected. */
   issue: string | null;
   title: string;
   slug: string;
-  /** The 26-char ULID minted at feature birth; the dir name's stable tail. */
-  ulid: string;
-  created_at: string;
+  /** When the record last changed; `recorded_at` stays the time the change opened. */
   updated_at: string;
   lane: FeatureLane;
   status: FeatureStatus;
   /** The frozen spec id this feature's `specification.json` carries, or null. */
   spec_id: string | null;
-  /** The session that first opened this feature (provenance). */
+  /** The host that last recorded work on this change (issue #581: one value, latest wins). */
+  adapter: string;
+  /**
+   * The git branch the change is built on, and the branch it will merge into (issue #581).
+   * Session constants live here once, never on a stage row. Optional so a record written
+   * before #581 still reads; every writer since stamps both (null off a branch).
+   */
+  branch?: string | null;
+  base_branch?: string | null;
+}
+
+/**
+ * A `feature.json` written before #581 (schema version 1): the identity under its old names.
+ * Read tolerantly and mapped onto {@link FeatureRecord}; never written again (INV-9).
+ */
+export interface LegacyFeatureRecord {
+  schema_version: 1;
+  doc_type: typeof FEATURE_DOC_TYPE;
+  issue: string | null;
+  title: string;
+  slug: string;
+  ulid: string;
+  created_at: string;
+  updated_at: string;
+  lane: FeatureLane;
+  status: FeatureStatus;
+  spec_id: string | null;
   session_first_seen: string;
   adapter: string;
+  branch?: string | null;
+  base_branch?: string | null;
   content_hash: string;
 }
 
@@ -89,18 +149,16 @@ export interface PlanRisk {
 }
 
 /**
- * The planning artifact stored as `plan.json`. Carries the feature identity plus
- * the structured plan. Rigid and script-owned (the AJV schema rejects unknown
- * keys); replaces the free-written `.paqad/plans/<change>.md` hallucination
- * surface in the later plan-compile phase.
+ * The planning artifact stored as `plan.json`. Rigid and script-owned (the AJV schema
+ * rejects unknown keys); replaces the free-written `.paqad/plans/<change>.md`
+ * hallucination surface in the later plan-compile phase.
+ *
+ * Issue #581 — it opens with the one envelope header and no longer repeats the change's
+ * `issue`, `title` or `slug`: those live in `feature.json` only (INV-5). A plan written
+ * before #581 still carries them and still reads.
  */
-export interface PlanRecord {
-  schema_version: number;
+export interface PlanRecord extends EnvelopeHeader {
   doc_type: typeof PLAN_DOC_TYPE;
-  issue: string | null;
-  title: string;
-  slug: string;
-  ulid: string;
   summary: string;
   steps: PlanStep[];
   /** Module slugs the change touches. */
@@ -114,9 +172,6 @@ export interface PlanRecord {
    * compiled since carries it, because the compile verb refuses an input without one.
    */
   reuse?: PlanReuse;
-  created_at: string;
-  updated_at: string;
-  content_hash: string;
 }
 
 /** The verdict a review reached, in the paqad narration contract's own words. */
@@ -139,15 +194,11 @@ export interface ReviewFinding {
  * wherever the model chose — including inside the bundle dir, which is meant to hold
  * only rigid, script-owned artifacts. This gives the stage the same contract
  * `plan.json` has: the model fills a template, the script builds and hashes the
- * record, and the AJV schema rejects unknown keys.
+ * record, and the AJV schema rejects unknown keys. Like `plan.json` it carries the
+ * envelope header and leaves the change identity to `feature.json` (issue #581).
  */
-export interface ReviewRecord {
-  schema_version: number;
+export interface ReviewRecord extends EnvelopeHeader {
   doc_type: typeof REVIEW_DOC_TYPE;
-  issue: string | null;
-  title: string;
-  slug: string;
-  ulid: string;
   summary: string;
   verdict: ReviewVerdict;
   findings: ReviewFinding[];
@@ -155,9 +206,6 @@ export interface ReviewRecord {
   checked: string[];
   /** How to undo the change, which the code-review rule requires the review to state. */
   rollback: string;
-  created_at: string;
-  updated_at: string;
-  content_hash: string;
 }
 
 /**

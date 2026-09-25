@@ -71,19 +71,30 @@ export function appendEvidenceRows(projectRoot: string, rows: readonly EvidenceL
  * Read graded evidence rows from an ARBITRARY project-relative JSONL file, skipping
  * malformed or wrong-shaped lines. The path-agnostic reader the per-feature bundle
  * `evidence.jsonl` (issue #468) rides on, alongside the top-level ledger.
+ *
+ * Issue #581 — a bundle row carries the envelope header, whose `recorded_at` replaces
+ * `ts`. It is returned in the one {@link EvidenceLedgerRow} view every consumer reads, with
+ * `ts` set from `recorded_at`; the bytes on disk are never rewritten, so a receipt that
+ * sealed them still verifies.
  */
 export function readEvidenceRowsAt(projectRoot: string, relPath: string): EvidenceLedgerRow[] {
   const path = join(projectRoot, relPath);
   if (!existsSync(path)) return [];
-  const raw = readFileSync(path, 'utf8');
+  return parseEvidenceRows(readFileSync(path, 'utf8'));
+}
+
+/** The graded rows in a JSONL text, in line order; the {@link readEvidenceRowsAt} parser. */
+export function parseEvidenceRows(raw: string): EvidenceLedgerRow[] {
   const out: EvidenceLedgerRow[] = [];
   for (const line of raw.split('\n')) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
     try {
-      const parsed = JSON.parse(trimmed) as EvidenceLedgerRow;
+      const parsed = JSON.parse(trimmed) as EvidenceLedgerRow & { recorded_at?: unknown };
       if (isEvidenceLedgerRow(parsed)) {
-        out.push(parsed);
+        out.push(
+          typeof parsed.ts === 'string' ? parsed : { ...parsed, ts: parsed.recorded_at as string },
+        );
       }
     } catch {
       // Skip partial/corrupt lines (mirrors readSkillAuditEvents): an append-only
@@ -110,7 +121,7 @@ function isEvidenceLedgerRow(value: unknown): value is EvidenceLedgerRow {
   if (typeof value !== 'object' || value === null) return false;
   const row = value as Record<string, unknown>;
   return (
-    typeof row.ts === 'string' &&
+    (typeof row.ts === 'string' || typeof row.recorded_at === 'string') &&
     typeof row.engine === 'string' &&
     typeof row.code === 'string' &&
     typeof row.subject_digest === 'string' &&

@@ -47,9 +47,28 @@ export const FEATURE_BUNDLE_FILES = {
   // screenshots + overview GIF live under the `screenshots/` subtree (the one
   // structured carve-out in the otherwise flat, text-only bundle).
   visualEvidence: 'visual-evidence.json',
-  // Issue #567 — one row per dispatched stage agent under stage isolation: the tokens it
-  // used and the carried history the orchestrator did not re-send. Written only when the
-  // feature ran under stage isolation, so it is an optional bundle stream.
+  // Issue #581 retired `context-efficiency.jsonl`: a dispatched stage agent's footprint is a
+  // `kind: 'stage-agent'` row in stage-evidence.jsonl now.
+  // Issue #581 (D5) — the signed spec source, copied in by `spec freeze` with the envelope
+  // header as YAML front matter. Its body hashes to `specification.json` `spec_hash`.
+  specMd: 'spec.md',
+  // Issue #581 — the spec pipeline's request, clarity label + question batch, and expert
+  // roster, written into the bundle as each pipeline step runs.
+  request: 'request.md',
+  clarification: 'clarification.json',
+  experts: 'experts.json',
+  // Issue #581 — the index of resolved decision packets linked to the change.
+  decisions: 'decisions.json',
+} as const;
+
+/**
+ * Files a bundle written before issue #581 may still hold, which no writer produces now: the
+ * re-rendered `specification.md` projection (dropped for `spec.md`, D5) and
+ * `context-efficiency.jsonl` (now `stage-agent` rows). Readers and the stray check tolerate
+ * them in a legacy bundle only, so an old or migrated bundle is never flagged for them.
+ */
+export const LEGACY_BUNDLE_FILES = {
+  specificationMd: 'specification.md',
   contextEfficiency: 'context-efficiency.jsonl',
 } as const;
 
@@ -87,6 +106,15 @@ export function featureDir(dirName: string): string {
 }
 
 /** Project-relative path to one of a feature's bundle files. */
+/**
+ * The change key of a feature bundle: the ULID at the end of its folder name (issue #581,
+ * INV-4). It never changes on a rename, so every row and document the bundle holds names the
+ * same change. A name that does not parse is returned as-is; the envelope schema rejects it.
+ */
+export function featureChangeKey(dirName: string): string {
+  return parseFeatureDirName(dirName)?.ulid ?? dirName;
+}
+
 export function featureFilePath(dirName: string, file: FeatureBundleFile): string {
   return join(featureDir(dirName), FEATURE_BUNDLE_FILES[file]);
 }
@@ -113,16 +141,12 @@ export function featureScreenshotsDir(dirName: string): string {
 }
 
 /**
- * Project-relative path to a feature's rendered `specification.md` (issue #512, Part A) — a
- * derived, human-readable projection of the frozen `specification.json`. Like `report.html`
- * (#371) it is deliberately NOT a member of {@link FEATURE_BUNDLE_FILES}, so
- * `exportFeatureBundle` never parses it as a bundle JSON. It is regenerated on every freeze
- * from the JSON, so it can never drift and is never a second source of truth (the
- * input-deletion contract of #402 stands). It is git-ignored by the managed `ledger/` line,
- * like the rest of the bundle.
+ * Project-relative path to a pre-#581 bundle's `specification.md` projection. No writer
+ * produces it any more (`spec.md` holds the signed source, issue #581 D5); it is read only
+ * so a legacy bundle that still carries one keeps passing the completeness gate.
  */
-export function featureSpecMarkdownPath(dirName: string): string {
-  return join(featureDir(dirName), 'specification.md');
+export function featureLegacySpecMarkdownPath(dirName: string): string {
+  return join(featureDir(dirName), LEGACY_BUNDLE_FILES.specificationMd);
 }
 
 /** Project-relative path to the per-session control JSON. */

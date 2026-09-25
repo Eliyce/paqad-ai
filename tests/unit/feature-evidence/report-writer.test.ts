@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -5,7 +6,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { writeFeaturePlan, writeFeatureReview } from '@/feature-evidence/artifacts.js';
-import { featureReportPath } from '@/feature-evidence/paths.js';
+import { featureReportPath, parseFeatureDirName } from '@/feature-evidence/paths.js';
+import { readHeaderScript } from '@/feature-evidence/envelope.js';
 import {
   featureReportEnabled,
   resolveReportFeatureRef,
@@ -35,7 +37,6 @@ function openWithPlan(root: string, ulidSeed: number, title: string): string {
   appendFeatureStageRow(root, 'ses_1', dir, {
     kind: 'stage_start',
     stage: 'planning',
-    adapter: 'claude-code',
   });
   writeFeaturePlan(root, 'ses_1', {
     summary: `plan for ${title}`,
@@ -59,7 +60,30 @@ describe('writeFeatureReport', () => {
     expect(existsSync(expected)).toBe(true);
     const html = readFileSync(expected, 'utf8');
     expect(html).toContain('plan for A feature');
-    expect(html).not.toMatch(/<script/i);
+    // Issue #581 — the only script is the inert JSON header tag; nothing executable.
+    expect(
+      html.replace(/<script type="application\/json" id="paqad-header">[^<]*<\/script>/, ''),
+    ).not.toMatch(/<script/i);
+  });
+
+  it('embeds the envelope header tag in the head, hashing the page without it (issue #581)', () => {
+    const root = tempRoot();
+    const dir = openWithPlan(root, 1, 'A feature');
+    const { html } = writeFeatureReport(root, dir, { generatedAt: AT, sessionId: 'ses_1' });
+    const header = readHeaderScript(html);
+    expect(header).toMatchObject({
+      schema_version: 1,
+      doc_type: 'paqad.report',
+      change: parseFeatureDirName(dir)!.ulid,
+      session_id: 'ses_1',
+      recorded_at: AT,
+    });
+    expect(html.indexOf('id="paqad-header"')).toBeLessThan(html.indexOf('</head>'));
+    const page = html.replace(
+      /<script type="application\/json" id="paqad-header">[^<]*<\/script>\n/,
+      '',
+    );
+    expect(header!.content_hash).toBe(createHash('sha256').update(page).digest('hex'));
   });
 
   it('renders with a default session label when none is supplied', () => {

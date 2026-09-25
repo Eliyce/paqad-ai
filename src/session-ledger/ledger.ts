@@ -143,8 +143,12 @@ export function currentOrdinal(projectRoot: string, docType: string, sessionId: 
   }
 }
 
-/** Keys excluded from the identity hash (volatile / non-identifying). */
-const HASH_EXCLUDED_KEYS = new Set(['ts', 'content_hash', 'note']);
+/**
+ * Keys excluded from the identity hash (volatile / non-identifying). `recorded_at` is the
+ * #581 bundle-row time field that replaces `ts`, so it is excluded the same way; a row
+ * written before #581 never carries it, so its hash is unchanged.
+ */
+const HASH_EXCLUDED_KEYS = new Set(['ts', 'recorded_at', 'content_hash', 'note']);
 
 /** SHA-256 over the row's identity fields, in a stable key order. */
 export function computeSessionRowHash(row: Record<string, unknown>): string {
@@ -367,10 +371,12 @@ function isSessionLedgerRow(value: unknown): value is SessionLedgerRow {
     return false;
   }
   const row = value as Record<string, unknown>;
+  // Issue #581 — a bundle row stamped by the envelope carries `recorded_at` instead of `ts`,
+  // so either time field makes a row readable (old and new rows in one file both read).
   return (
     typeof row.doc_type === 'string' &&
     typeof row.session_id === 'string' &&
-    typeof row.ts === 'string' &&
+    (typeof row.ts === 'string' || typeof row.recorded_at === 'string') &&
     typeof row.content_hash === 'string'
   );
 }

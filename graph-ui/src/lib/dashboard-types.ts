@@ -106,6 +106,8 @@ export interface ReceiptCheck {
   engine: string;
   verdict: EvidenceRow['verdict'];
   strength_class: EvidenceRow['strength_class'];
+  /** False for a check recorded after the receipt's seal (issue #581): not covered by it. */
+  sealed?: boolean;
 }
 
 export interface ReceiptCard {

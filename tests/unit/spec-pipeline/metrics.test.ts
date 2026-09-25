@@ -1,9 +1,23 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { featureStagePath } from '@/feature-evidence/stage-ledger.js';
+import { recordStep, writeStepArtifact } from '@/spec-pipeline/orchestrator.js';
+import {
+  appendSpecStepRow,
+  writeExpertNotes,
+  writeExpertRoster,
+  writeExpertSynthesis,
+  writeStagedJson,
+  writeStagedText,
+  type ExpertRosterEntry,
+  type StagedFile,
+} from '@/spec-pipeline/run-store.js';
+import type { ExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
 import {
   aggregateSpecPipelineMetrics,
   buildRunMetrics,
@@ -32,16 +46,20 @@ const CONFIG: PipelineConfig = {
   adoption: 'strict',
 };
 
-const DIR = 'change-1';
-function scratch(root: string, dir = DIR): string {
-  const p = join(root, '.paqad', '_specs', dir, 'pipeline');
-  mkdirSync(p, { recursive: true });
-  return p;
+const DIR = '547-metrics-01JABCDEFGHJKMNPQRSTVWXYZ0';
+function stage(root: string, file: StagedFile, value: unknown): void {
+  if (typeof value === 'string') writeStagedText(root, DIR, file, value);
+  else writeStagedJson(root, DIR, file, value);
 }
-function write(root: string, file: string, value: unknown, dir = DIR): void {
-  const body = typeof value === 'string' ? value : JSON.stringify(value);
-  writeFileSync(join(scratch(root, dir), file), body, 'utf8');
-}
+const SYNTHESIS: ExpertSynthesis = {
+  verdict: 'ready',
+  accepted: [],
+  declined: [],
+  conflicts: [],
+  gaps: [],
+  questions: [],
+  tokens: 700,
+};
 
 const SPEC = [
   '## Functional requirements',
@@ -55,42 +73,52 @@ const SPEC = [
 describe('buildRunMetrics', () => {
   it('measures the run from its artifacts (FR-11.1)', () => {
     const root = tempRoot();
-    write(root, 'grounding.json', {
-      references: [],
-      terms: ['invoice'],
-      sparse: true,
-      path: 'rag',
-    });
-    write(root, 'label.json', {
-      label: 'okay',
-      signals: [{ kind: 'x', span: 'y' }],
-      question_budget: 3,
-    });
-    write(root, 'questions.json', {
-      questions: [],
-      auto_answered: [{ question: 'q', answer: 'a', source: 'D-1' }],
-      asked: 1,
-      answered: 1,
-      deferred: 0,
-      tokens: 400,
-    });
-    write(root, 'task.json', { intent: 'x', tokens: 200 });
-    write(root, 'trace.json', { entries: [], tokens: 900 });
-    write(root, 'spec.md', SPEC);
-    write(root, 'experts.json', { experts: [{ role: 'db-expert', reason: 'r' }] });
-    write(root, 'expert-notes.json', {
+    stage(root, 'grounding', { references: [], terms: ['invoice'], sparse: true, path: 'rag' });
+    writeStepArtifact(
+      root,
+      DIR,
+      'label',
+      JSON.stringify({
+        label: 'okay',
+        signals: [{ kind: 'too-short', span: 'y' }],
+        question_budget: 3,
+      }),
+    );
+    writeStepArtifact(
+      root,
+      DIR,
+      'questions',
+      JSON.stringify({
+        questions: [],
+        auto_answered: [{ question: 'q', answer: 'a', source: 'D-1' }],
+        asked: 1,
+        answered: 1,
+        deferred: 0,
+      }),
+    );
+    // The agent's question-round tokens ride on the step's latest complete spec-step row.
+    recordStep(root, DIR, 'questions', 'skipped', { tokens: 1 });
+    recordStep(root, DIR, 'task', 'complete', { tokens: 2 });
+    recordStep(root, DIR, 'questions', 'complete', { tokens: 400 });
+    stage(root, 'task', { intent: 'x', tokens: 200 });
+    stage(root, 'trace', { entries: [], tokens: 900 });
+    stage(root, 'craft', SPEC);
+    writeExpertRoster(root, DIR, [
+      {
+        role: 'db-expert',
+        reason: 'r',
+        lens: 'lens',
+        budget_tokens: 6000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: null,
+      },
+    ]);
+    writeExpertNotes(root, DIR, {
       notes: [{ role: 'db-expert', findings: [] }],
       tokens: { 'db-expert': 1100 },
     });
-    write(root, 'expert-synthesis.json', {
-      verdict: 'ready',
-      accepted: [],
-      declined: [],
-      conflicts: [],
-      gaps: [],
-      questions: [],
-      tokens: 700,
-    });
+    writeExpertSynthesis(root, DIR, SYNTHESIS);
 
     const metrics = buildRunMetrics(root, DIR, CONFIG, true, 'live');
     expect(metrics.grounding_sparse).toBe(true);
@@ -112,9 +140,26 @@ describe('buildRunMetrics', () => {
     expect(metrics.freeze_checks_fired.join(' ')).toMatch(/not human-confirmed/);
   });
 
+  it('counts the experts from the roster before any notes are recorded', () => {
+    const root = tempRoot();
+    writeExpertRoster(root, DIR, [
+      {
+        role: 'db-expert',
+        reason: 'r',
+        lens: 'lens',
+        budget_tokens: 6000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: null,
+      },
+    ]);
+    const metrics = buildRunMetrics(root, DIR, CONFIG, false, 'absent');
+    expect(metrics.expert_count).toBe(1);
+    expect(metrics.tokens_by_step).toEqual({});
+  });
+
   it('degrades to neutral defaults for a bare run', () => {
     const root = tempRoot();
-    scratch(root);
     const metrics = buildRunMetrics(root, DIR, CONFIG, false, 'absent');
     expect(metrics.grounding_sparse).toBe(false);
     expect(metrics.grounding_path).toBe('docs-fallback');
@@ -141,56 +186,138 @@ describe('recordSpecCorrection', () => {
     });
     const rows = readSpecCorrections(root, DIR);
     expect(rows).toHaveLength(2);
-    expect(rows[0]!.changed_sections).toEqual(['acceptance_criteria']);
+    expect(rows[0]).toEqual({
+      spec_id: 'S-1',
+      changed_sections: ['acceptance_criteria'],
+      at: '2026-09-10T00:00:00.000Z',
+    });
+    // Stored as kind: 'spec-correction' rows on the bundle's stage evidence (issue #581).
+    const ledger = readFileSync(join(root, featureStagePath(DIR)), 'utf8');
+    expect(ledger).toContain('"kind":"spec-correction"');
   });
 });
 
 describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
-  it('aggregates experts, tokens, conflicts, corrections and labels across runs (FR-11.4)', () => {
+  const LEGACY = '540-legacy-01JABCDEFGHJKMNPQRSTVWXYZ1';
+  const MANUAL = '541-manual-01JABCDEFGHJKMNPQRSTVWXYZ2';
+  const STAGED = '542-staged-01JABCDEFGHJKMNPQRSTVWXYZ3';
+
+  function writeSpecification(root: string, dirName: string, body: unknown): void {
+    const path = join(root, featureFilePath(dirName, 'specification'));
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(body), 'utf8');
+  }
+
+  function roster(role: 'db-expert' | 'security-auditor'): ExpertRosterEntry {
+    return {
+      role,
+      reason: 'r',
+      lens: 'lens',
+      budget_tokens: 6000,
+      grounding_truncated: false,
+      brief_hash: 'h',
+      tokens_used: null,
+    };
+  }
+
+  it('aggregates experts, tokens, corrections and labels from the bundles alone (FR-16)', () => {
     const root = tempRoot();
-    write(root, 'finish.json', {
-      provenance: {
-        experts: {
-          accounting: {
-            experts: [
-              { role: 'db-expert', tokens: 1000, changed_spec: true },
-              { role: 'security-auditor', tokens: 500, changed_spec: false },
-            ],
-          },
-          conflicts: [{ target: 'x' }],
-        },
-        metrics: { label: 'okay', grounding_sparse: true, tokens_by_step: { craft: 900 } },
-      },
+    // A change frozen since #581: the run lives in specification.json + the bundle files.
+    writeExpertRoster(root, DIR, [roster('db-expert'), roster('security-auditor')]);
+    writeExpertNotes(root, DIR, {
+      notes: [
+        { role: 'db-expert', findings: [{ id: 'EX-db-expert-1', target: 't', claim: 'c' }] },
+        { role: 'security-auditor', findings: [] },
+      ],
+      tokens: { 'db-expert': 1000, 'security-auditor': 500 },
     });
-    write(root, 'expert-synthesis.json', {
-      verdict: 'ready',
-      accepted: [],
-      declined: [],
-      conflicts: [],
-      gaps: [],
-      questions: [],
-      tokens: 0,
+    writeExpertSynthesis(root, DIR, {
+      ...SYNTHESIS,
       auto_resolved: [{ target: 'x', chosen: 'c', source: 'D-1' }],
+    });
+    writeStepArtifact(
+      root,
+      DIR,
+      'label',
+      JSON.stringify({ label: 'okay', signals: [], question_budget: 3 }),
+    );
+    recordStep(root, DIR, 'craft', 'complete', { tokens: 100 });
+    // A redo clears the step's tokens until it completes again.
+    appendSpecStepRow(root, DIR, { step: 'craft', outcome: 'redone', artifactHash: '' });
+    recordStep(root, DIR, 'task', 'complete', { tokens: 50 });
+    appendSpecStepRow(root, DIR, { step: 'task', outcome: 'redone', artifactHash: '' });
+    recordStep(root, DIR, 'craft', 'complete', { tokens: 900 });
+    writeSpecification(root, DIR, {
+      pipeline: { produced: true, outcome: 'freeze' },
+      grounding: { path: 'rag', sparse: true, references: [] },
+      trace: { 'FR-1': 'EX-db-expert-1' },
     });
     recordSpecCorrection(root, DIR, {
       spec_id: 'S-1',
       changed_sections: ['acceptance_criteria', 'invariants'],
-      at: 'now',
+      at: '2026-09-12T00:00:00Z',
     });
 
-    expect(listRunDirs(root)).toEqual([DIR]);
+    // A change frozen before #581: its provenance block still counts (INV-8).
+    writeSpecification(root, LEGACY, {
+      provenance: {
+        pipeline_produced: true,
+        label: 'vague',
+        grounding: { sparse: true, path: 'rag' },
+        experts: { roles: ['db-expert'], accepted: 1, declined: 0, conflicts: 2, auto_resolved: 0 },
+      },
+    });
+
+    // A hand-frozen change: no run, but its corrections still count.
+    writeSpecification(root, MANUAL, { pipeline: { produced: false, manual_reason: 'hotfix' } });
+    recordSpecCorrection(root, MANUAL, {
+      spec_id: 'S-2',
+      changed_sections: ['behaviour'],
+      at: '2026-09-12T00:00:00Z',
+    });
+
+    // A change whose run is finished but not yet frozen.
+    writeStagedJson(root, STAGED, 'finish', {
+      outcome: 'freeze',
+      provenance: { outcome: 'freeze' },
+    });
+    writeStagedJson(root, STAGED, 'grounding', {
+      references: [],
+      terms: [],
+      sparse: false,
+      path: 'rag',
+    });
+    mkdirSync(join(root, featureDir(STAGED)), { recursive: true });
+
+    expect(listRunDirs(root)).toEqual([LEGACY, MANUAL, STAGED, DIR]);
     const report = aggregateSpecPipelineMetrics(root, listRunDirs(root));
-    expect(report.runs).toBe(1);
-    expect(report.experts_fired['db-expert']).toBe(1);
-    expect(report.changed_spec_rate['db-expert']).toEqual({ fired: 1, changed: 1 });
+    expect(report.runs).toBe(3);
+    expect(report.experts_fired).toEqual({ 'db-expert': 2, 'security-auditor': 1 });
+    // db-expert's finding is a trace source, so it changed the spec; the legacy run cannot say.
+    expect(report.changed_spec_rate['db-expert']).toEqual({ fired: 2, changed: 1 });
     expect(report.changed_spec_rate['security-auditor']).toEqual({ fired: 1, changed: 0 });
-    expect(report.tokens_by_role['db-expert']).toBe(1000);
-    expect(report.tokens_by_step.craft).toBe(900);
-    expect(report.conflicts).toBe(1);
+    expect(report.tokens_by_role).toEqual({ 'db-expert': 1000, 'security-auditor': 500 });
+    expect(report.tokens_by_step).toEqual({ craft: 900, experts: 700 });
+    expect(report.conflicts).toBe(2);
     expect(report.auto_resolved).toBe(1);
-    expect(report.corrections_by_section).toEqual({ acceptance_criteria: 1, invariants: 1 });
-    expect(report.label_distribution).toEqual({ okay: 1 });
-    expect(report.grounding_sparse_runs).toBe(1);
+    expect(report.corrections_by_section).toEqual({
+      acceptance_criteria: 1,
+      invariants: 1,
+      behaviour: 1,
+    });
+    expect(report.label_distribution).toEqual({ okay: 1, vague: 1 });
+    expect(report.grounding_sparse_runs).toBe(2);
+  });
+
+  it('takes the experts step tokens from its row over the synthesis', () => {
+    const root = tempRoot();
+    writeExpertSynthesis(root, DIR, SYNTHESIS);
+    recordStep(root, DIR, 'experts', 'complete', { tokens: 42 });
+    writeSpecification(root, DIR, { pipeline: { produced: true } });
+    const report = aggregateSpecPipelineMetrics(root, [DIR]);
+    expect(report.tokens_by_step).toEqual({ experts: 42 });
+    expect(report.label_distribution).toEqual({});
+    expect(report.grounding_sparse_runs).toBe(0);
   });
 
   it('returns a zeroed report and empty run list for an empty store', () => {

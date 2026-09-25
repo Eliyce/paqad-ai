@@ -185,23 +185,42 @@ describe('isFrozenSpecStale', () => {
   });
 });
 
-// Issue #547 — freezeSpec copies an optional provenance verbatim (FR-9.1 / INV-9).
-describe('freezeSpec provenance (issue #547)', () => {
-  it('copies provenance into the frozen record when given', () => {
+// Issue #581 — freezeSpec copies the spec-pipeline sections it is handed (FR-3), never provenance.
+describe('freezeSpec pipeline sections (issue #581)', () => {
+  it('copies each section it is given into the frozen record', () => {
+    const sections = {
+      task: { intent: 'greet', scope: {} },
+      grounding: { path: 'rag' as const, sparse: false, references: [] },
+      pipeline: { produced: true, outcome: 'freeze' as const },
+      trace: { 'FR-1': 'ticket:summary' },
+    };
     const frozen = freezeSpec(frozenReadySpec(), {
       signed_off_by: 'h',
       frozen_at: '2026-09-10T00:00:00.000Z',
-      provenance: { pipeline_produced: true, label: 'okay' },
+      sections,
     });
-    expect(frozen.provenance).toEqual({ pipeline_produced: true, label: 'okay' });
+    expect(frozen).toMatchObject(sections);
+    expect('provenance' in frozen).toBe(false);
   });
 
-  it('writes no provenance key when none is given (unchanged record)', () => {
+  it('copies only the sections given', () => {
+    const frozen = freezeSpec(frozenReadySpec(), {
+      signed_off_by: 'h',
+      frozen_at: '2026-09-10T00:00:00.000Z',
+      sections: { pipeline: { produced: false } },
+    });
+    expect(frozen.pipeline).toEqual({ produced: false });
+    for (const key of ['task', 'grounding', 'trace']) expect(key in frozen, key).toBe(false);
+  });
+
+  it('writes no pipeline section when none is given (unchanged record)', () => {
     const frozen = freezeSpec(frozenReadySpec(), {
       signed_off_by: 'h',
       frozen_at: '2026-09-10T00:00:00.000Z',
     });
-    expect('provenance' in frozen).toBe(false);
+    for (const key of ['provenance', 'task', 'grounding', 'pipeline', 'trace']) {
+      expect(key in frozen, key).toBe(false);
+    }
   });
 });
 

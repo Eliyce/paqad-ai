@@ -60,10 +60,30 @@ gone (every reader projects the whole-project view from the bundle union). The r
 no longer a single cross-feature hash chain — each bundle carries its own sealed snapshot,
 verified independently with `verifyReceiptSeal`.
 
+Issue #581 made `evidence.jsonl` always on: every change records one row per gate that ran,
+whatever the enterprise toggles. Only `receipt.json` and `ai-bom.json` stay enterprise
+capabilities. The receipt no longer copies the rows. Its predicate carries
+`evidence_sha256` (the SHA-256 of `evidence.jsonl` at seal time) and `evidence_line_count`,
+plus the graded counts and the verdict. The late gates append rows after the seal, so
+`verifyEvidenceSeal` re-hashes only the first `evidence_line_count` lines. Readers get a
+receipt's rows through `receiptEvidenceRows` (`src/feature-evidence/receipt.ts`): the
+`evidence.jsonl` rows of that run for a sealing receipt, `predicate.rows` for one sealed
+before #581. The whole-project receipt still carries its rows.
+
+Each bundle row also carries the one envelope header (issue #581): `appendFeatureEvidenceRows`
+re-stamps a graded row with `doc_type` `paqad.evidence`, `change` (the folder-name ULID),
+`session_id`, `recorded_at` (the row's own time, which a sealing receipt's `time_verified`
+names) and a row `content_hash`, and no longer writes `ts`. `readEvidenceRowsAt` accepts
+either time field and returns the one row view with `ts` filled in, without rewriting the
+sealed bytes. The bundle `receipt.json` carries the header in its top-level `paqad` block,
+outside the signed payload (`content_hash` is the `receipt_hash`; `time_verified` stays in
+the payload), and the bundle `ai-bom.json` carries it as `paqad:<field>` entries at the front
+of `metadata.properties`.
+
 | Path | What |
 | ---- | ---- |
-| `.paqad/ledger/feature-evidence/<feature>/evidence.jsonl` | the change's graded rows (one per line) |
-| `.paqad/ledger/feature-evidence/<feature>/receipt.json` | the change's signed receipt (DSSE envelope wrapping the in-toto Statement), sealed independently |
+| `.paqad/ledger/feature-evidence/<feature>/evidence.jsonl` | the change's graded rows (one per line), always written |
+| `.paqad/ledger/feature-evidence/<feature>/receipt.json` | the change's signed receipt (DSSE envelope wrapping the in-toto Statement), sealed independently; seals `evidence.jsonl` by hash and line count |
 | `.paqad/ledger/feature-evidence/<feature>/ai-bom.json` | the CycloneDX-adjacent AI-BOM view |
 | `.paqad/session/context-stamp.json` | the latest reproducibility stamp (relocated out of `.paqad/ledger/`) |
 

@@ -31,10 +31,15 @@ import {
   paqadGlyphLegend,
   type PaqadStatusKind,
 } from '@/core/constants/paqad-voice.js';
-import type { InTotoStatement, ReceiptEnvelope } from '@/core/types/evidence-ledger.js';
+import type {
+  EvidenceLedgerRow,
+  InTotoStatement,
+  ReceiptEnvelope,
+} from '@/core/types/evidence-ledger.js';
 import { ZERO_DIGEST } from '@/evidence/digests.js';
 import { DSSE_PAYLOAD_TYPE, pae } from '@/evidence/receipt/dsse.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
+import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 
@@ -42,12 +47,19 @@ import { AGENT_ATTACHED_JOURNEY, type VisualEvidenceManifest } from '@/visual-ev
 
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
+import type { DecisionIndexEntry, IndexedDecisionView } from './decisions-index.js';
+import { splitReceiptEvidenceRows } from './receipt.js';
 
 export interface RenderFeatureReportOptions {
   /** ISO timestamp stamped into the page; supplied so the render is deterministic. */
   generatedAt: string;
   /** The paqad version that produced the change (for the header). */
   paqadVersion?: string | null;
+  /**
+   * The indexed decisions joined with their tracked packets (issue #581), read by the writer
+   * so the renderer stays free of file reads. Absent, the panel lists the index alone.
+   */
+  decisions?: IndexedDecisionView[];
 }
 
 // ── Small pure helpers ──────────────────────────────────────────────────────
@@ -101,6 +113,13 @@ export interface ReceiptIntegrity {
   verified: boolean;
   statement: InTotoStatement | null;
   envelope: ReceiptEnvelope | null;
+  /**
+   * The graded rows the receipt stands for: carried by a pre-#581 receipt, read from the
+   * sealed lines of the bundle's `evidence.jsonl` for one that seals it (issue #581).
+   */
+  rows: ReceiptRow[];
+  /** Rows of the same run recorded after the seal: shown, but marked as not covered by it. */
+  unsealedRows: ReceiptRow[];
 }
 
 /**
@@ -127,10 +146,23 @@ export function verifyFeatureReceiptSelf(envelope: ReceiptEnvelope): boolean {
 function readReceiptIntegrity(bundle: FeatureBundleExport): ReceiptIntegrity {
   const envelope = (bundle.files.receipt as ReceiptEnvelope | undefined) ?? null;
   if (!envelope || typeof envelope !== 'object' || !envelope.payload) {
-    return { present: false, verified: false, statement: null, envelope: null };
+    return {
+      present: false,
+      verified: false,
+      statement: null,
+      envelope: null,
+      rows: [],
+      unsealedRows: [],
+    };
   }
   const statement = decodeReceiptStatement(envelope);
-  return { present: true, verified: verifyFeatureReceiptSelf(envelope), statement, envelope };
+  return {
+    present: true,
+    verified: verifyFeatureReceiptSelf(envelope),
+    statement,
+    envelope,
+    ...receiptRowsOf(statement, bundle.files.evidence),
+  };
 }
 
 // ── Verdict derivation ────────────────────────────────────────────────────────
@@ -147,11 +179,13 @@ type VerdictKind = 'pass' | 'fail' | 'inconclusive';
 export function deriveReportVerdict(
   fold: FoldedChange,
   receiptStatement: InTotoStatement | null,
+  evidenceRows?: unknown,
 ): VerdictKind {
   const hasFailedStage = fold.stages.some((stage) => stage.state === 'failed');
-  const receiptRows = receiptRowsOf(receiptStatement);
+  // A failed gate needs attention whether or not the seal covers it.
+  const { rows, unsealedRows } = receiptRowsOf(receiptStatement, evidenceRows);
   const hasFailedGate =
-    receiptRows.some((row) => String(row.verdict).toLowerCase() === 'fail') ||
+    [...rows, ...unsealedRows].some((row) => String(row.verdict).toLowerCase() === 'fail') ||
     String(receiptStatement?.predicate?.verification_result ?? '').toUpperCase() === 'FAILED';
   if (hasFailedStage || hasFailedGate) return 'fail';
   const verdict = fold.completeness.verdict;
@@ -169,9 +203,22 @@ interface ReceiptRow {
   content_hash?: string;
 }
 
-function receiptRowsOf(statement: InTotoStatement | null): ReceiptRow[] {
-  const rows = (statement?.predicate as { rows?: unknown } | undefined)?.rows;
-  return Array.isArray(rows) ? (rows as ReceiptRow[]) : [];
+/**
+ * The rows a receipt stands for, and its run's rows recorded after the seal. A pre-#581 receipt
+ * carries its rows; a sealing receipt is paired with the bundle's `evidence.jsonl` rows of the
+ * same run (issue #581), split at the sealed line count. Tolerant of a receipt whose statement
+ * decoded without a predicate.
+ */
+function receiptRowsOf(
+  statement: InTotoStatement | null,
+  evidenceRows: unknown,
+): { rows: ReceiptRow[]; unsealedRows: ReceiptRow[] } {
+  if (!statement?.predicate) return { rows: [], unsealedRows: [] };
+  const split = splitReceiptEvidenceRows(
+    statement,
+    asRows(evidenceRows) as unknown as EvidenceLedgerRow[],
+  );
+  return { rows: split.sealed, unsealedRows: split.unsealed };
 }
 
 /**
@@ -215,7 +262,7 @@ interface StageView {
  * end-of-change receipt's honesty (`src/verification/repository/receipt.ts`) and adds the
  * report-only "includes idle time" flag for a stage a backstop closed hours later.
  */
-function stageView(stage: FoldedStage, endAdapter: string | null): StageView {
+function stageView(stage: FoldedStage, endedByBackstop: boolean): StageView {
   switch (stage.state) {
     case 'complete':
     case 'redone': {
@@ -232,7 +279,7 @@ function stageView(stage: FoldedStage, endAdapter: string | null): StageView {
           : stage.evidence_source === 'inferred-artifact'
             ? 'done (inferred from an artifact)'
             : 'done';
-      if (endAdapter === 'backstop') {
+      if (endedByBackstop) {
         note = `${note} — includes idle time (closed by the completion backstop)`;
       }
       if (stage.state === 'redone') note = `${note} (redone)`;
@@ -264,15 +311,19 @@ function stageView(stage: FoldedStage, endAdapter: string | null): StageView {
   }
 }
 
-/** The `stage_end` adapter for a stage, from the raw rows (drives the idle-time flag). */
-function stageEndAdapter(rawStageRows: LooseRow[], stage: string): string | null {
-  let adapter: string | null = null;
+/**
+ * Whether the completion backstop wrote a stage's last `stage_end` row (drives the
+ * idle-time flag). A row since #581 names the backstop as its `agent`; an older row named
+ * it as its `adapter`, so both are read.
+ */
+function stageEndedByBackstop(rawStageRows: LooseRow[], stage: string): boolean {
+  let byBackstop = false;
   for (const row of rawStageRows) {
-    if (row.kind === 'stage_end' && row.stage === stage && typeof row.adapter === 'string') {
-      adapter = row.adapter;
+    if (row.kind === 'stage_end' && row.stage === stage) {
+      byBackstop = row.agent === BACKSTOP_WRITER || row.adapter === BACKSTOP_WRITER;
     }
   }
-  return adapter;
+  return byBackstop;
 }
 
 type LooseRow = Record<string, unknown>;
@@ -306,7 +357,7 @@ function renderTimeline(fold: FoldedChange, rawStageRows: LooseRow[]): string {
   );
   const items = shown
     .map((stage) => {
-      const view = stageView(stage, stageEndAdapter(rawStageRows, stage.stage));
+      const view = stageView(stage, stageEndedByBackstop(rawStageRows, stage.stage));
       const label = escapeHtml(stage.stage.replace(/_/g, ' '));
       const start = clockLabel(stage.started_at);
       const end = clockLabel(stage.ended_at);
@@ -614,17 +665,24 @@ function renderReceipt(integrity: ReceiptIntegrity): string {
   const integrityLine = integrity.verified
     ? `${glyphWord('good', 'Integrity verified')} — the receipt's hash chain recomputes from its own bytes (hash-chained, not a signature).`
     : `${glyphWord('failed', 'Could not verify integrity')} — the receipt's hash chain does not recompute; treat it as tampered or corrupt.`;
-  const rows = dedupeByHash(receiptRowsOf(statement));
+  const rows = dedupeByHash(integrity.rows);
+  const unsealed = dedupeByHash(integrity.unsealedRows);
+  // A gate recorded after the receipt sealed evidence.jsonl is shown, but never as the
+  // receipt's own: the seal does not cover it.
+  const rowHtml = (row: ReceiptRow, sealed: boolean): string => {
+    const v = String(row.verdict ?? '').toLowerCase();
+    const kind: PaqadStatusKind = v === 'pass' ? 'good' : v === 'fail' ? 'failed' : 'needsLook';
+    const note = sealed
+      ? ''
+      : ' <em class="unsealed">(recorded after the seal, not covered by it)</em>';
+    return `<tr><td><code>${escapeHtml(row.code ?? '')}</code>${note}</td><td>${GLYPH_FOR[kind]} ${escapeHtml(row.verdict ?? '')}</td><td>${escapeHtml(row.detail ?? '')}</td></tr>`;
+  };
   const rowsHtml =
-    rows.length > 0
-      ? `<table class="gates"><thead><tr><th>Gate</th><th>Result</th><th>Detail</th></tr></thead><tbody>${rows
-          .map((row) => {
-            const v = String(row.verdict ?? '').toLowerCase();
-            const kind: PaqadStatusKind =
-              v === 'pass' ? 'good' : v === 'fail' ? 'failed' : 'needsLook';
-            return `<tr><td><code>${escapeHtml(row.code ?? '')}</code></td><td>${GLYPH_FOR[kind]} ${escapeHtml(row.verdict ?? '')}</td><td>${escapeHtml(row.detail ?? '')}</td></tr>`;
-          })
-          .join('')}</tbody></table>`
+    rows.length + unsealed.length > 0
+      ? `<table class="gates"><thead><tr><th>Gate</th><th>Result</th><th>Detail</th></tr></thead><tbody>${[
+          ...rows.map((row) => rowHtml(row, true)),
+          ...unsealed.map((row) => rowHtml(row, false)),
+        ].join('')}</tbody></table>`
       : '<p class="empty">The receipt carries no graded gate rows.</p>';
   const body =
     `<p class="receipt-result">Result: ${GLYPH_FOR[resultKind]} ${escapeHtml(result || 'n/a')}</p>` +
@@ -659,11 +717,27 @@ function renderAiBom(bundle: FeatureBundleExport): string {
   return panel('aibom', 'AI bill of materials', body);
 }
 
+/**
+ * The branch a change is built on and the branch it merges into. Issue #581 — they live in
+ * `feature.json`; a bundle written before #581 carried them in `delivery.json` (INV-8).
+ */
+function deliveryBranches(bundle: FeatureBundleExport): {
+  branch: string | null;
+  base_branch: string | null;
+} {
+  const feature = bundle.files.feature as
+    { branch?: string | null; base_branch?: string | null } | undefined;
+  const delivery = bundle.files.delivery as
+    { branch?: string | null; base_branch?: string | null } | undefined;
+  return {
+    branch: feature?.branch ?? delivery?.branch ?? null,
+    base_branch: feature?.base_branch ?? delivery?.base_branch ?? null,
+  };
+}
+
 function renderDelivery(bundle: FeatureBundleExport): string {
   const delivery = bundle.files.delivery as
     | {
-        branch?: string | null;
-        base_branch?: string | null;
         commits?: { sha?: string; subject?: string }[];
         head_sha?: string | null;
         merge_commit?: string | null;
@@ -678,9 +752,10 @@ function renderDelivery(bundle: FeatureBundleExport): string {
     );
   }
   const commits = delivery.commits ?? [];
+  const branches = deliveryBranches(bundle);
   const parts: string[] = [];
   parts.push(
-    `<p>Branch <code>${escapeHtml(delivery.branch ?? 'unknown')}</code>${delivery.base_branch ? ` onto <code>${escapeHtml(delivery.base_branch)}</code>` : ''}.</p>`,
+    `<p>Branch <code>${escapeHtml(branches.branch ?? 'unknown')}</code>${branches.base_branch ? ` onto <code>${escapeHtml(branches.base_branch)}</code>` : ''}.</p>`,
   );
   if (commits.length > 0) {
     const items = commits
@@ -751,6 +826,44 @@ function renderReview(bundle: FeatureBundleExport): string {
     parts.push(`<h3>Rollback</h3><p>${escapeHtml(review.rollback)}</p>`);
   }
   return panel('review', 'Review', parts.join(''));
+}
+
+/**
+ * Render the decisions the change rests on (issue #581, FR-11): each entry of the bundle's
+ * `decisions.json` index with the chosen option and rationale from its tracked packet. A packet
+ * edited since it was indexed, or gone, is said so plainly instead of shown as if it held.
+ */
+function renderDecisions(bundle: FeatureBundleExport, views: IndexedDecisionView[]): string {
+  const index = (bundle.files.decisions as { decisions?: DecisionIndexEntry[] } | undefined)
+    ?.decisions;
+  if (!index || index.length === 0) {
+    return panel(
+      'decisions',
+      'Decisions',
+      '',
+      'No decisions were resolved for this change. When one is, it is listed here from its tracked packet.',
+    );
+  }
+  const byId = new Map(views.map((view) => [view.id, view]));
+  const items = index
+    .map((entry) => {
+      const view = byId.get(entry.id);
+      const head = `<strong>${escapeHtml(view?.title ?? entry.id)}</strong> <span class="tag">${escapeHtml(entry.category)}</span>`;
+      const lines: string[] = [];
+      if (view?.chosen) {
+        lines.push(`Chosen: ${escapeHtml(view.chosen_label ?? view.chosen)}`);
+      }
+      if (view?.rationale) lines.push(`Why: ${escapeHtml(view.rationale)}`);
+      if (view?.state === 'changed') {
+        lines.push(`${glyphWord('needsLook', 'Changed')} since it was indexed`);
+      } else if (view?.state === 'missing') {
+        lines.push(`${glyphWord('needsLook', 'Missing')}: the tracked packet is gone`);
+      }
+      const detail = lines.map((line) => `<br>${line}`).join('');
+      return `<li>${head}${detail}<br><code>${escapeHtml(entry.path)}</code></li>`;
+    })
+    .join('');
+  return panel('decisions', 'Decisions', `<ul class="findings">${items}</ul>`);
 }
 
 /** The narration contract's verdict words, spelled the way paqad says them. */
@@ -881,14 +994,14 @@ function buildOverviewTiles(
   });
 
   // Delivery — a metric tile.
-  const delivery = bundle.files.delivery as
-    { branch?: string | null; commits?: unknown[] } | undefined;
+  const delivery = bundle.files.delivery as { commits?: unknown[] } | undefined;
   const commitCount = Array.isArray(delivery?.commits) ? delivery.commits.length : 0;
+  const deliveryBranch = delivery === undefined ? null : deliveryBranches(bundle).branch;
   tiles.push({
     target: 'delivery',
     label: 'Commits',
     value: delivery === undefined ? '—' : String(commitCount),
-    sub: delivery?.branch ? `on ${delivery.branch}` : 'not linked yet',
+    sub: deliveryBranch ? `on ${deliveryBranch}` : 'not linked yet',
   });
 
   return tiles;
@@ -924,6 +1037,7 @@ function renderSubmenu(): string {
     ['aibom', 'AI-BOM'],
     ['delivery', 'Delivery'],
     ['review', 'Review'],
+    ['decisions', 'Decisions'],
     ['checks', 'Checks'],
     ['visual-evidence', 'Visual evidence'],
   ];
@@ -1163,14 +1277,20 @@ export function renderFeatureReportHtml(
   options: RenderFeatureReportOptions,
 ): string {
   const parts = parseFeatureDirName(bundle.dir_name);
+  // Issue #581 — the title lives in feature.json; a plan written before #581 also carried it.
+  // A feature title still equal to the slug is the seed placeholder, so it reads as the slug.
+  const feature = bundle.files.feature as { title?: string } | undefined;
+  const featureTitle =
+    feature?.title !== undefined && feature.title !== parts?.slug ? feature.title : undefined;
   const plan = bundle.files.plan as { title?: string } | undefined;
   const title =
+    featureTitle ??
     plan?.title ??
     (parts ? parts.slug.replace(/-/g, ' ') : bundle.dir_name).replace(/\b\w/g, (c) =>
       c.toUpperCase(),
     );
   const integrity = readReceiptIntegrity(bundle);
-  const verdict = deriveReportVerdict(fold, integrity.statement);
+  const verdict = deriveReportVerdict(fold, integrity.statement, bundle.files.evidence);
   const rawStageRows = asRows(bundle.files.stageEvidence);
 
   const headerMeta = [
@@ -1197,6 +1317,7 @@ export function renderFeatureReportHtml(
     renderAiBom(bundle),
     renderDelivery(bundle),
     renderReview(bundle),
+    renderDecisions(bundle, options.decisions ?? []),
     renderChecks(bundle),
     renderVisualEvidence(bundle),
     renderFooter(),

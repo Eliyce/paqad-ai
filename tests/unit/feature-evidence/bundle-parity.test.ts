@@ -123,7 +123,7 @@ describe('#468 Phase A dual-write parity', () => {
     expect(payload(newRows[0])).toEqual(payload(oldRows[0]));
   });
 
-  it('evidence: bundle rows are byte-identical to the old-home ledger rows', () => {
+  it('evidence: bundle rows carry the same payload as the old-home ledger rows', () => {
     const root = tempRoot();
     const dir = active(root);
     const rows = [
@@ -140,7 +140,21 @@ describe('#468 Phase A dual-write parity', () => {
     appendEvidenceRows(root, rows); // old home (top-level)
     appendFeatureEvidenceRows(root, 'ses_1', rows); // new home (bundle)
 
-    expect(readFeatureEvidence(root, dir)).toEqual(readEvidenceLedger(root));
+    // Issue #581 — the bundle copy carries the envelope header (and its own row hash); the
+    // graded payload and the time are the same.
+    const graded = (row: Record<string, unknown>) => ({
+      ts: row.ts,
+      engine: row.engine,
+      code: row.code,
+      subject_digest: row.subject_digest,
+      verdict: row.verdict,
+      strength_class: row.strength_class,
+      detail: row.detail,
+    });
+    const bundle = readFeatureEvidence(root, dir) as unknown as Record<string, unknown>[];
+    const old = readEvidenceLedger(root) as unknown as Record<string, unknown>[];
+    expect(bundle.map(graded)).toEqual(old.map(graded));
+    expect(bundle[0]).toMatchObject({ doc_type: 'paqad.evidence', recorded_at: rows[0]!.ts });
   });
 
   it('the first-prompt lag: no active feature writes only the old home', () => {

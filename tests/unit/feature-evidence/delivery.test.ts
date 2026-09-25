@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   appendCommitToFeature,
   commitsSinceBase,
+  featureDeliveryBranch,
   readFeatureDelivery,
   reconcileDeliveryFromGit,
   recordCommitForBranch,
@@ -15,6 +16,7 @@ import {
   stampMergeCommit,
   writeFeatureDelivery,
 } from '@/feature-evidence/delivery.js';
+import { readFeatureRecord, updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { mkdirSync } from 'node:fs';
@@ -57,7 +59,9 @@ describe('delivery.json read/write/append', () => {
   it('reads a fresh empty record when delivery.json is absent', () => {
     const record = readFeatureDelivery(tempRepo(), 'nope-01JABCDEFGHJKMNPQRSTVWXYZ0');
     expect(record.commits).toEqual([]);
-    expect(record.branch).toBeNull();
+    expect(record.head_sha).toBeNull();
+    // Issue #581 — the branch lives in feature.json, never on delivery.json.
+    expect(record).not.toHaveProperty('branch');
   });
 
   it('reads a fresh empty record when delivery.json is valid JSON but not a delivery record', () => {
@@ -69,7 +73,7 @@ describe('delivery.json read/write/append', () => {
     writeFileSync(full, 'null');
     const record = readFeatureDelivery(root, dir);
     expect(record.commits).toEqual([]);
-    expect(record.branch).toBeNull();
+    expect(record.head_sha).toBeNull();
   });
 });
 
@@ -98,9 +102,13 @@ describe('local-git reads', () => {
     execFileSync('git', ['add', '-A'], { cwd: root });
     execFileSync('git', ['commit', '-q', '-m', 'feat: add c'], { cwd: root });
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    // Opened off the branch (null), so the reconcile is what records it.
+    updateFeatureRecord(root, dir, { branch: null, base_branch: null });
     const record = reconcileDeliveryFromGit(root, dir, AT);
-    expect(record.branch).toBe('feat/y');
-    expect(record.base_branch).toBe('main');
+    // Issue #581 — the branch and base go to feature.json; delivery.json carries neither.
+    expect(readFeatureRecord(root, dir)).toMatchObject({ branch: 'feat/y', base_branch: 'main' });
+    expect(record).not.toHaveProperty('branch');
+    expect(record.recorded_at).toBe(AT);
     expect(record.commits.some((c) => c.subject === 'feat: add c')).toBe(true);
     expect(record.head_sha).toBe(gitOut(root, 'rev-parse', 'HEAD'));
   });
@@ -116,8 +124,8 @@ describe('branch resolution + commit recording', () => {
       issue: null,
       ulidSeed: 2,
     });
-    writeFeatureDelivery(root, a, { ...readFeatureDelivery(root, a), branch: 'feat/shared' });
-    writeFeatureDelivery(root, b, { ...readFeatureDelivery(root, b), branch: 'feat/shared' });
+    updateFeatureRecord(root, a, { branch: 'feat/shared' });
+    updateFeatureRecord(root, b, { branch: 'feat/shared' });
     // No active hint → most-recent (b sorts last by ULID seed 2 > 1).
     expect(resolveDeliveryFeatureByBranch(root, 'feat/shared')).toBe(b);
     // Active hint wins the tie.
@@ -133,8 +141,72 @@ describe('branch resolution + commit recording', () => {
     const recorded = recordCommitForBranch(root, dir, { sha: head, subject: 'feat: z' }, AT);
     expect(recorded).toBe(dir);
     const record = readFeatureDelivery(root, dir);
-    expect(record.branch).toBe('feat/z');
+    expect(readFeatureRecord(root, dir)!.branch).toBe('feat/z');
     expect(record.commits[0].sha).toBe(head);
+  });
+
+  it('recordCommitForBranch stamps the branch on a feature.json that has none (issue #581)', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    execFileSync('git', ['checkout', '-q', '-b', 'feat/late'], { cwd: root });
+    updateFeatureRecord(root, dir, { branch: null });
+    const head = gitOut(root, 'rev-parse', 'HEAD');
+    expect(recordCommitForBranch(root, dir, { sha: head, subject: 'feat: late' }, AT)).toBe(dir);
+    expect(readFeatureRecord(root, dir)!.branch).toBe('feat/late');
+  });
+
+  it('writeFeatureDelivery drops the legacy branch fields of a record read from an old file', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    const written = writeFeatureDelivery(
+      root,
+      dir,
+      { ...readFeatureDelivery(root, dir), branch: 'old', base_branch: 'x', captured_at: AT },
+      AT,
+      'ses_2',
+    );
+    expect(written).toMatchObject({ session_id: 'ses_2', recorded_at: AT });
+    const raw = JSON.parse(readFileSync(join(root, featureFilePath(dir, 'delivery')), 'utf8'));
+    expect(raw).not.toHaveProperty('branch');
+    expect(raw).not.toHaveProperty('base_branch');
+    expect(raw).not.toHaveProperty('captured_at');
+  });
+
+  it('writeFeatureDelivery copies a legacy branch and base to feature.json when it has none', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    updateFeatureRecord(root, dir, { branch: null, base_branch: null });
+    writeFeatureDelivery(
+      root,
+      dir,
+      { ...readFeatureDelivery(root, dir), branch: 'feat/old', base_branch: 'develop' },
+      AT,
+    );
+    expect(readFeatureRecord(root, dir)).toMatchObject({
+      branch: 'feat/old',
+      base_branch: 'develop',
+    });
+    expect(featureDeliveryBranch(root, dir)).toBe('feat/old');
+  });
+
+  it('writeFeatureDelivery never overwrites the branch feature.json already has', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    updateFeatureRecord(root, dir, { branch: 'feat/new', base_branch: null });
+    writeFeatureDelivery(
+      root,
+      dir,
+      { ...readFeatureDelivery(root, dir), branch: 'feat/old', base_branch: 'develop' },
+      AT,
+    );
+    expect(readFeatureRecord(root, dir)).toMatchObject({
+      branch: 'feat/new',
+      base_branch: 'develop',
+    });
+
+    updateFeatureRecord(root, dir, { base_branch: 'main' });
+    writeFeatureDelivery(root, dir, { ...readFeatureDelivery(root, dir), base_branch: 'x' }, AT);
+    expect(readFeatureRecord(root, dir)).toMatchObject({ branch: 'feat/new', base_branch: 'main' });
   });
 
   it('recordCommitForBranch returns null when no feature can be resolved', () => {

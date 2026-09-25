@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { exportFeatureBundle, pruneFeatureBundles } from '@/feature-evidence/export.js';
+import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { writeFeaturePlan, writeFeatureReview } from '@/feature-evidence/artifacts.js';
+import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureDir } from '@/feature-evidence/paths.js';
 import { pauseActive } from '@/feature-evidence/session-control.js';
@@ -34,7 +36,6 @@ describe('exportFeatureBundle', () => {
     appendFeatureStageRow(root, 'ses_1', dir, {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
     });
     writeFeaturePlan(root, 'ses_1', {
       summary: 'do the thing',
@@ -54,6 +55,55 @@ describe('exportFeatureBundle', () => {
     expect(Array.isArray(bundle.files.stageEvidence)).toBe(true);
     // Absent files (receipt/ai-bom) are omitted.
     expect(bundle.files.receipt).toBeUndefined();
+  });
+
+  // Issue #581 — spec.md and request.md are Markdown, exported as their text.
+  it('exports the .md bundle files as text', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Spec export',
+      issue: null,
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    writeFileSync(join(root, featureDir(dir), 'spec.md'), '---\nx: 1\n---\n# Spec\n', 'utf8');
+    const bundle = exportFeatureBundle(root, dir, AT);
+    expect(bundle.files.specMd).toBe('---\nx: 1\n---\n# Spec\n');
+    expect(bundle.files.request).toBeUndefined();
+    expect(bundle.strays).toEqual([]);
+    // A corrupt JSON file is omitted, like an absent one.
+    writeFileSync(join(root, featureDir(dir), 'decisions.json'), '{not json', 'utf8');
+    expect(exportFeatureBundle(root, dir, AT).files.decisions).toBeUndefined();
+  });
+
+  // Issue #581 — the report reads a sealing receipt's rows from the exported evidence.jsonl,
+  // read with the evidence reader: the bundle header, plus `ts` from `recorded_at`.
+  it('exports the graded evidence.jsonl rows', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+    });
+    const row = buildEvidenceRow({
+      ts: AT,
+      engine: 'verification-gate',
+      code: 'format',
+      subject_digest: 's',
+      verdict: 'pass',
+      strength_class: 'deterministic',
+    });
+    appendFeatureEvidenceRows(root, 'ses_1', [row]);
+    expect(exportFeatureBundle(root, dir, AT).files.evidence).toEqual([
+      expect.objectContaining({
+        doc_type: 'paqad.evidence',
+        recorded_at: AT,
+        ts: AT,
+        engine: 'verification-gate',
+        code: 'format',
+        verdict: 'pass',
+      }),
+    ]);
   });
 });
 

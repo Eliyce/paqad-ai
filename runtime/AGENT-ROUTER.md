@@ -141,7 +141,7 @@ Stage isolation is core-engine behavior — there is no config knob to turn it o
 
 **When the lane is unresolved.** A null or unknown lane is NOT a licence to skip isolation. The framework's own verification fails safe to the **full** lane when it cannot read one, so treat an unresolved lane the same way: run the stages in their own subagents. The one thing an unresolved lane does not do is make the isolation evidence *required* — the completeness gate stays silent rather than blocking a change it cannot classify (issue #573).
 
-**How a skipped isolation is caught.** Each dispatched stage agent's `SubagentStop` appends a row to the bundle's `context-efficiency.jsonl`, and every stage-evidence row carries the `agent` that wrote it (`orchestrator`, or `paqad-<stage>`). On a graduated or full lane on a subagent-capable host, a bundle with no `context-efficiency.jsonl` now **fails** the completeness gate by name instead of reading green. So an inline run and an isolated run are machine-distinguishable from the bundle alone, and the difference is enforced rather than trusted.
+**How a skipped isolation is caught.** Each dispatched stage agent's `SubagentStop` appends a `stage-agent` row to the bundle's `stage-evidence.jsonl`, and every stage-evidence row carries the `agent` that wrote it (`orchestrator`, or `paqad-<stage>`). On a graduated or full lane on a subagent-capable host, a bundle with no `stage-agent` rows now **fails** the completeness gate by name instead of reading green. So an inline run and an isolated run are machine-distinguishable from the bundle alone, and the difference is enforced rather than trusted.
 
 The orchestrator protocol, for each mandatory stage in order:
 
@@ -150,7 +150,7 @@ The orchestrator protocol, for each mandatory stage in order:
 3. On `paused: D-<id>`, the stage hit a decision pause and returned without editing. Present the packet to the developer through the host's decision-pause UI, resolve it with `paqad-ai decision resolve`, then re-dispatch the SAME stage. Edits stay blocked while the packet is pending.
 4. On `completed`, continue to the next stage.
 
-You perform no `Edit`/`Write` on source yourself in this mode — the development stage agent does. The pre-mutation gates (entry, stage-writer, decision-pause, capability kernel, rules-loaded) fire inside each stage agent exactly as they do in a single context. The end-of-change receipt is unchanged except for one added line naming what isolation saved: `context: <n> stages isolated, ~<k> tokens not re-carried (estimate|exact)`, read from the bundle's `context-efficiency.jsonl`. Any estimated figure is labelled `estimate`, never dressed up as exact.
+You perform no `Edit`/`Write` on source yourself in this mode — the development stage agent does. The pre-mutation gates (entry, stage-writer, decision-pause, capability kernel, rules-loaded) fire inside each stage agent exactly as they do in a single context. The end-of-change receipt is unchanged except for one added line naming what isolation saved: `context: <n> stages isolated, ~<k> tokens not re-carried (estimate|exact)`, read from the `stage-agent` rows in the bundle's `stage-evidence.jsonl`. Any estimated figure is labelled `estimate`, never dressed up as exact.
 
 **Where narration has to go.** Say every `▸ paqad` line in your own visible assistant text, and carry the stage lines and the end-of-change receipt into the **final message of the turn**. Two channels look like they work and do not: hook output (below), and your own text emitted mid-turn between tool calls, which the Desktop app does not reliably render. Only the last message of a turn is reliably shown, so a receipt spoken before your last tool call is a receipt the developer never sees.
 
@@ -179,7 +179,7 @@ npx paqad-ai stage end planning --artifact <plan.json>
 
 npx paqad-ai stage start specification
 … write the spec …
-npx paqad-ai spec freeze <spec.md> --confirm-invariants   # writes specification.json into the bundle
+npx paqad-ai spec freeze <spec.md> --confirm-invariants   # copies spec.md and writes specification.json into the bundle
 npx paqad-ai stage end specification --artifact <specification.json>
 
 # Load the rules before you edit code (issue #557): prints the full text of the rules that
@@ -204,7 +204,7 @@ Then speak the end-of-change verdict (Safe to merge / Needs your attention / Inc
 
 **A thinking stage must point at its RIGID bundle artifact.** planning, specification, and review each prove their work with a script-written file: end them as `paqad:stage <stage> end -- <artifact-path>` (or `npx paqad-ai stage end <stage> --artifact <path>`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with `paqad-ai plan compile`, freeze the spec with `paqad-ai spec freeze`, and record the review with `paqad-ai review record` (they write `plan.json` / `specification.json` / `review.json` into the active feature's bundle; the legacy `.paqad/plans/*.md` and `.paqad/specs` free-writes are retired), then end the stage against that file. Any OTHER path is rejected, so a hand-written notes file can never stand in for the real artifact. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
 
-**Never write into a feature bundle directory.** `.paqad/ledger/feature-evidence/<change>/` holds only its rigid, script-written artifacts plus the generated `report.html`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and clean the transient input up. A stage artifact pointing at a non-rigid file inside a bundle dir is rejected.
+**Never write into a feature bundle directory.** `.paqad/ledger/feature-evidence/<change>/` holds only its rigid, script-written artifacts plus the generated `report.html`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and clean the transient input up. A stage artifact pointing at a non-rigid file inside a bundle dir is rejected, and an Edit or Write aimed inside a bundle dir is denied with the name of the verb that writes that file (issue #581).
 
 **Code edits are gated on this.** Until `planning` and `specification` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, `npx paqad-ai stage start <stage>` / `npx paqad-ai stage end <stage> --artifact <path>` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the `▸ paqad` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 
@@ -216,7 +216,8 @@ When `spec_pipeline_enabled` is on for the project, the specification stage is n
 npx paqad-ai spec pipeline start --request-file <request.md>   # or --ticket <ref>; S0 ground + S1 label in one go
 # experts (only when spec_pipeline_experts_enabled is on):
 #   run the expert-need-detector skill, then
-npx paqad-ai spec pipeline experts record <need.json>          # writes one brief per needed expert
+npx paqad-ai spec pipeline experts record <need.json>          # records the roster in experts.json
+#   print each brief with `npx paqad-ai spec pipeline experts brief <role>` (never a file),
 #   run the expert-notes skill once per brief, then
 npx paqad-ai spec pipeline experts notes <notes.json>
 #   run the expert-synthesis skill (the chief architect), then

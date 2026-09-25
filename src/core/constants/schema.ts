@@ -10,4 +10,7 @@
 // Bump this when a new `.paqad/` artifact format is introduced or an existing
 // one changes shape, and add the corresponding migration step in
 // `src/core/schema-version.ts › checkAndMigrateSchema`.
-export const PAQAD_SCHEMA_VERSION = '1.0.0';
+//
+// 1.1.0 (issue #581): the spec pipeline's run moved from its own scratch folder into the
+// change's bundle; the `feature-evidence` migrator moves an existing project over.
+export const PAQAD_SCHEMA_VERSION = '1.1.0';

@@ -6,6 +6,7 @@
 // (the script clock that stamped each `ts`); a negative/zero gap is clamped and
 // flagged `unreliable` rather than trusted.
 
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import {
@@ -16,6 +17,7 @@ import {
   stageIndex,
 } from './stages.js';
 import {
+  STAGE_FAMILY_KINDS,
   type FoldedChange,
   type FoldedStage,
   type OrderingViolation,
@@ -43,7 +45,10 @@ export function foldRowsWithKey(
   identity: FoldIdentity,
 ): FoldedChange {
   const { sessionId, changeKey: change_key, promptOrdinal: ordinal } = identity;
-  const stages = STAGE_EVIDENCE_STAGES.map((stage) => foldStage(stage, rows));
+  // Issue #581 — only the stage family carries stage state. A `stage-agent` row names a
+  // stage too, so it is filtered out here rather than trusted to carry no status.
+  const stageRows = rows.filter((row) => STAGE_FAMILY_KINDS.has(String(row.kind)));
+  const stages = STAGE_EVIDENCE_STAGES.map((stage) => foldStage(stage, stageRows));
   const orderingViolations = computeOrderingViolations(stages);
 
   const required = stages.filter((stage) => isMandatoryStage(stage.stage));
@@ -56,14 +61,14 @@ export function foldRowsWithKey(
     .map((stage) => stage.stage);
   const hadRedo = stages.some((stage) => stage.state === 'redone');
 
-  const verdict = computeVerdict(rows, missing, orderingViolations.length > 0, hadRedo);
+  const verdict = computeVerdict(stageRows, missing, orderingViolations.length > 0, hadRedo);
 
   return {
     session_id: sessionId,
     change_key,
     prompt_ordinal: ordinal,
     stages,
-    lane: readRecordedLane(rows),
+    lane: readRecordedLane(stageRows),
     completeness: {
       verdict,
       missing_stages: missing,
@@ -79,8 +84,9 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[]): FoldedStag
   const start = lastOf(events, 'stage_start');
   const end = lastOf(events, 'stage_end');
 
-  const startedAt = start ? start.ts : null;
-  const endedAt = end ? end.ts : null;
+  // A row since #581 stamps `recorded_at`; an older one `ts`. Both read the same.
+  const startedAt = start ? rowRecordedAt(start) : null;
+  const endedAt = end ? rowRecordedAt(end) : null;
   let durationMs: number | null = null;
   let unreliable = false;
   if (startedAt && endedAt) {

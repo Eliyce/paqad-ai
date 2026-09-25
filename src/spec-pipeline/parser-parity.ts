@@ -57,7 +57,7 @@ export function checkSpecShape(markdown: string): SpecShapeResult {
   // Run the REAL parser and assert the shape invariants on its output.
   const spec = buildFeatureSpec({
     spec_id: 'S-shape-check',
-    spec_file: '.paqad/_specs/shape-check.md',
+    spec_file: 'spec.md',
     spec_markdown: markdown,
   });
 

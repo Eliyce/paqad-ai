@@ -9,12 +9,18 @@
 // migrator that runs, idempotently and under the existing migration lock, before
 // the marker is rewritten.
 //
-// The registry is intentionally EMPTY at the baseline (PAQAD_SCHEMA_VERSION
-// 1.0.0): the first real migrator lands when a capability bumps its record shape
-// (buildout F4+). `runSchemaMigrators` takes the migrator list as an injectable
+// The registry was empty at the 1.0.0 baseline. The first real migrator is the
+// issue #581 evidence migration (1.1.0), which moves the spec pipeline's old run
+// folders into the change bundles. `runSchemaMigrators` takes the migrator list as an injectable
 // argument (defaulting to the registry) so a migration's dispatch can be tested
 // without a global-registry mutation — mirroring the injectable-validator pattern
 // in src/stage-evidence/recorder.ts.
+
+import {
+  formatEvidenceMigration,
+  migrateFeatureEvidence,
+  migrationSessionId,
+} from '@/feature-evidence/migrate.js';
 
 /** Context handed to every migrator: the project and the version transition. */
 export interface SchemaMigrationContext {
@@ -49,10 +55,34 @@ export interface SchemaMigrator {
 }
 
 /**
- * The production registry. Frozen and empty at the 1.0.0 baseline; a capability
- * adds its migrator here (as a literal) when it first changes record shape.
+ * Issue #581 — move a project written before 1.1.0 onto the one-packet evidence layout. It runs
+ * on the silent-update path through `checkAndMigrateSchema`. It never throws on one bad change
+ * (a failed run is left in place and named in the note), so a bad folder cannot wedge updates.
  */
-export const SCHEMA_MIGRATORS: readonly SchemaMigrator[] = Object.freeze([]);
+export const FEATURE_EVIDENCE_MIGRATOR: SchemaMigrator = {
+  id: 'feature-evidence',
+  // Every layout before 1.1.0 is a 0.x or 1.0.x marker.
+  appliesTo: (fromVersion) => /^(0|1\.0)\./.test(fromVersion.trim()),
+  migrate: async ({ projectRoot }) => {
+    // An unexpected throw (a locked file on Windows, say) must not abort the update. The old
+    // folder is still there in that case, so the pending step every update and onboarding runs
+    // (runPendingEvidenceMigration) picks the migration up again next time.
+    try {
+      const result = migrateFeatureEvidence(projectRoot, { sessionId: migrationSessionId() });
+      return result.actions.length === 0 ? undefined : formatEvidenceMigration(result);
+    } catch (error) {
+      return `the evidence migration did not finish (${(error as Error).message}); it runs again on the next update, or run \`paqad-ai evidence migrate\`.`;
+    }
+  },
+};
+
+/**
+ * The production registry, frozen. A capability adds its migrator here (as a literal) when it
+ * first changes record shape.
+ */
+export const SCHEMA_MIGRATORS: readonly SchemaMigrator[] = Object.freeze([
+  FEATURE_EVIDENCE_MIGRATOR,
+]);
 
 /**
  * Run every migrator applicable to `context.fromVersion -> context.toVersion`, in

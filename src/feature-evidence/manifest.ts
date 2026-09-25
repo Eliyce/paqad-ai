@@ -26,7 +26,7 @@ export interface BundleCompletenessConfig {
   ragEnabled: boolean;
   /** enterprise master switch. */
   enterprise: boolean;
-  /** enterprise_evidence_ledger (gates receipt.json + evidence.jsonl). */
+  /** enterprise_evidence_ledger (gates receipt.json; evidence.jsonl is always on since #581). */
   evidenceLedger: boolean;
   /** enterprise_ai_bom (gates ai-bom.json). */
   aiBom: boolean;
@@ -35,13 +35,21 @@ export interface BundleCompletenessConfig {
    * the specification file must record that the pipeline produced it, or a manual reason.
    */
   specPipelineStrict: boolean;
+  /** spec_pipeline_enabled (issue #581): the pipeline writes request.md and clarification.json. */
+  specPipelineEnabled: boolean;
+  /**
+   * spec_pipeline_experts_enabled (issue #581). Only counts together with
+   * {@link specPipelineEnabled}: experts cannot run without the pipeline (M5, AC-21).
+   */
+  expertsEnabled: boolean;
   /**
    * Issue #573 — whether stage isolation was EXPECTED for this change: the recorded lane
    * is graduated or full AND the recorded host adapter can dispatch subagents. Derived
    * from the bundle's own open row, not from config, because whether isolation applied is
    * a property of the change. False on the fast lane, on a host with no subagent dispatch,
    * and whenever the lane is unresolved — so the requirement stays silent rather than
-   * false-failing (INV-5).
+   * false-failing (INV-5). When true, the gate requires `stage-agent` rows in
+   * `stage-evidence.jsonl` (issue #581, AC-14).
    */
   stageIsolationExpected: boolean;
 }
@@ -74,14 +82,6 @@ export interface BundleManifestEntry {
    * over the resolved config flags (required only when the flag is on).
    */
   required: 'always' | 'optional' | ((config: BundleCompletenessConfig) => boolean);
-  /**
-   * Issue #573 — upgrade an `optional` entry to required for a change of a particular
-   * SHAPE (not a config flag). When the predicate is false the entry behaves exactly as
-   * `optional`: checked when present, never a completeness failure, and never a
-   * "Skipped (flag off)" note — because there is no flag, which is the whole reason the
-   * `optional` category exists (issue #528). Only meaningful on an `optional` entry.
-   */
-  requiredWhen?: (config: BundleCompletenessConfig) => boolean;
   /** The verb/writer that produces the file (named in a gate failure's remediation). */
   writer: string;
   /** How the gate validates the file's content. */
@@ -119,6 +119,46 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     file: FEATURE_BUNDLE_FILES.specification,
     required: 'always',
     writer: 'paqad-ai spec freeze',
+    validate: 'json',
+  },
+  {
+    // Issue #581 (D5) — the signed spec source, beside the parsed record. The gate also checks
+    // that its body hashes to specification.json `spec_hash`.
+    key: 'specMd',
+    file: FEATURE_BUNDLE_FILES.specMd,
+    required: 'always',
+    writer: 'paqad-ai spec freeze',
+    validate: 'nonempty',
+  },
+  {
+    key: 'request',
+    file: FEATURE_BUNDLE_FILES.request,
+    required: (config) => config.specPipelineEnabled,
+    writer: 'paqad-ai spec pipeline start',
+    validate: 'nonempty',
+  },
+  {
+    key: 'clarification',
+    file: FEATURE_BUNDLE_FILES.clarification,
+    required: (config) => config.specPipelineEnabled,
+    writer: 'paqad-ai spec pipeline (label + questions)',
+    validate: 'json',
+  },
+  {
+    // Experts only run inside the pipeline, so experts-on with the pipeline off (M5) never
+    // requires the file (AC-21).
+    key: 'experts',
+    file: FEATURE_BUNDLE_FILES.experts,
+    required: (config) => config.specPipelineEnabled && config.expertsEnabled,
+    writer: 'paqad-ai spec pipeline experts',
+    validate: 'json',
+  },
+  {
+    // A change that resolved no decision has no index to write, so it is checked when present.
+    key: 'decisions',
+    file: FEATURE_BUNDLE_FILES.decisions,
+    required: 'optional',
+    writer: 'paqad-ai decision resolve (decisions index)',
     validate: 'json',
   },
   {
@@ -212,9 +252,12 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    // Issue #581 — always on: every change records one row per gate that ran, the late gates
+    // and skipped ones included, whatever the enterprise toggles. Only the receipt that seals
+    // it and the AI-BOM stay enterprise capabilities.
     key: 'evidence',
     file: FEATURE_BUNDLE_FILES.evidence,
-    required: (config) => config.enterprise && config.evidenceLedger,
+    required: 'always',
     writer: 'appendFeatureEvidenceRows',
     validate: 'jsonl>=1',
   },
@@ -239,33 +282,39 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     writer: 'paqad-ai visual-evidence run',
     validate: 'json',
   },
-  {
-    // Issue #567 — one row per dispatched stage agent under stage isolation.
-    //
-    // This was `optional` because the gate had no signal for whether THIS change ran under
-    // isolation, so requiring it would false-fail every single-context change. Issue #573
-    // found the missing signal: the lane was ALWAYS null, because the prompt-route seam
-    // imported a dist module tsup never emitted. With the seam built, the bundle's own open
-    // row carries a real lane and a real adapter, which is exactly the predicate — so a
-    // graduated/full change on a subagent-capable host must now PROVE it isolated.
-    //
-    // Deliberately fails toward silence: an unresolved lane, the fast lane, or a host with
-    // no subagent dispatch leaves this optional and checked-when-present, exactly as before.
-    key: 'contextEfficiency',
-    file: FEATURE_BUNDLE_FILES.contextEfficiency,
-    required: 'optional',
-    requiredWhen: (config) => config.stageIsolationExpected,
-    writer: 'stage-agent-completion hook (SubagentStop)',
-    validate: 'jsonl>=1',
-  },
 ];
 
 /**
+ * How a frozen spec says it was produced: the `pipeline` section of a record frozen since issue
+ * #581 (`produced`, `manual_reason`), else the `provenance` block of an older one
+ * (`pipeline_produced`, `manual_reason`), so both read the same (INV-8). Null when the record
+ * carries neither.
+ */
+export function readSpecAdoption(
+  spec: unknown,
+): { produced: boolean; manual_reason?: string } | null {
+  if (typeof spec !== 'object' || spec === null) return null;
+  const record = spec as {
+    pipeline?: { produced?: unknown; manual_reason?: unknown };
+    provenance?: { pipeline_produced?: unknown; manual_reason?: unknown };
+  };
+  const section = record.pipeline ?? record.provenance;
+  if (typeof section !== 'object' || section === null) return null;
+  const produced = record.pipeline
+    ? record.pipeline.produced
+    : (section as { pipeline_produced?: unknown }).pipeline_produced;
+  return {
+    produced: produced === true,
+    ...(typeof section.manual_reason === 'string' ? { manual_reason: section.manual_reason } : {}),
+  };
+}
+
+/**
  * The strict-adoption content check for `specification.json` (issue #547, FR-10.2). When
- * `specPipelineStrict` is on, the frozen spec must carry `provenance.pipeline_produced === true`
- * or a non-empty `provenance.manual_reason`; otherwise the gate fails closed. Under warn or with
- * the pipeline off this is not called, so the gate is unchanged there. Pure: parses the JSON and
- * inspects the provenance field, importing nothing from the pipeline.
+ * `specPipelineStrict` is on, the frozen spec must say the pipeline produced it, or carry a
+ * non-empty manual reason (read by {@link readSpecAdoption}, new and old shapes alike);
+ * otherwise the gate fails closed. Under warn or with the pipeline off this is not called, so the
+ * gate is unchanged there. Pure: parses the JSON, importing nothing from the pipeline.
  */
 export function validateSpecificationAdoption(content: string | null): {
   ok: boolean;
@@ -277,16 +326,15 @@ export function validateSpecificationAdoption(content: string | null): {
       'specification.json was not produced by the spec pipeline and records no manual reason (spec_pipeline_adoption=strict); re-freeze with --from-pipeline or --manual --reason',
   };
   if (content === null) return failure;
-  let spec: { provenance?: { pipeline_produced?: unknown; manual_reason?: unknown } };
+  let adoption: ReturnType<typeof readSpecAdoption>;
   try {
-    spec = JSON.parse(content) as typeof spec;
+    adoption = readSpecAdoption(JSON.parse(content));
   } catch {
     return failure;
   }
-  const provenance = spec.provenance;
-  if (!provenance) return failure;
-  if (provenance.pipeline_produced === true) return { ok: true };
-  if (typeof provenance.manual_reason === 'string' && provenance.manual_reason.trim().length > 0) {
+  if (!adoption) return failure;
+  if (adoption.produced) return { ok: true };
+  if (adoption.manual_reason !== undefined && adoption.manual_reason.trim().length > 0) {
     return { ok: true };
   }
   return failure;

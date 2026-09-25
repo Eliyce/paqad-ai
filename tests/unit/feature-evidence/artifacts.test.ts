@@ -26,8 +26,10 @@ import {
 } from '@/feature-evidence/artifacts.js';
 import type { PlanReuse } from '@/feature-evidence/reuse.js';
 import { validatePlanRecord, validateReviewRecord } from '@/feature-evidence/schema.js';
-import { featureSpecMarkdownPath } from '@/feature-evidence/paths.js';
-import { renderSpecMarkdown } from '@/feature-evidence/spec-markdown.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { ENVELOPE_HEADER_KEYS, splitFrontMatter } from '@/feature-evidence/envelope.js';
+import { sha256Hex } from '@/compliance/markdown.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
@@ -60,17 +62,24 @@ function activeFeature(root: string): string {
   });
 }
 
+/** The signed source `frozenSpec()` was built from. */
+const SPEC_MD = '# S-339\n\n- FR-1: does the thing\n';
+
 function frozenSpec(): FeatureSpec {
   return {
     schema_version: '1',
     spec_id: 'S-339',
     spec_file: '.paqad/specs/S-339.md',
-    spec_hash: 'a'.repeat(64),
+    spec_hash: sha256Hex(SPEC_MD),
     behaviour: ['does the thing'],
     acceptance_criteria: [],
     invariants: [],
     open_questions: [],
-    frozen: { frozen_at: clock().toISOString(), spec_hash: 'a'.repeat(64), signed_off_by: 'me' },
+    frozen: {
+      frozen_at: clock().toISOString(),
+      spec_hash: sha256Hex(SPEC_MD),
+      signed_off_by: 'me',
+    },
   };
 }
 
@@ -96,8 +105,22 @@ describe('writeFeaturePlan', () => {
     });
     expect(result.dirName).toBe(dir);
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/plan.json`);
-    // Identity comes from the dir name, not the model.
-    expect(result.record).toMatchObject({ issue: '339', slug: 'route-first-workflows' });
+    // Issue #581 — the envelope header, with the change key from the dir name; the change
+    // identity (issue / title / slug) lives in feature.json only.
+    expect(result.record).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.plan',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_1',
+      recorded_at: clock().toISOString(),
+    });
+    for (const key of ['issue', 'title', 'slug', 'ulid', 'created_at', 'updated_at']) {
+      expect(result.record).not.toHaveProperty(key);
+    }
+    expect(readFeatureRecord(root, dir)).toMatchObject({
+      issue: '339',
+      slug: 'route-first-workflows',
+    });
     expect(validatePlanRecord(result.record)).toEqual([]);
     const readBack = readFeaturePlan(root, dir);
     expect(readBack?.content_hash).toBe(result.record.content_hash);
@@ -125,32 +148,81 @@ describe('writeFeatureSpecification', () => {
   it('writes a frozen spec as specification.json in the active feature', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    const result = writeFeatureSpecification(root, 'ses_1', frozenSpec());
+    const result = writeFeatureSpecification(root, 'ses_1', frozenSpec(), SPEC_MD);
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/specification.json`);
     expect(readFeatureSpecification(root, dir)?.spec_id).toBe('S-339');
   });
 
-  it('writes the derived specification.md sibling beside specification.json (#512)', () => {
+  it('has no specification.json before the freeze (AC-27)', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    const spec = frozenSpec();
-    writeFeatureSpecification(root, 'ses_1', spec);
-    const mdPath = join(root, featureSpecMarkdownPath(dir));
-    expect(existsSync(mdPath)).toBe(true);
-    expect(readFileSync(mdPath, 'utf8')).toBe(renderSpecMarkdown(spec));
+    expect(existsSync(join(root, featureFilePath(dir, 'specification')))).toBe(false);
+    expect(readFeatureSpecification(root, dir)).toBeNull();
+  });
+
+  it('copies the signed source in as spec.md, its body hashing to spec_hash (AC-9)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const { record } = writeFeatureSpecification(root, 'ses_1', frozenSpec(), SPEC_MD);
+    const text = readFileSync(join(root, featureFilePath(dir, 'specMd')), 'utf8');
+    const { header, body } = splitFrontMatter(text);
+    expect(body).toBe(SPEC_MD);
+    expect(sha256Hex(body)).toBe(record.spec_hash);
+    expect(Object.keys(header!)).toEqual([...ENVELOPE_HEADER_KEYS]);
+    expect(header).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.spec',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_1',
+      content_hash: record.spec_hash,
+    });
+    // The re-rendered projection is gone (D5).
+    expect(readdirSync(join(root, featureDir(dir)))).not.toContain('specification.md');
+  });
+
+  it('stamps specification.json with the envelope header and spec_file spec.md', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    writeFeatureSpecification(root, 'ses_1', frozenSpec(), SPEC_MD);
+    const raw = JSON.parse(
+      readFileSync(join(root, featureFilePath(dir, 'specification')), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(Object.keys(raw).slice(0, 6)).toEqual([...ENVELOPE_HEADER_KEYS]);
+    expect(raw).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.specification',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_1',
+      spec_file: 'spec.md',
+      spec_id: 'S-339',
+    });
+    expect(raw.content_hash).toMatch(/^[0-9a-f]{64}$/);
+    for (const banned of ['ts', 'created_at', 'captured_at', 'generated_at', 'time_verified']) {
+      expect(raw).not.toHaveProperty(banned);
+    }
+  });
+
+  it('refuses a source that does not hash to spec_hash, writing nothing', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    expect(() => writeFeatureSpecification(root, 'ses_1', frozenSpec(), 'edited\n')).toThrow(
+      /does not hash/,
+    );
+    expect(existsSync(join(root, featureFilePath(dir, 'specMd')))).toBe(false);
+    expect(existsSync(join(root, featureFilePath(dir, 'specification')))).toBe(false);
   });
 
   it('refuses an unfrozen spec', () => {
     const root = tempRoot();
     activeFeature(root);
     expect(() =>
-      writeFeatureSpecification(root, 'ses_1', { ...frozenSpec(), frozen: null }),
+      writeFeatureSpecification(root, 'ses_1', { ...frozenSpec(), frozen: null }, SPEC_MD),
     ).toThrow(/unfrozen/);
   });
 
   it('throws NoActiveFeatureError when no feature is active', () => {
     const root = tempRoot();
-    expect(() => writeFeatureSpecification(root, 'ses_1', frozenSpec())).toThrow(
+    expect(() => writeFeatureSpecification(root, 'ses_1', frozenSpec(), SPEC_MD)).toThrow(
       NoActiveFeatureError,
     );
   });
@@ -179,9 +251,12 @@ describe('writeFeatureReview', () => {
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/review.json`);
     const record = readFeatureReview(root, dir);
     expect(record?.doc_type).toBe('paqad.review');
-    // Identity is taken from the dir, never from the model.
-    expect(record?.issue).toBe('339');
-    expect(record?.ulid).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
+    // The change key is taken from the dir, never from the model; the identity is not repeated.
+    expect(record?.change).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
+    expect(record?.session_id).toBe('ses_1');
+    for (const key of ['issue', 'title', 'slug', 'ulid', 'created_at']) {
+      expect(record).not.toHaveProperty(key);
+    }
     expect(record?.verdict).toBe('safe-to-merge');
     expect(record?.findings).toHaveLength(1);
     expect(validateReviewRecord(record)).toEqual([]);
@@ -195,7 +270,7 @@ describe('writeFeatureReview', () => {
       ...template,
       now: () => new Date('2026-07-11T00:00:00.000Z'),
     }).record;
-    expect(second.created_at).not.toBe(first.created_at);
+    expect(second.recorded_at).not.toBe(first.recorded_at);
     expect(second.content_hash).toBe(first.content_hash);
     expect(readFeatureReview(root, dir)?.content_hash).toBe(first.content_hash);
   });

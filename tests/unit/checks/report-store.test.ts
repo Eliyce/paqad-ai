@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  CHECKS_BUNDLE_SCHEMA_VERSION,
   CHECKS_REPORT_SCHEMA_VERSION,
   checksReportPath,
   featureChecksPath,
@@ -84,6 +85,60 @@ describe('checks report store', () => {
       mkdirSync(join(target, '..'), { recursive: true });
       writeFileSync(target, '{ not valid json');
       expect(readFeatureChecks(root, dirName)).toBeNull();
+    });
+
+    // Issue #581 — the bundle copy carries the one envelope header.
+    it('stamps the envelope header, generated_at becoming recorded_at', () => {
+      writeFeatureChecks(
+        root,
+        dirName,
+        {
+          schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+          generated_at: '2026-01-01T00:00:00.000Z',
+          passed: true,
+          ran: true,
+          results: [],
+        },
+        'ses_checks',
+      );
+      const raw = JSON.parse(readFileSync(featureChecksPath(root, dirName), 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      expect(Object.keys(raw).slice(0, 6)).toEqual([
+        'schema_version',
+        'doc_type',
+        'change',
+        'session_id',
+        'recorded_at',
+        'content_hash',
+      ]);
+      expect(raw).toMatchObject({
+        schema_version: CHECKS_BUNDLE_SCHEMA_VERSION,
+        doc_type: 'paqad.checks',
+        change: '01M1SSERFEHGNJZ35W8BF9J8SZ',
+        session_id: 'ses_checks',
+        recorded_at: '2026-01-01T00:00:00.000Z',
+        passed: true,
+      });
+      expect(raw).not.toHaveProperty('generated_at');
+    });
+
+    it('re-stamps a report read back from the bundle without doubling its header', () => {
+      writeFeatureChecks(root, dirName, {
+        schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+        passed: true,
+        ran: true,
+        results: [],
+      });
+      const first = readFeatureChecks(root, dirName)!;
+      expect(first.session_id).toBe('unknown');
+      expect(Date.parse(first.recorded_at!)).not.toBeNaN();
+      writeFeatureChecks(root, dirName, first, 'ses_2');
+      expect(readFeatureChecks(root, dirName)).toMatchObject({
+        session_id: 'ses_2',
+        content_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      });
     });
 
     it('does not write to the global path', () => {

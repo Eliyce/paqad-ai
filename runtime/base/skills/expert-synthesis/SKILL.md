@@ -9,22 +9,10 @@ cacheable: false
 cache_key_inputs: []
 output_format: json
 input_schema:
-  merge_path:
-    type: path
+  context:
+    type: object
     required: true
-    description: The merged expert findings and conflicts the script wrote (expert-merge.json).
-  notes_path:
-    type: path
-    required: true
-    description: The experts' raw notes (expert-notes.json).
-  request_path:
-    type: path
-    required: true
-    description: The request text (request.md).
-  grounding_path:
-    type: path
-    required: true
-    description: The S0 grounding (grounding.json) — the docs the request is graded against.
+    description: The JSON printed by `paqad-ai spec pipeline experts context`, with the request, the grounding, the label, the roster, every expert note, and the merge (findings with ids, and conflicts).
 ---
 
 ## What It Does
@@ -42,23 +30,27 @@ that, and turns each conflict into one `spec.expert_conflict` decision packet.
 
 ## Use This When
 
-- The spec pipeline is running with the expert roster on, the experts have written notes, and the
-  script has merged them (`expert-merge.json` exists). Run this once, after the notes step.
+- The spec pipeline is running with the expert roster on and the experts' notes are recorded
+  (`paqad-ai spec pipeline experts context` shows a `merge` that is not null). Run this once,
+  after the notes step.
 
 Do **not** run it when no expert fired — the chief only runs when at least one expert did.
 
 ## Inputs
 
-- `merge_path` — required. The merged findings (each with an id) and the conflicts, from the script.
-- `notes_path` — required. The raw expert notes, for the reasons behind each finding.
-- `request_path` — required. The request text.
-- `grounding_path` — required. The grounding, so a finding that contradicts the docs is a gap.
+- `context` — required. Print it with `paqad-ai spec pipeline experts context`. It holds:
+  - `merge`: the merged findings (each with an id) and the conflicts. The script recomputes it
+    from the recorded notes each time; it is never a file.
+  - `notes`: the expert notes, for the reasons behind each finding.
+  - `request`: the request text.
+  - `grounding`: the grounding, so a finding that contradicts the docs is a gap.
 
 Read `references/synthesis-checklist.md` for the gap categories to look for.
 
 ## Procedure
 
-1. Read the request, the grounding, the notes and the merge.
+1. Print the context with `paqad-ai spec pipeline experts context` and read the request, the
+   grounding, the notes and the merge in it.
 2. For every merged finding id, accept it, or decline it with a one-line reason. Cover each id
    exactly once — an unaccounted finding is a gap in your own read.
 3. For each conflict in the merge, write a recommendation that is one of that conflict's claims,
@@ -69,7 +61,8 @@ Read `references/synthesis-checklist.md` for the gap categories to look for.
 5. Give the verdict — `ready`, `needs-answers`, `not-ready` — and hand over the questions worth
    asking (business words; the plain-language check applies).
 6. Validate with `scripts/lint-output.sh`, then hand the file to the pipeline:
-   `paqad-ai spec pipeline experts synthesis <file>`.
+   `paqad-ai spec pipeline experts synthesis <file>`. The verb stores your verdict in the
+   change's `experts.json`, pointing at findings by id only; never write that file yourself.
 
 ## Output Contract
 

@@ -13,14 +13,21 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { sha256Hex } from '@/compliance/markdown.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { armDecisionFromPlan } from '@/planning/decision-evidence-arm.js';
 import { openVisualEvidenceReadinessPause } from '@/visual-evidence/readiness.js';
 
+import { documentSessionId, stampFeatureDocument } from './bundle-document.js';
+import { buildTextHeader, renderFrontMatter } from './envelope.js';
 import { updateFeatureRecord } from './feature-record.js';
 import { buildPlanRecord, buildReviewRecord } from './mint.js';
-import { parseFeatureDirName, featureFilePath, featureSpecMarkdownPath } from './paths.js';
-import { renderSpecMarkdown } from './spec-markdown.js';
+import {
+  FEATURE_BUNDLE_FILES,
+  featureChangeKey,
+  featureFilePath,
+  parseFeatureDirName,
+} from './paths.js';
 import { backfillFeatureSlug } from './rename.js';
 import {
   frameworkClaimKey,
@@ -30,13 +37,16 @@ import {
 } from './reuse.js';
 import { validatePlanRecord, validateReviewRecord } from './schema.js';
 import { currentFeature } from './stage-ledger.js';
-import type {
-  PlanRecord,
-  PlanRisk,
-  PlanStep,
-  ReviewFinding,
-  ReviewRecord,
-  ReviewVerdict,
+import {
+  FEATURE_DOC_SCHEMA_VERSION,
+  SPECIFICATION_DOC_TYPE,
+  SPEC_SOURCE_DOC_TYPE,
+  type PlanRecord,
+  type PlanRisk,
+  type PlanStep,
+  type ReviewFinding,
+  type ReviewRecord,
+  type ReviewVerdict,
 } from './types.js';
 
 /** The slots a plan template exposes for the model to fill (identity comes from the dir). */
@@ -54,7 +64,11 @@ export interface PlanCompileInput {
    * than dying at the JSON boundary.
    */
   reuse?: PlanReuse;
-  /** Title override for the record; defaults to the feature slug when absent. */
+  /**
+   * The change's human title. It is recorded on `feature.json` (the one home of the change
+   * identity, issue #581) and drives the untitled-bundle rename; `plan.json` never repeats it.
+   * Defaults to the feature slug when absent.
+   */
   title?: string;
   now?: () => Date;
 }
@@ -85,7 +99,7 @@ function atomicWriteJson(absPath: string, value: unknown): void {
 }
 
 /** Atomic text write (temp + rename), the text sibling of {@link atomicWriteJson}. Used for
- *  the derived `specification.md` projection (issue #512, Part A). */
+ *  the bundle's signed `spec.md` source (issue #581). */
 function atomicWriteText(absPath: string, text: string): void {
   mkdirSync(dirname(absPath), { recursive: true });
   const tmp = `${absPath}.tmp`;
@@ -193,10 +207,8 @@ export function writeFeaturePlan(
     }
   }
   const record = buildPlanRecord({
-    issue: parts.issue,
-    title: input.title ?? parts.slug,
-    slug: parts.slug,
-    ulid: parts.ulid,
+    change: parts.ulid,
+    session_id: sessionId,
     summary: input.summary,
     steps: input.steps,
     modules_touched: input.modules_touched,
@@ -218,7 +230,7 @@ export function writeFeaturePlan(
   updateFeatureRecord(
     projectRoot,
     dirName,
-    { title: record.title, slug: parts.slug, issue: parts.issue },
+    { title: input.title ?? parts.slug, slug: parts.slug, issue: parts.issue },
     input.now,
   );
 
@@ -296,13 +308,15 @@ export function readFeaturePlan(projectRoot: string, dirName: string): PlanRecor
 /**
  * Write the active feature's `specification.json` from an already-frozen `FeatureSpec`
  * (its `spec_hash` + freeze metadata are the script-owned proof; this only relocates it
- * into the bundle). Throws {@link NoActiveFeatureError} when no feature is active, and
- * refuses an unfrozen spec — an unfrozen spec carries no hash to attest.
+ * into the bundle), and the signed `markdown` it was built from as `spec.md` (issue #581).
+ * Throws {@link NoActiveFeatureError} when no feature is active, and refuses an unfrozen
+ * spec (it carries no hash to attest) or a `markdown` that does not hash to `spec_hash`.
  */
 export function writeFeatureSpecification(
   projectRoot: string,
   sessionId: string,
   spec: FeatureSpec,
+  markdown: string,
 ): CompiledArtifact<FeatureSpec> {
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) {
@@ -311,17 +325,45 @@ export function writeFeatureSpecification(
   if (spec.frozen === null || spec.frozen === undefined) {
     throw new Error(`Refusing to persist unfrozen spec ${spec.spec_id}: freeze it first.`);
   }
+  // Issue #581 (D5, FR-2) — the signed source itself goes into the bundle as `spec.md`, the
+  // header in YAML front matter and the markdown byte-for-byte as the body. `spec_hash` was
+  // computed over exactly those bytes, so it keeps verifying once the tmp source is deleted.
+  // A mismatch here means the caller handed the wrong source: refuse rather than record it.
+  if (sha256Hex(markdown) !== spec.spec_hash) {
+    throw new Error(
+      `Refusing to persist spec ${spec.spec_id}: the source does not hash to its spec_hash.`,
+    );
+  }
+  const sessionForDocs = documentSessionId(projectRoot, dirName, sessionId);
+  const header = buildTextHeader({
+    docType: SPEC_SOURCE_DOC_TYPE,
+    change: featureChangeKey(dirName),
+    sessionId: sessionForDocs,
+    schemaVersion: FEATURE_DOC_SCHEMA_VERSION,
+    body: markdown,
+  });
+  // spec.md first, so a specification.json on disk always has its signed source beside it.
+  atomicWriteText(
+    join(projectRoot, featureFilePath(dirName, 'specMd')),
+    renderFrontMatter(header, markdown),
+  );
+  // The parsed record carries the envelope header in place of the builder's `schema_version`,
+  // and names its source bundle-relative (`spec.md`), whatever path it was frozen from.
+  const body: Record<string, unknown> = { ...spec, spec_file: FEATURE_BUNDLE_FILES.specMd };
+  delete body.schema_version;
+  const record = stampFeatureDocument({
+    projectRoot,
+    dirName,
+    docType: SPECIFICATION_DOC_TYPE,
+    schemaVersion: FEATURE_DOC_SCHEMA_VERSION,
+    sessionId: sessionForDocs,
+    body,
+  }) as unknown as FeatureSpec;
   const rel = featureFilePath(dirName, 'specification');
-  atomicWriteJson(join(projectRoot, rel), spec);
-  // Issue #512 (Part A) — write the derived, read-only `specification.md` projection beside
-  // the canonical JSON, so the bundle always carries a human-readable spec. It is rendered
-  // fresh from the frozen spec on every freeze (never hand-maintained), a non-member sibling
-  // like `report.html` (#371), so it can never drift and the completeness gate can pair them.
-  const mdRel = featureSpecMarkdownPath(dirName);
-  atomicWriteText(join(projectRoot, mdRel), renderSpecMarkdown(spec));
+  atomicWriteJson(join(projectRoot, rel), record);
   // Issue #511 (RC-1) — record which frozen spec this feature carries on feature.json.
   updateFeatureRecord(projectRoot, dirName, { spec_id: spec.spec_id });
-  return { dirName, path: rel, record: spec };
+  return { dirName, path: rel, record };
 }
 
 /** Tolerant read of a feature's `specification.json`, or null when absent/corrupt. */
@@ -336,7 +378,10 @@ export interface ReviewRecordInput {
   findings?: ReviewFinding[];
   checked?: string[];
   rollback: string;
-  /** Title override for the record; defaults to the feature slug when absent. */
+  /**
+   * Accepted so a template written before issue #581 still compiles, and no longer stored:
+   * the change title lives in `feature.json`, which `plan compile` sets.
+   */
   title?: string;
   now?: () => Date;
 }
@@ -357,10 +402,8 @@ export function writeFeatureReview(
 ): CompiledArtifact<ReviewRecord> {
   const { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
   const record = buildReviewRecord({
-    issue: parts.issue,
-    title: input.title ?? parts.slug,
-    slug: parts.slug,
-    ulid: parts.ulid,
+    change: parts.ulid,
+    session_id: sessionId,
     summary: input.summary,
     verdict: input.verdict,
     findings: input.findings,

@@ -13,10 +13,10 @@ input_schema:
     type: string
     required: true
     description: The expert role to write notes as — one of the pickable roster roles.
-  brief_path:
-    type: path
+  brief:
+    type: string
     required: true
-    description: The brief the pipeline wrote for this expert (its request, grounding pointers, label, and granted budget).
+    description: The brief printed by `paqad-ai spec pipeline experts brief <role>` (the request, grounding pointers, label, and granted budget).
 ---
 
 ## What It Does
@@ -35,8 +35,8 @@ and merges it; this skill does the reading and judgement, the script does the ch
 ## Use This When
 
 - The spec pipeline is running with the expert roster on (`spec_pipeline_experts_enabled`), the
-  `expert-need-detector` has named the experts, and the pipeline has written one brief per expert.
-  Run this skill once per brief.
+  `expert-need-detector` has named the experts, and `experts record` has put them on the roster.
+  Run this skill once per expert, with the brief the `experts brief` verb prints for it.
 
 Do **not** run this when the experts flag is off — with it off the pipeline is byte-identical to
 v1 and this skill never runs. Do **not** invent a role: you write as the role in the brief.
@@ -45,13 +45,16 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 
 - `role` — required. The expert role you are writing as. Read that role's lens in
   `references/lenses/<role>.md` (for example `references/lenses/db-expert.md`) and apply it.
-- `brief_path` — required. The brief the pipeline wrote. It carries the request text, the ticket
-  acceptance criteria when present, the grounding terms and references (pointers, never file
-  bodies), the clarity label and its signals, and the token budget you are granted.
+- `brief` — required. Print it with `paqad-ai spec pipeline experts brief <role>`. The brief is
+  never a file: it is rebuilt from the run each time, and its hash is on your roster entry in
+  `experts.json`. It carries the request text, the ticket acceptance criteria when present, the
+  grounding references (pointers, never file bodies), the clarity label and its signals, and the
+  token budget you are granted.
 
 ## Procedure
 
-1. Read the brief at `brief_path`. Read your lens in `references/lenses/<role>.md`.
+1. Print your brief with `paqad-ai spec pipeline experts brief <role>`. Read your lens in
+   `references/lenses/<role>.md`.
 2. Decide from the request and the grounding **only**. Do not read the whole repo.
 3. Write findings about concrete targets — a table, an endpoint, a screen, a journey step — each
    about ONE target and making ONE claim. Mark each finding's `kind` and `severity`; see
@@ -64,7 +67,9 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 6. Validate the file with `scripts/lint-output.sh`, then hand it to the pipeline:
    `paqad-ai spec pipeline experts notes <file>`. That runs the deterministic guard
    (`src/spec-pipeline/experts/notes.ts`) — an unknown role, kind or severity, or a question in
-   jargon, is refused there; do not re-implement that check.
+   jargon, is refused there; do not re-implement that check. The verb stores each finding once in
+   the change's `experts.json` and your tokens on your roster entry; never write that file
+   yourself.
 
 ## Output Contract
 
@@ -75,6 +80,8 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 - `findings` MAY be empty. `questions` MAY be empty. One note per brief you were given.
 - The artifact is validated by `paqad-ai spec pipeline experts notes`; the ids `EX-<role>-<n>` are
   assigned there, in note order.
+- Write the artifact outside the feature bundle (for example under `.paqad/tmp/`); the verb
+  records it and `spec freeze` cleans up the inputs it was handed.
 
 ## Escalate / Stop Conditions
 

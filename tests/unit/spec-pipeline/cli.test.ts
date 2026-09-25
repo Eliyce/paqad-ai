@@ -6,8 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createSpecPipelineCommand } from '@/cli/commands/spec-pipeline.js';
+import { splitFrontMatter } from '@/feature-evidence/envelope.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
-import { pipelineArtifactPath } from '@/spec-pipeline/orchestrator.js';
+import {
+  readClarification,
+  readSpecStepRows,
+  stagedFilePath,
+  writeExpertRoster,
+  writeStagedJson,
+} from '@/spec-pipeline/run-store.js';
 
 /** Seed one resolved intake.requirement decision so the S2 auto-answer seam can hit it. */
 function seedResolvedDecision(root: string): void {
@@ -116,7 +124,10 @@ describe('spec pipeline CLI', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     await run(root, ['ground']);
-    expect(existsSync(join(root, pipelineArtifactPath(dir, 'ground')))).toBe(true);
+    expect(existsSync(join(root, stagedFilePath(dir, 'grounding')))).toBe(true);
+    expect(readSpecStepRows(root, dir).map((row) => [row.step, row.session_id])).toEqual([
+      ['ground', SES],
+    ]);
     const { out } = await run(root, ['status']);
     expect(JSON.parse(out[0]!).next_step).toBe('label');
   });
@@ -131,10 +142,14 @@ describe('spec pipeline CLI', () => {
 
   it('ground then label produces a label', async () => {
     const root = tempRoot();
-    activeFeature(root);
+    const dir = activeFeature(root);
     await run(root, ['ground']);
     const { out } = await run(root, ['label', 'the export must exclude hidden columns']);
     expect(JSON.parse(out[0]!).step).toBe('label');
+    // The labelled prompt is the request, recorded in the bundle beside the label.
+    expect(readClarification(root, dir)?.label?.value).toBeDefined();
+    const request = readFileSync(join(root, featureFilePath(dir, 'request')), 'utf8');
+    expect(splitFrontMatter(request).body).toBe('the export must exclude hidden columns');
   });
 
   it('record rejects an unknown step', async () => {
@@ -243,12 +258,11 @@ describe('spec pipeline CLI', () => {
     const { out } = await run(root, ['record', 'questions', join(root, 'questions.json')]);
     expect(JSON.parse(out[0]!)).toMatchObject({ step: 'questions', asked: 1, auto_answered: 1 });
 
-    const persisted = JSON.parse(
-      readFileSync(join(root, pipelineArtifactPath(dir, 'questions')), 'utf8'),
-    );
+    // Stored as the clarification.json questions section (issue #581, FR-9).
+    const persisted = readClarification(root, dir)!.questions!;
     // The ledger-answerable question never survives into the batch handed to the user.
-    expect(persisted.questions).toHaveLength(1);
-    expect(persisted.questions[0].business_text).toBe(
+    expect(persisted.asked).toHaveLength(1);
+    expect(persisted.asked[0]!.business_text).toBe(
       'How long should the onboarding banner stay visible?',
     );
     expect(persisted.auto_answered).toEqual([
@@ -258,7 +272,7 @@ describe('spec pipeline CLI', () => {
         source: 'D-900',
       },
     ]);
-    expect(persisted.asked).toBe(1);
+    expect(persisted.counts).toEqual({ asked: 1, answered: 0, auto_answered: 1, deferred: 0 });
   });
 
   it('finish provenance lists the auto-answered refs and counts (AC-4/AC-5)', async () => {
@@ -297,19 +311,21 @@ describe('spec pipeline CLI', () => {
     await run(root, ['record', 'craft', join(root, 'spec.md')]);
     await run(root, ['finish']);
 
-    const finish = JSON.parse(
-      readFileSync(join(root, pipelineArtifactPath(dir, 'finish')), 'utf8'),
-    );
+    const finish = JSON.parse(readFileSync(join(root, stagedFilePath(dir, 'finish')), 'utf8'));
     expect(finish.provenance.answer_refs).toEqual(['D-900']);
     expect(finish.provenance.questions).toMatchObject({ asked: 0, auto_answered: 1 });
   });
 
-  it('redo archives a step and reports what was invalidated', async () => {
+  it('redo clears a step, records a redone row, and reports what was invalidated', async () => {
     const root = tempRoot();
-    activeFeature(root);
+    const dir = activeFeature(root);
     await run(root, ['ground']);
     const { out } = await run(root, ['redo', 'ground']);
     expect(JSON.parse(out[0]!)).toMatchObject({ redo: 'ground', invalidated: ['ground'] });
+    expect(readSpecStepRows(root, dir).map((row) => [row.outcome, row.session_id])).toEqual([
+      ['complete', SES],
+      ['redone', SES],
+    ]);
   });
 
   it('redo rejects an unknown step', async () => {
@@ -392,7 +408,7 @@ describe('spec pipeline CLI — craft trace + question merge (issue #547)', () =
     const good = await run(root, ['record', 'craft', spec, '--trace', full]);
     expect(process.exitCode).toBe(0);
     expect(JSON.parse(good.out[0]!)).toMatchObject({ recorded: true, traced: true });
-    expect(existsSync(join(root, '.paqad', '_specs', dir, 'pipeline', 'trace.json'))).toBe(true);
+    expect(existsSync(join(root, stagedFilePath(dir, 'trace')))).toBe(true);
   });
 
   it('merges expert and chief questions into the S2 batch (FR-7)', async () => {
@@ -467,9 +483,12 @@ describe('spec pipeline CLI — start (issue #547)', () => {
     expect(result).toHaveProperty('label');
     expect(result).toHaveProperty('next_step');
     expect(result.experts).toBe('off');
-    expect(existsSync(join(root, '.paqad', '_specs', dir, 'pipeline', 'request.md'))).toBe(true);
-    expect(existsSync(join(root, pipelineArtifactPath(dir, 'ground')))).toBe(true);
-    expect(existsSync(join(root, pipelineArtifactPath(dir, 'label')))).toBe(true);
+    // request.md lands in the bundle with its header in front matter, body byte-for-byte.
+    const request = readFileSync(join(root, featureFilePath(dir, 'request')), 'utf8');
+    expect(splitFrontMatter(request).body).toBe('Let customers download their invoices as CSV.');
+    expect(splitFrontMatter(request).header).toMatchObject({ doc_type: 'paqad.request' });
+    expect(existsSync(join(root, stagedFilePath(dir, 'grounding')))).toBe(true);
+    expect(readClarification(root, dir)?.label).not.toBeNull();
   });
 
   it('errors when neither --request-file nor --ticket is given', async () => {
@@ -499,24 +518,22 @@ describe('spec pipeline CLI — start (issue #547)', () => {
 
 // Issue #547 — the metrics verb and remaining start/craft branches (coverage).
 describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
-  function writeRun(root: string, dir: string, file: string, value: unknown): void {
-    const scratch = join(root, '.paqad', '_specs', dir, 'pipeline');
-    mkdirSync(scratch, { recursive: true });
-    writeFileSync(join(scratch, file), typeof value === 'string' ? value : JSON.stringify(value));
-  }
-
   it('metrics reports the active run', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    writeRun(root, dir, 'finish.json', {
-      provenance: {
-        experts: {
-          accounting: { experts: [{ role: 'db-expert', tokens: 500, changed_spec: true }] },
-          conflicts: [],
-        },
-        metrics: { label: 'okay', grounding_sparse: false, tokens_by_step: {} },
+    // The run is read from the bundle: a staged finish and the experts.json roster.
+    writeStagedJson(root, dir, 'finish', { provenance: { outcome: 'freeze' } });
+    writeExpertRoster(root, dir, [
+      {
+        role: 'db-expert',
+        reason: 'r',
+        lens: 'lens',
+        budget_tokens: 6000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: 500,
       },
-    });
+    ]);
     const { out } = await run(root, ['metrics']);
     const report = JSON.parse(out[0]!);
     expect(report.runs).toBe(1);
@@ -524,10 +541,10 @@ describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
     expect(out.join('\n')).toMatch(/db-expert/);
   });
 
-  it('metrics --all aggregates across runs without an active feature', async () => {
+  it('metrics --all aggregates across every feature bundle', async () => {
     const root = tempRoot();
-    activeFeature(root);
-    writeRun(root, 'run-a', 'finish.json', {
+    const dir = activeFeature(root);
+    writeStagedJson(root, dir, 'finish', {
       provenance: { metrics: { label: 'clear', grounding_sparse: false, tokens_by_step: {} } },
     });
     const { out } = await run(root, ['metrics', '--all']);

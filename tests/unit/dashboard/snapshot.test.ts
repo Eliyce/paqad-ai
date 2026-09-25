@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildModuleSnapshot, buildReceiptSnapshot } from '@/dashboard/snapshot.js';
 import { buildReceiptFeed } from '@/dashboard/trust.js';
 import { buildEvidenceRow } from '@/evidence/ledger.js';
+import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
@@ -69,18 +70,21 @@ describe('dashboard snapshots (#161)', () => {
       // Issue #468 Phase B — the snapshot reads the bundle receipt feed, so project a
       // per-feature bundle receipt.
       const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+      // Issue #581 — as in a real run, the rows land in evidence.jsonl before the receipt seals it.
+      const rows = [
+        buildEvidenceRow({
+          ts: '2026-06-11T00:00:00.000Z',
+          engine: 'verification-gate',
+          code: 'code-tests-lint',
+          subject_digest: 'subject-1',
+          verdict: 'pass',
+          strength_class: 'deterministic',
+        }),
+      ];
+      appendFeatureEvidenceRows(root, 'ses_1', rows);
       projectFeatureReceipt(root, dir, {
         fileDigests: [{ name: 'src/pay.ts', sha256: 'aaa' }],
-        rows: [
-          buildEvidenceRow({
-            ts: '2026-06-11T00:00:00.000Z',
-            engine: 'verification-gate',
-            code: 'code-tests-lint',
-            subject_digest: 'subject-1',
-            verdict: 'pass',
-            strength_class: 'deterministic',
-          }),
-        ],
+        rows,
         verifierVersion: '1.0.0',
         timeVerified: '2026-06-11T00:00:00.000Z',
       });

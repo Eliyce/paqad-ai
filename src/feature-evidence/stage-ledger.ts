@@ -16,11 +16,10 @@ import { readGitState } from '@/rag/git-state.js';
 import {
   appendStampedRowToUnit,
   readUnitFile,
-  stampSessionRow,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 import { augmentWithBundleArtifacts, foldRowsWithKey } from '@/stage-evidence/fold.js';
-import { ORCHESTRATOR_AGENT } from '@/stage-evidence/agent-identity.js';
+import { BACKSTOP_WRITER, ORCHESTRATOR_AGENT } from '@/stage-evidence/agent-identity.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import {
   STAGE_EVIDENCE_DOC_TYPE,
@@ -31,9 +30,15 @@ import {
 import { adoptableInFlightOnBranch, reconcileSessionControl } from './adoption.js';
 import { seedFeatureDelivery } from './delivery.js';
 import { listFeatureDirs } from './enumerate.js';
-import { seedFeatureRecord, updateFeatureRecord } from './feature-record.js';
+import {
+  readChangeConstants,
+  seedFeatureRecord,
+  updateFeatureRecord,
+  type FeatureRecordPatch,
+} from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
-import { featureFilePath, parseFeatureDirName } from './paths.js';
+import { stampBundleRow } from './envelope.js';
+import { featureChangeKey, featureFilePath, parseFeatureDirName } from './paths.js';
 import {
   markDone,
   readSessionControl,
@@ -117,10 +122,14 @@ export function featureStagePath(dirName: string): string {
 }
 
 /**
- * Append one stage-evidence row into the feature's bundle (stamped + validated by the
- * existing stage-evidence schema). `conversation_ordinal` is retired as the change key
- * (the feature dir name is the key now) but the row schema still carries it for
- * provenance/back-compat, so a constant `1` is stamped unless the caller overrides it.
+ * Append one stage-evidence row into the feature's bundle, stamped with the one bundle
+ * envelope header (issue #581, FR-5: `change` is the folder-name ULID, `recorded_at` the
+ * script clock) and validated by the stage-evidence schema. The retired
+ * `conversation_ordinal` and `ts` are no longer written; readers still accept a row that
+ * has them (INV-8).
+ *
+ * Issue #581 (FR-6) — a row carries no session constants (`adapter`, `branch`, `lane`).
+ * Those live once on `feature.json`; record them with {@link recordChangeConstants}.
  */
 export function appendFeatureStageRow(
   projectRoot: string,
@@ -129,22 +138,52 @@ export function appendFeatureStageRow(
   row: Record<string, unknown>,
   now?: () => Date,
 ): SessionLedgerRow {
-  const stamped = stampSessionRow(
-    STAGE_EVIDENCE_DOC_TYPE,
+  const stamped = stampBundleRow({
+    docType: STAGE_EVIDENCE_DOC_TYPE,
+    change: featureChangeKey(dirName),
     sessionId,
+    schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
     // Issue #573 — `agent` is REQUIRED by the schema and this is the one write
     // chokepoint, so default it here rather than at every call site. A caller that knows
     // it is inside a dispatched stage agent passes its own identity and wins; everything
     // else is the main chat.
-    { conversation_ordinal: 1, ...row, agent: row.agent ?? ORCHESTRATOR_AGENT },
-    {
-      schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-      validate: (r) => validateStageEvidenceRow(r),
-      now,
-    },
-  );
+    row: { ...row, agent: row.agent ?? ORCHESTRATOR_AGENT },
+    validate: (r) => validateStageEvidenceRow(r),
+    now,
+  }) as unknown as SessionLedgerRow;
   appendStampedRowToUnit(projectRoot, featureStagePath(dirName), stamped);
   return stamped;
+}
+
+/** The session constants a stage writer knows at the time it records a row (issue #581). */
+export interface ChangeConstantsInput {
+  adapter?: string;
+  lane?: FeatureLane;
+  branch?: string | null;
+  baseBranch?: string | null;
+}
+
+/**
+ * Update the change's session constants on `feature.json` in place (issue #581, FR-6), the
+ * latest host winning. Only facts the caller actually knows are written: an unresolved
+ * (null) lane never erases a recorded one, and the completion backstop is a writer, not a
+ * host, so it never replaces the adapter. A no-op write is skipped by
+ * {@link updateFeatureRecord}, so calling this per row never churns the file. Best-effort.
+ */
+export function recordChangeConstants(
+  projectRoot: string,
+  dirName: string,
+  input: ChangeConstantsInput,
+  now?: () => Date,
+): void {
+  const patch: FeatureRecordPatch = {};
+  if (input.adapter && input.adapter !== BACKSTOP_WRITER) patch.adapter = input.adapter;
+  if (input.lane) patch.lane = input.lane;
+  if (input.branch) patch.branch = input.branch;
+  if (input.baseBranch) patch.base_branch = input.baseBranch;
+  if (Object.keys(patch).length > 0) {
+    updateFeatureRecord(projectRoot, dirName, patch, now);
+  }
 }
 
 /** Tolerant read of a feature's stage-evidence rows. */
@@ -155,7 +194,12 @@ export function readFeatureStageUnit(projectRoot: string, dirName: string): Sess
 /** Fold a feature's stage rows into the per-change view, keyed by the dir name. */
 export function foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange {
   const rows = readFeatureStageUnit(projectRoot, dirName);
-  const fold = foldRowsWithKey(rows, { sessionId, changeKey: dirName, promptOrdinal: 0 });
+  // Issue #581 (FR-6) — the lane is a session constant on feature.json; the fold core only
+  // knows the legacy open row, so the bundle-aware reader supplies the lane it resolved.
+  const fold = {
+    ...foldRowsWithKey(rows, { sessionId, changeKey: dirName, promptOrdinal: 0 }),
+    lane: readChangeConstants(projectRoot, dirName, rows).lane,
+  };
   // Issue #394: a rigid thinking stage is truly done only when its bundle artifact
   // actually exists. Assert plan.json + specification.json are present and non-empty, so
   // a change whose rows read complete but never produced the artifacts (the incident's
@@ -217,41 +261,47 @@ export function openFeatureChange(
   input: OpenFeatureChangeInput,
 ): string {
   const dirName = resolveActiveFeature(projectRoot, sessionId, input);
+  // The branch this change is being built on (issue #404), so a rotated session can
+  // recognise its own in-flight bundle — a session id rotates, a branch does not. `null`
+  // off a branch (detached HEAD, non-git).
+  const gitState = readGitState(projectRoot);
   // Issue #511 (RC-1) — seed feature.json when the feature is opened, so every bundle
-  // carries its identity/status record from birth (not just its dir name). Idempotent, so a
-  // re-open is a no-op; best-effort, so a write fault never breaks the open path.
-  seedFeatureRecord(projectRoot, dirName, {
+  // carries its identity/status record from birth (not just its dir name). Issue #581 —
+  // it is also the one home of the session constants, so the branch and its base are
+  // stamped here, never on a row. Best-effort, so a write fault never breaks the open path.
+  const seeded = seedFeatureRecord(projectRoot, dirName, {
     adapter: input.adapter,
     sessionId,
     lane: input.lane ?? null,
+    branch: gitState.branch ?? null,
+    baseBranch: gitState.base_branch ?? null,
     now: input.now,
   });
-  const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
-  if (!hasOpen) {
-    // The branch this change is being built on (issue #404). Read once, here, so a rotated
-    // session can recognise its own in-flight bundle from row 1 — a session id rotates, a
-    // branch does not. `null` off a branch (detached HEAD, non-git).
-    const gitState = readGitState(projectRoot);
-    appendFeatureStageRow(
+  // A re-open (another host, or a record seeded before #581 with no branch) updates the
+  // constants in place: the latest host wins (AC-26).
+  if (seeded) {
+    recordChangeConstants(
       projectRoot,
-      sessionId,
       dirName,
       {
-        kind: 'open',
         adapter: input.adapter,
         lane: input.lane ?? null,
         branch: gitState.branch ?? null,
+        baseBranch: gitState.base_branch ?? null,
       },
       input.now,
     );
-    // Issue #511 (RC-2) — seed delivery.json with the branch + base at open, so the FIRST
-    // commit on this branch links to this bundle (the branch-match had nothing to match on
-    // before). Best-effort — a git/write fault never breaks the open path.
+  }
+  const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
+  if (!hasOpen) {
+    appendFeatureStageRow(projectRoot, sessionId, dirName, { kind: 'open' }, input.now);
+    // Issue #511 (RC-2) — seed delivery.json at open, so every bundle carries its delivery
+    // record from birth. The branch the FIRST commit matches on is on feature.json, seeded
+    // above (issue #581). Best-effort — a git/write fault never breaks the open path.
     try {
       seedFeatureDelivery(projectRoot, dirName, {
-        branch: gitState.branch ?? null,
-        baseBranch: gitState.base_branch ?? null,
-        capturedAt: (input.now ?? (() => new Date()))().toISOString(),
+        sessionId,
+        recordedAt: (input.now ?? (() => new Date()))().toISOString(),
       });
       /* v8 ignore next 3 -- best-effort: a delivery seed fault must not break feature open. */
     } catch {
@@ -282,17 +332,13 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
   const rows = readFeatureStageUnit(projectRoot, active);
   // An unmaterialized bundle (no rows) is not in flight, so nothing can adopt it and it
   // needs no close row — stamping one would materialize an empty bundle just to close it.
-  const adapter = lastAdapter(rows);
-  if (adapter !== null && !rows.some((row) => row.kind === 'close')) {
+  if (rows.length > 0 && !rows.some((row) => row.kind === 'close')) {
     appendFeatureStageRow(
       projectRoot,
       sessionId,
       active,
       {
         kind: 'close',
-        // The adapter is required on every row; inherit it from the bundle's own rows so
-        // the close row is attributed to the host that actually recorded the change.
-        adapter,
         event_status: 'completed',
         note: 'closed; active pointer released',
       },
@@ -303,17 +349,6 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
   // (the report, an export) sees `status:'done'` and not a stale `active`. Best-effort.
   updateFeatureRecord(projectRoot, active, { status: 'done' }, now);
   markDone(projectRoot, sessionId, active, now);
-}
-
-/** The adapter on the most recent row that carries one; null for an empty bundle. */
-function lastAdapter(rows: readonly SessionLedgerRow[]): string | null {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const adapter = rows[i]!.adapter;
-    if (typeof adapter === 'string' && adapter.length > 0) {
-      return adapter;
-    }
-  }
-  return null;
 }
 
 /**

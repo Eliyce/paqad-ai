@@ -42,8 +42,49 @@ function readLog(projectRoot: string): Record<string, unknown>[] {
 }
 
 describe('runSchemaMigrators', () => {
-  it('ships an empty production registry at the baseline (no speculative migrators)', () => {
-    expect(SCHEMA_MIGRATORS).toEqual([]);
+  it('ships exactly the issue #581 evidence migrator, for layouts before 1.1.0', () => {
+    expect(SCHEMA_MIGRATORS.map((migrator) => migrator.id)).toEqual(['feature-evidence']);
+    const [migrator] = SCHEMA_MIGRATORS;
+    expect(migrator!.appliesTo('1.0.0', '1.1.0')).toBe(true);
+    expect(migrator!.appliesTo('0.9.0', '1.1.0')).toBe(true);
+    expect(migrator!.appliesTo('1.1.0', '1.2.0')).toBe(false);
+  });
+
+  it('runs the evidence migration and notes what it did, or nothing when there was nothing', async () => {
+    const [migrator] = SCHEMA_MIGRATORS;
+    const root = makeProject();
+    try {
+      const context = {
+        projectRoot: root,
+        fromVersion: '1.0.0',
+        toVersion: '1.1.0',
+        engineVersion: ENGINE_VERSION,
+      };
+      expect(await migrator!.migrate(context)).toBeUndefined();
+      mkdirSync(join(root, '.paqad/_specs/stray.txt'), { recursive: true });
+      expect(await migrator!.migrate(context)).toContain('leave stray.txt: not a change folder');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('turns a throw inside the evidence migration into a note, so the update goes on', async () => {
+    const [migrator] = SCHEMA_MIGRATORS;
+    const root = makeProject();
+    try {
+      // The ignore line has to go, but its temp file's path is taken by a folder: the write throws.
+      mkdirSync(join(root, '.paqad', `.gitignore.tmp-${process.pid}`), { recursive: true });
+      writeFileSync(join(root, '.paqad', '.gitignore'), '_specs/\n', 'utf8');
+      const note = await migrator!.migrate({
+        projectRoot: root,
+        fromVersion: '1.0.0',
+        toVersion: '1.1.0',
+        engineVersion: ENGINE_VERSION,
+      });
+      expect(note).toMatch(/^the evidence migration did not finish \(.+\); it runs again/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('runs only applicable migrators, in registration order, collecting notes', async () => {

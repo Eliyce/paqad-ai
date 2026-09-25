@@ -1,0 +1,22 @@
+{
+  "id": "D-01M3BJWKPYM3TBE4XQSAEFJE2Y",
+  "category": "architecture-path",
+  "title": "581: adapter on feature.json when a change moves between hosts",
+  "context": "Session constants move to feature.json; a change can be worked from Claude then Codex.",
+  "options": [
+    {
+      "option_key": "latest",
+      "label": "Single adapter, updated in place (latest host wins)"
+    },
+    {
+      "option_key": "adapters-list",
+      "label": "adapters[] listing every host seen"
+    }
+  ],
+  "recommendation": "latest",
+  "created_at": "2026-09-25T06:08:51.422Z",
+  "status": "resolved",
+  "chosen": "latest",
+  "rationale": "Owner chose: single adapter, latest wins",
+  "resolved_at": "2026-09-25T06:34:33.215Z"
+}

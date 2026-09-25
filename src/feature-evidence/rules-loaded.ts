@@ -13,27 +13,32 @@
 // It attests LOADING and acknowledgment, never comprehension (the honest limit of a
 // deterministic, no-LLM framework). Written into the ACTIVE feature bundle with the same
 // atomic-write + identity content_hash shape as feature.json / plan.json.
+//
+// Issue #581 — it carries the one envelope header (`session_id` and `recorded_at` live there,
+// `recorded_at` replacing `created_at`), and no `adapter`: the host is a session constant of
+// the change, stored once in feature.json.
 
-import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { RuleApplicability } from '@/context/rule-context.js';
 
-import { featureFilePath } from './paths.js';
+import { buildDocumentEnvelope, type EnvelopeHeader } from './envelope.js';
+import { featureChangeKey, featureFilePath } from './paths.js';
 import { currentFeature } from './stage-ledger.js';
 
 /** Doc type stamped on `rules-loaded.json`. */
 export const RULES_LOADED_DOC_TYPE = 'paqad.rules-loaded';
-export const RULES_LOADED_SCHEMA_VERSION = 1;
+/** Version 2 (issue #581): the envelope header, and no `adapter`. Version 1 still reads. */
+export const RULES_LOADED_SCHEMA_VERSION = 2;
 
-/** The rules-loaded record — which rules applied to the change and that their text was loaded. */
-export interface RulesLoadedRecord {
-  schema_version: number;
+/**
+ * The rules-loaded record — which rules applied to the change and that their text was loaded.
+ * `content_hash` is the identity hash over the header and the body, never `recorded_at`.
+ */
+export interface RulesLoadedRecord extends EnvelopeHeader {
   doc_type: typeof RULES_LOADED_DOC_TYPE;
-  session_id: string;
-  adapter: string;
   /** The changed-file working set the applicable set was computed against. */
   changed_files: string[];
   /** Every rule that applies to the change (always-on + trigger-matched), with matched paths. */
@@ -42,21 +47,6 @@ export interface RulesLoadedRecord {
   rule_text_hash: string;
   /** The artifact the rule text was loaded from (the session-context rule contract). */
   artifact: string;
-  created_at: string;
-  /** Identity hash over the record's meaningful fields (excludes created_at + content_hash). */
-  content_hash: string;
-}
-
-const HASH_EXCLUDED_KEYS = new Set(['content_hash', 'created_at']);
-
-/** Deterministic identity hash over the record's meaningful fields (mirrors mint.ts). */
-function computeContentHash(
-  record: Omit<RulesLoadedRecord, 'content_hash' | 'created_at'>,
-): string {
-  const identity = Object.fromEntries(
-    Object.entries(record).filter(([key]) => !HASH_EXCLUDED_KEYS.has(key)),
-  );
-  return createHash('sha256').update(JSON.stringify(identity)).digest('hex');
 }
 
 function atomicWriteJson(absPath: string, value: unknown): void {
@@ -71,30 +61,31 @@ export interface RulesLoadedInput {
   applicable: RuleApplicability[];
   ruleTextHash: string;
   changedPaths: string[];
-  adapter?: string;
   now?: () => Date;
 }
 
-/** Build a validated-shape rules-loaded record with a stamped content hash. */
+/**
+ * Build a validated-shape rules-loaded record for the change `dirName` names, through the one
+ * envelope builder (issue #581).
+ */
 export function buildRulesLoadedRecord(
+  dirName: string,
   sessionId: string,
   input: RulesLoadedInput,
 ): RulesLoadedRecord {
-  const base = {
-    schema_version: RULES_LOADED_SCHEMA_VERSION,
-    doc_type: RULES_LOADED_DOC_TYPE,
-    session_id: sessionId,
-    adapter: input.adapter ?? 'claude-code',
-    changed_files: [...input.changedPaths],
-    applicable_rules: input.applicable,
-    rule_text_hash: input.ruleTextHash,
-    artifact: PATHS.CONTEXT_SESSION_ARTIFACT,
-  } satisfies Omit<RulesLoadedRecord, 'created_at' | 'content_hash'>;
-  return {
-    ...base,
-    created_at: (input.now?.() ?? new Date()).toISOString(),
-    content_hash: computeContentHash(base),
-  };
+  return buildDocumentEnvelope({
+    docType: RULES_LOADED_DOC_TYPE,
+    change: featureChangeKey(dirName),
+    sessionId,
+    schemaVersion: RULES_LOADED_SCHEMA_VERSION,
+    now: input.now,
+    body: {
+      changed_files: [...input.changedPaths],
+      applicable_rules: input.applicable,
+      rule_text_hash: input.ruleTextHash,
+      artifact: PATHS.CONTEXT_SESSION_ARTIFACT,
+    },
+  }) as RulesLoadedRecord;
 }
 
 /**
@@ -112,7 +103,7 @@ export function writeRulesLoaded(
   if (!dirName) {
     return null;
   }
-  const record = buildRulesLoadedRecord(sessionId, input);
+  const record = buildRulesLoadedRecord(dirName, sessionId, input);
   atomicWriteJson(join(projectRoot, featureFilePath(dirName, 'rulesLoaded')), record);
   return record;
 }

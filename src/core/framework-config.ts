@@ -806,7 +806,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'warn | strict: how firmly the specification stage adopts the pipeline once ' +
       'spec_pipeline_enabled is on. warn (default): the stage tells the agent to produce the ' +
       'spec through `paqad-ai spec pipeline`; a hand-written spec still freezes, recorded as ' +
-      'pipeline_produced=false and shown in the receipt. strict: `spec freeze` refuses a spec ' +
+      'pipeline.produced=false and shown in the receipt. strict: `spec freeze` refuses a spec ' +
       'the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is ' +
       'recorded on the frozen spec. No effect while spec_pipeline_enabled is off.',
   },

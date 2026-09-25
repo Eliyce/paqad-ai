@@ -2,19 +2,22 @@
 //
 // When a paqad stage agent finishes, the host fires `SubagentStop` (matched to `^paqad-`),
 // and the thin `runtime/hooks/stage-agent-completion.mjs` hook lazy-imports this module. It
-// appends one `context-efficiency.jsonl` row: what the isolated stage cost and the carried
-// history the orchestrator did not re-send. It NEVER blocks (SubagentStop blocking is
+// appends one `kind: 'stage-agent'` row to the bundle's `stage-evidence.jsonl` (issue #581
+// retired the separate `context-efficiency.jsonl`): what the isolated stage cost and the
+// carried history the orchestrator did not re-send. It NEVER blocks (SubagentStop blocking is
 // undocumented on Claude) and never throws — a measurement failure must not disrupt a turn.
 //
 // Token exactness is honest: `SubagentStop`'s usage payload is undocumented on both hosts,
 // so when no usage object is present the counts are ESTIMATED from the subagent transcript
-// (~4 chars per token) and `exact` is recorded as false. When a host later surfaces exact
-// usage on the payload, it is used verbatim and `exact` is true. The row is keyed on the
-// orchestrator's session id (the ledger cache the orchestrator aligned), so every row in the
-// change shares one identity even though the subagent ran in its own context.
+// (~4 chars per token). When a host surfaces exact usage on the payload, it is used verbatim.
+// The carried-history figure is always an estimate, so the row says `estimate: true`. The
+// row is keyed on the orchestrator's session id (the ledger cache the orchestrator aligned),
+// so every row in the change shares one identity even though the subagent ran in its own
+// context.
 
-import { appendContextEfficiency } from '@/feature-evidence/bundle-ledgers.js';
+import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
 /** ~4 characters per token — the same rough estimate the issue specifies for the fallback. */
 const CHARS_PER_TOKEN = 4;
@@ -98,11 +101,14 @@ export interface RecordStageAgentCompletionInput {
   projectRoot: string;
   payload: SubagentStopPayload;
   transcriptText: string;
+  /** The host the stage agent ran on. The host lives on feature.json, never on the row. */
   adapter: string;
+  /** Clock seam for tests. */
+  now?: () => Date;
 }
 
 /**
- * Append one context-efficiency row for a finished stage agent. Returns true when a row was
+ * Append one `stage-agent` row for a finished stage agent. Returns true when a row was
  * written, false when there was nothing to record (not a paqad stage agent, or no active
  * feature). Never throws — the caller is a non-blocking hook.
  */
@@ -114,29 +120,36 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
     if (!stage) {
       return false;
     }
-    const agentId =
-      typeof input.payload.agent_id === 'string' && input.payload.agent_id.length > 0
-        ? input.payload.agent_id
-        : 'unknown';
     // Key on the orchestrator's ledger session id (aligned at its SessionStart), NOT the
     // subagent's payload session_id, so every row in the change shares one identity. Passing
     // no hint reads the single-slot cache rather than clobbering it with the subagent's id.
     const sessionId = resolveSessionId(input.projectRoot, null);
+    const dirName = currentFeature(input.projectRoot, sessionId);
+    if (!dirName) {
+      return false;
+    }
     const counts = resolveTokenCounts(input.payload, input.transcriptText);
-    const written = appendContextEfficiency(input.projectRoot, sessionId, {
-      stage,
-      agent_id: agentId,
-      adapter: input.adapter,
-      tokens_input: counts.tokens_input,
-      tokens_cached: counts.tokens_cached,
-      tokens_output: counts.tokens_output,
-      exact: counts.exact,
-      // The isolated stage's own footprint is history the orchestrator did not carry forward.
-      // Always an estimate (the exact orchestrator-vs-single-context delta needs a run-mode
-      // harness, an explicit follow-up), so it rides the row's inexact provenance too.
-      carried_history_avoided_estimate: estimateTokens(input.transcriptText),
-    });
-    return written !== null;
+    appendFeatureStageRow(
+      input.projectRoot,
+      sessionId,
+      dirName,
+      {
+        kind: STAGE_AGENT_KIND,
+        stage,
+        // The stage agent's own name (`paqad-development`), so the row is attributed to it.
+        agent: input.payload.agent_type,
+        tokens_used: counts.tokens_input + counts.tokens_output,
+        // The isolated stage's own footprint is history the orchestrator did not carry
+        // forward. The exact orchestrator-vs-single-context delta needs a run-mode harness
+        // (an explicit follow-up), so this figure is always estimated, and a row with any
+        // estimated figure says so: `estimate` is never dressed up as exact, even when the
+        // host reported exact usage for `tokens_used`.
+        tokens_not_recarried: estimateTokens(input.transcriptText),
+        estimate: true,
+      },
+      input.now,
+    );
+    return true;
   } catch {
     return false;
   }

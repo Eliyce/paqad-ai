@@ -17,11 +17,18 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { BUNDLE_MANIFEST, type BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
-import { appendFeatureStageRow, featureStagePath } from '@/feature-evidence/stage-ledger.js';
+import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
+import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
+import {
+  appendFeatureStageRow,
+  featureStagePath,
+  recordChangeConstants,
+} from '@/feature-evidence/stage-ledger.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import { stageIsolationExpected } from '@/verification/repository/run-repository-verification.js';
+
+import { appendLegacyStageRow } from '../../../shared/legacy-stage-row.js';
 
 const SESSION = 'isolation-required-session';
 
@@ -35,10 +42,24 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-/** Write a bundle whose open row carries `lane` and `adapter`, plus a full stage set. */
-function bundleWith(dirName: string, lane: string | null, adapter: string): void {
+/** A real bundle dir name for `name`, so feature.json can be written for it. */
+function bundle(name: string): string {
+  return `573-${name}-01JABCDEFGHJKMNPQRSTVWXYZ0`;
+}
+
+/**
+ * Write a bundle whose `feature.json` carries `lane` and `adapter` (issue #581: the one home
+ * of the session constants), plus a full stage set of rows that carry neither.
+ */
+function bundleWith(
+  name: string,
+  lane: 'fast' | 'graduated' | 'full' | null,
+  adapter: string,
+): void {
+  const dirName = bundle(name);
   mkdirSync(join(root, featureStagePath(dirName), '..'), { recursive: true });
-  appendFeatureStageRow(root, SESSION, dirName, { kind: 'open', adapter, lane });
+  recordChangeConstants(root, dirName, { adapter, lane });
+  appendFeatureStageRow(root, SESSION, dirName, { kind: 'open' });
   for (const stage of [
     'planning',
     'specification',
@@ -50,13 +71,11 @@ function bundleWith(dirName: string, lane: string | null, adapter: string): void
     appendFeatureStageRow(root, SESSION, dirName, {
       kind: 'stage_start',
       stage,
-      adapter,
       event_status: 'started',
     });
     appendFeatureStageRow(root, SESSION, dirName, {
       kind: 'stage_end',
       stage,
-      adapter,
       event_status: 'completed',
       artifact_digest: `sha256-${stage}`,
     });
@@ -87,75 +106,64 @@ describe('stageIsolationExpected (issue #573)', () => {
   it('is true on a full lane on a subagent-capable host', () => {
     bundleWith('full-claude', 'full', 'claude-code');
 
-    expect(stageIsolationExpected(root, SESSION, 'full-claude')).toBe(true);
+    expect(stageIsolationExpected(root, SESSION, bundle('full-claude'))).toBe(true);
   });
 
   it('is true on a graduated lane too', () => {
     bundleWith('grad-codex', 'graduated', 'codex-cli');
 
-    expect(stageIsolationExpected(root, SESSION, 'grad-codex')).toBe(true);
+    expect(stageIsolationExpected(root, SESSION, bundle('grad-codex'))).toBe(true);
   });
 
   it('is false on the fast lane (INV-2)', () => {
     bundleWith('fast-claude', 'fast', 'claude-code');
 
-    expect(stageIsolationExpected(root, SESSION, 'fast-claude')).toBe(false);
+    expect(stageIsolationExpected(root, SESSION, bundle('fast-claude'))).toBe(false);
   });
 
   it('is false on a host that cannot dispatch subagents (INV-2)', () => {
     bundleWith('full-gemini', 'full', 'gemini-cli');
 
-    expect(stageIsolationExpected(root, SESSION, 'full-gemini')).toBe(false);
+    expect(stageIsolationExpected(root, SESSION, bundle('full-gemini'))).toBe(false);
   });
 
   it('is false when the lane is unresolved, rather than inventing a requirement (INV-5)', () => {
     // This is the state every change was in before #573. It must not start blocking.
     bundleWith('null-lane', null, 'claude-code');
 
-    expect(stageIsolationExpected(root, SESSION, 'null-lane')).toBe(false);
+    expect(stageIsolationExpected(root, SESSION, bundle('null-lane'))).toBe(false);
+  });
+
+  it('reads the lane and host a pre-#581 bundle stamped on its open row (INV-8)', () => {
+    appendLegacyStageRow(root, bundle('legacy'), SESSION, {
+      kind: 'open',
+      adapter: 'claude-code',
+      lane: 'full',
+    });
+
+    expect(stageIsolationExpected(root, SESSION, bundle('legacy'))).toBe(true);
+  });
+
+  it('judges the latest host recorded on feature.json, not the one that opened it (AC-26)', () => {
+    bundleWith('switched', 'full', 'claude-code');
+    recordChangeConstants(root, bundle('switched'), { adapter: 'gemini-cli' });
+
+    expect(stageIsolationExpected(root, SESSION, bundle('switched'))).toBe(false);
   });
 
   it('is false for a bundle that does not exist', () => {
-    expect(stageIsolationExpected(root, SESSION, 'no-such-bundle')).toBe(false);
+    expect(stageIsolationExpected(root, SESSION, bundle('no-such-bundle'))).toBe(false);
   });
 
   it('is false without a session or a change', () => {
-    expect(stageIsolationExpected(root, null, 'full-claude')).toBe(false);
+    expect(stageIsolationExpected(root, null, bundle('full-claude'))).toBe(false);
     expect(stageIsolationExpected(root, SESSION, null)).toBe(false);
   });
 });
 
-describe('the manifest entry for the isolation stream', () => {
-  const entry = BUNDLE_MANIFEST.find((row) => row.key === 'contextEfficiency');
-
-  function config(overrides: Partial<BundleCompletenessConfig>): BundleCompletenessConfig {
-    return {
-      ruleComplianceOn: false,
-      metricsEnabled: false,
-      duplicationOn: false,
-      featureReport: false,
-      ragEnabled: false,
-      enterprise: false,
-      evidenceLedger: false,
-      aiBom: false,
-      specPipelineStrict: false,
-      stageIsolationExpected: false,
-      ...overrides,
-    };
-  }
-
-  it('stays `optional`, so a change that did not expect isolation sees no flag-off note', () => {
-    // Issue #528 added `optional` precisely so a non-required file is not reported as
-    // "Skipped (flag off)". Isolation is flagless, so that wording would be a lie.
-    expect(entry?.required).toBe('optional');
-  });
-
-  it('upgrades to required exactly when isolation was expected', () => {
-    expect(entry?.requiredWhen?.(config({ stageIsolationExpected: true }))).toBe(true);
-    expect(entry?.requiredWhen?.(config({ stageIsolationExpected: false }))).toBe(false);
-  });
-
-  it('names a writer, so the failure tells you what produces the file', () => {
-    expect(entry?.writer).toContain('SubagentStop');
+describe('the isolation evidence lives in stage-evidence.jsonl (issue #581, D9)', () => {
+  it('has no separate bundle file or manifest entry any more', () => {
+    expect(Object.values(FEATURE_BUNDLE_FILES)).not.toContain('context-efficiency.jsonl');
+    expect(BUNDLE_MANIFEST.map((row) => row.file)).not.toContain('context-efficiency.jsonl');
   });
 });

@@ -4,6 +4,7 @@ import type { EvidenceLedgerRow, ReceiptEnvelope } from '@/core/types/evidence-l
 import { signReceipt } from '@/evidence/receipt/dsse.js';
 import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
 import { ZERO_DIGEST } from '@/evidence/digests.js';
+import type { IndexedDecisionView } from '@/feature-evidence/decisions-index.js';
 import type { FeatureBundleExport } from '@/feature-evidence/export.js';
 import { featureReportPath } from '@/feature-evidence/paths.js';
 import {
@@ -464,6 +465,41 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(html).toContain('Safe to merge');
   });
 
+  it('flags idle time on a stage the backstop closed, named by the row agent (issue #581)', () => {
+    // A row since #581 carries no adapter; the backstop names itself as the row's agent.
+    const rows = completeStageRows().map((row) => {
+      const rest: Record<string, unknown> = { ...row };
+      delete rest.adapter;
+      const byBackstop = row.kind === 'stage_end' && row.stage === 'checks';
+      return (byBackstop ? { ...rest, agent: 'backstop' } : rest) as never;
+    });
+    expect(render({ stageEvidence: rows })).toContain('includes idle time');
+    const noBackstop = rows.map((row) => ({ ...(row as object), agent: 'orchestrator' }) as never);
+    expect(render({ stageEvidence: noBackstop })).not.toContain('includes idle time');
+  });
+
+  // Issue #581 — the title and the branches live in feature.json.
+  it('reads the title and the branches from feature.json, ahead of a legacy plan or delivery', () => {
+    const html = render({
+      feature: { title: 'From feature json', slug: 'x', branch: 'feat/new', base_branch: 'dev' },
+      plan: { title: 'From legacy plan', summary: 's' },
+      delivery: { branch: 'feat/old', commits: [] },
+    });
+    expect(html).toContain('From feature json');
+    expect(html).not.toContain('From legacy plan');
+    expect(html).toContain('feat/new');
+    expect(html).toContain('<code>dev</code>');
+    expect(html).not.toContain('feat/old');
+  });
+
+  it('reads a feature title still equal to the slug as the humanised slug', () => {
+    const html = render(
+      { feature: { title: 'one-thing' }, stageEvidence: [] },
+      'one-thing-01KX5P20DVKF6DN1KC8ZSQ71Q3',
+    );
+    expect(html).toContain('One Thing');
+  });
+
   it('humanises an untitled change dir header and works with no plan title', () => {
     const html = render({ stageEvidence: [] }, 'change-01KX5P20DVKF6DN1KC8ZSQ71Q3');
     expect(html).toContain('Change 01KX5P20DVKF6DN1KC8ZSQ71Q3'.slice(0, 6));
@@ -551,6 +587,42 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(html).toContain('PASSED');
     expect(html).toContain('Integrity verified');
     expect(html).toContain('ac-test-mapping');
+  });
+
+  // Issue #581 — a sealing receipt carries no rows; the report reads that run's rows from
+  // evidence.jsonl (earlier runs' rows left out, the late gates included).
+  it('renders a sealing receipt from the evidence.jsonl rows of its run', () => {
+    const statement = buildInTotoStatement({
+      fileDigests: [{ name: 'src/x.ts', sha256: 'abc123' }],
+      rows: gradedRows('pass'),
+      verifierVersion: '1.56.0',
+      timeVerified: AT,
+      evidenceSeal: { sha256: 'f'.repeat(64), line_count: 2 },
+    });
+    const receipt = signReceipt({ statement, prevReceiptHash: ZERO_DIGEST, mode: 'hash-chained' });
+    const late = { ...gradedRows('pass')[0]!, code: 'rules-loaded', content_hash: 'h-late' };
+    const earlier = {
+      ...gradedRows('fail')[0]!,
+      code: 'old-run-gate',
+      ts: '2026-07-01T00:00:00.000Z',
+    };
+    const html = render({
+      receipt: receipt as unknown,
+      evidence: [earlier, ...gradedRows('pass'), late],
+      stageEvidence: completeStageRows(),
+    });
+    expect(html).toContain('ac-test-mapping');
+    expect(html).toContain('rules-loaded');
+    // The late gate sits past the two sealed lines, so it is marked as not covered by the seal.
+    expect(html).toMatch(
+      /<code>rules-loaded<\/code> <em class="unsealed">\(recorded after the seal, not covered by it\)<\/em>/,
+    );
+    expect(html).not.toMatch(/<code>ac-test-mapping<\/code> <em/);
+    expect(html).not.toContain('old-run-gate');
+    expect(deriveReportVerdict(fold(completeStageRows()), statement, [late])).toBe('pass');
+    expect(
+      deriveReportVerdict(fold(completeStageRows()), statement, [{ ...late, verdict: 'fail' }]),
+    ).toBe('fail');
   });
 
   it('honestly reports a receipt whose payload cannot be decoded', () => {
@@ -751,5 +823,68 @@ describe('renderFeatureReportHtml — Checks section (issue #554)', () => {
     };
     const html = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
     expect(html).toContain('No check commands were recorded');
+  });
+});
+
+// Issue #581 (FR-11) — the decisions panel lists the bundle's decisions.json index, with the
+// chosen option and rationale the writer read from each tracked packet.
+describe('renderFeatureReportHtml — decisions', () => {
+  const entry = (id: string) => ({
+    id,
+    category: 'architecture-path',
+    path: `.paqad/decisions/resolved/${id}.json`,
+    content_hash: 'abc',
+  });
+  const render = (files: FeatureBundleExport['files'], decisions?: IndexedDecisionView[]) =>
+    renderFeatureReportHtml({ dir_name: DIR, exported_at: AT, files }, fold([]), {
+      generatedAt: AT,
+      ...(decisions ? { decisions } : {}),
+    });
+
+  it('says so when the change resolved no decision', () => {
+    expect(render({})).toContain('No decisions were resolved for this change');
+    expect(render({ decisions: { decisions: [] } })).toContain('No decisions were resolved');
+    expect(render({})).toContain('href="#decisions"');
+  });
+
+  it('renders the chosen option and rationale, and flags a changed or missing packet', () => {
+    const html = render(
+      { decisions: { decisions: [entry('D-1'), entry('D-2'), entry('D-3'), entry('D-4')] } },
+      [
+        {
+          ...entry('D-1'),
+          title: 'Where the trace lives',
+          chosen: 'map',
+          chosen_label: 'A trace map',
+          rationale: 'no reader churn',
+          state: 'current',
+        },
+        {
+          ...entry('D-2'),
+          title: null,
+          chosen: 'draft',
+          chosen_label: null,
+          rationale: null,
+          state: 'changed',
+        },
+        {
+          ...entry('D-3'),
+          title: null,
+          chosen: null,
+          chosen_label: null,
+          rationale: null,
+          state: 'missing',
+        },
+      ],
+    );
+    expect(html).toContain('<strong>Where the trace lives</strong>');
+    expect(html).toContain('Chosen: A trace map');
+    expect(html).toContain('Why: no reader churn');
+    expect(html).toContain('Chosen: draft');
+    expect(html).toContain('since it was indexed');
+    expect(html).toContain('the tracked packet is gone');
+    // An entry the writer had no view for still shows its id and tracked path.
+    expect(html).toContain('<strong>D-4</strong>');
+    expect(html).toContain('.paqad/decisions/resolved/D-4.json');
   });
 });

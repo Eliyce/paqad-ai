@@ -11,6 +11,7 @@ import {
   recordMarkedStage,
 } from '@/stage-evidence/live-writer.js';
 import { stageIndex } from '@/stage-evidence/stages.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
@@ -106,7 +107,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
     const start = kinds('stage_start', 'development');
     expect(start).toHaveLength(1);
     expect(start[0]?.evidence_source).toBe('live-mark');
-    expect(typeof start[0]?.ts).toBe('string');
+    expect(typeof start[0]?.recorded_at).toBe('string');
   });
 
   it('AC-2: a later stage boundary ends the earlier stage (ended_at) then starts the new one', () => {
@@ -129,7 +130,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
 
     expect(kinds('stage_end', 'development')).toHaveLength(1);
     expect(kinds('stage_start', 'checks')).toHaveLength(1);
-    expect(kinds('stage_end', 'development')[0]?.ts).toBeTruthy();
+    expect(kinds('stage_end', 'development')[0]?.recorded_at).toBeTruthy();
     expect(stageIndex('development')).toBeLessThan(stageIndex('checks'));
   });
 
@@ -388,8 +389,10 @@ describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)
     expect(recorded).toEqual(['development', 'checks']);
     const dev = rows().find((r) => r.kind === 'stage_start' && r.stage === 'development');
     const checks = rows().find((r) => r.kind === 'stage_start' && r.stage === 'checks');
-    expect(dev?.adapter).toBe('codex-cli');
-    expect(checks?.adapter).toBe('codex-cli');
+    // The host is a session constant on feature.json, never on a row (issue #581).
+    expect(dev).not.toHaveProperty('adapter');
+    expect(checks).not.toHaveProperty('adapter');
+    expect(readFeatureRecord(root, currentFeature(root, SES)!)?.adapter).toBe('codex-cli');
   });
 
   it('defaults attribution to claude-code when no adapter is passed', () => {
@@ -403,7 +406,8 @@ describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)
       now,
     });
     const dev = rows().find((r) => r.kind === 'stage_start' && r.stage === 'development');
-    expect(dev?.adapter).toBe('claude-code');
+    expect(dev).toBeDefined();
+    expect(readFeatureRecord(root, currentFeature(root, SES)!)?.adapter).toBe('claude-code');
   });
 
   it('records nothing for a patch touching only non-stage-bearing paths', () => {

@@ -14,28 +14,22 @@ The pipeline is a fixed step-machine. It runs in order and each step writes its 
 | `questions` | Emits one batch of plain-language questions, only for what the docs cannot answer. Reuses a prior answer when the project already answered the same thing. |
 | `task` | Assembles the settled inputs into the task the spec is written against. |
 | `craft` | Writes `spec.md` in freeze format, every line traced to a source. |
-| `finish` | Writes run provenance and metrics. |
+| `finish` | Records the run outcome, ready for the freeze to merge into `specification.json`. |
 
-## Artifacts
+## Where the run lives
 
-All under the git-ignored `.paqad/_specs/<feature>/pipeline/`:
+The pipeline writes straight into the change's evidence bundle (issue #581). There is no separate scratch folder. Each fact lands in the bundle the moment the verb that owns it runs:
 
-| File | Contents |
-|---|---|
-| `grounding.json` | Grounding slices, sparsity, and path. |
-| `label.json` | The clarity label. |
-| `experts.json` | The need: which experts this request wants. |
-| `briefs/<role>.md` | The brief handed to each picked expert. |
-| `expert-notes.json` | Each expert's raw notes. |
-| `expert-merge.json` | The merged view, with conflicts flagged. |
-| `expert-synthesis.json` | The chief architect's accept/decline, conflict recommendations, gaps, and readiness verdict. |
-| `questions.json` | The question batch and answers. |
-| `task.json` | The assembled task. |
-| `spec.md` | The freeze-format spec. |
-| `trace.json` | Every requirement line mapped to its source. |
-| `finish.json` | Run provenance and metrics. |
-| `corrections.jsonl` | Section-level rows for later human edits to a frozen spec. |
-| `log.jsonl` | Per-step token and event log. |
+| Bundle file | Written by | Contents |
+|---|---|---|
+| `request.md` | `start` | The request text, with the bundle header in YAML front matter. |
+| `clarification.json` | `start` (label), `record questions` | A `label` section (value, signals, question budget) and a `questions` section (asked, auto-answered, deferred, counts). |
+| `experts.json` | `experts record`, `experts notes`, `experts synthesis` | A `roster` section (role, reason, lens, budget, `brief_hash`, tokens used), a `findings` section holding each `EX-*` finding once, and a `synthesis` section that refers to findings by id only. |
+| `stage-evidence.jsonl` | every step | One `kind: "spec-step"` row per step (`step`, `outcome`, `artifact_hash`, optional tokens). A redo appends a row with outcome `redone`. A later edit to a frozen spec appends a `kind: "spec-correction"` row. |
+
+The facts that only belong in `specification.json` (the task, the grounding, the trace, the finish outcome, and the working `spec.md`) stage under `.paqad/tmp/spec-pipeline/<ULID>/` until the freeze. The staging dir is keyed by the change ULID, so a bundle rename leaves nothing behind.
+
+Expert briefs are never stored. `paqad-ai spec pipeline experts brief <role>` prints a brief rebuilt from `request.md`, the grounding, the clarity label and the roster entry, and refuses when its hash no longer matches the roster's `brief_hash`. `paqad-ai spec pipeline experts context` prints what the need detector and the chief architect read, with the expert merge recomputed in memory.
 
 ## Flags
 
@@ -66,17 +60,17 @@ The `chief-architect` is never picked; it runs once any expert fired. The model 
 
 ## Freeze
 
-`paqad-ai spec freeze <spec.md> --from-pipeline` copies the run provenance into `specification.json`.
+`paqad-ai spec freeze <spec.md> --from-pipeline` merges the staged run into `specification.json`: a `task` section, a `grounding` section, a `pipeline` section (`produced`, `outcome`, `reason`, `a5_live`, the enforcement block once, and `manual_reason` for a manual freeze) and a `trace` map keyed by item id. It copies the signed source into the bundle as `spec.md`, then deletes the staging dir and every `.paqad/tmp/` input the record verbs were handed.
 
 - Under **strict** adoption, a non-pipeline spec is refused unless `--manual --reason` is given.
-- The readable `specification.md` renders a `## Provenance` section only when provenance is present.
+- There is no `specification.md`. The feature report renders the spec from `specification.json`.
 - The completeness gate **fails closed** under strict adoption for a non-pipeline spec with no manual reason.
 
 ## Metrics
 
-`finish.json.provenance.metrics` records grounding sparsity and path, the clarity label, question counts, spec size, tokens per step and per expert, ceiling warnings, and which freeze checks would fire.
+`paqad-ai spec pipeline metrics` works the run's numbers out from the bundle: grounding sparsity and path, the clarity label, question counts, spec size, tokens per step and per expert, ceiling warnings, and which freeze checks would fire. It reads the `specification.json` `pipeline` section (or the staged finish before freeze), `clarification.json`, `experts.json` and the `spec-step` rows.
 
-`changed_spec` is true only when an expert finding id appears as a trace source, so an expert only counts as having changed the spec when a line actually cites it. A human's later edit to a frozen spec appends a section-level row to `corrections.jsonl`. `paqad-ai spec pipeline metrics [--all]` aggregates all of this, zero model tokens.
+`changed_spec` is true only when an expert finding id appears as a trace source, so an expert only counts as having changed the spec when a line actually cites it. A human's later edit to a frozen spec appends a section-level `spec-correction` row. `paqad-ai spec pipeline metrics --all` lists every feature bundle and adds it all up, zero model tokens.
 
 ## Determinism
 

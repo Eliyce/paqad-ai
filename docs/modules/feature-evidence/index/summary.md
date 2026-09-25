@@ -33,7 +33,40 @@ change, so the live feature-development stage spine is untouched:
   opened (idempotent); `updateFeatureRecord` patches it on rename / lane / spec-freeze /
   close, re-stamping the `content_hash`. `featureRecordIsUntitled` is the placeholder check
   the completeness gate uses (title `change` + no ticket ⇒ the change has no record of what
-  it was).
+  it was). Since #581 it is also the only home of the session constants `adapter`,
+  `branch`, `base_branch` and `lane`: set when the change opens and updated in place by
+  `recordChangeConstants` (the latest host wins; the completion backstop never replaces the
+  host, and an unresolved lane never erases a recorded one). Stage rows (schema version 2)
+  no longer carry them. `readChangeConstants` reads `feature.json` first and falls back, field
+  by field, to the `open` row of a bundle written before #581.
+- **Document headers** (`envelope.ts`, `bundle-document.ts`, issue #581) — every JSON
+  document in a bundle opens with the same six fields, in this order: `schema_version`,
+  `doc_type` (`paqad.<file-stem>`), `change` (the folder-name ULID), `session_id`,
+  `recorded_at` and `content_hash`. `mint.ts` builds `feature.json`, `plan.json` and
+  `review.json` through `buildDocumentEnvelope`; `delivery.json`, `rules-loaded.json`,
+  `checks.json` and `visual-evidence.json` go through `stampFeatureDocument`, which stamps
+  the writer session when it has one and otherwise the session that opened the change (a git
+  hook has none). `recorded_at` replaces `created_at`, `captured_at` and `generated_at`,
+  including on each visual-evidence step. `feature.json` is the only file with `issue`,
+  `title` and `slug` (`ulid` became `change`, `session_first_seen` became `session_id`,
+  and it keeps `updated_at`); `plan.json` and `review.json` no longer repeat them, and the
+  report reads the title from `feature.json`. `delivery.json` no longer holds the branch:
+  branch matching and `delivery-link` read and record it on `feature.json`, falling back to
+  the `branch` an old `delivery.json` carried. `rules-loaded.json` no longer holds the
+  `adapter`. The changed shapes are schema version 2 (`checks.json` 3); each AJV schema is
+  the envelope fragment composed through `allOf` with its own body, and a
+  `schema_version: 1` file is checked against its old shape, so an old bundle still reads.
+  `readFeatureRecord` maps an old `feature.json` onto the new names, and its next patch
+  rewrites it in the new shape.
+  Every JSONL row the bundle writes (`rule-run.jsonl`, `duplication.jsonl`,
+  `change-metrics.jsonl`, `evidence.jsonl`, and `rag.jsonl`) is stamped by `stampBundleRow`
+  with the same header, `doc_type` `paqad.<file-stem>` on every row of a file
+  (`duplication.jsonl` was `paqad.duplication-run`; a RAG row bound for a bundle is re-stamped
+  from `paqad.rag-evidence` to `paqad.rag`, both by the TS mirror and the prompt-seam
+  `rag-evidence-record.mjs`), and no row carries the `adapter`. The `_chat` RAG home is not a
+  bundle and keeps its own rows. `report.html` carries the header in a
+  `<script type="application/json" id="paqad-header">` tag in its `<head>`, hashed over the
+  page without the tag; it is inert data, and the page runs no script.
 - **Bundle manifest** (`manifest.ts`, issue #511) — the single declarative source of truth
   for **which** bundle files a feature-development change must leave, **when** each is
   required, and **who** writes it. The `bundle-completeness` gate reads it, and a test
@@ -47,9 +80,15 @@ change, so the live feature-development stage spine is untouched:
 | `feature.json` | always | feature mint (`stage start` / `plan compile`) |
 | `plan.json` | always | `paqad-ai plan compile` |
 | `specification.json` | always | `paqad-ai spec freeze` |
+| `spec.md` | always (issue #581) | `paqad-ai spec freeze` (the signed source, header in front matter) |
+| `request.md` | `spec_pipeline_enabled` | `paqad-ai spec pipeline start` |
+| `clarification.json` | `spec_pipeline_enabled` | `paqad-ai spec pipeline` (label + questions) |
+| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` | `paqad-ai spec pipeline experts` |
+| `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
 | `delivery.json` | always | feature open + `paqad-ai delivery-link` |
+| `checks.json` | checked-when-present | `paqad-ai checks run` |
 | `rules-loaded.json` | checked-when-present (issue #557) | `paqad-ai rules load` |
 | `rule-run.jsonl` | `rule_compliance != off` | rule-scripts runner |
 | `change-metrics.jsonl` | `metrics_enabled` | change-metrics collector |
@@ -57,8 +96,15 @@ change, so the live feature-development stage spine is untouched:
 | `report.html` | `feature_report` | feature report renderer |
 | `rag.jsonl` | `rag_enabled` | RAG recorder (bundle or `_chat`) |
 | `receipt.json` | `enterprise` + `evidence_ledger` | `projectFeatureReceipt` |
-| `evidence.jsonl` | `enterprise` + `evidence_ledger` | `appendFeatureEvidenceRows` |
+| `evidence.jsonl` | always (issue #581) | `appendFeatureEvidenceRows` |
 | `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
+| `visual-evidence.json` | checked-when-present | `paqad-ai visual-evidence run` |
+
+No other file belongs in a bundle. `specification.md` and `context-efficiency.jsonl` are no longer written, and the retired per-feature spec scratch folder is gone.
+
+`paqad-ai evidence migrate [--dry-run] [--session <id>]` moves an old project's spec runs into their bundles. Update and onboarding run it too, every time the old folder is still there, and a failure there only prints a warning, so it can never stop an update. It carries over the request, the question round, the experts, one row per logged step, and one `spec-correction` row per old correction (a rerun adds none twice). Archived redo copies are dropped. `--session` names your own session (it defaults to `SE_SESSION`), so a change you have open is not mistaken for one another session is still writing; a change open in another session is skipped and migrated on a later run, once that session closes it or has been idle for a day.
+
+The result lists every path it had to leave in the old folder as `leftBehind`: a skipped or failed run, an entry that is not a change folder, a file it does not know how to merge, or a file the OS would not let it delete. The old folder, and its line in the managed `.paqad/.gitignore`, only go once that list is empty, so nothing left in it can be committed by accident. The managed `.paqad/.gitignore` also lists `tmp/`, so the scratch inputs you hand to the record verbs never show up in git.
 
 The **`bundle-completeness` gate** (`src/verification/repository/bundle-completeness-gate.ts`)
 runs last at end-of-change (after every writer). Under `bundle_completeness=strict` (the
@@ -134,6 +180,14 @@ any turn the session-ownership check skips (see below).
   bundle dir and whether it belongs there (the stage-end boundary uses it to reject a
   non-rigid artifact written into a bundle); `strayBundleFiles` lists what does not
   belong in a bundle dir so the exporter can flag pollution. Nothing here deletes.
+- **Bundle write guard** (`src/kernel/capability.ts`, issue #581) — no agent edits a bundle
+  file directly. Any Edit, Write or `apply_patch` aimed inside
+  `.paqad/ledger/feature-evidence/` is blocked before the mode and scope checks, and the
+  message names the verb that owns the file (read from the manifest `writer`), or says the
+  file does not belong there when no verb writes it. The rule cannot be tuned. Framework
+  scripts write through `fs`, so they never hit it. A shell write gets past the hook, so the
+  `bundle-completeness` gate re-checks every file that carries the #581 header against its
+  `content_hash` and fails a file changed outside its writer.
 - **Session control** (`session-control.ts`) — the `_session/<sessionId>.json`
   active + paused-feature stack + lane store, folding today's `.open` +
   `.pending-lane` role at feature grain (set-active pauses the prior active; resume
@@ -156,9 +210,14 @@ any turn the session-ownership check skips (see below).
   `resolveActiveFeature` (mints/sets-active a feature so a stage call never lands on
   nothing), `appendFeatureStageRow` / `readFeatureStageUnit` / `foldFeature` write,
   read, and fold a change's stage evidence at `<feature-dir>/stage-evidence.jsonl`,
-  reusing the session-ledger row primitives (`stampSessionRow` /
-  `appendStampedRowToUnit` / `readUnitFile`) and the stage-evidence `foldRowsWithKey`
-  core. Still dark — the live recorder is re-pointed onto it in the cutover.
+  reusing the session-ledger row primitives (`appendStampedRowToUnit` / `readUnitFile`)
+  and the stage-evidence `foldRowsWithKey` core. Since #581 each row is stamped by the
+  envelope's `stampBundleRow`: the six-field header (`schema_version` 2, `doc_type`
+  `paqad.stage-evidence`, `change` = the folder-name ULID from `featureChangeKey`,
+  `session_id`, `recorded_at`, `content_hash`) and then the row's own fields. `ts` and the
+  retired `conversation_ordinal` are no longer written; readers take the time through
+  `rowRecordedAt`, so a bundle written before #581 still folds. Session ledgers outside a
+  bundle keep `ts`.
 
   `resolveFeatureRef` / `resumeFeatureByRef` are the readers behind
   `paqad-ai resume --feature <ref>`. A ref resolves against the **session control first**
@@ -195,8 +254,9 @@ any turn the session-ownership check skips (see below).
   13, so an "exactly one in flight" rule could never fire and adoption was dead code. A
   session id rotates *within* a change and a change is built on one branch, so the branch
   identifies the rotated session's own work — deterministically, with no clock heuristic
-  and no tunable window. `openFeatureChange` stamps `branch` on the bundle's `open` row so
-  it is known from row 1; `featureBranch` falls back to `delivery.json`'s branch for a
+  and no tunable window. `openFeatureChange` records `branch` on `feature.json` at open
+  (a bundle written before #581 stamped it on its `open` row, which is still read) so it is
+  known from the start; `featureBranch` falls back to `delivery.json`'s branch for a
   bundle opened before the stamp existed, and a bundle with no knowable branch is never
   adopted while on one. Off a branch entirely (detached HEAD, non-git project) the scope
   cannot apply and the unscoped in-flight set stands.

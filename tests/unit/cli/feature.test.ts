@@ -80,7 +80,13 @@ describe('paqad-ai feature command', () => {
     expect(parsed.rendered).toBe(true);
     expect(parsed.feature).toBe(dir);
     expect(existsSync(parsed.path)).toBe(true);
-    expect(readFileSync(parsed.path, 'utf8')).not.toMatch(/<script/i);
+    // Issue #581 — the only script is the inert JSON header tag; nothing executable.
+    expect(
+      readFileSync(parsed.path, 'utf8').replace(
+        /<script type="application\/json" id="paqad-header">[^<]*<\/script>/,
+        '',
+      ),
+    ).not.toMatch(/<script/i);
   });
 
   it('report exits non-zero for an unknown ref', async () => {

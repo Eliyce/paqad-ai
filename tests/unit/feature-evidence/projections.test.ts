@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -10,6 +10,7 @@ import {
   readAllFeatureEvidence,
   readAllFeatureRuleRuns,
   readAllFeatureSpecifications,
+  readAllFeatureSpecificationEntries,
   readAllFeatureStageRows,
   readFeatureChangeMetricsWindow,
 } from '@/feature-evidence/projections.js';
@@ -26,8 +27,10 @@ import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/sta
 import { sha256Hex } from '@/compliance/markdown.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
+const SPEC_MD = '# S-1\n\nExport as CSV.\n';
+
 function frozenSpec(): FeatureSpec {
-  const md = '# S-1\n\nExport as CSV.\n';
+  const md = SPEC_MD;
   return {
     schema_version: '1',
     spec_id: 'S-1',
@@ -63,7 +66,6 @@ describe('whole-project projections from feature bundles', () => {
     appendFeatureStageRow(root, 'ses_1', a, {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
     });
     const b = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -74,7 +76,6 @@ describe('whole-project projections from feature bundles', () => {
     appendFeatureStageRow(root, 'ses_1', b, {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
     });
     const rows = readAllFeatureStageRows(root);
     // Both features' open rows + the two stage_start rows.
@@ -208,6 +209,20 @@ describe('whole-project projections from feature bundles', () => {
     const windowed = readFeatureChangeMetricsWindow(root, 2).map((r) => r.dup_new_pct);
     expect(windowed).toEqual([2, 3]); // last 2 by ts
     expect(a).not.toBe(b);
+
+    // Issue #581 — a pre-#581 row carries `ts`, a new one `recorded_at`; both order by time.
+    const legacy = join(root, featureFilePath(b, 'changeMetrics'));
+    const legacyRow = {
+      schema_version: 1,
+      doc_type: 'paqad.change-metrics',
+      session_id: 'ses_old',
+      ts: '2026-01-01T00:00:00.000Z',
+      content_hash: 'h',
+      dup_new_pct: 0.5,
+    };
+    writeFileSync(legacy, readFileSync(legacy, 'utf8') + JSON.stringify(legacyRow) + '\n');
+    const mixed = readFeatureChangeMetricsWindow(root, 20).map((r) => r.dup_new_pct);
+    expect(mixed).toEqual([0.5, 1, 2, 3]);
   });
 
   it('projects every FROZEN bundle specification and skips unfrozen/corrupt ones (#343 A1)', () => {
@@ -219,7 +234,7 @@ describe('whole-project projections from feature bundles', () => {
       issue: null,
       ulidSeed: 1,
     });
-    writeFeatureSpecification(root, 'ses_1', frozenSpec());
+    writeFeatureSpecification(root, 'ses_1', frozenSpec(), SPEC_MD);
     // A second feature dir whose specification.json is UNFROZEN — must be skipped.
     const bad = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -234,6 +249,8 @@ describe('whole-project projections from feature bundles', () => {
     const specs = readAllFeatureSpecifications(root);
     expect(specs).toHaveLength(1);
     expect(specs[0].spec_id).toBe('S-1');
+    // The entries reader names the bundle each spec came from (issue #581).
+    expect(readAllFeatureSpecificationEntries(root).map((entry) => entry.dirName)).toEqual([good]);
     expect(specs[0].frozen).not.toBeNull();
     expect(good).not.toBe(bad);
   });

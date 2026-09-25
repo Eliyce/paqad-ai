@@ -14,6 +14,19 @@
 /** Recorded on a row the main chat wrote itself, with no stage subagent in play. */
 export const ORCHESTRATOR_AGENT = 'orchestrator';
 
+/**
+ * The completion backstop (issue #581). It is a writer, not a host: it passes this as its
+ * adapter, so it never replaces the host recorded on `feature.json`, and it stamps it as the
+ * `agent` of the rows it writes, so the report can flag a stage it closed as including idle
+ * time now that rows no longer carry an adapter.
+ */
+export const BACKSTOP_WRITER = 'backstop';
+
+/** The `agent` to stamp for a writer: the backstop names itself; anything else defaults. */
+export function agentForWriter(adapter: string | undefined): string | undefined {
+  return adapter === BACKSTOP_WRITER ? BACKSTOP_WRITER : undefined;
+}
+
 /** The agent-identifying fields a host hook payload may carry. */
 export interface AgentIdentityInput {
   /** The host's agent name, e.g. `paqad-development`. Absent on the main thread. */

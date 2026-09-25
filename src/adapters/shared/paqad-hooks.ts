@@ -294,7 +294,7 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     // Issue #567 — record-only SubagentStop hook. Fires when a paqad stage agent finishes
     // (matched by the `^paqad-` agent-type matcher), parses its transcript for stage markers
     // (belt and braces — the CLI verbs already recorded them), and appends one
-    // context-efficiency row. Never blocks (SubagentStop blocking is undocumented on Claude).
+    // `stage-agent` row to stage-evidence.jsonl (issue #581). Never blocks (SubagentStop blocking is undocumented on Claude).
     // Stage isolation is core-engine behavior (no config knob), so this always renders; it is a
     // no-op unless a `paqad-<stage>` subagent actually runs, so a project that never dispatches
     // one pays nothing.
@@ -302,7 +302,7 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     event: 'subagent-completion',
     hookFile: 'stage-agent-completion.mjs',
     hostArgv: true,
-    description: 'Record a stage agent’s context-efficiency row on SubagentStop (#567).',
+    description: 'Record a stage agent’s stage-agent row on SubagentStop (#567, #581).',
   },
 ];
 

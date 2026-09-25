@@ -83,7 +83,7 @@ const SPEC_PIPELINE_INSTRUCTION =
   'owner one batch of plain-language questions only when something is genuinely undecided, and ' +
   'writes the spec in the format the freeze accepts. Under spec_pipeline_adoption=strict a ' +
   'hand-written spec is refused at freeze (exit: `--manual --reason`); under warn it freezes and ' +
-  'the record says pipeline_produced=false.';
+  'the record says pipeline.produced=false.';
 
 /**
  * Issue #359 — the reuse-first planning instructions, authored ONCE so the default policy

@@ -5,6 +5,10 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDecisionCommand } from '@/cli/commands/decision.js';
+import { sha256Hex } from '@/compliance/markdown.js';
+import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 describe('paqad-ai decision command (#326)', () => {
   let root: string;
@@ -151,5 +155,109 @@ describe('paqad-ai decision command (#326)', () => {
       readFileSync(join(root, '.paqad/decisions/pending', `${id}.json`), 'utf8'),
     ) as { recommendation: string };
     expect(packet.recommendation).toBe('b');
+  });
+
+  // Issue #581 (FR-11, AC-15) — while a change is active, packets name it and resolving one
+  // rewrites the change's decisions.json index. Waivers and delivery decisions included.
+  describe('decisions.json index (#581)', () => {
+    const SES = 'ses_decision_index';
+    const ULID = '01JABCDEFGHJKMNPQRSTVWXYZ0';
+
+    it('links every decision resolved while the change is active, copying no packet body', async () => {
+      const dir = openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'index',
+        issue: '581',
+        ulid: ULID,
+      });
+      // An agent-opened decision names the active change.
+      const { out } = await run(
+        'create',
+        '--category',
+        'architecture-path',
+        '--title',
+        'Where the trace lives',
+        '--context',
+        'pick one',
+        '--option',
+        'map=A trace map',
+        '--option',
+        'field=A field',
+        '--session',
+        SES,
+      );
+      const id = (JSON.parse(out.join('\n')) as { id: string }).id;
+      const pending = JSON.parse(
+        readFileSync(join(root, '.paqad/decisions/pending', `${id}.json`), 'utf8'),
+      ) as { change?: string };
+      expect(pending.change).toBe(ULID);
+      // A delivery decision minted without a change, and a visual-evidence waiver.
+      const delivery = createPendingDecision(root, {
+        category: 'delivery.open_pr',
+        title: 'Open a pull request for this change?',
+        context: 'Delivery is ready.',
+        options: [
+          { option_key: 'yes', label: 'Open a PR now' },
+          { option_key: 'no', label: 'Commit only' },
+        ],
+      }).id;
+      const waiver = createPendingDecision(root, {
+        category: 'workflow-or-tool',
+        title: 'Visual evidence waiver',
+        context: `no browser here [paqad-ve-readiness ${dir}]`,
+        options: [
+          { option_key: 'waive', label: 'Waive visual evidence' },
+          { option_key: 'attach', label: 'Attach screenshots' },
+        ],
+      }).id;
+
+      await run('resolve', id, 'map', 'no', 'reader', 'churn', '--session', SES);
+      await run('resolve', delivery, 'yes', '--session', SES);
+      await run('resolve', waiver, 'waive', '--session', SES);
+      expect(process.exitCode).not.toBe(1);
+
+      const resolvedDelivery = JSON.parse(
+        readFileSync(join(root, '.paqad/decisions/resolved', `${delivery}.json`), 'utf8'),
+      ) as { change?: string };
+      expect(resolvedDelivery.change).toBe(ULID);
+
+      const indexText = readFileSync(join(root, featureFilePath(dir, 'decisions')), 'utf8');
+      const index = JSON.parse(indexText) as {
+        decisions: { id: string; category: string; path: string; content_hash: string }[];
+      };
+      expect(index.decisions.map((entry) => entry.id).sort()).toEqual(
+        [id, delivery, waiver].sort(),
+      );
+      for (const entry of index.decisions) {
+        const tracked = readFileSync(join(root, entry.path), 'utf8');
+        expect(entry.content_hash).toBe(sha256Hex(tracked));
+      }
+      expect(indexText).not.toContain('reader churn');
+    });
+
+    it('names no change and writes no index when no change is active', async () => {
+      const id = await createOne();
+      const pending = JSON.parse(
+        readFileSync(join(root, '.paqad/decisions/pending', `${id}.json`), 'utf8'),
+      ) as Record<string, unknown>;
+      expect('change' in pending).toBe(false);
+      await run('resolve', id, 'a');
+      expect(existsSync(join(root, '.paqad/ledger/feature-evidence'))).toBe(false);
+    });
+
+    it('keeps the change a packet already names when another change resolves it', () => {
+      const { id } = createPendingDecision(root, {
+        category: 'ux-pattern',
+        title: 't',
+        context: 'c',
+        options: [
+          { option_key: 'a', label: 'A' },
+          { option_key: 'b', label: 'B' },
+        ],
+        change: '01JZZZZZZZZZZZZZZZZZZZZZZZ',
+      });
+      const { packet } = resolvePendingDecision(root, id, 'a', '', { change: ULID });
+      expect(packet.change).toBe('01JZZZZZZZZZZZZZZZZZZZZZZZ');
+    });
   });
 });

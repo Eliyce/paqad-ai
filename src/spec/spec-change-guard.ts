@@ -19,7 +19,9 @@ import type { CapabilitySeam } from '@/kernel/registry.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
-import { readAllFeatureSpecifications } from '@/feature-evidence/projections.js';
+import { splitFrontMatter } from '@/feature-evidence/envelope.js';
+import { FEATURE_BUNDLE_FILES, featureFilePath } from '@/feature-evidence/paths.js';
+import { readAllFeatureSpecificationEntries } from '@/feature-evidence/projections.js';
 // src/spec/** is outside the FR-11 import ban, so the guard may reach the pipeline's corrections
 // writer (issue #547, FR-11.3). It stays deterministic and still mints exactly one pause.
 import { recordSpecCorrection } from '@/spec-pipeline/metrics.js';
@@ -41,10 +43,12 @@ function diffSpecSections(frozen: FeatureSpec, current: FeatureSpec): string[] {
   return changed;
 }
 
-/** Derive the run scratch dir name from a spec's provenance run_dir, or null when non-pipeline. */
-function runDirNameFor(spec: FeatureSpec): string | null {
-  const runDir = spec.provenance?.run_dir;
-  return runDir ? (/_specs\/([^/]+)\/pipeline/.exec(runDir)?.[1] ?? null) : null;
+/**
+ * Whether the spec pipeline produced this spec: the `pipeline` section of a record frozen since
+ * issue #581, or the `provenance` block of an older one.
+ */
+function pipelineProduced(spec: FeatureSpec): boolean {
+  return spec.pipeline?.produced === true || spec.provenance?.pipeline_produced === true;
 }
 
 /** A non-blocking capability outcome — structurally a kernel `CapabilityOutcome`. */
@@ -55,6 +59,26 @@ export interface SpecChangeGuardOutcome {
 }
 
 const NO_OP: SpecChangeGuardOutcome = { ran: false, blocking: false, summary: '' };
+
+/** A frozen spec and the project-relative source file the guard watches for it. */
+interface WatchedSpec {
+  spec: FeatureSpec;
+  /** The bundle that carries the spec, or null for a spec handed in directly. */
+  dirName: string | null;
+  source: string;
+  /** True for the bundle's `spec.md` (issue #581): its front matter is not part of the hash. */
+  bundled: boolean;
+}
+
+/**
+ * The spec's watched source. A record written since issue #581 names the bundle-relative
+ * `spec.md`, the signed copy inside its bundle; an older record names its own source path.
+ */
+function watchedSpec(dirName: string, spec: FeatureSpec): WatchedSpec {
+  return spec.spec_file === FEATURE_BUNDLE_FILES.specMd
+    ? { spec, dirName, source: featureFilePath(dirName, 'specMd'), bundled: true }
+    : { spec, dirName, source: spec.spec_file, bundled: false };
+}
 
 const STALE_DETAIL =
   'The frozen spec source changed since it was frozen — the goal may have moved. ' +
@@ -90,7 +114,16 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
   if (input.seam !== undefined && input.seam !== 'pre-mutation') return NO_OP;
   if (!input.sessionId) return NO_OP;
 
-  const specs = input.frozenSpecs ?? readAllFeatureSpecifications(input.projectRoot);
+  const specs: WatchedSpec[] = input.frozenSpecs
+    ? input.frozenSpecs.map((spec) => ({
+        spec,
+        dirName: null,
+        source: spec.spec_file,
+        bundled: false,
+      }))
+    : readAllFeatureSpecificationEntries(input.projectRoot).map((entry) =>
+        watchedSpec(entry.dirName, entry.spec),
+      );
   if (specs.length === 0) return NO_OP;
 
   const store = input.store ?? new DecisionStore(input.projectRoot);
@@ -103,18 +136,20 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
     input.readMarkdown ?? ((specFile) => readFileSync(join(input.projectRoot, specFile), 'utf8'));
   const now = input.now?.() ?? new Date();
 
-  for (const spec of specs) {
+  for (const { spec, dirName, source, bundled } of specs) {
     let currentMarkdown: string;
     try {
-      currentMarkdown = readMarkdown(spec.spec_file);
+      const text = readMarkdown(source);
+      currentMarkdown = bundled ? splitFrontMatter(text).body : text;
     } catch {
       // Source unreadable this run → skip rather than mint on a transient error.
       continue;
     }
     if (!isFrozenSpecStale(spec, sha256Hex(currentMarkdown))) continue;
 
-    // Which sections moved (issue #547, FR-11.3). Recorded as a correction (when the spec came
-    // from a pipeline run) and carried into the packet so the human sees exactly what changed.
+    // Which sections moved (issue #547, FR-11.3). Recorded as a `spec-correction` row on the
+    // bundle that carries the spec (when the pipeline produced it, issue #581) and carried into
+    // the packet so the human sees exactly what changed.
     const changedSections = diffSpecSections(
       spec,
       buildFeatureSpec({
@@ -123,9 +158,8 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
         spec_markdown: currentMarkdown,
       }),
     );
-    const runDirName = runDirNameFor(spec);
-    if (runDirName) {
-      recordSpecCorrection(input.projectRoot, runDirName, {
+    if (dirName !== null && pipelineProduced(spec)) {
+      recordSpecCorrection(input.projectRoot, dirName, {
         spec_id: spec.spec_id,
         changed_sections: changedSections,
         at: now.toISOString(),
@@ -135,7 +169,7 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
     const packet = buildSpecChangePacket({
       decision_id: store.nextDecisionId(),
       spec_id: spec.spec_id,
-      spec_file: spec.spec_file,
+      spec_file: source,
       detail:
         changedSections.length > 0
           ? `${STALE_DETAIL} Changed sections: ${changedSections.join(', ')}.`

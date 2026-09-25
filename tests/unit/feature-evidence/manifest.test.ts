@@ -5,6 +5,7 @@ import {
   isBundleFileRequired,
   requiredBundleFiles,
   validateBundleFileContent,
+  readSpecAdoption,
   validateSpecificationAdoption,
   type BundleCompletenessConfig,
 } from '@/feature-evidence/manifest.js';
@@ -21,6 +22,9 @@ const ALL_ON: BundleCompletenessConfig = {
   evidenceLedger: true,
   aiBom: true,
   specPipelineStrict: true,
+  specPipelineEnabled: true,
+  expertsEnabled: true,
+  stageIsolationExpected: true,
 };
 
 /** All flags off — only the `always` files are required. */
@@ -34,10 +38,43 @@ const ALL_OFF: BundleCompletenessConfig = {
   evidenceLedger: false,
   aiBom: false,
   specPipelineStrict: false,
+  specPipelineEnabled: false,
+  expertsEnabled: false,
+  stageIsolationExpected: false,
 };
 
 // Issue #547 — the strict-adoption content check (FR-10.2 / AC-12).
 describe('validateSpecificationAdoption', () => {
+  it('reads the pipeline section of a record frozen since #581', () => {
+    expect(validateSpecificationAdoption(JSON.stringify({ pipeline: { produced: true } })).ok).toBe(
+      true,
+    );
+    expect(
+      validateSpecificationAdoption(
+        JSON.stringify({ pipeline: { produced: false, manual_reason: 'hotfix' } }),
+      ).ok,
+    ).toBe(true);
+    expect(
+      validateSpecificationAdoption(JSON.stringify({ pipeline: { produced: false } })).ok,
+    ).toBe(false);
+    // The pipeline section wins over a stale provenance block.
+    expect(
+      validateSpecificationAdoption(
+        JSON.stringify({ pipeline: { produced: false }, provenance: { pipeline_produced: true } }),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it('readSpecAdoption reads both shapes and nothing else', () => {
+    expect(readSpecAdoption({ pipeline: { produced: true } })).toEqual({ produced: true });
+    expect(
+      readSpecAdoption({ provenance: { pipeline_produced: false, manual_reason: 'r' } }),
+    ).toEqual({ produced: false, manual_reason: 'r' });
+    expect(readSpecAdoption({ pipeline: null })).toBeNull();
+    expect(readSpecAdoption(null)).toBeNull();
+    expect(readSpecAdoption('x')).toBeNull();
+  });
+
   it('passes a pipeline-produced spec', () => {
     expect(
       validateSpecificationAdoption(JSON.stringify({ provenance: { pipeline_produced: true } })).ok,
@@ -100,6 +137,10 @@ describe('bundle manifest', () => {
         'review',
         'stageEvidence',
         'delivery',
+        // Issue #581 — evidence.jsonl is always on, whatever the enterprise toggles.
+        'evidence',
+        // Issue #581 — the signed spec source.
+        'specMd',
       ]),
     );
     for (const entry of BUNDLE_MANIFEST) {
@@ -119,15 +160,17 @@ describe('bundle manifest', () => {
       'report',
       'rag',
       'receipt',
-      'evidence',
       'aiBom',
+      'request',
+      'clarification',
+      'experts',
     ]) {
       expect(onKeys).toContain(key);
       expect(offKeys).not.toContain(key);
     }
   });
 
-  it('gates receipt/evidence on evidence_ledger and ai-bom on ai_bom (both need enterprise)', () => {
+  it('gates receipt on evidence_ledger and ai-bom on ai_bom (both need enterprise)', () => {
     const ledgerOnly: BundleCompletenessConfig = {
       ...ALL_OFF,
       enterprise: true,
@@ -151,6 +194,12 @@ describe('bundle manifest', () => {
     // And so it is never part of the required work list either way.
     expect(requiredBundleFiles(ALL_ON).map((e) => e.key)).not.toContain('checks');
     expect(requiredBundleFiles(ALL_OFF).map((e) => e.key)).not.toContain('checks');
+  });
+
+  it('treats decisions.json as optional (#581)', () => {
+    const decisions = BUNDLE_MANIFEST.find((entry) => entry.key === 'decisions');
+    expect(decisions?.required).toBe('optional');
+    expect(requiredBundleFiles(ALL_ON).map((e) => e.key)).not.toContain('decisions');
   });
 
   it('flags rag as unrecoverable and nothing else', () => {
@@ -181,5 +230,71 @@ describe('validateBundleFileContent', () => {
   it('nonempty needs any content', () => {
     expect(validateBundleFileContent('nonempty', '<html></html>')).toBe(true);
     expect(validateBundleFileContent('nonempty', '   ')).toBe(false);
+  });
+});
+
+// Issue #581 — the M0-M5 file-set oracle from the issue. rules-loaded.json and
+// visual-evidence.json are in the oracle's lists but are 'optional' here: their dedicated gates
+// (rulesLoadedGate, VisualEvidenceGate) enforce them with signals this manifest does not have.
+describe('the #581 M0-M5 required file sets', () => {
+  const M0: BundleCompletenessConfig = ALL_OFF;
+  const M1: BundleCompletenessConfig = {
+    ...ALL_OFF,
+    ruleComplianceOn: true,
+    metricsEnabled: true,
+    duplicationOn: true,
+    featureReport: true,
+  };
+  const M2: BundleCompletenessConfig = { ...M1, specPipelineEnabled: true };
+  const M3: BundleCompletenessConfig = { ...M2, expertsEnabled: true };
+  const M4: BundleCompletenessConfig = {
+    ...M3,
+    ragEnabled: true,
+    enterprise: true,
+    evidenceLedger: true,
+    aiBom: true,
+  };
+  const M5: BundleCompletenessConfig = { ...M1, expertsEnabled: true };
+
+  const files = (config: BundleCompletenessConfig): string[] =>
+    requiredBundleFiles(config)
+      .map((entry) => entry.file)
+      .sort();
+  const M0_FILES = [
+    'feature.json',
+    'plan.json',
+    'spec.md',
+    'specification.json',
+    'review.json',
+    'stage-evidence.jsonl',
+    'delivery.json',
+    'evidence.jsonl',
+  ];
+  const M1_FILES = [
+    ...M0_FILES,
+    'rule-run.jsonl',
+    'duplication.jsonl',
+    'change-metrics.jsonl',
+    'report.html',
+  ];
+  const M2_FILES = [...M1_FILES, 'request.md', 'clarification.json'];
+  const M3_FILES = [...M2_FILES, 'experts.json'];
+  const M4_FILES = [...M3_FILES, 'rag.jsonl', 'receipt.json', 'ai-bom.json'];
+
+  it.each([
+    ['M0', M0, M0_FILES],
+    ['M1', M1, M1_FILES],
+    ['M2', M2, M2_FILES],
+    ['M3', M3, M3_FILES],
+    ['M4', M4, M4_FILES],
+    ['M5', M5, M1_FILES],
+  ] as const)('%s requires exactly its listed files', (_name, config, expected) => {
+    expect(files(config)).toEqual([...expected].sort());
+  });
+
+  it('never names specification.md or context-efficiency.jsonl', () => {
+    const all = BUNDLE_MANIFEST.map((entry) => entry.file);
+    expect(all).not.toContain('specification.md');
+    expect(all).not.toContain('context-efficiency.jsonl');
   });
 });

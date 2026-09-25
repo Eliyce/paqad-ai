@@ -74,7 +74,6 @@ describe('sessionOwnedRows', () => {
     for (const source of ['inferred-git', 'inferred-artifact']) {
       appendFeatureStageRow(root, A, dirName, {
         kind: 'stage_start',
-        adapter: 'backstop',
         stage: 'development',
         event_status: 'inferred',
         evidence_source: source,
@@ -88,7 +87,6 @@ describe('sessionOwnedRows', () => {
     const dirName = openFeatureChange(root, A, { adapter: 'claude-code', title: 'x', issue: null });
     appendFeatureStageRow(root, A, dirName, {
       kind: 'stage_start',
-      adapter: 'claude-code',
       stage: 'development',
       event_status: 'redone',
       evidence_source: 'redo',
@@ -241,6 +239,28 @@ describe('classifyCompletionEnforcement', () => {
     );
     route(root, A, { active: { workflow: 'project-question' }, paused: [], turn_started_at: TURN });
     expect(classifyCompletionEnforcement(root, A).reason).toBe('detour');
+  });
+
+  it('judges a new row by recorded_at, and one with an empty time as no time (issue #581)', () => {
+    const root = tempRoot();
+    const dirName = openFeatureChange(root, A, { adapter: 'claude-code', title: 'x', issue: null });
+    const row = (recorded_at: string) =>
+      `${JSON.stringify({
+        schema_version: 2,
+        doc_type: 'paqad.stage-evidence',
+        change: dirName.slice(-26),
+        session_id: A,
+        recorded_at,
+        content_hash: 'x',
+        kind: 'stage_start',
+        evidence_source: 'live-mark',
+      })}\n`;
+    const ledger = join(root, featureFilePath(dirName, 'stageEvidence'));
+    appendFileSync(ledger, row(''));
+    route(root, A, { active: { workflow: 'project-question' }, paused: [], turn_started_at: TURN });
+    expect(classifyCompletionEnforcement(root, A).reason).toBe('detour');
+    appendFileSync(ledger, row(AFTER().toISOString()));
+    expect(classifyCompletionEnforcement(root, A).reason).toBe('edited-this-turn');
   });
 
   it('resolves the session from the cache when no id is passed', () => {

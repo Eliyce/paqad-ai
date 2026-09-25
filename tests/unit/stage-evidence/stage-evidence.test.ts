@@ -409,8 +409,8 @@ describe('stage-evidence ledger (#247)', () => {
   it('auto-opens a change when a stage is started without an explicit open', () => {
     // No openStageEvidence call and no dirName — the recorder opens a feature itself.
     const row = startStage(root, 'planning', { sessionId: 'ses_auto', adapter: ADAPTER });
-    expect(row.conversation_ordinal).toBe(1);
     const dir = currentFeature(root, 'ses_auto')!;
+    expect(row).toMatchObject({ change: dir.slice(-26), recorded_at: expect.any(String) });
     const rows = readFeatureStageUnit(root, dir);
     expect(rows[0].kind).toBe('open');
     expect(rows.some((r) => r.kind === 'stage_start')).toBe(true);

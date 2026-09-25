@@ -8,6 +8,7 @@ import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { writeFeaturePlan, writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { closeActiveFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
+import { sha256Hex } from '@/compliance/markdown.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -91,14 +92,14 @@ describe('feature.json wiring (issue #511)', () => {
       schema_version: '1',
       spec_id: 'spec-x',
       spec_file: '.paqad/spec.md',
-      spec_hash: 'abc',
+      spec_hash: sha256Hex('# Spec\n'),
       behaviour: [],
       acceptance_criteria: [],
       invariants: [],
       open_questions: [],
       frozen: { frozen_at: '2026-09-04T00:00:00.000Z', signed_off_by: 'me', spec_review: null },
     };
-    writeFeatureSpecification(root, 'ses_1', spec);
+    writeFeatureSpecification(root, 'ses_1', spec, '# Spec\n');
     expect(readFeatureRecord(root, dir)!.spec_id).toBe('spec-x');
   });
 });

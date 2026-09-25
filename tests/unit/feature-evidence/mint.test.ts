@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildFeatureRecord,
   buildPlanRecord,
+  buildReviewRecord,
   computeContentHash,
   mintFeatureDirName,
 } from '@/feature-evidence/mint.js';
@@ -25,7 +26,7 @@ describe('mintFeatureDirName', () => {
   it('detects a ticket ref from the title when issue is omitted', () => {
     const minted = mintFeatureDirName({ title: 'Fix PQD-42 crash', ulid: ULID });
     expect(minted.issue).toBe('PQD-42');
-    expect(minted.slug).toBe('fix-pqd-42-crash');
+    expect(minted.slug).toBe('fix-crash');
   });
 
   it('emits no issue when issue is null even if the title has a ref', () => {
@@ -43,10 +44,10 @@ describe('mintFeatureDirName', () => {
   it('strips a leading # from a detected github ref so the name parses back', () => {
     const minted = mintFeatureDirName({ title: 'Fix #45 crash', ulid: ULID });
     expect(minted.issue).toBe('45');
-    expect(minted.dirName).toBe(`45-fix-45-crash-${ULID}`);
+    expect(minted.dirName).toBe(`45-fix-crash-${ULID}`);
     expect(parseFeatureDirName(minted.dirName)).toEqual({
       issue: '45',
-      slug: 'fix-45-crash',
+      slug: 'fix-crash',
       ulid: ULID,
     });
   });
@@ -57,6 +58,44 @@ describe('mintFeatureDirName', () => {
 
   it('treats a ref that empties out as no issue', () => {
     expect(mintFeatureDirName({ title: 'x', issue: '#', ulid: ULID }).issue).toBeNull();
+  });
+
+  // Issue #581 (AC-16, FR-13) — the ref appears once in the dir name.
+  it('takes the detected ref out of the title before slugging (AC-16)', () => {
+    expect(
+      mintFeatureDirName({ title: 'PROJ-123 Checkout page cleanup', ulid: ULID }).dirName,
+    ).toBe(`PROJ-123-checkout-page-cleanup-${ULID}`);
+    expect(mintFeatureDirName({ title: 'fix PROJ-9: leak', ulid: ULID }).dirName).toBe(
+      `PROJ-9-fix-leak-${ULID}`,
+    );
+    expect(mintFeatureDirName({ title: 'PROJ-9 - PROJ-9 twice', ulid: ULID }).slug).toBe('twice');
+    expect(mintFeatureDirName({ title: 'fix(#403): back-fill', ulid: ULID }).dirName).toBe(
+      `403-fix-back-fill-${ULID}`,
+    );
+  });
+
+  it('strips an explicit issue from the title case-insensitively', () => {
+    const minted = mintFeatureDirName({ title: 'proj-7: tidy up', issue: 'PROJ-7', ulid: ULID });
+    expect(minted.dirName).toBe(`PROJ-7-tidy-up-${ULID}`);
+    expect(mintFeatureDirName({ title: '#9 x', issue: '#9', ulid: ULID }).slug).toBe('x');
+  });
+
+  it('strips a bare-number issue only as #N or when it leads the title', () => {
+    const lead = mintFeatureDirName({ title: '581 One evidence packet', issue: '581', ulid: ULID });
+    expect(lead.dirName).toBe(`581-one-evidence-packet-${ULID}`);
+    const wording = mintFeatureDirName({ title: 'Show 45 rows', issue: '45', ulid: ULID });
+    expect(wording.slug).toBe('show-45-rows');
+    // Part of a longer token is not the ref.
+    expect(
+      mintFeatureDirName({ title: 'PROJ-12 PROJ-123x', issue: 'PROJ-12', ulid: ULID }).slug,
+    ).toBe('proj-123x');
+  });
+
+  it('keeps the whole title when it is nothing but the ref', () => {
+    expect(mintFeatureDirName({ title: 'PROJ-5', ulid: ULID }).dirName).toBe(
+      `PROJ-5-proj-5-${ULID}`,
+    );
+    expect(mintFeatureDirName({ title: '#12:', ulid: ULID }).slug).toBe('12');
   });
 
   it('detects no issue when the title has no ticket ref', () => {
@@ -74,8 +113,8 @@ describe('record builders', () => {
       issue: '339',
       title: 'Route first workflows',
       slug: 'route-first-workflows',
-      ulid: ULID,
-      session_first_seen: 'ses_1',
+      change: ULID,
+      session_id: 'ses_1',
       adapter: 'claude-code',
       lane: 'full',
       now: clock,
@@ -83,15 +122,24 @@ describe('record builders', () => {
     expect(validateFeatureRecord(record)).toEqual([]);
     expect(record.status).toBe('active');
     expect(record.spec_id).toBeNull();
-    expect(record.created_at).toBe('2026-07-09T00:00:00.000Z');
+    // Issue #581 — the envelope header leads, in its fixed order.
+    expect(Object.keys(record).slice(0, 6)).toEqual([
+      'schema_version',
+      'doc_type',
+      'change',
+      'session_id',
+      'recorded_at',
+      'content_hash',
+    ]);
+    expect(record).toMatchObject({ schema_version: 2, change: ULID, session_id: 'ses_1' });
+    expect(record.recorded_at).toBe('2026-07-09T00:00:00.000Z');
+    expect(record.updated_at).toBe('2026-07-09T00:00:00.000Z');
   });
 
   it('builds a valid plan.json with steps and risks', () => {
     const record = buildPlanRecord({
-      issue: null,
-      title: 'x',
-      slug: 'x',
-      ulid: ULID,
+      change: ULID,
+      session_id: 'ses_1',
       summary: 'do the thing',
       steps: [{ id: 'S1', description: 'first', module: 'core' }],
       modules_touched: ['core'],
@@ -105,10 +153,8 @@ describe('record builders', () => {
 
   it('applies plan defaults for the optional collections', () => {
     const record = buildPlanRecord({
-      issue: null,
-      title: 'x',
-      slug: 'x',
-      ulid: ULID,
+      change: ULID,
+      session_id: 'ses_1',
       summary: 's',
       now: clock,
     });
@@ -123,8 +169,8 @@ describe('record builders', () => {
       issue: '339' as const,
       title: 't',
       slug: 's',
-      ulid: ULID,
-      session_first_seen: 'ses_1',
+      change: ULID,
+      session_id: 'ses_1',
       adapter: 'claude-code',
     };
     const a = buildFeatureRecord({ ...base, now: () => new Date('2026-01-01T00:00:00Z') });
@@ -134,18 +180,52 @@ describe('record builders', () => {
     expect(c.content_hash).not.toBe(a.content_hash);
   });
 
+  it('keeps a given open time as recorded_at while updated_at follows the clock', () => {
+    const record = buildFeatureRecord({
+      issue: null,
+      title: 't',
+      slug: 's',
+      change: ULID,
+      session_id: 'ses_1',
+      adapter: 'claude-code',
+      recorded_at: '2026-01-01T00:00:00.000Z',
+      now: clock,
+    });
+    expect(record.recorded_at).toBe('2026-01-01T00:00:00.000Z');
+    expect(record.updated_at).toBe('2026-07-09T00:00:00.000Z');
+  });
+
+  it('builds review.json with the header and no change identity', () => {
+    const review = buildReviewRecord({
+      change: ULID,
+      session_id: 'ses_1',
+      summary: 's',
+      verdict: 'safe-to-merge',
+      rollback: 'revert',
+      now: clock,
+    });
+    expect(review).toMatchObject({ schema_version: 2, doc_type: 'paqad.review', change: ULID });
+    expect(review.findings).toEqual([]);
+    expect(review.checked).toEqual([]);
+    expect(review).not.toHaveProperty('title');
+  });
+
   it('stamps a real clock when no `now` seam is passed', () => {
     const f = buildFeatureRecord({
       issue: null,
       title: 't',
       slug: 's',
-      ulid: ULID,
-      session_first_seen: 'ses_1',
+      change: ULID,
+      session_id: 'ses_1',
       adapter: 'claude-code',
     });
-    const p = buildPlanRecord({ issue: null, title: 't', slug: 's', ulid: ULID, summary: 'x' });
-    expect(Date.parse(f.created_at)).not.toBeNaN();
-    expect(Date.parse(p.created_at)).not.toBeNaN();
+    const p = buildPlanRecord({
+      change: ULID,
+      session_id: 'ses_1',
+      summary: 'x',
+    });
+    expect(Date.parse(f.recorded_at)).not.toBeNaN();
+    expect(Date.parse(p.recorded_at)).not.toBeNaN();
   });
 
   it('computeContentHash ignores only the volatile keys', () => {
@@ -157,5 +237,10 @@ describe('record builders', () => {
       updated_at: 'DIFF',
     });
     expect(h1).toBe(h2);
+  });
+
+  it('computeContentHash ignores the #581 recorded_at time field too', () => {
+    expect(computeContentHash({ a: 1, recorded_at: 'y' })).toBe(computeContentHash({ a: 1 }));
+    expect(computeContentHash({ a: 1 })).not.toBe(computeContentHash({ a: 2 }));
   });
 });

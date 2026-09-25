@@ -39,23 +39,34 @@ const applicable: RuleApplicability[] = [
   { rule_id: 'RULE-13', title: 'Code Quality', always_load: false, matched_paths: ['src/a.ts'] },
 ];
 
+const DIR = '557-rules-01JABCDEFGHJKMNPQRSTVWXYZ0';
+
 describe('buildRulesLoadedRecord', () => {
   it('stamps the doc type, applicable rules, hash and a deterministic identity content_hash', () => {
     const now = () => new Date('2026-09-12T00:00:00.000Z');
-    const record = buildRulesLoadedRecord('ses_1', {
+    const record = buildRulesLoadedRecord(DIR, 'ses_1', {
       applicable,
       ruleTextHash: 'deadbeef',
       changedPaths: ['src/a.ts'],
       now,
     });
     expect(record.doc_type).toBe('paqad.rules-loaded');
+    // Issue #581 — the envelope header; the host is on feature.json, never here.
+    expect(record).toMatchObject({
+      schema_version: 2,
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_1',
+      recorded_at: '2026-09-12T00:00:00.000Z',
+    });
+    expect(record).not.toHaveProperty('adapter');
+    expect(record).not.toHaveProperty('created_at');
     expect(record.applicable_rules).toEqual(applicable);
     expect(record.rule_text_hash).toBe('deadbeef');
     expect(record.changed_files).toEqual(['src/a.ts']);
     expect(record.artifact).toBe('.paqad/context/session-context.md');
     expect(record.content_hash).toMatch(/^[0-9a-f]{64}$/);
     // content_hash is stable across timestamps (identity excludes created_at).
-    const later = buildRulesLoadedRecord('ses_1', {
+    const later = buildRulesLoadedRecord(DIR, 'ses_1', {
       applicable,
       ruleTextHash: 'deadbeef',
       changedPaths: ['src/a.ts'],

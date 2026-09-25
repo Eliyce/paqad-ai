@@ -18,10 +18,12 @@ import {
   appendFeatureStageRow,
   currentFeature,
   openFeatureChange,
+  recordChangeConstants,
 } from '@/feature-evidence/stage-ledger.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { agentForWriter } from './agent-identity.js';
 import { readPendingLane } from './pending-lane.js';
 import { isKnownStage } from './stages.js';
 import { type StageEvidenceRow, type StageSessionSource } from './types.js';
@@ -194,14 +196,15 @@ function append(
   ctx: StageEvidenceContext,
   fields: Record<string, unknown>,
 ): StageEvidenceRow {
+  // Issue #581 (FR-6) — the adapter and lane are session constants: they update
+  // `feature.json` in place (latest host wins) and are never copied onto the row.
+  recordChangeConstants(projectRoot, dirName, { adapter: ctx.adapter, lane: ctx.lane }, ctx.now);
   return appendFeatureStageRow(
     projectRoot,
     sessionId,
     dirName,
     {
-      adapter: ctx.adapter,
-      agent: ctx.agent,
-      lane: ctx.lane ?? null,
+      agent: ctx.agent ?? agentForWriter(ctx.adapter),
       ...(ctx.sessionSource === undefined ? {} : { session_source: ctx.sessionSource }),
       ...fields,
     },

@@ -16,24 +16,38 @@
 // Nothing here deletes. Reporting a stray is honest; silently removing a developer's
 // file would not be.
 
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
-import { FEATURE_BUNDLE_FILES, SCREENSHOTS_DIR, featureDir, isFeatureDirName } from './paths.js';
+import {
+  FEATURE_BUNDLE_FILES,
+  LEGACY_BUNDLE_FILES,
+  SCREENSHOTS_DIR,
+  featureDir,
+  isFeatureDirName,
+} from './paths.js';
 
 /**
  * Every filename allowed to sit in a feature bundle dir: the rigid, script-owned set
- * plus the derived human-readable projections that are deliberately not
- * `FEATURE_BUNDLE_FILES` members — `report.html` (issue #371) and `specification.md`
- * (issue #512, Part A, the read-only projection of `specification.json`).
+ * plus the derived `report.html` (issue #371), deliberately not a `FEATURE_BUNDLE_FILES`
+ * member. Exactly the issue #581 target set: no `specification.md`, no
+ * `context-efficiency.jsonl` (see {@link LEGACY_BUNDLE_FILENAMES}).
  */
 export const ALLOWED_BUNDLE_FILENAMES: ReadonlySet<string> = new Set<string>([
   ...Object.values(FEATURE_BUNDLE_FILES),
   'report.html',
-  'specification.md',
 ]);
+
+/**
+ * Files a pre-#581 bundle may still hold. {@link strayBundleFiles} tolerates them in a legacy
+ * bundle only, because the migration adds files and never deletes an old one (issue #581,
+ * AC-20); in a bundle written since #581 they are strays.
+ */
+export const LEGACY_BUNDLE_FILENAMES: ReadonlySet<string> = new Set<string>(
+  Object.values(LEGACY_BUNDLE_FILES),
+);
 
 /**
  * The ONLY entries allowed under the `screenshots/` subtree (issue #551): the overview GIF
@@ -140,6 +154,7 @@ export function strayBundleFiles(projectRoot: string, dirName: string): string[]
   } catch {
     return [];
   }
+  const legacy = isLegacyBundle(bundleAbs);
   const strays: string[] = [];
   for (const name of entries) {
     if (isAtomicWriteTemp(name)) {
@@ -151,11 +166,47 @@ export function strayBundleFiles(projectRoot: string, dirName: string): string[]
       strays.push(...strayScreenshotEntries(bundleAbs));
       continue;
     }
-    if (!ALLOWED_BUNDLE_FILENAMES.has(name)) {
-      strays.push(name);
-    }
+    if (ALLOWED_BUNDLE_FILENAMES.has(name)) continue;
+    if (legacy && LEGACY_BUNDLE_FILENAMES.has(name)) continue;
+    strays.push(name);
   }
   return strays.sort();
+}
+
+/**
+ * Parse a bundle file as a JSON object: the whole file, or only its first non-blank line for a
+ * JSONL ledger. Null when the file is absent, unreadable, or not an object.
+ */
+function readJsonObject(absPath: string, firstLineOnly: boolean): Record<string, unknown> | null {
+  try {
+    const text = readFileSync(absPath, 'utf8');
+    const json = firstLineOnly ? text.split('\n').find((line) => line.trim().length > 0) : text;
+    const parsed: unknown = json === undefined ? null : JSON.parse(json);
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether a bundle was written before issue #581, judged from files no writer rewrites: the
+ * first stage-evidence row (the open row) stamped `ts` rather than `recorded_at`, or the
+ * frozen `specification.json` names a source other than the bundle's `spec.md`. `feature.json`
+ * is not a signal: `updateFeatureRecord` re-stamps an old one in the new header.
+ */
+export function isLegacyBundle(bundleAbs: string): boolean {
+  const openRow = readJsonObject(join(bundleAbs, FEATURE_BUNDLE_FILES.stageEvidence), true);
+  if (openRow && typeof openRow.ts === 'string' && openRow.recorded_at === undefined) {
+    return true;
+  }
+  const spec = readJsonObject(join(bundleAbs, FEATURE_BUNDLE_FILES.specification), false);
+  return (
+    spec !== null &&
+    typeof spec.spec_file === 'string' &&
+    spec.spec_file !== FEATURE_BUNDLE_FILES.specMd
+  );
 }
 
 /**

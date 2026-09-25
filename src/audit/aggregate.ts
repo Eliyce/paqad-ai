@@ -20,6 +20,7 @@ import {
   readAllFeatureRuleRuns,
   readAllFeatureStageRows,
 } from '@/feature-evidence/projections.js';
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readAllFeatureReceipts } from '@/feature-evidence/receipt.js';
 import {
   CHANGE_METRICS_RUN_DOC_TYPE,
@@ -188,7 +189,8 @@ function sessionDetail(row: SessionLedgerRow): string {
 function sessionEvent(row: SessionLedgerRow): SiemEvent {
   return {
     kind: 'session',
-    ts: row.ts,
+    // A bundle row since #581 stamps `recorded_at`; a session-ledger row keeps `ts`.
+    ts: rowRecordedAt(row) ?? '',
     code: row.doc_type,
     doc_type: row.doc_type,
     session_id: row.session_id,

@@ -52,9 +52,21 @@ export type EvidenceStrengthClass = 'deterministic' | 'llm-judged' | 'blocked';
  * a consumer responsibility — the writer only stamps the hash).
  */
 export interface EvidenceLedgerRow {
-  schema_version: typeof EVIDENCE_LEDGER_SCHEMA_VERSION;
-  /** ISO-8601 emission time. Not part of `content_hash`. */
+  /**
+   * {@link EVIDENCE_LEDGER_SCHEMA_VERSION} for a top-level ledger row; 2 for a row read from a
+   * feature bundle's `evidence.jsonl`, which carries the envelope header (issue #581).
+   */
+  schema_version: number;
+  /**
+   * ISO-8601 emission time. Not part of `content_hash`. A bundle row stores it as the
+   * header's `recorded_at`; the reader fills `ts` from it, so every consumer reads one field.
+   */
   ts: string;
+  /** Issue #581 — the envelope header of a row read from a feature bundle. */
+  doc_type?: string;
+  change?: string;
+  session_id?: string;
+  recorded_at?: string;
   engine: EvidenceEngine;
   /** Gate name or finding code (e.g. `mutation-testing`, `TR-UNTESTED-PROMISE`). */
   code: string;
@@ -62,7 +74,10 @@ export interface EvidenceLedgerRow {
   subject_digest: string;
   verdict: EvidenceVerdict;
   strength_class: EvidenceStrengthClass;
-  /** SHA-256 hex over the identity fields, for consumer-side de-duplication. */
+  /**
+   * SHA-256 hex over the identity fields, for consumer-side de-duplication. A bundle row's is
+   * the envelope row hash (every field but the times), issue #581.
+   */
   content_hash: string;
   /** Human-readable detail, carried for the receipt/reviewers. Not hashed. */
   detail?: string;
@@ -194,8 +209,29 @@ export interface VsaPredicate {
    *  reuse rate). Omitted when none were computed (metrics off, or a non-feature-dev
    *  change), so a change that produces no metrics stays byte-identical. */
   metrics?: MetricsPredicate;
-  /** The graded rows themselves, so the receipt is self-contained. */
-  rows: EvidenceLedgerRow[];
+  /**
+   * The graded rows themselves. Carried by the whole-project receipt and by every per-feature
+   * receipt sealed before issue #581. A per-feature receipt sealed since then carries
+   * `evidence_sha256` + `evidence_line_count` instead: the rows live once, in the bundle's
+   * `evidence.jsonl`, and the receipt seals them rather than copying them.
+   */
+  rows?: EvidenceLedgerRow[];
+  /**
+   * Issue #581 — SHA-256 of the bundle's `evidence.jsonl` bytes at seal time (lowercase hex).
+   * Later gates append more rows after sealing, so a verifier re-hashes only the first
+   * {@link VsaPredicate.evidence_line_count} lines.
+   */
+  evidence_sha256?: string;
+  /** Issue #581 — how many `evidence.jsonl` lines the receipt sealed. */
+  evidence_line_count?: number;
+}
+
+/** Issue #581 — the per-feature receipt's seal over the bundle's `evidence.jsonl`. */
+export interface EvidenceSeal {
+  /** SHA-256 of the sealed bytes (the first `line_count` lines), lowercase hex. */
+  sha256: string;
+  /** How many complete lines were sealed. */
+  line_count: number;
 }
 
 /**
@@ -243,8 +279,18 @@ export interface ReceiptEnvelope {
   /** base64 of the canonical Statement JSON. */
   payload: string;
   signatures: DsseSignature[];
-  /** paqad extension — not part of the DSSE spec. */
+  /**
+   * paqad extension — not part of the DSSE spec. A feature bundle's receipt carries the
+   * envelope header here, first (issue #581): outside the signed payload, so the chain bytes
+   * do not change. Optional because the header is added after signing.
+   */
   paqad: {
+    schema_version?: number;
+    doc_type?: string;
+    change?: string;
+    session_id?: string;
+    recorded_at?: string;
+    content_hash?: string;
     signing_mode: ReceiptSigningMode;
     /** SHA-256 of the previous receipt's PAE, or 64 zeros at genesis. */
     prev_receipt_hash: string;

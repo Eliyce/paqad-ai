@@ -355,7 +355,7 @@ async function captureFlow(
         journey_step: step.journey_step,
         caption,
         dir: '',
-        captured_at: ctx.now(),
+        recorded_at: ctx.now(),
         status: 'failed',
         failure: `selector-not-found while running journey_step ${step.journey_step}`,
       });
@@ -397,7 +397,7 @@ async function captureStep(
     caption,
     dir: '',
     route,
-    captured_at: capturedAt,
+    recorded_at: capturedAt,
     status: step.screenshot === false ? 'skipped' : 'captured',
   };
 

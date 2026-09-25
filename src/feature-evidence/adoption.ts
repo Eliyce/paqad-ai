@@ -42,6 +42,7 @@ import { readGitState } from '@/rag/git-state.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
 
 import { listFeatureDirs } from './enumerate.js';
+import { readChangeConstants } from './feature-record.js';
 import { featureFilePath } from './paths.js';
 import { readSessionControl, writeSessionControl } from './session-control.js';
 
@@ -60,8 +61,9 @@ export function isBundleMaterialized(projectRoot: string, dirName: string): bool
 }
 
 /**
- * The branch a bundle belongs to: stamped on its `open` row (issue #404), falling back to
- * the branch `delivery.json` recorded once the change reached its first commit. `null`
+ * The branch a bundle belongs to: its session constant on `feature.json` (issue #581), or
+ * for a bundle written before that the branch stamped on its `open` row (issue #404),
+ * falling back to the branch `delivery.json` recorded once the change reached its first commit. `null`
  * when neither is known — a bundle opened before the stamp existed, or a change made off
  * a branch (detached HEAD, non-git project).
  */
@@ -70,13 +72,9 @@ export function featureBranch(
   dirName: string,
   rows = stageRows(projectRoot, dirName),
 ): string | null {
-  for (const row of rows) {
-    const branch = row.kind === 'open' ? row.branch : undefined;
-    if (typeof branch === 'string' && branch.length > 0) {
-      return branch;
-    }
-  }
-  return deliveryBranch(projectRoot, dirName);
+  return (
+    readChangeConstants(projectRoot, dirName, rows).branch ?? deliveryBranch(projectRoot, dirName)
+  );
 }
 
 /**

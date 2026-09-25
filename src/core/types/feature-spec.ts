@@ -1,17 +1,15 @@
 import type { VerificationCriterion } from './planning.js';
 import type { AgentRole } from './agent.js';
-import type { ClarityLabel, GroundingPath } from '@/spec-pipeline/types.js';
-import type { QuestionCounts } from '@/spec-pipeline/finish.js';
+import type { PipelineConfig } from '@/spec-pipeline/config.js';
+import type { ClarityLabel, GroundingPath, GroundingReference } from '@/spec-pipeline/types.js';
+import type { FinishOutcome, QuestionCounts } from '@/spec-pipeline/finish.js';
 import type { TraceArtifact } from '@/spec-pipeline/trace.js';
 
 /**
- * How a frozen spec was produced (issue #547, FR-9.1). Additive and optional, like
- * {@link SpecReviewSummary} and `non_goals`: a spec frozen with the pipeline off carries no
- * `provenance` key at all, so pre-existing records read and render byte-identically. When the
- * pipeline produced the spec, this records the run's grounding, its clarity label, the question
- * counts, the experts consulted, and the traceability artifact; when a spec was frozen without
- * the pipeline while it was enabled, `pipeline_produced` is `false` and `manual_reason` explains
- * the exit.
+ * How a spec frozen before issue #581 recorded that it was produced (issue #547, FR-9.1). No
+ * writer produces it any more: a record frozen since #581 carries the `task`, `grounding`,
+ * `pipeline` and `trace` sections instead, and no `run_dir` (D6). Readers still accept it on an
+ * old record (INV-8).
  */
 export interface SpecProvenance {
   /** Whether the spec pipeline crafted this spec. */
@@ -37,6 +35,44 @@ export interface SpecProvenance {
   /** Why the spec was frozen without the pipeline, under strict adoption (FR-9.3). */
   manual_reason?: string;
 }
+
+/** The `task` section: what the pipeline's task step said the change is for (issue #581). */
+export interface SpecTaskSection {
+  intent: string;
+  scope: Record<string, unknown>;
+}
+
+/**
+ * The `grounding` section: which path grounded the request, whether the area was thin, and the
+ * references it read. The terms the plain-language checks use stay in staging (issue #581).
+ */
+export interface SpecGroundingSection {
+  path: GroundingPath;
+  sparse: boolean;
+  references: GroundingReference[];
+}
+
+/**
+ * The `pipeline` section (issue #581, D4): whether the spec pipeline produced the spec, and how
+ * its run finished. The enforcement settings are stored here once and nowhere else in the bundle.
+ * A spec frozen without the pipeline while it was enabled records `produced: false`, with
+ * `manual_reason` when it was frozen with `--manual --reason`.
+ */
+export interface SpecPipelineSection {
+  produced: boolean;
+  outcome?: FinishOutcome;
+  reason?: string;
+  a5_live?: boolean;
+  enforcement?: Omit<PipelineConfig, 'enabled'>;
+  manual_reason?: string;
+}
+
+/**
+ * The `trace` map (issue #581, owner decision D-01M3BJWGYHMZ6JHSEE09QTS4FM): every requirement
+ * id (`FR-n`, `NFR-n`, `AC-n`, `INV-n`) mapped to where it came from, `ticket:<section>` or an
+ * `EX-*` finding id in `experts.json`.
+ */
+export type SpecTraceMap = Record<string, string>;
 
 /**
  * Where an invariant ("a rule the feature must never break") came from. Compiled
@@ -89,8 +125,16 @@ export interface SpecReviewSummary {
  * freeze (never hand-maintained) so it cannot drift from the source of truth.
  */
 export interface FeatureSpec {
-  schema_version: string;
+  /**
+   * `'1'` on the builder's output and on a pre-#581 `specification.json`; the bundle record
+   * written since issue #581 carries the envelope header, whose `schema_version` is the number 2.
+   */
+  schema_version: string | number;
   spec_id: string;
+  /**
+   * The source the spec was built from. In a bundle record written since issue #581 it is
+   * always the bundle-relative `spec.md`; an older record names the project-relative source.
+   */
   spec_file: string;
   spec_hash: string;
   behaviour: string[];
@@ -107,14 +151,18 @@ export interface FeatureSpec {
    * Things the change deliberately does NOT do, parsed tolerantly from a `## Non-goals`
    * section of the spec markdown (issue #512, Part B FR-6.4). Optional and additive: a
    * spec authored without the section simply omits it, so pre-#512 records still read and
-   * freeze unchanged. The `specification.md` projection renders it only when present.
+   * freeze unchanged.
    */
   non_goals?: string[];
-  /**
-   * How the spec was produced (issue #547, FR-9.1). Set by `spec freeze` when the spec pipeline
-   * is enabled; absent otherwise, so a spec frozen with the pipeline off is byte-identical to a
-   * pre-#547 record.
-   */
+  /** The pipeline's task section (issue #581). Only on a spec the pipeline produced. */
+  task?: SpecTaskSection;
+  /** The pipeline's grounding section (issue #581). Only on a spec the pipeline produced. */
+  grounding?: SpecGroundingSection;
+  /** How the spec was produced (issue #581). Set only while the spec pipeline is enabled. */
+  pipeline?: SpecPipelineSection;
+  /** Where each requirement came from (issue #581). Only on a spec the pipeline produced. */
+  trace?: SpecTraceMap;
+  /** Read-only: a record frozen before issue #581. Never written any more. */
   provenance?: SpecProvenance;
 }
 

@@ -27,6 +27,12 @@ import {
   appendDuplicationRun,
   appendRuleRun,
 } from '@/feature-evidence/bundle-ledgers.js';
+import {
+  documentHashMatches,
+  rowHashMatches,
+  splitFrontMatter,
+  textHashMatches,
+} from '@/feature-evidence/envelope.js';
 import { readFeatureRecord, featureRecordIsUntitled } from '@/feature-evidence/feature-record.js';
 import {
   BUNDLE_MANIFEST,
@@ -37,13 +43,16 @@ import {
   type BundleManifestEntry,
 } from '@/feature-evidence/manifest.js';
 import {
+  FEATURE_BUNDLE_FILES,
   chatRagPath,
   featureFilePath,
+  featureLegacySpecMarkdownPath,
   featureReportPath,
-  featureSpecMarkdownPath,
   type FeatureBundleFile,
 } from '@/feature-evidence/paths.js';
+import { sha256Hex } from '@/compliance/markdown.js';
 import { readDuplicationReport } from '@/duplication/report.js';
+import { hasStageAgentEvidence } from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
 import { readReport } from '@/rule-scripts/runner.js';
 
@@ -91,6 +100,12 @@ export interface BundleCompletenessGateInput {
   config: BundleCompletenessConfig;
   /** The live-computed metrics for this change, used to backfill change-metrics.jsonl. */
   changeMetrics: ChangeMetrics | null;
+  /**
+   * Issue #581 — true when the caller appends this gate's own row to evidence.jsonl right after
+   * it returns (the late-gate rows). The file is then written by this very run, so an absent
+   * evidence.jsonl (no graded rows yet) is not a missing file: the gate's row will be its first.
+   */
+  evidenceRowsPending?: boolean;
 }
 
 /** Read a bundle file's raw bytes (project-relative), or null when absent/unreadable. */
@@ -200,17 +215,9 @@ export function bundleCompletenessGate(
       // flag-gated (e.g. checks.json). Count it when present, ignore it when absent — never a
       // "Skipped (flag off)" note (there is no flag), and never a completeness failure.
       if (entry.required === 'optional') {
-        // Issue #573 — an optional entry can still be REQUIRED for a change of a given
-        // shape (context-efficiency.jsonl on a graduated/full lane on a subagent-capable
-        // host). That is not a flag, so it upgrades to a hard check here rather than
-        // taking the flag-skipped path, which would report a misleading "flag off".
-        if (entry.requiredWhen?.(input.config) === true) {
-          assertRequired(entry, input, dirName, sessionId, state);
-          continue;
-        }
         const content = readBundleFile(input.projectRoot, dirName, entry);
         if (validateBundleFileContent(entry.validate, content)) {
-          state.present.push(entry.file);
+          if (!recordHashMismatch(entry, content!, state)) state.present.push(entry.file);
         }
         continue;
       }
@@ -220,6 +227,7 @@ export function bundleCompletenessGate(
       }
       assertRequired(entry, input, dirName, sessionId, state);
     }
+    assertStageAgentRows(input, dirName, state);
     /* v8 ignore next 4 -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
   } catch {
@@ -227,6 +235,26 @@ export function bundleCompletenessGate(
   }
 
   return decide(input.mode, state);
+}
+
+/**
+ * Issue #573 / #581 (AC-14) — a graduated or full change on a subagent-capable host must
+ * prove it ran its stages in stage agents. The proof is the `stage-agent` rows each
+ * SubagentStop appends to stage-evidence.jsonl (an old bundle's context-efficiency.jsonl
+ * still counts). Missing, the gate fails BY NAME. It is a property of the change, not a
+ * flag, so a change that did not expect isolation is never told a flag was off.
+ */
+function assertStageAgentRows(
+  input: BundleCompletenessGateInput,
+  dirName: string,
+  state: GateState,
+): void {
+  if (input.config.stageIsolationExpected && !hasStageAgentEvidence(input.projectRoot, dirName)) {
+    state.missing.push({
+      file: 'stage-agent rows in stage-evidence.jsonl',
+      writer: 'dispatch each stage to its paqad-<stage> agent; the SubagentStop hook records it',
+    });
+  }
 }
 
 /** Check one required entry and record its outcome into `state`. */
@@ -252,20 +280,15 @@ function assertRequired(
         return;
       }
     }
-    // Paired-projection invariant (issue #512, Part A): a bundle with `specification.json`
-    // MUST also carry its derived `specification.md` sibling beside it. `specification.md`
-    // is deliberately NOT a manifest member (it mirrors `report.html`), so the pairing is a
-    // CONDITIONAL check keyed on the JSON's presence, not a standalone required file — a
-    // change that never froze a spec (neither file present) is not failed by it.
+    // Issue #581 (FR-15) — the signed source must be the one the record was frozen from.
+    if (entry.key === 'specMd' && !specSourceMatches(input.projectRoot, dirName, content!)) {
+      state.missing.push({
+        file: `${entry.file} (its body does not hash to specification.json spec_hash)`,
+        writer: 'paqad-ai spec freeze (re-freeze the spec)',
+      });
+      return;
+    }
     if (entry.key === 'specification') {
-      const md = readFileSafe(input.projectRoot, featureSpecMarkdownPath(dirName));
-      if (md === null || md.trim().length === 0) {
-        state.missing.push({
-          file: 'specification.md (its human-readable projection is missing)',
-          writer: 'paqad-ai spec freeze (regenerates the projection beside specification.json)',
-        });
-        return;
-      }
       // Strict-adoption content check (issue #547, FR-10.2): under strict adoption the frozen spec
       // must record that the pipeline produced it, or a manual reason. Not applied under warn or
       // with the pipeline off, so the gate is unchanged there.
@@ -280,6 +303,20 @@ function assertRequired(
         }
       }
     }
+    if (recordHashMismatch(entry, content!, state)) return;
+    state.present.push(entry.file);
+    return;
+  }
+
+  // A bundle frozen before issue #581 has no spec.md and never will (its source was deleted at
+  // freeze): its record names the old source and the re-rendered specification.md stands in.
+  if (entry.key === 'specMd' && legacySpecProjectionPresent(input.projectRoot, dirName)) {
+    state.present.push(entry.file);
+    return;
+  }
+
+  // Issue #581 — this run appends the gate's own row to evidence.jsonl once it returns.
+  if (entry.key === 'evidence' && input.evidenceRowsPending) {
     state.present.push(entry.file);
     return;
   }
@@ -303,6 +340,91 @@ function assertRequired(
   }
 
   state.missing.push({ file: entry.file, writer: entry.writer });
+}
+
+/**
+ * Where a present file's envelope `content_hash` no longer matches its bytes (issue #581,
+ * FR-14, AC-24): `null` when every hash holds, else the part that fails (the document, or the
+ * first JSONL line). A hook cannot see a Bash write into the bundle, so this check is the
+ * backstop on every host. Only files carrying the #581 header are checked: a pre-#581 file
+ * hashed another identity, and a derived or standard-format file (`report.html`, the receipt,
+ * the AI-BOM) keeps its header where the top-level check never reads it.
+ */
+function contentHashMismatch(entry: BundleManifestEntry, content: string): string | null {
+  if (entry.key === 'report') return null;
+  if (entry.validate === 'nonempty') {
+    return textHashMatches(content) === false ? 'its body' : null;
+  }
+  if (entry.validate === 'json') {
+    return documentHashMatches(JSON.parse(content)) === false ? 'the document' : null;
+  }
+  const lines = content.split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!.trim();
+    if (line.length === 0) continue;
+    let row: unknown;
+    try {
+      row = JSON.parse(line);
+    } catch {
+      continue; // an unparseable line is the reader's concern, not a hash mismatch
+    }
+    if (rowHashMatches(row) === false) return `line ${index + 1}`;
+  }
+  return null;
+}
+
+/** Record a content_hash mismatch for `entry` into `state`; true when one was recorded. */
+function recordHashMismatch(
+  entry: BundleManifestEntry,
+  content: string,
+  state: GateState,
+): boolean {
+  const where = contentHashMismatch(entry, content);
+  if (where === null) return false;
+  state.missing.push({
+    file: `${entry.file} (content_hash mismatch at ${where}: changed outside its writer)`,
+    writer: entry.writer,
+  });
+  return true;
+}
+
+/** The bundle's parsed specification.json, or null when absent, corrupt, or not an object. */
+function readSpecificationRecord(
+  projectRoot: string,
+  dirName: string,
+): { spec_file?: unknown; spec_hash?: unknown } | null {
+  const text = readFileSafe(projectRoot, featureFilePath(dirName, 'specification'));
+  if (text === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === 'object' && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether spec.md's body (everything after the front matter) hashes to specification.json
+ * `spec_hash`. True when there is no recorded hash to compare against: a missing or invalid
+ * specification.json is reported by its own manifest entry, not twice.
+ */
+function specSourceMatches(projectRoot: string, dirName: string, specMd: string): boolean {
+  const record = readSpecificationRecord(projectRoot, dirName);
+  if (typeof record?.spec_hash !== 'string') return true;
+  return sha256Hex(splitFrontMatter(specMd).body) === record.spec_hash;
+}
+
+/**
+ * A pre-#581 frozen bundle: its specification.json names a source other than the bundle's
+ * spec.md, and the old specification.md projection is present and not blank.
+ */
+function legacySpecProjectionPresent(projectRoot: string, dirName: string): boolean {
+  const record = readSpecificationRecord(projectRoot, dirName);
+  if (typeof record?.spec_file !== 'string' || record.spec_file === FEATURE_BUNDLE_FILES.specMd) {
+    return false;
+  }
+  const md = readFileSafe(projectRoot, featureLegacySpecMarkdownPath(dirName));
+  return md !== null && md.trim().length > 0;
 }
 
 function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvidenceGate {

@@ -1,16 +1,12 @@
-// Validate the expert NOTES artifact and read/write the experts scratch (issue #521, FR-6/FR-7).
+// Validate the expert NOTES artifact (issue #521, FR-6/FR-7).
 //
 // After the roster decision (need.ts) the experts run and hand back structured notes plus their
 // token actuals. This module validates that returned artifact against the roster (an expert that
-// was never in the need set cannot smuggle notes in) and owns the small scratch files the run
-// keeps alongside the pipeline steps. Deterministic; zero model tokens.
-
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+// was never in the need set cannot smuggle notes in). Storing it is the run store's job
+// (`experts.json` findings and roster tokens, issue #581). Deterministic; zero model tokens.
 
 import type { AgentRole } from '@/core/types/agent.js';
 
-import { pipelineScratchDir } from '../orchestrator.js';
 import { checkPlainLanguage, type PlainLanguageSources } from '../plain-language.js';
 import type { PipelineQuestion } from '../types.js';
 import { isExpertRole } from './roster.js';
@@ -205,50 +201,6 @@ export function validateQuestion(
     }
   }
   return { ok: true, question };
-}
-
-/** Path to the need scratch artifact (the roster decision). */
-export function expertNeedPath(dirName: string): string {
-  return join(pipelineScratchDir(dirName), 'experts.json');
-}
-
-/** Path to the notes scratch artifact (what the experts returned). */
-export function expertNotesPath(dirName: string): string {
-  return join(pipelineScratchDir(dirName), 'expert-notes.json');
-}
-
-function writeJson(abs: string, value: unknown): void {
-  mkdirSync(dirname(abs), { recursive: true });
-  writeFileSync(abs, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-}
-
-/** Write the validated need artifact to the pipeline scratch. */
-export function writeExpertNeed(projectRoot: string, dirName: string, value: unknown): void {
-  writeJson(join(projectRoot, expertNeedPath(dirName)), value);
-}
-
-/** Write the validated notes artifact to the pipeline scratch. */
-export function writeExpertNotes(projectRoot: string, dirName: string, value: unknown): void {
-  writeJson(join(projectRoot, expertNotesPath(dirName)), value);
-}
-
-/** Read the stored need artifact, or null when the experts step never ran. */
-export function readExpertNeed(projectRoot: string, dirName: string): unknown | null {
-  return readJson(join(projectRoot, expertNeedPath(dirName)));
-}
-
-/** Read the stored notes artifact, or null when no notes were recorded. */
-export function readExpertNotes(projectRoot: string, dirName: string): unknown | null {
-  return readJson(join(projectRoot, expertNotesPath(dirName)));
-}
-
-function readJson(abs: string): unknown | null {
-  if (!existsSync(abs)) return null;
-  try {
-    return JSON.parse(readFileSync(abs, 'utf8'));
-  } catch {
-    return null;
-  }
 }
 
 function parseJson(raw: string): unknown {

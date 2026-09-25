@@ -15,6 +15,7 @@ import { toPosixPath } from '@/core/path-utils.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
+import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { VERSION } from '@/index.js';
 import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
@@ -59,6 +60,10 @@ export class FrameworkUpdater {
     // refuses here via SchemaVersionError — the correct "upgrade paqad-ai" refusal
     // rather than operating on a layout newer than this engine understands.
     await checkAndMigrateSchema(projectRoot, VERSION);
+    // Issue #581 (AC-28) — the one-time evidence migration leaves a change another session held
+    // in the old folder. Finish it on a later update, once that change has closed. Guarded: a
+    // failure (a locked file on Windows) is a warning and the update goes on.
+    runPendingEvidenceMigration(projectRoot);
 
     const previousVersion = readText(join(projectRoot, PATHS.FRAMEWORK_VERSION));
     const manifest = readManifest(projectRoot);

@@ -56,6 +56,30 @@ describe('path-agnostic row primitives (#339)', () => {
     expect(rows[0].content_hash).toBe(stamped.content_hash);
   });
 
+  it('readUnitFile reads an envelope row with recorded_at and no ts beside an old row (#581)', () => {
+    const r = root();
+    const rel = '.paqad/ledger/feature-evidence/x/stage-evidence.jsonl';
+    const old = stampSessionRow(DOC, SESSION, { kind: 'open' }, { now: clock });
+    appendStampedRowToUnit(r, rel, old);
+    const abs = join(r, rel);
+    const fresh = { doc_type: DOC, session_id: SESSION, recorded_at: 't', content_hash: 'h' };
+    appendFileSync(abs, `${JSON.stringify(fresh)}\n`);
+    appendFileSync(
+      abs,
+      `${JSON.stringify({ doc_type: DOC, session_id: SESSION, content_hash: 'h' })}\n`,
+    );
+    const rows = readUnitFile(r, rel);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toMatchObject({ recorded_at: 't' });
+  });
+
+  it('the content hash excludes recorded_at like ts (#581)', () => {
+    const a = computeSessionRowHash({ kind: 'used', recorded_at: 't1' });
+    const b = computeSessionRowHash({ kind: 'used', recorded_at: 't2' });
+    expect(a).toBe(b);
+    expect(a).toBe(computeSessionRowHash({ kind: 'used' }));
+  });
+
   it('readUnitFile returns [] for an absent file', () => {
     expect(readUnitFile(root(), '.paqad/ledger/nope/none.jsonl')).toEqual([]);
   });

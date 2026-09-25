@@ -9,11 +9,26 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
+import { stampFeatureDocument } from '@/feature-evidence/bundle-document.js';
+import { ENVELOPE_HEADER_KEYS, type EnvelopeHeader } from '@/feature-evidence/envelope.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 
 // Issue #554 — schema 2, ADDITIVE: `passed`, `ran`, `results[]` keep their meaning, so every v1
 // reader (readReportAt, checksEvidenceGate, checksRows) reads a v2 file unchanged (INV-6).
 export const CHECKS_REPORT_SCHEMA_VERSION = 2;
+
+/**
+ * Issue #581 — the bundle's `checks.json` carries the one envelope header, whose `recorded_at`
+ * replaces `generated_at`. The body is the v2 report unchanged, so every reader still reads it.
+ * The global fallback file is not a bundle file and keeps the v2 shape.
+ */
+export const CHECKS_BUNDLE_SCHEMA_VERSION = 3;
+
+/** Doc type of the bundle's `checks.json` (`paqad.<file-stem>`, issue #581). */
+export const CHECKS_DOC_TYPE = 'paqad.checks';
+
+/** The keys a report carries that the bundle header replaces (issue #581). */
+const REPORT_HEADER_KEYS: ReadonlySet<string> = new Set([...ENVELOPE_HEADER_KEYS, 'generated_at']);
 
 /** How the run was executed (issue #554). */
 export interface ChecksReportMode {
@@ -68,9 +83,10 @@ export interface ChecksReportCriticalPath {
   duration_ms: number;
 }
 
-export interface ChecksReport {
+export interface ChecksReport extends Partial<Omit<EnvelopeHeader, 'schema_version'>> {
   schema_version: number;
-  generated_at: string;
+  /** When the run finished. The bundle copy carries it as the header's `recorded_at` instead. */
+  generated_at?: string;
   /** Every non-test command exited 0 and the test result has zero blocking failures. */
   passed: boolean;
   /** At least one command was resolved and executed. */
@@ -130,13 +146,32 @@ export function writeChecksReport(projectRoot: string, report: ChecksReport): st
  * Persist the check report into a feature bundle's `checks.json` atomically (issue #528). The
  * `(projectRoot, dirName)` signature mirrors the other bundle writers; the file lives under the
  * already-ignored `ledger/` tree, so it never churns the git tree.
+ *
+ * Issue #581 — the report is stamped with the one envelope header: its `generated_at` becomes
+ * the header's `recorded_at` and the report's own version is replaced by the bundle version.
  */
 export function writeFeatureChecks(
   projectRoot: string,
   dirName: string,
   report: ChecksReport,
+  sessionId?: string | null,
 ): string {
-  return atomicWriteReport(featureChecksPath(projectRoot, dirName), report);
+  // The body is the report without its own header: a report read back from the bundle carries
+  // one. The run time (`generated_at`, or the header time of a re-read report) is kept.
+  const body = Object.fromEntries(
+    Object.entries(report).filter(([key]) => !REPORT_HEADER_KEYS.has(key)),
+  );
+  const recordedAt = report.generated_at ?? report.recorded_at;
+  const stamped = stampFeatureDocument({
+    projectRoot,
+    dirName,
+    docType: CHECKS_DOC_TYPE,
+    schemaVersion: CHECKS_BUNDLE_SCHEMA_VERSION,
+    sessionId,
+    now: recordedAt === undefined ? undefined : () => new Date(recordedAt),
+    body,
+  }) as unknown as ChecksReport;
+  return atomicWriteReport(featureChecksPath(projectRoot, dirName), stamped);
 }
 
 /**

@@ -19,7 +19,10 @@ import {
 } from '@/dashboard/trust.js';
 import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths.js';
+import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
+import { signReceipt } from '@/evidence/receipt/dsse.js';
+import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 
@@ -64,9 +67,13 @@ function projectFeature(
     issue: null,
     ulidSeed: seed,
   });
+  // Issue #581 — as in a real run, the graded rows land in evidence.jsonl before the receipt
+  // seals it.
+  const rows = [row(opts.code, 'pass', ts)];
+  appendFeatureEvidenceRows(root, 'ses_1', rows);
   projectFeatureReceipt(root, dir, {
     fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
-    rows: [row(opts.code, 'pass', ts)],
+    rows,
     verifierVersion: '1.0.0',
     timeVerified: ts,
     ...(opts.compliance ? { complianceCitations: opts.compliance } : {}),
@@ -154,6 +161,7 @@ describe('dashboard trust', () => {
           engine: 'verification-gate',
           verdict: 'pass',
           strength_class: 'deterministic',
+          sealed: true,
         },
       ]);
       expect(feed.receipts[0].subjects).toEqual([{ name: 'src/a.ts', digest: 'aaa' }]);
@@ -213,6 +221,62 @@ describe('dashboard trust', () => {
       expect(feed.brokenAt).toBe(0); // the tampered receipt is newest → first card
       expect(feed.receipts[0].sealed).toBe(false); // tampered
       expect(feed.receipts[1].sealed).toBe(true); // the untouched one
+    });
+  });
+
+  describe('buildReceiptFeed with sealing receipts (#581)', () => {
+    it('marks a receipt unsealed when a sealed evidence.jsonl line was edited', () => {
+      const dir = projectFeature(root, { code: 'spec-review' });
+      const path = join(root, featureFilePath(dir, 'evidence'));
+      writeFileSync(path, readFileSync(path, 'utf8').replace('"pass"', '"fail"'), 'utf8');
+      const card = buildReceiptFeed(root).receipts[0];
+      expect(card.sealed).toBe(false);
+      expect(card.checks[0].verdict).toBe('fail');
+    });
+
+    it('shows a check recorded after the seal as not sealed, and keeps the receipt sealed', () => {
+      const dir = projectFeature(root, { code: 'spec-review' });
+      // A late gate of the same run lands after the receipt sealed evidence.jsonl.
+      appendFeatureEvidenceRows(root, 'ses_1', [row('rules-loaded', 'fail')]);
+      const card = buildReceiptFeed(root).receipts.find((receipt) =>
+        receipt.checks.some((check) => check.code === 'rules-loaded'),
+      )!;
+      expect(dir).toBeTruthy();
+      expect(card.sealed).toBe(true);
+      expect(card.checks.map((check) => [check.code, check.sealed])).toEqual([
+        ['spec-review', true],
+        ['rules-loaded', false],
+      ]);
+    });
+
+    it('reads the carried rows of an old receipt and keeps it sealed', () => {
+      const dir = openFeatureChange(root, 'ses_1', {
+        adapter: 'claude-code',
+        title: 'old',
+        issue: null,
+      });
+      const statement = buildInTotoStatement({
+        fileDigests: [],
+        rows: [row('legacy-gate')],
+        verifierVersion: '1.0.0',
+        timeVerified: '2026-06-11T00:00:00.000Z',
+      });
+      const path = join(root, featureFilePath(dir, 'receipt'));
+      writeFileSync(path, JSON.stringify(signReceipt({ statement, mode: 'hash-chained' })), 'utf8');
+      const card = buildReceiptFeed(root).receipts[0];
+      expect(card.sealed).toBe(true);
+      expect(card.checks.map((check) => check.code)).toEqual(['legacy-gate']);
+    });
+
+    it('reads no checks from a receipt whose payload cannot be decoded', () => {
+      const dir = projectFeature(root, { code: 'spec-review' });
+      const path = join(root, featureFilePath(dir, 'receipt'));
+      const env = JSON.parse(readFileSync(path, 'utf8')) as ReceiptEnvelope;
+      env.payload = Buffer.from('not json').toString('base64');
+      writeFileSync(path, JSON.stringify(env), 'utf8');
+      const card = buildReceiptFeed(root).receipts[0];
+      expect(card.sealed).toBe(false);
+      expect(card.checks).toEqual([]);
     });
   });
 

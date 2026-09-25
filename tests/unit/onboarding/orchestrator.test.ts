@@ -256,6 +256,24 @@ describe('OnboardingOrchestrator', () => {
     expect(gitignore).toContain('ledger/');
   });
 
+  it('finishes a pending evidence migration on onboarding, as update does (issue #581)', async () => {
+    // No schema marker: onboarding only stamps it, so the one-time migrator never runs. The
+    // pending check still moves the old run into its bundle.
+    const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
+    mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
+
+    await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+
+    expect(existsSync(join(projectRoot, '.paqad/_specs'))).toBe(false);
+    expect(
+      readFileSync(join(projectRoot, '.paqad/ledger/feature-evidence', run, 'request.md'), 'utf8'),
+    ).toContain('# Gamma');
+  });
+
   it('enables RAG during onboarding when explicit RAG selections are provided', async () => {
     const configure = vi.spyOn(RagService.prototype, 'configureAndBuild').mockResolvedValue({
       enabled: true,

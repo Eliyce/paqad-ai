@@ -972,7 +972,7 @@ export class HealthChecker {
       }
       const spec = buildFeatureSpec({
         spec_id: 'S-doctor',
-        spec_file: '.paqad/_specs/doctor.md',
+        spec_file: 'spec.md',
         spec_markdown: fixture.markdown,
       });
       if (spec.acceptance_criteria.length === 0 || spec.behaviour.length === 0) {

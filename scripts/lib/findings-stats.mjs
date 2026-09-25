@@ -52,9 +52,10 @@ function median(values) {
 
 /**
  * Bucket rule-findings rows by ISO week. Only `kind: 'findings'` rows with a numeric
- * `counts.deterministic` and a parseable `ts` are counted. Pure.
+ * `counts.deterministic` and a parseable time are counted. The time is `recorded_at` on a
+ * row written since issue #581 (the bundle envelope header), else the older `ts`. Pure.
  *
- * @param {{kind?: string, ts?: string, counts?: {deterministic?: number}}[]} rows
+ * @param {{kind?: string, recorded_at?: string, ts?: string, counts?: {deterministic?: number}}[]} rows
  * @returns {{weeks: {week: string, runs: number, median: number, max: number}[], total_runs: number, definition: string}}
  */
 export function bucketFindings(rows) {
@@ -67,7 +68,8 @@ export function bucketFindings(rows) {
     if (typeof deterministic !== 'number' || Number.isNaN(deterministic)) {
       continue;
     }
-    const week = typeof row.ts === 'string' ? isoWeek(row.ts) : null;
+    const at = typeof row.recorded_at === 'string' ? row.recorded_at : row.ts;
+    const week = typeof at === 'string' ? isoWeek(at) : null;
     if (week === null) {
       continue;
     }

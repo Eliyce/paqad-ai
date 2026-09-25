@@ -9,7 +9,7 @@
 import { cpSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
-import { computeContentHash } from '@/feature-evidence/mint.js';
+import { stampFeatureDocument } from '@/feature-evidence/bundle-document.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
 
@@ -67,6 +67,11 @@ export interface WriteVisualEvidenceManifestInput {
   skips: VeSkip[];
   result: VeResult;
   now: () => string;
+  /**
+   * The session writing the manifest, when the verb knows it (issue #581). Absent, the header
+   * carries the session that opened the change.
+   */
+  sessionId?: string | null;
 }
 
 export interface WriteVisualEvidenceManifestResult {
@@ -94,22 +99,25 @@ export function writeVisualEvidenceManifest(
   input: WriteVisualEvidenceManifestInput,
 ): WriteVisualEvidenceManifestResult {
   const source = manifestSource(input.steps);
-  const base: Omit<VisualEvidenceManifest, 'content_hash'> = {
-    schema_version: VISUAL_EVIDENCE_SCHEMA_VERSION,
-    doc_type: VISUAL_EVIDENCE_DOC_TYPE,
-    generated_at: input.now(),
-    trigger: input.trigger,
-    plan: input.plan,
-    steps: input.steps,
-    gif: input.gif,
-    skips: input.skips,
-    result: input.result,
-    ...(source ? { source } : {}),
-  };
-  const manifest: VisualEvidenceManifest = {
-    ...base,
-    content_hash: computeContentHash(base as unknown as Record<string, unknown>),
-  };
+  // Issue #581 — the one envelope header: `recorded_at` replaces `generated_at`.
+  const recordedAt = input.now();
+  const manifest = stampFeatureDocument({
+    projectRoot,
+    dirName,
+    docType: VISUAL_EVIDENCE_DOC_TYPE,
+    schemaVersion: VISUAL_EVIDENCE_SCHEMA_VERSION,
+    sessionId: input.sessionId,
+    now: () => new Date(recordedAt),
+    body: {
+      trigger: input.trigger,
+      plan: input.plan,
+      steps: input.steps,
+      gif: input.gif,
+      skips: input.skips,
+      result: input.result,
+      ...(source ? { source } : {}),
+    },
+  }) as VisualEvidenceManifest;
 
   const errors = validateVisualEvidenceRecord(manifest);
   if (errors.length > 0) {
@@ -127,14 +135,31 @@ export function writeVisualEvidenceManifest(
   return { wrote: true, manifest, result: input.result, skips: input.skips };
 }
 
-/** The bundle's current manifest, or null when absent or unreadable. */
+/**
+ * A step read from a manifest written before #581 carries `captured_at`; it is read under the
+ * current `recorded_at` name (INV-8), so carrying it into a new manifest writes the new shape.
+ */
+function normalizeStep(step: VeStep & { captured_at?: string }): VeStep {
+  if (step.recorded_at !== undefined || step.captured_at === undefined) return step;
+  const { captured_at: recordedAt, ...rest } = step;
+  return { ...rest, recorded_at: recordedAt };
+}
+
+/**
+ * The bundle's current manifest, or null when absent or unreadable. Its steps are read under the
+ * current names, so a verb that carries them into a new manifest writes the new shape. (The gate
+ * reads the stored bytes itself, to validate them as written.)
+ */
 export function readVisualEvidenceManifest(
   projectRoot: string,
   dirName: string,
 ): VisualEvidenceManifest | null {
   try {
     const raw = readFileSync(join(projectRoot, featureFilePath(dirName, 'visualEvidence')), 'utf8');
-    return JSON.parse(raw) as VisualEvidenceManifest;
+    const manifest = JSON.parse(raw) as VisualEvidenceManifest;
+    return Array.isArray(manifest.steps)
+      ? { ...manifest, steps: manifest.steps.map(normalizeStep) }
+      : manifest;
   } catch {
     return null;
   }

@@ -180,19 +180,16 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_end',
       stage: 'development',
-      adapter: 'claude-code',
       event_status: 'completed',
     });
     appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_end',
       stage: 'verification',
-      adapter: 'claude-code',
       event_status: 'failed',
     });
     appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_start',
       stage: 'review',
-      adapter: 'claude-code',
       event_status: 'started',
     });
     const verdicts = bySource(aggregateSiemEvents(root), STAGE_EVIDENCE_DOC_TYPE).map(
@@ -201,6 +198,28 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     expect(verdicts).toContain('pass'); // completed
     expect(verdicts).toContain('fail'); // failed
     expect(verdicts).toContain('started'); // other event_status passes through
+  });
+
+  it('times a bundle stage row from recorded_at, and an untimed one as empty (issue #581)', () => {
+    const dir = openFeatureChange(root, 'ses-t', {
+      adapter: 'claude-code',
+      ulidSeed: 2,
+      now: () => new Date('2026-09-01T10:00:00.000Z'),
+    });
+    const stageEvents = () => bySource(aggregateSiemEvents(root), STAGE_EVIDENCE_DOC_TYPE);
+    expect(stageEvents().map((e) => e.ts)).toContain('2026-09-01T10:00:00.000Z');
+    const untimed = {
+      doc_type: STAGE_EVIDENCE_DOC_TYPE,
+      session_id: 'ses-t',
+      recorded_at: '',
+      content_hash: 'h',
+      kind: 'verify',
+    };
+    writeFileSync(
+      join(root, featureFilePath(dir, 'stageEvidence')),
+      `${JSON.stringify(untimed)}\n`,
+    );
+    expect(stageEvents().map((e) => e.ts)).toEqual(['']);
   });
 
   it('merges session events into one chronological stream with evidence + ledger ts order', () => {
