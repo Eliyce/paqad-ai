@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { legacyEvidenceIgnoreEntries } from '@/feature-evidence/migrate.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 
 // Issue #184 + follow-up — onboarded repos manage their git hygiene *inside*
@@ -102,9 +103,14 @@ const MANAGED_GITIGNORE_ENTRIES = [
   // there surfaced as an untracked, committable artifact in a consumer project and fed the
   // "untracked .paqad/ artifact leaks into the changed-file set" class tracked by #205.
   'compliance/',
+  // Issue #581 — `tmp/` holds per-machine working files: the inputs handed to the record verbs
+  // and each change's spec-pipeline staging dir (`tmp/spec-pipeline/<change>/`) until freeze.
+  // Nothing in it is ever committed.
+  'tmp/',
   // Issue #581 — the spec pipeline no longer keeps a scratch folder of its own (its run lands
-  // in the change's bundle, under the ignored `ledger/` tree), so there is no entry for it. The
-  // evidence migration removes the old line from an existing project.
+  // in the change's bundle, under the ignored `ledger/` tree), so there is no fixed entry for
+  // it. The old folder's line is added only while that folder still exists (see
+  // `legacyEvidenceIgnoreEntries`); the evidence migration drops it once the folder is gone.
 ];
 
 /**
@@ -148,10 +154,8 @@ const DEPRECATED_ARTIFACTS = [
  * to the scrub set (not the untrack set) so a legacy root entry for it is
  * cleaned even though it is no longer ignored.
  */
-function ignoredPathsFromRoot(): string[] {
-  return MANAGED_GITIGNORE_ENTRIES.filter((entry) => !entry.startsWith('#')).map(
-    (entry) => `.paqad/${entry}`,
-  );
+function ignoredPathsFromRoot(entries: readonly string[] = MANAGED_GITIGNORE_ENTRIES): string[] {
+  return entries.filter((entry) => !entry.startsWith('#')).map((entry) => `.paqad/${entry}`);
 }
 
 /**
@@ -162,13 +166,10 @@ function ignoredPathsFromRoot(): string[] {
  * nothing changed, so re-onboarding stays clean.
  */
 export function writeGitignore(projectRoot: string): void {
-  // 1. paqad's own files under `.paqad/`.
-  reconcileFile(
-    join(projectRoot, '.paqad', '.gitignore'),
-    MANAGED_BEGIN,
-    MANAGED_END,
-    MANAGED_GITIGNORE_ENTRIES,
-  );
+  // 1. paqad's own files under `.paqad/`, plus any line an unfinished evidence migration
+  //    still needs (issue #581).
+  const entries = [...MANAGED_GITIGNORE_ENTRIES, ...legacyEvidenceIgnoreEntries(projectRoot)];
+  reconcileFile(join(projectRoot, '.paqad', '.gitignore'), MANAGED_BEGIN, MANAGED_END, entries);
   reconcileFile(
     join(projectRoot, '.paqad', '.gitattributes'),
     GITATTRIBUTES_BEGIN,
@@ -182,7 +183,7 @@ export function writeGitignore(projectRoot: string): void {
   scrubRootFile(join(projectRoot, '.gitattributes'), GITATTRIBUTES_BEGIN, GITATTRIBUTES_END, false);
 
   // 3. Untrack any now-ignored path an earlier onboarding committed.
-  untrackNowIgnoredPaths(projectRoot, ignoredPathsFromRoot());
+  untrackNowIgnoredPaths(projectRoot, ignoredPathsFromRoot(entries));
 
   // 4. Remove framework artifacts the engine no longer creates (untrack the
   //    committed copy and unlink the orphaned working-tree file).

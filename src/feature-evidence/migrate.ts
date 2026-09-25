@@ -835,6 +835,15 @@ export function migrationSessionId(env: NodeJS.ProcessEnv = process.env): string
   return env.SE_SESSION ?? env.CLAUDE_SESSION_ID ?? null;
 }
 
+/**
+ * The managed `.paqad/.gitignore` lines the old layout still needs: the old folder's line for
+ * as long as the folder is there (a held run, a file the migration left), none once it is gone.
+ * The ignore writer adds these, so a re-onboard never un-ignores a folder that still has files.
+ */
+export function legacyEvidenceIgnoreEntries(projectRoot: string): string[] {
+  return specsDirExists(projectRoot) ? [LEGACY_SPECS_IGNORE_LINE] : [];
+}
+
 /** True when the project still carries the old scratch folder, so a migration run has work. */
 export function evidenceMigrationPending(projectRoot: string): boolean {
   return specsDirExists(projectRoot);

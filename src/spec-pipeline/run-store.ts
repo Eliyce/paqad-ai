@@ -79,7 +79,7 @@ import type {
   QuestionsArtifact,
 } from './types.js';
 
-/** Project-relative root of every change's staging dir. */
+/** Project-relative root of every change's staging dir. Git-ignored with the rest of `tmp/`. */
 export const SPEC_PIPELINE_STAGING_DIR = '.paqad/tmp/spec-pipeline';
 
 /** The files a staging dir can hold, and nothing else. */
