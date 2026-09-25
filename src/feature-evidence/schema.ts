@@ -6,6 +6,7 @@
 
 import Ajv, { type ValidateFunction } from 'ajv';
 
+import { ULID_BODY } from '@/core/ids/ulid.js';
 import {
   VE_RESULTS,
   VE_SKIP_REASONS,
@@ -14,9 +15,35 @@ import {
   VISUAL_EVIDENCE_DOC_TYPE,
 } from '@/visual-evidence/types.js';
 
+import { ENVELOPE_HEADER_KEYS } from './envelope.js';
 import { FEATURE_DOC_TYPE, PLAN_DOC_TYPE, REVIEW_DOC_TYPE } from './types.js';
 
 const nullableString = { type: ['string', 'null'] } as const;
+
+/**
+ * Issue #581 (FR-5) — the six-field envelope header every bundle document and row carries,
+ * as one JSON Schema fragment. A file schema composes it through `allOf`, so the header is
+ * declared once instead of per file. It sets no `additionalProperties`, which is what lets it
+ * compose: a file schema that closes its own shape lists the header keys among its
+ * properties (spread {@link ENVELOPE_HEADER_PROPERTIES}). `content_hash` is plain lowercase hex
+ * (NFR-2) and `change` is the folder-name ULID (INV-4).
+ */
+export const ENVELOPE_HEADER_PROPERTIES = {
+  schema_version: { type: 'integer', minimum: 1 },
+  doc_type: { type: 'string', pattern: '^paqad\\.[a-z0-9-]+$' },
+  change: { type: 'string', pattern: `^${ULID_BODY}$` },
+  session_id: { type: 'string', minLength: 1 },
+  recorded_at: { type: 'string', minLength: 1 },
+  content_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+} as const;
+
+// No `$id`: the fragment is embedded inline in many file schemas compiled by one Ajv
+// instance, and a repeated `$id` would register the same schema twice.
+export const ENVELOPE_SCHEMA_FRAGMENT = {
+  type: 'object',
+  required: [...ENVELOPE_HEADER_KEYS],
+  properties: ENVELOPE_HEADER_PROPERTIES,
+} as const;
 const lane = { type: ['string', 'null'], enum: ['fast', 'graduated', 'full', null] } as const;
 
 export const FEATURE_SCHEMA = {
@@ -378,6 +405,7 @@ let compiledFeature: ValidateFunction | undefined;
 let compiledPlan: ValidateFunction | undefined;
 let compiledReview: ValidateFunction | undefined;
 let compiledVisualEvidence: ValidateFunction | undefined;
+let compiledEnvelope: ValidateFunction | undefined;
 
 /** One human-readable line for a validation error. */
 export function formatValidationError(error: { instancePath?: string; message?: string }): string {
@@ -414,6 +442,17 @@ export function validateReviewRecord(row: unknown): string[] {
     compiledReview = ajv.compile(REVIEW_SCHEMA);
   }
   return runValidator(compiledReview, row);
+}
+
+/**
+ * Issue #581 — returns `[]` when `value` carries a valid six-field envelope header, else error
+ * strings. Checks only the header, so any bundle document or row can be run through it.
+ */
+export function validateEnvelopeHeader(value: unknown): string[] {
+  if (!compiledEnvelope) {
+    compiledEnvelope = ajv.compile(ENVELOPE_SCHEMA_FRAGMENT);
+  }
+  return runValidator(compiledEnvelope, value);
 }
 
 /** Returns `[]` when `row` is a valid `visual-evidence.json` manifest, else error strings. */

@@ -158,4 +158,9 @@ describe('record builders', () => {
     });
     expect(h1).toBe(h2);
   });
+
+  it('computeContentHash ignores the #581 recorded_at time field too', () => {
+    expect(computeContentHash({ a: 1, recorded_at: 'y' })).toBe(computeContentHash({ a: 1 }));
+    expect(computeContentHash({ a: 1 })).not.toBe(computeContentHash({ a: 2 }));
+  });
 });

@@ -39,8 +39,12 @@ import {
  */
 export const UNTITLED_FEATURE_TITLE = 'change';
 
-/** Keys excluded from a record's identity hash (volatile / non-identifying). */
-const HASH_EXCLUDED_KEYS = new Set(['content_hash', 'created_at', 'updated_at']);
+/**
+ * Keys excluded from a record's identity hash (volatile / non-identifying). `recorded_at` is
+ * the #581 envelope time field that replaces `created_at`, so it is excluded the same way; a
+ * record written before #581 never carries it, so its hash is unchanged.
+ */
+const HASH_EXCLUDED_KEYS = new Set(['content_hash', 'created_at', 'updated_at', 'recorded_at']);
 
 /** SHA-256 over a record's identity fields in a stable key order. */
 export function computeContentHash(record: Record<string, unknown>): string {
