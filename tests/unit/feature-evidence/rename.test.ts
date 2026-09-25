@@ -43,7 +43,8 @@ describe('backfillFeatureSlug', () => {
     expect(result.renamed).toBe(true);
     const parts = parseFeatureDirName(result.dirName);
     expect(parts).toMatchObject({ issue: '403', ulid: ULID });
-    expect(parts?.slug).not.toBe('change');
+    // Issue #581 (FR-13) — the ref leads the name once; it is not repeated in the slug.
+    expect(parts?.slug).toBe('fix-back-fill-generic-slug');
     expect(existsSync(join(root, featureDir(result.dirName)))).toBe(true);
     expect(existsSync(join(root, featureDir(dir)))).toBe(false);
   });

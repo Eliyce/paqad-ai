@@ -25,7 +25,7 @@ describe('mintFeatureDirName', () => {
   it('detects a ticket ref from the title when issue is omitted', () => {
     const minted = mintFeatureDirName({ title: 'Fix PQD-42 crash', ulid: ULID });
     expect(minted.issue).toBe('PQD-42');
-    expect(minted.slug).toBe('fix-pqd-42-crash');
+    expect(minted.slug).toBe('fix-crash');
   });
 
   it('emits no issue when issue is null even if the title has a ref', () => {
@@ -43,10 +43,10 @@ describe('mintFeatureDirName', () => {
   it('strips a leading # from a detected github ref so the name parses back', () => {
     const minted = mintFeatureDirName({ title: 'Fix #45 crash', ulid: ULID });
     expect(minted.issue).toBe('45');
-    expect(minted.dirName).toBe(`45-fix-45-crash-${ULID}`);
+    expect(minted.dirName).toBe(`45-fix-crash-${ULID}`);
     expect(parseFeatureDirName(minted.dirName)).toEqual({
       issue: '45',
-      slug: 'fix-45-crash',
+      slug: 'fix-crash',
       ulid: ULID,
     });
   });
@@ -57,6 +57,44 @@ describe('mintFeatureDirName', () => {
 
   it('treats a ref that empties out as no issue', () => {
     expect(mintFeatureDirName({ title: 'x', issue: '#', ulid: ULID }).issue).toBeNull();
+  });
+
+  // Issue #581 (AC-16, FR-13) — the ref appears once in the dir name.
+  it('takes the detected ref out of the title before slugging (AC-16)', () => {
+    expect(
+      mintFeatureDirName({ title: 'PROJ-123 Checkout page cleanup', ulid: ULID }).dirName,
+    ).toBe(`PROJ-123-checkout-page-cleanup-${ULID}`);
+    expect(mintFeatureDirName({ title: 'fix PROJ-9: leak', ulid: ULID }).dirName).toBe(
+      `PROJ-9-fix-leak-${ULID}`,
+    );
+    expect(mintFeatureDirName({ title: 'PROJ-9 - PROJ-9 twice', ulid: ULID }).slug).toBe('twice');
+    expect(mintFeatureDirName({ title: 'fix(#403): back-fill', ulid: ULID }).dirName).toBe(
+      `403-fix-back-fill-${ULID}`,
+    );
+  });
+
+  it('strips an explicit issue from the title case-insensitively', () => {
+    const minted = mintFeatureDirName({ title: 'proj-7: tidy up', issue: 'PROJ-7', ulid: ULID });
+    expect(minted.dirName).toBe(`PROJ-7-tidy-up-${ULID}`);
+    expect(mintFeatureDirName({ title: '#9 x', issue: '#9', ulid: ULID }).slug).toBe('x');
+  });
+
+  it('strips a bare-number issue only as #N or when it leads the title', () => {
+    const lead = mintFeatureDirName({ title: '581 One evidence packet', issue: '581', ulid: ULID });
+    expect(lead.dirName).toBe(`581-one-evidence-packet-${ULID}`);
+    const wording = mintFeatureDirName({ title: 'Show 45 rows', issue: '45', ulid: ULID });
+    expect(wording.slug).toBe('show-45-rows');
+    // Part of a longer token is not the ref.
+    expect(
+      mintFeatureDirName({ title: 'PROJ-12 PROJ-123x', issue: 'PROJ-12', ulid: ULID }).slug,
+    ).toBe('proj-123x');
+  });
+
+  it('keeps the whole title when it is nothing but the ref', () => {
+    expect(mintFeatureDirName({ title: 'PROJ-5', ulid: ULID }).dirName).toBe(
+      `PROJ-5-proj-5-${ULID}`,
+    );
+    expect(mintFeatureDirName({ title: '#12:', ulid: ULID }).slug).toBe('12');
   });
 
   it('detects no issue when the title has no ticket ref', () => {

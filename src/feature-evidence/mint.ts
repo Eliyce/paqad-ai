@@ -87,7 +87,10 @@ export interface MintedFeatureDirName {
  */
 export function mintFeatureDirName(input: MintFeatureDirNameInput): MintedFeatureDirName {
   const issue = resolveIssue(input);
-  const slug = deriveSlug(input.title);
+  // Issue #581 (FR-13) — the ref already leads the dir name, so it is taken out of the title
+  // before slugging: "PROJ-123 Checkout page" mints `PROJ-123-checkout-page-<ULID>`, not
+  // `PROJ-123-proj-123-checkout-page-<ULID>`. A title with no ref slugs exactly as before.
+  const slug = deriveSlug(titleWithoutRef(input.title, issue));
   const ulid = input.ulid ?? mintUlid(input.ulidSeed);
   const dirName = formatFeatureDirName({ issue, slug, ulid });
   return { dirName, issue, slug, ulid };
@@ -99,6 +102,31 @@ function resolveIssue(input: MintFeatureDirNameInput): string | null {
   }
   const refs = detectTicketRefs(input.title, input.trackerKind ?? 'generic');
   return normalizeIssue(refs[0] ?? null);
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The title with the dir name's ticket ref removed (issue #581, FR-13): matched
+ * case-insensitively, with a leading `#` and any trailing `:`, `-` or space. A key ref
+ * (`PROJ-123`) is removed wherever it stands as a whole token. A bare-number ref (`45`) is
+ * removed only as `#45` or when it leads the title, so a number that is just part of the
+ * wording ("Show 45 rows") is kept. When nothing but the ref was in the title, the title is
+ * kept whole so the slug still has something to say.
+ */
+function titleWithoutRef(title: string, issue: string | null): string {
+  if (issue === null) {
+    return title;
+  }
+  const ref = escapeRegExp(issue);
+  const tail = '(?![A-Za-z0-9])[:\\-\\s]*';
+  const pattern = /^\d+$/.test(issue)
+    ? new RegExp(`(?:(?<![\\w/])#${ref}|^\\s*${ref})${tail}`, 'gi')
+    : new RegExp(`(?<![A-Za-z0-9])#?${ref}${tail}`, 'gi');
+  const stripped = title.replace(pattern, ' ').trim();
+  return /[a-z0-9]/i.test(stripped) ? stripped : title;
 }
 
 /**
