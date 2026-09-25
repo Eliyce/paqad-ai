@@ -7,10 +7,6 @@
 // module is the deterministic guard around THAT decision. The chief may accept, decline or flag a
 // gap; it may NOT invent a finding (INV-7). Deterministic; zero model tokens.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-
-import { pipelineArtifactPath, PIPELINE_ARTIFACT_FILES } from '../orchestrator.js';
 import type { PlainLanguageSources } from '../plain-language.js';
 import type { PipelineQuestion } from '../types.js';
 import { validateQuestion } from './notes.js';
@@ -273,49 +269,6 @@ function validateGaps(raw: unknown, sources?: PlainLanguageSources): GapResult {
   return { ok: true, gaps };
 }
 
-/** Path to the synthesis scratch artifact (the `experts` step artifact). */
-export function expertSynthesisPath(dirName: string): string {
-  return pipelineArtifactPath(dirName, 'experts');
-}
-
-/** Path to the merge scratch artifact the synthesis reads (FR-5.1). */
-export function expertMergePath(dirName: string): string {
-  return join(dirname(pipelineArtifactPath(dirName, 'experts')), 'expert-merge.json');
-}
-
-function writeJson(abs: string, value: unknown): void {
-  mkdirSync(dirname(abs), { recursive: true });
-  writeFileSync(abs, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-}
-
-/** Write the merge artifact to scratch (FR-5.1). */
-export function writeExpertMerge(
-  projectRoot: string,
-  dirName: string,
-  value: MergedExpertNotes,
-): void {
-  writeJson(join(projectRoot, expertMergePath(dirName)), value);
-}
-
-/** Read the merge artifact, or null when the experts step never merged. */
-export function readExpertMerge(projectRoot: string, dirName: string): MergedExpertNotes | null {
-  return readJson(join(projectRoot, expertMergePath(dirName))) as MergedExpertNotes | null;
-}
-
-/** Write the validated synthesis to the `experts` step artifact. */
-export function writeExpertSynthesis(
-  projectRoot: string,
-  dirName: string,
-  value: ExpertSynthesis,
-): void {
-  writeJson(join(projectRoot, expertSynthesisPath(dirName)), value);
-}
-
-/** Read the stored synthesis, or null when the chief never ran. */
-export function readExpertSynthesis(projectRoot: string, dirName: string): ExpertSynthesis | null {
-  return readJson(join(projectRoot, expertSynthesisPath(dirName))) as ExpertSynthesis | null;
-}
-
 /** A light shape check for the step-lock — the full validation runs in the CLI verb. */
 export function isSynthesisShaped(raw: string | null): boolean {
   if (raw === null) return false;
@@ -329,18 +282,6 @@ export function isSynthesisShaped(raw: string | null): boolean {
     Array.isArray(obj.conflicts) &&
     Array.isArray(obj.gaps)
   );
-}
-
-// The synthesis artifact filename, exported so the orchestrator's step-artifact map stays in sync.
-export const EXPERT_SYNTHESIS_FILE = PIPELINE_ARTIFACT_FILES.experts;
-
-function readJson(abs: string): unknown | null {
-  if (!existsSync(abs)) return null;
-  try {
-    return JSON.parse(readFileSync(abs, 'utf8'));
-  } catch {
-    return null;
-  }
 }
 
 function parseJson(raw: string): unknown {

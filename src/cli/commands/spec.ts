@@ -3,9 +3,6 @@ import { basename } from 'node:path';
 
 import { Command } from 'commander';
 
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { reviewSpecification } from '@/compliance/spec-review.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
@@ -24,35 +21,34 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { FeatureSpec, SpecProvenance } from '@/core/types/feature-spec.js';
 import { readPipelineConfig } from '@/spec-pipeline/config.js';
 import type { PipelineProvenance } from '@/spec-pipeline/finish.js';
-import { pipelineScratchDir } from '@/spec-pipeline/orchestrator.js';
-import { readExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import {
+  readExpertSynthesis,
+  readStagedJson,
+  readStagedText,
+  stagingDir,
+} from '@/spec-pipeline/run-store.js';
 import { readTrace } from '@/spec-pipeline/trace.js';
 
 import { createSpecPipelineCommand } from './spec-pipeline.js';
 
 /**
  * Build the frozen spec's provenance from a completed pipeline run (issue #547, FR-9.2). Reads the
- * run's finish.json (its metrics carry the label and grounding), its synthesis (for the expert
- * accept/decline/auto-resolve counts), and its trace. Returns null when `finish` has not run, so
- * the freeze can refuse a `--from-pipeline` before the run is finished.
+ * run's staged finish result (its metrics carry the label and grounding), its synthesis (for the
+ * expert accept/decline/auto-resolve counts), and its trace. Returns null when `finish` has not
+ * run, so the freeze can refuse a `--from-pipeline` before the run is finished.
  */
 function buildSpecProvenanceFromRun(projectRoot: string, dirName: string): SpecProvenance | null {
-  const scratch = join(projectRoot, pipelineScratchDir(dirName));
-  const finishPath = join(scratch, 'finish.json');
-  if (!existsSync(finishPath)) return null;
-  let finish: { provenance?: PipelineProvenance };
-  try {
-    finish = JSON.parse(readFileSync(finishPath, 'utf8')) as { provenance?: PipelineProvenance };
-  } catch {
-    return null;
-  }
-  const p = finish.provenance;
+  const p = readStagedJson<{ provenance?: PipelineProvenance }>(
+    projectRoot,
+    dirName,
+    'finish',
+  )?.provenance;
   if (!p) return null;
 
   const synthesis = readExpertSynthesis(projectRoot, dirName);
   const provenance: SpecProvenance = {
     pipeline_produced: true,
-    run_dir: pipelineScratchDir(dirName),
+    run_dir: stagingDir(dirName),
     ...(p.metrics ? { label: p.metrics.label } : {}),
     ...(p.metrics
       ? { grounding: { sparse: p.metrics.grounding_sparse, path: p.metrics.grounding_path } }
@@ -234,8 +230,7 @@ export function createSpecCommand(): Command {
               process.exitCode = 1;
               return;
             }
-            const runSpecPath = join(options.projectRoot, pipelineScratchDir(dirName), 'spec.md');
-            const runSpec = existsSync(runSpecPath) ? readFileSync(runSpecPath, 'utf8') : null;
+            const runSpec = readStagedText(options.projectRoot, dirName, 'craft');
             if (runSpec === null || sha256Hex(runSpec) !== built.spec_hash) {
               console.error('the spec you are freezing is not the one the pipeline crafted');
               process.exitCode = 1;

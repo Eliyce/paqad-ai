@@ -18,6 +18,7 @@ import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledg
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { sha256Hex } from '@/compliance/markdown.js';
+import { writeStagedJson, writeStagedText } from '@/spec-pipeline/run-store.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
 // sign-off engine (issue #317). It reimplements no freeze logic; it wires
@@ -417,11 +418,10 @@ describe('paqad-ai spec command', () => {
         ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
       });
     }
+    // The run's working craft spec and finish result stage under .paqad/tmp (issue #581).
     function writeRun(dir: string, specMd: string, provenance: unknown): void {
-      const scratch = join(root, '.paqad', '_specs', dir, 'pipeline');
-      mkdirSync(scratch, { recursive: true });
-      writeFileSync(join(scratch, 'spec.md'), specMd, 'utf8');
-      writeFileSync(join(scratch, 'finish.json'), JSON.stringify({ provenance }), 'utf8');
+      writeStagedText(root, dir, 'craft', specMd);
+      writeStagedJson(root, dir, 'finish', { provenance });
     }
 
     it('refuses under strict when the spec is not from the pipeline and no manual reason (AC-10)', async () => {

@@ -19,6 +19,7 @@ import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
 import { writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { readSpecCorrectionRows } from '@/spec-pipeline/run-store.js';
 
 const FROZEN_MARKDOWN = '# Spec S-102\n\nExport as CSV.\n';
 
@@ -228,7 +229,10 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
           linked_requirement_ids: [],
         },
       ],
-      provenance: { pipeline_produced: true, run_dir: '.paqad/_specs/change-x/pipeline' },
+      provenance: {
+        pipeline_produced: true,
+        run_dir: '.paqad/_specs/547-x-01JABCDEFGHJKMNPQRSTVWXYZ0/pipeline',
+      },
     });
     // The current source drops the acceptance criterion — only that section changed.
     const currentMarkdown = ['## Functional requirements', '- FR-1: x'].join('\n');
@@ -259,11 +263,15 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
     expect(packet.category).toBe('spec.change');
     expect(packet.context).toMatch(/Changed sections: acceptance_criteria\./);
 
-    // A correction row was appended under the run's scratch.
-    const corrections = join(root, '.paqad/_specs/change-x/pipeline/corrections.jsonl');
-    expect(existsSync(corrections)).toBe(true);
-    const row = JSON.parse(readFileSync(corrections, 'utf8').trim());
-    expect(row.changed_sections).toEqual(['acceptance_criteria']);
+    // A spec-correction row was appended to the change's stage evidence (issue #581).
+    const rows = readSpecCorrectionRows(root, '547-x-01JABCDEFGHJKMNPQRSTVWXYZ0');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kind: 'spec-correction',
+      spec_id: spec.spec_id,
+      changed_sections: ['acceptance_criteria'],
+      recorded_at: '2026-09-11T00:00:00.000Z',
+    });
   });
 });
 

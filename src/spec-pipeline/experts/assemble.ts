@@ -1,15 +1,16 @@
-// Assemble the expert run accounting from the scratch artifacts (issue #521, FR-7 / FR-8).
+// Assemble the expert run accounting from the recorded run (issue #521, FR-7 / FR-8).
 //
 // Ties the stored need + notes artifacts to the pure functions: validate them against the roster,
 // size the slices (for the ceiling warning), merge the notes (surfacing conflicts), and build the
 // per-expert accounting. Returns null when the experts step never ran — the finish provenance
 // then carries NO experts block, so a flag-off run stays byte-identical to v1 (INV-1 / AC-7).
 
+import { readExpertNeed, readExpertNotes } from '../run-store.js';
 import { readTrace } from '../trace.js';
 import { buildExpertAccounting } from './accounting.js';
 import { mergeExpertNotes } from './merge.js';
 import { validateExpertNeed } from './need.js';
-import { readExpertNeed, readExpertNotes, validateExpertNotes } from './notes.js';
+import { validateExpertNotes } from './notes.js';
 import { planExpertSlices } from './slice.js';
 import type { ExpertConflict, ExpertRunAccounting } from './types.js';
 
@@ -20,7 +21,7 @@ export interface AssembledExpertRun {
 }
 
 /**
- * Assemble the run's expert accounting from scratch. `ceiling` is the run token ceiling (used
+ * Assemble the run's expert accounting from the run store. `ceiling` is the run token ceiling (used
  * only to compute the slice warning). Returns null when no need artifact was recorded, or when
  * the recorded need artifact is invalid — in both cases the run has no honest expert accounting
  * to report, and finish records none.
@@ -47,7 +48,7 @@ export function assembleExpertRun(
 
   const merged = mergeExpertNotes(notesArtifact.notes);
   // changed_spec is trace-based (issue #547, FR-11.2): an expert changed the spec only when one of
-  // its finding ids appears as a source in the run's trace.json. No trace yet (craft not run) means
+  // its finding ids appears as a source in the run's trace. No trace yet (craft not run) means
   // no expert has changed the spec, which is the honest state before the craft step.
   const trace = readTrace(projectRoot, dirName);
   const tracedFindingIds = new Set((trace?.entries ?? []).map((entry) => entry.source));

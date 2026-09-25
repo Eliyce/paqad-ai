@@ -1,19 +1,34 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { AgentRole } from '@/core/types/agent.js';
 import { assembleExpertRun } from '@/spec-pipeline/experts/assemble.js';
-import {
-  expertNeedPath,
-  readExpertNeed,
-  readExpertNotes,
-  validateExpertNotes,
-  writeExpertNeed,
-  writeExpertNotes,
-} from '@/spec-pipeline/experts/notes.js';
-import { dirname, join } from 'node:path';
+import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
+import { writeExpertNotes, writeExpertRoster } from '@/spec-pipeline/run-store.js';
+
+/** Record a roster the way `experts record` does (issue #581: the need lives in experts.json). */
+function writeExpertNeed(
+  root: string,
+  dir: string,
+  need: { experts: { role: string; reason: string }[] },
+): void {
+  writeExpertRoster(
+    root,
+    dir,
+    need.experts.map((expert) => ({
+      role: expert.role as AgentRole,
+      reason: expert.reason,
+      lens: 'lens',
+      budget_tokens: 1000,
+      grounding_truncated: false,
+      brief_hash: 'h',
+      tokens_used: null,
+    })),
+  );
+}
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -202,26 +217,6 @@ describe('validateExpertNotes', () => {
   });
 });
 
-describe('need/notes store', () => {
-  it('round-trips through the scratch', () => {
-    const root = tempRoot();
-    expect(readExpertNeed(root, DIR)).toBeNull();
-    expect(readExpertNotes(root, DIR)).toBeNull();
-    writeExpertNeed(root, DIR, { experts: [{ role: 'db-expert', reason: 'r' }] });
-    writeExpertNotes(root, DIR, { notes: [], tokens: {} });
-    expect(readExpertNeed(root, DIR)).toEqual({ experts: [{ role: 'db-expert', reason: 'r' }] });
-    expect(readExpertNotes(root, DIR)).toEqual({ notes: [], tokens: {} });
-  });
-
-  it('reads null when a stored artifact is corrupt JSON', () => {
-    const root = tempRoot();
-    const abs = join(root, expertNeedPath(DIR));
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, '{ not json', 'utf8');
-    expect(readExpertNeed(root, DIR)).toBeNull();
-  });
-});
-
 describe('assembleExpertRun', () => {
   it('returns null when no need artifact was recorded (flag-off equivalent)', () => {
     expect(assembleExpertRun(tempRoot(), DIR, 20000)).toBeNull();
@@ -243,8 +238,14 @@ describe('assembleExpertRun', () => {
     });
     writeExpertNotes(root, DIR, {
       notes: [
-        { role: 'db-expert', findings: [{ target: 'orders', claim: 'denormalise' }] },
-        { role: 'data-modeler', findings: [{ target: 'orders', claim: 'normalise' }] },
+        {
+          role: 'db-expert',
+          findings: [{ id: 'EX-db-expert-1', target: 'orders', claim: 'denormalise' }],
+        },
+        {
+          role: 'data-modeler',
+          findings: [{ id: 'EX-data-modeler-1', target: 'orders', claim: 'normalise' }],
+        },
       ],
       tokens: { 'db-expert': 1000, 'data-modeler': 500 },
     });
@@ -279,10 +280,10 @@ describe('assembleExpertRun', () => {
     expect(run!.accounting.warnings.some((w) => /none dropped/.test(w))).toBe(true);
   });
 
-  it('ignores an invalid notes artifact and still assembles from the valid need', () => {
+  it('assembles from the need when the recorded notes carry no findings', () => {
     const root = tempRoot();
     writeExpertNeed(root, DIR, { experts: [{ role: 'db-expert', reason: 'a' }] });
-    writeExpertNotes(root, DIR, { notes: [{ role: 'implementer', findings: [] }] });
+    writeExpertNotes(root, DIR, { notes: [{ role: 'db-expert', findings: [] }], tokens: {} });
     const run = assembleExpertRun(root, DIR, 20000);
     expect(run!.accounting.experts[0]?.changed_spec).toBe(false);
   });

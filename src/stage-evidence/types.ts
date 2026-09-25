@@ -20,14 +20,32 @@ export const STAGE_EVIDENCE_SCHEMA_VERSION = 2;
 
 /**
  * The kinds of event row a change record can carry. The first five are the stage family the
- * fold turns into stage state; `stage-agent` (issue #581) records one dispatched stage
- * agent's footprint and is ignored by the fold.
+ * fold turns into stage state; `stage-agent`, `spec-step` and `spec-correction` (issue
+ * #581) record a dispatched stage agent's footprint, one spec-pipeline step, and a human's
+ * later edit to a frozen spec. The fold ignores those three.
  */
 export type StageEvidenceKind =
-  'open' | 'stage_start' | 'stage_end' | 'verify' | 'close' | 'stage-agent';
+  | 'open'
+  | 'stage_start'
+  | 'stage_end'
+  | 'verify'
+  | 'close'
+  | 'stage-agent'
+  | 'spec-step'
+  | 'spec-correction';
 
 /** The row kind recording one dispatched stage agent (issue #581, replaces context-efficiency.jsonl). */
 export const STAGE_AGENT_KIND = 'stage-agent';
+
+/** The row kind recording one spec-pipeline step (issue #581, replaces the run's log.jsonl). */
+export const SPEC_STEP_KIND = 'spec-step';
+
+/** The row kind recording a later edit to a frozen spec (issue #581, replaces corrections.jsonl). */
+export const SPEC_CORRECTION_KIND = 'spec-correction';
+
+/** How a recorded spec-pipeline step ended: run, skipped as empty, or cleared by a redo. */
+export const SPEC_STEP_OUTCOMES = ['complete', 'skipped', 'redone'] as const;
+export type SpecStepOutcome = (typeof SPEC_STEP_OUTCOMES)[number];
 
 /** The stage-family kinds: the only rows the fold reads for stage state. */
 export const STAGE_FAMILY_KIND_LIST = [

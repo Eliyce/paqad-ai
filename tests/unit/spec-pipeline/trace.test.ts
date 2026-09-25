@@ -70,6 +70,7 @@ import { join } from 'node:path';
 
 import { afterEach } from 'vitest';
 
+import { stagedFilePath } from '@/spec-pipeline/run-store.js';
 import {
   extractRequirementIds,
   parseTraceArtifact,
@@ -141,7 +142,7 @@ describe('validateCraftTrace', () => {
   });
 });
 
-describe('trace scratch io + parseTraceArtifact', () => {
+describe('trace staging io + parseTraceArtifact', () => {
   it('writes and reads a trace, and returns null when absent', () => {
     const root = _tempRoot();
     expect(readTrace(root, 'c1')).toBeNull();
@@ -165,7 +166,7 @@ describe('trace io edge branches', () => {
     const root = _tempRoot();
     writeTrace(root, 'c9', { entries: [] });
     // Corrupt the file.
-    const abs = join(root, '.paqad', '_specs', 'c9', 'pipeline', 'trace.json');
+    const abs = join(root, stagedFilePath('c9', 'trace'));
     writeFileSync(abs, '{not json');
     expect(readTrace(root, 'c9')).toBeNull();
   });

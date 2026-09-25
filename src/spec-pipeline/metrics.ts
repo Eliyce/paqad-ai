@@ -7,34 +7,32 @@
 // needed fixing. `aggregateSpecPipelineMetrics` reads it all back for the `metrics` verb. All
 // deterministic; zero model tokens.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 import type { AgentRole } from '@/core/types/agent.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 import { evaluateSpecFreeze } from '@/spec/spec-freeze.js';
 
 import type { PipelineConfig } from './config.js';
 import type { QuestionCounts, SpecPipelineMetrics } from './finish.js';
 import { validateExpertNeed } from './experts/need.js';
-import { readExpertNeed, readExpertNotes } from './experts/notes.js';
-import { readExpertSynthesis as readSynthesisArtifact } from './experts/synthesis.js';
 import { planExpertSlices } from './experts/slice.js';
-import { pipelineScratchDir } from './orchestrator.js';
+import {
+  appendSpecCorrectionRow,
+  readExpertNeed,
+  readExpertNotes,
+  readExpertSynthesis as readSynthesisArtifact,
+  readLabel,
+  readQuestions,
+  readSpecCorrectionRows,
+  readSpecStepRows,
+  readStagedJson,
+  readStagedText,
+  stagingDir,
+} from './run-store.js';
 import type { PipelineStep } from './types.js';
-
-function scratchFile(projectRoot: string, dirName: string, file: string): string {
-  return join(projectRoot, pipelineScratchDir(dirName), file);
-}
-
-function readJson<T>(abs: string): T | null {
-  if (!existsSync(abs)) return null;
-  try {
-    return JSON.parse(readFileSync(abs, 'utf8')) as T;
-  } catch {
-    return null;
-  }
-}
 
 function numberField(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -52,21 +50,15 @@ export function buildRunMetrics(
   a5Live: boolean,
   a5Verdict: string,
 ): SpecPipelineMetrics {
-  const grounding = readJson<{ sparse?: boolean; path?: string }>(
-    scratchFile(projectRoot, dirName, 'grounding.json'),
+  const grounding = readStagedJson<{ sparse?: boolean; path?: string }>(
+    projectRoot,
+    dirName,
+    'grounding',
   );
-  const label = readJson<{ label?: string; signals?: unknown[] }>(
-    scratchFile(projectRoot, dirName, 'label.json'),
-  );
-  const questionsArtifact = readJson<{
-    asked?: number;
-    answered?: number;
-    auto_answered?: unknown[];
-    deferred?: number;
-    tokens?: number;
-  }>(scratchFile(projectRoot, dirName, 'questions.json'));
-  const task = readJson<{ tokens?: number }>(scratchFile(projectRoot, dirName, 'task.json'));
-  const trace = readJson<{ tokens?: number }>(scratchFile(projectRoot, dirName, 'trace.json'));
+  const label = readLabel(projectRoot, dirName);
+  const questionsArtifact = readQuestions(projectRoot, dirName);
+  const task = readStagedJson<{ tokens?: number }>(projectRoot, dirName, 'task');
+  const trace = readStagedJson<{ tokens?: number }>(projectRoot, dirName, 'trace');
   const spec = readSpec(projectRoot, dirName);
 
   const questions: QuestionCounts = {
@@ -80,7 +72,12 @@ export function buildRunMetrics(
   const setStep = (step: PipelineStep, value: number | undefined): void => {
     if (value !== undefined) tokensByStep[step] = value;
   };
-  setStep('questions', numberField(questionsArtifact?.tokens));
+  // The question round's tokens ride on its spec-step row (issue #581): the stored batch is the
+  // enriched one the script wrote, which never carried the agent's count.
+  const questionsRow = readSpecStepRows(projectRoot, dirName)
+    .filter((row) => row.step === 'questions' && row.outcome === 'complete')
+    .at(-1);
+  setStep('questions', numberField(questionsRow?.tokens));
   setStep('task', numberField(task?.tokens));
   setStep('craft', numberField(trace?.tokens));
 
@@ -95,9 +92,7 @@ export function buildRunMetrics(
       ).warnings
     : [];
   if (need) {
-    const notes = readExpertNotes(projectRoot, dirName) as {
-      tokens?: Partial<Record<AgentRole, number>>;
-    } | null;
+    const notes = readExpertNotes(projectRoot, dirName);
     for (const [role, value] of Object.entries(notes?.tokens ?? {})) {
       const n = numberField(value);
       if (n !== undefined) tokensByStep[role as AgentRole] = n;
@@ -115,11 +110,8 @@ export function buildRunMetrics(
   return {
     grounding_sparse: grounding?.sparse ?? false,
     grounding_path: grounding?.path === 'rag' ? 'rag' : 'docs-fallback',
-    label:
-      label?.label === 'vague' || label?.label === 'okay' || label?.label === 'clear'
-        ? label.label
-        : 'clear',
-    signal_count: label?.signals?.length ?? 0,
+    label: label?.label ?? 'clear',
+    signal_count: label?.signals.length ?? 0,
     questions,
     expert_count: expertCount,
     spec_words: spec ? spec.words : 0,
@@ -143,9 +135,8 @@ function readSpec(
   projectRoot: string,
   dirName: string,
 ): { spec: ReturnType<typeof buildFeatureSpec>; words: number } | null {
-  const abs = scratchFile(projectRoot, dirName, 'spec.md');
-  if (!existsSync(abs)) return null;
-  const markdown = readFileSync(abs, 'utf8');
+  const markdown = readStagedText(projectRoot, dirName, 'craft');
+  if (markdown === null) return null;
   const words = markdown.split(/\s+/).filter((token) => token.length > 0).length;
   try {
     return {
@@ -164,44 +155,30 @@ export interface SpecCorrection {
   at: string;
 }
 
-/** Path to the run's corrections log. */
-export function correctionsPath(dirName: string): string {
-  return join(pipelineScratchDir(dirName), 'corrections.jsonl');
-}
-
-/** Append a correction row when a human later edits a frozen spec's source (FR-11.3). */
+/**
+ * Record a human's later edit to a frozen spec's source (FR-11.3) as one `kind: 'spec-correction'`
+ * row on the bundle's stage evidence (issue #581). `at` becomes the row's `recorded_at`.
+ */
 export function recordSpecCorrection(
   projectRoot: string,
   dirName: string,
   correction: SpecCorrection,
 ): void {
-  const abs = join(projectRoot, correctionsPath(dirName));
-  mkdirSync(dirname(abs), { recursive: true });
-  // Single read + catch, never stat-then-read: a stat-then-read is a TOCTOU race CodeQL flags
-  // (js/file-system-race), the same pattern the bundle-completeness gate avoids.
-  let existing = '';
-  try {
-    existing = readFileSync(abs, 'utf8');
-  } catch {
-    // No prior corrections file: start fresh.
-  }
-  writeFileSync(abs, `${existing}${JSON.stringify(correction)}\n`, 'utf8');
+  appendSpecCorrectionRow(
+    projectRoot,
+    dirName,
+    { spec_id: correction.spec_id, changed_sections: correction.changed_sections },
+    { now: () => new Date(correction.at) },
+  );
 }
 
-/** Read the run's corrections (empty when none recorded). */
+/** Read the change's corrections (empty when none recorded). */
 export function readSpecCorrections(projectRoot: string, dirName: string): SpecCorrection[] {
-  const abs = join(projectRoot, correctionsPath(dirName));
-  if (!existsSync(abs)) return [];
-  const rows: SpecCorrection[] = [];
-  for (const line of readFileSync(abs, 'utf8').split('\n')) {
-    if (line.trim().length === 0) continue;
-    try {
-      rows.push(JSON.parse(line) as SpecCorrection);
-    } catch {
-      // skip a malformed row
-    }
-  }
-  return rows;
+  return readSpecCorrectionRows(projectRoot, dirName).map((row) => ({
+    spec_id: String(row.spec_id),
+    changed_sections: row.changed_sections as string[],
+    at: String(row.recorded_at),
+  }));
 }
 
 /** The aggregate report the `metrics` verb prints (FR-11.4). */
@@ -230,7 +207,7 @@ interface FinishRecord {
 
 /**
  * Aggregate the metrics across runs (FR-11.4). By default only the active run's directory; with
- * `allRuns` every run under `.paqad/_specs/`. Reads each run's `finish.json` and `corrections.jsonl`
+ * `allRuns` every staged run. Reads each run's staged finish and its `spec-correction` rows
  * — never a model. An empty or partial store yields a zeroed report, never throws.
  */
 export function aggregateSpecPipelineMetrics(
@@ -251,7 +228,7 @@ export function aggregateSpecPipelineMetrics(
   };
 
   for (const dirName of dirNames) {
-    const finish = readJson<FinishRecord>(scratchFile(projectRoot, dirName, 'finish.json'));
+    const finish = readStagedJson<FinishRecord>(projectRoot, dirName, 'finish');
     if (finish?.provenance) aggregate.runs += 1;
     const experts = finish?.provenance?.experts?.accounting?.experts ?? [];
     for (const expert of experts) {
@@ -292,17 +269,9 @@ export function aggregateSpecPipelineMetrics(
   return aggregate;
 }
 
-/** Every run directory under `.paqad/_specs/` that has a pipeline scratch (for `metrics --all`). */
+/** Every feature bundle whose pipeline run is still staged (for `metrics --all`). */
 export function listRunDirs(projectRoot: string): string[] {
-  const base = join(projectRoot, '.paqad', '_specs');
-  if (!existsSync(base)) return [];
-  try {
-    return readdirSync(base, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .filter((name) => existsSync(join(base, name, 'pipeline')))
-      .sort();
-  } catch {
-    return [];
-  }
+  return listFeatureDirs(projectRoot).filter((dirName) =>
+    existsSync(join(projectRoot, stagingDir(dirName))),
+  );
 }

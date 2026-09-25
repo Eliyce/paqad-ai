@@ -6,13 +6,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   isSynthesisShaped,
-  readExpertMerge,
-  readExpertSynthesis,
   validateExpertSynthesis,
-  writeExpertMerge,
-  writeExpertSynthesis,
   type ExpertSynthesis,
 } from '@/spec-pipeline/experts/synthesis.js';
+import { readExpertSynthesis, writeExpertSynthesis } from '@/spec-pipeline/run-store.js';
 import type { MergedExpertNotes } from '@/spec-pipeline/experts/types.js';
 
 const roots: string[] = [];
@@ -183,14 +180,11 @@ describe('validateExpertSynthesis', () => {
   });
 });
 
-describe('synthesis scratch io', () => {
-  it('writes and reads the merge and synthesis, and reads null when absent', () => {
+describe('synthesis store io', () => {
+  it('writes and reads the synthesis section, and reads null when absent', () => {
     const root = tempRoot();
-    expect(readExpertMerge(root, 'c1')).toBeNull();
     expect(readExpertSynthesis(root, 'c1')).toBeNull();
-    writeExpertMerge(root, 'c1', merged);
     writeExpertSynthesis(root, 'c1', validSynthesis());
-    expect(readExpertMerge(root, 'c1')?.conflicts).toHaveLength(1);
     expect(readExpertSynthesis(root, 'c1')?.verdict).toBe('ready');
   });
 

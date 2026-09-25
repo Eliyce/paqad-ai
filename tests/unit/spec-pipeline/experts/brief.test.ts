@@ -1,27 +1,14 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
-import { afterEach, describe, expect, it } from 'vitest';
-
+import { sha256Hex } from '@/compliance/markdown.js';
 import {
   buildExpertBriefs,
-  expertBriefPath,
   lensPathForRole,
-  writeExpertBriefs,
+  renderExpertBrief,
+  rosterEntryFor,
 } from '@/spec-pipeline/experts/brief.js';
 import type { GroundingArtifact, LabelArtifact } from '@/spec-pipeline/types.js';
 import type { ExpertNeed } from '@/spec-pipeline/experts/types.js';
-
-const roots: string[] = [];
-function tempRoot(): string {
-  const r = mkdtempSync(join(tmpdir(), 'paqad-brief-'));
-  roots.push(r);
-  return r;
-}
-afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
-});
 
 const grounding: GroundingArtifact = {
   references: [{ kind: 'doc', ref: 'docs/modules/billing/index.md' }],
@@ -36,7 +23,7 @@ const label: LabelArtifact = {
 };
 
 describe('buildExpertBriefs', () => {
-  it('writes one brief per needed expert, each with lens, request, budget and label', () => {
+  it('builds one brief per needed expert, each with lens, request, budget and label', () => {
     const needs: ExpertNeed[] = [
       { role: 'db-expert', reason: 'touches the invoices migration' },
       { role: 'security-auditor', reason: 'exports customer data' },
@@ -57,8 +44,11 @@ describe('buildExpertBriefs', () => {
     expect(db.content).toContain(`\`${lensPathForRole('db-expert')}\``);
     expect(db.content).toContain('Let customers download their invoices as CSV');
     expect(db.content).toContain('## Ticket acceptance criteria');
-    expect(db.content).toContain('- invoice');
+    // Issue #581 — the grounding terms are not persisted, so the brief no longer lists them.
+    expect(db.content).not.toContain('Terms:');
+    expect(db.content).not.toContain('- invoice');
     expect(db.content).toContain('doc: docs/modules/billing/index.md');
+    expect(db.hash).toBe(sha256Hex(db.content));
     expect(db.content).toContain('Label: okay');
     expect(db.content).toContain('Granted budget: 6000 tokens');
   });
@@ -72,13 +62,15 @@ describe('buildExpertBriefs', () => {
       ceiling: 60000,
     });
     expect(briefs[0]!.content).not.toContain('## Ticket acceptance criteria');
-    expect(briefs[0]!.content).toContain('Terms:\n- (none)');
     expect(briefs[0]!.content).toContain('References:\n- (none)');
   });
 
   it('trims the grounding to the granted budget, dropping the longest pointers first', () => {
     const bigGrounding: GroundingArtifact = {
-      references: [{ kind: 'doc', ref: 'a-very-long-reference-path-that-costs-a-lot.md' }],
+      references: [
+        { kind: 'doc', ref: 'a-very-long-reference-path-that-costs-a-lot.md' },
+        { kind: 'rule', ref: 'x' },
+      ],
       terms: ['x', 'yy'],
       sparse: false,
       path: 'docs-fallback',
@@ -95,23 +87,35 @@ describe('buildExpertBriefs', () => {
     expect(brief.granted).toBe(2);
     expect(brief.clamped).toBe(true);
     expect(brief.truncated).toBe(true);
-    // The longest pointer (the doc reference) is dropped; short terms survive.
+    // The longest pointer (the doc reference) is dropped; the short rule reference survives.
     expect(brief.content).not.toContain('a-very-long-reference-path');
-    expect(brief.content).toContain('- x');
+    expect(brief.content).toContain('- rule: x');
   });
 
-  it('writeExpertBriefs writes each brief to its scratch path and returns them', () => {
-    const root = tempRoot();
-    const { briefs } = buildExpertBriefs({
-      needs: [{ role: 'db-expert', reason: 'r' }],
-      request: 'r',
-      grounding,
-      label,
-      ceiling: 60000,
+  it('renders the same text and hash from the roster entry alone (issue #581, AC-8)', () => {
+    const need: ExpertNeed = { role: 'db-expert', reason: 'touches the invoices migration' };
+    const input = { needs: [need], request: 'Export invoices', grounding, label, ceiling: 60000 };
+    const built = buildExpertBriefs(input).briefs[0]!;
+    const entry = rosterEntryFor(need, built);
+    expect(entry).toEqual({
+      role: 'db-expert',
+      reason: 'touches the invoices migration',
+      lens: lensPathForRole('db-expert'),
+      budget_tokens: built.granted,
+      grounding_truncated: false,
+      brief_hash: built.hash,
+      tokens_used: null,
     });
-    const paths = writeExpertBriefs(root, 'change-x', briefs);
-    expect(paths).toEqual([expertBriefPath('change-x', 'db-expert')]);
-    expect(readFileSync(join(root, paths[0]!), 'utf8')).toContain('# Expert brief — db-expert');
+    // A rebuild needs only the recorded request, grounding references, label and roster entry.
+    const rebuilt = renderExpertBrief({
+      need: { role: entry.role, reason: entry.reason },
+      request: 'Export invoices',
+      grounding: { references: grounding.references },
+      label,
+      granted: entry.budget_tokens,
+    });
+    expect(rebuilt.content).toBe(built.content);
+    expect(rebuilt.hash).toBe(entry.brief_hash);
   });
 
   it('surfaces the ceiling warning without dropping an expert (INV-5)', () => {

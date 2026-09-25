@@ -7,6 +7,9 @@ import Ajv, { type ValidateFunction } from 'ajv';
 import { ENVELOPE_HEADER_PROPERTIES } from '@/feature-evidence/schema.js';
 
 import {
+  SPEC_CORRECTION_KIND,
+  SPEC_STEP_KIND,
+  SPEC_STEP_OUTCOMES,
   STAGE_AGENT_KIND,
   STAGE_EVIDENCE_DOC_TYPE,
   STAGE_EVIDENCE_SCHEMA_VERSION,
@@ -70,18 +73,41 @@ export const STAGE_EVIDENCE_SCHEMA = {
     doc_type: { const: STAGE_EVIDENCE_DOC_TYPE },
     // Issue #581 (FR-7, D9) — `stage-agent` is one dispatched stage agent's footprint. It
     // replaces the separate context-efficiency.jsonl stream, and the fold ignores it.
-    kind: { enum: [...STAGE_FAMILY_KIND_LIST, STAGE_AGENT_KIND] },
+    // Issue #581 (FR-7) — `spec-step` (one spec-pipeline step, replacing the run's log.jsonl)
+    // and `spec-correction` (a later edit to a frozen spec, replacing corrections.jsonl).
+    kind: {
+      enum: [...STAGE_FAMILY_KIND_LIST, STAGE_AGENT_KIND, SPEC_STEP_KIND, SPEC_CORRECTION_KIND],
+    },
     ...ROW_PROPERTIES,
     // The `stage-agent` fields: tokens the stage agent used (input + output), the carried
     // history the orchestrator did not re-send, and whether those counts are estimated.
     tokens_used: { type: 'integer', minimum: 0 },
     tokens_not_recarried: { type: 'integer', minimum: 0 },
     estimate: { type: 'boolean' },
+    // The `spec-step` fields: which step, how it ended, the hash of what it recorded, and the
+    // tokens the agent reported for it when it reported any. Never the enforcement block,
+    // which is stored once, on the frozen spec (AC-11). `step` is not an enum here: the
+    // feature-development path never imports the spec pipeline (FR-11), whose writer is typed.
+    step: { type: 'string', minLength: 1 },
+    outcome: { enum: SPEC_STEP_OUTCOMES },
+    artifact_hash: { type: 'string' },
+    tokens: { type: 'integer', minimum: 0 },
+    // The `spec-correction` fields: which frozen spec moved and which of its sections changed.
+    spec_id: { type: 'string', minLength: 1 },
+    changed_sections: { type: 'array', items: { type: 'string' } },
   },
   allOf: [
     {
       if: { properties: { kind: { const: STAGE_AGENT_KIND } }, required: ['kind'] },
       then: { required: ['stage', 'tokens_used', 'tokens_not_recarried', 'estimate'] },
+    },
+    {
+      if: { properties: { kind: { const: SPEC_STEP_KIND } }, required: ['kind'] },
+      then: { required: ['step', 'outcome', 'artifact_hash'] },
+    },
+    {
+      if: { properties: { kind: { const: SPEC_CORRECTION_KIND } }, required: ['kind'] },
+      then: { required: ['spec_id', 'changed_sections'] },
     },
   ],
 } as const;
