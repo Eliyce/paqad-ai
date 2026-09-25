@@ -78,21 +78,27 @@ export function createEvidenceCommand(): Command {
 }
 
 /**
- * `paqad-ai evidence migrate [--dry-run]` (issue #581, FR-12) — move an existing project onto
- * the one-packet evidence layout. The silent update runs it once on its own; this is the same
- * migration by hand. `--dry-run` prints the plan and writes nothing.
+ * `paqad-ai evidence migrate [--dry-run] [--session <id>]` (issue #581, FR-12) — move an
+ * existing project onto the one-packet evidence layout. The silent update runs it once on its
+ * own; this is the same migration by hand. `--dry-run` prints the plan and writes nothing.
+ * `--session` names the caller's session (default `SE_SESSION`), whose own open change is not
+ * held against it.
  */
 function createEvidenceMigrateCommand(): Command {
   return new Command('migrate')
     .description('Move old spec-pipeline runs into their change bundles (runs once on update)')
     .option('--dry-run', 'Print what would change and write nothing', false)
-    .action((options: { dryRun: boolean }, command: Command) => {
+    .option(
+      '--session <id>',
+      'Your session id, so a change you have open is not treated as held by another session',
+    )
+    .action((options: { dryRun: boolean; session?: string }, command: Command) => {
       // `--project-root` belongs to the parent `evidence` command, which parses it wherever it
       // appears, so it is read from there rather than declared twice.
       const { projectRoot } = command.optsWithGlobals<{ projectRoot: string }>();
       const result = migrateFeatureEvidence(resolve(projectRoot), {
         dryRun: options.dryRun,
-        sessionId: migrationSessionId(),
+        sessionId: options.session ?? migrationSessionId(),
       });
       process.stdout.write(`${formatEvidenceMigration(result)}\n`);
       if (result.actions.some((action) => action.kind === 'failed')) {

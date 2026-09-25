@@ -35,10 +35,27 @@
 //
 // A bundle whose change is open in ANOTHER session is left alone (AC-28): that session may still
 // be writing to it. Its run stays in `_specs/`, so `_specs/` stays too, and a later run migrates
-// it once the change closes. Every step is idempotent: a second run finds nothing left to do.
-// A run that fails to migrate is reported and left in place, never half-deleted.
+// it once the change closes. A hold goes stale once that session has not touched its control
+// or the bundle for {@link HELD_SESSION_STALE_MS} (a day): a session that crashed or was closed
+// never releases its control, and without the limit its change would never migrate.
+//
+// After a merge only the files the migration knows are removed: the ones it merged, the ones the
+// bundle already had, and the retired ones (the merge file, the briefs, a frozen run's working
+// state). Anything else in the run, such as a `spec.md` edited after the freeze or a file this
+// module has never heard of, stays where it is, and so does `_specs/`; the result names it in
+// `leftBehind`. Every step is idempotent: a second run finds nothing left to do (beyond naming
+// what it left behind again). A run that fails to migrate is reported and left in place, never
+// half-deleted, and a file the OS will not let go of (Windows EBUSY/EPERM) is reported too.
 
-import { readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 
 import { join } from 'pathe';
 
@@ -67,7 +84,7 @@ import type { LabelArtifact, PipelineStep, QuestionsArtifact } from '@/spec-pipe
 import { SPEC_STEP_OUTCOMES, type SpecStepOutcome } from '@/stage-evidence/types.js';
 
 import { documentSessionId } from './bundle-document.js';
-import { buildTextHeader, renderFrontMatter, splitFrontMatter } from './envelope.js';
+import { buildTextHeader, renderFrontMatter, rowRecordedAt, splitFrontMatter } from './envelope.js';
 import { listFeatureDirs } from './enumerate.js';
 import { seedFeatureRecord } from './feature-record.js';
 import {
@@ -102,11 +119,38 @@ const STAGED_SOURCES: readonly [StagedFile, string][] = [
   ['craft', 'spec.md'],
 ];
 
+/** Pipeline files a merge carries into the bundle (or finds the bundle already has). */
+const MERGED_SOURCES = [
+  'log.jsonl',
+  'request.md',
+  'label.json',
+  'questions.json',
+  'experts.json',
+  'expert-notes.json',
+  'expert-synthesis.json',
+];
+
+/** Pipeline files the new layout retires: nothing reads them, so a merge drops them. */
+const RETIRED_SOURCES = ['expert-merge.json'];
+
+/** The folder of per-expert brief files, retired with them (their facts go on the roster). */
+const RETIRED_BRIEFS_DIR = 'briefs';
+
+/**
+ * How long a session may sit idle before its hold on a change goes stale (24 hours). Measured
+ * from the later of its control's `updated_at` and its newest row in the bundle.
+ */
+export const HELD_SESSION_STALE_MS = 24 * 60 * 60 * 1000;
+
 export interface EvidenceMigrationOptions {
   /** The session running the migration: its own open changes are not "another session's". */
   sessionId?: string | null;
   /** Plan only: write and delete nothing. */
   dryRun?: boolean;
+  /** How long a session may be idle before its hold goes stale. Default {@link HELD_SESSION_STALE_MS}. */
+  staleAfterMs?: number;
+  /** The clock the stale check reads; a seam for tests. */
+  now?: () => Date;
 }
 
 /** One thing the migration did (or, on a dry run, would do). */
@@ -128,6 +172,10 @@ export type EvidenceMigrationAction =
   | { kind: 'skip-held'; source: string; bundle: string }
   | { kind: 'skip-unrecognized'; source: string }
   | { kind: 'failed'; source: string; error: string }
+  /** A merged run's files the migration did not merge: kept in `_specs/<source>/`. */
+  | { kind: 'leave-files'; source: string; files: string[] }
+  /** A delete the OS refused (a Windows lock, say): the path stays and the update goes on. */
+  | { kind: 'delete-failed'; path: string; error: string }
   | { kind: 'delete-tmp'; path: string }
   | { kind: 'remove-specs-dir' }
   | { kind: 'remove-gitignore-line' };
@@ -135,6 +183,12 @@ export type EvidenceMigrationAction =
 export interface EvidenceMigrationResult {
   dryRun: boolean;
   actions: EvidenceMigrationAction[];
+  /**
+   * Project-relative paths that stay under `.paqad/_specs/` after this run: a held or failed
+   * run's folder, an entry that is not a change folder, a merged run's unmerged files, or a
+   * path a delete could not remove. Empty once the old folder is gone.
+   */
+  leftBehind: string[];
 }
 
 // ── Reading the old layout ──────────────────────────────────────────────────────────────
@@ -176,6 +230,16 @@ function listEntries(abs: string): { name: string; dir: boolean }[] {
   } catch {
     return [];
   }
+}
+
+/** Every file under `abs`, as posix paths relative to it, sorted. */
+function listFilesUnder(abs: string, prefix = ''): string[] {
+  return listEntries(abs)
+    .flatMap((entry) => {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      return entry.dir ? listFilesUnder(join(abs, entry.name), rel) : [rel];
+    })
+    .sort();
 }
 
 /** One old run: its `_specs/<dir>` name and its log rows. */
@@ -245,18 +309,42 @@ function bundleClosed(projectRoot: string, bundle: string): boolean {
   );
 }
 
+/** The session's last sign of life for `bundle`: its control's stamp or its newest row there. */
+function lastSeenMs(updatedAt: string, rows: Record<string, unknown>[], sessionId: string): number {
+  const times = [
+    Date.parse(updatedAt),
+    ...rows
+      .filter((row) => row.session_id === sessionId)
+      // A readable ledger row always carries one of its two time fields.
+      .map((row) => Date.parse(rowRecordedAt(row)!)),
+  ].filter((time) => !Number.isNaN(time));
+  return times.length === 0 ? Number.NEGATIVE_INFINITY : Math.max(...times);
+}
+
+interface HoldCheck {
+  self: string | null;
+  staleAfterMs: number;
+  nowMs: number;
+}
+
 /**
- * Whether a session other than `self` has `bundle` open (active or paused) and its change has
- * not closed (AC-28). Read from the per-session controls, the one place an open change is held.
+ * Whether a session other than `self` has `bundle` open (active or paused), its change has not
+ * closed, and that session was seen within the stale limit (AC-28). Read from the per-session
+ * controls, the one place an open change is held.
  */
-function heldByAnotherSession(projectRoot: string, bundle: string, self: string | null): boolean {
+function heldByAnotherSession(projectRoot: string, bundle: string, hold: HoldCheck): boolean {
   if (bundleClosed(projectRoot, bundle)) return false;
+  let rows: Record<string, unknown>[] | null = null;
   for (const entry of listEntries(join(projectRoot, PATHS.FEATURE_EVIDENCE_SESSION_DIR))) {
     if (entry.dir || !entry.name.endsWith('.json')) continue;
     const sessionId = entry.name.slice(0, -'.json'.length);
-    if (sessionId === self) continue;
+    if (sessionId === hold.self) continue;
     const control = readSessionControl(projectRoot, sessionId);
-    if (control.active === bundle || control.paused.includes(bundle)) return true;
+    if (control.active !== bundle && !control.paused.includes(bundle)) continue;
+    rows ??= readUnitFile(projectRoot, featureFilePath(bundle, 'stageEvidence'));
+    if (hold.nowMs - lastSeenMs(control.updated_at, rows, sessionId) <= hold.staleAfterMs) {
+      return true;
+    }
   }
   return false;
 }
@@ -314,6 +402,38 @@ interface MergePlan {
   specMd: string | null;
   steps: ReturnType<typeof stepRowsFrom>;
   staged: StagedFile[];
+  /** The run's files (relative to `_specs/<run>/`) that are merged, covered or retired. */
+  removable: string[];
+  /** The run's files the migration did not merge, which stay where they are. */
+  leftovers: string[];
+}
+
+/** The key a `spec-step` row is matched on across a retry: its step and artifact hash. */
+function stepKey(step: unknown, hash: unknown): string {
+  return `${String(step)}\0${typeof hash === 'string' ? hash : ''}`;
+}
+
+/**
+ * The logged steps the bundle does not have a row for yet. Matched per step and hash, counting
+ * repeats, so a merge interrupted part way through writes only the rows it had not written.
+ */
+function missingSteps(
+  steps: ReturnType<typeof stepRowsFrom>,
+  existing: readonly Record<string, unknown>[],
+): ReturnType<typeof stepRowsFrom> {
+  const have = new Map<string, number>();
+  for (const row of existing) {
+    if (row.kind !== 'spec-step') continue;
+    const key = stepKey(row.step, row.artifact_hash);
+    have.set(key, (have.get(key) ?? 0) + 1);
+  }
+  return steps.filter((step) => {
+    const key = stepKey(step.step, step.hash);
+    const count = have.get(key) ?? 0;
+    if (count === 0) return true;
+    have.set(key, count - 1);
+    return false;
+  });
 }
 
 function planMerge(
@@ -333,11 +453,9 @@ function planMerge(
   const clarificationFree = !has('clarification');
   const specHash = created ? undefined : frozenSpecHash(projectRoot, bundle);
   const specSource = read('spec.md');
-  const hasStepRows =
-    !created &&
-    readUnitFile(projectRoot, featureFilePath(bundle, 'stageEvidence')).some(
-      (row) => row.kind === 'spec-step',
-    );
+  const existingRows = created
+    ? []
+    : readUnitFile(projectRoot, featureFilePath(bundle, 'stageEvidence'));
   // A run that never froze keeps its working state in staging, as a run started today would.
   const staged =
     specHash === undefined
@@ -346,6 +464,27 @@ function planMerge(
             read(source) !== null && readStagedText(projectRoot, bundle, file) === null,
         ).map(([file]) => file)
       : [];
+
+  // Which of the run's files the merge accounts for. A frozen run's working state is retired
+  // (its facts are in specification.json), except a `spec.md` that is not the signed source.
+  // A run that never froze accounts for a staged file once staging holds exactly its bytes.
+  const accounted = (rel: string): boolean => {
+    const [top, name, ...rest] = rel.split('/');
+    if (top !== PIPELINE_DIR || name === undefined) return false;
+    if (name === RETIRED_BRIEFS_DIR) return rest.length === 1 && rest[0]!.endsWith('.md');
+    if (rest.length > 0) return false;
+    if (MERGED_SOURCES.includes(name) || RETIRED_SOURCES.includes(name)) return true;
+    const stagedFile = STAGED_SOURCES.find(([, source]) => source === name)?.[0];
+    if (stagedFile === undefined) return false;
+    if (specHash !== undefined) {
+      if (stagedFile !== 'craft') return true;
+      return typeof specHash === 'string' && sha256Hex(read(name)!) === specHash;
+    }
+    return (
+      staged.includes(stagedFile) || readStagedText(projectRoot, bundle, stagedFile) === read(name)
+    );
+  };
+  const files = listFilesUnder(join(projectRoot, LEGACY_SPECS_DIR, run.name));
 
   return {
     run,
@@ -365,8 +504,10 @@ function planMerge(
       sha256Hex(specSource) === specHash
         ? specSource
         : null,
-    steps: hasStepRows ? [] : stepRowsFrom(run),
+    steps: missingSteps(stepRowsFrom(run), existingRows),
     staged,
+    removable: files.filter(accounted),
+    leftovers: files.filter((rel) => !accounted(rel)),
   };
 }
 
@@ -563,15 +704,20 @@ export function migrateFeatureEvidence(
   options: EvidenceMigrationOptions = {},
 ): EvidenceMigrationResult {
   const dryRun = options.dryRun === true;
-  const self = options.sessionId?.trim() || null;
+  const hold: HoldCheck = {
+    self: options.sessionId?.trim() || null,
+    staleAfterMs: options.staleAfterMs ?? HELD_SESSION_STALE_MS,
+    nowMs: (options.now ?? (() => new Date()))().getTime(),
+  };
   const actions: EvidenceMigrationAction[] = [];
-  let leftBehind = false;
+  const leftBehind: string[] = [];
+  const specsRel = (rel: string): string => `${LEGACY_SPECS_DIR}/${rel}`;
 
   const byUlid = new Map<string, LegacyRun[]>();
   for (const entry of listEntries(join(projectRoot, LEGACY_SPECS_DIR))) {
     if (!entry.dir || !isFeatureDirName(entry.name)) {
       actions.push({ kind: 'skip-unrecognized', source: entry.name });
-      leftBehind = true;
+      leftBehind.push(specsRel(entry.name));
       continue;
     }
     const run = readRun(projectRoot, entry.name);
@@ -579,15 +725,16 @@ export function migrateFeatureEvidence(
   }
 
   const bundles = listFeatureDirs(projectRoot);
-  const migratedRuns: LegacyRun[] = [];
-  const migratedBundles: string[] = [];
+  const merged: MergePlan[] = [];
+  const dropped: LegacyRun[] = [];
   for (const [ulid, runs] of [...byUlid.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     const kept = pickRun(runs);
     const existing = bundles.find((name) => featureChangeKey(name) === ulid);
-    if (existing && heldByAnotherSession(projectRoot, existing, self)) {
-      for (const run of runs)
+    if (existing && heldByAnotherSession(projectRoot, existing, hold)) {
+      for (const run of runs) {
         actions.push({ kind: 'skip-held', source: run.name, bundle: existing });
-      leftBehind = true;
+        leftBehind.push(specsRel(run.name));
+      }
       continue;
     }
     const bundle = existing ?? kept.name;
@@ -602,39 +749,65 @@ export function migrateFeatureEvidence(
         added: describeAdds(plan),
         staged: [...plan.staged],
       });
-      for (const run of runs) {
-        if (run !== kept)
-          actions.push({ kind: 'drop-duplicate', source: run.name, kept: kept.name });
+      if (plan.leftovers.length > 0) {
+        actions.push({ kind: 'leave-files', source: kept.name, files: [...plan.leftovers] });
+        leftBehind.push(...plan.leftovers.map((rel) => specsRel(`${kept.name}/${rel}`)));
       }
-      migratedRuns.push(...runs);
-      migratedBundles.push(bundle);
+      for (const run of runs) {
+        if (run === kept) continue;
+        actions.push({ kind: 'drop-duplicate', source: run.name, kept: kept.name });
+        dropped.push(run);
+      }
+      merged.push(plan);
     } catch (error) {
       actions.push({
         kind: 'failed',
         source: kept.name,
         error: (error as Error).message,
       });
-      leftBehind = true;
+      leftBehind.push(specsRel(kept.name));
     }
   }
 
+  // A delete the OS refuses is reported and left, never allowed to stop the run (or an update).
+  const remove = (rel: string, recursive: boolean): void => {
+    try {
+      rmSync(join(projectRoot, rel), { recursive, force: true });
+    } catch (error) {
+      actions.push({ kind: 'delete-failed', path: rel, error: (error as Error).message });
+      if (rel.startsWith(`${LEGACY_SPECS_DIR}/`)) leftBehind.push(rel);
+    }
+  };
+
   // Case D reads the runs' bytes, so it is planned before any run folder is deleted.
-  const stray = strayTmpFiles(projectRoot, migratedRuns, migratedBundles);
+  const stray = strayTmpFiles(
+    projectRoot,
+    [...merged.map((plan) => plan.run), ...dropped],
+    merged.map((plan) => plan.bundle),
+  );
   for (const path of stray) actions.push({ kind: 'delete-tmp', path });
   if (!dryRun) {
-    for (const path of stray) rmSync(join(projectRoot, path), { force: true });
-    for (const run of migratedRuns) {
-      rmSync(join(projectRoot, LEGACY_SPECS_DIR, run.name), { recursive: true, force: true });
+    for (const path of stray) remove(path, false);
+    for (const run of dropped) remove(specsRel(run.name), true);
+    for (const plan of merged) {
+      const runRel = specsRel(plan.run.name);
+      if (plan.leftovers.length === 0) {
+        remove(runRel, true);
+        continue;
+      }
+      // Only the files the merge accounts for go; the folders they leave empty go with them.
+      for (const rel of plan.removable) remove(`${runRel}/${rel}`, false);
+      pruneEmptyDirs(join(projectRoot, runRel));
     }
   }
 
   const specsDir = specsDirExists(projectRoot);
-  if (specsDir && !leftBehind) {
+  if (specsDir && leftBehind.length === 0) {
     actions.push({ kind: 'remove-specs-dir' });
-    if (!dryRun) rmSync(join(projectRoot, LEGACY_SPECS_DIR), { recursive: true, force: true });
+    if (!dryRun) remove(LEGACY_SPECS_DIR, true);
   }
   // The ignore line stays while the folder does, so nothing in it can ever be committed.
-  if (!(leftBehind && specsDir)) {
+  if (!specsDir || leftBehind.length === 0) {
     const gitignore = gitignoreWithoutSpecsLine(projectRoot);
     if (gitignore) {
       actions.push({ kind: 'remove-gitignore-line' });
@@ -642,7 +815,19 @@ export function migrateFeatureEvidence(
     }
   }
 
-  return { dryRun, actions };
+  return { dryRun, actions, leftBehind: [...new Set(leftBehind)].sort() };
+}
+
+/** Remove the empty folders under `abs` (deepest first), and `abs` itself once it is empty. */
+function pruneEmptyDirs(abs: string): void {
+  for (const entry of listEntries(abs)) {
+    if (entry.dir) pruneEmptyDirs(join(abs, entry.name));
+  }
+  try {
+    rmdirSync(abs);
+  } catch {
+    // Not empty (a file was left behind) or already gone: either way it stays as it is.
+  }
 }
 
 /** The session a migration runs as: the host's, when it exported one. */
@@ -653,6 +838,29 @@ export function migrationSessionId(env: NodeJS.ProcessEnv = process.env): string
 /** True when the project still carries the old scratch folder, so a migration run has work. */
 export function evidenceMigrationPending(projectRoot: string): boolean {
   return specsDirExists(projectRoot);
+}
+
+/**
+ * The pending-migration step `update` and onboarding both run: migrate when the old folder is
+ * still there (a change another session held last time, or a project stamped before it had any
+ * migration). It never throws: a failure is passed to `warn` and the caller carries on, so a
+ * locked file on Windows cannot stop an update. Null when there was nothing to do or it failed.
+ */
+export function runPendingEvidenceMigration(
+  projectRoot: string,
+  warn: (message: string) => void = (message) => process.stderr.write(`${message}\n`),
+  env: NodeJS.ProcessEnv = process.env,
+): EvidenceMigrationResult | null {
+  if (!evidenceMigrationPending(projectRoot)) return null;
+  try {
+    return migrateFeatureEvidence(projectRoot, { sessionId: migrationSessionId(env) });
+  } catch (error) {
+    warn(
+      `paqad: the evidence migration did not finish (${(error as Error).message}); ` +
+        'it runs again on the next update, or run `paqad-ai evidence migrate`.',
+    );
+    return null;
+  }
 }
 
 /** One plain line per action, for the CLI and the schema-migration note. */
@@ -676,6 +884,10 @@ export function formatEvidenceMigration(result: EvidenceMigrationResult): string
         return `leave ${action.source}: not a change folder`;
       case 'failed':
         return `leave ${action.source}: migration failed (${action.error})`;
+      case 'leave-files':
+        return `leave ${action.files.join(', ')} in ${LEGACY_SPECS_DIR}/${action.source}/: not merged, so kept for you to check`;
+      case 'delete-failed':
+        return `could not delete ${action.path} (${action.error}); it stays for a later run`;
       case 'delete-tmp':
         return `delete ${action.path}`;
       case 'remove-specs-dir':

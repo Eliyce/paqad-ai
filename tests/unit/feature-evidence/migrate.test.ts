@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -26,9 +27,11 @@ import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
 import {
   evidenceMigrationPending,
   formatEvidenceMigration,
+  HELD_SESSION_STALE_MS,
   LEGACY_SPECS_DIR,
   migrateFeatureEvidence,
   migrationSessionId,
+  runPendingEvidenceMigration,
   type EvidenceMigrationResult,
 } from '@/feature-evidence/migrate.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
@@ -292,6 +295,14 @@ function snapshot(root: string): Map<string, string> {
   return files;
 }
 
+/** The files under `rel`, relative to it, sorted. */
+function listFiles(root: string, rel: string): string[] {
+  return [...snapshot(root).keys()]
+    .filter((path) => path.startsWith(`${rel}/`))
+    .map((path) => path.slice(rel.length + 1))
+    .sort();
+}
+
 function kinds(result: EvidenceMigrationResult): string[] {
   return result.actions.map((action) => action.kind);
 }
@@ -374,6 +385,7 @@ describe('migrateFeatureEvidence cases A to D (issue #581, AC-18)', () => {
     const first = snapshot(root);
     const second = migrateFeatureEvidence(root);
     expect(second.actions).toEqual([]);
+    expect(second.leftBehind).toEqual([]);
     expect(snapshot(root)).toEqual(first);
     expect(formatEvidenceMigration(second)).toBe(
       'Nothing to migrate: the evidence layout is current.',
@@ -441,6 +453,62 @@ describe('migrateFeatureEvidence and other sessions (AC-28)', () => {
     expect(free.actions.some((action) => action.kind === 'merge' && action.source === A)).toBe(
       true,
     );
+  });
+});
+
+describe('migrateFeatureEvidence and stale holds (finding 5)', () => {
+  const NOW = new Date('2026-09-25T12:00:00.000Z');
+  const now = (): Date => NOW;
+  const ago =
+    (ms: number): (() => Date) =>
+    () =>
+      new Date(NOW.getTime() - ms);
+  const ROW = { kind: 'stage', doc_type: 'paqad.stage-evidence', content_hash: 'x' };
+
+  it('holds for a session seen within the day, and migrates once it has been idle longer', () => {
+    const root = fixture();
+    setActiveFeature(root, 'ses_other', A, { now: ago(HELD_SESSION_STALE_MS - 60_000) });
+    const fresh = migrateFeatureEvidence(root, { now, dryRun: true });
+    expect(fresh.actions).toContainEqual({ kind: 'skip-held', source: A, bundle: A });
+    expect(fresh.leftBehind).toEqual([`${LEGACY_SPECS_DIR}/${A}`]);
+
+    setActiveFeature(root, 'ses_other', A, { now: ago(HELD_SESSION_STALE_MS + 60_000) });
+    const stale = migrateFeatureEvidence(root, { now });
+    expect(kinds(stale)).not.toContain('skip-held');
+    expect(existsSync(join(root, LEGACY_SPECS_DIR))).toBe(false);
+  });
+
+  it('keeps holding an old control whose session still writes rows to the bundle', () => {
+    const root = fixture();
+    setActiveFeature(root, 'ses_other', A, { now: ago(3 * HELD_SESSION_STALE_MS) });
+    write(
+      root,
+      featureFilePath(A, 'stageEvidence'),
+      `${read(root, featureFilePath(A, 'stageEvidence'))}${jsonl([
+        { ...ROW, session_id: 'ses_else', recorded_at: ago(10)().toISOString() },
+        { ...ROW, session_id: 'ses_other', ts: 'not a time' },
+        { ...ROW, session_id: 'ses_other', recorded_at: ago(1000)().toISOString() },
+      ])}`,
+    );
+    const result = migrateFeatureEvidence(root, { now });
+    expect(result.actions).toContainEqual({ kind: 'skip-held', source: A, bundle: A });
+  });
+
+  it('treats a control with no readable time as stale, and honours a custom limit', () => {
+    const root = fixture();
+    setActiveFeature(root, 'ses_other', A);
+    const control = join(root, PATHS.FEATURE_EVIDENCE_SESSION_DIR, 'ses_other.json');
+    writeFileSync(
+      control,
+      JSON.stringify({ ...JSON.parse(readFileSync(control, 'utf8')), updated_at: 'garbage' }),
+    );
+    expect(kinds(migrateFeatureEvidence(root, { dryRun: true }))).not.toContain('skip-held');
+
+    setActiveFeature(root, 'ses_other', A, { now: ago(10_000) });
+    expect(
+      kinds(migrateFeatureEvidence(root, { now, staleAfterMs: 1000, dryRun: true })),
+    ).not.toContain('skip-held');
+    expect(kinds(migrateFeatureEvidence(root, { now, dryRun: true }))).toContain('skip-held');
   });
 });
 
@@ -540,23 +608,150 @@ describe('migrateFeatureEvidence edge cases', () => {
     write(
       root,
       featureFilePath(A, 'stageEvidence'),
-      jsonl([
-        {
+      jsonl(
+        ['ground', 'label', 'finish'].map((step) => ({
           kind: 'spec-step',
-          step: 'ground',
+          step,
           outcome: 'complete',
+          artifact_hash: `h-${step}`,
           doc_type: 'paqad.stage-evidence',
           content_hash: 'x',
           session_id: 's',
           ts: 't',
-        },
-      ]),
+        })),
+      ),
     );
     const result = migrateFeatureEvidence(root);
     const merge = result.actions.find((action) => action.kind === 'merge' && action.source === A);
     expect(merge).toMatchObject({ added: [] });
     expect(formatEvidenceMigration(result)).toContain(`merge ${A} into ${A}: add nothing new`);
     expect(existsSync(join(root, featureFilePath(A, 'specMd')))).toBe(false);
+    // The edited spec.md was never merged, so it stays, and so does the old folder and its line.
+    expect(result.actions).toContainEqual({
+      kind: 'leave-files',
+      source: A,
+      files: ['pipeline/spec.md'],
+    });
+    expect(result.leftBehind).toEqual([`${LEGACY_SPECS_DIR}/${A}/pipeline/spec.md`]);
+    expect(formatEvidenceMigration(result)).toContain(
+      `leave pipeline/spec.md in ${LEGACY_SPECS_DIR}/${A}/: not merged, so kept for you to check`,
+    );
+    expect(listFiles(root, `${LEGACY_SPECS_DIR}/${A}`)).toEqual(['pipeline/spec.md']);
+    expect(read(root, `${LEGACY_SPECS_DIR}/${A}/pipeline/spec.md`)).toBe('# edited after freeze\n');
+    expect(kinds(result)).not.toContain('remove-specs-dir');
+    expect(read(root, '.paqad/.gitignore')).toContain('_specs/');
+    // The other runs still went in full.
+    expect(existsSync(join(root, LEGACY_SPECS_DIR, B))).toBe(false);
+  });
+
+  it('keeps files it does not know, and removes only the ones it merged (finding 1)', () => {
+    const root = fixture();
+    pipeline(root, A, 'notes.txt', 'mine');
+    pipeline(root, A, 'sub/label.json', '{}');
+    pipeline(root, A, 'briefs/nested/deep.md', 'deep');
+    pipeline(root, A, 'briefs/qa-engineer.txt', 'odd');
+    write(root, `${LEGACY_SPECS_DIR}/${A}/README.md`, 'top');
+    const dry = migrateFeatureEvidence(root, { dryRun: true });
+    const expected = [
+      'README.md',
+      'pipeline/briefs/nested/deep.md',
+      'pipeline/briefs/qa-engineer.txt',
+      'pipeline/notes.txt',
+      'pipeline/sub/label.json',
+    ];
+    expect(dry.actions).toContainEqual({ kind: 'leave-files', source: A, files: expected });
+    expect(kinds(dry)).not.toContain('remove-specs-dir');
+
+    const result = migrateFeatureEvidence(root);
+    expect(listFiles(root, `${LEGACY_SPECS_DIR}/${A}`)).toEqual(expected);
+    expect(result.leftBehind).toEqual(expected.map((rel) => `${LEGACY_SPECS_DIR}/${A}/${rel}`));
+    expect(read(root, '.paqad/.gitignore')).toContain('_specs/');
+    // A second run merges nothing new and names the same files again.
+    const again = migrateFeatureEvidence(root);
+    expect(again.leftBehind).toEqual(result.leftBehind);
+    expect(again.actions.find((action) => action.kind === 'merge')).toMatchObject({ added: [] });
+  });
+
+  it('keeps the working file of an unfrozen run when staging already holds different bytes', () => {
+    const root = fixture();
+    // B never froze: its task was staged by a live run since, with other bytes.
+    mkdirSync(join(root, stagingDir(B)), { recursive: true });
+    write(root, `${stagingDir(B)}/task.json`, '{"intent":"newer"}\n');
+    const result = migrateFeatureEvidence(root);
+    expect(result.actions).toContainEqual({
+      kind: 'leave-files',
+      source: B,
+      files: ['pipeline/task.json'],
+    });
+    expect(readStagedText(root, B, 'task')).toBe('{"intent":"newer"}\n');
+  });
+
+  it('removes the working file of an unfrozen run that staging already holds byte for byte', () => {
+    const root = fixture();
+    mkdirSync(join(root, stagingDir(B)), { recursive: true });
+    write(root, `${stagingDir(B)}/task.json`, TASK);
+    const result = migrateFeatureEvidence(root);
+    expect(kinds(result)).not.toContain('leave-files');
+    expect(existsSync(join(root, LEGACY_SPECS_DIR))).toBe(false);
+  });
+
+  it('writes only the spec-step rows a partial merge did not (finding 6)', () => {
+    const root = fixture();
+    // An earlier run wrote the first step, then stopped. The log also repeats a step.
+    pipeline(
+      root,
+      A,
+      'log.jsonl',
+      jsonl([
+        logRow('ground', '2026-09-01T01:00:00.000Z'),
+        logRow('label', '2026-09-01T01:01:00.000Z'),
+        logRow('label', '2026-09-01T01:01:30.000Z'),
+        logRow('finish', '2026-09-01T01:02:00.000Z'),
+      ]),
+    );
+    write(
+      root,
+      featureFilePath(A, 'stageEvidence'),
+      `${read(root, featureFilePath(A, 'stageEvidence'))}${jsonl([
+        {
+          kind: 'spec-step',
+          step: 'ground',
+          outcome: 'complete',
+          artifact_hash: 'h-ground',
+          doc_type: 'paqad.stage-evidence',
+          content_hash: 'x',
+          session_id: 's',
+          ts: 't',
+        },
+        {
+          kind: 'spec-step',
+          step: 'label',
+          outcome: 'complete',
+          artifact_hash: 'h-label',
+          doc_type: 'paqad.stage-evidence',
+          content_hash: 'x',
+          session_id: 's',
+          ts: 't',
+        },
+        {
+          kind: 'spec-step',
+          step: 'task',
+          outcome: 'complete',
+          doc_type: 'paqad.stage-evidence',
+          content_hash: 'x',
+          session_id: 's',
+          ts: 't',
+        },
+      ])}`,
+    );
+    migrateFeatureEvidence(root);
+    expect(readSpecStepRows(root, A).map((row) => row.step)).toEqual([
+      'ground',
+      'label',
+      'task',
+      'label',
+      'finish',
+    ]);
   });
 
   it('copies no spec.md for a frozen record with no spec_hash, and stages nothing for it', () => {
@@ -565,9 +760,11 @@ describe('migrateFeatureEvidence edge cases', () => {
     write(root, featureFilePath(A, 'specification'), '{"spec_id":"S"}\n');
     pipeline(root, A, 'spec.md', SPEC);
     pipeline(root, A, 'task.json', TASK);
-    migrateFeatureEvidence(root);
+    const result = migrateFeatureEvidence(root);
     expect(existsSync(join(root, featureFilePath(A, 'specMd')))).toBe(false);
     expect(readStagedText(root, A, 'task')).toBeNull();
+    // The frozen run's task is retired; its spec.md, never checked against a hash, stays.
+    expect(result.leftBehind).toEqual([`${LEGACY_SPECS_DIR}/${A}/pipeline/spec.md`]);
   });
 
   it('tolerates missing and malformed pipeline files', () => {
@@ -611,6 +808,74 @@ describe('migrateFeatureEvidence edge cases', () => {
     expect(formatEvidenceMigration(result)).toContain(`leave ${A}: migration failed`);
     expect(existsSync(join(root, LEGACY_SPECS_DIR, A))).toBe(true);
     expect(read(root, '.paqad/.gitignore')).toContain('_specs/');
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'reports a delete the OS refuses and keeps going (finding 4)',
+    () => {
+      const root = fixture();
+      // Read-only parents make every delete under them fail, as a Windows lock would.
+      chmodSync(join(root, LEGACY_SPECS_DIR), 0o500);
+      chmodSync(join(root, '.paqad/tmp'), 0o500);
+      try {
+        const result = migrateFeatureEvidence(root);
+        const failed = result.actions.filter((action) => action.kind === 'delete-failed');
+        expect(failed.map((action) => (action as { path: string }).path)).toContain(
+          '.paqad/tmp/alpha-request.md',
+        );
+        expect(failed.map((action) => (action as { path: string }).path)).toContain(
+          `${LEGACY_SPECS_DIR}/${A}`,
+        );
+        expect(result.leftBehind).toContain(`${LEGACY_SPECS_DIR}/${A}`);
+        expect(result.leftBehind).not.toContain('.paqad/tmp/alpha-request.md');
+        expect(kinds(result)).not.toContain('remove-specs-dir');
+        expect(formatEvidenceMigration(result)).toContain(
+          `could not delete ${LEGACY_SPECS_DIR}/${A} (`,
+        );
+        // The facts still reached the bundle.
+        expect(existsSync(join(root, featureFilePath(A, 'request')))).toBe(true);
+      } finally {
+        chmodSync(join(root, LEGACY_SPECS_DIR), 0o700);
+        chmodSync(join(root, '.paqad/tmp'), 0o700);
+      }
+    },
+  );
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'keeps a file whose delete fails when only part of a run is removed',
+    () => {
+      const root = fixture();
+      pipeline(root, A, 'notes.txt', 'mine');
+      chmodSync(join(root, LEGACY_SPECS_DIR, A, 'pipeline'), 0o500);
+      try {
+        const result = migrateFeatureEvidence(root);
+        expect(result.leftBehind).toContain(`${LEGACY_SPECS_DIR}/${A}/pipeline/request.md`);
+      } finally {
+        chmodSync(join(root, LEGACY_SPECS_DIR, A, 'pipeline'), 0o700);
+      }
+    },
+  );
+
+  it('runs a pending migration only when the old folder is there, and never throws', () => {
+    const root = project();
+    expect(runPendingEvidenceMigration(root)).toBeNull();
+    pipeline(root, C, 'request.md', '# Gamma\n');
+    const result = runPendingEvidenceMigration(root, () => undefined, { SE_SESSION: 'ses_me' });
+    expect(result?.actions.some((action) => action.kind === 'merge')).toBe(true);
+
+    pipeline(root, C, 'request.md', '# Gamma\n');
+    const warnings: string[] = [];
+    const env = {
+      get SE_SESSION(): string {
+        throw new Error('boom');
+      },
+    } as NodeJS.ProcessEnv;
+    expect(runPendingEvidenceMigration(root, (message) => warnings.push(message), env)).toBeNull();
+    expect(warnings[0]).toContain('the evidence migration did not finish (boom)');
+
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    expect(runPendingEvidenceMigration(root, undefined, env)).toBeNull();
+    expect(String(stderr.mock.calls[0]?.[0])).toContain('paqad-ai evidence migrate');
   });
 
   it('reads the migration session from the host environment', () => {
@@ -702,6 +967,16 @@ describe('paqad-ai evidence migrate', () => {
     expect(out.join('')).toContain('Evidence migration (would):');
     expect(existsSync(join(root, LEGACY_SPECS_DIR))).toBe(true);
     expect(process.exitCode).toBeUndefined();
+  });
+
+  it('takes the session of the caller with --session, so its own open change is not held', async () => {
+    const root = fixture();
+    setActiveFeature(root, 'ses_me', A);
+    await run('--dry-run', '--session', 'ses_me', '--project-root', root);
+    expect(out.join('')).not.toContain('is open in another session');
+    out.length = 0;
+    await run('--dry-run', '--session', 'ses_else', '--project-root', root);
+    expect(out.join('')).toContain('is open in another session');
   });
 
   it('migrates, and exits 1 when a run failed', async () => {
