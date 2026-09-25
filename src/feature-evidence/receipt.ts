@@ -18,6 +18,11 @@
 // `evidence_line_count`, so the rows are stored once. Late gates append rows after sealing,
 // so a verifier re-hashes only the sealed prefix. A receipt sealed before #581 still carries
 // `predicate.rows` and every reader here falls back to them.
+//
+// Both files also carry the one envelope header (issue #581, FR-5), each in the slot its
+// standard format allows: the receipt in its top-level `paqad` block, outside the signed DSSE
+// payload (so the chain bytes are unchanged; `time_verified` stays inside the payload, owned
+// by the SLSA-VSA shape), and the AI-BOM as `paqad:<field>` CycloneDX `metadata.properties`.
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -43,10 +48,80 @@ import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
 // form a cycle.
 import { decodeReceiptStatement } from '@/evidence/receipt/envelope.js';
 
+import { documentSessionId } from './bundle-document.js';
 import { readFeatureEvidence } from './bundle-ledgers.js';
 import { listFeatureDirs } from './delivery.js';
-import { rowRecordedAt } from './envelope.js';
-import { featureFilePath } from './paths.js';
+import {
+  buildEnvelopeHeader,
+  rowRecordedAt,
+  toAiBomProperties,
+  withReceiptHeader,
+} from './envelope.js';
+import { computeContentHash } from './mint.js';
+import { featureChangeKey, featureFilePath } from './paths.js';
+
+/** Doc type of a bundle's `receipt.json` (`paqad.<file-stem>`, issue #581). */
+export const RECEIPT_DOC_TYPE = 'paqad.receipt';
+/** Version 2 (issue #581): the envelope header in the `paqad` block. */
+export const RECEIPT_SCHEMA_VERSION = 2;
+
+/** Doc type of a bundle's `ai-bom.json` (issue #581). */
+export const AI_BOM_DOC_TYPE = 'paqad.ai-bom';
+/** Version 2 (issue #581): the envelope header in `metadata.properties`. */
+export const AI_BOM_SCHEMA_VERSION = 2;
+
+interface BundleHeaderIdentity {
+  projectRoot: string;
+  dirName: string;
+  sessionId?: string | null;
+  /** The run time: the statement's `time_verified`. */
+  recordedAt: string;
+}
+
+/**
+ * The receipt with the envelope header in its `paqad` block. `content_hash` is the
+ * `receipt_hash` the chain already carries (the SHA-256 of the signed PAE and the prior
+ * link), so the header names the same bytes the chain does without a second hash.
+ */
+function withFeatureReceiptHeader(
+  envelope: ReceiptEnvelope,
+  identity: BundleHeaderIdentity,
+): ReceiptEnvelope {
+  const header = buildEnvelopeHeader({
+    docType: RECEIPT_DOC_TYPE,
+    change: featureChangeKey(identity.dirName),
+    sessionId: documentSessionId(identity.projectRoot, identity.dirName, identity.sessionId),
+    schemaVersion: RECEIPT_SCHEMA_VERSION,
+    contentHash: envelope.paqad.receipt_hash,
+    now: () => new Date(identity.recordedAt),
+  });
+  return { ...envelope, paqad: withReceiptHeader(header, envelope.paqad) };
+}
+
+/**
+ * The AI-BOM with the envelope header first in its `metadata.properties`. `content_hash` is
+ * {@link computeContentHash} over the document as built, before the header is added.
+ */
+function withFeatureAiBomHeader(
+  aiBom: AiBomDocument,
+  identity: BundleHeaderIdentity,
+): AiBomDocument {
+  const header = buildEnvelopeHeader({
+    docType: AI_BOM_DOC_TYPE,
+    change: featureChangeKey(identity.dirName),
+    sessionId: documentSessionId(identity.projectRoot, identity.dirName, identity.sessionId),
+    schemaVersion: AI_BOM_SCHEMA_VERSION,
+    contentHash: computeContentHash(aiBom as unknown as Record<string, unknown>),
+    now: () => new Date(identity.recordedAt),
+  });
+  return {
+    ...aiBom,
+    metadata: {
+      ...aiBom.metadata,
+      properties: [...toAiBomProperties(header), ...aiBom.metadata.properties],
+    },
+  };
+}
 
 function atomicWriteJson(absPath: string, value: unknown): void {
   mkdirSync(dirname(absPath), { recursive: true });
@@ -251,6 +326,8 @@ export interface ProjectFeatureReceiptInput {
   authorship?: ChangeAuthorship;
   complianceCitations?: readonly ComplianceCitation[];
   reproducibility?: ReproducibilityStampPredicate;
+  /** The session running the verification, stamped on the file headers (issue #581). */
+  sessionId?: string | null;
 }
 
 export interface ProjectFeatureReceiptResult {
@@ -285,12 +362,24 @@ export function projectFeatureReceipt(
     evidenceSeal: sealFeatureEvidence(projectRoot, dirName),
   });
   const prior = readFeatureReceipt(projectRoot, dirName);
-  const envelope = signReceipt({
-    statement,
-    prevReceiptHash: prior?.paqad?.receipt_hash ?? ZERO_DIGEST,
-    mode: 'hash-chained',
-  });
-  const aiBom = buildAiBom({ statement, toolVersion: input.verifierVersion });
+  const identity = {
+    projectRoot,
+    dirName,
+    sessionId: input.sessionId,
+    recordedAt: input.timeVerified,
+  };
+  const envelope = withFeatureReceiptHeader(
+    signReceipt({
+      statement,
+      prevReceiptHash: prior?.paqad?.receipt_hash ?? ZERO_DIGEST,
+      mode: 'hash-chained',
+    }),
+    identity,
+  );
+  const aiBom = withFeatureAiBomHeader(
+    buildAiBom({ statement, toolVersion: input.verifierVersion }),
+    identity,
+  );
 
   const receiptRel = featureFilePath(dirName, 'receipt');
   const aiBomRel = featureFilePath(dirName, 'aiBom');
@@ -320,7 +409,10 @@ export function projectFeatureAiBom(
     timeVerified: input.timeVerified,
     evidenceSeal: sealFeatureEvidence(projectRoot, dirName),
   });
-  const aiBom = buildAiBom({ statement, toolVersion: input.verifierVersion });
+  const aiBom = withFeatureAiBomHeader(
+    buildAiBom({ statement, toolVersion: input.verifierVersion }),
+    { projectRoot, dirName, sessionId: input.sessionId, recordedAt: input.timeVerified },
+  );
   atomicWriteJson(join(projectRoot, featureFilePath(dirName, 'aiBom')), aiBom);
   return aiBom;
 }

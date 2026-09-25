@@ -58,7 +58,7 @@ describe('exportFeatureBundle', () => {
   });
 
   // Issue #581 — the report reads a sealing receipt's rows from the exported evidence.jsonl,
-  // whose graded rows carry no session envelope, so they are read with the evidence reader.
+  // read with the evidence reader: the bundle header, plus `ts` from `recorded_at`.
   it('exports the graded evidence.jsonl rows', () => {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_1', {
@@ -75,7 +75,16 @@ describe('exportFeatureBundle', () => {
       strength_class: 'deterministic',
     });
     appendFeatureEvidenceRows(root, 'ses_1', [row]);
-    expect(exportFeatureBundle(root, dir, AT).files.evidence).toEqual([row]);
+    expect(exportFeatureBundle(root, dir, AT).files.evidence).toEqual([
+      expect.objectContaining({
+        doc_type: 'paqad.evidence',
+        recorded_at: AT,
+        ts: AT,
+        engine: 'verification-gate',
+        code: 'format',
+        verdict: 'pass',
+      }),
+    ]);
   });
 });
 

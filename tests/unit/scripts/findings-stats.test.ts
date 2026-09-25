@@ -50,6 +50,14 @@ describe('bucketFindings', () => {
     expect(total_runs).toBe(4);
   });
 
+  it('reads a #581 bundle row by its recorded_at', () => {
+    const { weeks, total_runs } = bucketFindings([
+      { kind: 'findings', recorded_at: '2026-07-01T09:00:00.000Z', counts: { deterministic: 3 } },
+    ]);
+    expect(total_runs).toBe(1);
+    expect(weeks[0]).toMatchObject({ week: '2026-W27', max: 3 });
+  });
+
   it('orders weeks chronologically', () => {
     const { weeks } = bucketFindings(rows);
     expect(weeks.map((w: { week: string }) => w.week)).toEqual(['2026-W27', '2026-W28']);

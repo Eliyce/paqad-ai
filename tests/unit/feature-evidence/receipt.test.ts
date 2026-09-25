@@ -34,6 +34,8 @@ import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
+import { fromAiBomProperties } from '@/feature-evidence/envelope.js';
+import { validateEnvelopeHeader } from '@/feature-evidence/schema.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -367,6 +369,77 @@ describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () =
     projectFeatureReceipt(root, dir, { ...INPUT, rows: [row('tests', 'fail')] });
     const whole = projectAiBomFromFeatures(root, '1.52.0', INPUT.timeVerified)!;
     expect(JSON.stringify(whole)).toContain('"paqad:verification:result","value":"FAILED"');
+  });
+});
+
+// Issue #581 (FR-5) — each standard format carries the one header in the slot it allows.
+describe('receipt.json and ai-bom.json carry the envelope header (#581)', () => {
+  function open(): { root: string; dir: string } {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_owner', {
+      adapter: 'claude-code',
+      title: 'A',
+      issue: null,
+    });
+    return { root, dir };
+  }
+
+  it('puts the header first in the receipt paqad block, outside the signed payload', () => {
+    const { root, dir } = open();
+    const { envelope } = projectFeatureReceipt(root, dir, { ...INPUT, sessionId: 'ses_run' });
+    const block = readFeatureReceipt(root, dir)!.paqad;
+    expect(Object.keys(block)).toEqual([
+      'schema_version',
+      'doc_type',
+      'change',
+      'session_id',
+      'recorded_at',
+      'content_hash',
+      'signing_mode',
+      'prev_receipt_hash',
+      'receipt_hash',
+    ]);
+    expect(block).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.receipt',
+      change: dir.slice(-26),
+      session_id: 'ses_run',
+      recorded_at: INPUT.timeVerified,
+      content_hash: envelope.paqad.receipt_hash,
+    });
+    // The header sits outside the payload, so the seal still verifies and time_verified
+    // stays inside the signed statement.
+    expect(verifyReceiptSeal(readFeatureReceipt(root, dir)!)).toBe(true);
+    expect(decodeReceiptStatement(envelope)!.predicate.time_verified).toBe(INPUT.timeVerified);
+    expect(validateEnvelopeHeader(block)).toEqual([]);
+  });
+
+  it('chains a second receipt to the first even with the header in the block', () => {
+    const { root, dir } = open();
+    const first = projectFeatureReceipt(root, dir, INPUT).envelope;
+    const second = projectFeatureReceipt(root, dir, INPUT).envelope;
+    expect(second.paqad.prev_receipt_hash).toBe(first.paqad.receipt_hash);
+    // No session given: the session that opened the change.
+    expect(second.paqad.session_id).toBe('ses_owner');
+  });
+
+  it('puts the header first in the AI-BOM metadata.properties as paqad:<field>', () => {
+    const { root, dir } = open();
+    const { aiBom } = projectFeatureReceipt(root, dir, INPUT);
+    const header = fromAiBomProperties(readFeatureAiBom(root, dir)!.metadata.properties);
+    expect(header).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.ai-bom',
+      change: dir.slice(-26),
+      session_id: 'ses_owner',
+      recorded_at: INPUT.timeVerified,
+    });
+    expect(aiBom.metadata.properties[0]!.name).toBe('paqad:schema_version');
+    // The top-level evidence properties are untouched.
+    expect(aiBom.properties[0]!.name).toBe('paqad:verification:result');
+    expect(validateEnvelopeHeader(header)).toEqual([]);
+    const ai = projectFeatureAiBom(root, dir, { ...INPUT, sessionId: 'ses_bom' });
+    expect(fromAiBomProperties(ai.metadata.properties)!.session_id).toBe('ses_bom');
   });
 });
 

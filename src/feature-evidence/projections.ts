@@ -12,6 +12,7 @@ import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { readFeatureEvidence } from './bundle-ledgers.js';
+import { rowRecordedAt } from './envelope.js';
 import { readFeatureSpecification } from './artifacts.js';
 import { listFeatureDirs } from './delivery.js';
 import { featureFilePath } from './paths.js';
@@ -71,6 +72,7 @@ export function readAllFeatureRag(projectRoot: string): SessionLedgerRow[] {
  * Change Shape collector and `metrics report` render "the last N changes" as this ts-sorted
  * tail, since rows can now interleave across feature bundles (the accepted latest-by-ts
  * tradeoff, issue #468). `ts` is a stable ISO-8601 string, so a lexical sort is chronological.
+ * A row written since #581 carries `recorded_at` instead; `rowRecordedAt` reads either.
  */
 export function readFeatureChangeMetricsWindow(
   projectRoot: string,
@@ -78,7 +80,7 @@ export function readFeatureChangeMetricsWindow(
 ): SessionLedgerRow[] {
   const rows = readAllFeatureChangeMetrics(projectRoot)
     .slice()
-    .sort((a, b) => a.ts.localeCompare(b.ts));
+    .sort((a, b) => (rowRecordedAt(a) ?? '').localeCompare(rowRecordedAt(b) ?? ''));
   return limit >= rows.length ? rows : rows.slice(rows.length - limit);
 }
 

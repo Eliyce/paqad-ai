@@ -10,6 +10,14 @@
 // - rule-run.jsonl: which rules fired on THIS change, appended into the active feature's
 //   bundle (a no-op when no feature is active). Rows are stamped + hashed by the shared
 //   session-ledger primitives, so the bytes are script-owned.
+//
+// Issue #581 (FR-5) — every row written into a bundle here (rule-run, duplication,
+// change-metrics, evidence, and the bundle copy of a RAG row) is stamped by the envelope's
+// `stampBundleRow`: the six-field header, with `change` the folder-name ULID and
+// `recorded_at` in place of `ts`, then the row's own fields. `doc_type` is the same on every
+// row of a file (`paqad.<file-stem>`). No row carries the `adapter`: the host is a session
+// constant of the change, stored once in feature.json. Readers take the time through
+// `rowRecordedAt`, so a bundle written before #581 still reads.
 
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import { readEvidenceRowsAt } from '@/evidence/ledger.js';
@@ -18,27 +26,72 @@ import {
   appendStampedRowToUnit,
   currentOrdinal,
   readUnitFile,
-  stampSessionRow,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 
 import type { ChangeMetrics } from '@/change-metrics/types.js';
 import type { DuplicationReport } from '@/duplication/report.js';
 
-import { chatRagPath, featureFilePath } from './paths.js';
+import { ENVELOPE_HEADER_KEYS, stampBundleRow } from './envelope.js';
+import { chatRagPath, featureChangeKey, featureFilePath } from './paths.js';
 import { currentFeature } from './stage-ledger.js';
 
 /** Doc type stamped on a per-feature `rule-run.jsonl` row. */
 export const RULE_RUN_DOC_TYPE = 'paqad.rule-run';
-export const RULE_RUN_SCHEMA_VERSION = 1;
+/** Version 2 (issue #581): the envelope header, no `adapter`. Version 1 rows still read. */
+export const RULE_RUN_SCHEMA_VERSION = 2;
 
-/** Doc type stamped on a per-feature `duplication.jsonl` row (issue #468, Phase A). */
-export const DUPLICATION_RUN_DOC_TYPE = 'paqad.duplication-run';
-export const DUPLICATION_RUN_SCHEMA_VERSION = 1;
+/**
+ * Doc type stamped on a per-feature `duplication.jsonl` row (issue #468, Phase A). Issue
+ * #581 renamed it from `paqad.duplication-run` so it matches the file stem; a reader maps the
+ * old name through `normalizeDocType`.
+ */
+export const DUPLICATION_RUN_DOC_TYPE = 'paqad.duplication';
+export const DUPLICATION_RUN_SCHEMA_VERSION = 2;
 
 /** Doc type stamped on a per-feature `change-metrics.jsonl` row (issue #468, Phase A). */
 export const CHANGE_METRICS_RUN_DOC_TYPE = 'paqad.change-metrics';
-export const CHANGE_METRICS_RUN_SCHEMA_VERSION = 1;
+export const CHANGE_METRICS_RUN_SCHEMA_VERSION = 2;
+
+/** Doc type of a feature bundle's `rag.jsonl` row (issue #581; the `_chat` home keeps its own). */
+export const BUNDLE_RAG_DOC_TYPE = 'paqad.rag';
+export const BUNDLE_RAG_SCHEMA_VERSION = 2;
+
+/** Doc type of a feature bundle's `evidence.jsonl` row (issue #581). */
+export const BUNDLE_EVIDENCE_DOC_TYPE = 'paqad.evidence';
+export const BUNDLE_EVIDENCE_SCHEMA_VERSION = 2;
+
+/** The keys a session-ledger or evidence row carries that the bundle header replaces. */
+const ROW_HEADER_KEYS: ReadonlySet<string> = new Set([...ENVELOPE_HEADER_KEYS, 'ts']);
+
+/** A row without its own header keys (and `ts`), ready to be re-stamped for a bundle. */
+function rowBody(
+  row: Record<string, unknown>,
+  drop: readonly string[] = [],
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(row).filter(([key]) => !ROW_HEADER_KEYS.has(key) && !drop.includes(key)),
+  );
+}
+
+/** Stamp one row for the bundle `dirName` names (issue #581, FR-5). */
+function stampFeatureRow(
+  dirName: string,
+  sessionId: string,
+  docType: string,
+  schemaVersion: number,
+  row: Record<string, unknown>,
+  now?: () => Date,
+): SessionLedgerRow {
+  return stampBundleRow({
+    docType,
+    change: featureChangeKey(dirName),
+    sessionId,
+    schemaVersion,
+    row,
+    now,
+  }) as unknown as SessionLedgerRow;
+}
 
 /**
  * The project-relative home a RAG row for `sessionId` belongs to: the active feature's
@@ -76,6 +129,11 @@ export function currentChatOrdinal(projectRoot: string, sessionId: string): numb
  * active feature's bundle or `_chat`). Additive: the session-substrate write the RAG
  * recorder already does is untouched; this co-locates the same row with the feature it
  * served. Never throws — RAG recording must never break the prompt path.
+ *
+ * Issue #581 — a row bound for a feature bundle is re-stamped with the bundle header
+ * (`doc_type` `paqad.rag`, `change`, `recorded_at` = the row's own time) and without the
+ * `adapter`, which the bundle keeps in feature.json. The `_chat` home is not a bundle and
+ * keeps the recorder's row as it was stamped.
  */
 export function mirrorRagRow(
   projectRoot: string,
@@ -83,7 +141,20 @@ export function mirrorRagRow(
   stampedRow: SessionLedgerRow,
 ): void {
   try {
-    appendStampedRowToUnit(projectRoot, resolveRagHome(projectRoot, sessionId), stampedRow);
+    const dirName = currentFeature(projectRoot, sessionId);
+    if (!dirName) {
+      appendStampedRowToUnit(projectRoot, chatRagPath(sessionId), stampedRow);
+      return;
+    }
+    const bundleRow = stampFeatureRow(
+      dirName,
+      sessionId,
+      BUNDLE_RAG_DOC_TYPE,
+      BUNDLE_RAG_SCHEMA_VERSION,
+      rowBody(stampedRow, ['adapter']),
+      () => new Date(stampedRow.ts),
+    );
+    appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'rag'), bundleRow);
   } catch {
     // Best-effort: a mirror failure is invisible to the runtime path.
   }
@@ -97,7 +168,6 @@ export interface RuleRunEntry {
   counts: Record<string, number>;
   /** Whether this run blocks (a strict deterministic violation). */
   blocking: boolean;
-  adapter?: string;
   note?: string | null;
   /** Issue #468 Phase C — true when minted by the existence gate's backfill (not a live run). */
   backfilled?: boolean;
@@ -120,18 +190,19 @@ export function appendRuleRun(
     return null;
   }
   try {
-    const stamped = stampSessionRow(
-      RULE_RUN_DOC_TYPE,
+    const stamped = stampFeatureRow(
+      dirName,
       sessionId,
+      RULE_RUN_DOC_TYPE,
+      RULE_RUN_SCHEMA_VERSION,
       {
         kind: entry.kind,
         counts: entry.counts,
         blocking: entry.blocking,
-        adapter: entry.adapter ?? 'claude-code',
         note: entry.note ?? null,
         ...(entry.backfilled ? { backfilled: true } : {}),
       },
-      { schemaVersion: RULE_RUN_SCHEMA_VERSION, now: entry.now },
+      entry.now,
     );
     appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'ruleRun'), stamped);
     return stamped;
@@ -164,9 +235,11 @@ export function appendDuplicationRun(
     return null;
   }
   try {
-    const stamped = stampSessionRow(
-      DUPLICATION_RUN_DOC_TYPE,
+    const stamped = stampFeatureRow(
+      dirName,
       sessionId,
+      DUPLICATION_RUN_DOC_TYPE,
+      DUPLICATION_RUN_SCHEMA_VERSION,
       {
         counts: report.counts,
         similarity_threshold: report.similarity_threshold,
@@ -175,7 +248,7 @@ export function appendDuplicationRun(
         blocking: report.blocking,
         ...(backfilled ? { backfilled: true } : {}),
       },
-      { schemaVersion: DUPLICATION_RUN_SCHEMA_VERSION, now },
+      now,
     );
     appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'duplication'), stamped);
     return stamped;
@@ -207,9 +280,11 @@ export function appendChangeMetrics(
     return null;
   }
   try {
-    const stamped = stampSessionRow(
-      CHANGE_METRICS_RUN_DOC_TYPE,
+    const stamped = stampFeatureRow(
+      dirName,
       sessionId,
+      CHANGE_METRICS_RUN_DOC_TYPE,
+      CHANGE_METRICS_RUN_SCHEMA_VERSION,
       {
         dup_new_pct: metrics.dup_new_pct,
         reuse_rate: metrics.reuse_rate,
@@ -218,7 +293,7 @@ export function appendChangeMetrics(
         reuse_calls: metrics.inputs.reuse_calls,
         ...(backfilled ? { backfilled: true } : {}),
       },
-      { schemaVersion: CHANGE_METRICS_RUN_SCHEMA_VERSION, now },
+      now,
     );
     appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'changeMetrics'), stamped);
     return stamped;
@@ -234,10 +309,14 @@ export function readChangeMetrics(projectRoot: string, dirName: string): Session
 
 /**
  * Issue #468, Phase A (D5) — append the graded gate rows into the ACTIVE feature's
- * `evidence.jsonl`. The rows are already self-stamped {@link EvidenceLedgerRow}s (their
- * own `content_hash` identity), so they are written verbatim — no re-stamping — beside
- * the identical top-level `.paqad/ledger/evidence.jsonl` write, which is untouched here.
- * A no-op (returns `[]`) when no feature is active or the row set is empty. Best-effort.
+ * `evidence.jsonl`. A no-op (returns `[]`) when no feature is active or the row set is
+ * empty. Best-effort.
+ *
+ * Issue #581 — each row is re-stamped with the bundle header: `doc_type` `paqad.evidence`,
+ * `change`, `session_id`, and `recorded_at` = the row's own `ts` (the run time a sealing
+ * receipt's `time_verified` names, so the receipt still finds its rows). `content_hash` is
+ * the bundle row hash. The returned rows are what was written, read back in the
+ * {@link EvidenceLedgerRow} view (`ts` = `recorded_at`).
  */
 export function appendFeatureEvidenceRows(
   projectRoot: string,
@@ -250,12 +329,20 @@ export function appendFeatureEvidenceRows(
   }
   try {
     const path = featureFilePath(dirName, 'evidence');
+    const written: EvidenceLedgerRow[] = [];
     for (const row of rows) {
-      // `EvidenceLedgerRow` carries its own envelope; append it verbatim as one JSONL
-      // line via the shared writer (which only stringifies). Cast is the shape bridge.
-      appendStampedRowToUnit(projectRoot, path, row as unknown as SessionLedgerRow);
+      const stamped = stampFeatureRow(
+        dirName,
+        sessionId,
+        BUNDLE_EVIDENCE_DOC_TYPE,
+        BUNDLE_EVIDENCE_SCHEMA_VERSION,
+        rowBody(row as unknown as Record<string, unknown>),
+        () => new Date(row.ts),
+      );
+      appendStampedRowToUnit(projectRoot, path, stamped);
+      written.push({ ...(stamped as unknown as EvidenceLedgerRow), ts: row.ts });
     }
-    return [...rows];
+    return written;
   } catch {
     return [];
   }

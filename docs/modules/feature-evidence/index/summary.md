@@ -58,6 +58,15 @@ change, so the live feature-development stage spine is untouched:
   `schema_version: 1` file is checked against its old shape, so an old bundle still reads.
   `readFeatureRecord` maps an old `feature.json` onto the new names, and its next patch
   rewrites it in the new shape.
+  Every JSONL row the bundle writes (`rule-run.jsonl`, `duplication.jsonl`,
+  `change-metrics.jsonl`, `evidence.jsonl`, and `rag.jsonl`) is stamped by `stampBundleRow`
+  with the same header, `doc_type` `paqad.<file-stem>` on every row of a file
+  (`duplication.jsonl` was `paqad.duplication-run`; a RAG row bound for a bundle is re-stamped
+  from `paqad.rag-evidence` to `paqad.rag`, both by the TS mirror and the prompt-seam
+  `rag-evidence-record.mjs`), and no row carries the `adapter`. The `_chat` RAG home is not a
+  bundle and keeps its own rows. `report.html` carries the header in a
+  `<script type="application/json" id="paqad-header">` tag in its `<head>`, hashed over the
+  page without the tag; it is inert data, and the page runs no script.
 - **Bundle manifest** (`manifest.ts`, issue #511) — the single declarative source of truth
   for **which** bundle files a feature-development change must leave, **when** each is
   required, and **who** writes it. The `bundle-completeness` gate reads it, and a test

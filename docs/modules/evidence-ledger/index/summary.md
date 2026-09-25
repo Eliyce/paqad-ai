@@ -70,6 +70,16 @@ receipt's rows through `receiptEvidenceRows` (`src/feature-evidence/receipt.ts`)
 `evidence.jsonl` rows of that run for a sealing receipt, `predicate.rows` for one sealed
 before #581. The whole-project receipt still carries its rows.
 
+Each bundle row also carries the one envelope header (issue #581): `appendFeatureEvidenceRows`
+re-stamps a graded row with `doc_type` `paqad.evidence`, `change` (the folder-name ULID),
+`session_id`, `recorded_at` (the row's own time, which a sealing receipt's `time_verified`
+names) and a row `content_hash`, and no longer writes `ts`. `readEvidenceRowsAt` accepts
+either time field and returns the one row view with `ts` filled in, without rewriting the
+sealed bytes. The bundle `receipt.json` carries the header in its top-level `paqad` block,
+outside the signed payload (`content_hash` is the `receipt_hash`; `time_verified` stays in
+the payload), and the bundle `ai-bom.json` carries it as `paqad:<field>` entries at the front
+of `metadata.properties`.
+
 | Path | What |
 | ---- | ---- |
 | `.paqad/ledger/feature-evidence/<feature>/evidence.jsonl` | the change's graded rows (one per line), always written |

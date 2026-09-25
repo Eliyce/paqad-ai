@@ -512,6 +512,7 @@ export async function runRepositoryVerification(
         rows,
         verifierVersion: verifierVersion(),
         timeVerified: completedAt,
+        sessionId: bundleSessionId,
         write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
         // Issue #468 Phase B — carry the authorship/compliance/reproducibility resolved
         // above so the per-feature receipt is a complete attestation record now that it is

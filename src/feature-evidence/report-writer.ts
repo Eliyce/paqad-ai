@@ -7,17 +7,33 @@
 // never leaves a half-written page. Everything here is best-effort by contract: a caller
 // (the verification backstop, the delivery-link hook, the CLI) wraps it so a render or
 // write failure can never disrupt the change.
+//
+// Issue #581 (FR-5) — the page carries the one envelope header in a
+// `<script type="application/json" id="paqad-header">` tag in its `<head>`. Its `content_hash`
+// is the SHA-256 of the page as rendered, before the tag is added.
 
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 
+import { documentSessionId } from './bundle-document.js';
 import { listFeatureDirs } from './delivery.js';
+import { buildTextHeader, renderHeaderScript } from './envelope.js';
 import { exportFeatureBundle } from './export.js';
-import { featureReportPath, parseFeatureDirName } from './paths.js';
+import { featureChangeKey, featureReportPath, parseFeatureDirName } from './paths.js';
 import { renderFeatureReportHtml } from './report.js';
 import { foldFeature, resolveFeatureRef } from './stage-ledger.js';
+
+/** Doc type of a bundle's `report.html` header (`paqad.<file-stem>`, issue #581). */
+export const REPORT_DOC_TYPE = 'paqad.report';
+/** The first versioned shape of `report.html`: the page with its header tag (issue #581). */
+export const REPORT_SCHEMA_VERSION = 1;
+
+/** Put the envelope header tag at the end of the page's `<head>` (issue #581). */
+function withHeaderTag(html: string, tag: string): string {
+  return html.replace('</head>', `${tag}\n</head>`);
+}
 
 export interface WriteFeatureReportOptions {
   /** Deterministic generation timestamp; defaults to now. */
@@ -62,10 +78,19 @@ export function writeFeatureReport(
   const sessionId = options.sessionId ?? 'report';
   const bundle = exportFeatureBundle(projectRoot, dirName, generatedAt);
   const fold = foldFeature(projectRoot, sessionId, dirName);
-  const html = renderFeatureReportHtml(bundle, fold, {
+  const page = renderFeatureReportHtml(bundle, fold, {
     generatedAt,
     paqadVersion: options.paqadVersion ?? null,
   });
+  const header = buildTextHeader({
+    docType: REPORT_DOC_TYPE,
+    change: featureChangeKey(dirName),
+    sessionId: documentSessionId(projectRoot, dirName, options.sessionId),
+    schemaVersion: REPORT_SCHEMA_VERSION,
+    body: page,
+    now: () => new Date(generatedAt),
+  });
+  const html = withHeaderTag(page, renderHeaderScript(header));
   const abs = options.outPath
     ? isAbsolute(options.outPath)
       ? options.outPath

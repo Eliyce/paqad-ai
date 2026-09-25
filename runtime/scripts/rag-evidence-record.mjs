@@ -13,6 +13,12 @@
 // (the retired `paqad.rag-evidence/<session>/` substrate is gone). The reader folds the two
 // homes, so the fold sees a seam-written row wherever the feature was active at write time.
 //
+// Issue #581 — a row bound for a feature bundle carries the bundle envelope header, exactly
+// as the TS `mirrorRagRow` re-stamps it: `schema_version` 2, `doc_type` `paqad.rag`, `change`
+// (the ULID at the end of the bundle's folder name), `session_id`, `recorded_at` (in place of
+// `ts`) and `content_hash`, then the row with no `adapter` (the host lives in feature.json).
+// The `_chat` home is not a bundle and keeps the rag-evidence envelope.
+//
 // Best-effort and silent — recording must never break a prompt turn.
 
 import { createHash, randomBytes } from 'node:crypto';
@@ -29,7 +35,12 @@ import { join } from 'node:path';
 
 const DOC_TYPE = 'paqad.rag-evidence';
 const SCHEMA_VERSION = 1;
-const HASH_EXCLUDED = new Set(['ts', 'content_hash', 'note']);
+const BUNDLE_DOC_TYPE = 'paqad.rag';
+const BUNDLE_SCHEMA_VERSION = 2;
+// Mirrors the TS session-row hash exclusions (src/session-ledger/ledger.ts).
+const HASH_EXCLUDED = new Set(['ts', 'recorded_at', 'content_hash', 'note']);
+// The ULID at the end of a feature folder name (mirrors the TS `featureChangeKey`).
+const FOLDER_ULID = /-([0-9A-HJKMNP-TV-Z]{26})$/;
 
 /**
  * The `_chat` home for a session — where the conversation-ordinal `.open` pointer and the
@@ -46,7 +57,8 @@ function chatDir(projectRoot, sessionId) {
  * when `_session/<session>.json`.active names one, else the session's `_chat` home. A pure
  * mirror of the TS `resolveRagHome` (src/feature-evidence/bundle-ledgers.ts) — the extended
  * cross-format test pins the two to the same on-disk result. Best-effort: any read/parse
- * failure falls back to the `_chat` home so a row is never lost.
+ * failure falls back to the `_chat` home so a row is never lost. `change` is the bundle's
+ * change key, or null for the `_chat` home.
  */
 function resolveRagHome(projectRoot, sessionId) {
   try {
@@ -61,12 +73,15 @@ function resolveRagHome(projectRoot, sessionId) {
     const parsed = JSON.parse(readFileSync(control, 'utf8'));
     const active = typeof parsed?.active === 'string' ? parsed.active.trim() : '';
     if (active) {
-      return join(projectRoot, '.paqad', 'ledger', 'feature-evidence', active, 'rag.jsonl');
+      return {
+        path: join(projectRoot, '.paqad', 'ledger', 'feature-evidence', active, 'rag.jsonl'),
+        change: FOLDER_ULID.exec(active)?.[1] ?? active,
+      };
     }
   } catch {
     // No control file / not JSON / no active feature — fall through to the chat home.
   }
-  return join(chatDir(projectRoot, sessionId), 'rag.jsonl');
+  return { path: join(chatDir(projectRoot, sessionId), 'rag.jsonl'), change: null };
 }
 
 /** Resolve the session id: host hint, else the cached/minted local id (worker-aligned). */
@@ -146,17 +161,44 @@ function contentHash(row) {
   return createHash('sha256').update(JSON.stringify(identity)).digest('hex');
 }
 
-/** Stamp the envelope and append the row to `home` (a project-absolute `rag.jsonl`). */
-function appendRow(home, sessionId, row) {
-  const base = {
-    schema_version: SCHEMA_VERSION,
-    doc_type: DOC_TYPE,
+/** The bundle row: the six-field header first, then the row without its `adapter`. */
+function bundleRow(change, sessionId, row) {
+  const body = { ...row };
+  delete body.adapter;
+  const identity = {
+    schema_version: BUNDLE_SCHEMA_VERSION,
+    doc_type: BUNDLE_DOC_TYPE,
+    change,
     session_id: sessionId,
-    ...row,
+    ...body,
   };
-  const stamped = { ...base, ts: new Date().toISOString(), content_hash: contentHash(base) };
-  mkdirSync(join(home, '..'), { recursive: true });
-  appendFileSync(home, `${JSON.stringify(stamped)}\n`, 'utf8');
+  return {
+    schema_version: BUNDLE_SCHEMA_VERSION,
+    doc_type: BUNDLE_DOC_TYPE,
+    change,
+    session_id: sessionId,
+    recorded_at: new Date().toISOString(),
+    content_hash: contentHash(identity),
+    ...body,
+  };
+}
+
+/** Stamp the envelope and append the row to `home` (a resolved two-home `rag.jsonl`). */
+function appendRow(home, sessionId, row) {
+  let stamped;
+  if (home.change !== null) {
+    stamped = bundleRow(home.change, sessionId, row);
+  } else {
+    const base = {
+      schema_version: SCHEMA_VERSION,
+      doc_type: DOC_TYPE,
+      session_id: sessionId,
+      ...row,
+    };
+    stamped = { ...base, ts: new Date().toISOString(), content_hash: contentHash(base) };
+  }
+  mkdirSync(join(home.path, '..'), { recursive: true });
+  appendFileSync(home.path, `${JSON.stringify(stamped)}\n`, 'utf8');
   return stamped;
 }
 

@@ -1,4 +1,4 @@
-import { appendFileSync, mkdtempSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,6 +10,7 @@ import {
   buildEvidenceRow,
   computeRowContentHash,
   readEvidenceLedger,
+  readEvidenceRowsAt,
   readEvidenceWindow,
   type NewEvidenceRow,
 } from '@/evidence/ledger.js';
@@ -76,5 +77,42 @@ describe('appendEvidenceRows / readEvidenceLedger', () => {
       buildEvidenceRow(newRow({ subject_digest: 'change-2', code: 'spec-review' })),
     ]);
     expect(readEvidenceWindow(root, 'change-1').map((r) => r.code)).toEqual(['mutation-testing']);
+  });
+});
+
+// Issue #581 — a feature bundle row carries the envelope header, `recorded_at` in place of
+// `ts`. The reader accepts both and returns one view with `ts` filled in.
+describe('readEvidenceRowsAt (issue #581)', () => {
+  it('reads a bundle row by its recorded_at, filling ts, and still reads an old ts row', () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-ledger-'));
+    const rel = '.paqad/ledger/feature-evidence/x/evidence.jsonl';
+    mkdirSync(join(root, '.paqad/ledger/feature-evidence/x'), { recursive: true });
+    const header = {
+      schema_version: 2,
+      doc_type: 'paqad.evidence',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_1',
+      recorded_at: '2026-09-25T00:00:00.000Z',
+      content_hash: 'c'.repeat(64),
+    };
+    const body = {
+      engine: 'verification-gate',
+      code: 'tests',
+      subject_digest: 's',
+      verdict: 'pass',
+      strength_class: 'deterministic',
+    };
+    writeFileSync(
+      join(root, rel),
+      [
+        JSON.stringify({ ...header, ...body }),
+        JSON.stringify(buildEvidenceRow(newRow({ code: 'old' }))),
+        JSON.stringify({ ...body, content_hash: 'x' }), // neither ts nor recorded_at
+      ].join('\n') + '\n',
+    );
+    const rows = readEvidenceRowsAt(root, rel);
+    expect(rows.map((r) => r.code)).toEqual(['tests', 'old']);
+    expect(rows[0]).toMatchObject({ ts: header.recorded_at, recorded_at: header.recorded_at });
+    expect(rows[1]!.ts).toBe('2026-06-11T00:00:00.000Z');
   });
 });

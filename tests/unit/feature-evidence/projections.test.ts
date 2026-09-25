@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -206,6 +206,20 @@ describe('whole-project projections from feature bundles', () => {
     const windowed = readFeatureChangeMetricsWindow(root, 2).map((r) => r.dup_new_pct);
     expect(windowed).toEqual([2, 3]); // last 2 by ts
     expect(a).not.toBe(b);
+
+    // Issue #581 — a pre-#581 row carries `ts`, a new one `recorded_at`; both order by time.
+    const legacy = join(root, featureFilePath(b, 'changeMetrics'));
+    const legacyRow = {
+      schema_version: 1,
+      doc_type: 'paqad.change-metrics',
+      session_id: 'ses_old',
+      ts: '2026-01-01T00:00:00.000Z',
+      content_hash: 'h',
+      dup_new_pct: 0.5,
+    };
+    writeFileSync(legacy, readFileSync(legacy, 'utf8') + JSON.stringify(legacyRow) + '\n');
+    const mixed = readFeatureChangeMetricsWindow(root, 20).map((r) => r.dup_new_pct);
+    expect(mixed).toEqual([0.5, 1, 2, 3]);
   });
 
   it('projects every FROZEN bundle specification and skips unfrozen/corrupt ones (#343 A1)', () => {

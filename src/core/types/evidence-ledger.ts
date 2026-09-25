@@ -52,9 +52,21 @@ export type EvidenceStrengthClass = 'deterministic' | 'llm-judged' | 'blocked';
  * a consumer responsibility — the writer only stamps the hash).
  */
 export interface EvidenceLedgerRow {
-  schema_version: typeof EVIDENCE_LEDGER_SCHEMA_VERSION;
-  /** ISO-8601 emission time. Not part of `content_hash`. */
+  /**
+   * {@link EVIDENCE_LEDGER_SCHEMA_VERSION} for a top-level ledger row; 2 for a row read from a
+   * feature bundle's `evidence.jsonl`, which carries the envelope header (issue #581).
+   */
+  schema_version: number;
+  /**
+   * ISO-8601 emission time. Not part of `content_hash`. A bundle row stores it as the
+   * header's `recorded_at`; the reader fills `ts` from it, so every consumer reads one field.
+   */
   ts: string;
+  /** Issue #581 — the envelope header of a row read from a feature bundle. */
+  doc_type?: string;
+  change?: string;
+  session_id?: string;
+  recorded_at?: string;
   engine: EvidenceEngine;
   /** Gate name or finding code (e.g. `mutation-testing`, `TR-UNTESTED-PROMISE`). */
   code: string;
@@ -62,7 +74,10 @@ export interface EvidenceLedgerRow {
   subject_digest: string;
   verdict: EvidenceVerdict;
   strength_class: EvidenceStrengthClass;
-  /** SHA-256 hex over the identity fields, for consumer-side de-duplication. */
+  /**
+   * SHA-256 hex over the identity fields, for consumer-side de-duplication. A bundle row's is
+   * the envelope row hash (every field but the times), issue #581.
+   */
   content_hash: string;
   /** Human-readable detail, carried for the receipt/reviewers. Not hashed. */
   detail?: string;
@@ -264,8 +279,18 @@ export interface ReceiptEnvelope {
   /** base64 of the canonical Statement JSON. */
   payload: string;
   signatures: DsseSignature[];
-  /** paqad extension — not part of the DSSE spec. */
+  /**
+   * paqad extension — not part of the DSSE spec. A feature bundle's receipt carries the
+   * envelope header here, first (issue #581): outside the signed payload, so the chain bytes
+   * do not change. Optional because the header is added after signing.
+   */
   paqad: {
+    schema_version?: number;
+    doc_type?: string;
+    change?: string;
+    session_id?: string;
+    recorded_at?: string;
+    content_hash?: string;
     signing_mode: ReceiptSigningMode;
     /** SHA-256 of the previous receipt's PAE, or 64 zeros at genesis. */
     prev_receipt_hash: string;
