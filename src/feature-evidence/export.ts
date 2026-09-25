@@ -38,9 +38,19 @@ export interface FeatureBundleExport {
   strays: string[];
 }
 
-function readJson(projectRoot: string, rel: string): unknown {
+function readText(projectRoot: string, rel: string): string | null {
   try {
-    return JSON.parse(readFileSync(join(projectRoot, rel), 'utf8'));
+    return readFileSync(join(projectRoot, rel), 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function readJson(projectRoot: string, rel: string): unknown {
+  const text = readText(projectRoot, rel);
+  if (text === null) return null;
+  try {
+    return JSON.parse(text);
   } catch {
     return null;
   }
@@ -48,7 +58,8 @@ function readJson(projectRoot: string, rel: string): unknown {
 
 /**
  * Collect one feature's entire bundle into a self-contained export document — every
- * rigid file parsed (a `.json` object, a `.jsonl` row array). Absent files are omitted.
+ * rigid file parsed (a `.json` object, a `.jsonl` row array, a `.md` file as its text). Absent
+ * files are omitted.
  * `exportedAt` is supplied so the call stays deterministic.
  */
 export function exportFeatureBundle(
@@ -66,6 +77,10 @@ export function exportFeatureBundle(
       const rows =
         key === 'evidence' ? readEvidenceRowsAt(projectRoot, rel) : readUnitFile(projectRoot, rel);
       if (rows.length > 0) files[key] = rows;
+    } else if (FEATURE_BUNDLE_FILES[key].endsWith('.md')) {
+      // Issue #581 — `spec.md` and `request.md` are Markdown with front matter, kept as text.
+      const text = readText(projectRoot, rel);
+      if (text !== null) files[key] = text;
     } else {
       const parsed = readJson(projectRoot, rel);
       if (parsed !== null) files[key] = parsed;

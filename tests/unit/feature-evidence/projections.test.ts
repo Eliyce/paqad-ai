@@ -10,6 +10,7 @@ import {
   readAllFeatureEvidence,
   readAllFeatureRuleRuns,
   readAllFeatureSpecifications,
+  readAllFeatureSpecificationEntries,
   readAllFeatureStageRows,
   readFeatureChangeMetricsWindow,
 } from '@/feature-evidence/projections.js';
@@ -26,8 +27,10 @@ import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/sta
 import { sha256Hex } from '@/compliance/markdown.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
+const SPEC_MD = '# S-1\n\nExport as CSV.\n';
+
 function frozenSpec(): FeatureSpec {
-  const md = '# S-1\n\nExport as CSV.\n';
+  const md = SPEC_MD;
   return {
     schema_version: '1',
     spec_id: 'S-1',
@@ -231,7 +234,7 @@ describe('whole-project projections from feature bundles', () => {
       issue: null,
       ulidSeed: 1,
     });
-    writeFeatureSpecification(root, 'ses_1', frozenSpec());
+    writeFeatureSpecification(root, 'ses_1', frozenSpec(), SPEC_MD);
     // A second feature dir whose specification.json is UNFROZEN — must be skipped.
     const bad = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -246,6 +249,8 @@ describe('whole-project projections from feature bundles', () => {
     const specs = readAllFeatureSpecifications(root);
     expect(specs).toHaveLength(1);
     expect(specs[0].spec_id).toBe('S-1');
+    // The entries reader names the bundle each spec came from (issue #581).
+    expect(readAllFeatureSpecificationEntries(root).map((entry) => entry.dirName)).toEqual([good]);
     expect(specs[0].frozen).not.toBeNull();
     expect(good).not.toBe(bad);
   });

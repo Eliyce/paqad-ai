@@ -22,6 +22,12 @@ export const PLAN_DOC_TYPE = 'paqad.plan';
 /** Doc type stamped on a `review.json` record. */
 export const REVIEW_DOC_TYPE = 'paqad.review';
 
+/** Doc type stamped on a `specification.json` record (issue #581). */
+export const SPECIFICATION_DOC_TYPE = 'paqad.specification';
+
+/** Doc type in the front matter of the bundle's signed `spec.md` source (issue #581). */
+export const SPEC_SOURCE_DOC_TYPE = 'paqad.spec';
+
 /** Doc type stamped on the `_session/<sessionId>.json` control. */
 export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 
@@ -29,7 +35,8 @@ export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 export const FEATURE_EVIDENCE_SCHEMA_VERSION = 1;
 
 /**
- * Issue #581 — the schema version of `feature.json`, `plan.json` and `review.json` since
+ * Issue #581 — the schema version of `feature.json`, `plan.json`, `review.json`,
+ * `specification.json` and `spec.md` since
  * they carry the one envelope header. Version 1 files still read (INV-8); writers only write 2.
  */
 export const FEATURE_DOC_SCHEMA_VERSION = 2;

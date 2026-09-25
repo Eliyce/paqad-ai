@@ -328,18 +328,22 @@ export function createSpecCommand(): Command {
             options.projectRoot,
             options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
           );
-          bundlePath = writeFeatureSpecification(options.projectRoot, sessionId, frozen).path;
+          bundlePath = writeFeatureSpecification(
+            options.projectRoot,
+            sessionId,
+            frozen,
+            markdown,
+          ).path;
         } catch (error) {
           if (!(error instanceof NoActiveFeatureError)) {
             throw error;
           }
         }
 
-        // Transient scratch (issue #402): the markdown has been built, hashed, and frozen
-        // into specification.json, so the source is deleted for the same reason `plan
-        // compile` deletes its template — it is never a second, editable source of truth,
-        // and leaving it behind is how a byte-identical copy of the spec ended up beside
-        // the frozen record. Best-effort.
+        // Transient scratch (issue #402): the markdown has been built, hashed, frozen into
+        // specification.json and copied into the bundle as spec.md (issue #581), so the source
+        // is deleted for the same reason `plan compile` deletes its template: it is never a
+        // second, editable source of truth. Best-effort.
         //
         // Gated on `bundlePath` and not merely on the freeze succeeding: a standalone
         // freeze with no active feature swallows NoActiveFeatureError above and persists

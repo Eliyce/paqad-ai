@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   ALLOWED_BUNDLE_FILENAMES,
+  LEGACY_BUNDLE_FILENAMES,
   classifyBundlePath,
+  isLegacyBundle,
   strayBundleFiles,
 } from '@/feature-evidence/bundle-integrity.js';
 import { FEATURE_BUNDLE_FILES, featureDir } from '@/feature-evidence/paths.js';
@@ -31,14 +33,22 @@ describe('bundle-integrity', () => {
   }
 
   describe('ALLOWED_BUNDLE_FILENAMES', () => {
-    it('is exactly the rigid set plus the derived report.html and specification.md siblings', () => {
+    it('is exactly the rigid set plus the derived report.html (issue #581 target set)', () => {
       for (const filename of Object.values(FEATURE_BUNDLE_FILES)) {
         expect(ALLOWED_BUNDLE_FILENAMES.has(filename)).toBe(true);
       }
       expect(ALLOWED_BUNDLE_FILENAMES.has('report.html')).toBe(true);
-      expect(ALLOWED_BUNDLE_FILENAMES.has('specification.md')).toBe(true);
-      // #512, Part A — specification.md joins report.html as the second non-member sibling.
-      expect(ALLOWED_BUNDLE_FILENAMES.size).toBe(Object.keys(FEATURE_BUNDLE_FILES).length + 2);
+      for (const filename of ['spec.md', 'request.md', 'clarification.json', 'experts.json']) {
+        expect(ALLOWED_BUNDLE_FILENAMES.has(filename)).toBe(true);
+      }
+      expect(ALLOWED_BUNDLE_FILENAMES.has('decisions.json')).toBe(true);
+      expect(ALLOWED_BUNDLE_FILENAMES.has('specification.md')).toBe(false);
+      expect(ALLOWED_BUNDLE_FILENAMES.has('context-efficiency.jsonl')).toBe(false);
+      expect(ALLOWED_BUNDLE_FILENAMES.size).toBe(Object.keys(FEATURE_BUNDLE_FILES).length + 1);
+      expect([...LEGACY_BUNDLE_FILENAMES].sort()).toEqual([
+        'context-efficiency.jsonl',
+        'specification.md',
+      ]);
     });
 
     it('includes review.json, the artifact this issue added', () => {
@@ -210,6 +220,66 @@ describe('bundle-integrity', () => {
         'screenshots/bad-name/image.png',
         'screenshots/loose.gif',
       ]);
+    });
+
+    // Issue #581 (AC-20) — the migration only adds files, so an old bundle keeps its
+    // specification.md and context-efficiency.jsonl. Those are strays only in a new bundle.
+    describe('legacy bundles (issue #581)', () => {
+      const OLD_OPEN_ROW = JSON.stringify({ kind: 'open', ts: '2026-01-01T00:00:00.000Z' });
+      const NEW_OPEN_ROW = JSON.stringify({ kind: 'open', recorded_at: '2026-09-25T00:00:00Z' });
+
+      function withLegacyFiles(abs: string): void {
+        writeFileSync(join(abs, 'specification.md'), '# Spec', 'utf8');
+        writeFileSync(join(abs, 'context-efficiency.jsonl'), '{}\n', 'utf8');
+      }
+
+      it('tolerates the legacy files in a bundle whose open row stamped ts', () => {
+        const abs = bundle();
+        writeFileSync(join(abs, 'stage-evidence.jsonl'), `\n${OLD_OPEN_ROW}\n`, 'utf8');
+        withLegacyFiles(abs);
+        expect(isLegacyBundle(abs)).toBe(true);
+        expect(strayBundleFiles(root, DIR)).toEqual([]);
+      });
+
+      it('tolerates them in a bundle frozen from a pre-#581 source path', () => {
+        const abs = bundle();
+        writeFileSync(join(abs, 'stage-evidence.jsonl'), `${NEW_OPEN_ROW}\n`, 'utf8');
+        writeFileSync(
+          join(abs, 'specification.json'),
+          JSON.stringify({ spec_file: '.paqad/tmp/old.md' }, null, 2),
+          'utf8',
+        );
+        withLegacyFiles(abs);
+        expect(strayBundleFiles(root, DIR)).toEqual([]);
+      });
+
+      it('flags them in a bundle written since #581', () => {
+        const abs = bundle();
+        writeFileSync(join(abs, 'stage-evidence.jsonl'), `${NEW_OPEN_ROW}\n`, 'utf8');
+        writeFileSync(
+          join(abs, 'specification.json'),
+          JSON.stringify({ spec_file: 'spec.md' }),
+          'utf8',
+        );
+        withLegacyFiles(abs);
+        expect(isLegacyBundle(abs)).toBe(false);
+        expect(strayBundleFiles(root, DIR)).toEqual([
+          'context-efficiency.jsonl',
+          'specification.md',
+        ]);
+      });
+
+      it('is not legacy with no stage rows, a non-object row, or a record with no spec_file', () => {
+        const abs = bundle();
+        expect(isLegacyBundle(abs)).toBe(false);
+        writeFileSync(join(abs, 'stage-evidence.jsonl'), '  \n', 'utf8');
+        expect(isLegacyBundle(abs)).toBe(false);
+        writeFileSync(join(abs, 'stage-evidence.jsonl'), '[1]\n', 'utf8');
+        writeFileSync(join(abs, 'specification.json'), '{}', 'utf8');
+        expect(isLegacyBundle(abs)).toBe(false);
+        writeFileSync(join(abs, 'stage-evidence.jsonl'), '{"ts":1}\n', 'utf8');
+        expect(isLegacyBundle(abs)).toBe(false);
+      });
     });
   });
 });

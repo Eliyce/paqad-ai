@@ -89,8 +89,16 @@ export interface SpecReviewSummary {
  * freeze (never hand-maintained) so it cannot drift from the source of truth.
  */
 export interface FeatureSpec {
-  schema_version: string;
+  /**
+   * `'1'` on the builder's output and on a pre-#581 `specification.json`; the bundle record
+   * written since issue #581 carries the envelope header, whose `schema_version` is the number 2.
+   */
+  schema_version: string | number;
   spec_id: string;
+  /**
+   * The source the spec was built from. In a bundle record written since issue #581 it is
+   * always the bundle-relative `spec.md`; an older record names the project-relative source.
+   */
   spec_file: string;
   spec_hash: string;
   behaviour: string[];
@@ -107,7 +115,7 @@ export interface FeatureSpec {
    * Things the change deliberately does NOT do, parsed tolerantly from a `## Non-goals`
    * section of the spec markdown (issue #512, Part B FR-6.4). Optional and additive: a
    * spec authored without the section simply omits it, so pre-#512 records still read and
-   * freeze unchanged. The `specification.md` projection renders it only when present.
+   * freeze unchanged.
    */
   non_goals?: string[];
   /**

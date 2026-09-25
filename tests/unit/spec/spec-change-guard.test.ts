@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,6 +16,9 @@ import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
+import { writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 const FROZEN_MARKDOWN = '# Spec S-102\n\nExport as CSV.\n';
 
@@ -253,5 +264,61 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
     expect(existsSync(corrections)).toBe(true);
     const row = JSON.parse(readFileSync(corrections, 'utf8').trim());
     expect(row.changed_sections).toEqual(['acceptance_criteria']);
+  });
+});
+
+// Issue #581 — a record written since #581 names the bundle's own signed `spec.md`, so the
+// guard watches that copy (its body, not its front matter) instead of a deleted tmp source.
+describe('runSpecChangeGuard — the bundle spec.md source (#581)', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-specchange-bundle-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  function freezeIntoBundle(): string {
+    const dir = openFeatureChange(root, 'ses1', {
+      adapter: 'claude-code',
+      title: 'Guarded spec',
+      issue: null,
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    writeFeatureSpecification(root, 'ses1', frozenSpec(), FROZEN_MARKDOWN);
+    return dir;
+  }
+
+  it('does not mint for an unchanged spec.md (the front matter is not hashed)', () => {
+    freezeIntoBundle();
+    const out = runSpecChangeGuard({ projectRoot: root, sessionId: 'ses1', seam: 'pre-mutation' });
+    expect(out.ran).toBe(false);
+    expect(pendingIds(root)).toHaveLength(0);
+  });
+
+  it('mints one pause naming the bundle spec.md when its body was edited', () => {
+    const dir = freezeIntoBundle();
+    const specMdPath = join(root, featureFilePath(dir, 'specMd'));
+    writeFileSync(
+      specMdPath,
+      readFileSync(specMdPath, 'utf8').replace('Export as CSV.', 'Export as XLSX.'),
+      'utf8',
+    );
+    const out = runSpecChangeGuard({ projectRoot: root, sessionId: 'ses1', seam: 'pre-mutation' });
+    expect(out.ran).toBe(true);
+    const ids = pendingIds(root);
+    expect(ids).toHaveLength(1);
+    const packet = readFileSync(join(root, '.paqad/decisions/pending', ids[0]!), 'utf8');
+    expect(packet).toContain(featureFilePath(dir, 'specMd'));
+  });
+
+  it('still watches the project-relative source of a pre-#581 record', () => {
+    const dir = freezeIntoBundle();
+    const specPath = join(root, featureFilePath(dir, 'specification'));
+    const record = JSON.parse(readFileSync(specPath, 'utf8')) as Record<string, unknown>;
+    writeFileSync(specPath, JSON.stringify({ ...record, spec_file: 'docs/S-102.md' }), 'utf8');
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'docs/S-102.md'), '# Spec S-102\n\nExport as XLSX.\n', 'utf8');
+    const out = runSpecChangeGuard({ projectRoot: root, sessionId: 'ses1', seam: 'pre-mutation' });
+    expect(out.ran).toBe(true);
   });
 });

@@ -35,6 +35,13 @@ export interface BundleCompletenessConfig {
    * the specification file must record that the pipeline produced it, or a manual reason.
    */
   specPipelineStrict: boolean;
+  /** spec_pipeline_enabled (issue #581): the pipeline writes request.md and clarification.json. */
+  specPipelineEnabled: boolean;
+  /**
+   * spec_pipeline_experts_enabled (issue #581). Only counts together with
+   * {@link specPipelineEnabled}: experts cannot run without the pipeline (M5, AC-21).
+   */
+  expertsEnabled: boolean;
   /**
    * Issue #573 — whether stage isolation was EXPECTED for this change: the recorded lane
    * is graduated or full AND the recorded host adapter can dispatch subagents. Derived
@@ -112,6 +119,46 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     file: FEATURE_BUNDLE_FILES.specification,
     required: 'always',
     writer: 'paqad-ai spec freeze',
+    validate: 'json',
+  },
+  {
+    // Issue #581 (D5) — the signed spec source, beside the parsed record. The gate also checks
+    // that its body hashes to specification.json `spec_hash`.
+    key: 'specMd',
+    file: FEATURE_BUNDLE_FILES.specMd,
+    required: 'always',
+    writer: 'paqad-ai spec freeze',
+    validate: 'nonempty',
+  },
+  {
+    key: 'request',
+    file: FEATURE_BUNDLE_FILES.request,
+    required: (config) => config.specPipelineEnabled,
+    writer: 'paqad-ai spec pipeline start',
+    validate: 'nonempty',
+  },
+  {
+    key: 'clarification',
+    file: FEATURE_BUNDLE_FILES.clarification,
+    required: (config) => config.specPipelineEnabled,
+    writer: 'paqad-ai spec pipeline (label + questions)',
+    validate: 'json',
+  },
+  {
+    // Experts only run inside the pipeline, so experts-on with the pipeline off (M5) never
+    // requires the file (AC-21).
+    key: 'experts',
+    file: FEATURE_BUNDLE_FILES.experts,
+    required: (config) => config.specPipelineEnabled && config.expertsEnabled,
+    writer: 'paqad-ai spec pipeline experts',
+    validate: 'json',
+  },
+  {
+    // A change that resolved no decision has no index to write, so it is checked when present.
+    key: 'decisions',
+    file: FEATURE_BUNDLE_FILES.decisions,
+    required: 'optional',
+    writer: 'paqad-ai decision resolve (decisions index)',
     validate: 'json',
   },
   {

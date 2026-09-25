@@ -100,12 +100,28 @@ export function readAllFeatureEvidence(projectRoot: string): EvidenceLedgerRow[]
  * read location moves. A missing/corrupt/unfrozen bundle spec is skipped, never thrown.
  */
 export function readAllFeatureSpecifications(projectRoot: string): FeatureSpec[] {
-  const specs: FeatureSpec[] = [];
+  return readAllFeatureSpecificationEntries(projectRoot).map((entry) => entry.spec);
+}
+
+/** A frozen specification together with the bundle it was read from. */
+export interface FeatureSpecificationEntry {
+  dirName: string;
+  spec: FeatureSpec;
+}
+
+/**
+ * {@link readAllFeatureSpecifications} with each spec's bundle dir name, for a reader that
+ * resolves the bundle-relative `spec_file` (`spec.md`, issue #581) against its bundle.
+ */
+export function readAllFeatureSpecificationEntries(
+  projectRoot: string,
+): FeatureSpecificationEntry[] {
+  const entries: FeatureSpecificationEntry[] = [];
   for (const dirName of listFeatureDirs(projectRoot)) {
     const spec = readFeatureSpecification(projectRoot, dirName);
     if (spec && spec.frozen !== null && spec.frozen !== undefined) {
-      specs.push(spec);
+      entries.push({ dirName, spec });
     }
   }
-  return specs;
+  return entries;
 }

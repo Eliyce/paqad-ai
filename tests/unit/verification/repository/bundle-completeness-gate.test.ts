@@ -10,9 +10,11 @@ import {
   chatRagPath,
   featureDir,
   featureFilePath,
+  featureLegacySpecMarkdownPath,
   featureReportPath,
-  featureSpecMarkdownPath,
 } from '@/feature-evidence/paths.js';
+import { buildTextHeader, renderFrontMatter } from '@/feature-evidence/envelope.js';
+import { sha256Hex } from '@/compliance/markdown.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
 
@@ -40,6 +42,8 @@ const ONLY_ALWAYS: BundleCompletenessConfig = {
   evidenceLedger: false,
   aiBom: false,
   specPipelineStrict: false,
+  specPipelineEnabled: false,
+  expertsEnabled: false,
   stageIsolationExpected: false,
 };
 
@@ -54,8 +58,8 @@ function writeAlwaysFiles(root: string, dir: string): void {
   seedFeatureRecord(root, dir, { adapter: 'claude-code', sessionId: 'ses_1' }); // titled → feature.json
   write(root, featureFilePath(dir, 'plan'), '{}');
   write(root, featureFilePath(dir, 'specification'), '{}');
-  // Issue #512, Part A — the paired-projection sibling must accompany specification.json.
-  write(root, featureSpecMarkdownPath(dir), '# Specification\n');
+  // Issue #581 — the signed spec source is always required beside specification.json.
+  write(root, featureFilePath(dir, 'specMd'), '# Specification\n');
   write(root, featureFilePath(dir, 'review'), '{}');
   write(root, featureFilePath(dir, 'stageEvidence'), '{"row":1}\n');
   write(root, featureFilePath(dir, 'delivery'), '{"branch":"feat/x"}');
@@ -355,11 +359,20 @@ describe('every flag on (no flag-off skip note)', () => {
     enterprise: true,
     evidenceLedger: true,
     aiBom: true,
+    specPipelineStrict: false,
+    specPipelineEnabled: true,
+    expertsEnabled: true,
+    stageIsolationExpected: false,
   };
 
   it('passes with every required file present and no "Skipped (flag off)" note', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
+    // The spec pipeline files (issue #581, M3).
+    write(root, featureFilePath(DIR, 'request'), '# Request\n');
+    for (const key of ['clarification', 'experts'] as const) {
+      write(root, featureFilePath(DIR, key), '{}');
+    }
     // The flag-gated files.
     for (const key of ['ruleRun', 'changeMetrics', 'duplication', 'rag', 'evidence'] as const) {
       write(root, featureFilePath(DIR, key), '{"row":1}\n');
@@ -430,8 +443,8 @@ describe('optional checks.json (#528)', () => {
     });
     expect(gate!.status).toBe('pass');
     // Present files are counted, not named; and checks.json must never appear in the skip note.
-    // 7 always-required files (evidence.jsonl since #581) + the present optional checks.json.
-    expect(gate!.detail).toContain('(8 checked)');
+    // 8 always-required files (evidence.jsonl and spec.md since #581) + the present checks.json.
+    expect(gate!.detail).toContain('(9 checked)');
     expect(gate!.detail).not.toContain('checks.json');
   });
 });
@@ -466,63 +479,204 @@ describe('featureReport required file', () => {
   });
 });
 
-describe('specification.md paired-projection check (#512, Part A)', () => {
-  it('fails closed under strict when specification.json is present but specification.md is missing', () => {
+/** Write a frozen spec pair: spec.md with front matter over `body`, and its record. */
+function writeSpecPair(root: string, dir: string, body: string, specHash = sha256Hex(body)): void {
+  const header = buildTextHeader({
+    docType: 'paqad.spec',
+    change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    sessionId: 'ses_1',
+    schemaVersion: 2,
+    body,
+  });
+  write(root, featureFilePath(dir, 'specMd'), renderFrontMatter(header, body));
+  write(
+    root,
+    featureFilePath(dir, 'specification'),
+    JSON.stringify({ spec_file: 'spec.md', spec_hash: specHash }),
+  );
+}
+
+describe('spec.md signed source (issue #581, FR-15)', () => {
+  const run = (root: string, mode: 'strict' | 'warn' = 'strict') =>
+    bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode, config: ONLY_ALWAYS });
+
+  it('passes when the spec.md body hashes to specification.json spec_hash', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    rmSync(join(root, featureSpecMarkdownPath(DIR)), { force: true });
-    const gate = bundleCompletenessGate({
-      ...base,
-      projectRoot: root,
-      dirName: DIR,
-      mode: 'strict',
-      config: ONLY_ALWAYS,
-    });
+    writeSpecPair(root, DIR, '# Spec\n\n- FR-1: x\n');
+    expect(run(root)!.status).toBe('pass');
+  });
+
+  it('fails by name when the spec.md body was edited after the freeze', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    writeSpecPair(root, DIR, '# Spec\n\n- FR-1: y\n', sha256Hex('# Spec\n\n- FR-1: x\n'));
+    const gate = run(root);
     expect(gate!.status).toBe('fail');
-    expect(gate!.detail).toContain('specification.md');
+    expect(gate!.detail).toContain(
+      'spec.md (its body does not hash to specification.json spec_hash)',
+    );
   });
 
-  it('surfaces as inconclusive (not a hard block) under warn when the sibling is missing', () => {
+  it('fails closed when spec.md is missing from a bundle frozen since #581', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    rmSync(join(root, featureSpecMarkdownPath(DIR)), { force: true });
-    const gate = bundleCompletenessGate({
-      ...base,
-      projectRoot: root,
-      dirName: DIR,
-      mode: 'warn',
-      config: ONLY_ALWAYS,
-    });
-    expect(gate!.status).toBe('inconclusive');
-    expect(gate!.detail).toContain('specification.md');
+    writeSpecPair(root, DIR, '# Spec\n');
+    rmSync(join(root, featureFilePath(DIR, 'specMd')));
+    const gate = run(root);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('spec.md (run: paqad-ai spec freeze)');
+    expect(run(root, 'warn')!.status).toBe('inconclusive');
   });
 
-  it('passes when both specification.json and specification.md are present', () => {
+  it('treats a blank spec.md as missing', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
+    write(root, featureFilePath(DIR, 'specMd'), '   \n');
+    expect(run(root)!.status).toBe('fail');
+  });
+
+  it('accepts a pre-#581 bundle: old spec_file and a specification.md projection, no spec.md', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    rmSync(join(root, featureFilePath(DIR, 'specMd')));
+    write(
+      root,
+      featureFilePath(DIR, 'specification'),
+      JSON.stringify({ spec_file: '.paqad/tmp/old-spec.md', spec_hash: 'a'.repeat(64) }),
+    );
+    write(root, featureLegacySpecMarkdownPath(DIR), '# Specification\n');
+    expect(run(root)!.status).toBe('pass');
+  });
+
+  it('does not accept the legacy projection for a record that names spec.md', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    writeSpecPair(root, DIR, '# Spec\n');
+    rmSync(join(root, featureFilePath(DIR, 'specMd')));
+    write(root, featureLegacySpecMarkdownPath(DIR), '# Specification\n');
+    expect(run(root)!.status).toBe('fail');
+  });
+
+  it('does not accept a blank legacy projection, or a legacy record with no projection', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    rmSync(join(root, featureFilePath(DIR, 'specMd')));
+    write(
+      root,
+      featureFilePath(DIR, 'specification'),
+      JSON.stringify({ spec_file: '.paqad/tmp/old-spec.md' }),
+    );
+    expect(run(root)!.status).toBe('fail');
+    write(root, featureLegacySpecMarkdownPath(DIR), '  \n');
+    expect(run(root)!.status).toBe('fail');
+  });
+
+  it('reports a missing spec.md once, and no hash mismatch, when specification.json is unreadable', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(root, featureFilePath(DIR, 'specification'), 'not json');
+    const gate = run(root);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('specification.json (run: paqad-ai spec freeze)');
+    expect(gate!.detail).not.toContain('does not hash');
+    // Without spec.md the legacy fallback finds no readable record either.
+    rmSync(join(root, featureFilePath(DIR, 'specMd')));
+    expect(run(root)!.detail).toContain('spec.md (run: paqad-ai spec freeze)');
+  });
+
+  it('names only specification.json when it is absent beside a present spec.md', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    rmSync(join(root, featureFilePath(DIR, 'specification')));
+    const gate = run(root);
+    expect(gate!.detail).toContain('specification.json (run: paqad-ai spec freeze)');
+    expect(gate!.detail).not.toContain('spec.md (');
+  });
+
+  it('reads a JSON null specification.json as no record', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(root, featureFilePath(DIR, 'specification'), 'null');
+    expect(run(root)!.status).toBe('pass');
+  });
+});
+
+describe('spec pipeline files (issue #581, M2/M3/M5)', () => {
+  const run = (root: string, config: BundleCompletenessConfig) =>
+    bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict', config });
+
+  it('requires request.md and clarification.json when the pipeline is on (M2)', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = run(root, { ...ONLY_ALWAYS, specPipelineEnabled: true });
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('request.md');
+    expect(gate!.detail).toContain('clarification.json');
+    expect(gate!.detail).not.toContain('experts.json (run');
+    write(root, featureFilePath(DIR, 'request'), '# Request\n');
+    write(root, featureFilePath(DIR, 'clarification'), '{}');
+    expect(run(root, { ...ONLY_ALWAYS, specPipelineEnabled: true })!.status).toBe('pass');
+  });
+
+  it('requires experts.json when both the pipeline and experts are on (M3)', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(root, featureFilePath(DIR, 'request'), '# Request\n');
+    write(root, featureFilePath(DIR, 'clarification'), '{}');
+    const config = { ...ONLY_ALWAYS, specPipelineEnabled: true, expertsEnabled: true };
+    const gate = run(root, config);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('experts.json');
+    write(root, featureFilePath(DIR, 'experts'), '{}');
+    expect(run(root, config)!.status).toBe('pass');
+  });
+
+  it('never requires experts.json with experts on and the pipeline off (M5, AC-21)', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = run(root, { ...ONLY_ALWAYS, expertsEnabled: true });
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).not.toContain('missing');
+  });
+
+  it('checks decisions.json when present and never requires it', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    expect(run(root, ONLY_ALWAYS)!.detail).not.toContain('decisions.json');
+    write(root, featureFilePath(DIR, 'decisions'), '{}');
+    expect(run(root, ONLY_ALWAYS)!.status).toBe('pass');
+  });
+});
+
+describe('evidence.jsonl written by this run (issue #581)', () => {
+  it('counts an absent evidence.jsonl as present when the late-gate rows are pending', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    rmSync(join(root, featureFilePath(DIR, 'evidence')));
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
       dirName: DIR,
       mode: 'strict',
-      config: ONLY_ALWAYS,
+      evidenceRowsPending: true,
     });
     expect(gate!.status).toBe('pass');
   });
 
-  it('treats a blank specification.md as missing (fails closed)', () => {
+  it('fails an absent evidence.jsonl when no rows will be appended', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    write(root, featureSpecMarkdownPath(DIR), '   \n');
+    rmSync(join(root, featureFilePath(DIR, 'evidence')));
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
       dirName: DIR,
       mode: 'strict',
-      config: ONLY_ALWAYS,
+      evidenceRowsPending: false,
     });
     expect(gate!.status).toBe('fail');
-    expect(gate!.detail).toContain('specification.md');
+    expect(gate!.detail).toContain('evidence.jsonl');
   });
 });
 

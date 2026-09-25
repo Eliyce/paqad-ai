@@ -381,6 +381,36 @@ describe('runRepositoryVerification — late gates on the bundle ledger (issue #
   });
 });
 
+describe('runRepositoryVerification — evidence.jsonl and the completeness gate (issue #581)', () => {
+  // evidence.jsonl is 'always' required, and a fresh change has none until this run writes
+  // it. The gate must not name it missing: this run appends the graded rows before the gate
+  // and the gate's own row right after it.
+  it('never reports evidence.jsonl missing on a change whose first run writes it', async () => {
+    const context = createVerificationContext({
+      verification_origin: 'hook-completion',
+      verification_stage: 'backstop-completion',
+      changed_files: ['src/feature.ts'],
+      changed_files_source: 'git-status',
+    });
+    const { dir } = openFeature(context.project_root, 'rv-evidence-first-sess');
+    const evidencePath = join(context.project_root, featureFilePath(dir, 'evidence'));
+    expect(existsSync(evidencePath)).toBe(false);
+
+    await runRepositoryVerification({
+      projectRoot: context.project_root,
+      origin: 'hook-completion',
+      prebuiltContext: { context, escalations: [] },
+      hostSessionId: 'rv-evidence-first-sess',
+    });
+
+    const rows = readFeatureEvidence(context.project_root, dir);
+    const completeness = rows.filter((row) => row.code === 'bundle-completeness');
+    expect(completeness).toHaveLength(1);
+    expect(completeness[0]!.detail ?? '').not.toContain('evidence.jsonl');
+    expect(existsSync(evidencePath)).toBe(true);
+  });
+});
+
 describe('runRepositoryVerification — the receipt seals evidence.jsonl (issue #581)', () => {
   it('AC-12: two runs seal a growing file, copy no rows, and chain', async () => {
     const context = createVerificationContext({

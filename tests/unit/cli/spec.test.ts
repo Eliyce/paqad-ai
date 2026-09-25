@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,6 +15,9 @@ import { writeProjectProfile } from '@/core/project-profile.js';
 
 import { fixtureProfile } from '../adapters/shared.fixture.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { splitFrontMatter } from '@/feature-evidence/envelope.js';
+import { sha256Hex } from '@/compliance/markdown.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
 // sign-off engine (issue #317). It reimplements no freeze logic; it wires
@@ -271,7 +274,9 @@ describe('paqad-ai spec command', () => {
       }
     });
 
-    it('records spec_file as a project-relative posix path for an absolute in-tree spec (AC-5)', async () => {
+    // Issue #581 (AC-9) supersedes the #401 relative path: the record names the bundle's own
+    // signed copy, `spec.md`, so it is portable whatever path the spec was frozen from.
+    it('records spec_file as the bundle spec.md for an absolute in-tree spec (AC-5, #581 AC-9)', async () => {
       const SES = 'ses_spec_401_rel';
       openFeatureChange(root, SES, {
         adapter: 'claude-code',
@@ -285,9 +290,13 @@ describe('paqad-ai spec command', () => {
 
       const dir = currentFeature(root, SES)!;
       const spec = readFeatureSpecification(root, dir)!;
-      expect(spec.spec_file).toBe('S-401-abs.md');
-      expect(spec.spec_file.startsWith('/')).toBe(false);
-      expect(spec.spec_file).not.toContain('\\');
+      expect(spec.spec_file).toBe('spec.md');
+      const specMd = readFileSync(join(root, featureFilePath(dir, 'specMd')), 'utf8');
+      expect(sha256Hex(splitFrontMatter(specMd).body)).toBe(spec.spec_hash);
+      expect(splitFrontMatter(specMd).body).toBe(COMPLETE_SPEC);
+      expect(existsSync(join(root, featureDir(dir), 'specification.md'))).toBe(false);
+      // The tmp source is deleted: the bundle copy is now the only one, and it still verifies.
+      expect(existsSync(path)).toBe(false);
     });
   });
 

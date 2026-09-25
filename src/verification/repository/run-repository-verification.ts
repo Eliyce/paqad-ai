@@ -582,6 +582,10 @@ export async function runRepositoryVerification(
         engineLog('warn', `paqad: delivery reconcile skipped (${message})`);
       }
     }
+    // Issue #547 (FR-10.1) / #581 — the spec-pipeline flags, read via layeredConfigMap (not
+    // src/spec-pipeline) so the FR-11 import ban holds: src/verification/** must not import the
+    // pipeline.
+    const pipelineFlags = readSpecPipelineFlags(context.project_root);
     const completenessGate = bundleCompletenessGate({
       projectRoot: context.project_root,
       sessionId: completenessSession,
@@ -598,14 +602,9 @@ export async function runRepositoryVerification(
         enterprise: policy.enabled,
         evidenceLedger: policy.evidence_ledger,
         aiBom: policy.ai_bom,
-        // Issue #547 (FR-10.1). Read via layeredConfigMap (not src/spec-pipeline) so the FR-11
-        // import ban holds: src/verification/** must not import the pipeline.
-        specPipelineStrict: (() => {
-          const map = layeredConfigMap(context.project_root);
-          const truthy = new Set(['1', 'true', 'yes', 'on']);
-          const enabled = truthy.has((map.get('spec_pipeline_enabled') ?? '').trim().toLowerCase());
-          return enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict';
-        })(),
+        specPipelineStrict: pipelineFlags.strict,
+        specPipelineEnabled: pipelineFlags.enabled,
+        expertsEnabled: pipelineFlags.experts,
         // Issue #573 — was stage isolation EXPECTED for this change? Read from the bundle's
         // own open row (lane + recorded host adapter), never from config: whether isolation
         // applied is a property of the change, not a project setting. Fails toward silence —
@@ -617,6 +616,9 @@ export async function runRepositoryVerification(
         ),
       },
       changeMetrics,
+      // Issue #581 — the late-gate rows (this gate's included) are appended to evidence.jsonl
+      // below whenever a row target was set, so the file is written by this run.
+      evidenceRowsPending: lateGateRowTarget !== null,
     });
     if (completenessGate) {
       evidence.gates.push(completenessGate);
@@ -943,6 +945,33 @@ export function stageIsolationExpected(
     // invent a blocking requirement.
     return false;
   }
+}
+
+/** The spec-pipeline flags the bundle-completeness manifest reads (issues #547, #581). */
+export interface SpecPipelineFlags {
+  /** spec_pipeline_enabled. */
+  enabled: boolean;
+  /** spec_pipeline_enabled && spec_pipeline_adoption === 'strict'. */
+  strict: boolean;
+  /** spec_pipeline_experts_enabled (the manifest pairs it with `enabled`). */
+  experts: boolean;
+}
+
+/**
+ * Read the spec-pipeline flags from the layered config map. Read here, not through
+ * src/spec-pipeline, so the FR-11 import ban holds (src/verification/** must not import the
+ * pipeline). Unset flags are off, matching the pipeline's own defaults.
+ */
+export function readSpecPipelineFlags(projectRoot: string): SpecPipelineFlags {
+  const map = layeredConfigMap(projectRoot);
+  const truthy = new Set(['1', 'true', 'yes', 'on']);
+  const on = (key: string): boolean => truthy.has((map.get(key) ?? '').trim().toLowerCase());
+  const enabled = on('spec_pipeline_enabled');
+  return {
+    enabled,
+    strict: enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict',
+    experts: on('spec_pipeline_experts_enabled'),
+  };
 }
 
 /**

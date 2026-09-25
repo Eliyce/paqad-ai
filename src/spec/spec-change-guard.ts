@@ -19,7 +19,9 @@ import type { CapabilitySeam } from '@/kernel/registry.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
-import { readAllFeatureSpecifications } from '@/feature-evidence/projections.js';
+import { splitFrontMatter } from '@/feature-evidence/envelope.js';
+import { FEATURE_BUNDLE_FILES, featureFilePath } from '@/feature-evidence/paths.js';
+import { readAllFeatureSpecificationEntries } from '@/feature-evidence/projections.js';
 // src/spec/** is outside the FR-11 import ban, so the guard may reach the pipeline's corrections
 // writer (issue #547, FR-11.3). It stays deterministic and still mints exactly one pause.
 import { recordSpecCorrection } from '@/spec-pipeline/metrics.js';
@@ -56,6 +58,24 @@ export interface SpecChangeGuardOutcome {
 
 const NO_OP: SpecChangeGuardOutcome = { ran: false, blocking: false, summary: '' };
 
+/** A frozen spec and the project-relative source file the guard watches for it. */
+interface WatchedSpec {
+  spec: FeatureSpec;
+  source: string;
+  /** True for the bundle's `spec.md` (issue #581): its front matter is not part of the hash. */
+  bundled: boolean;
+}
+
+/**
+ * The spec's watched source. A record written since issue #581 names the bundle-relative
+ * `spec.md`, the signed copy inside its bundle; an older record names its own source path.
+ */
+function watchedSpec(dirName: string, spec: FeatureSpec): WatchedSpec {
+  return spec.spec_file === FEATURE_BUNDLE_FILES.specMd
+    ? { spec, source: featureFilePath(dirName, 'specMd'), bundled: true }
+    : { spec, source: spec.spec_file, bundled: false };
+}
+
 const STALE_DETAIL =
   'The frozen spec source changed since it was frozen — the goal may have moved. ' +
   'Confirm the new goal before more is built on the old one.';
@@ -90,7 +110,11 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
   if (input.seam !== undefined && input.seam !== 'pre-mutation') return NO_OP;
   if (!input.sessionId) return NO_OP;
 
-  const specs = input.frozenSpecs ?? readAllFeatureSpecifications(input.projectRoot);
+  const specs: WatchedSpec[] = input.frozenSpecs
+    ? input.frozenSpecs.map((spec) => ({ spec, source: spec.spec_file, bundled: false }))
+    : readAllFeatureSpecificationEntries(input.projectRoot).map((entry) =>
+        watchedSpec(entry.dirName, entry.spec),
+      );
   if (specs.length === 0) return NO_OP;
 
   const store = input.store ?? new DecisionStore(input.projectRoot);
@@ -103,10 +127,11 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
     input.readMarkdown ?? ((specFile) => readFileSync(join(input.projectRoot, specFile), 'utf8'));
   const now = input.now?.() ?? new Date();
 
-  for (const spec of specs) {
+  for (const { spec, source, bundled } of specs) {
     let currentMarkdown: string;
     try {
-      currentMarkdown = readMarkdown(spec.spec_file);
+      const text = readMarkdown(source);
+      currentMarkdown = bundled ? splitFrontMatter(text).body : text;
     } catch {
       // Source unreadable this run → skip rather than mint on a transient error.
       continue;
@@ -135,7 +160,7 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
     const packet = buildSpecChangePacket({
       decision_id: store.nextDecisionId(),
       spec_id: spec.spec_id,
-      spec_file: spec.spec_file,
+      spec_file: source,
       detail:
         changedSections.length > 0
           ? `${STALE_DETAIL} Changed sections: ${changedSections.join(', ')}.`

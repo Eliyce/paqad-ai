@@ -27,6 +27,7 @@ import {
   appendDuplicationRun,
   appendRuleRun,
 } from '@/feature-evidence/bundle-ledgers.js';
+import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { readFeatureRecord, featureRecordIsUntitled } from '@/feature-evidence/feature-record.js';
 import {
   BUNDLE_MANIFEST,
@@ -37,12 +38,14 @@ import {
   type BundleManifestEntry,
 } from '@/feature-evidence/manifest.js';
 import {
+  FEATURE_BUNDLE_FILES,
   chatRagPath,
   featureFilePath,
+  featureLegacySpecMarkdownPath,
   featureReportPath,
-  featureSpecMarkdownPath,
   type FeatureBundleFile,
 } from '@/feature-evidence/paths.js';
+import { sha256Hex } from '@/compliance/markdown.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import { hasStageAgentEvidence } from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
@@ -92,6 +95,12 @@ export interface BundleCompletenessGateInput {
   config: BundleCompletenessConfig;
   /** The live-computed metrics for this change, used to backfill change-metrics.jsonl. */
   changeMetrics: ChangeMetrics | null;
+  /**
+   * Issue #581 — true when the caller appends this gate's own row to evidence.jsonl right after
+   * it returns (the late-gate rows). The file is then written by this very run, so an absent
+   * evidence.jsonl (no graded rows yet) is not a missing file: the gate's row will be its first.
+   */
+  evidenceRowsPending?: boolean;
 }
 
 /** Read a bundle file's raw bytes (project-relative), or null when absent/unreadable. */
@@ -266,20 +275,15 @@ function assertRequired(
         return;
       }
     }
-    // Paired-projection invariant (issue #512, Part A): a bundle with `specification.json`
-    // MUST also carry its derived `specification.md` sibling beside it. `specification.md`
-    // is deliberately NOT a manifest member (it mirrors `report.html`), so the pairing is a
-    // CONDITIONAL check keyed on the JSON's presence, not a standalone required file — a
-    // change that never froze a spec (neither file present) is not failed by it.
+    // Issue #581 (FR-15) — the signed source must be the one the record was frozen from.
+    if (entry.key === 'specMd' && !specSourceMatches(input.projectRoot, dirName, content!)) {
+      state.missing.push({
+        file: `${entry.file} (its body does not hash to specification.json spec_hash)`,
+        writer: 'paqad-ai spec freeze (re-freeze the spec)',
+      });
+      return;
+    }
     if (entry.key === 'specification') {
-      const md = readFileSafe(input.projectRoot, featureSpecMarkdownPath(dirName));
-      if (md === null || md.trim().length === 0) {
-        state.missing.push({
-          file: 'specification.md (its human-readable projection is missing)',
-          writer: 'paqad-ai spec freeze (regenerates the projection beside specification.json)',
-        });
-        return;
-      }
       // Strict-adoption content check (issue #547, FR-10.2): under strict adoption the frozen spec
       // must record that the pipeline produced it, or a manual reason. Not applied under warn or
       // with the pipeline off, so the gate is unchanged there.
@@ -294,6 +298,19 @@ function assertRequired(
         }
       }
     }
+    state.present.push(entry.file);
+    return;
+  }
+
+  // A bundle frozen before issue #581 has no spec.md and never will (its source was deleted at
+  // freeze): its record names the old source and the re-rendered specification.md stands in.
+  if (entry.key === 'specMd' && legacySpecProjectionPresent(input.projectRoot, dirName)) {
+    state.present.push(entry.file);
+    return;
+  }
+
+  // Issue #581 — this run appends the gate's own row to evidence.jsonl once it returns.
+  if (entry.key === 'evidence' && input.evidenceRowsPending) {
     state.present.push(entry.file);
     return;
   }
@@ -317,6 +334,45 @@ function assertRequired(
   }
 
   state.missing.push({ file: entry.file, writer: entry.writer });
+}
+
+/** The bundle's parsed specification.json, or null when absent, corrupt, or not an object. */
+function readSpecificationRecord(
+  projectRoot: string,
+  dirName: string,
+): { spec_file?: unknown; spec_hash?: unknown } | null {
+  const text = readFileSafe(projectRoot, featureFilePath(dirName, 'specification'));
+  if (text === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === 'object' && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether spec.md's body (everything after the front matter) hashes to specification.json
+ * `spec_hash`. True when there is no recorded hash to compare against: a missing or invalid
+ * specification.json is reported by its own manifest entry, not twice.
+ */
+function specSourceMatches(projectRoot: string, dirName: string, specMd: string): boolean {
+  const record = readSpecificationRecord(projectRoot, dirName);
+  if (typeof record?.spec_hash !== 'string') return true;
+  return sha256Hex(splitFrontMatter(specMd).body) === record.spec_hash;
+}
+
+/**
+ * A pre-#581 frozen bundle: its specification.json names a source other than the bundle's
+ * spec.md, and the old specification.md projection is present and not blank.
+ */
+function legacySpecProjectionPresent(projectRoot: string, dirName: string): boolean {
+  const record = readSpecificationRecord(projectRoot, dirName);
+  if (typeof record?.spec_file !== 'string' || record.spec_file === FEATURE_BUNDLE_FILES.specMd) {
+    return false;
+  }
+  const md = readFileSafe(projectRoot, featureLegacySpecMarkdownPath(dirName));
+  return md !== null && md.trim().length > 0;
 }
 
 function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvidenceGate {

@@ -9,7 +9,7 @@ import {
   featureEvidenceDir,
   featureFilePath,
   featureSessionControlPath,
-  featureSpecMarkdownPath,
+  featureLegacySpecMarkdownPath,
   formatFeatureDirName,
   isFeatureDirName,
   parseFeatureDirName,
@@ -31,11 +31,14 @@ describe('feature-evidence path layer', () => {
     expect(FEATURE_BUNDLE_FILES.rag).toBe('rag.jsonl');
   });
 
-  it('resolves the derived specification.md sibling (#512) and it is not a bundle member', () => {
-    expect(featureSpecMarkdownPath('339-x-' + ULID)).toBe(
+  it('resolves the legacy specification.md, which is no longer a bundle member (#581)', () => {
+    expect(featureLegacySpecMarkdownPath('339-x-' + ULID)).toBe(
       `.paqad/ledger/feature-evidence/339-x-${ULID}/specification.md`,
     );
     expect(Object.values(FEATURE_BUNDLE_FILES)).not.toContain('specification.md');
+    expect(featureFilePath('339-x-' + ULID, 'specMd')).toBe(
+      `.paqad/ledger/feature-evidence/339-x-${ULID}/spec.md`,
+    );
   });
 
   it('resolves the session control and chat homes', () => {

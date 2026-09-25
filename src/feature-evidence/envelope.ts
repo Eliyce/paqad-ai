@@ -254,26 +254,27 @@ function parseFrontMatterValue(raw: string): string | number {
   return raw;
 }
 
+/** The front matter block: an opening fence line, the header lines, a closing fence line. */
+const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
+
 /**
  * Split a Markdown document into its front matter and body. Text with no opening fence, or
- * an opening fence that never closes, is all body, so a pre-#581 file reads unchanged.
+ * an opening fence that never closes, is all body, so a pre-#581 file reads unchanged. The
+ * body is returned byte-for-byte (line endings included), because for `spec.md` it is the
+ * signed source whose sha256 must equal `spec_hash`.
  */
 export function splitFrontMatter(text: string): SplitFrontMatter {
-  const normalized = text.replace(/\r\n/g, '\n');
-  if (!normalized.startsWith(`${FRONT_MATTER_FENCE}\n`)) {
-    return { header: null, body: text };
-  }
-  const close = normalized.indexOf(`\n${FRONT_MATTER_FENCE}\n`, FRONT_MATTER_FENCE.length);
-  if (close === -1) {
+  const match = FRONT_MATTER_PATTERN.exec(text);
+  if (!match) {
     return { header: null, body: text };
   }
   const header: Record<string, string | number> = {};
-  for (const line of normalized.slice(FRONT_MATTER_FENCE.length + 1, close).split('\n')) {
+  for (const line of match[1]!.split(/\r?\n/)) {
     const colon = line.indexOf(':');
     if (colon <= 0) continue;
     header[line.slice(0, colon).trim()] = parseFrontMatterValue(line.slice(colon + 1).trim());
   }
-  return { header, body: normalized.slice(close + FRONT_MATTER_FENCE.length + 2) };
+  return { header, body: text.slice(match[0].length) };
 }
 
 /** The id of the JSON header tag embedded in `report.html`. */

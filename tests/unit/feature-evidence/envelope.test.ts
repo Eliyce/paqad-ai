@@ -214,10 +214,17 @@ describe('text documents', () => {
     expect(split.header).toEqual({ ...header });
   });
 
-  it('splits CRLF text and keeps a plain YAML value as text', () => {
+  it('splits CRLF text, keeps the body bytes and a plain YAML value as text', () => {
     const split = splitFrontMatter('---\r\ndoc_type: paqad.spec\r\nnocolon\r\n---\r\nbody\r\n');
     expect(split.header).toEqual({ doc_type: 'paqad.spec' });
-    expect(split.body).toBe('body\n');
+    // The body is the signed spec source, so its line endings survive the split.
+    expect(split.body).toBe('body\r\n');
+  });
+
+  it('keeps a body that itself starts with front matter as body', () => {
+    const body = '---\ntitle: mine\n---\n# Spec\n';
+    const header = buildTextHeader({ ...identity, docType: 'paqad.spec', body, now: T1 });
+    expect(splitFrontMatter(renderFrontMatter(header, body)).body).toBe(body);
   });
 
   it('keeps a non-scalar JSON value as its text', () => {
