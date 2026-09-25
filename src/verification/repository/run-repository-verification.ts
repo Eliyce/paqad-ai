@@ -38,11 +38,9 @@ import {
 } from '@/feature-evidence/bundle-ledgers.js';
 import { reuseCounts } from '@/feature-evidence/reuse.js';
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
-import {
-  currentFeature,
-  foldFeature,
-  readFeatureStageUnit,
-} from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
@@ -319,7 +317,7 @@ export async function runRepositoryVerification(
   try {
     const stageFileDigests = await computeFileDigests(context.project_root, context.changed_files);
     stageResult = finalizeStageEvidence(context.project_root, {
-      adapter: 'backstop',
+      adapter: BACKSTOP_WRITER,
       // Buildout F5b (#5) — use the live host session id when the hook supplied
       // one, so the completion seam writes under the same session as the prompt
       // seam instead of a stale cached id. Null falls back to the cache as before.
@@ -916,8 +914,9 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
  */
 /**
  * Whether stage isolation was expected for a change (issue #573): a graduated or full lane
- * on a host that can dispatch subagents. Both facts come from the bundle's own rows, so a
- * change is judged by what it actually recorded.
+ * on a host that can dispatch subagents. Both facts are the bundle's own session constants
+ * (`feature.json`, else a pre-#581 bundle's open row), so a change is judged by what it
+ * actually recorded.
  *
  * Returns false for an unresolved lane. That is deliberate — `repository-context` fails
  * safe to 'full' for OTHER purposes, but here a null lane must not manufacture a blocking
@@ -930,10 +929,8 @@ export function stageIsolationExpected(
 ): boolean {
   if (!sessionId || !dirName) return false;
   try {
-    const fold = foldFeature(projectRoot, sessionId, dirName);
-    if (fold.lane !== 'graduated' && fold.lane !== 'full') return false;
-    const openRow = readFeatureStageUnit(projectRoot, dirName).find((row) => row.kind === 'open');
-    const adapter = typeof openRow?.adapter === 'string' ? openRow.adapter : null;
+    const { lane, adapter } = readChangeConstants(projectRoot, dirName);
+    if (lane !== 'graduated' && lane !== 'full') return false;
     return isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS);
   } catch {
     // A missing or unreadable bundle cannot prove isolation was expected, and must not

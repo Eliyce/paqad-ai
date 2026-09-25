@@ -12,11 +12,16 @@ import {
   foldFeature,
   openFeatureChange,
   readFeatureStageUnit,
+  recordChangeConstants,
   resolveActiveFeature,
   resolveFeatureRef,
   resumeFeatureByRef,
 } from '@/feature-evidence/stage-ledger.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import { markDone, readSessionControl } from '@/feature-evidence/session-control.js';
+
+import { appendLegacyStageRow } from '../../shared/legacy-stage-row.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -83,12 +88,12 @@ describe('feature stage ledger append / read / fold', () => {
     const root = tempRoot();
     let n = 0;
     const clk = () => new Date(1_700_000_000_000 + n++ * 1000);
-    appendFeatureStageRow(root, 'ses_1', dir, { kind: 'open', adapter: 'claude-code' }, clk);
+    appendFeatureStageRow(root, 'ses_1', dir, { kind: 'open' }, clk);
     appendFeatureStageRow(
       root,
       'ses_1',
       dir,
-      { kind: 'stage_start', stage: 'planning', event_status: 'started', adapter: 'claude-code' },
+      { kind: 'stage_start', stage: 'planning', event_status: 'started' },
       clk,
     );
     const rows = readFeatureStageUnit(root, dir);
@@ -98,26 +103,48 @@ describe('feature stage ledger append / read / fold', () => {
 
   it('rejects an invalid row via the stage-evidence schema', () => {
     const root = tempRoot();
-    expect(() =>
-      appendFeatureStageRow(root, 'ses_1', dir, { kind: 'not-a-kind', adapter: 'x' }, clock),
-    ).toThrow(/Invalid paqad.stage-evidence row/);
+    expect(() => appendFeatureStageRow(root, 'ses_1', dir, { kind: 'not-a-kind' }, clock)).toThrow(
+      /Invalid paqad.stage-evidence row/,
+    );
   });
 
   it('folds a feature keyed by the dir name', () => {
     const root = tempRoot();
     let n = 0;
     const clk = () => new Date(1_700_000_000_000 + n++ * 1000);
-    appendFeatureStageRow(
-      root,
-      'ses_1',
-      dir,
-      { kind: 'open', adapter: 'claude-code', lane: 'full' },
-      clk,
-    );
+    appendFeatureStageRow(root, 'ses_1', dir, { kind: 'open' }, clk);
+    recordChangeConstants(root, dir, { lane: 'full' }, clk);
     const fold = foldFeature(root, 'ses_1', dir);
     expect(fold.change_key).toBe(dir);
     expect(fold.session_id).toBe('ses_1');
     expect(fold.lane).toBe('full');
+  });
+
+  it('folds the lane a pre-#581 open row stamped when feature.json has none (INV-8)', () => {
+    const root = tempRoot();
+    appendLegacyStageRow(root, dir, 'ses_1', { kind: 'open', lane: 'graduated' });
+    expect(foldFeature(root, 'ses_1', dir).lane).toBe('graduated');
+  });
+
+  it('still validates a pre-#581 version-1 row that carries the constants (INV-8)', () => {
+    const legacy = appendLegacyStageRow(tempRoot(), dir, 'ses_1', {
+      kind: 'open',
+      lane: 'full',
+      branch: 'main',
+    });
+    expect(validateStageEvidenceRow(legacy)).toEqual([]);
+    const noAdapter: Record<string, unknown> = { ...legacy };
+    delete noAdapter.adapter;
+    expect(validateStageEvidenceRow(noAdapter)).not.toEqual([]);
+  });
+
+  it('rejects a new row that carries a session constant (AC-6)', () => {
+    const root = tempRoot();
+    for (const constant of [{ adapter: 'claude-code' }, { lane: 'full' }, { branch: 'main' }]) {
+      expect(() =>
+        appendFeatureStageRow(root, 'ses_1', dir, { kind: 'open', ...constant }, clock),
+      ).toThrow(/additional properties/);
+    }
   });
 
   it('folds an absent feature as cannot-verify with the dir-name key', () => {
@@ -147,7 +174,9 @@ describe('active-change accessor', () => {
     expect(currentFeature(root, 'ses_1')).toBe(dir);
     const rows = readFeatureStageUnit(root, dir);
     expect(rows.map((r) => r.kind)).toEqual(['open']);
-    expect(rows[0]).toMatchObject({ kind: 'open', lane: 'full' });
+    expect(rows[0]).toMatchObject({ kind: 'open' });
+    expect(rows[0]).not.toHaveProperty('lane');
+    expect(readFeatureRecord(root, dir)?.lane).toBe('full');
   });
 
   it('openFeatureChange is idempotent for an already-open change (no duplicate open row)', () => {

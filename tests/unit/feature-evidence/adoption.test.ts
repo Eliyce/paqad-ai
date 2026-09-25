@@ -20,14 +20,18 @@ import {
   setActiveFeature,
   writeSessionControl,
 } from '@/feature-evidence/session-control.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import {
   appendFeatureStageRow,
   closeActiveFeature,
   currentFeature,
   openFeatureChange,
   readFeatureStageUnit,
+  recordChangeConstants,
   resolveActiveFeature,
 } from '@/feature-evidence/stage-ledger.js';
+
+import { appendLegacyStageRow } from '../../shared/legacy-stage-row.js';
 
 const roots: string[] = [];
 
@@ -67,8 +71,8 @@ afterEach(() => {
 const clock = () => new Date('2026-07-19T00:00:00.000Z');
 
 /**
- * Materialize a bundle by writing one `open` row into it, as the recorder would —
- * carrying the branch stamp the recorder writes (issue #404).
+ * Materialize a bundle by writing one `open` row into it, as the recorder would — with the
+ * branch recorded where the recorder records it: on feature.json (issues #404, #581).
  */
 function materialize(
   root: string,
@@ -76,13 +80,8 @@ function materialize(
   sessionId = 'ses_a',
   branch: string | null = 'main',
 ): string {
-  appendFeatureStageRow(
-    root,
-    sessionId,
-    dirName,
-    { kind: 'open', adapter: 'claude-code', branch },
-    clock,
-  );
+  recordChangeConstants(root, dirName, { adapter: 'claude-code', branch }, clock);
+  appendFeatureStageRow(root, sessionId, dirName, { kind: 'open' }, clock);
   return dirName;
 }
 
@@ -92,7 +91,7 @@ function close(root: string, dirName: string, sessionId = 'ses_a'): void {
     root,
     sessionId,
     dirName,
-    { kind: 'close', adapter: 'claude-code', event_status: 'completed' },
+    { kind: 'close', event_status: 'completed' },
     clock,
   );
 }
@@ -247,13 +246,15 @@ describe('closeActiveFeature writes a durable close row', () => {
     expect(readFeatureStageUnit(root, dir).some((row) => row.kind === 'close')).toBe(true);
   });
 
-  it('inherits the adapter from the bundle rather than inventing one', () => {
+  it('leaves the adapter on feature.json and off the close row (issue #581)', () => {
     const root = tempRepo();
     const dir = openFeatureChange(root, 'ses_a', { adapter: 'codex-cli', ulidSeed: 1 });
     closeActiveFeature(root, 'ses_a');
 
     const close = readFeatureStageUnit(root, dir).find((row) => row.kind === 'close');
-    expect(close?.adapter).toBe('codex-cli');
+    expect(close).toBeDefined();
+    expect(close).not.toHaveProperty('adapter');
+    expect(readFeatureRecord(root, dir)?.adapter).toBe('codex-cli');
   });
 
   it('writes no close row for a bundle that was never materialized', () => {
@@ -274,7 +275,7 @@ describe('closeActiveFeature writes a durable close row', () => {
       root,
       'ses_a',
       dir,
-      { kind: 'close', adapter: 'claude-code', note: 'closed; verdict=complete' },
+      { kind: 'close', note: 'closed; verdict=complete' },
       clock,
     );
     closeActiveFeature(root, 'ses_a');
@@ -302,7 +303,7 @@ describe('session-id rotation mid-change (issue #404)', () => {
       root,
       'ses_before',
       first,
-      { kind: 'stage_start', stage: 'planning', adapter: 'claude-code', event_status: 'started' },
+      { kind: 'stage_start', stage: 'planning', event_status: 'started' },
       clock,
     );
 
@@ -320,7 +321,7 @@ describe('session-id rotation mid-change (issue #404)', () => {
       root,
       'ses_before',
       dir,
-      { kind: 'stage_end', stage: 'planning', adapter: 'claude-code', event_status: 'completed' },
+      { kind: 'stage_end', stage: 'planning', event_status: 'completed' },
       clock,
     );
 
@@ -359,20 +360,27 @@ describe('session-id rotation mid-change (issue #404)', () => {
 // forever. The repo this was found in held 13, so the "exactly one" guard never held and
 // adoption was dead code.
 describe('branch scoping (issue #404)', () => {
-  it('stamps the branch on the open row so a bundle is attributable from row 1', () => {
+  it('records the branch on feature.json at open, never on the row (issue #581)', () => {
     const root = tempRepo();
     checkoutBranch(root, 'fix/404-rotation');
     const dir = openFeatureChange(root, 'ses_a', { adapter: 'claude-code', ulidSeed: 1 });
 
     const open = readFeatureStageUnit(root, dir).find((row) => row.kind === 'open');
-    expect(open?.branch).toBe('fix/404-rotation');
+    expect(open).not.toHaveProperty('branch');
+    expect(readFeatureRecord(root, dir)?.branch).toBe('fix/404-rotation');
     expect(featureBranch(root, dir)).toBe('fix/404-rotation');
+  });
+
+  it('still reads the branch a pre-#581 bundle stamped on its open row (INV-8)', () => {
+    const root = tempRepo();
+    appendLegacyStageRow(root, BUNDLE_A, 'ses_a', { kind: 'open', branch: 'fix/legacy' });
+    expect(featureBranch(root, BUNDLE_A)).toBe('fix/legacy');
   });
 
   it('falls back to delivery.json for a bundle opened before the stamp existed', () => {
     const root = tempRepo();
     // An `open` row with no branch — exactly what a pre-#404 bundle carries on disk.
-    appendFeatureStageRow(root, 'ses_a', BUNDLE_A, { kind: 'open', adapter: 'claude-code' }, clock);
+    appendLegacyStageRow(root, BUNDLE_A, 'ses_a', { kind: 'open' });
     expect(featureBranch(root, BUNDLE_A)).toBeNull();
 
     writeFeatureDelivery(root, BUNDLE_A, {
@@ -422,7 +430,7 @@ describe('branch scoping (issue #404)', () => {
 
   it('never adopts a bundle whose branch is unknown while on a branch', () => {
     const root = tempRepo();
-    appendFeatureStageRow(root, 'ses_a', BUNDLE_A, { kind: 'open', adapter: 'claude-code' }, clock);
+    appendFeatureStageRow(root, 'ses_a', BUNDLE_A, { kind: 'open' }, clock);
 
     expect(featureBranch(root, BUNDLE_A)).toBeNull();
     expect(reconcileSessionControl(root, 'ses_new', clock)).toBeNull();

@@ -18,6 +18,7 @@ import {
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { agentForWriter } from './agent-identity.js';
 import { type OrderingViolation, type StageCompletenessVerdict } from './types.js';
 
 /** Failed-verify attempts after which an incomplete change is `blocked` (escalate). */
@@ -82,7 +83,7 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
     dirName,
     {
       kind: 'verify',
-      adapter: ctx.adapter,
+      agent: agentForWriter(ctx.adapter),
       event_status: ok ? 'completed' : 'failed',
       note: `verdict=${verdict}; missing=[${fold.completeness.missing_stages.join(',')}]`,
     },

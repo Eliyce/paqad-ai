@@ -15,6 +15,7 @@ import {
   featureStagePath,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { setActiveFeature } from '@/feature-evidence/session-control.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
@@ -67,6 +68,12 @@ describe('parseAndRecordMarkers', () => {
   function rows() {
     const dir = currentFeature(root, SES);
     return dir ? readFeatureStageUnit(root, dir) : [];
+  }
+
+  /** The host is a session constant on feature.json, never on a row (issue #581). */
+  function expectHost(adapter: string): void {
+    expect(rows().every((r) => !('adapter' in r))).toBe(true);
+    expect(readFeatureRecord(root, currentFeature(root, SES)!)?.adapter).toBe(adapter);
   }
 
   it('returns [] (never throws) when reading the active feature ledger fails', () => {
@@ -361,7 +368,7 @@ describe('parseAndRecordMarkers', () => {
       transcriptText: msg('assistant', 'paqad:stage planning start'),
       sessionId: SES,
     });
-    expect(rows().every((r) => r.adapter === 'claude-code')).toBe(true);
+    expectHost('claude-code');
   });
 
   it('records a Codex-shaped JSONL transcript, attributing rows to codex-cli', () => {
@@ -377,7 +384,7 @@ describe('parseAndRecordMarkers', () => {
     });
     expect(n).toHaveLength(2);
     expect(rows().length).toBeGreaterThan(0);
-    expect(rows().every((r) => r.adapter === 'codex-cli')).toBe(true);
+    expectHost('codex-cli');
   });
 
   it('records a Gemini inline prompt_response (plain text), attributing rows to gemini-cli', () => {
@@ -390,7 +397,7 @@ describe('parseAndRecordMarkers', () => {
       adapter: 'gemini-cli',
     });
     expect(n).toHaveLength(2);
-    expect(rows().every((r) => r.adapter === 'gemini-cli')).toBe(true);
+    expectHost('gemini-cli');
   });
 
   // Issue #390 — the marker-open path must not mint a feature-evidence bundle for a

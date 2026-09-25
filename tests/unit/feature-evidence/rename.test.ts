@@ -91,7 +91,6 @@ describe('backfillFeatureSlug', () => {
         stage: 'specification',
         event_status: 'completed',
         evidence_source: 'live-mark',
-        adapter: 'claude-code',
         artifact_paths: [`${featureDir(dir)}/specification.json`, 'docs/spec.md'],
         artifact_digest: 'd'.repeat(64),
       },

@@ -11,6 +11,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
+
 import { buildFeatureRecord, computeContentHash, UNTITLED_FEATURE_TITLE } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { validateFeatureRecord } from './schema.js';
@@ -55,6 +57,9 @@ export interface SeedFeatureRecordInput {
   adapter: string;
   sessionId: string;
   lane?: FeatureLane;
+  /** The git branch at open and its merge base (issue #581); null off a branch. */
+  branch?: string | null;
+  baseBranch?: string | null;
   now?: () => Date;
 }
 
@@ -91,6 +96,8 @@ export function seedFeatureRecord(
     status: 'active',
     session_first_seen: input.sessionId,
     adapter: input.adapter,
+    branch: input.branch ?? null,
+    base_branch: input.baseBranch ?? null,
     now: input.now,
   });
   try {
@@ -110,6 +117,10 @@ export interface FeatureRecordPatch {
   lane?: FeatureLane;
   status?: FeatureStatus;
   spec_id?: string | null;
+  /** Session constants (issue #581): updated in place, the latest host wins. */
+  adapter?: string;
+  branch?: string | null;
+  base_branch?: string | null;
 }
 
 /**
@@ -156,7 +167,10 @@ export function updateFeatureRecord(
     status: patch.status ?? current.status,
     spec_id: patch.spec_id !== undefined ? patch.spec_id : current.spec_id,
     session_first_seen: current.session_first_seen,
-    adapter: current.adapter,
+    adapter: patch.adapter ?? current.adapter,
+    branch: patch.branch !== undefined ? patch.branch : (current.branch ?? null),
+    base_branch:
+      patch.base_branch !== undefined ? patch.base_branch : (current.base_branch ?? null),
   } satisfies Omit<FeatureRecord, 'created_at' | 'updated_at' | 'content_hash'>;
 
   const contentHash = computeContentHash(base);
@@ -186,4 +200,61 @@ export function updateFeatureRecord(
  */
 export function featureRecordIsUntitled(record: FeatureRecord): boolean {
   return record.title === UNTITLED_FEATURE_TITLE && record.issue === null;
+}
+
+/** The per-change session constants (issue #581, FR-6). Each is null when unknown. */
+export interface ChangeConstants {
+  adapter: string | null;
+  branch: string | null;
+  base_branch: string | null;
+  lane: FeatureLane;
+}
+
+/** The placeholder adapter a rebuilt record carries when its seed was missed. */
+const UNKNOWN_ADAPTER = 'unknown';
+
+function knownString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 && value !== UNKNOWN_ADAPTER ? value : null;
+}
+
+function knownLane(value: unknown): FeatureLane {
+  return value === 'fast' || value === 'graduated' || value === 'full' ? value : null;
+}
+
+/**
+ * Read a change's session constants (issue #581, FR-6): `feature.json` first, the only
+ * place a bundle written since #581 carries them, then the legacy `kind:'open'` stage row,
+ * where a bundle written before #581 stamped them. Each field falls back on its own, so a
+ * pre-#581 `feature.json` with no `branch` still gets the branch its open row recorded.
+ * `rows` lets a caller that already read the stage ledger skip a second read.
+ */
+export function readChangeConstants(
+  projectRoot: string,
+  dirName: string,
+  rows?: readonly SessionLedgerRow[],
+): ChangeConstants {
+  const record = readFeatureRecord(projectRoot, dirName);
+  const fromRecord: ChangeConstants = {
+    adapter: knownString(record?.adapter),
+    branch: knownString(record?.branch),
+    base_branch: knownString(record?.base_branch),
+    lane: knownLane(record?.lane),
+  };
+  if (
+    fromRecord.adapter !== null &&
+    fromRecord.branch !== null &&
+    fromRecord.base_branch !== null &&
+    fromRecord.lane !== null
+  ) {
+    return fromRecord;
+  }
+  const openRow = (
+    rows ?? readUnitFile(projectRoot, featureFilePath(dirName, 'stageEvidence'))
+  ).find((row) => row.kind === 'open');
+  return {
+    adapter: fromRecord.adapter ?? knownString(openRow?.adapter),
+    branch: fromRecord.branch ?? knownString(openRow?.branch),
+    base_branch: fromRecord.base_branch ?? knownString(openRow?.base_branch),
+    lane: fromRecord.lane ?? knownLane(openRow?.lane),
+  };
 }

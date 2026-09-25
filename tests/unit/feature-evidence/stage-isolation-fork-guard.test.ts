@@ -6,7 +6,11 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { adoptableInFlightOnBranch } from '@/feature-evidence/adoption';
-import { appendFeatureStageRow, resolveActiveFeature } from '@/feature-evidence/stage-ledger';
+import {
+  appendFeatureStageRow,
+  recordChangeConstants,
+  resolveActiveFeature,
+} from '@/feature-evidence/stage-ledger';
 
 const roots: string[] = [];
 const clock = () => new Date('2026-09-21T00:00:00.000Z');
@@ -35,13 +39,8 @@ function checkout(root: string, branch: string): void {
 
 /** Materialize an in-flight bundle (an `open` row, no close) on `branch`. */
 function materialize(root: string, dirName: string, branch = 'main'): string {
-  appendFeatureStageRow(
-    root,
-    'ses_open',
-    dirName,
-    { kind: 'open', adapter: 'claude-code', branch },
-    clock,
-  );
+  recordChangeConstants(root, dirName, { adapter: 'claude-code', branch }, clock);
+  appendFeatureStageRow(root, 'ses_open', dirName, { kind: 'open' }, clock);
   return dirName;
 }
 

@@ -33,7 +33,12 @@ change, so the live feature-development stage spine is untouched:
   opened (idempotent); `updateFeatureRecord` patches it on rename / lane / spec-freeze /
   close, re-stamping the `content_hash`. `featureRecordIsUntitled` is the placeholder check
   the completeness gate uses (title `change` + no ticket ⇒ the change has no record of what
-  it was).
+  it was). Since #581 it is also the only home of the session constants `adapter`,
+  `branch`, `base_branch` and `lane`: set when the change opens and updated in place by
+  `recordChangeConstants` (the latest host wins; the completion backstop never replaces the
+  host, and an unresolved lane never erases a recorded one). Stage rows (schema version 2)
+  no longer carry them. `readChangeConstants` reads `feature.json` first and falls back, field
+  by field, to the `open` row of a bundle written before #581.
 - **Bundle manifest** (`manifest.ts`, issue #511) — the single declarative source of truth
   for **which** bundle files a feature-development change must leave, **when** each is
   required, and **who** writes it. The `bundle-completeness` gate reads it, and a test
@@ -195,8 +200,9 @@ any turn the session-ownership check skips (see below).
   13, so an "exactly one in flight" rule could never fire and adoption was dead code. A
   session id rotates *within* a change and a change is built on one branch, so the branch
   identifies the rotated session's own work — deterministically, with no clock heuristic
-  and no tunable window. `openFeatureChange` stamps `branch` on the bundle's `open` row so
-  it is known from row 1; `featureBranch` falls back to `delivery.json`'s branch for a
+  and no tunable window. `openFeatureChange` records `branch` on `feature.json` at open
+  (a bundle written before #581 stamped it on its `open` row, which is still read) so it is
+  known from the start; `featureBranch` falls back to `delivery.json`'s branch for a
   bundle opened before the stamp existed, and a bundle with no knowable branch is never
   adopted while on one. Off a branch entirely (detached HEAD, non-git project) the scope
   cannot apply and the unscoped in-flight set stands.

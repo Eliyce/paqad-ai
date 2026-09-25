@@ -180,19 +180,16 @@ describe('aggregateSiemEvents — #249 session-ledger fold', () => {
     appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_end',
       stage: 'development',
-      adapter: 'claude-code',
       event_status: 'completed',
     });
     appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_end',
       stage: 'verification',
-      adapter: 'claude-code',
       event_status: 'failed',
     });
     appendFeatureStageRow(root, 'ses-s', dir, {
       kind: 'stage_start',
       stage: 'review',
-      adapter: 'claude-code',
       event_status: 'started',
     });
     const verdicts = bySource(aggregateSiemEvents(root), STAGE_EVIDENCE_DOC_TYPE).map(

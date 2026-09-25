@@ -38,7 +38,6 @@ describe('stage-evidence hardening edges', () => {
     // registry, so the close-out endStage throws — finalize must swallow it and
     // still verify the change instead of crashing the completion hook.
     appendFeatureStageRow(root, SES, dirName, {
-      adapter: 'claude-code',
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
       event_status: 'started',
@@ -97,7 +96,6 @@ describe('stage-evidence hardening edges', () => {
     // endStage throws for it — the writer must swallow that and still start the
     // real stage for the edit.
     appendFeatureStageRow(root, SES, dirName, {
-      adapter: 'claude-code',
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
       event_status: 'started',
@@ -118,7 +116,6 @@ describe('stage-evidence hardening edges', () => {
     // endStage throws for it — recordMarkedStage must swallow that per-stage and still
     // record the marked boundary (the dangling stage never blocks the boundary).
     appendFeatureStageRow(root, SES, dirName, {
-      adapter: 'claude-code',
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
       event_status: 'started',

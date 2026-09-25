@@ -36,7 +36,6 @@ describe('exportFeatureBundle', () => {
     appendFeatureStageRow(root, 'ses_1', dir, {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
     });
     writeFeaturePlan(root, 'ses_1', {
       summary: 'do the thing',

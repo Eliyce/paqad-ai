@@ -28,6 +28,7 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
+import { agentForWriter } from './agent-identity.js';
 import { endStage, openStageEvidence } from './recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { verifyChange, type VerifyResult } from './verify.js';
@@ -167,7 +168,7 @@ function appendClose(
     dirName,
     {
       kind: 'close',
-      adapter: input.adapter,
+      agent: agentForWriter(input.adapter),
       event_status: 'completed',
       note: `closed; verdict=${verdict}`,
     },
@@ -257,7 +258,7 @@ function appendInferredDevelopment(
     dirName,
     {
       kind: 'stage_end',
-      adapter: input.adapter,
+      agent: agentForWriter(input.adapter),
       stage: 'development',
       event_status: 'inferred',
       evidence_source: 'inferred-git',

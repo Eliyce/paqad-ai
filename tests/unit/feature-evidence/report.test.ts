@@ -464,6 +464,19 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(html).toContain('Safe to merge');
   });
 
+  it('flags idle time on a stage the backstop closed, named by the row agent (issue #581)', () => {
+    // A row since #581 carries no adapter; the backstop names itself as the row's agent.
+    const rows = completeStageRows().map((row) => {
+      const rest: Record<string, unknown> = { ...row };
+      delete rest.adapter;
+      const byBackstop = row.kind === 'stage_end' && row.stage === 'checks';
+      return (byBackstop ? { ...rest, agent: 'backstop' } : rest) as never;
+    });
+    expect(render({ stageEvidence: rows })).toContain('includes idle time');
+    const noBackstop = rows.map((row) => ({ ...(row as object), agent: 'orchestrator' }) as never);
+    expect(render({ stageEvidence: noBackstop })).not.toContain('includes idle time');
+  });
+
   it('humanises an untitled change dir header and works with no plan title', () => {
     const html = render({ stageEvidence: [] }, 'change-01KX5P20DVKF6DN1KC8ZSQ71Q3');
     expect(html).toContain('Change 01KX5P20DVKF6DN1KC8ZSQ71Q3'.slice(0, 6));

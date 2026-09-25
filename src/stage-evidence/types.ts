@@ -12,8 +12,11 @@
 /** Doc type stamped on every row and used as the ledger sub-directory. */
 export const STAGE_EVIDENCE_DOC_TYPE = 'paqad.stage-evidence';
 
-/** Schema version for `paqad.stage-evidence` rows. */
-export const STAGE_EVIDENCE_SCHEMA_VERSION = 1;
+/**
+ * Schema version for `paqad.stage-evidence` rows. Version 2 (issue #581) drops the session
+ * constants from the row; readers still accept a version-1 row.
+ */
+export const STAGE_EVIDENCE_SCHEMA_VERSION = 2;
 
 /** The kinds of event row a change record can carry. */
 export type StageEvidenceKind = 'open' | 'stage_start' | 'stage_end' | 'verify' | 'close';
@@ -46,7 +49,8 @@ export interface StageEvidenceRow {
   /** 1-based Nth code change this session (the substrate's ordinal). */
   conversation_ordinal: number;
   ts: string;
-  adapter: string;
+  /** Present on a version-1 row only; the host now lives on `feature.json` (issue #581). */
+  adapter?: string;
 
   /** The ordered stage id this event concerns (absent on open/close). */
   stage?: string | null;
@@ -58,6 +62,7 @@ export interface StageEvidenceRow {
   artifact_digest?: string | null;
   /** Git working-tree delta digest; set on development. */
   subject_digest?: string | null;
+  /** Present on a version-1 row only; the lane now lives on `feature.json` (issue #581). */
   lane?: StageLane;
   session_source?: StageSessionSource;
   note?: string | null;

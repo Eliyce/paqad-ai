@@ -109,7 +109,6 @@ describe('the write chokepoint always supplies an agent', () => {
     appendFeatureStageRow(root, 's1', 'change-1', {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
     });
 
     expect(rowsOf('change-1')[0].agent).toBe(ORCHESTRATOR_AGENT);
@@ -119,7 +118,6 @@ describe('the write chokepoint always supplies an agent', () => {
     appendFeatureStageRow(root, 's1', 'change-2', {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
       agent: 'paqad-development',
     });
 
@@ -133,7 +131,6 @@ describe('the write chokepoint always supplies an agent', () => {
     appendFeatureStageRow(root, 's1', 'change-3', {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
       agent: undefined,
     });
 
@@ -144,12 +141,10 @@ describe('the write chokepoint always supplies an agent', () => {
     appendFeatureStageRow(root, 's1', 'inline', {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
     });
     appendFeatureStageRow(root, 's1', 'isolated', {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
       agent: 'paqad-development',
     });
 

@@ -63,7 +63,6 @@ describe('whole-project projections from feature bundles', () => {
     appendFeatureStageRow(root, 'ses_1', a, {
       kind: 'stage_start',
       stage: 'planning',
-      adapter: 'claude-code',
     });
     const b = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -74,7 +73,6 @@ describe('whole-project projections from feature bundles', () => {
     appendFeatureStageRow(root, 'ses_1', b, {
       kind: 'stage_start',
       stage: 'development',
-      adapter: 'claude-code',
     });
     const rows = readAllFeatureStageRows(root);
     // Both features' open rows + the two stage_start rows.

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   featureRecordIsUntitled,
+  readChangeConstants,
   readFeatureRecord,
   seedFeatureRecord,
   updateFeatureRecord,
@@ -14,6 +15,9 @@ import {
 import { buildFeatureRecord } from '@/feature-evidence/mint.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { validateFeatureRecord } from '@/feature-evidence/schema.js';
+import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+
+import { appendLegacyStageRow } from '../../shared/legacy-stage-row.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -185,5 +189,141 @@ describe('featureRecordIsUntitled', () => {
     expect(featureRecordIsUntitled(base)).toBe(true);
     expect(featureRecordIsUntitled({ ...base, title: 'Real' })).toBe(false);
     expect(featureRecordIsUntitled({ ...base, issue: '511' })).toBe(false);
+  });
+});
+
+// Issue #581 (FR-6, AC-26) — the session constants live once, on feature.json.
+describe('session constants on feature.json', () => {
+  it('seeds branch and base_branch at open, null when unknown', () => {
+    const root = tempRoot();
+    const seeded = seedFeatureRecord(root, DIR, {
+      adapter: 'claude-code',
+      sessionId: 'ses_1',
+      branch: 'feat/x',
+      baseBranch: 'main',
+      now: clock,
+    });
+    expect(seeded).toMatchObject({ branch: 'feat/x', base_branch: 'main' });
+    expect(validateFeatureRecord(seeded)).toEqual([]);
+    const bare = seedFeatureRecord(tempRoot(), DIR, { adapter: 'a', sessionId: 's', now: clock });
+    expect(bare).toMatchObject({ branch: null, base_branch: null });
+  });
+
+  it('still validates a pre-#581 record with no branch keys (INV-8)', () => {
+    const legacy: Record<string, unknown> = {
+      ...buildFeatureRecord({
+        issue: '511',
+        title: 't',
+        slug: 't',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+        session_first_seen: 's',
+        adapter: 'a',
+        now: clock,
+      }),
+    };
+    delete legacy.branch;
+    delete legacy.base_branch;
+    expect(validateFeatureRecord(legacy)).toEqual([]);
+  });
+
+  it('updates the adapter and branch in place, the latest host winning', () => {
+    const root = tempRoot();
+    seedFeatureRecord(root, DIR, { adapter: 'claude-code', sessionId: 's', now: clock });
+    const next = updateFeatureRecord(root, DIR, { adapter: 'codex-cli', branch: 'feat/y' }, clock);
+    expect(next).toMatchObject({ adapter: 'codex-cli', branch: 'feat/y', base_branch: null });
+    // Unchanged constants keep what was recorded.
+    expect(updateFeatureRecord(root, DIR, { status: 'done' }, clock)).toMatchObject({
+      adapter: 'codex-cli',
+      branch: 'feat/y',
+    });
+  });
+
+  it('recordChangeConstants never lets the backstop or an unresolved lane erase a fact', () => {
+    const root = tempRoot();
+    seedFeatureRecord(root, DIR, {
+      adapter: 'codex-cli',
+      sessionId: 's',
+      lane: 'full',
+      now: clock,
+    });
+    recordChangeConstants(root, DIR, { adapter: 'backstop', lane: null, branch: null }, clock);
+    expect(readFeatureRecord(root, DIR)).toMatchObject({ adapter: 'codex-cli', lane: 'full' });
+    recordChangeConstants(root, DIR, { lane: 'graduated', baseBranch: 'main' }, clock);
+    expect(readFeatureRecord(root, DIR)).toMatchObject({ lane: 'graduated', base_branch: 'main' });
+  });
+
+  it('keeps one adapter equal to the latest host when a change moves hosts (AC-26)', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 'ses_claude', {
+      adapter: 'claude-code',
+      lane: 'full',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ3',
+      now: clock,
+    });
+    // The change continues on another host, in another session.
+    openFeatureChange(root, 'ses_codex', {
+      adapter: 'codex-cli',
+      title: 'change',
+      issue: null,
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ3',
+      now: clock,
+    });
+    const record = readFeatureRecord(root, dir)!;
+    expect(record.adapter).toBe('codex-cli');
+    expect(record.lane).toBe('full');
+    expect(record).toHaveProperty('branch');
+    expect(record).toHaveProperty('base_branch');
+  });
+});
+
+describe('readChangeConstants', () => {
+  it('reads feature.json first', () => {
+    const root = tempRoot();
+    seedFeatureRecord(root, DIR, {
+      adapter: 'codex-cli',
+      sessionId: 's',
+      lane: 'graduated',
+      branch: 'feat/x',
+      baseBranch: 'main',
+      now: clock,
+    });
+    // A stale legacy open row never overrides what feature.json holds.
+    appendLegacyStageRow(root, DIR, 's', { kind: 'open', adapter: 'claude-code', lane: 'fast' });
+    expect(readChangeConstants(root, DIR)).toEqual({
+      adapter: 'codex-cli',
+      branch: 'feat/x',
+      base_branch: 'main',
+      lane: 'graduated',
+    });
+  });
+
+  it('falls back field by field to a pre-#581 open row (INV-8)', () => {
+    const root = tempRoot();
+    // A pre-#581 record: a placeholder adapter, no lane, no branch keys.
+    updateFeatureRecord(root, DIR, { status: 'active' }, clock);
+    const rows = [
+      appendLegacyStageRow(root, DIR, 's', {
+        kind: 'open',
+        adapter: 'claude-code',
+        lane: 'full',
+        branch: 'feat/old',
+      }),
+    ];
+    expect(readChangeConstants(root, DIR, rows)).toEqual({
+      adapter: 'claude-code',
+      branch: 'feat/old',
+      base_branch: null,
+      lane: 'full',
+    });
+    expect(readChangeConstants(root, DIR)).toEqual(readChangeConstants(root, DIR, rows));
+  });
+
+  it('reads all-null for a bundle with neither a record nor an open row', () => {
+    expect(readChangeConstants(tempRoot(), DIR)).toEqual({
+      adapter: null,
+      branch: null,
+      base_branch: null,
+      lane: null,
+    });
   });
 });

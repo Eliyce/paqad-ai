@@ -80,6 +80,10 @@ export const FEATURE_SCHEMA = {
     spec_id: nullableString,
     session_first_seen: { type: 'string', minLength: 1 },
     adapter: { type: 'string', minLength: 1 },
+    // Issue #581 — the session constants live here once. Optional: a pre-#581 record has
+    // neither and still validates.
+    branch: nullableString,
+    base_branch: nullableString,
     content_hash: { type: 'string', minLength: 1 },
   },
 } as const;

@@ -153,6 +153,8 @@ export interface BuildFeatureRecordInput {
   spec_id?: string | null;
   session_first_seen: string;
   adapter: string;
+  branch?: string | null;
+  base_branch?: string | null;
   now?: () => Date;
 }
 
@@ -171,6 +173,8 @@ export function buildFeatureRecord(input: BuildFeatureRecordInput): FeatureRecor
     spec_id: input.spec_id ?? null,
     session_first_seen: input.session_first_seen,
     adapter: input.adapter,
+    branch: input.branch ?? null,
+    base_branch: input.base_branch ?? null,
   } satisfies Omit<FeatureRecord, 'created_at' | 'updated_at' | 'content_hash'>;
   return {
     ...base,

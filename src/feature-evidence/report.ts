@@ -39,6 +39,7 @@ import type {
 import { ZERO_DIGEST } from '@/evidence/digests.js';
 import { DSSE_PAYLOAD_TYPE, pae } from '@/evidence/receipt/dsse.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
+import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 
@@ -237,7 +238,7 @@ interface StageView {
  * end-of-change receipt's honesty (`src/verification/repository/receipt.ts`) and adds the
  * report-only "includes idle time" flag for a stage a backstop closed hours later.
  */
-function stageView(stage: FoldedStage, endAdapter: string | null): StageView {
+function stageView(stage: FoldedStage, endedByBackstop: boolean): StageView {
   switch (stage.state) {
     case 'complete':
     case 'redone': {
@@ -254,7 +255,7 @@ function stageView(stage: FoldedStage, endAdapter: string | null): StageView {
           : stage.evidence_source === 'inferred-artifact'
             ? 'done (inferred from an artifact)'
             : 'done';
-      if (endAdapter === 'backstop') {
+      if (endedByBackstop) {
         note = `${note} — includes idle time (closed by the completion backstop)`;
       }
       if (stage.state === 'redone') note = `${note} (redone)`;
@@ -286,15 +287,19 @@ function stageView(stage: FoldedStage, endAdapter: string | null): StageView {
   }
 }
 
-/** The `stage_end` adapter for a stage, from the raw rows (drives the idle-time flag). */
-function stageEndAdapter(rawStageRows: LooseRow[], stage: string): string | null {
-  let adapter: string | null = null;
+/**
+ * Whether the completion backstop wrote a stage's last `stage_end` row (drives the
+ * idle-time flag). A row since #581 names the backstop as its `agent`; an older row named
+ * it as its `adapter`, so both are read.
+ */
+function stageEndedByBackstop(rawStageRows: LooseRow[], stage: string): boolean {
+  let byBackstop = false;
   for (const row of rawStageRows) {
-    if (row.kind === 'stage_end' && row.stage === stage && typeof row.adapter === 'string') {
-      adapter = row.adapter;
+    if (row.kind === 'stage_end' && row.stage === stage) {
+      byBackstop = row.agent === BACKSTOP_WRITER || row.adapter === BACKSTOP_WRITER;
     }
   }
-  return adapter;
+  return byBackstop;
 }
 
 type LooseRow = Record<string, unknown>;
@@ -328,7 +333,7 @@ function renderTimeline(fold: FoldedChange, rawStageRows: LooseRow[]): string {
   );
   const items = shown
     .map((stage) => {
-      const view = stageView(stage, stageEndAdapter(rawStageRows, stage.stage));
+      const view = stageView(stage, stageEndedByBackstop(rawStageRows, stage.stage));
       const label = escapeHtml(stage.stage.replace(/_/g, ' '));
       const start = clockLabel(stage.started_at);
       const end = clockLabel(stage.ended_at);

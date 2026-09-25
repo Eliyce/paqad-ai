@@ -35,7 +35,6 @@ function openWithPlan(root: string, ulidSeed: number, title: string): string {
   appendFeatureStageRow(root, 'ses_1', dir, {
     kind: 'stage_start',
     stage: 'planning',
-    adapter: 'claude-code',
   });
   writeFeaturePlan(root, 'ses_1', {
     summary: `plan for ${title}`,

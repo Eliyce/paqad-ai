@@ -55,7 +55,15 @@ export interface FeatureRecord {
   spec_id: string | null;
   /** The session that first opened this feature (provenance). */
   session_first_seen: string;
+  /** The host that last recorded work on this change (issue #581: one value, latest wins). */
   adapter: string;
+  /**
+   * The git branch the change is built on, and the branch it will merge into (issue #581).
+   * Session constants live here once, never on a stage row. Optional so a record written
+   * before #581 still reads; every writer since stamps both (null off a branch).
+   */
+  branch?: string | null;
+  base_branch?: string | null;
   content_hash: string;
 }
 

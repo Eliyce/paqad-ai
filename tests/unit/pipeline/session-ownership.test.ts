@@ -74,7 +74,6 @@ describe('sessionOwnedRows', () => {
     for (const source of ['inferred-git', 'inferred-artifact']) {
       appendFeatureStageRow(root, A, dirName, {
         kind: 'stage_start',
-        adapter: 'backstop',
         stage: 'development',
         event_status: 'inferred',
         evidence_source: source,
@@ -88,7 +87,6 @@ describe('sessionOwnedRows', () => {
     const dirName = openFeatureChange(root, A, { adapter: 'claude-code', title: 'x', issue: null });
     appendFeatureStageRow(root, A, dirName, {
       kind: 'stage_start',
-      adapter: 'claude-code',
       stage: 'development',
       event_status: 'redone',
       evidence_source: 'redo',
