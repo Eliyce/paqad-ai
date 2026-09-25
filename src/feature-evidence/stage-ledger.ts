@@ -16,7 +16,6 @@ import { readGitState } from '@/rag/git-state.js';
 import {
   appendStampedRowToUnit,
   readUnitFile,
-  stampSessionRow,
   type SessionLedgerRow,
 } from '@/session-ledger/ledger.js';
 import { augmentWithBundleArtifacts, foldRowsWithKey } from '@/stage-evidence/fold.js';
@@ -38,7 +37,8 @@ import {
   type FeatureRecordPatch,
 } from './feature-record.js';
 import { UNTITLED_FEATURE_TITLE, mintFeatureDirName } from './mint.js';
-import { featureFilePath, parseFeatureDirName } from './paths.js';
+import { stampBundleRow } from './envelope.js';
+import { featureChangeKey, featureFilePath, parseFeatureDirName } from './paths.js';
 import {
   markDone,
   readSessionControl,
@@ -122,10 +122,11 @@ export function featureStagePath(dirName: string): string {
 }
 
 /**
- * Append one stage-evidence row into the feature's bundle (stamped + validated by the
- * existing stage-evidence schema). `conversation_ordinal` is retired as the change key
- * (the feature dir name is the key now) but the row schema still carries it for
- * provenance/back-compat, so a constant `1` is stamped unless the caller overrides it.
+ * Append one stage-evidence row into the feature's bundle, stamped with the one bundle
+ * envelope header (issue #581, FR-5: `change` is the folder-name ULID, `recorded_at` the
+ * script clock) and validated by the stage-evidence schema. The retired
+ * `conversation_ordinal` and `ts` are no longer written; readers still accept a row that
+ * has them (INV-8).
  *
  * Issue #581 (FR-6) — a row carries no session constants (`adapter`, `branch`, `lane`).
  * Those live once on `feature.json`; record them with {@link recordChangeConstants}.
@@ -137,20 +138,19 @@ export function appendFeatureStageRow(
   row: Record<string, unknown>,
   now?: () => Date,
 ): SessionLedgerRow {
-  const stamped = stampSessionRow(
-    STAGE_EVIDENCE_DOC_TYPE,
+  const stamped = stampBundleRow({
+    docType: STAGE_EVIDENCE_DOC_TYPE,
+    change: featureChangeKey(dirName),
     sessionId,
+    schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
     // Issue #573 — `agent` is REQUIRED by the schema and this is the one write
     // chokepoint, so default it here rather than at every call site. A caller that knows
     // it is inside a dispatched stage agent passes its own identity and wins; everything
     // else is the main chat.
-    { conversation_ordinal: 1, ...row, agent: row.agent ?? ORCHESTRATOR_AGENT },
-    {
-      schemaVersion: STAGE_EVIDENCE_SCHEMA_VERSION,
-      validate: (r) => validateStageEvidenceRow(r),
-      now,
-    },
-  );
+    row: { ...row, agent: row.agent ?? ORCHESTRATOR_AGENT },
+    validate: (r) => validateStageEvidenceRow(r),
+    now,
+  }) as unknown as SessionLedgerRow;
   appendStampedRowToUnit(projectRoot, featureStagePath(dirName), stamped);
   return stamped;
 }

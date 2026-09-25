@@ -15,7 +15,7 @@ import { readGitState } from '@/rag/git-state.js';
 
 import { listFeatureDirs } from './enumerate.js';
 import { readFeatureRecord } from './feature-record.js';
-import { featureFilePath, parseFeatureDirName } from './paths.js';
+import { featureChangeKey, featureFilePath } from './paths.js';
 
 // Re-exported from its leaf home (issue #404) so every existing `delivery.js` importer
 // keeps working while `adoption.ts` can reach it without closing an import cycle.
@@ -270,12 +270,6 @@ export function stampMergeCommit(
   return record;
 }
 
-/** The trailing ULID of a feature dir name (time-sortable), or the name itself if it
- *  does not parse (defensive — every listed dir is a validated feature name). */
-function ulidOf(dirName: string): string {
-  return parseFeatureDirName(dirName)?.ulid ?? dirName;
-}
-
 /**
  * Resolve which feature a commit on `branch` belongs to (the `post-commit` hook's
  * branch resolution). A feature matches when its `delivery.json` records that branch.
@@ -299,7 +293,7 @@ export function resolveDeliveryFeatureByBranch(
   // Most-recent orders by the trailing ULID (time-sortable), NOT the full dir name — the
   // slug prefix would otherwise dominate the ordering. The max ULID is newest.
   const newest = (dirs: string[]): string | null =>
-    [...dirs].sort((x, y) => ulidOf(x).localeCompare(ulidOf(y))).at(-1) ?? null;
+    [...dirs].sort((x, y) => featureChangeKey(x).localeCompare(featureChangeKey(y))).at(-1) ?? null;
   const notDone = matches.filter(
     (dirName) => readFeatureRecord(projectRoot, dirName)?.status !== 'done',
   );

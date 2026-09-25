@@ -17,6 +17,7 @@
 // session at another session's bundle. Write-path adoption (#404) is untouched.
 
 import { listInFlightFeatures } from '@/feature-evidence/adoption.js';
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
@@ -65,7 +66,8 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
 }
 
 /**
- * Whether any owned row was written during the current turn. A row counts when its `ts`
+ * Whether any owned row was written during the current turn. A row counts when its time
+ * (`recorded_at`, or `ts` on a row written before #581)
  * is at or after the turn stamp and it was not recorded against a session id read from the
  * shared cache file (a CLI call that resolved the wrong session must never make this one
  * enforce). With no usable stamp (a state file written before it existed) this falls back
@@ -80,7 +82,7 @@ function editedThisTurn(owned: readonly SessionLedgerRow[], state: WorkflowState
     if (row.session_source === 'cache') {
       return false;
     }
-    const at = Date.parse(row.ts);
+    const at = Date.parse(rowRecordedAt(row) ?? '');
     return !Number.isNaN(at) && at >= turnStart;
   });
 }

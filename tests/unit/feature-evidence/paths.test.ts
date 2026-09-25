@@ -4,6 +4,7 @@ import {
   FEATURE_BUNDLE_FILES,
   chatDir,
   chatRagPath,
+  featureChangeKey,
   featureDir,
   featureEvidenceDir,
   featureFilePath,
@@ -90,5 +91,20 @@ describe('feature-evidence path layer', () => {
     expect(parseFeatureDirName('not a feature dir')).toBeNull();
     expect(parseFeatureDirName('missing-ulid')).toBeNull();
     expect(isFeatureDirName('_session')).toBe(false);
+  });
+});
+
+describe('featureChangeKey (issue #581, INV-4)', () => {
+  it('is the ULID at the end of the folder name, unchanged by a rename', () => {
+    expect(featureChangeKey('581-one-packet-01JABCDEFGHJKMNPQRSTVWXYZ0')).toBe(
+      '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    );
+    expect(featureChangeKey('change-01JABCDEFGHJKMNPQRSTVWXYZ0')).toBe(
+      '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    );
+  });
+
+  it('returns a name that does not parse as-is, for the envelope schema to reject', () => {
+    expect(featureChangeKey('not-a-bundle')).toBe('not-a-bundle');
   });
 });

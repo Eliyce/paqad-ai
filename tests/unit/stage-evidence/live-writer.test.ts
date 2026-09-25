@@ -107,7 +107,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
     const start = kinds('stage_start', 'development');
     expect(start).toHaveLength(1);
     expect(start[0]?.evidence_source).toBe('live-mark');
-    expect(typeof start[0]?.ts).toBe('string');
+    expect(typeof start[0]?.recorded_at).toBe('string');
   });
 
   it('AC-2: a later stage boundary ends the earlier stage (ended_at) then starts the new one', () => {
@@ -130,7 +130,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
 
     expect(kinds('stage_end', 'development')).toHaveLength(1);
     expect(kinds('stage_start', 'checks')).toHaveLength(1);
-    expect(kinds('stage_end', 'development')[0]?.ts).toBeTruthy();
+    expect(kinds('stage_end', 'development')[0]?.recorded_at).toBeTruthy();
     expect(stageIndex('development')).toBeLessThan(stageIndex('checks'));
   });
 

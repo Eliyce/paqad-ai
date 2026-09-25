@@ -161,9 +161,14 @@ any turn the session-ownership check skips (see below).
   `resolveActiveFeature` (mints/sets-active a feature so a stage call never lands on
   nothing), `appendFeatureStageRow` / `readFeatureStageUnit` / `foldFeature` write,
   read, and fold a change's stage evidence at `<feature-dir>/stage-evidence.jsonl`,
-  reusing the session-ledger row primitives (`stampSessionRow` /
-  `appendStampedRowToUnit` / `readUnitFile`) and the stage-evidence `foldRowsWithKey`
-  core. Still dark — the live recorder is re-pointed onto it in the cutover.
+  reusing the session-ledger row primitives (`appendStampedRowToUnit` / `readUnitFile`)
+  and the stage-evidence `foldRowsWithKey` core. Since #581 each row is stamped by the
+  envelope's `stampBundleRow`: the six-field header (`schema_version` 2, `doc_type`
+  `paqad.stage-evidence`, `change` = the folder-name ULID from `featureChangeKey`,
+  `session_id`, `recorded_at`, `content_hash`) and then the row's own fields. `ts` and the
+  retired `conversation_ordinal` are no longer written; readers take the time through
+  `rowRecordedAt`, so a bundle written before #581 still folds. Session ledgers outside a
+  bundle keep `ts`.
 
   `resolveFeatureRef` / `resumeFeatureByRef` are the readers behind
   `paqad-ai resume --feature <ref>`. A ref resolves against the **session control first**

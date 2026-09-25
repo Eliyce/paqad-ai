@@ -19,6 +19,7 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
+import { validateEnvelopeHeader } from '@/feature-evidence/schema.js';
 import { markDone, readSessionControl } from '@/feature-evidence/session-control.js';
 
 import { appendLegacyStageRow } from '../../shared/legacy-stage-row.js';
@@ -98,7 +99,25 @@ describe('feature stage ledger append / read / fold', () => {
     );
     const rows = readFeatureStageUnit(root, dir);
     expect(rows.map((r) => r.kind)).toEqual(['open', 'stage_start']);
-    expect(rows[0]).toMatchObject({ doc_type: 'paqad.stage-evidence', conversation_ordinal: 1 });
+    // Issue #581 — the one envelope header, in order, with the folder ULID as the change key.
+    expect(Object.keys(rows[0]!).slice(0, 6)).toEqual([
+      'schema_version',
+      'doc_type',
+      'change',
+      'session_id',
+      'recorded_at',
+      'content_hash',
+    ]);
+    expect(rows[0]).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.stage-evidence',
+      change: dir.slice(-26),
+      session_id: 'ses_1',
+    });
+    expect(validateEnvelopeHeader(rows[0])).toEqual([]);
+    for (const retired of ['ts', 'conversation_ordinal', 'adapter', 'lane', 'branch']) {
+      expect(rows[0]).not.toHaveProperty(retired);
+    }
   });
 
   it('rejects an invalid row via the stage-evidence schema', () => {

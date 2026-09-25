@@ -4,18 +4,15 @@
 
 import Ajv, { type ValidateFunction } from 'ajv';
 
+import { ENVELOPE_HEADER_PROPERTIES } from '@/feature-evidence/schema.js';
+
 import { STAGE_EVIDENCE_DOC_TYPE, STAGE_EVIDENCE_SCHEMA_VERSION } from './types.js';
 
 const nullableString = { type: ['string', 'null'] } as const;
 
 // Fields every version of a row may carry (the per-row facts, never a session constant).
 const ROW_PROPERTIES = {
-  doc_type: { const: STAGE_EVIDENCE_DOC_TYPE },
   kind: { enum: ['open', 'stage_start', 'stage_end', 'verify', 'close'] },
-  session_id: { type: 'string', minLength: 1 },
-  conversation_ordinal: { type: 'integer', minimum: 1 },
-  ts: { type: 'string', minLength: 1 },
-
   stage: nullableString,
   event_status: {
     type: ['string', 'null'],
@@ -40,13 +37,14 @@ const ROW_PROPERTIES = {
   // edit made this turn by the completion check.
   session_source: { type: ['string', 'null'], enum: ['host', 'env', 'cache', null] },
   note: nullableString,
-  content_hash: { type: 'string', minLength: 1 },
 } as const;
 
 /**
- * The current row shape (schema version 2, issue #581). A row carries only what changes per
- * row: the session constants (`adapter`, `branch`, `lane`) live once, on `feature.json`,
- * so the schema rejects them here (AC-6).
+ * The current row shape (schema version 2, issue #581). A row carries the one bundle envelope
+ * header (`schema_version`, `doc_type`, `change` = the folder-name ULID, `session_id`,
+ * `recorded_at`, `content_hash`) and only what changes per row: the session constants
+ * (`adapter`, `branch`, `lane`) live once, on `feature.json`, so the schema rejects them
+ * here (AC-6), and the retired `conversation_ordinal` and `ts` are gone too.
  */
 export const STAGE_EVIDENCE_SCHEMA = {
   $id: 'paqad://schemas/stage-evidence.json',
@@ -55,22 +53,25 @@ export const STAGE_EVIDENCE_SCHEMA = {
   required: [
     'schema_version',
     'doc_type',
-    'kind',
+    'change',
     'session_id',
-    'conversation_ordinal',
-    'ts',
-    'agent',
+    'recorded_at',
     'content_hash',
+    'kind',
+    'agent',
   ],
   properties: {
+    ...ENVELOPE_HEADER_PROPERTIES,
     schema_version: { type: 'integer', const: STAGE_EVIDENCE_SCHEMA_VERSION },
+    doc_type: { const: STAGE_EVIDENCE_DOC_TYPE },
     ...ROW_PROPERTIES,
   },
 } as const;
 
 /**
- * The pre-#581 row shape (schema version 1): every row stamped the `adapter`, and the open
- * row the `lane` and `branch` (issue #404). Kept so an old row still validates (INV-8);
+ * The pre-#581 row shape (schema version 1): a `ts` and a `conversation_ordinal` instead of
+ * the envelope's `recorded_at` and `change`, the `adapter` on every row, and the `lane`
+ * and `branch` on the open row (issue #404). Kept so an old row still validates (INV-8);
  * no writer produces it any more (INV-9).
  */
 export const STAGE_EVIDENCE_SCHEMA_V1 = {
@@ -90,6 +91,11 @@ export const STAGE_EVIDENCE_SCHEMA_V1 = {
   ],
   properties: {
     schema_version: { type: 'integer', const: 1 },
+    doc_type: { const: STAGE_EVIDENCE_DOC_TYPE },
+    session_id: { type: 'string', minLength: 1 },
+    conversation_ordinal: { type: 'integer', minimum: 1 },
+    ts: { type: 'string', minLength: 1 },
+    content_hash: { type: 'string', minLength: 1 },
     ...ROW_PROPERTIES,
     adapter: { type: 'string', minLength: 1 },
     lane: { type: ['string', 'null'], enum: ['fast', 'graduated', 'full', null] },

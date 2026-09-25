@@ -87,6 +87,15 @@ export function featureDir(dirName: string): string {
 }
 
 /** Project-relative path to one of a feature's bundle files. */
+/**
+ * The change key of a feature bundle: the ULID at the end of its folder name (issue #581,
+ * INV-4). It never changes on a rename, so every row and document the bundle holds names the
+ * same change. A name that does not parse is returned as-is; the envelope schema rejects it.
+ */
+export function featureChangeKey(dirName: string): string {
+  return parseFeatureDirName(dirName)?.ulid ?? dirName;
+}
+
 export function featureFilePath(dirName: string, file: FeatureBundleFile): string {
   return join(featureDir(dirName), FEATURE_BUNDLE_FILES[file]);
 }

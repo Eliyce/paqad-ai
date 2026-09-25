@@ -6,6 +6,7 @@
 // (the script clock that stamped each `ts`); a negative/zero gap is clamped and
 // flagged `unreliable` rather than trusted.
 
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import {
@@ -79,8 +80,9 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[]): FoldedStag
   const start = lastOf(events, 'stage_start');
   const end = lastOf(events, 'stage_end');
 
-  const startedAt = start ? start.ts : null;
-  const endedAt = end ? end.ts : null;
+  // A row since #581 stamps `recorded_at`; an older one `ts`. Both read the same.
+  const startedAt = start ? rowRecordedAt(start) : null;
+  const endedAt = end ? rowRecordedAt(end) : null;
   let durationMs: number | null = null;
   let unreliable = false;
   if (startedAt && endedAt) {
