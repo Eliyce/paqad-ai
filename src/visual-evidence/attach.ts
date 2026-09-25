@@ -47,6 +47,8 @@ export interface AttachVisualEvidenceInput {
   ac?: string;
   /** Caption for the screenshots; defaults to each file's base name. */
   label?: string;
+  /** The session attaching the screenshots, stamped on the manifest header (issue #581). */
+  sessionId?: string | null;
   now?: () => string;
 }
 
@@ -136,7 +138,7 @@ export function attachVisualEvidence(input: AttachVisualEvidenceInput): AttachVi
       journey_step: attachedCount,
       caption,
       dir,
-      captured_at: now(),
+      recorded_at: now(),
       image_sha256: createHash('sha256').update(bytes).digest('hex'),
       image_bytes: bytes.length,
       status: 'captured',
@@ -153,6 +155,7 @@ export function attachVisualEvidence(input: AttachVisualEvidenceInput): AttachVi
     // Any failed scripted step keeps the result partial, whichever of run and attach came first.
     result: mergedVisualEvidenceResult(steps),
     now,
+    sessionId: input.sessionId,
   });
   return acWarning ? { ...written, acWarning } : written;
 }

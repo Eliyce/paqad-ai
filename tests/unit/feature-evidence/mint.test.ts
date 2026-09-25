@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildFeatureRecord,
   buildPlanRecord,
+  buildReviewRecord,
   computeContentHash,
   mintFeatureDirName,
 } from '@/feature-evidence/mint.js';
@@ -112,8 +113,8 @@ describe('record builders', () => {
       issue: '339',
       title: 'Route first workflows',
       slug: 'route-first-workflows',
-      ulid: ULID,
-      session_first_seen: 'ses_1',
+      change: ULID,
+      session_id: 'ses_1',
       adapter: 'claude-code',
       lane: 'full',
       now: clock,
@@ -121,15 +122,24 @@ describe('record builders', () => {
     expect(validateFeatureRecord(record)).toEqual([]);
     expect(record.status).toBe('active');
     expect(record.spec_id).toBeNull();
-    expect(record.created_at).toBe('2026-07-09T00:00:00.000Z');
+    // Issue #581 — the envelope header leads, in its fixed order.
+    expect(Object.keys(record).slice(0, 6)).toEqual([
+      'schema_version',
+      'doc_type',
+      'change',
+      'session_id',
+      'recorded_at',
+      'content_hash',
+    ]);
+    expect(record).toMatchObject({ schema_version: 2, change: ULID, session_id: 'ses_1' });
+    expect(record.recorded_at).toBe('2026-07-09T00:00:00.000Z');
+    expect(record.updated_at).toBe('2026-07-09T00:00:00.000Z');
   });
 
   it('builds a valid plan.json with steps and risks', () => {
     const record = buildPlanRecord({
-      issue: null,
-      title: 'x',
-      slug: 'x',
-      ulid: ULID,
+      change: ULID,
+      session_id: 'ses_1',
       summary: 'do the thing',
       steps: [{ id: 'S1', description: 'first', module: 'core' }],
       modules_touched: ['core'],
@@ -143,10 +153,8 @@ describe('record builders', () => {
 
   it('applies plan defaults for the optional collections', () => {
     const record = buildPlanRecord({
-      issue: null,
-      title: 'x',
-      slug: 'x',
-      ulid: ULID,
+      change: ULID,
+      session_id: 'ses_1',
       summary: 's',
       now: clock,
     });
@@ -161,8 +169,8 @@ describe('record builders', () => {
       issue: '339' as const,
       title: 't',
       slug: 's',
-      ulid: ULID,
-      session_first_seen: 'ses_1',
+      change: ULID,
+      session_id: 'ses_1',
       adapter: 'claude-code',
     };
     const a = buildFeatureRecord({ ...base, now: () => new Date('2026-01-01T00:00:00Z') });
@@ -172,18 +180,52 @@ describe('record builders', () => {
     expect(c.content_hash).not.toBe(a.content_hash);
   });
 
+  it('keeps a given open time as recorded_at while updated_at follows the clock', () => {
+    const record = buildFeatureRecord({
+      issue: null,
+      title: 't',
+      slug: 's',
+      change: ULID,
+      session_id: 'ses_1',
+      adapter: 'claude-code',
+      recorded_at: '2026-01-01T00:00:00.000Z',
+      now: clock,
+    });
+    expect(record.recorded_at).toBe('2026-01-01T00:00:00.000Z');
+    expect(record.updated_at).toBe('2026-07-09T00:00:00.000Z');
+  });
+
+  it('builds review.json with the header and no change identity', () => {
+    const review = buildReviewRecord({
+      change: ULID,
+      session_id: 'ses_1',
+      summary: 's',
+      verdict: 'safe-to-merge',
+      rollback: 'revert',
+      now: clock,
+    });
+    expect(review).toMatchObject({ schema_version: 2, doc_type: 'paqad.review', change: ULID });
+    expect(review.findings).toEqual([]);
+    expect(review.checked).toEqual([]);
+    expect(review).not.toHaveProperty('title');
+  });
+
   it('stamps a real clock when no `now` seam is passed', () => {
     const f = buildFeatureRecord({
       issue: null,
       title: 't',
       slug: 's',
-      ulid: ULID,
-      session_first_seen: 'ses_1',
+      change: ULID,
+      session_id: 'ses_1',
       adapter: 'claude-code',
     });
-    const p = buildPlanRecord({ issue: null, title: 't', slug: 's', ulid: ULID, summary: 'x' });
-    expect(Date.parse(f.created_at)).not.toBeNaN();
-    expect(Date.parse(p.created_at)).not.toBeNaN();
+    const p = buildPlanRecord({
+      change: ULID,
+      session_id: 'ses_1',
+      summary: 'x',
+    });
+    expect(Date.parse(f.recorded_at)).not.toBeNaN();
+    expect(Date.parse(p.recorded_at)).not.toBeNaN();
   });
 
   it('computeContentHash ignores only the volatile keys', () => {

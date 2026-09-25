@@ -477,6 +477,28 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(render({ stageEvidence: noBackstop })).not.toContain('includes idle time');
   });
 
+  // Issue #581 — the title and the branches live in feature.json.
+  it('reads the title and the branches from feature.json, ahead of a legacy plan or delivery', () => {
+    const html = render({
+      feature: { title: 'From feature json', slug: 'x', branch: 'feat/new', base_branch: 'dev' },
+      plan: { title: 'From legacy plan', summary: 's' },
+      delivery: { branch: 'feat/old', commits: [] },
+    });
+    expect(html).toContain('From feature json');
+    expect(html).not.toContain('From legacy plan');
+    expect(html).toContain('feat/new');
+    expect(html).toContain('<code>dev</code>');
+    expect(html).not.toContain('feat/old');
+  });
+
+  it('reads a feature title still equal to the slug as the humanised slug', () => {
+    const html = render(
+      { feature: { title: 'one-thing' }, stageEvidence: [] },
+      'one-thing-01KX5P20DVKF6DN1KC8ZSQ71Q3',
+    );
+    expect(html).toContain('One Thing');
+  });
+
   it('humanises an untitled change dir header and works with no plan title', () => {
     const html = render({ stageEvidence: [] }, 'change-01KX5P20DVKF6DN1KC8ZSQ71Q3');
     expect(html).toContain('Change 01KX5P20DVKF6DN1KC8ZSQ71Q3'.slice(0, 6));

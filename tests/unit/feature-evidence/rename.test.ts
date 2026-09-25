@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { readFeaturePlan, writeFeaturePlan } from '@/feature-evidence/artifacts.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { backfillFeatureSlug } from '@/feature-evidence/rename.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
@@ -220,10 +221,14 @@ describe('writeFeaturePlan slug back-fill (issue #403)', () => {
       now: clock,
     });
     expect(result.dirName).not.toBe(dir);
-    expect(result.record.slug).not.toBe('change');
-    expect(result.record).toMatchObject({ issue: '403', ulid: ULID });
+    // Issue #581 — the plan carries the change key; the identity lives in feature.json.
+    expect(result.record.change).toBe(ULID);
+    const feature = readFeatureRecord(root, result.dirName);
+    expect(feature?.slug).not.toBe('change');
+    expect(feature).toMatchObject({ issue: '403', change: ULID });
+    expect(parseFeatureDirName(result.dirName)?.slug).toBe(feature?.slug);
     expect(result.path).toBe(featureFilePath(result.dirName, 'plan'));
-    expect(readFeaturePlan(root, result.dirName)?.slug).toBe(result.record.slug);
+    expect(readFeaturePlan(root, result.dirName)?.content_hash).toBe(result.record.content_hash);
     expect(readSessionControl(root, 'ses_1', clock).active).toBe(result.dirName);
     expect(existsSync(join(root, featureDir(dir)))).toBe(false);
   });
@@ -241,6 +246,6 @@ describe('writeFeaturePlan slug back-fill (issue #403)', () => {
       now: clock,
     });
     expect(result.dirName).toBe(dir);
-    expect(result.record.slug).toBe('change');
+    expect(parseFeatureDirName(result.dirName)?.slug).toBe('change');
   });
 });

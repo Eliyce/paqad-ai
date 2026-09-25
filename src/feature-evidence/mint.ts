@@ -14,11 +14,12 @@ import type { TicketProviderKind } from '@/core/types/project-profile.js';
 import { deriveSlug } from '@/planning/slug-utils.js';
 import { detectTicketRefs } from '@/planning/ticket-ref-detect.js';
 
+import { buildDocumentEnvelope } from './envelope.js';
 import { formatFeatureDirName } from './paths.js';
 import type { PlanReuse } from './reuse.js';
 import {
+  FEATURE_DOC_SCHEMA_VERSION,
   FEATURE_DOC_TYPE,
-  FEATURE_EVIDENCE_SCHEMA_VERSION,
   PLAN_DOC_TYPE,
   REVIEW_DOC_TYPE,
   type FeatureLane,
@@ -143,52 +144,63 @@ function normalizeIssue(issue: string | null): string | null {
   return stripped.length > 0 ? stripped : null;
 }
 
-export interface BuildFeatureRecordInput {
-  issue: string | null;
-  title: string;
-  slug: string;
-  ulid: string;
-  lane?: FeatureLane;
-  status?: FeatureStatus;
-  spec_id?: string | null;
-  session_first_seen: string;
-  adapter: string;
-  branch?: string | null;
-  base_branch?: string | null;
+/** The envelope identity every per-feature document builder takes (issue #581). */
+interface DocumentIdentityInput {
+  /** The change key: the ULID at the end of the bundle's folder name (INV-4). */
+  change: string;
+  /** The session writing the document. */
+  session_id: string;
   now?: () => Date;
 }
 
-/** Build a validated-shape `feature.json` record with a stamped `content_hash`. */
-export function buildFeatureRecord(input: BuildFeatureRecordInput): FeatureRecord {
-  const stamp = (input.now ?? (() => new Date()))().toISOString();
-  const base = {
-    schema_version: FEATURE_EVIDENCE_SCHEMA_VERSION,
-    doc_type: FEATURE_DOC_TYPE,
-    issue: input.issue,
-    title: input.title,
-    slug: input.slug,
-    ulid: input.ulid,
-    lane: input.lane ?? null,
-    status: input.status ?? 'active',
-    spec_id: input.spec_id ?? null,
-    session_first_seen: input.session_first_seen,
-    adapter: input.adapter,
-    branch: input.branch ?? null,
-    base_branch: input.base_branch ?? null,
-  } satisfies Omit<FeatureRecord, 'created_at' | 'updated_at' | 'content_hash'>;
-  return {
-    ...base,
-    created_at: stamp,
-    updated_at: stamp,
-    content_hash: computeContentHash(base),
-  };
-}
-
-export interface BuildPlanRecordInput {
+export interface BuildFeatureRecordInput extends DocumentIdentityInput {
   issue: string | null;
   title: string;
   slug: string;
-  ulid: string;
+  lane?: FeatureLane;
+  status?: FeatureStatus;
+  spec_id?: string | null;
+  adapter: string;
+  branch?: string | null;
+  base_branch?: string | null;
+  /**
+   * When the change opened, carried over when a record is re-stamped so `recorded_at` keeps
+   * meaning "opened at" while `updated_at` moves. Defaults to the clock.
+   */
+  recorded_at?: string;
+}
+
+/**
+ * Build a validated-shape `feature.json` record through the one envelope builder (issue
+ * #581): the six-field header first, then the identity and the session constants.
+ * `content_hash` covers the header identity and the body, never the two times.
+ */
+export function buildFeatureRecord(input: BuildFeatureRecordInput): FeatureRecord {
+  const now = input.now ?? (() => new Date());
+  const updatedAt = now().toISOString();
+  const openedAt = input.recorded_at;
+  return buildDocumentEnvelope({
+    docType: FEATURE_DOC_TYPE,
+    change: input.change,
+    sessionId: input.session_id,
+    schemaVersion: FEATURE_DOC_SCHEMA_VERSION,
+    now: openedAt === undefined ? () => new Date(updatedAt) : () => new Date(openedAt),
+    body: {
+      issue: input.issue,
+      title: input.title,
+      slug: input.slug,
+      lane: input.lane ?? null,
+      status: input.status ?? 'active',
+      spec_id: input.spec_id ?? null,
+      adapter: input.adapter,
+      branch: input.branch ?? null,
+      base_branch: input.base_branch ?? null,
+      updated_at: updatedAt,
+    },
+  }) as FeatureRecord;
+}
+
+export interface BuildPlanRecordInput extends DocumentIdentityInput {
   summary: string;
   steps?: PlanStep[];
   modules_touched?: string[];
@@ -196,70 +208,58 @@ export interface BuildPlanRecordInput {
   risks?: PlanRisk[];
   /** The reuse declaration (issue #357); absent only for a record built pre-gate. */
   reuse?: PlanReuse;
-  now?: () => Date;
 }
 
-export interface BuildReviewRecordInput {
-  issue: string | null;
-  title: string;
-  slug: string;
-  ulid: string;
+export interface BuildReviewRecordInput extends DocumentIdentityInput {
   summary: string;
   verdict: ReviewVerdict;
   findings?: ReviewFinding[];
   checked?: string[];
   rollback: string;
-  now?: () => Date;
 }
 
-/** Build a validated-shape `review.json` record with a stamped `content_hash` (issue #402). */
+/**
+ * Build a validated-shape `review.json` record (issue #402) through the one envelope builder
+ * (issue #581). The change identity is not repeated here: it lives in `feature.json`.
+ */
 export function buildReviewRecord(input: BuildReviewRecordInput): ReviewRecord {
-  const stamp = (input.now ?? (() => new Date()))().toISOString();
-  const base = {
-    schema_version: FEATURE_EVIDENCE_SCHEMA_VERSION,
-    doc_type: REVIEW_DOC_TYPE,
-    issue: input.issue,
-    title: input.title,
-    slug: input.slug,
-    ulid: input.ulid,
-    summary: input.summary,
-    verdict: input.verdict,
-    findings: input.findings ?? [],
-    checked: input.checked ?? [],
-    rollback: input.rollback,
-  } satisfies Omit<ReviewRecord, 'created_at' | 'updated_at' | 'content_hash'>;
-  return {
-    ...base,
-    created_at: stamp,
-    updated_at: stamp,
-    content_hash: computeContentHash(base),
-  };
+  return buildDocumentEnvelope({
+    docType: REVIEW_DOC_TYPE,
+    change: input.change,
+    sessionId: input.session_id,
+    schemaVersion: FEATURE_DOC_SCHEMA_VERSION,
+    now: input.now,
+    body: {
+      summary: input.summary,
+      verdict: input.verdict,
+      findings: input.findings ?? [],
+      checked: input.checked ?? [],
+      rollback: input.rollback,
+    },
+  }) as ReviewRecord;
 }
 
-/** Build a validated-shape `plan.json` record with a stamped `content_hash`. */
+/**
+ * Build a validated-shape `plan.json` record through the one envelope builder (issue #581).
+ * The change identity is not repeated here: it lives in `feature.json`.
+ */
 export function buildPlanRecord(input: BuildPlanRecordInput): PlanRecord {
-  const stamp = (input.now ?? (() => new Date()))().toISOString();
-  const base = {
-    schema_version: FEATURE_EVIDENCE_SCHEMA_VERSION,
-    doc_type: PLAN_DOC_TYPE,
-    issue: input.issue,
-    title: input.title,
-    slug: input.slug,
-    ulid: input.ulid,
-    summary: input.summary,
-    steps: input.steps ?? [],
-    modules_touched: input.modules_touched ?? [],
-    decisions: input.decisions ?? [],
-    risks: input.risks ?? [],
-    // Omitted entirely when absent: the stored schema leaves `reuse` optional so a
-    // pre-#357 plan.json stays valid, and a literal `undefined` would serialise into the
-    // identity hash differently than the missing key it represents.
-    ...(input.reuse === undefined ? {} : { reuse: input.reuse }),
-  } satisfies Omit<PlanRecord, 'created_at' | 'updated_at' | 'content_hash'>;
-  return {
-    ...base,
-    created_at: stamp,
-    updated_at: stamp,
-    content_hash: computeContentHash(base),
-  };
+  return buildDocumentEnvelope({
+    docType: PLAN_DOC_TYPE,
+    change: input.change,
+    sessionId: input.session_id,
+    schemaVersion: FEATURE_DOC_SCHEMA_VERSION,
+    now: input.now,
+    body: {
+      summary: input.summary,
+      steps: input.steps ?? [],
+      modules_touched: input.modules_touched ?? [],
+      decisions: input.decisions ?? [],
+      risks: input.risks ?? [],
+      // Omitted entirely when absent: the stored schema leaves `reuse` optional so a
+      // pre-#357 plan.json stays valid, and a literal `undefined` would serialise into the
+      // identity hash differently than the missing key it represents.
+      ...(input.reuse === undefined ? {} : { reuse: input.reuse }),
+    },
+  }) as PlanRecord;
 }

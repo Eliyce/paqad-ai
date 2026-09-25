@@ -141,7 +141,7 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
       journey_step: 1,
       caption: 'Open',
       dir: 'screenshots/03-open',
-      captured_at: AT,
+      recorded_at: AT,
       image_sha256: sha(scripted),
       image_bytes: readFileSync(scripted).length,
       status: 'captured',
@@ -152,7 +152,7 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
       journey_step: 2,
       caption: 'Pay',
       dir: 'screenshots/02-pay',
-      captured_at: AT,
+      recorded_at: AT,
       status: 'failed',
       failure: 'selector-not-found',
     };
@@ -221,7 +221,73 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
       dirName: DIR,
       files: [png('x.png', 'x')],
     });
-    expect(result.manifest!.steps[0]!.captured_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(result.manifest!.steps[0]!.recorded_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  // Issue #581 — the manifest carries the one envelope header.
+  it('stamps the envelope header, with the attaching session', () => {
+    const result = attachVisualEvidence({
+      projectRoot: root,
+      dirName: DIR,
+      files: [png('x.png', 'x')],
+      sessionId: 'ses_attach',
+      now,
+    });
+    const raw = JSON.parse(readFileSync(manifestPath(), 'utf8')) as Record<string, unknown>;
+    expect(Object.keys(raw).slice(0, 6)).toEqual([
+      'schema_version',
+      'doc_type',
+      'change',
+      'session_id',
+      'recorded_at',
+      'content_hash',
+    ]);
+    expect(raw).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.visual-evidence',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_attach',
+      recorded_at: AT,
+    });
+    expect(raw).not.toHaveProperty('generated_at');
+    expect(result.manifest!.content_hash).toBe(raw.content_hash);
+  });
+
+  it('carries the steps of a pre-#581 manifest forward under recorded_at (INV-8)', () => {
+    mkdirSync(bundleFile('screenshots/01-old'), { recursive: true });
+    writeFileSync(
+      manifestPath(),
+      JSON.stringify({
+        schema_version: 1,
+        doc_type: 'paqad.visual-evidence',
+        generated_at: AT,
+        content_hash: 'a'.repeat(64),
+        trigger: { changed_files: [], matched_globs: [], packs: [] },
+        plan: [],
+        steps: [
+          {
+            index: 1,
+            journey_id: 'agent-attached',
+            journey_step: 1,
+            caption: 'old',
+            dir: 'screenshots/01-old',
+            captured_at: AT,
+            status: 'captured',
+          },
+        ],
+        gif: null,
+        skips: [],
+        result: 'captured',
+        source: 'agent-attached',
+      }),
+    );
+    expect(readAttachedSteps(root, DIR)[0]).toMatchObject({ recorded_at: AT });
+    attachVisualEvidence({ projectRoot: root, dirName: DIR, files: [png('y.png', 'y')], now });
+    const raw = JSON.parse(readFileSync(manifestPath(), 'utf8')) as VisualEvidenceManifest;
+    expect(raw.schema_version).toBe(2);
+    expect(raw.steps).toHaveLength(2);
+    expect(raw.steps[0]).toMatchObject({ caption: 'old', recorded_at: AT });
+    expect(raw.steps[0]).not.toHaveProperty('captured_at');
   });
 });
 
@@ -281,7 +347,7 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
       journey_step: 1,
       caption: 'a',
       dir: 'screenshots/01-a',
-      captured_at: AT,
+      recorded_at: AT,
       status: 'captured',
     } as VeStep;
     const scriptedStep = {
@@ -319,7 +385,7 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
           journey_step: 1,
           caption: 'pay',
           dir: 'screenshots/01-pay',
-          captured_at: AT,
+          recorded_at: AT,
           status: 'failed',
           failure: 'selector-not-found',
         },
@@ -361,7 +427,7 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
       journey_step: 1,
       caption: 'pay',
       dir: 'screenshots/02-pay',
-      captured_at: AT,
+      recorded_at: AT,
       status: 'failed',
       failure: 'selector-not-found',
     } as VeStep;
@@ -388,7 +454,7 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
       journey_step: 1,
       caption: 'a',
       dir: 'screenshots/01-a',
-      captured_at: AT,
+      recorded_at: AT,
       status: 'captured',
     } as VeStep;
     const merged = mergeAttachedSteps([attachedStep], {

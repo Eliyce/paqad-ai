@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -13,8 +13,8 @@ import {
   reconcileSessionControl,
   sessionClosedAnyFeature,
 } from '@/feature-evidence/adoption.js';
-import { readFeatureDelivery, writeFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   readSessionControl,
   setActiveFeature,
@@ -383,10 +383,19 @@ describe('branch scoping (issue #404)', () => {
     appendLegacyStageRow(root, BUNDLE_A, 'ses_a', { kind: 'open' });
     expect(featureBranch(root, BUNDLE_A)).toBeNull();
 
-    writeFeatureDelivery(root, BUNDLE_A, {
-      ...readFeatureDelivery(root, BUNDLE_A),
-      branch: 'fix/from-delivery',
-    });
+    // A pre-#581 delivery.json carried the branch; the writer no longer does, so write the
+    // legacy bytes directly.
+    const deliveryAbs = join(root, featureFilePath(BUNDLE_A, 'delivery'));
+    mkdirSync(dirname(deliveryAbs), { recursive: true });
+    writeFileSync(
+      deliveryAbs,
+      JSON.stringify({
+        schema_version: 1,
+        doc_type: 'paqad.delivery',
+        branch: 'fix/from-delivery',
+        commits: [],
+      }),
+    );
     expect(featureBranch(root, BUNDLE_A)).toBe('fix/from-delivery');
   });
 

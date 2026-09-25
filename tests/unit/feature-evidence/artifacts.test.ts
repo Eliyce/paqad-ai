@@ -28,6 +28,7 @@ import type { PlanReuse } from '@/feature-evidence/reuse.js';
 import { validatePlanRecord, validateReviewRecord } from '@/feature-evidence/schema.js';
 import { featureSpecMarkdownPath } from '@/feature-evidence/paths.js';
 import { renderSpecMarkdown } from '@/feature-evidence/spec-markdown.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 
@@ -96,8 +97,22 @@ describe('writeFeaturePlan', () => {
     });
     expect(result.dirName).toBe(dir);
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/plan.json`);
-    // Identity comes from the dir name, not the model.
-    expect(result.record).toMatchObject({ issue: '339', slug: 'route-first-workflows' });
+    // Issue #581 — the envelope header, with the change key from the dir name; the change
+    // identity (issue / title / slug) lives in feature.json only.
+    expect(result.record).toMatchObject({
+      schema_version: 2,
+      doc_type: 'paqad.plan',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_1',
+      recorded_at: clock().toISOString(),
+    });
+    for (const key of ['issue', 'title', 'slug', 'ulid', 'created_at', 'updated_at']) {
+      expect(result.record).not.toHaveProperty(key);
+    }
+    expect(readFeatureRecord(root, dir)).toMatchObject({
+      issue: '339',
+      slug: 'route-first-workflows',
+    });
     expect(validatePlanRecord(result.record)).toEqual([]);
     const readBack = readFeaturePlan(root, dir);
     expect(readBack?.content_hash).toBe(result.record.content_hash);
@@ -179,9 +194,12 @@ describe('writeFeatureReview', () => {
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/review.json`);
     const record = readFeatureReview(root, dir);
     expect(record?.doc_type).toBe('paqad.review');
-    // Identity is taken from the dir, never from the model.
-    expect(record?.issue).toBe('339');
-    expect(record?.ulid).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
+    // The change key is taken from the dir, never from the model; the identity is not repeated.
+    expect(record?.change).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
+    expect(record?.session_id).toBe('ses_1');
+    for (const key of ['issue', 'title', 'slug', 'ulid', 'created_at']) {
+      expect(record).not.toHaveProperty(key);
+    }
     expect(record?.verdict).toBe('safe-to-merge');
     expect(record?.findings).toHaveLength(1);
     expect(validateReviewRecord(record)).toEqual([]);
@@ -195,7 +213,7 @@ describe('writeFeatureReview', () => {
       ...template,
       now: () => new Date('2026-07-11T00:00:00.000Z'),
     }).record;
-    expect(second.created_at).not.toBe(first.created_at);
+    expect(second.recorded_at).not.toBe(first.recorded_at);
     expect(second.content_hash).toBe(first.content_hash);
     expect(readFeatureReview(root, dir)?.content_hash).toBe(first.content_hash);
   });

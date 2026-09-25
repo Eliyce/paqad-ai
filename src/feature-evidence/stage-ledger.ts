@@ -295,14 +295,13 @@ export function openFeatureChange(
   const hasOpen = readFeatureStageUnit(projectRoot, dirName).some((row) => row.kind === 'open');
   if (!hasOpen) {
     appendFeatureStageRow(projectRoot, sessionId, dirName, { kind: 'open' }, input.now);
-    // Issue #511 (RC-2) — seed delivery.json with the branch + base at open, so the FIRST
-    // commit on this branch links to this bundle (the branch-match had nothing to match on
-    // before). Best-effort — a git/write fault never breaks the open path.
+    // Issue #511 (RC-2) — seed delivery.json at open, so every bundle carries its delivery
+    // record from birth. The branch the FIRST commit matches on is on feature.json, seeded
+    // above (issue #581). Best-effort — a git/write fault never breaks the open path.
     try {
       seedFeatureDelivery(projectRoot, dirName, {
-        branch: gitState.branch ?? null,
-        baseBranch: gitState.base_branch ?? null,
-        capturedAt: (input.now ?? (() => new Date()))().toISOString(),
+        sessionId,
+        recordedAt: (input.now ?? (() => new Date()))().toISOString(),
       });
       /* v8 ignore next 3 -- best-effort: a delivery seed fault must not break feature open. */
     } catch {

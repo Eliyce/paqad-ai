@@ -177,6 +177,7 @@ export function createVisualEvidenceCommand(): Command {
             projectRoot,
             dirName,
             files,
+            sessionId,
             ...(options.ac ? { ac: options.ac } : {}),
             ...(options.label ? { label: options.label } : {}),
           });

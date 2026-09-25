@@ -5,8 +5,14 @@
 // `src/feature-evidence/schema.ts` reuses the const arrays below so the runtime type and the
 // validated shape can never drift.
 
+import type { EnvelopeHeader } from '@/feature-evidence/envelope.js';
+
 export const VISUAL_EVIDENCE_DOC_TYPE = 'paqad.visual-evidence';
-export const VISUAL_EVIDENCE_SCHEMA_VERSION = 1;
+/**
+ * Issue #581 — version 2 carries the one envelope header (`recorded_at` replaces
+ * `generated_at`) and `recorded_at` on each step (it was `captured_at`). Version 1 still reads.
+ */
+export const VISUAL_EVIDENCE_SCHEMA_VERSION = 2;
 
 /** Closed set of reasons a capture step or the whole run was skipped. */
 export const VE_SKIP_REASONS = [
@@ -63,7 +69,8 @@ export interface VeStep {
   caption: string;
   dir: string;
   route?: string;
-  captured_at: string;
+  /** When the step was captured or attached (issue #581: it was `captured_at`). */
+  recorded_at: string;
   image_sha256?: string;
   image_bytes?: number;
   status: VeStepStatus;
@@ -95,11 +102,8 @@ export interface VeTrigger {
 }
 
 /** The rigid manifest written by the runner and read by the gate + report. */
-export interface VisualEvidenceManifest {
-  schema_version: number;
+export interface VisualEvidenceManifest extends EnvelopeHeader {
   doc_type: typeof VISUAL_EVIDENCE_DOC_TYPE;
-  generated_at: string;
-  content_hash: string;
   trigger: VeTrigger;
   plan: VePlanEntry[];
   steps: VeStep[];

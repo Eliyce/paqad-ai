@@ -30,6 +30,32 @@ afterEach(() => {
 });
 
 const clock = () => new Date('2026-09-04T00:00:00.000Z');
+
+/** A `feature.json` exactly as a pre-#581 writer left it (schema version 1, no branch keys). */
+function legacyFeatureRecord(): Record<string, unknown> {
+  return {
+    schema_version: 1,
+    doc_type: 'paqad.feature',
+    issue: '511',
+    title: 'Legacy title',
+    slug: 'do-a-thing',
+    ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    lane: null,
+    status: 'active',
+    spec_id: null,
+    session_first_seen: 'ses_old',
+    adapter: 'claude-code',
+    content_hash: 'a'.repeat(64),
+  };
+}
+
+function writeLegacyFeatureRecord(root: string): void {
+  const abs = join(root, featureFilePath(DIR, 'feature'));
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, JSON.stringify(legacyFeatureRecord()));
+}
 const DIR = '511-do-a-thing-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const UNTITLED_DIR = 'change-01JABCDEFGHJKMNPQRSTVWXYZ1';
 
@@ -48,7 +74,9 @@ describe('seedFeatureRecord', () => {
     expect(record!.title).toBe('do-a-thing');
     expect(record!.lane).toBe('full');
     expect(record!.status).toBe('active');
-    expect(record!.session_first_seen).toBe('ses_1');
+    expect(record!.session_id).toBe('ses_1');
+    expect(record!.change).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
+    expect(record!.recorded_at).toBe(clock().toISOString());
     expect(record!.adapter).toBe('claude-code');
     expect(validateFeatureRecord(record)).toEqual([]);
     // The file is on disk and re-readable.
@@ -143,8 +171,8 @@ describe('writeFeatureRecord', () => {
         issue: null,
         title: 'x',
         slug: 'x',
-        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
-        session_first_seen: 's',
+        change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+        session_id: 's',
         adapter: 'a',
         now: clock,
       }),
@@ -181,8 +209,8 @@ describe('featureRecordIsUntitled', () => {
       issue: null,
       title: 'change',
       slug: 'change',
-      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
-      session_first_seen: 's',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 's',
       adapter: 'a',
       now: clock,
     });
@@ -210,20 +238,55 @@ describe('session constants on feature.json', () => {
   });
 
   it('still validates a pre-#581 record with no branch keys (INV-8)', () => {
-    const legacy: Record<string, unknown> = {
-      ...buildFeatureRecord({
-        issue: '511',
-        title: 't',
-        slug: 't',
-        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
-        session_first_seen: 's',
-        adapter: 'a',
-        now: clock,
-      }),
-    };
-    delete legacy.branch;
-    delete legacy.base_branch;
-    expect(validateFeatureRecord(legacy)).toEqual([]);
+    expect(validateFeatureRecord(legacyFeatureRecord())).toEqual([]);
+  });
+
+  it('reads a pre-#581 record under the current names (INV-8)', () => {
+    const root = tempRoot();
+    writeLegacyFeatureRecord(root);
+    expect(readFeatureRecord(root, DIR)).toMatchObject({
+      schema_version: 1,
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_old',
+      recorded_at: '2026-01-01T00:00:00.000Z',
+      title: 'Legacy title',
+      branch: null,
+      base_branch: null,
+    });
+  });
+
+  it('rewrites a pre-#581 record in the new shape on its next patch (INV-9)', () => {
+    const root = tempRoot();
+    writeLegacyFeatureRecord(root);
+    updateFeatureRecord(root, DIR, { status: 'done' }, clock);
+    const raw = JSON.parse(
+      readFileSync(join(root, featureFilePath(DIR, 'feature')), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(raw).toMatchObject({
+      schema_version: 2,
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 'ses_old',
+      recorded_at: '2026-01-01T00:00:00.000Z',
+      updated_at: clock().toISOString(),
+      status: 'done',
+    });
+    for (const key of ['ulid', 'session_first_seen', 'created_at']) {
+      expect(raw).not.toHaveProperty(key);
+    }
+    expect(validateFeatureRecord(raw)).toEqual([]);
+  });
+
+  it('rejects a v2 record that still carries a v1 key', () => {
+    const record = buildFeatureRecord({
+      issue: null,
+      title: 't',
+      slug: 't',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 's',
+      adapter: 'a',
+      now: clock,
+    });
+    expect(validateFeatureRecord({ ...record, ulid: record.change }).length).toBeGreaterThan(0);
   });
 
   it('updates the adapter and branch in place, the latest host winning', () => {

@@ -39,6 +39,25 @@ change, so the live feature-development stage spine is untouched:
   host, and an unresolved lane never erases a recorded one). Stage rows (schema version 2)
   no longer carry them. `readChangeConstants` reads `feature.json` first and falls back, field
   by field, to the `open` row of a bundle written before #581.
+- **Document headers** (`envelope.ts`, `bundle-document.ts`, issue #581) — every JSON
+  document in a bundle opens with the same six fields, in this order: `schema_version`,
+  `doc_type` (`paqad.<file-stem>`), `change` (the folder-name ULID), `session_id`,
+  `recorded_at` and `content_hash`. `mint.ts` builds `feature.json`, `plan.json` and
+  `review.json` through `buildDocumentEnvelope`; `delivery.json`, `rules-loaded.json`,
+  `checks.json` and `visual-evidence.json` go through `stampFeatureDocument`, which stamps
+  the writer session when it has one and otherwise the session that opened the change (a git
+  hook has none). `recorded_at` replaces `created_at`, `captured_at` and `generated_at`,
+  including on each visual-evidence step. `feature.json` is the only file with `issue`,
+  `title` and `slug` (`ulid` became `change`, `session_first_seen` became `session_id`,
+  and it keeps `updated_at`); `plan.json` and `review.json` no longer repeat them, and the
+  report reads the title from `feature.json`. `delivery.json` no longer holds the branch:
+  branch matching and `delivery-link` read and record it on `feature.json`, falling back to
+  the `branch` an old `delivery.json` carried. `rules-loaded.json` no longer holds the
+  `adapter`. The changed shapes are schema version 2 (`checks.json` 3); each AJV schema is
+  the envelope fragment composed through `allOf` with its own body, and a
+  `schema_version: 1` file is checked against its old shape, so an old bundle still reads.
+  `readFeatureRecord` maps an old `feature.json` onto the new names, and its next patch
+  rewrites it in the new shape.
 - **Bundle manifest** (`manifest.ts`, issue #511) — the single declarative source of truth
   for **which** bundle files a feature-development change must leave, **when** each is
   required, and **who** writes it. The `bundle-completeness` gate reads it, and a test

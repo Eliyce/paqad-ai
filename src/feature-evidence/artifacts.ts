@@ -54,7 +54,11 @@ export interface PlanCompileInput {
    * than dying at the JSON boundary.
    */
   reuse?: PlanReuse;
-  /** Title override for the record; defaults to the feature slug when absent. */
+  /**
+   * The change's human title. It is recorded on `feature.json` (the one home of the change
+   * identity, issue #581) and drives the untitled-bundle rename; `plan.json` never repeats it.
+   * Defaults to the feature slug when absent.
+   */
   title?: string;
   now?: () => Date;
 }
@@ -193,10 +197,8 @@ export function writeFeaturePlan(
     }
   }
   const record = buildPlanRecord({
-    issue: parts.issue,
-    title: input.title ?? parts.slug,
-    slug: parts.slug,
-    ulid: parts.ulid,
+    change: parts.ulid,
+    session_id: sessionId,
     summary: input.summary,
     steps: input.steps,
     modules_touched: input.modules_touched,
@@ -218,7 +220,7 @@ export function writeFeaturePlan(
   updateFeatureRecord(
     projectRoot,
     dirName,
-    { title: record.title, slug: parts.slug, issue: parts.issue },
+    { title: input.title ?? parts.slug, slug: parts.slug, issue: parts.issue },
     input.now,
   );
 
@@ -336,7 +338,10 @@ export interface ReviewRecordInput {
   findings?: ReviewFinding[];
   checked?: string[];
   rollback: string;
-  /** Title override for the record; defaults to the feature slug when absent. */
+  /**
+   * Accepted so a template written before issue #581 still compiles, and no longer stored:
+   * the change title lives in `feature.json`, which `plan compile` sets.
+   */
   title?: string;
   now?: () => Date;
 }
@@ -357,10 +362,8 @@ export function writeFeatureReview(
 ): CompiledArtifact<ReviewRecord> {
   const { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
   const record = buildReviewRecord({
-    issue: parts.issue,
-    title: input.title ?? parts.slug,
-    slug: parts.slug,
-    ulid: parts.ulid,
+    change: parts.ulid,
+    session_id: sessionId,
     summary: input.summary,
     verdict: input.verdict,
     findings: input.findings,

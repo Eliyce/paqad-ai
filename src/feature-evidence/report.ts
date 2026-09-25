@@ -686,11 +686,27 @@ function renderAiBom(bundle: FeatureBundleExport): string {
   return panel('aibom', 'AI bill of materials', body);
 }
 
+/**
+ * The branch a change is built on and the branch it merges into. Issue #581 — they live in
+ * `feature.json`; a bundle written before #581 carried them in `delivery.json` (INV-8).
+ */
+function deliveryBranches(bundle: FeatureBundleExport): {
+  branch: string | null;
+  base_branch: string | null;
+} {
+  const feature = bundle.files.feature as
+    { branch?: string | null; base_branch?: string | null } | undefined;
+  const delivery = bundle.files.delivery as
+    { branch?: string | null; base_branch?: string | null } | undefined;
+  return {
+    branch: feature?.branch ?? delivery?.branch ?? null,
+    base_branch: feature?.base_branch ?? delivery?.base_branch ?? null,
+  };
+}
+
 function renderDelivery(bundle: FeatureBundleExport): string {
   const delivery = bundle.files.delivery as
     | {
-        branch?: string | null;
-        base_branch?: string | null;
         commits?: { sha?: string; subject?: string }[];
         head_sha?: string | null;
         merge_commit?: string | null;
@@ -705,9 +721,10 @@ function renderDelivery(bundle: FeatureBundleExport): string {
     );
   }
   const commits = delivery.commits ?? [];
+  const branches = deliveryBranches(bundle);
   const parts: string[] = [];
   parts.push(
-    `<p>Branch <code>${escapeHtml(delivery.branch ?? 'unknown')}</code>${delivery.base_branch ? ` onto <code>${escapeHtml(delivery.base_branch)}</code>` : ''}.</p>`,
+    `<p>Branch <code>${escapeHtml(branches.branch ?? 'unknown')}</code>${branches.base_branch ? ` onto <code>${escapeHtml(branches.base_branch)}</code>` : ''}.</p>`,
   );
   if (commits.length > 0) {
     const items = commits
@@ -908,14 +925,14 @@ function buildOverviewTiles(
   });
 
   // Delivery — a metric tile.
-  const delivery = bundle.files.delivery as
-    { branch?: string | null; commits?: unknown[] } | undefined;
+  const delivery = bundle.files.delivery as { commits?: unknown[] } | undefined;
   const commitCount = Array.isArray(delivery?.commits) ? delivery.commits.length : 0;
+  const deliveryBranch = delivery === undefined ? null : deliveryBranches(bundle).branch;
   tiles.push({
     target: 'delivery',
     label: 'Commits',
     value: delivery === undefined ? '—' : String(commitCount),
-    sub: delivery?.branch ? `on ${delivery.branch}` : 'not linked yet',
+    sub: deliveryBranch ? `on ${deliveryBranch}` : 'not linked yet',
   });
 
   return tiles;
@@ -1190,8 +1207,14 @@ export function renderFeatureReportHtml(
   options: RenderFeatureReportOptions,
 ): string {
   const parts = parseFeatureDirName(bundle.dir_name);
+  // Issue #581 — the title lives in feature.json; a plan written before #581 also carried it.
+  // A feature title still equal to the slug is the seed placeholder, so it reads as the slug.
+  const feature = bundle.files.feature as { title?: string } | undefined;
+  const featureTitle =
+    feature?.title !== undefined && feature.title !== parts?.slug ? feature.title : undefined;
   const plan = bundle.files.plan as { title?: string } | undefined;
   const title =
+    featureTitle ??
     plan?.title ??
     (parts ? parts.slug.replace(/-/g, ' ') : bundle.dir_name).replace(/\b\w/g, (c) =>
       c.toUpperCase(),
