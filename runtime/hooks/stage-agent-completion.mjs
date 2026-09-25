@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// stage-agent-completion.mjs — records a stage agent's context-efficiency row on
-// SubagentStop (issue #567).
+// stage-agent-completion.mjs — records a stage agent's `stage-agent` row on SubagentStop
+// (issues #567, #581).
 //
 // A subagent-completion hook, wired only when stage isolation is on and matched to paqad's
 // own stage agents (`^paqad-` on agent type). When a stage agent finishes it reads the
-// subagent transcript, appends one `context-efficiency.jsonl` row (tokens used + carried
-// history the orchestrator did not re-send), and — belt and braces — records any
+// subagent transcript, appends one `kind: 'stage-agent'` row to the bundle's
+// stage-evidence.jsonl (tokens used + carried history the orchestrator did not re-send), and — belt and braces — records any
 // `paqad:stage` markers the agent spoke (the CLI verbs already recorded the authoritative
 // rows). Non-blocking and best-effort: always exits 0. Blocking a SubagentStop is
 // undocumented on Claude, so this hook never does.

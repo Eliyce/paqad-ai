@@ -17,7 +17,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { BUNDLE_MANIFEST, type BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
+import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
+import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   featureStagePath,
@@ -160,37 +161,9 @@ describe('stageIsolationExpected (issue #573)', () => {
   });
 });
 
-describe('the manifest entry for the isolation stream', () => {
-  const entry = BUNDLE_MANIFEST.find((row) => row.key === 'contextEfficiency');
-
-  function config(overrides: Partial<BundleCompletenessConfig>): BundleCompletenessConfig {
-    return {
-      ruleComplianceOn: false,
-      metricsEnabled: false,
-      duplicationOn: false,
-      featureReport: false,
-      ragEnabled: false,
-      enterprise: false,
-      evidenceLedger: false,
-      aiBom: false,
-      specPipelineStrict: false,
-      stageIsolationExpected: false,
-      ...overrides,
-    };
-  }
-
-  it('stays `optional`, so a change that did not expect isolation sees no flag-off note', () => {
-    // Issue #528 added `optional` precisely so a non-required file is not reported as
-    // "Skipped (flag off)". Isolation is flagless, so that wording would be a lie.
-    expect(entry?.required).toBe('optional');
-  });
-
-  it('upgrades to required exactly when isolation was expected', () => {
-    expect(entry?.requiredWhen?.(config({ stageIsolationExpected: true }))).toBe(true);
-    expect(entry?.requiredWhen?.(config({ stageIsolationExpected: false }))).toBe(false);
-  });
-
-  it('names a writer, so the failure tells you what produces the file', () => {
-    expect(entry?.writer).toContain('SubagentStop');
+describe('the isolation evidence lives in stage-evidence.jsonl (issue #581, D9)', () => {
+  it('has no separate bundle file or manifest entry any more', () => {
+    expect(Object.values(FEATURE_BUNDLE_FILES)).not.toContain('context-efficiency.jsonl');
+    expect(BUNDLE_MANIFEST.map((row) => row.file)).not.toContain('context-efficiency.jsonl');
   });
 });

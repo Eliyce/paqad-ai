@@ -34,7 +34,7 @@ function bundleDir(root: string): string {
 }
 
 describe('stage-agent-completion.mjs (issue #567)', () => {
-  it('appends a context-efficiency row for a paqad stage agent and exits 0', async () => {
+  it('appends a stage-agent row to stage-evidence.jsonl for a paqad stage agent and exits 0', async () => {
     const root = tempRoot();
     await openFeature(root, 'ses_it');
 
@@ -60,16 +60,17 @@ describe('stage-agent-completion.mjs (issue #567)', () => {
     });
     expect(result.exitCode).toBe(0);
 
-    const stream = join(bundleDir(root), 'context-efficiency.jsonl');
-    expect(existsSync(stream)).toBe(true);
-    const rows = readFileSync(stream, 'utf8')
+    // Issue #581 — the row lands in stage-evidence.jsonl; no separate stream is written.
+    expect(existsSync(join(bundleDir(root), 'context-efficiency.jsonl'))).toBe(false);
+    const rows = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
       .trim()
       .split('\n')
-      .map((line) => JSON.parse(line));
+      .map((line) => JSON.parse(line))
+      .filter((row) => row.kind === 'stage-agent');
     expect(rows).toHaveLength(1);
     expect(rows[0].stage).toBe('development');
-    expect(rows[0].agent_id).toBe('agent_it');
-    expect(rows[0].orchestrator_session_id).toBe('ses_it');
+    expect(rows[0].agent).toBe('paqad-development');
+    expect(rows[0].session_id).toBe('ses_it');
   });
 
   it('exits 0 on the documented Claude fixture even with no active feature (never blocks)', async () => {

@@ -1,11 +1,12 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { readContextEfficiency } from '@/feature-evidence/bundle-ledgers.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { featureStagePath, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { readStageAgentRows } from '@/stage-isolation/isolation-summary.js';
+import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import {
   estimateTokens,
@@ -116,27 +117,53 @@ describe('recordStageAgentCompletion', () => {
     });
     expect(written).toBe(true);
 
-    const rows = readContextEfficiency(root, dir);
+    // Issue #581 — one `stage-agent` row in stage-evidence.jsonl, not a separate file.
+    const rows = readStageAgentRows(root, dir);
     expect(rows).toHaveLength(1);
-    expect(rows[0].stage).toBe('development');
-    expect(rows[0].agent_id).toBe('agent_x');
-    expect(rows[0].orchestrator_session_id).toBe('ses_orch');
-    expect(rows[0].exact).toBe(false);
+    expect(rows[0]).toMatchObject({
+      kind: 'stage-agent',
+      stage: 'development',
+      agent: 'paqad-development',
+      session_id: 'ses_orch',
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      tokens_used: 48,
+      tokens_not_recarried: 48,
+      estimate: true,
+    });
+    expect(rows[0]).not.toHaveProperty('adapter');
+    expect(validateStageEvidenceRow(rows[0])).toEqual([]);
   });
 
-  it("records agent_id as 'unknown' when the payload omits it", () => {
+  it('sums host-reported input and output as tokens_used, still labelled an estimate', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    const written = recordStageAgentCompletion({
+    recordStageAgentCompletion({
       projectRoot: root,
-      payload: { agent_type: 'paqad-review' },
+      payload: {
+        agent_type: 'paqad-review',
+        usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 50 },
+      },
       transcriptText: 'review work',
       adapter: 'claude-code',
     });
-    expect(written).toBe(true);
-    const rows = readContextEfficiency(root, dir);
-    expect(rows[0].agent_id).toBe('unknown');
-    expect(rows[0].stage).toBe('review');
+    const [row] = readStageAgentRows(root, dir);
+    expect(row).toMatchObject({ stage: 'review', tokens_used: 1500, estimate: true });
+  });
+
+  it('writes nothing, and never throws, when the ledger cannot be appended', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    // A directory where the ledger file should be makes the append fail.
+    rmSync(join(root, featureStagePath(dir)));
+    mkdirSync(join(root, featureStagePath(dir)));
+    expect(
+      recordStageAgentCompletion({
+        projectRoot: root,
+        payload: { agent_type: 'paqad-planning' },
+        transcriptText: 'x',
+        adapter: 'claude-code',
+      }),
+    ).toBe(false);
   });
 
   it('does nothing for a non-paqad subagent', () => {

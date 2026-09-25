@@ -8,6 +8,7 @@ import { bundleCompletenessGate } from '@/verification/repository/bundle-complet
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
 import {
   chatRagPath,
+  featureDir,
   featureFilePath,
   featureReportPath,
   featureSpecMarkdownPath,
@@ -610,14 +611,40 @@ describe('the isolation evidence stream (issue #573)', () => {
     });
 
     expect(gate!.status).toBe('fail');
-    expect(gate!.detail).toContain('context-efficiency.jsonl');
-    expect(gate!.remediation).toContain('context-efficiency.jsonl');
+    // Issue #581 (AC-14) — named by the rows that are missing, never a retired file.
+    expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
+    expect(gate!.remediation).toContain('stage-agent rows in stage-evidence.jsonl');
+    expect(gate!.detail).not.toContain('context-efficiency.jsonl');
   });
 
-  it('passes that same change once the isolation evidence is there', () => {
+  it('passes that same change once the stage-agent rows are there', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    write(root, featureFilePath(DIR, 'contextEfficiency'), '{"stage":"planning"}\n');
+    write(
+      root,
+      featureFilePath(DIR, 'stageEvidence'),
+      '{"kind":"open"}\n{"kind":"stage-agent","stage":"planning","doc_type":"paqad.stage-evidence","session_id":"ses_1","recorded_at":"2026-09-01T00:00:00.000Z","content_hash":"h"}\n',
+    );
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationExpected: true },
+    });
+
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('still accepts a pre-#581 bundle that recorded isolation in context-efficiency.jsonl', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(
+      root,
+      `${featureDir(DIR)}/context-efficiency.jsonl`,
+      '{"stage":"planning","doc_type":"paqad.context-efficiency","session_id":"ses_1","ts":"2026-01-01T00:00:00.000Z","content_hash":"h"}\n',
+    );
 
     const gate = bundleCompletenessGate({
       ...base,

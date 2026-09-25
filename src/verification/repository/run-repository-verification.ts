@@ -43,6 +43,7 @@ import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
+import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
 import {
@@ -805,6 +806,10 @@ export async function runRepositoryVerification(
     checksVerified: isFeatureDev ? checksVerified : undefined,
     // Issue #362 — the change-shape line, present only for feature-development changes.
     changeMetrics,
+    // Issue #581 — the `context:` line, from the bundle's stage-agent rows.
+    isolation: receiptFeature
+      ? summarizeStageIsolation(context.project_root, receiptFeature)
+      : null,
   });
 
   if (options.eventBus) {

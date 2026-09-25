@@ -6,13 +6,17 @@ import Ajv, { type ValidateFunction } from 'ajv';
 
 import { ENVELOPE_HEADER_PROPERTIES } from '@/feature-evidence/schema.js';
 
-import { STAGE_EVIDENCE_DOC_TYPE, STAGE_EVIDENCE_SCHEMA_VERSION } from './types.js';
+import {
+  STAGE_AGENT_KIND,
+  STAGE_EVIDENCE_DOC_TYPE,
+  STAGE_EVIDENCE_SCHEMA_VERSION,
+  STAGE_FAMILY_KIND_LIST,
+} from './types.js';
 
 const nullableString = { type: ['string', 'null'] } as const;
 
 // Fields every version of a row may carry (the per-row facts, never a session constant).
 const ROW_PROPERTIES = {
-  kind: { enum: ['open', 'stage_start', 'stage_end', 'verify', 'close'] },
   stage: nullableString,
   event_status: {
     type: ['string', 'null'],
@@ -64,8 +68,22 @@ export const STAGE_EVIDENCE_SCHEMA = {
     ...ENVELOPE_HEADER_PROPERTIES,
     schema_version: { type: 'integer', const: STAGE_EVIDENCE_SCHEMA_VERSION },
     doc_type: { const: STAGE_EVIDENCE_DOC_TYPE },
+    // Issue #581 (FR-7, D9) — `stage-agent` is one dispatched stage agent's footprint. It
+    // replaces the separate context-efficiency.jsonl stream, and the fold ignores it.
+    kind: { enum: [...STAGE_FAMILY_KIND_LIST, STAGE_AGENT_KIND] },
     ...ROW_PROPERTIES,
+    // The `stage-agent` fields: tokens the stage agent used (input + output), the carried
+    // history the orchestrator did not re-send, and whether those counts are estimated.
+    tokens_used: { type: 'integer', minimum: 0 },
+    tokens_not_recarried: { type: 'integer', minimum: 0 },
+    estimate: { type: 'boolean' },
   },
+  allOf: [
+    {
+      if: { properties: { kind: { const: STAGE_AGENT_KIND } }, required: ['kind'] },
+      then: { required: ['stage', 'tokens_used', 'tokens_not_recarried', 'estimate'] },
+    },
+  ],
 } as const;
 
 /**
@@ -96,6 +114,7 @@ export const STAGE_EVIDENCE_SCHEMA_V1 = {
     conversation_ordinal: { type: 'integer', minimum: 1 },
     ts: { type: 'string', minLength: 1 },
     content_hash: { type: 'string', minLength: 1 },
+    kind: { enum: STAGE_FAMILY_KIND_LIST },
     ...ROW_PROPERTIES,
     adapter: { type: 'string', minLength: 1 },
     lane: { type: ['string', 'null'], enum: ['fast', 'graduated', 'full', null] },

@@ -18,8 +18,26 @@ export const STAGE_EVIDENCE_DOC_TYPE = 'paqad.stage-evidence';
  */
 export const STAGE_EVIDENCE_SCHEMA_VERSION = 2;
 
-/** The kinds of event row a change record can carry. */
-export type StageEvidenceKind = 'open' | 'stage_start' | 'stage_end' | 'verify' | 'close';
+/**
+ * The kinds of event row a change record can carry. The first five are the stage family the
+ * fold turns into stage state; `stage-agent` (issue #581) records one dispatched stage
+ * agent's footprint and is ignored by the fold.
+ */
+export type StageEvidenceKind =
+  'open' | 'stage_start' | 'stage_end' | 'verify' | 'close' | 'stage-agent';
+
+/** The row kind recording one dispatched stage agent (issue #581, replaces context-efficiency.jsonl). */
+export const STAGE_AGENT_KIND = 'stage-agent';
+
+/** The stage-family kinds: the only rows the fold reads for stage state. */
+export const STAGE_FAMILY_KIND_LIST = [
+  'open',
+  'stage_start',
+  'stage_end',
+  'verify',
+  'close',
+] as const;
+export const STAGE_FAMILY_KINDS: ReadonlySet<string> = new Set(STAGE_FAMILY_KIND_LIST);
 
 /** How a stage event resolved. */
 export type StageEventStatus =

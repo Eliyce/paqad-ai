@@ -41,7 +41,8 @@ export interface BundleCompletenessConfig {
    * from the bundle's own open row, not from config, because whether isolation applied is
    * a property of the change. False on the fast lane, on a host with no subagent dispatch,
    * and whenever the lane is unresolved — so the requirement stays silent rather than
-   * false-failing (INV-5).
+   * false-failing (INV-5). When true, the gate requires `stage-agent` rows in
+   * `stage-evidence.jsonl` (issue #581, AC-14).
    */
   stageIsolationExpected: boolean;
 }
@@ -74,14 +75,6 @@ export interface BundleManifestEntry {
    * over the resolved config flags (required only when the flag is on).
    */
   required: 'always' | 'optional' | ((config: BundleCompletenessConfig) => boolean);
-  /**
-   * Issue #573 — upgrade an `optional` entry to required for a change of a particular
-   * SHAPE (not a config flag). When the predicate is false the entry behaves exactly as
-   * `optional`: checked when present, never a completeness failure, and never a
-   * "Skipped (flag off)" note — because there is no flag, which is the whole reason the
-   * `optional` category exists (issue #528). Only meaningful on an `optional` entry.
-   */
-  requiredWhen?: (config: BundleCompletenessConfig) => boolean;
   /** The verb/writer that produces the file (named in a gate failure's remediation). */
   writer: string;
   /** How the gate validates the file's content. */
@@ -241,25 +234,6 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     required: 'optional',
     writer: 'paqad-ai visual-evidence run',
     validate: 'json',
-  },
-  {
-    // Issue #567 — one row per dispatched stage agent under stage isolation.
-    //
-    // This was `optional` because the gate had no signal for whether THIS change ran under
-    // isolation, so requiring it would false-fail every single-context change. Issue #573
-    // found the missing signal: the lane was ALWAYS null, because the prompt-route seam
-    // imported a dist module tsup never emitted. With the seam built, the bundle's own open
-    // row carries a real lane and a real adapter, which is exactly the predicate — so a
-    // graduated/full change on a subagent-capable host must now PROVE it isolated.
-    //
-    // Deliberately fails toward silence: an unresolved lane, the fast lane, or a host with
-    // no subagent dispatch leaves this optional and checked-when-present, exactly as before.
-    key: 'contextEfficiency',
-    file: FEATURE_BUNDLE_FILES.contextEfficiency,
-    required: 'optional',
-    requiredWhen: (config) => config.stageIsolationExpected,
-    writer: 'stage-agent-completion hook (SubagentStop)',
-    validate: 'jsonl>=1',
   },
 ];
 

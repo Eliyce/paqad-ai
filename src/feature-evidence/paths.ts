@@ -47,10 +47,8 @@ export const FEATURE_BUNDLE_FILES = {
   // screenshots + overview GIF live under the `screenshots/` subtree (the one
   // structured carve-out in the otherwise flat, text-only bundle).
   visualEvidence: 'visual-evidence.json',
-  // Issue #567 — one row per dispatched stage agent under stage isolation: the tokens it
-  // used and the carried history the orchestrator did not re-send. Written only when the
-  // feature ran under stage isolation, so it is an optional bundle stream.
-  contextEfficiency: 'context-efficiency.jsonl',
+  // Issue #581 retired `context-efficiency.jsonl`: a dispatched stage agent's footprint is a
+  // `kind: 'stage-agent'` row in stage-evidence.jsonl now.
 } as const;
 
 /** The bundle subdirectory holding visual-evidence screenshots + the overview GIF. */

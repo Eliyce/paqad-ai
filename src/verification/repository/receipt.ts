@@ -15,6 +15,10 @@ import { PAQAD_STATUS_GLYPH } from '@/core/constants/paqad-voice.js';
 import type { ReuseCounts } from '@/feature-evidence/reuse.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
+import {
+  formatStageIsolationLine,
+  type StageIsolationSummary,
+} from '@/stage-isolation/isolation-summary.js';
 
 interface StageStatus {
   glyph: string;
@@ -177,6 +181,9 @@ export interface ComposeChangeReceiptInput {
    *  (metrics off, or a non-feature-development change). When present, one `change shape`
    *  line is appended; when absent the receipt renders exactly as before. */
   changeMetrics?: ChangeMetrics | null;
+  /** What stage isolation saved (issue #581), read from the bundle's `stage-agent` rows, or
+   *  null/absent when no stage agent was recorded; then no `context:` line is printed. */
+  isolation?: StageIsolationSummary | null;
 }
 
 /**
@@ -200,6 +207,9 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   // Issue #362 — one honest change-shape line for feature-development changes.
   if (input.changeMetrics) {
     parts.push(formatChangeShapeLine(input.changeMetrics));
+  }
+  if (input.isolation) {
+    parts.push(`> ${formatStageIsolationLine(input.isolation)}`);
   }
   if (input.delivery) {
     parts.push(`> ${input.delivery}`);

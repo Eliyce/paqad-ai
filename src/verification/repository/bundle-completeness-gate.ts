@@ -44,6 +44,7 @@ import {
   type FeatureBundleFile,
 } from '@/feature-evidence/paths.js';
 import { readDuplicationReport } from '@/duplication/report.js';
+import { hasStageAgentEvidence } from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
 import { readReport } from '@/rule-scripts/runner.js';
 
@@ -200,14 +201,6 @@ export function bundleCompletenessGate(
       // flag-gated (e.g. checks.json). Count it when present, ignore it when absent — never a
       // "Skipped (flag off)" note (there is no flag), and never a completeness failure.
       if (entry.required === 'optional') {
-        // Issue #573 — an optional entry can still be REQUIRED for a change of a given
-        // shape (context-efficiency.jsonl on a graduated/full lane on a subagent-capable
-        // host). That is not a flag, so it upgrades to a hard check here rather than
-        // taking the flag-skipped path, which would report a misleading "flag off".
-        if (entry.requiredWhen?.(input.config) === true) {
-          assertRequired(entry, input, dirName, sessionId, state);
-          continue;
-        }
         const content = readBundleFile(input.projectRoot, dirName, entry);
         if (validateBundleFileContent(entry.validate, content)) {
           state.present.push(entry.file);
@@ -220,6 +213,7 @@ export function bundleCompletenessGate(
       }
       assertRequired(entry, input, dirName, sessionId, state);
     }
+    assertStageAgentRows(input, dirName, state);
     /* v8 ignore next 4 -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
   } catch {
@@ -227,6 +221,26 @@ export function bundleCompletenessGate(
   }
 
   return decide(input.mode, state);
+}
+
+/**
+ * Issue #573 / #581 (AC-14) — a graduated or full change on a subagent-capable host must
+ * prove it ran its stages in stage agents. The proof is the `stage-agent` rows each
+ * SubagentStop appends to stage-evidence.jsonl (an old bundle's context-efficiency.jsonl
+ * still counts). Missing, the gate fails BY NAME. It is a property of the change, not a
+ * flag, so a change that did not expect isolation is never told a flag was off.
+ */
+function assertStageAgentRows(
+  input: BundleCompletenessGateInput,
+  dirName: string,
+  state: GateState,
+): void {
+  if (input.config.stageIsolationExpected && !hasStageAgentEvidence(input.projectRoot, dirName)) {
+    state.missing.push({
+      file: 'stage-agent rows in stage-evidence.jsonl',
+      writer: 'dispatch each stage to its paqad-<stage> agent; the SubagentStop hook records it',
+    });
+  }
 }
 
 /** Check one required entry and record its outcome into `state`. */

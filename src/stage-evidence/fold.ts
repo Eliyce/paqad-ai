@@ -17,6 +17,7 @@ import {
   stageIndex,
 } from './stages.js';
 import {
+  STAGE_FAMILY_KINDS,
   type FoldedChange,
   type FoldedStage,
   type OrderingViolation,
@@ -44,7 +45,10 @@ export function foldRowsWithKey(
   identity: FoldIdentity,
 ): FoldedChange {
   const { sessionId, changeKey: change_key, promptOrdinal: ordinal } = identity;
-  const stages = STAGE_EVIDENCE_STAGES.map((stage) => foldStage(stage, rows));
+  // Issue #581 — only the stage family carries stage state. A `stage-agent` row names a
+  // stage too, so it is filtered out here rather than trusted to carry no status.
+  const stageRows = rows.filter((row) => STAGE_FAMILY_KINDS.has(String(row.kind)));
+  const stages = STAGE_EVIDENCE_STAGES.map((stage) => foldStage(stage, stageRows));
   const orderingViolations = computeOrderingViolations(stages);
 
   const required = stages.filter((stage) => isMandatoryStage(stage.stage));
@@ -57,14 +61,14 @@ export function foldRowsWithKey(
     .map((stage) => stage.stage);
   const hadRedo = stages.some((stage) => stage.state === 'redone');
 
-  const verdict = computeVerdict(rows, missing, orderingViolations.length > 0, hadRedo);
+  const verdict = computeVerdict(stageRows, missing, orderingViolations.length > 0, hadRedo);
 
   return {
     session_id: sessionId,
     change_key,
     prompt_ordinal: ordinal,
     stages,
-    lane: readRecordedLane(rows),
+    lane: readRecordedLane(stageRows),
     completeness: {
       verdict,
       missing_stages: missing,
