@@ -154,11 +154,25 @@ describe('an old bundle with context-efficiency.jsonl (INV-8)', () => {
     });
   });
 
-  it('prefers stage-agent rows when a bundle has both', () => {
+  it('counts both sources when a change was upgraded part-way through', () => {
+    // The #581 dogfood bundle: planning, specification and the first development dispatch ran
+    // under the old writer, every later stage agent under the new one.
     const root = tempRoot();
-    writeLegacy(root, [{ stage: 'planning', carried_history_avoided_estimate: 9999 }]);
-    stageAgent(root, 'development', 5);
-    expect(summarizeStageIsolation(root, DIR)?.tokensNotRecarried).toBe(5);
+    writeLegacy(root, [
+      { stage: 'planning', carried_history_avoided_estimate: 100 },
+      { stage: 'specification', carried_history_avoided_estimate: 200 },
+      { stage: 'development', carried_history_avoided_estimate: 300 },
+    ]);
+    stageAgent(root, 'development', 5, false);
+    stageAgent(root, 'review', 7, false);
+    stageAgent(root, 'checks', 11, false);
+    stageAgent(root, 'documentation_sync', 13, false);
+    expect(summarizeStageIsolation(root, DIR)).toEqual({
+      stages: 6,
+      tokensNotRecarried: 636,
+      // An old line is always an estimate, so the total is too.
+      estimate: true,
+    });
   });
 });
 
