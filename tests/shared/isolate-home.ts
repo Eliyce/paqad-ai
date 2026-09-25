@@ -8,7 +8,7 @@
 // `os.homedir()` reads on Windows) at a temp dir keeps every one of those writes inside the
 // test run. Child processes inherit the redirected env, so spawned CLIs stay contained too.
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,7 +17,10 @@ import { afterAll } from 'vitest';
 // Remember the real home once per worker, so the guard test can prove it is not in use.
 process.env.PAQAD_TEST_REAL_HOME ??= process.env.HOME ?? process.env.USERPROFILE ?? '';
 
-const home = mkdtempSync(join(tmpdir(), 'paqad-test-home-'));
+// realpathSync.native expands a Windows 8.3 short name: GitHub's Windows runners report
+// tmpdir() as `C:\Users\RUNNER~1\...`, and a `~` in the home path leaks into every absolute
+// path built from it (a hook command, the framework symlink), which the real home never has.
+const home = realpathSync.native(mkdtempSync(join(tmpdir(), 'paqad-test-home-')));
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 

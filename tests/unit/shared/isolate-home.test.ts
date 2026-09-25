@@ -16,6 +16,8 @@ describe('the test run is isolated from the real home directory', () => {
     expect(realHome).toBeTruthy();
     expect(homedir()).not.toBe(realHome);
     expect(homedir()).toContain('paqad-test-home-');
+    // A Windows 8.3 short name (`RUNNER~1`) would leak a `~` into every absolute path.
+    expect(homedir()).not.toContain('~');
   });
 
   it('keeps the framework symlink and the stage agents inside the throwaway home', () => {
