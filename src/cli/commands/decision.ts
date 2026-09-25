@@ -7,7 +7,11 @@ import {
   resolvePendingDecision,
   type ContractDecisionOption,
 } from '@/decisions/authoring.js';
+import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { DECISION_CATEGORIES } from '@/planning/decision-packet.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 /**
  * `paqad-ai decision <create|resolve|list>` — the install-resolved CLI verb for the
@@ -61,6 +65,22 @@ function nearestCategory(input: string): string {
   return best;
 }
 
+/**
+ * The change active for this session (issue #581), so a packet can name it and its bundle's
+ * `decisions.json` can be rewritten. Null when no change is active.
+ */
+function activeChange(
+  projectRoot: string,
+  session: string | undefined,
+): { dirName: string; sessionId: string } | null {
+  const sessionId = resolveSessionId(
+    projectRoot,
+    session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+  );
+  const dirName = currentFeature(projectRoot, sessionId);
+  return dirName ? { dirName, sessionId } : null;
+}
+
 function fail(message: string): void {
   console.error(message);
   process.exitCode = 1;
@@ -73,11 +93,13 @@ interface CreateOptions {
   context: string;
   option?: ContractDecisionOption[];
   recommendation?: string;
+  session?: string;
 }
 
 interface ResolveOptions {
   projectRoot: string;
   other?: string;
+  session?: string;
 }
 
 export function createDecisionCommand(): Command {
@@ -94,6 +116,7 @@ export function createDecisionCommand(): Command {
     .requiredOption('--context <context>', 'why this decision is needed')
     .option('--option <key=label>', 'an option (repeatable, at least 2)', collectOption)
     .option('--recommendation <key>', 'option_key you recommend')
+    .option('--session <id>', 'Session whose active change the packet belongs to')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((options: CreateOptions) => {
       if (!(DECISION_CATEGORIES as readonly string[]).includes(options.category)) {
@@ -110,6 +133,10 @@ export function createDecisionCommand(): Command {
           context: options.context,
           options: options.option ?? [],
           recommendation: options.recommendation ?? null,
+          change: (() => {
+            const active = activeChange(options.projectRoot, options.session);
+            return active ? featureChangeKey(active.dirName) : null;
+          })(),
         });
         console.log(JSON.stringify(result, null, 2));
       } catch (error) {
@@ -124,18 +151,28 @@ export function createDecisionCommand(): Command {
     .argument('<chosen>', 'the chosen option_key (ignored when --other is given)')
     .argument('[rationale...]', 'optional free-text rationale')
     .option('--other <text>', 'resolve to a minted write-in option with this label')
+    .option('--session <id>', 'Session whose active change the decision belongs to')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((id: string, chosen: string, rationale: string[], options: ResolveOptions) => {
       try {
         const chosenKey = options.other
           ? addWriteInOption(options.projectRoot, id, options.other)
           : chosen;
+        const active = activeChange(options.projectRoot, options.session);
         const { path } = resolvePendingDecision(
           options.projectRoot,
           id,
           chosenKey,
           rationale.join(' '),
+          { change: active ? featureChangeKey(active.dirName) : null },
         );
+        // Issue #581 (FR-11) — the active change's decisions.json index is rewritten from the
+        // tracked packets, the one just resolved included.
+        if (active) {
+          writeFeatureDecisionsIndex(options.projectRoot, active.dirName, {
+            sessionId: active.sessionId,
+          });
+        }
         console.log(JSON.stringify({ path, chosen: chosenKey }, null, 2));
       } catch (error) {
         fail(error instanceof Error ? error.message : String(error));

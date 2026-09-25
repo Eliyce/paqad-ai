@@ -20,6 +20,7 @@ import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { documentSessionId } from './bundle-document.js';
 import { listFeatureDirs } from './delivery.js';
 import { buildTextHeader, renderHeaderScript } from './envelope.js';
+import { readIndexedDecisionViews } from './decisions-index.js';
 import { exportFeatureBundle } from './export.js';
 import { featureChangeKey, featureReportPath, parseFeatureDirName } from './paths.js';
 import { renderFeatureReportHtml } from './report.js';
@@ -81,6 +82,7 @@ export function writeFeatureReport(
   const page = renderFeatureReportHtml(bundle, fold, {
     generatedAt,
     paqadVersion: options.paqadVersion ?? null,
+    decisions: readIndexedDecisionViews(projectRoot, dirName),
   });
   const header = buildTextHeader({
     docType: REPORT_DOC_TYPE,

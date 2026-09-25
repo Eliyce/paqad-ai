@@ -37,6 +37,9 @@ export const CLARIFICATION_DOC_TYPE = 'paqad.clarification';
 /** Doc type stamped on the spec pipeline's `experts.json` (issue #581). */
 export const EXPERTS_DOC_TYPE = 'paqad.experts';
 
+/** Doc type stamped on the bundle's `decisions.json` index (issue #581). */
+export const DECISIONS_DOC_TYPE = 'paqad.decisions';
+
 /** Doc type stamped on the `_session/<sessionId>.json` control. */
 export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 
@@ -45,8 +48,9 @@ export const FEATURE_EVIDENCE_SCHEMA_VERSION = 1;
 
 /**
  * Issue #581 — the schema version of `feature.json`, `plan.json`, `review.json`,
- * `specification.json`, `spec.md`, `request.md`, `clarification.json` and `experts.json` since
- * they carry the one envelope header. Version 1 files still read (INV-8); writers only write 2.
+ * `specification.json`, `spec.md`, `request.md`, `clarification.json`, `experts.json` and
+ * `decisions.json` since they carry the one envelope header. Version 1 files still read (INV-8);
+ * writers only write 2.
  */
 export const FEATURE_DOC_SCHEMA_VERSION = 2;
 

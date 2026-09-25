@@ -8,6 +8,7 @@
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { createPendingDecision, readContractDecisions } from '@/decisions/authoring.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
 import { readAllJourneys } from '@/site-map/store.js';
 
 import { listCaptureScriptIds } from './capture-script.js';
@@ -130,6 +131,7 @@ export function openVisualEvidenceReadinessPause(input: {
       { option_key: READINESS_WAIVE_OPTION, label: 'Record a waiver for this change' },
     ],
     recommendation: 'setup',
+    change: featureChangeKey(dirName),
   });
   return id;
 }

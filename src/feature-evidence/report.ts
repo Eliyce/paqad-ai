@@ -47,6 +47,7 @@ import { AGENT_ATTACHED_JOURNEY, type VisualEvidenceManifest } from '@/visual-ev
 
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
+import type { DecisionIndexEntry, IndexedDecisionView } from './decisions-index.js';
 import { receiptEvidenceRows } from './receipt.js';
 
 export interface RenderFeatureReportOptions {
@@ -54,6 +55,11 @@ export interface RenderFeatureReportOptions {
   generatedAt: string;
   /** The paqad version that produced the change (for the header). */
   paqadVersion?: string | null;
+  /**
+   * The indexed decisions joined with their tracked packets (issue #581), read by the writer
+   * so the renderer stays free of file reads. Absent, the panel lists the index alone.
+   */
+  decisions?: IndexedDecisionView[];
 }
 
 // ── Small pure helpers ──────────────────────────────────────────────────────
@@ -797,6 +803,44 @@ function renderReview(bundle: FeatureBundleExport): string {
   return panel('review', 'Review', parts.join(''));
 }
 
+/**
+ * Render the decisions the change rests on (issue #581, FR-11): each entry of the bundle's
+ * `decisions.json` index with the chosen option and rationale from its tracked packet. A packet
+ * edited since it was indexed, or gone, is said so plainly instead of shown as if it held.
+ */
+function renderDecisions(bundle: FeatureBundleExport, views: IndexedDecisionView[]): string {
+  const index = (bundle.files.decisions as { decisions?: DecisionIndexEntry[] } | undefined)
+    ?.decisions;
+  if (!index || index.length === 0) {
+    return panel(
+      'decisions',
+      'Decisions',
+      '',
+      'No decisions were resolved for this change. When one is, it is listed here from its tracked packet.',
+    );
+  }
+  const byId = new Map(views.map((view) => [view.id, view]));
+  const items = index
+    .map((entry) => {
+      const view = byId.get(entry.id);
+      const head = `<strong>${escapeHtml(view?.title ?? entry.id)}</strong> <span class="tag">${escapeHtml(entry.category)}</span>`;
+      const lines: string[] = [];
+      if (view?.chosen) {
+        lines.push(`Chosen: ${escapeHtml(view.chosen_label ?? view.chosen)}`);
+      }
+      if (view?.rationale) lines.push(`Why: ${escapeHtml(view.rationale)}`);
+      if (view?.state === 'changed') {
+        lines.push(`${glyphWord('needsLook', 'Changed')} since it was indexed`);
+      } else if (view?.state === 'missing') {
+        lines.push(`${glyphWord('needsLook', 'Missing')}: the tracked packet is gone`);
+      }
+      const detail = lines.map((line) => `<br>${line}`).join('');
+      return `<li>${head}${detail}<br><code>${escapeHtml(entry.path)}</code></li>`;
+    })
+    .join('');
+  return panel('decisions', 'Decisions', `<ul class="findings">${items}</ul>`);
+}
+
 /** The narration contract's verdict words, spelled the way paqad says them. */
 function reviewVerdictLabel(verdict: string): string {
   if (verdict === 'safe-to-merge') return 'Safe to merge';
@@ -968,6 +1012,7 @@ function renderSubmenu(): string {
     ['aibom', 'AI-BOM'],
     ['delivery', 'Delivery'],
     ['review', 'Review'],
+    ['decisions', 'Decisions'],
     ['checks', 'Checks'],
     ['visual-evidence', 'Visual evidence'],
   ];
@@ -1247,6 +1292,7 @@ export function renderFeatureReportHtml(
     renderAiBom(bundle),
     renderDelivery(bundle),
     renderReview(bundle),
+    renderDecisions(bundle, options.decisions ?? []),
     renderChecks(bundle),
     renderVisualEvidence(bundle),
     renderFooter(),

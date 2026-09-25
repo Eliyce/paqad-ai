@@ -37,6 +37,7 @@ import {
   appendFeatureEvidenceRows,
 } from '@/feature-evidence/bundle-ledgers.js';
 import { reuseCounts } from '@/feature-evidence/reuse.js';
+import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
@@ -567,6 +568,19 @@ export async function runRepositoryVerification(
       ? completenessActive
       : null;
   const completenessMode = resolveBundleCompletenessMode(context.project_root);
+  // Issue #581 (FR-11) — rewrite the change's decisions.json index from the tracked packets
+  // before the gate reads the bundle, so a decision resolved outside `decision resolve` (the
+  // dashboard, an older packet) is listed too. Best-effort — it never changes the verdict.
+  if (completenessDir) {
+    try {
+      writeFeatureDecisionsIndex(context.project_root, completenessDir, {
+        sessionId: completenessSession,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      engineLog('warn', `paqad: decisions index skipped (${message})`);
+    }
+  }
   // Issue #579 — every late gate pushed below, skips included, for the evidence.jsonl rows.
   const lateGates: VerificationEvidenceGate[] = [];
   const frameworkConfig = resolveFrameworkConfig(context.project_root);

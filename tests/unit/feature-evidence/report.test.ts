@@ -4,6 +4,7 @@ import type { EvidenceLedgerRow, ReceiptEnvelope } from '@/core/types/evidence-l
 import { signReceipt } from '@/evidence/receipt/dsse.js';
 import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
 import { ZERO_DIGEST } from '@/evidence/digests.js';
+import type { IndexedDecisionView } from '@/feature-evidence/decisions-index.js';
 import type { FeatureBundleExport } from '@/feature-evidence/export.js';
 import { featureReportPath } from '@/feature-evidence/paths.js';
 import {
@@ -817,5 +818,68 @@ describe('renderFeatureReportHtml — Checks section (issue #554)', () => {
     };
     const html = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
     expect(html).toContain('No check commands were recorded');
+  });
+});
+
+// Issue #581 (FR-11) — the decisions panel lists the bundle's decisions.json index, with the
+// chosen option and rationale the writer read from each tracked packet.
+describe('renderFeatureReportHtml — decisions', () => {
+  const entry = (id: string) => ({
+    id,
+    category: 'architecture-path',
+    path: `.paqad/decisions/resolved/${id}.json`,
+    content_hash: 'abc',
+  });
+  const render = (files: FeatureBundleExport['files'], decisions?: IndexedDecisionView[]) =>
+    renderFeatureReportHtml({ dir_name: DIR, exported_at: AT, files }, fold([]), {
+      generatedAt: AT,
+      ...(decisions ? { decisions } : {}),
+    });
+
+  it('says so when the change resolved no decision', () => {
+    expect(render({})).toContain('No decisions were resolved for this change');
+    expect(render({ decisions: { decisions: [] } })).toContain('No decisions were resolved');
+    expect(render({})).toContain('href="#decisions"');
+  });
+
+  it('renders the chosen option and rationale, and flags a changed or missing packet', () => {
+    const html = render(
+      { decisions: { decisions: [entry('D-1'), entry('D-2'), entry('D-3'), entry('D-4')] } },
+      [
+        {
+          ...entry('D-1'),
+          title: 'Where the trace lives',
+          chosen: 'map',
+          chosen_label: 'A trace map',
+          rationale: 'no reader churn',
+          state: 'current',
+        },
+        {
+          ...entry('D-2'),
+          title: null,
+          chosen: 'draft',
+          chosen_label: null,
+          rationale: null,
+          state: 'changed',
+        },
+        {
+          ...entry('D-3'),
+          title: null,
+          chosen: null,
+          chosen_label: null,
+          rationale: null,
+          state: 'missing',
+        },
+      ],
+    );
+    expect(html).toContain('<strong>Where the trace lives</strong>');
+    expect(html).toContain('Chosen: A trace map');
+    expect(html).toContain('Why: no reader churn');
+    expect(html).toContain('Chosen: draft');
+    expect(html).toContain('since it was indexed');
+    expect(html).toContain('the tracked packet is gone');
+    // An entry the writer had no view for still shows its id and tracked path.
+    expect(html).toContain('<strong>D-4</strong>');
+    expect(html).toContain('.paqad/decisions/resolved/D-4.json');
   });
 });

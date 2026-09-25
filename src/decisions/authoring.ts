@@ -71,6 +71,12 @@ export interface PendingContractDecision {
   status: 'pending';
   /** Set only on a machine-minted packet (issue #361); absent on a hand-opened one. */
   origin?: ContractDecisionOrigin;
+  /**
+   * The ULID of the change that was active when the packet was opened or resolved (issue #581),
+   * so the change's `decisions.json` index can list it. Absent when no change was active, and on
+   * packets written before the field existed.
+   */
+  change?: string;
 }
 
 /** The resolved form written by {@link resolvePendingDecision}. */
@@ -90,6 +96,8 @@ export interface CreateDecisionInput {
   recommendation?: string | null;
   /** Set by a machine minter (issue #361); omitted when the agent opens the packet. */
   origin?: ContractDecisionOrigin;
+  /** The active change's ULID (issue #581); omitted when no change is active. */
+  change?: string | null;
 }
 
 /** Mint a fresh, collision-free decision id (`D-<ULID>`). */
@@ -190,6 +198,7 @@ export function createPendingDecision(
     created_at: new Date().toISOString(),
     status: 'pending',
     ...(input.origin !== undefined ? { origin: input.origin } : {}),
+    ...(input.change ? { change: input.change } : {}),
   };
 
   const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
@@ -200,14 +209,16 @@ export function createPendingDecision(
 /**
  * Resolve a pending decision: record the chosen option (and any free-text
  * rationale), move the packet from `pending/` to `resolved/`, and stamp
- * `resolved_at`. `chosen` must reference one of the packet's option keys.
- * Returns the resolved packet and the absolute path written.
+ * `resolved_at`. `chosen` must reference one of the packet's option keys. A packet opened with
+ * no change is linked to `options.change` (the change active at resolve, issue #581); one that
+ * already names a change keeps it. Returns the resolved packet and the absolute path written.
  */
 export function resolvePendingDecision(
   projectRoot: string,
   id: string,
   chosen: string,
   rationale = '',
+  options: { change?: string | null } = {},
 ): { path: string; packet: ResolvedContractDecision } {
   assertContractDecisionId(id);
   const pendingPath = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
@@ -223,6 +234,7 @@ export function resolvePendingDecision(
 
   const resolved: ResolvedContractDecision = {
     ...pending,
+    ...(pending.change === undefined && options.change ? { change: options.change } : {}),
     status: 'resolved',
     chosen,
     rationale,
