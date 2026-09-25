@@ -212,6 +212,40 @@ export function readEnvelope(value: unknown): ReadEnvelope | null {
   };
 }
 
+// ── Hash checks: the backstop for an edit made outside a writer (FR-14, AC-24) ──────────
+
+/**
+ * True when a value carries the full #581 header, so its `content_hash` was stamped by
+ * {@link buildDocumentEnvelope} or {@link stampBundleRow}. A pre-#581 document or row hashed
+ * a different identity (or none), so it is never checked: sealed history stays readable.
+ */
+function carriesEnvelopeHeader(value: unknown): value is EnvelopeHeader & Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const doc = value as Record<string, unknown>;
+  return (
+    typeof doc.doc_type === 'string' &&
+    typeof doc.change === 'string' &&
+    typeof doc.recorded_at === 'string' &&
+    typeof doc.content_hash === 'string'
+  );
+}
+
+/**
+ * Whether a bundle document's `content_hash` still matches its bytes: true or false for a
+ * document with the #581 header, null for one without it (not checkable). The hash is the
+ * same {@link computeContentHash} the builder used, over the whole document.
+ */
+export function documentHashMatches(doc: unknown): boolean | null {
+  if (!carriesEnvelopeHeader(doc)) return null;
+  return computeContentHash(doc) === doc.content_hash;
+}
+
+/** {@link documentHashMatches} for a JSONL row, hashed with {@link computeSessionRowHash}. */
+export function rowHashMatches(row: unknown): boolean | null {
+  if (!carriesEnvelopeHeader(row)) return null;
+  return computeSessionRowHash(row) === row.content_hash;
+}
+
 // ── Text documents: YAML front matter (.md) and the report.html header tag ──────────────
 
 /**
@@ -275,6 +309,16 @@ export function splitFrontMatter(text: string): SplitFrontMatter {
     header[line.slice(0, colon).trim()] = parseFrontMatterValue(line.slice(colon + 1).trim());
   }
   return { header, body: text.slice(match[0].length) };
+}
+
+/**
+ * {@link documentHashMatches} for a Markdown document: its front-matter `content_hash` against
+ * {@link sha256Hex} of the body. Null when the text carries no #581 front matter.
+ */
+export function textHashMatches(text: string): boolean | null {
+  const { header, body } = splitFrontMatter(text);
+  if (header?.change === undefined || typeof header.content_hash !== 'string') return null;
+  return sha256Hex(body) === header.content_hash;
 }
 
 /** The id of the JSON header tag embedded in `report.html`. */

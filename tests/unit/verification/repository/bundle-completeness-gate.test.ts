@@ -13,7 +13,12 @@ import {
   featureLegacySpecMarkdownPath,
   featureReportPath,
 } from '@/feature-evidence/paths.js';
-import { buildTextHeader, renderFrontMatter } from '@/feature-evidence/envelope.js';
+import {
+  buildDocumentEnvelope,
+  buildTextHeader,
+  renderFrontMatter,
+  stampBundleRow,
+} from '@/feature-evidence/envelope.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
@@ -843,5 +848,96 @@ describe('the isolation evidence stream (issue #573)', () => {
     });
 
     expect(gate!.detail).not.toContain('context-efficiency.jsonl');
+  });
+});
+
+// Issue #581 (FR-14, AC-24) — a document or row changed outside its writer fails its envelope
+// content_hash, and the gate names the file. A hook cannot see a Bash write into the bundle, so
+// this is the backstop on every host.
+describe('bundleCompletenessGate content_hash backstop (issue #581, AC-24)', () => {
+  const identity = { change: '01JABCDEFGHJKMNPQRSTVWXYZ0', sessionId: 'ses_1', schemaVersion: 1 };
+
+  function run(root: string, config: BundleCompletenessConfig = ONLY_ALWAYS) {
+    return bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config,
+    });
+  }
+
+  it('passes a bundle whose stamped documents and rows are untouched', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const row = stampBundleRow({
+      ...identity,
+      docType: 'paqad.stage-evidence',
+      row: { stage: 'x' },
+    });
+    // A blank line and an unparseable line are the reader's concern, never a hash mismatch.
+    write(root, featureFilePath(DIR, 'stageEvidence'), `${JSON.stringify(row)}\n\nnot json\n`);
+    expect(run(root)!.status).toBe('pass');
+  });
+
+  it('fails a hand-edited document and names it', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const doc = buildDocumentEnvelope({ ...identity, docType: 'paqad.plan', body: { title: 'A' } });
+    write(root, featureFilePath(DIR, 'plan'), JSON.stringify({ ...doc, title: 'B' }));
+    const gate = run(root)!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toContain('plan.json (content_hash mismatch at the document');
+    expect(gate.detail).toContain('paqad-ai plan compile');
+  });
+
+  it('fails a hand-edited JSONL row and names the file and line', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const good = stampBundleRow({
+      ...identity,
+      docType: 'paqad.stage-evidence',
+      row: { stage: 'a' },
+    });
+    const bad = {
+      ...stampBundleRow({ ...identity, docType: 'paqad.stage-evidence', row: { stage: 'b' } }),
+      stage: 'c',
+    };
+    write(
+      root,
+      featureFilePath(DIR, 'stageEvidence'),
+      `${JSON.stringify(good)}\n${JSON.stringify(bad)}\n`,
+    );
+    const gate = run(root)!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toContain('stage-evidence.jsonl (content_hash mismatch at line 2');
+  });
+
+  it('fails a Markdown document whose body no longer matches its front matter', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const header = buildTextHeader({ ...identity, docType: 'paqad.spec', body: '# Spec\n' });
+    write(root, featureFilePath(DIR, 'specMd'), renderFrontMatter(header, '# Edited\n'));
+    const gate = run(root)!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toContain('spec.md (content_hash mismatch at its body');
+  });
+
+  it('checks a present optional document too', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const doc = buildDocumentEnvelope({ ...identity, docType: 'paqad.checks', body: { ok: true } });
+    write(root, featureFilePath(DIR, 'checks'), JSON.stringify({ ...doc, ok: false }));
+    const gate = run(root)!;
+    expect(gate.status).toBe('fail');
+    expect(gate.detail).toContain('checks.json (content_hash mismatch at the document');
+  });
+
+  it('never checks report.html, a derived view', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const header = buildTextHeader({ ...identity, docType: 'paqad.report', body: '<p>x</p>' });
+    write(root, featureReportPath(DIR), renderFrontMatter(header, '<p>edited</p>'));
+    expect(run(root, { ...ONLY_ALWAYS, featureReport: true })!.status).toBe('pass');
   });
 });

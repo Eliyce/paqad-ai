@@ -27,7 +27,12 @@ import {
   appendDuplicationRun,
   appendRuleRun,
 } from '@/feature-evidence/bundle-ledgers.js';
-import { splitFrontMatter } from '@/feature-evidence/envelope.js';
+import {
+  documentHashMatches,
+  rowHashMatches,
+  splitFrontMatter,
+  textHashMatches,
+} from '@/feature-evidence/envelope.js';
 import { readFeatureRecord, featureRecordIsUntitled } from '@/feature-evidence/feature-record.js';
 import {
   BUNDLE_MANIFEST,
@@ -212,7 +217,7 @@ export function bundleCompletenessGate(
       if (entry.required === 'optional') {
         const content = readBundleFile(input.projectRoot, dirName, entry);
         if (validateBundleFileContent(entry.validate, content)) {
-          state.present.push(entry.file);
+          if (!recordHashMismatch(entry, content!, state)) state.present.push(entry.file);
         }
         continue;
       }
@@ -298,6 +303,7 @@ function assertRequired(
         }
       }
     }
+    if (recordHashMismatch(entry, content!, state)) return;
     state.present.push(entry.file);
     return;
   }
@@ -334,6 +340,52 @@ function assertRequired(
   }
 
   state.missing.push({ file: entry.file, writer: entry.writer });
+}
+
+/**
+ * Where a present file's envelope `content_hash` no longer matches its bytes (issue #581,
+ * FR-14, AC-24): `null` when every hash holds, else the part that fails (the document, or the
+ * first JSONL line). A hook cannot see a Bash write into the bundle, so this check is the
+ * backstop on every host. Only files carrying the #581 header are checked: a pre-#581 file
+ * hashed another identity, and a derived or standard-format file (`report.html`, the receipt,
+ * the AI-BOM) keeps its header where the top-level check never reads it.
+ */
+function contentHashMismatch(entry: BundleManifestEntry, content: string): string | null {
+  if (entry.key === 'report') return null;
+  if (entry.validate === 'nonempty') {
+    return textHashMatches(content) === false ? 'its body' : null;
+  }
+  if (entry.validate === 'json') {
+    return documentHashMatches(JSON.parse(content)) === false ? 'the document' : null;
+  }
+  const lines = content.split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!.trim();
+    if (line.length === 0) continue;
+    let row: unknown;
+    try {
+      row = JSON.parse(line);
+    } catch {
+      continue; // an unparseable line is the reader's concern, not a hash mismatch
+    }
+    if (rowHashMatches(row) === false) return `line ${index + 1}`;
+  }
+  return null;
+}
+
+/** Record a content_hash mismatch for `entry` into `state`; true when one was recorded. */
+function recordHashMismatch(
+  entry: BundleManifestEntry,
+  content: string,
+  state: GateState,
+): boolean {
+  const where = contentHashMismatch(entry, content);
+  if (where === null) return false;
+  state.missing.push({
+    file: `${entry.file} (content_hash mismatch at ${where}: changed outside its writer)`,
+    writer: entry.writer,
+  });
+  return true;
 }
 
 /** The bundle's parsed specification.json, or null when absent, corrupt, or not an object. */

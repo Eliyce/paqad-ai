@@ -8,6 +8,7 @@ import {
   buildEnvelopeHeader,
   buildTextHeader,
   docRecordedAt,
+  documentHashMatches,
   ENVELOPE_HEADER_KEYS,
   fromAiBomProperties,
   normalizeDocType,
@@ -15,9 +16,11 @@ import {
   readHeaderScript,
   renderFrontMatter,
   renderHeaderScript,
+  rowHashMatches,
   rowRecordedAt,
   splitFrontMatter,
   stampBundleRow,
+  textHashMatches,
   toAiBomProperties,
   withReceiptHeader,
 } from '@/feature-evidence/envelope.js';
@@ -338,5 +341,37 @@ describe('ENVELOPE_SCHEMA_FRAGMENT', () => {
     const noTime: Record<string, unknown> = { ...doc };
     delete noTime.recorded_at;
     expect(validateEnvelopeHeader(noTime)[0]).toMatch(/recorded_at/);
+  });
+});
+
+// Issue #581 (FR-14, AC-24) — the hash checks the completeness gate uses as its backstop.
+describe('envelope hash checks', () => {
+  const identity = { change: '01JABCDEFGHJKMNPQRSTVWXYZ0', sessionId: 'ses_1', schemaVersion: 1 };
+
+  it('matches an untouched document and row, and catches an edited one', () => {
+    const doc = buildDocumentEnvelope({ ...identity, docType: 'paqad.plan', body: { a: 1 } });
+    expect(documentHashMatches(doc)).toBe(true);
+    expect(documentHashMatches({ ...doc, a: 2 })).toBe(false);
+    const row = stampBundleRow({ ...identity, docType: 'paqad.rag', row: { a: 1 } });
+    expect(rowHashMatches(row)).toBe(true);
+    expect(rowHashMatches({ ...row, a: 2 })).toBe(false);
+  });
+
+  it('returns null for a value with no #581 header (old shapes stay unchecked)', () => {
+    for (const value of [null, 'x', [1], {}, { doc_type: 'd', change: 'c', recorded_at: 't' }]) {
+      expect(documentHashMatches(value)).toBeNull();
+      expect(rowHashMatches(value)).toBeNull();
+    }
+    // A pre-#581 row: it had a content_hash but never a `change` or `recorded_at`.
+    expect(rowHashMatches({ doc_type: 'd', ts: 't', content_hash: 'h' })).toBeNull();
+  });
+
+  it('checks a Markdown body against its front matter', () => {
+    const header = buildTextHeader({ ...identity, docType: 'paqad.request', body: 'hi\n' });
+    expect(textHashMatches(renderFrontMatter(header, 'hi\n'))).toBe(true);
+    expect(textHashMatches(renderFrontMatter(header, 'bye\n'))).toBe(false);
+    expect(textHashMatches('no front matter\n')).toBeNull();
+    expect(textHashMatches('---\ntitle: "x"\n---\nbody')).toBeNull();
+    expect(textHashMatches('---\nchange: "c"\n---\nbody')).toBeNull();
   });
 });
