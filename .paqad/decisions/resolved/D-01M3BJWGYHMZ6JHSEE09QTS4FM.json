@@ -1,0 +1,22 @@
+{
+  "id": "D-01M3BJWGYHMZ6JHSEE09QTS4FM",
+  "category": "architecture-path",
+  "title": "581: where the per-item trace source lives in specification.json",
+  "context": "Issue wants a source field on each behaviour/AC/invariant item, but behaviour is string[] and AC/invariant already have a different 'source' field.",
+  "options": [
+    {
+      "option_key": "trace-section",
+      "label": "A trace section keyed by item id (AC-10 reworded)"
+    },
+    {
+      "option_key": "trace-source-field",
+      "label": "A per-item trace_source field (touches ~6 readers)"
+    }
+  ],
+  "recommendation": "trace-section",
+  "created_at": "2026-09-25T06:08:48.593Z",
+  "status": "resolved",
+  "chosen": "trace-section",
+  "rationale": "Owner chose: trace map keyed by item id; no reader churn",
+  "resolved_at": "2026-09-25T06:34:30.304Z"
+}

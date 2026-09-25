@@ -1,0 +1,22 @@
+{
+  "id": "D-01M3BJWJBRW5PT7E5S9CV4QVQP",
+  "category": "architecture-path",
+  "title": "581: home for spec-pipeline corrections.jsonl",
+  "context": "corrections.jsonl is not in the issue's file table.",
+  "options": [
+    {
+      "option_key": "spec-correction-rows",
+      "label": "kind: spec-correction rows in stage-evidence.jsonl"
+    },
+    {
+      "option_key": "clarification-section",
+      "label": "a corrections section in clarification.json"
+    }
+  ],
+  "recommendation": "spec-correction-rows",
+  "created_at": "2026-09-25T06:08:50.040Z",
+  "status": "resolved",
+  "chosen": "spec-correction-rows",
+  "rationale": "Owner chose: corrections as stage-evidence rows",
+  "resolved_at": "2026-09-25T06:34:31.860Z"
+}
