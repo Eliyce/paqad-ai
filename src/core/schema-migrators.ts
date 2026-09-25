@@ -64,8 +64,15 @@ export const FEATURE_EVIDENCE_MIGRATOR: SchemaMigrator = {
   // Every layout before 1.1.0 is a 0.x or 1.0.x marker.
   appliesTo: (fromVersion) => /^(0|1\.0)\./.test(fromVersion.trim()),
   migrate: async ({ projectRoot }) => {
-    const result = migrateFeatureEvidence(projectRoot, { sessionId: migrationSessionId() });
-    return result.actions.length === 0 ? undefined : formatEvidenceMigration(result);
+    // An unexpected throw (a locked file on Windows, say) must not abort the update. The old
+    // folder is still there in that case, so the pending step every update and onboarding runs
+    // (runPendingEvidenceMigration) picks the migration up again next time.
+    try {
+      const result = migrateFeatureEvidence(projectRoot, { sessionId: migrationSessionId() });
+      return result.actions.length === 0 ? undefined : formatEvidenceMigration(result);
+    } catch (error) {
+      return `the evidence migration did not finish (${(error as Error).message}); it runs again on the next update, or run \`paqad-ai evidence migrate\`.`;
+    }
   },
 };
 

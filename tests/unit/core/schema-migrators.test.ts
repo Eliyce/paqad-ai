@@ -68,6 +68,25 @@ describe('runSchemaMigrators', () => {
     }
   });
 
+  it('turns a throw inside the evidence migration into a note, so the update goes on', async () => {
+    const [migrator] = SCHEMA_MIGRATORS;
+    const root = makeProject();
+    try {
+      // The ignore line has to go, but its temp file's path is taken by a folder: the write throws.
+      mkdirSync(join(root, '.paqad', `.gitignore.tmp-${process.pid}`), { recursive: true });
+      writeFileSync(join(root, '.paqad', '.gitignore'), '_specs/\n', 'utf8');
+      const note = await migrator!.migrate({
+        projectRoot: root,
+        fromVersion: '1.0.0',
+        toVersion: '1.1.0',
+        engineVersion: ENGINE_VERSION,
+      });
+      expect(note).toMatch(/^the evidence migration did not finish \(.+\); it runs again/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('runs only applicable migrators, in registration order, collecting notes', async () => {
     const calls: string[] = [];
     const migrators: SchemaMigrator[] = [
