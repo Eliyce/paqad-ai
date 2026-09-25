@@ -90,6 +90,8 @@ export interface SeedFeatureRecordInput {
   adapter: string;
   sessionId: string;
   lane?: FeatureLane;
+  /** Lifecycle status to seed with; `active` unless the evidence migration seeds `spec-only`. */
+  status?: FeatureStatus;
   /** The git branch at open and its merge base (issue #581); null off a branch. */
   branch?: string | null;
   baseBranch?: string | null;
@@ -126,7 +128,7 @@ export function seedFeatureRecord(
     slug: parts.slug,
     change: parts.ulid,
     lane: input.lane ?? null,
-    status: 'active',
+    status: input.status ?? 'active',
     session_id: input.sessionId,
     adapter: input.adapter,
     branch: input.branch ?? null,

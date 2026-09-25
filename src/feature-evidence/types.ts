@@ -57,8 +57,11 @@ export const FEATURE_DOC_SCHEMA_VERSION = 2;
 /** The lane a feature was routed to; `null` when the classifier picked none. */
 export type FeatureLane = 'fast' | 'graduated' | 'full' | null;
 
-/** A feature's lifecycle status within its session control. */
-export type FeatureStatus = 'active' | 'paused' | 'done';
+/**
+ * A feature's lifecycle status within its session control. `spec-only` (issue #581) marks a
+ * bundle the evidence migration created for a spec run whose change never opened.
+ */
+export type FeatureStatus = 'active' | 'paused' | 'done' | 'spec-only';
 
 /**
  * The identity + status record stored as `feature.json`. Rigid and script-owned:

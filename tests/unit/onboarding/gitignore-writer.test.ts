@@ -116,9 +116,11 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
   // Issue #512 — the editable spec source and spec-pipeline scratch under `.paqad/_specs/`
   // are transient per-machine working state, never committed.
-  it('ignores the _specs directory so the spec source and pipeline scratch are never committed', () => {
+  // Issue #581 — the spec pipeline keeps no scratch folder of its own any more, so a new project
+  // gets no line for it (the evidence migration removes the old line from an existing one).
+  it('writes no line for the retired spec-pipeline scratch folder', () => {
     writeGitignore(projectRoot);
-    expect(read(projectRoot, '.paqad/.gitignore')).toContain('_specs/');
+    expect(read(projectRoot, '.paqad/.gitignore').split('\n')).not.toContain('_specs/');
   });
 
   it('writes a nested .paqad/.gitattributes making the decision index merge cleanly', () => {

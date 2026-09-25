@@ -137,8 +137,8 @@ describe('checkSchemaCompatibility', () => {
 
   it('classifies a newer version as future', () => {
     expect(checkSchemaCompatibility(marker('2.0.0'))).toBe('future');
-    expect(checkSchemaCompatibility(marker('1.0.1'))).toBe('future');
-    expect(checkSchemaCompatibility(marker('1.1.0'))).toBe('future');
+    expect(checkSchemaCompatibility(marker('1.1.1'))).toBe('future');
+    expect(checkSchemaCompatibility(marker('1.2.0'))).toBe('future');
   });
 });
 

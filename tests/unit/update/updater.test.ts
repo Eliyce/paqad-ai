@@ -156,6 +156,29 @@ describe('FrameworkUpdater', () => {
     });
   });
 
+  it('finishes a pending evidence migration on a later update (issue #581, AC-28)', async () => {
+    // Already at the current schema, so the one-time migrator does not run again; a run the
+    // migration left behind (another session held it then) is still moved on this update.
+    writeFileSync(
+      schemaMarkerPath(projectRoot),
+      JSON.stringify({
+        paqad_schema_version: PAQAD_SCHEMA_VERSION,
+        written_at: '2025-01-01T00:00:00.000Z',
+        written_by_engine_version: VERSION,
+      }),
+    );
+    const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
+    mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(existsSync(join(projectRoot, '.paqad/_specs'))).toBe(false);
+    expect(
+      readFileSync(join(projectRoot, '.paqad/ledger/feature-evidence', run, 'request.md'), 'utf8'),
+    ).toContain('# Gamma');
+  });
+
   it('refuses to update a project whose schema is newer than this engine (D2 refuse)', async () => {
     writeFileSync(
       schemaMarkerPath(projectRoot),
