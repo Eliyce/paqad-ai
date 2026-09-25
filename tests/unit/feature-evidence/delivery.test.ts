@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   appendCommitToFeature,
   commitsSinceBase,
+  featureDeliveryBranch,
   readFeatureDelivery,
   reconcileDeliveryFromGit,
   recordCommitForBranch,
@@ -169,6 +170,43 @@ describe('branch resolution + commit recording', () => {
     expect(raw).not.toHaveProperty('branch');
     expect(raw).not.toHaveProperty('base_branch');
     expect(raw).not.toHaveProperty('captured_at');
+  });
+
+  it('writeFeatureDelivery copies a legacy branch and base to feature.json when it has none', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    updateFeatureRecord(root, dir, { branch: null, base_branch: null });
+    writeFeatureDelivery(
+      root,
+      dir,
+      { ...readFeatureDelivery(root, dir), branch: 'feat/old', base_branch: 'develop' },
+      AT,
+    );
+    expect(readFeatureRecord(root, dir)).toMatchObject({
+      branch: 'feat/old',
+      base_branch: 'develop',
+    });
+    expect(featureDeliveryBranch(root, dir)).toBe('feat/old');
+  });
+
+  it('writeFeatureDelivery never overwrites the branch feature.json already has', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
+    updateFeatureRecord(root, dir, { branch: 'feat/new', base_branch: null });
+    writeFeatureDelivery(
+      root,
+      dir,
+      { ...readFeatureDelivery(root, dir), branch: 'feat/old', base_branch: 'develop' },
+      AT,
+    );
+    expect(readFeatureRecord(root, dir)).toMatchObject({
+      branch: 'feat/new',
+      base_branch: 'develop',
+    });
+
+    updateFeatureRecord(root, dir, { base_branch: 'main' });
+    writeFeatureDelivery(root, dir, { ...readFeatureDelivery(root, dir), base_branch: 'x' }, AT);
+    expect(readFeatureRecord(root, dir)).toMatchObject({ branch: 'feat/new', base_branch: 'main' });
   });
 
   it('recordCommitForBranch returns null when no feature can be resolved', () => {

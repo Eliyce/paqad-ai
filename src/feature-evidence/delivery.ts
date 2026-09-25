@@ -131,8 +131,10 @@ export function readFeatureDelivery(projectRoot: string, dirName: string): Deliv
 /**
  * Write a feature's `delivery.json` (atomic), re-stamped with the envelope header (issue #581).
  * Only the delivery body is kept: the legacy `branch` / `base_branch` / `captured_at` of a
- * record read from an old file are dropped, so every write is the new shape (INV-9).
- * `recordedAt` is when the record was last touched.
+ * record read from an old file are dropped, so every write is the new shape (INV-9). A legacy
+ * branch or base that feature.json does not have yet is copied there first, so rewriting an
+ * old record never loses the branch its commits are matched on. `recordedAt` is when the record
+ * was last touched.
  */
 export function writeFeatureDelivery(
   projectRoot: string,
@@ -141,6 +143,15 @@ export function writeFeatureDelivery(
   recordedAt?: string,
   sessionId?: string | null,
 ): DeliveryRecord {
+  if (record.branch || record.base_branch) {
+    const current = readFeatureRecord(projectRoot, dirName);
+    recordBranch(
+      projectRoot,
+      dirName,
+      current?.branch ? null : record.branch,
+      current?.base_branch ? null : record.base_branch,
+    );
+  }
   const stamped = stampFeatureDocument({
     projectRoot,
     dirName,
