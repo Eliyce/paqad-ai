@@ -14,12 +14,11 @@ import { verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 import type { AiBomDocument } from '@/evidence/receipt/ai-bom.js';
 import { readAllFeatureEvidence } from '@/feature-evidence/projections.js';
-import { readFeatureEvidence } from '@/feature-evidence/bundle-ledgers.js';
 import {
   latestFeatureReceipt,
   projectAiBomFromFeatures,
   readAllFeatureReceiptEntries,
-  receiptEvidenceRows,
+  readReceiptEvidenceRows,
   verifyEvidenceSeal,
 } from '@/feature-evidence/receipt.js';
 import { buildEvidenceComment } from '@/verification/evidence-markdown.js';
@@ -78,8 +77,13 @@ export interface ReceiptCard {
   compliance: ComplianceCitation[];
   /** Issue #123 — the frozen-context reproducibility stamp, or null when absent. */
   reproducibility: ReproducibilityStampPredicate | null;
-  /** The graded checks the receipt covers. */
-  checks: Pick<EvidenceLedgerRow, 'code' | 'engine' | 'verdict' | 'strength_class'>[];
+  /**
+   * The graded checks of the receipt's run. `sealed` is false for a check recorded after the
+   * receipt sealed evidence.jsonl (a late gate): the receipt's seal does not cover it.
+   */
+  checks: (Pick<EvidenceLedgerRow, 'code' | 'engine' | 'verdict' | 'strength_class'> & {
+    sealed: boolean;
+  })[];
   /** Changed files attested by the receipt. */
   subjects: { name: string; digest: string }[];
 }
@@ -123,8 +127,8 @@ export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
       (statement === null || verifyEvidenceSeal(projectRoot, dirName, statement) !== false);
     const rows =
       statement === null
-        ? []
-        : receiptEvidenceRows(statement, readFeatureEvidence(projectRoot, dirName));
+        ? { sealed: [], unsealed: [] }
+        : readReceiptEvidenceRows(projectRoot, dirName, statement);
     if (!sealed && brokenAt === null) {
       brokenAt = index;
     }
@@ -139,11 +143,15 @@ export function buildReceiptFeed(projectRoot: string): ReceiptFeed {
       authorship: predicate?.change_authorship ?? null,
       compliance: predicate?.compliance_citations ?? [],
       reproducibility: predicate?.reproducibility ?? null,
-      checks: rows.map((row) => ({
+      checks: [
+        ...rows.sealed.map((row) => ({ row, sealed: true })),
+        ...rows.unsealed.map((row) => ({ row, sealed: false })),
+      ].map(({ row, sealed }) => ({
         code: row.code,
         engine: row.engine,
         verdict: row.verdict,
         strength_class: row.strength_class,
+        sealed,
       })),
       subjects: (statement?.subject ?? []).map((subject) => ({
         name: subject.name,

@@ -48,7 +48,7 @@ import { AGENT_ATTACHED_JOURNEY, type VisualEvidenceManifest } from '@/visual-ev
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
 import type { DecisionIndexEntry, IndexedDecisionView } from './decisions-index.js';
-import { receiptEvidenceRows } from './receipt.js';
+import { splitReceiptEvidenceRows } from './receipt.js';
 
 export interface RenderFeatureReportOptions {
   /** ISO timestamp stamped into the page; supplied so the render is deterministic. */
@@ -115,9 +115,11 @@ export interface ReceiptIntegrity {
   envelope: ReceiptEnvelope | null;
   /**
    * The graded rows the receipt stands for: carried by a pre-#581 receipt, read from the
-   * bundle's `evidence.jsonl` for one that seals it (issue #581).
+   * sealed lines of the bundle's `evidence.jsonl` for one that seals it (issue #581).
    */
   rows: ReceiptRow[];
+  /** Rows of the same run recorded after the seal: shown, but marked as not covered by it. */
+  unsealedRows: ReceiptRow[];
 }
 
 /**
@@ -144,7 +146,14 @@ export function verifyFeatureReceiptSelf(envelope: ReceiptEnvelope): boolean {
 function readReceiptIntegrity(bundle: FeatureBundleExport): ReceiptIntegrity {
   const envelope = (bundle.files.receipt as ReceiptEnvelope | undefined) ?? null;
   if (!envelope || typeof envelope !== 'object' || !envelope.payload) {
-    return { present: false, verified: false, statement: null, envelope: null, rows: [] };
+    return {
+      present: false,
+      verified: false,
+      statement: null,
+      envelope: null,
+      rows: [],
+      unsealedRows: [],
+    };
   }
   const statement = decodeReceiptStatement(envelope);
   return {
@@ -152,7 +161,7 @@ function readReceiptIntegrity(bundle: FeatureBundleExport): ReceiptIntegrity {
     verified: verifyFeatureReceiptSelf(envelope),
     statement,
     envelope,
-    rows: receiptRowsOf(statement, bundle.files.evidence),
+    ...receiptRowsOf(statement, bundle.files.evidence),
   };
 }
 
@@ -173,9 +182,10 @@ export function deriveReportVerdict(
   evidenceRows?: unknown,
 ): VerdictKind {
   const hasFailedStage = fold.stages.some((stage) => stage.state === 'failed');
-  const receiptRows = receiptRowsOf(receiptStatement, evidenceRows);
+  // A failed gate needs attention whether or not the seal covers it.
+  const { rows, unsealedRows } = receiptRowsOf(receiptStatement, evidenceRows);
   const hasFailedGate =
-    receiptRows.some((row) => String(row.verdict).toLowerCase() === 'fail') ||
+    [...rows, ...unsealedRows].some((row) => String(row.verdict).toLowerCase() === 'fail') ||
     String(receiptStatement?.predicate?.verification_result ?? '').toUpperCase() === 'FAILED';
   if (hasFailedStage || hasFailedGate) return 'fail';
   const verdict = fold.completeness.verdict;
@@ -194,13 +204,21 @@ interface ReceiptRow {
 }
 
 /**
- * The rows a receipt stands for. A pre-#581 receipt carries them; a sealing receipt is paired
- * with the bundle's `evidence.jsonl` rows of the same run (issue #581). Tolerant of a receipt
- * whose statement decoded without a predicate.
+ * The rows a receipt stands for, and its run's rows recorded after the seal. A pre-#581 receipt
+ * carries its rows; a sealing receipt is paired with the bundle's `evidence.jsonl` rows of the
+ * same run (issue #581), split at the sealed line count. Tolerant of a receipt whose statement
+ * decoded without a predicate.
  */
-function receiptRowsOf(statement: InTotoStatement | null, evidenceRows: unknown): ReceiptRow[] {
-  if (!statement?.predicate) return [];
-  return receiptEvidenceRows(statement, asRows(evidenceRows) as unknown as EvidenceLedgerRow[]);
+function receiptRowsOf(
+  statement: InTotoStatement | null,
+  evidenceRows: unknown,
+): { rows: ReceiptRow[]; unsealedRows: ReceiptRow[] } {
+  if (!statement?.predicate) return { rows: [], unsealedRows: [] };
+  const split = splitReceiptEvidenceRows(
+    statement,
+    asRows(evidenceRows) as unknown as EvidenceLedgerRow[],
+  );
+  return { rows: split.sealed, unsealedRows: split.unsealed };
 }
 
 /**
@@ -648,16 +666,23 @@ function renderReceipt(integrity: ReceiptIntegrity): string {
     ? `${glyphWord('good', 'Integrity verified')} — the receipt's hash chain recomputes from its own bytes (hash-chained, not a signature).`
     : `${glyphWord('failed', 'Could not verify integrity')} — the receipt's hash chain does not recompute; treat it as tampered or corrupt.`;
   const rows = dedupeByHash(integrity.rows);
+  const unsealed = dedupeByHash(integrity.unsealedRows);
+  // A gate recorded after the receipt sealed evidence.jsonl is shown, but never as the
+  // receipt's own: the seal does not cover it.
+  const rowHtml = (row: ReceiptRow, sealed: boolean): string => {
+    const v = String(row.verdict ?? '').toLowerCase();
+    const kind: PaqadStatusKind = v === 'pass' ? 'good' : v === 'fail' ? 'failed' : 'needsLook';
+    const note = sealed
+      ? ''
+      : ' <em class="unsealed">(recorded after the seal, not covered by it)</em>';
+    return `<tr><td><code>${escapeHtml(row.code ?? '')}</code>${note}</td><td>${GLYPH_FOR[kind]} ${escapeHtml(row.verdict ?? '')}</td><td>${escapeHtml(row.detail ?? '')}</td></tr>`;
+  };
   const rowsHtml =
-    rows.length > 0
-      ? `<table class="gates"><thead><tr><th>Gate</th><th>Result</th><th>Detail</th></tr></thead><tbody>${rows
-          .map((row) => {
-            const v = String(row.verdict ?? '').toLowerCase();
-            const kind: PaqadStatusKind =
-              v === 'pass' ? 'good' : v === 'fail' ? 'failed' : 'needsLook';
-            return `<tr><td><code>${escapeHtml(row.code ?? '')}</code></td><td>${GLYPH_FOR[kind]} ${escapeHtml(row.verdict ?? '')}</td><td>${escapeHtml(row.detail ?? '')}</td></tr>`;
-          })
-          .join('')}</tbody></table>`
+    rows.length + unsealed.length > 0
+      ? `<table class="gates"><thead><tr><th>Gate</th><th>Result</th><th>Detail</th></tr></thead><tbody>${[
+          ...rows.map((row) => rowHtml(row, true)),
+          ...unsealed.map((row) => rowHtml(row, false)),
+        ].join('')}</tbody></table>`
       : '<p class="empty">The receipt carries no graded gate rows.</p>';
   const body =
     `<p class="receipt-result">Result: ${GLYPH_FOR[resultKind]} ${escapeHtml(result || 'n/a')}</p>` +

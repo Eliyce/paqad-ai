@@ -16,8 +16,10 @@
 // Issue #581 — the receipt seals the bundle's `evidence.jsonl` instead of copying its rows:
 // the predicate carries `evidence_sha256` (the file's bytes at seal time) and
 // `evidence_line_count`, so the rows are stored once. Late gates append rows after sealing,
-// so a verifier re-hashes only the sealed prefix. A receipt sealed before #581 still carries
-// `predicate.rows` and every reader here falls back to them.
+// so a verifier re-hashes only the sealed prefix. Those later rows are not covered by the
+// seal, so a reader shows them as unsealed rather than as rows the receipt vouches for. A
+// receipt sealed before #581 still carries `predicate.rows` and every reader here falls back
+// to them.
 //
 // Both files also carry the one envelope header (issue #581, FR-5), each in the slot its
 // standard format allows: the receipt in its top-level `paqad` block, outside the signed DSSE
@@ -40,6 +42,7 @@ import type {
   ReproducibilityStampPredicate,
 } from '@/core/types/evidence-ledger.js';
 import { ZERO_DIGEST } from '@/evidence/digests.js';
+import { parseEvidenceRows } from '@/evidence/ledger.js';
 import { buildAiBom, type AiBomDocument } from '@/evidence/receipt/ai-bom.js';
 import { signReceipt } from '@/evidence/receipt/dsse.js';
 import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
@@ -49,7 +52,6 @@ import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/envelope.js';
 
 import { documentSessionId } from './bundle-document.js';
-import { readFeatureEvidence } from './bundle-ledgers.js';
 import { listFeatureDirs } from './delivery.js';
 import {
   buildEnvelopeHeader,
@@ -266,22 +268,66 @@ export function verifyEvidenceSeal(
   return prefix !== null && sha256Hex(prefix) === sha256;
 }
 
+/** The graded rows of a receipt's run, split by whether its evidence seal covers them. */
+export interface ReceiptEvidenceRows {
+  /** The rows the receipt vouches for: carried in it, or in the sealed lines of evidence.jsonl. */
+  sealed: EvidenceLedgerRow[];
+  /**
+   * Rows of the same run appended after sealing (the late gates). `evidence_sha256` does not
+   * cover them, so they are shown as unsealed, never attributed to the receipt.
+   */
+  unsealed: EvidenceLedgerRow[];
+}
+
 /**
- * The graded rows a receipt stands for. A pre-#581 receipt carries them in `predicate.rows`.
- * A sealing receipt does not, so they are the bundle's `evidence.jsonl` rows of that same
- * verification run: every row is stamped with the run's completion time, which is also the
- * receipt's `time_verified`, so earlier runs' rows in the append-only file are left out
- * and the late gates recorded after sealing are included.
+ * The graded rows of a receipt's run. A pre-#581 receipt carries them in `predicate.rows`, all
+ * sealed. A sealing receipt does not, so they are the bundle's `evidence.jsonl` rows of that same
+ * verification run (every row is stamped with the run's completion time, which is also the
+ * receipt's `time_verified`, so earlier runs' rows are left out). `evidenceRows` is the file in
+ * line order; the first `sealedRowCount` of them sit in the lines the seal covers, which is
+ * `evidence_line_count` because the evidence writer puts exactly one row on each line.
  */
+export function splitReceiptEvidenceRows(
+  statement: InTotoStatement,
+  evidenceRows: readonly EvidenceLedgerRow[],
+  sealedRowCount: number = statement.predicate.evidence_line_count ?? 0,
+): ReceiptEvidenceRows {
+  const carried = statement.predicate.rows;
+  if (Array.isArray(carried)) return { sealed: [...carried], unsealed: [] };
+  const time = statement.predicate.time_verified;
+  const ofRun = (row: EvidenceLedgerRow): boolean =>
+    rowRecordedAt(row as unknown as Record<string, unknown>) === time;
+  return {
+    sealed: evidenceRows.slice(0, sealedRowCount).filter(ofRun),
+    unsealed: evidenceRows.slice(sealedRowCount).filter(ofRun),
+  };
+}
+
+/** The rows a receipt vouches for: {@link splitReceiptEvidenceRows}, sealed part only. */
 export function receiptEvidenceRows(
   statement: InTotoStatement,
   evidenceRows: readonly EvidenceLedgerRow[],
 ): EvidenceLedgerRow[] {
-  const carried = statement.predicate.rows;
-  if (Array.isArray(carried)) return [...carried];
-  const time = statement.predicate.time_verified;
-  return evidenceRows.filter(
-    (row) => rowRecordedAt(row as unknown as Record<string, unknown>) === time,
+  return splitReceiptEvidenceRows(statement, evidenceRows).sealed;
+}
+
+/**
+ * {@link splitReceiptEvidenceRows} read straight from a bundle's `evidence.jsonl`, counting the
+ * rows in the sealed lines exactly (an unreadable line there is not a row). A file that lost
+ * sealed lines has no sealed rows left: every row of the run reads as unsealed.
+ */
+export function readReceiptEvidenceRows(
+  projectRoot: string,
+  dirName: string,
+  statement: InTotoStatement,
+): ReceiptEvidenceRows {
+  const raw = readText(join(projectRoot, featureFilePath(dirName, 'evidence')));
+  const lineCount = statement.predicate.evidence_line_count ?? 0;
+  const prefix = sealedPrefix(raw, lineCount);
+  return splitReceiptEvidenceRows(
+    statement,
+    parseEvidenceRows(raw),
+    prefix === null ? 0 : parseEvidenceRows(prefix).length,
   );
 }
 
@@ -425,8 +471,8 @@ export function projectFeatureAiBom(
 /**
  * Project the WHOLE-PROJECT AI-BOM on demand from the union of every feature bundle's own
  * receipt (issue #343 B) — the replacement for authoring a continuous whole-project ledger.
- * Each feature receipt stands for its graded rows (carried, or sealed in the bundle's
- * `evidence.jsonl` since #581) and file subjects; the union is
+ * Each feature receipt stands for its graded rows (carried, or in the sealed lines of the
+ * bundle's `evidence.jsonl` since #581) and file subjects; the union is
  * rebuilt into one statement and rendered as a single CycloneDX AI-BOM. Feature dirs whose
  * receipt is missing/corrupt are skipped. `null` when no feature carries a receipt.
  */
@@ -453,7 +499,8 @@ export function projectAiBomFromFeatures(
       seenSubjects.add(key);
       fileDigests.push({ name: subject.name, sha256: subject.digest.sha256 });
     }
-    for (const row of receiptEvidenceRows(statement, readFeatureEvidence(projectRoot, dirName))) {
+    // Only the rows the receipt vouches for: a row appended after its seal is not its evidence.
+    for (const row of readReceiptEvidenceRows(projectRoot, dirName, statement).sealed) {
       if (seenRows.has(row.content_hash)) continue;
       seenRows.add(row.content_hash);
       rows.push(row);

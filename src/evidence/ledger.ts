@@ -80,7 +80,11 @@ export function appendEvidenceRows(projectRoot: string, rows: readonly EvidenceL
 export function readEvidenceRowsAt(projectRoot: string, relPath: string): EvidenceLedgerRow[] {
   const path = join(projectRoot, relPath);
   if (!existsSync(path)) return [];
-  const raw = readFileSync(path, 'utf8');
+  return parseEvidenceRows(readFileSync(path, 'utf8'));
+}
+
+/** The graded rows in a JSONL text, in line order; the {@link readEvidenceRowsAt} parser. */
+export function parseEvidenceRows(raw: string): EvidenceLedgerRow[] {
   const out: EvidenceLedgerRow[] = [];
   for (const line of raw.split('\n')) {
     const trimmed = line.trim();

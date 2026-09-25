@@ -181,6 +181,14 @@ function ReceiptCardView({
               />
               {check.code}
               <span style={{ color: 'var(--color-muted)' }}>({check.strength_class})</span>
+              {check.sealed === false && (
+                <span
+                  style={{ color: 'var(--color-muted)' }}
+                  title="Recorded after this receipt was sealed, so the seal does not cover it"
+                >
+                  not sealed
+                </span>
+              )}
             </li>
           ))}
         </ul>

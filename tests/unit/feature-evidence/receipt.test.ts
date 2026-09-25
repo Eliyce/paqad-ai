@@ -24,7 +24,9 @@ import {
   readAllFeatureReceipts,
   readFeatureAiBom,
   readFeatureReceipt,
+  readReceiptEvidenceRows,
   receiptEvidenceRows,
+  splitReceiptEvidenceRows,
   sealFeatureEvidence,
   specificationReceiptLine,
   verifyEvidenceSeal,
@@ -355,7 +357,60 @@ describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () =
     const earlier = { ...row('format', 'fail'), ts: '2026-07-09T00:00:00.000Z' };
     const late = row('rules-loaded', 'pass');
     const rows = receiptEvidenceRows(statement, [earlier, ...INPUT.rows, late]);
-    expect(rows.map((r) => r.code)).toEqual(['format', 'tests', 'rules-loaded']);
+    // The late gate sits past the sealed lines: shown as unsealed, never as the receipt's.
+    expect(rows.map((r) => r.code)).toEqual(['format', 'tests']);
+    const split = splitReceiptEvidenceRows(statement, [earlier, ...INPUT.rows, late]);
+    expect(split.unsealed.map((r) => r.code)).toEqual(['rules-loaded']);
+  });
+
+  it('splits an old receipt as all sealed, and a statement with no seal as all unsealed', () => {
+    const carried = buildInTotoStatement(INPUT);
+    expect(splitReceiptEvidenceRows(carried, [row('x', 'fail')])).toEqual({
+      sealed: INPUT.rows,
+      unsealed: [],
+    });
+    const bare = buildInTotoStatement(INPUT);
+    delete (bare.predicate as { rows?: unknown }).rows;
+    expect(splitReceiptEvidenceRows(bare, INPUT.rows)).toEqual({
+      sealed: [],
+      unsealed: INPUT.rows,
+    });
+  });
+
+  it('reads the sealed and the later rows straight from the bundle file', () => {
+    const { root, dir } = openWithEvidence(INPUT.rows);
+    const { envelope } = projectFeatureReceipt(root, dir, INPUT);
+    const statement = decodeReceiptStatement(envelope)!;
+    const late = row('rules-loaded', 'fail');
+    appendFeatureEvidenceRows(root, 'ses_1', [late]);
+    const split = readReceiptEvidenceRows(root, dir, statement);
+    expect(split.sealed.map((r) => r.code)).toEqual(['format', 'tests']);
+    expect(split.unsealed.map((r) => r.code)).toEqual(['rules-loaded']);
+    // The late fail is not the receipt's evidence, so the whole-project AI-BOM stays PASSED.
+    const whole = projectAiBomFromFeatures(root, '1.52.0', INPUT.timeVerified)!;
+    expect(JSON.stringify(whole)).toContain('"paqad:verification:result","value":"PASSED"');
+  });
+
+  it('counts only readable rows in the sealed lines, and seals nothing once lines are lost', () => {
+    const { root, dir } = openWithEvidence([]);
+    const path = join(root, featureFilePath(dir, 'evidence'));
+    const [format, tests] = INPUT.rows.map((r) => JSON.stringify(r));
+    writeFileSync(path, `${format}\nnot json\n${tests}\n`, 'utf8');
+    const { envelope } = projectFeatureReceipt(root, dir, INPUT);
+    const statement = decodeReceiptStatement(envelope)!;
+    expect(statement.predicate.evidence_line_count).toBe(3);
+    appendFileSync(path, `${JSON.stringify(row('late', 'pass'))}\n`, 'utf8');
+    const split = readReceiptEvidenceRows(root, dir, statement);
+    expect(split.sealed.map((r) => r.code)).toEqual(['format', 'tests']);
+    expect(split.unsealed.map((r) => r.code)).toEqual(['late']);
+
+    writeFileSync(path, `${format}\n`, 'utf8');
+    const lost = readReceiptEvidenceRows(root, dir, statement);
+    expect(lost).toEqual({ sealed: [], unsealed: [expect.objectContaining({ code: 'format' })] });
+
+    const bare = { ...statement, predicate: { ...statement.predicate } };
+    delete (bare.predicate as { evidence_line_count?: number }).evidence_line_count;
+    expect(readReceiptEvidenceRows(root, dir, bare).sealed).toEqual([]);
   });
 
   it('lists receipts with the bundle they came from', () => {

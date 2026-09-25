@@ -161,6 +161,7 @@ describe('dashboard trust', () => {
           engine: 'verification-gate',
           verdict: 'pass',
           strength_class: 'deterministic',
+          sealed: true,
         },
       ]);
       expect(feed.receipts[0].subjects).toEqual([{ name: 'src/a.ts', digest: 'aaa' }]);
@@ -231,6 +232,21 @@ describe('dashboard trust', () => {
       const card = buildReceiptFeed(root).receipts[0];
       expect(card.sealed).toBe(false);
       expect(card.checks[0].verdict).toBe('fail');
+    });
+
+    it('shows a check recorded after the seal as not sealed, and keeps the receipt sealed', () => {
+      const dir = projectFeature(root, { code: 'spec-review' });
+      // A late gate of the same run lands after the receipt sealed evidence.jsonl.
+      appendFeatureEvidenceRows(root, 'ses_1', [row('rules-loaded', 'fail')]);
+      const card = buildReceiptFeed(root).receipts.find((receipt) =>
+        receipt.checks.some((check) => check.code === 'rules-loaded'),
+      )!;
+      expect(dir).toBeTruthy();
+      expect(card.sealed).toBe(true);
+      expect(card.checks.map((check) => [check.code, check.sealed])).toEqual([
+        ['spec-review', true],
+        ['rules-loaded', false],
+      ]);
     });
 
     it('reads the carried rows of an old receipt and keeps it sealed', () => {

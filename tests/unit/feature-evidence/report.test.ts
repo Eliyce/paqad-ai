@@ -613,6 +613,11 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     });
     expect(html).toContain('ac-test-mapping');
     expect(html).toContain('rules-loaded');
+    // The late gate sits past the two sealed lines, so it is marked as not covered by the seal.
+    expect(html).toMatch(
+      /<code>rules-loaded<\/code> <em class="unsealed">\(recorded after the seal, not covered by it\)<\/em>/,
+    );
+    expect(html).not.toMatch(/<code>ac-test-mapping<\/code> <em/);
     expect(html).not.toContain('old-run-gate');
     expect(deriveReportVerdict(fold(completeStageRows()), statement, [late])).toBe('pass');
     expect(
