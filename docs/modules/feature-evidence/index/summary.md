@@ -100,7 +100,11 @@ change, so the live feature-development stage spine is untouched:
 | `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
 | `visual-evidence.json` | checked-when-present | `paqad-ai visual-evidence run` |
 
-No other file belongs in a bundle. `specification.md` and `context-efficiency.jsonl` are no longer written, and the retired per-feature spec scratch folder is gone: `paqad-ai evidence migrate [--dry-run]` (also run once on update) moves an old project's runs into their bundles.
+No other file belongs in a bundle. `specification.md` and `context-efficiency.jsonl` are no longer written, and the retired per-feature spec scratch folder is gone.
+
+`paqad-ai evidence migrate [--dry-run] [--session <id>]` moves an old project's spec runs into their bundles. Update and onboarding run it too, every time the old folder is still there, and a failure there only prints a warning, so it can never stop an update. It carries over the request, the question round, the experts, one row per logged step, and one `spec-correction` row per old correction (a rerun adds none twice). Archived redo copies are dropped. `--session` names your own session (it defaults to `SE_SESSION`), so a change you have open is not mistaken for one another session is still writing; a change open in another session is skipped and migrated on a later run, once that session closes it or has been idle for a day.
+
+The result lists every path it had to leave in the old folder as `leftBehind`: a skipped or failed run, an entry that is not a change folder, a file it does not know how to merge, or a file the OS would not let it delete. The old folder, and its line in the managed `.paqad/.gitignore`, only go once that list is empty, so nothing left in it can be committed by accident. The managed `.paqad/.gitignore` also lists `tmp/`, so the scratch inputs you hand to the record verbs never show up in git.
 
 The **`bundle-completeness` gate** (`src/verification/repository/bundle-completeness-gate.ts`)
 runs last at end-of-change (after every writer). Under `bundle_completeness=strict` (the
