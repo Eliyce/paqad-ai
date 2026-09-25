@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createEvidenceCommand } from '@/cli/commands/evidence.js';
+import { createSpecPipelineCommand } from '@/cli/commands/spec-pipeline.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
@@ -883,6 +884,112 @@ describe('migrateFeatureEvidence edge cases', () => {
     expect(migrationSessionId({ CLAUDE_SESSION_ID: 'b' })).toBe('b');
     expect(migrationSessionId({})).toBeNull();
     expect(typeof (migrationSessionId() ?? '')).toBe('string');
+  });
+});
+
+describe('migrateFeatureEvidence corrections and redo archives (second review, finding 1)', () => {
+  const CORRECTIONS = jsonl([
+    {
+      spec_id: 'S-alpha',
+      changed_sections: ['Behaviour', 'Invariants'],
+      at: '2026-09-01T03:00:00Z',
+    },
+    { spec_id: 'S-alpha', changed_sections: ['Behaviour', 7], at: '2026-09-01T04:00:00.000Z' },
+    { spec_id: 'S-alpha', changed_sections: 'not a list', at: 'not a time' },
+    { changed_sections: ['Behaviour'], at: '2026-09-01T05:00:00.000Z' },
+  ]);
+
+  function withCorrections(): string {
+    const root = fixture();
+    pipeline(root, A, 'corrections.jsonl', `${CORRECTIONS}not json\n`);
+    pipeline(root, A, 'task.json.redo-1756700000000', TASK);
+    pipeline(root, A, 'spec.md.redo-1756700000000', '# An older spec\n');
+    return root;
+  }
+
+  it('turns each correction into a spec-correction row, retires redo archives, and deletes the old folder', () => {
+    const root = withCorrections();
+    const result = migrateFeatureEvidence(root);
+
+    expect(existsSync(join(root, LEGACY_SPECS_DIR))).toBe(false);
+    expect(result.leftBehind).toEqual([]);
+    expect(kinds(result)).not.toContain('leave-files');
+    const rows = readUnitFile(root, featureFilePath(A, 'stageEvidence')).filter(
+      (row) => row.kind === 'spec-correction',
+    );
+    expect(rows.map((row) => [row.spec_id, row.changed_sections, row.recorded_at])).toEqual([
+      ['S-alpha', ['Behaviour', 'Invariants'], '2026-09-01T03:00:00.000Z'],
+      ['S-alpha', ['Behaviour'], '2026-09-01T04:00:00.000Z'],
+      ['S-alpha', [], rows[2]!.recorded_at],
+    ]);
+    const merge = result.actions.find((action) => action.kind === 'merge' && action.source === A);
+    expect(merge).toMatchObject({
+      added: expect.arrayContaining(['stage-evidence.jsonl (+6 rows)']),
+    });
+
+    const again = migrateFeatureEvidence(root);
+    expect(again.actions).toEqual([]);
+    expect(
+      readUnitFile(root, featureFilePath(A, 'stageEvidence')).filter(
+        (row) => row.kind === 'spec-correction',
+      ),
+    ).toHaveLength(3);
+  });
+
+  it('writes only the corrections a partial merge did not', () => {
+    const root = withCorrections();
+    write(
+      root,
+      featureFilePath(A, 'stageEvidence'),
+      `${read(root, featureFilePath(A, 'stageEvidence'))}${jsonl([
+        {
+          kind: 'spec-correction',
+          spec_id: 'S-alpha',
+          changed_sections: ['Behaviour', 'Invariants'],
+          doc_type: 'paqad.stage-evidence',
+          content_hash: 'x',
+          session_id: 's',
+          recorded_at: '2026-09-01T03:00:00.000Z',
+        },
+        {
+          kind: 'spec-correction',
+          spec_id: 'S-alpha',
+          changed_sections: [],
+          doc_type: 'paqad.stage-evidence',
+          content_hash: 'x',
+          session_id: 's',
+          recorded_at: '2026-09-02T00:00:00.000Z',
+        },
+      ])}`,
+    );
+    migrateFeatureEvidence(root);
+    const rows = readUnitFile(root, featureFilePath(A, 'stageEvidence')).filter(
+      (row) => row.kind === 'spec-correction',
+    );
+    expect(rows.map((row) => row.recorded_at)).toEqual([
+      '2026-09-01T03:00:00.000Z',
+      '2026-09-02T00:00:00.000Z',
+      '2026-09-01T04:00:00.000Z',
+    ]);
+  });
+
+  it('lets `spec pipeline metrics --all` count the migrated corrections', async () => {
+    const root = withCorrections();
+    migrateFeatureEvidence(root);
+    const logged: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line: unknown) => {
+      logged.push(String(line));
+    });
+    await createSpecPipelineCommand().parseAsync([
+      'node',
+      'pipeline',
+      'metrics',
+      '--all',
+      '--project-root',
+      root,
+    ]);
+    const report = JSON.parse(logged[0]!) as { corrections_by_section: Record<string, number> };
+    expect(report.corrections_by_section).toEqual({ Behaviour: 2, Invariants: 1 });
   });
 });
 

@@ -22,9 +22,11 @@
 // `request.md`, `clarification.json` (label, questions), `experts.json` (roster, findings,
 // synthesis; `expert-merge.json` and the brief files are dropped, the brief's budget, truncation
 // and hash go on the roster entry), one `spec-step` row per logged step (at its original time),
-// and `spec.md`, copied in when its sha256 equals the frozen `spec_hash`. The pre-freeze working
-// state (task, trace, grounding, finish, the working spec) only belongs in `specification.json`
-// at freeze. A bundle already frozen keeps its record as it is; a run that never froze gets
+// one `spec-correction` row per line of `corrections.jsonl` (a later edit to the frozen spec, at
+// the time it was recorded), and `spec.md`, copied in when its sha256 equals the frozen
+// `spec_hash`. An artifact a redo archived (`<artifact>.redo-<stamp>`) is retired. The
+// pre-freeze working state (task, trace, grounding, finish, the working spec) only belongs in
+// `specification.json` at freeze. A bundle already frozen keeps its record as it is; a run that never froze gets
 // that state in its staging dir, exactly where a run started today keeps it, so a later
 // `spec freeze --from-pipeline` still works.
 //
@@ -67,6 +69,7 @@ import type { ExpertNotesArtifact } from '@/spec-pipeline/experts/notes.js';
 import type { ExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
 import { lensPathForRole } from '@/spec-pipeline/experts/brief.js';
 import {
+  appendSpecCorrectionRow,
   appendSpecStepRow,
   readStagedText,
   SPEC_PIPELINE_STAGING_DIR,
@@ -81,7 +84,11 @@ import {
   type StagedFile,
 } from '@/spec-pipeline/run-store.js';
 import type { LabelArtifact, PipelineStep, QuestionsArtifact } from '@/spec-pipeline/types.js';
-import { SPEC_STEP_OUTCOMES, type SpecStepOutcome } from '@/stage-evidence/types.js';
+import {
+  SPEC_CORRECTION_KIND,
+  SPEC_STEP_OUTCOMES,
+  type SpecStepOutcome,
+} from '@/stage-evidence/types.js';
 
 import { documentSessionId } from './bundle-document.js';
 import { buildTextHeader, renderFrontMatter, rowRecordedAt, splitFrontMatter } from './envelope.js';
@@ -128,10 +135,17 @@ const MERGED_SOURCES = [
   'experts.json',
   'expert-notes.json',
   'expert-synthesis.json',
+  'corrections.jsonl',
 ];
 
 /** Pipeline files the new layout retires: nothing reads them, so a merge drops them. */
 const RETIRED_SOURCES = ['expert-merge.json'];
+
+/**
+ * An artifact a `redo` archived (`<artifact>.redo-<stamp>`): the run re-derived it and no reader
+ * ever looked at the archived copy again, so it is retired with the rest.
+ */
+const RETIRED_REDO = /\.redo-\d+$/;
 
 /** The folder of per-expert brief files, retired with them (their facts go on the roster). */
 const RETIRED_BRIEFS_DIR = 'briefs';
@@ -253,9 +267,9 @@ function pipelinePath(projectRoot: string, run: string, file: string): string {
   return join(projectRoot, LEGACY_SPECS_DIR, run, PIPELINE_DIR, file);
 }
 
-/** An old run's `log.jsonl`: plain rows with no envelope, a corrupt line skipped. */
-function readLog(projectRoot: string, run: string): Record<string, unknown>[] {
-  const raw = readText(pipelinePath(projectRoot, run, 'log.jsonl')) ?? '';
+/** An old run's `log.jsonl` (or `corrections.jsonl`): plain rows, a corrupt line skipped. */
+function readLog(projectRoot: string, run: string, file = 'log.jsonl'): Record<string, unknown>[] {
+  const raw = readText(pipelinePath(projectRoot, run, file)) ?? '';
   return raw.split('\n').flatMap((line) => {
     try {
       const row: unknown = JSON.parse(line);
@@ -384,6 +398,55 @@ function stepRowsFrom(run: LegacyRun): {
   });
 }
 
+/** One old correction: the frozen spec that moved, its changed sections, and when (or null). */
+interface LegacyCorrection {
+  spec_id: string;
+  changed_sections: string[];
+  at: string | null;
+}
+
+/** The run's `corrections.jsonl` lines that name a spec; a line without one is dropped. */
+function correctionsFrom(projectRoot: string, run: LegacyRun): LegacyCorrection[] {
+  return readLog(projectRoot, run.name, 'corrections.jsonl').flatMap((row) => {
+    if (typeof row.spec_id !== 'string' || row.spec_id.length === 0) return [];
+    const sections: unknown[] = Array.isArray(row.changed_sections) ? row.changed_sections : [];
+    return [
+      {
+        spec_id: row.spec_id,
+        changed_sections: sections.filter((item): item is string => typeof item === 'string'),
+        at: typeof row.at === 'string' && !Number.isNaN(Date.parse(row.at)) ? row.at : null,
+      },
+    ];
+  });
+}
+
+/**
+ * The old corrections the bundle has no `spec-correction` row for yet. A row matches on its spec
+ * and its time (the old `at` became the row's `recorded_at`); a correction with no readable time
+ * was written at the migration's clock, so it matches on its spec and sections instead. Each row
+ * covers one correction, so a rerun writes nothing and a partial merge only what it missed.
+ */
+function missingCorrections(
+  corrections: LegacyCorrection[],
+  existing: readonly Record<string, unknown>[],
+): LegacyCorrection[] {
+  const rows = existing.filter((row) => row.kind === SPEC_CORRECTION_KIND);
+  const used = new Set<number>();
+  return corrections.filter((correction) => {
+    const index = rows.findIndex(
+      (row, i) =>
+        !used.has(i) &&
+        row.spec_id === correction.spec_id &&
+        (correction.at === null
+          ? JSON.stringify(row.changed_sections) === JSON.stringify(correction.changed_sections)
+          : Date.parse(rowRecordedAt(row)!) === Date.parse(correction.at)),
+    );
+    if (index === -1) return true;
+    used.add(index);
+    return false;
+  });
+}
+
 /** The frozen `spec_hash` of a bundle's specification.json, null when unfrozen; undefined when absent. */
 function frozenSpecHash(projectRoot: string, bundle: string): string | null | undefined {
   const spec = readJson(join(projectRoot, featureFilePath(bundle, 'specification')));
@@ -401,6 +464,7 @@ interface MergePlan {
   experts: boolean;
   specMd: string | null;
   steps: ReturnType<typeof stepRowsFrom>;
+  corrections: LegacyCorrection[];
   staged: StagedFile[];
   /** The run's files (relative to `_specs/<run>/`) that are merged, covered or retired. */
   removable: string[];
@@ -474,6 +538,7 @@ function planMerge(
     if (name === RETIRED_BRIEFS_DIR) return rest.length === 1 && rest[0]!.endsWith('.md');
     if (rest.length > 0) return false;
     if (MERGED_SOURCES.includes(name) || RETIRED_SOURCES.includes(name)) return true;
+    if (RETIRED_REDO.test(name)) return true;
     const stagedFile = STAGED_SOURCES.find(([, source]) => source === name)?.[0];
     if (stagedFile === undefined) return false;
     if (specHash !== undefined) {
@@ -505,6 +570,7 @@ function planMerge(
         ? specSource
         : null,
     steps: missingSteps(stepRowsFrom(run), existingRows),
+    corrections: missingCorrections(correctionsFrom(projectRoot, run), existingRows),
     staged,
     removable: files.filter(accounted),
     leftovers: files.filter((rel) => !accounted(rel)),
@@ -518,8 +584,8 @@ function describeAdds(plan: MergePlan): string[] {
   if (plan.label || plan.questions) added.push('clarification.json');
   if (plan.experts) added.push('experts.json');
   if (plan.specMd !== null) added.push('spec.md');
-  if (plan.steps.length > 0 || plan.created) {
-    const rows = plan.steps.length + (plan.created ? 1 : 0);
+  const rows = plan.steps.length + plan.corrections.length + (plan.created ? 1 : 0);
+  if (rows > 0) {
     added.push(`stage-evidence.jsonl (+${rows} row${rows === 1 ? '' : 's'})`);
   }
   return added;
@@ -612,6 +678,14 @@ function applyMerge(projectRoot: string, plan: MergePlan): void {
         ...(step.tokens !== undefined ? { tokens: step.tokens } : {}),
       },
       step.at === null ? {} : { now: () => new Date(step.at!) },
+    );
+  }
+  for (const correction of plan.corrections) {
+    appendSpecCorrectionRow(
+      projectRoot,
+      bundle,
+      { spec_id: correction.spec_id, changed_sections: correction.changed_sections },
+      correction.at === null ? {} : { now: () => new Date(correction.at!) },
     );
   }
   for (const file of plan.staged) {
