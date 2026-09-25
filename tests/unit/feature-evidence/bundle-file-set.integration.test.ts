@@ -11,10 +11,12 @@ import { join, relative } from 'pathe';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { readFeatureEvidence } from '@/feature-evidence/bundle-ledgers.js';
-import { parseFeatureDirName } from '@/feature-evidence/paths.js';
+import { featureDir, parseFeatureDirName } from '@/feature-evidence/paths.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 import {
   bundlePath,
+  RUN_SESSION,
   CASE_FILES,
   CHANGE_DEPENDENT_FILES,
   ORACLE_CASES,
@@ -63,6 +65,45 @@ describe('the #581 file-set oracle (AC-1, AC-2)', () => {
       // The AC-2 check ran after every step, verbs and turn-end seams alike.
       expect(result.steps).toContain('repository verification');
       expect(result.steps.length).toBeGreaterThan(10);
+    },
+    E2E_TIMEOUT,
+  );
+});
+
+describe('the passing turn closes the change after its evidence is written', () => {
+  it.each(ORACLE_CASES)(
+    '%s closes on the turn it passes, with evidence.jsonl already in the bundle',
+    async (caseId) => {
+      const result = await run(caseId);
+      const rows = readFeatureStageUnit(result.root, result.dir);
+      // The change passed and was closed, and the close is the LAST row: nothing the verifier
+      // wrote for this change landed after the change was released.
+      expect(rows.at(-1)?.kind).toBe('close');
+      expect(rows.filter((row) => row.kind === 'close')).toHaveLength(1);
+      expect(currentFeature(result.root, RUN_SESSION)).toBeNull();
+      // And that same turn wrote the evidence rows, the completeness gate among them.
+      const evidence = readFeatureEvidence(result.root, result.dir);
+      expect(evidence.length).toBeGreaterThan(0);
+      expect(evidence.some((row) => row.code === 'bundle-completeness')).toBe(true);
+    },
+    E2E_TIMEOUT,
+  );
+});
+
+describe('a change the completeness gate fails stays open', () => {
+  it(
+    'keeps the change active for the redo loop instead of closing it',
+    async () => {
+      const result = await run('M1', {
+        beforeVerification: (root, dir) => rmSync(join(root, featureDir(dir), 'review.json')),
+      });
+      const gate = readFeatureEvidence(result.root, result.dir).find(
+        (row) => row.code === 'bundle-completeness',
+      );
+      expect(gate?.verdict).toBe('fail');
+      const rows = readFeatureStageUnit(result.root, result.dir);
+      expect(rows.some((row) => row.kind === 'close')).toBe(false);
+      expect(currentFeature(result.root, RUN_SESSION)).toBe(result.dir);
     },
     E2E_TIMEOUT,
   );

@@ -30,7 +30,7 @@ import {
   resolveComplianceCitations,
   type RowContext,
 } from '@/evidence/index.js';
-import { finalizeStageEvidence } from '@/stage-evidence/finalize.js';
+import { closeVerifiedChange, finalizeStageEvidence } from '@/stage-evidence/finalize.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import {
   appendChangeMetrics,
@@ -327,6 +327,9 @@ export async function runRepositoryVerification(
       changedFilesCount: context.changed_files.length,
       subjectDigest: computeChangeSubjectDigest(stageFileDigests),
       isFeatureDevChange: isFeatureDev,
+      // Issue #581 — a passing change is closed at the END of this run, after its evidence
+      // rows, receipt, metrics, decisions index and completeness gate have used it.
+      deferClose: true,
       now: () => new Date(completedAt),
     });
   } catch (error) {
@@ -581,6 +584,8 @@ export async function runRepositoryVerification(
       engineLog('warn', `paqad: decisions index skipped (${message})`);
     }
   }
+  // Issue #581 — a failed completeness gate keeps the change open for the redo loop.
+  let completenessFailed = false;
   // Issue #579 — every late gate pushed below, skips included, for the evidence.jsonl rows.
   const lateGates: VerificationEvidenceGate[] = [];
   const frameworkConfig = resolveFrameworkConfig(context.project_root);
@@ -638,6 +643,7 @@ export async function runRepositoryVerification(
       evidence.gates.push(completenessGate);
       lateGates.push(completenessGate);
       if (completenessGate.status === 'fail') {
+        completenessFailed = true;
         evidence.overall_status = 'fail';
         evidence.first_failure_gate ??= completenessGate.name;
       }
@@ -828,6 +834,20 @@ export async function runRepositoryVerification(
       ? summarizeStageIsolation(context.project_root, receiptFeature)
       : null,
   });
+
+  // Issue #581 — close a passing change LAST. Until now every writer above read the active
+  // feature; closing before them (as the finalizer used to) left the passing turn with no
+  // evidence.jsonl, receipt, metrics or decisions index, and skipped the completeness gate.
+  // A change the completeness gate failed stays open, like an incomplete one, so the next
+  // turn re-verifies it once the missing evidence is written.
+  if (stageResult?.ok && !completenessFailed) {
+    closeVerifiedChange(context.project_root, {
+      sessionId: options.hostSessionId ?? null,
+      adapter: BACKSTOP_WRITER,
+      verdict: stageResult.verdict,
+      now: () => new Date(completedAt),
+    });
+  }
 
   if (options.eventBus) {
     options.eventBus.emit({
