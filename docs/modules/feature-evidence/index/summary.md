@@ -180,6 +180,14 @@ any turn the session-ownership check skips (see below).
   bundle dir and whether it belongs there (the stage-end boundary uses it to reject a
   non-rigid artifact written into a bundle); `strayBundleFiles` lists what does not
   belong in a bundle dir so the exporter can flag pollution. Nothing here deletes.
+- **Bundle write guard** (`src/kernel/capability.ts`, issue #581) — no agent edits a bundle
+  file directly. Any Edit, Write or `apply_patch` aimed inside
+  `.paqad/ledger/feature-evidence/` is blocked before the mode and scope checks, and the
+  message names the verb that owns the file (read from the manifest `writer`), or says the
+  file does not belong there when no verb writes it. The rule cannot be tuned. Framework
+  scripts write through `fs`, so they never hit it. A shell write gets past the hook, so the
+  `bundle-completeness` gate re-checks every file that carries the #581 header against its
+  `content_hash` and fails a file changed outside its writer.
 - **Session control** (`session-control.ts`) — the `_session/<sessionId>.json`
   active + paused-feature stack + lane store, folding today's `.open` +
   `.pending-lane` role at feature grain (set-active pauses the prior active; resume

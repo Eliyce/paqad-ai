@@ -19,9 +19,10 @@
 
 ## The spec object
 
-The human-readable `.paqad/specs/S-<id>-<slug>.md` stays the source of truth. `buildFeatureSpec()`
-derives a validated structured sidecar (`.paqad/specs/S-<id>.spec.json`) from that markdown — never
-hand-maintained — by extending the compliance obligation extractor:
+The human-readable spec markdown stays the source of truth. You can write it anywhere (a scratch
+file under the git-ignored `.paqad/tmp/` works well) and hand it to `spec freeze`.
+`buildFeatureSpec()` derives a validated structured spec from that markdown, never hand-maintained,
+by extending the compliance obligation extractor:
 
 - **behaviour** — functional + non-functional obligations, rendered `FR-n: …` / `NFR-n: …`.
 - **acceptance_criteria** — reuse the `VerificationCriterion` shape (`AC-n`, given/when/then,
@@ -45,8 +46,11 @@ downgrade it. The `fast` lane omits the specification stage, so trivial work is 
 
 The agent runs the freeze mid-turn via the CLI (issue #317): `npx paqad-ai spec freeze <spec-file>
 --signed-off-by <name> --confirm-invariants` wires `buildFeatureSpec → evaluateSpecFreeze → freezeSpec
-→ writeFrozenSpec`. It prints every blocker and exits non-zero (nothing written) when the spec is not
-freezable; on a clean spec it writes the frozen sidecar (`.paqad/specs/<id>.frozen.json`). The
+→ writeFeatureSpecification`. It prints every blocker and exits non-zero (nothing written) when the
+spec is not freezable. On a clean spec it writes two files into the active feature's bundle: the
+frozen `specification.json`, and `spec.md`, which is your signed markdown copied byte for byte with
+the shared header in its front matter, so `spec_hash` still checks out after you delete the scratch
+copy (issue #581). The old `.paqad/specs/` sidecars are no longer written. The
 `--confirm-invariants` flag is the operator's sign-off act — without it, unconfirmed invariants stay
 blockers so a freeze is never implied. The verb only invokes the engine; it reimplements no freeze logic.
 
