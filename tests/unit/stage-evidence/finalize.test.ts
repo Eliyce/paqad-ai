@@ -15,7 +15,7 @@ import {
   startStage,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
-import { featureFilePath } from '@/feature-evidence/paths.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 const ADAPTER = 'backstop';
@@ -404,5 +404,16 @@ describe('finalizeStageEvidence (automatic end-gate, #247)', () => {
   it('#581: closeVerifiedChange is a no-op when no change is active', () => {
     closeVerifiedChange(root, { sessionId: 'ses_idle', adapter: ADAPTER, verdict: 'complete' });
     expect(currentFeature(root, 'ses_idle')).toBeNull();
+  });
+  it('#581: closeVerifiedChange swallows a write failure (best-effort, never breaks verification)', () => {
+    const sessionId = 'ses_close_err';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    // The ledger path turns into a directory, so appending the close row throws.
+    const ledger = join(root, featureDir(dirName), 'stage-evidence.jsonl');
+    rmSync(ledger, { force: true });
+    mkdirSync(ledger);
+    expect(() =>
+      closeVerifiedChange(root, { sessionId, adapter: ADAPTER, verdict: 'complete' }),
+    ).not.toThrow();
   });
 });
