@@ -19,11 +19,25 @@
 //
 // Nothing here creates or reads the retired per-feature scratch folder (INV-1).
 
-import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 
 import { dirname, join, relative, resolve } from 'pathe';
 
 import type { AgentRole } from '@/core/types/agent.js';
+import type {
+  SpecGroundingSection,
+  SpecPipelineSection,
+  SpecTaskSection,
+  SpecTraceMap,
+} from '@/core/types/feature-spec.js';
 import { documentSessionId, stampFeatureDocument } from '@/feature-evidence/bundle-document.js';
 import {
   buildTextHeader,
@@ -53,7 +67,7 @@ import {
 import type { ExpertNotesArtifact } from './experts/notes.js';
 import type { ExpertSynthesis } from './experts/synthesis.js';
 import type { ExpertFinding, ExpertNeedArtifact, ExpertNote } from './experts/types.js';
-import type { QuestionCounts } from './finish.js';
+import { frozenPipelineSection, type QuestionCounts, type StagedFinish } from './finish.js';
 import type {
   AutoAnswer,
   ClarityLabel,
@@ -564,6 +578,88 @@ export function readGrounding(projectRoot: string, dirName: string): GroundingAr
   const frozen = readBundleBody(projectRoot, dirName, 'specification')?.grounding;
   if (!isRecord(frozen) || !Array.isArray(frozen.references)) return null;
   return { terms: [], ...(frozen as unknown as Omit<GroundingArtifact, 'terms'>) };
+}
+
+/** The frozen `specification.json` body (header stripped), or null before freeze. */
+export function readFrozenSpecificationBody(
+  projectRoot: string,
+  dirName: string,
+): Record<string, unknown> | null {
+  return readBundleBody(projectRoot, dirName, 'specification');
+}
+
+// ── Freeze ──────────────────────────────────────────────────────────────────────────────
+
+/** The staged run, shaped as the sections `spec freeze --from-pipeline` merges (issue #581). */
+export interface FreezeSections {
+  task?: SpecTaskSection;
+  grounding?: SpecGroundingSection;
+  pipeline: SpecPipelineSection;
+  trace?: SpecTraceMap;
+}
+
+/**
+ * Shape the staged run into the `specification.json` sections (FR-3): `task` (intent, scope),
+ * `grounding` without its terms, `pipeline` from the finish result, and the `trace` map keyed by
+ * requirement id. Null when `finish` has not run, so freeze can refuse an unfinished run.
+ */
+export function readFreezeSections(projectRoot: string, dirName: string): FreezeSections | null {
+  const finish = readStagedJson<StagedFinish>(projectRoot, dirName, 'finish');
+  if (!isRecord(finish) || !isRecord(finish.provenance)) return null;
+  const task = readStagedJson<Record<string, unknown>>(projectRoot, dirName, 'task');
+  const grounding = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
+  const trace = readStagedJson<{ entries?: unknown }>(projectRoot, dirName, 'trace');
+  return {
+    ...(isRecord(task) && typeof task.intent === 'string'
+      ? { task: { intent: task.intent, scope: isRecord(task.scope) ? task.scope : {} } }
+      : {}),
+    ...(isRecord(grounding)
+      ? {
+          grounding: {
+            path: grounding.path,
+            sparse: grounding.sparse,
+            references: grounding.references,
+          },
+        }
+      : {}),
+    pipeline: frozenPipelineSection(finish),
+    ...(isRecord(trace) && Array.isArray(trace.entries)
+      ? {
+          trace: Object.fromEntries(
+            (trace.entries as { id: string; source: string }[]).map((entry) => [
+              entry.id,
+              entry.source,
+            ]),
+          ),
+        }
+      : {}),
+  };
+}
+
+/** True for a project-relative path that stays inside `.paqad/tmp/`. */
+function isTmpPath(rel: string): boolean {
+  return rel.startsWith('.paqad/tmp/') && !rel.split('/').includes('..');
+}
+
+/**
+ * Delete what the pipeline and freeze left in `.paqad/tmp/` for this change once the spec is
+ * frozen (FR-4, AC-3): every remembered input except the ones in `keep`, then the staging dir.
+ * The shared staging root goes too when this was the last change in it. Best-effort.
+ */
+export function clearFrozenRun(
+  projectRoot: string,
+  dirName: string,
+  keep: readonly string[] = [],
+): void {
+  for (const rel of readRememberedInputs(projectRoot, dirName)) {
+    if (isTmpPath(rel) && !keep.includes(rel)) rmSync(join(projectRoot, rel), { force: true });
+  }
+  rmSync(join(projectRoot, stagingDir(dirName)), { recursive: true, force: true });
+  try {
+    rmdirSync(join(projectRoot, SPEC_PIPELINE_STAGING_DIR));
+  } catch {
+    // Another change is still staged there, or it never existed.
+  }
 }
 
 // ── Remembered inputs ───────────────────────────────────────────────────────────────────

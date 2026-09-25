@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -419,9 +427,14 @@ describe('paqad-ai spec command', () => {
       });
     }
     // The run's working craft spec and finish result stage under .paqad/tmp (issue #581).
-    function writeRun(dir: string, specMd: string, provenance: unknown): void {
+    function writeRun(
+      dir: string,
+      specMd: string,
+      provenance: unknown,
+      decision: Record<string, unknown> = {},
+    ): void {
       writeStagedText(root, dir, 'craft', specMd);
-      writeStagedJson(root, dir, 'finish', { provenance });
+      writeStagedJson(root, dir, 'finish', { ...decision, provenance });
     }
 
     it('refuses under strict when the spec is not from the pipeline and no manual reason (AC-10)', async () => {
@@ -433,7 +446,7 @@ describe('paqad-ai spec command', () => {
       expect(err.join('\n')).toMatch(/spec_pipeline_adoption=strict/);
     });
 
-    it('freezes under warn with pipeline_produced=false and prints the warn line', async () => {
+    it('freezes under warn with pipeline.produced=false and prints the warn line', async () => {
       const dir = openFeature();
       enablePipeline('warn');
       const path = writeSpec('S-warn.md', COMPLETE_SPEC);
@@ -441,7 +454,8 @@ describe('paqad-ai spec command', () => {
       expect(process.exitCode).not.toBe(1);
       expect(out.join('\n')).toMatch(/frozen without the pipeline/);
       const stored = readFeatureSpecification(root, dir);
-      expect(stored?.provenance).toEqual({ pipeline_produced: false });
+      expect(stored?.pipeline).toEqual({ produced: false });
+      expect(stored && 'provenance' in stored).toBe(false);
     });
 
     it('freezes under strict with --manual --reason, recording the reason', async () => {
@@ -459,27 +473,92 @@ describe('paqad-ai spec command', () => {
         'urgent hotfix',
       );
       const stored = readFeatureSpecification(root, dir);
-      expect(stored?.provenance).toEqual({
-        pipeline_produced: false,
-        manual_reason: 'urgent hotfix',
-      });
+      expect(stored?.pipeline).toEqual({ produced: false, manual_reason: 'urgent hotfix' });
+      // A manual freeze has no run, so no run sections (issue #581, FR-3).
+      expect(stored?.task).toBeUndefined();
+      expect(stored?.trace).toBeUndefined();
     });
 
-    it('embeds provenance with --from-pipeline and refuses a hash mismatch (AC-10)', async () => {
+    it('merges the staged run with --from-pipeline and refuses a hash mismatch (AC-10)', async () => {
       const dir = openFeature();
       enablePipeline('strict');
       const provenance = {
         pipeline_produced: true,
         questions: { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
+        enforcement: {
+          enabled: true,
+          clarification: 'strict',
+          final_review: 'off',
+          token_ceiling: 20000,
+          experts_enabled: true,
+          adoption: 'strict',
+        },
+        a5_live: false,
+        outcome: 'non-blocking-review',
         metrics: { label: 'okay', grounding_sparse: false, grounding_path: 'docs-fallback' },
         experts: { accounting: { experts: [{ role: 'db-expert' }] }, conflicts: [] },
       };
-      writeRun(dir, COMPLETE_SPEC, provenance);
+      writeRun(dir, COMPLETE_SPEC, provenance, {
+        outcome: 'non-blocking-review',
+        reason: 'A5 is not live',
+      });
+      writeStagedJson(root, dir, 'task', {
+        intent: 'greet',
+        scope: { frontend: ['widget'], backend: [] },
+        tokens: 40,
+      });
+      writeStagedJson(root, dir, 'grounding', {
+        references: [{ kind: 'doc', ref: 'docs/modules/widget.md' }],
+        terms: ['1. Purpose'],
+        sparse: true,
+        path: 'docs-fallback',
+      });
+      writeStagedJson(root, dir, 'trace', {
+        entries: [
+          { id: 'FR-1', kind: 'FR', source: 'ticket:summary' },
+          { id: 'AC-1', kind: 'AC', source: 'EX-db-expert-1' },
+          { id: 'INV-1', kind: 'INV', source: 'ticket:invariants' },
+        ],
+      });
       const path = writeSpec('S-fp.md', COMPLETE_SPEC);
       await run('freeze', path, '--session', SES, '--confirm-invariants', '--from-pipeline');
-      const stored = readFeatureSpecification(root, dir);
-      expect(stored?.provenance?.pipeline_produced).toBe(true);
-      expect(stored?.provenance?.label).toBe('okay');
+      const stored = readFeatureSpecification(root, dir)!;
+      expect(stored.pipeline).toEqual({
+        produced: true,
+        outcome: 'non-blocking-review',
+        reason: 'A5 is not live',
+        a5_live: false,
+        // Stored once, without the master switch (issue #581, D4).
+        enforcement: {
+          clarification: 'strict',
+          final_review: 'off',
+          token_ceiling: 20000,
+          experts_enabled: true,
+          adoption: 'strict',
+        },
+      });
+      expect(stored.task).toEqual({
+        intent: 'greet',
+        scope: { frontend: ['widget'], backend: [] },
+      });
+      // The grounding terms stay behind (issue #581).
+      expect(stored.grounding).toEqual({
+        path: 'docs-fallback',
+        sparse: true,
+        references: [{ kind: 'doc', ref: 'docs/modules/widget.md' }],
+      });
+      expect(stored.trace).toEqual({
+        'FR-1': 'ticket:summary',
+        'AC-1': 'EX-db-expert-1',
+        'INV-1': 'ticket:invariants',
+      });
+      expect('provenance' in stored).toBe(false);
+      expect(JSON.stringify(stored)).not.toContain('run_dir');
+      // The staging dir went with the freeze (AC-3).
+      expect(existsSync(join(root, '.paqad', 'tmp', 'spec-pipeline'))).toBe(false);
+
+      // A re-run whose crafted bytes differ from the spec being frozen is refused.
+      writeRun(dir, COMPLETE_SPEC, provenance);
 
       // A spec whose bytes differ from the run's crafted spec is refused.
       const dir2 = currentFeature(root, SES);
@@ -498,13 +577,15 @@ describe('paqad-ai spec command', () => {
       expect(err.join('\n')).toMatch(/not the one the pipeline crafted/);
     });
 
-    it('writes no provenance key when the pipeline is off (unchanged behaviour)', async () => {
+    it('writes no pipeline sections when the pipeline is off (unchanged behaviour)', async () => {
       const dir = openFeature();
       // pipeline disabled: no .config write
       const path = writeSpec('S-off.md', COMPLETE_SPEC);
       await run('freeze', path, '--session', SES, '--confirm-invariants');
-      const stored = readFeatureSpecification(root, dir);
-      expect(stored && 'provenance' in stored).toBe(false);
+      const stored = readFeatureSpecification(root, dir)!;
+      for (const key of ['provenance', 'task', 'grounding', 'pipeline', 'trace']) {
+        expect(key in stored, key).toBe(false);
+      }
     });
 
     it('refuses --from-pipeline before the run has finished', async () => {
@@ -538,19 +619,74 @@ describe('paqad-ai spec command', () => {
       expect(err.join('\n')).toMatch(/no active feature/);
     });
 
-    it('embeds a minimal provenance (no experts, no metrics) from --from-pipeline', async () => {
+    it('merges a minimal run (finish only) from --from-pipeline', async () => {
       const dir = openFeature();
       enablePipeline('strict');
       writeRun(dir, COMPLETE_SPEC, {
         pipeline_produced: true,
+        outcome: 'freeze',
         questions: { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
       });
+      // A task with no scope object still records its intent.
+      writeStagedJson(root, dir, 'task', { intent: 'greet' });
       const path = writeSpec('S-min.md', COMPLETE_SPEC);
       await run('freeze', path, '--session', SES, '--confirm-invariants', '--from-pipeline');
-      const stored = readFeatureSpecification(root, dir);
-      expect(stored?.provenance?.pipeline_produced).toBe(true);
-      expect(stored?.provenance?.experts).toBeUndefined();
-      expect(stored?.provenance?.label).toBeUndefined();
+      const stored = readFeatureSpecification(root, dir)!;
+      expect(stored.pipeline).toEqual({ produced: true, outcome: 'freeze' });
+      expect(stored.task).toEqual({ intent: 'greet', scope: {} });
+      expect(stored.grounding).toBeUndefined();
+      expect(stored.trace).toBeUndefined();
+    });
+
+    it('deletes every remembered .paqad/tmp input after freeze, keeping the source on --keep-input (AC-3)', async () => {
+      const dir = openFeature();
+      enablePipeline('strict');
+      writeRun(dir, COMPLETE_SPEC, { pipeline_produced: true, outcome: 'freeze' });
+      mkdirSync(join(root, '.paqad', 'tmp'), { recursive: true });
+      const path = join(root, '.paqad', 'tmp', 'S-inputs.md');
+      writeFileSync(path, COMPLETE_SPEC, 'utf8');
+      writeFileSync(join(root, '.paqad', 'tmp', 'need.json'), '{}', 'utf8');
+      writeFileSync(join(root, '.paqad', 'tmp', 'other.json'), '{}', 'utf8');
+      writeStagedJson(root, dir, 'inputs', {
+        inputs: [
+          '.paqad/tmp/need.json',
+          '.paqad/tmp/S-inputs.md',
+          // A path that escapes .paqad/tmp is never deleted, whatever the manifest says.
+          '.paqad/tmp/../keep.json',
+          'docs/keep.md',
+        ],
+      });
+      writeFileSync(join(root, '.paqad', 'keep.json'), '{}', 'utf8');
+      mkdirSync(join(root, 'docs'), { recursive: true });
+      writeFileSync(join(root, 'docs', 'keep.md'), 'x', 'utf8');
+      await run(
+        'freeze',
+        path,
+        '--session',
+        SES,
+        '--confirm-invariants',
+        '--from-pipeline',
+        '--keep-input',
+      );
+      expect(process.exitCode ?? 0).toBe(0);
+      expect(readdirSync(join(root, '.paqad', 'tmp')).sort()).toEqual([
+        'S-inputs.md',
+        'other.json',
+      ]);
+      expect(existsSync(join(root, '.paqad', 'keep.json'))).toBe(true);
+      expect(existsSync(join(root, 'docs', 'keep.md'))).toBe(true);
+    });
+
+    it('keeps the staging root while another change is still staged there', async () => {
+      const dir = openFeature();
+      enablePipeline('strict');
+      writeRun(dir, COMPLETE_SPEC, { pipeline_produced: true, outcome: 'freeze' });
+      writeStagedJson(root, 'other-01JZZZZZZZZZZZZZZZZZZZZZZZ', 'task', { intent: 'x' });
+      const path = writeSpec('S-shared.md', COMPLETE_SPEC);
+      await run('freeze', path, '--session', SES, '--confirm-invariants', '--from-pipeline');
+      expect(readdirSync(join(root, '.paqad', 'tmp', 'spec-pipeline'))).toEqual([
+        '01JZZZZZZZZZZZZZZZZZZZZZZZ',
+      ]);
     });
 
     it('strict --manual without --reason is refused', async () => {

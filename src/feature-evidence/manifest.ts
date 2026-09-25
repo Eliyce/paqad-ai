@@ -285,11 +285,36 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
 ];
 
 /**
+ * How a frozen spec says it was produced: the `pipeline` section of a record frozen since issue
+ * #581 (`produced`, `manual_reason`), else the `provenance` block of an older one
+ * (`pipeline_produced`, `manual_reason`), so both read the same (INV-8). Null when the record
+ * carries neither.
+ */
+export function readSpecAdoption(
+  spec: unknown,
+): { produced: boolean; manual_reason?: string } | null {
+  if (typeof spec !== 'object' || spec === null) return null;
+  const record = spec as {
+    pipeline?: { produced?: unknown; manual_reason?: unknown };
+    provenance?: { pipeline_produced?: unknown; manual_reason?: unknown };
+  };
+  const section = record.pipeline ?? record.provenance;
+  if (typeof section !== 'object' || section === null) return null;
+  const produced = record.pipeline
+    ? record.pipeline.produced
+    : (section as { pipeline_produced?: unknown }).pipeline_produced;
+  return {
+    produced: produced === true,
+    ...(typeof section.manual_reason === 'string' ? { manual_reason: section.manual_reason } : {}),
+  };
+}
+
+/**
  * The strict-adoption content check for `specification.json` (issue #547, FR-10.2). When
- * `specPipelineStrict` is on, the frozen spec must carry `provenance.pipeline_produced === true`
- * or a non-empty `provenance.manual_reason`; otherwise the gate fails closed. Under warn or with
- * the pipeline off this is not called, so the gate is unchanged there. Pure: parses the JSON and
- * inspects the provenance field, importing nothing from the pipeline.
+ * `specPipelineStrict` is on, the frozen spec must say the pipeline produced it, or carry a
+ * non-empty manual reason (read by {@link readSpecAdoption}, new and old shapes alike);
+ * otherwise the gate fails closed. Under warn or with the pipeline off this is not called, so the
+ * gate is unchanged there. Pure: parses the JSON, importing nothing from the pipeline.
  */
 export function validateSpecificationAdoption(content: string | null): {
   ok: boolean;
@@ -301,16 +326,15 @@ export function validateSpecificationAdoption(content: string | null): {
       'specification.json was not produced by the spec pipeline and records no manual reason (spec_pipeline_adoption=strict); re-freeze with --from-pipeline or --manual --reason',
   };
   if (content === null) return failure;
-  let spec: { provenance?: { pipeline_produced?: unknown; manual_reason?: unknown } };
+  let adoption: ReturnType<typeof readSpecAdoption>;
   try {
-    spec = JSON.parse(content) as typeof spec;
+    adoption = readSpecAdoption(JSON.parse(content));
   } catch {
     return failure;
   }
-  const provenance = spec.provenance;
-  if (!provenance) return failure;
-  if (provenance.pipeline_produced === true) return { ok: true };
-  if (typeof provenance.manual_reason === 'string' && provenance.manual_reason.trim().length > 0) {
+  if (!adoption) return failure;
+  if (adoption.produced) return { ok: true };
+  if (adoption.manual_reason !== undefined && adoption.manual_reason.trim().length > 0) {
     return { ok: true };
   }
   return failure;

@@ -10,6 +10,7 @@
 // approved something they did not (FR-7.4).
 
 import type { AgentRole } from '@/core/types/agent.js';
+import type { SpecPipelineSection } from '@/core/types/feature-spec.js';
 import type { SkillModelTier } from '@/core/types/skill.js';
 
 import type { PipelineConfig } from './config.js';
@@ -125,5 +126,41 @@ export function buildProvenance(
     // run without experts serialises exactly as it did before Phase 2 (INV-1).
     ...(experts ? { experts } : {}),
     ...(metrics ? { metrics } : {}),
+  };
+}
+
+/** The staged `finish.json`: the finish decision plus the run's provenance. */
+export interface StagedFinish {
+  outcome?: FinishOutcome;
+  reason?: string;
+  provenance: Partial<PipelineProvenance>;
+}
+
+/**
+ * The `pipeline` section `spec freeze --from-pipeline` writes into specification.json (issue #581,
+ * D4): the finish outcome and reason, whether A5 was live, and the enforcement settings, stored
+ * here once. The master switch is left out: a section only exists while the pipeline is on. A
+ * field the staged finish does not carry is left off rather than guessed.
+ */
+export function frozenPipelineSection(finish: StagedFinish): SpecPipelineSection {
+  const { provenance } = finish;
+  const outcome = finish.outcome ?? provenance.outcome;
+  const config = provenance.enforcement;
+  return {
+    produced: true,
+    ...(outcome === undefined ? {} : { outcome }),
+    ...(finish.reason === undefined ? {} : { reason: finish.reason }),
+    ...(provenance.a5_live === undefined ? {} : { a5_live: provenance.a5_live }),
+    ...(config === undefined
+      ? {}
+      : {
+          enforcement: {
+            clarification: config.clarification,
+            final_review: config.final_review,
+            token_ceiling: config.token_ceiling,
+            experts_enabled: config.experts_enabled,
+            adoption: config.adoption,
+          },
+        }),
   };
 }

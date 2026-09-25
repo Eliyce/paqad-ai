@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildProvenance, decideFinish } from '@/spec-pipeline/finish.js';
+import { buildProvenance, decideFinish, frozenPipelineSection } from '@/spec-pipeline/finish.js';
 import type { PipelineConfig } from '@/spec-pipeline/config.js';
 import type { ExpertRunAccounting } from '@/spec-pipeline/experts/types.js';
 
@@ -116,5 +116,46 @@ describe('buildProvenance metrics', () => {
       deferred: 0,
     });
     expect('metrics' in p).toBe(false);
+  });
+});
+
+// Issue #581 — the frozen `pipeline` section is shaped from the staged finish (D4).
+describe('frozenPipelineSection', () => {
+  it('stores the enforcement once, without the master switch', () => {
+    const config: PipelineConfig = {
+      enabled: true,
+      clarification: 'warn',
+      final_review: 'off',
+      token_ceiling: 1000,
+      experts_enabled: false,
+      adoption: 'warn',
+    };
+    const provenance = buildProvenance(config, true, [], {
+      asked: 0,
+      answered: 0,
+      auto_answered: 0,
+      deferred: 0,
+    });
+    expect(frozenPipelineSection({ outcome: 'freeze', reason: 'live', provenance })).toEqual({
+      produced: true,
+      outcome: 'freeze',
+      reason: 'live',
+      a5_live: true,
+      enforcement: {
+        clarification: 'warn',
+        final_review: 'off',
+        token_ceiling: 1000,
+        experts_enabled: false,
+        adoption: 'warn',
+      },
+    });
+  });
+
+  it('leaves off every field the staged finish does not carry', () => {
+    expect(frozenPipelineSection({ provenance: {} })).toEqual({ produced: true });
+    expect(frozenPipelineSection({ provenance: { outcome: 'freeze' } })).toEqual({
+      produced: true,
+      outcome: 'freeze',
+    });
   });
 });

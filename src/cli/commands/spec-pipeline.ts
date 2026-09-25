@@ -608,11 +608,11 @@ export function createSpecPipelineCommand(): Command {
   command
     .command('metrics')
     .description('Report what the pipeline runs cost and changed (issue #547, FR-11.4)')
-    .option('--all', 'Aggregate across every staged run, not just the active feature')
+    .option('--all', 'Aggregate across every feature bundle, not just the active feature')
     .option(...projectRootOpt)
     .option(...sessionOpt)
     .action((options: CommonOptions & { all?: boolean }) => {
-      // Zero model tokens: this reads each run's staged finish and its spec-correction rows.
+      // Zero model tokens: this reads each bundle's pipeline record and its spec-correction rows.
       const dirNames = options.all ? listRunDirs(options.projectRoot) : [];
       if (!options.all) {
         const resolved = resolveDir(options);

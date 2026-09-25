@@ -2,8 +2,11 @@ import type {
   FeatureSpec,
   FrozenSpecMetadata,
   SpecFreezeEvaluation,
-  SpecProvenance,
+  SpecGroundingSection,
+  SpecPipelineSection,
   SpecReviewSummary,
+  SpecTaskSection,
+  SpecTraceMap,
 } from '@/core/types/feature-spec.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
@@ -18,11 +21,15 @@ export interface FreezeSpecInput {
   frozen_at: string;
   spec_review?: SpecReviewReport | null;
   /**
-   * How the spec was produced (issue #547, FR-9.1). Copied verbatim into the frozen record when
-   * present; absent for a spec frozen with the pipeline off, so the record stays byte-identical to
-   * a pre-#547 freeze.
+   * The spec-pipeline sections (issue #581, FR-3), copied into the frozen record when present.
+   * With the pipeline off none is given, so the record carries none of them.
    */
-  provenance?: SpecProvenance;
+  sections?: {
+    task?: SpecTaskSection;
+    grounding?: SpecGroundingSection;
+    pipeline?: SpecPipelineSection;
+    trace?: SpecTraceMap;
+  };
 }
 
 /**
@@ -114,9 +121,12 @@ export function freezeSpec(spec: FeatureSpec, input: FreezeSpecInput): FeatureSp
     ...spec,
     frozen,
     ...(specReview === undefined ? {} : { spec_review: specReview }),
-    // Issue #547 — carry the pipeline provenance into the record of truth when the freeze was
-    // handed one. Absent ⇒ no `provenance` key, so a non-pipeline freeze is unchanged (INV-9).
-    ...(input.provenance === undefined ? {} : { provenance: input.provenance }),
+    // Issue #581 — the pipeline sections, each only when the freeze was handed it. The old
+    // `provenance` block is never written (D6).
+    ...(input.sections?.task === undefined ? {} : { task: input.sections.task }),
+    ...(input.sections?.grounding === undefined ? {} : { grounding: input.sections.grounding }),
+    ...(input.sections?.pipeline === undefined ? {} : { pipeline: input.sections.pipeline }),
+    ...(input.sections?.trace === undefined ? {} : { trace: input.sections.trace }),
   };
 }
 

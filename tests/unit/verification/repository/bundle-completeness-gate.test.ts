@@ -704,7 +704,7 @@ describe('spec pipeline strict adoption gate', () => {
     write(
       root,
       featureFilePath(DIR, 'specification'),
-      JSON.stringify({ provenance: { pipeline_produced: true } }),
+      JSON.stringify({ pipeline: { produced: true } }),
     );
     const gate = bundleCompletenessGate({
       ...base,
@@ -722,7 +722,7 @@ describe('spec pipeline strict adoption gate', () => {
     write(
       root,
       featureFilePath(DIR, 'specification'),
-      JSON.stringify({ provenance: { pipeline_produced: false, manual_reason: 'hotfix' } }),
+      JSON.stringify({ pipeline: { produced: false, manual_reason: 'hotfix' } }),
     );
     const gate = bundleCompletenessGate({
       ...base,

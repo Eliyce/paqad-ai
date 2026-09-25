@@ -20,6 +20,7 @@ import { writeFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { readSpecCorrectionRows } from '@/spec-pipeline/run-store.js';
+import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 
 const FROZEN_MARKDOWN = '# Spec S-102\n\nExport as CSV.\n';
 
@@ -212,66 +213,108 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  it('appends one correction row and mints exactly one pause carrying the changed sections (AC-14)', () => {
-    const spec: FeatureSpec = frozenSpec({
-      spec_file: 'spec.md',
-      // The parsed behaviour form so ONLY the acceptance criteria differ from the current source.
-      behaviour: ['FR-1: - FR-1: x'],
-      acceptance_criteria: [
-        {
-          criterion_id: 'AC-1',
-          given: 'a',
-          when: 'b',
-          then: 'c',
-          proof_type: 'automated',
-          status: 'uncovered',
-          source: 'planned',
-          linked_requirement_ids: [],
-        },
-      ],
-      provenance: {
-        pipeline_produced: true,
-        run_dir: '.paqad/_specs/547-x-01JABCDEFGHJKMNPQRSTVWXYZ0/pipeline',
-      },
-    });
-    // The current source drops the acceptance criterion — only that section changed.
-    const currentMarkdown = ['## Functional requirements', '- FR-1: x'].join('\n');
+  const PIPELINE_MARKDOWN = [
+    '## Functional requirements',
+    '- FR-1: x',
+    '',
+    '## Acceptance criteria',
+    '- AC-1: given a, when b, then c (proof: automated)',
+    '',
+  ].join('\n');
 
-    const store = new DecisionStore(root);
-    store.initialize();
+  /** Freeze a spec into a bundle, then drop its acceptance criterion from the bundle spec.md. */
+  function freezeThenEdit(extra: Partial<FeatureSpec>): string {
+    const dir = openFeatureChange(root, 'ses1', {
+      adapter: 'claude-code',
+      title: 'Corrected spec',
+      issue: '547',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    const built = buildFeatureSpec({
+      spec_id: 'S-547',
+      spec_file: 'spec.md',
+      spec_markdown: PIPELINE_MARKDOWN,
+    });
+    writeFeatureSpecification(
+      root,
+      'ses1',
+      {
+        ...built,
+        frozen: {
+          frozen_at: '2026-09-10T00:00:00Z',
+          spec_hash: built.spec_hash,
+          signed_off_by: 'o',
+        },
+        ...extra,
+      },
+      PIPELINE_MARKDOWN,
+    );
+    const specMdPath = join(root, featureFilePath(dir, 'specMd'));
+    const text = readFileSync(specMdPath, 'utf8');
+    writeFileSync(specMdPath, text.slice(0, text.indexOf('## Acceptance criteria')), 'utf8');
+    return dir;
+  }
+
+  it.each([
+    ['a record frozen since #581 (pipeline section)', { pipeline: { produced: true } }],
+    [
+      'a pre-#581 record (provenance block)',
+      { provenance: { pipeline_produced: true, run_dir: '.paqad/_specs/x/pipeline' } },
+    ],
+  ])(
+    'appends one correction row to the bundle and mints one pause naming the changed sections: %s (AC-14)',
+    (_label, extra) => {
+      const dir = freezeThenEdit(extra as Partial<FeatureSpec>);
+      const out = runSpecChangeGuard({
+        projectRoot: root,
+        sessionId: 'ses1',
+        seam: 'pre-mutation',
+        now: () => new Date('2026-09-11T00:00:00.000Z'),
+      });
+
+      expect(out.ran).toBe(true);
+      expect(out.blocking).toBe(false);
+      expect(pendingIds(root)).toHaveLength(1);
+
+      // The packet context names the changed section.
+      const pendingDir = join(root, '.paqad/decisions/pending');
+      const file = readdirSync(pendingDir).find((f) => f.endsWith('.json'))!;
+      const packet = JSON.parse(readFileSync(join(pendingDir, file), 'utf8')) as {
+        context: string;
+        category: string;
+      };
+      expect(packet.category).toBe('spec.change');
+      expect(packet.context).toMatch(/Changed sections: acceptance_criteria\./);
+
+      // The guard resolved the bundle that carries the spec and recorded the correction there.
+      const rows = readSpecCorrectionRows(root, dir);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        kind: 'spec-correction',
+        spec_id: 'S-547',
+        changed_sections: ['acceptance_criteria'],
+        recorded_at: '2026-09-11T00:00:00.000Z',
+      });
+    },
+  );
+
+  it('records no correction for a spec the pipeline did not produce, and still pauses', () => {
+    const dir = freezeThenEdit({ pipeline: { produced: false, manual_reason: 'hotfix' } });
+    const out = runSpecChangeGuard({ projectRoot: root, sessionId: 'ses1', seam: 'pre-mutation' });
+    expect(out.ran).toBe(true);
+    expect(readSpecCorrectionRows(root, dir)).toEqual([]);
+  });
+
+  it('records no correction for a spec handed in directly (no bundle)', () => {
     const out = runSpecChangeGuard({
       projectRoot: root,
       sessionId: 'ses1',
       seam: 'pre-mutation',
-      store,
-      frozenSpecs: [spec],
-      readMarkdown: () => currentMarkdown,
-      now: () => new Date('2026-09-11T00:00:00.000Z'),
+      frozenSpecs: [frozenSpec({ pipeline: { produced: true } })],
+      readMarkdown: () => 'CHANGED',
     });
-
     expect(out.ran).toBe(true);
-    expect(out.blocking).toBe(false);
-    expect(pendingIds(root)).toHaveLength(1);
-
-    // The packet context names the changed section.
-    const pendingDir = join(root, '.paqad/decisions/pending');
-    const file = readdirSync(pendingDir).find((f) => f.endsWith('.json'))!;
-    const packet = JSON.parse(readFileSync(join(pendingDir, file), 'utf8')) as {
-      context: string;
-      category: string;
-    };
-    expect(packet.category).toBe('spec.change');
-    expect(packet.context).toMatch(/Changed sections: acceptance_criteria\./);
-
-    // A spec-correction row was appended to the change's stage evidence (issue #581).
-    const rows = readSpecCorrectionRows(root, '547-x-01JABCDEFGHJKMNPQRSTVWXYZ0');
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      kind: 'spec-correction',
-      spec_id: spec.spec_id,
-      changed_sections: ['acceptance_criteria'],
-      recorded_at: '2026-09-11T00:00:00.000Z',
-    });
+    expect(existsSync(join(root, '.paqad/ledger/feature-evidence'))).toBe(false);
   });
 });
 

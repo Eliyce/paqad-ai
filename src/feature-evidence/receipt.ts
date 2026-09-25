@@ -140,16 +140,21 @@ function readJson<T>(absPath: string): T | null {
 
 /**
  * The specification line for the end-of-change receipt (issue #547, FR-12.3), read from the
- * frozen spec's provenance. Absent provenance renders today's plain line, so a pre-#547 record is
- * unchanged. Pure and deterministic.
+ * frozen spec's `pipeline` section (issue #581, `produced`) or an older record's `provenance`
+ * block (`pipeline_produced`). `experts` is the run's expert summary where one is known. Absent
+ * input renders today's plain line, so a pre-#547 record is unchanged. Pure and deterministic.
  */
-export function specificationReceiptLine(provenance?: {
-  pipeline_produced: boolean;
-  manual_reason?: string;
-  experts?: { roles: string[]; accepted: number; declined: number; conflicts: number };
-}): string {
+export function specificationReceiptLine(
+  provenance?: (
+    | { produced: boolean; pipeline_produced?: never }
+    | { pipeline_produced: boolean; produced?: never }
+  ) & {
+    manual_reason?: string;
+    experts?: { roles: string[]; accepted: number; declined: number; conflicts: number };
+  },
+): string {
   if (!provenance) return '🟢 specification: recorded';
-  if (provenance.pipeline_produced) {
+  if (provenance.produced ?? provenance.pipeline_produced) {
     const experts = provenance.experts;
     if (experts && experts.roles.length > 0) {
       const conflicts =

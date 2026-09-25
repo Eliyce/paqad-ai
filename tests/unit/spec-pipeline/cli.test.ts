@@ -13,6 +13,7 @@ import {
   readClarification,
   readSpecStepRows,
   stagedFilePath,
+  writeExpertRoster,
   writeStagedJson,
 } from '@/spec-pipeline/run-store.js';
 
@@ -520,15 +521,19 @@ describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
   it('metrics reports the active run', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    writeStagedJson(root, dir, 'finish', {
-      provenance: {
-        experts: {
-          accounting: { experts: [{ role: 'db-expert', tokens: 500, changed_spec: true }] },
-          conflicts: [],
-        },
-        metrics: { label: 'okay', grounding_sparse: false, tokens_by_step: {} },
+    // The run is read from the bundle: a staged finish and the experts.json roster.
+    writeStagedJson(root, dir, 'finish', { provenance: { outcome: 'freeze' } });
+    writeExpertRoster(root, dir, [
+      {
+        role: 'db-expert',
+        reason: 'r',
+        lens: 'lens',
+        budget_tokens: 6000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: 500,
       },
-    });
+    ]);
     const { out } = await run(root, ['metrics']);
     const report = JSON.parse(out[0]!);
     expect(report.runs).toBe(1);
@@ -536,7 +541,7 @@ describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
     expect(out.join('\n')).toMatch(/db-expert/);
   });
 
-  it('metrics --all aggregates across every staged run', async () => {
+  it('metrics --all aggregates across every feature bundle', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     writeStagedJson(root, dir, 'finish', {

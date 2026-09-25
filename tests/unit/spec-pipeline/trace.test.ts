@@ -64,12 +64,13 @@ describe('validateTrace', () => {
 });
 
 // Issue #547 — the craft-trace gate, the writer/reader, and the raw parser.
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach } from 'vitest';
 
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { stagedFilePath } from '@/spec-pipeline/run-store.js';
 import {
   extractRequirementIds,
@@ -169,6 +170,34 @@ describe('trace io edge branches', () => {
     const abs = join(root, stagedFilePath('c9', 'trace'));
     writeFileSync(abs, '{not json');
     expect(readTrace(root, 'c9')).toBeNull();
+  });
+
+  it('readTrace falls back to the frozen trace map, then to an old provenance trace (#581)', () => {
+    const root = _tempRoot();
+    const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    const specPath = join(root, featureFilePath(dir, 'specification'));
+    mkdirSync(dirname(specPath), { recursive: true });
+    // The frozen map keeps well-formed requirement ids only.
+    writeFileSync(
+      specPath,
+      JSON.stringify({
+        trace: { 'FR-1': 'ticket:summary', 'AC-2': 'EX-qa-1', 'ZZ-1': 'x', 'INV-1': 3 },
+      }),
+    );
+    expect(readTrace(root, dir)).toEqual({
+      entries: [
+        { id: 'FR-1', kind: 'FR', source: 'ticket:summary' },
+        { id: 'AC-2', kind: 'AC', source: 'EX-qa-1' },
+      ],
+    });
+    const legacy = { entries: [{ id: 'FR-1', kind: 'FR', source: 'task.intent' }] };
+    writeFileSync(specPath, JSON.stringify({ provenance: { trace: legacy } }));
+    expect(readTrace(root, dir)).toEqual(legacy);
+    writeFileSync(specPath, JSON.stringify({ trace: [], provenance: { trace: { entries: 'x' } } }));
+    expect(readTrace(root, dir)).toBeNull();
+    // A staged trace wins over the frozen one.
+    writeTrace(root, dir, { entries: [] });
+    expect(readTrace(root, dir)).toEqual({ entries: [] });
   });
 
   it('parseTraceArtifact rejects a non-object entry', () => {

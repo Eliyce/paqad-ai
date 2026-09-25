@@ -5,6 +5,7 @@ import {
   isBundleFileRequired,
   requiredBundleFiles,
   validateBundleFileContent,
+  readSpecAdoption,
   validateSpecificationAdoption,
   type BundleCompletenessConfig,
 } from '@/feature-evidence/manifest.js';
@@ -44,6 +45,36 @@ const ALL_OFF: BundleCompletenessConfig = {
 
 // Issue #547 — the strict-adoption content check (FR-10.2 / AC-12).
 describe('validateSpecificationAdoption', () => {
+  it('reads the pipeline section of a record frozen since #581', () => {
+    expect(validateSpecificationAdoption(JSON.stringify({ pipeline: { produced: true } })).ok).toBe(
+      true,
+    );
+    expect(
+      validateSpecificationAdoption(
+        JSON.stringify({ pipeline: { produced: false, manual_reason: 'hotfix' } }),
+      ).ok,
+    ).toBe(true);
+    expect(
+      validateSpecificationAdoption(JSON.stringify({ pipeline: { produced: false } })).ok,
+    ).toBe(false);
+    // The pipeline section wins over a stale provenance block.
+    expect(
+      validateSpecificationAdoption(
+        JSON.stringify({ pipeline: { produced: false }, provenance: { pipeline_produced: true } }),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it('readSpecAdoption reads both shapes and nothing else', () => {
+    expect(readSpecAdoption({ pipeline: { produced: true } })).toEqual({ produced: true });
+    expect(
+      readSpecAdoption({ provenance: { pipeline_produced: false, manual_reason: 'r' } }),
+    ).toEqual({ produced: false, manual_reason: 'r' });
+    expect(readSpecAdoption({ pipeline: null })).toBeNull();
+    expect(readSpecAdoption(null)).toBeNull();
+    expect(readSpecAdoption('x')).toBeNull();
+  });
+
   it('passes a pipeline-produced spec', () => {
     expect(
       validateSpecificationAdoption(JSON.stringify({ provenance: { pipeline_produced: true } })).ok,

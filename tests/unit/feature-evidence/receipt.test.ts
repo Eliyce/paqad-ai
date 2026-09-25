@@ -505,6 +505,15 @@ describe('specificationReceiptLine', () => {
     );
   });
 
+  it('reads the pipeline section of a record frozen since #581', () => {
+    expect(specificationReceiptLine({ produced: true })).toBe(
+      '🟢 specification: pipeline-produced',
+    );
+    expect(specificationReceiptLine({ produced: false, manual_reason: 'hotfix' })).toBe(
+      '🟡 specification: frozen without the pipeline (reason: hotfix)',
+    );
+  });
+
   it("renders today's line when provenance is absent", () => {
     expect(specificationReceiptLine()).toBe('🟢 specification: recorded');
   });
