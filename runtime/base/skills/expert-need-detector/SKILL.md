@@ -16,7 +16,7 @@ input_schema:
   grounding:
     type: object
     required: true
-    description: The S0 grounding artifact (grounding.json) — references + business terms for the touched area.
+    description: The S0 grounding (references and business terms for the touched area), as printed by `paqad-ai spec pipeline experts context`.
   roster:
     type: string[]
     required: false
@@ -39,7 +39,7 @@ list ⇒ zero experts, zero cost.
 ## Use This When
 
 - The spec pipeline is running with the expert roster enabled (`spec_pipeline_experts_enabled`),
-  after S0 grounding has produced `grounding.json` and before the craft step.
+  after `spec pipeline start` has grounded and labelled the request, and before the craft step.
 
 Do **not** run this when the experts flag is off — with it off the pipeline is byte-identical to
 v1 and this skill never runs.
@@ -47,8 +47,10 @@ v1 and this skill never runs.
 ## Inputs
 
 - `request_text` — required. The request being specced.
-- `grounding` — required. The S0 `grounding.json` (references + business terms) — the evidence
-  for which areas the request touches. Decide from THIS, not from the whole repo.
+- `grounding` — required. The S0 grounding (references and business terms): the evidence for
+  which areas the request touches. Decide from THIS, not from the whole repo. Get the request,
+  the grounding and the label in one go with `paqad-ai spec pipeline experts context`; they are
+  not files you read or write yourself.
 - `roster` — optional. The allowed expert roles; defaults to the framework roster. You may name
   **only** roles in it. The roster and each role's remit are in
   `runtime/base/skills/expert-need-detector/references/roster.md`.
@@ -67,7 +69,10 @@ v1 and this skill never runs.
 5. Emit the JSON artifact (see Output Contract) and hand it to the pipeline:
    `paqad-ai spec pipeline experts record <artifact-file>`. That command runs the deterministic
    roster guard (`src/spec-pipeline/experts/need.ts`) and refuses anything naming a role outside
-   the roster — do not re-implement that check here.
+   the roster — do not re-implement that check here. It writes the roster into the change's
+   `experts.json`; you never write that file yourself. Each expert's brief is never a file:
+   print it with `paqad-ai spec pipeline experts brief <role>` and hand it to the
+   `expert-notes` skill.
 
 ## Output Contract
 
@@ -90,4 +95,4 @@ v1 and this skill never runs.
 - `runtime/base/skills/expert-need-detector/agents/openai.yaml` — agent interface metadata.
 - `src/spec-pipeline/experts/need.ts` — the deterministic roster guard (validates this output).
 - `src/spec-pipeline/experts/roster.ts` — the canonical roster (subset of `AGENT_ROLES`).
-- the spec-pipeline S0 grounding step — produces the `grounding.json` this skill reads.
+- `paqad-ai spec pipeline experts context` — prints the request, grounding and label this skill reads.
