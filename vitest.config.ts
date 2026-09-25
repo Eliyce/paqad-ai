@@ -13,6 +13,9 @@ export default defineConfig({
     globals: true,
     root: '.',
     include: ['tests/**/*.test.ts'],
+    // Every test file gets a throwaway HOME, so onboarding/join/update never write the
+    // developer's real ~/.paqad-ai, ~/.claude or ~/.codex (tests/shared/isolate-home.ts).
+    setupFiles: ['tests/shared/isolate-home.ts'],
     // Windows runners are noticeably slower than Linux/macOS — bump the
     // default 5s test timeout and 10s hook timeout so e2e cases that build
     // the CLI or chunk a small corpus don't fail spuriously.
