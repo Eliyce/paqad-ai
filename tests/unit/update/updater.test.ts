@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -178,6 +179,26 @@ describe('FrameworkUpdater', () => {
       readFileSync(join(projectRoot, '.paqad/ledger/feature-evidence', run, 'request.md'), 'utf8'),
     ).toContain('# Gamma');
   });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'goes on with the update when the evidence migration cannot delete a file (issue #581)',
+    async () => {
+      const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
+      mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
+      writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
+      // A read-only parent refuses the delete, as a Windows lock (EBUSY/EPERM) would.
+      chmodSync(join(projectRoot, '.paqad/_specs'), 0o500);
+      try {
+        const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(
+          projectRoot,
+        );
+        expect(report.target_version).toBe(VERSION);
+        expect(existsSync(join(projectRoot, '.paqad/_specs', run))).toBe(true);
+      } finally {
+        chmodSync(join(projectRoot, '.paqad/_specs'), 0o700);
+      }
+    },
+  );
 
   it('refuses to update a project whose schema is newer than this engine (D2 refuse)', async () => {
     writeFileSync(

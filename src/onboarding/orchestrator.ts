@@ -60,6 +60,7 @@ import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { removeObsoleteContractDocs } from './obsolete-cleanup.js';
 import { writeGitignore } from './gitignore-writer.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
+import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import {
   readExistingOnboardingManifest,
   writeDetectionReport,
@@ -147,6 +148,10 @@ export class OnboardingOrchestrator {
     // stamp legacy projects, migrate older ones forward, and hard-stop (throw
     // SchemaVersionError) when the layout is newer than this engine understands.
     await checkAndMigrateSchema(options.projectRoot, VERSION);
+    // Issue #581 — then any evidence migration still pending, exactly as `update` does: a
+    // project stamped with no marker never ran the schema migrator, and a change another
+    // session held last time is finished once it closes. Never fails onboarding.
+    runPendingEvidenceMigration(options.projectRoot);
 
     const detector = new Detector();
     const detection = await detector.detect(options.projectRoot);
