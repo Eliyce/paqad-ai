@@ -9,6 +9,7 @@ This is the chief architect's checklist. The chief reads the request, the ground
 - **Requirement with no owner answer**: a requirement that depends on a decision only the owner can make, and that decision has not been made.
 - **Missing non-goal**: the scope is open where it should be pinned shut.
 - **Missing failure path**: a happy path with no stated behaviour for when it fails.
+- **Wrong words**: a finding whose target is not a name this project uses (the merge lists these as voice warnings). Rename it to the project's word in `renames`, or leave it when it is a genuinely new thing.
 
 ## The chief's job
 

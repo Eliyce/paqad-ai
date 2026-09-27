@@ -62,8 +62,9 @@ v1 and this skill never runs.
 2. For each area that clearly needs a specialist, select the matching expert role **from the
    roster only**. Judge need, not certainty-of-self: pick an expert because the work plainly sits
    in its domain, never "to be safe".
-3. Select nothing when nothing clearly needs a specialist. An empty result is the common, correct
-   outcome — it costs nothing downstream.
+3. Select nothing from the on-call list when nothing clearly needs a specialist; the standing
+   experts are seated for you. An empty on-call result is the common, correct outcome — it costs
+   nothing downstream.
 4. For each selected expert write one plain-language `reason` naming the area that triggered it
    (e.g. "adds the invoices migration", not "database concerns").
 5. Emit the JSON artifact (see Output Contract) and hand it to the pipeline:

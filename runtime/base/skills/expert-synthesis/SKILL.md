@@ -41,6 +41,9 @@ Do **not** run it when no expert fired — the chief only runs when at least one
 - `context` — required. Print it with `paqad-ai spec pipeline experts context`. It holds:
   - `merge`: the merged findings (each with an id) and the conflicts. The script recomputes it
     from the recorded notes each time; it is never a file.
+  - `voice_warnings`: findings whose target is not a name this project uses (issue #558). Settle
+    each one: rename it to the project's word in `renames`, or leave it when it is a genuinely new
+    thing.
   - `notes`: the expert notes, for the reasons behind each finding.
   - `request`: the request text.
   - `grounding`: the grounding, so a finding that contradicts the docs is a gap.

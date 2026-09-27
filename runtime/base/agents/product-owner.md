@@ -77,3 +77,7 @@ S-2: {name} - {status}
 ### Recommendation
 {specific action: proceed | re-order | remove story X | clarify requirement Y}
 ```
+
+## At request time (spec pipeline)
+
+Before any story exists, this role is a standing expert in the spec pipeline. It reads the request through the lens at `runtime/base/skills/expert-notes/references/lenses/product-owner.md` and returns findings and questions in the expert-notes shape: who this is for, what done looks like from their seat, what is out of scope, which documented flow or business rule it touches, and how we will know it worked. The build-time scope guard above runs afterwards, against the stories cut from the spec this role helped write.
