@@ -22,7 +22,7 @@ import { TEST_OUTPUT_SMOKE_FIXTURES } from '@/test-output/fixtures.js';
 import { deriveHealthTier } from '@/planning/module-health.js';
 import { isCompiledRulesStale } from '@/planning/rule-compiler.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
-import { readPipelineConfig } from '@/spec-pipeline/config.js';
+import { readPipelineConfig, standingBudgetSum } from '@/spec-pipeline/config.js';
 import { EXPERT_ROLES } from '@/spec-pipeline/experts/roster.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { checkSpecShape, PARITY_CORPUS } from '@/spec-pipeline/parser-parity.js';
@@ -1065,6 +1065,17 @@ export class HealthChecker {
       );
     }
 
+    // (a2) a configured standing role that is not an expert is ignored (issue #558, FR-10.1a).
+    for (const role of config.standing_experts_dropped) {
+      results.push(
+        warn(
+          'Standing experts are all expert roles',
+          `spec_pipeline_standing_experts names "${role}", which is not an expert; it is ignored`,
+          'Remove it from spec_pipeline_standing_experts, or name a role in the expert roster.',
+        ),
+      );
+    }
+
     if (config.experts_enabled) {
       // (b) every pickable expert must ship a lens (FR-12.2b) — a packaging truth, a hard fail.
       const lensDir = join(
@@ -1085,13 +1096,14 @@ export class HealthChecker {
           ),
         );
       }
-      // (c) a low ceiling clamps most runs (FR-12.2c).
-      if (config.token_ceiling < 26000) {
+      // (c) a low ceiling clamps most runs (FR-12.2c; standing-aware since issue #558, FR-10.1b).
+      const standingSum = standingBudgetSum(config);
+      if (config.token_ceiling < standingSum + 6000) {
         results.push(
           warn(
             'Spec pipeline token ceiling fits the experts',
-            'expert slices will be clamped on most runs (three typical experts need 26000); raise spec_pipeline_token_ceiling or accept clamped briefs',
-            'Raise spec_pipeline_token_ceiling to at least 26000.',
+            `expert slices will be clamped on most runs (the standing experts need ${standingSum} and one on-call expert about 6000); raise spec_pipeline_token_ceiling to at least ${standingSum + 6000} or accept clamped briefs`,
+            `Raise spec_pipeline_token_ceiling to at least ${standingSum + 6000}.`,
           ),
         );
       }

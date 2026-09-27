@@ -27,12 +27,20 @@ export type FindingKind = 'requirement' | 'invariant' | 'acceptance' | 'risk' | 
 /** How strongly the expert holds a finding (issue #547, FR-4.3). */
 export type FindingSeverity = 'must' | 'should' | 'could';
 
+/** Where a seated expert came from (issue #558, FR-2.1). */
+export type ExpertOrigin = 'detector' | 'standing';
+
 /** One expert the model decided the request needs, with its plain-language justification. */
 export interface ExpertNeed {
   /** The expert role — must be in the roster (AC-8); the script rejects anything else. */
   role: AgentRole;
   /** Why it fired, in the model's own words (recorded for accounting, FR-7). */
   reason: string;
+  /**
+   * Whether the detector named this expert or the script seated it as a standing expert
+   * (issue #558, FR-2.1). Optional on the raw skill output; always present once recorded.
+   */
+  origin?: ExpertOrigin;
 }
 
 /**
@@ -65,6 +73,11 @@ export interface ExpertFinding {
   severity?: FindingSeverity;
   /** An optional grounding reference backing the claim (issue #547, FR-4.3). */
   evidence?: string;
+  /**
+   * When the chief renamed this finding's target to the project's word (issue #558, FR-5.5), the
+   * original target the expert used. Absent unless a rename was applied.
+   */
+  renamed_from?: string;
 }
 
 /**
@@ -96,6 +109,8 @@ export interface ExpertConflict {
 export interface MergedExpertNotes {
   findings: ExpertFinding[];
   conflicts: ExpertConflict[];
+  /** Voice warnings carried through from the notes, shown to the chief (issue #558, FR-5.3). */
+  voice_warnings?: VoiceWarning[];
 }
 
 /**
@@ -119,6 +134,23 @@ export interface ExpertAccounting {
   tokens: number;
   /** Whether the expert's notes changed the crafted spec — the retire-on-evidence signal. */
   changed_spec: boolean;
+  /** Detector-named or script-seated (issue #558, FR-2.1). */
+  origin?: ExpertOrigin;
+  /**
+   * True when the expert had nothing to add — its note carried only the one "nothing to add"
+   * `non-goal` finding, or no finding at all (issue #558, FR-2.1). Feeds the empty-rate metric.
+   */
+  empty?: boolean;
+}
+
+/** A finding target the project does not name (issue #558, FR-5.2). Never a refusal. */
+export interface VoiceWarning {
+  /** The finding id this warns about (`EX-<role>-<n>`). */
+  id: string;
+  /** The target the expert used that the project does not name. */
+  target: string;
+  /** The one-line hint naming the closest business and technical word (FR-5.4). */
+  hint: string;
 }
 
 /** The whole expert block folded into finish provenance when experts ran (FR-8). */

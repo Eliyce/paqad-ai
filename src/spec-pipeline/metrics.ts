@@ -24,6 +24,7 @@ import {
   appendSpecCorrectionRow,
   readExpertNeed,
   readExpertNotes,
+  readExperts,
   readExpertSynthesis as readSynthesisArtifact,
   readFrozenSpecificationBody,
   readGrounding,
@@ -183,7 +184,7 @@ export function readSpecCorrections(projectRoot: string, dirName: string): SpecC
   }));
 }
 
-/** The aggregate report the `metrics` verb prints (FR-11.4). */
+/** The aggregate report the `metrics` verb prints (FR-11.4; standing tier since issue #558). */
 export interface MetricsAggregate {
   runs: number;
   experts_fired: Partial<Record<AgentRole, number>>;
@@ -195,6 +196,14 @@ export interface MetricsAggregate {
   corrections_by_section: Record<string, number>;
   label_distribution: Record<string, number>;
   grounding_sparse_runs: number;
+  /** Each expert's tier as last seen (issue #558): standing if it was ever seated as standing. */
+  tier_by_role: Partial<Record<AgentRole, 'standing' | 'on-call'>>;
+  /** How often each expert had nothing to add (issue #558) — its empty rate's numerator. */
+  empty_by_role: Partial<Record<AgentRole, { fired: number; empty: number }>>;
+  /** How many voice warnings each expert drew (issue #558). */
+  voice_warnings_by_role: Partial<Record<AgentRole, number>>;
+  /** How many findings the chief renamed to the project's word, across runs (issue #558). */
+  renames: number;
 }
 
 /**
@@ -250,6 +259,10 @@ export function aggregateSpecPipelineMetrics(
     corrections_by_section: {},
     label_distribution: {},
     grounding_sparse_runs: 0,
+    tier_by_role: {},
+    empty_by_role: {},
+    voice_warnings_by_role: {},
+    renames: 0,
   };
 
   for (const dirName of dirNames) {
@@ -278,8 +291,23 @@ export function aggregateSpecPipelineMetrics(
         if (expert.changed_spec) rate.changed += 1;
         aggregate.tokens_by_role[expert.role] =
           (aggregate.tokens_by_role[expert.role] ?? 0) + expert.tokens;
+        // Issue #558 — tier, empty rate, and voice warnings per role.
+        if (expert.origin === 'standing') aggregate.tier_by_role[expert.role] = 'standing';
+        else if (aggregate.tier_by_role[expert.role] === undefined)
+          aggregate.tier_by_role[expert.role] = 'on-call';
+        const emptyRate = (aggregate.empty_by_role[expert.role] ??= { fired: 0, empty: 0 });
+        emptyRate.fired += 1;
+        if (expert.empty) emptyRate.empty += 1;
       }
       aggregate.conflicts += experts.conflicts.length;
+      // Voice warnings are keyed to the finding's role via its `EX-<role>-<n>` id.
+      for (const warning of readExperts(projectRoot, dirName)?.voice_warnings ?? []) {
+        const role = roleOfFindingId(warning.id);
+        if (role) {
+          aggregate.voice_warnings_by_role[role] =
+            (aggregate.voice_warnings_by_role[role] ?? 0) + 1;
+        }
+      }
     } else if (run.legacy?.experts) {
       for (const role of run.legacy.experts.roles) fired(role);
       aggregate.conflicts += run.legacy.experts.conflicts;
@@ -302,9 +330,16 @@ export function aggregateSpecPipelineMetrics(
       aggregate.tokens_by_step[step] = (aggregate.tokens_by_step[step] ?? 0) + value;
     }
     aggregate.auto_resolved += synthesis?.auto_resolved?.length ?? 0;
+    aggregate.renames += synthesis?.renames?.length ?? 0;
   }
 
   return aggregate;
+}
+
+/** The role encoded in an `EX-<role>-<n>` finding id, or null when it does not parse. */
+function roleOfFindingId(id: string): AgentRole | null {
+  const match = /^EX-(.+)-\d+$/.exec(id);
+  return match ? (match[1] as AgentRole) : null;
 }
 
 /** Every feature bundle, for `metrics --all`; bundles without a pipeline run add nothing. */

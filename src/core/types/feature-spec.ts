@@ -1,7 +1,13 @@
 import type { VerificationCriterion } from './planning.js';
 import type { AgentRole } from './agent.js';
 import type { PipelineConfig } from '@/spec-pipeline/config.js';
-import type { ClarityLabel, GroundingPath, GroundingReference } from '@/spec-pipeline/types.js';
+import type {
+  ClarityLabel,
+  GroundingPath,
+  GroundingReference,
+  VocabularyEntry,
+} from '@/spec-pipeline/types.js';
+import type { FindingKind, FindingSeverity } from '@/spec-pipeline/experts/types.js';
 import type { FinishOutcome, QuestionCounts } from '@/spec-pipeline/finish.js';
 import type { TraceArtifact } from '@/spec-pipeline/trace.js';
 
@@ -29,11 +35,31 @@ export interface SpecProvenance {
     declined: number;
     conflicts: number;
     auto_resolved: number;
+    /** How many of the seated experts were standing (issue #558, FR-8.2). Additive, optional. */
+    standing?: number;
+    /** How many findings the chief renamed to the project's word (issue #558, FR-8.2). */
+    renamed?: number;
   };
+  /**
+   * A durable snapshot of every accepted finding, copied at freeze so the expert's own words
+   * survive the scratch cleanup (issue #558, FR-13.1). Additive and optional; absent when the
+   * pipeline is off or no expert fired.
+   */
+  findings?: AcceptedFinding[];
   /** The traceability artifact tying every spec line to its source (issue #547, FR-8.2). */
   trace?: TraceArtifact;
   /** Why the spec was frozen without the pipeline, under strict adoption (FR-9.3). */
   manual_reason?: string;
+}
+
+/** One accepted expert finding, snapshotted onto the frozen spec (issue #558, FR-13.1). */
+export interface AcceptedFinding {
+  id: string;
+  role: AgentRole;
+  kind: FindingKind;
+  severity: FindingSeverity;
+  target: string;
+  claim: string;
 }
 
 /** The `task` section: what the pipeline's task step said the change is for (issue #581). */
@@ -50,6 +76,11 @@ export interface SpecGroundingSection {
   path: GroundingPath;
   sparse: boolean;
   references: GroundingReference[];
+  /**
+   * The project vocabulary (issue #558, FR-3.1), persisted so a brief's Project voice section is
+   * reproducible after freeze and the brief hash stays stable (AC-8). Absent on a pre-#558 record.
+   */
+  vocabulary?: VocabularyEntry[];
 }
 
 /**
@@ -65,6 +96,22 @@ export interface SpecPipelineSection {
   a5_live?: boolean;
   enforcement?: Omit<PipelineConfig, 'enabled'>;
   manual_reason?: string;
+  /** The experts consulted and how their notes fared (issue #558, FR-8.2 / FR-13). */
+  experts?: {
+    roles: AgentRole[];
+    accepted: number;
+    declined: number;
+    conflicts: number;
+    auto_resolved: number;
+    standing: number;
+    on_call: string[];
+    renamed: number;
+  };
+  /**
+   * A durable snapshot of every accepted finding (after the chief's renames), so the expert's own
+   * words survive the scratch cleanup (issue #558, FR-13.1). Absent when no expert fired.
+   */
+  findings?: AcceptedFinding[];
 }
 
 /**

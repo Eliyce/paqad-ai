@@ -45,6 +45,9 @@ import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 
 import { AGENT_ATTACHED_JOURNEY, type VisualEvidenceManifest } from '@/visual-evidence/types.js';
 
+import type { AgentRole } from '@/core/types/agent.js';
+
+import { roleInPlainWords } from './contribution-table.js';
 import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
 import type { DecisionIndexEntry, IndexedDecisionView } from './decisions-index.js';
@@ -532,6 +535,8 @@ function renderSpec(bundle: FeatureBundleExport): string {
         }[];
         invariants?: { invariant_id?: string; statement?: string; confirmed?: boolean }[];
         frozen?: { frozen_at?: string; signed_off_by?: string } | null;
+        pipeline?: { findings?: { id?: string; role?: string; claim?: string }[] };
+        trace?: Record<string, string>;
       }
     | undefined;
   if (!spec) {
@@ -581,6 +586,25 @@ function renderSpec(bundle: FeatureBundleExport): string {
       )
       .join('');
     parts.push(`<h3>Invariants</h3><ul class="invariants">${items}</ul>`);
+  }
+  // Issue #558 — who added each expert-sourced spec line, joining the trace to the finding snapshot.
+  const findings = spec.pipeline?.findings ?? [];
+  const trace = spec.trace ?? {};
+  if (findings.length > 0 && Object.keys(trace).length > 0) {
+    const byId = new Map(findings.map((finding) => [finding.id ?? '', finding]));
+    const rows = Object.entries(trace)
+      .map(([line, source]) => {
+        const finding = byId.get(source);
+        if (!finding) return '';
+        return `<tr><td>${escapeHtml(line)}</td><td>${escapeHtml(roleInPlainWords((finding.role ?? '') as AgentRole))}</td><td>${escapeHtml(finding.claim ?? '')}</td></tr>`;
+      })
+      .filter(Boolean)
+      .join('');
+    if (rows) {
+      parts.push(
+        `<h3>Who contributed what</h3><table class="contrib"><thead><tr><th>Line</th><th>From</th><th>What the expert said</th></tr></thead><tbody>${rows}</tbody></table>`,
+      );
+    }
   }
   return panel('spec', 'Specification', parts.join(''), 'The specification is empty.');
 }

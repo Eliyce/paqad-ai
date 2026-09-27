@@ -10,7 +10,7 @@
 import type { PlainLanguageSources } from '../plain-language.js';
 import type { PipelineQuestion } from '../types.js';
 import { validateQuestion } from './notes.js';
-import type { MergedExpertNotes } from './types.js';
+import type { ExpertFinding, MergedExpertNotes } from './types.js';
 
 /** The chief architect's overall read of readiness. */
 export type SynthesisVerdict = 'ready' | 'needs-answers' | 'not-ready';
@@ -45,6 +45,12 @@ export interface SynthesisAutoResolved {
   source: string;
 }
 
+/** The chief's rename of a warned finding's target to the project's word (issue #558, FR-5.5). */
+export interface SynthesisRename {
+  id: string;
+  target: string;
+}
+
 /** The validated chief-architect synthesis artifact (`expert-synthesis.json`). */
 export interface ExpertSynthesis {
   verdict: SynthesisVerdict;
@@ -56,6 +62,8 @@ export interface ExpertSynthesis {
   tokens: number;
   /** Conflicts the framework answered from a resolved fork before minting a packet (FR-6.3). */
   auto_resolved?: SynthesisAutoResolved[];
+  /** The chief's renames of warned targets to the project's words (issue #558, FR-5.5). */
+  renames?: SynthesisRename[];
 }
 
 export interface ExpertSynthesisValidation {
@@ -158,6 +166,9 @@ export function validateExpertSynthesis(
 
   const tokens = typeof obj.tokens === 'number' && obj.tokens >= 0 ? obj.tokens : 0;
 
+  const renameResult = validateRenames(obj.renames, knownIds);
+  if (!renameResult.ok) return fail(renameResult.error!);
+
   return {
     ok: true,
     artifact: {
@@ -168,8 +179,67 @@ export function validateExpertSynthesis(
       gaps: gapResult.gaps,
       questions,
       tokens,
+      ...(renameResult.renames.length > 0 ? { renames: renameResult.renames } : {}),
     },
   };
+}
+
+interface RenameResult {
+  ok: boolean;
+  error?: string;
+  renames: SynthesisRename[];
+}
+
+/**
+ * Validate the chief's `renames` (issue #558, FR-5.5): every `id` must be a finding the merge knows
+ * and every `target` a non-empty string. An unknown id is refused with the exact message so the
+ * chief cannot rename a finding that is not there.
+ */
+function validateRenames(raw: unknown, knownIds: ReadonlySet<string>): RenameResult {
+  const renames: SynthesisRename[] = [];
+  if (raw === undefined) return { ok: true, renames };
+  if (!Array.isArray(raw))
+    return { ok: false, error: 'synthesis renames must be an array', renames };
+  for (const [index, entry] of raw.entries()) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      return {
+        ok: false,
+        error: `renames[${index}] must be an object with id and target`,
+        renames,
+      };
+    }
+    const { id, target } = entry as Record<string, unknown>;
+    if (typeof id !== 'string' || !knownIds.has(id)) {
+      return {
+        ok: false,
+        error: `renames names "${String(id)}", which the merge does not know`,
+        renames,
+      };
+    }
+    if (typeof target !== 'string' || target.trim().length === 0) {
+      return { ok: false, error: `renames[${index}] ("${id}") needs a non-empty target`, renames };
+    }
+    renames.push({ id, target: target.trim() });
+  }
+  return { ok: true, renames };
+}
+
+/**
+ * Apply the chief's renames to a set of findings (issue #558, FR-5.5): each renamed finding takes
+ * the project's word as its `target` and keeps its original as `renamed_from`. Pure; other findings
+ * pass through unchanged.
+ */
+export function applyRenames(
+  findings: readonly ExpertFinding[],
+  renames: readonly SynthesisRename[] = [],
+): ExpertFinding[] {
+  if (renames.length === 0) return [...findings];
+  const byId = new Map(renames.map((rename) => [rename.id, rename.target]));
+  return findings.map((finding) => {
+    const target = finding.id !== undefined ? byId.get(finding.id) : undefined;
+    if (target === undefined || target === finding.target) return finding;
+    return { ...finding, target, renamed_from: finding.target };
+  });
 }
 
 interface ConflictResult {

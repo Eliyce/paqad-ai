@@ -41,7 +41,8 @@ import {
 } from '@/spec-pipeline/experts/brief.js';
 import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
-import { validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import { seatStandingExperts, validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import { resolveProjectVoiceForRun } from '@/spec-pipeline/experts/voice.js';
 import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
 import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
 import {
@@ -49,7 +50,9 @@ import {
   buildRunMetrics,
   listRunDirs,
 } from '@/spec-pipeline/metrics.js';
-import { validateExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import { applyRenames, validateExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
+import type { FindingVoiceSources } from '@/spec-pipeline/experts/notes.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
@@ -72,6 +75,7 @@ import {
   readRequest,
   readStagedJson,
   rememberInput,
+  writeExpertFindings,
   writeExpertNotes,
   writeExpertRoster,
   writeExpertSynthesis,
@@ -124,7 +128,32 @@ function resolveDir(options: CommonOptions): ResolvedRun | null {
 /** Build the plain-language sources (grounding terms + request) for a run's question checks. */
 function plainLanguageSources(projectRoot: string, dirName: string): PlainLanguageSources {
   const grounding = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
-  return { terms: grounding?.terms ?? [], prompt: readRequest(projectRoot, dirName) };
+  return {
+    terms: grounding?.terms ?? [],
+    prompt: readRequest(projectRoot, dirName),
+    vocabulary: (grounding?.vocabulary ?? []).map((entry) => entry.term),
+  };
+}
+
+/** The sources the finding voice check reads (issue #558, FR-5.1). */
+function findingVoiceSources(projectRoot: string, dirName: string): FindingVoiceSources {
+  const grounding = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
+  return {
+    vocabulary: grounding?.vocabulary ?? [],
+    requestText: readRequest(projectRoot, dirName),
+    projectRoot,
+    indexPresent: readCodeKnowledgeIndex(projectRoot) !== null,
+  };
+}
+
+/**
+ * Build the `## Project voice` block for a run's briefs (issue #558, FR-3.4 / FR-3.5). Reads the
+ * grounding vocabulary, the stack profile and the active packs, and the architecture/stack/technical
+ * pages that exist, then renders the block. A missing profile prints the unknown-stack line and
+ * never fails (FR-3.5). Deterministic, so a brief rebuild gives the same hash (AC-8).
+ */
+function resolveProjectVoice(projectRoot: string, dirName: string): string {
+  return resolveProjectVoiceForRun(projectRoot, dirName);
 }
 
 /** The whole, non-negative `tokens` an agent artifact reported, handed to the spec-step row. */
@@ -621,17 +650,29 @@ export function createSpecPipelineCommand(): Command {
       }
       const report = aggregateSpecPipelineMetrics(options.projectRoot, dirNames);
       console.log(JSON.stringify(report, null, 2));
-      // A short table: which experts earn their keep.
+      // A short table: which experts earn their keep, with their tier, empty rate and voice
+      // warnings alongside the changed_spec rate (issue #558, FR-9.2).
       const roles = Object.keys(report.changed_spec_rate).sort();
       if (roles.length > 0) {
-        console.log('\nrole                    fired  changed  tokens');
+        console.log(
+          '\nrole                    tier      fired  changed  empty rate  voice warnings  tokens',
+        );
         for (const role of roles) {
-          const rate = report.changed_spec_rate[role as keyof typeof report.changed_spec_rate]!;
-          const tokens = report.tokens_by_role[role as keyof typeof report.tokens_by_role] ?? 0;
+          const key = role as keyof typeof report.changed_spec_rate;
+          const rate = report.changed_spec_rate[key]!;
+          const tokens = report.tokens_by_role[key] ?? 0;
+          const tier = report.tier_by_role[key] ?? 'on-call';
+          const empty = report.empty_by_role[key];
+          const emptyRate =
+            empty && empty.fired > 0 ? `${Math.round((empty.empty / empty.fired) * 100)}%` : '—';
+          const warnings = report.voice_warnings_by_role[key] ?? 0;
           console.log(
-            `${role.padEnd(22)}  ${String(rate.fired).padStart(5)}  ${String(rate.changed).padStart(7)}  ${String(tokens).padStart(6)}`,
+            `${role.padEnd(22)}  ${tier.padEnd(8)}  ${String(rate.fired).padStart(5)}  ${String(rate.changed).padStart(7)}  ${emptyRate.padStart(10)}  ${String(warnings).padStart(14)}  ${String(tokens).padStart(6)}`,
           );
         }
+        console.log(
+          '\nA standing expert with a changed_spec rate under 30% over 20 runs is a demotion candidate; change spec_pipeline_standing_experts to demote. Nothing is demoted automatically.',
+        );
       }
     });
 
@@ -712,26 +753,34 @@ function createExpertsCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // One bounded brief per needed expert (FR-3), built in memory: only its hash is stored.
+      // Seat the configured standing experts alongside the detector's picks (issue #558, FR-2.3),
+      // then build one bounded brief per seated expert (FR-3), in memory: only its hash is stored.
       // The step lock above guarantees the grounding and the label were recorded.
-      const needs = check.artifact.experts;
+      const config = readPipelineConfig(options.projectRoot);
+      const needs = seatStandingExperts(check.artifact.experts, config.standing_experts);
+      const projectVoice = resolveProjectVoice(options.projectRoot, resolved.dirName);
       const { briefs } = buildExpertBriefs({
         needs,
         request: readRequest(options.projectRoot, resolved.dirName),
         grounding: readGrounding(options.projectRoot, resolved.dirName)!,
         label: readLabel(options.projectRoot, resolved.dirName)!,
-        ceiling: readPipelineConfig(options.projectRoot).token_ceiling,
+        ceiling: config.token_ceiling,
+        projectVoice,
       });
       const roster = briefs.map((brief, index) => rosterEntryFor(needs[index]!, brief));
       writeExpertRoster(options.projectRoot, resolved.dirName, roster, resolved.store);
       // Nothing needed ⇒ the experts step is complete by skip, and the ledger says so (FR-2.2).
+      // With standing experts this is only reachable when the standing list is empty too.
       if (roster.length === 0) {
         recordStep(options.projectRoot, resolved.dirName, 'experts', 'skipped', resolved.store);
       }
+      const standingCount = needs.filter((need) => need.origin === 'standing').length;
       console.log(
         JSON.stringify({
           recorded: 'expert-need',
           experts: roster.length,
+          standing: standingCount,
+          on_call: roster.length - standingCount,
           briefs: roster.map((entry) => entry.role),
         }),
       );
@@ -768,6 +817,7 @@ function createExpertsCommand(): Command {
         grounding,
         label,
         granted: entry.budget_tokens,
+        projectVoice: resolveProjectVoice(options.projectRoot, resolved.dirName),
       });
       // The printed brief must be the one whose hash the roster recorded (AC-8).
       if (brief.hash !== entry.brief_hash) {
@@ -798,8 +848,16 @@ function createExpertsCommand(): Command {
             label: readLabel(options.projectRoot, resolved.dirName),
             roster: readExperts(options.projectRoot, resolved.dirName)?.roster ?? [],
             notes: notes?.notes ?? null,
-            // The chief reads the merge; it is recomputed here, never stored (issue #581).
-            merge: notes ? mergeExpertNotes(notes.notes) : null,
+            // The chief reads the merge; it is recomputed here, never stored (issue #581). The
+            // voice warnings (issue #558) ride along so the chief can settle the words.
+            voice_warnings:
+              readExperts(options.projectRoot, resolved.dirName)?.voice_warnings ?? [],
+            merge: notes
+              ? mergeExpertNotes(
+                  notes.notes,
+                  readExperts(options.projectRoot, resolved.dirName)?.voice_warnings,
+                )
+              : null,
           },
           null,
           2,
@@ -822,6 +880,7 @@ function createExpertsCommand(): Command {
       const check = validateExpertNotes(
         content,
         plainLanguageSources(options.projectRoot, resolved.dirName),
+        findingVoiceSources(options.projectRoot, resolved.dirName),
       );
       if (!check.ok || !check.artifact) {
         console.error(`expert-notes artifact is invalid: ${check.error}`);
@@ -829,13 +888,14 @@ function createExpertsCommand(): Command {
         return;
       }
       writeExpertNotes(options.projectRoot, resolved.dirName, check.artifact, resolved.store);
-      const merged = mergeExpertNotes(check.artifact.notes);
+      const merged = mergeExpertNotes(check.artifact.notes, check.artifact.voice_warnings);
       console.log(
         JSON.stringify({
           recorded: 'expert-notes',
           notes: check.artifact.notes.length,
           findings: merged.findings.length,
           conflicts: merged.conflicts.length,
+          voice_warnings: check.artifact.voice_warnings?.length ?? 0,
         }),
       );
     });
@@ -857,7 +917,8 @@ function createExpertsCommand(): Command {
         return;
       }
       // The merge the chief judged, recomputed in memory from the recorded notes (FR-5.1).
-      const merged = mergeExpertNotes(notes.notes);
+      const experts = readExperts(options.projectRoot, resolved.dirName);
+      const merged = mergeExpertNotes(notes.notes, experts?.voice_warnings);
       const content = readHandedFile(options, resolved.dirName, file, 'synthesis');
       if (content === null) return;
       const check = validateExpertSynthesis(
@@ -880,6 +941,21 @@ function createExpertsCommand(): Command {
         autoResolved.length > 0
           ? { ...check.artifact, auto_resolved: autoResolved }
           : check.artifact;
+      // Apply the chief's renames to the recorded findings before the synthesis is written, so the
+      // craft step reads the project's words (issue #558, FR-5.5).
+      let renamed = 0;
+      if (synthesis.renames && synthesis.renames.length > 0 && experts?.findings) {
+        const updated = applyRenames(experts.findings, synthesis.renames);
+        renamed = updated.filter(
+          (finding, index) => finding.target !== experts.findings![index]!.target,
+        ).length;
+        writeExpertFindings(
+          options.projectRoot,
+          resolved.dirName,
+          updated as typeof experts.findings,
+          resolved.store,
+        );
+      }
       writeExpertSynthesis(options.projectRoot, resolved.dirName, synthesis, resolved.store);
       recordStep(options.projectRoot, resolved.dirName, 'experts', 'complete', resolved.store);
       console.log(
@@ -891,6 +967,7 @@ function createExpertsCommand(): Command {
           conflicts_pending: minted.length,
           auto_resolved: autoResolved.length,
           gaps: synthesis.gaps.length,
+          renamed,
         }),
       );
     });

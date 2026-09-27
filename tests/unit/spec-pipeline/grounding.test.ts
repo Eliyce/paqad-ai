@@ -54,6 +54,103 @@ function stubRetrieval(
   };
 }
 
+/** A business.md fixture with two glossary entries, two roles, one flow, and junk to filter. */
+const VOCAB_FIXTURE = [
+  '# Billing',
+  '## Overview',
+  'An overview paragraph.',
+  '## Purpose',
+  'Why billing exists.',
+  '## Glossary',
+  '- **Issued invoice**: an invoice that can no longer change',
+  '- **Draft invoice** — an invoice still being edited',
+  '- Define terms a stakeholder might not know',
+  '## User Roles',
+  '- **Customer** owns invoices and downloads them',
+  '- **Support agent** issues refunds',
+  '## User Flows',
+  '- **Invoices page** where a customer downloads invoices',
+  '## Notes',
+  '**ab**',
+  '**this bold span is deliberately far longer than sixty characters so it is dropped as junk**',
+  '**a bold that starts here',
+  'and runs onto the next line**',
+  '',
+].join('\n');
+
+describe('vocabulary extraction (issue #558, FR-3)', () => {
+  it('extracts glossary, role, and flow entries and skips the scaffold line (AC-6)', () => {
+    const root = tempRoot();
+    writeDoc(root, 'docs/modules/billing/features/invoices/business.md', VOCAB_FIXTURE);
+    const g = groundArea(root, { modules: ['billing'] });
+    const vocab = g.vocabulary ?? [];
+    const source = 'docs/modules/billing/features/invoices/business.md';
+    expect(vocab).toEqual([
+      {
+        term: 'Issued invoice',
+        definition: 'an invoice that can no longer change',
+        kind: 'glossary',
+        source,
+      },
+      {
+        term: 'Draft invoice',
+        definition: 'an invoice still being edited',
+        kind: 'glossary',
+        source,
+      },
+      { term: 'Customer', kind: 'role', source },
+      { term: 'Support agent', kind: 'role', source },
+      { term: 'Invoices page', kind: 'flow', source },
+    ]);
+  });
+
+  it('drops scaffold headings and malformed bold spans from terms (AC-6)', () => {
+    const root = tempRoot();
+    writeDoc(root, 'docs/modules/billing/features/invoices/business.md', VOCAB_FIXTURE);
+    const g = groundArea(root, { modules: ['billing'] });
+    expect(g.terms).not.toContain('Overview');
+    expect(g.terms).not.toContain('Purpose');
+    expect(g.terms).not.toContain('ab');
+    for (const term of g.terms) {
+      expect(term).not.toContain('\n');
+      expect(term.length).toBeLessThanOrEqual(60);
+    }
+  });
+
+  it('reads .paqad/glossary.md bold entries when present (FR-3.2)', () => {
+    const root = tempRoot();
+    writeDoc(
+      root,
+      'docs/modules/billing/business.md',
+      '## Glossary\n- **Issued invoice**: locked\n',
+    );
+    writeDoc(root, '.paqad/glossary.md', '# Glossary\n\n**Chargeback**: a reversed payment\n');
+    const g = groundArea(root, { modules: ['billing'] });
+    const vocab = g.vocabulary ?? [];
+    expect(vocab).toContainEqual({
+      term: 'Chargeback',
+      kind: 'glossary',
+      source: '.paqad/glossary.md',
+    });
+    expect(g.references).toContainEqual({ kind: 'glossary', ref: '.paqad/glossary.md' });
+  });
+
+  it('extracts technical names from technical.md sections (FR-3.2)', () => {
+    const root = tempRoot();
+    writeDoc(
+      root,
+      'docs/modules/billing/features/invoices/technical.md',
+      '## Database Schema\n- `invoices` table holds issued invoices\n## Configuration\n- **filesystems.disks.exports** the export disk\n## Ignored\n`not_extracted`\n',
+    );
+    const g = groundArea(root, { modules: ['billing'] });
+    const vocab = g.vocabulary ?? [];
+    const terms = vocab.filter((v) => v.kind === 'technical').map((v) => v.term);
+    expect(terms).toContain('invoices');
+    expect(terms).toContain('filesystems.disks.exports');
+    expect(terms).not.toContain('not_extracted');
+  });
+});
+
 describe('groundArea', () => {
   it('collects terms and references from module docs (FR-2.2)', () => {
     const root = tempRoot();
@@ -157,6 +254,27 @@ describe('groundAreaAsync', () => {
     expect(g.terms).toEqual([]);
     expect(g.sparse).toBe(true);
     expect(g.path).toBe('docs-fallback');
+  });
+
+  it('runs the same vocabulary extraction on the rag path (issue #558, AC-6 parity)', async () => {
+    const root = tempRoot();
+    const body = VOCAB_FIXTURE;
+    writeDoc(root, 'docs/modules/billing/features/invoices/business.md', body);
+    const viaDocs = groundArea(root, { modules: ['billing'] });
+    const viaRag = await groundAreaAsync(root, {
+      ragEnabled: true,
+      modules: ['billing'],
+      service: stubRetrieval([
+        {
+          id: 'c1',
+          source_file: 'docs/modules/billing/features/invoices/business.md',
+          content: body,
+        },
+      ]),
+    });
+    expect(viaRag.path).toBe('rag');
+    expect(viaDocs.path).toBe('docs-fallback');
+    expect(viaRag.vocabulary).toEqual(viaDocs.vocabulary);
   });
 
   it('creates no pipeline-owned cache or index files during grounding (AC-4 / FR-8.5)', async () => {

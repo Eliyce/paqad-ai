@@ -9,7 +9,13 @@
 
 import type { AgentRole } from '@/core/types/agent.js';
 
-import type { ExpertConflict, ExpertFinding, ExpertNote, MergedExpertNotes } from './types.js';
+import type {
+  ExpertConflict,
+  ExpertFinding,
+  ExpertNote,
+  MergedExpertNotes,
+  VoiceWarning,
+} from './types.js';
 
 /** One claim about a target, tagged with the expert that made it. */
 interface AttributedFinding {
@@ -25,7 +31,10 @@ interface AttributedFinding {
  * and claim comparison are case- and whitespace-insensitive so trivial phrasing differences do
  * not read as either a duplicate or a conflict.
  */
-export function mergeExpertNotes(notes: readonly ExpertNote[]): MergedExpertNotes {
+export function mergeExpertNotes(
+  notes: readonly ExpertNote[],
+  voiceWarnings: readonly VoiceWarning[] = [],
+): MergedExpertNotes {
   const byTarget = new Map<string, AttributedFinding[]>();
   const order: string[] = [];
   for (const note of notes) {
@@ -62,7 +71,11 @@ export function mergeExpertNotes(notes: readonly ExpertNote[]): MergedExpertNote
     });
   }
 
-  return { findings, conflicts };
+  return {
+    findings,
+    conflicts,
+    ...(voiceWarnings.length > 0 ? { voice_warnings: [...voiceWarnings] } : {}),
+  };
 }
 
 /** Case- and whitespace-insensitive normalization for target/claim comparison. */

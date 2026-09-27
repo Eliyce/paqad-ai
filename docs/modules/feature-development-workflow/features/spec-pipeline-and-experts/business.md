@@ -17,7 +17,7 @@ You paste a ticket URL (say, "Let customers download their invoices as CSV"). Be
 
 1. **Route.** The router reads the ticket, routes to feature-development, opens the change, and (because the pipeline is on) the specification stage says: run the pipeline.
 2. **Start.** `paqad-ai spec pipeline start` fetches the ticket, writes the request text, grounds it in the project's own docs, and rates how clear the request is. Zero model tokens.
-3. **Pick the experts.** The right specialists are chosen for this request: a database expert if it touches data, a security expert if it touches who can do what, a UI expert if it touches a screen, and so on. Eleven pickable experts exist, and a chief architect always runs once any expert fired.
+3. **Seat the experts.** Four experts always sit at the table on every run: a product owner (who this is for, what done looks like, what is out of scope), an application architect (where the change lands in this app and what it is built from), a user-flow writer, and a QA engineer. The detector then adds any on-call specialists the request needs: a database expert if it touches data, a security expert if it touches who can do what, a UI expert if it touches a screen, and so on. A chief architect always runs once any expert fired.
 4. **Take notes.** Each expert writes short notes: what this request must do, what it must never break, what is still undecided, plus any plain-language questions.
 5. **Synthesise.** The chief architect reads all the notes, accepts or declines each one with a reason, recommends how to settle any disagreement between two experts (a recommendation, never applied, it becomes a decision you make), lists what nobody covered, and gives a readiness verdict.
 6. **Ask you.** You get one small batch of plain-language questions, only for the things nobody can answer from the project's own docs. Answers are phrased as outcomes, in your own words. A question the project already answered before is answered for you.
@@ -35,6 +35,10 @@ Two flags gate all of this.
 - With the **whole pipeline off**, none of it happens and the change proceeds exactly as it did before.
 
 Onboarded projects start with both flags off. This repo runs everything on.
+
+## How the experts talk
+
+Every expert names things in the project's own words. Each briefing carries a **Project voice** section: the stack the project runs on, pointers to the stack's own guides, and the business vocabulary from the module docs (the actor names, the flow names, the glossary terms). When an expert names something the project does not call by that name, it is recorded as a voice warning and shown to the chief, who settles the word before the spec is written. The frozen spec proves who added each line: it keeps a snapshot of every accepted finding, and the feature report shows a "Who contributed what" table.
 
 ## Adoption: how strict the freeze is
 

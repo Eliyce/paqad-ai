@@ -6,8 +6,30 @@
 // it does not second-guess the judgement — it only checks the returned artifact is well-formed
 // and names nothing outside the roster, so the model can never invent an expert (P2-INV-2/3).
 
+import type { AgentRole } from '@/core/types/agent.js';
+
 import type { ExpertNeed, ExpertNeedArtifact } from './types.js';
 import { isExpertRole } from './roster.js';
+
+/**
+ * Seat the configured standing experts alongside the detector's picks (issue #558, FR-2.3). Every
+ * standing role the detector did not already name is appended with `origin: 'standing'` and the
+ * fixed reason; a role the detector named is left as-is (`origin: 'detector'`), so it appears once
+ * (AC-4). Detector picks keep their order and lead; standing roles follow. Deterministic (INV-4).
+ */
+export function seatStandingExperts(
+  detectorNeeds: readonly ExpertNeed[],
+  standing: readonly AgentRole[],
+): ExpertNeed[] {
+  const named = new Set(detectorNeeds.map((need) => need.role));
+  const seated: ExpertNeed[] = detectorNeeds.map((need) => ({ ...need, origin: 'detector' }));
+  for (const role of standing) {
+    if (named.has(role)) continue;
+    named.add(role);
+    seated.push({ role, reason: 'standing expert (always at the table)', origin: 'standing' });
+  }
+  return seated;
+}
 
 /** The outcome of validating a model-produced need artifact. */
 export interface ExpertNeedValidation {
@@ -51,7 +73,7 @@ export function validateExpertNeed(raw: unknown): ExpertNeedValidation {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
       return fail(`experts[${index}] must be an object with role and reason`);
     }
-    const { role, reason } = entry as Record<string, unknown>;
+    const { role, reason, origin } = entry as Record<string, unknown>;
     // The chief architect is never picked (issue #547, FR-2.4): it runs automatically once any
     // expert fired. A need artifact that names it is refused with its own message, before the
     // generic roster rejection, so the detector's mistake is unambiguous.
@@ -70,7 +92,14 @@ export function validateExpertNeed(raw: unknown): ExpertNeedValidation {
       return fail(`experts names "${role}" twice — one decision per expert`);
     }
     seen.add(role);
-    normalized.push({ role, reason: reason.trim() });
+    // Preserve a recorded origin on a round-trip through the roster (issue #558, FR-2.1); a raw
+    // detector artifact carries none, so it defaults to `detector`. The script appends any standing
+    // experts afterwards, at record time.
+    normalized.push({
+      role,
+      reason: reason.trim(),
+      origin: origin === 'standing' ? 'standing' : 'detector',
+    });
   }
 
   return { ok: true, artifact: { experts: normalized } };

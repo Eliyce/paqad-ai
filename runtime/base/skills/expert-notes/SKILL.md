@@ -26,7 +26,8 @@ request implies, the invariants it must never break, the acceptance behaviour it
 the risks it carries, and the questions only a human can answer. Each expert is a **lens** over
 the same procedure, not a separate skill: the db-expert looks for tables, indexes and migration
 safety; the security-auditor looks for who may act and who must not; the ux-ui-analyst looks for
-the six screen states; and so on. The lens is the only thing that changes.
+the six screen states; and so on. The lens is the only thing that changes. Four experts are
+standing and read every request; the rest are on call.
 
 It decides from the **brief alone** — the request, the grounding pointers, the label — never the
 whole repo. The pipeline script validates what comes back against the roster, assigns stable ids,
@@ -58,7 +59,8 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
 2. Decide from the request and the grounding **only**. Do not read the whole repo.
 3. Write findings about concrete targets — a table, an endpoint, a screen, a journey step — each
    about ONE target and making ONE claim. Mark each finding's `kind` and `severity`; see
-   `references/finding-kinds.md` for what each kind becomes in the spec.
+   `references/finding-kinds.md` for what each kind becomes in the spec. Name every target in the
+   project's words: see the Project voice section of your brief.
 4. Phrase every question as a `PipelineQuestion`: business words, options phrased as outcomes, and
    the grounding reference it is grounded in (or `null`). Ask only what the project's own docs
    cannot answer.

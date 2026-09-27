@@ -26,6 +26,7 @@ import {
 import { parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { validateEnvelopeHeader } from '@/feature-evidence/schema.js';
 import { renderExpertBrief } from '@/spec-pipeline/experts/brief.js';
+import { resolveProjectVoiceForRun } from '@/spec-pipeline/experts/voice.js';
 import { readExperts, readGrounding, readLabel, readRequest } from '@/spec-pipeline/run-store.js';
 import { SPEC_STEP_KIND } from '@/stage-evidence/types.js';
 
@@ -287,7 +288,12 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
           .filter(({ object }) => typeof object.id === 'string' && /^EX-/.test(object.id))
           .map(({ path, object }) => ({ at: `${where}#${path}`, id: object.id as string })),
       );
-      expect(stored).toEqual([{ at: 'experts.json#findings[0]', id: EXPERT_FINDING }]);
+      // Issue #558 — the accepted findings are also snapshotted onto the frozen spec (FR-13.1), so
+      // the same EX id appears both in experts.json and in the specification's pipeline section.
+      expect(stored).toEqual([
+        { at: 'experts.json#findings[0]', id: EXPERT_FINDING },
+        { at: 'specification.json#pipeline.findings[0]', id: EXPERT_FINDING },
+      ]);
       const experts = JSON.parse(readFileSync(join(dir, 'experts.json'), 'utf8')) as {
         synthesis: { accepted: unknown[]; declined: unknown[] };
       };
@@ -319,6 +325,9 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
         grounding: readGrounding(root, dir)!,
         label: readLabel(root, dir)!,
         granted: entry.budget_tokens,
+        // Issue #558 — the brief carries the Project voice section; rebuild it the same way so the
+        // hash matches. The vocabulary is persisted in the frozen grounding, so it is reproducible.
+        projectVoice: resolveProjectVoiceForRun(root, dir),
       });
       expect(brief.hash).toBe(entry.brief_hash);
     },

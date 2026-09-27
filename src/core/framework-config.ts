@@ -774,7 +774,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     key: 'spec_pipeline_token_ceiling',
     env: 'PAQAD_SPEC_PIPELINE_TOKEN_CEILING',
     type: 'number',
-    default: 20000,
+    default: 40000,
     group: 'policy',
     section: 'Spec pipeline (issue #512 — optional, off by default)',
     comment:
@@ -809,6 +809,21 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'pipeline.produced=false and shown in the receipt. strict: `spec freeze` refuses a spec ' +
       'the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is ' +
       'recorded on the frozen spec. No effect while spec_pipeline_enabled is off.',
+  },
+  {
+    key: 'spec_pipeline_standing_experts',
+    env: 'PAQAD_SPEC_PIPELINE_STANDING_EXPERTS',
+    type: 'string',
+    default: 'product-owner,application-architect,user-flow-writer,qa-engineer',
+    group: 'policy',
+    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    comment:
+      'Comma-separated expert roles that sit at the table on EVERY spec run once ' +
+      'spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: ' +
+      'product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay ' +
+      'on call and are picked per request. Empty means no standing experts (the detector alone ' +
+      'decides, as before). A role outside the expert roster is ignored with a doctor warning. ' +
+      'No effect while the pipeline or the experts are off.',
   },
 ] as const;
 
@@ -1970,6 +1985,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'spec_pipeline_token_ceiling',
       'spec_pipeline_experts_enabled',
       'spec_pipeline_adoption',
+      'spec_pipeline_standing_experts',
       'visual_evidence_mode',
       'checks_flaky_under_parallel',
     ],

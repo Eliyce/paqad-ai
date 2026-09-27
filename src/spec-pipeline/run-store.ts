@@ -66,7 +66,13 @@ import {
 
 import type { ExpertNotesArtifact } from './experts/notes.js';
 import type { ExpertSynthesis } from './experts/synthesis.js';
-import type { ExpertFinding, ExpertNeedArtifact, ExpertNote } from './experts/types.js';
+import type {
+  ExpertFinding,
+  ExpertNeedArtifact,
+  ExpertNote,
+  ExpertOrigin,
+  VoiceWarning,
+} from './experts/types.js';
 import { frozenPipelineSection, type QuestionCounts, type StagedFinish } from './finish.js';
 import type {
   AutoAnswer,
@@ -407,6 +413,8 @@ export interface ExpertRosterEntry {
   brief_hash: string;
   /** The tokens the expert reported spending, null until its notes are recorded. */
   tokens_used: number | null;
+  /** Detector-named or script-seated as a standing expert (issue #558, FR-2.1). */
+  origin?: ExpertOrigin;
 }
 
 /** One expert finding as stored: its `EX-*` id, the expert that made it, then the finding. */
@@ -421,6 +429,8 @@ export interface ExpertsBody {
   findings: RecordedExpertFinding[] | null;
   /** Null until `experts synthesis` runs; it refers to findings by id only. */
   synthesis: ExpertSynthesis | null;
+  /** Targets the project does not name, from the voice check (issue #558, FR-5.2). */
+  voice_warnings?: VoiceWarning[];
 }
 
 /** Read `experts.json`, or null when `experts record` never ran. */
@@ -431,6 +441,9 @@ export function readExperts(projectRoot: string, dirName: string): ExpertsBody |
     roster: body.roster as ExpertRosterEntry[],
     findings: Array.isArray(body.findings) ? (body.findings as RecordedExpertFinding[]) : null,
     synthesis: isRecord(body.synthesis) ? (body.synthesis as unknown as ExpertSynthesis) : null,
+    ...(Array.isArray(body.voice_warnings)
+      ? { voice_warnings: body.voice_warnings as VoiceWarning[] }
+      : {}),
   };
 }
 
@@ -469,7 +482,13 @@ export function writeExpertRoster(
 export function readExpertNeed(projectRoot: string, dirName: string): ExpertNeedArtifact | null {
   const experts = readExperts(projectRoot, dirName);
   if (experts === null) return null;
-  return { experts: experts.roster.map(({ role, reason }) => ({ role, reason })) };
+  return {
+    experts: experts.roster.map(({ role, reason, origin }) => ({
+      role,
+      reason,
+      ...(origin === undefined ? {} : { origin }),
+    })),
+  };
 }
 
 interface StagedExpertQuestions {
@@ -494,7 +513,16 @@ export function writeExpertNotes(
     ...entry,
     tokens_used: artifact.tokens[entry.role] ?? null,
   }));
-  writeExperts(projectRoot, dirName, { roster, findings }, options);
+  writeExperts(
+    projectRoot,
+    dirName,
+    {
+      roster,
+      findings,
+      ...(artifact.voice_warnings === undefined ? {} : { voice_warnings: artifact.voice_warnings }),
+    },
+    options,
+  );
   const questions = artifact.notes
     .filter((note) => (note.questions ?? []).length > 0)
     .map((note) => ({ role: note.role, questions: note.questions! }));
@@ -550,6 +578,20 @@ export function writeExpertSynthesis(
   options: StoreWriteOptions = {},
 ): void {
   writeExperts(projectRoot, dirName, { synthesis }, options);
+}
+
+/**
+ * Overwrite the recorded findings (issue #558, FR-5.5): the chief's renames are applied to the
+ * merged findings before the synthesis is written, so the spec that reads these findings carries
+ * the project's words. Roles are preserved from the stored findings by id.
+ */
+export function writeExpertFindings(
+  projectRoot: string,
+  dirName: string,
+  findings: RecordedExpertFinding[],
+  options: StoreWriteOptions = {},
+): void {
+  writeExperts(projectRoot, dirName, { findings }, options);
 }
 
 /** The recorded synthesis, or null when the chief never ran. */
@@ -619,10 +661,13 @@ export function readFreezeSections(projectRoot: string, dirName: string): Freeze
             path: grounding.path,
             sparse: grounding.sparse,
             references: grounding.references,
+            // Persist the vocabulary (issue #558) so the Project voice section — and the brief hash
+            // (AC-8) — is reproducible after the staging dir is gone.
+            ...(Array.isArray(grounding.vocabulary) ? { vocabulary: grounding.vocabulary } : {}),
           },
         }
       : {}),
-    pipeline: frozenPipelineSection(finish),
+    pipeline: withExpertFreezeSummary(frozenPipelineSection(finish), projectRoot, dirName),
     ...(isRecord(trace) && Array.isArray(trace.entries)
       ? {
           trace: Object.fromEntries(
@@ -633,6 +678,52 @@ export function readFreezeSections(projectRoot: string, dirName: string): Freeze
           ),
         }
       : {}),
+  };
+}
+
+/**
+ * Fold the run's expert summary and the accepted-finding snapshot into the pipeline section at
+ * freeze (issue #558, FR-8.2 / FR-13.1). The findings already carry the chief's renames (applied at
+ * `experts synthesis`), so the snapshot is the project's own words. Pure of side effects; returns a
+ * new section. Absent experts leave the section unchanged.
+ */
+function withExpertFreezeSummary(
+  pipeline: SpecPipelineSection,
+  projectRoot: string,
+  dirName: string,
+): SpecPipelineSection {
+  const experts = readExperts(projectRoot, dirName);
+  if (!experts || !experts.synthesis) return pipeline;
+  const syn = experts.synthesis;
+  const acceptedIds = new Set(syn.accepted);
+  const findings = (experts.findings ?? [])
+    .filter((finding) => acceptedIds.has(finding.id))
+    .map((finding) => ({
+      id: finding.id,
+      role: finding.role,
+      kind: finding.kind ?? 'requirement',
+      severity: finding.severity ?? 'should',
+      target: finding.target,
+      claim: finding.claim,
+    }));
+  const renamed = (experts.findings ?? []).filter(
+    (finding) => finding.renamed_from !== undefined,
+  ).length;
+  return {
+    ...pipeline,
+    experts: {
+      roles: experts.roster.map((entry) => entry.role),
+      accepted: syn.accepted.length,
+      declined: syn.declined.length,
+      conflicts: syn.conflicts.length,
+      auto_resolved: syn.auto_resolved?.length ?? 0,
+      standing: experts.roster.filter((entry) => entry.origin === 'standing').length,
+      on_call: experts.roster
+        .filter((entry) => entry.origin !== 'standing')
+        .map((entry) => entry.role),
+      renamed,
+    },
+    ...(findings.length > 0 ? { findings } : {}),
   };
 }
 

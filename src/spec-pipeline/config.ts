@@ -1,11 +1,14 @@
-// Spec-pipeline enforcement config reader (issue #512, FR-1.5 / B.3).
+// Spec-pipeline enforcement config reader (issue #512, FR-1.5 / B.3; extended by #558).
 //
-// Reads the four spec_pipeline_* knobs from the layered (LOCAL-WINS) config, deterministically
+// Reads the spec_pipeline_* knobs from the layered (LOCAL-WINS) config, deterministically
 // and with graceful fallback (a hand-trimmed value degrades to the documented default, never
 // throws — RULE-16). The resolved snapshot is recorded with every run so a run's provenance
 // is honest about which gates were on.
 
+import { ROLE_TOKEN_BUDGETS } from '@/core/constants/budgets.js';
+import type { AgentRole } from '@/core/types/agent.js';
 import { layeredConfigMap, resolveNumericConfig } from '@/core/framework-config.js';
+import { DEFAULT_STANDING_EXPERTS, isExpertRole } from './experts/roster.js';
 
 /** A switchable gate level (issue #512 B.3): off | advisory (warn) | required (strict). */
 export type GateMode = 'off' | 'warn' | 'strict';
@@ -22,6 +25,9 @@ const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 export type AdoptionMode = 'warn' | 'strict';
 
 const ADOPTION_MODES: readonly AdoptionMode[] = ['warn', 'strict'];
+
+/** The default onboarded per-run token ceiling (issue #558 raised it to fit four standing budgets). */
+export const DEFAULT_TOKEN_CEILING = 40000;
 
 export interface PipelineConfig {
   /** Master switch. Off by default ⇒ feature-development is byte-identical to today (FR-11). */
@@ -42,6 +48,15 @@ export interface PipelineConfig {
    * meaningful when {@link PipelineConfig.enabled} is on.
    */
   adoption: AdoptionMode;
+  /**
+   * The experts that sit at the table on every run (issue #558). Defaults to the four
+   * {@link DEFAULT_STANDING_EXPERTS}; a team may override with `spec_pipeline_standing_experts`.
+   * Unknown or non-expert ids are dropped (see {@link PipelineConfig.standing_experts_dropped}).
+   * An empty string means no standing experts — the detector alone decides, as before.
+   */
+  standing_experts: AgentRole[];
+  /** The ids in the knob that were dropped because they are not expert roles (the recorded warning). */
+  standing_experts_dropped: string[];
 }
 
 function asGateMode(raw: string | undefined, fallback: GateMode): GateMode {
@@ -56,6 +71,35 @@ function asAdoptionMode(raw: string | undefined, fallback: AdoptionMode): Adopti
   return (ADOPTION_MODES as readonly string[]).includes(v) ? (v as AdoptionMode) : fallback;
 }
 
+/**
+ * Parse the `spec_pipeline_standing_experts` knob into a deduped list of valid expert roles,
+ * plus the ids that were dropped for not being expert roles. `undefined` (knob unset) falls back
+ * to the four defaults; an empty or whitespace-only string means no standing experts. Deterministic
+ * and model-free (INV-4).
+ */
+export function parseStandingExperts(raw: string | undefined): {
+  standing_experts: AgentRole[];
+  standing_experts_dropped: string[];
+} {
+  if (raw === undefined) {
+    return { standing_experts: [...DEFAULT_STANDING_EXPERTS], standing_experts_dropped: [] };
+  }
+  const parts = raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  const standing_experts: AgentRole[] = [];
+  const standing_experts_dropped: string[] = [];
+  for (const part of parts) {
+    if (!isExpertRole(part)) {
+      if (!standing_experts_dropped.includes(part)) standing_experts_dropped.push(part);
+      continue;
+    }
+    if (!standing_experts.includes(part)) standing_experts.push(part);
+  }
+  return { standing_experts, standing_experts_dropped };
+}
+
 /** Resolve the spec-pipeline config snapshot for a project. Pure read; zero model tokens. */
 export function readPipelineConfig(
   projectRoot: string,
@@ -64,6 +108,7 @@ export function readPipelineConfig(
   const map = layeredConfigMap(projectRoot, env);
   const enabledRaw = map.get('spec_pipeline_enabled');
   const expertsRaw = map.get('spec_pipeline_experts_enabled');
+  const standing = parseStandingExperts(map.get('spec_pipeline_standing_experts'));
   return {
     enabled: enabledRaw !== undefined && TRUTHY.has(enabledRaw.trim().toLowerCase()),
     clarification: asGateMode(map.get('spec_pipeline_clarification'), 'warn'),
@@ -72,11 +117,13 @@ export function readPipelineConfig(
       projectRoot,
       env,
       'spec_pipeline_token_ceiling',
-      20000,
+      DEFAULT_TOKEN_CEILING,
       (n) => n > 0,
     ),
     experts_enabled: expertsRaw !== undefined && TRUTHY.has(expertsRaw.trim().toLowerCase()),
     adoption: asAdoptionMode(map.get('spec_pipeline_adoption'), 'warn'),
+    standing_experts: standing.standing_experts,
+    standing_experts_dropped: standing.standing_experts_dropped,
   };
 }
 
@@ -87,4 +134,9 @@ export function readPipelineConfig(
  */
 export function expertsActive(config: PipelineConfig): boolean {
   return config.enabled && config.experts_enabled;
+}
+
+/** The sum of the granted budgets for the resolved standing experts (issue #558, doctor + ceiling). */
+export function standingBudgetSum(config: PipelineConfig): number {
+  return config.standing_experts.reduce((sum, role) => sum + (ROLE_TOKEN_BUDGETS[role] ?? 0), 0);
 }

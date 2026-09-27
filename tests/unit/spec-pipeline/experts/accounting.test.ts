@@ -33,9 +33,61 @@ describe('buildExpertAccounting', () => {
         reason: 'touches the invoices migration',
         tokens: 1200,
         changed_spec: true,
+        empty: false,
       },
-      { role: 'security-auditor', reason: 'touches auth', tokens: 800, changed_spec: true },
+      {
+        role: 'security-auditor',
+        reason: 'touches auth',
+        tokens: 800,
+        changed_spec: true,
+        empty: false,
+      },
     ]);
+  });
+
+  it('marks empty true and carries origin for a standing expert with no notes (issue #558)', () => {
+    const result = buildExpertAccounting({
+      needs: [
+        {
+          role: 'qa-engineer',
+          reason: 'standing expert (always at the table)',
+          origin: 'standing',
+        },
+      ],
+      notes: [],
+      tokens: {},
+      tracedFindingIds: new Set(),
+    });
+    expect(result.experts[0]).toEqual({
+      role: 'qa-engineer',
+      reason: 'standing expert (always at the table)',
+      tokens: 0,
+      changed_spec: false,
+      origin: 'standing',
+      empty: true,
+    });
+  });
+
+  it('marks empty true when the only finding is a non-goal (nothing to add)', () => {
+    const result = buildExpertAccounting({
+      needs: [{ role: 'qa-engineer', reason: 'x', origin: 'standing' }],
+      notes: [
+        {
+          role: 'qa-engineer',
+          findings: [
+            {
+              id: 'EX-qa-engineer-1',
+              target: 'this request',
+              claim: 'no QA concerns: pure docs',
+              kind: 'non-goal',
+            },
+          ],
+        },
+      ],
+      tokens: {},
+      tracedFindingIds: new Set(),
+    });
+    expect(result.experts[0]?.empty).toBe(true);
   });
 
   it('marks changed_spec false for an expert whose finding never traced to a spec line (FR-11.2)', () => {

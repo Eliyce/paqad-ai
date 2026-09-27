@@ -1,6 +1,6 @@
 # User flow writer lens
 
-Fires when the request touches: any user-facing change with more than one step, or a change to how the user arrives or leaves.
+Fires when the request touches: any user-facing change with more than one step, or a change to how the user arrives or leaves. You are a standing expert: you read every request. When it has no user-facing path (or, for QA, no observable behaviour), say so with the one-line non-goal from the shared block and stop.
 
 ## What you look for
 
@@ -30,3 +30,10 @@ Fires when the request touches: any user-facing change with more than one step, 
 ## For depth
 
 See `runtime/capabilities/coding/agents/journey-designer.md`, the review persona this lens is the request-time version of. This lens does not repeat its steps. The story shape it feeds sits in `runtime/base/agents/story-designer.md`.
+
+## Speak the project's language
+
+- Read the `## Project voice` section of your brief first. Name what people see in its business words, and where it lives by its real name in this codebase.
+- Never invent a synonym. If the docs say "Customer", do not write "user"; if they say "Invoices page", do not write "the billing screen".
+- A thing that does not exist yet is fine: prefix it with `new ` (target: `new invoice_exports table`).
+- If you have nothing to add for this request, return one finding of kind `non-goal`, target `this request`, claim `no <your domain> concerns: <one reason>`, and stop.

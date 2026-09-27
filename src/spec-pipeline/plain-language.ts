@@ -18,6 +18,11 @@ export interface PlainLanguageSources {
   terms: string[];
   /** The user's own prompt wording. */
   prompt: string;
+  /**
+   * The structured vocabulary terms from the S0 grounding (issue #558, FR-3.3) — the project's
+   * own words with kinds. Folded into the allowed haystack so a documented word is never flagged.
+   */
+  vocabulary?: string[];
 }
 
 import type { PipelineQuestion, PlainLanguageResult } from './types.js';
@@ -96,7 +101,7 @@ export function checkPlainLanguage(
   question: PipelineQuestion,
   sources: PlainLanguageSources,
 ): PlainLanguageResult {
-  const haystack = [sources.prompt, ...sources.terms].join(' ');
+  const haystack = [sources.prompt, ...sources.terms, ...(sources.vocabulary ?? [])].join(' ');
   const allowed = wordBag(haystack);
   const allowedLower = haystack.toLowerCase();
 

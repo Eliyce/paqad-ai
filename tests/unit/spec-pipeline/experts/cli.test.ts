@@ -41,6 +41,22 @@ function activeFeature(root: string): string {
 
 function enableExperts(root: string): void {
   mkdirSync(join(root, '.paqad'), { recursive: true });
+  // These tests exercise the detector path in isolation, so pin an empty standing tier (the
+  // standing-seating behaviour is covered by its own tests below, issue #558).
+  writeFileSync(
+    join(root, '.paqad', '.config'),
+    [
+      'spec_pipeline_enabled=true',
+      'spec_pipeline_experts_enabled=true',
+      'spec_pipeline_standing_experts=',
+    ].join('\n'),
+    'utf8',
+  );
+}
+
+/** Enable the roster with the default standing tier (issue #558 seating). */
+function enableExpertsWithStanding(root: string): void {
+  mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(
     join(root, '.paqad', '.config'),
     ['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'),
@@ -103,9 +119,15 @@ describe('spec pipeline experts CLI', () => {
     const { out } = await run(root, ['experts', 'record', file]);
     expect(process.exitCode).toBe(0);
     const result = JSON.parse(out[0]!);
-    expect(result).toEqual({ recorded: 'expert-need', experts: 1, briefs: ['db-expert'] });
+    expect(result).toEqual({
+      recorded: 'expert-need',
+      experts: 1,
+      standing: 0,
+      on_call: 1,
+      briefs: ['db-expert'],
+    });
     expect(readExpertNeed(root, dir)).toEqual({
-      experts: [{ role: 'db-expert', reason: 'adds the invoices migration' }],
+      experts: [{ role: 'db-expert', reason: 'adds the invoices migration', origin: 'detector' }],
     });
     const entry = readExperts(root, dir)!.roster[0]!;
     expect(entry).toMatchObject({
@@ -135,6 +157,52 @@ describe('spec pipeline experts CLI', () => {
     expect(readExperts(root, dir)?.roster).toEqual([]);
     const experts = readSpecStepRows(root, dir).filter((row) => row.step === 'experts');
     expect(experts.map((row) => row.outcome)).toEqual(['skipped']);
+  });
+
+  it('seats the four standing experts alongside the detector pick (issue #558, AC-3)', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enableExpertsWithStanding(root);
+    await groundAndLabel(root);
+    const file = writeArtifact(root, 'need.json', {
+      experts: [{ role: 'db-expert', reason: 'adds the invoices migration' }],
+    });
+    const { out } = await run(root, ['experts', 'record', file]);
+    expect(process.exitCode).toBe(0);
+    const result = JSON.parse(out[0]!);
+    expect(result.experts).toBe(5);
+    expect(result.standing).toBe(4);
+    expect(result.on_call).toBe(1);
+    const roster = readExperts(root, dir)!.roster;
+    expect(roster.map((entry) => entry.role)).toEqual([
+      'db-expert',
+      'product-owner',
+      'application-architect',
+      'user-flow-writer',
+      'qa-engineer',
+    ]);
+    expect(roster[0]!.origin).toBe('detector');
+    expect(roster[1]!.origin).toBe('standing');
+    expect(roster[1]!.reason).toBe('standing expert (always at the table)');
+  });
+
+  it('de-duplicates a detector-named standing role to one detector entry (issue #558, AC-4)', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enableExpertsWithStanding(root);
+    await groundAndLabel(root);
+    const file = writeArtifact(root, 'need.json', {
+      experts: [{ role: 'qa-engineer', reason: 'observable behaviour matters here' }],
+    });
+    const { out } = await run(root, ['experts', 'record', file]);
+    const result = JSON.parse(out[0]!);
+    // qa-engineer is standing, but the detector named it: it appears once, as detector.
+    const roster = readExperts(root, dir)!.roster;
+    const qa = roster.filter((entry) => entry.role === 'qa-engineer');
+    expect(qa).toHaveLength(1);
+    expect(qa[0]!.origin).toBe('detector');
+    expect(result.experts).toBe(4);
+    expect(result.standing).toBe(3);
   });
 
   it('brief refuses when off, for a role off the roster, and when the run inputs moved', async () => {
@@ -209,6 +277,60 @@ describe('spec pipeline experts CLI', () => {
     activeFeature(off);
     await run(off, ['experts', 'context']);
     expect(process.exitCode).toBe(1);
+  });
+
+  it('records a voice warning for an undocumented target and applies a chief rename (issue #558)', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enableExperts(root);
+    // Grounding vocabulary: the project names a Customer (role) and a customers table (technical).
+    mkdirSync(join(root, 'docs/modules/billing'), { recursive: true });
+    writeFileSync(
+      join(root, 'docs/modules/billing/business.md'),
+      '## User Roles\n- **Customer** owns invoices\n',
+      'utf8',
+    );
+    mkdirSync(join(root, 'docs/modules/billing/features/invoices'), { recursive: true });
+    writeFileSync(
+      join(root, 'docs/modules/billing/features/invoices/technical.md'),
+      '## Database Schema\n- `customers` holds account holders\n',
+      'utf8',
+    );
+    await run(root, ['ground', '--modules', 'billing']);
+    await run(root, ['label', 'let a customer download invoices']);
+    await run(root, [
+      'experts',
+      'record',
+      writeArtifact(root, 'need.json', { experts: [{ role: 'db-expert', reason: 'schema' }] }),
+    ]);
+    const notes = await run(root, [
+      'experts',
+      'notes',
+      writeArtifact(root, 'notes.json', {
+        notes: [{ role: 'db-expert', findings: [{ target: 'users table', claim: 'store here' }] }],
+      }),
+    ]);
+    expect(JSON.parse(notes.out[0]!).voice_warnings).toBe(1);
+    const warnings = readExperts(root, dir)!.voice_warnings!;
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]!.id).toBe('EX-db-expert-1');
+
+    const synth = await run(root, [
+      'experts',
+      'synthesis',
+      writeArtifact(root, 'synth.json', {
+        verdict: 'ready',
+        accepted: ['EX-db-expert-1'],
+        declined: [],
+        conflicts: [],
+        gaps: [],
+        renames: [{ id: 'EX-db-expert-1', target: 'customers' }],
+      }),
+    ]);
+    expect(JSON.parse(synth.out[0]!).renamed).toBe(1);
+    const finding = readExperts(root, dir)!.findings![0]!;
+    expect(finding.target).toBe('customers');
+    expect(finding.renamed_from).toBe('users table');
   });
 
   it('rejects a need artifact naming a role outside the roster (AC-8)', async () => {

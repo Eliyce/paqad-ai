@@ -153,8 +153,10 @@
 # off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): a human must approve before freeze, recording a named human. Independent of the A5 gate. (env: PAQAD_SPEC_PIPELINE_FINAL_REVIEW)
 # spec_pipeline_final_review=off
 # Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes. (env: PAQAD_SPEC_PIPELINE_TOKEN_CEILING)
-# spec_pipeline_token_ceiling=20000
+# spec_pipeline_token_ceiling=40000
 # Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
 # spec_pipeline_experts_enabled=false
 # warn | strict: how firmly the specification stage adopts the pipeline once spec_pipeline_enabled is on. warn (default): the stage tells the agent to produce the spec through `paqad-ai spec pipeline`; a hand-written spec still freezes, recorded as pipeline.produced=false and shown in the receipt. strict: `spec freeze` refuses a spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is recorded on the frozen spec. No effect while spec_pipeline_enabled is off. (env: PAQAD_SPEC_PIPELINE_ADOPTION)
 # spec_pipeline_adoption=warn
+# Comma-separated expert roles that sit at the table on EVERY spec run once spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay on call and are picked per request. Empty means no standing experts (the detector alone decides, as before). A role outside the expert roster is ignored with a doctor warning. No effect while the pipeline or the experts are off. (env: PAQAD_SPEC_PIPELINE_STANDING_EXPERTS)
+# spec_pipeline_standing_experts=product-owner,application-architect,user-flow-writer,qa-engineer
