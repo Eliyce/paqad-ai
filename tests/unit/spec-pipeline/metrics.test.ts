@@ -338,10 +338,18 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
         {
           role: 'qa-engineer',
           findings: [
-            { id: 'EX-qa-engineer-1', target: 'this request', claim: 'no QA concerns', kind: 'non-goal' },
+            {
+              id: 'EX-qa-engineer-1',
+              target: 'this request',
+              claim: 'no QA concerns',
+              kind: 'non-goal',
+            },
           ],
         },
-        { role: 'db-expert', findings: [{ id: 'EX-db-expert-1', target: 'users table', claim: 'store' }] },
+        {
+          role: 'db-expert',
+          findings: [{ id: 'EX-db-expert-1', target: 'users table', claim: 'store' }],
+        },
       ],
       tokens: {},
       voice_warnings: [{ id: 'EX-db-expert-1', target: 'users table', hint: 'no close match' }],

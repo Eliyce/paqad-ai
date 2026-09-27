@@ -47,7 +47,13 @@ describe('buildExpertAccounting', () => {
 
   it('marks empty true and carries origin for a standing expert with no notes (issue #558)', () => {
     const result = buildExpertAccounting({
-      needs: [{ role: 'qa-engineer', reason: 'standing expert (always at the table)', origin: 'standing' }],
+      needs: [
+        {
+          role: 'qa-engineer',
+          reason: 'standing expert (always at the table)',
+          origin: 'standing',
+        },
+      ],
       notes: [],
       tokens: {},
       tracedFindingIds: new Set(),
@@ -69,7 +75,12 @@ describe('buildExpertAccounting', () => {
         {
           role: 'qa-engineer',
           findings: [
-            { id: 'EX-qa-engineer-1', target: 'this request', claim: 'no QA concerns: pure docs', kind: 'non-goal' },
+            {
+              id: 'EX-qa-engineer-1',
+              target: 'this request',
+              claim: 'no QA concerns: pure docs',
+              kind: 'non-goal',
+            },
           ],
         },
       ],

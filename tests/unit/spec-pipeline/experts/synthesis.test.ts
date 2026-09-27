@@ -60,7 +60,10 @@ function validSynthesis(): ExpertSynthesis {
 
 describe('synthesis renames (issue #558, AC-8)', () => {
   it('accepts renames referencing a known finding id', () => {
-    const withRename = { ...validSynthesis(), renames: [{ id: 'EX-db-expert-1', target: 'customers' }] };
+    const withRename = {
+      ...validSynthesis(),
+      renames: [{ id: 'EX-db-expert-1', target: 'customers' }],
+    };
     const result = validateExpertSynthesis(withRename, merged);
     expect(result.ok).toBe(true);
     expect(result.artifact?.renames).toEqual([{ id: 'EX-db-expert-1', target: 'customers' }]);
@@ -84,8 +87,20 @@ describe('synthesis renames (issue #558, AC-8)', () => {
 
   it('applyRenames rewrites the target and keeps renamed_from, passing others through', () => {
     const findings: ExpertFinding[] = [
-      { id: 'EX-db-expert-1', target: 'users table', claim: 'x', kind: 'requirement', severity: 'should' },
-      { id: 'EX-db-expert-2', target: 'invoices', claim: 'y', kind: 'requirement', severity: 'should' },
+      {
+        id: 'EX-db-expert-1',
+        target: 'users table',
+        claim: 'x',
+        kind: 'requirement',
+        severity: 'should',
+      },
+      {
+        id: 'EX-db-expert-2',
+        target: 'invoices',
+        claim: 'y',
+        kind: 'requirement',
+        severity: 'should',
+      },
     ];
     const out = applyRenames(findings, [{ id: 'EX-db-expert-1', target: 'customers' }]);
     expect(out[0]).toMatchObject({ target: 'customers', renamed_from: 'users table' });
@@ -94,14 +109,26 @@ describe('synthesis renames (issue #558, AC-8)', () => {
 
   it('applyRenames with no renames returns the findings unchanged', () => {
     const findings: ExpertFinding[] = [
-      { id: 'EX-db-expert-1', target: 'invoices', claim: 'x', kind: 'requirement', severity: 'should' },
+      {
+        id: 'EX-db-expert-1',
+        target: 'invoices',
+        claim: 'x',
+        kind: 'requirement',
+        severity: 'should',
+      },
     ];
     expect(applyRenames(findings)).toEqual(findings);
   });
 
   it('applyRenames is deterministic across 50 runs (INV-4)', () => {
     const findings: ExpertFinding[] = [
-      { id: 'EX-db-expert-1', target: 'users table', claim: 'x', kind: 'requirement', severity: 'should' },
+      {
+        id: 'EX-db-expert-1',
+        target: 'users table',
+        claim: 'x',
+        kind: 'requirement',
+        severity: 'should',
+      },
     ];
     const renames = [{ id: 'EX-db-expert-1', target: 'customers' }];
     const first = applyRenames(findings, renames);

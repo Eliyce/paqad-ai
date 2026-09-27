@@ -519,9 +519,7 @@ export function writeExpertNotes(
     {
       roster,
       findings,
-      ...(artifact.voice_warnings === undefined
-        ? {}
-        : { voice_warnings: artifact.voice_warnings }),
+      ...(artifact.voice_warnings === undefined ? {} : { voice_warnings: artifact.voice_warnings }),
     },
     options,
   );

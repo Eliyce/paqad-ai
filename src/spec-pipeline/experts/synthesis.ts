@@ -198,14 +198,23 @@ interface RenameResult {
 function validateRenames(raw: unknown, knownIds: ReadonlySet<string>): RenameResult {
   const renames: SynthesisRename[] = [];
   if (raw === undefined) return { ok: true, renames };
-  if (!Array.isArray(raw)) return { ok: false, error: 'synthesis renames must be an array', renames };
+  if (!Array.isArray(raw))
+    return { ok: false, error: 'synthesis renames must be an array', renames };
   for (const [index, entry] of raw.entries()) {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
-      return { ok: false, error: `renames[${index}] must be an object with id and target`, renames };
+      return {
+        ok: false,
+        error: `renames[${index}] must be an object with id and target`,
+        renames,
+      };
     }
     const { id, target } = entry as Record<string, unknown>;
     if (typeof id !== 'string' || !knownIds.has(id)) {
-      return { ok: false, error: `renames names "${String(id)}", which the merge does not know`, renames };
+      return {
+        ok: false,
+        error: `renames names "${String(id)}", which the merge does not know`,
+        renames,
+      };
     }
     if (typeof target !== 'string' || target.trim().length === 0) {
       return { ok: false, error: `renames[${index}] ("${id}") needs a non-empty target`, renames };

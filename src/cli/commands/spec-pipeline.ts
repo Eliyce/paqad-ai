@@ -654,7 +654,9 @@ export function createSpecPipelineCommand(): Command {
       // warnings alongside the changed_spec rate (issue #558, FR-9.2).
       const roles = Object.keys(report.changed_spec_rate).sort();
       if (roles.length > 0) {
-        console.log('\nrole                    tier      fired  changed  empty rate  voice warnings  tokens');
+        console.log(
+          '\nrole                    tier      fired  changed  empty rate  voice warnings  tokens',
+        );
         for (const role of roles) {
           const key = role as keyof typeof report.changed_spec_rate;
           const rate = report.changed_spec_rate[key]!;
@@ -848,7 +850,8 @@ function createExpertsCommand(): Command {
             notes: notes?.notes ?? null,
             // The chief reads the merge; it is recomputed here, never stored (issue #581). The
             // voice warnings (issue #558) ride along so the chief can settle the words.
-            voice_warnings: readExperts(options.projectRoot, resolved.dirName)?.voice_warnings ?? [],
+            voice_warnings:
+              readExperts(options.projectRoot, resolved.dirName)?.voice_warnings ?? [],
             merge: notes
               ? mergeExpertNotes(
                   notes.notes,

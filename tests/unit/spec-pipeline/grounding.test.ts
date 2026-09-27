@@ -86,8 +86,18 @@ describe('vocabulary extraction (issue #558, FR-3)', () => {
     const vocab = g.vocabulary ?? [];
     const source = 'docs/modules/billing/features/invoices/business.md';
     expect(vocab).toEqual([
-      { term: 'Issued invoice', definition: 'an invoice that can no longer change', kind: 'glossary', source },
-      { term: 'Draft invoice', definition: 'an invoice still being edited', kind: 'glossary', source },
+      {
+        term: 'Issued invoice',
+        definition: 'an invoice that can no longer change',
+        kind: 'glossary',
+        source,
+      },
+      {
+        term: 'Draft invoice',
+        definition: 'an invoice still being edited',
+        kind: 'glossary',
+        source,
+      },
       { term: 'Customer', kind: 'role', source },
       { term: 'Support agent', kind: 'role', source },
       { term: 'Invoices page', kind: 'flow', source },
@@ -109,11 +119,19 @@ describe('vocabulary extraction (issue #558, FR-3)', () => {
 
   it('reads .paqad/glossary.md bold entries when present (FR-3.2)', () => {
     const root = tempRoot();
-    writeDoc(root, 'docs/modules/billing/business.md', '## Glossary\n- **Issued invoice**: locked\n');
+    writeDoc(
+      root,
+      'docs/modules/billing/business.md',
+      '## Glossary\n- **Issued invoice**: locked\n',
+    );
     writeDoc(root, '.paqad/glossary.md', '# Glossary\n\n**Chargeback**: a reversed payment\n');
     const g = groundArea(root, { modules: ['billing'] });
     const vocab = g.vocabulary ?? [];
-    expect(vocab).toContainEqual({ term: 'Chargeback', kind: 'glossary', source: '.paqad/glossary.md' });
+    expect(vocab).toContainEqual({
+      term: 'Chargeback',
+      kind: 'glossary',
+      source: '.paqad/glossary.md',
+    });
     expect(g.references).toContainEqual({ kind: 'glossary', ref: '.paqad/glossary.md' });
   });
 
@@ -247,7 +265,11 @@ describe('groundAreaAsync', () => {
       ragEnabled: true,
       modules: ['billing'],
       service: stubRetrieval([
-        { id: 'c1', source_file: 'docs/modules/billing/features/invoices/business.md', content: body },
+        {
+          id: 'c1',
+          source_file: 'docs/modules/billing/features/invoices/business.md',
+          content: body,
+        },
       ]),
     });
     expect(viaRag.path).toBe('rag');

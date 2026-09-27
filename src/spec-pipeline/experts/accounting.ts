@@ -46,7 +46,8 @@ export function buildExpertAccounting(input: BuildAccountingInput): ExpertRunAcc
       (finding) => finding.id !== undefined && input.tracedFindingIds.has(finding.id),
     );
     // "Nothing to add" (issue #558, FR-2.1): no finding, or the single non-goal exit line.
-    const empty = findings.length === 0 || (findings.length === 1 && findings[0]!.kind === 'non-goal');
+    const empty =
+      findings.length === 0 || (findings.length === 1 && findings[0]!.kind === 'non-goal');
     return {
       role: need.role,
       reason: need.reason,

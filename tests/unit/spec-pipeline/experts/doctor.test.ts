@@ -100,14 +100,14 @@ describe('doctor: Expert roster check', () => {
     );
     expect(check?.status).toBe('warning');
     // The default standing four need 24000; a ceiling below 30000 (24000 + one on-call ~6000) warns.
-    expect(check?.detail).toContain('the standing experts need 24000 and one on-call expert about 6000');
+    expect(check?.detail).toContain(
+      'the standing experts need 24000 and one on-call expert about 6000',
+    );
     expect(check?.detail).toContain('at least 30000');
   });
 
   it('does not warn at the default onboarded ceiling with the default standing list (AC-12)', async () => {
-    writeConfig(
-      ['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'),
-    );
+    writeConfig(['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'));
     const report = await new HealthChecker().run(root);
     const check = report.checks.find(
       (c) => c.name === 'Spec pipeline token ceiling fits the experts',

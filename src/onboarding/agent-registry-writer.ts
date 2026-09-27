@@ -131,7 +131,7 @@ export function renderAgentRegistry(
     '',
     `The ${rows.length} built-in specialist roles, one row per \`AGENT_ROLES\` entry. Standing experts sit`,
     'at every spec run; on-call experts are picked by the detector; the chair runs whenever any expert',
-    'fired; machinery roles are the pipeline\'s own build-time helpers. Generated so the roster, the',
+    "fired; machinery roles are the pipeline's own build-time helpers. Generated so the roster, the",
     'persona files, and the README table cannot drift (issue #558).',
     '',
     '| Role | Tier | Budget | Persona | Lens |',

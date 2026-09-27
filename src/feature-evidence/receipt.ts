@@ -172,7 +172,10 @@ export function specificationReceiptLine(
     // Issue #558 — the standing/on-call line, rendered when the run recorded a standing count.
     if (experts && experts.standing !== undefined) {
       const onCall = experts.on_call ?? [];
-      const roster = onCall.length > 0 ? `${experts.standing} standing + ${onCall.join(', ')}` : `${experts.standing} standing`;
+      const roster =
+        onCall.length > 0
+          ? `${experts.standing} standing + ${onCall.join(', ')}`
+          : `${experts.standing} standing`;
       const c = experts.conflicts;
       const w = experts.renamed ?? 0;
       const clauses: string[] = [];

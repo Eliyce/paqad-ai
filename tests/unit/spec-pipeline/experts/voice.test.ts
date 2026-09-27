@@ -35,7 +35,12 @@ function write(root: string, rel: string, body = 'x'): void {
 }
 
 const VOCAB: VocabularyEntry[] = [
-  { term: 'Issued invoice', definition: 'an invoice that can no longer change', kind: 'glossary', source: 'docs/modules/billing/business.md' },
+  {
+    term: 'Issued invoice',
+    definition: 'an invoice that can no longer change',
+    kind: 'glossary',
+    source: 'docs/modules/billing/business.md',
+  },
   { term: 'Customer', kind: 'role', source: 'docs/modules/billing/business.md' },
   { term: 'Invoices page', kind: 'flow', source: 'docs/modules/billing/business.md' },
 ];
@@ -71,7 +76,9 @@ describe('renderProjectVoice (issue #558, AC-5)', () => {
       technicalPages: [],
       vocabulary: VOCAB,
     });
-    expect(block).toContain('No stack guides shipped for this pack; use the architecture and stack pages.');
+    expect(block).toContain(
+      'No stack guides shipped for this pack; use the architecture and stack pages.',
+    );
   });
 
   it('prints the none-documented line when there is no vocabulary', () => {
@@ -82,7 +89,7 @@ describe('renderProjectVoice (issue #558, AC-5)', () => {
       technicalPages: [],
       vocabulary: [],
     });
-    expect(block).toContain('(none documented yet; use the request\'s own words');
+    expect(block).toContain("(none documented yet; use the request's own words");
   });
 });
 
@@ -114,9 +121,12 @@ describe('orderVoiceTerms', () => {
 describe('buildStackLine', () => {
   it('prints the unknown-stack line when no framework is detected', () => {
     expect(buildStackLine(null, null)).toBe('Stack: unknown (no framework detected); node / pnpm.');
-    expect(buildStackLine({ frameworks: [], traits: [], toolchains: [], version_bands: [], sources: [] }, null)).toBe(
-      'Stack: unknown (no framework detected); node / pnpm.',
-    );
+    expect(
+      buildStackLine(
+        { frameworks: [], traits: [], toolchains: [], version_bands: [], sources: [] },
+        null,
+      ),
+    ).toBe('Stack: unknown (no framework detected); node / pnpm.');
   });
 
   it('builds from the profile, using pack display names, version bands, and the toolchain', () => {
@@ -124,12 +134,29 @@ describe('buildStackLine', () => {
       frameworks: ['laravel', 'vue'],
       traits: [],
       toolchains: [{ ecosystem: 'php', package_manager: 'composer', lockfile: 'composer.lock' }],
-      version_bands: [{ name: 'laravel', package_name: 'laravel/framework', range: '^12', locked_version: '12.1.0', source: 'lockfile' }],
+      version_bands: [
+        {
+          name: 'laravel',
+          package_name: 'laravel/framework',
+          range: '^12',
+          locked_version: '12.1.0',
+          source: 'lockfile',
+        },
+      ],
       sources: [],
     };
     const packs = {
       packs: new Map([
-        ['laravel', { manifest: { name: 'laravel', display_name: 'Laravel' }, root: '/x', manifestPath: '', source: 'built-in', validation: { valid: true, issues: [] } }],
+        [
+          'laravel',
+          {
+            manifest: { name: 'laravel', display_name: 'Laravel' },
+            root: '/x',
+            manifestPath: '',
+            source: 'built-in',
+            validation: { valid: true, issues: [] },
+          },
+        ],
       ]),
       warnings: [],
     } as unknown as PackRegistry;
@@ -141,32 +168,70 @@ describe('resolvers', () => {
   it('resolveGuidePointers finds shipped guides under active packs', () => {
     const runtime = tempRoot();
     write(runtime, 'capabilities/coding/stacks/laravel/rules/foundation/guide.md');
-    const profile = { frameworks: ['laravel'], traits: [], toolchains: [], version_bands: [], sources: [] } as DetectedStackProfile;
+    const profile = {
+      frameworks: ['laravel'],
+      traits: [],
+      toolchains: [],
+      version_bands: [],
+      sources: [],
+    } as DetectedStackProfile;
     const packs = {
       packs: new Map([
-        ['laravel', { manifest: { name: 'laravel', display_name: 'Laravel' }, root: join(runtime, 'capabilities/coding/stacks/laravel'), manifestPath: '', source: 'built-in', validation: { valid: true, issues: [] } }],
+        [
+          'laravel',
+          {
+            manifest: { name: 'laravel', display_name: 'Laravel' },
+            root: join(runtime, 'capabilities/coding/stacks/laravel'),
+            manifestPath: '',
+            source: 'built-in',
+            validation: { valid: true, issues: [] },
+          },
+        ],
       ]),
       warnings: [],
     } as unknown as PackRegistry;
     const { guidePointers, noGuidesShipped } = resolveGuidePointers(runtime, profile, packs);
-    expect(guidePointers).toEqual(['runtime/capabilities/coding/stacks/laravel/rules/foundation/guide.md']);
+    expect(guidePointers).toEqual([
+      'runtime/capabilities/coding/stacks/laravel/rules/foundation/guide.md',
+    ]);
     expect(noGuidesShipped).toBe(false);
   });
 
   it('resolveGuidePointers reports no-guides when an active pack ships none', () => {
     const runtime = tempRoot();
-    const profile = { frameworks: ['laravel'], traits: [], toolchains: [], version_bands: [], sources: [] } as DetectedStackProfile;
+    const profile = {
+      frameworks: ['laravel'],
+      traits: [],
+      toolchains: [],
+      version_bands: [],
+      sources: [],
+    } as DetectedStackProfile;
     const packs = {
       packs: new Map([
-        ['laravel', { manifest: { name: 'laravel', display_name: 'Laravel' }, root: join(runtime, 'nope'), manifestPath: '', source: 'built-in', validation: { valid: true, issues: [] } }],
+        [
+          'laravel',
+          {
+            manifest: { name: 'laravel', display_name: 'Laravel' },
+            root: join(runtime, 'nope'),
+            manifestPath: '',
+            source: 'built-in',
+            validation: { valid: true, issues: [] },
+          },
+        ],
       ]),
       warnings: [],
     } as unknown as PackRegistry;
-    expect(resolveGuidePointers(runtime, profile, packs)).toEqual({ guidePointers: [], noGuidesShipped: true });
+    expect(resolveGuidePointers(runtime, profile, packs)).toEqual({
+      guidePointers: [],
+      noGuidesShipped: true,
+    });
   });
 
   it('resolveGuidePointers is empty when there is no profile or no packs', () => {
-    expect(resolveGuidePointers('/x', null, null)).toEqual({ guidePointers: [], noGuidesShipped: false });
+    expect(resolveGuidePointers('/x', null, null)).toEqual({
+      guidePointers: [],
+      noGuidesShipped: false,
+    });
   });
 
   it('resolveDocPages, resolveTechnicalPages and glossaryPresent read the project tree', () => {
@@ -174,8 +239,12 @@ describe('resolvers', () => {
     write(root, 'docs/instructions/architecture/overview.md');
     write(root, 'docs/modules/billing/technical.md');
     write(root, '.paqad/glossary.md');
-    expect(resolveDocPages(root)).toEqual({ architecturePage: 'docs/instructions/architecture/overview.md' });
-    expect(resolveTechnicalPages(root, ['billing', 'missing'])).toEqual(['docs/modules/billing/technical.md']);
+    expect(resolveDocPages(root)).toEqual({
+      architecturePage: 'docs/instructions/architecture/overview.md',
+    });
+    expect(resolveTechnicalPages(root, ['billing', 'missing'])).toEqual([
+      'docs/modules/billing/technical.md',
+    ]);
     expect(glossaryPresent(root)).toBe(true);
     expect(glossaryPresent(tempRoot())).toBe(false);
   });

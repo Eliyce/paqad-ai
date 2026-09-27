@@ -90,7 +90,9 @@ export function renderProjectVoice(input: ProjectVoiceInput): string {
   lines.push('', 'Business words this project uses (say these, not a synonym):');
   const ordered = orderVoiceTerms(input.vocabulary);
   if (ordered.length === 0) {
-    lines.push('- (none documented yet; use the request\'s own words and flag new terms with "new")');
+    lines.push(
+      '- (none documented yet; use the request\'s own words and flag new terms with "new")',
+    );
   } else {
     for (const entry of ordered) {
       const gloss = entry.definition ? `: ${entry.definition}` : '';

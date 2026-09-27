@@ -333,7 +333,13 @@ export function groundArea(projectRoot: string, options: GroundOptions = {}): Gr
 
   const terms = [...termSet].sort();
   const sparse = terms.length < sparseFloor;
-  return { references, terms, sparse, path: 'docs-fallback', vocabulary: dedupeVocabulary(vocabulary) };
+  return {
+    references,
+    terms,
+    sparse,
+    path: 'docs-fallback',
+    vocabulary: dedupeVocabulary(vocabulary),
+  };
 }
 
 /** Classify a retrieved slice's source file: a rule doc vs any other project doc. */

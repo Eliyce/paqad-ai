@@ -33,9 +33,7 @@ function personaExists(role: string): boolean {
 }
 
 function lensExists(role: string): boolean {
-  return existsSync(
-    join(RUNTIME_ROOT, 'base/skills/expert-notes/references/lenses', `${role}.md`),
-  );
+  return existsSync(join(RUNTIME_ROOT, 'base/skills/expert-notes/references/lenses', `${role}.md`));
 }
 
 describe('agent roster drift (issue #558)', () => {

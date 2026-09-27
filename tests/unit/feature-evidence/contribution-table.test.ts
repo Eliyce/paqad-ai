@@ -22,7 +22,8 @@ const findings: AcceptedFinding[] = [
     kind: 'acceptance',
     severity: 'must',
     target: 'rules load',
-    claim: '`paqad-ai rules load` writes rules-loaded.json with applicable rule ids and matched paths',
+    claim:
+      '`paqad-ai rules load` writes rules-loaded.json with applicable rule ids and matched paths',
   },
 ];
 

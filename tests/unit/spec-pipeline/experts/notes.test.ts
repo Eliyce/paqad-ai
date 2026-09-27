@@ -38,7 +38,9 @@ describe('checkFindingVoice (issue #558, AC-7)', () => {
   });
 
   it('allows a new-prefixed target and "this request"', () => {
-    expect(checkFindingVoice({ target: 'new invoice_exports table', claim: 'x' }, voiceSources()).ok).toBe(true);
+    expect(
+      checkFindingVoice({ target: 'new invoice_exports table', claim: 'x' }, voiceSources()).ok,
+    ).toBe(true);
     expect(checkFindingVoice({ target: 'this request', claim: 'x' }, voiceSources()).ok).toBe(true);
   });
 
@@ -52,10 +54,7 @@ describe('checkFindingVoice (issue #558, AC-7)', () => {
   });
 
   it('names the closest business and technical words in the hint when they share a token', () => {
-    const result = checkFindingVoice(
-      { target: 'the invoices screen', claim: 'x' },
-      voiceSources(),
-    );
+    const result = checkFindingVoice({ target: 'the invoices screen', claim: 'x' }, voiceSources());
     expect(result.ok).toBe(false);
     expect(result.hint).toContain('the docs say "Invoices page" (flow)');
   });
