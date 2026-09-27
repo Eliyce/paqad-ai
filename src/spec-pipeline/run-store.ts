@@ -66,7 +66,12 @@ import {
 
 import type { ExpertNotesArtifact } from './experts/notes.js';
 import type { ExpertSynthesis } from './experts/synthesis.js';
-import type { ExpertFinding, ExpertNeedArtifact, ExpertNote } from './experts/types.js';
+import type {
+  ExpertFinding,
+  ExpertNeedArtifact,
+  ExpertNote,
+  ExpertOrigin,
+} from './experts/types.js';
 import { frozenPipelineSection, type QuestionCounts, type StagedFinish } from './finish.js';
 import type {
   AutoAnswer,
@@ -407,6 +412,8 @@ export interface ExpertRosterEntry {
   brief_hash: string;
   /** The tokens the expert reported spending, null until its notes are recorded. */
   tokens_used: number | null;
+  /** Detector-named or script-seated as a standing expert (issue #558, FR-2.1). */
+  origin?: ExpertOrigin;
 }
 
 /** One expert finding as stored: its `EX-*` id, the expert that made it, then the finding. */
@@ -469,7 +476,13 @@ export function writeExpertRoster(
 export function readExpertNeed(projectRoot: string, dirName: string): ExpertNeedArtifact | null {
   const experts = readExperts(projectRoot, dirName);
   if (experts === null) return null;
-  return { experts: experts.roster.map(({ role, reason }) => ({ role, reason })) };
+  return {
+    experts: experts.roster.map(({ role, reason, origin }) => ({
+      role,
+      reason,
+      ...(origin === undefined ? {} : { origin }),
+    })),
+  };
 }
 
 interface StagedExpertQuestions {

@@ -41,15 +41,19 @@ export function buildExpertAccounting(input: BuildAccountingInput): ExpertRunAcc
 
   const experts: ExpertAccounting[] = input.needs.map((need) => {
     const note = notesByRole.get(need.role);
-    const changed =
-      note?.findings.some(
-        (finding) => finding.id !== undefined && input.tracedFindingIds.has(finding.id),
-      ) ?? false;
+    const findings = note?.findings ?? [];
+    const changed = findings.some(
+      (finding) => finding.id !== undefined && input.tracedFindingIds.has(finding.id),
+    );
+    // "Nothing to add" (issue #558, FR-2.1): no finding, or the single non-goal exit line.
+    const empty = findings.length === 0 || (findings.length === 1 && findings[0]!.kind === 'non-goal');
     return {
       role: need.role,
       reason: need.reason,
       tokens: input.tokens[need.role] ?? 0,
       changed_spec: changed,
+      ...(need.origin === undefined ? {} : { origin: need.origin }),
+      empty,
     };
   });
 

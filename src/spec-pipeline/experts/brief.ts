@@ -51,6 +51,11 @@ export interface BuildExpertBriefsInput {
   grounding: Pick<GroundingArtifact, 'references'>;
   label: LabelArtifact;
   ceiling: number;
+  /**
+   * The rendered `## Project voice` block (issue #558, FR-3.4), the same for every expert in a run.
+   * Appended to each brief after `## Clarity`. Absent ⇒ no voice section (experts-off parity, INV-2).
+   */
+  projectVoice?: string;
 }
 
 export interface ExpertBriefsResult {
@@ -72,7 +77,12 @@ export function buildExpertBriefs(input: BuildExpertBriefsInput): ExpertBriefsRe
   const grantedByRole = new Map(plan.slices.map((slice) => [slice.role, slice]));
   const briefs: ExpertBrief[] = input.needs.map((need) => {
     const slice = grantedByRole.get(need.role)!;
-    const rendered = renderExpertBrief({ ...input, need, granted: slice.granted });
+    const rendered = renderExpertBrief({
+      ...input,
+      need,
+      granted: slice.granted,
+      ...(input.projectVoice === undefined ? {} : { projectVoice: input.projectVoice }),
+    });
     return { role: need.role, granted: slice.granted, clamped: slice.clamped, ...rendered };
   });
   return { briefs, warnings: plan.warnings };
@@ -88,6 +98,7 @@ export function rosterEntryFor(need: ExpertNeed, brief: ExpertBrief): ExpertRost
     grounding_truncated: brief.truncated,
     brief_hash: brief.hash,
     tokens_used: null,
+    ...(need.origin === undefined ? {} : { origin: need.origin }),
   };
 }
 
@@ -99,6 +110,8 @@ export interface RenderExpertBriefInput {
   label: LabelArtifact;
   /** The token budget this expert was granted (the roster entry's `budget_tokens`). */
   granted: number;
+  /** The rendered `## Project voice` block appended after `## Clarity` (issue #558, FR-3.4). */
+  projectVoice?: string;
 }
 
 /**
@@ -187,6 +200,10 @@ function renderBrief(input: RenderExpertBriefInput, pointers: FittedGrounding): 
     }
   }
   lines.push('');
+
+  if (input.projectVoice !== undefined && input.projectVoice.length > 0) {
+    lines.push(input.projectVoice, '');
+  }
 
   return `${lines.join('\n')}\n`;
 }

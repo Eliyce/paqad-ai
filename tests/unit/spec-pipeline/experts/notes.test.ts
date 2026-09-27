@@ -263,7 +263,14 @@ describe('assembleExpertRun', () => {
     writeExpertNeed(root, DIR, { experts: [{ role: 'db-expert', reason: 'migration' }] });
     const run = assembleExpertRun(root, DIR, 20000);
     expect(run!.accounting.experts).toEqual([
-      { role: 'db-expert', reason: 'migration', tokens: 0, changed_spec: false },
+      {
+        role: 'db-expert',
+        reason: 'migration',
+        tokens: 0,
+        changed_spec: false,
+        origin: 'detector',
+        empty: true,
+      },
     ]);
     expect(run!.conflicts).toEqual([]);
   });

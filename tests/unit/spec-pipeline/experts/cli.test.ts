@@ -41,6 +41,22 @@ function activeFeature(root: string): string {
 
 function enableExperts(root: string): void {
   mkdirSync(join(root, '.paqad'), { recursive: true });
+  // These tests exercise the detector path in isolation, so pin an empty standing tier (the
+  // standing-seating behaviour is covered by its own tests below, issue #558).
+  writeFileSync(
+    join(root, '.paqad', '.config'),
+    [
+      'spec_pipeline_enabled=true',
+      'spec_pipeline_experts_enabled=true',
+      'spec_pipeline_standing_experts=',
+    ].join('\n'),
+    'utf8',
+  );
+}
+
+/** Enable the roster with the default standing tier (issue #558 seating). */
+function enableExpertsWithStanding(root: string): void {
+  mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(
     join(root, '.paqad', '.config'),
     ['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'),
@@ -103,9 +119,15 @@ describe('spec pipeline experts CLI', () => {
     const { out } = await run(root, ['experts', 'record', file]);
     expect(process.exitCode).toBe(0);
     const result = JSON.parse(out[0]!);
-    expect(result).toEqual({ recorded: 'expert-need', experts: 1, briefs: ['db-expert'] });
+    expect(result).toEqual({
+      recorded: 'expert-need',
+      experts: 1,
+      standing: 0,
+      on_call: 1,
+      briefs: ['db-expert'],
+    });
     expect(readExpertNeed(root, dir)).toEqual({
-      experts: [{ role: 'db-expert', reason: 'adds the invoices migration' }],
+      experts: [{ role: 'db-expert', reason: 'adds the invoices migration', origin: 'detector' }],
     });
     const entry = readExperts(root, dir)!.roster[0]!;
     expect(entry).toMatchObject({
@@ -135,6 +157,52 @@ describe('spec pipeline experts CLI', () => {
     expect(readExperts(root, dir)?.roster).toEqual([]);
     const experts = readSpecStepRows(root, dir).filter((row) => row.step === 'experts');
     expect(experts.map((row) => row.outcome)).toEqual(['skipped']);
+  });
+
+  it('seats the four standing experts alongside the detector pick (issue #558, AC-3)', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enableExpertsWithStanding(root);
+    await groundAndLabel(root);
+    const file = writeArtifact(root, 'need.json', {
+      experts: [{ role: 'db-expert', reason: 'adds the invoices migration' }],
+    });
+    const { out } = await run(root, ['experts', 'record', file]);
+    expect(process.exitCode).toBe(0);
+    const result = JSON.parse(out[0]!);
+    expect(result.experts).toBe(5);
+    expect(result.standing).toBe(4);
+    expect(result.on_call).toBe(1);
+    const roster = readExperts(root, dir)!.roster;
+    expect(roster.map((entry) => entry.role)).toEqual([
+      'db-expert',
+      'product-owner',
+      'application-architect',
+      'user-flow-writer',
+      'qa-engineer',
+    ]);
+    expect(roster[0]!.origin).toBe('detector');
+    expect(roster[1]!.origin).toBe('standing');
+    expect(roster[1]!.reason).toBe('standing expert (always at the table)');
+  });
+
+  it('de-duplicates a detector-named standing role to one detector entry (issue #558, AC-4)', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enableExpertsWithStanding(root);
+    await groundAndLabel(root);
+    const file = writeArtifact(root, 'need.json', {
+      experts: [{ role: 'qa-engineer', reason: 'observable behaviour matters here' }],
+    });
+    const { out } = await run(root, ['experts', 'record', file]);
+    const result = JSON.parse(out[0]!);
+    // qa-engineer is standing, but the detector named it: it appears once, as detector.
+    const roster = readExperts(root, dir)!.roster;
+    const qa = roster.filter((entry) => entry.role === 'qa-engineer');
+    expect(qa).toHaveLength(1);
+    expect(qa[0]!.origin).toBe('detector');
+    expect(result.experts).toBe(4);
+    expect(result.standing).toBe(3);
   });
 
   it('brief refuses when off, for a role off the roster, and when the run inputs moved', async () => {

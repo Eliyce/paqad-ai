@@ -41,7 +41,17 @@ import {
 } from '@/spec-pipeline/experts/brief.js';
 import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
-import { validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import { seatStandingExperts, validateExpertNeed } from '@/spec-pipeline/experts/need.js';
+import {
+  buildStackLine,
+  renderProjectVoice,
+  resolveDocPages,
+  resolveGuidePointers,
+} from '@/spec-pipeline/experts/voice.js';
+import { StackPackLoader } from '@/packs/loader.js';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
+import { readProjectProfile } from '@/core/project-profile.js';
+import type { PackRegistry } from '@/core/types/pack.js';
 import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
 import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
 import {
@@ -124,7 +134,42 @@ function resolveDir(options: CommonOptions): ResolvedRun | null {
 /** Build the plain-language sources (grounding terms + request) for a run's question checks. */
 function plainLanguageSources(projectRoot: string, dirName: string): PlainLanguageSources {
   const grounding = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
-  return { terms: grounding?.terms ?? [], prompt: readRequest(projectRoot, dirName) };
+  return {
+    terms: grounding?.terms ?? [],
+    prompt: readRequest(projectRoot, dirName),
+    vocabulary: (grounding?.vocabulary ?? []).map((entry) => entry.term),
+  };
+}
+
+/**
+ * Build the `## Project voice` block for a run's briefs (issue #558, FR-3.4 / FR-3.5). Reads the
+ * grounding vocabulary, the stack profile and the active packs, and the architecture/stack/technical
+ * pages that exist, then renders the block. A missing profile prints the unknown-stack line and
+ * never fails (FR-3.5). Deterministic, so a brief rebuild gives the same hash (AC-8).
+ */
+function resolveProjectVoice(projectRoot: string, dirName: string): string {
+  const grounding = readGrounding(projectRoot, dirName);
+  const profile = readProjectProfile(projectRoot)?.stack_profile ?? null;
+  let packs: PackRegistry | null = null;
+  try {
+    packs = new StackPackLoader().load({ runtimeRoot: getRuntimeRoot(), projectRoot });
+    /* v8 ignore next 3 -- pack loading never throws today; belt-and-braces so a fault never fails record. */
+  } catch {
+    packs = null;
+  }
+  const { guidePointers, noGuidesShipped } = resolveGuidePointers(getRuntimeRoot(), profile, packs);
+  const pages = resolveDocPages(projectRoot);
+  const technicalPages = (grounding?.references ?? [])
+    .map((ref) => ref.ref)
+    .filter((ref) => ref.replace(/\\/g, '/').endsWith('technical.md'));
+  return renderProjectVoice({
+    stackLine: buildStackLine(profile, packs),
+    guidePointers,
+    noGuidesShipped,
+    ...pages,
+    technicalPages,
+    vocabulary: grounding?.vocabulary ?? [],
+  });
 }
 
 /** The whole, non-negative `tokens` an agent artifact reported, handed to the spec-step row. */
@@ -712,26 +757,34 @@ function createExpertsCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // One bounded brief per needed expert (FR-3), built in memory: only its hash is stored.
+      // Seat the configured standing experts alongside the detector's picks (issue #558, FR-2.3),
+      // then build one bounded brief per seated expert (FR-3), in memory: only its hash is stored.
       // The step lock above guarantees the grounding and the label were recorded.
-      const needs = check.artifact.experts;
+      const config = readPipelineConfig(options.projectRoot);
+      const needs = seatStandingExperts(check.artifact.experts, config.standing_experts);
+      const projectVoice = resolveProjectVoice(options.projectRoot, resolved.dirName);
       const { briefs } = buildExpertBriefs({
         needs,
         request: readRequest(options.projectRoot, resolved.dirName),
         grounding: readGrounding(options.projectRoot, resolved.dirName)!,
         label: readLabel(options.projectRoot, resolved.dirName)!,
-        ceiling: readPipelineConfig(options.projectRoot).token_ceiling,
+        ceiling: config.token_ceiling,
+        projectVoice,
       });
       const roster = briefs.map((brief, index) => rosterEntryFor(needs[index]!, brief));
       writeExpertRoster(options.projectRoot, resolved.dirName, roster, resolved.store);
       // Nothing needed ⇒ the experts step is complete by skip, and the ledger says so (FR-2.2).
+      // With standing experts this is only reachable when the standing list is empty too.
       if (roster.length === 0) {
         recordStep(options.projectRoot, resolved.dirName, 'experts', 'skipped', resolved.store);
       }
+      const standingCount = needs.filter((need) => need.origin === 'standing').length;
       console.log(
         JSON.stringify({
           recorded: 'expert-need',
           experts: roster.length,
+          standing: standingCount,
+          on_call: roster.length - standingCount,
           briefs: roster.map((entry) => entry.role),
         }),
       );
@@ -768,6 +821,7 @@ function createExpertsCommand(): Command {
         grounding,
         label,
         granted: entry.budget_tokens,
+        projectVoice: resolveProjectVoice(options.projectRoot, resolved.dirName),
       });
       // The printed brief must be the one whose hash the roster recorded (AC-8).
       if (brief.hash !== entry.brief_hash) {
