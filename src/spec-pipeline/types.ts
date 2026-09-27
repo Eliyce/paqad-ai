@@ -52,10 +52,28 @@ export interface GroundingReference {
 export type GroundingPath = 'rag' | 'docs-fallback';
 
 /** S0 output — `grounding.json`. References plus the vocabulary terms S1/S2 ground on. */
+/**
+ * One vocabulary entry the project already uses (issue #558, FR-3.1). `term` is the word to say;
+ * `definition` is the one-line gloss when the source carried one; `kind` is where it came from;
+ * `source` is the doc path it was read from. These are what an expert must name things in.
+ */
+export interface VocabularyEntry {
+  term: string;
+  definition?: string;
+  kind: 'glossary' | 'role' | 'flow' | 'rule' | 'technical';
+  source: string;
+}
+
 export interface GroundingArtifact {
   references: GroundingReference[];
   /** Business/domain terms the project defines (glossary + doc headings) — the S1/S2 lens. */
   terms: string[];
+  /**
+   * The project's own words with kind and source (issue #558, FR-3.1): glossary entries, actor
+   * and flow names, business rules, and technical names. Always written by grounding; consumers
+   * tolerate its absence on a pre-#558 record. `terms` stays for compatibility.
+   */
+  vocabulary?: VocabularyEntry[];
   /** True when the touched area has thin/no docs; downstream flags rather than assumes (FR-2.3). */
   sparse: boolean;
   /**
