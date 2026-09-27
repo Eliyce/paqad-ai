@@ -152,12 +152,35 @@ export function specificationReceiptLine(
     | { pipeline_produced: boolean; produced?: never }
   ) & {
     manual_reason?: string;
-    experts?: { roles: string[]; accepted: number; declined: number; conflicts: number };
+    experts?: {
+      roles: string[];
+      accepted: number;
+      declined: number;
+      conflicts: number;
+      /** Issue #558 — the standing count. Present ⇒ the new standing/on-call line is rendered. */
+      standing?: number;
+      /** Issue #558 — the on-call role names (the detector's picks). */
+      on_call?: string[];
+      /** Issue #558 — how many findings the chief renamed to the project's word. */
+      renamed?: number;
+    };
   },
 ): string {
   if (!provenance) return '🟢 specification: recorded';
   if (provenance.produced ?? provenance.pipeline_produced) {
     const experts = provenance.experts;
+    // Issue #558 — the standing/on-call line, rendered when the run recorded a standing count.
+    if (experts && experts.standing !== undefined) {
+      const onCall = experts.on_call ?? [];
+      const roster = onCall.length > 0 ? `${experts.standing} standing + ${onCall.join(', ')}` : `${experts.standing} standing`;
+      const c = experts.conflicts;
+      const w = experts.renamed ?? 0;
+      const clauses: string[] = [];
+      if (c > 0) clauses.push(`${c} conflicts, all decided`);
+      if (w > 0) clauses.push(`${w} wording fixed`);
+      const tail = clauses.length > 0 ? ` (${clauses.join('; ')})` : '';
+      return `🟢 specification: pipeline-produced, experts: ${roster}${tail}`;
+    }
     if (experts && experts.roles.length > 0) {
       const conflicts =
         experts.conflicts > 0

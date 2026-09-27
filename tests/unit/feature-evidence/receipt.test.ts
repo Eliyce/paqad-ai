@@ -521,6 +521,49 @@ describe('specificationReceiptLine', () => {
     );
   });
 
+  it('renders the standing line: four standing and no on-call (issue #558, AC-10)', () => {
+    expect(
+      specificationReceiptLine({
+        pipeline_produced: true,
+        experts: {
+          roles: ['product-owner', 'application-architect', 'user-flow-writer', 'qa-engineer'],
+          accepted: 4,
+          declined: 0,
+          conflicts: 0,
+          standing: 4,
+          on_call: [],
+          renamed: 0,
+        },
+      }),
+    ).toBe('🟢 specification: pipeline-produced, experts: 4 standing');
+  });
+
+  it('renders four standing plus on-call with a conflict and a rename (issue #558, AC-10)', () => {
+    expect(
+      specificationReceiptLine({
+        pipeline_produced: true,
+        experts: {
+          roles: [
+            'product-owner',
+            'application-architect',
+            'user-flow-writer',
+            'qa-engineer',
+            'db-expert',
+            'security-auditor',
+          ],
+          accepted: 6,
+          declined: 0,
+          conflicts: 1,
+          standing: 4,
+          on_call: ['db-expert', 'security-auditor'],
+          renamed: 1,
+        },
+      }),
+    ).toBe(
+      '🟢 specification: pipeline-produced, experts: 4 standing + db-expert, security-auditor (1 conflicts, all decided; 1 wording fixed)',
+    );
+  });
+
   it('names the experts and pluralizes decided conflicts', () => {
     expect(
       specificationReceiptLine({

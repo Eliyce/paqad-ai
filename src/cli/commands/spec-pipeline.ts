@@ -42,16 +42,7 @@ import {
 import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
 import { seatStandingExperts, validateExpertNeed } from '@/spec-pipeline/experts/need.js';
-import {
-  buildStackLine,
-  renderProjectVoice,
-  resolveDocPages,
-  resolveGuidePointers,
-} from '@/spec-pipeline/experts/voice.js';
-import { StackPackLoader } from '@/packs/loader.js';
-import { getRuntimeRoot } from '@/core/runtime-paths.js';
-import { readProjectProfile } from '@/core/project-profile.js';
-import type { PackRegistry } from '@/core/types/pack.js';
+import { resolveProjectVoiceForRun } from '@/spec-pipeline/experts/voice.js';
 import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
 import { collectExpertQuestions, mergeQuestionBatch } from '@/spec-pipeline/experts/questions.js';
 import {
@@ -162,28 +153,7 @@ function findingVoiceSources(projectRoot: string, dirName: string): FindingVoice
  * never fails (FR-3.5). Deterministic, so a brief rebuild gives the same hash (AC-8).
  */
 function resolveProjectVoice(projectRoot: string, dirName: string): string {
-  const grounding = readGrounding(projectRoot, dirName);
-  const profile = readProjectProfile(projectRoot)?.stack_profile ?? null;
-  let packs: PackRegistry | null = null;
-  try {
-    packs = new StackPackLoader().load({ runtimeRoot: getRuntimeRoot(), projectRoot });
-    /* v8 ignore next 3 -- pack loading never throws today; belt-and-braces so a fault never fails record. */
-  } catch {
-    packs = null;
-  }
-  const { guidePointers, noGuidesShipped } = resolveGuidePointers(getRuntimeRoot(), profile, packs);
-  const pages = resolveDocPages(projectRoot);
-  const technicalPages = (grounding?.references ?? [])
-    .map((ref) => ref.ref)
-    .filter((ref) => ref.replace(/\\/g, '/').endsWith('technical.md'));
-  return renderProjectVoice({
-    stackLine: buildStackLine(profile, packs),
-    guidePointers,
-    noGuidesShipped,
-    ...pages,
-    technicalPages,
-    vocabulary: grounding?.vocabulary ?? [],
-  });
+  return resolveProjectVoiceForRun(projectRoot, dirName);
 }
 
 /** The whole, non-negative `tokens` an agent artifact reported, handed to the spec-step row. */

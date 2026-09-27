@@ -663,10 +663,13 @@ export function readFreezeSections(projectRoot: string, dirName: string): Freeze
             path: grounding.path,
             sparse: grounding.sparse,
             references: grounding.references,
+            // Persist the vocabulary (issue #558) so the Project voice section — and the brief hash
+            // (AC-8) — is reproducible after the staging dir is gone.
+            ...(Array.isArray(grounding.vocabulary) ? { vocabulary: grounding.vocabulary } : {}),
           },
         }
       : {}),
-    pipeline: frozenPipelineSection(finish),
+    pipeline: withExpertFreezeSummary(frozenPipelineSection(finish), projectRoot, dirName),
     ...(isRecord(trace) && Array.isArray(trace.entries)
       ? {
           trace: Object.fromEntries(
@@ -677,6 +680,52 @@ export function readFreezeSections(projectRoot: string, dirName: string): Freeze
           ),
         }
       : {}),
+  };
+}
+
+/**
+ * Fold the run's expert summary and the accepted-finding snapshot into the pipeline section at
+ * freeze (issue #558, FR-8.2 / FR-13.1). The findings already carry the chief's renames (applied at
+ * `experts synthesis`), so the snapshot is the project's own words. Pure of side effects; returns a
+ * new section. Absent experts leave the section unchanged.
+ */
+function withExpertFreezeSummary(
+  pipeline: SpecPipelineSection,
+  projectRoot: string,
+  dirName: string,
+): SpecPipelineSection {
+  const experts = readExperts(projectRoot, dirName);
+  if (!experts || !experts.synthesis) return pipeline;
+  const syn = experts.synthesis;
+  const acceptedIds = new Set(syn.accepted);
+  const findings = (experts.findings ?? [])
+    .filter((finding) => acceptedIds.has(finding.id))
+    .map((finding) => ({
+      id: finding.id,
+      role: finding.role,
+      kind: finding.kind ?? 'requirement',
+      severity: finding.severity ?? 'should',
+      target: finding.target,
+      claim: finding.claim,
+    }));
+  const renamed = (experts.findings ?? []).filter(
+    (finding) => finding.renamed_from !== undefined,
+  ).length;
+  return {
+    ...pipeline,
+    experts: {
+      roles: experts.roster.map((entry) => entry.role),
+      accepted: syn.accepted.length,
+      declined: syn.declined.length,
+      conflicts: syn.conflicts.length,
+      auto_resolved: syn.auto_resolved?.length ?? 0,
+      standing: experts.roster.filter((entry) => entry.origin === 'standing').length,
+      on_call: experts.roster
+        .filter((entry) => entry.origin !== 'standing')
+        .map((entry) => entry.role),
+      renamed,
+    },
+    ...(findings.length > 0 ? { findings } : {}),
   };
 }
 

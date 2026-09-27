@@ -10,9 +10,13 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { readProjectProfile } from '@/core/project-profile.js';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import type { DetectedStackProfile } from '@/core/types/introspection.js';
 import type { PackRegistry } from '@/core/types/pack.js';
+import { StackPackLoader } from '@/packs/loader.js';
 
+import { readGrounding } from '../run-store.js';
 import type { VocabularyEntry } from '../types.js';
 
 /** At most this many business words are listed in a brief (Section 5.2). */
@@ -188,4 +192,35 @@ export function resolveTechnicalPages(projectRoot: string, modules: readonly str
 /** Whether `.paqad/glossary.md` exists — a convenience re-export used by callers. */
 export function glossaryPresent(projectRoot: string): boolean {
   return existsSync(join(projectRoot, PATHS.GLOSSARY));
+}
+
+/**
+ * Build the `## Project voice` block for a run (issue #558, FR-3.4 / FR-3.5), reading the grounding
+ * vocabulary, the stack profile and active packs, and the architecture/stack/technical pages that
+ * exist. A missing profile prints the unknown-stack line and never throws. Deterministic, so a
+ * brief rebuilt after freeze gives the same hash (AC-8). Shared by the CLI and the tests.
+ */
+export function resolveProjectVoiceForRun(projectRoot: string, dirName: string): string {
+  const grounding = readGrounding(projectRoot, dirName);
+  const profile = readProjectProfile(projectRoot)?.stack_profile ?? null;
+  let packs: PackRegistry | null = null;
+  try {
+    packs = new StackPackLoader().load({ runtimeRoot: getRuntimeRoot(), projectRoot });
+    /* v8 ignore next 3 -- pack loading never throws today; belt-and-braces so a fault never fails record. */
+  } catch {
+    packs = null;
+  }
+  const { guidePointers, noGuidesShipped } = resolveGuidePointers(getRuntimeRoot(), profile, packs);
+  const pages = resolveDocPages(projectRoot);
+  const technicalPages = (grounding?.references ?? [])
+    .map((ref) => ref.ref)
+    .filter((ref) => ref.replace(/\\/g, '/').endsWith('technical.md'));
+  return renderProjectVoice({
+    stackLine: buildStackLine(profile, packs),
+    guidePointers,
+    noGuidesShipped,
+    ...pages,
+    technicalPages,
+    vocabulary: grounding?.vocabulary ?? [],
+  });
 }
