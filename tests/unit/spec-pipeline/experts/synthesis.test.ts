@@ -5,10 +5,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  applyRenames,
   isSynthesisShaped,
   validateExpertSynthesis,
   type ExpertSynthesis,
 } from '@/spec-pipeline/experts/synthesis.js';
+import type { ExpertFinding } from '@/spec-pipeline/experts/types.js';
 import { readExpertSynthesis, writeExpertSynthesis } from '@/spec-pipeline/run-store.js';
 import type { MergedExpertNotes } from '@/spec-pipeline/experts/types.js';
 
@@ -55,6 +57,59 @@ function validSynthesis(): ExpertSynthesis {
     tokens: 0,
   };
 }
+
+describe('synthesis renames (issue #558, AC-8)', () => {
+  it('accepts renames referencing a known finding id', () => {
+    const withRename = { ...validSynthesis(), renames: [{ id: 'EX-db-expert-1', target: 'customers' }] };
+    const result = validateExpertSynthesis(withRename, merged);
+    expect(result.ok).toBe(true);
+    expect(result.artifact?.renames).toEqual([{ id: 'EX-db-expert-1', target: 'customers' }]);
+  });
+
+  it('refuses a rename naming an id the merge does not know', () => {
+    const bad = { ...validSynthesis(), renames: [{ id: 'EX-nope-9', target: 'customers' }] };
+    expect(validateExpertSynthesis(bad, merged).error).toBe(
+      'renames names "EX-nope-9", which the merge does not know',
+    );
+  });
+
+  it('refuses a rename with an empty target', () => {
+    const bad = { ...validSynthesis(), renames: [{ id: 'EX-db-expert-1', target: '' }] };
+    expect(validateExpertSynthesis(bad, merged).error).toMatch(/needs a non-empty target/);
+  });
+
+  it('accepts a synthesis without renames', () => {
+    expect(validateExpertSynthesis(validSynthesis(), merged).artifact?.renames).toBeUndefined();
+  });
+
+  it('applyRenames rewrites the target and keeps renamed_from, passing others through', () => {
+    const findings: ExpertFinding[] = [
+      { id: 'EX-db-expert-1', target: 'users table', claim: 'x', kind: 'requirement', severity: 'should' },
+      { id: 'EX-db-expert-2', target: 'invoices', claim: 'y', kind: 'requirement', severity: 'should' },
+    ];
+    const out = applyRenames(findings, [{ id: 'EX-db-expert-1', target: 'customers' }]);
+    expect(out[0]).toMatchObject({ target: 'customers', renamed_from: 'users table' });
+    expect(out[1]).toEqual(findings[1]);
+  });
+
+  it('applyRenames with no renames returns the findings unchanged', () => {
+    const findings: ExpertFinding[] = [
+      { id: 'EX-db-expert-1', target: 'invoices', claim: 'x', kind: 'requirement', severity: 'should' },
+    ];
+    expect(applyRenames(findings)).toEqual(findings);
+  });
+
+  it('applyRenames is deterministic across 50 runs (INV-4)', () => {
+    const findings: ExpertFinding[] = [
+      { id: 'EX-db-expert-1', target: 'users table', claim: 'x', kind: 'requirement', severity: 'should' },
+    ];
+    const renames = [{ id: 'EX-db-expert-1', target: 'customers' }];
+    const first = applyRenames(findings, renames);
+    for (let i = 0; i < 50; i += 1) {
+      expect(applyRenames(findings, renames)).toEqual(first);
+    }
+  });
+});
 
 describe('validateExpertSynthesis', () => {
   it('accepts a well-formed synthesis that covers every finding and resolves each conflict', () => {

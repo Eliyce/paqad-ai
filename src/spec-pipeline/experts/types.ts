@@ -73,6 +73,11 @@ export interface ExpertFinding {
   severity?: FindingSeverity;
   /** An optional grounding reference backing the claim (issue #547, FR-4.3). */
   evidence?: string;
+  /**
+   * When the chief renamed this finding's target to the project's word (issue #558, FR-5.5), the
+   * original target the expert used. Absent unless a rename was applied.
+   */
+  renamed_from?: string;
 }
 
 /**
@@ -104,6 +109,8 @@ export interface ExpertConflict {
 export interface MergedExpertNotes {
   findings: ExpertFinding[];
   conflicts: ExpertConflict[];
+  /** Voice warnings carried through from the notes, shown to the chief (issue #558, FR-5.3). */
+  voice_warnings?: VoiceWarning[];
 }
 
 /**

@@ -71,6 +71,7 @@ import type {
   ExpertNeedArtifact,
   ExpertNote,
   ExpertOrigin,
+  VoiceWarning,
 } from './experts/types.js';
 import { frozenPipelineSection, type QuestionCounts, type StagedFinish } from './finish.js';
 import type {
@@ -428,6 +429,8 @@ export interface ExpertsBody {
   findings: RecordedExpertFinding[] | null;
   /** Null until `experts synthesis` runs; it refers to findings by id only. */
   synthesis: ExpertSynthesis | null;
+  /** Targets the project does not name, from the voice check (issue #558, FR-5.2). */
+  voice_warnings?: VoiceWarning[];
 }
 
 /** Read `experts.json`, or null when `experts record` never ran. */
@@ -438,6 +441,9 @@ export function readExperts(projectRoot: string, dirName: string): ExpertsBody |
     roster: body.roster as ExpertRosterEntry[],
     findings: Array.isArray(body.findings) ? (body.findings as RecordedExpertFinding[]) : null,
     synthesis: isRecord(body.synthesis) ? (body.synthesis as unknown as ExpertSynthesis) : null,
+    ...(Array.isArray(body.voice_warnings)
+      ? { voice_warnings: body.voice_warnings as VoiceWarning[] }
+      : {}),
   };
 }
 
@@ -507,7 +513,18 @@ export function writeExpertNotes(
     ...entry,
     tokens_used: artifact.tokens[entry.role] ?? null,
   }));
-  writeExperts(projectRoot, dirName, { roster, findings }, options);
+  writeExperts(
+    projectRoot,
+    dirName,
+    {
+      roster,
+      findings,
+      ...(artifact.voice_warnings === undefined
+        ? {}
+        : { voice_warnings: artifact.voice_warnings }),
+    },
+    options,
+  );
   const questions = artifact.notes
     .filter((note) => (note.questions ?? []).length > 0)
     .map((note) => ({ role: note.role, questions: note.questions! }));
@@ -563,6 +580,20 @@ export function writeExpertSynthesis(
   options: StoreWriteOptions = {},
 ): void {
   writeExperts(projectRoot, dirName, { synthesis }, options);
+}
+
+/**
+ * Overwrite the recorded findings (issue #558, FR-5.5): the chief's renames are applied to the
+ * merged findings before the synthesis is written, so the spec that reads these findings carries
+ * the project's words. Roles are preserved from the stored findings by id.
+ */
+export function writeExpertFindings(
+  projectRoot: string,
+  dirName: string,
+  findings: RecordedExpertFinding[],
+  options: StoreWriteOptions = {},
+): void {
+  writeExperts(projectRoot, dirName, { findings }, options);
 }
 
 /** The recorded synthesis, or null when the chief never ran. */

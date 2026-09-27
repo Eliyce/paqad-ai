@@ -6,8 +6,112 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { AgentRole } from '@/core/types/agent.js';
 import { assembleExpertRun } from '@/spec-pipeline/experts/assemble.js';
-import { validateExpertNotes } from '@/spec-pipeline/experts/notes.js';
+import {
+  checkFindingVoice,
+  validateExpertNotes,
+  type FindingVoiceSources,
+} from '@/spec-pipeline/experts/notes.js';
+import type { VocabularyEntry } from '@/spec-pipeline/types.js';
 import { writeExpertNotes, writeExpertRoster } from '@/spec-pipeline/run-store.js';
+
+const VOICE_VOCAB: VocabularyEntry[] = [
+  { term: 'Customer', kind: 'role', source: 'docs/modules/billing/business.md' },
+  { term: 'Invoices page', kind: 'flow', source: 'docs/modules/billing/business.md' },
+  { term: 'customers', kind: 'technical', source: 'docs/modules/billing/technical.md' },
+];
+
+function voiceSources(overrides: Partial<FindingVoiceSources> = {}): FindingVoiceSources {
+  return {
+    vocabulary: VOICE_VOCAB,
+    requestText: 'let a customer download their invoices',
+    projectRoot: '/nonexistent-root',
+    indexPresent: false,
+    ...overrides,
+  };
+}
+
+describe('checkFindingVoice (issue #558, AC-7)', () => {
+  it('allows a documented role, a documented technical name, and a word from the request', () => {
+    expect(checkFindingVoice({ target: 'Customer', claim: 'x' }, voiceSources()).ok).toBe(true);
+    expect(checkFindingVoice({ target: 'customers', claim: 'x' }, voiceSources()).ok).toBe(true);
+    expect(checkFindingVoice({ target: 'download', claim: 'x' }, voiceSources()).ok).toBe(true);
+  });
+
+  it('allows a new-prefixed target and "this request"', () => {
+    expect(checkFindingVoice({ target: 'new invoice_exports table', claim: 'x' }, voiceSources()).ok).toBe(true);
+    expect(checkFindingVoice({ target: 'this request', claim: 'x' }, voiceSources()).ok).toBe(true);
+  });
+
+  it('flags a target the project does not name, with a hint, and never refuses', () => {
+    const result = checkFindingVoice({ target: 'users table', claim: 'x' }, voiceSources());
+    expect(result.ok).toBe(false);
+    expect(result.hint).toContain('target "users table" is not a name this project uses');
+    // The hint names the closest technical word by substring ("customers" contains no "users", but
+    // "users table" and "customers" share no token, so it may read "no close match").
+    expect(result.hint).toBeTruthy();
+  });
+
+  it('names the closest business and technical words in the hint when they share a token', () => {
+    const result = checkFindingVoice(
+      { target: 'the invoices screen', claim: 'x' },
+      voiceSources(),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.hint).toContain('the docs say "Invoices page" (flow)');
+  });
+
+  it('reads "no close match" when nothing is near', () => {
+    const result = checkFindingVoice(
+      { target: 'zzz widget', claim: 'x' },
+      voiceSources({ vocabulary: [] }),
+    );
+    expect(result.hint).toContain('no close match');
+  });
+
+  it('is deterministic across 50 runs (INV-4)', () => {
+    const finding = { target: 'users table', claim: 'x' };
+    const first = checkFindingVoice(finding, voiceSources());
+    for (let i = 0; i < 50; i += 1) {
+      expect(checkFindingVoice(finding, voiceSources())).toEqual(first);
+    }
+  });
+});
+
+describe('validateExpertNotes voice warnings (issue #558, AC-7)', () => {
+  it('collects one warning per undocumented target, never refusing the note', () => {
+    const check = validateExpertNotes(
+      {
+        notes: [
+          {
+            role: 'db-expert',
+            findings: [
+              { target: 'Customer', claim: 'owns invoices' },
+              { target: 'users table', claim: 'store it here' },
+            ],
+          },
+        ],
+      },
+      undefined,
+      voiceSources(),
+    );
+    expect(check.ok).toBe(true);
+    expect(check.artifact!.voice_warnings).toEqual([
+      {
+        id: 'EX-db-expert-2',
+        target: 'users table',
+        hint: expect.stringContaining('not a name this project uses'),
+      },
+    ]);
+  });
+
+  it('records no voice_warnings field when no voiceSources is supplied', () => {
+    const check = validateExpertNotes({
+      notes: [{ role: 'db-expert', findings: [{ target: 'users table', claim: 'x' }] }],
+    });
+    expect(check.ok).toBe(true);
+    expect(check.artifact!.voice_warnings).toBeUndefined();
+  });
+});
 
 /** Record a roster the way `experts record` does (issue #581: the need lives in experts.json). */
 function writeExpertNeed(

@@ -5,12 +5,23 @@
 // was never in the need set cannot smuggle notes in). Storing it is the run store's job
 // (`experts.json` findings and roster tokens, issue #581). Deterministic; zero model tokens.
 
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type { AgentRole } from '@/core/types/agent.js';
+import { queryCodeKnowledge } from '@/code-knowledge/query.js';
+import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 
 import { checkPlainLanguage, type PlainLanguageSources } from '../plain-language.js';
-import type { PipelineQuestion } from '../types.js';
+import type { PipelineQuestion, VocabularyEntry } from '../types.js';
 import { isExpertRole } from './roster.js';
-import type { ExpertFinding, ExpertNote, FindingKind, FindingSeverity } from './types.js';
+import type {
+  ExpertFinding,
+  ExpertNote,
+  FindingKind,
+  FindingSeverity,
+  VoiceWarning,
+} from './types.js';
 
 const FINDING_KINDS: readonly FindingKind[] = [
   'requirement',
@@ -25,6 +36,94 @@ const FINDING_SEVERITIES: readonly FindingSeverity[] = ['must', 'should', 'could
 export interface ExpertNotesArtifact {
   notes: ExpertNote[];
   tokens: Partial<Record<AgentRole, number>>;
+  /** Targets the project does not name (issue #558, FR-5.2). Never a refusal; shown to the chief. */
+  voice_warnings?: VoiceWarning[];
+}
+
+/** What the voice check reads to judge a finding's target (issue #558, FR-5.1). */
+export interface FindingVoiceSources {
+  /** The project vocabulary from grounding. */
+  vocabulary: VocabularyEntry[];
+  /** The request text. */
+  requestText: string;
+  /** The project root, for the path-exists rule. */
+  projectRoot: string;
+  /** Whether a code-knowledge index exists (the symbol rule is skipped when it does not). */
+  indexPresent: boolean;
+}
+
+/** The outcome of the voice check for one finding (issue #558, FR-5.1). */
+export interface VoiceCheckResult {
+  ok: boolean;
+  /** The one-line hint, present only when `ok` is false. */
+  hint?: string;
+}
+
+function normalizeTarget(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** The vocabulary entry closest to a target by simple substring match, or null. */
+function closestWord(target: string, entries: VocabularyEntry[]): VocabularyEntry | null {
+  for (const entry of entries) {
+    const term = normalizeTarget(entry.term);
+    if (term.length < 3) continue;
+    if (target.includes(term) || term.includes(target)) return entry;
+  }
+  for (const entry of entries) {
+    const shared = normalizeTarget(entry.term)
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length >= 3);
+    if (shared.some((token) => target.includes(token))) return entry;
+  }
+  return null;
+}
+
+/**
+ * The deterministic voice check for one finding's target (issue #558, FR-5.1 / Section 5.4). A
+ * target is allowed when it is a word the project already uses (a vocabulary term or a word from
+ * the request), an existing path or an indexed symbol, or a `new `-prefixed / `this request`
+ * target. Anything else records a warning with a hint naming the closest business and technical
+ * word. Never a refusal (INV-5). Deterministic; zero model tokens.
+ */
+export function checkFindingVoice(
+  finding: ExpertFinding,
+  sources: FindingVoiceSources,
+): VoiceCheckResult {
+  const target = normalizeTarget(finding.target);
+  // Rule 3: a new thing, or the whole request.
+  if (target.startsWith('new ') || target === 'this request') return { ok: true };
+
+  // Rule 1: the target is a word the project uses (a vocabulary term or a word from the request).
+  const inVocabulary = sources.vocabulary.some((entry) => normalizeTarget(entry.term) === target);
+  if (inVocabulary) return { ok: true };
+  if (normalizeTarget(sources.requestText).includes(target)) return { ok: true };
+
+  // Rule 2: the target names an existing path, or a symbol the code-knowledge index resolves.
+  const stripped = finding.target.replace(/`/g, '').trim();
+  if (stripped.length > 0 && existsSync(join(sources.projectRoot, stripped))) return { ok: true };
+  if (sources.indexPresent) {
+    const index = readCodeKnowledgeIndex(sources.projectRoot);
+    if (index && queryCodeKnowledge(index, stripped).matches.length > 0) return { ok: true };
+  }
+
+  // Rule 4: a warning, never a refusal. Name the closest business and technical word.
+  const business = closestWord(
+    target,
+    sources.vocabulary.filter((entry) => entry.kind !== 'technical'),
+  );
+  const technical = closestWord(
+    target,
+    sources.vocabulary.filter((entry) => entry.kind === 'technical'),
+  );
+  const parts: string[] = [];
+  if (business) parts.push(`the docs say "${business.term}" (${business.kind})`);
+  if (technical) parts.push(`the schema page names "${technical.term}"`);
+  const closeness = parts.length > 0 ? parts.join(' and ') : 'no close match';
+  return {
+    ok: false,
+    hint: `target "${finding.target}" is not a name this project uses; ${closeness}`,
+  };
 }
 
 export interface ExpertNotesValidation {
@@ -51,6 +150,7 @@ function fail(error: string): ExpertNotesValidation {
 export function validateExpertNotes(
   raw: unknown,
   sources?: PlainLanguageSources,
+  voiceSources?: FindingVoiceSources,
 ): ExpertNotesValidation {
   const parsed = typeof raw === 'string' ? parseJson(raw) : raw;
   if (parsed === undefined) return fail('expert-notes artifact is not valid JSON');
@@ -143,7 +243,26 @@ export function validateExpertNotes(
     }
   }
 
-  return { ok: true, artifact: { notes, tokens } };
+  // Voice check (issue #558, FR-5.2): after every finding has its stable id, flag any target the
+  // project does not name. Never a refusal — the warnings are recorded and shown to the chief.
+  let voice_warnings: VoiceWarning[] | undefined;
+  if (voiceSources) {
+    const warnings: VoiceWarning[] = [];
+    for (const note of notes) {
+      for (const finding of note.findings) {
+        const result = checkFindingVoice(finding, voiceSources);
+        if (!result.ok) {
+          warnings.push({ id: finding.id!, target: finding.target, hint: result.hint! });
+        }
+      }
+    }
+    voice_warnings = warnings;
+  }
+
+  return {
+    ok: true,
+    artifact: { notes, tokens, ...(voice_warnings === undefined ? {} : { voice_warnings }) },
+  };
 }
 
 /** The outcome of validating one raw question object. */

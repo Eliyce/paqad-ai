@@ -59,7 +59,9 @@ import {
   buildRunMetrics,
   listRunDirs,
 } from '@/spec-pipeline/metrics.js';
-import { validateExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import { applyRenames, validateExpertSynthesis } from '@/spec-pipeline/experts/synthesis.js';
+import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
+import type { FindingVoiceSources } from '@/spec-pipeline/experts/notes.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
@@ -82,6 +84,7 @@ import {
   readRequest,
   readStagedJson,
   rememberInput,
+  writeExpertFindings,
   writeExpertNotes,
   writeExpertRoster,
   writeExpertSynthesis,
@@ -138,6 +141,17 @@ function plainLanguageSources(projectRoot: string, dirName: string): PlainLangua
     terms: grounding?.terms ?? [],
     prompt: readRequest(projectRoot, dirName),
     vocabulary: (grounding?.vocabulary ?? []).map((entry) => entry.term),
+  };
+}
+
+/** The sources the finding voice check reads (issue #558, FR-5.1). */
+function findingVoiceSources(projectRoot: string, dirName: string): FindingVoiceSources {
+  const grounding = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
+  return {
+    vocabulary: grounding?.vocabulary ?? [],
+    requestText: readRequest(projectRoot, dirName),
+    projectRoot,
+    indexPresent: readCodeKnowledgeIndex(projectRoot) !== null,
   };
 }
 
@@ -852,8 +866,15 @@ function createExpertsCommand(): Command {
             label: readLabel(options.projectRoot, resolved.dirName),
             roster: readExperts(options.projectRoot, resolved.dirName)?.roster ?? [],
             notes: notes?.notes ?? null,
-            // The chief reads the merge; it is recomputed here, never stored (issue #581).
-            merge: notes ? mergeExpertNotes(notes.notes) : null,
+            // The chief reads the merge; it is recomputed here, never stored (issue #581). The
+            // voice warnings (issue #558) ride along so the chief can settle the words.
+            voice_warnings: readExperts(options.projectRoot, resolved.dirName)?.voice_warnings ?? [],
+            merge: notes
+              ? mergeExpertNotes(
+                  notes.notes,
+                  readExperts(options.projectRoot, resolved.dirName)?.voice_warnings,
+                )
+              : null,
           },
           null,
           2,
@@ -876,6 +897,7 @@ function createExpertsCommand(): Command {
       const check = validateExpertNotes(
         content,
         plainLanguageSources(options.projectRoot, resolved.dirName),
+        findingVoiceSources(options.projectRoot, resolved.dirName),
       );
       if (!check.ok || !check.artifact) {
         console.error(`expert-notes artifact is invalid: ${check.error}`);
@@ -883,13 +905,14 @@ function createExpertsCommand(): Command {
         return;
       }
       writeExpertNotes(options.projectRoot, resolved.dirName, check.artifact, resolved.store);
-      const merged = mergeExpertNotes(check.artifact.notes);
+      const merged = mergeExpertNotes(check.artifact.notes, check.artifact.voice_warnings);
       console.log(
         JSON.stringify({
           recorded: 'expert-notes',
           notes: check.artifact.notes.length,
           findings: merged.findings.length,
           conflicts: merged.conflicts.length,
+          voice_warnings: check.artifact.voice_warnings?.length ?? 0,
         }),
       );
     });
@@ -911,7 +934,8 @@ function createExpertsCommand(): Command {
         return;
       }
       // The merge the chief judged, recomputed in memory from the recorded notes (FR-5.1).
-      const merged = mergeExpertNotes(notes.notes);
+      const experts = readExperts(options.projectRoot, resolved.dirName);
+      const merged = mergeExpertNotes(notes.notes, experts?.voice_warnings);
       const content = readHandedFile(options, resolved.dirName, file, 'synthesis');
       if (content === null) return;
       const check = validateExpertSynthesis(
@@ -934,6 +958,21 @@ function createExpertsCommand(): Command {
         autoResolved.length > 0
           ? { ...check.artifact, auto_resolved: autoResolved }
           : check.artifact;
+      // Apply the chief's renames to the recorded findings before the synthesis is written, so the
+      // craft step reads the project's words (issue #558, FR-5.5).
+      let renamed = 0;
+      if (synthesis.renames && synthesis.renames.length > 0 && experts?.findings) {
+        const updated = applyRenames(experts.findings, synthesis.renames);
+        renamed = updated.filter(
+          (finding, index) => finding.target !== experts.findings![index]!.target,
+        ).length;
+        writeExpertFindings(
+          options.projectRoot,
+          resolved.dirName,
+          updated as typeof experts.findings,
+          resolved.store,
+        );
+      }
       writeExpertSynthesis(options.projectRoot, resolved.dirName, synthesis, resolved.store);
       recordStep(options.projectRoot, resolved.dirName, 'experts', 'complete', resolved.store);
       console.log(
@@ -945,6 +984,7 @@ function createExpertsCommand(): Command {
           conflicts_pending: minted.length,
           auto_resolved: autoResolved.length,
           gaps: synthesis.gaps.length,
+          renamed,
         }),
       );
     });

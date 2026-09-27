@@ -279,6 +279,60 @@ describe('spec pipeline experts CLI', () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it('records a voice warning for an undocumented target and applies a chief rename (issue #558)', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    enableExperts(root);
+    // Grounding vocabulary: the project names a Customer (role) and a customers table (technical).
+    mkdirSync(join(root, 'docs/modules/billing'), { recursive: true });
+    writeFileSync(
+      join(root, 'docs/modules/billing/business.md'),
+      '## User Roles\n- **Customer** owns invoices\n',
+      'utf8',
+    );
+    mkdirSync(join(root, 'docs/modules/billing/features/invoices'), { recursive: true });
+    writeFileSync(
+      join(root, 'docs/modules/billing/features/invoices/technical.md'),
+      '## Database Schema\n- `customers` holds account holders\n',
+      'utf8',
+    );
+    await run(root, ['ground', '--modules', 'billing']);
+    await run(root, ['label', 'let a customer download invoices']);
+    await run(root, [
+      'experts',
+      'record',
+      writeArtifact(root, 'need.json', { experts: [{ role: 'db-expert', reason: 'schema' }] }),
+    ]);
+    const notes = await run(root, [
+      'experts',
+      'notes',
+      writeArtifact(root, 'notes.json', {
+        notes: [{ role: 'db-expert', findings: [{ target: 'users table', claim: 'store here' }] }],
+      }),
+    ]);
+    expect(JSON.parse(notes.out[0]!).voice_warnings).toBe(1);
+    const warnings = readExperts(root, dir)!.voice_warnings!;
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]!.id).toBe('EX-db-expert-1');
+
+    const synth = await run(root, [
+      'experts',
+      'synthesis',
+      writeArtifact(root, 'synth.json', {
+        verdict: 'ready',
+        accepted: ['EX-db-expert-1'],
+        declined: [],
+        conflicts: [],
+        gaps: [],
+        renames: [{ id: 'EX-db-expert-1', target: 'customers' }],
+      }),
+    ]);
+    expect(JSON.parse(synth.out[0]!).renamed).toBe(1);
+    const finding = readExperts(root, dir)!.findings![0]!;
+    expect(finding.target).toBe('customers');
+    expect(finding.renamed_from).toBe('users table');
+  });
+
   it('rejects a need artifact naming a role outside the roster (AC-8)', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
