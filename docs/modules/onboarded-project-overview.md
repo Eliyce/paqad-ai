@@ -204,7 +204,8 @@ Expert personas (issue #547): the two new pickable experts [QA Engineer](../../r
 - [`rollback-safety-planner`](../../runtime/base/skills/rollback-safety-planner/SKILL.md) — executable rollback procedures for high-risk stories. Knows: instructions, docs/modules, git.
 - [`performance-regression-estimator`](../../runtime/base/skills/performance-regression-estimator/SKILL.md) — pre-code perf hazards vs hot-path budgets. Knows: docs/modules, source.
 - [Story Designer](../../runtime/base/agents/story-designer.md) (agent) — slice spec into dependency-ordered stories. Knows: docs/modules, source, tests, module-map.
-- [Product Owner](../../runtime/base/agents/product-owner.md) (agent) — enforce scope, prevent gold-plating. Knows: docs/modules.
+- [Product Owner](../../runtime/base/agents/product-owner.md) (agent) — enforce scope at build time; at request time, a standing spec expert for value, scope and non-goals. Knows: docs/modules.
+- [application-architect](../../runtime/capabilities/coding/agents/application-architect.md) (agent) — a standing spec expert for where a change lands in this app and what it is built from (framework piece, placement, layering, technical page). Knows: stack packs, docs/modules, instructions.
 - [solution-architect](../../runtime/capabilities/coding/agents/solution-architect.md) (agent) — reuse map, patterns, contracts, trade-offs. Knows: docs/modules, source, git.
 - [data-modeler](../../runtime/capabilities/coding/agents/data-modeler.md) (agent) — entities/relationships/migration plan. Knows: docs/modules, instructions.
 
