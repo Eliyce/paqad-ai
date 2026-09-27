@@ -86,7 +86,7 @@ describe('doctor: Expert roster check', () => {
     );
   });
 
-  it('warns when the token ceiling is too low for the experts (FR-12.2c)', async () => {
+  it('warns when the token ceiling is too low for the standing experts (issue #558, AC-12)', async () => {
     writeConfig(
       [
         'spec_pipeline_enabled=true',
@@ -99,7 +99,37 @@ describe('doctor: Expert roster check', () => {
       (c) => c.name === 'Spec pipeline token ceiling fits the experts',
     );
     expect(check?.status).toBe('warning');
-    expect(check?.detail).toMatch(/three typical experts need 26000/);
+    // The default standing four need 24000; a ceiling below 30000 (24000 + one on-call ~6000) warns.
+    expect(check?.detail).toContain('the standing experts need 24000 and one on-call expert about 6000');
+    expect(check?.detail).toContain('at least 30000');
+  });
+
+  it('does not warn at the default onboarded ceiling with the default standing list (AC-12)', async () => {
+    writeConfig(
+      ['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'),
+    );
+    const report = await new HealthChecker().run(root);
+    const check = report.checks.find(
+      (c) => c.name === 'Spec pipeline token ceiling fits the experts',
+    );
+    // The default ceiling is 40000, well above 24000 + 6000, so no clamp warning is emitted.
+    expect(check).toBeUndefined();
+  });
+
+  it('warns when a standing role is not an expert (issue #558, AC-12)', async () => {
+    writeConfig(
+      [
+        'spec_pipeline_enabled=true',
+        'spec_pipeline_experts_enabled=true',
+        'spec_pipeline_standing_experts=qa-engineer,not-a-role',
+      ].join('\n'),
+    );
+    const report = await new HealthChecker().run(root);
+    const check = report.checks.find((c) => c.name === 'Standing experts are all expert roles');
+    expect(check?.status).toBe('warning');
+    expect(check?.detail).toBe(
+      'spec_pipeline_standing_experts names "not-a-role", which is not an expert; it is ignored',
+    );
   });
 
   it('confirms every roster role ships a lens (FR-12.2b — passes, the lenses ship)', async () => {

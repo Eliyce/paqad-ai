@@ -650,17 +650,27 @@ export function createSpecPipelineCommand(): Command {
       }
       const report = aggregateSpecPipelineMetrics(options.projectRoot, dirNames);
       console.log(JSON.stringify(report, null, 2));
-      // A short table: which experts earn their keep.
+      // A short table: which experts earn their keep, with their tier, empty rate and voice
+      // warnings alongside the changed_spec rate (issue #558, FR-9.2).
       const roles = Object.keys(report.changed_spec_rate).sort();
       if (roles.length > 0) {
-        console.log('\nrole                    fired  changed  tokens');
+        console.log('\nrole                    tier      fired  changed  empty rate  voice warnings  tokens');
         for (const role of roles) {
-          const rate = report.changed_spec_rate[role as keyof typeof report.changed_spec_rate]!;
-          const tokens = report.tokens_by_role[role as keyof typeof report.tokens_by_role] ?? 0;
+          const key = role as keyof typeof report.changed_spec_rate;
+          const rate = report.changed_spec_rate[key]!;
+          const tokens = report.tokens_by_role[key] ?? 0;
+          const tier = report.tier_by_role[key] ?? 'on-call';
+          const empty = report.empty_by_role[key];
+          const emptyRate =
+            empty && empty.fired > 0 ? `${Math.round((empty.empty / empty.fired) * 100)}%` : '—';
+          const warnings = report.voice_warnings_by_role[key] ?? 0;
           console.log(
-            `${role.padEnd(22)}  ${String(rate.fired).padStart(5)}  ${String(rate.changed).padStart(7)}  ${String(tokens).padStart(6)}`,
+            `${role.padEnd(22)}  ${tier.padEnd(8)}  ${String(rate.fired).padStart(5)}  ${String(rate.changed).padStart(7)}  ${emptyRate.padStart(10)}  ${String(warnings).padStart(14)}  ${String(tokens).padStart(6)}`,
           );
         }
+        console.log(
+          '\nA standing expert with a changed_spec rate under 30% over 20 runs is a demotion candidate; change spec_pipeline_standing_experts to demote. Nothing is demoted automatically.',
+        );
       }
     });
 

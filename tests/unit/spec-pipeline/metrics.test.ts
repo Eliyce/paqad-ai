@@ -309,6 +309,62 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
     expect(report.grounding_sparse_runs).toBe(2);
   });
 
+  it('reports tier, empty rate, voice warnings and renames per role (issue #558, AC-11)', () => {
+    const root = tempRoot();
+    writeExpertRoster(root, DIR, [
+      {
+        role: 'qa-engineer',
+        reason: 'standing expert (always at the table)',
+        lens: 'l',
+        budget_tokens: 6000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: null,
+        origin: 'standing',
+      },
+      {
+        role: 'db-expert',
+        reason: 'schema',
+        lens: 'l',
+        budget_tokens: 6000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: null,
+        origin: 'detector',
+      },
+    ]);
+    writeExpertNotes(root, DIR, {
+      notes: [
+        {
+          role: 'qa-engineer',
+          findings: [
+            { id: 'EX-qa-engineer-1', target: 'this request', claim: 'no QA concerns', kind: 'non-goal' },
+          ],
+        },
+        { role: 'db-expert', findings: [{ id: 'EX-db-expert-1', target: 'users table', claim: 'store' }] },
+      ],
+      tokens: {},
+      voice_warnings: [{ id: 'EX-db-expert-1', target: 'users table', hint: 'no close match' }],
+    });
+    writeExpertSynthesis(root, DIR, {
+      ...SYNTHESIS,
+      accepted: ['EX-qa-engineer-1', 'EX-db-expert-1'],
+      renames: [{ id: 'EX-db-expert-1', target: 'customers' }],
+    });
+    writeSpecification(root, DIR, {
+      pipeline: { produced: true, outcome: 'freeze' },
+      grounding: { path: 'rag', sparse: false, references: [] },
+      trace: {},
+    });
+    const report = aggregateSpecPipelineMetrics(root, [DIR]);
+    expect(report.tier_by_role['qa-engineer']).toBe('standing');
+    expect(report.tier_by_role['db-expert']).toBe('on-call');
+    expect(report.empty_by_role['qa-engineer']).toEqual({ fired: 1, empty: 1 });
+    expect(report.empty_by_role['db-expert']).toEqual({ fired: 1, empty: 0 });
+    expect(report.voice_warnings_by_role['db-expert']).toBe(1);
+    expect(report.renames).toBe(1);
+  });
+
   it('takes the experts step tokens from its row over the synthesis', () => {
     const root = tempRoot();
     writeExpertSynthesis(root, DIR, SYNTHESIS);
