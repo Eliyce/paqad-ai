@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { expertsActive, readPipelineConfig } from '@/spec-pipeline/config.js';
+import { expertsActive, readPipelineConfig, type PipelineConfig } from '@/spec-pipeline/config.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -22,15 +22,22 @@ function writeLocalConfig(root: string, body: string): void {
 }
 
 describe('readPipelineConfig', () => {
-  it('defaults: disabled, clarification=warn, final_review=off, ceiling=20000, experts off', () => {
+  it('defaults: disabled, clarification=warn, final_review=off, ceiling=40000, experts off', () => {
     const cfg = readPipelineConfig(tempRoot(), {});
     expect(cfg).toEqual({
       enabled: false,
       clarification: 'warn',
       final_review: 'off',
-      token_ceiling: 20000,
+      token_ceiling: 40000,
       experts_enabled: false,
       adoption: 'warn',
+      standing_experts: [
+        'product-owner',
+        'application-architect',
+        'user-flow-writer',
+        'qa-engineer',
+      ],
+      standing_experts_dropped: [],
     });
   });
 
@@ -45,6 +52,7 @@ describe('readPipelineConfig', () => {
         'spec_pipeline_token_ceiling=5000',
         'spec_pipeline_experts_enabled=on',
         'spec_pipeline_adoption=strict',
+        'spec_pipeline_standing_experts=qa-engineer,product-owner',
       ].join('\n'),
     );
     expect(readPipelineConfig(root, {})).toEqual({
@@ -54,6 +62,8 @@ describe('readPipelineConfig', () => {
       token_ceiling: 5000,
       experts_enabled: true,
       adoption: 'strict',
+      standing_experts: ['qa-engineer', 'product-owner'],
+      standing_experts_dropped: [],
     });
   });
 
@@ -88,17 +98,34 @@ describe('readPipelineConfig', () => {
     );
     const cfg = readPipelineConfig(root, {});
     expect(cfg.clarification).toBe('warn');
-    expect(cfg.token_ceiling).toBe(20000);
+    expect(cfg.token_ceiling).toBe(40000);
+  });
+
+  it('standing_experts: empty knob means none; unknown ids are dropped; deduped (issue #558)', () => {
+    const empty = tempRoot();
+    writeLocalConfig(empty, 'spec_pipeline_standing_experts=');
+    expect(readPipelineConfig(empty, {}).standing_experts).toEqual([]);
+
+    const dropped = tempRoot();
+    writeLocalConfig(
+      dropped,
+      'spec_pipeline_standing_experts=qa-engineer,not-a-role,qa-engineer,chief-architect',
+    );
+    const cfg = readPipelineConfig(dropped, {});
+    expect(cfg.standing_experts).toEqual(['qa-engineer']);
+    expect(cfg.standing_experts_dropped).toEqual(['not-a-role', 'chief-architect']);
   });
 });
 
 describe('expertsActive', () => {
-  const base = {
+  const base: Omit<PipelineConfig, 'enabled' | 'experts_enabled'> = {
     clarification: 'warn',
     final_review: 'off',
-    token_ceiling: 20000,
+    token_ceiling: 40000,
     adoption: 'warn',
-  } as const;
+    standing_experts: [],
+    standing_experts_dropped: [],
+  };
 
   it('is true only when the pipeline AND the experts flag are both on (P2-INV-1)', () => {
     expect(expertsActive({ ...base, enabled: true, experts_enabled: true })).toBe(true);

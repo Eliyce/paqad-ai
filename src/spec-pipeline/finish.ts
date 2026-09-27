@@ -160,6 +160,8 @@ export function frozenPipelineSection(finish: StagedFinish): SpecPipelineSection
             token_ceiling: config.token_ceiling,
             experts_enabled: config.experts_enabled,
             adoption: config.adoption,
+            standing_experts: config.standing_experts,
+            standing_experts_dropped: config.standing_experts_dropped,
           },
         }),
   };

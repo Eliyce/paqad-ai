@@ -4,12 +4,14 @@
 
 ## Purpose
 
-23 built-in specialist agent roles shipped in `runtime/base/agents`
-and capability sub-trees: 11 base workflow agents (router, verifier,
-story-designer, test-planner, product-owner, …), 11 coding specialists
-(solution-architect, database-expert, devops-engineer, doc-maintainer,
-qa-engineer, user-flow-writer, chief-architect, …), and 1 security
-specialist (security-auditor).
+22 roles shipped in `runtime/base/agents` and capability sub-trees,
+backed by 26 persona files: 9 workflow roles (context-curator,
+product-owner, verifier, test-planner, requirement-analyst, …), 12
+coding specialists (solution-architect, application-architect,
+database-expert, devops-engineer, qa-engineer, user-flow-writer,
+chief-architect, …), and 1 security specialist (security-auditor). Six
+personas back no role id and are reused (router, story-designer,
+final-reviewer, adversarial-reviewer, app-cartographer, journey-designer).
 
 ## Source Footprint
 
