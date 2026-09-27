@@ -229,7 +229,7 @@ npx paqad-ai spec pipeline finish
 npx paqad-ai spec freeze <spec.md> --from-pipeline --signed-off-by <name> --confirm-invariants
 ```
 
-Speak one `▸ paqad` line when experts are brought in, naming them and why ("brought in the db-expert and the security-auditor: this touches the invoices migration and the export permission"). Under `spec_pipeline_adoption=strict` the freeze refuses a spec the pipeline did not produce; `--manual --reason "<why>"` is the only exit and it is recorded. Under `warn` a hand-written spec still freezes and the receipt says the pipeline was skipped.
+Speak one `▸ paqad` line when experts are seated, naming the standing four and the on-call picks and why (issue #558): "▸ paqad · seated the standing experts (product-owner, application-architect, user-flow-writer, qa-engineer) and brought in db-expert and security-auditor: this reads invoices in bulk and exports a customer's financial data." Under `spec_pipeline_adoption=strict` the freeze refuses a spec the pipeline did not produce; `--manual --reason "<why>"` is the only exit and it is recorded. Under `warn` a hand-written spec still freezes and the receipt says the pipeline was skipped.
 
 ## Plain-English translations
 
