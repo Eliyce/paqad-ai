@@ -210,7 +210,7 @@ export function resolveProjectVoiceForRun(projectRoot: string, dirName: string):
     packs = new StackPackLoader().load({ runtimeRoot: getRuntimeRoot(), projectRoot });
     /* v8 ignore next 3 -- pack loading never throws today; belt-and-braces so a fault never fails record. */
   } catch {
-    packs = null;
+    // A pack-loading fault leaves `packs` null (its initial value); the voice degrades gracefully.
   }
   const { guidePointers, noGuidesShipped } = resolveGuidePointers(getRuntimeRoot(), profile, packs);
   const pages = resolveDocPages(projectRoot);
