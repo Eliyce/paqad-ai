@@ -311,8 +311,21 @@ describe('session constants on feature.json', () => {
     });
     recordChangeConstants(root, DIR, { adapter: 'backstop', lane: null, branch: null }, clock);
     expect(readFeatureRecord(root, DIR)).toMatchObject({ adapter: 'codex-cli', lane: 'full' });
+    // Issue #602 — the lane is monotonic: a lower lane on a later call never lowers the
+    // recorded one, but a non-lane constant on the same call still lands.
     recordChangeConstants(root, DIR, { lane: 'graduated', baseBranch: 'main' }, clock);
-    expect(readFeatureRecord(root, DIR)).toMatchObject({ lane: 'graduated', base_branch: 'main' });
+    expect(readFeatureRecord(root, DIR)).toMatchObject({ lane: 'full', base_branch: 'main' });
+  });
+
+  it('ratchets the lane up but never down across recordChangeConstants calls (issue #602)', () => {
+    const root = tempRoot();
+    seedFeatureRecord(root, DIR, { adapter: 'claude-code', sessionId: 's', lane: 'fast', now: clock });
+    // A later turn that classifies the change bigger RAISES the lane.
+    recordChangeConstants(root, DIR, { lane: 'full' }, clock);
+    expect(readFeatureRecord(root, DIR)?.lane).toBe('full');
+    // A later small-fix turn classifying "fast" can NEVER relabel the big build down.
+    recordChangeConstants(root, DIR, { lane: 'fast' }, clock);
+    expect(readFeatureRecord(root, DIR)?.lane).toBe('full');
   });
 
   it('keeps one adapter equal to the latest host when a change moves hosts (AC-26)', () => {

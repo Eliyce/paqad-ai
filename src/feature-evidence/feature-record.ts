@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
+import { higherLane } from './lane-rank.js';
 import { buildFeatureRecord, UNTITLED_FEATURE_TITLE } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { validateFeatureRecord } from './schema.js';
@@ -191,6 +192,14 @@ export function updateFeatureRecord(
       now,
     });
 
+  // Issue #602 — the recorded lane is monotonic: a patched lane only ever RAISES it, never
+  // lowers it. This is the single write chokepoint for the lane, so the ratchet here holds
+  // INV-1 for every caller (the re-open re-stamp, the operator override, any future writer) —
+  // a later small turn can never relabel a large build "fast". A null patch.lane never erases
+  // a recorded lane (higherLane keeps the higher, and null ranks lowest).
+  const nextLane =
+    patch.lane !== undefined ? higherLane(current.lane, patch.lane) : current.lane;
+
   // Re-stamped through the one envelope builder: `change` and `session_id` (the opener) and
   // `recorded_at` (when the change opened) carry over. `updated_at` is outside the identity
   // hash, so it is only moved (and the clock only read) once the identity has changed.
@@ -201,7 +210,7 @@ export function updateFeatureRecord(
     issue: patch.issue !== undefined ? patch.issue : current.issue,
     title: patch.title ?? current.title,
     slug: patch.slug ?? current.slug,
-    lane: patch.lane !== undefined ? patch.lane : current.lane,
+    lane: nextLane,
     status: patch.status ?? current.status,
     spec_id: patch.spec_id !== undefined ? patch.spec_id : current.spec_id,
     adapter: patch.adapter ?? current.adapter,
