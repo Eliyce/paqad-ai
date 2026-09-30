@@ -1,0 +1,34 @@
+# Discovery stage registry (issue #597).
+#
+# The ordered universe of Discovery stages. This file is the tracked, human-readable mirror of the
+# canonical source — `DISCOVERY_STAGE_ORDER` in src/discovery/stages.ts — from which the Discovery
+# stage-evidence fold derives its ordering and completion checks.
+#
+# Discovery stages are DISTINCT from the feature-development stages (see feature-development-stages.yml):
+# the Discovery evidence rides its own doc type (`paqad.discovery-evidence`) under
+# `.paqad/ledger/delivery/<run>/`, so recording a Discovery stage never touches the feature-dev ledger
+# and vice versa. Every Discovery stage is a "thinking" stage (none edits source), so each must prove
+# its work with a real, non-empty canonical artifact — a bare start/end marker pair folds inconclusive.
+schema_version: "1"
+
+# In canonical order, lowest first. All six are mandatory for a complete run; a loop back to an
+# earlier stage is allowed with a recorded reason and a revision bump (no implicit seventh stage).
+stages:
+  - id: understand
+    mandatory: true
+    artifact: brief.json
+  - id: investigate
+    mandatory: true
+    artifact: sources.jsonl
+  - id: refine
+    mandatory: true
+    artifact: synthesis.json
+  - id: decide
+    mandatory: true
+    artifact: decisions.json
+  - id: check_readiness
+    mandatory: true
+    artifact: readiness.json
+  - id: hand_off
+    mandatory: true
+    artifact: handoff.json
