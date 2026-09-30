@@ -74,10 +74,7 @@ describe('paqad-ai route set command', () => {
     });
     // A real source edit this turn.
     mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(
-      join(root, '.paqad/session/changed-files.json'),
-      JSON.stringify(['src/app.ts']),
-    );
+    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/app.ts']));
 
     await routeSet('project-question');
 

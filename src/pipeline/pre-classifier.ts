@@ -305,7 +305,11 @@ function resolveWorkflow(
   //    code" or "file an issue" ask is also a project-question (FR-4/FR-5). All of these run
   //    BEFORE the code-change tier, and a polite code request ("Can you add a logout button?")
   //    is deliberately excluded so it still routes to feature-development (AC-2).
-  if (isQuestionRoute(requestText) || hasCodeNegation(normalized) || isCreateArtifactAsk(normalized)) {
+  if (
+    isQuestionRoute(requestText) ||
+    hasCodeNegation(normalized) ||
+    isCreateArtifactAsk(normalized)
+  ) {
     return 'project-question';
   }
 

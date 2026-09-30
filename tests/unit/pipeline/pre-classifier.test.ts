@@ -270,7 +270,12 @@ describe('PreClassifier · prompt router (#580)', () => {
   it('matches code keywords on whole words, not substrings (AC-8)', async () => {
     mockNoModules();
     // These embed a keyword inside another word — they must NOT resolve to a code workflow.
-    const notCode = ['the address field', 'the debug output', 'the prefix value', 'the rebuild step'];
+    const notCode = [
+      'the address field',
+      'the debug output',
+      'the prefix value',
+      'the rebuild step',
+    ];
     for (const request of notCode) {
       const result = await new PreClassifier(process.cwd()).classify({ request });
       expect(result.unresolved, `"${request}" is not a code change`).toContain('workflow');
