@@ -5,6 +5,7 @@ import {
   DISCOVERY_STAGE_ORDER,
   MANDATORY_DISCOVERY_STAGES,
   discoveryStageArtifactDocType,
+  discoveryStageArtifactFile,
   discoveryStageIndex,
   isKnownDiscoveryStage,
   isMandatoryDiscoveryStage,
@@ -50,5 +51,15 @@ describe('discovery stages', () => {
     expect(discoveryStageArtifactDocType('check_readiness')).toBe(DISCOVERY_DOC_TYPES.readiness);
     expect(discoveryStageArtifactDocType('hand_off')).toBe(DISCOVERY_DOC_TYPES.handoff);
     expect(discoveryStageArtifactDocType('nope')).toBeNull();
+  });
+
+  it('maps each stage to its canonical run file (m3)', () => {
+    expect(discoveryStageArtifactFile('understand')).toBe('brief');
+    expect(discoveryStageArtifactFile('investigate')).toBe('sources');
+    expect(discoveryStageArtifactFile('refine')).toBe('synthesis');
+    expect(discoveryStageArtifactFile('decide')).toBe('decisions');
+    expect(discoveryStageArtifactFile('check_readiness')).toBe('readiness');
+    expect(discoveryStageArtifactFile('hand_off')).toBe('handoff');
+    expect(discoveryStageArtifactFile('nope')).toBeNull();
   });
 });

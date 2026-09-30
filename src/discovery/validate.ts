@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'pathe';
 
-import { documentHashMatches } from '@/feature-evidence/envelope.js';
+import { documentHashMatches, rowHashMatches } from '@/feature-evidence/envelope.js';
 
 import { discoveryRunChangeKey, discoveryRunDir } from './paths.js';
 import { readDiscoveryRun } from './run-store.js';
@@ -57,20 +57,52 @@ export function validateDiscoveryArtifact(
     return fail('wrong-path', `artifact ${artifactRelPath} is outside the run dir ${runDir}`);
   }
 
-  let parsed: unknown;
+  // Read the artifact. A `.jsonl` artifact (sources/contributions) is validated per row: the FIRST
+  // row carries the identity checked below, and every row's hash must verify. A `.json` document is
+  // validated as one object. Either way `doc` is the identity record and `hashOk` the tamper verdict.
+  let raw: string;
   try {
-    parsed = JSON.parse(readFileSync(join(projectRoot, artifactRelPath), 'utf8'));
+    raw = readFileSync(join(projectRoot, artifactRelPath), 'utf8');
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') {
-      return fail('missing', `artifact ${artifactRelPath} does not exist`);
+    return (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ? fail('missing', `artifact ${artifactRelPath} does not exist`)
+      : fail('malformed', `artifact ${artifactRelPath} is not readable`);
+  }
+
+  let doc: Record<string, unknown>;
+  let hashOk: boolean | null;
+  if (normalized.endsWith('.jsonl')) {
+    const lines = raw.split('\n').filter((line) => line.trim().length > 0);
+    if (lines.length === 0) {
+      return fail('malformed', `artifact ${artifactRelPath} has no rows`);
     }
-    return fail('malformed', `artifact ${artifactRelPath} is not readable JSON`);
+    const rows: Record<string, unknown>[] = [];
+    for (const line of lines) {
+      try {
+        const row: unknown = JSON.parse(line);
+        if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+          return fail('malformed', `artifact ${artifactRelPath} has a non-object row`);
+        }
+        rows.push(row as Record<string, unknown>);
+      } catch {
+        return fail('malformed', `artifact ${artifactRelPath} has a non-JSON row`);
+      }
+    }
+    doc = rows[0]!;
+    hashOk = rows.every((row) => rowHashMatches(row) !== false);
+  } else {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return fail('malformed', `artifact ${artifactRelPath} is not readable JSON`);
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return fail('malformed', `artifact ${artifactRelPath} is not a JSON object`);
+    }
+    doc = parsed as Record<string, unknown>;
+    hashOk = documentHashMatches(doc);
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return fail('malformed', `artifact ${artifactRelPath} is not a JSON object`);
-  }
-  const doc = parsed as Record<string, unknown>;
 
   const runChange = discoveryRunChangeKey(dirName);
   if (doc.change !== runChange) {
@@ -100,7 +132,6 @@ export function validateDiscoveryArtifact(
     );
   }
 
-  const hashOk = documentHashMatches(doc);
   if (hashOk === false) {
     return fail('stale', `artifact ${artifactRelPath} was edited outside a writer (hash mismatch)`);
   }

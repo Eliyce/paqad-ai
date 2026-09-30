@@ -121,6 +121,22 @@ describe('discovery run store', () => {
     expect(listDiscoveryRuns(tempRoot())).toEqual([]);
   });
 
+  it('resolves a numeric-leading slug via the authoritative run.json (m5)', () => {
+    const root = tempRoot();
+    // issue:null but a title that slugs to a numeric-leading slug → dir "597-fix-<ULID>", whose
+    // dir-name parse reads "597" as an issue and "fix" as the slug (the shared tie-break). The run's
+    // own run.json carries the true slug "597-fix", so resolving by it must still find the run.
+    const { dirName, record } = openDiscoveryRun(root, {
+      sessionId: 's',
+      title: '597 fix',
+      issue: null,
+      adapter: 'x',
+      ulid: '01M3RWNS7194V0PV2RX340VM50',
+    });
+    expect(record.slug).toBe('597-fix');
+    expect(resolveDiscoveryRunDir(root, '597-fix')).toBe(dirName);
+  });
+
   it('resolves a run by exact dir name, ULID, and slug; null for empty/unknown', () => {
     const root = tempRoot();
     const { dirName } = openDiscoveryRun(root, {
