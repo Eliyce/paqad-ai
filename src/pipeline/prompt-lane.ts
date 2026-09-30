@@ -77,6 +77,44 @@ export const SYSTEM_NOTIFICATION_ELEMENTS: readonly string[] = [
   'background-task-notification',
 ];
 
+// Bare ticket/URL detection (issue #602, FR-5). A URL, or a tracker ref like `#123` or
+// `PROJ-123`. Non-global for `.test()` (no lastIndex state); a global twin for stripping.
+const BARE_LINK_SOURCE = 'https?://\\S+|#\\d+|\\b[A-Z][A-Z0-9]+-\\d+\\b';
+const BARE_LINK_RE = new RegExp(BARE_LINK_SOURCE);
+const BARE_LINK_STRIP_RE = new RegExp(BARE_LINK_SOURCE, 'g');
+
+/**
+ * Process, delivery, and filler words that carry no description of the WORK. A prompt whose only
+ * content beyond a link is words from this set (issue #602) is "essentially just a ticket" — the
+ * WHAT lives entirely behind the link. Deliberately holds no domain words, so "add dark mode
+ * #500" ("dark", "mode" survive) is never mistaken for bare.
+ */
+export const BARE_TICKET_FILLER: ReadonlySet<string> = new Set([
+  'implement', 'fix', 'fixes', 'change', 'update', 'refactor', 'rework', 'rename', 'build',
+  'make', 'create', 'add', 'wire', 'do', 'get', 'getting', 'working', 'work', 'this', 'that',
+  'it', 'the', 'a', 'an', 'and', 'or', 'please', 'thanks', 'thank', 'ticket', 'issue', 'issues',
+  'task', 'item', 'pr', 'on', 'for', 'to', 'in', 'of', 'see', 'link', 'resolve', 'close',
+  'closes', 'handle', 'complete', 'small', 'commits', 'commit', 'watch', 'green', 'ci', 'review',
+  'merge', 'branch', 'per', 'with', 'from', 'plus', 'let', 'lets', 'can', 'you', 'your', 'my',
+  'our', 'us', 'we', 'up', 'out', 'now', 'just', 'also', 'then', 'next', 'step', 'steps',
+  'follow', 'following', 'above', 'below', 'here', 'there', 'go', 'ahead', 'start', 'finish',
+  'done', 'ok', 'okay',
+]);
+
+/**
+ * Whether `prompt` is essentially just a ticket reference or a URL (issue #602, FR-5). True only
+ * when the prompt CONTAINS a link/ticket ref AND, once that link and all process/filler words are
+ * removed, nothing describing the work remains. Such a prompt hides a potentially large feature
+ * behind one line, so its surface text must not drive the safety lane — the lane is left
+ * unresolved-pending-read (surfaced later by the isolation check, not guessed here).
+ */
+export function isBareTicketPrompt(prompt: string): boolean {
+  if (!BARE_LINK_RE.test(prompt)) return false;
+  const stripped = prompt.replace(BARE_LINK_STRIP_RE, ' ');
+  const words = stripped.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  return words.every((word) => BARE_TICKET_FILLER.has(word));
+}
+
 /**
  * Whether `prompt` is a host-injected system/background event rather than a developer
  * request (issue #540). Nothing about a monitor event is an ask to build software, so the
@@ -128,6 +166,17 @@ export async function resolvePromptRoute(
   const routed = resolveRoutedWorkflow(classification.workflow);
   if (!isFeatureDevelopmentRoute(routed)) {
     return { routed, lane: null, reason: ROUTE_REASON[routed] };
+  }
+  // Issue #602 (FR-5) — a prompt that is essentially just a ticket/URL hides the real work behind
+  // a link, so a first-glance guess off its surface text must not set the safety lane. Leave the
+  // lane unresolved-pending-read; the isolation check surfaces the unresolved lane later (FR-4)
+  // rather than a confident-but-wrong "fast".
+  if (isBareTicketPrompt(request)) {
+    return {
+      routed,
+      lane: null,
+      reason: 'reading the ticket before I set the depth — no lane guessed from a bare link',
+    };
   }
   const { lane } = route(classification);
   return {

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ClassificationResult } from '@/core/types/classification.js';
 import {
+  isBareTicketPrompt,
   isSystemNotificationPrompt,
   resolvePromptRoute,
   runPromptRouteSeam,
@@ -83,6 +84,45 @@ describe('resolvePromptRoute (#336)', () => {
     expect(lane).toBeNull();
     expect(reason).toContain('full build path');
   });
+
+  it('leaves the lane unresolved for a bare ticket/URL prompt, even off a confident guess (issue #602, FR-5/AC-5)', async () => {
+    const { routed, lane, reason } = await resolvePromptRoute(
+      root,
+      'https://github.com/Eliyce/paqad-ai/issues/602\n- small commits\n- on PR\n- watch for green CI',
+      {
+        classify: async () => classificationWith('feature-development'),
+        // Even when the surface-text classifier is confident it is a big change...
+        route: () => ({ lane: 'full' }),
+      },
+    );
+    expect(routed).toBe('feature-development');
+    // ...a bare link must not lock a lane from surface text.
+    expect(lane).toBeNull();
+    expect(reason).toContain('reading the ticket');
+  });
+});
+
+describe('isBareTicketPrompt (issue #602)', () => {
+  it('is true when nothing but a link and process/filler words remain', () => {
+    expect(isBareTicketPrompt('https://example.com/x/y/602')).toBe(true);
+    expect(isBareTicketPrompt('implement #602 please')).toBe(true);
+    expect(isBareTicketPrompt('PROJ-123')).toBe(true);
+    expect(
+      isBareTicketPrompt(
+        'https://github.com/Eliyce/paqad-ai/issues/602\n- small commits\n- on PR\n- watch for green CI',
+      ),
+    ).toBe(true);
+  });
+
+  it('is false when the prompt actually describes the work', () => {
+    expect(isBareTicketPrompt('add a dark mode toggle #500')).toBe(false);
+    expect(isBareTicketPrompt('fix the login redirect bug in checkout #12')).toBe(false);
+  });
+
+  it('is false when there is no link at all', () => {
+    expect(isBareTicketPrompt('implement this please')).toBe(false);
+    expect(isBareTicketPrompt('')).toBe(false);
+  });
 });
 
 describe('runPromptRouteSeam (#336)', () => {
@@ -94,6 +134,25 @@ describe('runPromptRouteSeam (#336)', () => {
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('stashes no lane for a bare ticket/URL prompt (issue #602, FR-5)', async () => {
+    const result = await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'https://github.com/Eliyce/paqad-ai/issues/602 — small commits, on PR',
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      },
+      {
+        classify: async () => classificationWith('feature-development'),
+        route: () => ({ lane: 'full' }),
+      },
+    );
+    expect(result.routed).toBe('feature-development');
+    expect(result.lane).toBeNull();
+    // No confident lane is stashed for the change-open to pick up.
+    expect(readPendingLane(root, resolveSessionId(root, SESSION))).toBeNull();
   });
 
   it('stashes the lane, records the outcome, and narrates for a feature change', async () => {
