@@ -50,6 +50,7 @@ const ONLY_ALWAYS: BundleCompletenessConfig = {
   specPipelineEnabled: false,
   expertsEnabled: false,
   stageIsolationExpected: false,
+  stageIsolationUnresolved: false,
 };
 
 function write(root: string, rel: string, content: string): void {
@@ -368,6 +369,7 @@ describe('every flag on (no flag-off skip note)', () => {
     specPipelineEnabled: true,
     expertsEnabled: true,
     stageIsolationExpected: false,
+    stageIsolationUnresolved: false,
   };
 
   it('passes with every required file present and no "Skipped (flag off)" note', () => {
@@ -848,6 +850,46 @@ describe('the isolation evidence stream (issue #573)', () => {
     });
 
     expect(gate!.detail).not.toContain('context-efficiency.jsonl');
+  });
+
+  it('surfaces an unresolved lane as Inconclusive, not a clean green (issue #602, FR-4/AC-4)', () => {
+    // A feature-development change on a subagent-capable host whose lane never resolved, with no
+    // isolation evidence: before, it read a clean pass; now it must be Inconclusive and say so.
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationUnresolved: true },
+    });
+
+    expect(gate!.status).toBe('inconclusive');
+    expect(gate!.detail).toContain('Not classified — isolation not verified');
+    expect(gate!.detail).toContain('paqad-ai lane set');
+  });
+
+  it('does not surface an unresolved-lane note once isolation actually ran (issue #602)', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    write(
+      root,
+      featureFilePath(DIR, 'stageEvidence'),
+      '{"kind":"open"}\n{"kind":"stage-agent","stage":"planning","doc_type":"paqad.stage-evidence","session_id":"ses_1","recorded_at":"2026-09-01T00:00:00.000Z","content_hash":"h"}\n',
+    );
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationUnresolved: true },
+    });
+
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).not.toContain('isolation not verified');
   });
 });
 

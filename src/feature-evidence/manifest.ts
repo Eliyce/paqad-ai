@@ -52,6 +52,15 @@ export interface BundleCompletenessConfig {
    * `stage-evidence.jsonl` (issue #581, AC-14).
    */
   stageIsolationExpected: boolean;
+  /**
+   * Issue #602 (FR-4) — whether stage isolation was UNRESOLVED for this change: a
+   * feature-development change on a subagent-capable host whose lane never resolved (null).
+   * Mutually exclusive with {@link stageIsolationExpected}. When true and no `stage-agent`
+   * rows are present, the gate surfaces a visible "not classified — isolation not verified"
+   * Inconclusive note instead of a clean green — a lost or first-glance-only label is loud,
+   * not silent — but it never hard-blocks (INV-2/INV-5).
+   */
+  stageIsolationUnresolved: boolean;
 }
 
 /** How the gate proves a required file is not just present but real. */

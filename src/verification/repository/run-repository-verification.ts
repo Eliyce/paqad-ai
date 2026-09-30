@@ -624,15 +624,12 @@ export async function runRepositoryVerification(
         specPipelineStrict: pipelineFlags.strict,
         specPipelineEnabled: pipelineFlags.enabled,
         expertsEnabled: pipelineFlags.experts,
-        // Issue #573 — was stage isolation EXPECTED for this change? Read from the bundle's
-        // own open row (lane + recorded host adapter), never from config: whether isolation
-        // applied is a property of the change, not a project setting. Fails toward silence —
-        // an unresolved lane yields false, so the requirement cannot false-fail (INV-5).
-        stageIsolationExpected: stageIsolationExpected(
-          context.project_root,
-          completenessSession,
-          completenessDir,
-        ),
+        // Issue #573 / #602 — how stage isolation stands for this change, read from the
+        // bundle's own constants (lane + recorded host adapter), never from config: whether
+        // isolation applied is a property of the change, not a project setting. `expected`
+        // hard-requires the proof; `unresolved` surfaces its absence as Inconclusive (a lost or
+        // first-glance-only label is loud, not silent) without ever false-failing (INV-5).
+        ...isolationConfig(context.project_root, completenessSession, completenessDir),
       },
       changeMetrics,
       // Issue #581 — the late-gate rows (this gate's included) are appended to evidence.jsonl
@@ -955,30 +952,71 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
  *   `off`/`warn` let a team adopt the workflow before turning the teeth on).
  */
 /**
- * Whether stage isolation was expected for a change (issue #573): a graduated or full lane
- * on a host that can dispatch subagents. Both facts are the bundle's own session constants
- * (`feature.json`, else a pre-#581 bundle's open row), so a change is judged by what it
- * actually recorded.
+ * How stage isolation stands for a change (issues #573, #602), on a subagent-capable host:
+ *   - `expected`    — a graduated or full lane: isolation should have run, and its absence is a
+ *                     hard failure.
+ *   - `unresolved`  — the lane never resolved (null): isolation could not be judged, so its
+ *                     absence must be SURFACED (Inconclusive), never a clean green and never a
+ *                     hard block (issue #602, FR-4). A lost or first-glance-only label lands
+ *                     here instead of silently reading "no scrutiny needed".
+ *   - `not-applicable` — the fast lane, a host with no subagent dispatch, or no bundle to read.
  *
- * Returns false for an unresolved lane. That is deliberate — `repository-context` fails
- * safe to 'full' for OTHER purposes, but here a null lane must not manufacture a blocking
- * requirement out of nothing (INV-5).
+ * The lane and host are the bundle's own session constants (`feature.json`, else a pre-#581
+ * bundle's open row), so a change is judged by what it actually recorded.
+ */
+export type StageIsolationStatus = 'expected' | 'unresolved' | 'not-applicable';
+
+export function stageIsolationStatus(
+  projectRoot: string,
+  sessionId: string | null,
+  dirName: string | null,
+): StageIsolationStatus {
+  if (!sessionId || !dirName) return 'not-applicable';
+  try {
+    const { lane, adapter } = readChangeConstants(projectRoot, dirName);
+    // A host that cannot dispatch subagents could never isolate, so isolation is never asked of
+    // it — whatever the lane.
+    if (!isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS)) return 'not-applicable';
+    if (lane === 'graduated' || lane === 'full') return 'expected';
+    // A null lane is unresolved — surfaced, not silent (issue #602). A fast lane is genuinely
+    // not-applicable.
+    return lane === null ? 'unresolved' : 'not-applicable';
+  } catch {
+    // A missing or unreadable bundle cannot prove anything about isolation.
+    return 'not-applicable';
+  }
+}
+
+/**
+ * Whether stage isolation was EXPECTED for a change (issue #573): the `expected` case above.
+ * Kept as a thin predicate so existing callers read unchanged.
+ *
+ * Returns false for an unresolved lane. That is deliberate — a null lane must not manufacture a
+ * blocking requirement out of nothing (INV-5); the `unresolved` status surfaces it instead.
  */
 export function stageIsolationExpected(
   projectRoot: string,
   sessionId: string | null,
   dirName: string | null,
 ): boolean {
-  if (!sessionId || !dirName) return false;
-  try {
-    const { lane, adapter } = readChangeConstants(projectRoot, dirName);
-    if (lane !== 'graduated' && lane !== 'full') return false;
-    return isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS);
-  } catch {
-    // A missing or unreadable bundle cannot prove isolation was expected, and must not
-    // invent a blocking requirement.
-    return false;
-  }
+  return stageIsolationStatus(projectRoot, sessionId, dirName) === 'expected';
+}
+
+/**
+ * The two isolation flags the bundle-completeness manifest reads (issue #602), from ONE status
+ * read so `expected` and `unresolved` can never both be set. `expected` hard-requires the
+ * isolation proof; `unresolved` surfaces its absence as Inconclusive.
+ */
+export function isolationConfig(
+  projectRoot: string,
+  sessionId: string | null,
+  dirName: string | null,
+): { stageIsolationExpected: boolean; stageIsolationUnresolved: boolean } {
+  const status = stageIsolationStatus(projectRoot, sessionId, dirName);
+  return {
+    stageIsolationExpected: status === 'expected',
+    stageIsolationUnresolved: status === 'unresolved',
+  };
 }
 
 /** The spec-pipeline flags the bundle-completeness manifest reads (issues #547, #581). */

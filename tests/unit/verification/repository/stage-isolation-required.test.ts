@@ -26,7 +26,11 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
-import { stageIsolationExpected } from '@/verification/repository/run-repository-verification.js';
+import {
+  isolationConfig,
+  stageIsolationExpected,
+  stageIsolationStatus,
+} from '@/verification/repository/run-repository-verification.js';
 
 import { appendLegacyStageRow } from '../../../shared/legacy-stage-row.js';
 
@@ -158,6 +162,50 @@ describe('stageIsolationExpected (issue #573)', () => {
   it('is false without a session or a change', () => {
     expect(stageIsolationExpected(root, null, bundle('full-claude'))).toBe(false);
     expect(stageIsolationExpected(root, SESSION, null)).toBe(false);
+  });
+});
+
+describe('stageIsolationStatus (issue #602)', () => {
+  it('is "expected" on a graduated/full lane on a subagent-capable host', () => {
+    bundleWith('full-claude', 'full', 'claude-code');
+    bundleWith('grad-codex', 'graduated', 'codex-cli');
+    expect(stageIsolationStatus(root, SESSION, bundle('full-claude'))).toBe('expected');
+    expect(stageIsolationStatus(root, SESSION, bundle('grad-codex'))).toBe('expected');
+  });
+
+  it('is "unresolved" when the lane never resolved on a subagent-capable host (FR-4)', () => {
+    bundleWith('null-lane', null, 'claude-code');
+    expect(stageIsolationStatus(root, SESSION, bundle('null-lane'))).toBe('unresolved');
+  });
+
+  it('is "not-applicable" on the fast lane, an incapable host, or no bundle', () => {
+    bundleWith('fast-claude', 'fast', 'claude-code');
+    bundleWith('full-gemini', 'full', 'gemini-cli');
+    bundleWith('null-gemini', null, 'gemini-cli');
+    expect(stageIsolationStatus(root, SESSION, bundle('fast-claude'))).toBe('not-applicable');
+    expect(stageIsolationStatus(root, SESSION, bundle('full-gemini'))).toBe('not-applicable');
+    // An unresolved lane on a host that could never isolate is not surfaced either.
+    expect(stageIsolationStatus(root, SESSION, bundle('null-gemini'))).toBe('not-applicable');
+    expect(stageIsolationStatus(root, SESSION, null)).toBe('not-applicable');
+    expect(stageIsolationStatus(root, null, bundle('fast-claude'))).toBe('not-applicable');
+  });
+
+  it('isolationConfig maps the status to the two mutually-exclusive gate flags', () => {
+    bundleWith('full-claude', 'full', 'claude-code');
+    bundleWith('null-lane', null, 'claude-code');
+    bundleWith('fast-claude', 'fast', 'claude-code');
+    expect(isolationConfig(root, SESSION, bundle('full-claude'))).toEqual({
+      stageIsolationExpected: true,
+      stageIsolationUnresolved: false,
+    });
+    expect(isolationConfig(root, SESSION, bundle('null-lane'))).toEqual({
+      stageIsolationExpected: false,
+      stageIsolationUnresolved: true,
+    });
+    expect(isolationConfig(root, SESSION, bundle('fast-claude'))).toEqual({
+      stageIsolationExpected: false,
+      stageIsolationUnresolved: false,
+    });
   });
 });
 

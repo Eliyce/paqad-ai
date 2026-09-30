@@ -25,6 +25,7 @@ const ALL_ON: BundleCompletenessConfig = {
   specPipelineEnabled: true,
   expertsEnabled: true,
   stageIsolationExpected: true,
+  stageIsolationUnresolved: false,
 };
 
 /** All flags off — only the `always` files are required. */
@@ -41,6 +42,7 @@ const ALL_OFF: BundleCompletenessConfig = {
   specPipelineEnabled: false,
   expertsEnabled: false,
   stageIsolationExpected: false,
+  stageIsolationUnresolved: false,
 };
 
 // Issue #547 — the strict-adoption content check (FR-10.2 / AC-12).

@@ -1007,6 +1007,7 @@ describe('readers on a migrated old bundle and a new one (AC-20)', () => {
     specPipelineEnabled: true,
     expertsEnabled: true,
     stageIsolationExpected: false,
+    stageIsolationUnresolved: false,
   };
 
   it('report, metrics --all, the completeness gate and the spec-change guard all read them', () => {
