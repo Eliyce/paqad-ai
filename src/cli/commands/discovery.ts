@@ -13,7 +13,8 @@ import {
   updateDiscoveryRun,
 } from '@/discovery/run-store.js';
 import { readDiscoveryStageRows } from '@/discovery/recorder.js';
-import { isKnownDiscoveryStage } from '@/discovery/stages.js';
+import { discoveryRunFilePath } from '@/discovery/paths.js';
+import { discoveryStageArtifactFile, isKnownDiscoveryStage } from '@/discovery/stages.js';
 import {
   DISCOVERY_OUTCOMES,
   DISCOVERY_RUN_STATUSES,
@@ -68,6 +69,27 @@ function resolveRun(root: string, sessionId: string, runOpt: string | undefined)
     return resolveDiscoveryRunDir(root, runOpt);
   }
   return activeDiscoveryRunForSession(root, sessionId);
+}
+
+function normalizeSlashes(path: string): string {
+  return path.replace(/\\/g, '/');
+}
+
+/**
+ * Whether `sessionId` may WRITE to `dirName` (issue #597, m6): the run's own owner stamp must be this
+ * session. A run with no readable owner fails closed. Reads (status/report) never call this — an
+ * unrelated read stays usable. This keeps a session from writing rows/artifacts into another
+ * session's run via the `--run` escape hatch.
+ */
+function ownsRunForWrite(root: string, sessionId: string, dirName: string): boolean {
+  return readDiscoveryRun(root, dirName)?.session_id === sessionId;
+}
+
+function foreignRunMessage(root: string, dirName: string): string {
+  const owner = readDiscoveryRun(root, dirName)?.session_id ?? null;
+  return owner === null
+    ? `run ${dirName} has no readable owner (run.json missing) — cannot write to it`
+    : `run ${dirName} is owned by another session (${owner}); only its owner may write to it`;
 }
 
 function fail(message: string): void {
@@ -169,14 +191,24 @@ export function createDiscoveryCommand(): Command {
       if (dirName === null) {
         return fail('no Discovery run — pass --run or start one first');
       }
+      if (!ownsRunForWrite(root, sessionId, dirName)) {
+        return fail(foreignRunMessage(root, dirName));
+      }
+      // Issue #597 (m3): a stage-end proves itself with the stage's ONE canonical artifact. Resolve
+      // it from the stage so the wrong artifact can never be recorded; an explicit --artifact must
+      // match that canonical path or it is rejected.
+      let artifactPath: string | undefined;
+      if (phase === 'end') {
+        const canonical = discoveryRunFilePath(dirName, discoveryStageArtifactFile(stage)!);
+        if (opts.artifact !== undefined && normalizeSlashes(opts.artifact) !== canonical) {
+          return fail(
+            `${stage} proves itself with ${canonical}, not ${opts.artifact}; omit --artifact to use the canonical file`,
+          );
+        }
+        artifactPath = canonical;
+      }
       const revision = readDiscoveryRun(root, dirName)?.revision ?? 1;
-      recordDiscoveryStage(root, dirName, {
-        sessionId,
-        stage,
-        phase,
-        revision,
-        artifactPath: phase === 'end' ? opts.artifact : undefined,
-      });
+      recordDiscoveryStage(root, dirName, { sessionId, stage, phase, revision, artifactPath });
       console.log(JSON.stringify({ recorded: true, stage, phase, run: dirName }));
     },
   );
@@ -253,6 +285,20 @@ export function createDiscoveryCommand(): Command {
       if (dirName === null) {
         return fail('no Discovery run to update');
       }
+      if (!ownsRunForWrite(root, sessionId, dirName)) {
+        return fail(foreignRunMessage(root, dirName));
+      }
+      // Issue #597 (m6): `completed` is a strong claim — refuse it until the stage evidence itself
+      // verifies complete. Execution status can still move to blocked/paused/cancelled freely.
+      if (status === 'completed') {
+        const verdict = foldDiscoveryRun(readDiscoveryStageRows(root, dirName)).verdict;
+        if (verdict !== 'complete') {
+          return fail(
+            `cannot mark this run completed — its stage evidence is ${verdict}. Finish the ` +
+              `missing stages first (see \`discovery status\`).`,
+          );
+        }
+      }
       const updated = updateDiscoveryRun(root, dirName, {
         status,
         outcome: opts.outcome as never,
@@ -304,6 +350,9 @@ function addRecordSubcommand(discovery: Command): void {
     if (dirName === null) {
       return fail('no Discovery run — pass --run or start one first');
     }
+    if (!ownsRunForWrite(root, sessionId, dirName)) {
+      return fail(foreignRunMessage(root, dirName));
+    }
     const body = loadTemplate(templateFile);
     if (body === null) {
       return fail(`template ${templateFile} is not a readable JSON object`);
@@ -351,6 +400,9 @@ function addRecordSubcommand(discovery: Command): void {
       const dirName = resolveRun(root, sessionId, opts.run);
       if (dirName === null) {
         return fail('no Discovery run — pass --run or start one first');
+      }
+      if (!ownsRunForWrite(root, sessionId, dirName)) {
+        return fail(foreignRunMessage(root, dirName));
       }
       const body = loadTemplate(template);
       if (body === null) {

@@ -214,38 +214,112 @@ describe('paqad-ai discovery command', () => {
     }
   });
 
-  it('records stage boundaries with an artifact', async () => {
-    const dir = await startRun();
+  const briefBody = {
+    revision: 1,
+    intent: 'i',
+    facts: [],
+    interpretations: [],
+    success: [],
+    constraints: [],
+    open_questions: [],
+    assignments: [],
+  };
+
+  /** Write every canonical artifact and record all six stages start→end (auto-artifact). */
+  async function completeAllStages(): Promise<void> {
+    await run('brief', tpl('brief', briefBody));
     await run(
-      'brief',
-      tpl('brief', {
-        revision: 1,
-        intent: 'i',
-        facts: [],
-        interpretations: [],
-        success: [],
-        constraints: [],
-        open_questions: [],
-        assignments: [],
+      'source',
+      tpl('src', {
+        source_id: 'S1',
+        title: 't',
+        reference: null,
+        kind: 'fact',
+        retrieved_at: '2026-09-30',
+        finding: 'f',
+        uncertainty: null,
+        counterevidence: null,
       }),
     );
+    await run(
+      'synthesis',
+      tpl('syn', {
+        revision: 1,
+        summary: 's',
+        complementary: [],
+        conflicts: [],
+        recommendation: 'r',
+        alternatives: [],
+      }),
+    );
+    await run('decisions', tpl('dec', { revision: 1, decisions: [] }));
+    await run(
+      'readiness',
+      tpl('rd', {
+        revision: 1,
+        outcome: 'development',
+        verdict: 'ready',
+        blockers: [],
+        owners: [],
+      }),
+    );
+    await run(
+      'handoff',
+      tpl('ho', {
+        revision: 1,
+        outcome: 'development',
+        value: 'v',
+        scope: 's',
+        success: [],
+        constraints: [],
+        scenarios: [],
+        decisions: [],
+        next_action: 'go',
+        authorization: 'ok',
+      }),
+    );
+    for (const stage of [
+      'understand',
+      'investigate',
+      'refine',
+      'decide',
+      'check_readiness',
+      'hand_off',
+    ]) {
+      await run('stage', 'start', stage);
+      await run('stage', 'end', stage);
+    }
+  }
+
+  it('stage end auto-resolves the canonical artifact and rejects a mismatching one (m3)', async () => {
+    const dir = await startRun();
+    await run('brief', tpl('brief', briefBody));
     await run('stage', 'start', 'understand');
-    const end = await run(
+    // No --artifact: the canonical brief.json is resolved and hashed.
+    const end = await run('stage', 'end', 'understand');
+    expect(end.out.join('\n')).toContain('"recorded":true');
+    // A --artifact that is not understand's canonical file is rejected.
+    const wrong = await run(
       'stage',
       'end',
       'understand',
       '--artifact',
-      discoveryRunFilePath(dir, 'brief'),
+      discoveryRunFilePath(dir, 'handoff'),
     );
-    expect(end.out.join('\n')).toContain('"recorded":true');
+    expect(wrong.err.join('\n')).toContain('proves itself with');
   });
 
-  it('set-status and resume update lifecycle and re-anchor', async () => {
+  it('set-status moves paused/resume, and refuses completed until the evidence verifies (m6)', async () => {
     const dir = await startRun();
     const paused = await run('set-status', 'paused');
     expect(paused.out.join('\n')).toContain('"status":"paused"');
     const resumed = await run('resume', dir);
     expect(resumed.out.join('\n')).toContain('"resumed":true');
+    // completed is refused while stages are incomplete.
+    const tooEarly = await run('set-status', 'completed', '--outcome', 'experiment');
+    expect(tooEarly.err.join('\n')).toContain('stage evidence is');
+    // After all six stages complete, completed is accepted.
+    await completeAllStages();
     const completed = await run(
       'set-status',
       'completed',
@@ -255,7 +329,42 @@ describe('paqad-ai discovery command', () => {
     );
     expect(completed.out.join('\n')).toContain('"updated":true');
     expect(readDiscoveryRun(root, dir)?.outcome).toBe('experiment');
-    expect(readDiscoveryRun(root, dir)?.revision).toBe(2);
+  });
+
+  it('a non-owner session cannot write to a run but can read it (m6)', async () => {
+    const dir = await startRun();
+    // A write verb from a different session is rejected...
+    const write = await run('brief', tpl('b2', briefBody));
+    // (owner path — sanity: owner CAN write)
+    expect(write.out.join('\n')).toContain('"recorded":true');
+    const foreign: string[] = [];
+    const foreignErr: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((l: string) => void foreign.push(String(l)));
+    vi.spyOn(console, 'error').mockImplementation((l: string) => void foreignErr.push(String(l)));
+    const foreignVerbs: string[][] = [
+      ['stage', 'start', 'understand', '--run', dir],
+      ['brief', tpl('bf', briefBody), '--run', dir],
+      ['context', tpl('cf', { stage: 'understand', items: [], mode: 'read' }), '--run', dir],
+      ['set-status', 'blocked', '--run', dir],
+    ];
+    for (const argv of foreignVerbs) {
+      await createDiscoveryCommand().parseAsync(
+        [...argv, '--project-root', root, '--session', 'intruder'],
+        { from: 'user' },
+      );
+    }
+    vi.restoreAllMocks();
+    process.exitCode = undefined;
+    expect(foreignErr.join('\n')).toContain('owned by another session');
+    // ...but a read (status) from the non-owner still works.
+    const readOut: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((l: string) => void readOut.push(String(l)));
+    await createDiscoveryCommand().parseAsync(
+      ['status', '--run', dir, '--project-root', root, '--session', 'intruder'],
+      { from: 'user' },
+    );
+    vi.restoreAllMocks();
+    expect(readOut.join('\n')).toContain(dir);
   });
 
   it('reports precise errors for bad input', async () => {
