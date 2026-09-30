@@ -198,6 +198,16 @@ export function resolveDiscoveryRunDir(projectRoot: string, ref: string): string
   if (byUlid.length > 0) {
     return byUlid[byUlid.length - 1]!;
   }
-  const bySlug = runs.filter((dir) => parseDiscoveryRunDirName(dir)?.slug === trimmed);
+  // Match the slug from the dir name OR — issue #597 (m5) — from the run's own `run.json`, which is
+  // authoritative. The dir-name parse reads a leading numeric slug segment as an issue prefix (the
+  // documented tie-break shared with feature-evidence), so a run minted from a title like "597 fix"
+  // with no issue has dir `597-fix-<ULID>` whose parsed slug is "fix". Falling back to the stored
+  // slug lets `resolve "597-fix"` find it regardless of the parse ambiguity.
+  const bySlug = runs.filter((dir) => {
+    if (parseDiscoveryRunDirName(dir)?.slug === trimmed) {
+      return true;
+    }
+    return readDiscoveryRun(projectRoot, dir)?.slug === trimmed;
+  });
   return bySlug.length > 0 ? bySlug[bySlug.length - 1]! : null;
 }
