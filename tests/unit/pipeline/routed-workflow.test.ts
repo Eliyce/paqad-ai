@@ -10,7 +10,7 @@ import {
 } from '@/pipeline/routed-workflow.js';
 
 describe('routed-workflow (#336)', () => {
-  it('exposes exactly the 11 routing outcomes', () => {
+  it('exposes exactly the 12 routing outcomes', () => {
     expect([...ROUTED_WORKFLOWS]).toEqual([
       'feature-development',
       'project-question',
@@ -22,8 +22,15 @@ describe('routed-workflow (#336)', () => {
       'site-map',
       'rules-analyze',
       'root-cause-analysis',
+      'discovery',
       'no-workflow',
     ]);
+  });
+
+  it('maps discovery to itself as a real, non-feature-dev, retrieving route (#597)', () => {
+    expect(resolveRoutedWorkflow('discovery')).toBe('discovery');
+    expect(isFeatureDevelopmentRoute('discovery')).toBe(false);
+    expect(routeUsesRetrieval('discovery')).toBe(true);
   });
 
   it('maps null and undefined to no-workflow', () => {

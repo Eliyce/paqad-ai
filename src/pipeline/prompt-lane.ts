@@ -56,6 +56,7 @@ const ROUTE_REASON: Record<RoutedWorkflow, string> = {
   'site-map': "mapping the app's surfaces, navigation, and journeys against the code",
   'rules-analyze': 'analysing which rules can become scripts',
   'root-cause-analysis': 'a post-incident root-cause analysis',
+  discovery: 'shaping an uncertain idea into a practical next step — no code yet',
   'no-workflow': 'just chatting — nothing to set up',
 };
 

@@ -26,6 +26,10 @@ export const ROUTED_WORKFLOWS = [
   'site-map',
   'rules-analyze',
   'root-cause-analysis',
+  // Issue #597 — the standalone Discovery workflow. A real (non-code) workflow: it uses retrieval
+  // but is NOT a feature-development route, so it loads no rules, no lane, and no rule-scripts and
+  // emits no feature-evidence bundle.
+  'discovery',
   'no-workflow',
 ] as const;
 export type RoutedWorkflow = (typeof ROUTED_WORKFLOWS)[number];
@@ -80,6 +84,8 @@ const OUTCOME_BY_WORKFLOW: Record<ClassificationWorkflow, RoutedWorkflow> = {
   'site-map': 'site-map',
   'site-map-retest': 'site-map',
   'root-cause-analysis': 'root-cause-analysis',
+  // Issue #597 — Discovery maps to itself (a real non-code workflow).
+  discovery: 'discovery',
   // Generic content and anything not one of the above → no-workflow (no rules/lane/scripts/RAG).
   writing: 'no-workflow',
   editing: 'no-workflow',

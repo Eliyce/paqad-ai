@@ -32,6 +32,12 @@ export interface WorkflowEntry {
   lane?: StageLane;
   /** The frozen-spec id backing this change, if any. */
   specId?: string;
+  /**
+   * The Discovery run this workflow opened (issue #597), its dir name under
+   * `.paqad/ledger/delivery/`. Set only for the `discovery` workflow, so a paused Discovery run
+   * resumes to its exact run instead of guessing the latest directory.
+   */
+  discoveryRunId?: string;
 }
 
 /** The active routed workflow plus a stack of paused ones (most-recent last). */
@@ -90,6 +96,9 @@ function toEntry(value: unknown): WorkflowEntry | null {
   }
   if (typeof record.specId === 'string') {
     entry.specId = record.specId;
+  }
+  if (typeof record.discoveryRunId === 'string') {
+    entry.discoveryRunId = record.discoveryRunId;
   }
   return entry;
 }
@@ -183,6 +192,9 @@ function stripUndefined(anchors: Omit<WorkflowEntry, 'workflow'>): Omit<Workflow
   }
   if (anchors.specId !== undefined) {
     out.specId = anchors.specId;
+  }
+  if (anchors.discoveryRunId !== undefined) {
+    out.discoveryRunId = anchors.discoveryRunId;
   }
   return out;
 }
