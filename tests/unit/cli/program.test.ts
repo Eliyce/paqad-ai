@@ -56,6 +56,7 @@ describe('createProgram', () => {
       'intake',
       'deliver',
       'delivery-link',
+      'discovery',
       'status',
     ]);
   });
