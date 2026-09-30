@@ -197,8 +197,7 @@ export function updateFeatureRecord(
   // INV-1 for every caller (the re-open re-stamp, the operator override, any future writer) —
   // a later small turn can never relabel a large build "fast". A null patch.lane never erases
   // a recorded lane (higherLane keeps the higher, and null ranks lowest).
-  const nextLane =
-    patch.lane !== undefined ? higherLane(current.lane, patch.lane) : current.lane;
+  const nextLane = patch.lane !== undefined ? higherLane(current.lane, patch.lane) : current.lane;
 
   // Re-stamped through the one envelope builder: `change` and `session_id` (the opener) and
   // `recorded_at` (when the change opened) carry over. `updated_at` is outside the identity

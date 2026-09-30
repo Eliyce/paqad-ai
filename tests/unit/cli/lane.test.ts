@@ -65,7 +65,12 @@ describe('paqad-ai lane command', () => {
     expect(readChangeConstants(root, dir).lane).toBe('full');
     expect(lines.join('\n')).toContain("won't be downgraded");
     const json = JSON.parse(lines.at(-1)!);
-    expect(json).toMatchObject({ lane: 'full', requested: 'fast', changed: false, refused_downgrade: true });
+    expect(json).toMatchObject({
+      lane: 'full',
+      requested: 'fast',
+      changed: false,
+      refused_downgrade: true,
+    });
   });
 
   it('reports no-op when the lane already matches', async () => {

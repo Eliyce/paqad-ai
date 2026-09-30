@@ -77,13 +77,19 @@ export function createLaneCommand(): Command {
         console.log(`**▸ paqad** · lane already ${after} — nothing to change.`);
       }
       console.log(
-        JSON.stringify({ set: true, lane: after, requested, changed, refused_downgrade: refusedDowngrade }),
+        JSON.stringify({
+          set: true,
+          lane: after,
+          requested,
+          changed,
+          refused_downgrade: refusedDowngrade,
+        }),
       );
     });
 
   command
     .command('show')
-    .description("Show the lane recorded for the active change")
+    .description('Show the lane recorded for the active change')
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
     .action((options: LaneOptions) => {

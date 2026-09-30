@@ -319,7 +319,12 @@ describe('session constants on feature.json', () => {
 
   it('ratchets the lane up but never down across recordChangeConstants calls (issue #602)', () => {
     const root = tempRoot();
-    seedFeatureRecord(root, DIR, { adapter: 'claude-code', sessionId: 's', lane: 'fast', now: clock });
+    seedFeatureRecord(root, DIR, {
+      adapter: 'claude-code',
+      sessionId: 's',
+      lane: 'fast',
+      now: clock,
+    });
     // A later turn that classifies the change bigger RAISES the lane.
     recordChangeConstants(root, DIR, { lane: 'full' }, clock);
     expect(readFeatureRecord(root, DIR)?.lane).toBe('full');

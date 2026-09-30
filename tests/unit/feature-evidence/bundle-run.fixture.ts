@@ -25,6 +25,7 @@ import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { openRagConversation } from '@/rag-ledger/recorder.js';
+import { writePendingLane } from '@/stage-evidence/pending-lane.js';
 import {
   emptyRuleScriptMap,
   ruleScriptMapPath,
@@ -265,6 +266,11 @@ export async function runBundleFixture(
   const previousSession = process.env.SE_SESSION;
   process.env.SE_SESSION = RUN_SESSION;
   try {
+    // The prompt seam stashes the lane for the change-open (issue #324). This fixture runs a
+    // small, inline single-context change — the fast lane — so it stashes `fast` before opening.
+    // A resolved lane keeps the completeness gate focused on the file set rather than surfacing
+    // the unresolved-lane isolation note (issue #602, FR-4).
+    writePendingLane(root, RUN_SESSION, 'fast');
     // 1. Open the change.
     await cli(
       createStageCommand,
