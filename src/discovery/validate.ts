@@ -80,11 +80,16 @@ export function validateDiscoveryArtifact(
     );
   }
 
+  // Ownership is proven by the run's own owner stamp. If run.json is missing or unreadable the
+  // owner cannot be established, so the gate fails CLOSED rather than trusting the artifact (a
+  // deleted/corrupted owner record must never validate as owner-OK for any caller).
   const owner = readDiscoveryRun(projectRoot, dirName)?.session_id ?? null;
-  if (owner !== null && (doc.session_id !== owner || sessionId !== owner)) {
+  if (owner === null || doc.session_id !== owner || sessionId !== owner) {
     return fail(
       'foreign-owner',
-      `artifact/session is not the run owner (${owner}); an ownership transfer is required`,
+      owner === null
+        ? `the run owner cannot be established (run.json missing or unreadable)`
+        : `artifact/session is not the run owner (${owner}); an ownership transfer is required`,
     );
   }
 

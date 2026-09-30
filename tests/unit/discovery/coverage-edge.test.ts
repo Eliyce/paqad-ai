@@ -90,7 +90,7 @@ describe('run-store non-object run.json', () => {
 });
 
 describe('validate owner-unknown path', () => {
-  it('skips the owner check when the run has no run.json owner', () => {
+  it('fails closed when the run has no run.json owner (m4: ownership cannot be established)', () => {
     const root = tempRoot();
     const { dirName } = openDiscoveryRun(root, {
       sessionId: 'sess-A',
@@ -110,15 +110,17 @@ describe('validate owner-unknown path', () => {
         assignments: [],
       },
     );
-    // Remove run.json so the owner is unknown; the brief still validates on hash + path.
+    // Remove run.json so the owner cannot be established; the gate must fail closed.
     rmSync(join(root, discoveryRunFilePath(dirName, 'run')));
     const res = validateDiscoveryArtifact(
       root,
       dirName,
-      'anyone',
+      'sess-A',
       discoveryRunFilePath(dirName, 'brief'),
     );
-    expect(res.ok).toBe(true);
+    expect(res.ok).toBe(false);
+    expect(res.reason).toBe('foreign-owner');
+    expect(res.detail).toMatch(/cannot be established/);
   });
 });
 

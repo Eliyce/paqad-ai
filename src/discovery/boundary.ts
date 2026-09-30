@@ -1,10 +1,16 @@
 // Discovery workflow boundary + ownership (issue #597).
 //
-// The one place that decides, from a SESSION's own state, whether a Discovery gate applies to an
-// action — and which run (if any) that session owns. It is the substance of the isolation
-// requirement (DW-09, DW-10): a Discovery handler consults this before enforcing, and returns
-// not-applicable for a non-Discovery session, so a blocked or failed Discovery run in one session
-// can never block feature-development or a project question in another (INV-4).
+// The DECISION layer for Discovery isolation (DW-09, DW-10): given a SESSION's own state, it decides
+// whether a Discovery gate applies to an action and which run (if any) that session owns. It returns
+// not-applicable for a non-Discovery session, so a Discovery gate built on it can never enforce a
+// Discovery checklist on — or block — a feature-development or project-question session (INV-4).
+//
+// WIRING STATUS (honest): this is the decision function a Discovery native hook will call; wiring it
+// into the shared host-hook chain (a `PreToolUse`/`Stop` handler that consults `discoveryBoundaryVerdict`
+// and `validateDiscoveryArtifact`) is a follow-up under #596. Until then these functions have no
+// runtime caller other than the CLI, so the boundary is NOT yet an enforced pre-mutation gate — it is
+// tested decision logic ready to be wired. Isolation still holds by absence (with no active gate there
+// is nothing to leak), and the per-session design below is what keeps it correct once wired.
 //
 // Ownership is proven ONLY by the session's own workflow-state anchor plus the run's own owner
 // stamp — never a repo-level active pointer, the latest directory, or a cache-read id (INV-5). A

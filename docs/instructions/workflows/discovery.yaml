@@ -72,24 +72,32 @@ stages:
     artifact: handoff.json
 
 # Storage + evidence (DW-06/07/08): every canonical artifact and stage row is script-minted and
-# envelope-hashed; a hand-edited or model-authored file never clears a gate. A transition or
-# completion requires the correct, current, non-stale evidence for that run and stage; a missing,
-# malformed, stale, foreign-owned, or wrong-stage artifact stops the dependent transition with a
-# precise recovery message. Views (report.html) are generated from the records and cannot set
-# machine completion state.
+# envelope-hashed; a hand-edited or model-authored file is detectable (content-hash mismatch). The
+# validator (src/discovery/validate.ts) is the DECISION layer that rejects a missing, malformed,
+# stale, foreign-owned, foreign-run, or wrong-artifact input with a precise reason. Wiring it as a
+# pre-transition GATE that a hook consults is a follow-up under #596 (see the isolation note below);
+# until then it is tested decision logic, not yet an enforced runtime block. Views (report.html) are
+# generated from the records and cannot set machine completion state.
 storage:
   root: .paqad/ledger/delivery
   gitignored: true
   discriminator: workflow=discovery
 
-# Isolation (DW-09/DW-10): Discovery and feature-development enforce their own obligations. The
-# Discovery boundary returns not-applicable for a non-Discovery session and blocks a source mutation
-# / foreign run / unknown stage scoped to the owning session only. Ownership is proven by the
-# session's own state plus the run's owner stamp — never a shared pointer, the latest directory, or a
-# cache-read id. A blocked or failed Discovery run never blocks another workflow, session, or project.
+# Isolation (DW-09/DW-10): Discovery and feature-development own their obligations. The boundary
+# (src/discovery/boundary.ts) is the DECISION layer: it returns not-applicable for a non-Discovery
+# session and would block a source mutation / foreign run / unknown stage scoped to the owning
+# session only. Ownership is proven by the session's own state plus the run's owner stamp — never a
+# shared pointer, the latest directory, or a cache-read id, so a blocked or failed Discovery run can
+# never block another workflow, session, or project.
+#
+# WIRING STATUS: the boundary/validator are implemented and tested but not yet consulted by a native
+# hook, so no Discovery pre-mutation gate fires at runtime yet — that wiring is a follow-up under #596.
+# Isolation holds by absence in the meantime (with no active Discovery gate there is nothing that
+# could block another session); the per-session design is what keeps it correct once the hook lands.
 isolation:
   session_scoped: true
   never_blocks_other_workflows: true
+  enforcement_wired: false # decision logic present; native-hook gate is a #596 follow-up
 
 # Stage-local context (DW-11): a declarative per-stage default context set bounds what each stage
 # loads on entry; extra context is allowed with a recorded reason. The receipt records what was made

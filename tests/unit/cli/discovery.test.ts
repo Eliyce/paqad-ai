@@ -6,12 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDiscoveryCommand } from '@/cli/commands/discovery.js';
 import { createProgram } from '@/cli/program.js';
+import { activeDiscoveryRunForSession } from '@/discovery/boundary.js';
 import {
   discoveryReportPath,
   discoveryRunFilePath,
   isDiscoveryRunDirName,
 } from '@/discovery/paths.js';
 import { listDiscoveryRuns, readDiscoveryRun } from '@/discovery/run-store.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
 describe('paqad-ai discovery command', () => {
   let root: string;
@@ -65,6 +67,52 @@ describe('paqad-ai discovery command', () => {
     const report = await run('report');
     expect(report.out.join('\n')).toContain(discoveryReportPath(dir));
     expect(readFileSync(join(root, discoveryReportPath(dir)), 'utf8')).toContain('<!doctype html>');
+  });
+
+  it('start B activates B even when a Discovery run A is on the paused stack (M1)', async () => {
+    const runA = await startRun();
+    // Simulate a workflow switch: a code question pauses discovery/A while feature-dev is active.
+    writeWorkflowState(root, 'ses_cli_discovery', {
+      active: { workflow: 'feature-development', changeKey: 'k' },
+      paused: [{ workflow: 'discovery', discoveryRunId: runA }],
+    });
+    const outB: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((l: string) => void outB.push(String(l)));
+    await createDiscoveryCommand().parseAsync(
+      ['start', '--title', 'second idea', '--project-root', root, '--session', 'ses_cli_discovery'],
+      { from: 'user' },
+    );
+    vi.restoreAllMocks();
+    const runB = (JSON.parse(outB[outB.length - 1]!) as { run: string }).run;
+    expect(runB).not.toBe(runA);
+    // The active run must be B (not the resurrected paused A), so record verbs default to B.
+    expect(activeDiscoveryRunForSession(root, 'ses_cli_discovery')).toBe(runB);
+  });
+
+  it('resume re-anchors to the requested run even when a different run is paused (M1)', async () => {
+    const runA = await startRun();
+    // Start B (now active=B, A paused).
+    const outB: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((l: string) => void outB.push(String(l)));
+    await createDiscoveryCommand().parseAsync(
+      ['start', '--title', 'second', '--project-root', root, '--session', 'ses_cli_discovery'],
+      { from: 'user' },
+    );
+    vi.restoreAllMocks();
+    // Resume A explicitly → active must be A.
+    await run('resume', runA);
+    expect(activeDiscoveryRunForSession(root, 'ses_cli_discovery')).toBe(runA);
+  });
+
+  it('resuming the already-active run preserves turn_started_at and keeps it active (M1 edge)', async () => {
+    const runA = await startRun();
+    writeWorkflowState(root, 'ses_cli_discovery', {
+      active: { workflow: 'discovery', discoveryRunId: runA },
+      paused: [],
+      turn_started_at: '2026-09-30T10:00:00.000Z',
+    });
+    await run('resume', runA);
+    expect(activeDiscoveryRunForSession(root, 'ses_cli_discovery')).toBe(runA);
   });
 
   it('records every canonical artifact through its record subcommand', async () => {

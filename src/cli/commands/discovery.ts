@@ -33,7 +33,11 @@ import {
   type DiscoveryWriteContext,
 } from '@/discovery/writers.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { readWorkflowState, routeWorkflow, writeWorkflowState } from '@/pipeline/workflow-state.js';
+import {
+  readWorkflowState,
+  writeWorkflowState,
+  type WorkflowState,
+} from '@/pipeline/workflow-state.js';
 
 interface CommonOptions {
   projectRoot: string;
@@ -71,11 +75,29 @@ function fail(message: string): void {
   process.exitCode = 1;
 }
 
-/** Set the session's active workflow to Discovery, anchored to `dirName`. */
-function anchorSession(root: string, sessionId: string, dirName: string): void {
+/**
+ * Make `dirName` the session's active Discovery run, pausing whatever was active. Unlike
+ * `routeWorkflow` (whose resume branch would return a paused discovery entry verbatim and ignore the
+ * requested run), this always anchors the ACTIVE entry to the exact run — so `start B` after run A
+ * was paused activates B (not A), and `resume <ref>` re-anchors to the resumed run. A paused entry
+ * for the same run is dropped so it is never both active and paused.
+ */
+function activateDiscoveryRun(root: string, sessionId: string, dirName: string): void {
   const state = readWorkflowState(root, sessionId);
-  const next = routeWorkflow(state, 'discovery', { discoveryRunId: dirName });
-  writeWorkflowState(root, sessionId, next.state);
+  const active = state.active;
+  const alreadyActive = active?.workflow === 'discovery' && active.discoveryRunId === dirName;
+  const paused = state.paused.filter(
+    (entry) => !(entry.workflow === 'discovery' && entry.discoveryRunId === dirName),
+  );
+  const nextPaused = active && !alreadyActive ? [...paused, active] : paused;
+  const next: WorkflowState = {
+    active: { workflow: 'discovery', discoveryRunId: dirName },
+    paused: nextPaused,
+  };
+  if (state.turn_started_at !== undefined) {
+    next.turn_started_at = state.turn_started_at;
+  }
+  writeWorkflowState(root, sessionId, next);
 }
 
 function writeCtx(root: string, dirName: string, sessionId: string): DiscoveryWriteContext {
@@ -114,7 +136,7 @@ export function createDiscoveryCommand(): Command {
       issue: opts.issue ?? undefined,
       adapter: opts.adapter,
     });
-    anchorSession(root, sessionId, dirName);
+    activateDiscoveryRun(root, sessionId, dirName);
     console.log(`**▸ paqad** · opened Discovery run ${dirName} (status ${record.status})`);
     console.log(JSON.stringify({ started: true, run: dirName }));
   });
@@ -201,7 +223,7 @@ export function createDiscoveryCommand(): Command {
     if (dirName === null) {
       return fail(`no Discovery run matches "${ref}"`);
     }
-    anchorSession(root, sessionId, dirName);
+    activateDiscoveryRun(root, sessionId, dirName);
     console.log(`**▸ paqad** · resumed Discovery run ${dirName}`);
     console.log(JSON.stringify({ resumed: true, run: dirName }));
   });
