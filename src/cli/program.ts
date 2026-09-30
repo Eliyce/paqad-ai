@@ -22,6 +22,7 @@ import { createIndexCommand } from './commands/index-cmd.js';
 import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
 import { createJoinCommand } from './commands/join.js';
+import { createLaneCommand } from './commands/lane.js';
 import { createMetricsCommand } from './commands/metrics.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
@@ -95,6 +96,7 @@ export function createProgram(): Command {
   program.addCommand(createSpecCommand());
   program.addCommand(createReviewCommand());
   program.addCommand(createStageCommand());
+  program.addCommand(createLaneCommand());
   program.addCommand(createVisualEvidenceCommand());
   program.addCommand(createResumeCommand());
   program.addCommand(createDecisionCommand());
