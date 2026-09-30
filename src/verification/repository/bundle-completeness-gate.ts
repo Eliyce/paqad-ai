@@ -170,6 +170,10 @@ interface GateState {
   missing: { file: string; writer: string }[];
   ragMissing: boolean;
   flagSkipped: string[];
+  /** Issue #602 (FR-4) — the lane never resolved on a subagent-capable feature-dev change and
+   *  no isolation ran, so isolation could not be verified. Surfaced (Inconclusive), never a
+   *  hard block. */
+  isolationUnverified: boolean;
 }
 
 /**
@@ -207,6 +211,7 @@ export function bundleCompletenessGate(
     missing: [],
     ragMissing: false,
     flagSkipped: [],
+    isolationUnverified: false,
   };
 
   try {
@@ -249,11 +254,21 @@ function assertStageAgentRows(
   dirName: string,
   state: GateState,
 ): void {
-  if (input.config.stageIsolationExpected && !hasStageAgentEvidence(input.projectRoot, dirName)) {
+  // Isolation actually ran → nothing to say, whatever the lane says.
+  if (hasStageAgentEvidence(input.projectRoot, dirName)) return;
+  if (input.config.stageIsolationExpected) {
+    // A graduated/full change that skipped isolation is a hard miss.
     state.missing.push({
       file: 'stage-agent rows in stage-evidence.jsonl',
       writer: 'dispatch each stage to its paqad-<stage> agent; the SubagentStop hook records it',
     });
+    return;
+  }
+  // Issue #602 (FR-4) — the lane never resolved on a subagent-capable feature-dev change, so
+  // isolation could not be judged. Surface it (Inconclusive) rather than reading a clean green;
+  // never a hard block (INV-2/INV-5).
+  if (input.config.stageIsolationUnresolved) {
+    state.isolationUnverified = true;
   }
 }
 
@@ -449,16 +464,22 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
     return { name: GATE_NAME, status: 'inconclusive', detail, remediation, failures: [] };
   }
 
-  // No hard miss, but a backfill happened or RAG is unrecoverably absent → Inconclusive
-  // (🟡), so a recovered-from-cache or dark-RAG bundle is never read as a clean pass (AC-8).
-  if (state.backfilled.length > 0 || state.ragMissing) {
+  // No hard miss, but a backfill happened, RAG is unrecoverably absent, or the lane never
+  // resolved so isolation could not be verified → Inconclusive (🟡), so a recovered-from-cache,
+  // dark-RAG, or not-classified bundle is never read as a clean pass (AC-8; issue #602 FR-4).
+  if (state.backfilled.length > 0 || state.ragMissing || state.isolationUnverified) {
     const ragNote = state.ragMissing
       ? ' rag.jsonl is absent (no bundle or _chat retrieval row); RAG evidence is unrecoverable.'
+      : '';
+    const isolationNote = state.isolationUnverified
+      ? ' Not classified — isolation not verified: this change never resolved a lane, so paqad ' +
+        'could not confirm its stages ran isolated. Set the real lane with `paqad-ai lane set ' +
+        '<lane>` (isolation is checked on the graduated/full lane).'
       : '';
     return {
       name: GATE_NAME,
       status: 'inconclusive',
-      detail: `Bundle present but not fully live-recorded.${backfillNote}${ragNote}${skipNote}`,
+      detail: `Bundle present but not fully live-recorded.${backfillNote}${ragNote}${isolationNote}${skipNote}`,
       remediation: null,
       failures: [],
     };
