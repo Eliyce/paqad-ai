@@ -10,11 +10,18 @@ import { ModuleResolver } from './module-resolver.js';
 import { matchRuleTriggers } from './rule-trigger-matcher.js';
 import { resolveScope } from './scope-resolver.js';
 
-const WORKFLOW_PATTERNS: Array<{
+interface WorkflowPattern {
   workflow: ClassificationWorkflow;
   priority: number;
   patterns: string[];
-}> = [
+}
+
+// The NAMED workflows (pentest, health, site-map, RCA, docs, research). These keep their
+// current priority ABOVE the project-question check (issue #580 FR-2) and are matched as
+// substrings, unchanged — their patterns are already whole phrases, so a question like
+// "can you check my project's health?" still resolves to codebase-health here, before the
+// question fallback ever runs.
+const WORKFLOW_PATTERNS: WorkflowPattern[] = [
   { workflow: 'pentest-retest', priority: 250, patterns: ['pentest retest', 'pentest-retest'] },
   {
     workflow: 'pentest',
@@ -70,12 +77,43 @@ const WORKFLOW_PATTERNS: Array<{
     patterns: ['documentation', 'docs', 'documenation'],
   },
   { workflow: 'research', priority: 180, patterns: ['research', 'investigate'] },
+];
+
+// The CODE-CHANGE keywords (issue #580 FR-1). These run AFTER the project-question check
+// (FR-2) and are matched as WHOLE-WORD tokens, never substrings — so `add` no longer fires
+// inside "address", `fix` inside "prefix", `build` inside "rebuild", or `bug` inside
+// "debug". Inflections are listed explicitly rather than grown by substring, so "added"
+// matches feature-development while "address" does not (AC-8).
+const CODE_CHANGE_PATTERNS: WorkflowPattern[] = [
   { workflow: 'cleanup', priority: 170, patterns: ['cleanup', 'clean up'] },
-  { workflow: 'bug-fix', priority: 160, patterns: ['fix', 'bug'] },
+  {
+    workflow: 'bug-fix',
+    priority: 160,
+    patterns: ['fix', 'fixes', 'fixing', 'fixed', 'bug', 'bugs'],
+  },
   {
     workflow: 'feature-development',
     priority: 140,
-    patterns: ['implement', 'build', 'add', 'feature', 'develop'],
+    patterns: [
+      'implement',
+      'implements',
+      'implementing',
+      'implemented',
+      'build',
+      'builds',
+      'building',
+      'built',
+      'add',
+      'adds',
+      'adding',
+      'added',
+      'feature',
+      'features',
+      'develop',
+      'develops',
+      'developing',
+      'developed',
+    ],
   },
 ];
 
@@ -252,34 +290,61 @@ function resolveWorkflow(
   }
 
   const normalized = normalizeText(requestText);
-  const winner = WORKFLOW_PATTERNS.flatMap((entry) =>
-    entry.patterns
-      .filter((pattern) => normalized.includes(normalizeText(pattern)))
-      .map((pattern) => ({ workflow: entry.workflow, priority: entry.priority, pattern })),
-  ).sort((left, right) => right.priority - left.priority)[0];
 
-  if (winner) {
-    return winner.workflow;
+  // 1. NAMED workflows first — unchanged priority and substring match (issue #580 FR-2), so a
+  //    "check my project's health" or "run a pentest" resolves before the question check.
+  const named = highestMatch(WORKFLOW_PATTERNS, (pattern) =>
+    normalized.includes(normalizeText(pattern)),
+  );
+  if (named) {
+    return named;
   }
 
-  // Issue #576 (Finding 5) — an interrogative request about the codebase is a project-question,
-  // not no-workflow. This is a FALLBACK: it fires only when no explicit workflow keyword matched,
-  // so an imperative code request ("fix the typo", "add a feature") still wins its workflow above.
-  // Without it every "how/where/what/why/explain/show me/example" question fell through to
-  // no-workflow, which per the router contract retrieves no RAG context.
-  if (looksLikeProjectQuestion(normalized)) {
+  // 2. A question about the codebase beats the code-change keywords (issue #580 FR-2/FR-3):
+  //    "Why does the prefix get dropped?" is a question, not a bug fix. An explicit "don't
+  //    code" or "file an issue" ask is also a project-question (FR-4/FR-5). All of these run
+  //    BEFORE the code-change tier, and a polite code request ("Can you add a logout button?")
+  //    is deliberately excluded so it still routes to feature-development (AC-2).
+  if (
+    isQuestionRoute(requestText) ||
+    hasCodeNegation(normalized) ||
+    isCreateArtifactAsk(normalized)
+  ) {
     return 'project-question';
+  }
+
+  // 3. CODE-CHANGE keywords, matched as whole words (issue #580 FR-1).
+  const codeChange = highestMatch(CODE_CHANGE_PATTERNS, (pattern) =>
+    matchesWholeWord(normalized, pattern),
+  );
+  if (codeChange) {
+    return codeChange;
   }
 
   return undefined;
 }
 
-/**
- * Whole-word interrogative leads that mark a request as a question ABOUT the codebase. Matched on
- * the normalized (space-separated, alphanumeric) token stream so a substring like "what" inside
- * "whatever" never counts. Greetings and thanks carry none of these, so they stay no-workflow.
- */
-const PROJECT_QUESTION_LEADS = new Set([
+/** The highest-priority workflow whose any pattern satisfies `matches`, or undefined. */
+function highestMatch(
+  table: readonly WorkflowPattern[],
+  matches: (pattern: string) => boolean,
+): ClassificationWorkflow | undefined {
+  return table
+    .flatMap((entry) =>
+      entry.patterns
+        .filter(matches)
+        .map((pattern) => ({ workflow: entry.workflow, priority: entry.priority, pattern })),
+    )
+    .sort((left, right) => right.priority - left.priority)[0]?.workflow;
+}
+
+/** Whether `pattern` appears as a whole-word token sequence in the normalized text. */
+function matchesWholeWord(normalized: string, pattern: string): boolean {
+  return ` ${normalized} `.includes(` ${normalizeText(pattern)} `);
+}
+
+/** Strong interrogatives that mark a question wherever they appear (issue #576 / #580 FR-3). */
+const QUESTION_ANYWHERE_LEADS = new Set([
   'how',
   'where',
   'what',
@@ -290,13 +355,122 @@ const PROJECT_QUESTION_LEADS = new Set([
   'example',
 ]);
 
-function looksLikeProjectQuestion(normalized: string): boolean {
-  const tokens = normalized.split(' ');
-  if (tokens.some((token) => PROJECT_QUESTION_LEADS.has(token))) {
+/** Code verbs (with inflections) whose imperative use marks a polite CODE request, not a question. */
+const CODE_VERBS = new Set([
+  'fix',
+  'fixes',
+  'fixing',
+  'fixed',
+  'add',
+  'adds',
+  'adding',
+  'added',
+  'implement',
+  'implements',
+  'implementing',
+  'implemented',
+  'build',
+  'builds',
+  'building',
+  'built',
+  'refactor',
+  'refactors',
+  'refactoring',
+  'refactored',
+  'change',
+  'changes',
+  'changing',
+  'changed',
+  'update',
+  'updates',
+  'updating',
+  'updated',
+  'remove',
+  'removes',
+  'removing',
+  'removed',
+  'rename',
+  'renames',
+  'renaming',
+  'renamed',
+  'migrate',
+  'migrates',
+  'migrating',
+  'migrated',
+]);
+
+/** Lead-ins after which a code verb is a polite request to change code (issue #580 FR-3). */
+const POLITE_LEAD_INS = ['can you', 'could you', 'would you', 'please', 'let s'];
+
+/**
+ * Whether the request is a QUESTION about the codebase rather than an ask to change it
+ * (issue #580 FR-3). True when it carries a strong wh-word anywhere (`explain how the cart
+ * works`), opens with `in short`/`show me`, or ends with `?` — AND is not a polite code
+ * request. The auxiliary leads FR-3 lists (`is`, `does`, `can`, …) are recognized by their
+ * trailing `?`, not as a bare first token, so an imperative like "do the thing" is never
+ * read as a question. Exported so the rule can be table-tested on its own. Takes the RAW
+ * request because `?` is stripped by normalization.
+ */
+export function isQuestionRoute(requestText: string): boolean {
+  const normalized = normalizeText(requestText);
+  const tokens = normalized.length > 0 ? normalized.split(' ') : [];
+  const interrogative =
+    tokens.some((token) => QUESTION_ANYWHERE_LEADS.has(token)) ||
+    normalized.startsWith('in short') ||
+    normalized.includes('show me') ||
+    /\?\s*$/.test(requestText);
+  return interrogative && !isPoliteCodeRequest(normalized);
+}
+
+/**
+ * Whether a code verb starts a clause or follows a polite lead-in ("can you fix …", "please
+ * add …") — the marker of a polite REQUEST to change code, which must stay feature-development
+ * even when it ends with `?` (issue #580 FR-3, AC-2).
+ */
+function isPoliteCodeRequest(normalized: string): boolean {
+  const tokens = normalized.length > 0 ? normalized.split(' ') : [];
+  if (tokens[0] && CODE_VERBS.has(tokens[0])) {
     return true;
   }
-  // "show me" is a project question ("show me the order flow"); bare "show" is too broad.
-  return normalized.includes('show me');
+  return POLITE_LEAD_INS.some((lead) => {
+    const next = normalized.split(`${lead} `)[1]?.split(' ')[0];
+    return next !== undefined && CODE_VERBS.has(next);
+  });
+}
+
+/** Phrases that explicitly forbid code changes → project-question (issue #580 FR-4). */
+const CODE_NEGATIONS = [
+  'no code changes',
+  'no code change',
+  'no code',
+  'do not code',
+  'dont code',
+  'without changing',
+  'not to code',
+];
+
+/** Whether the request explicitly asks for no code change (issue #580 FR-4). */
+export function hasCodeNegation(normalized: string): boolean {
+  return CODE_NEGATIONS.some((phrase) => normalized.includes(normalizeText(phrase)));
+}
+
+const CREATE_VERBS = ['create', 'file', 'open', 'write', 'draft'];
+const ARTIFACT_NOUNS = ['issue', 'ticket', 'bug report', 'write up'];
+
+/**
+ * Whether the request asks to author a text artifact — an issue, ticket, or write-up — which
+ * produces text, not code, so it routes to project-question (issue #580 FR-5). Suppressed when
+ * the same prompt also asks to implement something, so "file an issue and implement the fix"
+ * stays feature-development.
+ */
+export function isCreateArtifactAsk(normalized: string): boolean {
+  const hasCreateVerb = CREATE_VERBS.some((verb) => matchesWholeWord(normalized, verb));
+  const hasArtifactNoun = ARTIFACT_NOUNS.some((noun) => normalized.includes(normalizeText(noun)));
+  if (!hasCreateVerb || !hasArtifactNoun) {
+    return false;
+  }
+  const alsoImplements = /\b(implement|and (?:fix|add|build|change|update))\b/.test(normalized);
+  return !alsoImplements;
 }
 
 function normalizeText(value: string): string {

@@ -284,7 +284,15 @@ const ruleScriptsCapability: Capability = {
       // Do not run the (untrustworthy) enforcement — the tamper IS the verdict.
       return { ran: true, blocking: mode === 'strict', summary: formatTamperSummary(mode) };
     }
-    const result = await enforceRuleScripts({ projectRoot, mode });
+    // Issue #580 (FR-6) — at the completion seam a clean working tree means nothing changed
+    // this turn, so enforce diff-scoped: an empty change set skips rather than falling through
+    // to a whole-tree scan that would block on pre-existing debt. The pre-mutation seam keeps
+    // its whole-tree behaviour (it guards the edit about to happen).
+    const result = await enforceRuleScripts({
+      projectRoot,
+      mode,
+      scope: seam === 'completion' ? 'changed-files' : 'whole-tree',
+    });
     if (!result.ran) {
       // Nothing was enforced. When that is because NO rule-scripts are armed, the checks
       // stage (completion seam) says so — a ⚪ skipped verdict, never a silent green pass

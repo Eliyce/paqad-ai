@@ -28,9 +28,13 @@
 
 ## Entry Points
 
-- `enforceRuleScripts({ projectRoot, mode, changedFiles? })` → `EnforcementResult`
-  `{ ran, mode, blocking, violations, summary }`. Wraps `runRuleScripts`; resolves
-  the working set via `loadChangeEvidence` when `changedFiles` is omitted.
+- `enforceRuleScripts({ projectRoot, mode, changedFiles?, scope? })` → `EnforcementResult`
+  `{ ran, mode, blocking, violations, armed, summary }`. Wraps `runRuleScripts`; resolves
+  the working set via `loadChangeEvidence` when `changedFiles` is omitted. `scope`
+  (default `changed-files`) decides how an EMPTY working set is treated (issue #580): a
+  `changed-files` scope skips (`ran: false`, `⚪ skipped (no files changed this turn)`) so a
+  clean tree never triggers a whole-tree block, while `whole-tree` scans the whole tree. The
+  capability kernel passes `changed-files` at completion and `whole-tree` at pre-mutation.
 - `formatEnforcementSummary(result)` → paqad-voice markdown.
 
 ## Data Model / Schema

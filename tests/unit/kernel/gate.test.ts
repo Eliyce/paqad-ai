@@ -117,6 +117,9 @@ describe('runCapabilityGate', () => {
   it('also evaluates the rule-scripts capability at the completion seam (feature-development route)', async () => {
     const root = setup('strict', 'debugger;\n');
     const session = markFeatureDevelopment(root, 'sess-completion');
+    // Issue #580 — the completion seam enforces diff-scoped: the violating file must be part
+    // of the turn's change for it to block (an empty diff skips — see the next test).
+    write(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/app.ts']));
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'completion',
@@ -124,6 +127,19 @@ describe('runCapabilityGate', () => {
     });
     expect(result.block).toBe(true);
     expect(result.summary).toContain('Needs your attention');
+  });
+
+  it('skips rule-scripts at the completion seam on a clean tree — no whole-tree block (#580 AC-6)', async () => {
+    // A feature-development session that owns a change, but nothing changed THIS turn: the
+    // completion seam must not scan the whole tree and block on the pre-existing violation.
+    const root = setup('strict', 'debugger;\n');
+    const session = markFeatureDevelopment(root, 'sess-clean-tree');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'completion',
+      payload: { sessionId: session },
+    });
+    expect(result.block).toBe(false);
   });
 
   it('skips rule-scripts at the completion seam when the session did not route to feature-development (#336)', async () => {

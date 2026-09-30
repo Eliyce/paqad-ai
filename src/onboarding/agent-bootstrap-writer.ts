@@ -106,6 +106,7 @@ How to decide:
 - **Any code change is feature-development**, however it is phrased.
 - **An uncertain idea or a no-code refinement brief is discovery**, but keep a factual question in project-question and a clear code request in feature-development. Do not route to discovery on the words "research", "plan", or "delivery" alone — route on whether the idea still needs shaping.
 - **Understand intent, not keywords.** "run a security review", "let's do a pentest", and "check the app for vulnerabilities" all mean pentest. Typos do not matter.
+- **Correct a wrong label.** The hook's \`[paqad] Routed to …\` line is a deterministic guess. If it names a different workflow than the one you picked, run \`paqad-ai route set <your pick>\` before any other tool call, so enforcement follows your route and not the hook's.
 - **Ask only when genuinely torn.** If two real workflows are equally likely, ask the user (via \`AskUserQuestion\` on Claude Code, inline on other hosts) and offer "no workflow".
 
 Routing runs on **every** message, and it is stateful — it does not reset:
