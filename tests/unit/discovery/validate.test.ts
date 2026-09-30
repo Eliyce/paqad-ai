@@ -8,7 +8,7 @@ import { discoveryRunFilePath } from '@/discovery/paths.js';
 import { openDiscoveryRun } from '@/discovery/run-store.js';
 import { DISCOVERY_DOC_TYPES } from '@/discovery/types.js';
 import { validateDiscoveryArtifact } from '@/discovery/validate.js';
-import { writeBrief, type DiscoveryWriteContext } from '@/discovery/writers.js';
+import { appendSource, writeBrief, type DiscoveryWriteContext } from '@/discovery/writers.js';
 
 const roots: string[] = [];
 function setup(): { root: string; dirName: string; ctx: DiscoveryWriteContext } {
@@ -47,6 +47,44 @@ describe('discovery validate', () => {
       DISCOVERY_DOC_TYPES.brief,
     );
     expect(res).toEqual({ ok: true, reason: 'ok', detail: expect.any(String) });
+  });
+
+  it('validates a JSONL artifact per row and rejects a tampered/empty/non-JSON one (m3)', () => {
+    const { root, dirName, ctx } = setup();
+    appendSource(ctx, {
+      source_id: 'S1',
+      title: 't',
+      reference: null,
+      kind: 'fact',
+      retrieved_at: '2026-09-30',
+      finding: 'f',
+      uncertainty: null,
+      counterevidence: null,
+    });
+    const sources = discoveryRunFilePath(dirName, 'sources');
+    const ok = validateDiscoveryArtifact(
+      root,
+      dirName,
+      'sess-A',
+      sources,
+      DISCOVERY_DOC_TYPES.source,
+    );
+    expect(ok.ok).toBe(true);
+    // Tamper a row → stale.
+    const rows = readFileSync(join(root, sources), 'utf8').trim().split('\n');
+    const first = JSON.parse(rows[0]!) as Record<string, unknown>;
+    first.finding = 'tampered';
+    writeFileSync(join(root, sources), `${JSON.stringify(first)}\n`, 'utf8');
+    expect(validateDiscoveryArtifact(root, dirName, 'sess-A', sources).reason).toBe('stale');
+    // A non-JSON row → malformed.
+    writeFileSync(join(root, sources), 'not json\n', 'utf8');
+    expect(validateDiscoveryArtifact(root, dirName, 'sess-A', sources).reason).toBe('malformed');
+    // A non-object row → malformed.
+    writeFileSync(join(root, sources), '[1,2]\n', 'utf8');
+    expect(validateDiscoveryArtifact(root, dirName, 'sess-A', sources).reason).toBe('malformed');
+    // An empty JSONL → malformed (no rows).
+    writeFileSync(join(root, sources), '\n', 'utf8');
+    expect(validateDiscoveryArtifact(root, dirName, 'sess-A', sources).reason).toBe('malformed');
   });
 
   it('rejects a path outside the run dir', () => {

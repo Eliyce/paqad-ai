@@ -9,6 +9,7 @@
 // with a real, non-empty canonical artifact (DW-04, DW-08). A bare start/end marker pair with no
 // artifact folds inconclusive, exactly as the feature-dev thinking stages do.
 
+import type { DiscoveryRunFile } from './paths.js';
 import type { DiscoveryDocType } from './types.js';
 import { DISCOVERY_DOC_TYPES } from './types.js';
 
@@ -66,4 +67,24 @@ export function discoveryStageIndex(stage: string): number {
 /** The Discovery doc type of the artifact a stage's `end` must reference, or null when unknown. */
 export function discoveryStageArtifactDocType(stage: string): DiscoveryDocType | null {
   return isKnownDiscoveryStage(stage) ? STAGE_ARTIFACT[stage] : null;
+}
+
+/**
+ * The canonical run file each stage's `end` proves itself with — the counterpart of
+ * {@link discoveryStageArtifactDocType} as a {@link DiscoveryRunFile} key. The CLI resolves a
+ * stage-end's artifact from this so a stage can never be ended against the wrong file (issue #597,
+ * DW-08 wrong-artifact rejection at the record path).
+ */
+const STAGE_ARTIFACT_FILE: Readonly<Record<DiscoveryStageId, DiscoveryRunFile>> = {
+  understand: 'brief',
+  investigate: 'sources',
+  refine: 'synthesis',
+  decide: 'decisions',
+  check_readiness: 'readiness',
+  hand_off: 'handoff',
+} as const;
+
+/** The canonical run file a stage's `end` must reference, or null when the stage is unknown. */
+export function discoveryStageArtifactFile(stage: string): DiscoveryRunFile | null {
+  return isKnownDiscoveryStage(stage) ? STAGE_ARTIFACT_FILE[stage] : null;
 }
