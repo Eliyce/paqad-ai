@@ -20,6 +20,10 @@ export const CLASSIFICATION_WORKFLOWS = [
   'documentation-update',
   'module-documentation',
   'root-cause-analysis',
+  // Issue #597 — the standalone Discovery workflow: an uncertain idea or a no-code refinement
+  // brief that needs shaping into a practical next step (not a factual question, not a clear code
+  // change).
+  'discovery',
   'pentest',
   'pentest-retest',
   'codebase-health',

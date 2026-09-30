@@ -85,7 +85,7 @@ You reach this file from the framework gate (\`AGENT-BOOTSTRAP.md\`) once enable
 
 ## 1. Route first — pick one workflow, then load only what it needs
 
-Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 11 workflows by intent, and narrate the pick in one \`▸ paqad\` line (see the narration contract):
+Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 12 workflows by intent, and narrate the pick in one \`▸ paqad\` line (see the narration contract):
 
 1. **feature-development** — any change to code. This includes bug fixes, refactors, cleanups, and migrations; the name is just "development". Scope is every code change **except** a change confined to the \`docs/\` and \`.paqad/\` directories: a change that touches any other directory is feature-development even when it also edits files under \`docs/\` or \`.paqad/\`, and only a change made entirely within \`docs/\` and/or \`.paqad/\` is out of scope.
 2. **project-question** — answer a question about the project. Check \`docs/\` first, then the code. No code change.
@@ -97,12 +97,14 @@ Before loading the project contract, decide what this message is. As your FIRST 
 8. **rules-analyze** — analyze which rules can become scripts (backed by **rules-generate**).
 9. **root-cause-analysis** — post-incident analysis.
 10. **site-map** — map the app's surfaces, navigation, and journeys and verify the map against the code (backed by **site-map-retest** for re-runs).
-11. **no workflow** — small talk or anything that is not one of the above. Load nothing, no RAG; just reply.
+11. **discovery** — help shape an uncertain idea or a no-code improvement brief into a practical next step, through six stages (understand, investigate, refine, decide, check readiness, hand off). Its run files live under \`.paqad/ledger/delivery/\`. Not a factual question (that is project-question) and not a clear code change (that is feature-development).
+12. **no workflow** — small talk or anything that is not one of the above. Load nothing, no RAG; just reply.
 
 How to decide:
 
 - **Read first, then decide.** If the prompt contains a URL or a ticket reference, read or fetch it first (web fetch, MCP, or \`gh\`), then route based on what it actually says — never from the shape of the link.
 - **Any code change is feature-development**, however it is phrased.
+- **An uncertain idea or a no-code refinement brief is discovery**, but keep a factual question in project-question and a clear code request in feature-development. Do not route to discovery on the words "research", "plan", or "delivery" alone — route on whether the idea still needs shaping.
 - **Understand intent, not keywords.** "run a security review", "let's do a pentest", and "check the app for vulnerabilities" all mean pentest. Typos do not matter.
 - **Ask only when genuinely torn.** If two real workflows are equally likely, ask the user (via \`AskUserQuestion\` on Claude Code, inline on other hosts) and offer "no workflow".
 
@@ -120,11 +122,11 @@ Always load these and treat them as the canonical contract for documentation and
 - \`docs/instructions/design-system\`
 - \`docs/instructions/workflows\` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)
 
-**Rules load only for \`feature-development\` (issue #336).** When (and only when) you routed to feature-development, load the rules — artifact-first (issue #284): when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 10 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
+**Rules load only for \`feature-development\` (issue #336).** When (and only when) you routed to feature-development, load the rules — artifact-first (issue #284): when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 11 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
 
 **Loading the rules is required and recorded (issue #557).** Reading the applicable rule text is not optional and not on trust: after you have read the "Loaded rule text" section, run \`paqad-ai rules load\` (it prints the full text of the rules that apply to your changed files and writes \`rules-loaded.json\` into the feature bundle). paqad **blocks your first source edit** until that record exists, and the completion check **fails** a feature-development change whose applicable rules were never loaded — the same way a missing plan or spec fails. If you began editing on a non-feature route, \`paqad-ai rules load\` still works (it reads the compiled rules directly), so run it and re-try the edit. The record attests that the rules were loaded and acknowledged, not that they were comprehended.
 
-**RAG** (when \`rag_enabled\`): all 10 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
+**RAG** (when \`rag_enabled\`): all 11 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
 
 When you work inside a specific module, also load that module's documentation under \`docs/modules/\` as those rules direct.
 

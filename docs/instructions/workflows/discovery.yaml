@@ -1,0 +1,112 @@
+# Discovery Workflow (issue #597)
+#
+# The standalone Discovery workflow for existing paqad-onboarded projects. Discovery helps a person
+# move from an uncertain idea or a no-code improvement brief to a practical next step. It is a real
+# (retrieving) workflow but NOT a feature-development route: it loads no rules, no lane, and no
+# rule-scripts, and it emits no feature-evidence bundle. Its canonical run files live under
+# `.paqad/ledger/delivery/<slug>-<ULID>/` (the directory name is `delivery` by owner request; the
+# workflow is still Discovery, and it is not the feature-development `delivery` stage, the delivery
+# policy, or the `delivery-evidence` records).
+schema_version: "1"
+
+# When to route here (the router prose carries the model-facing version):
+#   - An uncertain idea or a no-code refinement brief that still needs shaping.
+#   - NOT a factual project question (that is project-question) and NOT a clear code change (that is
+#     feature-development). Do not route on the words "research", "plan", or "delivery" alone.
+routing:
+  is_feature_development: false
+  uses_retrieval: true
+
+# The six stages, in order. All mandatory; each proves its work with a real, non-empty artifact.
+# An explicit loop back to an earlier stage is allowed with a recorded reason and a revision bump;
+# there is no implicit seventh stage. See discovery-stages.yml for the canonical registry mirror.
+stages:
+  understand:
+    work: >-
+      Read the request and relevant project docs / docs/modules first (inspect source where docs are
+      absent, stale, or insufficient). Extract known intent, success, constraints, and first material
+      gaps. Preserve the established stack and decisions unless reconsideration has a reason.
+    output: A correctable brief (facts, tentative interpretations, sources, open questions, bounded
+      investigation assignments).
+    artifact: brief.json
+  investigate:
+    work: >-
+      Research appropriate alternatives (simpler software/APIs, a fixed workflow, an existing product,
+      or no build) for an identified decision. Use current authoritative sources for version-sensitive
+      choices; record sources, dates, findings, limits, counterevidence, and uncertainty. Distinguish
+      facts, reports, inferences, decisions, and untested assumptions. A failed access is not proof of
+      absence. Use connected MCPs/CLIs/skills before proposing new integrations.
+    output: Attributable findings with uncertainty/counterevidence for the next decision.
+    artifact: sources.jsonl
+  refine:
+    work: >-
+      Reconcile evidence, assumptions, and alternatives. Resolve material conflicts by evidence or
+      expose them to the appropriate owner. Reusable specification experts (product, architecture, UX,
+      quality, and applicable specialists) may contribute; the chief synthesis preserves attribution
+      and distinguishes complementary findings from contradictions and value tradeoffs.
+    output: Goal-first playback, recommendation, meaningful alternatives, scope, consequences, and
+      outstanding decisions.
+    artifact: synthesis.json
+  decide:
+    work: >-
+      Ask only the missing consequential questions and reuse settled answers; silence is not consent.
+      Discovery-owned decisions go through the existing contract-decision writer (never a second
+      ledger). Confirm consequential interpretations before dependent scope/cost/architecture commitments.
+    output: Decisions with authority, rationale, and affected requirements; missing facts and missing
+      permissions kept distinct.
+    artifact: decisions.json
+  check_readiness:
+    work: >-
+      Assess consistency and the selected next outcome. Settle first-release scope and necessary
+      foundations for a development outcome; an invalidating uncertainty triggers investigation or a
+      bounded experiment before the dependent commitment.
+    output: An outcome-specific readiness verdict with unmet obligations, blockers, and owners.
+    artifact: readiness.json
+  hand_off:
+    work: >-
+      Produce a concise owner summary and a durable hand-off. A local hand-off is complete without a
+      ticket; optional authorized ticket publication uses existing MCP/CLI capabilities. Ending a turn
+      is not completing the run.
+    output: Value, scope, success, constraints, scenarios, decisions and reasons, open work, the next
+      action, and its authorization.
+    artifact: handoff.json
+
+# Storage + evidence (DW-06/07/08): every canonical artifact and stage row is script-minted and
+# envelope-hashed; a hand-edited or model-authored file is detectable (content-hash mismatch). The
+# validator (src/discovery/validate.ts) is the DECISION layer that rejects a missing, malformed,
+# stale, foreign-owned, foreign-run, or wrong-artifact input with a precise reason. Wiring it as a
+# pre-transition GATE that a hook consults is a follow-up under #596 (see the isolation note below);
+# until then it is tested decision logic, not yet an enforced runtime block. Views (report.html) are
+# generated from the records and cannot set machine completion state.
+storage:
+  root: .paqad/ledger/delivery
+  gitignored: true
+  discriminator: workflow=discovery
+
+# Isolation (DW-09/DW-10): Discovery and feature-development own their obligations. The boundary
+# (src/discovery/boundary.ts) is the DECISION layer: it returns not-applicable for a non-Discovery
+# session and would block a source mutation / foreign run / unknown stage scoped to the owning
+# session only. Ownership is proven by the session's own state plus the run's owner stamp — never a
+# shared pointer, the latest directory, or a cache-read id, so a blocked or failed Discovery run can
+# never block another workflow, session, or project.
+#
+# WIRING STATUS: the boundary/validator are implemented and tested but not yet consulted by a native
+# hook, so no Discovery pre-mutation gate fires at runtime yet — that wiring is a follow-up under #596.
+# Isolation holds by absence in the meantime (with no active Discovery gate there is nothing that
+# could block another session); the per-session design is what keeps it correct once the hook lands.
+isolation:
+  session_scoped: true
+  never_blocks_other_workflows: true
+  enforcement_wired: false # decision logic present; native-hook gate is a #596 follow-up
+
+# Stage-local context (DW-11): a declarative per-stage default context set bounds what each stage
+# loads on entry; extra context is allowed with a recorded reason. The receipt records what was made
+# available/read/acknowledged, never comprehension. Discovery does not change the feature-development
+# rules-load timing (the pre-edit rules gate is preserved).
+
+# Hand-off destinations (DW-13): project-question (answer without demanding stages), feature-development
+# (supply accepted value/scope/scenarios/decisions/constraints/evidence refs; the feature's own gates
+# still apply and no Discovery record impersonates downstream completion), documentation / rules /
+# other named workflows (route explicit requests to their owners), ticket publication (optional,
+# authorized, through existing tools), and experiment / existing-product / process-change / defer /
+# stop (record the next action and rationale without fabricated setup or deployment evidence).
