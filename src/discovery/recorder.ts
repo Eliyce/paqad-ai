@@ -11,7 +11,7 @@
 // tell a stage that produced work from a bare marker (DW-08).
 
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -40,14 +40,18 @@ export interface RecordDiscoveryStageInput {
   now?: () => Date;
 }
 
-/** SHA-256 of a project-relative file's bytes, or null when it is missing or empty. */
+/**
+ * SHA-256 of a project-relative file's bytes, or null when it is missing or empty. The file is read
+ * ONCE and its length checked on the returned buffer — never a `statSync` size check before a
+ * separate read — so there is no time-of-check/time-of-use window between the two (CWE-367).
+ */
 function hashArtifact(projectRoot: string, relPath: string): string | null {
   try {
-    const abs = join(projectRoot, relPath);
-    if (statSync(abs).size === 0) {
+    const bytes = readFileSync(join(projectRoot, relPath));
+    if (bytes.length === 0) {
       return null;
     }
-    return createHash('sha256').update(readFileSync(abs)).digest('hex');
+    return createHash('sha256').update(bytes).digest('hex');
   } catch {
     return null;
   }
