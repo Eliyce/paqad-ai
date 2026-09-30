@@ -10,6 +10,7 @@ import { createDuplicationCommand } from './commands/duplication.js';
 import { createDashboardCommand } from './commands/dashboard.js';
 import { createDeliveryCommand } from './commands/delivery.js';
 import { createDeliveryLinkCommand } from './commands/delivery-link.js';
+import { createDiscoveryCommand } from './commands/discovery.js';
 import { createDisableCommand } from './commands/disable.js';
 import { createDoctorCommand } from './commands/doctor.js';
 import { createEnableCommand } from './commands/enable.js';
@@ -101,6 +102,7 @@ export function createProgram(): Command {
   program.addCommand(createIntakeCommand());
   program.addCommand(createDeliveryCommand());
   program.addCommand(createDeliveryLinkCommand());
+  program.addCommand(createDiscoveryCommand());
   program.addCommand(createStatusCommand());
 
   return program;
