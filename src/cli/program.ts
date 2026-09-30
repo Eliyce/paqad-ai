@@ -39,6 +39,7 @@ import { createRagCommand } from './commands/rag.js';
 import { createRagEvidenceCommand } from './commands/rag-evidence.js';
 import { createRefreshCommand } from './commands/refresh.js';
 import { createResumeCommand } from './commands/resume.js';
+import { createRouteCommand } from './commands/route.js';
 import { createRulesCommand } from './commands/rules.js';
 import { createSitemapCommand } from './commands/sitemap.js';
 import { createSpecCommand } from './commands/spec.js';
@@ -97,6 +98,7 @@ export function createProgram(): Command {
   program.addCommand(createStageCommand());
   program.addCommand(createVisualEvidenceCommand());
   program.addCommand(createResumeCommand());
+  program.addCommand(createRouteCommand());
   program.addCommand(createDecisionCommand());
   program.addCommand(createConfigCommand());
   program.addCommand(createIntakeCommand());
