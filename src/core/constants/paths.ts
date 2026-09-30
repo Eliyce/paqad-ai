@@ -133,6 +133,15 @@ export const PATHS = {
   FEATURE_EVIDENCE_DIR: '.paqad/ledger/feature-evidence',
   FEATURE_EVIDENCE_SESSION_DIR: '.paqad/ledger/feature-evidence/_session',
   CHAT_LEDGER_DIR: '.paqad/ledger/_chat',
+  // Issue #597 - the standalone Discovery workflow's own run root. Each Discovery run gets ONE
+  // directory `.paqad/ledger/delivery/<slug>-<ULID>/` holding its canonical script-written
+  // artifacts (run/brief/sources/contributions/synthesis/decisions/readiness/handoff), its
+  // stage-evidence + context-receipt + blocker JSONL, and the generated read-only report.html.
+  // The directory name is deliberately `delivery` (owner-requested); the workflow is still
+  // Discovery and MUST NOT be confused with the feature-development `delivery` stage, the
+  // delivery policy, or FEATURE_EVIDENCE's `delivery-evidence` records. Container inherits the
+  // `ledger/` git-ignore, so no gitignore change is needed.
+  DISCOVERY_DIR: '.paqad/ledger/delivery',
   // Issue #249 - the lazily-minted, per-machine session id shared by the
   // session-scoped evidence ledgers (rag-evidence #249, stage-evidence #247) when
   // the host provides no session id of its own. `ses_<ulid>`, cached here.
