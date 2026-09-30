@@ -178,3 +178,35 @@ describe('formatEnforcementSummary', () => {
     expect(summary).toContain('and 5 more');
   });
 });
+
+// Issue #580 — a clean tree must not trigger a whole-tree rule scan at the completion seam.
+describe('enforceRuleScripts · empty change set (#580)', () => {
+  it('skips (ran=false) on an empty diff with the default changed-files scope (AC-6)', async () => {
+    // src/app.ts carries a violation, but nothing changed this turn.
+    const { root } = setup('function f() {\n  debugger;\n}\n');
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [],
+    });
+    expect(result.ran).toBe(false);
+    expect(result.blocking).toBe(false);
+    expect(result.violations).toHaveLength(0);
+    expect(result.summary).toContain('⚪');
+    expect(result.summary).toContain('skipped (no files changed this turn)');
+  });
+
+  it('still runs the whole-tree scan on an empty diff under scope: whole-tree (AC-7)', async () => {
+    const { root, ruleId } = setup('function f() {\n  debugger;\n}\n');
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [],
+      scope: 'whole-tree',
+    });
+    expect(result.ran).toBe(true);
+    expect(result.blocking).toBe(true);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toMatchObject({ rule_id: ruleId, file: 'src/app.ts' });
+  });
+});
