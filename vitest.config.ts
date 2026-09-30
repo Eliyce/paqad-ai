@@ -47,6 +47,8 @@ export default defineConfig({
         'src/change-metrics/types.ts',
         'src/context/types.ts',
         'src/context/inference-provider.ts',
+        // Issue #597 — Discovery record shapes are pure interfaces/type aliases (no runtime code).
+        'src/discovery/records.ts',
         'src/core/types/design-tokens.ts',
         'src/core/types/document-generation.ts',
         'src/core/types/feature-spec.ts',

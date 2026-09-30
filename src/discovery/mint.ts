@@ -41,11 +41,12 @@ export interface MintedDiscoveryRun extends DiscoveryRunDirName {
  */
 export function mintDiscoveryRunDirName(input: MintDiscoveryRunInput): MintedDiscoveryRun {
   const issue = resolveIssue(input);
+  // deriveSlug always returns a non-empty, slug-safe string (it falls back internally), so an
+  // empty/whitespace title is mapped to the untitled slug before slugging.
   const slug = deriveSlug(input.title.trim().length > 0 ? input.title : UNTITLED_DISCOVERY_TITLE);
-  const safeSlug = slug.length > 0 ? slug : UNTITLED_DISCOVERY_TITLE;
   const ulid = input.ulid ?? mintUlid(input.ulidSeed);
-  const dirName = formatDiscoveryRunDirName({ issue, slug: safeSlug, ulid });
-  return { dirName, issue, slug: safeSlug, ulid };
+  const dirName = formatDiscoveryRunDirName({ issue, slug, ulid });
+  return { dirName, issue, slug, ulid };
 }
 
 function resolveIssue(input: MintDiscoveryRunInput): string | null {
