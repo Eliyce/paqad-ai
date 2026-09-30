@@ -51,6 +51,7 @@ describe('createProgram', () => {
       'stage',
       'visual-evidence',
       'resume',
+      'route',
       'decision',
       'config',
       'intake',

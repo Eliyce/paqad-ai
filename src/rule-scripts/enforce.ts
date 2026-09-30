@@ -42,11 +42,23 @@ export interface EnforcementResult {
   summary: string;
 }
 
+/**
+ * How to treat an EMPTY change set (issue #580 FR-6).
+ *  - `changed-files` (default): the completion / pre-mutation seam. An empty diff means
+ *    nothing changed this turn, so there is nothing to enforce — skip, never fall through
+ *    to a whole-tree scan that would block on pre-existing debt the turn never touched.
+ *  - `whole-tree`: an explicit full scan (`paqad-ai checks run`, `health run`). An empty
+ *    diff still scans the whole tree, unchanged.
+ */
+export type EnforceScope = 'changed-files' | 'whole-tree';
+
 export interface EnforceOptions {
   projectRoot: string;
   mode: RuleComplianceMode;
   /** Working-set files; resolved from change-evidence when omitted. */
   changedFiles?: string[];
+  /** How an empty change set is treated (issue #580 FR-6). Defaults to `changed-files`. */
+  scope?: EnforceScope;
 }
 
 /**
@@ -66,7 +78,24 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
     return { ran: false, mode, blocking: false, violations: [], armed, summary: '' };
   }
 
+  const scope = options.scope ?? 'changed-files';
   const changedFiles = options.changedFiles ?? (await loadChangeEvidence(projectRoot)).files;
+
+  // Issue #580 (FR-6) — at a diff-scoped seam an empty change set is not a whole-tree scan.
+  // Nothing changed this turn, so nothing is enforced: return a ⚪ skipped verdict instead of
+  // scanning the entire repo and blocking on pre-existing violations the turn never touched.
+  // An explicit whole-tree caller (`checks run`, `health run`) opts out via `scope`.
+  if (scope === 'changed-files' && changedFiles.length === 0) {
+    return {
+      ran: false,
+      mode,
+      blocking: false,
+      violations: [],
+      armed,
+      summary: '**▸ paqad** · ⚪ scripted rules: skipped (no files changed this turn)',
+    };
+  }
+
   const report = runRuleScripts({
     projectRoot,
     mode,

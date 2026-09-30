@@ -10,7 +10,7 @@
 // only ever returns the last real code-intent lane — read once at open, harmless
 // if it lingers. Never throws into the caller: an unreadable/absent stash is null.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { sessionLedgerDir } from '@/session-ledger/ledger.js';
@@ -32,6 +32,19 @@ export function writePendingLane(projectRoot: string, sessionId: string, lane: S
   const dir = pendingLaneDir(projectRoot, sessionId);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, PENDING_LANE_FILE), lane, 'utf8');
+}
+
+/**
+ * Clear the stashed lane for `sessionId` (issue #580). Used when the agent corrects the
+ * route to a non-feature-development workflow, so a lane stashed by the hook's wrong label
+ * cannot leak onto a later change. Best-effort: an absent stash is already "cleared".
+ */
+export function clearPendingLane(projectRoot: string, sessionId: string): void {
+  try {
+    rmSync(join(pendingLaneDir(projectRoot, sessionId), PENDING_LANE_FILE), { force: true });
+  } catch {
+    /* best-effort: nothing to clear, or an unreadable dir — a lingering stash is harmless */
+  }
 }
 
 /** Read the stashed lane for `sessionId`, or `null` when absent/invalid. */
