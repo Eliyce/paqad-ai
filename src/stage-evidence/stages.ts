@@ -6,6 +6,8 @@
 
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 
+import { type StageLane } from './types.js';
+
 /** The ordered stage ids, lowest index first (planning before development, …). */
 export const STAGE_EVIDENCE_STAGES: readonly string[] = [...STAGE_ORDER];
 
@@ -35,6 +37,27 @@ export const PRE_CODE_STAGES: readonly StageId[] = MANDATORY_STAGES.slice(
   0,
   MANDATORY_STAGES.indexOf('development'),
 );
+
+/**
+ * The pre-code stages a change must have STARTED before any code is written, scaled to
+ * the lane (issue #590). The fast lane relaxes the SPECIFICATION requirement — a small,
+ * low-risk change needs planning but no frozen spec (issue #324) — so only `planning`
+ * is required; every other lane (`graduated`, `full`, and a null/unknown lane, which
+ * fails safe to full) requires all of {@link PRE_CODE_STAGES}.
+ *
+ * This is the ONE place that decision lives. Both the pre-mutation edit gate
+ * (`stagesCapability` in capability.ts) and the live stage writer
+ * (`preCodeStagesRecorded` in live-writer.ts, and the on-entry narration) consult it,
+ * so the gate ("may I edit yet?") and the writer ("should I record this edit?") can
+ * never drift the way they did before #590 — where the gate was lane-aware since #324
+ * and the writer still demanded both stages on every lane, silently dropping the
+ * development/checks/documentation_sync rows of a fast-lane change.
+ */
+export function requiredPreCodeStages(lane: StageLane): StageId[] {
+  return lane === 'fast'
+    ? PRE_CODE_STAGES.filter((stage) => stage !== 'specification')
+    : [...PRE_CODE_STAGES];
+}
 
 /**
  * Completion-anchored stages (issue #270). A stage whose canonical position is the
