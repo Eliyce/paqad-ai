@@ -1,5 +1,39 @@
 # paqad-ai
 
+## 1.94.0
+
+### Minor Changes
+
+- 301f9b7: Standalone Discovery workflow for existing onboarded projects (#597). Discovery helps you shape an uncertain idea or a no-code improvement brief into a practical next step, through six enforced, resumable stages: understand, investigate, refine, decide, check readiness, and hand off. It is its own workflow — its own routing outcome, its own stages, its own script-written evidence, and its own isolation boundary — reusing the existing evidence envelope, session-ledger substrate, and decision writer rather than a parallel copy of them.
+
+  A Discovery run keeps everything it produces under `.paqad/ledger/delivery/<slug>-<ULID>/` (already covered by the managed `ledger/` gitignore, so nothing is committed): the run identity and lifecycle, the correctable brief, attributable research sources, expert contributions and the chief synthesis, the settled decisions, the readiness verdict, the durable hand-off, the stage-evidence ledger, stage-local context receipts, and a read-only `report.html` you can hand to a fresh person. Every artifact is minted and hashed by a script — a hand-edited or model-authored file never clears a Discovery gate — and each stage's end must point at a real artifact to count as done.
+
+  Discovery is isolated from feature-development and from other sessions: it never extends the feature-development stage order, never writes into a feature bundle, and never blocks an unrelated workflow, session, or project. Ownership of a run is proven only by the session's own state plus the run's own owner stamp, never a shared pointer or the latest directory. Drive a run with the new `paqad-ai discovery` command group (`start`, `stage`, `brief`/`source`/`contribution`/`synthesis`/`decisions`/`readiness`/`handoff`/`context` record, `status`, `resume`, `set-status`, `report`). The capability arrives through the normal package update — no re-onboarding and no edits to existing project files; a run's evidence is written only when you actually run Discovery.
+
+### Patch Changes
+
+- 7e33f83: Prompt router no longer mislabels questions as feature-development, and a clean working tree no longer triggers a whole-tree rule block (#580).
+
+  The deterministic classifier used to match code-change keywords (`fix`, `bug`, `add`, `build`, `cleanup`) as plain substrings and rank them above the question check, so "What does the **add**ress field store?", "Can you explain the de**bug** output?", and "Why does the pre**fix** get dropped?" were all routed to feature-development — loading rules, code-scope retrieval, and completion enforcement for a plain question. Keywords now match on whole words with explicit inflections (so "added" still matches but "address" does not), the project-question check runs before the code-change keywords, and an explicit "no code" or "file an issue" ask routes to project-question. Genuine code requests, including polite ones like "Can you add a logout button?", stay feature-development.
+
+  At the completion seam an empty change set now means nothing to enforce: a turn with a clean working tree returns a `⚪ scripted rules: skipped (no files changed this turn)` verdict instead of scanning the whole repository and blocking on pre-existing violations the turn never touched. Explicit whole-tree scans keep their behaviour.
+
+  New `paqad-ai route set <workflow>` command lets the agent correct the hook's label when its deterministic guess disagrees with the intent the agent read: it rewrites the active per-session route, clears any stashed lane on a non-feature correction, and records an `agent-override` audit row. It refuses to leave feature-development once source files have been edited this turn.
+
+- da20c3b: Fast-lane edits are now recorded as development, checks and documentation_sync stages (#590). The pre-mutation edit gate has been lane-aware since #324 — a fast-lane change needs only `planning`, not a frozen spec — but the live stage writer (and the on-entry narration) still demanded both `planning` and `specification` on every lane before it would record an edit. The two disagreed, so a fast-lane change left no `development`, `checks` or `documentation_sync` rows in `stage-evidence.jsonl` even though real source, test and doc edits happened, and the change could read as incomplete or pass with stages that were never recorded live.
+
+  The lane-to-required-pre-code-stages decision now lives in one shared helper, `requiredPreCodeStages(lane)`, that both the gate and the writer consult, so they can never drift again. The effective-lane resolver (the `sensitivity: high` → `full` floor, with a null lane failing safe to `full`) has been lifted into a shared `effective-lane` module both sides import, so a fast-lane edit to a high-sensitivity path is held to `full` by the writer exactly as the gate blocks it.
+
+- 9dac1c3: Fix lane governance so the stage-isolation safeguard can no longer silently disable itself and report a clean bill of health (#602).
+
+  The lane that governs the end-of-change isolation check was a first-glance guess the operator could not correct, was last-writer-wins (a small follow-up could relabel a large build "fast"), and the check only fired on a graduated/full label — so a wrong or missing label switched the check off with no signal. Now:
+
+  - **Operator override** — `paqad-ai lane set <fast|graduated|full>` records the real lane for the active change; that recorded `feature.json` lane is what the isolation check reads.
+  - **Monotonic lane** — the recorded lane only ever rises. A later small-fix turn can never downgrade a large build, and `lane set` refuses a downgrade rather than lowering it.
+  - **Unresolved is loud, not silent** — a feature-development change on a subagent-capable host whose lane never resolved, with no isolation evidence, now reads Inconclusive with a "not classified — isolation not verified" note instead of a clean green (never a hard block).
+  - **Bare ticket/URL** — a prompt that is essentially just a ticket reference or a link no longer sets the safety lane from its surface text; the lane is left unresolved-pending-read.
+  - **Honest wording** — the contract and the onboarded-project overview now describe isolation as expected-and-detected at end-of-change, not hard-enforced before the edit.
+
 ## 1.93.0
 
 ### Minor Changes
