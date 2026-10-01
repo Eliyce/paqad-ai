@@ -36,6 +36,7 @@ describe('createProgram', () => {
       'module-map',
       'onboard',
       'new',
+      'setup',
       'join',
       'enable',
       'disable',

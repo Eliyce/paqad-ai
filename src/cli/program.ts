@@ -43,6 +43,7 @@ import { createRefreshCommand } from './commands/refresh.js';
 import { createResumeCommand } from './commands/resume.js';
 import { createRouteCommand } from './commands/route.js';
 import { createRulesCommand } from './commands/rules.js';
+import { createSetupCommand } from './commands/setup.js';
 import { createSitemapCommand } from './commands/sitemap.js';
 import { createSpecCommand } from './commands/spec.js';
 import { createStageCommand } from './commands/stage.js';
@@ -85,6 +86,7 @@ export function createProgram(): Command {
   program.addCommand(createModuleMapCommand());
   program.addCommand(createOnboardCommand());
   program.addCommand(createNewProjectCommand());
+  program.addCommand(createSetupCommand());
   program.addCommand(createJoinCommand());
   program.addCommand(createEnableCommand());
   program.addCommand(createDisableCommand());
