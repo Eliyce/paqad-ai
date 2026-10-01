@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import { Command } from 'commander';
 
+import type { AdapterType } from '@/core/types/adapter.js';
+import { onboardInstalledStack } from '@/onboarding/onboard-installed-stack.js';
 import { verifyReadinessToDevelop } from '@/onboarding/readiness.js';
 import { readSetupPlan, validateSetupPlan } from '@/onboarding/setup-plan.js';
 
@@ -68,6 +70,53 @@ export function createSetupCommand(): Command {
     });
 
   setup.addCommand(plan);
+
+  setup
+    .command('onboard')
+    .description('Onboard the actual installed stack of a created workspace (SET-03)')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option(
+      '--providers <provider...>',
+      'Providers to onboard (defaults to the workspace’s recorded provider)',
+    )
+    .action(async (options: { projectRoot: string; providers?: AdapterType[] }) => {
+      let result;
+      try {
+        result = await onboardInstalledStack({
+          projectRoot: options.projectRoot,
+          providers: options.providers,
+        });
+      } catch (error) {
+        console.error(`✖ ${errorMessage(error)}`);
+        process.exitCode = 1;
+        return;
+      }
+
+      if (!result.onboarded) {
+        console.error('🔴 no application stack detected — nothing onboarded.');
+        if (result.recovery) {
+          console.error(`  → ${result.recovery}`);
+        }
+        process.exitCode = 1;
+        return;
+      }
+
+      console.log(`🟢 onboarded the installed stack: ${result.detectedFrameworks.join(', ')}`);
+      console.log(
+        result.commandsRederived
+          ? '  → re-derived real commands from the detected stack (was undecided).'
+          : '  → kept the existing commands (already decided); refreshed generated surfaces.',
+      );
+      if (result.readiness.ready) {
+        console.log('  🟢 ready to develop.');
+      } else {
+        console.log('  🟡 not yet ready to develop:');
+        for (const blocker of result.readiness.blockers) {
+          console.log(`     - ${blocker}`);
+        }
+        console.log('     run `paqad-ai setup verify` after addressing these.');
+      }
+    });
 
   setup
     .command('verify')
