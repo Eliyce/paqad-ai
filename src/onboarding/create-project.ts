@@ -57,6 +57,36 @@ function undecidedPlaceholder(): string {
   return 'echo "choose an application stack first (paqad discovery / onboard)"';
 }
 
+/**
+ * The stable prefix every {@link UNDECIDED_COMMANDS} placeholder shares. Matching the prefix
+ * (not the exact string) is how the framework tells "no stack chosen yet" apart from a real
+ * command, so a future placeholder wording still reads as undecided. This is the single source
+ * of truth for that marker — readiness and the installed-stack onboarding both import it rather
+ * than re-spelling the prefix.
+ */
+export const UNDECIDED_COMMAND_PREFIX = 'echo "choose an application stack';
+
+/** True when a single command string is still an undecided placeholder (not a real command). */
+export function isUndecidedCommand(command: string | undefined): boolean {
+  return typeof command === 'string' && command.trim().startsWith(UNDECIDED_COMMAND_PREFIX);
+}
+
+/**
+ * True when a project's command set is still the undecided placeholders — i.e. no application
+ * stack has been chosen yet. A set counts as undecided when its applicable develop/build/test
+ * commands are placeholders, so a workspace created by `new project` reads undecided until a real
+ * stack is onboarded. Used by readiness ({@link verifyReadinessToDevelop}) and by the installed-
+ * stack onboarding to decide whether commands must be re-derived.
+ */
+export function isUndecidedCommands(commands: Partial<ProjectCommands> | undefined): boolean {
+  if (!commands) {
+    return false;
+  }
+  return [commands.dev, commands.build, commands.test].some((command) =>
+    isUndecidedCommand(command),
+  );
+}
+
 export interface CreateProjectOptions {
   /** The workspace name; also the created directory name under `parentDir`. */
   name: string;

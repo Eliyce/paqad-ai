@@ -4,14 +4,7 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 
-/**
- * The marker prefix every UNDECIDED placeholder command carries (see `UNDECIDED_COMMANDS` in
- * `create-project.ts`). A created-but-undecided workspace records these self-explaining no-ops in
- * place of framework defaults, so matching the prefix is how readiness tells "no stack chosen yet"
- * apart from a real command. Kept as a prefix (not an exact string) so a future placeholder wording
- * still reads as undecided.
- */
-const UNDECIDED_COMMAND_PREFIX = 'echo "choose an application stack';
+import { isUndecidedCommand } from './create-project.js';
 
 export interface ReadinessResult {
   ready: boolean;
@@ -63,10 +56,6 @@ export function verifyReadinessToDevelop(projectRoot: string): ReadinessResult {
     checks: { commandsConfigured, moduleDocsPresent },
     blockers,
   };
-}
-
-function isUndecidedCommand(command: string): boolean {
-  return command.trim().startsWith(UNDECIDED_COMMAND_PREFIX);
 }
 
 function hasModuleDocs(projectRoot: string): boolean {
