@@ -13,9 +13,11 @@
 // two can never drift). First-entry idempotency is keyed on the stage-evidence ledger,
 // so a second edit within the same stage prints nothing.
 
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
+import { resolveEffectiveLane } from './effective-lane.js';
 import {
   classifyStage,
   highestStartedIndex,
@@ -66,10 +68,16 @@ export function narrateStageEntry(input: NarrateStageInput): string | null {
     const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
     const dirName = currentFeature(input.projectRoot, sessionId);
     const rows = dirName ? readFeatureStageUnit(input.projectRoot, dirName) : [];
-    // F2 (issue #310): mirror the live writer's defer — until the pre-code stages
-    // (planning, specification) are recorded, a file edit records no stage, so it
-    // enters none and narrates nothing (a docs-only or pre-planning edit stays quiet).
-    if (!preCodeStagesRecorded(rows)) {
+    // F2 (issue #310): mirror the live writer's defer — until the pre-code stages are
+    // recorded, a file edit records no stage, so it enters none and narrates nothing (a
+    // docs-only or pre-planning edit stays quiet). Lane-aware (issue #590): the required
+    // set is scaled to the same effective lane the writer uses, so a fast-lane entry
+    // narrates after planning alone.
+    const recordedLane = dirName
+      ? readChangeConstants(input.projectRoot, dirName, rows).lane
+      : null;
+    const lane = resolveEffectiveLane(input.projectRoot, input.targetPath, recordedLane);
+    if (!preCodeStagesRecorded(rows, lane)) {
       return null;
     }
     // Already recording this stage → not a first entry (idempotent, prints once).

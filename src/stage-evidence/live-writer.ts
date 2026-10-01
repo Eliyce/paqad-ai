@@ -13,13 +13,15 @@
 
 import { isAbsolute, relative } from 'pathe';
 
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
+import { resolveEffectiveLane } from './effective-lane.js';
 import { endStage, openStageEvidence, startStage } from './recorder.js';
-import { isKnownStage, PRE_CODE_STAGES, stageIndex, type StageId } from './stages.js';
-import type { StageSessionSource } from './types.js';
+import { isKnownStage, requiredPreCodeStages, stageIndex, type StageId } from './stages.js';
+import type { StageLane, StageSessionSource } from './types.js';
 
 /** Normalise a hook-supplied path to a project-relative posix path for globbing. */
 function toRelativePosix(projectRoot: string, targetPath: string): string {
@@ -130,16 +132,22 @@ export function stagesWithKind(rows: readonly SessionLedgerRow[], kind: string):
 }
 
 /**
- * True when the mandatory pre-code stages (planning, specification) each carry a
- * recorded start in this change — the same precondition the pre-mutation gate
- * enforces (capability.ts), so the writer and the gate agree on when the workflow has
- * entered its code phase. Until then a file edit records NO stage (issue #310):
- * stamping a stage before planning/specification poisons ordering and is dishonest.
- * Exported so the on-entry narration reuses the SAME defer decision (narration.ts).
+ * True when the pre-code stages this change needs each carry a recorded start — the
+ * SAME precondition the pre-mutation gate enforces (capability.ts), so the writer and
+ * the gate agree on when the workflow has entered its code phase. The required set is
+ * lane-aware via the one shared {@link requiredPreCodeStages} helper (issue #590): the
+ * fast lane needs only `planning`, every other lane needs `planning` + `specification`
+ * (a null/unknown lane fails safe to full). Before #590 this ignored the lane and
+ * demanded both stages on every lane, so a fast-lane change — which the gate unblocks
+ * after planning alone since #324 — recorded NONE of its development/checks/
+ * documentation_sync edits. Until the required stages are started a file edit records
+ * NO stage (issue #310): stamping a stage before them poisons ordering and is
+ * dishonest. Exported so the on-entry narration reuses the SAME defer decision
+ * (narration.ts).
  */
-export function preCodeStagesRecorded(rows: readonly SessionLedgerRow[]): boolean {
+export function preCodeStagesRecorded(rows: readonly SessionLedgerRow[], lane: StageLane): boolean {
   const started = stagesWithKind(rows, 'stage_start');
-  return PRE_CODE_STAGES.every((stage) => started.has(stage));
+  return requiredPreCodeStages(lane).every((stage) => started.has(stage));
 }
 
 /**
@@ -169,7 +177,16 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     // nothing; a real code change whose development row never gets live-marked is
     // backfilled at completion (finalizeStageEvidence). No change is even opened until
     // the pre-code stages exist — which means `ordinal > 0` past this guard.
-    if (!preCodeStagesRecorded(rows)) return null;
+    //
+    // Lane-aware (issue #590): the required pre-code set is scaled to the SAME effective
+    // lane the gate computes for this target path — the change's recorded lane (read
+    // bundle-aware from feature.json, issue #581, exactly as `foldFeature` does for the
+    // gate), floored to `full` when the path maps to a `sensitivity: high` module — so a
+    // fast-lane edit records once planning is marked, while a high-sensitivity path is
+    // held to full just as the gate holds it.
+    const recordedLane = dirName ? readChangeConstants(projectRoot, dirName, rows).lane : null;
+    const lane = resolveEffectiveLane(projectRoot, targetPath, recordedLane);
+    if (!preCodeStagesRecorded(rows, lane)) return null;
     // Past the guard `rows` is non-empty, so `dirName` was non-null (rows come from the
     // feature; an empty read means no active feature and the guard already returned).
     const ctx = {

@@ -18,8 +18,6 @@ import { readFileSync } from 'node:fs';
 
 import { resolveFlooredMode } from '@/core/floored-mode.js';
 import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
-import type { Lane } from '@/core/types/routing.js';
-import { resolvePathSensitivity } from '@/module-map/sensitivity.js';
 import { readProjectRuleComplianceModeOverride } from '@/pipeline/feature-development-policy.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
@@ -40,8 +38,12 @@ import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { markerBatchNarration } from '@/stage-evidence/narration.js';
 import { resolveStagesMode, type StagesMode } from '@/stage-evidence/mode.js';
 import { changeIsFeatureDev, isFeatureDevEdit } from '@/stage-evidence/scope.js';
-import { isArtifactBearingStage, PRE_CODE_STAGES } from '@/stage-evidence/stages.js';
-import { type StageLane } from '@/stage-evidence/types.js';
+import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
+import {
+  isArtifactBearingStage,
+  PRE_CODE_STAGES,
+  requiredPreCodeStages,
+} from '@/stage-evidence/stages.js';
 
 import { readCapabilityDigest } from './capability-lock.js';
 import { evaluateCapabilityCompat, isRefusedByCompat } from './compat.js';
@@ -345,24 +347,6 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
   );
 }
 
-/**
- * The lane this edit is actually held to (issue #324). A path mapping to a
- * `sensitivity: high` module floors the lane to `full` — a deterministic, no-LLM
- * risk signal that overrides whatever the classifier recorded. Otherwise the
- * recorded lane governs; a null recorded lane fails safe to `full` (INV-4 — the
- * floor only ever tightens, never silently relaxes the spec requirement).
- */
-function resolveEffectiveLane(
-  projectRoot: string,
-  targetPath: string | undefined,
-  recordedLane: StageLane,
-): Lane {
-  if (targetPath && resolvePathSensitivity(projectRoot, targetPath) === 'high') {
-    return 'full';
-  }
-  return recordedLane ?? 'full';
-}
-
 /** Best-effort same-turn marker sweep (issue #307): before the block-forward
  *  check reads the ledger, parse the turn transcript for `paqad:stage` markers
  *  the agent emitted EARLIER IN THIS TURN and record them. The parse is the same
@@ -528,8 +512,7 @@ const stagesCapability: Capability = {
     // full, so a spec is required regardless of the recorded lane; a null lane fails
     // safe to full. graduated/full keep the frozen-spec requirement (#02/#05).
     const effectiveLane = resolveEffectiveLane(projectRoot, payload?.targetPath, fold.lane);
-    const requiredStages =
-      effectiveLane === 'fast' ? prefix.filter((stage) => stage !== 'specification') : prefix;
+    const requiredStages = requiredPreCodeStages(effectiveLane);
     for (const stage of requiredStages) {
       const folded = byStage.get(stage);
       // A recorded start+end pair is necessary but not sufficient for a thinking stage
