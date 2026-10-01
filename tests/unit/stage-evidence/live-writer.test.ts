@@ -1,15 +1,17 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { PATHS } from '@/core/constants/paths.js';
 import {
   classifyStage,
   recordLiveStageEdit,
   recordLiveStageEdits,
   recordMarkedStage,
 } from '@/stage-evidence/live-writer.js';
+import { openStageEvidence, startStage } from '@/stage-evidence/index.js';
 import { stageIndex } from '@/stage-evidence/stages.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
@@ -422,5 +424,152 @@ describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)
       now,
     });
     expect(recorded).toEqual([]);
+  });
+});
+
+// Issue #590 — the live writer is lane-aware, matching the pre-mutation gate. On the
+// fast lane a change needs only `planning`; before this fix the writer still demanded
+// `specification` on every lane and so recorded none of a fast-lane change's mutation
+// stages.
+describe('recordLiveStageEdit — lane-aware pre-code defer (#590)', () => {
+  let root: string;
+  const SES = 'ses_lane_writer';
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-live-lane-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  function rows(): SessionLedgerRow[] {
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
+  }
+  const started = (stage: string) =>
+    rows().filter((r) => r.kind === 'stage_start' && r.stage === stage);
+
+  /** Open a change on `lane` and start planning only (the fast-lane pre-code set). */
+  function openWithLaneAndPlanning(lane: 'fast' | 'graduated' | 'full' | null): void {
+    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code', lane });
+    startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
+  }
+
+  function writeSensitiveModuleMap(): void {
+    mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
+    writeFileSync(
+      join(root, PATHS.MODULE_MAP),
+      `version: 2
+modules:
+  - slug: secure-core
+    name: Secure Core
+    sensitivity: high
+    sources:
+      - src/secure
+`,
+      'utf8',
+    );
+  }
+
+  it('AC-1: fast lane with only planning records development on a src edit', () => {
+    openWithLaneAndPlanning('fast');
+    const stage = recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/foo.ts',
+      now: clock(),
+    });
+    expect(stage).toBe('development');
+    expect(started('development')).toHaveLength(1);
+    expect(started('development')[0]?.evidence_source).toBe('live-mark');
+  });
+
+  it('AC-1: fast lane with only planning records checks on a test edit', () => {
+    openWithLaneAndPlanning('fast');
+    const stage = recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Write',
+      targetPath: 'tests/foo.test.ts',
+      now: clock(),
+    });
+    expect(stage).toBe('checks');
+    expect(started('checks')).toHaveLength(1);
+  });
+
+  it('AC-2: graduated/full/null lane still defer until specification also starts', () => {
+    for (const lane of ['graduated', 'full', null] as const) {
+      rmSync(root, { recursive: true, force: true });
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+      openWithLaneAndPlanning(lane);
+      const stage = recordLiveStageEdit({
+        projectRoot: root,
+        sessionId: SES,
+        toolName: 'Edit',
+        targetPath: 'src/foo.ts',
+        now: clock(),
+      });
+      expect(stage, `lane=${String(lane)}`).toBeNull();
+      expect(rows().some((r) => r.kind === 'stage_start' && r.stage === 'development')).toBe(false);
+    }
+  });
+
+  it('AC-3: a fast-lane edit to a sensitivity:high path is floored to full — writer records nothing', () => {
+    writeSensitiveModuleMap();
+    openWithLaneAndPlanning('fast');
+    // Floored to full: specification is required, so a planning-only fast change
+    // records nothing for the sensitive path (mirrors the gate blocking it).
+    const sensitive = recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/secure/thing.ts',
+      now: clock(),
+    });
+    expect(sensitive).toBeNull();
+    expect(started('development')).toHaveLength(0);
+
+    // A non-sensitive path on the same fast change still records (stays fast).
+    const normal = recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/foo.ts',
+      now: clock(),
+    });
+    expect(normal).toBe('development');
+  });
+
+  it('AC-5: a fast-lane run records live development, checks and documentation_sync (no backfill needed)', () => {
+    openWithLaneAndPlanning('fast');
+    const now = clock();
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/x.ts',
+      now,
+    });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Write',
+      targetPath: 'tests/x.test.ts',
+      now,
+    });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'README.md',
+      now,
+    });
+
+    for (const stage of ['development', 'checks', 'documentation_sync']) {
+      const starts = started(stage);
+      expect(starts, stage).toHaveLength(1);
+      // Recorded LIVE from the observed edit — not an inferred-git backfill.
+      expect(starts[0]?.evidence_source, stage).toBe('live-mark');
+    }
   });
 });
