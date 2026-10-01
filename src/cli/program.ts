@@ -28,6 +28,7 @@ import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
 import { createModuleHealthCommand } from './commands/module-health.js';
 import { createModuleMapCommand } from './commands/module-map.js';
+import { createNewProjectCommand } from './commands/new-project.js';
 import { createOnboardCommand } from './commands/onboard.js';
 import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
@@ -83,6 +84,7 @@ export function createProgram(): Command {
   program.addCommand(createModuleHealthCommand());
   program.addCommand(createModuleMapCommand());
   program.addCommand(createOnboardCommand());
+  program.addCommand(createNewProjectCommand());
   program.addCommand(createJoinCommand());
   program.addCommand(createEnableCommand());
   program.addCommand(createDisableCommand());

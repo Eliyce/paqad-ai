@@ -35,6 +35,7 @@ describe('createProgram', () => {
       'module-health',
       'module-map',
       'onboard',
+      'new',
       'join',
       'enable',
       'disable',
