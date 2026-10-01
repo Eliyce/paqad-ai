@@ -11,16 +11,20 @@ a project's framework footprint without re-running full onboarding.
 
 - `src/cli/commands/install.ts`
 - `src/cli/commands/join.ts`
+- `src/cli/commands/new-project.ts`
 - `src/cli/commands/onboard.ts`
 - `src/cli/commands/refresh.ts`
+- `src/cli/commands/setup.ts`
 - `src/cli/commands/update.ts`
 
 ## Features
 
 - [paqad-ai install](../features/install/business.md)
 - [paqad-ai join](../features/join/business.md)
+- [paqad-ai new project](../features/new-project/business.md)
 - [paqad-ai onboard](../features/onboard/business.md)
 - [paqad-ai refresh](../features/refresh/business.md)
+- [paqad-ai setup](../features/setup/business.md)
 - [paqad-ai update](../features/update/business.md)
 
 ## Authority

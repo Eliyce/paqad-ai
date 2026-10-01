@@ -93,3 +93,7 @@ spec_pipeline_token_ceiling=60000
 # visual_evidence_mode=warn
 # keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs (issue #538). strip (default) suppresses it where the provider exposes a project-level knob (Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level only). paqad's own delivery footer is never touched by this knob. (env: PAQAD_AI_ATTRIBUTION)
 # ai_attribution=strip
+
+# ── Added in a newer paqad version ────────────────────────────
+# Comma-separated expert roles that sit at the table on EVERY spec run once spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay on call and are picked per request. Empty means no standing experts (the detector alone decides, as before). A role outside the expert roster is ignored with a doctor warning. No effect while the pipeline or the experts are off. (env: PAQAD_SPEC_PIPELINE_STANDING_EXPERTS)
+# spec_pipeline_standing_experts=product-owner,application-architect,user-flow-writer,qa-engineer
