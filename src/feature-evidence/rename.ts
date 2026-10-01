@@ -123,6 +123,7 @@ function repointSessionControls(
           paused: control.paused.map((name) => (name === oldName ? newName : name)),
         },
         now,
+        'rename',
       );
       /* c8 ignore next 3 -- best-effort: an unwritable control is tolerated everywhere else too. */
     } catch {

@@ -18,6 +18,7 @@ import {
   resumeFeatureByRef,
 } from '@/feature-evidence/stage-ledger.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import { validateEnvelopeHeader } from '@/feature-evidence/schema.js';
 import { markDone, readSessionControl } from '@/feature-evidence/session-control.js';
@@ -339,5 +340,46 @@ describe('resolveFeatureRef / resumeFeatureByRef', () => {
     expect(currentFeature(root, 'ses_1')).toBe(a);
     // AC-2: replacing `active` never drops the outgoing change.
     expect(readSessionControl(root, 'ses_1').paused).toContain(b);
+  });
+
+  // Issue #591, AC-3 — a deliberate resume of a CLOSED change reopens it, so the next stage
+  // row lands there (the one legitimate way to write into a closed bundle again).
+  it('resumeFeatureByRef reopens a CLOSED bundle and the next stage row lands there (#591)', () => {
+    const root = tempRoot();
+    const a = openFeatureChange(root, 'ses_1', {
+      adapter: 'claude-code',
+      title: 'Route first workflows',
+      issue: '339',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+    });
+    closeActiveFeature(root, 'ses_1', clock); // A earns a close row; the pointer is released
+    expect(currentFeature(root, 'ses_1')).toBeNull();
+    const closedRows = readFeatureStageUnit(root, a);
+
+    expect(resumeFeatureByRef(root, 'ses_1', '339')).toBe(a);
+
+    // The guard no longer releases it — a reopen `open` row was appended (append-only: the
+    // close row stays, INV-1) and feature.json status is back to active.
+    expect(currentFeature(root, 'ses_1')).toBe(a);
+    const reopenedRows = readFeatureStageUnit(root, a);
+    expect(reopenedRows.length).toBe(closedRows.length + 1);
+    expect(reopenedRows.at(-1)).toMatchObject({ kind: 'open', note: 'reopened via resume' });
+    expect(reopenedRows.some((row) => row.kind === 'close')).toBe(true);
+    expect(readFeatureRecord(root, a)?.status).toBe('active');
+    // AC-4 — the resume writer is attributable.
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('resume');
+
+    // The next stage row lands in A, not in a freshly minted bundle.
+    const target = currentFeature(root, 'ses_1')!;
+    appendFeatureStageRow(
+      root,
+      'ses_1',
+      target,
+      { kind: 'stage_start', stage: 'planning', event_status: 'started' },
+      clock,
+    );
+    expect(target).toBe(a);
+    expect(listFeatureDirs(root)).toEqual([a]);
+    expect(readFeatureStageUnit(root, a).some((row) => row.stage === 'planning')).toBe(true);
   });
 });

@@ -194,7 +194,12 @@ any turn the session-ownership check skips (see below).
   pops a paused feature; mark-done clears). `setActiveFeature` is the only writer that
   replaces `active`, and it always pushes the outgoing ref onto `paused[]`, so switching
   a session's change can never drop the one it was on — every caller that redirects a
-  session goes through it for that reason.
+  session goes through it for that reason. Every write stamps `written_by` (the writing
+  verb or hook — `set-active`, `resume`, `reconcile`, `rename`, …) and the writer's
+  `pid` (issue #591), so a stale rewrite — the lost-update shape where one process reads
+  the control while a change is active and writes its stale copy back after the change
+  closed — is traceable to its source. Both fields are additive: a control written before
+  them still reads.
 - **Generic-slug back-fill** (`rename.ts`, issue #403) — a feature opened by a bare
   `paqad:stage planning start` is minted as the untitled `change-<ULID>`
   (`UNTITLED_FEATURE_TITLE` in `mint.ts`); when `plan compile` later carries a
@@ -230,7 +235,11 @@ any turn the session-ownership check skips (see below).
   unreachable through every supported command and left hand-editing
   `_session/<id>.json` as the only recovery. Resuming a bundle from the on-disk tier goes
   through `setActiveFeature`, so the change the session was on is paused rather than
-  dropped. Neither reader mints.
+  dropped. Resuming a **closed** change reopens it (issue #591): `resumeFeatureByRef`
+  appends an `open` row (append-only — the `close` row stays on disk) and flips
+  `feature.json` status back to `active`, so the #591 guard no longer releases it and the
+  next stage row lands there. This is the one legitimate way to write into a closed
+  bundle again. Neither reader mints.
 - **Bundle enumeration** (`enumerate.ts`) — `listFeatureDirs` lists every feature dir
   under the evidence container. A leaf (paths + `readdir`, nothing else) so both
   `delivery.ts` — which re-exports it, keeping existing importers unchanged — and
@@ -245,7 +254,14 @@ any turn the session-ownership check skips (see below).
   evidence — either unset, or a dir that was never materialized
   (`isBundleMaterialized`). It is wired into `resolveActiveFeature` and `currentFeature`
   so the write and read paths agree, and into the SessionStart hook so a rotation is
-  carried over before the agent records anything.
+  carried over before the agent records anything. A stale `active` pointer at a
+  **currently-closed** bundle is released too (issue #591): a closed bundle still has
+  rows, so the materialized check alone handed a finished change back as active and the
+  next stage/edit appended into it. `isBundleClosed` (the last lifecycle row is a
+  `close`, so a reopened bundle reads live) tells the guard to treat such a pointer as no
+  active change, release it, and fall through to adoption or the caller's mint. A dangling
+  pointer at an unmaterialized dir is still left in place (REPOINT-ONLY), and the broad
+  `listAdoptableFeatures`/`sessionClosedAnyFeature` "ever closed" filters are unchanged.
 
   **The branch is what makes it work** (decision `D-01KXY55ZM70Y3JNDM8E0XC7WSX`). "In
   flight" on its own means real stage rows and no `kind:'close'` row
