@@ -8,11 +8,13 @@ import { createSetupCommand } from '@/cli/commands/setup.js';
 import { createProgram } from '@/cli/program.js';
 import type { SetupPlan } from '@/onboarding/setup-plan.js';
 
-const { validateSetupPlan, readSetupPlan, verifyReadinessToDevelop } = vi.hoisted(() => ({
-  validateSetupPlan: vi.fn(),
-  readSetupPlan: vi.fn(),
-  verifyReadinessToDevelop: vi.fn(),
-}));
+const { validateSetupPlan, readSetupPlan, verifyReadinessToDevelop, onboardInstalledStack } =
+  vi.hoisted(() => ({
+    validateSetupPlan: vi.fn(),
+    readSetupPlan: vi.fn(),
+    verifyReadinessToDevelop: vi.fn(),
+    onboardInstalledStack: vi.fn(),
+  }));
 
 vi.mock('@/onboarding/setup-plan.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/onboarding/setup-plan.js')>();
@@ -22,6 +24,11 @@ vi.mock('@/onboarding/setup-plan.js', async (importOriginal) => {
 vi.mock('@/onboarding/readiness.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/onboarding/readiness.js')>();
   return { ...actual, verifyReadinessToDevelop };
+});
+
+vi.mock('@/onboarding/onboard-installed-stack.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/onboarding/onboard-installed-stack.js')>();
+  return { ...actual, onboardInstalledStack };
 });
 
 const PLAN: SetupPlan = {
@@ -63,6 +70,7 @@ describe('createSetupCommand', () => {
     validateSetupPlan.mockReset();
     readSetupPlan.mockReset();
     verifyReadinessToDevelop.mockReset();
+    onboardInstalledStack.mockReset();
     process.exitCode = undefined;
     vi.spyOn(console, 'log').mockImplementation((line: string) => void lines.push(String(line)));
     vi.spyOn(console, 'error').mockImplementation((line: string) => void errors.push(String(line)));
@@ -78,14 +86,98 @@ describe('createSetupCommand', () => {
     return createSetupCommand().parseAsync(args, { from: 'user' });
   }
 
-  it('registers `setup` with plan/verify subcommands on the program', () => {
+  it('registers `setup` with plan/onboard/verify subcommands on the program', () => {
     const setup = createProgram().commands.find((command) => command.name() === 'setup');
     expect(setup).toBeDefined();
     const subNames = setup!.commands.map((command) => command.name());
     expect(subNames).toContain('plan');
+    expect(subNames).toContain('onboard');
     expect(subNames).toContain('verify');
     const planSub = setup!.commands.find((command) => command.name() === 'plan');
     expect(planSub!.commands.map((command) => command.name())).toEqual(['validate', 'show']);
+  });
+
+  it('onboard reports the detected stack, re-derivation and a ready verdict', async () => {
+    onboardInstalledStack.mockResolvedValue({
+      projectRoot: root,
+      onboarded: true,
+      detectedFrameworks: ['react'],
+      providers: ['claude-code'],
+      commandsRederived: true,
+      readiness: {
+        ready: true,
+        checks: { commandsConfigured: true, moduleDocsPresent: true },
+        blockers: [],
+      },
+    });
+
+    await run('onboard', '--project-root', root);
+
+    expect(onboardInstalledStack).toHaveBeenCalledWith({ projectRoot: root, providers: undefined });
+    const out = lines.join('\n');
+    expect(out).toContain('onboarded the installed stack: react');
+    expect(out).toContain('re-derived real commands');
+    expect(out).toContain('ready to develop');
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('onboard lists readiness blockers when the stack onboarded but is not yet ready', async () => {
+    onboardInstalledStack.mockResolvedValue({
+      projectRoot: root,
+      onboarded: true,
+      detectedFrameworks: ['react'],
+      providers: ['claude-code'],
+      commandsRederived: false,
+      readiness: {
+        ready: false,
+        checks: { commandsConfigured: true, moduleDocsPresent: false },
+        blockers: ['module documentation missing (docs/modules/ is absent or empty)'],
+      },
+    });
+
+    await run('onboard', '--providers', 'claude-code', '--project-root', root);
+
+    expect(onboardInstalledStack).toHaveBeenCalledWith({
+      projectRoot: root,
+      providers: ['claude-code'],
+    });
+    const out = lines.join('\n');
+    expect(out).toContain('kept the existing commands');
+    expect(out).toContain('not yet ready to develop');
+    expect(out).toContain('module documentation missing');
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('onboard exits non-zero with the recovery when no stack is detected', async () => {
+    onboardInstalledStack.mockResolvedValue({
+      projectRoot: root,
+      onboarded: false,
+      detectedFrameworks: [],
+      providers: ['claude-code'],
+      commandsRederived: false,
+      readiness: {
+        ready: false,
+        checks: { commandsConfigured: false, moduleDocsPresent: false },
+        blockers: [],
+      },
+      recovery: 'No application framework detected yet. Install your stack, then re-run.',
+    });
+
+    await run('onboard', '--project-root', root);
+
+    const err = errors.join('\n');
+    expect(err).toContain('no application stack detected');
+    expect(err).toContain('Install your stack');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('onboard surfaces a thrown error and exits non-zero', async () => {
+    onboardInstalledStack.mockRejectedValue(new Error('No paqad workspace at /tmp/x.'));
+
+    await run('onboard', '--project-root', root);
+
+    expect(errors.join('\n')).toContain('No paqad workspace');
+    expect(process.exitCode).toBe(1);
   });
 
   it('plan validate accepts a well-formed file', async () => {
