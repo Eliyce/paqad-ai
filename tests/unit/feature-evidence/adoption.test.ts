@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   featureBranch,
+  isBundleClosed,
   isBundleMaterialized,
   listAdoptableFeatures,
   listInFlightFeatures,
@@ -490,5 +491,117 @@ describe('sessionClosedAnyFeature (#540)', () => {
     close(root, BUNDLE_A, 'ses_a');
     materialize(root, BUNDLE_B, 'ses_a');
     expect(sessionClosedAnyFeature(root, 'ses_a')).toBe(true);
+  });
+});
+
+describe('isBundleClosed (issue #591)', () => {
+  it('is false for a bundle with no rows', () => {
+    expect(isBundleClosed(tempRoot(), BUNDLE_A)).toBe(false);
+  });
+
+  it('is false for a materialized, unclosed bundle', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A); // open row only
+    expect(isBundleClosed(root, BUNDLE_A)).toBe(false);
+  });
+
+  it('is true once the last lifecycle row is a close', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A);
+    close(root, BUNDLE_A);
+    expect(isBundleClosed(root, BUNDLE_A)).toBe(true);
+  });
+
+  it('is false again after a reopen (a later open row), while the ever-closed filter still excludes it', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A);
+    close(root, BUNDLE_A);
+    appendFeatureStageRow(
+      root,
+      'ses_a',
+      BUNDLE_A,
+      { kind: 'open', note: 'reopened via resume' },
+      clock,
+    );
+    // Currently open again (the guard may write into it)…
+    expect(isBundleClosed(root, BUNDLE_A)).toBe(false);
+    // …but the broad ever-closed predicate is unchanged (INV-2): still excluded from adoption.
+    expect(listInFlightFeatures(root)).toEqual([]);
+  });
+});
+
+describe('reconcileSessionControl — a closed change is never served as active (issue #591)', () => {
+  it('AC-1: releases a stale pointer at a closed bundle and opens a fresh change on stage start', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A);
+    close(root, BUNDLE_A);
+    // The incident shape: the control names the CLOSED bundle as active again.
+    writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
+
+    // `stage start` resolves the active feature with no title → it must open a NEW change.
+    const opened = openFeatureChange(root, 'ses_a', { adapter: 'claude-code', now: clock });
+
+    expect(opened).not.toBe(BUNDLE_A);
+    // Nothing was appended to the closed bundle — still exactly its open + close rows.
+    expect(readFeatureStageUnit(root, BUNDLE_A)).toHaveLength(2);
+    // The control now names the fresh change.
+    expect(readSessionControl(root, 'ses_a').active).toBe(opened);
+  });
+
+  it('AC-2: the live resolve path releases the stale closed pointer instead of returning it', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A);
+    close(root, BUNDLE_A);
+    writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
+
+    // currentFeature is what the live edit writer (recordLiveStageEdit) resolves through.
+    const resolved = currentFeature(root, 'ses_a');
+
+    expect(resolved).not.toBe(BUNDLE_A);
+    // The stale pointer was released (no adoptable in-flight bundle, so null) and the closed
+    // bundle gained no row from the resolve.
+    expect(resolved).toBeNull();
+    expect(readSessionControl(root, 'ses_a').active).toBeNull();
+    expect(readFeatureStageUnit(root, BUNDLE_A)).toHaveLength(2);
+  });
+
+  it('adopts a genuinely in-flight bundle on the branch after releasing the closed pointer', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A); // closed, stale pointer
+    close(root, BUNDLE_A);
+    materialize(root, BUNDLE_B); // the real in-flight change on this branch
+    writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
+
+    expect(reconcileSessionControl(root, 'ses_a', clock)).toBe(BUNDLE_B);
+    expect(readSessionControl(root, 'ses_a').active).toBe(BUNDLE_B);
+  });
+
+  it('AC-5: survives the lost-update shape (read active, close, write the stale copy back)', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A);
+    setActiveFeature(root, 'ses_a', BUNDLE_A, { now: clock });
+    // A process reads the control while the change is still active…
+    const stale = readSessionControl(root, 'ses_a');
+    // …the change is closed through the normal finalizer path (close row + pointer released)…
+    closeActiveFeature(root, 'ses_a', clock);
+    expect(readSessionControl(root, 'ses_a').active).toBeNull();
+    // …then the stale in-memory copy (still naming the now-closed bundle) is written back.
+    writeSessionControl(root, stale);
+    expect(readSessionControl(root, 'ses_a').active).toBe(BUNDLE_A);
+
+    // The next stage start must still open a fresh bundle, not re-serve the closed one.
+    const opened = openFeatureChange(root, 'ses_a', { adapter: 'claude-code', now: clock });
+    expect(opened).not.toBe(BUNDLE_A);
+    expect(readFeatureStageUnit(root, BUNDLE_A)).toHaveLength(2);
+    expect(readSessionControl(root, 'ses_a').active).toBe(opened);
+  });
+
+  it('records the writer (written_by) when it releases a stale closed pointer', () => {
+    const root = tempRepo();
+    materialize(root, BUNDLE_A);
+    close(root, BUNDLE_A);
+    writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
+    reconcileSessionControl(root, 'ses_a', clock);
+    expect(readSessionControl(root, 'ses_a').written_by).toBe('reconcile');
   });
 });

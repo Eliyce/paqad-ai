@@ -61,6 +61,32 @@ export function isBundleMaterialized(projectRoot: string, dirName: string): bool
 }
 
 /**
+ * True when `dirName`'s change is CURRENTLY closed (issue #591): its last lifecycle row — of
+ * kind `open` or `close` — is a `close`. A bundle that was closed and then deliberately
+ * reopened (a later `open` row, written by `paqad-ai resume --feature`) reads as NOT closed,
+ * so the active pointer may legitimately write into it again.
+ *
+ * This is deliberately NARROWER than the `rows.some(kind === 'close')` test used by
+ * {@link listAdoptableFeatures} and {@link sessionClosedAnyFeature}, which answer "has this
+ * change EVER closed" — the broad in-flight filter and the #540 stale-marker suppression keep
+ * that meaning untouched. The guard that releases a stale active pointer needs the current
+ * state, not the ever-closed one, which is why it cannot reuse those predicates: a reopened
+ * bundle still carries a close row, and reusing the broad test would make the deliberate-resume
+ * path impossible. A bundle with no lifecycle rows at all is not closed.
+ */
+export function isBundleClosed(projectRoot: string, dirName: string): boolean {
+  let closed = false;
+  for (const row of stageRows(projectRoot, dirName)) {
+    if (row.kind === 'open') {
+      closed = false;
+    } else if (row.kind === 'close') {
+      closed = true;
+    }
+  }
+  return closed;
+}
+
+/**
  * The branch a bundle belongs to: its session constant on `feature.json` (issue #581), or
  * for a bundle written before that the branch stamped on its `open` row (issue #404),
  * falling back to the branch `delivery.json` recorded once the change reached its first commit. `null`
@@ -188,7 +214,19 @@ export function reconcileSessionControl(
   now?: () => Date,
 ): string | null {
   const control = readSessionControl(projectRoot, sessionId, now);
-  if (control.active !== null && isBundleMaterialized(projectRoot, control.active)) {
+  // A stale pointer at a CLOSED change must never be served (issue #591): a closed bundle
+  // still has rows, so the materialized check alone handed a finished change back as active
+  // and the next stage/edit appended into it. Treat a currently-closed active pointer as no
+  // active change — release it (below) and fall through to adoption or the caller's mint.
+  const activeClosed =
+    control.active !== null &&
+    isBundleMaterialized(projectRoot, control.active) &&
+    isBundleClosed(projectRoot, control.active);
+  if (
+    control.active !== null &&
+    isBundleMaterialized(projectRoot, control.active) &&
+    !activeClosed
+  ) {
     return control.active;
   }
 
@@ -200,12 +238,20 @@ export function reconcileSessionControl(
   const candidates = listAdoptableFeatures(projectRoot, branch).filter(
     (name) => !control.paused.includes(name),
   );
+  // A dangling pointer (unmaterialized dir) is left in place — REPOINT ONLY (decision
+  // D-01KXY2BDSN226DDCH9DZA1TAK6), a just-minted change must not be dropped. A stale CLOSED
+  // pointer is different: it names finished evidence, so it is released so the next stage
+  // opens a fresh change (issue #591, FR-2).
+  const fallback = activeClosed ? null : control.active;
   if (candidates.length !== 1) {
-    return control.active;
+    if (activeClosed) {
+      writeSessionControl(projectRoot, { ...control, active: null }, now, 'reconcile');
+    }
+    return fallback;
   }
 
   const adopted = candidates[0]!;
-  writeSessionControl(projectRoot, { ...control, active: adopted }, now);
+  writeSessionControl(projectRoot, { ...control, active: adopted }, now, 'reconcile');
   return adopted;
 }
 

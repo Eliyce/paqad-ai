@@ -57,13 +57,26 @@ export function readSessionControl(
   return emptyControl(sessionId, now);
 }
 
-/** Stamp `updated_at` and write the control to disk (creating dirs). Returns it. */
+/**
+ * Stamp `updated_at`, the writer attribution (issue #591) and the control to disk (creating
+ * dirs). Returns it. `writtenBy` names the calling verb or hook (`set-active`, `resume`,
+ * `reconcile`, `rename`, …); it is stamped on every write together with the writing
+ * `process.pid`, so a stale rewrite — the #591 lost-update shape — can be traced to its
+ * source. A caller that passes no label keeps any `written_by` already on the control, and
+ * falls back to `unknown` so the field is never empty.
+ */
 export function writeSessionControl(
   projectRoot: string,
   control: FeatureSessionControl,
   now: () => Date = () => new Date(),
+  writtenBy?: string,
 ): FeatureSessionControl {
-  const stamped: FeatureSessionControl = { ...control, updated_at: now().toISOString() };
+  const stamped: FeatureSessionControl = {
+    ...control,
+    written_by: writtenBy ?? control.written_by ?? 'unknown',
+    pid: process.pid,
+    updated_at: now().toISOString(),
+  };
   const abs = join(projectRoot, featureSessionControlPath(control.session_id));
   mkdirSync(dirname(abs), { recursive: true });
   writeFileSync(abs, `${JSON.stringify(stamped, null, 2)}\n`, 'utf8');
@@ -74,6 +87,8 @@ export interface SetActiveOptions {
   /** Lane to stamp on the control; unchanged when omitted. */
   lane?: FeatureLane;
   now?: () => Date;
+  /** Writer attribution (issue #591) stamped on the control; defaults to `set-active`. */
+  writtenBy?: string;
 }
 
 /**
@@ -100,7 +115,7 @@ export function setActiveFeature(
     paused,
     lane: options.lane !== undefined ? options.lane : control.lane,
   };
-  return writeSessionControl(projectRoot, next, now);
+  return writeSessionControl(projectRoot, next, now, options.writtenBy ?? 'set-active');
 }
 
 /**
@@ -114,6 +129,7 @@ export function resumeFeature(
   sessionId: string,
   dirName: string,
   now: () => Date = () => new Date(),
+  writtenBy = 'resume',
 ): FeatureSessionControl | null {
   const control = readSessionControl(projectRoot, sessionId, now);
   if (control.active === dirName) {
@@ -126,7 +142,7 @@ export function resumeFeature(
   if (control.active) {
     paused.push(control.active);
   }
-  return writeSessionControl(projectRoot, { ...control, active: dirName, paused }, now);
+  return writeSessionControl(projectRoot, { ...control, active: dirName, paused }, now, writtenBy);
 }
 
 /** Pause the active feature (push it onto the stack, clear `active`) and persist. */
@@ -140,7 +156,12 @@ export function pauseActive(
     return control;
   }
   const paused = [...control.paused, control.active];
-  return writeSessionControl(projectRoot, { ...control, active: null, paused }, now);
+  return writeSessionControl(
+    projectRoot,
+    { ...control, active: null, paused },
+    now,
+    'pause-active',
+  );
 }
 
 /**
@@ -159,7 +180,7 @@ export function markDone(
     active: control.active === dirName ? null : control.active,
     paused: control.paused.filter((name) => name !== dirName),
   };
-  return writeSessionControl(projectRoot, next, now);
+  return writeSessionControl(projectRoot, next, now, 'mark-done');
 }
 
 /** Stash the pending lane on the control and persist. */
@@ -170,7 +191,7 @@ export function setLane(
   now: () => Date = () => new Date(),
 ): FeatureSessionControl {
   const control = readSessionControl(projectRoot, sessionId, now);
-  return writeSessionControl(projectRoot, { ...control, lane }, now);
+  return writeSessionControl(projectRoot, { ...control, lane }, now, 'set-lane');
 }
 
 function isControl(value: unknown): value is FeatureSessionControl {

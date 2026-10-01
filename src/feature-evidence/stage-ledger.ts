@@ -27,7 +27,7 @@ import {
   type FoldedChange,
 } from '@/stage-evidence/types.js';
 
-import { adoptableInFlightOnBranch, reconcileSessionControl } from './adoption.js';
+import { adoptableInFlightOnBranch, isBundleClosed, reconcileSessionControl } from './adoption.js';
 import { seedFeatureDelivery } from './delivery.js';
 import { listFeatureDirs } from './enumerate.js';
 import {
@@ -332,7 +332,9 @@ export function closeActiveFeature(projectRoot: string, sessionId: string, now?:
   const rows = readFeatureStageUnit(projectRoot, active);
   // An unmaterialized bundle (no rows) is not in flight, so nothing can adopt it and it
   // needs no close row — stamping one would materialize an empty bundle just to close it.
-  if (rows.length > 0 && !rows.some((row) => row.kind === 'close')) {
+  // The guard keys on the CURRENT lifecycle state (issue #591), not "ever closed", so a
+  // change that was reopened and reworked earns a fresh close row rather than being skipped.
+  if (rows.length > 0 && !isBundleClosed(projectRoot, active)) {
     appendFeatureStageRow(
       projectRoot,
       sessionId,
@@ -424,6 +426,12 @@ function matchFeatureRef(
  * resolved from the on-disk sweep is made active through `setActiveFeature` (issue #540),
  * which pushes the outgoing active onto `paused[]` — so redirecting the session at a
  * displaced change never drops the one it was on.
+ *
+ * Resuming a CLOSED change reopens it (issue #591, FR-4): the #591 guard releases a stale
+ * pointer at a closed bundle, so a deliberate `paqad-ai resume --feature` must first make the
+ * bundle live again. It appends an `open` row (append-only — the `close` row stays on disk,
+ * INV-1) and flips `feature.json` status back to `active`, so the guard no longer releases it
+ * and the next stage row lands there. A still-open or paused change is untouched.
  */
 export function resumeFeatureByRef(
   projectRoot: string,
@@ -435,9 +443,19 @@ export function resumeFeatureByRef(
   if (!dirName) {
     return null;
   }
+  if (isBundleClosed(projectRoot, dirName)) {
+    appendFeatureStageRow(
+      projectRoot,
+      sessionId,
+      dirName,
+      { kind: 'open', note: 'reopened via resume' },
+      now,
+    );
+    updateFeatureRecord(projectRoot, dirName, { status: 'active' }, now);
+  }
   if (resumeFeature(projectRoot, sessionId, dirName, now)) {
     return dirName;
   }
-  setActiveFeature(projectRoot, sessionId, dirName, { now });
+  setActiveFeature(projectRoot, sessionId, dirName, { now, writtenBy: 'resume' });
   return dirName;
 }

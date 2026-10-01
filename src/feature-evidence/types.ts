@@ -225,6 +225,14 @@ export interface FeatureSessionControl {
   paused: string[];
   lane: FeatureLane;
   updated_at: string;
+  /**
+   * Which writer last wrote this control (issue #591): the calling verb or hook
+   * (`set-active`, `resume`, `reconcile`, `rename`, …). Optional and additive — a control
+   * written before this field existed still validates, and readers ignore it.
+   */
+  written_by?: string | null;
+  /** The process id of the writer (issue #591), so a stale rewrite can be traced to it. */
+  pid?: number;
 }
 
 /** The `{ issue, slug, ulid }` parsed out of a feature dir name. */

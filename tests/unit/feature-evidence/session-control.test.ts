@@ -184,3 +184,79 @@ describe('pauseActive / markDone / setLane', () => {
     expect(control.active).toBe(A);
   });
 });
+
+// Issue #591, AC-4 — every write of the session control is attributable: it carries the
+// writing verb (`written_by`) and the process id (`pid`), so a stale rewrite is traceable.
+describe('writeSessionControl attribution (issue #591)', () => {
+  it('stamps written_by and the process id on a raw write, defaulting to unknown', () => {
+    const root = tempRoot();
+    const written = writeSessionControl(root, emptyControl('ses_1'));
+    expect(written.written_by).toBe('unknown');
+    expect(written.pid).toBe(process.pid);
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('unknown');
+  });
+
+  it('uses the explicit writer label when one is passed', () => {
+    const root = tempRoot();
+    writeSessionControl(root, emptyControl('ses_1'), undefined, 'verify-backstop');
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('verify-backstop');
+  });
+
+  it('setActiveFeature records written_by = set-active', () => {
+    const root = tempRoot();
+    setActiveFeature(root, 'ses_1', A);
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('set-active');
+  });
+
+  it('resumeFeature records written_by = resume', () => {
+    const root = tempRoot();
+    setActiveFeature(root, 'ses_1', A); // A active
+    setActiveFeature(root, 'ses_1', B); // A paused, B active
+    resumeFeature(root, 'ses_1', A);
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('resume');
+  });
+
+  it('pauseActive records written_by = pause-active', () => {
+    const root = tempRoot();
+    setActiveFeature(root, 'ses_1', A);
+    pauseActive(root, 'ses_1');
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('pause-active');
+  });
+
+  it('markDone records written_by = mark-done', () => {
+    const root = tempRoot();
+    setActiveFeature(root, 'ses_1', A);
+    markDone(root, 'ses_1', A);
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('mark-done');
+  });
+
+  it('setLane records written_by = set-lane', () => {
+    const root = tempRoot();
+    setActiveFeature(root, 'ses_1', A);
+    setLane(root, 'ses_1', 'fast');
+    expect(readSessionControl(root, 'ses_1').written_by).toBe('set-lane');
+  });
+
+  it('a control written before the field existed still validates (INV-3)', () => {
+    const root = tempRoot();
+    const abs = join(root, featureSessionControlPath('ses_legacy'));
+    mkdirSync(dirname(abs), { recursive: true });
+    // No written_by / pid — the pre-#591 shape.
+    writeFileSync(
+      abs,
+      JSON.stringify({
+        schema_version: 1,
+        doc_type: 'paqad.feature-session',
+        session_id: 'ses_legacy',
+        active: A,
+        paused: [],
+        lane: null,
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }),
+      'utf8',
+    );
+    const control = readSessionControl(root, 'ses_legacy');
+    expect(control.active).toBe(A);
+    expect(control.written_by).toBeUndefined();
+  });
+});
