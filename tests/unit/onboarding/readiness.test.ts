@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
@@ -11,31 +11,55 @@ import { verifyReadinessToDevelop } from '@/onboarding/readiness.js';
 
 // FR-7 — after installation and onboarding, creation verifies readiness to develop before
 // declaring setup complete. An undecided workspace is honestly NOT ready.
+//
+// Full onboarding is heavy (it builds the code-knowledge index and compiles rules), so it runs
+// exactly ONCE here: `beforeAll` creates one real undecided workspace as a template and each test
+// copies it into a fresh dir. Readiness is read-only, so a copy is a faithful stand-in and the
+// Windows CI worker is not starved by a dozen real onboarding runs.
 describe('verifyReadinessToDevelop (FR-7)', () => {
+  let templateRoot: string;
+  let templateHome: string;
   let parentDir: string;
-  let frameworkHome: string;
-  let originalHome: string | undefined;
+
+  beforeAll(async () => {
+    const templateParent = mkdtempSync(join(tmpdir(), 'paqad-readiness-tpl-'));
+    templateHome = join(tmpdir(), `paqad-readiness-home-${Date.now()}-${Math.random()}`);
+    const originalHome = process.env.PAQAD_FRAMEWORK_HOME;
+    process.env.PAQAD_FRAMEWORK_HOME = templateHome;
+    try {
+      await createProjectWorkspace({ name: 'template-proj', parentDir: templateParent });
+      templateRoot = join(templateParent, 'template-proj');
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.PAQAD_FRAMEWORK_HOME;
+      } else {
+        process.env.PAQAD_FRAMEWORK_HOME = originalHome;
+      }
+    }
+  });
+
+  afterAll(() => {
+    if (templateRoot) rmSync(join(templateRoot, '..'), { recursive: true, force: true });
+    if (existsSync(templateHome)) rmSync(templateHome, { recursive: true, force: true });
+  });
 
   beforeEach(() => {
     parentDir = mkdtempSync(join(tmpdir(), 'paqad-readiness-'));
-    frameworkHome = join(tmpdir(), `paqad-readiness-home-${Date.now()}-${Math.random()}`);
-    originalHome = process.env.PAQAD_FRAMEWORK_HOME;
-    process.env.PAQAD_FRAMEWORK_HOME = frameworkHome;
   });
 
   afterEach(() => {
     rmSync(parentDir, { recursive: true, force: true });
-    if (existsSync(frameworkHome)) rmSync(frameworkHome, { recursive: true, force: true });
-    if (originalHome === undefined) {
-      delete process.env.PAQAD_FRAMEWORK_HOME;
-    } else {
-      process.env.PAQAD_FRAMEWORK_HOME = originalHome;
-    }
   });
 
-  it('reports an undecided workspace as NOT ready with the undecided blocker', async () => {
-    await createProjectWorkspace({ name: 'undecided-proj', parentDir });
-    const projectRoot = join(parentDir, 'undecided-proj');
+  /** Copy the one onboarded template into a fresh project dir for a test to mutate. */
+  function freshWorkspace(name: string): string {
+    const projectRoot = join(parentDir, name);
+    cpSync(templateRoot, projectRoot, { recursive: true });
+    return projectRoot;
+  }
+
+  it('reports an undecided workspace as NOT ready with the undecided blocker', () => {
+    const projectRoot = freshWorkspace('undecided-proj');
 
     const result = verifyReadinessToDevelop(projectRoot);
 
@@ -44,9 +68,9 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
     expect(result.blockers).toContain('application stack still undecided');
   });
 
-  it('reports ready once real commands and non-empty module docs exist', async () => {
-    await createProjectWorkspace({ name: 'ready-proj', parentDir });
-    const projectRoot = join(parentDir, 'ready-proj');
+  it('reports ready once real commands and non-empty module docs exist', () => {
+    const projectRoot = freshWorkspace('ready-proj');
+    rmSync(join(projectRoot, PATHS.MODULES_DIR), { recursive: true, force: true });
 
     // The owner chose a stack: real commands replace the undecided placeholders…
     const profile = readProjectProfile(projectRoot)!;
@@ -59,7 +83,7 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
     };
     writeProjectProfile(projectRoot, profile);
 
-    // …and module documentation now exists.
+    // …and module documentation now exists (the template ships none).
     const modulesDir = join(projectRoot, PATHS.MODULES_DIR);
     mkdirSync(modulesDir, { recursive: true });
     writeFileSync(join(modulesDir, 'core.md'), '# Core module\n', 'utf8');
@@ -71,9 +95,8 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
     expect(result.blockers).toEqual([]);
   });
 
-  it('flags missing module docs even when commands are configured', async () => {
-    await createProjectWorkspace({ name: 'nodocs-proj', parentDir });
-    const projectRoot = join(parentDir, 'nodocs-proj');
+  it('flags missing module docs even when commands are configured', () => {
+    const projectRoot = freshWorkspace('nodocs-proj');
 
     const profile = readProjectProfile(projectRoot)!;
     profile.commands = {
@@ -95,9 +118,8 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
     );
   });
 
-  it('treats a non-directory docs/modules as absent module docs', async () => {
-    await createProjectWorkspace({ name: 'badmod-proj', parentDir });
-    const projectRoot = join(parentDir, 'badmod-proj');
+  it('treats a non-directory docs/modules as absent module docs', () => {
+    const projectRoot = freshWorkspace('badmod-proj');
 
     // docs/modules is a FILE, not a directory — readdirSync throws, which must read as "absent".
     const modulesPath = join(projectRoot, PATHS.MODULES_DIR);
