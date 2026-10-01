@@ -21,6 +21,10 @@ installers, CLIs or connected tools do that (BND-04). The technical contract liv
   well-formed, dependency-ordered list of steps and rejects a malformed one with an actionable
   message.
 - **Inspect progress.** `paqad-ai setup plan show` prints the stored plan's steps and their state.
+- **Onboard the installed stack.** Once the owner has installed their stack, `paqad-ai setup onboard`
+  detects it and onboards the real project — turning the undecided placeholders into real commands
+  and refreshing generated surfaces — while keeping every team-owned setting. On a still-empty
+  workspace it refuses rather than guessing a framework, and names the next step.
 - **Check readiness.** `paqad-ai setup verify` reports whether the project is ready to develop and,
   if not, names the blockers (an undecided stack is honestly reported as not-ready).
 
@@ -32,6 +36,9 @@ installers, CLIs or connected tools do that (BND-04). The technical contract liv
 - The setup-plan record names the **slice** it belongs to and carries no "parent complete" field, so
   it can never imply the parent issue is done (INV-2).
 - Readiness never claims ready for a workspace whose application stack is still undecided (FR-7).
+- `setup onboard` reuses the onboarding engine unchanged and preserves team-owned settings; it
+  re-derives commands only when the workspace is still undecided, and refuses to onboard an empty
+  workspace rather than defaulting to a framework (SET-03/SET-05, ENT-02).
 
 ## Triggers & Side Effects
 
@@ -42,8 +49,9 @@ installers, CLIs or connected tools do that (BND-04). The technical contract liv
 
 - `SETUP_PLAN_NOT_FOUND` — no `.paqad/setup-plan.json` exists for the project root.
 - `SETUP_STEP_UNKNOWN` — advancing a step id that is not in the plan.
+- `WORKSPACE_NOT_FOUND` — `setup onboard` run where no paqad workspace exists.
 - A malformed plan fails `setup plan validate` with the specific reason; `setup verify` exits
-  non-zero when the project is not ready.
+  non-zero when the project is not ready; `setup onboard` exits non-zero when no stack is detected.
 
 ## Glossary
 
