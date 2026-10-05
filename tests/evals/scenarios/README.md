@@ -5,6 +5,12 @@ acceptance scenario in the frozen S1 spec (AC-2, AC-3, AC-4, AC-5, AC-6, AC-9, A
 AC-21 to AC-29 and AC-42 to AC-48). The script-proven acceptance criteria are covered by the unit
 suite under `tests/scripts/` and carry no scenario here.
 
+`s1b.yml` holds the S1b conversation eval scenarios for the three existing-work skills
+(refine-ticket, size-work, plan-sprint). Each maps to a conversation-shape acceptance scenario in the
+frozen S1b spec (AC-30, AC-33, AC-35, AC-38); the rest of AC-30 to AC-41 is script-proven by the unit
+suite (`test_refine.py`, `test_sizing.py`, `test_sprint.py`, `test_record.py`) and carries no scenario
+here. These scenarios read the invented fixture tracker under `tests/evals/fixture-repo/tracker/`.
+
 The scenarios are declarative in S1. They are authored now but are NOT run in CI until S3, when the
 host eval runner executes them against the built plugin, the fixture repository under
 `tests/evals/fixture-repo/`, and a fake tracker (CI-12, CI-13). Each scenario checks properties, not

@@ -16,20 +16,28 @@ the plugin is packaged but no automated host verdict is claimed. The cross-host 
 (U-1..U-17) are verified MANUALLY, and those verdicts are still `pending` in
 `hosts/{claude,chatgpt,codex}.md`.
 
-Not yet built: S1b (`refine-ticket`, `size-work`, `plan-sprint`), S2 (ChatGPT and Codex
-parity) and S3 (CI, evals in CI, release channels).
+S1b is BUILT: the three existing-work entry skills (`refine-ticket`, `size-work`,
+`plan-sprint`), each with standard-library unit tests and eval scenarios authored. Host
+install for them stays "packaged, not verified" (CI-19), same as S1.
+
+Not yet built: S2 (ChatGPT and Codex parity) and S3 (CI, evals in CI, release channels).
 
 The product spec is `REQUIREMENTS.md`.
 
 ## The skills
 
-Ten skills, built from one source. Five are entry points a user can invoke directly; the rest
-run as the `product-discovery` journey directs them.
+Thirteen skills, built from one source. Five are entry points a user can invoke directly; the
+rest run as the `product-discovery` journey directs them.
 
 - `product-discovery` (entry) - coordinates the idea journey: step order, the record, resume,
   going back, side questions, the consulting stance, and plain status at every step.
 - `ask-project` (entry) - answers a business question from the onboarded documents, with
   sources, and can hand the answer into the idea journey.
+- `refine-ticket` (entry) - refines an existing ticket field by field, applying each change
+  only on approval.
+- `size-work` (entry) - gives advisory size suggestions for a piece of work, backed by
+  comparables.
+- `plan-sprint` (entry) - proposes a sprint plan and assigns the work on approval.
 - `get-connected` - step 0: confirms the documents are reachable and onboarded, the tracker is
   writable, and reads the tracker project's setup.
 - `understand-idea` - step 1: one question at a time until the goal, who benefits, success and

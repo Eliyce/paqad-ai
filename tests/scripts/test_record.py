@@ -16,11 +16,12 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
 SHARED_SCRIPTS = os.path.join(REPO_ROOT, "shared", "scripts")
-RECORD_SCRIPTS = os.path.join(REPO_ROOT, "skills", "product-discovery", "scripts")
+RECORD_SCRIPTS = os.path.join(REPO_ROOT, "shared", "scripts")
 for entry in (SHARED_SCRIPTS, RECORD_SCRIPTS):
     if entry not in sys.path:
         sys.path.insert(0, entry)
 
+import canonical  # noqa: E402
 import record  # noqa: E402
 
 
@@ -203,6 +204,164 @@ class UndocumentedBlockTest(RecordTestCase):
         rec = self._init()
         with self.assertRaises(ValueError):
             record.apply_update(rec, 0, {"run": {"revision": 99}})
+
+
+class BuildModeUnchangedTest(RecordTestCase):
+    """INV-1: the four S1b blocks are additive and mode-gated. The build-mode CHAIN and REQUIRED
+    maps are untouched and build-mode advance ignores the new blocks entirely."""
+
+    NEW_BLOCKS = ("existing", "changes", "sizing", "sprint_plan")
+
+    def test_new_blocks_exist_but_sit_outside_the_build_chain_and_required_map(self):
+        for block in self.NEW_BLOCKS:
+            self.assertIn(block, record.BLOCKS)
+            self.assertNotIn(block, record.CHAIN)
+        required_blocks = {b for blocks in record.REQUIRED.values() for b in blocks}
+        self.assertTrue(required_blocks.isdisjoint(self.NEW_BLOCKS))
+
+    def test_new_record_seeds_empty_new_blocks(self):
+        rec = self._init()
+        self.assertEqual(rec["existing"], [])
+        self.assertEqual(rec["changes"], {})
+        self.assertEqual(rec["sizing"], {})
+        self.assertEqual(rec["sprint_plan"], {})
+
+    def test_build_mode_write_to_new_block_stales_nothing(self):
+        rec = self._init()
+        record.apply_update(rec, 0, {"sizing": {"suggestion": {"size": "M"}}})
+        # In build mode the new blocks are inert: no staleness, no chain reach.
+        self.assertEqual(rec["stale"], [])
+
+
+class RefineModeTest(RecordTestCase):
+    def _refine(self):
+        rec = record.new_record(run_id="DR-20261005-RFNE", mode="refine")
+        record.write(self.path, rec)
+        return rec
+
+    def test_write_existing_then_changes(self):
+        rec = self._refine()
+        record.apply_update(rec, 0, {"existing": [{"key": "PROJ-1", "last_updated": "2026-10-05T00:00:00Z"}]})
+        record.apply_update(rec, 1, {"changes": {"ticket_key": "PROJ-1", "changes": [], "new_children": []}})
+        self.assertEqual(rec["changes"]["ticket_key"], "PROJ-1")
+        self.assertEqual(rec["stale"], [])
+
+    def test_mode_required_gates_advance(self):
+        rec = self._refine()
+        # Step 0 requires existing.
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_advance(rec, rec["run"]["revision"])
+        self.assertIn("missing existing", str(ctx.exception))
+        record.apply_update(rec, rec["run"]["revision"], {"existing": [{"key": "PROJ-1"}]})
+        record.apply_advance(rec, rec["run"]["revision"])
+        self.assertEqual(rec["run"]["step"], 1)
+        # Step 1 requires changes.
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_advance(rec, rec["run"]["revision"])
+        self.assertIn("missing changes", str(ctx.exception))
+        record.apply_update(rec, rec["run"]["revision"], {"changes": {"ticket_key": "PROJ-1"}})
+        record.apply_advance(rec, rec["run"]["revision"])
+        self.assertEqual(rec["run"]["step"], 2)
+        # Past the mode sequence there is nothing further to advance to.
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_advance(rec, rec["run"]["revision"])
+        self.assertIn("final step", str(ctx.exception))
+
+    def test_rewriting_existing_stales_changes(self):
+        rec = self._refine()
+        record.apply_update(rec, 0, {"existing": [{"key": "PROJ-1"}]})
+        record.apply_update(rec, 1, {"changes": {"ticket_key": "PROJ-1"}})
+        self.assertNotIn("changes", rec["stale"])
+        # Re-snapshotting existing invalidates the change set that was built from it.
+        record.apply_update(rec, rec["run"]["revision"], {"existing": [{"key": "PROJ-1", "v": 2}]})
+        self.assertIn("changes", rec["stale"])
+
+    def test_staleness_is_mode_local_and_never_touches_the_build_chain(self):
+        rec = self._refine()
+        record.apply_update(rec, 0, {"existing": [{"key": "PROJ-1"}]})
+        for block in record.CHAIN:
+            self.assertNotIn(block, rec["stale"])
+
+
+class SizeAndPlanModeTest(RecordTestCase):
+    def test_size_mode_requires_sizing(self):
+        rec = record.new_record(mode="size")
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_advance(rec, rec["run"]["revision"])
+        self.assertIn("missing sizing", str(ctx.exception))
+        record.apply_update(rec, rec["run"]["revision"], {"sizing": {"suggestion": {"size": "M"}}})
+        record.apply_advance(rec, rec["run"]["revision"])
+        self.assertEqual(rec["run"]["step"], 1)
+
+    def test_plan_mode_requires_sprint_plan(self):
+        rec = record.new_record(mode="plan")
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_advance(rec, rec["run"]["revision"])
+        self.assertIn("missing sprint_plan", str(ctx.exception))
+        record.apply_update(rec, rec["run"]["revision"], {"sprint_plan": {"sprint": "S-12", "goal": "ship"}})
+        record.apply_advance(rec, rec["run"]["revision"])
+        self.assertEqual(rec["run"]["step"], 1)
+
+
+class ApprovalTest(RecordTestCase):
+    def test_block_digest_excludes_its_own_digest_field(self):
+        # INV-8: the digest is canonical.digest over the block minus its digest field.
+        block = {"ticket_key": "PROJ-1", "changes": [{"field": "summary", "before": "a", "after": "b", "op": "replace"}],
+                 "new_children": [], "digest": "stale-placeholder"}
+        expected = canonical.digest({k: v for k, v in block.items() if k != "digest"})
+        self.assertEqual(record.block_digest(block), expected)
+        # The placeholder digest field does not change the result.
+        block_no_digest = {k: v for k, v in block.items() if k != "digest"}
+        self.assertEqual(record.block_digest(block_no_digest), expected)
+
+    def test_approve_binds_the_block_digest(self):
+        rec = record.new_record(mode="refine")
+        record.apply_update(rec, 0, {"existing": [{"key": "PROJ-1"}]})
+        record.apply_update(rec, 1, {"changes": {"ticket_key": "PROJ-1", "changes": [], "new_children": []}})
+        rev = rec["run"]["revision"]
+        status = record.apply_approve(rec, rev, "changes", "msg-9: apply it")
+        self.assertEqual(status, "approved")
+        self.assertEqual(rec["approval"]["block"], "changes")
+        self.assertEqual(rec["approval"]["digest"], record.block_digest(rec["changes"]))
+        self.assertEqual(rec["approval"]["message_ref"], "msg-9: apply it")
+        self.assertEqual(rec["run"]["revision"], rev + 1)
+
+    def test_edit_after_approval_voids_it(self):
+        # AC-34: a change set edited after approval voids the approval.
+        rec = record.new_record(mode="refine")
+        record.apply_update(rec, 0, {"existing": [{"key": "PROJ-1"}]})
+        record.apply_update(rec, 1, {"changes": {"ticket_key": "PROJ-1", "changes": [], "new_children": []}})
+        record.apply_approve(rec, rec["run"]["revision"], "changes", "msg-9: apply it")
+        self.assertIsNotNone(rec["approval"])
+        record.apply_update(rec, rec["run"]["revision"],
+                            {"changes": {"ticket_key": "PROJ-1", "changes": [{"field": "summary", "before": "a", "after": "b", "op": "replace"}], "new_children": []}})
+        self.assertIsNone(rec["approval"])
+
+    def test_sprint_plan_approval_digest(self):
+        # INV-8 for the plan-mode block.
+        rec = record.new_record(mode="plan")
+        record.apply_update(rec, 0, {"sprint_plan": {"sprint": "S-12", "goal": "ship", "chosen": ["PROJ-1"]}})
+        record.apply_approve(rec, rec["run"]["revision"], "sprint_plan", "msg-4: apply it")
+        self.assertEqual(rec["approval"]["digest"], record.block_digest(rec["sprint_plan"]))
+
+    def test_approve_refuses_unknown_block_and_stale_revision(self):
+        rec = record.new_record(mode="refine")
+        record.apply_update(rec, 0, {"existing": [{"key": "PROJ-1"}]})
+        record.apply_update(rec, 1, {"changes": {"ticket_key": "PROJ-1"}})
+        # A block that is not approvable is refused.
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_approve(rec, rec["run"]["revision"], "existing", "msg: apply it")
+        self.assertIn("may be approved", str(ctx.exception))
+        # The expected-revision refusal applies in refine mode too.
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_approve(rec, 0, "changes", "msg: apply it")
+        self.assertIn("Stale revision", str(ctx.exception))
+
+    def test_approve_refuses_empty_block(self):
+        rec = record.new_record(mode="refine")
+        with self.assertRaises(ValueError) as ctx:
+            record.apply_approve(rec, rec["run"]["revision"], "changes", "msg: apply it")
+        self.assertIn("empty changes", str(ctx.exception))
 
 
 if __name__ == "__main__":

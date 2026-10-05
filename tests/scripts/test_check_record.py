@@ -18,7 +18,7 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
 SHARED_SCRIPTS = os.path.join(REPO_ROOT, "shared", "scripts")
-RECORD_SCRIPTS = os.path.join(REPO_ROOT, "skills", "product-discovery", "scripts")
+RECORD_SCRIPTS = os.path.join(REPO_ROOT, "shared", "scripts")
 for entry in (SHARED_SCRIPTS, RECORD_SCRIPTS):
     if entry not in sys.path:
         sys.path.insert(0, entry)
@@ -147,6 +147,40 @@ class CliTest(CheckRecordTestCase):
         payload = json.loads(out)
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["issues"], [])
+
+
+class ModeAwareCheckTest(CheckRecordTestCase):
+    """check_record consults MODE_REQUIRED in the existing-work modes (keyed off run.mode) and
+    REQUIRED in build mode, via record.required_for (single source, RULE-11)."""
+
+    def test_refine_mode_flags_the_step_block_missing_then_passes(self):
+        rec = record.new_record(mode="refine")  # step 0 requires existing
+        issues = check_record.check(rec)
+        self.assertEqual(self._codes(issues), ["MISSING"])
+        self.assertIn("existing", issues[0]["path"])
+        rec["existing"] = [{"key": "PROJ-1"}]
+        self.assertEqual(check_record.check(rec), [])
+        # Step 1 requires changes.
+        rec["run"]["step"] = 1
+        self.assertEqual(self._codes(check_record.check(rec)), ["MISSING"])
+        self.assertIn("changes", check_record.check(rec)[0]["path"])
+
+    def test_size_and_plan_modes_gate_their_block(self):
+        size_rec = record.new_record(mode="size")
+        self.assertIn("sizing", check_record.check(size_rec)[0]["path"])
+        plan_rec = record.new_record(mode="plan")
+        self.assertIn("sprint_plan", check_record.check(plan_rec)[0]["path"])
+
+    def test_refine_mode_present_but_stale_block_is_flagged(self):
+        rec = record.new_record(mode="refine")
+        rec["existing"] = [{"key": "PROJ-1"}]
+        self.assertEqual(check_record.check(rec), [])
+        rec["stale"] = ["existing"]
+        issues = check_record.check(rec)
+        self.assertEqual(self._codes(issues), ["STALE"])
+
+    def test_mode_required_is_imported_from_record(self):
+        self.assertIs(check_record.MODE_REQUIRED, record.MODE_REQUIRED)
 
 
 if __name__ == "__main__":

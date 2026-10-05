@@ -30,8 +30,12 @@ from pathlib import Path
 import canonical
 
 # The content blocks a patch may replace. run is managed metadata and is never patched.
+# The first group is the S1 build-mode set (unchanged, INV-1). The four trailing blocks are the
+# additive S1b existing-work blocks: they are mode-gated, are NOT part of the build-mode CHAIN or
+# REQUIRED map, and are only required in their own mode (MODE_REQUIRED below).
 BLOCKS = ("setup", "idea", "glossary", "today", "playback", "decisions",
-          "assumptions", "outcome", "ticket_set_ref", "readiness", "posted")
+          "assumptions", "outcome", "ticket_set_ref", "readiness", "posted",
+          "existing", "changes", "sizing", "sprint_plan")
 
 # The dependency chain (REC-4). When a block changes, every block after it in this order goes
 # stale. run, setup, glossary, assumptions and outcome are outside the chain and are kept.
@@ -42,7 +46,7 @@ BLOCKS = ("setup", "idea", "glossary", "today", "playback", "decisions",
 # readiness.
 CHAIN = ("idea", "today", "playback", "decisions", "ticket_set_ref", "readiness", "posted")
 
-# The required blocks for each journey step (8.5 Record row).
+# The required blocks for each journey step (8.5 Record row). Build mode only (INV-1).
 REQUIRED = {
     0: ("setup",),
     1: ("idea",),
@@ -52,6 +56,57 @@ REQUIRED = {
     5: ("ticket_set_ref", "readiness"),
     6: ("posted",),
 }
+
+# The existing-work modes (refine, size, plan) do not walk the build-mode step chain. Each has its
+# own ordered required-blocks sequence (S1b Record extension). apply_advance and check_record
+# consult REQUIRED in build mode and MODE_REQUIRED in the other modes, keyed off run.mode, so the
+# build-mode behaviour is byte-for-byte unchanged (INV-1). The step indexes into the mode sequence:
+# in refine mode step 0 requires existing, step 1 requires changes.
+MODE_REQUIRED = {
+    "refine": ("existing", "changes"),
+    "size": ("sizing",),
+    "plan": ("sprint_plan",),
+}
+
+# Per-mode staleness, kept mode-local so it never touches the build-mode CHAIN. In refine mode
+# changes depends on existing: re-snapshotting existing marks changes stale. sizing and sprint_plan
+# have no dependents, so their modes carry no mode chain.
+MODE_CHAIN = {
+    "refine": ("existing", "changes"),
+}
+
+# The blocks that carry a REC-7 digest-bound approval (DD-3): changes (refine apply it, EDT-5) and
+# sprint_plan (plan apply it, SPR-6). sizing writes no field on its own and is never approved.
+APPROVABLE = ("changes", "sprint_plan")
+
+
+def block_digest(block):
+    """The REC-7/INV-8 digest of an approvable block.
+
+    sha256 over the canonical JSON of the block with its own digest field excluded, computed by
+    canonical.digest, so it is bound exactly as the build-mode ticket_set_ref digest is bound.
+    """
+    payload = {key: value for key, value in block.items() if key != "digest"}
+    return canonical.digest(payload)
+
+
+def required_for(record, step=None):
+    """Return the required blocks for a step, honouring run.mode (single source, RULE-11).
+
+    Build mode keeps its exact step-keyed REQUIRED map. The existing-work modes index their own
+    MODE_REQUIRED sequence by step (step 0 is the first required block, step 1 the second, and so
+    on); a step past the sequence requires nothing.
+    """
+    run = record.get("run") if isinstance(record, dict) else None
+    mode = run.get("mode", "build") if isinstance(run, dict) else "build"
+    if step is None and isinstance(run, dict):
+        step = run.get("step")
+    if mode == "build":
+        return REQUIRED.get(step, ())
+    sequence = MODE_REQUIRED.get(mode, ())
+    if isinstance(step, int) and 0 <= step < len(sequence):
+        return (sequence[step],)
+    return ()
 
 RUN_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
 
@@ -84,6 +139,10 @@ def new_record(run_id=None, mode="build"):
         "ticket_set_ref": {},
         "readiness": {},
         "posted": {"issues": [], "read_back": {}},
+        "existing": [],
+        "changes": {},
+        "sizing": {},
+        "sprint_plan": {},
         "stale": [],
         "approval": None,
     }
@@ -149,6 +208,16 @@ def apply_update(record, expect_revision, patch):
         went_back = any(present(record.get(block))
                         for block in dependents - set(patch))
 
+    # Per-mode staleness (S1b): mode-local and separate from the build CHAIN above, so build-mode
+    # behaviour is unchanged. In refine mode re-writing existing stales changes. In build mode the
+    # mode chain is empty and this is a no-op.
+    mode = record["run"].get("mode", "build")
+    mode_chain = MODE_CHAIN.get(mode, ())
+    mode_changed = [block for block in changed if block in mode_chain]
+    if mode_changed:
+        first = min(mode_chain.index(block) for block in mode_changed)
+        dependents.update(mode_chain[first + 1:])
+
     for block in patch:
         record[block] = patch[block]
 
@@ -173,21 +242,58 @@ def apply_advance(record, expect_revision):
         raise ValueError(
             "Stale revision: expected {0}, current {1}.".format(expect_revision, current))
     step = record["run"]["step"]
+    mode = record["run"].get("mode", "build")
     stale = set(record.get("stale", []))
-    missing = [block for block in REQUIRED.get(step, ()) if not present(record.get(block))]
+    required = required_for(record, step)
+    missing = [block for block in required if not present(record.get(block))]
     if missing:
         raise ValueError(
             "Cannot advance step {0}: missing {1}.".format(step, ", ".join(missing)))
-    blocked = [block for block in REQUIRED.get(step, ()) if block in stale]
+    blocked = [block for block in required if block in stale]
     if blocked:
         raise ValueError(
             "Cannot advance step {0}: stale {1}.".format(step, ", ".join(blocked)))
-    if step >= 6:
+    final_step = 6 if mode == "build" else len(MODE_REQUIRED.get(mode, ()))
+    if step >= final_step:
         raise ValueError("Already at the final step.")
     record["run"]["step"] = step + 1
     record["run"]["revision"] = current + 1
     record["run"]["updated_at"] = canonical.now()
     return "advanced"
+
+
+def apply_approve(record, expect_revision, block_name, message_ref):
+    """Bind a REC-7 approval over an approvable block (DD-3, EDT-5, SPR-6).
+
+    The approval records the block name, the block digest (block_digest, INV-8) and the message
+    reference of the explicit apply it, bound exactly as the build-mode ticket_set_ref approval is
+    bound. The expected-revision refusal applies in every mode. A later edit to the block pops the
+    approval through apply_update (approval set to None on every write), so an edit after approval
+    voids it (AC-34, AC-40).
+    """
+    validate(record)
+    current = record["run"]["revision"]
+    if expect_revision != current:
+        raise ValueError(
+            "Stale revision: expected {0}, current {1}.".format(expect_revision, current))
+    if block_name not in APPROVABLE:
+        raise ValueError(
+            "Only {0} may be approved.".format(" and ".join(APPROVABLE)))
+    if not canonical.text(message_ref):
+        raise ValueError("An approval needs the message reference of the explicit apply it.")
+    block = record.get(block_name)
+    if not isinstance(block, dict) or not present(block):
+        raise ValueError("Cannot approve the empty {0} block.".format(block_name))
+    if block_name in set(record.get("stale", [])):
+        raise ValueError("Cannot approve a stale {0} block; redo it first.".format(block_name))
+    record["approval"] = {
+        "block": block_name,
+        "digest": block_digest(block),
+        "message_ref": message_ref,
+    }
+    record["run"]["revision"] = current + 1
+    record["run"]["updated_at"] = canonical.now()
+    return "approved"
 
 
 def read(path):
@@ -220,6 +326,12 @@ def main(argv=None):
     advance.add_argument("--path", required=True, type=Path)
     advance.add_argument("--expect-revision", required=True, type=int)
 
+    approve = sub.add_parser("approve")
+    approve.add_argument("--path", required=True, type=Path)
+    approve.add_argument("--expect-revision", required=True, type=int)
+    approve.add_argument("--block", required=True, choices=APPROVABLE)
+    approve.add_argument("--message-ref", required=True)
+
     args = parser.parse_args(argv)
 
     if args.command == "init":
@@ -241,6 +353,8 @@ def main(argv=None):
     if args.command == "update":
         patch = canonical.load(args.patch)
         status = apply_update(record, args.expect_revision, patch)
+    elif args.command == "approve":
+        status = apply_approve(record, args.expect_revision, args.block, args.message_ref)
     else:
         status = apply_advance(record, args.expect_revision)
 

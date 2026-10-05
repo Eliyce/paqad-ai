@@ -30,11 +30,19 @@ if BUILD_DIR not in sys.path:
     sys.path.insert(0, BUILD_DIR)
 import build  # noqa: E402
 
-# The two entry skills a user may start directly (PLG-8/CI-11); every other skill is a step skill.
-ENTRY_SKILLS = {"product-discovery", "ask-project"}
+# The entry skills a user may start directly (PLG-8/CI-11); every other skill is a step skill.
+# S1b adds the three existing-work skills as entry skills (FR-13), bringing the set to five.
+ENTRY_SKILLS = {
+    "product-discovery",
+    "ask-project",
+    "refine-ticket",
+    "size-work",
+    "plan-sprint",
+}
 # A step skill's description states it runs only when the journey directs it.
 STEP_PHRASE = "journey directs it"
-# The script-bearing skills that must carry a checklist fallback (PLG-6).
+# The script-bearing skills that must carry a checklist fallback (PLG-6). S1b adds refine-ticket,
+# size-work and plan-sprint: each ships its own scripts/*.py and declares shared scripts/*.py.
 SCRIPT_BEARING_SKILLS = {
     "product-discovery",
     "ask-project",
@@ -42,6 +50,9 @@ SCRIPT_BEARING_SKILLS = {
     "ground-in-project",
     "check-tickets",
     "post-tickets",
+    "refine-ticket",
+    "size-work",
+    "plan-sprint",
 }
 
 VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai", re.IGNORECASE)
@@ -80,10 +91,17 @@ def iter_source_files(root):
 
 
 def skill_dirs():
+    """Return the authored skill directories: those that carry a SKILL.md.
+
+    A skill directory that holds only scripts/ (its SKILL.md and references are authored in a
+    later wave) is not yet an authored skill, so the authoring assertions below do not apply to
+    it until its SKILL.md exists. Every S1 skill has a SKILL.md and so is always included.
+    """
     return sorted(
         name
         for name in os.listdir(SKILLS_ROOT)
         if os.path.isdir(os.path.join(SKILLS_ROOT, name))
+        and os.path.isfile(os.path.join(SKILLS_ROOT, name, "SKILL.md"))
     )
 
 
@@ -241,10 +259,10 @@ def _declared_imports_by_skill():
 
 
 class TriggerHygieneTest(unittest.TestCase):
-    """AC-19 (PLG-8/CI-11): the entry skills are exactly {product-discovery, ask-project} and may
-    invite direct use; every other skill is a step skill whose description states it runs only when
-    the product-discovery journey directs it, so a host never fires a step skill on its own before a
-    run exists."""
+    """AC-19 (PLG-8/CI-11): the entry skills are exactly the five {product-discovery, ask-project,
+    refine-ticket, size-work, plan-sprint} and may invite direct use; every other skill is a step
+    skill whose description states it runs only when the product-discovery journey directs it, so a
+    host never fires a step skill on its own before a run exists."""
 
     def test_entry_skills_present(self):
         skills = set(skill_dirs())

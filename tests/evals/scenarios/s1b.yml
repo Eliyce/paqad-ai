@@ -1,0 +1,90 @@
+# S1b conversation eval scenarios.
+#
+# These are declarative now. They are authored here in S1b but are NOT run in CI until S3, when the
+# host eval runner executes them against the built plugin, the fixture repository under
+# tests/evals/fixture-repo (including the invented fixture tracker under tracker/), and a fake
+# tracker (CI-12). Each scenario below maps one-to-one to a conversation-shape acceptance scenario
+# in the frozen S1b spec. The script-proven acceptance criteria (AC-31, AC-32, AC-34, AC-36, AC-37,
+# AC-39, AC-40, AC-41) are covered by the unit suite (test_refine.py, test_sizing.py, test_sprint.py,
+# test_record.py) and need no scenario here.
+#
+# Schema (one entry per scenario), identical to s1.yml:
+#   id            a stable scenario id, e.g. ac-30, referenced from the spec as s1b.yml#ac-30.
+#   title         a short human label.
+#   acceptance    the acceptance criterion this scenario proves.
+#   entry_skill   the skill a host would route the first user message to. S1b's three skills are all
+#                 entry skills (FR-13): refine-ticket, size-work, plan-sprint.
+#   fixture       the fixture the scenario reads, under tests/evals/fixture-repo. The S1b scenarios
+#                 read the fixture tracker under tracker/ (with the ticket key in play) and, where an
+#                 AC turns on a documented business rule or template text, the module doc too.
+#   user          the user message, or an ordered list of messages for a multi-turn scenario.
+#   expect        a list of checkable properties the reply must satisfy, drawn from the conversation
+#                 contract (CI-12) and each AC's "then" clause. Properties check behaviour, never
+#                 exact wording.
+#
+# Property vocabulary used below (all provider-neutral, all checkable):
+#   problems-named-with-evidence   each problem is named with the evidence for it (the missing field,
+#                                  the jargon word, the business rule it contradicts and its source).
+#   before-after-per-field         the proposal is a field-by-field before and after change set,
+#                                  limited to summary, description, labels, parent, links and children.
+#   nothing-written-until-apply    nothing is written to the tracker until an explicit "apply it".
+#   plain-business-words           plain business words; no code names or file paths in the body.
+#   split-into-linked-tickets      a split creates new linked child tickets under the same epic.
+#   original-kept                  the original ticket is kept, never deleted or closed.
+#   size-labelled-as-suggestion    the size is labelled a suggestion for the team, never a date.
+#   drivers-and-confidence         the size carries its drivers and a low, medium or high confidence.
+#   comparables-with-links         two to five closest finished tickets are shown with keys and links.
+#   no-field-written               no size field is written (this scenario only suggests).
+#   capacity-derived-and-shown     capacity is derived from the last three sprints and shown as derived.
+#   goal-and-fitting-in-priority   a goal plus the fitting tickets in priority order within capacity.
+#   stretch-left-out-and-risks     stretch tickets, left-out-with-reasons, total-versus-capacity, risks.
+
+scenarios:
+  - id: ac-30
+    title: Refine diagnoses a vague, jargon-laden, rule-contradicting ticket
+    acceptance: AC-30
+    entry_skill: refine-ticket
+    fixture: tracker/SUB-42, subscriptions/features/manage-subscription
+    user: "Have a look at SUB-42 and tidy it up."
+    expect:
+      - problems-named-with-evidence
+      - before-after-per-field
+      - nothing-written-until-apply
+      - plain-business-words
+
+  - id: ac-33
+    title: Split a ticket that is really three pieces of work
+    acceptance: AC-33
+    entry_skill: refine-ticket
+    fixture: tracker/SUB-60
+    user:
+      - "SUB-60 feels too big, can you split it?"
+      - "Yes, apply it."
+    expect:
+      - split-into-linked-tickets
+      - original-kept
+      - nothing-written-until-apply
+
+  - id: ac-35
+    title: Size a ticket from comparable finished work
+    acceptance: AC-35
+    entry_skill: size-work
+    fixture: tracker/SUB-70
+    user: "How big is SUB-70?"
+    expect:
+      - drivers-and-confidence
+      - comparables-with-links
+      - size-labelled-as-suggestion
+      - no-field-written
+
+  - id: ac-38
+    title: Plan the next sprint from derived capacity
+    acceptance: AC-38
+    entry_skill: plan-sprint
+    fixture: tracker/Sprint 24
+    user: "Plan the next sprint for us."
+    expect:
+      - capacity-derived-and-shown
+      - goal-and-fitting-in-priority
+      - stretch-left-out-and-risks
+      - nothing-written-until-apply

@@ -24,6 +24,8 @@ skills:
       - references/voice.md
       - references/consulting.md
       - scripts/canonical.py
+      - scripts/record.py
+      - scripts/check_record.py
   - name: ask-project
     imports:
       - references/voice.md
@@ -56,13 +58,42 @@ skills:
     imports:
       - references/voice.md
       - references/plain-language.md
+      - references/writing-rules.md
   - name: check-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
       - scripts/canonical.py
+      - scripts/check_prose.py
   - name: post-tickets
     imports:
       - references/voice.md
       - references/tracker-profiles/jira.md
       - scripts/canonical.py
+      - scripts/check_readback.py
+  - name: refine-ticket
+    imports:
+      - references/voice.md
+      - references/writing-rules.md
+      - references/plain-language.md
+      - references/tracker-profiles/jira.md
+      - scripts/canonical.py
+      - scripts/record.py
+      - scripts/check_record.py
+      - scripts/check_prose.py
+      - scripts/check_readback.py
+  - name: size-work
+    imports:
+      - references/voice.md
+      - references/tracker-profiles/jira.md
+      - scripts/canonical.py
+      - scripts/record.py
+      - scripts/check_record.py
+  - name: plan-sprint
+    imports:
+      - references/voice.md
+      - references/tracker-profiles/jira.md
+      - scripts/canonical.py
+      - scripts/record.py
+      - scripts/check_record.py
+      - scripts/check_readback.py

@@ -20,10 +20,13 @@ from pathlib import Path
 import canonical
 import record
 
-# The required-blocks map and the present() test are the single canonical definitions in
-# record.py (RULE-11). This reader imports them rather than keeping its own copies, so the
-# two files can never drift. record.py is safe to import: its CLI is guarded by __main__.
+# The required-blocks map, the mode-specific required map and the present() test are the single
+# canonical definitions in record.py (RULE-11). This reader imports them rather than keeping its
+# own copies, so the two files can never drift. record.py is safe to import: its CLI is guarded by
+# __main__. Which map governs a given record is decided by record.required_for, keyed off run.mode:
+# REQUIRED in build mode and MODE_REQUIRED in the existing-work modes.
 REQUIRED = record.REQUIRED
+MODE_REQUIRED = record.MODE_REQUIRED
 present = record.present
 
 
@@ -33,12 +36,14 @@ def check(rec, step=None):
     run = rec.get("run")
     if not isinstance(run, dict):
         return [canonical.issue("RECORD", "run", "Record is missing its run block.")]
+    mode = run.get("mode", "build")
     if step is None:
         step = run.get("step")
-    if step not in REQUIRED:
+    # Build mode keeps its exact step-keyed behaviour, including the unknown-step guard (INV-1).
+    if mode == "build" and step not in REQUIRED:
         return [canonical.issue("STEP", "step", "Unknown step {0}.".format(step))]
     stale = set(rec.get("stale", []))
-    for block in REQUIRED[step]:
+    for block in record.required_for(rec, step):
         path = "step {0} -> {1}".format(step, block)
         if not present(rec.get(block)):
             issues.append(canonical.issue("MISSING", path, "Required block is missing or empty."))

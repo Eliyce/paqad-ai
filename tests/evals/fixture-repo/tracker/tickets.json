@@ -1,0 +1,173 @@
+{
+  "_note": "Invented tracker tickets for testing only. See README.md in this folder.",
+  "tickets": [
+    {
+      "key": "SUB-1",
+      "summary": "Epic: self-serve subscription management",
+      "description": "Umbrella epic for letting customers manage their own subscription.",
+      "labels": ["epic", "subscriptions"],
+      "parent": null,
+      "links": [],
+      "status": "In Progress",
+      "size": null,
+      "sprint": null,
+      "last_updated": "2026-09-01T09:00:00Z"
+    },
+    {
+      "key": "SUB-42",
+      "summary": "Let people pause stuff",
+      "description": "We should let the user leverage a self-serve flow to pause whenever. Should also work for cancelled plans so they can pause those too, for as many cycles as they want.",
+      "labels": ["subscriptions"],
+      "parent": "SUB-1",
+      "links": [],
+      "status": "To Do",
+      "size": null,
+      "sprint": null,
+      "last_updated": "2026-09-20T14:30:00Z"
+    },
+    {
+      "key": "SUB-55",
+      "summary": "Redesign the pause confirmation screen",
+      "description": "Match the new confirmation layout.\n[image: pause-confirmation-mock.png]\n[panel: note] Keep the existing copy for the resume date; legal has signed off on it. [/panel]\nThe screen shows the resume date and the next charge date.",
+      "labels": ["subscriptions", "design"],
+      "parent": "SUB-1",
+      "links": [],
+      "status": "To Do",
+      "size": null,
+      "sprint": null,
+      "last_updated": "2026-09-22T11:15:00Z"
+    },
+    {
+      "key": "SUB-60",
+      "summary": "Pause, resume and send reminders",
+      "description": "Customers can pause a plan themselves, resume it early from the account page, and get an email reminder a few days before a pause ends. Each of these is its own screen and its own flow.",
+      "labels": ["subscriptions"],
+      "parent": "SUB-1",
+      "links": [],
+      "status": "To Do",
+      "size": null,
+      "sprint": null,
+      "last_updated": "2026-09-23T16:45:00Z"
+    },
+    {
+      "key": "SUB-20",
+      "summary": "Add a pause button to the account page",
+      "description": "A customer can pause an active plan from the account page. Done when the button pauses the plan, shows the resume date, and is hidden for cancelled plans.",
+      "labels": ["subscriptions"],
+      "parent": "SUB-1",
+      "links": [{"key": "SUB-1", "type": "child of"}],
+      "status": "Done",
+      "size": 3,
+      "sprint": "Sprint 21",
+      "last_updated": "2026-07-18T10:00:00Z"
+    },
+    {
+      "key": "SUB-21",
+      "summary": "Resume a paused plan early",
+      "description": "A customer can resume a paused plan before the pause ends. Done when the next charge date is recomputed and shown.",
+      "labels": ["subscriptions"],
+      "parent": "SUB-1",
+      "links": [{"key": "SUB-20", "type": "relates to"}],
+      "status": "Done",
+      "size": 5,
+      "sprint": "Sprint 22",
+      "last_updated": "2026-08-15T10:00:00Z"
+    },
+    {
+      "key": "SUB-22",
+      "summary": "Email a reminder before a pause ends",
+      "description": "Send the customer an email a few days before a paused plan resumes. Done when the email sends once per pause and links back to the account page.",
+      "labels": ["subscriptions", "notifications"],
+      "parent": "SUB-1",
+      "links": [],
+      "status": "Done",
+      "size": 5,
+      "sprint": "Sprint 23",
+      "last_updated": "2026-09-05T10:00:00Z"
+    },
+    {
+      "key": "ORD-15",
+      "summary": "Show order history on the account page",
+      "description": "A customer sees their recent orders on the account page. Done when the last ten orders are listed with dates and totals.",
+      "labels": ["orders"],
+      "parent": null,
+      "links": [],
+      "status": "Done",
+      "size": 8,
+      "sprint": "Sprint 22",
+      "last_updated": "2026-08-12T10:00:00Z"
+    },
+    {
+      "key": "SUB-70",
+      "summary": "Let a customer change their pause length",
+      "description": "A customer can shorten or extend an existing pause within the allowed limit. Done when the new resume date is saved and shown.",
+      "labels": ["subscriptions"],
+      "parent": "SUB-1",
+      "links": [],
+      "status": "To Do",
+      "size": 3,
+      "sprint": null,
+      "last_updated": "2026-09-25T09:30:00Z"
+    },
+    {
+      "key": "SUB-71",
+      "summary": "Show a banner while a plan is paused",
+      "description": "Show a banner on the account page while a plan is paused, with the resume date. Done when the banner appears only for paused plans.",
+      "labels": ["subscriptions"],
+      "parent": "SUB-1",
+      "links": [],
+      "status": "To Do",
+      "size": 2,
+      "sprint": null,
+      "last_updated": "2026-09-25T09:35:00Z"
+    },
+    {
+      "key": "ORD-40",
+      "summary": "Export a customer's order history to a file",
+      "description": "Support can export a customer's order history as a file. Done when the file downloads with one row per order.",
+      "labels": ["orders", "export"],
+      "parent": null,
+      "links": [],
+      "status": "To Do",
+      "size": 5,
+      "sprint": null,
+      "last_updated": "2026-09-24T13:00:00Z"
+    },
+    {
+      "key": "DEX-30",
+      "summary": "Add a self-serve data export request",
+      "description": "A customer can request an export of their own data from the account page. Done when the request is queued and the customer sees a confirmation.",
+      "labels": ["data-export"],
+      "parent": null,
+      "links": [],
+      "status": "To Do",
+      "size": null,
+      "sprint": null,
+      "last_updated": "2026-09-26T08:00:00Z"
+    },
+    {
+      "key": "DEX-31",
+      "summary": "Email the export file when it is ready",
+      "description": "Email the customer a secure link when their export file is ready. Done when the link expires after a day.",
+      "labels": ["data-export", "notifications"],
+      "parent": null,
+      "links": [{"key": "DEX-50", "type": "blocked by"}],
+      "status": "To Do",
+      "size": 3,
+      "sprint": null,
+      "last_updated": "2026-09-26T08:05:00Z"
+    },
+    {
+      "key": "DEX-50",
+      "summary": "Stand up the secure file store",
+      "description": "Provide the secure store that export files are written to. Owned by the platform team.",
+      "labels": ["data-export", "platform"],
+      "parent": null,
+      "links": [],
+      "status": "In Progress",
+      "size": 8,
+      "sprint": null,
+      "last_updated": "2026-09-18T12:00:00Z"
+    }
+  ]
+}

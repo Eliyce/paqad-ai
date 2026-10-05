@@ -1,0 +1,22 @@
+{
+  "_note": "Invented sprint board for testing only. See README.md in this folder.",
+  "future_sprint": {
+    "name": "Sprint 24",
+    "status": "future",
+    "starts": "2026-10-12",
+    "ends": "2026-10-23"
+  },
+  "completed_sprints": [
+    {"name": "Sprint 21", "committed": 20, "completed": 18},
+    {"name": "Sprint 22", "committed": 24, "completed": 24},
+    {"name": "Sprint 23", "committed": 22, "completed": 20}
+  ],
+  "derived_capacity_note": "Average completed over the last three sprints is (18 + 24 + 20) / 3 = about 21 points. The planner shows this as a derived number the team can override.",
+  "candidate_pool": [
+    {"key": "SUB-70", "ready": true, "reason": "Sized and has a done-when."},
+    {"key": "SUB-71", "ready": true, "reason": "Sized and has a done-when."},
+    {"key": "ORD-40", "ready": true, "reason": "Sized and has a done-when."},
+    {"key": "DEX-30", "ready": false, "reason": "No size yet; needs sizing before it can fit."},
+    {"key": "DEX-31", "ready": false, "reason": "Blocked by DEX-50, which is unfinished and not in this sprint."}
+  ]
+}
