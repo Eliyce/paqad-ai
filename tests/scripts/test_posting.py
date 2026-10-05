@@ -303,6 +303,115 @@ class ReadbackTest(unittest.TestCase):
         self.assertEqual(status, "match")
 
 
+class ReadbackChangeSetTest(unittest.TestCase):
+    """check_readback accepts a refine change set, not only a post-tickets ticket set (TD-12).
+
+    Proves the EDT-10 refine read-back: only the changed fields of the edited ticket (plus any new
+    children) are checked, replace needs equality while an append only needs the text present,
+    labels and links use subset, and an unrelated live issue is never flagged EXTRA.
+    """
+
+    def _change_set(self, changes, new_children=None):
+        return {
+            "ticket_key": "ABC-1",
+            "changes": changes,
+            "new_children": new_children or [],
+            "digest": "ignored-here",
+        }
+
+    def _edited(self, **fields):
+        issue = {"ref": "ABC-1", "title": "After summary", "body": "After description.",
+                 "labels": [], "parent": "", "links": []}
+        issue.update(fields)
+        return issue
+
+    def test_full_replace_matches(self):
+        change_set = self._change_set([
+            {"field": "summary", "before": "Old", "after": "New summary", "op": "replace"},
+            {"field": "description", "before": "Old body", "after": "New body", "op": "replace"},
+            {"field": "labels", "before": [], "after": ["returns"], "op": "replace"},
+            {"field": "parent", "before": "", "after": "EPIC-2", "op": "replace"},
+            {"field": "links", "before": [], "after": ["ABC-9"], "op": "replace"},
+        ])
+        live = [self._edited(title="New summary", body="New body",
+                             labels=["returns", "run-DR-1"], parent="EPIC-2",
+                             links=[{"target": "ABC-9"}])]
+        status, differences = check_readback.compare(change_set, live)
+        self.assertEqual(status, "match")
+        self.assertEqual(differences, [])
+
+    def test_append_section_only_needs_the_text_present(self):
+        change_set = self._change_set([
+            {"field": "description", "before": "Keep this.",
+             "after": "A new acceptance section.", "op": "append_section"},
+        ])
+        live = [self._edited(body="Keep this.\n\n## Done when\nA new acceptance section.")]
+        status, _ = check_readback.compare(change_set, live)
+        self.assertEqual(status, "match")
+
+    def test_append_comment_checks_comments(self):
+        change_set = self._change_set([
+            {"field": "description", "before": "Rich desc with ![img](a.png).",
+             "after": "Extra note.", "op": "append_comment"},
+        ])
+        live = [self._edited(body="Rich desc with ![img](a.png).",
+                             comments=["Extra note."])]
+        status, _ = check_readback.compare(change_set, live)
+        self.assertEqual(status, "match")
+
+    def test_missing_edited_ticket(self):
+        change_set = self._change_set([
+            {"field": "summary", "before": "Old", "after": "New summary", "op": "replace"},
+        ])
+        status, differences = check_readback.compare(change_set, [])
+        self.assertEqual(status, "mismatch")
+        self.assertTrue(any(d["code"] == "MISSING" for d in differences))
+
+    def test_field_that_did_not_land_is_a_diff(self):
+        change_set = self._change_set([
+            {"field": "summary", "before": "Old", "after": "New summary", "op": "replace"},
+        ])
+        live = [self._edited(title="A different summary")]
+        status, differences = check_readback.compare(change_set, live)
+        self.assertEqual(status, "mismatch")
+        self.assertTrue(any(d["code"] == "DIFF" and "summary" in d["message"]
+                            for d in differences))
+
+    def test_new_child_present_then_absent(self):
+        child = {"title": "Split part two", "parent_epic": "EPIC-2", "link_to": "ABC-1"}
+        change_set = self._change_set(
+            [{"field": "summary", "before": "Old", "after": "New summary", "op": "replace"}],
+            new_children=[child])
+        base = self._edited(title="New summary")
+        present = [base, {"ref": "ABC-2", "title": "Split part two", "parent": "EPIC-2"}]
+        status, _ = check_readback.compare(change_set, present)
+        self.assertEqual(status, "match")
+
+        status, differences = check_readback.compare(change_set, [base])
+        self.assertEqual(status, "partial")
+        self.assertTrue(any(d["code"] == "MISSING" for d in differences))
+
+    def test_unrelated_live_issue_is_not_flagged_extra(self):
+        change_set = self._change_set([
+            {"field": "summary", "before": "Old", "after": "New summary", "op": "replace"},
+        ])
+        live = [self._edited(title="New summary"),
+                {"ref": "ZZZ-9", "title": "Unrelated ticket", "parent": "EPIC-7"}]
+        status, differences = check_readback.compare(change_set, live)
+        self.assertEqual(status, "match")
+        self.assertFalse(any(d["code"] == "EXTRA" for d in differences))
+
+    def test_snapshot_fields_shape_is_accepted(self):
+        change_set = self._change_set([
+            {"field": "summary", "before": "Old", "after": "New summary", "op": "replace"},
+            {"field": "labels", "before": [], "after": ["returns"], "op": "replace"},
+        ])
+        live = [{"key": "ABC-1",
+                 "fields": {"summary": "New summary", "labels": ["returns"]}}]
+        status, _ = check_readback.compare(change_set, live)
+        self.assertEqual(status, "match")
+
+
 class ExportCsvTest(unittest.TestCase):
     def _rows(self):
         text = export_csv.to_csv(posting_set())

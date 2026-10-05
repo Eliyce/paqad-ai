@@ -62,6 +62,8 @@ Behaviour:
 
 Other scripts the skill calls (owned elsewhere): `check_prose.py --ticket-set <draft.json>` (`tracker-checks`), `check_readback.py --approved <change-set.json> --created <live-after.json>` (`tracker-checks`), `record.py` and `check_record.py` (`discovery-record`).
 
+`check_readback.py` understands the change set directly (its `compare_change_set` path): it checks only the changed fields of the edited ticket (identified by `ticket_key`) plus any `new_children`, treats a `replace` op as equality and an `append_section` or `append_comment` op as "the after-text is present", uses subset for labels and links, and never flags an unrelated live issue. The live-after file reads leniently, accepting either the created-issue shape (`title`, `body`) or the snapshot `fields` shape (`summary`, `description`).
+
 ## State Management
 
 - Record created with `record.py init --mode refine`. `MODE_REQUIRED["refine"] = ("existing", "changes")`: step 0 needs `existing`, step 1 needs `changes`; final step is 2.

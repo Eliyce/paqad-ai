@@ -1,0 +1,36 @@
+# Plugin Build
+
+Turns the repository's skills and shared material into the installable, skills-only plugin, and writes every host manifest from one set of values so they can never disagree.
+
+| | |
+|---|---|
+| Layer | build-and-delivery |
+| Confidence | high |
+| Entry skill | none (build and delivery) |
+| Depends on | none |
+| Used by | [quality-and-release](../../quality-and-release/index/summary.md) |
+
+## Features
+
+| Feature | What it does | Docs |
+|---|---|---|
+| Assemble the plugin output | Reads `build/skills.yml`, refuses undeclared shared imports, wipes and rebuilds `dist/`, copies each skill plus its declared shared files | [business](../features/assemble-dist/business.md), [technical](../features/assemble-dist/technical.md) |
+| Generate host manifests | Writes the two marketplace files and the two plugin manifests from the same values, deterministically | [business](../features/generate-manifests/business.md), [technical](../features/generate-manifests/technical.md) |
+
+## Sources
+
+| Path | Role |
+|---|---|
+| `build/build.py` | The build: config reader, import check, copy, manifests, CLI |
+| `build/skills.yml` | Single source of truth: plugin identity and each skill's shared imports |
+| `tests/scripts/test_build.py` | Unit tests for the build (owned by quality-and-release) |
+
+## Requirements
+
+- PLG-1, PLG-2: skills only; no `agents/`, `hooks/`, `commands/`, `bin/`, `.mcp.json`, `mcp.json` or `.app.json`.
+- PLG-5: Python 3.9+, standard library only, no network.
+- PLG-9: shared material held once and copied into each declaring skill.
+- PLG-10: each skill declares its shared imports; the build fails on an undeclared one.
+- PLG-11: every manifest generated from one source of truth.
+- CI-8: build succeeds, rejects undeclared imports, two builds are identical.
+- Not built: PLG-12 per-host distribution branches (only needed if U-2 or U-12 fails).

@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
-"""Compare the created issues to the approved set after normalisation (PUB-6).
+"""Compare the created or updated issues to the approved work after normalisation (PUB-6, EDT-10).
 
-Reads the approved ticket set and the created issues, normalises each comparable field, and
-reports whether the created issues match the approved set. A partial result (some issues match,
-some are missing or differ) is reported as partial, never as done.
+Reads the approved work and the live issues, normalises each comparable field, and reports
+whether the live issues match what was approved. A partial result (some match, some are missing
+or differ) is reported as partial, never as done.
+
+Two approved shapes are understood, chosen by content:
+
+1. A post-tickets ticket set (has "epics"): every approved epic and ticket must appear in the
+   created issues, and a created issue outside the approved set is flagged EXTRA (PUB-6).
+
+2. A refine change set (has "changes", no "epics"): only the fields the refine changed on the
+   edited ticket, plus any declared new children, are checked against the live-after issues; a
+   live issue outside the change set is NOT flagged, since re-reading a ticket legitimately
+   returns issues the refine never touched (EDT-10).
 
 Normalisation removes whitespace differences, list markers and escaping from body text, folds
 labels and links into sets, and reduces the Sources item reference to the run ID plus item
@@ -12,11 +22,20 @@ reference.
 Standard library only. No network. Read-only.
 
 CLI:
-  check_readback.py --approved <ticket-set.json> --created <created-issues.json>
+  check_readback.py --approved <ticket-set.json | change-set.json> --created <live-issues.json>
 
-The created issues file is a list of objects:
+The created issues file is a list of objects. For a ticket set:
   { "ref", "title", "type", "parent" (parent ref), "labels" [..], "links" [{"target": ref}..],
     "sources_ref" (e.g. "DR-20261005-7K2Q / E1-T1"), "body" }
+For a change set the live-after issues are read leniently, so the refine snapshot "fields" shape
+works too: "ref" or "key"; "summary" or "title"; "description" or "body"; "labels"; "parent";
+"links" as plain refs or {"target": ref}; and an optional "comments" [..] used to confirm an
+append_comment op.
+
+The change set is the object diff_ticket.py emits:
+  { "ticket_key", "changes": [{"field", "before", "after", "op"}], "new_children": [..], "digest" }
+where "field" is one of summary, description, labels, parent, links and "op" is one of replace,
+append_section, append_comment.
 
 stdout: {"ok", "status" (match | partial | mismatch), "differences": [..]}. Exit 0 on a full
 match, 1 otherwise.
@@ -95,8 +114,127 @@ def created_record(issue):
     }
 
 
+def _live_field(issue, field):
+    """Read one edited-ticket field from either the created-issue or the snapshot shape.
+
+    A live-after issue may be flat (post-tickets created-issue shape: title/body/...) or carry a
+    nested "fields" object (the refine snapshot shape: summary/description/...). summary reads from
+    "summary" then "title"; description reads from "description" then "body"; the rest share a key.
+    """
+    src = issue.get("fields") if isinstance(issue.get("fields"), dict) else issue
+    if field == "summary":
+        return src.get("summary", src.get("title"))
+    if field == "description":
+        return src.get("description", src.get("body"))
+    return src.get(field)
+
+
+def _link_set(links):
+    """Fold links into a normalised ref set, accepting plain refs or {"target": ref} objects."""
+    refs = set()
+    for link in links or []:
+        target = link.get("target") if isinstance(link, dict) else link
+        refs.add(norm_ref(target))
+    return refs
+
+
+def _field_landed(issue, field, after, op):
+    """True when the live-after issue reflects one approved field change (EDT-10).
+
+    A replace op must match the after-value exactly after normalisation. An append op adds
+    content, so the after-text only has to be present: in the body for append_section, and in a
+    comment (or the body) for append_comment. labels and links use subset so unrelated values the
+    tracker already held do not count as a miss.
+    """
+    if field == "summary":
+        return norm_title(after) == norm_title(_live_field(issue, "summary"))
+    if field == "description":
+        want = norm_text(after)
+        body = norm_text(_live_field(issue, "description"))
+        if op == "replace":
+            return want == body
+        if want and want in body:
+            return True
+        if op == "append_comment":
+            return any(want and want in norm_text(comment)
+                       for comment in issue.get("comments", []) or [])
+        return False
+    if field == "labels":
+        return set(after or []).issubset(set(_live_field(issue, "labels") or []))
+    if field == "parent":
+        return norm_ref(after) == norm_ref(_live_field(issue, "parent"))
+    if field == "links":
+        return _link_set(after).issubset(_link_set(_live_field(issue, "links")))
+    return False
+
+
+def _child_present(child, created):
+    """True when a live-after issue matches a declared new child by title under its parent epic."""
+    title = norm_title(child.get("title"))
+    parent = norm_ref(child.get("parent_epic"))
+    return any(norm_title(_live_field(issue, "summary")) == title
+               and norm_ref(_live_field(issue, "parent")) == parent
+               for issue in created)
+
+
+def compare_change_set(change_set, created):
+    """Compare a refine change set to the live-after issues (EDT-10).
+
+    Only the fields the refine changed on the edited ticket, plus any declared new children, are
+    checked. A live issue outside the change set is never flagged, since a re-read legitimately
+    returns tickets the refine never touched. The match/partial/mismatch rule is the same as the
+    ticket-set path.
+    """
+    actual = {}
+    for issue in created:
+        ref = issue.get("ref") if issue.get("ref") is not None else issue.get("key")
+        if ref is not None:
+            actual[norm_ref(ref)] = issue
+
+    differences = []
+    matched = 0
+
+    ticket_key = change_set.get("ticket_key")
+    edited = actual.get(norm_ref(ticket_key))
+    if edited is None:
+        differences.append(canonical.issue(
+            "MISSING", str(ticket_key or ""), "Edited ticket was not found in the read-back."))
+    else:
+        field_diffs = [change.get("field") for change in change_set.get("changes", [])
+                       if not _field_landed(edited, change.get("field"), change.get("after"),
+                                            change.get("op", "replace"))]
+        if field_diffs:
+            differences.append(canonical.issue(
+                "DIFF", str(ticket_key or ""),
+                "Changed fields not confirmed after normalisation: " + ", ".join(field_diffs)))
+        else:
+            matched += 1
+
+    for child in change_set.get("new_children", []) or []:
+        if _child_present(child, created):
+            matched += 1
+        else:
+            differences.append(canonical.issue(
+                "MISSING", str(child.get("title") or ""),
+                "New child ticket was not found in the read-back."))
+
+    if not differences:
+        status = "match"
+    elif matched > 0:
+        status = "partial"
+    else:
+        status = "mismatch"
+    return status, differences
+
+
 def compare(approved, created):
-    """Return (status, differences). status is match, partial or mismatch."""
+    """Return (status, differences). status is match, partial or mismatch.
+
+    A change set (carries "changes" and no "epics") is read back field-by-field against the
+    edited ticket (EDT-10); every other shape is the post-tickets ticket set (PUB-6).
+    """
+    if isinstance(approved, dict) and "changes" in approved and "epics" not in approved:
+        return compare_change_set(approved, created)
     expected = expected_items(approved)
     actual = {issue.get("ref"): created_record(issue) for issue in created}
 

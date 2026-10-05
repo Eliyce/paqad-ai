@@ -1,0 +1,43 @@
+# Quality and Release
+
+Proves the plugin behaves as specified and gets it to users: script and authoring tests, conversation eval scenarios with fixtures, CI and release workflows, and the manual per-host verification harness.
+
+| | |
+|---|---|
+| Layer | build-and-delivery |
+| Confidence | medium |
+| Entry skill | none (build and delivery) |
+| Depends on | [plugin-build](../../plugin-build/index/summary.md) |
+| Used by | none |
+
+## Features
+
+| Feature | What it does | Docs |
+|---|---|---|
+| Script and authoring tests | 154 standard-library unit tests over every script, the build and the authoring rules | [business](../features/unit-tests/business.md), [technical](../features/unit-tests/technical.md) |
+| Conversation eval scenarios | 29 declarative scenarios plus a fictional onboarded repository and tracker; authored, not yet run | [business](../features/conversation-evals/business.md), [technical](../features/conversation-evals/technical.md) |
+| CI and release workflows | Pull request checks (unit tests and deterministic build run today), nightly evals and release, the rest as labelled placeholders | [business](../features/ci-pipeline/business.md), [technical](../features/ci-pipeline/technical.md) |
+| Manual host verification | Install steps and a verdict table per host for the open unknowns; every verdict is still pending | [business](../features/host-verification/business.md), [technical](../features/host-verification/technical.md) |
+
+## Sources
+
+| Path | Role |
+|---|---|
+| `tests/scripts/` | 13 unit test files |
+| `tests/evals/scenarios/` | `s1.yml`, `s1b.yml`, `README.md` |
+| `tests/evals/fixture-repo/` | Fictional onboarded `docs/` and fixture tracker |
+| `.github/workflows/ci.yml` | Pull request checks |
+| `.github/workflows/verify.yml` | Nightly conversation evals |
+| `.github/workflows/release.yml` | Release |
+| `.changeset/README.md` | Changeset placeholder |
+| `hosts/claude.md`, `hosts/chatgpt.md`, `hosts/codex.md` | Manual install and verdict harness per host; not shipped |
+
+## Requirements
+
+- CI-1 to CI-11, CI-20: pull request checks (only CI-7, without coverage gate, and CI-8 run today).
+- CI-12, CI-13: conversation evals (placeholders).
+- CI-14, CI-15: release (placeholders).
+- CI-18, CI-19: post-release smoke test and per-host support state (harness exists, no verdicts).
+- PLG-6: checklist fallback asserted for every script-bearing skill.
+- PLG-7: host setup documented for people in `hosts/*.md`, not in skills.
+- Section 13 acceptance scenarios: script-proven ones in the unit suite, conversation-shape ones in the eval scenarios.
