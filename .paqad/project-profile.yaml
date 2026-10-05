@@ -5,12 +5,16 @@ project:
 commands:
   install: echo "choose an application stack first (paqad discovery / onboard)"
   dev: echo "choose an application stack first (paqad discovery / onboard)"
-  test: echo "choose an application stack first (paqad discovery / onboard)"
+  # No application stack is chosen for this plugin repo. The three commands the checks gate runs
+  # (test, build, format) are wired to the S0 stdlib checks below. format is a stdlib compile and
+  # syntax check, not a formatter dependency. These use a portable python3 (resolves to a working
+  # interpreter via /bin/sh) and run on Python 3.9 or the current Python.
+  test: python3 -m unittest discover -s tests/scripts
   test_single: echo "choose an application stack first (paqad discovery / onboard)"
   lint: echo "choose an application stack first (paqad discovery / onboard)"
-  format: echo "choose an application stack first (paqad discovery / onboard)"
+  format: python3 -m compileall -q build skills tests
   migrate: echo "choose an application stack first (paqad discovery / onboard)"
-  build: echo "choose an application stack first (paqad discovery / onboard)"
+  build: python3 build/build.py
 compliance_packs: []
 mcp:
   servers: []

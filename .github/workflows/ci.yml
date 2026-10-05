@@ -1,0 +1,58 @@
+# Pull-request CI (REQUIREMENTS.md section 12.1).
+#
+# Honest stub. This workflow names every check it will run (CI-1 to CI-11 and CI-20). Only the
+# checks that exist in S0 actually run; every other step is an obvious placeholder that prints
+# "not yet implemented (S1+)" and enforces nothing. No step claims to enforce a check it does
+# not run.
+name: ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  implemented-in-s0:
+    name: Checks implemented in S0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      # CI-7 (partial): script unit tests on Python 3.9, standard library only. The 90 percent
+      # branch-coverage threshold is S1 work and is NOT enforced here yet.
+      - name: CI-7 script tests (partial, no coverage gate yet)
+        run: python -m unittest discover -s tests/scripts -p "test_*.py" -v
+      # CI-8: build.py must succeed, reject undeclared shared imports, and produce byte-identical
+      # output on two consecutive runs. This is enforced by the build tests above and here.
+      - name: CI-8 build is deterministic
+        run: |
+          python build/build.py --dist /tmp/dist-a
+          python build/build.py --dist /tmp/dist-b
+          diff -r /tmp/dist-a /tmp/dist-b
+
+  not-yet-implemented:
+    name: Checks deferred to S1+
+    runs-on: ubuntu-latest
+    steps:
+      # Each line below is a placeholder. It enforces nothing yet and is marked S1 to implement.
+      - name: CI-1 Frontmatter (name, description, no unknown fields)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-2 Skill size (SKILL.md under 500 lines, references one level deep)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-3 Forbidden content (bin, agents, hooks, commands, mcp, app json)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-4 Neutral wording (no host or vendor names in skills or shared)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-5 House prose (no em dash or en-dash-as-a-dash in authored content)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-6 Secrets scan
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-9 Official validators (claude plugin validate, skills-ref validate)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-10 Budget (dist under 5 MB and 300 files)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-11 Trigger hygiene (no step skill invites direct use)
+        run: echo "not yet implemented (S1+)"  # S1: implement
+      - name: CI-20 Voice reminder (each SKILL.md opens with the How to talk block)
+        run: echo "not yet implemented (S1+)"  # S1: implement

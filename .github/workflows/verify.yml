@@ -1,0 +1,22 @@
+# Conversation evals (REQUIREMENTS.md section 12.2), nightly and before each release.
+#
+# Honest stub. This workflow names the eval checks it will run (CI-12 and CI-13). None of them
+# are implemented in S0: there are no scenarios yet (S1 adds them under tests/evals/scenarios).
+# Every step below is an obvious placeholder that prints "not yet implemented (S1+)" and
+# enforces nothing. No step claims to enforce a check it does not run.
+name: verify
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  not-yet-implemented:
+    name: Conversation evals deferred to S1+
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI-12 Run every scenario against the built plugin (properties, not wording)
+        run: echo "not yet implemented (S1+): no scenarios exist yet"  # S1: implement
+      - name: CI-13 Scenario list covers the section 13 acceptance scenarios
+        run: echo "not yet implemented (S1+): no scenarios exist yet"  # S1: implement

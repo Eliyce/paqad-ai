@@ -1,0 +1,27 @@
+# Single source of truth for the plugin build.
+#
+# build/build.py reads name, version, description, license and display text from here and from
+# nowhere else, and generates every manifest from these values so no two manifests can disagree
+# (PLG-11). Each skill also declares the shared files it imports; the build copies exactly those
+# declared files into the skill and fails if a SKILL.md references a shared file it did not
+# declare here (PLG-10).
+#
+# This file uses a deliberately small, flat YAML shape (scalars, one list of skills, and a short
+# imports list per skill) so build.py can parse it with a tiny standard-library-only reader and
+# avoid any third-party dependency.
+
+name: paqad-product-discovery
+version: 0.0.0
+description: "Shape product ideas into well-formed tickets, grounded in the project's own documentation."
+license: MIT
+display_name: "Paqad Product Discovery"
+author: "Paqad"
+homepage: "https://example.invalid/paqad-product-discovery"
+
+skills:
+  - name: discover-probe
+    imports:
+      - references/voice.md
+  - name: discover-read
+    imports:
+      - references/voice.md

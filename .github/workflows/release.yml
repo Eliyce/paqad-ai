@@ -1,0 +1,20 @@
+# Release (REQUIREMENTS.md section 12.3).
+#
+# Honest stub. This workflow names the release checks it will run (CI-14 and CI-15). Neither is
+# implemented in S0: versioning through changesets and pushing dist/ to the distribution repo
+# are S3 work. Every step below is an obvious placeholder that prints "not yet implemented
+# (S1+)" and enforces nothing. No step claims to enforce a check it does not run.
+name: release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  not-yet-implemented:
+    name: Release steps deferred to S3
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI-14 Semantic versioning through changesets (bump version, update changelog)
+        run: echo "not yet implemented (S1+): changesets land in S3"  # S1: implement
+      - name: CI-15 Build dist, tag the version, attach a zip, push dist to the distribution repo
+        run: echo "not yet implemented (S1+): release automation lands in S3"  # S1: implement
