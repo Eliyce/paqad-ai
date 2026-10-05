@@ -1,9 +1,10 @@
 # Host harness: ChatGPT web
 
-Not shipped in the plugin. This file is a human recording harness for the S0 unknowns that
-apply to ChatGPT web, plus the manual install steps for this host. A person installs the
-plugin, runs the checks, and records each verdict here. S0 claims no automated host verdict:
-every Verdict below starts as the token `pending` and a person fills it in after installing.
+Not shipped in the plugin. This file is a human recording harness for the cross-host unknowns
+(U-1..U-17) that apply to ChatGPT web, plus the manual install steps for this host. A person
+installs the real `paqad-product-discovery` plugin, exercises it through the entry skills, runs
+the checks, and records each verdict here. No automated host verdict is claimed: every Verdict
+below starts as the token `pending` and a person fills it in after installing.
 
 ## Manual install
 
@@ -18,6 +19,8 @@ every Verdict below starts as the token `pending` and a person fills it in after
    ask the user to upload the `docs/` folder.
 6. Note: Plus and Pro users can install plugins but not workspace skills. The v1 audience is
    workspace plans.
+7. Exercise it: ask a question with `ask-project`, and start an idea with `product-discovery`,
+   to confirm the real skills load and run on this host before recording verdicts below.
 
 ## Unknowns that apply to ChatGPT web
 
@@ -26,12 +29,12 @@ across more than one host: U-1, U-3, U-8, U-9, U-11, U-14, U-15, U-16.
 
 | Unknown | What to check | How to check on this host | Verdict | Evidence | If it fails |
 |---|---|---|---|---|---|
-| U-1 (shared) | Do skill scripts run on this host? | Install the plugin and run the discover-probe skill; confirm its script report appears, since script execution in chat is undocumented and work runs in cloud containers. | pending |  | Checklist fallback is the main path here; scripts still run in CI. |
+| U-1 (shared) | Do skill scripts run on this host? | Install the plugin and run `get-connected` (step 0); confirm its onboarded-check script report appears, since script execution in chat is undocumented and work runs in cloud containers. | pending |  | Checklist fallback is the main path here; scripts still run in CI. |
 | U-2 | Does workspace import accept our `.claude-plugin` skills-only layout? | Import the marketplace repo and confirm the plugin installs and its skills load. | pending |  | Add `.agents/plugins/marketplace.json` from the same source. |
 | U-3 (shared) | Do Jira issue links work through the connector? | Add the Atlassian app, create two linked issues, confirm the link holds. | pending |  | Write dependencies as text in a "Depends on" line and ask the user to link by hand. |
 | U-4 | Can Plus or Pro users use a skills plugin? | Sign in on a Plus or Pro plan and attempt to install and run the plugin. | pending |  | The v1 audience is workspace plans; say so in the listing. |
 | U-7 | Which Atlassian app is current, given the listing is labelled "Legacy"? | Check the available Atlassian apps and identify which is current versus legacy. | pending |  | Update this file and the connect reference. |
-| U-8 (shared) | Which runtime version do the sandboxes run? | Read the runtime version line in the discover-probe report. | pending |  | Keep 3.9 compatibility; adjust the script-tests check if a host is older. |
+| U-8 (shared) | Which runtime version do the sandboxes run? | Run a skill script (for example `get-connected`) and read the Python runtime version reported by its environment. | pending |  | Keep 3.9 compatibility; adjust the script-tests check if a host is older. |
 | U-9 (shared) | Does the connector `parent` parameter set an epic parent or only a subtask parent? | Create an epic and a child via the connector using `parent`; inspect the result. | pending |  | Use the additional-fields route (PUB-3). |
 | U-10 | Is the GitHub app available in standard chat on the target workspace plans? | On each target plan, try to use the GitHub app in standard chat. | pending |  | Ask the user to upload `docs/` instead. |
 | U-11 (shared) | Do plugins imported into a workspace also reach Codex for that workspace's users? | After workspace import, check whether the same users see the plugin in Codex. | pending |  | Codex users add the distribution repo as a marketplace themselves. |

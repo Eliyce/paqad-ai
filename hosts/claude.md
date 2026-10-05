@@ -1,9 +1,10 @@
 # Host harness: claude.ai
 
-Not shipped in the plugin. This file is a human recording harness for the S0 unknowns that
-apply to claude.ai, plus the manual install steps for this host. A person installs the plugin,
-runs the checks, and records each verdict here. S0 claims no automated host verdict: every
-Verdict below starts as the token `pending` and a person fills it in after installing.
+Not shipped in the plugin. This file is a human recording harness for the cross-host unknowns
+(U-1..U-17) that apply to claude.ai, plus the manual install steps for this host. A person
+installs the real `paqad-product-discovery` plugin, exercises it through the entry skills, runs
+the checks, and records each verdict here. No automated host verdict is claimed: every Verdict
+below starts as the token `pending` and a person fills it in after installing.
 
 ## Manual install
 
@@ -19,6 +20,8 @@ Verdict below starts as the token `pending` and a person fills it in after insta
 6. For grounding, add the target repository to the chat, or pick the `docs/` files into a
    private project.
 7. Updates reach users automatically after org sync, which runs on push to the default branch.
+8. Exercise it: ask a question with `ask-project`, and start an idea with `product-discovery`,
+   to confirm the real skills load and run on this host before recording verdicts below.
 
 ## Unknowns that apply to claude.ai
 
@@ -27,11 +30,11 @@ U-1, U-3, U-8, U-9, U-14, U-15, U-16.
 
 | Unknown | What to check | How to check on this host | Verdict | Evidence | If it fails |
 |---|---|---|---|---|---|
-| U-1 (shared) | Do skill scripts run on this host? | Install the plugin and run the discover-probe skill; confirm its script report appears. | pending |  | Checklist fallback is the main path; scripts still run in CI. |
+| U-1 (shared) | Do skill scripts run on this host? | Install the plugin and run `get-connected` (step 0); confirm its onboarded-check script report appears. | pending |  | Checklist fallback is the main path; scripts still run in CI. |
 | U-3 (shared) | Do Jira issue links work through the connector? | Add the Atlassian connector, create two linked issues, confirm the link holds. | pending |  | Write dependencies as text in a "Depends on" line and ask the user to link by hand. |
 | U-5 | How large a `docs/` folder can be added before reading degrades? | Add progressively larger `docs/` folders to a chat or project and note where reading degrades. | pending |  | Ask for only the registry and the candidate modules. |
 | U-6 | Does the Atlassian connector work in web, not only desktop? | Try the Atlassian connector in the claude.ai web client and attempt a write. | pending |  | Document desktop as required for posting on this host. |
-| U-8 (shared) | Which runtime version do the sandboxes run? | Read the runtime version line in the discover-probe report. | pending |  | Keep 3.9 compatibility; adjust the script-tests check if a host is older. |
+| U-8 (shared) | Which runtime version do the sandboxes run? | Run a skill script (for example `get-connected`) and read the Python runtime version reported by its environment. | pending |  | Keep 3.9 compatibility; adjust the script-tests check if a host is older. |
 | U-9 (shared) | Does the connector `parent` parameter set an epic parent or only a subtask parent? | Create an epic and a child via the connector using `parent`; inspect the result. | pending |  | Use the additional-fields route (PUB-3). |
 | U-14 (shared) | Can the connector set the sprint field through the edit action? | Edit an issue through the connector and try to set the sprint custom field. | pending |  | plan-sprint gives the plan as a list to apply by hand (SPR-7). |
 | U-15 (shared) | Can sprint IDs, the size field and past sprint totals be found through search and field metadata alone? | Query search and field metadata with no board tools; see what is reachable. | pending |  | Ask the user for the sprint name and capacity; skip derived capacity. |

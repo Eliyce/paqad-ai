@@ -19,9 +19,50 @@ author: "Paqad"
 homepage: "https://example.invalid/paqad-product-discovery"
 
 skills:
-  - name: discover-probe
+  - name: product-discovery
     imports:
       - references/voice.md
-  - name: discover-read
+      - references/consulting.md
+      - scripts/canonical.py
+  - name: ask-project
     imports:
       - references/voice.md
+      - references/consulting.md
+      - references/paqad-docs-map.md
+      - references/template-markers.md
+      - scripts/find_related.py
+      - scripts/detect_placeholder.py
+  - name: get-connected
+    imports:
+      - references/voice.md
+      - references/tracker-profiles/jira.md
+  - name: understand-idea
+    imports:
+      - references/voice.md
+  - name: ground-in-project
+    imports:
+      - references/voice.md
+      - references/paqad-docs-map.md
+      - references/template-markers.md
+      - scripts/find_related.py
+      - scripts/detect_placeholder.py
+  - name: shape-idea
+    imports:
+      - references/voice.md
+  - name: decide-together
+    imports:
+      - references/voice.md
+  - name: write-tickets
+    imports:
+      - references/voice.md
+      - references/plain-language.md
+  - name: check-tickets
+    imports:
+      - references/voice.md
+      - references/plain-language.md
+      - scripts/canonical.py
+  - name: post-tickets
+    imports:
+      - references/voice.md
+      - references/tracker-profiles/jira.md
+      - scripts/canonical.py

@@ -165,18 +165,17 @@ class UndeclaredImportTest(unittest.TestCase):
             shutil.copytree(
                 os.path.join(REPO_ROOT, sub), os.path.join(source, sub)
             )
-        # Add a shared file that a skill references but does not declare in skills.yml.
-        extra = os.path.join(source, "shared", "references", "extra.md")
-        with open(extra, "w", encoding="utf-8") as handle:
-            handle.write("# extra shared reference\n")
-        skill_md = os.path.join(source, "skills", "discover-read", "SKILL.md")
+        # ground-in-project is a real skill that does NOT declare references/consulting.md
+        # (that shared file exists and is declared only by product-discovery and ask-project).
+        # Make its SKILL.md reference the undeclared shared file so the build must fail (PLG-10).
+        skill_md = os.path.join(source, "skills", "ground-in-project", "SKILL.md")
         with open(skill_md, "a", encoding="utf-8") as handle:
-            handle.write("\nSee references/extra.md for more.\n")
+            handle.write("\nSee references/consulting.md for more.\n")
 
         dist = os.path.join(tmp, "dist")
         with self.assertRaises(build.BuildError) as ctx:
             build.build(source, dist)
-        self.assertIn("references/extra.md", str(ctx.exception))
+        self.assertIn("references/consulting.md", str(ctx.exception))
 
 
 if __name__ == "__main__":

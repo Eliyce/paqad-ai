@@ -10,8 +10,10 @@ Paths resolve relative to the repository root (walked up from this file), so the
 portable and does not depend on any absolute path.
 """
 
+import glob
 import os
 import re
+import sys
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +22,27 @@ REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
 SKILLS_ROOT = os.path.join(REPO_ROOT, "skills")
 SHARED_ROOT = os.path.join(REPO_ROOT, "shared")
 FIXTURE_ROOT = os.path.join(REPO_ROOT, "tests", "evals", "fixture-repo")
+SKILLS_YML = os.path.join(REPO_ROOT, "build", "skills.yml")
+
+# Reuse the one canonical skills.yml reader from the build so this suite never re-derives it.
+BUILD_DIR = os.path.join(REPO_ROOT, "build")
+if BUILD_DIR not in sys.path:
+    sys.path.insert(0, BUILD_DIR)
+import build  # noqa: E402
+
+# The two entry skills a user may start directly (PLG-8/CI-11); every other skill is a step skill.
+ENTRY_SKILLS = {"product-discovery", "ask-project"}
+# A step skill's description states it runs only when the journey directs it.
+STEP_PHRASE = "journey directs it"
+# The script-bearing skills that must carry a checklist fallback (PLG-6).
+SCRIPT_BEARING_SKILLS = {
+    "product-discovery",
+    "ask-project",
+    "get-connected",
+    "ground-in-project",
+    "check-tickets",
+    "post-tickets",
+}
 
 VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai", re.IGNORECASE)
 # Built with chr() so this source file itself stays ASCII and does not trip its own CI-5 check.
@@ -208,6 +231,80 @@ class FixtureRepoTest(unittest.TestCase):
             qualifying,
             "no business.md carries both a real section and a template-marker section",
         )
+
+
+def _declared_imports_by_skill():
+    """Return {skill_name: [declared shared imports]} from build/skills.yml, via build's reader."""
+    with open(SKILLS_YML, "r", encoding="utf-8") as handle:
+        config = build.parse_skills_yml(handle.read())
+    return {skill["name"]: list(skill["imports"]) for skill in config["skills"]}
+
+
+class TriggerHygieneTest(unittest.TestCase):
+    """AC-19 (PLG-8/CI-11): the entry skills are exactly {product-discovery, ask-project} and may
+    invite direct use; every other skill is a step skill whose description states it runs only when
+    the product-discovery journey directs it, so a host never fires a step skill on its own before a
+    run exists."""
+
+    def test_entry_skills_present(self):
+        skills = set(skill_dirs())
+        self.assertTrue(
+            ENTRY_SKILLS.issubset(skills),
+            "entry skills missing from the source tree: {0}".format(ENTRY_SKILLS - skills),
+        )
+
+    def test_entry_and_step_descriptions(self):
+        for skill in skill_dirs():
+            fm, _ = split_frontmatter(read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md")))
+            description = fm.get("description", "")
+            self.assertTrue(description, "description missing for {0}".format(skill))
+            if skill in ENTRY_SKILLS:
+                self.assertNotIn(
+                    STEP_PHRASE,
+                    description,
+                    "entry skill {0} must not read as a step skill".format(skill),
+                )
+            else:
+                self.assertIn(
+                    STEP_PHRASE,
+                    description,
+                    "step skill {0} must say it runs only when the journey directs it".format(
+                        skill
+                    ),
+                )
+
+
+class ChecklistFallbackTest(unittest.TestCase):
+    """AC-16 (PLG-6): every script-bearing skill carries an 'If the checks cannot run' checklist
+    fallback section so the skill reaches the same outcome by hand on a host where scripts cannot
+    run. A skill is script-bearing when it ships its own scripts/*.py or declares a shared
+    scripts/*.py import in build/skills.yml."""
+
+    def test_script_bearing_set_is_detected(self):
+        declared = _declared_imports_by_skill()
+        detected = set()
+        for skill in skill_dirs():
+            own_scripts = glob.glob(os.path.join(SKILLS_ROOT, skill, "scripts", "*.py"))
+            declares_script = any(
+                imp.startswith("scripts/") and imp.endswith(".py")
+                for imp in declared.get(skill, [])
+            )
+            if own_scripts or declares_script:
+                detected.add(skill)
+        self.assertEqual(
+            detected,
+            SCRIPT_BEARING_SKILLS,
+            "script-bearing detection drifted from the spec set: {0}".format(detected),
+        )
+
+    def test_each_script_bearing_skill_has_fallback(self):
+        for skill in sorted(SCRIPT_BEARING_SKILLS):
+            text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
+            self.assertIn(
+                "If the checks cannot run",
+                text,
+                "script-bearing skill {0} is missing its checklist fallback section".format(skill),
+            )
 
 
 if __name__ == "__main__":
