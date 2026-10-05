@@ -1,0 +1,26 @@
+{
+  "id": "D-01M45K1MYYYHBDKT832D0W6BST",
+  "category": "create-vs-reuse",
+  "title": "Reuse paqad-ticket-refinement 0.2.0 or rebuild",
+  "context": "Predecessor plugin implements record revisions, digest-bound approval, publication receipts, prose lint and 29 tests, but is Codex-shaped (hooks, .app.json, persistent storage) which web chat cannot use.",
+  "options": [
+    {
+      "option_key": "port",
+      "label": "Port-pure-logic-drop-Codex-parts"
+    },
+    {
+      "option_key": "rebuild",
+      "label": "Rebuild-from-scratch-to-doc-18"
+    },
+    {
+      "option_key": "fork",
+      "label": "Fork-whole-plugin-and-strip"
+    }
+  ],
+  "recommendation": "port",
+  "created_at": "2026-10-05T08:31:51.775Z",
+  "status": "resolved",
+  "chosen": "port",
+  "rationale": "Owner chose to port proven pure logic and drop Codex-only parts",
+  "resolved_at": "2026-10-05T08:42:52.796Z"
+}

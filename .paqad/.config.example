@@ -1,0 +1,162 @@
+# paqad framework configuration — catalog of every knob (.paqad/.config.example)
+#
+# A copy-paste reference: every framework knob, with its default, a one-line
+# explanation, and its PAQAD_* env equivalent. This file is NEVER read at
+# runtime. To override a knob, copy its line into a tracked configs/.config.*
+# file (team) or your git-ignored .config (local), uncomment it, and set a value.
+#
+# Precedence, highest first: PAQAD_* env var > .config (local) > configs/.config.*
+# (team) > code default. With nothing uncommented anywhere, every knob is at the
+# default shown below — identical to a fresh install.
+
+# ── Framework master switch ─────────────────────────────────
+# Turn paqad off entirely (vanilla mode). Absent/true = on. (env: PAQAD_ENABLE)
+# paqad_enable=true
+
+# ── Version & updates ───────────────────────────────────────
+# Pull newer framework versions in the background on session start. (env: PAQAD_AUTO_UPDATE)
+# auto_update=true
+# Refuse to run below this version. "latest" = no fixed floor, track newest. Or pin e.g. 1.28.1. (env: PAQAD_MINIMUM_VERSION)
+# minimum_version=latest
+# How often the background version check runs. (env: PAQAD_VERSION_CHECK_INTERVAL_HOURS)
+# version_check_interval_hours=12
+
+# ── Enterprise / governance (licensed, off by default) ──────
+# Master switch for the enterprise/governance capabilities. (env: PAQAD_ENTERPRISE)
+# enterprise=false
+# Write the receipt + evidence ledger set under .paqad/ledger/. (env: PAQAD_ENTERPRISE_EVIDENCE_LEDGER)
+# enterprise_evidence_ledger=false
+# Write the CycloneDX ai-bom.json view. (env: PAQAD_ENTERPRISE_AI_BOM)
+# enterprise_ai_bom=false
+# Resolve framework citations into the receipt (token-spending path). (env: PAQAD_ENTERPRISE_COMPLIANCE_CITATIONS)
+# enterprise_compliance_citations=false
+
+# ── Feature flags ───────────────────────────────────────────
+# Stop after the spec phase; do not implement. (env: PAQAD_SPEC_ONLY_MODE)
+# spec_only_mode=false
+# Enable the market-research agent in planning. (env: PAQAD_MARKET_RESEARCH)
+# market_research=false
+# Enable the design-research agent in planning. (env: PAQAD_DESIGN_RESEARCH)
+# design_research=false
+# Use the multi-agent team for full-lane work. (env: PAQAD_TEAM_AGENTS)
+# team_agents=true
+# Opt in to complementary analytics instrumentation (issue #241, refined #279). OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc. (env: PAQAD_ANALYTICS_INSTRUMENTATION)
+# analytics_instrumentation=false
+# Opt in to the Site Map & Journeys capability — a verified behavioural map of the app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). OFF (default) is completely inert; ON also requires the coding capability at its consumers. (env: PAQAD_SITE_MAP)
+# site_map=false
+# Capture screenshots of documented flows for frontend changes as feature-bundle evidence. ON also requires the coding capability at its consumers. (env: PAQAD_VISUAL_EVIDENCE)
+# visual_evidence=false
+# Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
+# lean_rules=true
+# Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)
+# feature_report=true
+# Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is local, deterministic, and zero-LLM — it folds over caches the gates already produced. OFF stops computing and recording them. (env: PAQAD_METRICS_ENABLED)
+# metrics_enabled=true
+# Run the checks stage concurrently and use the test runner's own parallel mode when the project has it. OFF restores the one-after-another run. (env: PAQAD_CHECKS_PARALLEL)
+# checks_parallel=true
+# Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
+# checks_max_processes=0
+
+# ── Intelligence / RAG ──────────────────────────────────────
+# Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
+# rag_enabled=false
+# local | openai | voyageai. Unset uses the local model. (env: PAQAD_RAG_EMBEDDING_PROVIDER)
+# rag_embedding_provider=
+# Override the embedding model id. Unset = provider default. (env: PAQAD_RAG_EMBEDDING_MODEL)
+# rag_embedding_model=
+# Minimum cosine similarity for a chunk to be retrieved. (env: PAQAD_RAG_SIMILARITY_THRESHOLD)
+# rag_similarity_threshold=0.75
+# Relief band for floor-with-relief. When nothing clears rag_similarity_threshold, the top slices at or above this lower score are delivered tagged low-confidence. (env: PAQAD_RAG_RELIEF_FLOOR)
+# rag_relief_floor=0.35
+# Max chunks retrieved per query. (env: PAQAD_RAG_TOP_N)
+# rag_top_n=20
+# Skip indexing files larger than this many bytes. (env: PAQAD_RAG_MAX_FILE_SIZE)
+# rag_max_file_size=153600
+# Base branch for branch-aware RAG. Unset auto-detects main->master. (env: PAQAD_RAG_BASE_BRANCH)
+# rag_base_branch=
+# Token budget for the feature-development "Existing surface" planning digest (existing symbols the model should reuse). Cards drop by rank past this budget. (env: PAQAD_EXISTING_SURFACE_TOKENS)
+# existing_surface_tokens=1000
+
+# ── Research & model routing ────────────────────────────────
+# cutting-edge | standard | conservative. (env: PAQAD_RESEARCH_DEPTH)
+# research_depth=standard
+# Default model for routine work. (env: PAQAD_MODEL_DEFAULT)
+# model_default=gpt-5
+# Model for heavy reasoning / planning. (env: PAQAD_MODEL_REASONING)
+# model_reasoning=gpt-5
+# Cheap/fast model for lightweight steps. (env: PAQAD_MODEL_FAST)
+# model_fast=gpt-5-mini
+
+# ── Strictness / quality gates ──────────────────────────────
+# Route every task through the full (heaviest) lane by default. (env: PAQAD_FULL_LANE_DEFAULT)
+# full_lane_default=false
+# Require an adversarial review pass before delivery. (env: PAQAD_REQUIRE_ADVERSARIAL_REVIEW)
+# require_adversarial_review=true
+# Block delivery when canonical docs are out of date. (env: PAQAD_BLOCK_ON_STALE_DOCS)
+# block_on_stale_docs=true
+# Require a database review when a change includes migrations. (env: PAQAD_REQUIRE_DB_REVIEW_FOR_MIGRATIONS)
+# require_db_review_for_migrations=true
+
+# ── Escalation policy ───────────────────────────────────────
+# block | require_approval | warn — for destructive operations. (env: PAQAD_ESCALATE_DESTRUCTIVE_OPERATIONS)
+# escalate_destructive_operations=block
+# block | require_approval | warn — for risky migrations. (env: PAQAD_ESCALATE_RISKY_MIGRATIONS)
+# escalate_risky_migrations=warn
+# block | require_approval | warn — for security findings. (env: PAQAD_ESCALATE_SECURITY_FINDINGS)
+# escalate_security_findings=block
+# Row count above which a data operation escalates. (env: PAQAD_ESCALATE_DB_ROW_THRESHOLD)
+# escalate_db_row_threshold=10000
+
+# ── Decisions (pause-contract tuning) ───────────────────────
+# strict | balanced | permissive — how eagerly to pause and ask. (env: PAQAD_DECISIONS_ASK_THRESHOLD)
+# decisions_ask_threshold=strict
+# Max decision screens surfaced per task. (env: PAQAD_DECISIONS_MAX_SCREENS_PER_TASK)
+# decisions_max_screens_per_task=3
+# Auto-resolve a pending decision after this idle window. (env: PAQAD_DECISIONS_IDLE_TIMEOUT_MINUTES)
+# decisions_idle_timeout_minutes=30
+
+# ── Enforcement (capability modes — team value is a floor) ──
+# off | warn | strict — feature-development stage-completeness gate (default strict). (env: PAQAD_STAGES_MODE)
+# stages_mode=strict
+# off | warn | strict — scripted-rule enforcement from the working tree. (env: PAQAD_RULE_COMPLIANCE)
+# rule_compliance=warn
+# off | warn | strict — analytics instrumentation completeness (issue #279). warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated. (env: PAQAD_ANALYTICS_STRICTNESS)
+# analytics_strictness=warn
+# off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in. (env: PAQAD_DUPLICATION_MODE)
+# duplication_mode=warn
+# off | warn | strict — end-of-change check that a feature-development bundle carries every required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, naming the file and its writer; warn surfaces it as Inconclusive without blocking; off falls back to the deprecated evidence_existence_gate (issue #511). (env: PAQAD_BUNDLE_COMPLETENESS)
+# bundle_completeness=strict
+# pass | warn | fail — what a test that fails in the parallel run but passes alone does. warn (default): never blocks, recorded, one receipt line. pass: recorded only. fail: blocks. Team value is the floor; local/env may only raise it. (env: PAQAD_CHECKS_FLAKY_UNDER_PARALLEL)
+# checks_flaky_under_parallel=warn
+# warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on and a change is frontend-triggering (issue #551). warn (default): an environmental miss (browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) reads Inconclusive without blocking. strict: the same misses FAIL the change, and so does a frontend change with nothing captured because no documented flow or capture script exists (issue #579), unless you attach screenshots (paqad-ai visual-evidence attach) or record a waiver decision (the gate prints the exact decision command). Under warn those skips stay skipped and show a skip line. Team value is the floor; local/env may only raise warn to strict. (env: PAQAD_VISUAL_EVIDENCE_MODE)
+# visual_evidence_mode=warn
+# DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it. (env: PAQAD_EVIDENCE_EXISTENCE_GATE)
+# evidence_existence_gate=warn
+# Minimum similarity (0..1) for a blocking duplication finding (issue #358). Default 0.90 — conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks. (env: PAQAD_DUPLICATION_SIMILARITY_THRESHOLD)
+# duplication_similarity_threshold=0.9
+# Minimum meaningful-line span a new code block must have to be scored for duplication (issue #358). Default 8 — shorter snippets are never flagged. (env: PAQAD_DUPLICATION_MIN_LINES)
+# duplication_min_lines=8
+# off | warn | strict — arm the create-vs-reuse decision pause from evidence (issue #361). warn (default) reports the fork; strict opens a pause that blocks edits until answered. (env: PAQAD_DECISION_ARM_MODE)
+# decision_arm_mode=warn
+# Minimum name similarity (0..1) between a planned new construct and an existing symbol before it counts as a reuse fork (issue #361). Default 0.85. (env: PAQAD_DECISION_ARM_PLAN_THRESHOLD)
+# decision_arm_plan_threshold=0.85
+# How many evidence-armed decision pauses one change may open (issue #361). Default 1 — only the strongest fork is asked; the rest are reported as warnings. (env: PAQAD_DECISION_ARM_MAX_PER_CHANGE)
+# decision_arm_max_per_change=1
+# keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs (issue #538). strip (default) suppresses it where the provider exposes a project-level knob (Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level only). paqad's own delivery footer is never touched by this knob. (env: PAQAD_AI_ATTRIBUTION)
+# ai_attribution=strip
+
+# ── Spec pipeline (issue #512 — optional, off by default) ───
+# Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: with it off, feature-development is byte-identical to today (FR-11). It sits upstream of the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on. (env: PAQAD_SPEC_PIPELINE_ENABLED)
+# spec_pipeline_enabled=false
+# off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask and hold until answered or explicitly deferred. off: never ask. The fixed spine (grounding, no-invented-requirements, traceability) is never switchable. (env: PAQAD_SPEC_PIPELINE_CLARIFICATION)
+# spec_pipeline_clarification=warn
+# off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): a human must approve before freeze, recording a named human. Independent of the A5 gate. (env: PAQAD_SPEC_PIPELINE_FINAL_REVIEW)
+# spec_pipeline_final_review=off
+# Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes. (env: PAQAD_SPEC_PIPELINE_TOKEN_CEILING)
+# spec_pipeline_token_ceiling=40000
+# Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
+# spec_pipeline_experts_enabled=false
+# warn | strict: how firmly the specification stage adopts the pipeline once spec_pipeline_enabled is on. warn (default): the stage tells the agent to produce the spec through `paqad-ai spec pipeline`; a hand-written spec still freezes, recorded as pipeline.produced=false and shown in the receipt. strict: `spec freeze` refuses a spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is recorded on the frozen spec. No effect while spec_pipeline_enabled is off. (env: PAQAD_SPEC_PIPELINE_ADOPTION)
+# spec_pipeline_adoption=warn
+# Comma-separated expert roles that sit at the table on EVERY spec run once spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay on call and are picked per request. Empty means no standing experts (the detector alone decides, as before). A role outside the expert roster is ignored with a doctor warning. No effect while the pipeline or the experts are off. (env: PAQAD_SPEC_PIPELINE_STANDING_EXPERTS)
+# spec_pipeline_standing_experts=product-owner,application-architect,user-flow-writer,qa-engineer

@@ -1,0 +1,1 @@
+~/.paqad-ai/current

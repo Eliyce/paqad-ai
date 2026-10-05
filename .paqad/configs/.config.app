@@ -1,0 +1,57 @@
+# .paqad/configs/.config.app — Application, version, enterprise, and feature flags
+#
+# The framework master switch, the background version/update policy, the licensed
+# enterprise/governance switches, and the planning feature flags.
+#
+# Every key below is COMMENTED OUT, so paqad uses its built-in default until you
+# uncomment a line to override it. Precedence, highest first: PAQAD_* env var >
+# your local ../.config > these tracked team files > code default. This file is
+# tracked; `paqad-ai update` refreshes it and keeps every value you uncommented.
+
+# ── Framework master switch ─────────────────────────────────
+# Turn paqad off entirely (vanilla mode). Absent/true = on. (env: PAQAD_ENABLE)
+# paqad_enable=true
+
+# ── Version & updates ───────────────────────────────────────
+# Pull newer framework versions in the background on session start. (env: PAQAD_AUTO_UPDATE)
+# auto_update=true
+# Refuse to run below this version. "latest" = no fixed floor, track newest. Or pin e.g. 1.28.1. (env: PAQAD_MINIMUM_VERSION)
+# minimum_version=latest
+# How often the background version check runs. (env: PAQAD_VERSION_CHECK_INTERVAL_HOURS)
+# version_check_interval_hours=12
+
+# ── Enterprise / governance (licensed, off by default) ──────
+# Master switch for the enterprise/governance capabilities. (env: PAQAD_ENTERPRISE)
+# enterprise=false
+# Write the receipt + evidence ledger set under .paqad/ledger/. (env: PAQAD_ENTERPRISE_EVIDENCE_LEDGER)
+# enterprise_evidence_ledger=false
+# Write the CycloneDX ai-bom.json view. (env: PAQAD_ENTERPRISE_AI_BOM)
+# enterprise_ai_bom=false
+# Resolve framework citations into the receipt (token-spending path). (env: PAQAD_ENTERPRISE_COMPLIANCE_CITATIONS)
+# enterprise_compliance_citations=false
+
+# ── Feature flags ───────────────────────────────────────────
+# Stop after the spec phase; do not implement. (env: PAQAD_SPEC_ONLY_MODE)
+# spec_only_mode=false
+# Enable the market-research agent in planning. (env: PAQAD_MARKET_RESEARCH)
+# market_research=false
+# Enable the design-research agent in planning. (env: PAQAD_DESIGN_RESEARCH)
+# design_research=false
+# Use the multi-agent team for full-lane work. (env: PAQAD_TEAM_AGENTS)
+# team_agents=true
+# Opt in to complementary analytics instrumentation (issue #241, refined #279). OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc. (env: PAQAD_ANALYTICS_INSTRUMENTATION)
+# analytics_instrumentation=false
+# Opt in to the Site Map & Journeys capability — a verified behavioural map of the app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). OFF (default) is completely inert; ON also requires the coding capability at its consumers. (env: PAQAD_SITE_MAP)
+# site_map=false
+# Capture screenshots of documented flows for frontend changes as feature-bundle evidence. ON also requires the coding capability at its consumers. (env: PAQAD_VISUAL_EVIDENCE)
+# visual_evidence=false
+# Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
+# lean_rules=true
+# Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)
+# feature_report=true
+# Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is local, deterministic, and zero-LLM — it folds over caches the gates already produced. OFF stops computing and recording them. (env: PAQAD_METRICS_ENABLED)
+# metrics_enabled=true
+# Run the checks stage concurrently and use the test runner's own parallel mode when the project has it. OFF restores the one-after-another run. (env: PAQAD_CHECKS_PARALLEL)
+# checks_parallel=true
+# Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
+# checks_max_processes=0

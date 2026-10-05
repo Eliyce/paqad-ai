@@ -1,0 +1,24 @@
+project:
+  name: paqad-ai plugins
+  id: paqad-ai-plugins
+  description: Created by paqad-ai new project
+commands:
+  install: echo "choose an application stack first (paqad discovery / onboard)"
+  dev: echo "choose an application stack first (paqad discovery / onboard)"
+  test: echo "choose an application stack first (paqad discovery / onboard)"
+  test_single: echo "choose an application stack first (paqad discovery / onboard)"
+  lint: echo "choose an application stack first (paqad discovery / onboard)"
+  format: echo "choose an application stack first (paqad discovery / onboard)"
+  migrate: echo "choose an application stack first (paqad discovery / onboard)"
+  build: echo "choose an application stack first (paqad discovery / onboard)"
+compliance_packs: []
+mcp:
+  servers: []
+custom:
+  classification_dimensions: []
+  verification_plugins: []
+  escalation_rules: []
+active_capabilities:
+  - content
+  - coding
+  - security
