@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-10-05T07:02:44.685Z
-rule_files_hash: sha256-44202931fb2c107d2553fa304e4964eb7bf2ffcbb4ec090839cde4e9be09527f
+generated_at: 2026-10-06T05:06:51.943Z
+rule_files_hash: sha256-775db7845b84f65804988c4ad5f053cc1e30ed4ee7e32bf47a9e376ac4adda52
 rules:
   - id: RL-95d9
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -62,46 +62,6 @@ rules:
     source: docs/instructions/rules/_shared/constitution.md
     text: When a requirement is ambiguous, or an action is risky or hard to reverse, stop and ask instead of guessing.
     text_hash: ce76a78360ef85063ca16d3f563583388c596b301404beb10ccdb8a3df49200d
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-513a
-    source: docs/instructions/rules/_shared/design-system.md
-    text: Before proposing any UI change (component, screen, style, layout), check whether `docs/instructions/design-system/` exists in the project.
-    text_hash: 4602874d393ba0befa990d46ccd5e61deb2eea6e68b75b9de280a4903f357372
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-e370
-    source: docs/instructions/rules/_shared/design-system.md
-    text: If it exists, read `tokens.md`, `components.md`, and `patterns.md` before writing code. All colours, spacing, typography, motion, and component behaviour must align with those specifications.
-    text_hash: 3c54e83bf5b04e3d7bcf433959b178f41a4299215afe77f3b55077db059f66de
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-e36e
-    source: docs/instructions/rules/_shared/design-system.md
-    text: Do not introduce design tokens, component variants, or style values that contradict the documented design system. Extend it by adding to the token files first, then implement.
-    text_hash: 399b279616b3859ed723871ef8ab5bb356480a259ec15137cb5dfbd081065f45
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-e0f2
-    source: docs/instructions/rules/_shared/design-system.md
-    text: If `docs/instructions/design-system/` does not exist, follow general good-practice UI conventions and keep values consistent so they can be tokenized later.
-    text_hash: 52c67a01d6617149f50e88dcee20952e60a5800fbb223da5f54e3d45538afaa7
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-47b1
-    source: docs/instructions/rules/_shared/design-system.md
-    text: "`docs/instructions/design-system/` is the single source of truth for UI design decisions; it takes precedence over ad-hoc inline styles or undocumented conventions."
-    text_hash: ebce3a2fbd410063c64723c8983712e4c6ba760d70a3d0a176faaf5af65f6398
     verifiability:
       kind: heuristic
     enforced_by: []
@@ -178,14 +138,6 @@ rules:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-3d44
-    source: docs/instructions/rules/_shared/performance.md
-    text: Avoid N+1 queries and unbounded result sets; paginate, batch, and stream large work.
-    text_hash: 605cde385ede8480c5b961c42b6e41a7b6559309fc296c516042f11d522227b5
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
   - id: RL-5d76
     source: docs/instructions/rules/_shared/performance.md
     text: Cache only with a clear invalidation story; prefer correctness over a fragile cache.
@@ -238,22 +190,6 @@ rules:
     source: docs/instructions/rules/_shared/security.md
     text: Validate and sanitize all external input at the trust boundary before using it.
     text_hash: 023e4c22b5fac952606e53940c4b9f8d3acc34ada9a1ef2b03fc1732cabe5c32
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-4890
-    source: docs/instructions/rules/_shared/security.md
-    text: Use parameterized queries and prepared statements; never assemble SQL, shell commands, or HTML by concatenating untrusted input.
-    text_hash: 0811b35efa4af1bd8403f0238b42e761a78000b2e0785e48d20da583f4ed2eaf
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-0c4f
-    source: docs/instructions/rules/_shared/security.md
-    text: Enforce authentication and authorization on every non-public entry point; default to deny.
-    text_hash: 2e93b019d6020f938a0f502e64bc00d2f878b4bb11475d0e40a6c842443a8645
     verifiability:
       kind: heuristic
     enforced_by: []
@@ -1714,38 +1650,6 @@ rules:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-8b30
-    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
-    text: Prefer additive, backward-compatible changes; deprecate before removing a field or endpoint, and version when a break is unavoidable.
-    text_hash: 360f8ae223d7a40cca67a6b988643bbfe8002f21e63653c7da06bbf1db02c3c7
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-d041
-    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
-    text: Validate every request payload at the boundary and reject unknown fields where the contract is closed.
-    text_hash: 4879588521d7307092fe5095a5216c90eb4d82c1c07b52b4df313eaccbce83f0
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-72a8
-    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
-    text: Document request shape, response shape, status codes, and error format together for each endpoint.
-    text_hash: 53cb7c8be27e6859757ae84613f901021cdc04f7fcdc2e6736cece6ff2bb4b37
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-04c4
-    source: docs/instructions/rules/coding/stacks/_shared/api-design.md
-    text: Keep resource naming, pagination, and error envelopes consistent across endpoints.
-    text_hash: 443c065a722b5d0cf4e4531d23b8fe659d194385e0421698bc70a36c9fe47b1e
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
   - id: RL-c5f0
     source: docs/instructions/rules/coding/stacks/_shared/ci-cd.md
     text: CI must run the same format, lint, test, and build gates that block local delivery.
@@ -1778,38 +1682,6 @@ rules:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-7268
-    source: docs/instructions/rules/coding/stacks/_shared/environment.md
-    text: Resolve configuration through a single typed and validated layer, not scattered raw environment reads across the code.
-    text_hash: b4a43b49c2ebdb06e445d46328fb7348d947eb323b33a2a43dbe6e1d106d5b79
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-12e4
-    source: docs/instructions/rules/coding/stacks/_shared/environment.md
-    text: Fail fast at startup when a required variable is missing, with a message naming what's absent.
-    text_hash: 9c6200bf450de7120c7b0612eb9e7e344b30aea6cf66817b72d43fa56a2ebefd
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-54f2
-    source: docs/instructions/rules/coding/stacks/_shared/environment.md
-    text: Commit a `.env.example` documenting every variable; never commit real secrets.
-    text_hash: 9c447df1a1f848365ac195bc168c3f502d2c75f0538dedad6bbb6763934eed2e
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-549b
-    source: docs/instructions/rules/coding/stacks/_shared/environment.md
-    text: Default to safe local-development values, never production values.
-    text_hash: 4ea1afae8654ed901a5c58c51aab94f7eea9252ac25bf91218548ddf1830391d
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
   - id: RL-c1df
     source: docs/instructions/rules/coding/stacks/_shared/git.md
     text: Commit one coherent change at a time, with a message that explains why, not just what.
@@ -1834,818 +1706,522 @@ rules:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-b493
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: "Keep controllers thin: a controller method validates, authorizes, delegates to an action/service/job, and returns a response. Do not put query-building or business logic in the controller body."
-    text_hash: e17aa29bb3c866b632d6d29fe20ef2049581595b80b37810d5a6de8a34029933
+  - id: RL-ccf1
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Generate `dist/` only with `build/build.py`; never edit it by hand.
+    text_hash: 0b763a80223446a9c39ad578ce1dadfbd55484cabafed64f6817d54d02448b7d
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-608c
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Validate every write request (POST/PUT/PATCH) with a Form Request class (`php artisan make:request`), not inline `$request->validate()` for non-trivial rules. Read validated input via `$request->validated()`, never `$request->all()`.
-    text_hash: 85e43c39a513c1cdf902dedd17b1c64b349285f16ef17f5cf9f3bd42a6a849ea
+  - id: RL-8951
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Make two consecutive builds produce byte-identical `dist/` trees.
+    text_hash: e9a348e2ff19ad3538895e8fd4ca0954378669c304ac9dfb19c0fbfff86e90e1
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-d465
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Authorize in the Form Request's `authorize()` method or via a Policy/Gate (`$this->authorize('update', $post)`); do not rely on hiding routes for access control.
-    text_hash: f83827b5cde521ce280f2b10f0ae5baa3acdb7359ff12c97a2940eacee53d3c5
+  - id: RL-3591
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Ship no `agents/`, `hooks/`, `commands/`, `bin/`, `.mcp.json`, `mcp.json`, `.app.json`, `__pycache__` or `*.pyc` in `dist/`.
+    text_hash: 4e1bef009690d460a8c996a0321a60047165d46475c70bf39e9472f0e1542b5d
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-18c6
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Return Eloquent API Resources (`php artisan make:resource`) for JSON responses; do not `return $model` or `response()->json($model)` directly, which leaks every column including hidden ones.
-    text_hash: 2ea53a2ea87be9b13e7284e51733f494feae1ce6c7ca403ab2a26800f07372a1
+  - id: RL-755d
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Keep `dist/` under 5 MB and under 300 files.
+    text_hash: e3a3d2e3ea23a48d7cead809c33db007f555ec6832b937f67ff370ff3e89d31d
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-8557
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Paginate index/list endpoints with `->paginate()` or `->cursorPaginate()`; never return an unbounded `->get()` or `->all()` collection from a public list endpoint.
-    text_hash: 01b208533f5979a626391f807a92602c026fd465f65a9a3a05a1182c2e504a47
+  - id: RL-1d61
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Read name, version, description, license and display text only from `build/skills.yml`.
+    text_hash: 7fa7a67c30086cc990a5c1e1e178b93462be95b65e923460b2585f75bed16167
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-8c0e
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Constrain filtering, sorting, and `with()` eager-load inputs to a server-side allow-list; never pass a raw request value into `orderBy()`, `whereColumn`, or `$request->input('include')`.
-    text_hash: 265487da9c8226a8c02f98144ca2ee30156001792cf697fe07a24634bb1e567c
+  - id: RL-e433
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Declare every shared file a skill uses in that skill's `imports` in `build/skills.yml`.
+    text_hash: 5e2b450feaab1ef82894b834dc53fff32650d5eba04053ea5868a7096849de75
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-7b12
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: "Return correct status codes: `201` for created (`response()->json($resource, 201)` or `$resource->response()->setStatusCode(201)`), `204` for empty success, `422` for validation (Laravel does this automatically for failed Form Requests)."
-    text_hash: 83e6fe3e099842ac073086e9198defa1fbe84ff4ca1688de0d56050143d53a31
+  - id: RL-5a02
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Commit no string that matches a secret pattern.
+    text_hash: a59defbe249593d1cb54099ed7b608b4e66cb2ac20dc692502b41bb1138841ba
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-0d8c
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Authenticate token/SPA APIs with Laravel Sanctum (`auth:sanctum` middleware); do not roll custom token verification.
-    text_hash: 45ef9de6ec85b20c889e36d90da465fa87f9fe7d216a6ffc59442b9a8416b440
+  - id: RL-a8ae
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Assign every skill folder and every `sources` path in `docs/instructions/rules/module-map.yml` to exactly one module.
+    text_hash: 07912026212a7198e83edb4320b17aacd8ee88e01e2c899b86fae0891d7fdd26
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-934d
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Apply rate limiting to public and auth endpoints with the `throttle:` middleware or a named `RateLimiter::for()` limiter defined in `App\Providers\AppServiceProvider`.
-    text_hash: 7d22a2c9d518419f565136b308f0c33d8d7d9e6539b8d2a8cd708c3fc773384f
+  - id: RL-53ca
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/build.md
+    text: Change `docs/modules/<slug>/` in the same change that alters the source of module `<slug>`.
+    text_hash: 2a1fc1b8a85e79142ed6d47ad663d0283f6d323edbdf565045163d07230d4f15
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-a84a
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Bind route model parameters with implicit model binding (`function (Post $post)`) so missing records return `404` automatically; do not call `Model::find()` then manually check for null in every method.
-    text_hash: 1578c7f0b9212a96ac1a46295b3bf5882ec775adf3156692b72c38eb8c060415
+  - id: RL-de26
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Keep each Python file at 300 lines or fewer.
+    text_hash: 8cd1dec773e7ca174402ca03e651872dc84238d6d58c635ceadadd2150a1f62e
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-2f57
-    source: docs/instructions/rules/coding/stacks/laravel/api.md
-    text: Wrap multi-step writes that must succeed or fail together in `DB::transaction(fn () => ...)`.
-    text_hash: 5a4535c30ba2e2882b11c103f59ffcd0bc49b066ac596e1e99ce9bcf204cd420
+  - id: RL-d3b9
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Keep each function at 40 lines or fewer.
+    text_hash: 1d3d086b5a38efdc66133a7e431cb6907dd8652179420c7be21cbd265edb9860
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-7615
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: "Name classes by their role and suffix: controllers `PostController`, Form Requests `StorePostRequest`/`UpdatePostRequest`, policies `PostPolicy`, jobs `SendInvoice`, events `OrderShipped`, listeners `SendShipmentNotification`. Place them in the matching `app/` subdirectory (`app/Http/Controllers`, `app/Policies`, `app/Jobs`, etc.)."
-    text_hash: d6fb1791bb06825c206a037899b31cf607dbee3970668381db967d4502ea1ff4
+  - id: RL-1eb5
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Keep each function at cyclomatic complexity 10 or lower.
+    text_hash: 29b75c9e25935cf3d225087e239c8e7f9e11caa4c4913b4452974018890472f7
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-a424
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: Name Eloquent models singular StudlyCase (`OrderItem`); let Laravel infer the snake_case plural table (`order_items`). Only set `protected $table` when the table name does not follow that convention.
-    text_hash: 010ad2f925dc224df25a15b19db2814453606c952e67846e2bb850ed59dab9db
+  - id: RL-f5d6
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Give each function at most 4 parameters.
+    text_hash: a7f6e324dc44cc48f0d6ed17f696cc57e25c29bfa75236769b77aa0b7371dcb7
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-db7a
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: Name database columns snake_case; name model relationship methods by cardinality (`hasMany` → plural `comments()`, `belongsTo` → singular `user()`).
-    text_hash: 743beafcc19bd45526ebe3b7e0515c5c0507a1ee64f2a103bfe130372ef19eaf
+  - id: RL-f1e3
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Nest blocks at most 3 levels deep inside a function.
+    text_hash: 081cb2f58dafc8ed208b890dc8b12666a650745a943c0c585afec1cb275b64ec
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-ed43
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: Name routes and reference them by name (`route('posts.show', $post)`); do not hardcode URL paths in redirects, Blade, or tests. Use resourceful route names (`posts.index`, `posts.store`) for CRUD.
-    text_hash: a3a6462419872583130e0b08b6c272384090d7b6d4f5d02e56d2626c1ffcc7fb
+  - id: RL-5666
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Put only imports, constants, functions, classes and the main guard at module top level.
+    text_hash: 6f4a58bc9f88ac3486dac9111c6c85832b733de776b5eccb787ffeb048c731cf
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-b3c9
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: Generate boilerplate with artisan generators (`make:model -mfc`, `make:controller`, `make:request`, `make:policy`) rather than hand-creating files, so namespaces and stubs stay consistent.
-    text_hash: da1bc8bca3e0f1ecd0bcdd96a7c337f1be4c2f81e73d3a6d438ad9cf96af5ef5
+  - id: RL-2692
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Call `argparse`, `print` and `sys.exit` only inside `main()`.
+    text_hash: 1e794bba9cb60da652a31a22c48dc9180d4c59555c4bd0b8fff44efaec3ee96e
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-a476
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: Keep `routes/web.php` and `routes/api.php` as route declarations only; do not define closures with business logic — point routes at controller methods.
-    text_hash: 526dd2fb5a70ce90bcf8a804d70cdf69e38060d8c69026601bd0ca960ee5588f
+  - id: RL-3fb5
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: 'End every script with `if __name__ == "__main__": sys.exit(main())`.'
+    text_hash: 32a3ec38576e4e35aec4df3eaace3b1d1a566a4990610ec98854f550c9f786d8
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-3c94
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: Use constructor property promotion and typed properties/return types on new classes; this is the stub style Laravel 11/12 generates.
-    text_hash: bbad3ac65c3077de719227aeadb9bcc96e711c757d8507efb7f0601625d25e6e
+  - id: RL-8323
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Never use the `global` statement.
+    text_hash: 19855b027b25a0188d77b7d1607b7b8847fdcd01d74bc799a7a8048ea7afa7df
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-144e
-    source: docs/instructions/rules/coding/stacks/laravel/conventions.md
-    text: Resolve dependencies via constructor injection or method injection from the service container; do not call `app()->make()` or `new` for services that have container bindings.
-    text_hash: 76b4a761f2d3d8585e8aea5c61b9934ff65d2eb317e07b8309417b0c0528f199
+  - id: RL-f7c0
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Put logic that two scripts need once in `shared/scripts/` and import it; never copy a function body between files.
+    text_hash: 80d846fe9b4a05a4fdac5ff0b87dd9585d616b83770f3b1a7159a39f5db512d9
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-8d4d
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Make every schema change through a migration (`php artisan make:migration`); never edit an already-shipped migration to alter a deployed schema — add a new migration instead.
-    text_hash: 97a2c3801eed2f308a6222184a26e06d19075933ed01abe986b55ed512a8ee79
+  - id: RL-1547
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Import only the standard library, the skill's own `scripts/` modules, or `shared/scripts/` modules the skill declares in `build/skills.yml`.
+    text_hash: 4dc0771073fc400ee43548bdbb7877cf27cd839c7b1c58101fe5608cc274fb23
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-d215
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Give each migration a working `down()` that reverses `up()`, or use `Schema::dropIfExists()` for table-creating migrations, so rollbacks are safe.
-    text_hash: bc93a161b95eadf8de9a29c051bbf8b12e25ffe414cfa1e10b94d45ba6b9507f
+  - id: RL-6371
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Use no number literal other than 0, 1 and -1 inside a function body; name every other value as an UPPER_SNAKE_CASE module constant.
+    text_hash: 1da0b3d26fb676a00d92883137992caac131287764212f02bdc3cc8c873dc232
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-85a7
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Add an index for every column used in a `where`, `orderBy`, or join filter, and for every foreign key. Use `$table->foreignId('user_id')->constrained()` to create the column, index, and FK constraint together.
-    text_hash: 033f61baeadc3bbb05136ef1407cfb74652699fa986256fa5447dbdd37953509
+  - id: RL-6a4d
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/modularity.md
+    text: Give each file one responsibility that its name states.
+    text_hash: 9e5c7774344885fca94b70d685c2d38b564b2d3042a7ba53b43ad0383a4f8d59
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-1109
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: "Cast attributes with the `casts()` method (Laravel 11/12) or the `$casts` property: `'is_active' => 'boolean'`, `'meta' => 'array'`, `'published_at' => 'datetime'`, money as `'amount' => 'decimal:2'`. Do not store JSON as a plain string and `json_decode` it by hand."
-    text_hash: f2cac8f733a0e98859225dc0468a7873e25b4443ed60895d471bd0d74b1e4f43
+  - id: RL-d7fc
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/no-comments.md
+    text: Write no `#` comment in a Python file, except a shebang on line 1.
+    text_hash: e7adf54f2887fc0da88ea52206ff35f8a490002fe6ad8985886a3eacc43dc47d
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-ec27
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: "Prevent N+1 queries: eager-load relations accessed in loops or resources with `->with('author', 'comments')`. Enable `Model::preventLazyLoading()` in `AppServiceProvider::boot()` (non-production) to catch lazy loads in tests."
-    text_hash: ce18429377039f57cba2ccbb8d7984f411f847e2340a0ef19a459d72a4ccf296
+  - id: RL-d091
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/no-comments.md
+    text: Write no docstring on any module, class or function.
+    text_hash: ca34972e6b5ba930c3e6579a614d32b92c96043710e0a174c2944534da7e35cc
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-1800
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Process large result sets with `->chunkById()`, `->lazy()`, or `->cursor()`; never load an unbounded table into memory with `->get()` or `->all()`.
-    text_hash: 2c8e1308c47c96593fee4f02686ec0c1b0d1626276afe1f8ba706dccf52de45d
+  - id: RL-2bf3
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/no-comments.md
+    text: "Write no lint or type suppression marker such as `noqa`, `type: ignore` or `pragma`."
+    text_hash: 51b9ed084b46671f1672f82b80fcc13cbbd3a001b4cb73beacf045eb58d32277
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-1cc8
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Aggregate counts with `->withCount('comments')` or `loadCount()`; do not call `$model->comments->count()` inside a loop.
-    text_hash: d236c855492de7ebcf60cd79f3ca6fdb33dd501a9acbcd001eb46f12075f2a63
+  - id: RL-da2e
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/no-comments.md
+    text: Name every identifier with at least 2 characters, except `_`, `i` and `j`.
+    text_hash: 8b1b8bf779c78292b3aa5430a06606b7b87fb8e1cd662d2246734857cb6747a4
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-c219
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Use query bindings — `where('email', $email)`, `whereIn(...)` — for all user input. If you must use `DB::raw()` or `whereRaw()`, pass values as bindings, never string-interpolate them.
-    text_hash: 3f33ab519f45ac0fad7c5033c5338e3f5f8bf81c9c82649b0efd3cf9e53531db
+  - id: RL-320e
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/no-comments.md
+    text: Record the reason behind a constant or design choice in `docs/`, not in the source file.
+    text_hash: 898fec35bb732bdcc5c729fdc038b773b6a53fa996040c52f93c54b2b80da37b
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-62d3
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Wrap multi-statement writes in `DB::transaction(fn () => ...)`; for jobs/concurrency-sensitive reads use `lockForUpdate()` inside the transaction.
-    text_hash: b1f319bd6bda005648d0b2bff68a69e72f74ac9966fb57fd7b179979eabc36e6
+  - id: RL-13c9
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Import only standard library modules and modules that live in this repository in shipped scripts.
+    text_hash: 167c06bdb477142a1bd575e41178e844810b101b2424ef47be1c195784ad4317
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-3136
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Define mass-assignable columns with `$fillable` (or guard with `$guarded`) on every model before using `create()`/`update()` with request data.
-    text_hash: 0de1973055a950feaed567edd7a19b6b5e51a49134187d1c351138eb6ecd58d2
+  - id: RL-9e8b
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Never import `socket`, `http`, `urllib.request`, `ssl`, `smtplib`, `ftplib` or `subprocess` in a shipped script.
+    text_hash: 25a9d443cd03301610d4cadca4ebab1e3f790905dbd19346ca0828d23dd2f663
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-8b82
-    source: docs/instructions/rules/coding/stacks/laravel/database.md
-    text: Seed reference/test data through seeders and model factories (`database/factories`, `database/seeders`), not raw SQL or `DB::insert` in migrations.
-    text_hash: 6e0762c703f89d9d72ecf89bf4269ba279d759671766e482e00e0b629430157b
+  - id: RL-8961
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Write code that parses with `ast.parse(source, feature_version=(3, 9))`.
+    text_hash: ed0fbb31eff925f02d713e8abf7d164a9eac515d269ec78fd275a0b86a9b2f74
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-c010
-    source: docs/instructions/rules/coding/stacks/laravel/documentation.md
-    text: Document a changed or new API endpoint with its route name, HTTP method, path, request payload (the Form Request rules), response shape (the API Resource fields), and the status codes it can return.
-    text_hash: 779efd7ca939f26629d531b978b133f3384b9b16d656deab7a0301bd2b56f40c
+  - id: RL-00a4
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Pass `encoding="utf-8"` to every `open()`, `read_text()` and `write_text()` call.
+    text_hash: 8f7f5750f44a5d226299de918a8731de24b82b51b8b1950aace3e488ba89ce50
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-30c2
-    source: docs/instructions/rules/coding/stacks/laravel/documentation.md
-    text: When you add or change a validation rule, reflect the new constraint (required fields, formats, limits) in the endpoint's documented request contract.
-    text_hash: 794db0f303fe927361da291578d4e1ab7c0e78b30676700112491af13bcb910c
+  - id: RL-9edb
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Call `json.dumps` only inside `shared/scripts/canonical.py`.
+    text_hash: 4f1a7f05289e5c2f6a5eb118018a7a0457066a1793fc5c5972de303c05a51301
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-40a1
-    source: docs/instructions/rules/coding/stacks/laravel/documentation.md
-    text: When you add or change a queued Job, Event, or Notification, document what dispatches it, what it does, and whether it is idempotent/retry-safe.
-    text_hash: f386df18817f909e59e186b59f7a65ffc9cbb9df06105d7bf6a5537d09b60dd8
+  - id: RL-06a6
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Exit with 0 when a script finds no issues, 1 when it finds issues, and 2 on a usage error.
+    text_hash: 1092890387513245c4585efe374f7385553ec0a535b49c3d074cb5418c7a8a5b
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-8aa6
-    source: docs/instructions/rules/coding/stacks/laravel/documentation.md
-    text: When you add or rename a config key or required `.env` variable, document it (key name, purpose, default) so deployments set it.
-    text_hash: c0822ce692881f88a2338552a2fc90197a7813ea1172342064db80931fd6f404
+  - id: RL-b4db
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Never write a bare `except:`, `except Exception` or `except BaseException`.
+    text_hash: e3c509a7f8a3da8835b257cbccd59206fdd0914314a4b464dafe7afc2a60755f
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-b662
-    source: docs/instructions/rules/coding/stacks/laravel/documentation.md
-    text: Document the props contract (names, types, required/optional) for each Inertia/Blade page a change touches, in that module's UI doc.
-    text_hash: 0625f4a6a619867bfcf1047a64bce49e9da66304531fc1bbe072f9d4b4381329
+  - id: RL-1334
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Never use `assert` in a shipped script.
+    text_hash: 99caf8e6da3636be2e618f8ca7072f58660da537d90602c6feec4eef4c7351f9
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-dc5b
-    source: docs/instructions/rules/coding/stacks/laravel/documentation.md
-    text: Do not paste generated artisan output or full file dumps into docs; describe the behavior and reference the route/class names so docs stay reviewable against a diff.
-    text_hash: b83d9de4d76cfe4c8a3afebb6fe9c9e2f1e7b10b23b5aacf06f1951ba1daf760
+  - id: RL-5c42
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/python.md
+    text: Write files only to paths the caller passes on the command line.
+    text_hash: 28bc4f9dc69bc327a3a9a7422fc6165cec57f52248ab7bb4fa517b5391c8d60c
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-925d
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: "Reach for a framework primitive before writing custom infrastructure: Form Requests (validation), Policies/Gates (authorization), Jobs (background work), Events/Listeners (decoupling), Notifications (multi-channel messaging), API Resources (serialization), and named routes."
-    text_hash: cc72db431187207f00dc8465992d2c8e1c1901cf1e141788ad812698417b2c89
+  - id: RL-ce6a
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Set `name` to match `^[a-z0-9]+(-[a-z0-9]+)*$`, at most 64 characters, equal to the skill folder name.
+    text_hash: b2edf926eda9168d4639dffc2ef27977bad1a4afd49b5b6c5b132ff607aa7a79
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-a133
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: Read configuration only through `config('services.stripe.key')`; call `env()` only inside files under `config/`. Config caching (`php artisan config:cache`) makes `env()` return `null` everywhere else in production.
-    text_hash: 3cff607ecc66a08b5790dae0a3602df8dfad1c4e7745bc48b954792d3ad457b9
+  - id: RL-41e9
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Never put `anthropic` or `claude` in a skill `name`.
+    text_hash: b9a6793791e7ea5d60612b4a746b5bfcb1f1189f3d5bcadee9b626766d4c72ba
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-693f
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: Register middleware, route files, exception handling, and named-route middleware groups in `bootstrap/app.php` via `->withMiddleware()`, `->withRouting()`, and `->withExceptions()` (Laravel 11/12); there is no `app/Http/Kernel.php` or `app/Exceptions/Handler.php` in the new structure.
-    text_hash: ad1f3dc9350571784d6af40cb06cb4a5e0ec80f1dcdc48985789738a988cd0bc
+  - id: RL-68d4
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Keep `description` between 1 and 1024 characters with no `<` or `>`.
+    text_hash: ed6712ad119c2bcab2bbec2983d1623e91e15b1d0708f7e4a0bbeda9fc08b198
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-c26f
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: Register service container bindings, observers, and policies in a service provider (`App\Providers\AppServiceProvider`); do not bootstrap that wiring inline in controllers or routes.
-    text_hash: 1a0405cda43961022d03555c5d10aa0f63769084c9b064cd52d05806fd0a51b5
+  - id: RL-c740
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Use only `name`, `description`, `license`, `compatibility` and `metadata` as frontmatter keys.
+    text_hash: 5e6dbfef71d3754d055ff9644a0a61a1906f821272f8293bf779f533f769b857
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-d0d8
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: Schedule recurring tasks in `routes/console.php` with `Schedule::command(...)->daily()` (Laravel 11/12), not in a `Kernel::schedule()` method.
-    text_hash: 67bee86439d5ed8f1d3dca703e2b0ae9a75e85a0455252f93465154a2af6f9d7
+  - id: RL-f543
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Write `description` in the third person, starting with a verb such as "Suggests" or "Answers".
+    text_hash: 0a8544718fe52dcac0a71102d4c92b24608422377d402098f7f901f867bd85aa
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-e54e
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: Dispatch slow or external work (email, third-party API calls, image processing) to a queued Job (`implements ShouldQueue`); do not block the request thread.
-    text_hash: 168d2154fa7b88f6ad7cfd7592df96a55be25054b6bd04bb393661363fa44a43
+  - id: RL-74e9
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Include "Use it when" in an entry skill description and "journey directs it" in a step skill description.
+    text_hash: f70c2e17ea94de11f912a1a3e97e9e56d17511562e9a03112fa4ba46dfdb0612
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-12fd
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: Use the `storage/app` filesystem disks via the `Storage` facade for file I/O; do not write to arbitrary paths with raw `file_put_contents`.
-    text_hash: 14aea1dc212e27265a5dff2bff7be540e03592b83f6b3fa4af36dd00d2bfb436
+  - id: RL-04db
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Let only `product-discovery`, `ask-project`, `refine-ticket`, `size-work` and `plan-sprint` invite direct use.
+    text_hash: 0170f7cc3460c117dff0bad80016e565cd476f8efd02c42ce933206c23a916dc
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-e94d
-    source: docs/instructions/rules/coding/stacks/laravel/foundation.md
-    text: Generate scaffoldable files with artisan generators rather than hand-writing them, so namespaces, stubs, and registration stay correct.
-    text_hash: e1d41b773f627e335bca798b0d4fa2759b6ee235882fb25b784d09a42345769a
+  - id: RL-e019
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Keep the `SKILL.md` body at 150 lines or fewer.
+    text_hash: ba7f1204c9e7aac3553c05c63f43a30209ff967d5e74cb4a3a0d39315f9a249b
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-640b
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: "Reach for a framework primitive before custom infrastructure: Form Requests, Policies/Gates, Jobs, Events/Listeners, Notifications, API Resources, and named routes."
-    text_hash: 6bf6dba33b1fd604718d56bf32c6d6152d58a5dfa3b46263a37333056d1fc949
+  - id: RL-f924
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Open every `SKILL.md` body with the "How to talk" block that points to `references/voice.md`.
+    text_hash: e5924291e993debf7967392b606f2b293ac00de324cdfc1a48cb62462c3d23f6
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-9c3b
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: Read config through `config('key')` everywhere; call `env()` only inside `config/` files, because `php artisan config:cache` makes `env()` return `null` at runtime.
-    text_hash: 15caff0eb8f9ebd715e6e2d61161473df2893bde5e87555a69c0eecfff177464
+  - id: RL-48e7
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Put only `SKILL.md`, `references/`, `scripts/` and `assets/` in a skill folder.
+    text_hash: 59c0dbad85bbf1d9a820f22d3bc0d9a223f72cef2bdd30a1ff9fee6cda0c6e44
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-fe8a
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: Configure middleware, routing, and exception handling in `bootstrap/app.php` (Laravel 11/12) via `->withMiddleware()`/`->withRouting()`/`->withExceptions()`; there is no `app/Http/Kernel.php`.
-    text_hash: 6e9a36c31a16c14ec1a86221eb3d3b10ccc69d09aaf573993b1628b33bf70622
+  - id: RL-f546
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Keep `references/` flat, with no subfolders.
+    text_hash: bf5a1ace0e0b7bfe5323cb684f208cb66f3eab794d723371c135f3cad984b225
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-37d1
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: Register scheduled tasks in `routes/console.php` with `Schedule::command(...)`; register bindings, observers, and gates in `App\Providers\AppServiceProvider`.
-    text_hash: f616bf1e50195dfded3ac7fc184a96595b54ec0da7a0af2dd6425051a71898e2
+  - id: RL-ebee
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Name every file in `references/`, `scripts/` and `assets/` in that skill's `SKILL.md`.
+    text_hash: e05f66ba1bfc88a61df4ccada4fd7ced977d1802a8e50b51669782504267fb18
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-d34b
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: Dispatch slow or external work to a queued Job (`implements ShouldQueue`); keep `handle()` idempotent and tune `$tries`/`$backoff`/`uniqueId()` so retries are safe.
-    text_hash: cda5e8ef8a56b23296972f65f556a47a033986f782115df4a3d4be2ca8f66ab1
+  - id: RL-725b
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Point every path in `SKILL.md` at a file that exists in the built skill.
+    text_hash: c390d1b7b363a48e276b51bf0d3ee43ec874faba41858d8e74270f4e223ebeb5
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-690e
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: Add a model factory for every new model and use `casts()`/`$casts`, `$fillable`, and typed relationships on the model.
-    text_hash: 6a768abc97a1b491a34bf2e08719d891a2d4480561d271c6c03eb67ebbeda2c5
+  - id: RL-7bb9
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Start any reference file longer than 100 lines with a `## Contents` section.
+    text_hash: 31e52c3080e4e273f7f9f6165add4a26348c720b33cfd5e999e7d51bbc91cbb6
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-21ef
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: Generate scaffoldable files with artisan generators (`make:model -mfc`, `make:request`, `make:policy`, `make:resource`) so namespaces and stubs stay consistent.
-    text_hash: f1b4bc67b3622c18b7d533ede341d8afc2123757c3b114a179d42406c1bf5493
+  - id: RL-a875
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Write paths in skill text with forward slashes only.
+    text_hash: 5b360bb64a6d50035cf70f8edbd960b8596c1e8e3400c4d4342949d48d9f44eb
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-b19e7
-    source: docs/instructions/rules/coding/stacks/laravel/laravel.md
-    text: Resolve dependencies through constructor/method injection from the container; do not `new` up classes that have container bindings.
-    text_hash: 29954e56ec366f25a01489b3283ff32a762108c00e9b4f357374b7a129e9bc52
+  - id: RL-000b
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Write no year or calendar date in skill text.
+    text_hash: d6ed0b861f78e3742bb04fdd21f7c78259dd808ed24555ef44ff47ba5b734be8
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-9150
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: Wrap every user-facing string in `__('messages.key')` or the `@lang`/`trans()` helper; do not hardcode English copy in controllers, Form Request `messages()`, notifications, mailables, or Blade views.
-    text_hash: 7eec94cb5fb1059cb3379a9736aec6c2079bdc5d725d38442bd73397dadb14a3
+  - id: RL-8982
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Write no host or vendor name under `skills/` or `shared/`.
+    text_hash: b03b99cdc5efb682856033fda9de2e9a665c1a6e5214eff8b504abc75d301dac
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-607d
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: Store translations under `lang/{locale}/*.php` (or `lang/{locale}.json`) and reference them by stable dot-notation keys; do not key translations by the English sentence text.
-    text_hash: 27aaf92d59b0811a9d9e30e0f564645ef94437f16294900ba73566b2653bfdf1
+  - id: RL-6949
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Write no em dash or en dash in authored content.
+    text_hash: 9bc3ea89573af8a3e0ba349d8b8d169ebc2feb5cec2db1153cac470378308cd6
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-9cbf
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: Localize validation messages via `lang/{locale}/validation.php` and the `attributes` array, not inline custom strings, so messages stay consistent across requests.
-    text_hash: 4b0a5f7235e24b1fd61d00335501962b47df1945454b04884adf9eda20942e64
+  - id: RL-0095
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Give every skill with scripts an "If the checks cannot run" checklist section.
+    text_hash: 4b430e7da30b44f0dcf77c497bf01dc1fdbcc750175b87a716d655f39aea5abf
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-e437
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: Return translation keys or enum case names (not pre-translated labels) in API/JSON responses when the client renders the label; keep the key identical to the one the frontend i18n uses.
-    text_hash: 0fa925ac0c91c0587e6d830bf5164d41724211abe7c564e2071f97d932ff0a8a
+  - id: RL-72fd
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Write at least 3 eval scenarios for every skill under `tests/evals/scenarios/`.
+    text_hash: 790d037ac846d0ee86998f4f067fa471e919f5915c28258f1f083f58b1b69ea4
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-782e
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: For enums shown to users, add a method that maps each case to a translation key (`__("enums.status.{$this->value}")`) rather than returning a hardcoded display string.
-    text_hash: f600901e09e9ea81b1820cad07b41eb4ea8191273963efd7d26a8efb1aea88a1
+  - id: RL-9d96
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
+    text: Use the words from `shared/references/plain-language.md` and none of its denied terms.
+    text_hash: 5b9897442b03aecbd82b37947092d2de1babb6d24f37d231233f09a9361d411e
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-46b1
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: Pass dynamic values as named replacements (`__('orders.total', ['amount' => $amount])`) instead of concatenating strings, so word order can vary by locale.
-    text_hash: 298ad58e6e4f7e4a7e77129356d7d904c250c8be4d4664c77d66875b70ea3d67
+  - id: RL-a02b
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Keep branch coverage of `build/`, `shared/scripts/` and `skills/*/scripts/` at 95% or higher, measured with `coverage.py --branch`.
+    text_hash: f03ec5b9fad242ad1ade93cb1d16b2dc991251aef4fd815c8ec68b1cf98db0b4
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-b2eb
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: Use `trans_choice()` for pluralized copy rather than building singular/plural branches manually.
-    text_hash: 25e0eaa3db78d4f34c426964012f6216b1ba88504c6bff49b21b2ea3937b3295
+  - id: RL-225f
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Import every module under `build/`, `shared/scripts/` and `skills/*/scripts/` from at least one file in `tests/scripts/`.
+    text_hash: 060c86cac3a78a74acce31bcc0d1e57a7787263b6e3ce59f14f0c91429851341
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-258e
-    source: docs/instructions/rules/coding/stacks/laravel/localization.md
-    text: In tests, assert on translation keys, enum values, or status codes — never on a translated string, which breaks when copy changes.
-    text_hash: c00e42293817c92ed7218146143bd982f489c0a4ec74a6ded49df9b23040d3f4
+  - id: RL-770f
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Write tests with `unittest` only.
+    text_hash: ce0aaf632be5ffc8309d21e9b173471773fb36fbbb3cdb56ca31227bec9b5eeb
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-0f2e
-    source: docs/instructions/rules/coding/stacks/laravel/modules.md
-    text: Module ownership and cross-module boundaries are defined per project in `docs/instructions/rules/module-map.yml`. Treat that file as the source of truth for which directories/classes a module owns and which modules may depend on it. Do not restate or duplicate those boundaries here.
-    text_hash: 5070bcd4ad07e3cc0b42ea5b0c8565e8ca1a9f3d90cbb0a9383fcfdce3b758dc
+  - id: RL-fae2
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Put at least one assertion in every test method.
+    text_hash: cac4829abae7e76d7fdccd4002d36d15f70ea87311f82ad1c2e77db4f213e140
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-2fae
-    source: docs/instructions/rules/coding/stacks/laravel/modules.md
-    text: Before adding a new top-level folder or abstraction, check `module-map.yml` for an existing owner and place the code there.
-    text_hash: 91bf707a20a0a9902a75a7ce57b560b3ca1c70bf94cafa047a1d0937a4f0f5b3
+  - id: RL-d38c
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Never use `skip`, `skipIf`, `skipUnless` or `expectedFailure`.
+    text_hash: c74ae33fd12ef4800ae2e5fd9de65e0d100597f6527346cf5e35523cbc52ec83
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-79ae
-    source: docs/instructions/rules/coding/stacks/laravel/modules.md
-    text: "Within Laravel's own structure, keep code in its conventional directory: HTTP entry points in `app/Http/Controllers`, validation in `app/Http/Requests`, authorization in `app/Policies`, domain models in `app/Models`, background work in `app/Jobs`, and serialization in `app/Http/Resources`."
-    text_hash: 68991020234f2a9f38c1f5f2efa60be907411bccd269e8220a21e465e19ac040
+  - id: RL-c7e7
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Make every test file pass when run on its own.
+    text_hash: 28aa6575ecb2365ab0392450924c428f7070821334f263bc6c8ebfc309df03e9
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-fa8f
-    source: docs/instructions/rules/coding/stacks/laravel/modules.md
-    text: "Keep route files (`routes/web.php`, `routes/api.php`, `routes/console.php`) thin: declarations pointing at controller/command classes, no business logic."
-    text_hash: bbc4e0edf9e75e1a5f990bebdb2b579c250e87ab0578a153b0494f0956b36b3d
+  - id: RL-9c09
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Make the suite pass on Python 3.9 and on the current Python release.
+    text_hash: b455219ea5dc2f5f4cf8b7a6e411a6ce7dbe3ec545a1e14c7b5528b728125a44
     verifiability:
       kind: heuristic
     enforced_by: []
     scripts: []
-  - id: RL-2455
-    source: docs/instructions/rules/coding/stacks/laravel/modules.md
-    text: When a change crosses a boundary defined in `module-map.yml`, go through the owning module's public interface (a service, action, or event) rather than querying another module's models directly.
-    text_hash: ee6c9ac2ced27e4e0a94d774ec777ceed4f839348732b016e5c5074fce8390e0
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-a9c1
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: "Eliminate N+1 queries: eager-load with `->with(...)` any relation accessed in a loop, Blade `@foreach`, or API Resource. Aggregate with `->withCount()`/`->withSum()` instead of counting/summing loaded collections."
-    text_hash: 2ae9c272bdadeed56de7ab68ca5c67102ef716e5dbce3be831cf9d3579313c47
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-c44e
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: Select only needed columns on hot queries (`->select(['id', 'title'])`); avoid `SELECT *` for wide tables, and add a covering index for the columns filtered and ordered on.
-    text_hash: 0e25714acb52aefc1afe37fbf4f33e0f92dc30e7e60c83693c1e9440af4f99f5
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-cd85
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: Process large datasets with `->chunkById()`, `->lazy()`, or `->cursor()` instead of `->get()`; the first two keep memory bounded, `cursor()` streams one model at a time.
-    text_hash: 414f7505c0eb83798d386d3631f05a5ac6b869f1f5b08c8a13b442f045cd93e1
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-49c6
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: Move slow or external work (emails, third-party calls, exports) into queued Jobs (`ShouldQueue`); do not run it inline in the request lifecycle.
-    text_hash: eabdafff22ad442f91223d9df4df3ae6577d876b378f831eb0afed2fd978c4e3
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-19c6
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: Batch external work with `Bus::batch()` and avoid per-row queries inside job loops; prefer bulk `insert()`/`upsert()` over looping `create()` for large writes.
-    text_hash: 5e3ad834041978e04298b164d603a89c196f3b55bbfd79b18de926ba4540f1db
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-db26
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: Cache expensive, stable computations with `Cache::remember($key, $ttl, fn () => ...)`; pick a tagged or versioned key so you can invalidate on writes, and do not cache per-request user-specific data with a shared key.
-    text_hash: 4585ad008746f3a2019bb4fcb6d5fb488683e46bbeb059be3133b0db2b35afb2
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-0f5c
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: Use `config:cache`, `route:cache`, `event:cache`, and `view:cache` in production deploys; ensure no `env()` calls live outside `config/` so config caching is safe.
-    text_hash: 60d5f1cc9b5ec1ee6d2a980d68abd417b12f4b88831010857f6e69b2a2c11d1f
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-02f3
-    source: docs/instructions/rules/coding/stacks/laravel/performance.md
-    text: Back any "optimization" with a before/after measurement (query count via `DB::enableQueryLog()` / Telescope / Debugbar, or timing); do not micro-optimize without evidence of a hot path.
-    text_hash: 62db99bcf05eb1b71bb540c3b55db07c893be89a133b79d7bfa77e2545f40103
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-cdae
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Declare `$fillable` (allow-list) or `$guarded` on every model and never pass `$request->all()` into `create()`/`update()`/`fill()`; use `$request->validated()` so only whitelisted, validated keys are mass-assigned.
-    text_hash: 83ba6eb74d3fdce544adbb7705539f35ba154ef72353da61a29f7f1df225f67e
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-8a29
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Authorize every state-changing action with a Policy or Gate (`$this->authorize('update', $post)`, `Gate::authorize(...)`, or `can:` middleware). Do not assume an authenticated user is authorized for a specific record.
-    text_hash: 3d360953c5f296455428d0070d53aaafd3bd622dafaebba78f5e5807453fcf65
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-13d5
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Scope queries to the current user/tenant (`$request->user()->posts()->findOrFail($id)`); do not trust an ID from the request to belong to the caller (prevents IDOR).
-    text_hash: 67e2934c7e0a1e7b3493779437d584106cf342da66aabfd42cb561d92b59609d
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-5433
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Keep the CSRF `@csrf` token in every Blade `<form>`; do not add routes to the `validateCsrfTokens` except exclusion list unless they are stateless API endpoints behind token auth.
-    text_hash: bbc8322ffe8a139e968c88d7b73ba6697c6cbffa8e2f3627597371a1938554fb
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-247a
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Validate all input with Form Requests / the validator, including `exists:`, `unique:`, `enum:`, and `max:` rules; never reach into `$request->input()` for unvalidated values in write paths.
-    text_hash: 4c8ce598ad56de342ca174c7ccb88e4e06e35f745c3dbc3885600be4193c3f0c
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-c7d3
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Generate temporary public links with signed URLs (`URL::signedRoute()` / `temporarySignedRoute()`) and verify with the `signed` middleware or `$request->hasValidSignature()`; do not pass raw IDs in unauthenticated links.
-    text_hash: a8a7b5f68b1593509eaed34fdc645910e1b4d8182f51c2f7342d5e9e32fbaf69
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-0001
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Hash passwords with the `Hash` facade or the `'hashed'` cast; never store or compare plaintext. Compare secrets/tokens with `hash_equals`, not `==`.
-    text_hash: cf677c5a2d3c28d5179bb0722d4f3ccae719a362f5dff6def6214167e3f676e0
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-7dcf
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: "Escape output by default: use `{{ $value }}` in Blade (auto-escaped) and reserve `{!! !!}` for content you have explicitly sanitized; never echo raw user input as HTML."
-    text_hash: 9878b4c532be46570bd49239547f9437e6fde4bef9b8c44680bbe0e102fae854
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-7c63
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Keep secrets in `.env` and reference via `config()`; never commit `.env`, hardcode API keys, or log credentials, tokens, or full request payloads.
-    text_hash: c5e39832aacc2e3c2a5f55c78dd393e9bef67dfa7eff4f022fb593522fbc5468
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-d75d
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Use Eloquent/query-builder bindings for all SQL; if `DB::raw`/`whereRaw` is unavoidable, pass user values as bindings, never interpolate them into the string.
-    text_hash: 70911c5607f37ff78a6b64031ce95545eb8177839c43977d09218f24baae615a
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-a8b4
-    source: docs/instructions/rules/coding/stacks/laravel/security.md
-    text: Rate-limit authentication, password-reset, and other abuse-prone routes with the `throttle:` middleware.
-    text_hash: 25c6590194b91b93e1b60ff7afb164bc412579bf3f7061a51497e82b9ee811ee
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-b2b9
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: Write tests with the project's configured runner (Pest or PHPUnit) under `tests/Feature` and `tests/Unit`; run them with `php artisan test`. Match the existing style — do not mix Pest `test()`/`it()` syntax into PHPUnit `extends TestCase` files or vice versa.
-    text_hash: 5c829a75114d781beb89d2eb21d4bff03dd84d1af6619fe098ac718186fd95a2
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-7d5f
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: Use the `RefreshDatabase` trait (or `DatabaseTransactions`) on tests that hit the database so each test runs against a clean, migrated schema; do not depend on leftover rows from other tests.
-    text_hash: c0a69c41df5c33f1474a6f69186416a5c61926a85084801d03a5e071d0dc35f7
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-af5f
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: Create test data with model factories (`Post::factory()->count(3)->create()`), not hand-written `DB::insert` or hardcoded IDs. Add a factory for every new model.
-    text_hash: 6ce3f6a52894acfb8dfd258c76989ea90c3cbec9f7310520262fc52fea1adaa9
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-3856
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: Test HTTP endpoints as feature tests with `$this->getJson()/postJson()` and assert on `assertStatus`/`assertOk`/`assertCreated`, `assertJson`/`assertJsonStructure`, and `assertJsonValidationErrors` for `422` paths.
-    text_hash: a2cfabd99e838c061d072d9e692643318217dab59c090127c85a2a2c2ed580e2
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-85f0
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: "Test authorization explicitly: assert a forbidden user gets `403` and `assertDatabaseMissing` confirms no write happened; assert the permitted user succeeds. Use `actingAs($user)` to authenticate."
-    text_hash: 65c25c7dcb22b32ec3946f8ef71cd45d84684e8d6b8b65fe6f0156fff0932ed8
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-4b5b
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: Assert persistence with `assertDatabaseHas`/`assertDatabaseMissing`/`assertDatabaseCount` rather than re-querying with Eloquent and comparing by hand.
-    text_hash: 7938da65893048db323063fff38022c7465fadc2849e57d70e267f4fa4be8cb5
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-421c
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: "Fake external side effects: `Queue::fake()` then `assertPushed`, `Mail::fake()`/`Notification::fake()` then `assertSent`, `Event::fake()`, `Storage::fake()`, `Http::fake()`. Do not hit real queues, mailers, or third-party APIs in tests."
-    text_hash: 56f65fff0e3957ca0b8a26ab8193f38fb2dfb3800dc6e2aacd661a2372ba7706
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-3531
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: For queued jobs, test the job's `handle()` directly for logic and assert dispatch separately with `Queue::fake()`; assert idempotency for jobs that may retry.
-    text_hash: cbd56f93820fb193e235a81141b88135db72ffce9d969b4472d1da84033a71bf
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-c803
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: Add a regression test in the same PR as a bug fix that fails before the fix and passes after.
-    text_hash: f45ca4e4dceb0627a98d3eda8c4bfcef8d8d0a110d9fd367cddba4f45a42b8d6
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-94a0
-    source: docs/instructions/rules/coding/stacks/laravel/testing.md
-    text: Do not assert on translated/localized strings; assert on translation keys, status codes, or stable identifiers instead.
-    text_hash: 6f58f1fb7f8778bd64f3a75adbba17c8db590d817ec0f4bd9a914089c8b16991
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-f204
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: "Render an explicit branch for each state of a data-driven view: loading, empty (no records), success, and error. Do not assume a collection is non-empty before iterating it."
-    text_hash: 564f7e97ed2ea8e2da0a500d51bac02129c14161c0b0e428d270c9a52d526d4d
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-e062
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: Disable submit controls and show a pending indicator while a request is in flight (Inertia `useForm`'s `processing`, or a disabled-button guard) so a form cannot be double-submitted.
-    text_hash: 723c02d2e352c04f5942d7ac6e5d371ff97c47942cff39735afff8440ffaa925
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-6eb4
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: Gate destructive actions (delete, cancel, payout) behind an explicit confirmation step before the request fires; do not delete on a single unconfirmed click.
-    text_hash: 439086a786425f54866f0b371a2bedf418a10014efbb5b362f7a4134a212abfb
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-8eb9
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: Display server-side validation errors next to the field that failed, using the errors Laravel returns (`$errors` in Blade, `form.errors` in Inertia); do not silently swallow a `422`.
-    text_hash: 5d19f55347d6a2488731865e600f01211b65ecb7a5d16a5c4d61283a146c8420
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-4687
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: "Show authorization failures honestly: a user lacking permission sees a `403`/forbidden state, not a blank screen or a success message."
-    text_hash: 4f72c20e9d9ffb4a1aa056535ab45cdd64f96c996c82b13f22142d9744f19bfb
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-998a
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: Preserve working back/cancel navigation and keep route protection (`auth`, `verified`, policy middleware) intact when changing flows; a UI change must not expose a previously protected route.
-    text_hash: 9e87091aff4202509202f2419a1291a53b5d6da4f5d43724ac235f0c3f5e30ad
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-7f8b
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: Surface flash messages (`session()->flash(...)` / Inertia shared flash) for the outcome of an action instead of leaving the user without feedback.
-    text_hash: 114be33f6045f41f8352f60c376bd44f8ba6ef8ba1f5f215ddc8db94875cef4a
-    verifiability:
-      kind: heuristic
-    enforced_by: []
-    scripts: []
-  - id: RL-1924
-    source: docs/instructions/rules/coding/stacks/laravel/ui-safety.md
-    text: Document the props and the states each page renders in that module's UI doc when behavior changes.
-    text_hash: 4aa301d43f1aab0ffb049d0acb8eb7261c9e77e4535ceac5f847db8a160d68da
+  - id: RL-f3f1
+    source: docs/instructions/rules/coding/stacks/python-skills-plugin/testing.md
+    text: Add a test that fails without the fix to every bug fix.
+    text_hash: ef206c3108ffe1546a148c4432c4a9dc2d86870c22392cec3497a1124b0c2158
     verifiability:
       kind: heuristic
     enforced_by: []
