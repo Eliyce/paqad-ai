@@ -243,6 +243,47 @@ class LinkActionTest(unittest.TestCase):
             self.assertTrue(all(op["action"] == name for op in links))
 
 
+class LinksByHandTest(unittest.TestCase):
+    """AC-2 (U-3): when the connector exposes no link action, the plan sets links_by_hand true and
+    renders each dependency as a Depends on text line in the ticket body instead of a link
+    operation; when a link action is present the plan is unchanged."""
+
+    def test_no_link_action_renders_depends_on_text(self):
+        # A connector that advertises a create action but no link action.
+        state = fresh_state(connector_actions=("createIssue",))
+        plan = state["plan"]
+        self.assertTrue(plan["links_by_hand"])
+        # No link operations are emitted.
+        self.assertEqual([op for op in plan["operations"] if op["kind"] == "link"], [])
+        # Each dependency is rendered as a Depends on text line.
+        rendered = {(line["ticket"], line["depends_on"]): line["text"]
+                    for line in plan["depends_on_lines"]}
+        self.assertEqual(set(rendered), {("E1-T2", "E1-T1"), ("E2-T2", "E2-T1")})
+        self.assertEqual(rendered[("E1-T2", "E1-T1")], "Depends on E1-T1")
+        # The dependency is written into the ticket body so it is never lost.
+        e1t2 = next(op for op in plan["operations"] if op["id"] == "create-E1-T2")
+        self.assertIn("Depends on E1-T1", e1t2["arguments"]["description"])
+
+    def test_link_action_present_is_unchanged(self):
+        state = fresh_state(connector_actions=("createIssueLink",))
+        plan = state["plan"]
+        self.assertFalse(plan["links_by_hand"])
+        self.assertEqual(plan["depends_on_lines"], [])
+        links = [op for op in plan["operations"] if op["kind"] == "link"]
+        self.assertEqual(len(links), 2)
+        # The ticket body carries no injected Depends on text when links are made with the action.
+        e1t2 = next(op for op in plan["operations"] if op["id"] == "create-E1-T2")
+        self.assertNotIn("Depends on", e1t2["arguments"]["description"])
+
+    def test_unadvertised_connector_keeps_default_link_path(self):
+        # A connector that did not advertise its actions keeps the default link-action path (backward
+        # compatible), so links_by_hand stays false and link operations are emitted.
+        state = fresh_state(connector_actions=())
+        plan = state["plan"]
+        self.assertFalse(plan["links_by_hand"])
+        self.assertEqual(len([op for op in plan["operations"] if op["kind"] == "link"]), 2)
+
+
 class ReadbackTest(unittest.TestCase):
     def _created_from(self, ticket_set, labels_ok=True):
         tracker = ticket_set["tracker"]

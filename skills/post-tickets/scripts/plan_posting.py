@@ -18,7 +18,11 @@ found, or asks the user (no automatic retry) if not. A created issue is never de
 rollback and a created receipt is never reset to retry.
 
 The link action name is resolved from what the connector exposes: createJiraIssueLink or
-createIssueLink, whichever is present (AC-18).
+createIssueLink, whichever is present (AC-18). When the connector advertises its actions but exposes
+no link action, the plan sets links_by_hand true and renders each dependency as a "Depends on" text
+line in the ticket body instead of a link operation, so the user can add the links by hand and no
+dependency is lost (U-3). A connector that did not advertise its actions keeps the default
+link-action path unchanged.
 
 Standard library only. No network.
 
@@ -57,6 +61,24 @@ def resolve_link_action(connector):
     return "createIssueLink"
 
 
+def link_action_available(connector):
+    """Whether the connector exposes a link action (U-3).
+
+    A connector that advertises its actions but names no link action has no link action available,
+    so the plan falls back to by-hand dependencies. A connector that did not advertise its actions
+    is treated as having one, so the default posting path stays unchanged (backward-compatible).
+    """
+    actions = (connector or {}).get("actions", []) or []
+    if not actions:
+        return True
+    return "createJiraIssueLink" in actions or "createIssueLink" in actions
+
+
+def depends_on_line(dep):
+    """Render one dependency as the by-hand 'Depends on' text line (U-3)."""
+    return "Depends on {0}".format(dep)
+
+
 def _labels(base, run_label):
     labels = list(base or [])
     for extra in (SHARED_LABEL, run_label):
@@ -77,10 +99,12 @@ def build_plan(ticket_set, setup, connector):
     story_type = tracker.get("story_type")
     run_label = (setup or {}).get("run_label")
     link_action = resolve_link_action(connector)
+    has_link_action = link_action_available(connector)
 
     operations = []
     epic_op = {}
     ticket_op = {}
+    ticket_op_obj = {}
     created_refs = []
 
     # Epics first.
@@ -108,7 +132,7 @@ def build_plan(ticket_set, setup, connector):
             op_id = "create-" + ticket["ref"]
             ticket_op[ticket["ref"]] = op_id
             created_refs.append(op_id)
-            operations.append({
+            ticket_op_obj[ticket["ref"]] = {
                 "id": op_id,
                 "action": "createIssue",
                 "kind": "story",
@@ -121,26 +145,39 @@ def build_plan(ticket_set, setup, connector):
                     "labels": _labels([], run_label),
                     "parent": _result_ref(epic_op[epic["ref"]]),
                 },
-            })
+            }
+            operations.append(ticket_op_obj[ticket["ref"]])
 
-    # Then the dependency links (last before read-back).
+    # Then the dependency links (last before read-back). When the connector exposes a link action,
+    # emit a link operation per dependency (unchanged). When it does not, render each dependency as a
+    # "Depends on" text line in the ticket body and ask the user to add the links by hand (U-3).
+    depends_on_lines = []
     for epic in ticket_set.get("epics", []):
         for ticket in epic.get("tickets", []):
             for dep in ticket.get("depends_on", []) or []:
                 if dep not in ticket_op:
                     continue
-                op_id = "link-{0}-{1}".format(ticket["ref"], dep)
-                operations.append({
-                    "id": op_id,
-                    "action": link_action,
-                    "kind": "link",
-                    "item_ref": "{0}->{1}".format(ticket["ref"], dep),
-                    "arguments": {
-                        "type": "Depends",
-                        "inward": _result_ref(ticket_op[ticket["ref"]]),
-                        "outward": _result_ref(ticket_op[dep]),
-                    },
-                })
+                if has_link_action:
+                    op_id = "link-{0}-{1}".format(ticket["ref"], dep)
+                    operations.append({
+                        "id": op_id,
+                        "action": link_action,
+                        "kind": "link",
+                        "item_ref": "{0}->{1}".format(ticket["ref"], dep),
+                        "arguments": {
+                            "type": "Depends",
+                            "inward": _result_ref(ticket_op[ticket["ref"]]),
+                            "outward": _result_ref(ticket_op[dep]),
+                        },
+                    })
+                else:
+                    line = depends_on_line(dep)
+                    depends_on_lines.append(
+                        {"ticket": ticket["ref"], "depends_on": dep, "text": line})
+                    # Write the dependency into the ticket body so it is never lost.
+                    args = ticket_op_obj[ticket["ref"]]["arguments"]
+                    body = args.get("description", "")
+                    args["description"] = (body + "\n\n" + line) if body else line
 
     # Finally, read-back of every created issue.
     operations.append({
@@ -154,6 +191,8 @@ def build_plan(ticket_set, setup, connector):
     return {
         "ticket_digest": current_digest(ticket_set),
         "link_action": link_action,
+        "links_by_hand": not has_link_action,
+        "depends_on_lines": depends_on_lines,
         "operations": operations,
     }
 

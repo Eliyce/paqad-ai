@@ -14,7 +14,7 @@ Turns the repository's skills and shared material into the installable, skills-o
 
 | Feature | What it does | Docs |
 |---|---|---|
-| Assemble the plugin output | Reads `build/skills.yml`, refuses undeclared shared imports, wipes and rebuilds `dist/`, copies each skill plus its declared shared files | [business](../features/assemble-dist/business.md), [technical](../features/assemble-dist/technical.md) |
+| Assemble the plugin output | Reads `build/skills.yml`, refuses undeclared shared imports, wipes and rebuilds `dist/`, copies each skill plus its declared shared files, and emits the per-host branches under `dist/hosts/{claude,chatgpt,codex}/` | [business](../features/assemble-dist/business.md), [technical](../features/assemble-dist/technical.md) |
 | Generate host manifests | Writes the two marketplace files and the two plugin manifests from the same values, deterministically | [business](../features/generate-manifests/business.md), [technical](../features/generate-manifests/technical.md) |
 
 ## Sources
@@ -32,5 +32,5 @@ Turns the repository's skills and shared material into the installable, skills-o
 - PLG-9: shared material held once and copied into each declaring skill.
 - PLG-10: each skill declares its shared imports; the build fails on an undeclared one.
 - PLG-11: every manifest generated from one source of truth.
+- PLG-12: per-host distribution branches under `dist/hosts/{claude,chatgpt,codex}/`, emitted from the one source alongside the unchanged combined `dist/` root (claude and chatgpt use the `.claude-plugin` layout, chatgpt without an `.agents` file; codex uses `.agents/plugins/marketplace.json` plus `plugins/<name>/plugin.json`).
 - CI-8: build succeeds, rejects undeclared imports, two builds are identical.
-- Not built: PLG-12 per-host distribution branches (only needed if U-2 or U-12 fails).

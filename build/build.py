@@ -34,6 +34,34 @@ REQUIRED_SCALARS = ("name", "version", "description", "license", "display_name")
 # never drift apart.
 PLUGINS_DIR = "plugins"
 
+# Where the combined dist adds per-host branches (PLG-12). The combined dist/ root stays
+# byte-identical; the branches live only under dist/hosts/<host>/ (CI-8).
+HOSTS_DIR = "hosts"
+
+# Per-host distribution branches (PLG-12). Each branch is emitted from the one source (skills.yml)
+# and carries only the marketplace/manifest files that host actually reads, plus the identical
+# skills tree. The host names live here in the build generator only; the CI-4 neutral-wording scan
+# walks skills/ and shared/, not build/, so naming the hosts here is allowed.
+#
+# Each entry maps a relative manifest path (with {name} filled from skills.yml) to which generated
+# manifest fills it: "marketplace" and "plugin" are the .claude-plugin layout both the Claude and
+# ChatGPT branches read; "openai" is the OpenAI primary manifest (extensions.com.openai) the Codex
+# branch reads. No branch emits agents/, hooks/, commands/, bin/, .mcp.json, mcp.json or .app.json.
+HOST_BRANCHES = {
+    "claude": [
+        (".claude-plugin/marketplace.json", "marketplace"),
+        ("{plugins}/{name}/.claude-plugin/plugin.json", "plugin"),
+    ],
+    "chatgpt": [
+        (".claude-plugin/marketplace.json", "marketplace"),
+        ("{plugins}/{name}/.claude-plugin/plugin.json", "plugin"),
+    ],
+    "codex": [
+        (".agents/plugins/marketplace.json", "marketplace"),
+        ("{plugins}/{name}/plugin.json", "openai"),
+    ],
+}
+
 
 def plugin_rel_path(name):
     """Return the plugin path relative to the dist root, forward-slashed for manifests."""
@@ -232,6 +260,34 @@ def build_manifests(config):
     return marketplace, plugin_manifest, openai_manifest
 
 
+# --------------------------------------------------------------------------- host branches
+
+
+def emit_host_branches(dist_root, config, combined_plugin_dir):
+    """Emit the per-host branches under dist/hosts/<host>/ from the one source (PLG-12).
+
+    Reuses build_manifests() so every branch's manifests are generated from the same name, version
+    and description as the combined dist (PLG-11), and reuses copy_tree() to copy the already
+    assembled combined skills tree into each branch so every branch's skills tree is byte-identical
+    to the combined dist. The combined dist/ root is left untouched.
+    """
+    name = config["name"]
+    marketplace, plugin_manifest, openai_manifest = build_manifests(config)
+    manifests = {
+        "marketplace": marketplace,
+        "plugin": plugin_manifest,
+        "openai": openai_manifest,
+    }
+    combined_skills = os.path.join(combined_plugin_dir, "skills")
+    for host in sorted(HOST_BRANCHES):
+        branch_root = os.path.join(dist_root, HOSTS_DIR, host)
+        branch_plugin = plugin_dir_path(branch_root, name)
+        copy_tree(combined_skills, os.path.join(branch_plugin, "skills"))
+        for rel_template, which in HOST_BRANCHES[host]:
+            rel = rel_template.format(plugins=PLUGINS_DIR, name=name)
+            write_json(os.path.join(branch_root, *rel.split("/")), manifests[which])
+
+
 # --------------------------------------------------------------------------- build
 
 
@@ -289,6 +345,9 @@ def build(source_root, dist_root):
     write_json(os.path.join(dist_root, ".agents", "plugins", "marketplace.json"), marketplace)
     write_json(os.path.join(plugin_dir, ".claude-plugin", "plugin.json"), plugin_manifest)
     write_json(os.path.join(plugin_dir, "plugin.json"), openai_manifest)
+
+    # Per-host branches under dist/hosts/ (PLG-12). The combined dist/ root above is unchanged.
+    emit_host_branches(dist_root, config, plugin_dir)
 
     return dist_root
 

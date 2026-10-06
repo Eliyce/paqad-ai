@@ -43,7 +43,7 @@ The fixture project holds five modules (returns, subscriptions, orders, members,
 | State | Meaning |
 |---|---|
 | Not run in CI | TALK and CON rules have no automated evidence yet (planned for slice S3) |
-| No runner on ChatGPT or Codex | Parity runs there are planned as manual, recorded runs (CI-12) |
+| No runner on ChatGPT or Codex | The structural half of the ChatGPT and Codex parity check (same journey, same answer shape, same ticket-set) runs offline today in the unit suite; the live conversational parity on those hosts stays a manual, recorded run (AC-20, CI-12) |
 
 ## Glossary
 

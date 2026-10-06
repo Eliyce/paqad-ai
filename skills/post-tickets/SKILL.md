@@ -32,7 +32,11 @@ known tool-name variants.
    --state <state.json>`, then `next`, `claim`, `record` and `reconcile` to drive the run. The
    order is epics first, then each epic's tickets with the created epic as parent, then the
    dependency links, then read-back. If the connector refuses the parent parameter for an epic
-   child, set the parent through its additional fields. Create links only with the link action.
+   child, set the parent through its additional fields. When the connector exposes a link action,
+   create links only with it. When it exposes no link action, do not drop the dependencies: write
+   each one as a "Depends on" text line in the ticket body or a comment, and ask the user to add
+   the links by hand in the tracker (U-3). The plan marks this case with `links_by_hand` so the
+   fallback is explicit and the dependencies are never lost.
 5. Record a receipt for each write: created, uncertain, or not applied. Mark the item in flight
    before the write. On a lost or timed-out reply, mark it uncertain, stop dependent writes, wait,
    then search by the run label and the item reference. If found, record it as created. If not
@@ -41,7 +45,9 @@ known tool-name variants.
 6. Read back. Use `scripts/check_readback.py --approved <ticket-set.json> --created
    <created-issues.json>` to compare what was created against the approved set after normalising
    title, type, parent, labels, links, the Sources item reference and the body text. Report a
-   partial result as partial, never as done, and give the links.
+   partial result as partial, never as done, and give the links. When the links were added by hand
+   because the connector had no link action, report on read-back that the links may be absent rather
+   than report it as a failure.
 7. Export fallback. At any point the approved set can be downloaded as Markdown and as CSV for the
    tracker importer, using `scripts/export_csv.py --ticket-set <ticket-set.json>`. Offer this when
    the connector cannot create issues.
@@ -54,6 +60,9 @@ When no tool can run the scripts, post by hand with this checklist:
 - Take an explicit "post it" bound to the digest; a later edit voids it.
 - Create in order: epics first, then tickets with the created epic as parent, then links with the
   link action, then read-back. Use the additional-fields route if the parent parameter is refused.
+- When no link action is available, write each dependency as a "Depends on" text line in the ticket
+  body or a comment and ask the user to add the links by hand; on read-back report that links may be
+  absent, not as a failure.
 - For each write: mark it in flight, then record created, uncertain, or not applied. On a lost
   reply, stop dependent writes, wait, search by run label and item reference, and ask before any
   retry. Never retry an uncertain create unasked and never delete a created issue to roll back.

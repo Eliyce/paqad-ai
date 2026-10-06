@@ -16,6 +16,21 @@ This skill answers a business question from the onboarded documents. It never wr
 Starts when the user asks a question about what the product does today ("does checkout support
 refunds?", "what orders do we send to SAP?"). You may invite direct use.
 
+## Getting the documents (GRD-3)
+
+Get the documents in front of you by capability, not by host, the same way as making the documents
+readable in get-connected. Work only from what you actually read, and name anything you need but
+cannot reach.
+
+- If you have a tool that can read repository files on demand, read the reading-order paths with it.
+- Otherwise, ask the user to attach the repository or the `docs/` folder to the chat or project, or
+  to upload `docs/` as files or a zip, then read the same paths once they are available.
+- When the whole folder is large, ask for the smallest set the reading order allows (U-5): the
+  modules registry first, then only the summaries and business notes for the related areas.
+
+The journey is identical whether the host reads on demand, reads a local checkout, or needs the
+documents attached.
+
 ## What it does
 
 1. Run the onboarded check first (GRD-1). The repository counts as onboarded only when both

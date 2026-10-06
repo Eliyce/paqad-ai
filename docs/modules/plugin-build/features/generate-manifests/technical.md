@@ -16,6 +16,12 @@ Values come from `build/skills.yml` (owned by assemble-dist).
 | `<dist>/.agents/plugins/marketplace.json` | The same `marketplace` object |
 | `<dist>/plugins/<name>/.claude-plugin/plugin.json` | `plugin_manifest` |
 | `<dist>/plugins/<name>/plugin.json` | `openai_manifest` |
+| `<dist>/hosts/{claude,chatgpt}/.claude-plugin/marketplace.json` | `marketplace` object (per-host branch, PLG-12) |
+| `<dist>/hosts/{claude,chatgpt}/plugins/<name>/.claude-plugin/plugin.json` | `plugin_manifest` (per-host branch) |
+| `<dist>/hosts/codex/.agents/plugins/marketplace.json` | `marketplace` object (per-host branch) |
+| `<dist>/hosts/codex/plugins/<name>/plugin.json` | `openai_manifest` (per-host branch) |
+
+The per-host branches reuse `build_manifests`, so every branch's manifests carry the same name, version and description as the combined `dist/` (PLG-11). `emit_host_branches` (assemble-dist) selects which manifests each branch writes.
 
 ```json
 {"name": "<name>", "owner": {"name": "<author or Paqad>"},
@@ -63,7 +69,7 @@ None of its own. A missing required scalar raises `BuildError("skills.yml is mis
 
 | File | Tests |
 |---|---|
-| `tests/scripts/test_build.py` | `BuildOutputTest.test_all_four_manifests_exist`, `test_manifests_agree_on_identity`, `test_openai_keys_under_extension`; `DeterminismTest.test_two_builds_byte_identical` |
+| `tests/scripts/test_build.py` | `BuildOutputTest.test_all_four_manifests_exist`, `test_manifests_agree_on_identity`, `test_openai_keys_under_extension`; `DeterminismTest.test_two_builds_byte_identical`; `HostBranchTest.test_branch_manifests_match_the_single_source`, `test_codex_branch_is_openai_primary`, `test_chatgpt_branch_has_no_agents_file` (PLG-12) |
 | `.github/workflows/ci.yml` | "CI-8 build is deterministic" |
 
 Not yet automated: CI-9 official validators on `dist/` (placeholder step). Manual: U-2 in `hosts/chatgpt.md`, U-12 in `hosts/codex.md` (both `pending`).

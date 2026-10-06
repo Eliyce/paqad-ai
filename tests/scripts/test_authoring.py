@@ -325,5 +325,114 @@ class ChecklistFallbackTest(unittest.TestCase):
             )
 
 
+class CapabilityFallbackTest(unittest.TestCase):
+    """AC-5 (PLG-7/AC-20): every entry skill carries a capability-based fallback section, and no
+    shipped skill branches on a host or vendor name under skills/."""
+
+    def test_every_entry_skill_has_capability_fallback(self):
+        for skill in sorted(ENTRY_SKILLS):
+            text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
+            self.assertIn(
+                "If the checks cannot run",
+                text,
+                "entry skill {0} is missing its capability fallback section".format(skill),
+            )
+
+    def test_no_host_or_vendor_branching_under_skills(self):
+        offenders = []
+        for path in iter_source_files(SKILLS_ROOT):
+            match = VENDOR_PATTERN.search(read_text(path))
+            if match:
+                offenders.append(
+                    "{0}: {1}".format(os.path.relpath(path, REPO_ROOT), match.group(0))
+                )
+        self.assertEqual(
+            offenders, [], "host or vendor branching under skills/: {0}".format(offenders)
+        )
+
+
+class DocAccessBranchTest(unittest.TestCase):
+    """AC-3 (GRD-3): ground-in-project and ask-project carry the capability doc-access branch -- read
+    repository files with a tool if one can, otherwise ask the user to attach or upload docs -- so
+    the journey is identical across capabilities."""
+
+    def test_both_reading_skills_carry_the_branch(self):
+        for skill in ("ground-in-project", "ask-project"):
+            text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
+            self.assertIn(
+                "by capability, not by host",
+                text,
+                "{0} is missing the by-capability doc-access framing".format(skill),
+            )
+            self.assertIn(
+                "read repository files on demand",
+                text,
+                "{0} is missing the read-on-demand branch".format(skill),
+            )
+            self.assertIn(
+                "attach the repository",
+                text,
+                "{0} is missing the attach-or-upload branch".format(skill),
+            )
+
+
+class RecordFallbackTest(unittest.TestCase):
+    """AC-4 (REC-2): product-discovery states the file-versus-chat-summary record fallback so resume
+    and the one-line status are host-independent."""
+
+    def test_product_discovery_states_file_vs_chat_summary(self):
+        text = read_text(os.path.join(SKILLS_ROOT, "product-discovery", "SKILL.md"))
+        self.assertIn("cannot create files", text)
+        self.assertIn("chat summary", text)
+
+
+class PostLinkFallbackTest(unittest.TestCase):
+    """AC-1 (U-3): post-tickets carries the capability link fallback -- links with the action when it
+    exists, otherwise each dependency as a Depends on text line with the user asked to link by hand --
+    in both the SKILL.md and the posting procedure, with no host branching."""
+
+    def test_post_tickets_carries_link_fallback(self):
+        skill = read_text(os.path.join(SKILLS_ROOT, "post-tickets", "SKILL.md"))
+        procedure = read_text(
+            os.path.join(SKILLS_ROOT, "post-tickets", "references", "post-procedure.md")
+        )
+        for text in (skill, procedure):
+            self.assertIn("Depends on", text)
+            self.assertIn("link action", text)
+            self.assertIsNone(VENDOR_PATTERN.search(text))
+        self.assertIn("add the links by hand", skill)
+
+
+class VendorScanScopeTest(unittest.TestCase):
+    """AC-6 (CI-4): the neutral-wording scan walks only skills/ and shared/, so the per-host build
+    constant and the parity harness may name the three hosts under build/ and tests/. This test
+    confirms the scope is load-bearing: a host name does appear under build/ or tests/ today, yet
+    none leaks into skills/ or shared/."""
+
+    def test_host_names_allowed_under_build_and_tests(self):
+        named = False
+        for root in (os.path.join(REPO_ROOT, "build"), os.path.join(REPO_ROOT, "tests")):
+            if not os.path.isdir(root):
+                continue
+            for path in iter_source_files(root):
+                if VENDOR_PATTERN.search(read_text(path)):
+                    named = True
+                    break
+            if named:
+                break
+        self.assertTrue(
+            named,
+            "expected at least one host name under build/ or tests/; the CI-4 scope must exclude them",
+        )
+
+    def test_no_host_name_under_skills_or_shared(self):
+        for root in (SKILLS_ROOT, SHARED_ROOT):
+            for path in iter_source_files(root):
+                self.assertIsNone(
+                    VENDOR_PATTERN.search(read_text(path)),
+                    "vendor name under {0}".format(os.path.relpath(path, REPO_ROOT)),
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

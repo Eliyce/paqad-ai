@@ -136,6 +136,154 @@ class BuildOutputTest(unittest.TestCase):
             )
 
 
+class HostBranchTest(unittest.TestCase):
+    """AC-8/AC-9/AC-10 (PLG-12): the combined dist/ root stays intact and per-host branches are
+    emitted under dist/hosts/<host>/, each carrying only its host's manifest files plus a skills
+    tree byte-identical to the combined dist, all generated from the one source (skills.yml)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.dist = os.path.join(self.tmp, "dist")
+        build.build(REPO_ROOT, self.dist)
+        self.config = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
+        self.combined_plugin = os.path.join(self.dist, "plugins", PLUGIN_NAME)
+
+    def _branch_root(self, host):
+        return os.path.join(self.dist, "hosts", host)
+
+    def _skills_relpaths(self, root):
+        plugin_skills = os.path.join(root, "plugins", PLUGIN_NAME, "skills")
+        return list_relpaths(plugin_skills)
+
+    def _non_skills_relpaths(self, root):
+        skills_prefix = "plugins/{0}/skills/".format(PLUGIN_NAME)
+        return {rel for rel in list_relpaths(root) if not rel.startswith(skills_prefix)}
+
+    def test_all_three_branches_exist(self):
+        for host in ("claude", "chatgpt", "codex"):
+            self.assertTrue(
+                os.path.isdir(self._branch_root(host)), "missing branch: {0}".format(host)
+            )
+
+    def test_each_branch_carries_only_its_host_manifest_files(self):
+        expected = {
+            "claude": {
+                ".claude-plugin/marketplace.json",
+                "plugins/{0}/.claude-plugin/plugin.json".format(PLUGIN_NAME),
+            },
+            "chatgpt": {
+                ".claude-plugin/marketplace.json",
+                "plugins/{0}/.claude-plugin/plugin.json".format(PLUGIN_NAME),
+            },
+            "codex": {
+                ".agents/plugins/marketplace.json",
+                "plugins/{0}/plugin.json".format(PLUGIN_NAME),
+            },
+        }
+        for host, files in expected.items():
+            self.assertEqual(
+                self._non_skills_relpaths(self._branch_root(host)),
+                files,
+                "branch {0} carries unexpected non-skills files".format(host),
+            )
+
+    def test_chatgpt_branch_has_no_agents_file(self):
+        rels = list_relpaths(self._branch_root("chatgpt"))
+        self.assertFalse(
+            any(rel.startswith(".agents/") for rel in rels),
+            "chatgpt branch must not carry a .agents file",
+        )
+
+    def test_codex_branch_is_openai_primary(self):
+        openai = read_json(
+            os.path.join(self._branch_root("codex"), "plugins", PLUGIN_NAME, "plugin.json")
+        )
+        self.assertIn("extensions", openai)
+        self.assertIn("com.openai", openai["extensions"])
+        self.assertIn("skills", openai["extensions"]["com.openai"])
+
+    def test_each_branch_is_skills_only(self):
+        for host in ("claude", "chatgpt", "codex"):
+            for rel in list_relpaths(self._branch_root(host)):
+                parts = rel.split("/")
+                for token in FORBIDDEN:
+                    self.assertNotIn(
+                        token,
+                        parts,
+                        "forbidden path component in {0} branch: {1}".format(host, rel),
+                    )
+                self.assertNotIn("__pycache__", parts)
+                self.assertFalse(rel.endswith(".pyc"))
+
+    def test_branch_skills_tree_matches_combined(self):
+        combined = self._skills_relpaths(self.dist)
+        self.assertTrue(combined, "combined dist has no skills tree")
+        for host in ("claude", "chatgpt", "codex"):
+            branch_skills = self._skills_relpaths(self._branch_root(host))
+            self.assertEqual(
+                branch_skills, combined, "branch {0} skills set differs".format(host)
+            )
+            for rel in sorted(combined):
+                with open(
+                    os.path.join(self.combined_plugin, "skills", rel), "rb"
+                ) as handle:
+                    combined_bytes = handle.read()
+                with open(
+                    os.path.join(
+                        self._branch_root(host), "plugins", PLUGIN_NAME, "skills", rel
+                    ),
+                    "rb",
+                ) as handle:
+                    branch_bytes = handle.read()
+                self.assertEqual(
+                    combined_bytes,
+                    branch_bytes,
+                    "branch {0} skill file differs: {1}".format(host, rel),
+                )
+
+    def test_branch_manifests_match_the_single_source(self):
+        marketplace, plugin_manifest, openai_manifest = build.build_manifests(self.config)
+        claude_mp = read_json(
+            os.path.join(self._branch_root("claude"), ".claude-plugin", "marketplace.json")
+        )
+        chatgpt_mp = read_json(
+            os.path.join(self._branch_root("chatgpt"), ".claude-plugin", "marketplace.json")
+        )
+        codex_mp = read_json(
+            os.path.join(self._branch_root("codex"), ".agents", "plugins", "marketplace.json")
+        )
+        for mp in (claude_mp, chatgpt_mp, codex_mp):
+            self.assertEqual(mp, marketplace)
+        claude_plugin = read_json(
+            os.path.join(
+                self._branch_root("claude"),
+                "plugins",
+                PLUGIN_NAME,
+                ".claude-plugin",
+                "plugin.json",
+            )
+        )
+        self.assertEqual(claude_plugin, plugin_manifest)
+        codex_plugin = read_json(
+            os.path.join(self._branch_root("codex"), "plugins", PLUGIN_NAME, "plugin.json")
+        )
+        self.assertEqual(codex_plugin, openai_manifest)
+
+    def test_combined_root_still_intact(self):
+        # INV-1: the combined dist root manifests are unchanged by the branch emission.
+        for rel in (
+            ".claude-plugin/marketplace.json",
+            ".agents/plugins/marketplace.json",
+            "plugins/{0}/.claude-plugin/plugin.json".format(PLUGIN_NAME),
+            "plugins/{0}/plugin.json".format(PLUGIN_NAME),
+        ):
+            self.assertTrue(
+                os.path.isfile(os.path.join(self.dist, *rel.split("/"))),
+                "combined dist missing {0}".format(rel),
+            )
+
+
 class DeterminismTest(unittest.TestCase):
     def test_two_builds_byte_identical(self):
         tmp = tempfile.mkdtemp()

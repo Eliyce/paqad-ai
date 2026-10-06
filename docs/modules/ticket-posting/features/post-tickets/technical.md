@@ -49,7 +49,7 @@ Record block written (`record-template.md`): `posted` = `{"issues": [{"ref", "is
 
 | Subcommand | Extra args | Writes state | stdout |
 |---|---|---|---|
-| `plan` | none | yes, sets `plan` | the plan `{"ticket_digest", "link_action", "operations"}` |
+| `plan` | none | yes, sets `plan` | the plan `{"ticket_digest", "link_action", "links_by_hand", "depends_on_lines", "operations"}` |
 | `next` | none | no | `{"id", "action", "arguments"}` with result refs resolved |
 | `claim` | none | yes, receipt `in_flight` | `{"id", "action", "arguments"}` |
 | `record` | `--operation <id> --receipt <receipt.json>` | yes | stored receipt (with `recorded_at`) |
@@ -60,6 +60,8 @@ Exit codes: 0 on success; 1 with `{"ok": false, "error": "<message>"}` on stderr
 Guards in `next` and `claim`: plan exists; `plan.ticket_digest` equals the current ticket digest; `approval.digest` equals the current digest and `approval.message_ref` is non-empty; no operation is `in_flight` or `uncertain`. Operations with `created` or `not_applied` are skipped.
 
 Link action resolution (AC-18): `createJiraIssueLink` if listed in `connector.actions`, else `createIssueLink` (also the default when nothing is advertised).
+
+Link-by-hand fallback (U-3): `link_action_available(connector)` returns false only when the connector advertises its actions but names no link action; a connector that advertised nothing is treated as having one, so the default path is unchanged. When no link action is available the plan sets `links_by_hand` true, emits no `link` operations, and instead appends a `depends_on_line(dep)` (`"Depends on <dep>"`) to each dependent story's `description` so the dependency is never lost, and lists each as `{"ticket", "depends_on", "text"}` in `depends_on_lines`. On read-back the by-hand links may be absent; that is reported as such, not as a failure.
 
 `check_readback.py --approved <ticket-set.json> --created <created-issues.json>` (module `tracker-checks`) returns `{"ok", "status": "match | partial | mismatch", "differences"}`, exit 0 only on `match`.
 
@@ -117,6 +119,7 @@ Link action resolution (AC-18): `createJiraIssueLink` if listed in `connector.ac
 | `LostReplyTest`: `test_lost_reply_but_created_reconciles_without_duplicate`, `test_lost_reply_not_found_asks_user_without_retry`, `test_created_receipt_never_reset` | AC-11, AC-12, PUB-5 |
 | `ApprovalBindingTest`: `test_stale_plan_refuses_after_edit`, `test_edit_voids_digest_bound_approval` | AC-14 |
 | `LinkActionTest.test_both_link_action_names_resolve` | AC-18 |
+| `LinksByHandTest`: `test_no_link_action_renders_depends_on_text`, `test_link_action_present_is_unchanged`, `test_unadvertised_connector_keeps_default_link_path` | U-3 |
 | `ReadbackTest`: `test_match`, `test_partial_when_one_issue_missing`, `test_partial_when_body_differs`, `test_mismatch_when_nothing_created`, `test_whitespace_and_list_markers_normalised` | PUB-6 |
 | `tests/scripts/test_authoring.py` `ChecklistFallbackTest.test_each_script_bearing_skill_has_fallback` | PLG-6 |
 | `tests/evals/scenarios/s1.yml` `ac-10`, `ac-47`, `ac-9`, `ac-2` | Vague approval, compact preview, duplicate shown, no-write tracker |

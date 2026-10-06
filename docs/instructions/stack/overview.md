@@ -16,7 +16,7 @@ an application. There is no server, no database, no UI and no web framework.
 |---|---|---|
 | Skill content | Markdown (`SKILL.md`, `references/`, `assets/`) | Open Agent Skills format (PLG-3) |
 | Scripts | Python 3.9+ standard library only | No third-party packages, no network, no writes outside the working folder (PLG-5) |
-| Build | `build/build.py` (stdlib) reading `build/skills.yml` | Deterministic, writes `dist/` |
+| Build | `build/build.py` (stdlib) reading `build/skills.yml` | Deterministic, writes the combined `dist/` plus a per-host branch under `dist/hosts/{claude,chatgpt,codex}/` (PLG-12) |
 | Config | `build/skills.yml` | Restricted flat YAML, parsed by a tiny stdlib reader in `build.py` |
 | Data contracts | JSON (`ticket-set.schema.json`, ticket set, record patches, receipts) | Canonical JSON with sorted keys, used for digests |
 | Tests | `unittest` (stdlib) | `tests/scripts/test_*.py` |

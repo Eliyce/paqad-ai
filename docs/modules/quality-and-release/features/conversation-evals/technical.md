@@ -6,6 +6,8 @@
 |---|---|
 | `tests/evals/scenarios/s1.yml` | 25 S1 scenarios: `ac-2` to `ac-6`, `ac-9`, `ac-10`, `ac-15`, `ac-17`, `ac-21` to `ac-29`, `ac-42` to `ac-48` (with gaps: no `ac-7`, `ac-8`, `ac-11` to `ac-14`, `ac-16`, `ac-18`, `ac-19`) |
 | `tests/evals/scenarios/s1b.yml` | 4 S1b scenarios: `ac-30`, `ac-33`, `ac-35`, `ac-38` |
+| `tests/evals/scenarios/s2.yml` | S2 ChatGPT and Codex parity scenarios (AC-20): one per entry point plus a capability-stripped variant, with `capability_set` and `requirements` fields and `hosts`/`manual_hosts` headers |
+| `tests/evals/run_parity.py` | Offline structural-parity harness for AC-20: reads `s2.yml`, the built per-host branches under `dist/hosts/<host>/`, the fixture repo and fake tracker, and checks same-journey, same-answer-structure and same-ticket-set across hosts |
 | `tests/evals/scenarios/README.md` | What the scenarios cover and when they run |
 | `tests/evals/fixture-repo/docs/` | Fictional onboarded repo: `instructions/registries/modules.md` (6 rows) and `modules/<m>/index/summary.md` plus one `features/<f>/business.md` for `data-export`, `members`, `orders`, `returns`, `subscriptions` |
 | `tests/evals/fixture-repo/tracker/` | `tickets.json`, `sprints.json`, `README.md` |
@@ -30,7 +32,7 @@ Fixture tracker: `tickets.json` is `{"_note", "tickets": [...]}`, each ticket wi
 
 ## Script Interfaces
 
-None: no runner exists in the repository. `verify.yml` names CI-12 and CI-13 as placeholder steps. REQUIREMENTS.md names `claude plugin eval` as the Claude runner (CI-12).
+No runner exists for the conversational scenarios in `s1.yml` / `s1b.yml`; `verify.yml` names CI-12 and CI-13 as placeholder steps, and REQUIREMENTS.md names `claude plugin eval` as the Claude runner (CI-12). The structural half of the S2 parity scenarios (`s2.yml`) is the exception: `tests/evals/run_parity.py` (`check_parity`) runs offline in the unit suite via `tests/scripts/test_parity.py` against the built per-host branches, the fixture repo and the fake tracker. The live conversational parity on ChatGPT and Codex stays manual and recorded per CI-12 (`manual_hosts` in `s2.yml`).
 
 ## State Management
 
@@ -53,4 +55,4 @@ None. Scenario files are YAML read by no code in this repository yet.
 
 ## Testing Entry Points
 
-The scenarios themselves are the entry points: `s1.yml#ac-2` through `s1.yml#ac-48` and `s1b.yml#ac-30`, `#ac-33`, `#ac-35`, `#ac-38`. Planned execution: `.github/workflows/verify.yml` (nightly 03:00 UTC and manual), at least 3 runs per scenario (CI-12), with CI-13 checking coverage of section 13.
+The scenarios themselves are the entry points: `s1.yml#ac-2` through `s1.yml#ac-48`, `s1b.yml#ac-30`, `#ac-33`, `#ac-35`, `#ac-38`, and the S2 parity scenarios in `s2.yml` (AC-20). Planned execution for the conversational scenarios: `.github/workflows/verify.yml` (nightly 03:00 UTC and manual), at least 3 runs per scenario (CI-12), with CI-13 checking coverage of section 13. The S2 structural parity runs today in the unit suite: `tests/scripts/test_parity.py` (`ParityHarnessTest`: `test_passes_on_the_real_dist`, `test_fails_when_a_host_branch_is_missing_a_skill`, `test_fails_when_a_branch_ticket_schema_diverges`, `test_fails_on_a_malformed_ticket_set`, `test_fails_when_a_whole_branch_is_missing`).

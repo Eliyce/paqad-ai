@@ -46,9 +46,15 @@ Never a summary paragraph.
 
 ## The record
 
-The record is the only memory. Create it once at the start from `assets/record-template.md`, and
-write it to a file where the host can create files. It holds one block per step plus run, setup,
-glossary, assumptions, outcome and ticket_set_ref. Keep it current as each step finishes.
+The record is the only memory. Create it once at the start from `assets/record-template.md`. It
+holds one block per step plus run, setup, glossary, assumptions, outcome and ticket_set_ref. Keep it
+current as each step finishes.
+
+Write the record by capability, not by host (REC-2). Where the host can create files, write the
+record as a file and offer it for download. Where the host cannot create files, keep the record as a
+chat summary and show it on request and on resume, so the memory survives without a file. The refine,
+size and plan mode records follow the same rule, so resume and the one-line status are
+host-independent either way.
 
 Use the record scripts when they run:
 

@@ -1,0 +1,123 @@
+# S2 ChatGPT and Codex parity scenarios (AC-20).
+#
+# These assert that the five entry points behave the same across hosts and across capability sets.
+# The AC-20 parity expectation is: the same idea and the same question, run under different
+# capability sets and on different hosts, deliver the SAME JOURNEY (the same entry skills and the
+# same step and skill graph), the SAME ANSWER STRUCTURE (the same answer-template and record-block
+# shapes), and the SAME TICKET-SET STRUCTURE (the one ticket-set that validates identically against
+# ticket-set.schema.json for every host).
+#
+# The structural half of AC-20 is machine-checked offline by tests/evals/run_parity.py, which loads
+# this file, the built per-host branches under dist/hosts/<host>/, the fixture repository under
+# tests/evals/fixture-repo and the fake tracker, and asserts the parity dimensions below hold across
+# the three hosts and both capability sets. The live conversational parity on ChatGPT and Codex
+# stays MANUAL and recorded per CI-12 (see manual_hosts below); S2 claims no automated live run.
+#
+# The scenarios follow the same per-entry shape as s1.yml and s1b.yml (id, title, acceptance,
+# entry_skill, fixture, user, expect), with two parity-specific fields: capability_set names which
+# capability set the run uses, and requirements lists the requirements the capability-stripped
+# variant exercises as one journey.
+#
+# Property vocabulary used below (all provider-neutral, all checkable):
+#   same-journey-across-hosts    the entry-skill set and the step and skill graph are identical for
+#                                every host branch.
+#   same-answer-structure        the answer-template and record-block shapes are identical.
+#   same-ticket-set-structure    the emitted ticket-set validates identically against the one
+#                                ticket-set.schema.json for every host.
+#   checklist-fallback-used      the skill reaches the same outcome by hand when scripts cannot run.
+#   links-by-hand                each dependency is written as a Depends on text line when the
+#                                connector exposes no link action (U-3).
+#   sprint-by-hand               the sprint plan is returned as a by-hand list when the sprint field
+#                                cannot be set (U-14).
+#   append-marked-section        a rich-content edit appends a marked section or comment rather than
+#                                overwriting (U-16).
+#   attach-docs                  the skill reads repository files on demand or asks the user to
+#                                attach or upload docs (GRD-3).
+#   chat-summary                 the record is kept as a chat summary when the host cannot create
+#                                files (REC-2).
+
+hosts:
+  - claude
+  - chatgpt
+  - codex
+
+manual_hosts:
+  - chatgpt
+  - codex
+
+entry_skills:
+  - product-discovery
+  - ask-project
+  - refine-ticket
+  - size-work
+  - plan-sprint
+
+parity_dimensions:
+  - same-journey
+  - same-answer-structure
+  - same-ticket-set-structure
+
+capability_sets:
+  - id: full
+    title: All capabilities present
+    strips: []
+  - id: stripped
+    title: Capability-stripped host
+    strips:
+      - scripts
+      - link-action
+      - file-creation
+      - sprint-field
+      - rich-content-edit
+      - repo-read-on-demand
+
+scenarios:
+  - id: ac-20-parity-build
+    title: Same idea shaped into the same ticket set on every host
+    acceptance: AC-20
+    entry_skill: product-discovery
+    fixture: subscriptions/features/manage-subscription
+    capability_set: full
+    user: "Customers keep calling to pause their plan. I want them to pause it themselves on the account page, and I want the tickets in the tracker."
+    expect:
+      - same-journey-across-hosts
+      - same-answer-structure
+      - same-ticket-set-structure
+
+  - id: ac-20-parity-answer
+    title: Same question answered with the same structure on every host
+    acceptance: AC-20
+    entry_skill: ask-project
+    fixture: subscriptions/features/manage-subscription
+    capability_set: full
+    user: "Can customers pause a subscription today?"
+    expect:
+      - same-answer-structure
+      - same-journey-across-hosts
+
+  - id: ac-20-capability-stripped
+    title: One journey on a capability-stripped host still reaches the same structure
+    acceptance: AC-20
+    entry_skill: product-discovery
+    fixture: subscriptions/features/manage-subscription
+    capability_set: stripped
+    requirements:
+      - U-1
+      - U-3
+      - U-14
+      - U-16
+      - GRD-3
+      - REC-2
+    user:
+      - "I can only paste docs in here, there is no tracker connector and I can't save files. Help me shape self-serve pause anyway."
+      - "Here are the docs you asked for. [docs/ attached]"
+      - "Yes, draft the tickets and tell me how to post them by hand."
+    expect:
+      - attach-docs
+      - checklist-fallback-used
+      - chat-summary
+      - links-by-hand
+      - sprint-by-hand
+      - append-marked-section
+      - same-journey-across-hosts
+      - same-ticket-set-structure

@@ -4,7 +4,7 @@
 
 | Path | Owned content |
 |---|---|
-| `build/build.py` | `_unquote`, `_parse_skills_list`, `parse_skills_yml`, `load_config`, `list_shared_files`, `undeclared_shared_imports`, `copy_tree`, `build`, `main`, `BuildError` |
+| `build/build.py` | `_unquote`, `_parse_skills_list`, `parse_skills_yml`, `load_config`, `list_shared_files`, `undeclared_shared_imports`, `copy_tree`, `emit_host_branches`, `build`, `main`, `BuildError`, constants `HOSTS_DIR = "hosts"` and `HOST_BRANCHES` |
 | `build/skills.yml` | Plugin scalars and the 13-entry `skills` list with `imports` |
 
 ## Data Contracts
@@ -27,9 +27,12 @@ Output layout:
 ```
 <dist>/plugins/<name>/skills/<skill>/...            skill folder copy
 <dist>/plugins/<name>/skills/<skill>/<import path>  each declared shared file
+<dist>/hosts/<host>/...                             per-host branch (PLG-12)
 ```
 
 A shared file keeps its path under `shared/`, so `scripts/check_prose.py` lands at `skills/<skill>/scripts/check_prose.py`.
+
+Per-host branches (PLG-12): after the combined `dist/` root is written, `emit_host_branches` emits one branch per host under `dist/hosts/<host>/` from the one source. Each branch carries the combined skills tree copied byte-identically (via `copy_tree`) plus only the marketplace and manifest files that host reads, generated from the same values by reusing `build_manifests` (see generate-manifests). `HOST_BRANCHES` names the layout per host: `claude` and `chatgpt` use `.claude-plugin/marketplace.json` plus `plugins/<name>/.claude-plugin/plugin.json` (chatgpt emits no `.agents` file); `codex` uses `.agents/plugins/marketplace.json` plus `plugins/<name>/plugin.json`. No branch emits `agents/`, `hooks/`, `commands/`, `bin/`, `.mcp.json`, `mcp.json` or `.app.json`. The combined `dist/` root is left untouched (CI-8).
 
 ## Script Interfaces
 
@@ -88,5 +91,5 @@ None: stateless. Each run deletes `<dist>` entirely (`shutil.rmtree`) before wri
 
 | File | Tests |
 |---|---|
-| `tests/scripts/test_build.py` | `BuildOutputTest.test_voice_copied_into_each_skill`, `test_no_forbidden_content`, `test_no_bytecode_in_dist`; `DeterminismTest.test_two_builds_byte_identical`; `UndeclaredImportTest.test_undeclared_shared_import_fails_build` |
+| `tests/scripts/test_build.py` | `BuildOutputTest.test_voice_copied_into_each_skill`, `test_no_forbidden_content`, `test_no_bytecode_in_dist`; `DeterminismTest.test_two_builds_byte_identical`; `UndeclaredImportTest.test_undeclared_shared_import_fails_build`; `HostBranchTest` (PLG-12): `test_all_three_branches_exist`, `test_each_branch_carries_only_its_host_manifest_files`, `test_chatgpt_branch_has_no_agents_file`, `test_codex_branch_is_openai_primary`, `test_each_branch_is_skills_only`, `test_branch_skills_tree_matches_combined`, `test_branch_manifests_match_the_single_source`, `test_combined_root_still_intact` |
 | `.github/workflows/ci.yml` | Step "CI-8 build is deterministic": two builds into `/tmp/dist-a` and `/tmp/dist-b`, then `diff -r` |

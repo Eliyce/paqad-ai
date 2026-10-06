@@ -56,7 +56,7 @@ None as structured codes; `ValueError` messages: "Stale revision: expected X, cu
 |---|---|
 | Python imports | `canonical` (`load`, `now`, `digest`, `text`) |
 | Modules | None (foundation). Consumers: idea-journey, ticket-refinement, work-sizing, sprint-planning via `build/skills.yml` imports |
-| Host capabilities | File creation in a working folder for the record (REC-2); download for resume (REC-5) |
+| Host capabilities | File creation in a working folder for the record where the host can create files, with download for resume (REC-5); where the host cannot create files, the record is kept as a chat summary instead, shown on request and on resume, so the memory survives without a file (REC-2). The refine, size and plan records follow the same rule |
 
 ## Configuration
 

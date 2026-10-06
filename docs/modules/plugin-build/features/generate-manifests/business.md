@@ -41,7 +41,7 @@ Each host reads the plugin's name, version and description from its own manifest
 | State | What happens |
 |---|---|
 | A required value is missing from the configuration | The build fails and names the missing field; no manifests are written |
-| A host misreads the two-marketplace layout | Not handled yet; the fallback is per-host distribution branches (PLG-12), not built. Host checks U-2 and U-12 are still pending |
+| A host misreads the two-marketplace layout | The build also emits a per-host distribution branch under `dist/hosts/<host>/` carrying only that host's own manifest, so a host can install its own branch (PLG-12). Host checks U-2 and U-12 remain pending until a real install |
 
 Current values to be aware of: version is fixed at 0.0.0 and the configured homepage is a placeholder; version bumping is planned release work.
 

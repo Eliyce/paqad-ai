@@ -35,7 +35,7 @@ Lost reply flow:
 | Explicit approval only | "Post it" or similar. "Looks good" is not approval. |
 | Approval bound to content | Approval covers the exact set shown. Any later edit voids it and needs a new preview and approval. |
 | Fixed order | Epics first, then tickets with their epic as parent, then dependency links, then read-back. |
-| Links done properly | Links are made only with the dedicated link action, never through an issue edit, and their direction is checked. |
+| Links done properly | When the connector has a link action, links are made only with it, never through an issue edit, and their direction is checked. When the connector has no link action, each dependency is written as a "Depends on" text line in the ticket body and the user is asked to link them by hand, so no dependency is lost (U-3). |
 | Traceable | Every created issue carries the shared label "paqad-discovery", the run label (the run ID in lowercase) and its item reference in Sources. |
 | No silent retry | An uncertain create is never retried without the user's answer. |
 | No rollback by deletion | A created issue is never deleted to undo a run. |
@@ -58,6 +58,7 @@ Lost reply flow:
 |---|---|
 | Reply lost or timed out | Item marked uncertain; dependent writes stop; reconcile by search; ask before retry. |
 | Tracker refuses the parent field for a ticket under an epic | The parent is set through the tracker's additional fields instead. |
+| Connector exposes no link action | Each dependency is written as a "Depends on" text line in the ticket body and the user is asked to add the links by hand; on read-back the links may be absent, reported as such rather than as a failure (U-3). |
 | Read-back differs from what was approved | The difference is reported with a plain next step; the result is partial. |
 | Tracker cannot create issues | The export fallback is offered (see Export tickets). |
 | No tool can run scripts | The same procedure is followed by hand from a checklist. |

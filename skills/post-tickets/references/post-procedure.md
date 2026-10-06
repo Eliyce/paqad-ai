@@ -26,15 +26,21 @@ lost reply from turning into a duplicate.
 
 ## 4. Links
 
-- Create dependency links only with the link action, never through an issue edit (an edit that
-  sets links has been reported to succeed without creating them).
+- When the connector exposes a link action, create dependency links only with it, never through an
+  issue edit (an edit that sets links has been reported to succeed without creating them).
 - Check the link direction against the link type's inward and outward wording.
+- When the connector exposes no link action, do not drop the dependencies (U-3). Write each one as a
+  "Depends on" text line in the ticket body or a comment, and ask the user to add the links by hand
+  in the tracker. The plan marks this case with `links_by_hand` and renders each dependency as a
+  "Depends on" text line in place of a link operation, so nothing is lost.
 
 ## 5. Read-back
 
 - Read each created issue and compare it with the approved set after normalising title, type,
   parent, labels, links, the Sources item reference, and the body text.
-- Report the links and any difference. Report a partial result as partial, never as done.
+- Report the links and any difference. Report a partial result as partial, never as done. When the
+  links were added by hand because the connector had no link action, report that the links may be
+  absent rather than as a failure.
 
 ## Receipt states (PUB-5)
 
