@@ -1,0 +1,2 @@
+def color():
+    return "#ffffff"

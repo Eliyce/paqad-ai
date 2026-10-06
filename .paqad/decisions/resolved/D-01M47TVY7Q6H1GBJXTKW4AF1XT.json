@@ -1,0 +1,26 @@
+{
+  "id": "D-01M47TVY7Q6H1GBJXTKW4AF1XT",
+  "category": "quality.ratchet_exception",
+  "title": "Enforce RL-d7fc (no inline comments in Python)",
+  "context": "build/build.py and others carry intentional explanatory comments. Dry-run flag rate 7.57, almost all in build tooling.",
+  "options": [
+    {
+      "option_key": "heuristic",
+      "label": "Register as heuristic (flags candidates in review, never blocks)"
+    },
+    {
+      "option_key": "deterministic",
+      "label": "Register as deterministic (blocks a change touching a violation)"
+    },
+    {
+      "option_key": "skip",
+      "label": "Leave unscripted for now"
+    }
+  ],
+  "recommendation": "heuristic",
+  "created_at": "2026-10-06T05:27:02.135Z",
+  "status": "resolved",
+  "chosen": "heuristic",
+  "rationale": "intentional comments in build tooling; review-only",
+  "resolved_at": "2026-10-06T05:50:32.643Z"
+}
