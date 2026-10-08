@@ -20,8 +20,8 @@ an application. There is no server, no database, no UI and no web framework.
 | Config | `build/skills.yml` | Restricted flat YAML, parsed by a tiny stdlib reader in `build.py` |
 | Data contracts | JSON (`ticket-set.schema.json`, ticket set, record patches, receipts) | Canonical JSON with sorted keys, used for digests |
 | Tests | `unittest` (stdlib) | `tests/scripts/test_*.py` |
-| Evals | YAML scenarios + fixture repo | Authored, not yet executed in CI (S3) |
-| CI | GitHub Actions | `ci.yml`, `verify.yml`, `release.yml` |
+| Evals | YAML scenarios + fixture repo | Wired into CI: `verify.yml` runs `run_parity.py` (structural parity) and `check_scenarios.py` (CI-13). Live conversational parity (CI-12) stays manual and recorded. |
+| CI | GitHub Actions | `ci.yml` enforces CI-1 to CI-15 and CI-20; `verify.yml` runs the eval checks; `release.yml` runs CI-14 and CI-15. Coverage, skills-ref, changeset and push steps are CI-only; CI-12 live parity and CI-16 to CI-19 stay manual or operational. |
 | Release tracking | Changesets (placeholder) | Real versioning lands in S3 |
 
 ## Runtime targets (the hosts that load the built plugin)

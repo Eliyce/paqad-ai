@@ -1,20 +1,78 @@
 # Release (REQUIREMENTS.md section 12.3).
 #
-# Honest stub. This workflow names the release checks it will run (CI-14 and CI-15). Neither is
-# implemented in S0: versioning through changesets and pushing dist/ to the distribution repo
-# are S3 work. Every step below is an obvious placeholder that prints "not yet implemented
-# (S1+)" and enforces nothing. No step claims to enforce a check it does not run.
+# CI-14 is deterministic and runs here in full: bump_version.py reads the pending changesets, bumps
+# only the version scalar in build/skills.yml (PLG-11) and rebuilds dist so every manifest is
+# regenerated from the one source (RULE-21, no dist manifest is ever hand-edited). The changeset
+# tool itself (which also writes CHANGELOG.md from the accumulated .changeset entries) is installed
+# in CI; its install is a clearly named placeholder here because it is a CI-only dev tool.
+#
+# CI-15 is wired as real steps. Tagging, attaching the dist zip to the GitHub release and pushing
+# dist/ to the private distribution repo need a write token and a configured remote, so those steps
+# run only in CI when the release is enabled (the ENABLE_RELEASE repository variable is set) and the
+# distribution secret is present. They cannot run in a local or unconfigured dispatch.
 name: release
 
 on:
   workflow_dispatch:
+  # In a real setup CI-15 also triggers on merge of the release PR to the default branch; add a
+  # push trigger guarded by the release label or path when the distribution remote is configured.
 
 jobs:
-  not-yet-implemented:
-    name: Release steps deferred to S3
+  release:
+    name: Build, version and publish
     runs-on: ubuntu-latest
     steps:
-      - name: CI-14 Semantic versioning through changesets (bump version, update changelog)
-        run: echo "not yet implemented (S1+): changesets land in S3"  # S1: implement
-      - name: CI-15 Build dist, tag the version, attach a zip, push dist to the distribution repo
-        run: echo "not yet implemented (S1+): release automation lands in S3"  # S1: implement
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      # CI-14: the changeset tool generates CHANGELOG.md from the .changeset entries and is a
+      # CI-only dev tool. Its exact install is pinned in CI; the step below is a named placeholder.
+      - name: CI-14 install changesets (placeholder install, pin in CI)
+        run: echo "TODO pin and install the changeset tool here (CI-only dev tool, writes CHANGELOG.md)"
+
+      # CI-14 (deterministic half): bump the single version scalar and rebuild every manifest.
+      - name: CI-14 bump version from changesets and rebuild dist
+        run: python build/bump_version.py --dist dist
+
+      - name: Read the bumped version
+        id: version
+        run: |
+          VALUE=$(python -c "import sys; sys.path.insert(0, 'build'); import build; print(build.load_config('build/skills.yml')['version'])")
+          echo "value=$VALUE" >> "$GITHUB_OUTPUT"
+
+      # CI-15: tag vX.Y.Z. Needs a write token, so it runs only when the release is enabled in CI.
+      - name: CI-15 tag the version
+        if: ${{ vars.ENABLE_RELEASE == 'true' }}
+        run: |
+          git tag "v${{ steps.version.outputs.value }}"
+          git push origin "v${{ steps.version.outputs.value }}"
+
+      # CI-15: attach a zip of dist/ to the GitHub release. Uses the workflow token.
+      - name: CI-15 attach a dist zip to the GitHub release
+        if: ${{ vars.ENABLE_RELEASE == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ steps.version.outputs.value }}"
+          (cd dist && zip -r "../paqad-product-discovery-$VERSION.zip" .)
+          gh release create "$VERSION" "paqad-product-discovery-$VERSION.zip" --title "$VERSION" --generate-notes
+
+      # CI-15: push dist/ to the default branch of the private distribution repo. Needs a configured
+      # remote and a deploy secret, so it runs only in CI when both are present.
+      - name: CI-15 push dist to the distribution repo
+        if: ${{ vars.ENABLE_RELEASE == 'true' && vars.DISTRIBUTION_REPO != '' }}
+        env:
+          DISTRIBUTION_TOKEN: ${{ secrets.DISTRIBUTION_TOKEN }}
+        run: |
+          VERSION="v${{ steps.version.outputs.value }}"
+          git clone "https://x-access-token:$DISTRIBUTION_TOKEN@github.com/${{ vars.DISTRIBUTION_REPO }}.git" distribution
+          rm -rf distribution/dist
+          cp -r dist distribution/dist
+          cd distribution
+          git add dist
+          git -c user.name="paqad release" -c user.email="release@paqad.invalid" commit -m "release $VERSION"
+          git push origin HEAD

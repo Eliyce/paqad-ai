@@ -1,0 +1,23 @@
+{
+  "id": "D-01M4D78V1QBMGZNAFDWVJM420M",
+  "category": "architecture-path",
+  "title": "Where CI-only check scripts live",
+  "context": "New stdlib CI check scripts (CI-3 forbidden content, CI-6 secrets, CI-10 budget, CI-13 scenario coverage) and the release version-bump helper need a home. shared/scripts/ is copied into the shipped dist (PLG-9/PLG-10), so CI-only tooling placed there would ship to users and could import non-stdlib (violates RULE-24). A new tests/ci/ dir plus build/bump_version.py keeps CI tooling out of the shipped plugin.",
+  "options": [
+    {
+      "option_key": "tests-ci",
+      "label": "New tests/ci/ dir + build/bump_version.py (CI tooling never ships)"
+    },
+    {
+      "option_key": "shared-scripts",
+      "label": "Put them under shared/scripts/ (would ship into dist)"
+    }
+  ],
+  "recommendation": "tests-ci",
+  "created_at": "2026-10-08T07:39:59.927Z",
+  "status": "resolved",
+  "change": "01M4D6JPNQ6TPH7ZW4A7XAKJ1X",
+  "chosen": "tests-ci",
+  "rationale": "CI tooling must not ship into dist (PLG-9/10, RULE-24); tests/ci/ + build/bump_version.py keeps it out",
+  "resolved_at": "2026-10-08T07:41:22.079Z"
+}

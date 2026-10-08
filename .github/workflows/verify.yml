@@ -1,9 +1,10 @@
 # Conversation evals (REQUIREMENTS.md section 12.2), nightly and before each release.
 #
-# Honest stub. This workflow names the eval checks it will run (CI-12 and CI-13). None of them
-# are implemented in S0: there are no scenarios yet (S1 adds them under tests/evals/scenarios).
-# Every step below is an obvious placeholder that prints "not yet implemented (S1+)" and
-# enforces nothing. No step claims to enforce a check it does not run.
+# Both named steps run and enforce. CI-12 has two halves: the STRUCTURAL half is machine-checked
+# here by tests/evals/run_parity.py against the built dist; the LIVE property and conversational
+# parity half has no automatable runner in the installed claude CLI (it exposes "plugin validate"
+# but no "plugin eval" subcommand, and there is no documented live runner for ChatGPT or Codex), so
+# that half stays MANUAL and recorded per CI-12 and the resolved decision D-01M4D78VWAJPBFF2KGK0ZDYJ77.
 name: verify
 
 on:
@@ -12,11 +13,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  not-yet-implemented:
-    name: Conversation evals deferred to S1+
+  evals:
+    name: Conversation evals
     runs-on: ubuntu-latest
     steps:
-      - name: CI-12 Run every scenario against the built plugin (properties, not wording)
-        run: echo "not yet implemented (S1+): no scenarios exist yet"  # S1: implement
-      - name: CI-13 Scenario list covers the section 13 acceptance scenarios
-        run: echo "not yet implemented (S1+): no scenarios exist yet"  # S1: implement
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Build dist once
+        run: python build/build.py --dist dist
+
+      # CI-12 (structural half) and AC-20: structural parity across the five entry points and the
+      # three host branches. run_parity.py builds the dist if it is missing, so it never passes
+      # vacuously, and exits non-zero on any structural mismatch.
+      - name: CI-12 structural parity over the built dist
+        run: python tests/evals/run_parity.py --dist dist
+
+      # CI-13: the scenario list must cover the section 13 acceptance scenarios the evals own.
+      - name: CI-13 scenario coverage
+        run: python tests/ci/check_scenarios.py

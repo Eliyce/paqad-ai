@@ -1,0 +1,23 @@
+{
+  "id": "D-01M4D78VWAJPBFF2KGK0ZDYJ77",
+  "category": "workflow-or-tool",
+  "title": "CI-12 conversation-eval runner gap",
+  "context": "REQUIREMENTS section 12.2 specifies running every scenario as a live property eval. The installed claude CLI has 'plugin validate' but NO 'plugin eval' subcommand, and there is no documented live runner for ChatGPT/Codex (s2.yml and run_parity.py already say so). The machineable structural half of AC-20/CI-12 is covered by run_parity.py.",
+  "options": [
+    {
+      "option_key": "structural-plus-manual",
+      "label": "Automate the structural half via run_parity.py in CI; keep live property/conversational parity manual and recorded (honest, matches current docs)"
+    },
+    {
+      "option_key": "block-on-eval",
+      "label": "Treat CI-12 as not done until a live property-eval runner exists (blocks S3 completion)"
+    }
+  ],
+  "recommendation": "structural-plus-manual",
+  "created_at": "2026-10-08T07:40:00.778Z",
+  "status": "resolved",
+  "change": "01M4D6JPNQ6TPH7ZW4A7XAKJ1X",
+  "chosen": "structural-plus-manual",
+  "rationale": "No live plugin-eval runner exists; automate structural half, keep live parity manual and recorded as docs already state",
+  "resolved_at": "2026-10-08T07:41:22.529Z"
+}
