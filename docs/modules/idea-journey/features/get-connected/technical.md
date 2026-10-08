@@ -54,7 +54,7 @@ None. The script returns only the `ok` flag and the fixed stop message.
 
 | Kind | Item |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md` |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md`, `references/tracker-profiles-github.md` |
 | Modules | tracker-checks (Jira profile), conversation-standards, discovery-record (record written by the coordinator) |
 | Host capabilities | Reading repository files or user-attached `docs/`; tracker connector with create-issue, list link types, list fields for an issue type; Python 3.9 for the script (optional) |
 

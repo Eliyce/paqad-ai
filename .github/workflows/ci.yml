@@ -52,6 +52,12 @@ jobs:
       - name: CI-10 Budget over the built dist (per installable unit)
         run: python tests/ci/check_budget.py --dist dist
 
+      # CI-19 integrity: the hand-filled host verdicts must stay in the CI-19 vocabulary and never
+      # claim installed or verified support without evidence. This enforces the record, not the
+      # install; flipping a verdict stays a manual per-host step.
+      - name: CI-19 Host-verdict integrity
+        run: python tests/ci/check_host_verdicts.py
+
       # CI-8: build.py must succeed, reject undeclared shared imports and produce byte-identical
       # output on two consecutive runs.
       - name: CI-8 Build is deterministic

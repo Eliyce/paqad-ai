@@ -429,6 +429,42 @@ class PostLinkFallbackTest(unittest.TestCase):
         self.assertIn("add the links by hand", skill)
 
 
+class GithubProfileTest(unittest.TestCase):
+    """S4 part 1: the GitHub Issues tracker profile exists as a shared reference, is declared by the
+    two tracker-touching skills, and describes GitHub as export only (no write action promised). The
+    no-vendor-name and no-dash sweeps already cover the file through NeutralWordingTest and
+    HousePromptTest, since it lives under shared/."""
+
+    PROFILE_REL = "tracker-profiles-github.md"
+
+    def test_profile_exists_with_core_sections(self):
+        path = os.path.join(SHARED_ROOT, "references", self.PROFILE_REL)
+        self.assertTrue(os.path.isfile(path), "GitHub tracker profile is missing")
+        text = read_text(path)
+        for heading in ("## Actions", "## Export", "## Labels", "## Setup to read at step 0"):
+            self.assertIn(heading, text, "GitHub profile missing section {0}".format(heading))
+        self.assertIn("export only", text.lower())
+
+    def test_profile_declared_by_tracker_skills(self):
+        declared = _declared_imports_by_skill()
+        wanted = "references/" + self.PROFILE_REL
+        for skill_name in ("get-connected", "post-tickets"):
+            self.assertIn(
+                wanted,
+                declared.get(skill_name, []),
+                "{0} does not declare the GitHub tracker profile".format(skill_name),
+            )
+
+    def test_tracker_skills_reference_the_profile(self):
+        for skill_name in ("get-connected", "post-tickets"):
+            text = read_text(os.path.join(SKILLS_ROOT, skill_name, "SKILL.md"))
+            self.assertIn(
+                self.PROFILE_REL,
+                text,
+                "{0} SKILL.md does not reference the GitHub tracker profile".format(skill_name),
+            )
+
+
 class VendorScanScopeTest(unittest.TestCase):
     """AC-6 (CI-4): the neutral-wording scan walks only skills/ and shared/, so the per-host build
     constant and the parity harness may name the three hosts under build/ and tests/. This test

@@ -76,3 +76,44 @@ jobs:
           git add dist
           git -c user.name="paqad release" -c user.email="release@paqad.invalid" commit -m "release $VERSION"
           git push origin HEAD
+
+      # S4 (reach), public-directory readiness (REQUIREMENTS.md section 12.4, CI-16).
+      #
+      # The public directories need a SEPARATE public repo, distinct from the private org-sync repo
+      # above, and are published only once public listing starts (CI-16, OD-1). These steps stay off
+      # until an owner sets ENABLE_PUBLIC_RELEASE and a PUBLIC_DISTRIBUTION_REPO, so the plumbing can
+      # land before S3 is green on all hosts without activating a listing.
+      #
+      # Neither directory has a publish API: the ChatGPT directory needs a person to upload the zip
+      # (O11, O23) and the Claude directory is published by a reviewer from the public repo (C10). So
+      # these steps produce an artifact and push the public repo; the final submission stays manual.
+
+      # Build the directory submission zip and keep it as a workflow artifact for the manual upload.
+      - name: CI-16 build the directory submission zip
+        if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
+        run: |
+          VERSION="v${{ steps.version.outputs.value }}"
+          (cd dist && zip -r "../paqad-product-discovery-directory-$VERSION.zip" .)
+
+      - name: CI-16 upload the directory submission zip artifact
+        if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: directory-submission-zip
+          path: paqad-product-discovery-directory-v${{ steps.version.outputs.value }}.zip
+
+      # Push dist/ to the PUBLIC distribution repo the public directories read. Separate repo and
+      # separate token from the private push above, and off unless explicitly enabled.
+      - name: CI-16 push dist to the public distribution repo
+        if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' && vars.PUBLIC_DISTRIBUTION_REPO != '' }}
+        env:
+          PUBLIC_DISTRIBUTION_TOKEN: ${{ secrets.PUBLIC_DISTRIBUTION_TOKEN }}
+        run: |
+          VERSION="v${{ steps.version.outputs.value }}"
+          git clone "https://x-access-token:$PUBLIC_DISTRIBUTION_TOKEN@github.com/${{ vars.PUBLIC_DISTRIBUTION_REPO }}.git" public-distribution
+          rm -rf public-distribution/dist
+          cp -r dist public-distribution/dist
+          cd public-distribution
+          git add dist
+          git -c user.name="paqad release" -c user.email="release@paqad.invalid" commit -m "public release $VERSION"
+          git push origin HEAD

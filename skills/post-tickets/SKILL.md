@@ -52,6 +52,10 @@ known tool-name variants.
    tracker importer, using `scripts/export_csv.py --ticket-set <ticket-set.json> [--format csv|markdown]`.
    The format defaults to `csv`; pass `--format markdown` for the Markdown export. Offer this when
    the connector cannot create issues.
+8. When the tracker is GitHub, follow `references/tracker-profiles-github.md`: GitHub Issues is export
+   only, so there is no posting step. Produce the Markdown export as the primary form, since GitHub has
+   no native bulk CSV import, and map each epic to a tracking issue or a milestone and each dependency
+   to a task-list reference in the body. The user creates the issues in GitHub themselves.
 
 ## If the checks cannot run
 

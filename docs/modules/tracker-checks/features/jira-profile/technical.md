@@ -6,7 +6,7 @@
 |---|---|
 | `shared/references/tracker-profiles-jira.md` | Action list, known tool-name variants, custom-field rule, step 0 setup list, label rule |
 
-The map lists the flat file `shared/references/tracker-profiles-jira.md` as owned; it is the only tracker profile today. Other trackers are export-only in v1 and would each add one `tracker-profiles-<name>.md` file (section 9).
+The map lists the flat file `shared/references/tracker-profiles-jira.md` as owned. A second profile, `shared/references/tracker-profiles-github.md`, now covers GitHub Issues as an export-only tracker (section 9); it is declared by `get-connected` and `post-tickets`. Other trackers stay export-only in v1 and would each add one `tracker-profiles-<name>.md` file.
 
 ## Data Contracts
 

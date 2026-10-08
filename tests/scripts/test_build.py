@@ -116,6 +116,17 @@ class BuildOutputTest(unittest.TestCase):
                 "voice.md not copied into {0}".format(skill_name),
             )
 
+    def test_github_profile_copied_into_declaring_skills(self):
+        skills_root = os.path.join(self.plugin_dir, "skills")
+        for skill_name in ("get-connected", "post-tickets"):
+            profile = os.path.join(
+                skills_root, skill_name, "references", "tracker-profiles-github.md"
+            )
+            self.assertTrue(
+                os.path.isfile(profile),
+                "tracker-profiles-github.md not copied into {0}".format(skill_name),
+            )
+
     def test_no_forbidden_content(self):
         for rel in list_relpaths(self.dist):
             parts = rel.split("/")
