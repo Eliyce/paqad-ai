@@ -5,10 +5,6 @@ project:
 commands:
   install: echo "choose an application stack first (paqad discovery / onboard)"
   dev: echo "choose an application stack first (paqad discovery / onboard)"
-  # No application stack is chosen for this plugin repo. The three commands the checks gate runs
-  # (test, build, format) are wired to the S0 stdlib checks below. format is a stdlib compile and
-  # syntax check, not a formatter dependency. These use a portable python3 (resolves to a working
-  # interpreter via /bin/sh) and run on Python 3.9 or the current Python.
   test: python3 -m unittest discover -s tests/scripts
   test_single: echo "choose an application stack first (paqad discovery / onboard)"
   lint: echo "choose an application stack first (paqad discovery / onboard)"
@@ -22,6 +18,13 @@ custom:
   classification_dimensions: []
   verification_plugins: []
   escalation_rules: []
+testing:
+  runner_id: unittest
+  parallel: unavailable
+  reason: unittest has no built-in parallel runner; no pytest/xdist or other
+    parallel harness is present in the project.
+  detected_by: agent
+  recorded_at: 2026-10-08T08:16:15.622Z
 active_capabilities:
   - content
   - coding

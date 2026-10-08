@@ -505,7 +505,7 @@ dist/                                 # built output, pushed to the distribution
 | CI-6 | Secrets | Secret scan finds anything |
 | CI-7 | Script tests | A unit test fails on Python 3.9 or the current Python; branch coverage of scripts under 90%; any import outside the standard library |
 | CI-8 | Build | `build.py` fails, an undeclared shared import exists, or two builds differ |
-| CI-9 | Official validators | `claude plugin validate --strict` (pinned current CLI) or `skills-ref validate` fails on `dist/` |
+| CI-9 | Official validators | `claude plugin validate <path>` (the pinned CLI exposes no `--strict` flag, so plain validate is used and still fails on any validator error) or `skills-ref validate` fails on `dist/` |
 | CI-10 | Budget | `dist/` over 5 MB or 300 files |
 | CI-11 | Trigger hygiene | A step skill's description invites direct use (PLG-8) |
 | CI-20 | Voice reminder | A `SKILL.md` does not open with the "How to talk" block pointing to `references/voice.md` (TALK-10) |
@@ -603,7 +603,7 @@ Use the fixture repository and invented content only.
 2. **S1, the full journey and question answering on claude.ai.** The ten idea and question skills, ported scripts, the consulting stance, Jira posting, record, export, AC-1 to AC-19, AC-21 to AC-29 and AC-42 to AC-48.
 3. **S1b, existing work on claude.ai.** `refine-ticket`, `size-work`, `plan-sprint`, AC-30 to AC-41. Can run in parallel with the end of S1 once posting works, since all three reuse its approval, receipt and read-back logic.
 4. **S2, ChatGPT and Codex parity.** Fallbacks for anything S0 found missing, and AC-20 across all five entry points.
-5. **S3, pipeline complete.** CI-1 to CI-20, evals in CI, org channels live on all three hosts.
+5. **S3, pipeline complete.** CI-1 to CI-20, evals in CI, org channels live on all three hosts. Status: the CI pipeline now enforces CI-1 to CI-15 and CI-20 and runs the evals (CI-12 structural parity, CI-13); CI-12 live parity, CI-16 to CI-19 and the org-channel rollout remain manual or operational.
 6. **S4, reach.** Public directories and more tracker profiles.
 
 ## 15. Decision log
