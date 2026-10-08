@@ -99,7 +99,7 @@ Link-by-hand fallback (U-3): `link_action_available(connector)` returns false on
 
 | Kind | Dependency |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles/jira.md`, `scripts/canonical.py`, `scripts/check_readback.py` |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md`, `scripts/canonical.py`, `scripts/check_readback.py` |
 | Other modules | `tracker-checks` (read-back, Jira profile), `discovery-record` (digest, `posted` block), `conversation-standards` (voice), `ticket-drafting` (input set and readiness) |
 | Host capabilities | Tracker connector actions: create issue, create link, read issue, search, edit issue (additional-fields parent route); creating a preview file; running Python scripts |
 
@@ -109,7 +109,7 @@ Link-by-hand fallback (U-3): `link_action_available(connector)` returns false on
 - Run label from `state.setup.run_label`.
 - Link type is fixed to `"Depends"` in the plan.
 - Connector actions from `state.connector.actions`.
-- Tool-name variants: `shared/references/tracker-profiles/jira.md`.
+- Tool-name variants: `shared/references/tracker-profiles-jira.md`.
 
 ## Testing Entry Points
 

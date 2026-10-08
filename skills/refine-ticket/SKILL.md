@@ -20,7 +20,7 @@ instead of rewriting it here (EDT-3).
 
 Refine each ticket in order. The full procedure, with every rule, is in
 `references/refine-procedure.md`; the rich-content rule is in `references/rich-content.md`; Jira
-actions and tool-name variants are in `references/tracker-profiles/jira.md`.
+actions and tool-name variants are in `references/tracker-profiles-jira.md`.
 
 1. Read and snapshot (EDT-1). Read each ticket in full: summary, description, type, parent, labels,
    links, status, assignee, sprint and size field. Keep a snapshot with its last-updated time in the

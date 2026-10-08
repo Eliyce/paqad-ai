@@ -155,7 +155,14 @@ def build_plan(ticket_set, setup, connector):
     for epic in ticket_set.get("epics", []):
         for ticket in epic.get("tickets", []):
             for dep in ticket.get("depends_on", []) or []:
-                if dep not in ticket_op:
+                # An internal dep links to the issue this run creates; an external tracker ref (e.g.
+                # PROJ-123, resolved through the one canonical helper) links to the issue that already
+                # exists, by its literal key. Both are valid dependencies and are never skipped (INV-1).
+                if dep in ticket_op:
+                    outward = _result_ref(ticket_op[dep])
+                elif canonical.is_external_ref(dep):
+                    outward = dep
+                else:
                     continue
                 if has_link_action:
                     op_id = "link-{0}-{1}".format(ticket["ref"], dep)
@@ -167,7 +174,7 @@ def build_plan(ticket_set, setup, connector):
                         "arguments": {
                             "type": "Depends",
                             "inward": _result_ref(ticket_op[ticket["ref"]]),
-                            "outward": _result_ref(ticket_op[dep]),
+                            "outward": outward,
                         },
                     })
                 else:

@@ -1,0 +1,23 @@
+{
+  "id": "D-01M4DKGG4K98JFEEF90AGGCMSQ",
+  "category": "shared-abstraction",
+  "title": "TD-14 external-dependency handling",
+  "context": "check_ticket_set.py flags a depends_on pointing at an existing tracker issue as DANGLING_DEPENDENCY, while plan_posting.py silently skips the same external dep. The agreed behaviour: an external/tracker ref (e.g. PROJ-123) is valid, not dangling. Question is how to converge the two scripts.",
+  "options": [
+    {
+      "option_key": "shared-helper",
+      "label": "Extract one canonical helper (is-external-ref) both scripts call"
+    },
+    {
+      "option_key": "independent",
+      "label": "Fix each script to the same behaviour without a shared helper"
+    }
+  ],
+  "recommendation": "shared-helper",
+  "created_at": "2026-10-08T11:13:53.811Z",
+  "status": "resolved",
+  "change": "01M4DJZYT9D65VHKSX9NWV1970",
+  "chosen": "shared-helper",
+  "rationale": "RULE-04a1 one canonical helper for is-external-ref",
+  "resolved_at": "2026-10-08T11:14:55.993Z"
+}

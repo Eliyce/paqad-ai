@@ -62,7 +62,7 @@ class ResumeSignalTest(CheckRecordTestCase):
     def test_every_step_starts_missing_then_passes_when_filled(self):
         for step, blocks in record.REQUIRED.items():
             rec = self._fresh()
-            # Empty each required block (new_record seeds posted with a non-empty shell), so
+            # Empty each required block (a fresh record seeds every one empty, posted included), so
             # every one is flagged MISSING.
             for block in blocks:
                 rec[block] = {}

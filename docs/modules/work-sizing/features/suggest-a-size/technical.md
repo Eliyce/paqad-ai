@@ -8,7 +8,7 @@ Owned paths:
 - `skills/size-work/references/sizing-guide.md`
 - `skills/size-work/scripts/compare_sizes.py`
 
-Shared files copied in at build time (declared in `build/skills.yml`, owned elsewhere): `references/voice.md`, `references/tracker-profiles/jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`.
+Shared files copied in at build time (declared in `build/skills.yml`, owned elsewhere): `references/voice.md`, `references/tracker-profiles-jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`.
 
 ## Data Contracts
 
@@ -59,7 +59,7 @@ None as structured codes. Text reasons from `set`: refused overwrite ("already h
 
 | Kind | Dependency |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles/jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py` |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py` |
 | Python imports | `canonical` (`load`, `text`) |
 | Modules | [discovery-record](../../../discovery-record/index/summary.md), [tracker-checks](../../../tracker-checks/index/summary.md) (Jira profile), [conversation-standards](../../../conversation-standards/index/summary.md) |
 | Hand-off | Points users to `refine-ticket` for splits (EST-4) |

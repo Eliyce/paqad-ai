@@ -284,6 +284,16 @@ class HostBranchTest(unittest.TestCase):
             )
 
 
+class HomepageTest(unittest.TestCase):
+    def test_homepage_is_not_a_placeholder(self):
+        # TD-6: the configured homepage is a real, non-placeholder value.
+        config = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
+        homepage = config.get("homepage", "")
+        self.assertTrue(homepage, "homepage must be set in build/skills.yml")
+        self.assertNotIn("example.invalid", homepage)
+        self.assertNotIn("placeholder", homepage.lower())
+
+
 class DeterminismTest(unittest.TestCase):
     def test_two_builds_byte_identical(self):
         tmp = tempfile.mkdtemp()

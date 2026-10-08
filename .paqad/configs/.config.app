@@ -44,7 +44,7 @@ enterprise_compliance_citations=true
 # Opt in to the Site Map & Journeys capability — a verified behavioural map of the app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). OFF (default) is completely inert; ON also requires the coding capability at its consumers. (env: PAQAD_SITE_MAP)
 site_map=true
 # Capture screenshots of documented flows for frontend changes as feature-bundle evidence. ON also requires the coding capability at its consumers. (env: PAQAD_VISUAL_EVIDENCE)
-visual_evidence=true
+visual_evidence=false
 # Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
 # lean_rules=true
 # Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)

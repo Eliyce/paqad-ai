@@ -55,4 +55,4 @@ Every Jira site is set up a little differently, and the tools that connect to Ji
 | Run label | The discovery run ID in lowercase, added to every issue the run creates |
 | Custom field | A site-specific field such as story points or sprint, whose ID differs per site |
 
-Sources: shared/references/tracker-profiles/jira.md
+Sources: shared/references/tracker-profiles-jira.md

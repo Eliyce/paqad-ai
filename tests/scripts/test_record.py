@@ -206,6 +206,24 @@ class UndocumentedBlockTest(RecordTestCase):
             record.apply_update(rec, 0, {"run": {"revision": 99}})
 
 
+class PostedPresenceTest(RecordTestCase):
+    """INV-2 (TD-18): a fresh record's posted block is empty, so step 6 is not read as satisfied;
+    present() tests real posted content, not an empty container shell."""
+
+    def test_fresh_record_posted_is_empty_and_not_present(self):
+        rec = self._init()
+        self.assertEqual(rec["posted"], {})
+        self.assertFalse(record.present(rec["posted"]))
+        # Step 6 requires posted; on a fresh record it cannot advance.
+        self.assertIn("posted", record.required_for(rec, 6))
+
+    def test_posted_with_real_issues_is_present(self):
+        rec = self._init()
+        rec["posted"] = {"issues": [{"ref": "E1", "issue_key": "ABC-1", "status": "created"}],
+                         "read_back": {}}
+        self.assertTrue(record.present(rec["posted"]))
+
+
 class BuildModeUnchangedTest(RecordTestCase):
     """INV-1: the four S1b blocks are additive and mode-gated. The build-mode CHAIN and REQUIRED
     maps are untouched and build-mode advance ignores the new blocks entirely."""

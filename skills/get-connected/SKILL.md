@@ -35,7 +35,7 @@ Runs when the product-discovery journey directs it; not started directly.
 
 The tracker action names differ by connector version, so resolve each action from what the
 connector exposes rather than hard-coding a tool name. The Jira specifics are in
-`references/tracker-profiles/jira.md`.
+`references/tracker-profiles-jira.md`.
 
 ## If the checks cannot run
 

@@ -13,7 +13,7 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "run_id": "DR-20261005-7K2Q",
     "revision": 0,
     "step": 0,
-    "updated_at": "2026-10-05T12:00:00Z",
+    "updated_at": "<ISO 8601 timestamp>",
     "mode": "build"
   },
   "setup": {
@@ -74,7 +74,23 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "issues": [
       { "ref": "", "issue_key": "", "status": "created" }
     ],
-    "read_back": ""
+    "read_back": {}
+  },
+  "existing": [
+    { "key": "", "last_updated": "" }
+  ],
+  "changes": {
+    "ticket_key": "",
+    "changes": [],
+    "new_children": []
+  },
+  "sizing": {
+    "suggestion": {}
+  },
+  "sprint_plan": {
+    "sprint": "",
+    "goal": "",
+    "chosen": []
   }
 }
 ```
@@ -94,4 +110,9 @@ Each block below shows its fields. A block is empty until the step that owns it 
 - ticket_set_ref.digest is the sha256 of the canonical ticket set with the digest field excluded.
   Each approval is bound to that digest and any later edit voids it.
 - readiness.status is passed or open. posted.issues status is one of created, uncertain or not
-  applied.
+  applied; posted.read_back is an object keyed by issue reference. A fresh record seeds posted as an
+  empty object and step 6 is not satisfied until a real posting fills it, so an untouched record is
+  never read as already posted.
+- existing, changes, sizing and sprint_plan are the existing-work blocks (refine, size and plan
+  modes). They are empty in a fresh build-mode record and only required in their own mode. The
+  shapes above mirror what record.py seeds.

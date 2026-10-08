@@ -1,7 +1,7 @@
 # Jira tracker profile: API
 
 This feature has no API and no script. It is a shared reference document,
-`shared/references/tracker-profiles/jira.md`, copied into each tracker-facing skill at build
+`shared/references/tracker-profiles-jira.md`, copied into each tracker-facing skill at build
 time.
 
 The profile names the tracker concepts the skills use by capability, not by endpoint: issue

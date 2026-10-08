@@ -24,7 +24,7 @@ Keeps tracker writes safe and readable: checks ticket prose before anything is p
 |---|---|
 | `shared/scripts/check_prose.py` | TKT-1 to TKT-3 prose lint |
 | `shared/scripts/check_readback.py` | PUB-6 read-back comparison |
-| `shared/references/tracker-profiles/jira.md` | Jira actions, variants, custom fields, setup and labels |
+| `shared/references/tracker-profiles-jira.md` | Jira actions, variants, custom fields, setup and labels |
 | `tests/scripts/test_tickets.py` | Prose check tests (`CheckProseTest`) |
 | `tests/scripts/test_posting.py` | Read-back tests (`ReadbackTest`) and link-action variant test (`LinkActionTest`) |
 

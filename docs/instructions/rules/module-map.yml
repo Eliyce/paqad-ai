@@ -243,7 +243,7 @@ modules:
         sources: [shared/scripts/check_readback.py]
       - slug: jira-profile
         name: Jira tracker profile
-        sources: [shared/references/tracker-profiles/jira.md]
+        sources: [shared/references/tracker-profiles-jira.md]
 
   # ------------------------------------------------------------------ build and delivery
 

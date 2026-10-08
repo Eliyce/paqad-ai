@@ -140,6 +140,17 @@ def suggest(target, pool, scale, area_docs_text=None):
         }
 
     sizes = [row["size"] for row in comp_rows if row["size"] is not None]
+    if not sizes:
+        return {
+            "size": None,
+            "range": None,
+            "drivers": drivers,
+            "confidence": "low",
+            "confidence_reason": "The comparable finished tickets carry no size, so no size is "
+                                 "suggested rather than inventing one.",
+            "comparables": comp_rows,
+            "label": LABEL,
+        }
     counts = Counter(sizes)
     most_common, top_count = counts.most_common(1)[0]
     agree = top_count == len(sizes)

@@ -69,6 +69,28 @@ class FixtureDocTest(unittest.TestCase):
         self.assertEqual(by_heading["Business rules"]["markers_hit"], [])
 
 
+class IntroProseNotMarkersTest(unittest.TestCase):
+    """TD-13: only '- ' bulleted lines are markers; intro prose never loads as a false marker and
+    so never flags a real document section."""
+
+    def test_only_bulleted_markers_load(self):
+        markers = detect_placeholder.load_markers(MARKERS)
+        # Exactly the ten bulleted phrases (seven current generation, three earlier) load.
+        self.assertEqual(len(markers), 10)
+        self.assertTrue(all("onboarding template phrases" not in m for m in markers))
+
+    def test_intro_prose_does_not_flag_a_real_section(self):
+        markers = detect_placeholder.load_markers(MARKERS)
+        intro = "These are the onboarding template phrases from both paqad template generations"
+        # The intro sentence is not a marker, so a real section that repeats it stays real.
+        self.assertTrue(all(intro not in m for m in markers))
+        doc = "## Overview\n{0} in this project.\n".format(intro)
+        sections = detect_placeholder.classify(
+            detect_placeholder.split_sections(doc), markers)
+        by_heading = {s["heading"]: s for s in sections}
+        self.assertEqual(by_heading["Overview"]["status"], "real")
+
+
 class SplitTest(unittest.TestCase):
     def test_sections_split_on_headings(self):
         doc = "# Top\nintro\n## A\nreal body\n## B\nDescribe the business purpose of the thing\n"

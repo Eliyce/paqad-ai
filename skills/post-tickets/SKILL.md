@@ -18,7 +18,7 @@ for example "Step 6 of 6: handing off."
 ## What it does
 
 Recommend the outcome, and for a build, post it safely. Follow `references/post-procedure.md` for
-the full ordered procedure and `references/tracker-profiles/jira.md` for the Jira actions and the
+the full ordered procedure and `references/tracker-profiles-jira.md` for the Jira actions and the
 known tool-name variants.
 
 1. Recommend the outcome that fits: build, experiment, already exists, process change, defer or
@@ -49,7 +49,8 @@ known tool-name variants.
    because the connector had no link action, report on read-back that the links may be absent rather
    than report it as a failure.
 7. Export fallback. At any point the approved set can be downloaded as Markdown and as CSV for the
-   tracker importer, using `scripts/export_csv.py --ticket-set <ticket-set.json>`. Offer this when
+   tracker importer, using `scripts/export_csv.py --ticket-set <ticket-set.json> [--format csv|markdown]`.
+   The format defaults to `csv`; pass `--format markdown` for the Markdown export. Offer this when
    the connector cannot create issues.
 
 ## If the checks cannot run

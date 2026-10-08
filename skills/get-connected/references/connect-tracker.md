@@ -33,7 +33,7 @@ Read these through the connector and store them in the `setup` block:
 Tracker profiles name actions; the right tool for each action is found at runtime from the
 connector. For example, link creation is exposed under different names in different connector
 versions, so pick whichever the connector offers. The Jira action names are in
-`references/tracker-profiles/jira.md`.
+`references/tracker-profiles-jira.md`.
 
 ## Warn about run labels once (PUB-4)
 

@@ -31,6 +31,10 @@ Settle the choices left open by the shaping, one at a time, and record each as i
    why. A default is never recorded as a settled decision.
 5. Keep settled choices settled. Revisit one only if new evidence appears, not to reopen a call
    the user already made with the facts in front of them.
+6. Name the direction. Step 4 also settles the `outcome` block: the chosen direction (build,
+   experiment, already exists, process change, defer or stop), the reason and the next action.
+   You confirm it with the user as the deciding closes; the product-discovery skill writes it to
+   the record through its record script, alongside the decisions block that this step produces.
 
 ## If the checks cannot run
 
@@ -45,6 +49,7 @@ This skill carries no script. Decide and record by hand with this checklist:
 
 ## Output
 
-Fills the decisions block of the discovery record (a list of recorded decisions) and the
-assumptions block (the accepted defaults, each labelled as an assumption). The product-discovery
-skill writes these blocks through its record script; this skill produces their content.
+Fills the decisions block of the discovery record (a list of recorded decisions), the assumptions
+block (the accepted defaults, each labelled as an assumption), and the `outcome` block (the chosen
+direction, reason and next action that step 4 requires). The product-discovery skill writes these
+blocks through its record script; this skill produces their content.

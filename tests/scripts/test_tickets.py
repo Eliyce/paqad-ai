@@ -193,6 +193,18 @@ class CheckProseTest(unittest.TestCase):
         self.assertIn("TKT1", codes)
         self.assertIn("TKT3", codes)
 
+    def test_tkt4_flags_sentence_over_thirty_words(self):
+        # TD-20 (TKT-4): a sentence of 31 words is flagged.
+        sentence = " ".join("word" for _ in range(31)) + "."
+        issues = check_prose.scan([(1, sentence)], "doc.md", DENYLIST, check_code=False)
+        self.assertIn("TKT4", self._codes(issues))
+
+    def test_tkt4_allows_thirty_word_sentence(self):
+        # TD-20 (TKT-4): a sentence of 30 words passes.
+        sentence = " ".join("word" for _ in range(30)) + "."
+        issues = check_prose.scan([(1, sentence)], "doc.md", DENYLIST, check_code=False)
+        self.assertNotIn("TKT4", self._codes(issues))
+
 
 class CheckTicketSetTest(unittest.TestCase):
     def _codes(self, issues):
@@ -246,6 +258,36 @@ class CheckTicketSetTest(unittest.TestCase):
         ts["epics"][0]["tickets"][1]["depends_on"] = ["E1-T1"]
         ts = seal(ts)
         self.assertIn("DEPENDENCY_CYCLE", self._codes(check_ticket_set.check(ts)))
+
+    def test_external_tracker_dep_is_not_dangling(self):
+        # AC-6 / INV-1 (TD-14): an external tracker ref is a valid dependency, not dangling.
+        ts = valid_set()
+        ts["epics"][0]["tickets"][1]["depends_on"] = ["PROJ-123"]
+        ts = seal(ts)
+        issues = check_ticket_set.check(ts)
+        self.assertNotIn("DANGLING_DEPENDENCY", self._codes(issues))
+        self.assertEqual(issues, [])
+
+    def test_over_length_title_flagged(self):
+        # AC-8 (TD-14): a title over the schema maximum is reported.
+        ts = valid_set()
+        ts["epics"][0]["tickets"][0]["title"] = "T" * 81
+        ts = seal(ts)
+        self.assertIn("TITLE_TOO_LONG", self._codes(check_ticket_set.check(ts)))
+
+    def test_bad_ref_pattern_flagged(self):
+        # AC-8 (TD-14): a ref that does not match its schema pattern is reported.
+        ts = valid_set()
+        ts["epics"][0]["ref"] = "EPIC_ONE"
+        ts = seal(ts)
+        self.assertIn("BAD_REF", self._codes(check_ticket_set.check(ts)))
+
+    def test_extra_property_flagged(self):
+        # AC-8 (TD-14): an unexpected property (closed shape) is reported.
+        ts = valid_set()
+        ts["epics"][0]["tickets"][0]["unexpected"] = "x"
+        ts = seal(ts)
+        self.assertIn("EXTRA_PROPERTY", self._codes(check_ticket_set.check(ts)))
 
     def test_shape_error_short_circuits(self):
         self.assertIn("SCHEMA", self._codes(check_ticket_set.check({"epics": "not a list"})))

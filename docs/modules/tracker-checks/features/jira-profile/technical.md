@@ -4,9 +4,9 @@
 
 | Path | Owned content |
 |---|---|
-| `shared/references/tracker-profiles/jira.md` | Action list, known tool-name variants, custom-field rule, step 0 setup list, label rule |
+| `shared/references/tracker-profiles-jira.md` | Action list, known tool-name variants, custom-field rule, step 0 setup list, label rule |
 
-The map lists the folder `shared/references/tracker-profiles` as owned; it holds only `jira.md` today. Other trackers are export-only in v1 and would each add one profile file (section 9).
+The map lists the flat file `shared/references/tracker-profiles-jira.md` as owned; it is the only tracker profile today. Other trackers are export-only in v1 and would each add one `tracker-profiles-<name>.md` file (section 9).
 
 ## Data Contracts
 
@@ -45,8 +45,8 @@ None.
 
 | Kind | Detail |
 |---|---|
-| Declared by skills (`build/skills.yml`) | `get-connected`, `post-tickets`, `refine-ticket`, `size-work`, `plan-sprint` import `references/tracker-profiles/jira.md` |
-| In `dist/` | `skills/<name>/references/tracker-profiles/jira.md` (two folder levels under `references/`) |
+| Declared by skills (`build/skills.yml`) | `get-connected`, `post-tickets`, `refine-ticket`, `size-work`, `plan-sprint` import `references/tracker-profiles-jira.md` |
+| In `dist/` | `skills/<name>/references/tracker-profiles-jira.md` (flat, one level under `references/`) |
 | Host capability | A tracker connector with write tools for the target project (C5, O16, U-13 per host); every host verdict on links, parent and sprint field is still `pending` in `hosts/*.md` |
 
 ## Configuration

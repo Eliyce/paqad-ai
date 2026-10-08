@@ -478,6 +478,45 @@ class ExportCsvTest(unittest.TestCase):
         self.assertEqual(by_id["E2-T2"][5], "E2")
         self.assertEqual(by_id["E1"][5], "")
 
+    def test_story_rows_carry_labels(self):
+        # TD-20 (PUB-4): a story with labels exports them instead of an empty cell.
+        ts = posting_set()
+        ts["epics"][0]["tickets"][0]["labels"] = ["returns", "priority"]
+        ts = seal(ts)
+        rows = list(csv.reader(io.StringIO(export_csv.to_csv(ts))))
+        by_id = {r[1]: r for r in rows[1:]}
+        self.assertEqual(by_id["E1-T1"][4], "returns priority")
+
+    def test_markdown_export_renders_every_epic_and_story(self):
+        # TD-20 (PUB-8): the Markdown export renders every epic and story as a table.
+        md = export_csv.to_markdown(posting_set())
+        self.assertIn("| Work type | Work item id |", md)
+        for ref in ("E1", "E2", "E1-T1", "E1-T2", "E1-T3", "E2-T1", "E2-T2"):
+            self.assertIn(ref, md)
+
+
+class ExternalDependencyTest(unittest.TestCase):
+    """TD-14 / INV-1: an external tracker ref in depends_on is a valid dependency; plan_posting
+    links to the existing issue by its literal key rather than silently skipping it."""
+
+    def _plan_with_external_dep(self, connector_actions):
+        ts = posting_set()
+        ts["epics"][0]["tickets"][2]["depends_on"] = ["PROJ-123"]
+        ts = seal(ts)
+        return plan_posting.build_plan(ts, {"run_label": RUN_LABEL},
+                                       {"actions": list(connector_actions)})
+
+    def test_external_dep_links_to_the_literal_key(self):
+        plan = self._plan_with_external_dep(("createIssueLink",))
+        outs = [op["arguments"]["outward"]
+                for op in plan["operations"] if op["kind"] == "link"]
+        self.assertIn("PROJ-123", outs)
+
+    def test_external_dep_rendered_by_hand_without_a_link_action(self):
+        plan = self._plan_with_external_dep(("createIssue",))
+        rendered = {(line["ticket"], line["depends_on"]) for line in plan["depends_on_lines"]}
+        self.assertIn(("E1-T3", "PROJ-123"), rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

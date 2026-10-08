@@ -27,15 +27,20 @@ HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 
 
 def load_markers(path):
-    """Return the marker phrases from the markers file, one phrase per non-heading line."""
+    """Return the marker phrases from the markers file, one phrase per bulleted line.
+
+    Only '- ' bulleted lines are markers. Intro prose, headings and blank lines are ignored, so a
+    sentence that happens to contain a marker-like word never loads as a marker and never flags a
+    real document section (TD-13).
+    """
     markers = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
+        if not stripped.startswith("- "):
             continue
-        if stripped.startswith("- "):
-            stripped = stripped[2:].strip()
-        markers.append(stripped)
+        phrase = stripped[2:].strip()
+        if phrase:
+            markers.append(phrase)
     return markers
 
 

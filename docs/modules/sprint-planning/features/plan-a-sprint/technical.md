@@ -8,7 +8,7 @@ Owned paths:
 - `skills/plan-sprint/references/sprint-procedure.md`
 - `skills/plan-sprint/scripts/fit_sprint.py`
 
-Shared files copied in at build time (declared in `build/skills.yml`, owned elsewhere): `references/voice.md`, `references/tracker-profiles/jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_readback.py`.
+Shared files copied in at build time (declared in `build/skills.yml`, owned elsewhere): `references/voice.md`, `references/tracker-profiles-jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_readback.py`.
 
 ## Data Contracts
 
@@ -25,7 +25,7 @@ history.json:    {"sprints": [{"id", "delivered": <number>} x3]}
 
 ```text
 {"ok", "sprint", "capacity": {"value", "derived_from": [{"sprint", "count"}]}, "goal",
- "fitting": [refs], "stretch": [refs], "left_out": [{"ref", "reason"}], "total", "risks": [...],
+ "chosen": [refs], "stretch": [refs], "left_out": [{"ref", "reason"}], "total", "risks": [...],
  "not_ready": [{"ref", "needs"}], "by_hand": bool, "digest"}
 ```
 
@@ -44,7 +44,7 @@ Record block: `sprint_plan` (plan mode). SKILL.md lists the sprint, capacity wit
 | Subcommand | Args | Behaviour | Exit |
 |---|---|---|---|
 | `plan` | `--sprint-field <id>`, `--candidates`, `--history` (required), `--target-sprint` (optional) | Target is the named sprint if it is in a future state, else the first sprint whose state is `future`, `planned` or `upcoming`. Capacity value is the rounded mean of `delivered` over the last three history entries. Readiness: `checks_pass`, non-empty non-zero `size`, every dependency `done` or `in_sprint`. Ready candidates sorted by `priority` (missing = last), then `ref`; greedily fitted while total <= capacity, else stretch while total + size <= capacity x 1.25, else left out with "Beyond the sprint capacity of N.". `by_hand` is true when the sprint is not `settable` or `--sprint-field` is empty. | 0 plan, 1 no future sprint |
-| `apply` | `--plan`, `--expect-digest` (required), `--tracker-state` (optional) | Recomputes the plan digest and refuses on mismatch. Emits one `set_sprint_field` operation per `fitting` ref and nothing else (SPR-7). Read-back compares refs with `check_readback.norm_ref` against tracker state. It does not call the tracker: the host performs the write. | 0 applied, 1 mismatch |
+| `apply` | `--plan`, `--expect-digest` (required), `--tracker-state` (optional) | Recomputes the plan digest and refuses on mismatch. Emits one `set_sprint_field` operation per `chosen` ref and nothing else (SPR-7). Read-back compares refs with `check_readback.norm_ref` against tracker state. It does not call the tracker: the host performs the write. | 0 applied, 1 mismatch |
 
 Errors of type `ValueError`, `OSError`, `KeyError` or `TypeError` print `{"ok": false, "error"}` to stderr and exit 1.
 
@@ -63,7 +63,7 @@ None as structured codes. Text reasons: "No future sprint exists. A sprint is cr
 
 | Kind | Dependency |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles/jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_readback.py` |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_readback.py` |
 | Python imports | `canonical` (`load`, `digest`), `check_readback` (`norm_ref`) |
 | Modules | [discovery-record](../../../discovery-record/index/summary.md), [tracker-checks](../../../tracker-checks/index/summary.md), [conversation-standards](../../../conversation-standards/index/summary.md) |
 | Hand-off | Unready tickets point to `refine-ticket` or `size-work` |

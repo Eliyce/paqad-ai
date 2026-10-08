@@ -138,7 +138,7 @@ def new_record(run_id=None, mode="build"):
         "outcome": {},
         "ticket_set_ref": {},
         "readiness": {},
-        "posted": {"issues": [], "read_back": {}},
+        "posted": {},
         "existing": [],
         "changes": {},
         "sizing": {},

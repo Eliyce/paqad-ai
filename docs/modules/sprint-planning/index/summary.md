@@ -31,7 +31,7 @@ Proposes what fits the next sprint from capacity, priority and readiness, and pu
 - SPR-1: find the target future sprint; never create one.
 - SPR-2: capacity from the user or derived from the last three completed sprints, shown with its numbers.
 - SPR-3: only ready tickets are candidates; unready ones are listed with what they need.
-- SPR-4: propose goal, fitting tickets, stretch, left out with reasons, total against capacity, risks.
+- SPR-4: propose goal, chosen tickets, stretch, left out with reasons, total against capacity, risks.
 - SPR-5: consult, do not decide.
 - SPR-6: apply only on "apply it", bound to the plan digest, then read back.
 - SPR-7: never create, start, close, rename or reorder sprints or the backlog.

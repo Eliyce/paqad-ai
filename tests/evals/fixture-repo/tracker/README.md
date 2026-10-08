@@ -11,9 +11,11 @@ The fake tracker reads two files:
   Keys are grouped by the fixture module they belong to (`SUB` subscriptions, `ORD` orders,
   `DEX` data-export). Finished tickets carry a `size` so size-work has comparables; open tickets
   carry a `null` size until they are sized.
-- `sprints.json` holds the sprint board: the one future sprint the team is planning, the last three
-  completed sprints with their committed and completed totals so capacity can be derived, and the
-  candidate pool the planner draws from.
+- `sprints.json` holds the sprint board in the shape `fit_sprint.py` reads: a `history` block with
+  the last three completed sprints (`sprints[].delivered`) so capacity can be derived, and a
+  `candidates_doc` block with the sprint list (`sprints[]`, one `state: future`) and the candidate
+  pool (`candidates[]`, each with a `ref`, `priority`, `size`, `checks_pass` and `dependencies`).
+  A `null` size marks a candidate that still needs sizing.
 
 Rich content in a description is written with text markers so a plain JSON fixture can still carry
 it: `[image: ...]` for an embedded image and `[panel: ...] ... [/panel]` for a panel. refine-ticket

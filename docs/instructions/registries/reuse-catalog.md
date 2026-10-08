@@ -9,7 +9,7 @@ Check here before writing a new helper or reference. Shared material lives once 
 
 | File | Use it for | Public functions | Imported by |
 |---|---|---|---|
-| `canonical.py` | Canonical JSON digests, loading JSON, timestamps, the JSON result and issue shapes every script prints | `digest`, `load`, `now`, `text`, `issue`, `result` | product-discovery, check-tickets, post-tickets, refine-ticket, size-work, plan-sprint |
+| `canonical.py` | Canonical JSON digests, loading JSON, timestamps, the JSON result and issue shapes every script prints, and the one external/tracker-ref check (`is_external_ref`) both check-tickets and post-tickets call | `digest`, `load`, `now`, `text`, `issue`, `result`, `is_external_ref` | product-discovery, check-tickets, post-tickets, refine-ticket, size-work, plan-sprint |
 | `record.py` | Creating and changing the discovery record with revision checks, staleness and digest-bound approvals | `new_record`, `validate`, `apply_update`, `apply_advance`, `apply_approve`, `required_for`, `block_digest`, `mint_run_id`, `read`, `write` | product-discovery, refine-ticket, size-work, plan-sprint |
 | `check_record.py` | Asking whether a step's required blocks are present and fresh | `check` | product-discovery, refine-ticket, size-work, plan-sprint |
 | `check_prose.py` | Linting ticket prose (dashes, code words, jargon deny-list) | `lint_ticket_set`, `lint_item`, `scan`, `load_denylist` | check-tickets, refine-ticket |
@@ -22,7 +22,7 @@ Check here before writing a new helper or reference. Shared material lives once 
 | File | Holds | Imported by |
 |---|---|---|
 | `voice.md` | Section 3A reply rules (TALK-*) | all 13 skills |
-| `tracker-profiles/jira.md` | Jira fields, issue types, link types, sprint and size fields | get-connected, post-tickets, refine-ticket, size-work, plan-sprint |
+| `tracker-profiles-jira.md` | Jira fields, issue types, link types, sprint and size fields | get-connected, post-tickets, refine-ticket, size-work, plan-sprint |
 | `plain-language.md` | Plain-word substitutions and jargon deny-list | write-tickets, check-tickets, refine-ticket |
 | `writing-rules.md` | Ticket writing rules (section 8.4) | write-tickets, refine-ticket |
 | `consulting.md` | Consultant stance (section 4A) | product-discovery, ask-project |

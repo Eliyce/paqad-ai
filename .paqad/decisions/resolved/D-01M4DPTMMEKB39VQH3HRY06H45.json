@@ -1,0 +1,23 @@
+{
+  "id": "D-01M4DPTMMEKB39VQH3HRY06H45",
+  "category": "workflow-or-tool",
+  "title": "Visual-evidence gate blocks a no-UI project",
+  "context": "The completion gate throws PackRegistryEmptyError (paqad's own text: install fault, not a clean change). Cause: .config.app visual_evidence=true + .config.policy visual_evidence_mode=strict, but this plugin has no UI (design-system doc: no visual UI) and the installed paqad runtime ships no frontend stack packs. The TD change itself is verified: 6/6 stages recorded with isolation, 229 tests green, review clean, docs synced.",
+  "options": [
+    {
+      "option_key": "disable-ve",
+      "label": "Set visual_evidence=false in .config.app for this no-UI project (correct config)"
+    },
+    {
+      "option_key": "reinstall",
+      "label": "Leave config; treat as paqad install fault and reinstall/doctor paqad-ai yourself"
+    }
+  ],
+  "recommendation": "disable-ve",
+  "created_at": "2026-10-08T12:11:51.822Z",
+  "status": "resolved",
+  "change": "01M4DJZYT9D65VHKSX9NWV1970",
+  "chosen": "disable-ve",
+  "rationale": "no-UI plugin; visual gate does not apply",
+  "resolved_at": "2026-10-08T12:13:53.841Z"
+}

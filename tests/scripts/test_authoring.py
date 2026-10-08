@@ -154,6 +154,32 @@ class SkillFrontmatterTest(unittest.TestCase):
                     )
 
 
+class OneLevelReferenceTest(unittest.TestCase):
+    """CI-2 (TD-21): references nest at most one level deep, in the shared source and in the built
+    dist skill references, not only in the authored skills/<skill>/references."""
+
+    def _assert_flat(self, references_dir):
+        for entry in sorted(os.listdir(references_dir)):
+            self.assertFalse(
+                os.path.isdir(os.path.join(references_dir, entry)),
+                "references nested more than one level deep: {0}/{1}".format(references_dir, entry),
+            )
+
+    def test_shared_references_are_flat(self):
+        shared_refs = os.path.join(SHARED_ROOT, "references")
+        self.assertTrue(os.path.isdir(shared_refs), "shared/references is missing")
+        self._assert_flat(shared_refs)
+
+    def test_dist_skill_references_are_flat(self):
+        dist_skills = os.path.join(
+            REPO_ROOT, "dist", "plugins", "paqad-product-discovery", "skills")
+        self.assertTrue(os.path.isdir(dist_skills), "dist is not built; run build/build.py")
+        for skill in sorted(os.listdir(dist_skills)):
+            refs = os.path.join(dist_skills, skill, "references")
+            if os.path.isdir(refs):
+                self._assert_flat(refs)
+
+
 class VoiceBlockTest(unittest.TestCase):
     """AC-13 (TALK-10/CI-20): each SKILL.md opens with a How to talk block pointing to
     references/voice.md."""

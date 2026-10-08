@@ -10,8 +10,12 @@ PLUGIN_DATA, atomic fsync writer and history helpers are NOT ported (PLG-5).
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
+
+INTERNAL_REF = re.compile(r"^E[0-9]+(?:-T[0-9]+)?$")
+TRACKER_REF = re.compile(r"^[A-Z][A-Z0-9]+-[0-9]+$")
 
 
 def digest(value):
@@ -40,6 +44,22 @@ def now():
 def text(value):
     """True when value is a non-empty, non-whitespace string."""
     return isinstance(value, str) and bool(value.strip())
+
+
+def is_external_ref(ref):
+    """True when ref names an external tracker issue (e.g. PROJ-123), not an internal set ref.
+
+    An internal ref is an epic (E1) or ticket (E1-T1) ref minted inside the set. A ref that is not
+    internal but matches a tracker issue key shape (an uppercase project key, a hyphen and a number)
+    is an external dependency on an issue that already lives in the tracker. Both check_ticket_set
+    and plan_posting resolve a dependency through this one helper (RULE-04a1) so an external tracker
+    ref is treated as a valid dependency, never a dangling one and never silently skipped.
+    """
+    if not isinstance(ref, str):
+        return False
+    if INTERNAL_REF.match(ref):
+        return False
+    return bool(TRACKER_REF.match(ref))
 
 
 def issue(code, path, message):

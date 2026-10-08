@@ -71,7 +71,7 @@ by one, mark the dependents stale, and keep every block not listed.
 | today | playback, decisions, ticket_set_ref, readiness, posted |
 | playback | decisions, ticket_set_ref, readiness, posted |
 | decisions | ticket_set_ref, readiness, posted |
-| ticket_set_ref | posted |
+| ticket_set_ref | readiness, posted |
 | readiness | posted |
 
 run, setup, glossary and assumptions are not dependents of a goal change, so an unrelated decision

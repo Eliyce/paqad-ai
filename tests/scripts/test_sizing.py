@@ -115,6 +115,18 @@ class FewComparablesTest(unittest.TestCase):
         self.assertIn("fewer than two", suggestion["confidence_reason"].lower())
 
 
+class AllUnsizedComparablesTest(unittest.TestCase):
+    def test_all_sizes_none_is_guarded_and_does_not_raise(self):
+        # TD-15: two or more comparables that all carry size None must not IndexError; the tool
+        # reports a low-confidence no-sized-comparable result instead.
+        suggestion = compare_sizes.suggest(target(), pool((None, None, None)), SCALE)
+        self.assertGreaterEqual(len(suggestion["comparables"]), 2)
+        self.assertIsNone(suggestion["size"])
+        self.assertIsNone(suggestion["range"])
+        self.assertEqual(suggestion["confidence"], "low")
+        self.assertIn("no size", suggestion["confidence_reason"].lower())
+
+
 class SetGuardTest(unittest.TestCase):
     def test_refuses_overwrite_of_populated_field_without_replace(self):
         # AC-37

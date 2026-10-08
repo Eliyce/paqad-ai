@@ -66,7 +66,7 @@ Use the record scripts when they run:
 - `scripts/record.py advance --path <record.json> --expect-revision <n>` moves to the next step
   only when the current step's required blocks are present and not stale.
 - `scripts/check_record.py --path <record.json>` reports whether the current step's required
-  blocks are present, not stale, and the revision matches.
+  blocks are present and not stale.
 
 Every write names the revision it expects. A write against an older revision is refused. The record
 never holds credentials, connector tokens or personal data the run does not need.

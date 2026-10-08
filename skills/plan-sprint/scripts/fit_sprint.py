@@ -7,7 +7,7 @@ Two subcommands:
          last three completed sprints and shows it as derived with its numbers (SPR-2, AC-38),
          applies the readiness filter (SPR-3: ready = passes its checks, has a size, and every
          dependency is done or already in the sprint; an unready candidate is listed with what it
-         needs, AC-39), and proposes a goal, the fitting tickets in priority order within capacity,
+         needs, AC-39), and proposes a goal, the chosen tickets in priority order within capacity,
          stretch, left-out-with-reasons, total-versus-capacity and risks (SPR-4). When no future
          sprint exists it reports that and creates nothing (AC-41). When the sprint field cannot be
          set it returns the plan as a by-hand list with by_hand true (U-14). The plan carries a
@@ -25,15 +25,19 @@ Standard library only (Python 3.9+). No network. Writes nothing outside stdout.
 CLI:
   fit_sprint.py plan --sprint-field <id> --candidates <candidates.json>
                      --history <last-three-sprints.json> [--target-sprint <sprint>]
-  fit_sprint.py apply --plan <plan.json> --expect-digest <d>
+  fit_sprint.py apply --plan <plan.json> --expect-digest <d> [--tracker-state <state.json>]
 
 candidates.json: {"sprints": [{"id","state":"future"|..., "settable": bool}],
                   "candidates": [{"ref","priority","size","checks_pass": bool,
                                   "dependencies": [{"ref","done": bool,"in_sprint": bool}]}]}
 history.json:    {"sprints": [{"id","delivered": <number>} x3]}
 
+--tracker-state is optional: it maps a ticket ref to the sprint the host set on it, and lets apply
+read each chosen ticket back. With no tracker-state file the read-back is a clean skip (status
+"skipped"), never a spurious mismatch (INV-3); the apply still succeeds.
+
 plan stdout:  {"ok","sprint","capacity":{"value","derived_from":[{"sprint","count"}]},"goal",
-               "fitting":[refs],"stretch":[refs],"left_out":[{"ref","reason"}],"total","risks":[...],
+               "chosen":[refs],"stretch":[refs],"left_out":[{"ref","reason"}],"total","risks":[...],
                "not_ready":[{"ref","needs"}],"by_hand": bool,"digest"}
 apply stdout: {"ok","applied":[refs],"read_back":{...}}
 Exit 0 on a clean plan or apply; 1 on no future sprint, a digest mismatch, or an error.
@@ -118,12 +122,12 @@ def build_plan(sprint_field, candidates_doc, history, target_sprint=None):
 
     ready.sort(key=lambda c: (c.get("priority", 1_000_000), str(c.get("ref"))))
 
-    fitting, stretch, left_out = [], [], []
+    chosen, stretch, left_out = [], [], []
     running = 0
     for cand in ready:
         size = cand.get("size") or 0
         if running + size <= cap_value:
-            fitting.append(cand.get("ref"))
+            chosen.append(cand.get("ref"))
             running += size
         elif running + size <= cap_value * STRETCH_FACTOR:
             stretch.append(cand.get("ref"))
@@ -132,7 +136,7 @@ def build_plan(sprint_field, candidates_doc, history, target_sprint=None):
                              "reason": "Beyond the sprint capacity of {0}.".format(cap_value)})
 
     goal = ("Deliver the top {0} ready item(s) for {1} within a capacity of {2}."
-            .format(len(fitting), sprint_id, cap_value)) if fitting else \
+            .format(len(chosen), sprint_id, cap_value)) if chosen else \
            "No ready item fits {0}; capacity is {1}.".format(sprint_id, cap_value)
 
     risks = []
@@ -150,7 +154,7 @@ def build_plan(sprint_field, candidates_doc, history, target_sprint=None):
         "sprint": sprint_id,
         "capacity": capacity,
         "goal": goal,
-        "fitting": fitting,
+        "chosen": chosen,
         "stretch": stretch,
         "left_out": left_out,
         "total": running,
@@ -164,8 +168,12 @@ def build_plan(sprint_field, candidates_doc, history, target_sprint=None):
 
 
 def plan_digest(plan):
-    """canonical.digest over the plan with its ok, reason and digest fields excluded."""
-    body = {k: v for k, v in plan.items() if k not in ("digest", "ok")}
+    """canonical.digest over the plan with only its own digest field excluded.
+
+    Excludes exactly the 'digest' key, matching record.block_digest and REQUIREMENTS REC-1 (INV-4),
+    so a plan digest is bound the same way an approvable record block is.
+    """
+    body = {k: v for k, v in plan.items() if k != "digest"}
     return canonical.digest(body)
 
 
@@ -181,16 +189,24 @@ def apply_plan(plan, expect_digest, tracker_state=None):
             "applied": [],
         }, 1
 
-    chosen = list(plan.get("fitting", []))
+    chosen = list(plan.get("chosen", []))
     # SPR-7: the ONLY operation emitted is a sprint-field set on a chosen ticket.
     operations = [{"op": "set_sprint_field", "ref": ref, "sprint": plan.get("sprint")}
                   for ref in chosen]
 
-    # Read-back: confirm every chosen ticket now carries the sprint field, reusing the shared
-    # ref normalisation so comparison matches post-tickets' read-back semantics.
-    state = tracker_state or {}
+    # Read-back is only possible when the host hands back the tracker state. With no tracker-state
+    # file the read-back is a clean skip, not a mismatch (INV-3): the apply still succeeds and the
+    # caller reads each ticket back by hand.
+    if tracker_state is None:
+        read_back = {"status": "skipped", "confirmed": [], "missing": [],
+                     "note": "No tracker-state was given, so the sprint-field read-back is skipped."}
+        return {"ok": True, "applied": chosen, "operations": operations,
+                "read_back": read_back}, 0
+
+    # Confirm every chosen ticket now carries the sprint field, reusing the shared ref normalisation
+    # so comparison matches post-tickets' read-back semantics.
     set_refs = {check_readback.norm_ref(ref)
-                for ref, value in state.items() if value == plan.get("sprint")}
+                for ref, value in tracker_state.items() if value == plan.get("sprint")}
     confirmed, missing = [], []
     for ref in chosen:
         (confirmed if check_readback.norm_ref(ref) in set_refs else missing).append(ref)

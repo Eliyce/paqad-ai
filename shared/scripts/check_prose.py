@@ -12,6 +12,7 @@ and URLs so quoted evidence is never rewritten) and adds the three ticket prose 
          code words are only reported in the scoped fields.
   TKT-3  no jargon from the deny-list in shared/references/plain-language.md; each entry carries a
          plain replacement that becomes the suggestion.
+  TKT-4  no sentence over 30 words anywhere in the text; a longer sentence is flagged to be split.
 
 Standard library only. No network. Read-only.
 
@@ -36,6 +37,10 @@ DEFAULT_DENYLIST = (Path(__file__).resolve().parents[1]
 
 EM_DASH = "\u2014"
 EN_DASH = "\u2013"
+
+# TKT-4: a ticket sentence must stay short. A sentence over this many words is flagged.
+MAX_SENTENCE_WORDS = 30
+SENTENCE_END = re.compile(r"[.!?]+")
 
 # Scoped section headings (case-insensitive substring match) that carry the TKT-2 code-word rule
 # inside a ticket or epic body. Everything else in the body is scanned for TKT-1 and TKT-3 only.
@@ -161,6 +166,15 @@ def scan(lines, path, denylist, check_code):
                     "TKT3", where,
                     "Jargon '{0}' in ticket prose.".format(term),
                     "Use '{0}' instead of '{1}'.".format(replacement, term)))
+
+        for piece in SENTENCE_END.split(prose):
+            count = len(piece.split())
+            if count > MAX_SENTENCE_WORDS:
+                issues.append(finding(
+                    "TKT4", where,
+                    "A sentence runs to {0} words; ticket sentences stay at {1} or fewer.".format(
+                        count, MAX_SENTENCE_WORDS),
+                    "Split the sentence into shorter ones."))
     return issues
 
 
@@ -230,7 +244,7 @@ def lint_ticket_set(ticket_set, denylist):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Check ticket prose (TKT-1, TKT-2, TKT-3).")
+    parser = argparse.ArgumentParser(description="Check ticket prose (TKT-1, TKT-2, TKT-3, TKT-4).")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--ticket-set", type=Path)
     group.add_argument("--path", type=Path)

@@ -40,7 +40,7 @@ describe behaviour by capability, never by host (PLG-7), and must not name a hos
 
 None in code. The plugin uses the host's own GitHub and Jira (Atlassian) connectors and ships
 no integration code, credentials or MCP declarations (D-4, PLG-2). Jira is the only tracker
-profile in v1 (`shared/references/tracker-profiles/jira.md`); CSV or Markdown export is the
+profile in v1 (`shared/references/tracker-profiles-jira.md`); CSV or Markdown export is the
 fallback for everything else.
 
 ## Not used

@@ -319,7 +319,7 @@ Never read: `.paqad/` runtime state, `docs/instructions/rules/`, secrets, or env
 
 Known host behaviour (for `hosts/*.md` and support, not skill text): claude.ai reads a repository the user adds to a chat, or files picked into a private project, with no documented on-demand fetch and no documented size limit beyond what fits in context; Team and Enterprise admins must enable GitHub (C16). ChatGPT's GitHub app fetches on demand, read-only, and may be unavailable in standard chat on some plans (O15). Codex usually works inside a local checkout, so it reads `docs/` from disk; the plugin MUST still only read (no edits to the repository).
 
-**GRD-4. Template and thin docs.** `scripts/detect_placeholder.py` MUST check each section of a document, not the document as a whole, and mark a section unreliable when it still holds onboarding template text. Markers live in `shared/template-markers.md`, taken from both paqad template generations:
+**GRD-4. Template and thin docs.** `scripts/detect_placeholder.py` MUST check each section of a document, not the document as a whole, and mark a section unreliable when it still holds onboarding template text. Markers live in `shared/references/template-markers.md`, taken from both paqad template generations:
 - Current (`module-scaffold/business.md.hbs`): "Describe the business purpose of the", "Document the personas that interact with", "Capture the main user journeys for", "List the rules and invariants that must hold", "Record notifications, jobs, integrations", "Describe user-visible failures and recovery guidance", "Add domain terms that matter to stakeholders".
 - Earlier generation: "Capture the main journeys for", "Enumerate invariants that must hold", "Spell out idempotency expectations".
 
@@ -708,7 +708,7 @@ Verdicts: **confirmed** (read on the page), **corrected** (v1 wording was wrong 
 
 ## Appendix B. Relationship to paqad
 
-- The plugin depends on paqad only through the onboarded `docs/` layout in section 7. If paqad changes it or its templates, paqad's release notes must say so and `ground-in-project` and `shared/template-markers.md` must change in the same release window.
+- The plugin depends on paqad only through the onboarded `docs/` layout in section 7. If paqad changes it or its templates, paqad's release notes must say so and `ground-in-project` and `shared/references/template-markers.md` must change in the same release window.
 - The plugin reuses paqad Discovery's six stages, one question at a time, goal-first playback and progressive decisions. It does not reuse paqad code.
 - Tickets the plugin creates are ordinary tracker issues. A developer using paqad picks one up through normal ticket intake. The run ID and Sources section give the trail back to the decisions.
 
@@ -719,7 +719,7 @@ Source: `../plugins/chatgpt` (29 unit tests, Python 3.9).
 | Port | Into | Notes |
 |---|---|---|
 | Canonical JSON digest | `shared/` script module | Basis of REC-7 and PUB-2 |
-| Expected-revision updates and stage invalidation map | `product-discovery/scripts/record.py` | REC-4; map rewritten for this plugin's blocks |
+| Expected-revision updates and stage invalidation map | `shared/scripts/record.py` | REC-4; map rewritten for this plugin's blocks |
 | Prose linter that skips code, quotes and URLs | `check-tickets/scripts/check_prose.py` | Extend with TKT-2 and TKT-3 |
 | Dependency-cycle and reference checks | `check-tickets/scripts/check_ticket_set.py` | |
 | Publication plan with result references, receipts (created, uncertain, not applied), in-flight claim | `post-tickets/scripts/plan_posting.py` | PUB-5 |

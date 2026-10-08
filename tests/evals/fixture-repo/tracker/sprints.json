@@ -1,22 +1,24 @@
 {
-  "_note": "Invented sprint board for testing only. See README.md in this folder.",
-  "future_sprint": {
-    "name": "Sprint 24",
-    "status": "future",
-    "starts": "2026-10-12",
-    "ends": "2026-10-23"
+  "_note": "Invented sprint board for testing only. See README.md in this folder. Shaped as fit_sprint.py consumes it: a history block and a candidates_doc block.",
+  "history": {
+    "sprints": [
+      {"id": "Sprint 21", "delivered": 18},
+      {"id": "Sprint 22", "delivered": 24},
+      {"id": "Sprint 23", "delivered": 20}
+    ]
   },
-  "completed_sprints": [
-    {"name": "Sprint 21", "committed": 20, "completed": 18},
-    {"name": "Sprint 22", "committed": 24, "completed": 24},
-    {"name": "Sprint 23", "committed": 22, "completed": 20}
-  ],
-  "derived_capacity_note": "Average completed over the last three sprints is (18 + 24 + 20) / 3 = about 21 points. The planner shows this as a derived number the team can override.",
-  "candidate_pool": [
-    {"key": "SUB-70", "ready": true, "reason": "Sized and has a done-when."},
-    {"key": "SUB-71", "ready": true, "reason": "Sized and has a done-when."},
-    {"key": "ORD-40", "ready": true, "reason": "Sized and has a done-when."},
-    {"key": "DEX-30", "ready": false, "reason": "No size yet; needs sizing before it can fit."},
-    {"key": "DEX-31", "ready": false, "reason": "Blocked by DEX-50, which is unfinished and not in this sprint."}
-  ]
+  "candidates_doc": {
+    "sprints": [
+      {"id": "Sprint 23", "state": "closed", "settable": true},
+      {"id": "Sprint 24", "state": "future", "settable": true}
+    ],
+    "candidates": [
+      {"ref": "SUB-70", "priority": 1, "size": 5, "checks_pass": true, "dependencies": []},
+      {"ref": "SUB-71", "priority": 2, "size": 8, "checks_pass": true, "dependencies": []},
+      {"ref": "ORD-40", "priority": 3, "size": 3, "checks_pass": true, "dependencies": []},
+      {"ref": "DEX-30", "priority": 4, "size": null, "checks_pass": true, "dependencies": []},
+      {"ref": "DEX-31", "priority": 5, "size": 5, "checks_pass": true,
+       "dependencies": [{"ref": "DEX-50", "done": false, "in_sprint": false}]}
+    ]
+  }
 }

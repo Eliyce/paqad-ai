@@ -5,7 +5,7 @@ Standard library only (Python 3.9+). No network. Writes nothing outside a tempor
 
 Proves:
   AC-38  capacity is derived from the last three completed sprints and shown with its numbers, and
-         the plan lists goal, fitting (priority order within capacity), stretch, left-out-with-
+         the plan lists goal, chosen (priority order within capacity), stretch, left-out-with-
          reasons, total-versus-capacity and risks.
   AC-39  a candidate with no size and a candidate with an unfinished external dependency are both
          listed not ready, each with what it needs.
@@ -15,6 +15,7 @@ Proves:
   U-14   an unsettable sprint field returns the plan as a by-hand list.
 """
 
+import json
 import os
 import sys
 import unittest
@@ -27,9 +28,12 @@ for entry in (SHARED_SCRIPTS, SPRINT_SCRIPTS):
     if entry not in sys.path:
         sys.path.insert(0, entry)
 
+import canonical  # noqa: E402
 import fit_sprint  # noqa: E402
 
 SPRINT_FIELD = "customfield_10020"
+FIXTURE_SPRINTS = os.path.join(
+    REPO_ROOT, "tests", "evals", "fixture-repo", "tracker", "sprints.json")
 
 
 def history():
@@ -72,8 +76,8 @@ class PlanTest(unittest.TestCase):
             [row["sprint"] for row in plan["capacity"]["derived_from"]], ["S2", "S3", "S4"])
         self.assertEqual(
             [row["count"] for row in plan["capacity"]["derived_from"]], [10, 12, 14])
-        # Fitting is in priority order and within capacity.
-        self.assertEqual(plan["fitting"], ["C1", "C2"])
+        # The chosen list is in priority order and within capacity.
+        self.assertEqual(plan["chosen"], ["C1", "C2"])
         self.assertLessEqual(plan["total"], plan["capacity"]["value"])
         # Stretch and left-out-with-reasons are populated and distinct.
         self.assertEqual(plan["stretch"], ["C3"])
@@ -97,7 +101,7 @@ class PlanTest(unittest.TestCase):
             SPRINT_FIELD, candidates(settable=False), history())
         self.assertEqual(code, 0)
         self.assertTrue(plan["by_hand"])
-        self.assertTrue(plan["fitting"])  # the plan is still produced as a list
+        self.assertTrue(plan["chosen"])  # the plan is still produced as a list
 
 
 class NoFutureSprintTest(unittest.TestCase):
@@ -152,6 +156,39 @@ class ApplyTest(unittest.TestCase):
         result, code = fit_sprint.apply_plan(plan, approved_digest, {"C1": "S5", "C2": "S5"})
         self.assertEqual(code, 1)
         self.assertFalse(result["ok"])
+
+    def test_read_back_without_tracker_state_is_a_clean_skip(self):
+        # AC-10 / INV-3 (TD-16): with no tracker-state the apply succeeds and read-back is skipped,
+        # never a spurious mismatch, and the chosen list is under the key 'chosen'.
+        plan = self._plan()
+        self.assertIn("chosen", plan)
+        result, code = fit_sprint.apply_plan(plan, plan["digest"])
+        self.assertEqual(code, 0)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["applied"], plan["chosen"])
+        self.assertEqual(result["read_back"]["status"], "skipped")
+
+    def test_plan_digest_excludes_only_the_digest_key(self):
+        # INV-4 (TD-16): plan_digest excludes exactly 'digest', matching record.block_digest.
+        plan = self._plan()
+        expected = canonical.digest({k: v for k, v in plan.items() if k != "digest"})
+        self.assertEqual(fit_sprint.plan_digest(plan), expected)
+
+
+class FixturePlanTest(unittest.TestCase):
+    """TD-17: the eval fixture tracker/sprints.json loads straight into fit_sprint and plans."""
+
+    def test_fixture_drives_a_plan(self):
+        with open(FIXTURE_SPRINTS, "r", encoding="utf-8") as handle:
+            fixture = json.load(handle)
+        plan, code = fit_sprint.build_plan(
+            SPRINT_FIELD, fixture["candidates_doc"], fixture["history"])
+        self.assertEqual(code, 0)
+        self.assertEqual(plan["sprint"], "Sprint 24")
+        self.assertTrue(plan["chosen"])
+        not_ready = {row["ref"] for row in plan["not_ready"]}
+        self.assertIn("DEX-30", not_ready)
+        self.assertIn("DEX-31", not_ready)
 
 
 if __name__ == "__main__":

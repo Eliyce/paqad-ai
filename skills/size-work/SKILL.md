@@ -18,7 +18,7 @@ team still owns the number.
 ## What it does
 
 Suggest a size from finished work. The full method is in `references/sizing-guide.md`; Jira fields and
-tool-name variants are in `references/tracker-profiles/jira.md`.
+tool-name variants are in `references/tracker-profiles-jira.md`.
 
 1. Find the team scale (EST-1). At first use, find how the project sizes work: story points and which
    field holds them, T-shirt sizes, or nothing. Ask once if it cannot be found, and remember it in
