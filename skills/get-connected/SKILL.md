@@ -37,6 +37,11 @@ The tracker action names differ by connector version, so resolve each action fro
 connector exposes rather than hard-coding a tool name. The Jira specifics are in
 `references/tracker-profiles-jira.md`.
 
+When the tracker is GitHub, follow `references/tracker-profiles-github.md` instead: GitHub Issues is
+export only, because the host GitHub connectors are read only. Record the tracker kind as GitHub,
+note it is export only, and route the hand off to the export fallback (PUB-7, PUB-8) rather than
+checking for a create action.
+
 ## If the checks cannot run
 
 When `check_onboarded.py` cannot run on this host, do the onboarded check by hand:

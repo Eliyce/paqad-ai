@@ -530,13 +530,13 @@ dist/                                 # built output, pushed to the distribution
 | **Claude, public directory** (after S3) | Public distribution repo | First submission at claude.ai/directory/manage; each version is published by a reviewer unless auto-publish is on; at most 10 submissions per org per day (C10) |
 | **ChatGPT, public directory** (after S3) | CI builds the zip | A person uploads each release; review per change; no publish API (O11, O23) |
 
-- **CI-16.** Org sync needs a private repo (C6); public directories need a public one. Push to a separate public repo only once public listing starts.
+- **CI-16.** Org sync needs a private repo (C6); public directories need a public one. Push to a separate public repo only once public listing starts. Readiness: `release.yml` now carries the guarded public-directory publish (a push to `PUBLIC_DISTRIBUTION_REPO` and a directory submission zip artifact), off unless `ENABLE_PUBLIC_RELEASE` is set, so the plumbing is in place before S3 is green on all hosts without activating a listing (OD-1).
 - **CI-17.** Rollback is by reverting the distribution repo's default branch. The Claude Plugins API is not used in v1: it cannot add versions to repo-synced plugins and its pin is permanent (C8).
 
 ### 12.5 After release
 
 - **CI-18.** For each host, install the released version in a test org or workspace and run the smoke scenario (fixture repo, Jira sandbox project): connect, explore, draft, check, post, read back, then delete the sandbox issues by hand.
-- **CI-19.** Record each host's support state per release as **packaged**, **installed** or **verified**, with evidence. Release notes claim support only for **verified** hosts.
+- **CI-19.** Record each host's support state per release as **packaged**, **installed** or **verified**, with evidence. Release notes claim support only for **verified** hosts. Integrity: `tests/ci/check_host_verdicts.py` (run in `ci.yml`) parses the `hosts/*.md` verdict tables and fails when a verdict is outside the vocabulary (`pending`, `packaged`, `installed`, `verified`) or when an **installed** or **verified** row carries no evidence, so the hand-filled record cannot drift or claim support without proof. Filling a verdict stays a manual per-host step (CI-18).
 
 ---
 

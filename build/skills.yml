@@ -38,6 +38,7 @@ skills:
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
+      - references/tracker-profiles-github.md
   - name: understand-idea
     imports:
       - references/voice.md
@@ -69,6 +70,7 @@ skills:
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
+      - references/tracker-profiles-github.md
       - scripts/canonical.py
       - scripts/check_readback.py
   - name: refine-ticket

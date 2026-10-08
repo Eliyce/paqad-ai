@@ -23,6 +23,7 @@ Check here before writing a new helper or reference. Shared material lives once 
 |---|---|---|
 | `voice.md` | Section 3A reply rules (TALK-*) | all 13 skills |
 | `tracker-profiles-jira.md` | Jira fields, issue types, link types, sprint and size fields | get-connected, post-tickets, refine-ticket, size-work, plan-sprint |
+| `tracker-profiles-github.md` | GitHub Issues as an export-only tracker: actions availability, model mapping, export and labels | get-connected, post-tickets |
 | `plain-language.md` | Plain-word substitutions and jargon deny-list | write-tickets, check-tickets, refine-ticket |
 | `writing-rules.md` | Ticket writing rules (section 8.4) | write-tickets, refine-ticket |
 | `consulting.md` | Consultant stance (section 4A) | product-discovery, ask-project |

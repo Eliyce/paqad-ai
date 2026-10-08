@@ -29,6 +29,7 @@ for entry in (CI_DIR, BUILD_DIR):
 import build
 import check_budget
 import check_forbidden
+import check_host_verdicts
 import check_scenarios
 import check_secrets
 
@@ -182,6 +183,78 @@ def _iter_files(root):
 def _iter_relpaths(root):
     for full in _iter_files(root):
         yield os.path.relpath(full, root).replace(os.sep, "/")
+
+
+class ReleaseReadinessTest(unittest.TestCase):
+    """S4 part 2 (CI-16): release.yml carries the guarded public-directory publish, distinct from the
+    private org-sync push, and a directory submission zip artifact, all off unless explicitly enabled."""
+
+    def setUp(self):
+        with open(os.path.join(REPO_ROOT, ".github", "workflows", "release.yml"), encoding="utf-8") as handle:
+            self.release = handle.read()
+
+    def test_public_publish_is_guarded(self):
+        self.assertIn("PUBLIC_DISTRIBUTION_REPO", self.release)
+        self.assertIn("ENABLE_PUBLIC_RELEASE", self.release)
+        self.assertIn(
+            "vars.ENABLE_PUBLIC_RELEASE == 'true' && vars.PUBLIC_DISTRIBUTION_REPO != ''",
+            self.release,
+            "public push must require both the enable flag and a configured public repo",
+        )
+
+    def test_directory_submission_zip_artifact_exists(self):
+        self.assertIn("directory-submission-zip", self.release)
+        self.assertIn("upload-artifact", self.release)
+
+    def test_public_push_is_distinct_from_private(self):
+        self.assertIn("vars.DISTRIBUTION_REPO", self.release)
+        self.assertIn("PUBLIC_DISTRIBUTION_TOKEN", self.release)
+        self.assertNotEqual(
+            self.release.count("push origin HEAD"),
+            1,
+            "a separate public push step must exist alongside the private one",
+        )
+
+
+class HostVerdictCheckTest(unittest.TestCase):
+    """S4 part 3 (CI-19): the host-verdict integrity check parses the real verdict tables, passes on
+    the all-pending repo, and fails on a bad token or a supported verdict with no evidence."""
+
+    HEADER = "| Unknown | What to check | How to check | Verdict | Evidence | If it fails |"
+    SEP = "| --- | --- | --- | --- | --- | --- |"
+
+    def _write_host(self, verdict, evidence):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        path = os.path.join(self.tmp, "host.md")
+        row = "| U-1 | does it run | install it | {0} | {1} | fallback |".format(verdict, evidence)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(["# Host", "", self.HEADER, self.SEP, row, ""]))
+        return path
+
+    def test_parses_the_real_host_files_nonempty(self):
+        rows = check_host_verdicts.parse_rows()
+        self.assertTrue(rows, "no verdict rows parsed; the parser or the host paths are wrong")
+        self.assertTrue(all(r["verdict"].lower() == "pending" for r in rows))
+
+    def test_passes_on_the_committed_host_files(self):
+        self.assertEqual(check_host_verdicts.check(), [])
+
+    def test_fails_on_an_unknown_verdict_token(self):
+        path = self._write_host("shipped", "")
+        self.assertTrue(check_host_verdicts.check([path]))
+
+    def test_fails_on_verified_without_evidence(self):
+        path = self._write_host("verified", "")
+        findings = check_host_verdicts.check([path])
+        self.assertTrue(any("no evidence" in f for f in findings))
+
+    def test_passes_on_verified_with_evidence(self):
+        path = self._write_host("verified", "installed 2026-10-08, screenshot in run log")
+        self.assertEqual(check_host_verdicts.check([path]), [])
+
+    def test_fails_on_a_missing_host_file(self):
+        self.assertTrue(check_host_verdicts.check([os.path.join(REPO_ROOT, "hosts", "nope.md")]))
 
 
 if __name__ == "__main__":

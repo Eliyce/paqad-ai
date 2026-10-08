@@ -21,7 +21,7 @@ an application. There is no server, no database, no UI and no web framework.
 | Data contracts | JSON (`ticket-set.schema.json`, ticket set, record patches, receipts) | Canonical JSON with sorted keys, used for digests |
 | Tests | `unittest` (stdlib) | `tests/scripts/test_*.py` |
 | Evals | YAML scenarios + fixture repo | Wired into CI: `verify.yml` runs `run_parity.py` (structural parity) and `check_scenarios.py` (CI-13). Live conversational parity (CI-12) stays manual and recorded. |
-| CI | GitHub Actions | `ci.yml` enforces CI-1 to CI-15 and CI-20; `verify.yml` runs the eval checks; `release.yml` runs CI-14 and CI-15. Coverage, skills-ref, changeset and push steps are CI-only; CI-12 live parity and CI-16 to CI-19 stay manual or operational. |
+| CI | GitHub Actions | `ci.yml` enforces CI-1 to CI-15 and CI-20; `verify.yml` runs the eval checks; `release.yml` runs CI-14 and CI-15 and carries the guarded public-directory publish for CI-16 (a push to a separate public repo and a directory submission zip artifact, off unless `ENABLE_PUBLIC_RELEASE` is set). Coverage, skills-ref, changeset and push steps are CI-only; CI-12 live parity and the CI-16 to CI-19 rollout remain manual or operational. |
 | Release tracking | Changesets (placeholder) | Real versioning lands in S3 |
 
 ## Runtime targets (the hosts that load the built plugin)
@@ -39,9 +39,10 @@ describe behaviour by capability, never by host (PLG-7), and must not name a hos
 ## Integrations
 
 None in code. The plugin uses the host's own GitHub and Jira (Atlassian) connectors and ships
-no integration code, credentials or MCP declarations (D-4, PLG-2). Jira is the only tracker
-profile in v1 (`shared/references/tracker-profiles-jira.md`); CSV or Markdown export is the
-fallback for everything else.
+no integration code, credentials or MCP declarations (D-4, PLG-2). Jira is the only write-capable
+tracker profile in v1 (`shared/references/tracker-profiles-jira.md`). GitHub Issues has an
+export-only profile (`shared/references/tracker-profiles-github.md`), since the host GitHub
+connectors are read-only; CSV or Markdown export is the fallback for it and for every other tracker.
 
 ## Not used
 
