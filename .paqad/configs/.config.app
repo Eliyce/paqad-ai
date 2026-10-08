@@ -22,13 +22,13 @@
 
 # ── Enterprise / governance (licensed, off by default) ──────
 # Master switch for the enterprise/governance capabilities. (env: PAQAD_ENTERPRISE)
-# enterprise=false
+enterprise=true
 # Write the receipt + evidence ledger set under .paqad/ledger/. (env: PAQAD_ENTERPRISE_EVIDENCE_LEDGER)
-# enterprise_evidence_ledger=false
+enterprise_evidence_ledger=true
 # Write the CycloneDX ai-bom.json view. (env: PAQAD_ENTERPRISE_AI_BOM)
-# enterprise_ai_bom=false
+enterprise_ai_bom=true
 # Resolve framework citations into the receipt (token-spending path). (env: PAQAD_ENTERPRISE_COMPLIANCE_CITATIONS)
-# enterprise_compliance_citations=false
+enterprise_compliance_citations=true
 
 # ── Feature flags ───────────────────────────────────────────
 # Stop after the spec phase; do not implement. (env: PAQAD_SPEC_ONLY_MODE)
@@ -42,16 +42,16 @@
 # Opt in to complementary analytics instrumentation (issue #241, refined #279). OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc. (env: PAQAD_ANALYTICS_INSTRUMENTATION)
 # analytics_instrumentation=false
 # Opt in to the Site Map & Journeys capability — a verified behavioural map of the app stored at docs/site-map/ (the Site map dashboard area + `site-map` workflow). OFF (default) is completely inert; ON also requires the coding capability at its consumers. (env: PAQAD_SITE_MAP)
-# site_map=false
+site_map=true
 # Capture screenshots of documented flows for frontend changes as feature-bundle evidence. ON also requires the coding capability at its consumers. (env: PAQAD_VISUAL_EVIDENCE)
-# visual_evidence=false
+visual_evidence=true
 # Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract (manifest + only the rule text that applies to the files in play) and lifts the full-load mandate. OFF restores loading docs/instructions/rules in full every session. (env: PAQAD_LEAN_RULES)
 # lean_rules=true
 # Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ON (default) is local, free, and zero-LLM. OFF stops writing the page. (env: PAQAD_FEATURE_REPORT)
-# feature_report=true
+feature_report=true
 # Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is local, deterministic, and zero-LLM — it folds over caches the gates already produced. OFF stops computing and recording them. (env: PAQAD_METRICS_ENABLED)
-# metrics_enabled=true
+metrics_enabled=true
 # Run the checks stage concurrently and use the test runner's own parallel mode when the project has it. OFF restores the one-after-another run. (env: PAQAD_CHECKS_PARALLEL)
-# checks_parallel=true
+checks_parallel=true
 # Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
 # checks_max_processes=0
