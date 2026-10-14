@@ -1,6 +1,6 @@
 # Product Questions
 
-Answers a business question about what the product does today, from the target project's onboarded documents, in plain words with one Sources line, and can hand the question over to the idea journey.
+Answers a business question about what the product does today, or what the product is and what areas it has, from the target project's onboarded documents, in plain words with one Sources line, and can hand the question over to the idea journey.
 
 | | |
 |---|---|
@@ -14,17 +14,17 @@ Answers a business question about what the product does today, from the target p
 
 | Feature | What it does | Docs |
 |---|---|---|
-| Answer a question with sources | Checks the project is onboarded, reads only what the question needs, answers first with one Sources line, flags template text as unknown, shows the project's term on first use | [business](../features/answer-a-question/business.md), [technical](../features/answer-a-question/technical.md) |
+| Answer a question with sources | Chooses the project once, runs the three-state onboarded check, answers overview questions as a table of areas, reads only what the question needs, answers first with one Sources line, flags template text as unknown, shows the project's term on first use | [business](../features/answer-a-question/business.md), [technical](../features/answer-a-question/technical.md) |
 | Turn an answer into an idea | Adds a one-line consultant note when the answer shows a gap, and offers to carry the question into the idea journey with the answer and sources seeding the idea and today blocks | [business](../features/hand-over-to-idea/business.md), [technical](../features/hand-over-to-idea/technical.md) |
 
 ## Sources
 
 | Path | Role |
 |---|---|
-| `skills/ask-project/SKILL.md` | Entry skill: trigger, procedure (GRD-1, GRD-2, GRD-4, GRD-6, GRD-7, CON-9), hand-over offer, checklist fallback |
+| `skills/ask-project/SKILL.md` | Entry skill: trigger, procedure (GRD-1, GRD-2, GRD-3 pointer, GRD-4, GRD-6, GRD-7, ASK-9, CON-9), hand-over offer, checklist fallback |
 | `skills/ask-project/references/answer-template.md` | Answer shape: table or sentence, Sources line, term on first use, honesty about gaps |
 
-Shared files copied in at build time (declared in `build/skills.yml`, owned elsewhere): `references/voice.md`, `references/consulting.md`, `references/paqad-docs-map.md`, `references/template-markers.md`, `scripts/find_related.py`, `scripts/detect_placeholder.py`.
+Shared files copied in at build time (declared in `build/skills.yml`, owned elsewhere): `references/voice.md`, `references/consulting.md`, `references/paqad-docs-map.md`, `references/template-markers.md`, `references/connect-repository.md`, `scripts/check_onboarded.py`, `scripts/find_related.py`, `scripts/detect_placeholder.py`.
 
 ## Requirements
 
@@ -38,6 +38,7 @@ Shared files copied in at build time (declared in `build/skills.yml`, owned else
 | ASK-6 | Offer to carry the question into product-discovery, seeding idea and today |
 | ASK-7 | Never writes to the tracker |
 | ASK-8 | Attached code read only as a last resort, reported as "the code suggests..." |
-| GRD-1, GRD-2, GRD-4, GRD-5, GRD-6, GRD-7 | Grounding rules applied to answers |
+| ASK-9 | Overview question answered as a table of areas, one line each, then one Sources line |
+| GRD-1 to GRD-7 | Grounding rules applied to answers, including the three-state check (GRD-1) and choosing the repository (GRD-3) |
 | TALK-1 to TALK-12 | Reply shape, via the shared voice reference |
-| PLG-6, PLG-8 | Checklist fallback when scripts cannot run; entry skill that may invite direct use |
+| PLG-6, PLG-8 | Checklist fallback when scripts cannot run; entry skill that may invite direct use (its description raises but cannot guarantee automatic selection; naming the skill always works) |

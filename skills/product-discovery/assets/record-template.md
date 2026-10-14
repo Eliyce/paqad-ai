@@ -17,6 +17,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
     "mode": "build"
   },
   "setup": {
+    "repository": "",
+    "repository_state": "",
     "tracker_kind": "jira",
     "project_key": "ABC",
     "epic_type": "Epic",
@@ -101,6 +103,11 @@ Each block below shows its fields. A block is empty until the step that owns it 
   every change. run.step is the current journey step, 0 to 6. run.mode defaults to build.
 - setup comes from the step 0 tracker and project discovery (PUB-1). run_label is the run id in
   lowercase.
+- setup.repository is the chosen repository's name as the tool or attachment shows it (empty when
+  none is shown), and setup.repository_state is ready or partly-ready. get-connected sets both at
+  step 0, or the first docs-reading step sets them in a refine or size run; a switch the user asks
+  for patches them. Setup sits outside the go-back chain, so both survive going back. Neither holds
+  credentials (REC-6).
 - idea is the step 1 output. glossary pairs the user's term with the project's term (GRD-6).
 - today lists each related area, its source path, and per section whether it is real or template
   (GRD-4). playback is the step 3 output; its outcome type is one of build, experiment, already

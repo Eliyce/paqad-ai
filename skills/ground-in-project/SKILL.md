@@ -17,23 +17,19 @@ Runs when the product-discovery journey directs it; not started directly.
 
 ## Getting the documents (GRD-3)
 
-Get the documents in front of you by capability, not by host, the same way as making the documents
-readable in get-connected. Work only from what you actually read, and name anything you need but
-cannot reach.
-
-- If you have a tool that can read repository files on demand, read the reading-order paths with it.
-- Otherwise, ask the user to attach the repository or the `docs/` folder to the chat or project, or
-  to upload `docs/` as files or a zip, then read the same paths once they are available.
-- When the whole folder is large, ask for the smallest set the reading order allows (U-5): the
-  modules registry first, then only the summaries and business notes for the related areas.
-
-The journey is identical whether the host reads on demand, reads a local checkout, or needs the
-documents attached.
+Use the repository chosen at step 0 and get its documents as in `references/connect-repository.md`.
+Ask nothing more about which repository unless the user asks to switch.
 
 ## What it does
 
-1. Find the related areas. Run `scripts/find_related.py --registry <modules.md> --query "<the
-   idea>"` to rank candidate modules by name and keyword overlap, in reading order.
+1. Find the related areas. Run `scripts/check_onboarded.py` first. Ready: run
+   `scripts/find_related.py --registry <modules.md> --query "<the idea>"` to rank candidate modules
+   by name and keyword overlap, in reading order. Partly ready: run `scripts/find_related.py
+   --modules-dir docs/modules --query "<the idea>"` instead, and list each area without a summary
+   whose folder name overlaps the idea in the today block with `source_path` `docs/modules/<area>/`
+   and `section_status` `{"summary": "missing"}`. Not set up (only after a switch): reply with its
+   exact message, "This repository isn't set up for this yet. Ask your engineering team to onboard
+   it with paqad, then come back.", and draft nothing.
 2. Read in order (GRD-2), following `references/paqad-docs-map.md`: the modules registry, then each
    candidate's `index/summary.md`, then the relevant `business.md`. Go further (site map,
    architecture, technical notes) only to settle a fact the business notes cannot, and never quote
@@ -55,8 +51,14 @@ gap, and report it as "the code suggests...".
 
 When the scripts cannot run on this host, do the same by hand:
 
-- Read `docs/instructions/registries/modules.md` and pick the candidate modules whose plain name,
-  layer or features overlap the idea (the find-related step).
+- Do the onboarded check by hand: list the `docs/modules` folders and read each `index/summary.md`,
+  treating an empty or whitespace-only summary as missing, then look for
+  `docs/instructions/registries/modules.md`. Ready: the modules list plus a summary. Partly ready: a
+  summary but no modules list; say the exact sentence in `references/connect-repository.md` once.
+  Not set up: no summary; stop with the exact message above.
+- Ready: read the modules list and pick the candidate modules whose plain name, layer or features
+  overlap the idea. Partly ready: pick them from the folder names and summary text instead, and
+  list each overlapping area without a summary as missing (the find-related step).
 - Read those modules' `index/summary.md`, then the relevant `business.md`, in reading order, only
   as far as the idea needs.
 - For each section you rely on, check it against the template phrases in

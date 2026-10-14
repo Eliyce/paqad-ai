@@ -21,6 +21,13 @@ machine-checked offline by `tests/evals/run_parity.py` (run inside the unit suit
 ChatGPT and Codex stays manual and recorded per CI-12 (`manual_hosts` in `s2.yml`); S2 claims no
 automated live run.
 
+`repo-selection.yml` holds the scenarios for choosing the repository, the three-state onboarded
+check and the wider ask-project trigger. Each maps to a conversation-shape acceptance scenario in
+REQUIREMENTS.md section 13 (AC-49 to AC-55), with ac-53b covering the case where every reachable
+repository is not set up. Its extra `repositories` field lists what the user can reach as plain
+`<name>, <state>, <activity>` scalars, or `no listing tool`. The not set up trees of AC-56 are
+proven by the unit suite (`test_onboarded.py`) and carry no scenario here.
+
 The conversation scenarios are declarative. They are authored now but are NOT run in CI until S3,
 when the host eval runner executes them against the built plugin, the fixture repository under
 `tests/evals/fixture-repo/`, and a fake tracker (CI-12, CI-13). Each scenario checks properties, not

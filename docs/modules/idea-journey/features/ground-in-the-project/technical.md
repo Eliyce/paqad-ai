@@ -5,8 +5,8 @@
 | Path | Owned |
 |---|---|
 | `skills/ground-in-project/SKILL.md` | Yes: step 2 procedure and checklist fallback (the folder holds only this file) |
-| `shared/scripts/find_related.py`, `shared/scripts/detect_placeholder.py` | No: owned by project-grounding |
-| `shared/references/paqad-docs-map.md`, `shared/references/template-markers.md` | No: owned by project-grounding |
+| `shared/scripts/find_related.py`, `shared/scripts/detect_placeholder.py`, `shared/scripts/check_onboarded.py` | No: owned by project-grounding |
+| `shared/references/paqad-docs-map.md`, `shared/references/template-markers.md`, `shared/references/connect-repository.md` | No: owned by project-grounding |
 
 Step skill (PLG-8) and script-bearing through its declared shared scripts (`SCRIPT_BEARING_SKILLS` in `test_authoring.py`).
 
@@ -18,13 +18,14 @@ Produces the `today` block (written by `product-discovery` through `record.py up
 [ { "area": "", "source_path": "", "section_status": { "roles": "real", "rules": "template" } } ]
 ```
 
-`section_status` values are `real` or `template`, taken from `detect_placeholder.py`.
+`section_status` values are `real` or `template`, taken from `detect_placeholder.py`. When the repository is partly ready, each area without a summary whose folder name overlaps the idea is listed with `source_path` `docs/modules/<area>/` and `section_status` `{"summary": "missing"}`.
 
 ## Script Interfaces
 
 | Script | Call used | stdout | Exit |
 |---|---|---|---|
-| `scripts/find_related.py` | `--registry <modules.md> --query "<the idea>"` | JSON list `[{"module", "plain_name", "score", "matched_terms"}]`, sorted by descending score, ties by registry order | 0; 1 with `{"ok": false, "error"}` on stderr if the registry is unreadable |
+| `scripts/check_onboarded.py` | `[--root <repo-root>]`, run first | `{"ok", "state", ...}`; contract in project-grounding get-the-documents `api.md` | 0 ready or partly ready; 1 not set up (reachable here only after a switch) |
+| `scripts/find_related.py` | Ready: `--registry <modules.md> --query "<the idea>"`. Partly ready: `--modules-dir docs/modules --query "<the idea>"` | JSON list `[{"module", "plain_name", "score", "matched_terms"}]`, sorted by descending score, ties by registry order or sorted folder order | 0; 1 with `{"ok": false, "error"}` on stderr if the registry is unreadable, or the modules folder is missing or holds no summary |
 | `scripts/detect_placeholder.py` | `--path <doc.md>` (optional `--markers`) | `{"sections": [{"heading", "status", "markers_hit"}]}` | 0 |
 
 ## State Management
@@ -39,7 +40,7 @@ None. Neither script emits issue codes.
 
 | Kind | Item |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/paqad-docs-map.md`, `references/template-markers.md`, `scripts/find_related.py`, `scripts/detect_placeholder.py` |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/paqad-docs-map.md`, `references/template-markers.md`, `references/connect-repository.md`, `scripts/check_onboarded.py`, `scripts/find_related.py`, `scripts/detect_placeholder.py` |
 | Modules | project-grounding, conversation-standards, discovery-record (via the coordinator) |
 | Host capabilities | Reading repository files or user-attached `docs/`; Python 3.9 (optional) |
 
@@ -48,14 +49,16 @@ None. Neither script emits issue codes.
 | Item | Where |
 |---|---|
 | Template marker phrases (both paqad template generations) | `references/template-markers.md` |
+| Which repository and how to reach it | `references/connect-repository.md` (the repository chosen at step 0, in `setup.repository`) |
 | Reading order and never-read list | `references/paqad-docs-map.md` |
 
 ## Testing Entry Points
 
 | Kind | Entry point |
 |---|---|
-| Unit | `tests/scripts/test_find_related.py` (`ParseTest`, `RankTest`, `CliTest`) |
+| Unit | `tests/scripts/test_find_related.py` (`ParseTest`, `RankTest`, `CliTest`, `ModulesDirRowsTest`, `ModulesDirCliTest`) |
+| Unit | `tests/scripts/test_onboarded.py` (three-state check) |
 | Unit | `tests/scripts/test_placeholder.py` (`FixtureDocTest::test_reports_both_real_and_template_sections` and others) |
-| Authoring | `tests/scripts/test_authoring.py::FixtureRepoTest` (AC-10), `ChecklistFallbackTest` (AC-16) |
+| Authoring | `tests/scripts/test_authoring.py::FixtureRepoTest` (AC-10), `ChecklistFallbackTest` (AC-16), `SingleSourceDocAccessTest`, `ThreeStateChecklistTest` |
 | Eval scenarios (`s1.yml`) | `ac-5` (`template-section-flagged`, `nothing-invented`, `source-every-fact`) |
 | Fixture | `tests/evals/fixture-repo/docs/modules/subscriptions/features/manage-subscription/business.md` |

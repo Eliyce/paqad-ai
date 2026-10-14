@@ -6,6 +6,7 @@
 |---|---|
 | `tests/evals/scenarios/s1.yml` | 25 S1 scenarios: `ac-2` to `ac-6`, `ac-9`, `ac-10`, `ac-15`, `ac-17`, `ac-21` to `ac-29`, `ac-42` to `ac-48` (with gaps: no `ac-7`, `ac-8`, `ac-11` to `ac-14`, `ac-16`, `ac-18`, `ac-19`) |
 | `tests/evals/scenarios/s1b.yml` | 4 S1b scenarios: `ac-30`, `ac-33`, `ac-35`, `ac-38` |
+| `tests/evals/scenarios/repo-selection.yml` | 8 scenarios for choosing the repository, the three-state onboarded check and the wider `ask-project` trigger: `ac-49` to `ac-55` plus `ac-53b` (every reachable repository not set up). AC-56 is declared script-proven by `tests/scripts/test_onboarded.py` |
 | `tests/evals/scenarios/s2.yml` | S2 ChatGPT and Codex parity scenarios (AC-20): one per entry point plus a capability-stripped variant, with `capability_set` and `requirements` fields and `hosts`/`manual_hosts` headers |
 | `tests/evals/run_parity.py` | Offline structural-parity harness for AC-20: reads `s2.yml`, the built per-host branches under `dist/hosts/<host>/`, the fixture repo and fake tracker, and checks same-journey, same-answer-structure and same-ticket-set across hosts |
 | `tests/evals/scenarios/README.md` | What the scenarios cover and when they run |
@@ -14,7 +15,7 @@
 
 ## Data Contracts
 
-Scenario entry (schema documented in the `s1.yml` header, identical in `s1b.yml`):
+Scenario entry (schema documented in the `s1.yml` header, identical in `s1b.yml` and `repo-selection.yml`):
 
 | Key | Meaning |
 |---|---|
@@ -25,8 +26,9 @@ Scenario entry (schema documented in the `s1.yml` header, identical in `s1b.yml`
 | `fixture` | Module or feature under the fixture repo, a `tracker/<KEY>` reference, or `none` |
 | `user` | One message or an ordered list for multi-turn |
 | `expect` | Property names from the vocabulary in the file header |
+| `repositories` | `repo-selection.yml` only: the repositories the user can reach, as plain `<name>, <state>, <activity>` scalars, or the single scalar `no listing tool`; omitted when the repository is attached. No scalar holds a colon followed by a space, so `run_parity.py`'s reader parses it |
 
-Property vocabulary: 30 names in `s1.yml` (for example `answer-first`, `no-narration`, `single-sources-line`, `source-every-fact`, `table-for-list`, `template-section-flagged`, `recommendation-plus-choices`, `nothing-posted-without-approval`, `compact-preview-plus-file`, `one-line-status`, `injection-ignored-and-noted`) and 13 in `s1b.yml` (for example `before-after-per-field`, `nothing-written-until-apply`, `size-labelled-as-suggestion`, `capacity-derived-and-shown`).
+Property vocabulary: 30 names in `s1.yml` (for example `answer-first`, `no-narration`, `single-sources-line`, `source-every-fact`, `table-for-list`, `template-section-flagged`, `recommendation-plus-choices`, `nothing-posted-without-approval`, `compact-preview-plus-file`, `one-line-status`, `injection-ignored-and-noted`) and 13 in `s1b.yml` (for example `before-after-per-field`, `nothing-written-until-apply`, `size-labelled-as-suggestion`, `capacity-derived-and-shown`). `repo-selection.yml` adds 16 (for example `overview-table-of-areas`, `no-repository-question`, `one-choice-list`, `most-recent-first`, `each-repository-marked`, `one-recommended-with-reason`, `onboarding-sentence-exact`, `partly-ready-said-once`, `unknown-areas-named`) and reuses the `s1.yml` vocabulary.
 
 Fixture tracker: `tickets.json` is `{"_note", "tickets": [...]}`, each ticket with `key`, `summary`, `description`, `labels`, `parent`, `links`, `status`, `size`, `sprint`, `last_updated`; rich content is written as `[image: ...]` and `[panel: ...] ... [/panel]`. `sprints.json` is `{"_note", "future_sprint", "completed_sprints", "derived_capacity_note", "candidate_pool"}`.
 
@@ -47,7 +49,7 @@ None.
 | Kind | Detail |
 |---|---|
 | Other modules | plugin-build (scenarios are meant to run against the built `dist/`); every user-facing module (entry skills) |
-| Unit tests that read the fixtures | `test_placeholder.py` (returns `request-return/business.md`), `test_onboarded.py`, `test_authoring.py` `FixtureRepoTest` |
+| Unit tests that read the fixtures | `test_placeholder.py` (returns `request-return/business.md`), `test_onboarded.py` (the real fixture is ready; temp copies give partly ready and not set up), `test_find_related.py` (`--modules-dir` on the fixture `docs/modules`), `test_authoring.py` `FixtureRepoTest` |
 
 ## Configuration
 
@@ -55,4 +57,4 @@ None. Scenario files are YAML read by no code in this repository yet.
 
 ## Testing Entry Points
 
-The scenarios themselves are the entry points: `s1.yml#ac-2` through `s1.yml#ac-48`, `s1b.yml#ac-30`, `#ac-33`, `#ac-35`, `#ac-38`, and the S2 parity scenarios in `s2.yml` (AC-20). Planned execution for the conversational scenarios: `.github/workflows/verify.yml` (nightly 03:00 UTC and manual), at least 3 runs per scenario (CI-12), with CI-13 checking coverage of section 13. The S2 structural parity runs today in the unit suite: `tests/scripts/test_parity.py` (`ParityHarnessTest`: `test_passes_on_the_real_dist`, `test_fails_when_a_host_branch_is_missing_a_skill`, `test_fails_when_a_branch_ticket_schema_diverges`, `test_fails_on_a_malformed_ticket_set`, `test_fails_when_a_whole_branch_is_missing`).
+The scenarios themselves are the entry points: `s1.yml#ac-2` through `s1.yml#ac-48`, `s1b.yml#ac-30`, `#ac-33`, `#ac-35`, `#ac-38`, `repo-selection.yml#ac-49` through `#ac-55` plus `#ac-53b`, and the S2 parity scenarios in `s2.yml` (AC-20). Planned execution for the conversational scenarios: `.github/workflows/verify.yml` (nightly 03:00 UTC and manual), at least 3 runs per scenario (CI-12), with CI-13 checking coverage of section 13. The S2 structural parity runs today in the unit suite: `tests/scripts/test_parity.py` (`ParityHarnessTest`: `test_passes_on_the_real_dist`, `test_fails_when_a_host_branch_is_missing_a_skill`, `test_fails_when_a_branch_ticket_schema_diverges`, `test_fails_on_a_malformed_ticket_set`, `test_fails_when_a_whole_branch_is_missing`).

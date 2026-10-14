@@ -11,6 +11,7 @@ portable and does not depend on any absolute path.
 """
 
 import glob
+import json
 import os
 import re
 import sys
@@ -29,6 +30,12 @@ BUILD_DIR = os.path.join(REPO_ROOT, "build")
 if BUILD_DIR not in sys.path:
     sys.path.insert(0, BUILD_DIR)
 import build  # noqa: E402
+
+# The one canonical onboarded check, so the shared reference is compared with its real messages.
+SHARED_SCRIPTS = os.path.join(SHARED_ROOT, "scripts")
+if SHARED_SCRIPTS not in sys.path:
+    sys.path.insert(0, SHARED_SCRIPTS)
+import check_onboarded  # noqa: E402
 
 # The entry skills a user may start directly (PLG-8/CI-11); every other skill is a step skill.
 # S1b adds the three existing-work skills as entry skills (FR-13), bringing the set to five.
@@ -380,25 +387,23 @@ class CapabilityFallbackTest(unittest.TestCase):
 class DocAccessBranchTest(unittest.TestCase):
     """AC-3 (GRD-3): ground-in-project and ask-project carry the capability doc-access branch -- read
     repository files with a tool if one can, otherwise ask the user to attach or upload docs -- so
-    the journey is identical across capabilities."""
+    the journey is identical across capabilities. The branch lives once in the shared
+    connect-repository.md reference, which both reading skills point to."""
 
     def test_both_reading_skills_carry_the_branch(self):
+        reference = read_text(os.path.join(SHARED_ROOT, "references", "connect-repository.md"))
+        for phrase in (
+            "by capability, not by host",
+            "read repository files on demand",
+            "attach the repository",
+        ):
+            self.assertIn(phrase, reference, "connect-repository.md is missing: {0}".format(phrase))
         for skill in ("ground-in-project", "ask-project"):
             text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
             self.assertIn(
-                "by capability, not by host",
+                "references/connect-repository.md",
                 text,
-                "{0} is missing the by-capability doc-access framing".format(skill),
-            )
-            self.assertIn(
-                "read repository files on demand",
-                text,
-                "{0} is missing the read-on-demand branch".format(skill),
-            )
-            self.assertIn(
-                "attach the repository",
-                text,
-                "{0} is missing the attach-or-upload branch".format(skill),
+                "{0} does not point to the shared doc-access reference".format(skill),
             )
 
 
@@ -494,6 +499,211 @@ class VendorScanScopeTest(unittest.TestCase):
                     VENDOR_PATTERN.search(read_text(path)),
                     "vendor name under {0}".format(os.path.relpath(path, REPO_ROOT)),
                 )
+
+
+
+CONNECT_REPOSITORY = "references/connect-repository.md"
+CHECK_ONBOARDED = "scripts/check_onboarded.py"
+FIND_RELATED = "scripts/find_related.py"
+CONNECT_REPOSITORY_SKILLS = {
+    "ask-project",
+    "get-connected",
+    "ground-in-project",
+    "refine-ticket",
+    "size-work",
+}
+CHECK_ONBOARDED_SKILLS = {"get-connected", "ask-project", "ground-in-project"}
+ASK_PROJECT_DESCRIPTION = (
+    "Answers business questions about the product from the project's own onboarded documents, in "
+    "plain words with sources. Use it when someone asks what the product is, what it does or what "
+    "areas it has (\"what is this product?\", \"what does this project do?\", \"what areas does it "
+    "have?\"), when a repository is attached or connected and the user asks what it is or what it "
+    "does, or when they ask how something works today (\"can customers pause a subscription "
+    "today?\", \"who uses the export screen?\", \"which orders go to the finance system?\"). It "
+    "reads only what the question needs, leads with the answer, adds one short Sources line, shows "
+    "the project's own term on first use, and says honestly where the documents cannot confirm "
+    "something. It never writes to the tracker, and it can offer to carry a question into the idea "
+    "journey when the answer reveals a gap."
+)
+OVERVIEW_CUES = ("what is this product?", "what does this project do?", "what areas does it have?")
+
+
+def entry_description_problems(description):
+    """Return the trigger-hygiene problems of an entry skill description (empty when clean)."""
+    problems = []
+    if len(description) > 1024:
+        problems.append("over 1024 characters")
+    if "\n" in description:
+        problems.append("more than one line")
+    if ": " in description:
+        problems.append("contains ': '")
+    if "<" in description or ">" in description:
+        problems.append("contains < or >")
+    if EM_DASH in description or EN_DASH in description:
+        problems.append("contains a dash")
+    if VENDOR_PATTERN.search(description):
+        problems.append("names a host or vendor")
+    if STEP_PHRASE in description:
+        problems.append("reads as a step skill")
+    if "Use it when" not in description:
+        problems.append("missing 'Use it when'")
+    return problems
+
+
+def checklist_section(skill):
+    text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
+    start = text.index("## If the checks cannot run")
+    end = text.find("\n## ", start + 1)
+    return text[start:] if end == -1 else text[start:end]
+
+
+class RepositorySelectionTest(unittest.TestCase):
+    """AC-18 (GRD-3, INV-4): one shared repository rule carries the by-capability branch, the choice
+    cues, the four marks and both onboarded messages verbatim, and no skill-local copy remains."""
+
+    def setUp(self):
+        self.path = os.path.join(SHARED_ROOT, "references", "connect-repository.md")
+        self.text = read_text(self.path)
+
+    def test_by_capability_phrases(self):
+        for phrase in ("by capability, not by host", "read repository files on demand",
+                       "attach the repository"):
+            self.assertIn(phrase, self.text)
+
+    def test_selection_cues_and_marks(self):
+        lowered = self.text.lower()
+        for cue in ("list", "exactly one", "most recently active first", "recommended", "switch"):
+            self.assertIn(cue, lowered, "missing selection cue {0}".format(cue))
+        for mark in ("ready", "partly ready", "not set up", "not checked"):
+            self.assertIn(mark, lowered, "missing mark {0}".format(mark))
+
+    def test_messages_are_the_script_constants_verbatim(self):
+        self.assertIn(check_onboarded.STOP_MESSAGE, self.text)
+        self.assertIn(check_onboarded.PARTLY_MESSAGE, self.text)
+
+    def test_at_most_100_lines(self):
+        self.assertLessEqual(len(self.text.splitlines()), 100)
+
+    def test_no_skill_local_copies_remain(self):
+        for rel in (("references", "connect-repository.md"), ("scripts", "check_onboarded.py")):
+            self.assertFalse(os.path.exists(os.path.join(SKILLS_ROOT, "get-connected", *rel)))
+        self.assertTrue(os.path.isfile(os.path.join(SHARED_ROOT, "scripts", "check_onboarded.py")))
+
+
+class RepositoryDeclarationTest(unittest.TestCase):
+    """AC-19 (PLG-9, PLG-10): the shared rule and the onboarded check are declared by exactly the
+    skills that use them, and every find_related user also ships check_onboarded."""
+
+    def setUp(self):
+        self.declared = _declared_imports_by_skill()
+
+    def declarers(self, rel):
+        return {skill for skill, imports in self.declared.items() if rel in imports}
+
+    def test_exact_declarers(self):
+        self.assertEqual(self.declarers(CONNECT_REPOSITORY), CONNECT_REPOSITORY_SKILLS)
+        self.assertEqual(self.declarers(CHECK_ONBOARDED), CHECK_ONBOARDED_SKILLS)
+        self.assertNotIn(CONNECT_REPOSITORY, self.declared["plan-sprint"])
+        self.assertNotIn(CHECK_ONBOARDED, self.declared["plan-sprint"])
+
+    def test_find_related_users_declare_check_onboarded(self):
+        users = self.declarers(FIND_RELATED)
+        self.assertTrue(users)
+        self.assertLessEqual(users, self.declarers(CHECK_ONBOARDED))
+
+    def test_declaring_skills_name_the_files(self):
+        for rel in (CONNECT_REPOSITORY, CHECK_ONBOARDED):
+            for skill in sorted(self.declarers(rel)):
+                text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
+                self.assertIn(rel, text, "{0} declares {1} but never names it".format(skill, rel))
+
+
+class SingleSourceDocAccessTest(unittest.TestCase):
+    """AC-20: the two reading skills point to the shared rule instead of an inline copy."""
+
+    def test_reading_skills_point_to_the_shared_rule(self):
+        for skill in ("ask-project", "ground-in-project"):
+            text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
+            self.assertIn(CONNECT_REPOSITORY, text)
+            self.assertNotIn("upload `docs/` as files or a zip", text)
+
+
+class AskProjectTriggerTest(unittest.TestCase):
+    """AC-21 (PLG-8): the widened ask-project description, and the helper that guards it."""
+
+    def test_description_is_the_frozen_text(self):
+        fm, _ = split_frontmatter(read_text(os.path.join(SKILLS_ROOT, "ask-project", "SKILL.md")))
+        description = fm["description"]
+        self.assertEqual(description, ASK_PROJECT_DESCRIPTION)
+        self.assertTrue(description.startswith("Answers"))
+        for cue in OVERVIEW_CUES + ("a repository is attached or connected",):
+            self.assertIn(cue, description)
+        self.assertEqual(entry_description_problems(description), [])
+
+    def test_helper_rejects_planted_descriptions(self):
+        planted = {
+            "over 1024 characters": ASK_PROJECT_DESCRIPTION + " x" * 200,
+            "contains ': '": ASK_PROJECT_DESCRIPTION + " Note: more.",
+            "reads as a step skill": ASK_PROJECT_DESCRIPTION + " Runs when the journey directs it.",
+            "contains a dash": ASK_PROJECT_DESCRIPTION.replace(", in plain", " " + EM_DASH + " in plain"),
+        }
+        for problem, description in planted.items():
+            self.assertIn(problem, entry_description_problems(description))
+
+
+class RecordRepositoryFieldsTest(unittest.TestCase):
+    """AC-22 (REC-1, FR-32): the record template's setup block carries the repository choice."""
+
+    def test_setup_carries_repository_fields(self):
+        text = read_text(
+            os.path.join(SKILLS_ROOT, "product-discovery", "assets", "record-template.md")
+        )
+        record = json.loads(text[text.index("{"):text.rindex("}") + 1])
+        self.assertEqual(record["setup"]["repository"], "")
+        self.assertEqual(record["setup"]["repository_state"], "")
+
+
+class ThreeStateChecklistTest(unittest.TestCase):
+    """AC-23 (PLG-6): each onboarded-check fallback does the three-state check by hand."""
+
+    def test_checklists_name_the_three_states(self):
+        for skill in sorted(CHECK_ONBOARDED_SKILLS):
+            section = " ".join(checklist_section(skill).lower().split())
+            for phrase in ("partly ready", "not set up", "empty or whitespace-only summary as missing",
+                           CONNECT_REPOSITORY):
+                self.assertIn(phrase, section, "{0} checklist missing {1}".format(skill, phrase))
+
+
+class RequirementsV24Test(unittest.TestCase):
+    """AC-26: REQUIREMENTS.md records the v2.4 change, and it and the get-the-documents feature
+    docs stay free of em and en dashes."""
+
+    def test_v24_markers_present(self):
+        text = read_text(os.path.join(REPO_ROOT, "REQUIREMENTS.md"))
+        for marker in ("v2.4", "V-25", "D-19", "D-20", "ASK-9", "OD-16", "OD-17", "U-18",
+                       check_onboarded.PARTLY_MESSAGE, check_onboarded.STOP_MESSAGE):
+            self.assertIn(marker, text)
+        self.assertNotIn(EM_DASH, text)
+        self.assertNotIn(EN_DASH, text)
+
+    def test_get_the_documents_docs_have_no_dash(self):
+        feature_dir = os.path.join(
+            REPO_ROOT, "docs", "modules", "project-grounding", "features", "get-the-documents"
+        )
+        self.assertTrue(os.path.isdir(feature_dir), "missing {0}".format(feature_dir))
+        paths = sorted(glob.glob(os.path.join(feature_dir, "*.md")))
+        # A wrong path must fail here, not pass on an empty set (RL-6d7a).
+        names = [os.path.basename(path) for path in paths]
+        for expected in ("api.md", "business.md", "technical.md"):
+            self.assertIn(expected, names, "get-the-documents missing {0}".format(expected))
+        offenders = []
+        for path in paths:
+            text = read_text(path)
+            if EM_DASH in text or EN_DASH in text:
+                offenders.append(os.path.relpath(path, REPO_ROOT))
+        self.assertEqual(
+            offenders, [], "em or en dash in get-the-documents docs: {0}".format(offenders)
+        )
 
 
 if __name__ == "__main__":

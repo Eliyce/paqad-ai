@@ -32,13 +32,17 @@ skills:
       - references/consulting.md
       - references/paqad-docs-map.md
       - references/template-markers.md
+      - references/connect-repository.md
+      - scripts/check_onboarded.py
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: get-connected
     imports:
       - references/voice.md
+      - references/connect-repository.md
       - references/tracker-profiles-jira.md
       - references/tracker-profiles-github.md
+      - scripts/check_onboarded.py
   - name: understand-idea
     imports:
       - references/voice.md
@@ -47,6 +51,8 @@ skills:
       - references/voice.md
       - references/paqad-docs-map.md
       - references/template-markers.md
+      - references/connect-repository.md
+      - scripts/check_onboarded.py
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: shape-idea
@@ -79,6 +85,7 @@ skills:
       - references/writing-rules.md
       - references/plain-language.md
       - references/tracker-profiles-jira.md
+      - references/connect-repository.md
       - scripts/canonical.py
       - scripts/record.py
       - scripts/check_record.py
@@ -88,6 +95,7 @@ skills:
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
+      - references/connect-repository.md
       - scripts/canonical.py
       - scripts/record.py
       - scripts/check_record.py

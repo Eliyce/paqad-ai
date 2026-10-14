@@ -21,6 +21,7 @@ Owned paths: `shared/scripts/record.py`, `skills/product-discovery/assets/record
 - Run id: `DR-YYYYMMDD-XXXX`, suffix from `ABCDEFGHJKLMNPQRSTUVWXYZ0123456789`.
 - `validate` requires a dict, a `run` dict, non-negative int `revision`, int `step` 0 to 6, every block in `BLOCKS`, and a list `stale`.
 - `record-template.md` documents field shapes for the build-mode blocks (for example `setup.size_field_id`, `setup.sprint_field_id`, `ticket_set_ref.{path, digest, revision}`, `posted.issues[].status` of created, uncertain or not applied).
+- `setup.repository` (the chosen repository's name as the tool or attachment shows it, `""` when none is shown) and `setup.repository_state` (`ready` or `partly-ready`) are template fields only: `record.py` does not validate them. `get-connected` sets them at step 0, or the first docs-reading step of a refine or size run sets them; a switch the user asks for patches them with `record.py update`. Being in `setup`, they sit outside the chain and survive going back. Neither holds credentials (REC-6).
 
 ## Script Interfaces
 

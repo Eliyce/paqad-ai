@@ -1,0 +1,27 @@
+{
+  "id": "D-01M4XRW84WC1PJS51MNW8DX6SA",
+  "category": "ux-pattern",
+  "title": "Repository list when the user can reach several repos",
+  "context": "Plugin must pick the repo itself: one attached or one reachable means carry on; several means show a short list. Question is what the list shows.",
+  "options": [
+    {
+      "option_key": "all-marked",
+      "label": "All reachable repos, recent first, ready ones marked"
+    },
+    {
+      "option_key": "ready-only",
+      "label": "Only repos that pass the onboarded check"
+    },
+    {
+      "option_key": "all-plain",
+      "label": "All repos, onboarded check only after the pick"
+    }
+  ],
+  "recommendation": "all-marked",
+  "created_at": "2026-10-14T17:55:32.636Z",
+  "status": "resolved",
+  "change": "01M4XRVYHNSPGPFDBPRD4MFYA5",
+  "chosen": "all-marked",
+  "rationale": "Owner chose: list all reachable repos, recent first, mark which are ready, so a PO is not steered to a half-onboarded repo",
+  "resolved_at": "2026-10-14T17:55:33.129Z"
+}

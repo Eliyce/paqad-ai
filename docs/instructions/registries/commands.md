@@ -26,11 +26,11 @@ under its skill's `scripts/` folder.
 |---|---|---|
 | `shared/scripts/record.py` | `init --path [--run-id] [--mode build\|refine\|size\|plan]`, `show --path`, `update --path --expect-revision --patch`, `advance --path --expect-revision`, `approve --path --expect-revision --block --message-ref` | Create, show, patch, advance and approve the discovery record |
 | `shared/scripts/check_record.py` | `--path [--step]` | Are the current step's required blocks present and not stale |
-| `shared/scripts/find_related.py` | `--registry --query` | Rank onboarded modules against an idea or question |
+| `shared/scripts/check_onboarded.py` | `[--root]` | Onboarded check (GRD-1): `ready` or `partly-ready` exit 0, `not-set-up` exit 1 |
+| `shared/scripts/find_related.py` | `(--registry \| --modules-dir) --query` | Rank onboarded modules against an idea or question, from the registry or, when it is missing, from the area folders and summaries |
 | `shared/scripts/detect_placeholder.py` | `--path [--markers]` | Mark each document section as real or template text |
 | `shared/scripts/check_prose.py` | `--ticket-set` or `--path`, `[--denylist]` | No dashes, no code words in scoped fields, no deny-list jargon |
 | `shared/scripts/check_readback.py` | `--approved --created` | Compare created issues to the approved set |
-| `skills/get-connected/scripts/check_onboarded.py` | `[--root]` | Is the repository paqad-onboarded (GRD-1) |
 | `skills/check-tickets/scripts/check_ticket_set.py` | `--ticket-set [--schema]` | Shape, digest and structure checks on a ticket set |
 | `skills/post-tickets/scripts/plan_posting.py` | `plan`, `next`, `claim`, `record --operation --receipt`, `reconcile --operation [--tracker-issues]`, all with `--state` | Plan and receipt the posting run; posts nothing itself |
 | `skills/post-tickets/scripts/export_csv.py` | `--ticket-set [--out]` | Jira importer CSV export fallback |

@@ -85,8 +85,8 @@ Other scripts the skill calls (owned elsewhere): `check_prose.py --ticket-set <d
 
 | Kind | Dependency |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles-jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
-| Other modules | `discovery-record`, `tracker-checks`, `conversation-standards`; hands larger work to `idea-journey` (`product-discovery`) |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles-jira.md`, `references/connect-repository.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
+| Other modules | `discovery-record`, `project-grounding` (how to choose and reach the repository when reading project documents; the first docs-reading step records `setup.repository` and `setup.repository_state`), `tracker-checks`, `conversation-standards`; hands larger work to `idea-journey` (`product-discovery`) |
 | Host capabilities | Tracker connector: read issue, edit issue, add comment, create issue and create link (split), search; reading project documents for the contradiction check; running Python scripts |
 
 ## Configuration

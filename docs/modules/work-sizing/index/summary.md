@@ -7,7 +7,7 @@ Suggests how big a ticket is from comparable finished work, labels it as advice 
 | Layer | user-facing |
 | Confidence | high |
 | Entry skill | `size-work` |
-| Depends on | [discovery-record](../../discovery-record/index/summary.md), [tracker-checks](../../tracker-checks/index/summary.md), [conversation-standards](../../conversation-standards/index/summary.md) |
+| Depends on | [discovery-record](../../discovery-record/index/summary.md), [project-grounding](../../project-grounding/index/summary.md), [tracker-checks](../../tracker-checks/index/summary.md), [conversation-standards](../../conversation-standards/index/summary.md) |
 | Used by | none in the module map (sprint-planning and ticket-refinement point users here in prose only) |
 
 ## Features

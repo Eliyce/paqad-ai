@@ -29,11 +29,12 @@ The plugin's safety rests on its scripts: the record that refuses stale writes, 
 | Ticket checks | Dash and function name blocked and fixed (AC-8); every structure failure caught |
 | Posting | Order, parents and links (AC-13); lost replies reconciled or asked about (AC-11, AC-12); edit after approval voids it (AC-14); both link tool names (AC-18); read-back; CSV export |
 | Refining, sizing, sprint | AC-31 to AC-34, AC-35 to AC-37, AC-38 to AC-41 |
-| Grounding | Onboarded check and exact stop message (AC-1); deterministic module ranking; template sections flagged |
+| Grounding | Onboarded check in its three states (ready, partly ready, not set up) with both exact messages (AC-1, AC-56); unreadable documents never crash the check; deterministic module ranking from the list of areas or, when it is missing, from the area summaries; template sections flagged |
+| Choosing the project | One shared rule for choosing the project, shipped into exactly the skills that read documents; the question skill's description stays within the host limits |
 | Build | Four manifests agree; byte-identical builds; undeclared shared import fails; no forbidden folders |
 | Authoring rules | Skill names and sizes; "How to talk" block; no vendor names; no long dashes; entry versus step skill wording (AC-19); checklist fallback in every script-bearing skill (AC-16) |
 
-Standard library only, Python 3.9 or later, no network. Last measured: 154 tests, 0 failures.
+Standard library only, Python 3.9 or later, no network. Last measured: 295 tests, 0 failures.
 
 ## Triggers and Side Effects
 

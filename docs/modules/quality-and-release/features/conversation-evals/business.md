@@ -26,7 +26,7 @@ Much of what makes the plugin good cannot be proven by a unit test: whether repl
 | Rule | Detail |
 |---|---|
 | Properties, not wording | For example answer-first, no-narration, single sources line, template section flagged, nothing posted without approval |
-| One scenario per conversation-shape acceptance scenario | 25 for the idea journey and questions, 4 for refining, sizing and sprint planning |
+| One scenario per conversation-shape acceptance scenario | 25 for the idea journey and questions, 4 for refining, sizing and sprint planning, 8 for choosing the project and working with a partly set up project |
 | Script-proven scenarios are not duplicated | Those live in the unit tests |
 | Fiction only | The fixture project and tracker are invented |
 

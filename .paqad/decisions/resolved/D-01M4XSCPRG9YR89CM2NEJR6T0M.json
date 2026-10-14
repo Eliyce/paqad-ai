@@ -1,0 +1,27 @@
+{
+  "id": "D-01M4XSCPRG9YR89CM2NEJR6T0M",
+  "category": "spec.change",
+  "title": "Relax the GRD-1 onboarded check for repos without a modules registry",
+  "context": "webapp has docs/modules summaries for 3 of 6 areas but no docs/instructions/registries/modules.md, so the plugin refuses the whole repo. docs/instructions alone holds no business content.",
+  "options": [
+    {
+      "option_key": "relax-now",
+      "label": "Partly ready: build the map from docs/modules folders, name gaps; in this change"
+    },
+    {
+      "option_key": "relax-later",
+      "label": "Same, as a separate change"
+    },
+    {
+      "option_key": "keep-strict",
+      "label": "Keep registry plus summary required"
+    }
+  ],
+  "recommendation": "relax-now",
+  "created_at": "2026-10-14T18:04:31.888Z",
+  "status": "resolved",
+  "change": "01M4XRVYHNSPGPFDBPRD4MFYA5",
+  "chosen": "relax-now",
+  "rationale": "Owner chose to relax GRD-1 in this change: summaries without a registry is partly ready, docs/instructions alone stays refused",
+  "resolved_at": "2026-10-14T18:04:32.354Z"
+}

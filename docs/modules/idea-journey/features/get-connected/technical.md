@@ -5,10 +5,10 @@
 | Path | Owned |
 |---|---|
 | `skills/get-connected/SKILL.md` | Yes: step 0 procedure and checklist fallback |
-| `skills/get-connected/references/connect-repository.md` | Yes: reading documents by capability, onboarded check, never-read list |
 | `skills/get-connected/references/connect-tracker.md` | Yes: write-access check, setup discovery, actions not tool names, run-label warning |
-| `skills/get-connected/scripts/check_onboarded.py` | Yes: GRD-1 check |
-| `shared/references/tracker-profiles-jira.md` | No: owned by tracker-checks |
+| `shared/references/connect-repository.md` | No: owned by project-grounding (get-the-documents); copied in as `references/connect-repository.md`: choosing the repository, reading documents by capability, the three-state onboarded check, never-read list |
+| `shared/scripts/check_onboarded.py` | No: owned by project-grounding (get-the-documents); copied in as `scripts/check_onboarded.py`: the GRD-1 check |
+| `shared/references/tracker-profiles-jira.md`, `shared/references/tracker-profiles-github.md` | No: owned by tracker-checks |
 
 Step skill: its description says it runs when the journey directs it (PLG-8).
 
@@ -18,6 +18,7 @@ Writes the `setup` block (content produced here; written by `product-discovery` 
 
 ```json
 {
+  "repository": "acme-shop", "repository_state": "ready",
   "tracker_kind": "jira", "project_key": "ABC",
   "epic_type": "Epic", "story_type": "Story",
   "issue_types": [], "required_fields": {}, "link_types": [],
@@ -26,19 +27,11 @@ Writes the `setup` block (content produced here; written by `product-discovery` 
 }
 ```
 
-`run_label` is `run.run_id` in lowercase.
+`run_label` is `run.run_id` in lowercase. `repository` is the chosen repository's name as the tool or attachment shows it (`""` when none is shown) and `repository_state` is `ready` or `partly-ready`; both are chosen by the rule in `references/connect-repository.md` and never hold credentials (REC-6).
 
 ## Script Interfaces
 
-`scripts/check_onboarded.py` (stdlib only, no network, read-only):
-
-| Item | Value |
-|---|---|
-| Invocation | `check_onboarded.py [--root <repo-root>]` (default: current working folder) |
-| Pass | stdout `{"ok": true}`, exit 0 |
-| Fail | stdout `{"ok": false, "message": "<STOP_MESSAGE>"}`, exit 1 |
-| Rule | `docs/instructions/registries/modules.md` is a file and `docs/modules/*/index/summary.md` matches at least one file |
-| Functions | `is_onboarded(root)`, `main(argv)`; constant `STOP_MESSAGE` |
+`scripts/check_onboarded.py` (shared, stdlib only, no network, read-only): `check_onboarded.py [--root <repo-root>]`. Exit 0 with `state` `ready` or `partly-ready`, exit 1 with `not-set-up` and the exact stop message, exit 2 on a usage error. The full contract is in [project-grounding get-the-documents api.md](../../../project-grounding/features/get-the-documents/api.md).
 
 Tracker checks are instruction-only, done through the host connector.
 
@@ -48,15 +41,15 @@ Produces `setup`, the step 0 required block (`record.REQUIRED[0]`). `setup` is o
 
 ## Error Codes
 
-None. The script returns only the `ok` flag and the fixed stop message.
+None. The script returns only `ok`, `state`, a fixed message and `unknown_areas`.
 
 ## Dependencies
 
 | Kind | Item |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md`, `references/tracker-profiles-github.md` |
-| Modules | tracker-checks (Jira profile), conversation-standards, discovery-record (record written by the coordinator) |
-| Host capabilities | Reading repository files or user-attached `docs/`; tracker connector with create-issue, list link types, list fields for an issue type; Python 3.9 for the script (optional) |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/connect-repository.md`, `references/tracker-profiles-jira.md`, `references/tracker-profiles-github.md`, `scripts/check_onboarded.py` |
+| Modules | project-grounding (repository rule and onboarded check), tracker-checks (Jira and GitHub profiles), conversation-standards, discovery-record (record written by the coordinator) |
+| Host capabilities | Reading repository files or user-attached `docs/`; optionally a tool that lists reachable repositories (U-18); tracker connector with create-issue, list link types, list fields for an issue type; Python 3.9 for the script (optional) |
 
 ## Configuration
 
@@ -69,6 +62,6 @@ None. The script returns only the `ok` flag and the fixed stop message.
 
 | Kind | Entry point |
 |---|---|
-| Unit | `tests/scripts/test_onboarded.py`: `OnboardedTest` (`test_real_fixture_is_onboarded`, `test_cli_passes_on_fixture`, `test_message_constant_is_exact`), `NotOnboardedTest` (`test_missing_modules_registry_fails`, `test_missing_module_summary_fails`, `test_empty_tree_fails`, `test_cli_fail_payload_carries_exact_message`) (AC-1) |
-| Authoring | `tests/scripts/test_authoring.py`: `FixtureRepoTest` (AC-10), `TriggerHygieneTest` (AC-19), `ChecklistFallbackTest` (AC-16) |
-| Eval scenarios (`s1.yml`) | `ac-2` (tracker without write: `csv-export-offered`) |
+| Unit | `tests/scripts/test_onboarded.py`: the three-state check (listed under project-grounding get-the-documents) |
+| Authoring | `tests/scripts/test_authoring.py`: `FixtureRepoTest` (AC-10), `TriggerHygieneTest` (AC-19), `ChecklistFallbackTest` (AC-16), `ThreeStateChecklistTest` (by-hand three-state check), `RecordRepositoryFieldsTest` (`setup.repository` fields) |
+| Eval scenarios | `s1.yml` `ac-2` (tracker without write: `csv-export-offered`); `repo-selection.yml` (repository choice, partly ready, switch) |

@@ -27,7 +27,7 @@ When an answer shows a real problem or opportunity, the plugin adds one short li
 | Only when it matters | The consultant line is added only when the answer reveals a real problem or opportunity; otherwise nothing is added (ASK-5, CON-9, TALK-2). |
 | One line | The note and the offer stay to one short line. |
 | Offer, not push | The user decides; nothing starts without a yes. |
-| Nothing asked twice | The answer and sources seed the idea and today steps (ASK-6). |
+| Nothing asked twice | The answer and sources seed the idea and today steps (ASK-6). The project chosen for the question holds for the rest of the conversation, so the journey does not ask which project again (GRD-3). |
 | Template gaps too | When a needed section is template text, the plugin may offer to shape an idea instead of guessing (AC-22). |
 
 ## Triggers and Side Effects
@@ -42,7 +42,7 @@ When an answer shows a real problem or opportunity, the plugin adds one short li
 | Situation | What happens |
 |---|---|
 | User declines or ignores the offer | Nothing changes; the conversation continues as questions |
-| Project not onboarded | No answer is given, so there is nothing to hand over |
+| Project not set up | No answer is given, so there is nothing to hand over. A partly ready project still gets an answer, so it can be handed over |
 
 ## Glossary
 

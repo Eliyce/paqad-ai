@@ -1,7 +1,7 @@
-# paqad Product Discovery plugin: requirements (v2.3)
+# paqad Product Discovery plugin: requirements (v2.4)
 
 **Product name:** `paqad-product-discovery` (plugin name). The coordinating skill is `product-discovery`.
-**Status:** v2.3, 5 October 2026. Supersedes `paqad-ai-product-planning/18-idea-to-tickets-plugin-requirements.md` (v1). v2.1 added question answering, Codex as a v1 host, and the consulting stance (V-17 to V-19). v2.2 added refining existing tickets, sizing work and sprint planning (V-20 to V-23). v2.3 adds the top-priority talking rules (V-24).
+**Status:** v2.4, 14 October 2026. Supersedes `paqad-ai-product-planning/18-idea-to-tickets-plugin-requirements.md` (v1). v2.1 added question answering, Codex as a v1 host, and the consulting stance (V-17 to V-19). v2.2 added refining existing tickets, sizing work and sprint planning (V-20 to V-23). v2.3 added the top-priority talking rules (V-24). v2.4 adds choosing the repository, a relaxed onboarded check and wider question triggers (V-25).
 **Owner:** Haider.
 **How v2 was made:** v1 was treated as an expert proposal and run through a paqad Discovery (run `idea-to-tickets-plugin-01M45JKFJJ7CAY5GZQYXNWAVAN`). Every load-bearing fact was rechecked against live documentation, the live Atlassian connector, a real paqad-onboarded repository and the earlier `paqad-ticket-refinement` 0.2.0 plugin. Section 0 lists what changed and why.
 
@@ -37,6 +37,7 @@
 | V-22 | New: propose a sprint plan and, on approval, put tickets into an existing sprint (section 4E) | Owner decision D-17. The connector has no sprint or board tools, so sprints are found through the sprint field on issues and the plugin cannot create, start or close a sprint (J8) |
 | V-23 | D-2 reworded: the plugin runs inside the AI host, which for Codex is local | Codex (V-18) made "web chat only" untrue |
 | V-24 | New top-priority section 3A: short, plain, table-first replies, no narration, no explaining unless asked | Owner decision D-18. Long AI replies are the most common complaint from business users |
+| V-25 | New: choosing the repository, a three-state onboarded check and wider question triggers (GRD-1, GRD-3, ASK-9) | claude.ai testing on 14 October 2026: an overview question did not load ask-project and the user had to name the repository; a real repository with 6 module folders, 3 summaries and no modules list was refused whole. Owner decisions D-19 and D-20 |
 
 ---
 
@@ -75,7 +76,7 @@ Don't ask these again unless something material changes.
 
 | # | Decision | Consequence |
 |---|---|---|
-| D-1 | **The target repository is already paqad-onboarded.** | If it isn't, the plugin stops and tells the user to ask their engineering team to onboard it. The plugin does not onboard repositories. |
+| D-1 | **The target repository is already paqad-onboarded.** | If it isn't, the plugin stops and tells the user to ask their engineering team to onboard it. The plugin does not onboard repositories. GRD-1 defines ready, partly ready and not set up (D-20). |
 | D-2 | **It runs inside the AI host, never through the paqad engine.** claude.ai (web, desktop, mobile), ChatGPT web, and Codex (local). Reworded in v2.2. | The local paqad engine is not required and is not reused. The plugin reuses paqad's *method* (Discovery's six stages) and *outputs* (the onboarded docs), not its code. |
 | D-3 | **No terminal, ever.** | Install, connect, explore and post all happen in the host's web UI. |
 | D-4 | **GitHub and Jira are the host's connectors, not ours.** | No integration code, no backend, no credentials. The plugin tells the user which connectors to switch on and uses the tools those connectors expose. |
@@ -93,6 +94,8 @@ Don't ask these again unless something material changes.
 | D-16 | **Sizing is in scope, as advice.** | New skill `size-work` (section 4D). Sizes are suggestions; writing one to the tracker needs approval. |
 | D-17 | **Sprint planning is in scope, as a proposal plus approved assignment.** | New skill `plan-sprint` (section 4E). It can put approved tickets into an existing sprint; it never creates, starts, closes or reorders sprints. |
 | D-18 | **Short, plain, to the point. Top priority.** | Section 3A overrides every other section on how replies look. Where another requirement asks the plugin to show or say something, it does so within 3A. |
+| D-19 | **Several reachable repositories: show them all.** | Most recently active first, each marked ready, partly ready, not set up or not checked, one recommended (GRD-3). Owner decision D-01M4XRW84WC1PJS51MNW8DX6SA. |
+| D-20 | **Relax GRD-1: area summaries without a modules list are partly ready.** | The plugin carries on and names areas without a summary as unknown. `docs/instructions` alone stays not set up because it holds no business content. Owner decision D-01M4XSCPRG9YR89CM2NEJR6T0M. |
 
 ## 3A. How the plugin talks (top priority)
 
@@ -131,7 +134,7 @@ Five ways in, one plugin:
 
 | The user says | Starts | Needs |
 |---|---|---|
-| A question ("does checkout support refunds?") | `ask-project` (section 4B) | Onboarded documents |
+| A question ("does checkout support refunds?", "what is this product?") | `ask-project` (section 4B) | Onboarded documents |
 | An idea or a problem ("customers keep calling to pause") | `product-discovery`, step 0 | Onboarded documents; tracker only for step 6 |
 | "Make ABC-142 ready" or "clean up these five tickets" | `refine-ticket` (section 4C) | Tracker read and edit; onboarded documents |
 | "How big is this?" | `size-work` (section 4D) | Tracker read; onboarded documents help |
@@ -165,6 +168,7 @@ The plugin behaves like an experienced product consultant working for the user. 
 - **ASK-6.** Offer to carry the question into `product-discovery` when the answer reveals a gap or an idea. The answer and its sources seed the `idea` and `today` blocks, so nothing is asked twice.
 - **ASK-7.** Question answering never writes to the tracker.
 - **ASK-8.** If the documents can't answer and code is attached, the plugin may look, and reports it as "the code suggests…" (GRD-2 order 7).
+- **ASK-9.** An overview question (what the product or project is, what it does, what areas it has, or what an attached repository is) MUST be answered as a table of areas with two columns, the area's plain name and one line on what it does, then one Sources line. When the repository is ready, there is one row per module in the modules list, with the line taken from that row; an area summary is read only when the row does not say what the area is for. When it is partly ready, there is one row per summarised area from its summary, plus one row per area without a summary whose line says it is unknown. When a repository is attached, no question about which repository is asked. Nothing is invented.
 
 ## 4C. Refining existing tickets
 
@@ -234,7 +238,7 @@ The plugin behaves like an experienced product consultant working for the user. 
 - **PLG-5.** Scripts MUST run on Python 3.9 or later, standard library only, with no network calls and no file writes outside the working folder.
 - **PLG-6.** Every skill MUST still work when its scripts can't run, by following the same checks written as a checklist in the skill. Scripts make the checks reliable where they run. The checklist is the fallback (U-1).
 - **PLG-7.** Skills MUST describe what to do by **capability**, never by host. Example: "If you have a tool that reads repository files, read `docs/instructions/registries/modules.md` with it. Otherwise ask the user to attach the `docs/` folder." The `hosts/*.md` files document host setup for people and are not shipped.
-- **PLG-8.** Only the five entry skills, `product-discovery` (ideas), `ask-project` (questions), `refine-ticket`, `size-work` and `plan-sprint`, MAY have descriptions that invite direct use. Every step skill's description MUST say it runs when the product-discovery workflow directs it, so the host does not start a step on its own.
+- **PLG-8.** Only the five entry skills, `product-discovery` (ideas), `ask-project` (questions), `refine-ticket`, `size-work` and `plan-sprint`, MAY have descriptions that invite direct use. Every step skill's description MUST say it runs when the product-discovery workflow directs it, so the host does not start a step on its own. Note: a description raises the chance that the host picks the skill for a matching message but cannot guarantee it, because the host decides; naming the skill always works.
 
 ### 6.2 The skills
 
@@ -243,29 +247,29 @@ Thirteen skills. Five are entry points; `product-discovery` also coordinates the
 | Skill (`name`) | Owns | Main output | Contents (beyond SKILL.md) |
 |---|---|---|---|
 | `product-discovery` | The idea journey: step order, the record, resume, going back, side questions, the consulting stance, plain status at every step | The updated record; which skill runs next | `references/journey.md`, `references/voice.md`, `references/consulting.md`, `assets/record-template.md`, `scripts/record.py`, `scripts/check_record.py` |
-| `ask-project` | Questions about the product (section 4B); hand-over into the idea journey | A sourced answer; optional seed for `idea` and `today` | `references/answer-template.md`, `references/paqad-docs-map.md`, `references/template-markers.md`, `references/consulting.md`, `scripts/find_related.py`, `scripts/detect_placeholder.py` |
-| `get-connected` | Step 0: documents reachable and onboarded; tracker writable; tracker project setup read | `setup` block | `references/connect-repository.md`, `references/connect-tracker.md`, `references/tracker-profiles/`, `scripts/check_onboarded.py` |
+| `ask-project` | Questions about the product (section 4B); hand-over into the idea journey | A sourced answer; optional seed for `idea` and `today` | `references/answer-template.md`, `references/paqad-docs-map.md`, `references/template-markers.md`, `references/consulting.md`, `references/connect-repository.md` (shared), `scripts/check_onboarded.py` (shared), `scripts/find_related.py`, `scripts/detect_placeholder.py` |
+| `get-connected` | Step 0: documents reachable and onboarded; tracker writable; tracker project setup read | `setup` block | `references/connect-repository.md` (shared), `references/connect-tracker.md`, `references/tracker-profiles/`, `scripts/check_onboarded.py` (shared) |
 | `understand-idea` | Step 1 | `idea` block | `references/question-bank.md`, `references/success-prompts.md` |
-| `ground-in-project` | Step 2: read docs in the order in section 7; find related areas; report coverage and template sections | `today` block | `references/paqad-docs-map.md`, `references/template-markers.md`, `scripts/find_related.py`, `scripts/detect_placeholder.py` |
+| `ground-in-project` | Step 2: read docs in the order in section 7; find related areas; report coverage and template sections | `today` block | `references/paqad-docs-map.md`, `references/template-markers.md`, `references/connect-repository.md` (shared), `scripts/check_onboarded.py` (shared), `scripts/find_related.py`, `scripts/detect_placeholder.py` |
 | `shape-idea` | Step 3: playback, expert lenses, options, smaller first step, recommendation | `playback` block | `references/playback-template.md`, `references/challenge-guide.md`, `references/expert-lenses.md` |
 | `decide-together` | Step 4 | `decisions` block | `references/decision-template.md` |
 | `write-tickets` | Step 5 drafting | `ticket-set.json` and a readable preview | `assets/epic-template.md`, `assets/ticket-template.md`, `assets/ticket-set.schema.json`, `references/writing-rules.md`, `references/plain-language.md` |
 | `check-tickets` | Step 5 checking; duplicate search in the tracker | `readiness` block | `scripts/check_prose.py`, `scripts/check_ticket_set.py`, `references/review-checklist.md` |
 | `post-tickets` | Step 6: final preview, approval, create in order, record receipts, reconcile, read back, report | `posted` block | `references/post-procedure.md`, `references/tracker-profiles/`, `scripts/plan_posting.py`, `scripts/check_readback.py`, `scripts/export_csv.py` |
-| `refine-ticket` | Section 4C: read, diagnose, propose field-by-field change, conflict check, apply, read back | `existing` and `changes` blocks; updated tickets | `references/refine-procedure.md`, `references/rich-content.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles/`, `scripts/diff_ticket.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
-| `size-work` | Section 4D: team scale, comparable finished work, size with drivers and confidence, split advice | `sizing` block | `references/sizing-guide.md`, `references/tracker-profiles/`, `scripts/compare_sizes.py` |
+| `refine-ticket` | Section 4C: read, diagnose, propose field-by-field change, conflict check, apply, read back | `existing` and `changes` blocks; updated tickets | `references/refine-procedure.md`, `references/rich-content.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles/`, `references/connect-repository.md` (shared), `scripts/diff_ticket.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
+| `size-work` | Section 4D: team scale, comparable finished work, size with drivers and confidence, split advice | `sizing` block | `references/sizing-guide.md`, `references/tracker-profiles/`, `references/connect-repository.md` (shared), `scripts/compare_sizes.py` |
 | `plan-sprint` | Section 4E: target sprint, capacity, readiness filter, proposal, apply on approval | `sprint_plan` block | `references/sprint-procedure.md`, `references/tracker-profiles/`, `scripts/fit_sprint.py`, `scripts/check_readback.py` |
 
 ### 6.3 Shared material and the build step
 
-- **PLG-9.** Material that several skills need (for example `plain-language.md`, `tracker-profiles/`, `voice.md` (which carries section 3A and is imported by every skill), `consulting.md`, `paqad-docs-map.md`, `template-markers.md`, `find_related.py`, `detect_placeholder.py` and the shared script module) MUST live once under `shared/` and be copied into each skill that declares it at build time.
+- **PLG-9.** Material that several skills need (for example `plain-language.md`, `tracker-profiles/`, `voice.md` (which carries section 3A and is imported by every skill), `consulting.md`, `paqad-docs-map.md`, `template-markers.md`, `connect-repository.md`, `find_related.py`, `detect_placeholder.py`, `check_onboarded.py` and the shared script module) MUST live once under `shared/` and be copied into each skill that declares it at build time.
 - **PLG-10.** Each skill MUST declare its shared imports in `build/skills.yml`. The build fails if a skill refers to a shared file it didn't declare.
 
 ### 6.4 The discovery record
 
 The record is the plugin's memory and its main control. Web chat has no hooks and no server, so the record is the only state that exists. Its write rules are ported from 0.2.0 (Appendix C).
 
-- **REC-1.** One record per run, created from `assets/record-template.md`. Blocks: `run` (run ID such as `DR-20261005-7K2Q`, revision, current step, last updated), `setup`, `idea`, `glossary`, `today`, `playback`, `decisions`, `assumptions` (defaults the user accepted under CON-1), `outcome` (CON-8 type, reason, next action), `ticket_set_ref`, `readiness`, `posted`. Refining, sizing and sprint work use the same record with `run.mode` set to `refine`, `size` or `plan` and the blocks they need: `existing` (ticket snapshots with last-updated times), `changes` (proposed change set and its digest), `sizing` (scale, comparables, suggestions), `sprint_plan` (sprint, capacity, chosen, stretch, left out, digest).
+- **REC-1.** One record per run, created from `assets/record-template.md`. Blocks: `run` (run ID such as `DR-20261005-7K2Q`, revision, current step, last updated), `setup` (tracker setup plus the chosen repository and its state, ready or partly ready), `idea`, `glossary`, `today`, `playback`, `decisions`, `assumptions` (defaults the user accepted under CON-1), `outcome` (CON-8 type, reason, next action), `ticket_set_ref`, `readiness`, `posted`. Refining, sizing and sprint work use the same record with `run.mode` set to `refine`, `size` or `plan` and the blocks they need: `existing` (ticket snapshots with last-updated times), `changes` (proposed change set and its digest), `sizing` (scale, comparables, suggestions), `sprint_plan` (sprint, capacity, chosen, stretch, left out, digest).
 - **REC-2.** Where the host can create files, the record MUST be written as a file. At each step change the chat shows a one-line status (TALK-12); the full record summary is shown only when the user asks or on resume.
 - **REC-3.** Each step's exit condition MUST be checked against the record before moving on. Unfinished items are marked open, never deleted.
 - **REC-4.** Every change to the record MUST state the revision it expects, and a change against an older revision is refused. Going back increases the revision, marks dependent blocks stale using a fixed dependency map, and keeps the rest.
@@ -292,17 +296,18 @@ If testing shows steps being skipped often, a small hosted server is the escalat
 
 The plugin relies on the paqad-onboarded layout as a contract. These paths were confirmed in a real onboarded repository.
 
-**GRD-1. Onboarded check.** The repository counts as onboarded when both exist:
-- `docs/instructions/registries/modules.md`
-- at least one `docs/modules/<module>/index/summary.md`
+**GRD-1. Onboarded check.** The check reads the modules list, `docs/instructions/registries/modules.md`, and the area summaries, `docs/modules/<area>/index/summary.md` for each folder under `docs/modules/` whose name does not start with a dot. A file that is empty, holds only whitespace or cannot be read counts as missing. The repository is in one of three states (D-20):
+- **Ready:** the modules list and at least one area summary. The plugin carries on.
+- **Partly ready:** at least one area summary and no modules list. The plugin carries on, says once, in the first reply that uses that repository: "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown.", then names the areas without a summary as unknown in plain words. Related areas are ranked from the folder names and summaries. Nothing is invented for an unknown area.
+- **Not set up:** no area summary, whatever else exists (`docs/instructions` alone holds no business content). Stop with: "This repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then come back." Nothing is drafted or answered.
 
-If either is missing, stop with: "This repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then come back."
+`check_onboarded.py` exits 0 for ready and partly ready and 1 for not set up.
 
 **GRD-2. Reading order.** Read only what the idea needs:
 
 | Order | Path | Why |
 |---|---|---|
-| 1 | `docs/instructions/registries/modules.md` | The map: every module, its plain name, layer and features. |
+| 1 | `docs/instructions/registries/modules.md` | The map: every module, its plain name, layer and features. With no modules list (partly ready), the map is built from the `docs/modules` folder names and their summaries. |
 | 2 | `docs/modules/<module>/index/summary.md` for each candidate | What the area is for. |
 | 3 | `docs/modules/<module>/features/<feature>/business.md` | Roles, flows, business rules. The main grounding source. |
 | 4 | `docs/site-map/` (if present: `app-map.yaml`, `journeys/`) | Screens, navigation and journeys. |
@@ -312,12 +317,22 @@ If either is missing, stop with: "This repository isn't set up for this yet. Ask
 
 Never read: `.paqad/` runtime state, `docs/instructions/rules/`, secrets, or environment files.
 
-**GRD-3. Getting the documents.** By capability (PLG-7):
+**GRD-3. Getting the documents.** By capability (PLG-7), from one shared rule, `shared/references/connect-repository.md`:
 - If a tool can read repository files on demand, read the paths above with it.
 - Otherwise ask the user to attach the repository or the `docs/` folder to the chat or project, or to upload `docs/` as files or a zip. Ask for the smallest set the map allows when the whole folder is large (U-5).
 - Work only from what was read, and name anything needed but not available.
 
-Known host behaviour (for `hosts/*.md` and support, not skill text): claude.ai reads a repository the user adds to a chat, or files picked into a private project, with no documented on-demand fetch and no documented size limit beyond what fits in context; Team and Enterprise admins must enable GitHub (C16). ChatGPT's GitHub app fetches on demand, read-only, and may be unavailable in standard chat on some plans (O15). Codex usually works inside a local checkout, so it reads `docs/` from disk; the plugin MUST still only read (no edits to the repository).
+Choosing the repository (D-19):
+- **Already available.** When a repository or its `docs/` folder is already attached, uploaded or readable from the working folder, use it and ask nothing about which repository. When more than one is attached, the choice list below covers the attached ones only.
+- **Exactly one reachable.** When nothing is attached and a tool lists exactly one repository the user can reach, use it without asking and lead with the answer. When the tool cannot read files, ask to attach that named repository.
+- **Several reachable.** Show one short choice list of all of them, most recently active first (last push or update as the tool shows it; the tool's own order when it shows no activity time, and for ties). Each row is the repository name and exactly one mark: ready, partly ready, not set up or not checked. The marks come from the GRD-1 check, run only on the repositories shown; a repository whose files cannot be read is not checked, never ready. Exactly one row is recommended with a one-clause reason (TALK-8): the most recently active ready one, else the most recently active partly ready one, else the most recently active not checked one; a not set up repository is never recommended. Use the host's choice prompt when it fits every repository, otherwise a short table in the reply. The question stays under about 40 words plus its choices (TALK-1), and nothing else is read before the user chooses.
+- **Nothing to list.** With no listing tool, or none listed, ask to attach or upload as above. Nothing is invented.
+- **Every reachable repository not set up.** No choice list: reply with the GRD-1 onboarding sentence and stop.
+- **Chosen repository not set up.** The GRD-1 onboarding sentence, then one short line offering the repositories marked ready or partly ready, ready first. Nothing is drafted or answered from it.
+- **Remembered.** In a run, the step that chose it records `setup.repository` and `setup.repository_state` (get-connected at step 0, or the first docs-reading step of a refine or size run). For questions outside a run, the choice holds for the rest of the conversation. Later questions, later steps and a resumed run ask nothing about the repository; on resume, an unreadable recorded repository is asked for again by name, not through a new list.
+- **Switch only on request.** The plugin never switches on its own. A requested repository that is ready or partly ready is used from then on; in a run, `setup` is patched and step 2 onward is redone as a go-back, said in one line. A requested repository that is not set up gets the onboarding sentence and the current one stays.
+
+Known host behaviour (for `hosts/*.md` and support, not skill text): claude.ai reads a repository the user adds to a chat, or files picked into a private project, with no documented on-demand fetch and no documented size limit beyond what fits in context; Team and Enterprise admins must enable GitHub (C16). ChatGPT's GitHub app fetches on demand, read-only, and may be unavailable in standard chat on some plans (O15). Codex usually works inside a local checkout, so it reads `docs/` from disk; the plugin MUST still only read (no edits to the repository). Whether a host offers a tool that lists the repositories a user can reach, with an activity time for each, is unverified (U-18).
 
 **GRD-4. Template and thin docs.** `scripts/detect_placeholder.py` MUST check each section of a document, not the document as a whole, and mark a section unreliable when it still holds onboarding template text. Markers live in `shared/references/template-markers.md`, taken from both paqad template generations:
 - Current (`module-scaffold/business.md.hbs`): "Describe the business purpose of the", "Document the personas that interact with", "Capture the main user journeys for", "List the rules and invariants that must hold", "Record notifications, jobs, integrations", "Describe user-visible failures and recovery guidance", "Add domain terms that matter to stakeholders".
@@ -546,7 +561,7 @@ Use the fixture repository and invented content only.
 
 | ID | Scenario | Must observe |
 |---|---|---|
-| AC-1 | Repo isn't onboarded | Stops at step 0 with the onboarding message; nothing drafted |
+| AC-1 | Repo has no module summaries (not set up) | Stops at step 0 with the onboarding message; nothing drafted |
 | AC-2 | Tracker connected without write | Stops before drafting; says what is missing in plain words; export offered |
 | AC-3 | First message gives goal, users and success | Playback starts with the goal; none of those asked again |
 | AC-4 | Only an activity is given ("add an export button") | Asks what success looks like, once |
@@ -594,6 +609,14 @@ Use the fixture repository and invented content only.
 | AC-46 | A question whose documents contain code names and file paths | Reply uses plain business words; paths appear only on the sources line |
 | AC-47 | Ticket set of two epics and six tickets ready for approval | Compact table in chat plus a full preview file; full text in chat only if asked |
 | AC-48 | Any step change | One-line status, not a summary paragraph |
+| AC-49 | A repository is attached and the user asks "What is this project?" | An overview table of areas with one line each, then one Sources line; no question about which repository |
+| AC-50 | Nothing attached; the listing tool shows exactly one repository | That repository is used without asking; the answer comes first |
+| AC-51 | Nothing attached; four reachable repositories (one ready, one partly ready, one not set up, one that cannot be read) | One short choice list, most recently active first, each marked ready, partly ready, not set up or not checked; the ready one recommended with a one-clause reason |
+| AC-52 | No listing tool and nothing attached | Asks to attach the repository or the docs folder, or upload docs; nothing invented |
+| AC-53 | The user picks a repository that is not set up | The exact onboarding sentence, then an offer of the repositories marked ready or partly ready; nothing drafted |
+| AC-54 | A later question in the same conversation, a resumed run, then "switch to the other repository" | No repository question for the later question or the resumed run; on the request the other repository is checked and used, a run saying in one line what is redone |
+| AC-55 | A repository with area summaries but no modules list | Carries on; says once in plain words that the list of areas is missing; names areas without a summary as unknown; invents nothing; answer first with one Sources line |
+| AC-56 | A repository with only `docs/instructions`, or a modules list with no summaries, or only empty summaries | The exact onboarding sentence; nothing drafted |
 
 ---
 
@@ -625,6 +648,8 @@ Use the fixture repository and invented content only.
 | OD-13 | Estimating | In scope as labelled advice (D-16) |
 | OD-14 | Sprint planning | In scope as a proposal plus approved assignment to an existing sprint (D-17) |
 | OD-15 | How the plugin talks | Short, plain, table-first, top priority (D-18) |
+| OD-16 | Repository choice | Show all reachable repositories, most recently active first, each marked, one recommended (D-19) |
+| OD-17 | Partly ready repositories | Area summaries without a modules list are partly ready; the plugin carries on and names unknown areas (D-20) |
 
 ## 16. Unknowns to prove in S0
 
@@ -647,6 +672,7 @@ Use the fixture repository and invented content only.
 | U-15 | Can sprint IDs, the size field and past sprint totals be found through search and field metadata alone, with no board tools? | Ask the user for the sprint name and capacity; skip derived capacity |
 | U-16 | Does an edit in Jira's document format keep images and panels intact, as the live schema suggests, or does it drop them, as one community report says? | Never replace rich descriptions; always append a marked section or comment (EDT-7) |
 | U-17 | Does the ChatGPT Atlassian app expose edit and comment actions as well as create? | Refine and sprint changes on ChatGPT fall back to a list to apply by hand |
+| U-18 | Which hosts expose a tool that lists the repositories a user can reach, and does it show when each was last active? | Ask to attach the repository, and keep the tool's own order |
 
 ---
 

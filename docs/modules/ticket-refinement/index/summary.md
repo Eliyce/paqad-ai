@@ -7,7 +7,7 @@ Improves existing tracker tickets field by field and writes only an approved cha
 | Layer | user-facing |
 | Confidence | high |
 | Entry skill | `refine-ticket` |
-| Depends on | [discovery-record](../../discovery-record/index/summary.md), [tracker-checks](../../tracker-checks/index/summary.md), [conversation-standards](../../conversation-standards/index/summary.md) |
+| Depends on | [discovery-record](../../discovery-record/index/summary.md), [project-grounding](../../project-grounding/index/summary.md), [tracker-checks](../../tracker-checks/index/summary.md), [conversation-standards](../../conversation-standards/index/summary.md) |
 | Used by | none (no module in the map depends on it) |
 
 ## Features
