@@ -54,7 +54,7 @@ class BumpVersionTest(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.source = os.path.join(self.tmp, "source")
-        for sub in ("skills", "shared", "build"):
+        for sub in ("skills", "shared", "build", "publish", "docs"):
             shutil.copytree(os.path.join(REPO_ROOT, sub), os.path.join(self.source, sub))
         self.changeset_dir = os.path.join(self.source, ".changeset")
         os.makedirs(self.changeset_dir)
@@ -78,20 +78,20 @@ class BumpVersionTest(unittest.TestCase):
     def test_patch_bump(self):
         self._write_changeset("patch")
         result = self._run()
-        self.assertEqual(result["previous"], "0.0.0")
-        self.assertEqual(result["next"], "0.0.1")
-        self.assertEqual(bump_version.read_version(self.skills_yml), "0.0.1")
-        self.assertEqual(self._plugin_version(), "0.0.1")
+        self.assertEqual(result["previous"], "3.2.0")
+        self.assertEqual(result["next"], "3.2.1")
+        self.assertEqual(bump_version.read_version(self.skills_yml), "3.2.1")
+        self.assertEqual(self._plugin_version(), "3.2.1")
 
     def test_minor_bump(self):
         self._write_changeset("minor")
-        self.assertEqual(self._run()["next"], "0.1.0")
-        self.assertEqual(self._plugin_version(), "0.1.0")
+        self.assertEqual(self._run()["next"], "3.3.0")
+        self.assertEqual(self._plugin_version(), "3.3.0")
 
     def test_major_bump(self):
         self._write_changeset("major")
-        self.assertEqual(self._run()["next"], "1.0.0")
-        self.assertEqual(self._plugin_version(), "1.0.0")
+        self.assertEqual(self._run()["next"], "4.0.0")
+        self.assertEqual(self._plugin_version(), "4.0.0")
 
     def test_highest_bump_wins(self):
         self._write_changeset("patch", name="a")
@@ -131,7 +131,7 @@ class BumpVersionTest(unittest.TestCase):
         with open(self.skills_yml, "rb") as handle:
             before = handle.read()
         result = self._run(dry_run=True)
-        self.assertEqual(result["next"], "1.0.0")
+        self.assertEqual(result["next"], "4.0.0")
         with open(self.skills_yml, "rb") as handle:
             self.assertEqual(handle.read(), before)
         self.assertFalse(os.path.isdir(self.dist), "dry-run must not build the dist")

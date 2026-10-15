@@ -241,6 +241,7 @@ class HousePromptTest(unittest.TestCase):
             os.path.join(REPO_ROOT, "tests"),
             os.path.join(REPO_ROOT, ".github"),
             os.path.join(REPO_ROOT, ".changeset"),
+            os.path.join(REPO_ROOT, "publish"),
         ]
         offenders = []
         for root in roots:

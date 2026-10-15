@@ -1,10 +1,13 @@
 # paqad-product-discovery
 
-Source for the paqad-product-discovery plugin: a set of skills that help shape product
-ideas into well-formed tickets, grounded in the target repository. The plugin works on any
+Source for the paqad-product-discovery plugin: a set of skills that help ask what a product
+does, shape ideas into user-story tickets, refine tickets, size work and plan sprints, grounded in
+the target repository's docs and code. The plugin works on any
 repository at the best evidence level it can reach (from project docs, from docs and code, or
 from code only); it never refuses a repository that has readable code. This repository is the
 plugin source and build; it is not itself a product repo the plugin answers questions about.
+
+Current version: 3.2.0 (set in `build/skills.yml`).
 
 ## What the plugin reads, says and links to
 
@@ -16,8 +19,8 @@ So the behaviour is disclosed and never a surprise under directory policy:
 - When a repository is not fully set up with paqad, the plugin may show one informational upgrade
   nudge, at most once per conversation or when you ask why an answer is thin. It links to an
   information page only, never to a purchase page. The link carries only a static campaign tag
-  (`src=discovery-plugin`) with no user, repository or question data. See
-  [docs/privacy-policy.md](docs/privacy-policy.md).
+  (`src=discovery-plugin`) with no user, repository or question data. The link is exactly
+  `https://paqad.ai/?src=discovery-plugin`. See [docs/privacy-policy.md](docs/privacy-policy.md).
 - The plugin only reads: it reads the project documents and the code by names, honours a never-read
   list (secrets, environment files, `.paqad/` contents, `docs/instructions/rules/`, `.git/`,
   `vendor/`, `node_modules/`), and never edits, runs or installs anything.
@@ -92,7 +95,10 @@ Published name shown first, source folder in parentheses.
 - `skills/<skill-name>/` - each skill source (`SKILL.md` plus any `references/`, `assets/`,
   `scripts/`).
 - `build/skills.yml` - the single source of truth for name, version, description, license,
-  display text, and each skill's declared shared imports.
+  display text, the directory listing values (author, links, keywords), and each skill's declared
+  shared imports.
+- `publish/claude/` - the end-user `README.md` and the `LICENSE` that the build copies into the
+  Claude branch only. `docs/privacy-policy.md` is copied there too, as `PRIVACY.md`.
 - `build/build.py` - assembles `dist/` from that single source and generates every manifest.
 - `hosts/{claude,chatgpt,codex}.md` - per-host manual install notes and the recording harness
   for the cross-host unknowns (U-1..U-17). Not shipped in the plugin.
@@ -122,6 +128,20 @@ tree produce byte-identical `dist/` output. `dist/` is gitignored built output.
 ```
 python3 -m unittest discover -s tests/scripts
 ```
+
+## Publishing
+
+The Claude branch, `dist/hosts/claude`, is the whole public plugin repo
+`Eliyce/paqad-product-discovery-plugin`: the marketplace, `README.md`, `LICENSE`, `PRIVACY.md` and
+the plugin at `plugins/paqad-product-discovery`. Validate it with the pinned CLI:
+
+```
+npx -y @anthropic-ai/claude-code@2.1.300 plugin validate --strict dist/hosts/claude
+npx -y @anthropic-ai/claude-code@2.1.300 plugin validate --strict dist/hosts/claude/plugins/paqad-product-discovery
+```
+
+`release.yml` (CI-16) pushes that branch to the public repo when `ENABLE_PUBLIC_RELEASE` and
+`PUBLIC_DISTRIBUTION_REPO` are set. The directory submission steps are in `hosts/claude.md`.
 
 ## Host verification
 

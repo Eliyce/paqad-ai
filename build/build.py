@@ -2,9 +2,11 @@
 """Assemble dist/ for the paqad-product-discovery plugin from a single source of truth.
 
 Standard library only (Python 3.9+). No network. Reads name, version, description, license and
-display text from build/skills.yml and from nowhere else, copies each skill plus its declared
-shared imports into dist/, and generates all four manifests from those values so no two
-manifests can disagree (PLG-11).
+display text, plus the directory listing scalars, from build/skills.yml and from nowhere else,
+copies each skill plus its declared shared imports into dist/, and generates all four manifests
+from those values so no two manifests can disagree (PLG-11). The Claude branch alone also gets
+listing manifests (author, homepage, repository, keywords, display name and the documentation,
+support and privacy links) plus the publish files README.md, LICENSE and PRIVACY.md (PLG-12).
 
 Guarantees:
   - Fails with a clear error naming the offending import when a SKILL.md references a shared
@@ -30,6 +32,27 @@ OPENAI_EXTENSION_KEY = "com.openai"
 
 REQUIRED_SCALARS = ("name", "version", "description", "license", "display_name")
 
+# The directory listing scalars (PLG-11). Each must be non-empty; there is no silent default.
+LISTING_SCALARS = (
+    "author",
+    "author_email",
+    "repository",
+    "homepage",
+    "documentation_url",
+    "support_url",
+    "privacy_policy_url",
+    "keywords",
+)
+
+# Listing scalars that are links and must use https.
+LISTING_URL_SCALARS = (
+    "repository",
+    "homepage",
+    "documentation_url",
+    "support_url",
+    "privacy_policy_url",
+)
+
 # The plugins-directory convention, defined once (a plugin lives at plugins/<name>) so the two
 # places that need it (the marketplace "source" string and the on-disk plugin directory) can
 # never drift apart.
@@ -45,13 +68,15 @@ HOSTS_DIR = "hosts"
 # walks skills/ and shared/, not build/, so naming the hosts here is allowed.
 #
 # Each entry maps a relative manifest path (with {name} filled from skills.yml) to which generated
-# manifest fills it: "marketplace" and "plugin" are the .claude-plugin layout both the Claude and
-# ChatGPT branches read; "openai" is the OpenAI primary manifest (extensions.com.openai) the Codex
-# branch reads. No branch emits agents/, hooks/, commands/, bin/, .mcp.json, mcp.json or .app.json.
+# manifest fills it: "marketplace" and "plugin" are the .claude-plugin layout the ChatGPT branch
+# reads; "claude_marketplace" and "claude_plugin" are the same manifests plus the documented
+# directory listing fields, for the Claude branch only; "openai" is the OpenAI primary manifest
+# (extensions.com.openai) the Codex branch reads. No branch emits agents/, hooks/, commands/, bin/,
+# .mcp.json, mcp.json or .app.json.
 HOST_BRANCHES = {
     "claude": [
-        (".claude-plugin/marketplace.json", "marketplace"),
-        ("{plugins}/{name}/.claude-plugin/plugin.json", "plugin"),
+        (".claude-plugin/marketplace.json", "claude_marketplace"),
+        ("{plugins}/{name}/.claude-plugin/plugin.json", "claude_plugin"),
     ],
     "chatgpt": [
         (".claude-plugin/marketplace.json", "marketplace"),
@@ -62,6 +87,20 @@ HOST_BRANCHES = {
         ("{plugins}/{name}/plugin.json", "openai"),
     ],
 }
+
+# Per-host publish files (PLG-12): each source file, relative to the source root, is copied to
+# every listed target inside dist/hosts/<host>/. Only the Claude branch has any; it is the root of
+# the public directory repo, so it needs a README, a LICENSE and the privacy policy.
+HOST_PUBLISH_FILES = {
+    "claude": [
+        ("publish/claude/README.md", ("README.md", "{plugins}/{name}/README.md")),
+        ("publish/claude/LICENSE", ("LICENSE", "{plugins}/{name}/LICENSE")),
+        ("docs/privacy-policy.md", ("PRIVACY.md",)),
+    ],
+}
+
+# File names copy_tree never copies, so OS cruft never reaches dist/.
+SKIPPED_FILE_NAMES = (".DS_Store",)
 
 
 def plugin_rel_path(name):
@@ -185,12 +224,36 @@ def rewrite_skill_md(text, name_map):
     return pattern.sub(lambda m: name_map[m.group(0)], text)
 
 
+def parse_keywords(text):
+    """Split the comma-separated keywords scalar into a list, dropping empty entries."""
+    keywords = [part.strip() for part in text.split(",") if part.strip()]
+    if not keywords:
+        raise BuildError("skills.yml 'keywords' has no keyword after splitting on commas")
+    return keywords
+
+
+def check_listing_scalars(config):
+    """Require every listing scalar (no default) and https on every listing link."""
+    for field in LISTING_SCALARS:
+        if not config.get(field):
+            raise BuildError("skills.yml is missing a non-empty '{0}'".format(field))
+    for field in LISTING_URL_SCALARS:
+        if not config[field].startswith("https://"):
+            raise BuildError(
+                "skills.yml '{0}' must start with https://, got {1!r}".format(
+                    field, config[field]
+                )
+            )
+
+
 def load_config(skills_yml_path):
     with open(skills_yml_path, "r", encoding="utf-8") as handle:
         config = parse_skills_yml(handle.read())
     for field in REQUIRED_SCALARS:
         if not config.get(field):
             raise BuildError("skills.yml is missing a non-empty '{0}'".format(field))
+    check_listing_scalars(config)
+    config["keywords"] = parse_keywords(config["keywords"])
     if not config.get("skills"):
         raise BuildError("skills.yml declares no skills")
     return config
@@ -228,8 +291,8 @@ def undeclared_shared_imports(skill_md_text, declared, shared_files):
 def copy_tree(src, dst):
     """Deterministically copy a directory tree, creating parents as needed.
 
-    Excludes __pycache__ directories and *.pyc files so build cruft never reaches dist/ and
-    cannot threaten byte-identical repeat builds.
+    Excludes __pycache__ directories, *.pyc files and .DS_Store files so build and OS cruft never
+    reaches dist/ and cannot threaten byte-identical repeat builds.
     """
     for dirpath, dirnames, filenames in os.walk(src):
         # Prune bytecode caches in place so os.walk does not descend into or recreate them.
@@ -238,7 +301,7 @@ def copy_tree(src, dst):
         target_dir = dst if rel == "." else os.path.join(dst, rel)
         os.makedirs(target_dir, exist_ok=True)
         for name in sorted(filenames):
-            if name.endswith(".pyc"):
+            if name.endswith(".pyc") or name in SKIPPED_FILE_NAMES:
                 continue
             shutil.copyfile(os.path.join(dirpath, name), os.path.join(target_dir, name))
 
@@ -263,7 +326,7 @@ def build_manifests(config):
 
     marketplace = {
         "name": name,
-        "owner": {"name": config.get("author", "Paqad")},
+        "owner": {"name": config["author"]},
         "plugins": [
             {
                 "name": name,
@@ -294,23 +357,64 @@ def build_manifests(config):
     return marketplace, plugin_manifest, openai_manifest
 
 
+def build_claude_listing_manifests(config):
+    """Return (marketplace, plugin_manifest) for the Claude branch: the base manifests plus only
+    the documented directory listing fields, every value read from skills.yml (PLG-11)."""
+    base_marketplace, base_plugin, _ = build_manifests(config)
+    author = {"name": config["author"], "email": config["author_email"]}
+    plugin_manifest = dict(base_plugin)
+    plugin_manifest.update(
+        {
+            "author": author,
+            "homepage": config["homepage"],
+            "repository": config["repository"],
+            "keywords": list(config["keywords"]),
+            "displayName": config["display_name"],
+            "documentationUrl": config["documentation_url"],
+            "supportUrl": config["support_url"],
+            "privacyPolicyUrl": config["privacy_policy_url"],
+        }
+    )
+    marketplace = dict(base_marketplace)
+    marketplace["owner"] = dict(author)
+    marketplace["metadata"] = {"description": config["description"]}
+    return marketplace, plugin_manifest
+
+
 # --------------------------------------------------------------------------- host branches
 
 
-def emit_host_branches(dist_root, config, combined_plugin_dir):
+def copy_publish_files(source_root, branch_root, host, name):
+    """Copy the host's publish files into its branch; a missing source fails the build."""
+    for source_rel, targets in HOST_PUBLISH_FILES.get(host, []):
+        source = os.path.join(source_root, *source_rel.split("/"))
+        if not os.path.isfile(source):
+            raise BuildError("publish file not found: {0}".format(source_rel))
+        for target_template in targets:
+            target_rel = target_template.format(plugins=PLUGINS_DIR, name=name)
+            target = os.path.join(branch_root, *target_rel.split("/"))
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copyfile(source, target)
+
+
+def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
     """Emit the per-host branches under dist/hosts/<host>/ from the one source (PLG-12).
 
     Reuses build_manifests() so every branch's manifests are generated from the same name, version
     and description as the combined dist (PLG-11), and reuses copy_tree() to copy the already
     assembled combined skills tree into each branch so every branch's skills tree is byte-identical
-    to the combined dist. The combined dist/ root is left untouched.
+    to the combined dist. The combined dist/ root is left untouched. Each branch then gets its
+    host's publish files (HOST_PUBLISH_FILES), so far only the Claude branch.
     """
     name = config["name"]
     marketplace, plugin_manifest, openai_manifest = build_manifests(config)
+    claude_marketplace, claude_plugin = build_claude_listing_manifests(config)
     manifests = {
         "marketplace": marketplace,
         "plugin": plugin_manifest,
         "openai": openai_manifest,
+        "claude_marketplace": claude_marketplace,
+        "claude_plugin": claude_plugin,
     }
     combined_skills = os.path.join(combined_plugin_dir, "skills")
     for host in sorted(HOST_BRANCHES):
@@ -320,6 +424,7 @@ def emit_host_branches(dist_root, config, combined_plugin_dir):
         for rel_template, which in HOST_BRANCHES[host]:
             rel = rel_template.format(plugins=PLUGINS_DIR, name=name)
             write_json(os.path.join(branch_root, *rel.split("/")), manifests[which])
+        copy_publish_files(source_root, branch_root, host, name)
 
 
 # --------------------------------------------------------------------------- build
@@ -395,7 +500,7 @@ def build(source_root, dist_root):
     write_json(os.path.join(plugin_dir, "plugin.json"), openai_manifest)
 
     # Per-host branches under dist/hosts/ (PLG-12). The combined dist/ root above is unchanged.
-    emit_host_branches(dist_root, config, plugin_dir)
+    emit_host_branches(source_root, dist_root, config, plugin_dir)
 
     return dist_root
 

@@ -142,7 +142,7 @@ class DeclarersAndBuildTest(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         source = os.path.join(tmp, "source")
-        for sub in ("skills", "shared", "build"):
+        for sub in ("skills", "shared", "build", "publish", "docs"):
             shutil.copytree(os.path.join(REPO_ROOT, sub), os.path.join(source, sub))
         with open(os.path.join(source, "skills", "plan-sprint", "SKILL.md"), "a",
                   encoding="utf-8") as handle:

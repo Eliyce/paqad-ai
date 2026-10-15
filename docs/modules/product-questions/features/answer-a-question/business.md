@@ -9,7 +9,7 @@ A business user asks what the product does today ("can customers pause a subscri
 | Role | What they do here |
 |---|---|
 | Business user (product owner, analyst, support lead) | Asks a question about current product behaviour and reads the answer |
-| Engineering team | Invited by the optional informational nudge to install or finish paqad when the docs are missing or incomplete; the plugin does not onboard |
+| Engineering team | Told by the optional informational nudge that paqad project docs would give fuller answers, or which areas still lack them, when the docs are missing or incomplete; the nudge never offers a purchase or an install; the plugin does not onboard |
 
 ## User Flows
 

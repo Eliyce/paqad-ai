@@ -1,7 +1,7 @@
 # paqad Product Discovery plugin: requirements (v3.2)
 
 **Product name:** `paqad-product-discovery` (plugin name). The coordinating skill is the source folder `product-discovery`, published to users as `paqad-discover`.
-**Status:** v3.2, 15 October 2026. Supersedes `paqad-ai-product-planning/18-idea-to-tickets-plugin-requirements.md` (v1). v2.1 added question answering, Codex as a v1 host, and the consulting stance (V-17 to V-19). v2.2 added refining existing tickets, sizing work and sprint planning (V-20 to V-23). v2.3 added the top-priority talking rules (V-24). v2.4 adds choosing the repository, a relaxed onboarded check and wider question triggers (V-25). v2.4 also adds evidence rules for undocumented areas and an automatic code check (V-26). v3.0 adds generic mode: the plugin works on any repository, three evidence levels replace the stop gate, code is the baseline for what exists, every answer carries a visible level and one source line, and an informational upgrade nudge replaces the hard stop (V-27). v3.1 gives every skill a user-visible `paqad-` published name through a build-time map (source folders are unchanged, approach B) and adds a sixth entry skill, the `paqad` front door, that routes the five intents to the right entry skill (V-28). v3.2 applies business-user test feedback: every choice through the host's choice prompt, the question last after the sources, no pause to ask whether to carry on, the record kept silently with a resume file only on request, and tickets as user stories with Given/When/Then acceptance criteria (V-29). Note (section 0): the hard not-set-up stop is retired; the only stop is nothing readable at all.
+**Status:** v3.2, 15 October 2026. Supersedes `paqad-ai-product-planning/18-idea-to-tickets-plugin-requirements.md` (v1). v2.1 added question answering, Codex as a v1 host, and the consulting stance (V-17 to V-19). v2.2 added refining existing tickets, sizing work and sprint planning (V-20 to V-23). v2.3 added the top-priority talking rules (V-24). v2.4 adds choosing the repository, a relaxed onboarded check and wider question triggers (V-25). v2.4 also adds evidence rules for undocumented areas and an automatic code check (V-26). v3.0 adds generic mode: the plugin works on any repository, three evidence levels replace the stop gate, code is the baseline for what exists, every answer carries a visible level and one source line, and an informational upgrade nudge replaces the hard stop (V-27). v3.1 gives every skill a user-visible `paqad-` published name through a build-time map (source folders are unchanged, approach B) and adds a sixth entry skill, the `paqad` front door, that routes the five intents to the right entry skill (V-28). v3.2 applies business-user test feedback: every choice through the host's choice prompt, the question last after the sources, no pause to ask whether to carry on, the record kept silently with a resume file only on request, and tickets as user stories with Given/When/Then acceptance criteria (V-29). Release 3.2.0 (15 October 2026) makes the Claude branch ready for the Claude plugin directory: the plugin version is 3.2.0, and the Claude branch carries the directory listing fields, a README, a LICENSE and the privacy policy, published from the public repo `Eliyce/paqad-product-discovery-plugin` (OD-22). Note (section 0): the hard not-set-up stop is retired; the only stop is nothing readable at all.
 **Owner:** Haider.
 **How v2 was made:** v1 was treated as an expert proposal and run through a paqad Discovery (run `idea-to-tickets-plugin-01M45JKFJJ7CAY5GZQYXNWAVAN`). Every load-bearing fact was rechecked against live documentation, the live Atlassian connector, a real paqad-onboarded repository and the earlier `paqad-ticket-refinement` 0.2.0 plugin. Section 0 lists what changed and why.
 
@@ -391,7 +391,7 @@ Example: "Loyalty points are not documented. The code suggests members can earn 
 
 **GRD-14. The source line (GM-3).** Every answer MUST carry exactly one short source line, within the TALK-1 budget and in TALK-6 plain words: "paqad, from project docs" for project-docs, "paqad, from docs and code" for docs-and-code, and "paqad, from code only" for code-only. It is provenance, never a sales line.
 
-**GRD-15. The upgrade nudge (GM-4).** The nudge is shown only when the user asks why an answer is thin, or at most once per conversation after a weaker answer, never as a per-answer line. Its wording depends on the level (install paqad in code-only, finish setup for the named areas in docs-and-code). It links to an information page only and never to checkout, carries only a static campaign tag with no per-user, per-repository or per-answer identifier, and the tag is disclosed in the README and in `docs/privacy-policy.md`. It MUST NOT carry a per-answer sales line, any subscription or upgrade promotion, or any comparison against another product.
+**GRD-15. The upgrade nudge (GM-4).** The nudge is shown only when the user asks why an answer is thin, or at most once per conversation after a weaker answer, never as a per-answer line. Its wording depends on the level (in code-only, information that setting up paqad project docs would give fuller answers and where to read more; in docs-and-code, an offer to help finish setup for the named areas). It links to an information page only and never to checkout, carries only a static campaign tag with no per-user, per-repository or per-answer identifier, and the tag is disclosed in the README and in `docs/privacy-policy.md`. It MUST NOT carry a per-answer sales line, any subscription or upgrade promotion, or any comparison against another product.
 
 **GRD-16. The level flows, and the code-only finder (GM-5, GM-6).** The level is stored in `setup.evidence_level` as one of the three ids, each today entry keeps a per-entry provenance marker, the Sources line carries the doc path or the code folder, tickets carry Sources, and in code-only mode the size confidence is lowered and said. The code-only area finder works names first (folders, routes, page, action, model and test names), ranks areas from those names, opens up to about 15 files per answer, and asks the user to narrow to an area on a very large repository.
 
@@ -540,8 +540,10 @@ paqad-ai plugins/                     # this repository (source, private)
 ├─ skills/
 │  └─ <skill-name>/SKILL.md, references/, assets/, scripts/
 ├─ hosts/claude.md, chatgpt.md, codex.md  # human setup notes (PLG-7); not shipped
-├─ build/skills.yml                   # shared imports per skill (PLG-10)
+├─ build/skills.yml                   # shared imports per skill (PLG-10), listing scalars (PLG-11)
 ├─ build/build.py                     # assembles dist/
+├─ publish/claude/README.md, LICENSE  # Claude directory publish files, copied into dist/hosts/claude only
+├─ docs/privacy-policy.md             # the privacy policy, published as PRIVACY.md in the Claude branch
 ├─ tests/scripts/                     # unit tests for every skill script
 ├─ tests/evals/                       # conversation scenarios + fixtures
 │  ├─ fixture-repo/                   # small fictional paqad-onboarded repo, with template sections from both generations
@@ -556,10 +558,18 @@ dist/                                 # built output, pushed to the distribution
    ├─ .claude-plugin/plugin.json      # name, version, non-empty description, license
    ├─ plugin.json                     # OpenAI primary manifest, extensions.com.openai (O25)
    └─ skills/<skill-name>/…           # shared files already copied in
+
+dist/hosts/claude/                    # Claude branch (PLG-12), the root of the public directory repo
+├─ .claude-plugin/marketplace.json    # plus owner.email and metadata.description
+├─ README.md, LICENSE, PRIVACY.md     # from publish/claude/ and docs/privacy-policy.md
+└─ plugins/paqad-product-discovery/
+   ├─ .claude-plugin/plugin.json      # plus the directory listing fields (PLG-11)
+   ├─ README.md, LICENSE
+   └─ skills/<skill-name>/…
 ```
 
-- **PLG-11.** `build.py` MUST generate every manifest from one source of truth (name, version, description, licence, display text), so the manifests can never disagree. CI-8 fails on any difference.
-- **PLG-12.** If ChatGPT workspace import misreads a plugin that has both a marketplace file under `.claude-plugin/` and one under `.agents/` (U-2), the build emits per-host distribution branches from the same source instead.
+- **PLG-11.** `build.py` MUST generate every manifest from one source of truth (name, version, description, licence, display text), so the manifests can never disagree. CI-8 fails on any difference. The directory listing values are single-sourced the same way: `build/skills.yml` carries `author`, `author_email`, `repository`, `homepage`, `documentation_url`, `support_url`, `privacy_policy_url` and `keywords` (one comma-separated scalar). Each is required, with no default, and every link must use https; a missing or bad value fails the build.
+- **PLG-12.** If ChatGPT workspace import misreads a plugin that has both a marketplace file under `.claude-plugin/` and one under `.agents/` (U-2), the build emits per-host distribution branches from the same source instead. The Claude branch alone carries the directory listing fields (plugin.json: `author`, `homepage`, `repository`, `keywords`, `displayName`, `documentationUrl`, `supportUrl`, `privacyPolicyUrl`; marketplace.json: `owner.email`, `metadata.description`) and the publish files `README.md`, `LICENSE` and `PRIVACY.md`. The combined dist root, the ChatGPT branch and the Codex branch keep their manifest shape.
 
 ---
 
@@ -577,7 +587,7 @@ dist/                                 # built output, pushed to the distribution
 | CI-6 | Secrets | Secret scan finds anything |
 | CI-7 | Script tests | A unit test fails on Python 3.9 or the current Python; branch coverage of scripts under 90%; any import outside the standard library |
 | CI-8 | Build | `build.py` fails, an undeclared shared import exists, or two builds differ |
-| CI-9 | Official validators | `claude plugin validate <path>` (the pinned CLI exposes no `--strict` flag, so plain validate is used and still fails on any validator error) or `skills-ref validate` fails on `dist/` |
+| CI-9 | Official validators | `claude plugin validate --strict` from the pinned Claude Code CLI 2.1.300 (`npx -y @anthropic-ai/claude-code@2.1.300`) reports any error or warning on `dist/hosts/claude` or `dist/hosts/claude/plugins/paqad-product-discovery`, or `skills-ref validate` fails on `dist/` |
 | CI-10 | Budget | `dist/` over 5 MB or 300 files |
 | CI-11 | Trigger hygiene | A step skill's description invites direct use (PLG-8) |
 | CI-20 | Voice reminder | A `SKILL.md` does not open with the "How to talk" block pointing to `references/voice.md` (TALK-10) |
@@ -599,10 +609,10 @@ dist/                                 # built output, pushed to the distribution
 | **Claude, org** | Push to the private distribution repo; org sync picks it up on push (C6, C7) | One-time: org owner adds the repo and sets availability |
 | **ChatGPT, workspace** | Same distribution repo; daily sync or "Sync now" (O9) | One-time import; optional "Sync now" per release. Policy values in the repo are not applied; the admin sets access |
 | **Codex** | Same distribution repo, read as a marketplace through `.agents/plugins/marketplace.json`; or through workspace plugins if they reach Codex (U-11) | One-time: each user (or their admin) adds the marketplace in Codex |
-| **Claude, public directory** (after S3) | Public distribution repo | First submission at claude.ai/directory/manage; each version is published by a reviewer unless auto-publish is on; at most 10 submissions per org per day (C10) |
+| **Claude, public directory** | Public distribution repo `Eliyce/paqad-product-discovery-plugin`, whose root is `dist/hosts/claude` (plugin path `plugins/paqad-product-discovery`) | The owner creates the repo and submits a Plugin bundle at claude.ai/directory/manage; each version is published by a reviewer unless auto-publish is on; at most 10 submissions per org per day (C10). Steps in `hosts/claude.md` (OD-22) |
 | **ChatGPT, public directory** (after S3) | CI builds the zip | A person uploads each release; review per change; no publish API (O11, O23) |
 
-- **CI-16.** Org sync needs a private repo (C6); public directories need a public one. Push to a separate public repo only once public listing starts. Readiness: `release.yml` now carries the guarded public-directory publish (a push to `PUBLIC_DISTRIBUTION_REPO` and a directory submission zip artifact), off unless `ENABLE_PUBLIC_RELEASE` is set, so the plumbing is in place before S3 is green on all hosts without activating a listing (OD-1).
+- **CI-16.** Org sync needs a private repo (C6); public directories need a public one. Push to a separate public repo only once public listing starts. Readiness: `release.yml` carries the guarded public-directory publish, off unless `ENABLE_PUBLIC_RELEASE` and `PUBLIC_DISTRIBUTION_REPO` are set (OD-1). It clears the public repo root except `.git`, copies the contents of `dist/hosts/claude` to the root, commits, pushes and tags `vX.Y.Z`, so only the built Claude branch is public. It also builds the directory submission zip artifact for the manual ChatGPT upload. The Claude directory listing is submitted ahead of S3 on all hosts (OD-22).
 - **CI-17.** Rollback is by reverting the distribution repo's default branch. The Claude Plugins API is not used in v1: it cannot add versions to repo-synced plugins and its pin is permanent (C8).
 
 ### 12.5 After release
@@ -730,6 +740,7 @@ Use the fixture repository and invented content only.
 | OD-19 | Generic mode | The plugin works on any repository; three evidence levels (from project docs, from docs and code, from code only) replace the stop gate; code is the baseline for what exists; a visible level and one source line on every answer; an informational upgrade nudge (GM-1 to GM-9) |
 | OD-20 | How to apply the `paqad-` skill names and add the front door | Build-time published names (approach B): source folders stay unprefixed and `build/build.py` publishes each skill under its `paqad-` name; a new `paqad` front door is the sixth entry skill (PN-1, PN-2; owner decision D-01M4ZBXXXQXM7SJC9BE3BMNCD9) |
 | OD-21 | Business-user feedback v3.2 | Every choice through the host's choice prompt; the question last after the sources; no carry-on pause; the record kept silently with a resume file on request; tickets as user stories with Given/When/Then acceptance criteria adapted from the owner's product-owner skill, keeping the ticket set schema, the E1-T1 refs and the 2 to 8 bound (V-29) |
+| OD-22 | Claude plugin directory submission (owner, 15 October 2026) | Submit the Claude branch to the Claude plugin directory from the public repo `Eliyce/paqad-product-discovery-plugin` ahead of S3 on all hosts. Author Eliyce (haider@eliyce.com), MIT licence 2026, version 3.2.0. Listing links point at the public repo (README, Issues, PRIVACY.md); the upgrade nudge links only to `https://paqad.ai/?src=discovery-plugin` |
 
 ## 16. Unknowns to prove in S0
 

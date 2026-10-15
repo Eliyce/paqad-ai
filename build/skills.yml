@@ -9,14 +9,25 @@
 # This file uses a deliberately small, flat YAML shape (scalars, one list of skills, and a short
 # imports list per skill) so build.py can parse it with a tiny standard-library-only reader and
 # avoid any third-party dependency.
+#
+# The listing scalars (author, author_email, repository, homepage, documentation_url, support_url,
+# privacy_policy_url, keywords) are required. They fill the directory listing fields that only the
+# Claude branch manifests carry. Quote every URL. keywords is one comma-separated scalar because
+# the reader has no top-level lists; build.py splits it.
 
 name: paqad-product-discovery
-version: 0.0.0
-description: "Shape product ideas into well-formed tickets, grounded in the project's own documentation."
+version: 3.2.0
+description: "Ask what a product does, shape ideas into user-story tickets, refine tickets, size work and plan sprints, grounded in the repository's docs and code."
 license: MIT
 display_name: "Paqad Product Discovery"
-author: "Paqad"
-homepage: "https://paqad.dev/product-discovery"
+author: "Eliyce"
+author_email: "haider@eliyce.com"
+repository: "https://github.com/Eliyce/paqad-product-discovery-plugin"
+homepage: "https://github.com/Eliyce/paqad-product-discovery-plugin#readme"
+documentation_url: "https://github.com/Eliyce/paqad-product-discovery-plugin#readme"
+support_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/issues"
+privacy_policy_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/blob/main/PRIVACY.md"
+keywords: "product-discovery, product-management, user-stories, tickets, jira, backlog, sprint-planning"
 
 skills:
   - name: product-discovery

@@ -8,15 +8,15 @@
 # Honesty notes for the steps whose tooling is not exercisable on a stock runner today:
 #   - CI-7 coverage runs under a pinned coverage that is a CI-only dev dependency, never shipped.
 #   - The two external CI-9 validators (claude plugin validate, skills-ref validate) run only when
-#     the repo variable ENABLE_PLUGIN_VALIDATORS is set to 'true', once their install and, for
-#     claude, auth are provisioned in CI. This mirrors how release.yml guards publish behind
-#     ENABLE_RELEASE. Neither tool is provisioned on a stock runner (the claude CLI is absent and
-#     needs auth; the skills-ref install is a placeholder), so leaving them ungated would red every
-#     PR. Until they are provisioned the PR gate's real checks (the authoring and script tests,
-#     CI-3, CI-6, CI-10, the deterministic build and CI-7 coverage) stay green and trustworthy.
-#   - REQUIREMENTS CI-9 names "claude plugin validate --strict"; the pinned CLI in this project
-#     exposes "claude plugin validate <path>" with no --strict flag, so the step validates the
-#     marketplace and plugin manifests and fails on any validator error.
+#     the repo variable ENABLE_PLUGIN_VALIDATORS is set to 'true'. This mirrors how release.yml
+#     guards publish behind ENABLE_RELEASE. The skills-ref install is still a placeholder, so
+#     leaving the validators ungated would red every PR. Until they are enabled the PR gate's real
+#     checks (the authoring and script tests, CI-3, CI-6, CI-10, the deterministic build and CI-7
+#     coverage) stay green and trustworthy.
+#   - CI-9 runs "claude plugin validate --strict" from the pinned Claude Code CLI 2.1.300 through
+#     npx, on the Claude branch (dist/hosts/claude, the root of the public directory repo) and on
+#     its plugin folder. --strict fails on any warning as well as any error. Older CLIs have no
+#     --strict and reject the directory listing fields, so the version stays pinned.
 name: ci
 
 on:
@@ -66,14 +66,19 @@ jobs:
           python build/build.py --dist /tmp/dist-b
           diff -r /tmp/dist-a /tmp/dist-b
 
-      # CI-9: the Claude validator is exercised only when ENABLE_PLUGIN_VALIDATORS is set. It validates the marketplace manifest
-      # and the plugin manifest and exits non-zero on any error. REQUIREMENTS names --strict; the
-      # pinned CLI here has no such flag, so the plain validate is used and still fails on any error.
-      - name: CI-9 claude plugin validate on dist
+      # CI-9: the Claude validator is exercised only when ENABLE_PLUGIN_VALIDATORS is set. It runs
+      # the pinned CLI with --strict on the Claude branch marketplace and on its plugin, and exits
+      # non-zero on any error or warning.
+      - name: CI-9 set up Node for the pinned Claude Code CLI
+        if: ${{ vars.ENABLE_PLUGIN_VALIDATORS == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: CI-9 claude plugin validate --strict on dist/hosts/claude
         if: ${{ vars.ENABLE_PLUGIN_VALIDATORS == 'true' }}
         run: |
-          claude plugin validate dist
-          claude plugin validate dist/plugins/paqad-product-discovery
+          npx -y @anthropic-ai/claude-code@2.1.300 plugin validate --strict dist/hosts/claude
+          npx -y @anthropic-ai/claude-code@2.1.300 plugin validate --strict dist/hosts/claude/plugins/paqad-product-discovery
 
       # CI-9: skills-ref validate on dist. The exact install command for skills-ref is not documented
       # in this repo, so the install below is a clearly named placeholder; the validator is still

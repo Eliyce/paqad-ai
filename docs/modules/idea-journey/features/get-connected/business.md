@@ -9,7 +9,7 @@ Step 0 of the idea journey. Before any drafting effort is spent, the plugin sett
 | Role | What they do here |
 |---|---|
 | Business user | Makes the documents available (or picks the project from a short list) and switches on the tracker connector |
-| Engineering team | Invited by the optional informational nudge to install or finish paqad when the docs are missing or incomplete |
+| Engineering team | Told by the optional informational nudge that paqad project docs would give fuller answers, or which areas still lack them, when the docs are missing or incomplete; the nudge never offers a purchase or an install |
 | Tracker or workspace admin | Fixes connector or permission problems; the plugin never handles credentials |
 
 ## User Flows

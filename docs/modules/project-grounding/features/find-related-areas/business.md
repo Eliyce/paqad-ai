@@ -9,7 +9,7 @@ Before the plugin answers a question or explores an idea, it has to know which p
 | Role | How they meet this feature |
 |---|---|
 | Business user (product owner, analyst) | Indirectly: the answer or the "what exists today" step is built from the areas this feature picks |
-| Engineering team | Owns the project documents this feature reads when they are present; invited to install or finish paqad by the optional informational nudge when the docs are missing or incomplete |
+| Engineering team | Owns the project documents this feature reads when they are present; told by the optional informational nudge that paqad project docs would give fuller answers (code-only) or which areas still lack them (docs-and-code); the nudge never offers a purchase or an install |
 
 ## User Flows
 
@@ -26,6 +26,7 @@ Before the plugin answers a question or explores an idea, it has to know which p
 | Rule | Detail |
 |---|---|
 | Evidence level first | From project docs: the area list and at least one area summary. From docs and code: summaries but no list; the ranking works from the summaries and areas without one are named as not documented and answered from code. From code only: no paqad docs; the areas are found from the code by names and reported as what the code suggests, never stopped while code is reachable (GRD-1, GRD-12) |
+| Informational nudge | Shown only when the user asks why an answer is thin, or at most once per conversation after a weaker answer. Worded as information, not a sales line. Its only link is `https://paqad.ai/?src=discovery-plugin`, which carries a fixed campaign tag and nothing about the user, the repository or the answer (GRD-15) |
 | Source line | Every answer built on these areas carries one short source line for its level: "paqad, from project docs", "paqad, from docs and code" or "paqad, from code only" (GRD-14) |
 | Fixed reading order | Business notes come before technical notes; technical and architecture notes are never quoted in ticket text (GRD-2) |
 | Never read | Runtime state, the rules folder, secrets and environment files (GRD-2) |

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://paqad.dev/schemas/ticket-set.schema.json",
+  "$id": "https://paqad.ai/schemas/ticket-set.schema.json",
   "title": "Canonical ticket set",
   "description": "The single source for what gets posted (REQUIREMENTS section 8.3). The stdlib has no JSON-Schema validator, so check_ticket_set.py hand-validates these rules; this document fixes the shape and is the reference for authors and reviewers.",
   "type": "object",

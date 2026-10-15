@@ -17,12 +17,12 @@ an application. There is no server, no database, no UI and no web framework.
 |---|---|---|
 | Skill content | Markdown (`SKILL.md`, `references/`, `assets/`) | Open Agent Skills format (PLG-3) |
 | Scripts | Python 3.9+ standard library only | No third-party packages, no network, no writes outside the working folder (PLG-5) |
-| Build | `build/build.py` (stdlib) reading `build/skills.yml` | Deterministic, writes the combined `dist/` plus a per-host branch under `dist/hosts/{claude,chatgpt,codex}/` (PLG-12) |
+| Build | `build/build.py` (stdlib) reading `build/skills.yml` | Deterministic, writes the combined `dist/` plus a per-host branch under `dist/hosts/{claude,chatgpt,codex}/` (PLG-12). Only the Claude branch carries the directory listing fields and the publish files (`publish/claude/README.md`, `publish/claude/LICENSE`, and `docs/privacy-policy.md` as `PRIVACY.md`) |
 | Config | `build/skills.yml` | Restricted flat YAML, parsed by a tiny stdlib reader in `build.py` |
 | Data contracts | JSON (`ticket-set.schema.json`, ticket set, record patches, receipts) | Canonical JSON with sorted keys, used for digests |
 | Tests | `unittest` (stdlib) | `tests/scripts/test_*.py` |
 | Evals | YAML scenarios + fixture repo | Wired into CI: `verify.yml` runs `run_parity.py` (structural parity) and `check_scenarios.py` (CI-13). Live conversational parity (CI-12) stays manual and recorded. |
-| CI | GitHub Actions | `ci.yml` enforces CI-1 to CI-15 and CI-20; `verify.yml` runs the eval checks; `release.yml` runs CI-14 and CI-15 and carries the guarded public-directory publish for CI-16 (a push to a separate public repo and a directory submission zip artifact, off unless `ENABLE_PUBLIC_RELEASE` is set). Coverage, skills-ref, changeset and push steps are CI-only; CI-12 live parity and the CI-16 to CI-19 rollout remain manual or operational. |
+| CI | GitHub Actions | `ci.yml` enforces CI-1 to CI-15 and CI-20 (CI-9 runs the pinned `claude plugin validate --strict` from Claude Code 2.1.300 on the Claude branch); `verify.yml` runs the eval checks; `release.yml` runs CI-14 and CI-15 and carries the guarded public-directory publish for CI-16 (a push of `dist/hosts/claude` to the public repo `Eliyce/paqad-product-discovery-plugin` and a directory submission zip artifact, off unless `ENABLE_PUBLIC_RELEASE` is set). Coverage, skills-ref, changeset and push steps are CI-only; CI-12 live parity and the CI-16 to CI-19 rollout remain manual or operational. |
 | Release tracking | Changesets (placeholder) | Real versioning lands in S3 |
 
 ## Runtime targets (the hosts that load the built plugin)

@@ -23,6 +23,7 @@ The plugin is written as 13 skills plus a small set of shared texts and scripts 
 | 5 | Each skill folder and its declared shared files are copied into the output |
 | 6 | The manifests are written (see Generate host manifests) |
 | 7 | A ready-to-install branch per host is emitted from the same source, each carrying only the files that host reads |
+| 8 | The Claude branch also gets an end-user README, the MIT licence and the privacy policy, so it can be pushed as-is to the public repository the Claude plugin directory reads |
 
 ## Business Rules
 
@@ -33,7 +34,9 @@ The plugin is written as 13 skills plus a small set of shared texts and scripts 
 | Declared imports only | A skill cannot silently depend on a shared file nobody declared (PLG-10) |
 | Same input, same output | Two builds of the same source are byte-identical, so a release can be reproduced and checked (CI-8) |
 | One source, every branch | The per-host branches are generated from the same values and the same skills tree, so no branch can drift from the combined package; the combined output itself is left unchanged (PLG-12) |
-| No leftovers | Old output is removed first; compiled Python caches are never copied |
+| No leftovers | Old output is removed first; compiled Python caches and macOS `.DS_Store` files are never copied |
+| One privacy policy | The privacy policy shipped with the Claude branch is a copy of the one in the repository docs, so the two can never differ |
+| No silent gaps | If a README, licence or privacy policy source is missing, the build stops and names it |
 | No install step | Runs on Python 3.9 or later with nothing to install (PLG-5) |
 
 ## Triggers and Side Effects
@@ -51,6 +54,8 @@ The plugin is written as 13 skills plus a small set of shared texts and scripts 
 | Declared shared file does not exist | "build failed" naming the skill and the missing file |
 | Skill folder or its instructions file missing | "build failed" naming the skill |
 | Configuration file has unexpected layout or a missing value | "build failed" naming the line or the missing field |
+| A listing link is not https, or the keywords are empty | "build failed" naming the field |
+| A publish file (README, licence or privacy policy) is missing | "build failed" naming the file |
 
 ## Glossary
 
@@ -61,4 +66,6 @@ The plugin is written as 13 skills plus a small set of shared texts and scripts 
 | Host branch | A per-host copy of the distribution under `dist/hosts/<host>/`, carrying only the files that host reads |
 | Deterministic | The same source always gives the same output, byte for byte |
 
-Sources: build/build.py, build/skills.yml
+| Publish files | The README, licence and privacy policy the public Claude repository shows at its root |
+
+Sources: build/build.py, build/skills.yml, publish/claude/, docs/privacy-policy.md
