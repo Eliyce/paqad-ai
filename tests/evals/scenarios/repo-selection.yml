@@ -3,7 +3,9 @@
 # These are declarative, like s1.yml. They are NOT run in CI; the host eval runner executes them
 # against the built plugin and the fixture repository under tests/evals/fixture-repo (CI-12).
 # AC-49 to AC-55 are conversation-shape acceptance scenarios, each exercised by a scenario below.
-# AC-56 is script-proven by tests/scripts/test_onboarded.py and needs no scenario here.
+# The onboarded-check script is unchanged (GM-8) and tests/scripts/test_onboarded.py still proves its
+# states; generic mode reinterprets not-set-up as the code-only level, so AC-56 is now a
+# conversation-shape scenario covered in generic-mode.yml, not a stop.
 #
 # Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect), plus:
 #   repositories  the repositories the user can reach, as a list of plain scalars of the form
@@ -12,15 +14,18 @@
 #                 attached. Scalars hold no colon followed by a space, so run_parity's reader parses
 #                 them.
 #
-# Property vocabulary added here (all provider-neutral, all checkable; the s1.yml vocabulary also
-# applies):
+# Property vocabulary added here (all provider-neutral, all checkable; the s1.yml and generic-mode.yml
+# vocabulary also applies; generic mode replaces the not-set-up stop with the code-only level, so
+# ac-53 and ac-53b answer from code only rather than stopping):
 #   overview-table-of-areas        an overview question is answered as a table of areas, one line each.
 #   no-repository-question         nothing is asked about which repository to use.
 #   repository-used-without-asking the only reachable repository is used without a question.
 #   one-choice-list                one short choice list of every reachable repository.
 #   most-recent-first              the list is ordered by most recent activity, newest first.
-#   each-repository-marked         each row carries one mark from ready, partly ready, not set up or
-#                                  not checked.
+#   each-repository-marked         each row carries one mark: in generic mode from the evidence
+#                                  levels (from project docs, from docs and code, from code only) or
+#                                  not checked; the older ready, partly ready and not set up marks map
+#                                  onto those levels.
 #   one-recommended-with-reason    exactly one row is recommended, with a one-clause reason.
 #   attach-or-upload-asked         asks to attach the repository or the docs folder, or upload docs.
 #   onboarding-sentence-exact      the exact onboarding sentence from GRD-1.
@@ -91,34 +96,36 @@ scenarios:
       - one-question-at-a-time
 
   - id: ac-53
-    title: The user picks a repository that is not set up
+    title: The user picks a code-only repository
     acceptance: AC-53
     entry_skill: ask-project
-    fixture: fixture-repo
+    fixture: fixture-repo-code-only
     repositories:
-      - "shop-platform, ready, pushed yesterday"
-      - "shop-tools, not set up, pushed today"
+      - "shop-platform, from project docs, pushed yesterday"
+      - "shop-tools, from code only, pushed today"
     user:
       - "Who uses the export screen?"
       - "shop-tools"
     expect:
-      - onboarding-sentence-exact
-      - offers-set-up-repositories
-      - nothing-drafted
+      - answers-at-best-level
+      - level-from-code-only
+      - source-line-present
+      - no-not-built-claim-code-only
 
   - id: ac-53b
-    title: Every reachable repository is not set up
+    title: Every reachable repository is code-only
     acceptance: AC-53
     entry_skill: ask-project
-    fixture: none
+    fixture: fixture-repo-code-only
     repositories:
-      - "shop-tools, not set up, pushed today"
-      - "shop-scripts, not set up, pushed last week"
+      - "shop-tools, from code only, pushed today"
+      - "shop-scripts, from code only, pushed last week"
     user: "Who uses the export screen?"
     expect:
-      - onboarding-sentence-exact
-      - no-choice-list
-      - nothing-drafted
+      - one-recommended-with-reason
+      - level-from-code-only
+      - source-line-present
+      - no-not-built-claim-code-only
 
   - id: ac-54
     title: Later question, resumed run, then a switch request

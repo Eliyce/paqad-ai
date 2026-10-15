@@ -1,0 +1,24 @@
+{
+  "id": "D-01M4Z75RRF919QEATGYQY0PESH",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on upgrade nudge link",
+  "context": "Chief architect: Complementary constraints on the same link, not a contradiction: it is informational-only and never checkout (market-researcher) AND it carries only a static campaign tag with disclosure (security-auditor). The spec applies both. No owner decision is needed.\n\nTarget: upgrade nudge link\n- security-auditor: The nudge link carries only a static campaign tag and no per-user, per-repo or per-answer identifier; data minimisation must hold and the tag must be disclosed in README and docs/privacy-policy.md.\n- market-researcher: The nudge may link to an informational page only and never to checkout, to satisfy both stores' directory rules.\n\n[expert-conflict-fork:289a02051e7c89f2]",
+  "options": [
+    {
+      "option_key": "the-nudge-link-carries-only-a-static-cam",
+      "label": "The nudge link carries only a static campaign tag and no per-user, per-repo or per-answer identifier; data minimisation must hold and the tag must be disclosed in README and docs/privacy-policy.md. — security-auditor"
+    },
+    {
+      "option_key": "the-nudge-may-link-to-an-informational-p",
+      "label": "The nudge may link to an informational page only and never to checkout, to satisfy both stores' directory rules. — market-researcher"
+    }
+  ],
+  "recommendation": "the-nudge-link-carries-only-a-static-cam",
+  "created_at": "2026-10-15T07:24:39.055Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M4Z60VP9R7Q2B9M2R80XKDSC",
+  "chosen": "the-nudge-link-carries-only-a-static-cam",
+  "rationale": "Owner: both constraints apply to the same link, static campaign tag only and informational page only, disclosed in README and docs/privacy-policy.md (GM-4)",
+  "resolved_at": "2026-10-15T07:27:40.108Z"
+}

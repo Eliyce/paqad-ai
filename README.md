@@ -1,8 +1,26 @@
 # paqad-product-discovery
 
 Source for the paqad-product-discovery plugin: a set of skills that help shape product
-ideas into well-formed tickets, grounded in the target project's own documentation. This
-repository is the plugin source and build; it is not a paqad-onboarded product repo.
+ideas into well-formed tickets, grounded in the target repository. The plugin works on any
+repository at the best evidence level it can reach (from project docs, from docs and code, or
+from code only); it never refuses a repository that has readable code. This repository is the
+plugin source and build; it is not itself a product repo the plugin answers questions about.
+
+## What the plugin reads, says and links to
+
+So the behaviour is disclosed and never a surprise under directory policy:
+
+- Every answer carries exactly one short source line naming the evidence level it rests on:
+  "paqad, from project docs", "paqad, from docs and code" or "paqad, from code only". It is
+  provenance, not a sales line.
+- When a repository is not fully set up with paqad, the plugin may show one informational upgrade
+  nudge, at most once per conversation or when you ask why an answer is thin. It links to an
+  information page only, never to a purchase page. The link carries only a static campaign tag
+  (`src=discovery-plugin`) with no user, repository or question data. See
+  [docs/privacy-policy.md](docs/privacy-policy.md).
+- The plugin only reads: it reads the project documents and the code by names, honours a never-read
+  list (secrets, environment files, `.paqad/` contents, `docs/instructions/rules/`, `.git/`,
+  `vendor/`, `node_modules/`), and never edits, runs or installs anything.
 
 ## Status
 
@@ -31,15 +49,16 @@ rest run as the `product-discovery` journey directs them.
 
 - `product-discovery` (entry) - coordinates the idea journey: step order, the record, resume,
   going back, side questions, the consulting stance, and plain status at every step.
-- `ask-project` (entry) - answers a business question from the onboarded documents, with
-  sources, and can hand the answer into the idea journey.
+- `ask-project` (entry) - answers a business question from the target repository at the best
+  evidence level (project docs, docs and code, or code only), with sources and a source line, and
+  can hand the answer into the idea journey.
 - `refine-ticket` (entry) - refines an existing ticket field by field, applying each change
   only on approval.
 - `size-work` (entry) - gives advisory size suggestions for a piece of work, backed by
   comparables.
 - `plan-sprint` (entry) - proposes a sprint plan and assigns the work on approval.
-- `get-connected` - step 0: confirms the documents are reachable and onboarded, the tracker is
-  writable, and reads the tracker project's setup.
+- `get-connected` - step 0: confirms the repository is reachable, detects its evidence level, the
+  tracker is writable, and reads the tracker project's setup.
 - `understand-idea` - step 1: one question at a time until the goal, who benefits, success and
   constraints are clear.
 - `ground-in-project` - step 2: reads the project's documents in order, finds related areas,

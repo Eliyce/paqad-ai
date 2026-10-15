@@ -26,8 +26,8 @@ under its skill's `scripts/` folder.
 |---|---|---|
 | `shared/scripts/record.py` | `init --path [--run-id] [--mode build\|refine\|size\|plan]`, `show --path`, `update --path --expect-revision --patch`, `advance --path --expect-revision`, `approve --path --expect-revision --block --message-ref` | Create, show, patch, advance and approve the discovery record |
 | `shared/scripts/check_record.py` | `--path [--step]` | Are the current step's required blocks present and not stale |
-| `shared/scripts/check_onboarded.py` | `[--root]` | Onboarded check (GRD-1): `ready` or `partly-ready` exit 0, `not-set-up` exit 1 |
-| `shared/scripts/find_related.py` | `(--registry \| --modules-dir) --query` | Rank onboarded modules against an idea or question, from the registry or, when it is missing, from the area folders and summaries |
+| `shared/scripts/check_onboarded.py` | `[--root]` | Readiness check (GRD-1), byte-identical: `ready` or `partly-ready` exit 0, `not-set-up` exit 1. The instructions read these states as the project-docs, docs-and-code and code-only evidence levels (GRD-12); `not-set-up` is the code-only level, not a stop |
+| `shared/scripts/find_related.py` | `(--registry \| --modules-dir) --query` | Rank the project's modules against an idea or question, from the registry or, when it is missing, from the area folders and summaries |
 | `shared/scripts/detect_placeholder.py` | `--path [--markers]` | Mark each document section as real or template text |
 | `shared/scripts/check_prose.py` | `--ticket-set` or `--path`, `[--denylist]` | No dashes, no code words in scoped fields, no deny-list jargon |
 | `shared/scripts/check_readback.py` | `--approved --created` | Compare created issues to the approved set |

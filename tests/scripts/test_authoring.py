@@ -514,16 +514,17 @@ CONNECT_REPOSITORY_SKILLS = {
 }
 CHECK_ONBOARDED_SKILLS = {"get-connected", "ask-project", "ground-in-project"}
 ASK_PROJECT_DESCRIPTION = (
-    "Answers business questions about the product from the project's own onboarded documents, in "
+    "Answers business questions about the product from the project's own documentation and code, in "
     "plain words with sources. Use it when someone asks what the product is, what it does or what "
     "areas it has (\"what is this product?\", \"what does this project do?\", \"what areas does it "
     "have?\"), when a repository is attached or connected and the user asks what it is or what it "
     "does, or when they ask how something works today (\"can customers pause a subscription "
     "today?\", \"who uses the export screen?\", \"which orders go to the finance system?\"). It "
-    "reads only what the question needs, leads with the answer, adds one short Sources line, shows "
-    "the project's own term on first use, and says honestly where the documents cannot confirm "
-    "something. It never writes to the tracker, and it can offer to carry a question into the idea "
-    "journey when the answer reveals a gap."
+    "works on any repository at the best evidence level it can reach, reads only what the question "
+    "needs, leads with the answer, adds one short Sources line and one short source line for the "
+    "level, shows the project's own term on first use, and says honestly where the documents cannot "
+    "confirm something. It never writes to the tracker, and it can offer to carry a question into "
+    "the idea journey when the answer reveals a gap."
 )
 OVERVIEW_CUES = ("what is this product?", "what does this project do?", "what areas does it have?")
 
@@ -574,8 +575,12 @@ class RepositorySelectionTest(unittest.TestCase):
         lowered = self.text.lower()
         for cue in ("list", "exactly one", "most recently active first", "recommended", "switch"):
             self.assertIn(cue, lowered, "missing selection cue {0}".format(cue))
+        # Generic mode: the choice-list marks are the four evidence levels (FR-18, AC-5). The
+        # onboarded-check table still maps the state words to those levels, so both appear.
+        for mark in ("from project docs", "from docs and code", "from code only", "not checked"):
+            self.assertIn(mark, lowered, "missing level mark {0}".format(mark))
         for mark in ("ready", "partly ready", "not set up", "not checked"):
-            self.assertIn(mark, lowered, "missing mark {0}".format(mark))
+            self.assertIn(mark, lowered, "missing state word {0}".format(mark))
 
     def test_messages_are_the_script_constants_verbatim(self):
         self.assertIn(check_onboarded.STOP_MESSAGE, self.text)

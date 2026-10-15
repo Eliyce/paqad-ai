@@ -2,14 +2,14 @@
 
 ## Overview
 
-A business user asks what the product does today ("can customers pause a subscription?", "what orders do we send to SAP?"), or asks for an overview ("what is this product?", "what areas does it have?"). The plugin answers from the project's own onboarded documents, leads with the answer, keeps it short, and ends with one Sources line. Where the documents cannot confirm something, it says so instead of guessing. A part of the product with no notes is called not documented, and the plugin never says or suggests it is not built, and when the plugin can reach the code it looks at that part's code itself and says what the code suggests. It never changes anything in the tracker.
+A business user asks what the product does today ("can customers pause a subscription?", "what orders do we send to SAP?"), or asks for an overview ("what is this product?", "what areas does it have?"). The plugin answers from the target repository at the best evidence level it can reach (from project docs, from docs and code, or from code only), leads with the answer, keeps it short, ends with one Sources line, and adds one short source line naming the level. Code is the baseline for what exists; the documents add business language, roles and rules. Where the documents cannot confirm something, it says so instead of guessing. A part of the product with no notes is called not documented, and the plugin never says or suggests it is not built, and when the plugin can reach the code it looks at that part's code itself and says what the code suggests. It never changes anything in the tracker. No repository with readable code is turned away; the only stop is nothing readable at all.
 
 ## User Roles
 
 | Role | What they do here |
 |---|---|
 | Business user (product owner, analyst, support lead) | Asks a question about current product behaviour and reads the answer |
-| Engineering team | Onboards the repository so its documents can be read; the plugin does not onboard |
+| Engineering team | Invited by the optional informational nudge to install or finish paqad when the docs are missing or incomplete; the plugin does not onboard |
 
 ## User Flows
 
@@ -17,17 +17,18 @@ A business user asks what the product does today ("can customers pause a subscri
 |---|---|
 | 1 | The user asks a question about the product today, or what the product or an attached project is. |
 | 2 | The plugin settles which project to use without fuss: an attached project or the only reachable one is used without asking; with several it shows one short marked list once (see Get the project documents). The choice holds for the rest of the conversation. |
-| 3 | It checks how far the project is set up. Ready: it carries on. Partly ready (no list of areas): it carries on and says once that the list is missing, naming areas without a summary as not documented. Not set up: it stops with the onboarding message. |
+| 3 | It detects the evidence level. From project docs: it carries on from the documents. From docs and code (no list of areas): it carries on and says once that the list is missing, naming areas without a summary as not documented and answering them from code. From code only (no paqad docs): it answers from the code by names with the "paqad, from code only" source line, never a stop while code is reachable. |
 | 4 | It finds the related areas and reads only the documents the question needs, in the fixed reading order, stopping once the point is answered. |
 | 5 | It checks whether each section it relies on is real content or an unfilled template. For an area the question needs that the documents do not cover, it checks that area's code automatically when the code is reachable. |
-| 6 | It replies: the answer first, as a table for lists or one or two sentences for a yes/no or single fact, then one Sources line. An overview question gets a table of areas, each with its plain name and one line on what it does; an area with no notes says it is not documented, plus what the code suggests from the names alone when the code is reachable. |
+| 6 | It replies: the answer first, as a table for lists or one or two sentences for a yes/no or single fact, then one Sources line and one short source line for the evidence level. An overview question gets a table of areas, each with its plain name and one line on what it does; an area with no notes says it is not documented, plus what the code suggests from the names alone when the code is reachable. In code-only mode every row is built from the code by names. |
 | 7 | Optionally, one short line on what the answer means and an offer to shape a change (see Turn an answer into an idea). |
 
 ## Business Rules
 
 | Rule | Detail |
 |---|---|
-| Onboarded first | Ready: the list of areas and at least one area summary. Partly ready: summaries but no list; the answer carries on and areas without a summary are named as not documented. Not set up: no summary at all, so nothing is answered (GRD-1, ASK-1). |
+| Evidence level first | From project docs: the list of areas and at least one area summary. From docs and code: summaries but no list; the answer carries on and areas without a summary are named as not documented and answered from code. From code only: no paqad docs, so the answer is built from the code by names, never a stop while code is reachable (GRD-1, GRD-12, ASK-1). |
+| Source line | Every answer carries one short source line for its level: "paqad, from project docs", "paqad, from docs and code" or "paqad, from code only". It is provenance, not a sales line (GRD-14). |
 | Project asked once | An attached project is used without asking; the choice is never asked again in the conversation unless the user asks to switch (GRD-3). |
 | Overview as a table | "What is this product?" or "what areas does it have?" is answered as a table of areas with one line each, then one Sources line; nothing is invented (ASK-9). |
 | Read only what is needed | Registry, then module summaries, then business notes; deeper notes only to settle a fact (GRD-2). |
@@ -54,8 +55,9 @@ A business user asks what the product does today ("can customers pause a subscri
 
 | Situation | What the user sees |
 |---|---|
-| Project not set up | "This repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then come back." |
-| Project partly ready | "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown." once, then the answer. |
+| Project has no paqad docs (code-only) | Answered from the code by names with the "paqad, from code only" source line; no not-built claim and no stop. The sentence "This repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then come back." appears only as the optional at-most-once nudge. |
+| Project at docs-and-code (list of areas missing) | "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown." once, then the answer, with the uncovered areas answered from code. |
+| Nothing readable at all | No usable docs and no reachable code: a request to attach the project or its documents folder, or to upload the documents. This is the only stop. |
 | No project can be seen | A request to attach the project or its documents folder, or to upload the documents. |
 | Relevant section is a blank template | A plain statement of what the documents cannot confirm, no guess, and an offer to shape an idea if useful (AC-22). |
 | Area not documented, code reachable | The area is called not documented, then one line on what the code suggests, for example "Loyalty points are not documented. The code suggests members can earn and redeem points." (AC-57). |
@@ -72,11 +74,11 @@ The skill's description covers overview questions and an attached or connected p
 
 | Term | Meaning |
 |---|---|
-| Onboarded | The project's documents follow the paqad layout: a module registry plus module summaries. With summaries but no registry it is partly ready. |
+| Evidence level | How much the answer can rest on. From project docs: a module registry plus summaries. From docs and code: summaries but no registry. From code only: no paqad docs, so the answer rests on the code. A level is never a reason to refuse (GRD-12). |
 | Template text | A section still holding the onboarding scaffold's placeholder wording, so it is not real information. |
 | Not documented | The project's notes do not cover this area. It says nothing about whether the area is built. |
 | The code suggests | The label on any line taken from the project's code rather than its notes; it is never turned into a fact. |
 | Sources line | One short line at the end listing the documents the answer came from. |
 | Project term | The name the project documents use for something the user may call differently. |
 
-Sources: skills/ask-project/SKILL.md, skills/ask-project/references/answer-template.md, shared/references/connect-repository.md, shared/references/paqad-docs-map.md, REQUIREMENTS.md section 4B
+Sources: skills/ask-project/SKILL.md, skills/ask-project/references/answer-template.md, shared/references/connect-repository.md, shared/references/paqad-docs-map.md, shared/references/evidence-levels.md, REQUIREMENTS.md section 4B, GRD-12, GRD-14

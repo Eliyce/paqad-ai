@@ -5,9 +5,10 @@
 | Path | Owned content |
 |---|---|
 | `shared/scripts/find_related.py` | `tokens`, `parse_registry`, `term_matches`, `rank`, `plain_name_from`, `rows_from_modules_dir`, `load_rows`, `main` |
-| `shared/references/paqad-docs-map.md` | GRD-2 reading order table (order 1 notes the partly ready map from folder names and summaries; order 7, source code, is automatic for an area the documents do not cover when the code is reachable, names first then at most 5 files, reported as what the code suggests), its restatement of the three-state GRD-1 rule, GRD-5 sources rule, and the `## What the documents prove` section (GRD-8 to GRD-11) |
+| `shared/references/paqad-docs-map.md` | GRD-2 reading order table (code is the baseline for what exists; order 1 notes the docs-and-code map from folder names and summaries; order 7, source code, is automatic for an area the documents do not cover when the code is reachable, names first then at most 5 files, reported as what the code suggests), its restatement of the GRD-1 rule mapped to the evidence levels, GRD-5 sources rule, and the `## What the documents prove` section (GRD-8 to GRD-11, scoped to when paqad docs are present) |
+| `shared/references/evidence-levels.md` | The single source for generic mode (GRD-12 to GRD-16): the three evidence levels (`project-docs`, `docs-and-code`, `code-only`) and their detection, the one source line per level, the informational upgrade nudge rules, and the code-only area finder (names first, about 15 files per answer, narrow a very large repository) |
 
-Not owned here: the onboarded check and the area-summary reader (`shared/scripts/check_onboarded.py`, get-the-documents, which `find_related.py` imports), the repository rule (`shared/references/connect-repository.md`, get-the-documents) and the reading behaviour itself (the `ask-project` and `ground-in-project` skills, and the `shape-idea`, `refine-ticket` and `size-work` skills that apply what the documents prove).
+Not owned here: the readiness check and the area-summary reader (`shared/scripts/check_onboarded.py`, get-the-documents, which `find_related.py` imports), the repository rule (`shared/references/connect-repository.md`, get-the-documents) and the reading behaviour itself (the `ask-project` and `ground-in-project` skills, and the `shape-idea`, `refine-ticket` and `size-work` skills that apply what the documents prove and the evidence levels).
 
 `## What the documents prove` holds four rules that every answer, playback, finding and size driver built on the documents follows:
 
@@ -33,7 +34,7 @@ Input registry: a Markdown file (target project's `docs/instructions/registries/
 
 Terms: lowercase alphanumeric tokens of length 3 or more (`MIN_TERM = 3`) from all four cells.
 
-Input modules folder (`--modules-dir`, used when the repository is partly ready): `rows_from_modules_dir` calls `check_onboarded.area_summaries` (it never reads the folders itself) and returns one row per area with a non-empty summary, in sorted area order, in the same row shape `parse_registry` returns:
+Input modules folder (`--modules-dir`, used at the docs-and-code level, no modules list): `rows_from_modules_dir` calls `check_onboarded.area_summaries` (it never reads the folders itself) and returns one row per area with a non-empty summary, in sorted area order, in the same row shape `parse_registry` returns:
 
 | Field | Value |
 |---|---|
@@ -58,8 +59,8 @@ Output (stdout), a JSON list in rank order:
 
 | Arg | Required | Meaning |
 |---|---|---|
-| `--registry` | one of the two | Path to the registry Markdown (repository ready) |
-| `--modules-dir` | one of the two | Path to the `docs/modules` folder (repository partly ready) |
+| `--registry` | one of the two | Path to the registry Markdown (project-docs level) |
+| `--modules-dir` | one of the two | Path to the `docs/modules` folder (docs-and-code level) |
 | `--query` | yes | Free text to rank against |
 
 `--registry` and `--modules-dir` are a required mutually exclusive pair.
@@ -88,7 +89,7 @@ None. The failures are the exit 1 paths above (the raw `OSError` text, or one of
 |---|---|
 | Python | Standard library only: `argparse`, `json`, `re`, `sys`, `pathlib` |
 | Shared imports | `check_onboarded` (sibling script, for `area_summaries`); not `canonical.py` |
-| Declared by skills (`build/skills.yml`) | `ask-project`, `ground-in-project` import `scripts/find_related.py` and `references/paqad-docs-map.md`; `shape-idea`, `refine-ticket` and `size-work` import `references/paqad-docs-map.md` only. Every skill that declares `scripts/find_related.py` must also declare `scripts/check_onboarded.py`, or the import fails in `dist/` |
+| Declared by skills (`build/skills.yml`) | `ask-project`, `ground-in-project` import `scripts/find_related.py` and `references/paqad-docs-map.md`; `shape-idea`, `refine-ticket` and `size-work` import `references/paqad-docs-map.md` only. `references/evidence-levels.md` is imported by those five plus `get-connected` (six declarers, GRD-12). Every skill that declares `scripts/find_related.py` must also declare `scripts/check_onboarded.py`, or the import fails in `dist/` |
 | Host capability | A tool that runs scripts; otherwise the skills' "If the checks cannot run" checklist picks candidates by hand (PLG-6). A tool that reads repository files, or the user attaching `docs/` (GRD-3). The GRD-11 code check needs the code to be reachable: a tool that reads repository files, or the code attached; only `docs/` attached means it is not |
 
 ## Configuration
@@ -101,4 +102,4 @@ None. Module constants: `MIN_TERM = 3`, `HEADING_PREFIX = "# "`, and the two err
 |---|---|
 | `tests/scripts/test_find_related.py` | Registry path: `ParseTest`, `RankTest` (obvious module, determinism, no match, registry-order ties, output fields), `CliTest` (missing registry exits 1, a written registry). Modules-folder path: `ModulesDirRowsTest` (real fixture rows match the registry row shape, missing and empty summaries skipped, `plain_name` from the first heading or the folder name, a missing folder gives no rows, deterministic ranking with sorted-folder ties), `ModulesDirCliTest` (ranked list on the fixture, no match is `[]` with exit 0, missing folder, a file path and a folder without summaries each exit 1 with stdout empty, both or neither source and a missing query exit 2) |
 
-Eval scenarios that exercise grounding through the entry skills: `s1.yml` `ac-5`, `ac-21`, `ac-22`, `ac-26`, `ac-46`, `repo-selection.yml` `ac-55` (partly ready ranking), and `evidence-rules.yml` `ac-57` to `ac-61b` (what the documents prove) (declarative, not yet run in CI).
+Eval scenarios that exercise grounding through the entry skills: `s1.yml` `ac-5`, `ac-21`, `ac-22`, `ac-26`, `ac-46`, `repo-selection.yml` `ac-55` (docs-and-code ranking), `evidence-rules.yml` `ac-57` to `ac-61b` (what the documents prove), and `generic-mode.yml` `gm-1`, `gm-56`, `gm-62`, `gm-67` (the code-only finder and the evidence levels) (declarative, not yet run in CI).

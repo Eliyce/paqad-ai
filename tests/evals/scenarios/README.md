@@ -23,10 +23,18 @@ automated live run.
 
 `repo-selection.yml` holds the scenarios for choosing the repository, the three-state onboarded
 check and the wider ask-project trigger. Each maps to a conversation-shape acceptance scenario in
-REQUIREMENTS.md section 13 (AC-49 to AC-55), with ac-53b covering the case where every reachable
-repository is not set up. Its extra `repositories` field lists what the user can reach as plain
-`<name>, <state>, <activity>` scalars, or `no listing tool`. The not set up trees of AC-56 are
-proven by the unit suite (`test_onboarded.py`) and carry no scenario here.
+REQUIREMENTS.md section 13 (AC-49 to AC-55), with ac-53 and ac-53b flipped for generic mode so a
+repository with no paqad docs but reachable code is answered from code only with its source line, not
+stopped. Its extra `repositories` field lists what the user can reach as plain
+`<name>, <state>, <activity>` scalars, or `no listing tool`.
+
+`generic-mode.yml` holds the generic-mode scenarios: the plugin answers on any repository at the best
+evidence level it can reach (from project docs, from docs and code, or from code only), with one
+source line per answer and an informational upgrade nudge at most once (GM-1 to GM-9, GRD-12 to
+GRD-16). Each maps to a conversation-shape acceptance scenario in REQUIREMENTS.md section 13 (AC-1,
+AC-56 and AC-62 to AC-67), with AC-53 covered by repo-selection.yml. They read the code-only fixture
+under `tests/evals/fixture-repo-code-only/` (real code, no paqad docs) and the ready fixture. The
+file-level rules are checked by `test_generic_mode.py`.
 
 `evidence-rules.yml` holds the scenarios for the evidence rules on undocumented areas and the
 automatic code check (GRD-8 to GRD-11, ASK-8). Each maps to a conversation-shape acceptance scenario

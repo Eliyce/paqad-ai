@@ -191,6 +191,7 @@ modules:
       - shared/scripts/detect_placeholder.py
       - shared/references/connect-repository.md
       - shared/references/paqad-docs-map.md
+      - shared/references/evidence-levels.md
       - shared/references/template-markers.md
     depends_on: []
     features:
@@ -199,7 +200,7 @@ modules:
         sources: [shared/references/connect-repository.md, shared/scripts/check_onboarded.py]
       - slug: find-related-areas
         name: Find related areas
-        sources: [shared/scripts/find_related.py, shared/references/paqad-docs-map.md]
+        sources: [shared/scripts/find_related.py, shared/references/paqad-docs-map.md, shared/references/evidence-levels.md]
       - slug: detect-template-text
         name: Spot unfilled template text
         sources: [shared/scripts/detect_placeholder.py, shared/references/template-markers.md]

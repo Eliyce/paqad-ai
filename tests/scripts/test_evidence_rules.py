@@ -278,7 +278,11 @@ class ConnectRepositoryTest(unittest.TestCase):
             step = self.step_1(skill)
             self.assertIn("the areas without a summary as not documented", step, skill)
             self.assertNotIn("as unknown", step, skill)
-            self.assertIn(check_onboarded.STOP_MESSAGE, step, skill)
+            # Generic mode (FR-5): the not-set-up repository is answered as code-only, from code by
+            # names, and is never stopped while code is reachable. The stop sentence is gone.
+            self.assertIn("code-only", step, skill)
+            self.assertIn("the code suggests", step, skill)
+            self.assertNotIn(check_onboarded.STOP_MESSAGE, step, skill)
 
 
 class TemplateTest(unittest.TestCase):

@@ -19,7 +19,8 @@ team still owns the number.
 
 Suggest a size from finished work. The full method is in `references/sizing-guide.md`; Jira fields and
 tool-name variants are in `references/tracker-profiles-jira.md`. Only when you read area documents,
-get them as in `references/connect-repository.md`; missing documents still only lower confidence.
+get them as in `references/connect-repository.md`, at the best evidence level the repository allows
+(`references/evidence-levels.md`); missing documents still only lower confidence, never a driver.
 
 1. Find the team scale (EST-1). At first use, find how the project sizes work: story points and which
    field holds them, T-shirt sizes, or nothing. Ask once if it cannot be found, and remember it in
@@ -34,7 +35,8 @@ get them as in `references/connect-repository.md`; missing documents still only 
    the area already exists drives the size and the code is reachable, check that area's code
    (GRD-11) and label that driver "the code suggests"; when the look finds nothing under the area's
    name, the driver says no code was found under its name and the confidence stays lowered. Follow
-   "What the documents prove" in `references/paqad-docs-map.md`.
+   "What the documents prove" in `references/paqad-docs-map.md`. The suggestion carries its evidence
+   level; in code-only mode say the size rests on code only and lower the confidence for it.
    Run `scripts/compare_sizes.py suggest --target <target.json> --pool <finished.json> --scale
    <scale.json> [--area-docs <docs.md>]` to build this.
 4. Recommend a split when it is big (EST-4). If the suggestion is above what the team usually finishes

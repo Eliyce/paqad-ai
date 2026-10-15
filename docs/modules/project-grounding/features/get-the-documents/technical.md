@@ -4,7 +4,7 @@
 
 | Path | Owned content |
 |---|---|
-| `shared/references/connect-repository.md` | The one repository rule (GRD-3): by capability, choosing the repository, remembering the choice, the three-state onboarded check (GRD-1) with both exact sentences and the by-hand version, the never-read list |
+| `shared/references/connect-repository.md` | The one repository rule (GRD-3): by capability, choosing the repository, remembering the choice, the GRD-1 readiness check mapped to the three evidence levels (GRD-12) with both exact sentences and the by-hand version, the never-read list. The levels, source line, nudge and code-only finder live once in `shared/references/evidence-levels.md` (owned by find-related-areas) |
 | `shared/scripts/check_onboarded.py` | The one onboarded check and the one area-summary reader: `read_stripped`, `area_names`, `area_summaries`, `onboarded_state`, `is_onboarded`, `result_payload`, `main`; constants `STOP_MESSAGE`, `PARTLY_MESSAGE`, `READY`, `PARTLY_READY`, `NOT_SET_UP` |
 
 Not owned here: the reading order and its copy of the onboarded rule (`shared/references/paqad-docs-map.md`, find-related-areas), the ranking (`shared/scripts/find_related.py`, find-related-areas, which imports `check_onboarded.area_summaries` for its `--modules-dir` source), and the skill steps that apply the rule (`get-connected`, `ask-project`, `ground-in-project`, `refine-ticket`, `size-work`).
@@ -34,13 +34,13 @@ An area is an immediate sub-folder of `docs/modules/` whose name does not start 
 
 `is_onboarded(root)` is true only for `ready`, so its old meaning holds.
 
-The chosen repository is recorded in the discovery record's `setup` block (REC-1): `setup.repository` (the name as the tool or attachment shows it, `""` when none is shown) and `setup.repository_state` (`ready` or `partly-ready`). Written by `get-connected` at step 0, or by the first docs-reading step of a refine or size run, through `record.py update`. `setup` is outside the go-back chain, so both survive going back; neither holds credentials (REC-6). Outside a run nothing is stored; the choice lives for the rest of the conversation.
+The chosen repository is recorded in the discovery record's `setup` block (REC-1): `setup.repository` (the name as the tool or attachment shows it, `""` when none is shown), `setup.repository_state` (`ready` or `partly-ready`) and `setup.evidence_level` (`project-docs`, `docs-and-code` or `code-only`, GRD-12). Written by `get-connected` at step 0, or by the first docs-reading step of a refine or size run, through `record.py update`. `setup` is outside the go-back chain, so all survive going back; none hold credentials (REC-6). Outside a run nothing is stored; the choice lives for the rest of the conversation.
 
 ## Script Interfaces
 
 `check_onboarded.py [--root <repo-root>]`; full contract in [api.md](api.md). Exit 0 for ready and partly ready, 1 for not set up, 2 for a usage error. Read-only; writes nothing; no network.
 
-The choosing rule is instructions only (`connect-repository.md`); no script lists repositories. Marks for the choice list come from the quick form of the check on the repositories shown, done with whatever read capability the host has; a repository that cannot be read is `not checked`, never `ready` (INV-3).
+The choosing rule is instructions only (`connect-repository.md`); no script lists repositories. Marks for the choice list are the evidence levels from project docs, from docs and code, from code only or not checked, from the quick form of the check on the repositories shown, done with whatever read capability the host has; a repository with readable code is always at least from code only and recommendable, and only a repository that cannot be read is `not checked` (INV-3, GRD-12).
 
 ## State Management
 
@@ -55,9 +55,9 @@ None. The script reports only `ok`, `state`, the fixed message and `unknown_area
 | Situation | Behaviour |
 |---|---|
 | Unreadable or undecodable summary | Area is unknown; state follows the remaining areas |
-| Unlistable `docs/modules` | No areas, so not set up (exit 1) |
-| Every reachable repository not set up | STOP_MESSAGE alone, no choice list |
-| Chosen repository not set up | STOP_MESSAGE, then one line offering repositories marked ready or partly ready |
+| Unlistable `docs/modules` | No areas, so the script exits 1; the instructions read it as the code-only level and answer from code |
+| No paqad docs but reachable code | Code-only level: answered from code by names with the "paqad, from code only" source line, no stop; STOP_MESSAGE appears only as the optional at-most-once nudge |
+| Nothing readable at all (no usable docs, no reachable code) | The only stop: ask to attach or upload the repository or `docs/`; invent nothing |
 | No listing tool, or it lists none | Ask to attach the repository or `docs/`, or upload `docs/` (U-5 smallest set) |
 | Host lists but cannot read | Every repository marked not checked; the chosen one is read through the attach request |
 | Scripts cannot run | Each skill's "If the checks cannot run" checklist does the three-state check by hand (PLG-6) |
@@ -87,4 +87,5 @@ The wider `ask-project` description (overview questions, an attached or connecte
 | `tests/scripts/test_find_related.py` | `ModulesDirRowsTest`, `ModulesDirCliTest`: the `--modules-dir` source that reads summaries through `area_summaries` |
 | `tests/scripts/test_authoring.py` | `RepositorySelectionTest` (shared rule carries the selection cues, four marks and both sentences imported from the script; no skill-local copy), `RepositoryDeclarationTest` (who declares the two files), `SingleSourceDocAccessTest`, `RecordRepositoryFieldsTest`, `ThreeStateChecklistTest` |
 | `tests/scripts/test_build.py` | Dist copies of both files in the declaring skills, byte-identical to the source |
-| `tests/evals/scenarios/repo-selection.yml` | Conversation scenarios for the repository choice, partly ready and the overview answer (R13-49 to R13-55); R13-56 is script-proven by `test_onboarded.py` |
+| `tests/evals/scenarios/repo-selection.yml` | Conversation scenarios for the repository choice, docs-and-code and the overview answer (R13-49 to R13-55), with ac-53 and ac-53b now answering a code-only repository from code with the source line rather than stopping; R13-56 is script-proven by `test_onboarded.py` |
+| `tests/evals/scenarios/generic-mode.yml` | Conversation scenarios for the three evidence levels, the source line, the nudge and the only stop (gm-1 to gm-67); file-level rules checked by `test_generic_mode.py` |

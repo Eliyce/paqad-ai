@@ -1,0 +1,142 @@
+# Generic mode scenarios: the plugin answers on any repository at the best evidence level (GM-1 to
+# GM-9, GRD-12 to GRD-16). They are declarative, like s1.yml, and are NOT run in CI; the host eval
+# runner executes them against the built plugin and the fixtures under tests/evals/ (CI-12).
+#
+# AC-1, AC-53, AC-56 and AC-62 to AC-67 are conversation-shape acceptance scenarios, each exercised
+# by a scenario below (AC-53 by repo-selection.yml ac-53 and ac-53b). The file-level rules behind
+# them (the shared evidence-levels.md reference, the declarations, the record field and the code-only
+# fixture) are checked by tests/scripts/test_generic_mode.py.
+#
+# Fixtures used here:
+#   fixture-repo-code-only                                        real code, no paqad docs (code-only).
+#   fixture-repo                                                   the ready fixture (project-docs).
+#   fixture-repo without docs/instructions/registries/modules.md  summaries but no modules list
+#                                                                  (docs-and-code).
+#   none                                                          nothing attached.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect), plus the
+# repositories field of repo-selection.yml. Properties are judged on meaning, never as a string list.
+# Property vocabulary added here (all provider-neutral, all checkable; the s1.yml, repo-selection.yml
+# and evidence-rules.yml vocabulary also applies):
+#   source-line-present              every answer carries exactly one short source line for its level.
+#   level-from-project-docs          the answer and its source line are at the project-docs level.
+#   level-from-docs-and-code         the answer and its source line are at the docs-and-code level.
+#   level-from-code-only             the answer and its source line are at the code-only level.
+#   no-not-built-claim-code-only     in code-only mode nothing states or implies, in any wording, that
+#                                    an area or feature is missing or unbuilt.
+#   answers-at-best-level            the plugin answers at the best level the repository allows and
+#                                    never refuses because the level is weak.
+#   stops-only-when-nothing-readable the plugin stops only when there are no usable docs and no
+#                                    reachable code, and invents nothing.
+#   nudge-at-most-once               the upgrade nudge appears at most once in the conversation and
+#                                    never as a per-answer line.
+#   nudge-informational-only         the nudge links to an information page with a static campaign tag
+#                                    only, never to checkout, and carries no per-answer sales line.
+
+scenarios:
+  - id: gm-1
+    title: Code-only repository, overview question
+    acceptance: AC-1
+    entry_skill: ask-project
+    fixture: fixture-repo-code-only
+    user: "What is this project?"
+    expect:
+      - answer-first
+      - overview-table-of-areas
+      - level-from-code-only
+      - source-line-present
+      - no-not-built-claim-code-only
+      - nothing-invented
+
+  - id: gm-56
+    title: A repository with no usable docs but reachable code
+    acceptance: AC-56
+    entry_skill: ask-project
+    fixture: fixture-repo-code-only
+    user: "What does bookings do?"
+    expect:
+      - answer-first
+      - level-from-code-only
+      - source-line-present
+      - code-suggests-labelled
+      - no-not-built-claim-code-only
+      - answers-at-best-level
+
+  - id: gm-62
+    title: Mixed repository, a question about an undocumented area
+    acceptance: AC-62
+    entry_skill: ask-project
+    fixture: fixture-repo without docs/instructions/registries/modules.md
+    user: "What does loyalty do?"
+    expect:
+      - answer-first
+      - level-from-docs-and-code
+      - source-line-present
+      - not-documented-said
+      - code-suggests-labelled
+      - no-not-built-claim
+
+  - id: gm-63
+    title: Nothing readable at all
+    acceptance: AC-63
+    entry_skill: ask-project
+    fixture: none
+    repositories:
+      - "no listing tool"
+    user: "What does this product do?"
+    expect:
+      - stops-only-when-nothing-readable
+      - attach-or-upload-asked
+      - nothing-invented
+
+  - id: gm-64
+    title: The source line is present on a project-docs answer
+    acceptance: AC-64
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "Can customers pause a subscription today?"
+    expect:
+      - answer-first
+      - level-from-project-docs
+      - source-line-present
+      - single-sources-line
+
+  - id: gm-65
+    title: The upgrade nudge is shown at most once
+    acceptance: AC-65
+    entry_skill: ask-project
+    fixture: fixture-repo-code-only
+    user:
+      - "What does this project do?"
+      - "What does reminders do?"
+    expect:
+      - answers-at-best-level
+      - source-line-present
+      - nudge-at-most-once
+      - nudge-informational-only
+
+  - id: gm-66
+    title: A size on a code-only repository carries the level
+    acceptance: AC-66
+    entry_skill: size-work
+    fixture: fixture-repo-code-only
+    user: "Roughly how big is adding an export of reminders?"
+    expect:
+      - size-labelled-as-suggestion
+      - level-from-code-only
+      - source-line-present
+      - confidence-lowered-and-said
+      - no-not-built-claim-code-only
+
+  - id: gm-67
+    title: A code-only area with no matching code
+    acceptance: AC-67
+    entry_skill: ask-project
+    fixture: fixture-repo-code-only
+    user: "What does payments do?"
+    expect:
+      - answer-first
+      - not-documented-said
+      - no-not-built-claim-code-only
+      - source-line-present
+      - nothing-invented

@@ -14,8 +14,8 @@ Check here before writing a new helper or reference. Shared material lives once 
 | `check_record.py` | Asking whether a step's required blocks are present and fresh | `check` | product-discovery, refine-ticket, size-work, plan-sprint |
 | `check_prose.py` | Linting ticket prose (dashes, code words, jargon deny-list) | `lint_ticket_set`, `lint_item`, `scan`, `load_denylist` | check-tickets, refine-ticket |
 | `check_readback.py` | Comparing what the tracker holds to what was approved, after normalisation | `compare`, `expected_items`, `norm_text`, `norm_title`, `norm_ref` | post-tickets, refine-ticket, plan-sprint |
-| `check_onboarded.py` | The one GRD-1 onboarded check (ready, partly ready, not set up) and the one reader of area summaries; never re-read `docs/modules/*/index/summary.md` elsewhere | `onboarded_state`, `area_summaries`, `is_onboarded`, `result_payload`; constants `STOP_MESSAGE`, `PARTLY_MESSAGE` | get-connected, ask-project, ground-in-project (and `find_related.py`, which imports it) |
-| `find_related.py` | Ranking onboarded modules against free text, from the registry or (no registry) from the area folders and summaries | `rank`, `parse_registry`, `rows_from_modules_dir`, `tokens`, `term_matches` | ask-project, ground-in-project |
+| `check_onboarded.py` | The one GRD-1 readiness check (ready, partly ready, not set up; read by the instructions as the project-docs, docs-and-code and code-only levels) and the one reader of area summaries; never re-read `docs/modules/*/index/summary.md` elsewhere | `onboarded_state`, `area_summaries`, `is_onboarded`, `result_payload`; constants `STOP_MESSAGE`, `PARTLY_MESSAGE` | get-connected, ask-project, ground-in-project (and `find_related.py`, which imports it) |
+| `find_related.py` | Ranking the project's modules against free text, from the registry or (no registry) from the area folders and summaries | `rank`, `parse_registry`, `rows_from_modules_dir`, `tokens`, `term_matches` | ask-project, ground-in-project |
 | `detect_placeholder.py` | Telling real documentation from unfilled template text | `classify`, `split_sections`, `load_markers` | ask-project, ground-in-project |
 
 ## Shared references (`shared/references/`)
@@ -28,8 +28,9 @@ Check here before writing a new helper or reference. Shared material lives once 
 | `plain-language.md` | Plain-word substitutions and jargon deny-list | write-tickets, check-tickets, refine-ticket |
 | `writing-rules.md` | Ticket writing rules (section 8.4) | write-tickets, refine-ticket |
 | `consulting.md` | Consultant stance (section 4A) | product-discovery, ask-project |
-| `paqad-docs-map.md` | Where things live in a paqad-onboarded repo, the reading order (GRD-2) and what the documents prove (GRD-8 to GRD-11) | ask-project, ground-in-project, shape-idea, refine-ticket, size-work |
-| `connect-repository.md` | Choosing, reaching and remembering the repository by capability (GRD-3), the three-state onboarded check with both exact sentences (GRD-1), the never-read list | ask-project, get-connected, ground-in-project, refine-ticket, size-work |
+| `evidence-levels.md` | The single source for generic mode (GRD-12 to GRD-16): the three evidence levels (`project-docs`, `docs-and-code`, `code-only`) and their detection, the one source line per level, the informational upgrade nudge rules, and the code-only area finder | ask-project, ground-in-project, shape-idea, refine-ticket, size-work, get-connected |
+| `paqad-docs-map.md` | Where things live when paqad docs are present, the reading order with code as the baseline (GRD-2) and what the documents prove (GRD-8 to GRD-11) | ask-project, ground-in-project, shape-idea, refine-ticket, size-work |
+| `connect-repository.md` | Choosing, reaching and remembering the repository by capability (GRD-3), the GRD-1 check mapped to the three evidence levels with both exact sentences, the never-read list | ask-project, get-connected, ground-in-project, refine-ticket, size-work |
 | `template-markers.md` | Markers that identify template text (both doc generations) | ask-project, ground-in-project |
 
 ## Skill-local helpers worth knowing
