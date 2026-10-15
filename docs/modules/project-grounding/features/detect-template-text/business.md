@@ -30,6 +30,7 @@ Onboarded projects often still hold sections that were never filled in, left as 
 | Do not stop for templates | Template sections do not halt the run; they become open points (GRD-4) |
 | Both template generations | Phrases from the current and the earlier paqad template are recognised |
 | No guessing | A gap is never filled with an invented answer (ASK-3, AC-5, AC-22) |
+| Template is not absence | A template or missing section only means the point is not documented. It is never evidence that the feature is missing, and the plugin never says or suggests it is not built, in any wording (GRD-8). When the code is reachable, that area's code is checked and at most one point per area is added, labelled "the code suggests" (GRD-11) |
 
 ## Triggers and Side Effects
 
@@ -54,4 +55,4 @@ No change to the project or the tracker.
 | Marker phrase | A known template sentence opening, used to recognise template text |
 | Real section | A section with none of the marker phrases |
 
-Sources: shared/scripts/detect_placeholder.py, shared/references/template-markers.md
+Sources: shared/scripts/detect_placeholder.py, shared/references/template-markers.md, shared/references/paqad-docs-map.md

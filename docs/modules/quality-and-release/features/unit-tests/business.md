@@ -34,7 +34,7 @@ The plugin's safety rests on its scripts: the record that refuses stale writes, 
 | Build | Four manifests agree; byte-identical builds; undeclared shared import fails; no forbidden folders |
 | Authoring rules | Skill names and sizes; "How to talk" block; no vendor names; no long dashes; entry versus step skill wording (AC-19); checklist fallback in every script-bearing skill (AC-16) |
 
-Standard library only, Python 3.9 or later, no network. Last measured: 295 tests, 0 failures.
+Standard library only, Python 3.9 or later, no network. Last measured: 312 tests, 0 failures.
 
 ## Triggers and Side Effects
 

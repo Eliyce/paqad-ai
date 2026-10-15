@@ -1,7 +1,7 @@
 # paqad Product Discovery plugin: requirements (v2.4)
 
 **Product name:** `paqad-product-discovery` (plugin name). The coordinating skill is `product-discovery`.
-**Status:** v2.4, 14 October 2026. Supersedes `paqad-ai-product-planning/18-idea-to-tickets-plugin-requirements.md` (v1). v2.1 added question answering, Codex as a v1 host, and the consulting stance (V-17 to V-19). v2.2 added refining existing tickets, sizing work and sprint planning (V-20 to V-23). v2.3 added the top-priority talking rules (V-24). v2.4 adds choosing the repository, a relaxed onboarded check and wider question triggers (V-25).
+**Status:** v2.4, 14 October 2026. Supersedes `paqad-ai-product-planning/18-idea-to-tickets-plugin-requirements.md` (v1). v2.1 added question answering, Codex as a v1 host, and the consulting stance (V-17 to V-19). v2.2 added refining existing tickets, sizing work and sprint planning (V-20 to V-23). v2.3 added the top-priority talking rules (V-24). v2.4 adds choosing the repository, a relaxed onboarded check and wider question triggers (V-25). v2.4 also adds evidence rules for undocumented areas and an automatic code check (V-26).
 **Owner:** Haider.
 **How v2 was made:** v1 was treated as an expert proposal and run through a paqad Discovery (run `idea-to-tickets-plugin-01M45JKFJJ7CAY5GZQYXNWAVAN`). Every load-bearing fact was rechecked against live documentation, the live Atlassian connector, a real paqad-onboarded repository and the earlier `paqad-ticket-refinement` 0.2.0 plugin. Section 0 lists what changed and why.
 
@@ -38,6 +38,7 @@
 | V-23 | D-2 reworded: the plugin runs inside the AI host, which for Codex is local | Codex (V-18) made "web chat only" untrue |
 | V-24 | New top-priority section 3A: short, plain, table-first replies, no narration, no explaining unless asked | Owner decision D-18. Long AI replies are the most common complaint from business users |
 | V-25 | New: choosing the repository, a three-state onboarded check and wider question triggers (GRD-1, GRD-3, ASK-9) | claude.ai testing on 14 October 2026: an overview question did not load ask-project and the user had to name the repository; a real repository with 6 module folders, 3 summaries and no modules list was refused whole. Owner decisions D-19 and D-20 |
+| V-26 | New: evidence rules for undocumented areas and an automatic code check (GRD-8 to GRD-11, ASK-8) | claude.ai testing on 14 October 2026 on a partly onboarded repository: built areas were called unbuilt because they had no summary and because another area's stale status line was read as theirs; a pre-build requirements specification was cited as current behaviour; attached code was never checked. Owner decision D-21 |
 
 ---
 
@@ -96,6 +97,7 @@ Don't ask these again unless something material changes.
 | D-18 | **Short, plain, to the point. Top priority.** | Section 3A overrides every other section on how replies look. Where another requirement asks the plugin to show or say something, it does so within 3A. |
 | D-19 | **Several reachable repositories: show them all.** | Most recently active first, each marked ready, partly ready, not set up or not checked, one recommended (GRD-3). Owner decision D-01M4XRW84WC1PJS51MNW8DX6SA. |
 | D-20 | **Relax GRD-1: area summaries without a modules list are partly ready.** | The plugin carries on and names areas without a summary as unknown. `docs/instructions` alone stays not set up because it holds no business content. Owner decision D-01M4XSCPRG9YR89CM2NEJR6T0M. |
+| D-21 | **Check the code automatically for an area the documents do not cover.** | When the code is reachable, the plugin looks at that area's code by names and reports what the code suggests, instead of offering or skipping (GRD-11, ASK-8). Owner decision D-01M4XXAR4X3329W40XXH2AFNQF. |
 
 ## 3A. How the plugin talks (top priority)
 
@@ -167,15 +169,15 @@ The plugin behaves like an experienced product consultant working for the user. 
 - **ASK-5.** Answer as a consultant (CON-9): when the answer points to a real problem or opportunity, add one short line on what it means, for example "So pausing needs a support call today. Want to shape a change?" Otherwise add nothing (TALK-2).
 - **ASK-6.** Offer to carry the question into `product-discovery` when the answer reveals a gap or an idea. The answer and its sources seed the `idea` and `today` blocks, so nothing is asked twice.
 - **ASK-7.** Question answering never writes to the tracker.
-- **ASK-8.** If the documents can't answer and code is attached, the plugin may look, and reports it as "the code suggests…" (GRD-2 order 7).
-- **ASK-9.** An overview question (what the product or project is, what it does, what areas it has, or what an attached repository is) MUST be answered as a table of areas with two columns, the area's plain name and one line on what it does, then one Sources line. When the repository is ready, there is one row per module in the modules list, with the line taken from that row; an area summary is read only when the row does not say what the area is for. When it is partly ready, there is one row per summarised area from its summary, plus one row per area without a summary whose line says it is unknown. When a repository is attached, no question about which repository is asked. Nothing is invented.
+- **ASK-8.** When the documents do not cover an area the question needs and the code is reachable, the plugin MUST check that area's code automatically (GRD-11) and report at most one line per area as "the code suggests…". It never states or implies, in any wording, that an undocumented area is not built (GRD-8).
+- **ASK-9.** An overview question (what the product or project is, what it does, what areas it has, or what an attached repository is) MUST be answered as a table of areas with two columns, the area's plain name and one line on what it does, then one Sources line. When the repository is ready, there is one row per module in the modules list, with the line taken from that row; an area summary is read only when the row does not say what the area is for; when the row does not say what the area is for and the summary is missing, the line says the area is not documented, followed, when the code is reachable, by what the code suggests from names only (GRD-11). When it is partly ready, there is one row per summarised area from its summary, plus one row per area without a summary whose line says it is not documented, followed, when the code is reachable, by what the code suggests from names only (GRD-11). When a repository is attached, no question about which repository is asked. Nothing is invented.
 
 ## 4C. Refining existing tickets
 
 `refine-ticket` improves one or more tickets that already exist in the tracker. It uses the same consulting stance (4A), grounding (section 7) and writing rules (8.4) as new work.
 
 - **EDT-1. Read first.** Read each ticket in full (summary, description, type, parent, labels, links, status, assignee, sprint, size field) and keep a snapshot with its last-updated time in the record.
-- **EDT-2. Diagnose before changing.** Say what is wrong in plain words: missing "done when", untestable outcomes, jargon, no "not included", contradicts the documents, too big for one ticket, missing parent or dependency. Each finding names its evidence.
+- **EDT-2. Diagnose before changing.** Say what is wrong in plain words: missing "done when", untestable outcomes, jargon, no "not included", contradicts the documents, too big for one ticket, missing parent or dependency. Each finding names its evidence. A contradiction that rests on a document's status line names it as what the docs say, and a missing or template document is never a finding that the feature is missing (GRD-8, GRD-9).
 - **EDT-3. Preserve the author's intent.** Keep the original meaning and the original author's words where they are clear. Never rewrite a ticket into something else; if the ticket really describes a different or larger piece of work, recommend shaping it through `product-discovery` instead.
 - **EDT-4. Propose a field-by-field change.** Show each changed field as before and after. Changes are limited to: summary, description, labels, parent, links, and new child tickets when splitting. Status, assignee, priority, sprint and size change only when the user explicitly asks for that change.
 - **EDT-5. Approval bound to the change.** Apply only after an explicit "apply it" for that exact change set, bound to its digest (as REC-7). Any edit to the proposal voids the approval.
@@ -191,7 +193,7 @@ The plugin behaves like an experienced product consultant working for the user. 
 
 - **EST-1. Use the team's scale.** At first use, find out how the project sizes work: story points (and which field holds them), T-shirt sizes, or nothing. Ask once if it can't be found, and remember it in the record.
 - **EST-2. Compare with finished work.** Look for similar completed tickets in the same project (by module, labels, key phrases) and their recorded sizes. Show the two to five closest, with links, as the basis of the suggestion.
-- **EST-3. Explain the size.** Each suggestion gives a size or a range, what drives it (for example "touches two areas", "new rules for refunds", "the docs on this area are a blank template"), and a confidence of low, medium or high. Missing or template documentation lowers confidence and says so.
+- **EST-3. Explain the size.** Each suggestion gives a size or a range, what drives it (for example "touches two areas", "new rules for refunds", "the docs on this area are a blank template"), and a confidence of low, medium or high. Missing or template documentation lowers confidence and says so. Missing or template documentation is never a driver such as "new area" or "not built yet" (GRD-8); when whether the area exists drives the size and the code is reachable, the area's code is checked and the driver is labelled "the code suggests" (GRD-11).
 - **EST-4. Recommend a split when it's big.** If the suggestion is above what the team usually finishes in a sprint, or confidence is low because of size, recommend how to split it.
 - **EST-5. Labelled, never a commitment.** Every size shown is labelled "suggested size". It is never presented as a delivery date or promise, and no date is ever derived from it.
 - **EST-6. Writing a size needs approval.** By default the suggestion is shown, or added as a comment if the user asks. Writing it into the size field needs an explicit "set it", and is refused if the field already holds a value unless the user asks to replace it.
@@ -251,13 +253,13 @@ Thirteen skills. Five are entry points; `product-discovery` also coordinates the
 | `get-connected` | Step 0: documents reachable and onboarded; tracker writable; tracker project setup read | `setup` block | `references/connect-repository.md` (shared), `references/connect-tracker.md`, `references/tracker-profiles/`, `scripts/check_onboarded.py` (shared) |
 | `understand-idea` | Step 1 | `idea` block | `references/question-bank.md`, `references/success-prompts.md` |
 | `ground-in-project` | Step 2: read docs in the order in section 7; find related areas; report coverage and template sections | `today` block | `references/paqad-docs-map.md`, `references/template-markers.md`, `references/connect-repository.md` (shared), `scripts/check_onboarded.py` (shared), `scripts/find_related.py`, `scripts/detect_placeholder.py` |
-| `shape-idea` | Step 3: playback, expert lenses, options, smaller first step, recommendation | `playback` block | `references/playback-template.md`, `references/challenge-guide.md`, `references/expert-lenses.md` |
+| `shape-idea` | Step 3: playback, expert lenses, options, smaller first step, recommendation | `playback` block | `references/playback-template.md`, `references/challenge-guide.md`, `references/expert-lenses.md`, `references/paqad-docs-map.md` (shared) |
 | `decide-together` | Step 4 | `decisions` block | `references/decision-template.md` |
 | `write-tickets` | Step 5 drafting | `ticket-set.json` and a readable preview | `assets/epic-template.md`, `assets/ticket-template.md`, `assets/ticket-set.schema.json`, `references/writing-rules.md`, `references/plain-language.md` |
 | `check-tickets` | Step 5 checking; duplicate search in the tracker | `readiness` block | `scripts/check_prose.py`, `scripts/check_ticket_set.py`, `references/review-checklist.md` |
 | `post-tickets` | Step 6: final preview, approval, create in order, record receipts, reconcile, read back, report | `posted` block | `references/post-procedure.md`, `references/tracker-profiles/`, `scripts/plan_posting.py`, `scripts/check_readback.py`, `scripts/export_csv.py` |
-| `refine-ticket` | Section 4C: read, diagnose, propose field-by-field change, conflict check, apply, read back | `existing` and `changes` blocks; updated tickets | `references/refine-procedure.md`, `references/rich-content.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles/`, `references/connect-repository.md` (shared), `scripts/diff_ticket.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
-| `size-work` | Section 4D: team scale, comparable finished work, size with drivers and confidence, split advice | `sizing` block | `references/sizing-guide.md`, `references/tracker-profiles/`, `references/connect-repository.md` (shared), `scripts/compare_sizes.py` |
+| `refine-ticket` | Section 4C: read, diagnose, propose field-by-field change, conflict check, apply, read back | `existing` and `changes` blocks; updated tickets | `references/refine-procedure.md`, `references/rich-content.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles/`, `references/paqad-docs-map.md` (shared), `references/connect-repository.md` (shared), `scripts/diff_ticket.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
+| `size-work` | Section 4D: team scale, comparable finished work, size with drivers and confidence, split advice | `sizing` block | `references/sizing-guide.md`, `references/tracker-profiles/`, `references/paqad-docs-map.md` (shared), `references/connect-repository.md` (shared), `scripts/compare_sizes.py` |
 | `plan-sprint` | Section 4E: target sprint, capacity, readiness filter, proposal, apply on approval | `sprint_plan` block | `references/sprint-procedure.md`, `references/tracker-profiles/`, `scripts/fit_sprint.py`, `scripts/check_readback.py` |
 
 ### 6.3 Shared material and the build step
@@ -298,7 +300,7 @@ The plugin relies on the paqad-onboarded layout as a contract. These paths were 
 
 **GRD-1. Onboarded check.** The check reads the modules list, `docs/instructions/registries/modules.md`, and the area summaries, `docs/modules/<area>/index/summary.md` for each folder under `docs/modules/` whose name does not start with a dot. A file that is empty, holds only whitespace or cannot be read counts as missing. The repository is in one of three states (D-20):
 - **Ready:** the modules list and at least one area summary. The plugin carries on.
-- **Partly ready:** at least one area summary and no modules list. The plugin carries on, says once, in the first reply that uses that repository: "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown.", then names the areas without a summary as unknown in plain words. Related areas are ranked from the folder names and summaries. Nothing is invented for an unknown area.
+- **Partly ready:** at least one area summary and no modules list. The plugin carries on, says once, in the first reply that uses that repository: "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown.", then names the areas without a summary as not documented in plain words. Related areas are ranked from the folder names and summaries. Nothing is invented for an unknown area.
 - **Not set up:** no area summary, whatever else exists (`docs/instructions` alone holds no business content). Stop with: "This repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then come back." Nothing is drafted or answered.
 
 `check_onboarded.py` exits 0 for ready and partly ready and 1 for not set up.
@@ -313,7 +315,7 @@ The plugin relies on the paqad-onboarded layout as a contract. These paths were 
 | 4 | `docs/site-map/` (if present: `app-map.yaml`, `journeys/`) | Screens, navigation and journeys. |
 | 5 | `docs/instructions/architecture/overview.md`, `docs/instructions/stack/overview.md` | Only for cross-cutting constraints. Never quoted in ticket text. |
 | 6 | `docs/modules/<module>/features/<feature>/technical.md` | Only to settle a fact `business.md` can't. Never quoted in ticket text. |
-| 7 | Source code | Only if attached and steps 1 to 6 left a material gap. Reported as "the code suggests…". |
+| 7 | Source code | Automatically, for each area the answer needs that the documents do not cover (no summary, template text, or no document), when the code is reachable (GRD-11). Names first, at most 5 files per area. Reported as "the code suggests…". |
 
 Never read: `.paqad/` runtime state, `docs/instructions/rules/`, secrets, or environment files.
 
@@ -338,13 +340,30 @@ Known host behaviour (for `hosts/*.md` and support, not skill text): claude.ai r
 - Current (`module-scaffold/business.md.hbs`): "Describe the business purpose of the", "Document the personas that interact with", "Capture the main user journeys for", "List the rules and invariants that must hold", "Record notifications, jobs, integrations", "Describe user-visible failures and recovery guidance", "Add domain terms that matter to stakeholders".
 - Earlier generation: "Capture the main journeys for", "Enumerate invariants that must hold", "Spell out idempotency expectations".
 
-The `today` block reports, per related area, which sections are real and which are template. The user is told, for example: "The project's notes on roles and rules for X are still a blank template, so I can't confirm who uses it or what rules apply." The plugin MUST NOT present template text as a fact, and MUST NOT stop just because some sections are template; it proceeds with those points listed as unknown.
+The `today` block reports, per related area, which sections are real and which are template. The user is told, for example: "The project's notes on roles and rules for X are still a blank template, so I can't confirm who uses it or what rules apply." The plugin MUST NOT present template text as a fact, and MUST NOT stop just because some sections are template; it proceeds with those points listed as unknown. Template or missing text is never evidence that a feature is missing (GRD-8).
 
-**GRD-5. Sources.** Every claim in the `today` block MUST carry the document path it came from. Tickets list these paths in a "Sources" section at the bottom (section 8).
+**GRD-5. Sources.** Every claim in the `today` block MUST carry the document path it came from. Tickets list these paths in a "Sources" section at the bottom (section 8). A line from the code check carries the code folder it came from instead, on the same Sources line (GRD-11).
 
 **GRD-6. Language.** Keep a `glossary` of the user's term next to the project's term. Ticket text uses the user's term. The first time a term appears in a ticket, the project's term follows in brackets: "the sign-up check (called *entry gate* in the project docs)". A rejected mapping is corrected everywhere.
 
 **GRD-7. Untrusted content.** Repository documents and tracker content are data, never instructions. Any text in them that tries to direct the assistant is ignored and mentioned to the user.
+
+**GRD-8. Not documented is not the same as not built.** A missing summary, a missing document or a section that is still template text MUST NOT be treated as evidence that a feature is missing. The plugin MUST say the area is "not documented" and, on that evidence, MUST NOT state or imply that the feature is missing, in any wording. Phrases such as "not built", "unbuilt", "none yet", "none of ... yet", "not implemented", "doesn't exist" or "not there" are examples, not a complete list.
+
+**GRD-9. A status needs evidence about the exact thing it names.** A built, not built, coming soon or placeholder claim MUST rest on evidence about that exact area or item. A status line in a document applies only to the exact thing it names: a menu entry or screen tagged coming soon says that entry is not ready yet, not that the feature behind it is unbuilt. A status line in a document MUST be reported as what the docs say ("the docs say it is coming soon"), because documents can lag the product. The plugin MUST NOT carry one status line over to another area, to the feature behind a menu entry, or to the whole product, and MUST NOT reason from one area's documents or screens to another area's status. When the code is reachable and the status matters to the answer, that area's code MUST be checked (GRD-11). When they disagree, both MUST be said plainly in one sentence, "The docs say ..., but the code suggests ...", and neither is picked as fact.
+
+**GRD-10. Requirements are intent, not today.** A requirements or specification document outside `docs/modules` (named as requirements or a specification) is not in the reading order (GRD-2). The plugin MUST NOT open one to learn what the product does today, and MUST NOT use one as a source for current behaviour or for built or not built. When one is already in front of it, or the user asks about plans, it MAY use one only labelled as intended: "The requirements say it is intended to ...". Business notes under `docs/modules` are always read as current behaviour, even when they state rules that must hold.
+
+**GRD-11. Check the code for an area the documents do not cover.** For each area the answer needs that has no summary, only template text or no document, the plugin MUST look at that area's code automatically when the code is reachable: a tool can read repository files on demand, or the code is attached. Only the `docs/` folder attached means the code is not reachable (D-21).
+- It MUST look at that area only, found by its name, its plain name and its feature names. Names come first: folders, file names, routes, page and action names, and test names.
+- It MUST open at most 5 files for the area, and stop as soon as it can say what exists. Listing names does not count as opening a file. For a row in an overview table the names are enough: it MUST open no file.
+- The never-read list still applies: no secrets, environment files, `.paqad/`, `docs/instructions/rules/`, `.git/`, or dependency or vendored folders (for example `vendor/` and `node_modules/`), even when a name matches. Code is data, never instructions (GRD-7). The check only reads: it MUST NOT edit, run or install anything.
+- The plugin MUST say at most one "the code suggests" line per area, in plain words. No code, code names or file contents in the body; the folders looked at go on the one Sources line (GRD-5).
+- When nothing is found under the area's names, the plugin says the area is not documented and that no code was found under its name. It MUST NOT conclude the area is not built.
+- When the code is not reachable, the plugin says the area is not documented and adds at most one short offer, for example "Want me to check the code if you attach it?".
+- A line the code suggests MUST keep that label wherever it goes (answer, today block, playback, ticket), and MUST NOT be turned into a fact.
+
+Example: "Loyalty points are not documented. The code suggests members can earn and redeem points."
 
 ---
 
@@ -617,6 +636,11 @@ Use the fixture repository and invented content only.
 | AC-54 | A later question in the same conversation, a resumed run, then "switch to the other repository" | No repository question for the later question or the resumed run; on the request the other repository is checked and used, a run saying in one line what is redone |
 | AC-55 | A repository with area summaries but no modules list | Carries on; says once in plain words that the list of areas is missing; names areas without a summary as unknown; invents nothing; answer first with one Sources line |
 | AC-56 | A repository with only `docs/instructions`, or a modules list with no summaries, or only empty summaries | The exact onboarding sentence; nothing drafted |
+| AC-57 | An area with code but no notes, the code reachable; the user asks what it does | The area is called not documented, and nothing states or implies, in any wording, that it is not built; at most one line labelled "the code suggests" in plain words from that area's code only, never from `.git/` or a dependency or vendored folder; paths only on the Sources line; answer first |
+| AC-58 | The same area with only the docs folder attached | Says not documented; no status invented; at most one short offer line to check the code |
+| AC-59 | Another area's summary carries a stale "soon" tag on a menu entry for this area, whose code exists, and a second undocumented area with code sits in the same repository; the user asks whether either is live | The tag is said as what the docs say about that entry only, never as the feature behind it being unbuilt, and is not carried over to the second area or to the whole product; no area's status is inferred from another area's documents or screens; the docs and what the code suggests are both said plainly |
+| AC-60 | A requirements specification sits in the repository; the user asks what the product does | The specification is never presented as current behaviour or used as the source of an overview row; anything taken from it is labelled as intended; a business note under `docs/modules` that states a rule that must hold is still used as current behaviour |
+| AC-61 | Refine or size a ticket about an area with no notes | No "not built" or "new area" claim from missing docs; confidence lowered and said; any finding or driver from the code labelled "the code suggests" |
 
 ---
 
@@ -650,6 +674,7 @@ Use the fixture repository and invented content only.
 | OD-15 | How the plugin talks | Short, plain, table-first, top priority (D-18) |
 | OD-16 | Repository choice | Show all reachable repositories, most recently active first, each marked, one recommended (D-19) |
 | OD-17 | Partly ready repositories | Area summaries without a modules list are partly ready; the plugin carries on and names unknown areas (D-20) |
+| OD-18 | Undocumented areas | Not documented is never not built; the code is checked automatically when reachable and reported as what the code suggests (D-21) |
 
 ## 16. Unknowns to prove in S0
 

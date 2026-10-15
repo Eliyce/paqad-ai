@@ -19,11 +19,11 @@ Runs when the product-discovery journey directs it; not started directly.
 
 1. Choose the repository and confirm it is onboarded. Choose and reach it by capability as in
    `references/connect-repository.md`, then run `scripts/check_onboarded.py` on it. Ready: carry on.
-   Partly ready: carry on, say its message once and name the areas without a summary as unknown.
-   Not set up: stop with its exact message, "This repository isn't set up for this yet. Ask your
-   engineering team to onboard it with paqad, then come back.", then offer any repositories marked
-   ready or partly ready, and draft nothing. Store the choice in `setup.repository` and its state in
-   `setup.repository_state`.
+   Partly ready: carry on, say its message once and name the areas without a summary as not
+   documented. Not set up: stop with its exact message, "This repository isn't set up for this yet.
+   Ask your engineering team to onboard it with paqad, then come back.", then offer any repositories
+   marked ready or partly ready, and draft nothing. Store the choice in `setup.repository` and its
+   state in `setup.repository_state`.
 2. Confirm the tracker can be written to and read its setup. Follow `references/connect-tracker.md`:
    check the connector offers a create action for the target project and that the user can create
    issues there (PUB-7). Read the project's issue types, required fields, link types, and the size

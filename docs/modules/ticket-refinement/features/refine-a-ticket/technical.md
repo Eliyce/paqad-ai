@@ -85,9 +85,9 @@ Other scripts the skill calls (owned elsewhere): `check_prose.py --ticket-set <d
 
 | Kind | Dependency |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles-jira.md`, `references/connect-repository.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
-| Other modules | `discovery-record`, `project-grounding` (how to choose and reach the repository when reading project documents; the first docs-reading step records `setup.repository` and `setup.repository_state`), `tracker-checks`, `conversation-standards`; hands larger work to `idea-journey` (`product-discovery`) |
-| Host capabilities | Tracker connector: read issue, edit issue, add comment, create issue and create link (split), search; reading project documents for the contradiction check; running Python scripts |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/writing-rules.md`, `references/plain-language.md`, `references/tracker-profiles-jira.md`, `references/paqad-docs-map.md`, `references/connect-repository.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py`, `scripts/check_prose.py`, `scripts/check_readback.py` |
+| Other modules | `discovery-record`, `project-grounding` (how to choose and reach the repository when reading project documents; the first docs-reading step records `setup.repository` and `setup.repository_state`; "What the documents prove" in `paqad-docs-map.md`, GRD-8 to GRD-11, which the diagnosis follows: a contradiction resting on a document's status line is named as what the docs say, for the exact thing it names only, a missing or template document is never a finding, in any wording, that the feature is missing, and when whether the area exists matters and the code is reachable that area's code is checked, at most 5 files, and at most one finding per area labelled "the code suggests"; the checklist fallback does the same by hand), `tracker-checks`, `conversation-standards`; hands larger work to `idea-journey` (`product-discovery`) |
+| Host capabilities | Tracker connector: read issue, edit issue, add comment, create issue and create link (split), search; reading project documents for the contradiction check, and the code when reachable for the GRD-11 check; running Python scripts |
 
 ## Configuration
 
@@ -115,3 +115,5 @@ Rich-content markers (regular expressions in `diff_ticket.py`):
 | `tests/scripts/test_record.py`: `test_mode_required_gates_advance`, `test_staleness_is_mode_local_and_never_touches_the_build_chain`, `test_approve_binds_the_block_digest`, `test_edit_after_approval_voids_it`, `test_approve_refuses_unknown_block_and_stale_revision` | Refine-mode blocks, staleness and approval (module `discovery-record`) |
 | `tests/scripts/test_authoring.py` `TriggerHygieneTest.test_entry_skills_present`, `ChecklistFallbackTest.test_each_script_bearing_skill_has_fallback` | Entry skill and PLG-6 fallback |
 | `tests/evals/scenarios/s1b.yml` `ac-30`, `ac-33` | Diagnosis with evidence and before/after; split with original kept (fixtures under `tests/evals/fixture-repo/tracker/`) |
+| `tests/scripts/test_evidence_rules.py` `SkillPointerTest`, `DocsMapBuildTest` | The skill declares and points to "What the documents prove", its checklist bullet is the one shared text for the four checklist skills, and the docs map is shipped into it |
+| `tests/evals/scenarios/evidence-rules.yml` `ac-61b` | Refining `LOY-12`, a ticket that claims its area is not built: no not built finding from missing notes, code findings labelled |

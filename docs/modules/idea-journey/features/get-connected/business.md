@@ -17,7 +17,7 @@ Step 0 of the idea journey. Before any drafting effort is spent, the plugin sett
 | Step | What happens |
 |---|---|
 | 1 | The plugin settles which project to use: an attached project is used without asking, the only reachable project is used without asking, and several reachable projects are offered in one short marked list with one recommended. If it can see none, it asks the user to attach the repository or the docs folder, asking for the smallest set needed when it is large. |
-| 2 | It checks how far the project is set up. Ready: it carries on. Partly ready: it carries on, says once that the list of areas is missing, and names areas without a summary as unknown. Not set up: it stops with the onboarding message and offers any other project that is ready or partly ready. The chosen project and its state are kept for the rest of the run. |
+| 2 | It checks how far the project is set up. Ready: it carries on. Partly ready: it carries on, says once that the list of areas is missing, and names areas without a summary as not documented, never as missing features. Not set up: it stops with the onboarding message and offers any other project that is ready or partly ready. The chosen project and its state are kept for the rest of the run. |
 | 3 | It checks the tracker connector can create issues in the target project and that the user is allowed to. |
 | 4 | It reads the project's issue types, required fields, link types, and the size and sprint field ids. |
 | 5 | It warns once that every created issue will carry a run label and that these labels build up in the site's label list. |
@@ -46,7 +46,7 @@ Step 0 of the idea journey. Before any drafting effort is spent, the plugin sett
 | Situation | What the user sees |
 |---|---|
 | Project not set up | "This repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then come back." Then an offer of any project marked ready or partly ready. Nothing drafted (AC-1). |
-| Project partly ready | "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown." once, then the journey carries on. |
+| Project partly ready | "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown." once, then a short line naming those areas as not documented, then the journey carries on. |
 | Connector not switched on | Plain explanation, who usually fixes it, export offered (AC-2) |
 | Connector has read tools only | Same as above |
 | No permission to create issues in the project | Same as above; no specific admin scope is asserted |

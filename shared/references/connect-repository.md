@@ -79,9 +79,10 @@ The partly ready sentence, exactly, said once in the first reply that uses that 
 
 > This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown.
 
-Follow it with one short line naming the areas without a summary in plain words (folder names with
-hyphens and underscores shown as spaces, never a path); leave the line out when there are none.
-Later replies name such an area only when the question touches it, and nothing is invented for it.
+Follow it with one short line naming the areas without a summary as not documented, in plain words
+(folder names with hyphens and underscores shown as spaces, never a path); leave the line out when
+there are none. A missing summary is never read as a missing feature. Later replies name such an
+area only when the question touches it, and nothing is invented for it.
 `docs/instructions` alone is not set up, because it holds no business content. This plugin does not
 onboard repositories.
 

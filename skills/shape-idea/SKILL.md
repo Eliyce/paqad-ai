@@ -23,7 +23,10 @@ a conflict kindly, and `references/expert-lenses.md` for the lenses.
 
 1. Play the idea back, goal first. Use the shape in `references/playback-template.md`: the goal,
    what exists today (including what the docs could not confirm), the options with their
-   trade-offs in business terms, a smaller first step where it helps, and a recommendation.
+   trade-offs in business terms, a smaller first step where it helps, and a recommendation. The
+   playback calls an area the documents do not cover not documented, never says or implies it is
+   not built, and keeps the label on any line the code suggests, as in "What the documents prove"
+   in `references/paqad-docs-map.md`.
 2. Look through the expert lenses (`references/expert-lenses.md`): customer value and experience,
    business and cost, operations and support, data and privacy, security and access, and rollout
    and change for existing users. Raise only what matters for this idea, in business terms, each
@@ -33,8 +36,10 @@ a conflict kindly, and `references/expert-lenses.md` for the lenses.
    recommended one marked and one short clause of why.
 4. Offer a smaller first release or an experiment with a success condition when the idea is large
    or uncertain, naming what result would justify going further.
-5. If the idea already exists as a documented capability, say so with the source, recommend the
-   already-exists outcome, and draft nothing more unless the user asks.
+5. If the idea already exists as a documented capability, or the today block holds a line the code
+   suggests that shows it exists, say so with the source, keep the label "the code suggests" on a
+   code-based line, recommend the already-exists outcome and draft nothing more unless the user
+   asks.
 6. Label every suggestion as a suggestion. Nothing enters the record until the user accepts it.
    Respect an informed choice once the user makes it; revisit it only for new evidence.
 
@@ -51,6 +56,9 @@ This skill carries no script. Shape the idea by hand with this checklist:
   condition is offered.
 - If the idea already exists, that is said with the source and the already-exists outcome is
   recommended.
+- Do "What the documents prove" in `references/paqad-docs-map.md` by hand from the record: call
+  an area the today block does not document not documented; never say or imply it is not built;
+  keep "the code suggests" on every line from the code.
 - Every suggested measure or scope cut is labelled a suggestion and only recorded once accepted.
 
 ## Output

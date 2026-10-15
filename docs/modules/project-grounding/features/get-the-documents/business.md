@@ -29,7 +29,7 @@ Every answer, idea, refinement and size the plugin gives rests on the project's 
 |---|---|
 | Ask at most once | Which project to use is asked only when it is not obvious, and never again once chosen (GRD-3) |
 | Ready | The project has its list of areas and at least one area description. The work carries on as normal (GRD-1) |
-| Partly ready | The list of areas is missing but at least one area is described. The work carries on, the plugin says once that the list is missing, and areas without a description are named as unknown. Nothing is invented for them (GRD-1) |
+| Partly ready | The list of areas is missing but at least one area is described. The work carries on, the plugin says once that the list is missing, and areas without a description are named as not documented. A missing description is never read as a missing feature, and nothing is invented for them (GRD-1, GRD-8) |
 | Not set up | No area is described, whatever else the project holds. The plugin stops with the onboarding message and drafts or answers nothing (GRD-1) |
 | Honest marks | A project is marked ready only when its documents were actually read and checked. One that could not be read is marked not checked, never ready (GRD-3) |
 | Recommendation | The most recently active ready project; if none, the most recently active partly ready one; if neither, the most recently active not checked one. A project that is not set up is never recommended (D-19) |
@@ -56,7 +56,7 @@ The question-answering skill's description now also covers overview questions su
 |---|---|
 | Chosen project not set up | "This repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then come back." Then one short line offering any project marked ready or partly ready, ready first. Nothing drafted or answered |
 | Every reachable project not set up | The same onboarding message alone, with no list |
-| Partly ready project | "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown." said once, then a short line naming those areas |
+| Partly ready project | "This project's list of areas is missing, so I'm working from the area summaries it has. Areas without a summary are shown as unknown." said once, then a short line naming those areas as not documented |
 | No project can be seen | A request to attach the project or its documents folder, or to upload the documents. Nothing is invented |
 | A resumed run's project can no longer be read | A request to attach that same project again, not a new list |
 | Switch to a project that is not set up | The onboarding message; the current project stays |
@@ -69,7 +69,7 @@ The question-answering skill's description now also covers overview questions su
 | Project (repository) | The product's code and documents the plugin reads |
 | List of areas (modules list) | The project's one page listing every area of the product |
 | Area description (area summary) | A short note saying what one area of the product is for |
-| Unknown area | An area that exists but has no description, so the plugin says nothing about it beyond its name |
+| Not documented area | An area that exists but has no description. The plugin never says or suggests, in any wording, that it is not built; it says it is not documented and, when it can reach the code, adds one line on what the code suggests about that area |
 | Not checked | A reachable project whose documents could not be read to check them |
 
-Sources: shared/references/connect-repository.md, shared/scripts/check_onboarded.py, REQUIREMENTS.md GRD-1, GRD-3, PLG-8, D-19, D-20
+Sources: shared/references/connect-repository.md, shared/references/paqad-docs-map.md, shared/scripts/check_onboarded.py, REQUIREMENTS.md GRD-1, GRD-3, GRD-8, GRD-11, PLG-8, D-19, D-20, D-21

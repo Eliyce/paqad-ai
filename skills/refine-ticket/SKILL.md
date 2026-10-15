@@ -30,7 +30,11 @@ project documents, get them as in `references/connect-repository.md`.
    untestable outcomes, jargon, no "not included", a contradiction with the documents, too big for
    one ticket, a missing parent or dependency. Each finding names its evidence. Check prose with
    `scripts/check_prose.py --ticket-set <draft.json>` and the deny-list in
-   `references/plain-language.md`; follow `references/writing-rules.md` for the fixes.
+   `references/plain-language.md`; follow `references/writing-rules.md` for the fixes. A
+   contradiction that rests on a document's status line names it as what the docs say; a missing or
+   template document is never a finding that the feature is missing; when whether the area exists
+   matters to a finding and the code is reachable, check that area's code and label the finding
+   "the code suggests"; all as in "What the documents prove" in `references/paqad-docs-map.md`.
 3. Preserve intent (EDT-3). Keep the original meaning and the author's words where they are clear.
    Never turn a ticket into something else.
 4. Propose a field-by-field change set (EDT-4, EDT-8). Show each changed field as before and after,
@@ -63,6 +67,11 @@ When no tool can run the scripts, refine by hand with this checklist:
 - Diagnose in plain words with evidence for each finding; read the title, description and "done
   when" for em or en dashes, code words and `plain-language.md` jargon, ignoring quotes, code and
   URLs.
+- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: say an area the
+  documents do not cover is not documented; never say or imply it is not built; report a document's
+  status line as what the docs say, for the exact thing it names only; never use a requirements
+  document as current behaviour; when the code is reachable, look at that area's names, open at
+  most 5 files, and say at most one line per area, labelled "the code suggests".
 - Write a field-by-field before and after, limited to summary, description, labels, parent, links
   and new child tickets on a split; keep the original on a split and link it under the same epic.
 - If the description holds images, panels, mentions or merged-cell tables, append a marked section

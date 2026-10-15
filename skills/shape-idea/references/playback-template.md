@@ -9,7 +9,9 @@ only the parts that apply; leave out an empty one rather than padding it.
 **Goal.** One sentence: who gets what value. This is the first line.
 
 **What exists today.** A plain summary from the today block, including what the project documents
-could not confirm. Name the unknowns rather than guessing past them.
+could not confirm. Name the unknowns rather than guessing past them. Say an unknown area as not
+documented; never say or imply it is not built, and keep the label on every line from the code, for example
+"the code suggests members can earn points".
 
 **Options.** Two or three realistic ways forward, each a short line. For each, the trade-offs in
 business terms only: time, cost, risk, and effect on users. Mark the recommended option.

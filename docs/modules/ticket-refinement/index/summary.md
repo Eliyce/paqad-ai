@@ -38,4 +38,5 @@ Improves existing tracker tickets field by field and writes only an approved cha
 - EDT-9: never delete or close a ticket.
 - EDT-10: read back and report differences.
 - REC-1, REC-7: refine mode record blocks `existing` and `changes`; digest-bound approval.
-- AC-30 to AC-34.
+- GRD-8 to GRD-11: what the documents prove, from the shared docs map; a missing or template document is never a finding that the feature is missing, and a code-based finding is labelled "the code suggests".
+- AC-30 to AC-34, AC-61.

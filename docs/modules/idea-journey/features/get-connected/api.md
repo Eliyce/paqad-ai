@@ -14,5 +14,5 @@ At step 0 this feature uses it as follows:
 | Exit | State | What step 0 does |
 |---|---|---|
 | 0 | `ready` | Carries on and stores `setup.repository_state` as `ready` |
-| 0 | `partly-ready` | Carries on, says the message once, names the unknown areas, stores `partly-ready` |
+| 0 | `partly-ready` | Carries on, says the message once, names the unknown areas as not documented, stores `partly-ready` |
 | 1 | `not-set-up` | Stops with the exact message, offers any repository marked ready or partly ready, drafts nothing |

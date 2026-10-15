@@ -28,7 +28,7 @@ Check here before writing a new helper or reference. Shared material lives once 
 | `plain-language.md` | Plain-word substitutions and jargon deny-list | write-tickets, check-tickets, refine-ticket |
 | `writing-rules.md` | Ticket writing rules (section 8.4) | write-tickets, refine-ticket |
 | `consulting.md` | Consultant stance (section 4A) | product-discovery, ask-project |
-| `paqad-docs-map.md` | Where things live in a paqad-onboarded repo and the reading order | ask-project, ground-in-project |
+| `paqad-docs-map.md` | Where things live in a paqad-onboarded repo, the reading order (GRD-2) and what the documents prove (GRD-8 to GRD-11) | ask-project, ground-in-project, shape-idea, refine-ticket, size-work |
 | `connect-repository.md` | Choosing, reaching and remembering the repository by capability (GRD-3), the three-state onboarded check with both exact sentences (GRD-1), the never-read list | ask-project, get-connected, ground-in-project, refine-ticket, size-work |
 | `template-markers.md` | Markers that identify template text (both doc generations) | ask-project, ground-in-project |
 

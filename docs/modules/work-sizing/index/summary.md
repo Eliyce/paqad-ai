@@ -25,6 +25,7 @@ Suggests how big a ticket is from comparable finished work, labels it as advice 
 | `skills/size-work/scripts/compare_sizes.py` | `suggest` and `set` subcommands |
 | `tests/scripts/test_sizing.py` | Unit tests for `compare_sizes.py` |
 | `tests/evals/scenarios/s1b.yml` (`ac-35`) | Conversation eval scenario |
+| `tests/evals/scenarios/evidence-rules.yml` (`ac-61`) | Conversation eval scenario for sizing an area with no notes |
 
 ## Requirements
 
@@ -35,4 +36,5 @@ Suggests how big a ticket is from comparable finished work, labels it as advice 
 - EST-5: always labelled "suggested size", never a date or promise.
 - EST-6: write to the size field only on "set it", never overwrite without "replace".
 - EST-7: a size is never written as fact (keeps TKT-5).
-- AC-35, AC-36, AC-37: sizing acceptance scenarios.
+- GRD-8 to GRD-11: what the documents prove, from the shared docs map; missing documents are never a "new area" driver, and a code-based driver is labelled "the code suggests".
+- AC-35, AC-36, AC-37, AC-61: sizing acceptance scenarios.

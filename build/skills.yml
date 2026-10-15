@@ -58,6 +58,7 @@ skills:
   - name: shape-idea
     imports:
       - references/voice.md
+      - references/paqad-docs-map.md
   - name: decide-together
     imports:
       - references/voice.md
@@ -85,6 +86,7 @@ skills:
       - references/writing-rules.md
       - references/plain-language.md
       - references/tracker-profiles-jira.md
+      - references/paqad-docs-map.md
       - references/connect-repository.md
       - scripts/canonical.py
       - scripts/record.py
@@ -95,6 +97,7 @@ skills:
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
+      - references/paqad-docs-map.md
       - references/connect-repository.md
       - scripts/canonical.py
       - scripts/record.py

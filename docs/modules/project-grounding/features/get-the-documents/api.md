@@ -53,7 +53,8 @@ Not set up (no area summary, whatever else exists), exit 1:
 ```
 
 `unknown_areas` lists the areas whose summary is missing, sorted by name; it can be non-empty in
-the ready state too. Callers say `message` once and name the unknown areas in plain words.
+the ready state too. Callers say `message` once and name the unknown areas in plain words as not
+documented, never as missing features (GRD-8, `connect-repository.md`).
 
 ### Exit codes
 
