@@ -229,6 +229,7 @@ class HostBranchTest(unittest.TestCase):
                 "PRIVACY.md",
                 "plugins/{0}/README.md".format(PLUGIN_NAME),
                 "plugins/{0}/LICENSE".format(PLUGIN_NAME),
+                "plugins/{0}/.claude-plugin/icon.png".format(PLUGIN_NAME),
             },
             "chatgpt": {
                 ".claude-plugin/marketplace.json",

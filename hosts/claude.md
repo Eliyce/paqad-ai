@@ -30,7 +30,8 @@ below starts as the token `pending` and a person fills it in after installing.
 The Claude plugin directory takes a "Plugin bundle" from a public GitHub repo. The public repo is
 `Eliyce/paqad-product-discovery-plugin`. Its root is the content of `dist/hosts/claude` (the
 marketplace, `README.md`, `LICENSE`, `PRIVACY.md`) and the plugin path is
-`plugins/paqad-product-discovery`. Steps 1 and 6 are owner steps; do them in this order:
+`plugins/paqad-product-discovery`. The listing icon is `.claude-plugin/icon.png` in the plugin folder;
+the directory takes it only on the first save or submit, so push it before saving the listing. Steps 1 and 6 are owner steps; do them in this order:
 
 1. Owner: create the public repo `Eliyce/paqad-product-discovery-plugin` on GitHub, with `main` as
    its default branch (the privacy policy link points at `blob/main`, and CI-16 pushes to `main`).

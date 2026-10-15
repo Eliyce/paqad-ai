@@ -96,6 +96,7 @@ HOST_PUBLISH_FILES = {
         ("publish/claude/README.md", ("README.md", "{plugins}/{name}/README.md")),
         ("publish/claude/LICENSE", ("LICENSE", "{plugins}/{name}/LICENSE")),
         ("docs/privacy-policy.md", ("PRIVACY.md",)),
+        ("publish/claude/icon.png", ("{plugins}/{name}/.claude-plugin/icon.png",)),
     ],
 }
 

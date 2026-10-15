@@ -72,6 +72,7 @@ VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai", re.IGNOREC
 # Built with chr() so this source file itself stays ASCII and does not trip its own CI-5 check.
 EM_DASH = chr(0x2014)
 EN_DASH = chr(0x2013)
+IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg")
 
 # Onboarding template markers from REQUIREMENTS.md section 7 (GRD-4), both generations.
 TEMPLATE_MARKERS = (
@@ -248,6 +249,8 @@ class HousePromptTest(unittest.TestCase):
             if not os.path.isdir(root):
                 continue
             for path in iter_source_files(root):
+                if path.endswith(IMAGE_SUFFIXES):
+                    continue
                 text = read_text(path)
                 if EM_DASH in text or EN_DASH in text:
                     offenders.append(os.path.relpath(path, REPO_ROOT))
