@@ -40,7 +40,7 @@ tool-name variants are in `references/tracker-profiles-jira.md`.
 6. Apply on approval only (SPR-6). After an explicit "apply it" for that exact plan, set the sprint
    field on the chosen tickets only with `scripts/fit_sprint.py apply --plan <plan.json>
    --expect-digest <d> [--tracker-state <state.json>]`, bound to the plan digest. `--tracker-state`
-   is optional: pass it, mapping each ticket ref to the sprint the host set, to read the chosen
+   is optional: include it, mapping each ticket ref to the sprint the host set, to read the chosen
    tickets back; with no tracker-state file the read-back is a clean skip, not a mismatch, and you
    read each ticket back by hand with `scripts/check_readback.py`. Report partial results honestly.
 7. Stay within the limits (SPR-7). Never create, start, close, rename or reorder a sprint, never

@@ -28,9 +28,17 @@ known tool-name variants.
    full preview file. Put the full text in chat only if the user asks or no file can be made.
 3. Take the approval. Post only after an explicit "post it", bound to the ticket-set digest.
    "Looks good" is not approval. Any later edit to the set voids the approval and needs a new one.
-4. Build the ordered plan and post it. If you can run scripts, use `scripts/plan_posting.py plan
-   --state <state.json>`, then `next`, `claim`, `record` and `reconcile` to drive the run. The
-   order is epics first, then each epic's tickets with the created epic as parent, then the
+4. Build the ordered plan and post it. If you can run scripts, drive the run with these commands:
+
+   - `scripts/plan_posting.py plan --state <state.json>` builds the ordered plan.
+   - `scripts/plan_posting.py next --state <state.json>` shows the next write.
+   - `scripts/plan_posting.py claim --state <state.json>` marks it in flight.
+   - `scripts/plan_posting.py record --state <state.json> --operation <id> --receipt <receipt.json>`
+     records the reply.
+   - `scripts/plan_posting.py reconcile --state <state.json> --operation <id> [--tracker-issues
+     <found.json>]` settles an uncertain write.
+
+   The order is epics first, then each epic's tickets with the created epic as parent, then the
    dependency links, then read-back. If the connector refuses the parent parameter for an epic
    child, set the parent through its additional fields. When the connector exposes a link action,
    create links only with it. When it exposes no link action, do not drop the dependencies: write
@@ -50,7 +58,7 @@ known tool-name variants.
    than report it as a failure.
 7. Export fallback. At any point the approved set can be downloaded as Markdown and as CSV for the
    tracker importer, using `scripts/export_csv.py --ticket-set <ticket-set.json> [--format csv|markdown]`.
-   The format defaults to `csv`; pass `--format markdown` for the Markdown export. Offer this when
+   The format defaults to `csv`; add `--format markdown` for the Markdown export. Offer this when
    the connector cannot create issues.
 8. When the tracker is GitHub, follow `references/tracker-profiles-github.md`: GitHub Issues is export
    only, so there is no posting step. Produce the Markdown export as the primary form, since GitHub has
