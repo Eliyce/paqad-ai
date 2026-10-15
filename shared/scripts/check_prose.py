@@ -5,11 +5,14 @@ Ports the 0.2.0 lint_prose discipline (skip fenced code blocks, blockquotes, inl
 and URLs so quoted evidence is never rewritten) and adds the three ticket prose rules:
 
   TKT-1  no em dash (U+2014) or en dash (U+2013) used as a dash, anywhere in the text.
-  TKT-2  no code words in the title, the Goal / What they need and why sections, and done_when:
-         file paths, function or class names, camelCase or snake_case identifiers, backtick code,
-         HTTP verbs, SQL or database terms, and a small set of library names. Module plain names
-         are allowed. TKT-2 is scoped: the full body is still scanned for TKT-1 and TKT-3, but
-         code words are only reported in the scoped fields.
+  TKT-2  no code words in the title, the Goal / What they need and why sections, the user story
+         lines (As a, I want, So that) anywhere in the body, and done_when (the acceptance
+         criteria): file paths, function or class names, camelCase or snake_case identifiers,
+         backtick code, HTTP verbs, SQL or database terms, and a small set of library names.
+         Module plain names are allowed, and so is a confirmed permission key written as an inline
+         code span `can <verb> <noun>`; any other code span is still flagged. TKT-2 is scoped: the
+         full body is still scanned for TKT-1 and TKT-3, but code words are only reported in the
+         scoped fields.
   TKT-3  no jargon from the deny-list in shared/references/plain-language.md; each entry carries a
          plain replacement that becomes the suggestion.
   TKT-4  no sentence over 30 words anywhere in the text; a longer sentence is flagged to be split.
@@ -45,6 +48,10 @@ SENTENCE_END = re.compile(r"[.!?]+")
 # Scoped section headings (case-insensitive substring match) that carry the TKT-2 code-word rule
 # inside a ticket or epic body. Everything else in the body is scanned for TKT-1 and TKT-3 only.
 CODE_SCOPED_HEADINGS = ("goal", "what they need")
+# User story lines carry TKT-2 wherever they sit in a body, with or without a scoped heading.
+STORY_LINE = re.compile(r"^\s*\*\*(?:As an?|I want|So that)\*\*", re.IGNORECASE)
+# A permission key confirmed with the user (`can view savings`) is the one allowed code span.
+PERMISSION_KEY = re.compile(r"`can [a-z]+(?: [a-z]+){1,3}`")
 
 HEADING = re.compile(r"^\s*(?:(#{1,6})\s+(.*)|\*\*(.+?)\*\*\s*)$")
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
@@ -90,7 +97,11 @@ def finding(code, path, message, suggestion):
 
 
 def code_word_hit(line):
-    """Return a (message, suggestion) when the line holds a code word, else None."""
+    """Return a (message, suggestion) when the line holds a code word, else None.
+
+    A confirmed permission key in inline code is removed first, so it is never a code word.
+    """
+    line = PERMISSION_KEY.sub("", line)
     if BACKTICK.search(line):
         return ("Backtick code in a plain-language field.",
                 "Describe the behaviour in business words, not code.")
@@ -199,6 +210,21 @@ def body_sections(body):
     return sections
 
 
+def code_scoped_lines(body):
+    """Return the ordered, de-duplicated (number, line) pairs of a body that carry TKT-2.
+
+    These are the lines under a CODE_SCOPED_HEADINGS heading plus every user story line anywhere
+    in the body, so a story line under a scoped heading is scanned once, not twice.
+    """
+    picked = set()
+    for heading, _start, lines in body_sections(body):
+        if any(name in heading.casefold() for name in CODE_SCOPED_HEADINGS):
+            picked.update(number for number, _line in lines)
+    body_lines = list(enumerate(body.splitlines(), 1))
+    picked.update(number for number, line in body_lines if STORY_LINE.match(line))
+    return [(number, line) for number, line in body_lines if number in picked]
+
+
 def lint_item(path_prefix, title, body, done_when, denylist):
     """Lint one ticket or epic: title and done_when carry TKT-2; the body is scoped."""
     issues = []
@@ -208,13 +234,10 @@ def lint_item(path_prefix, title, body, done_when, denylist):
     # Body: the whole body for TKT-1 and TKT-3.
     body_lines = list(enumerate(body.splitlines(), 1))
     issues.extend(scan(body_lines, path_prefix + ":body", denylist, check_code=False))
-    # Scoped sections of the body for TKT-2 only.
-    for heading, _start, lines in body_sections(body):
-        folded = heading.casefold()
-        if any(name in folded for name in CODE_SCOPED_HEADINGS):
-            for issue in scan(lines, path_prefix + ":body", denylist, check_code=True):
-                if issue["code"] == "TKT2":
-                    issues.append(issue)
+    # Scoped sections and story lines of the body for TKT-2 only.
+    for issue in scan(code_scoped_lines(body), path_prefix + ":body", denylist, check_code=True):
+        if issue["code"] == "TKT2":
+            issues.append(issue)
     # done_when: each statement carries all three rules.
     for index, statement in enumerate(done_when or []):
         prefix = "{0}:done_when[{1}]".format(path_prefix, index)

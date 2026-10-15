@@ -1,0 +1,150 @@
+# Business-user feedback scenarios (v3.2, V-29): the choice prompt for every choice, the question
+# last after the sources, no pause to ask whether to carry on, the record kept silently with a resume
+# file only on request, and tickets as user stories with Given/When/Then acceptance criteria. They
+# are declarative, like s1.yml, and are NOT run in CI; the host eval runner executes them against
+# the built plugin and the fixtures under tests/evals/ (CI-12).
+#
+# AC-68 to AC-74 are conversation-shape acceptance scenarios, each exercised by a scenario below.
+# AC-75 is script-proven by tests/scripts/test_user_stories.py, so it carries no scenario here.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect), plus a
+# host field naming the capability the scenario assumes (with choice prompt, or no choice prompt).
+# Properties are judged on meaning, never as a string list. Property vocabulary added here (all
+# provider-neutral, all checkable; the s1.yml vocabulary also applies):
+#   choices-in-choice-prompt         every choice is asked through the host's choice prompt, the
+#                                    recommended one first and marked.
+#   no-choice-table-in-reply         no table or list of choices appears in the reply body.
+#   choice-list-only-without-prompt  with no choice prompt, the choices are a short list in the
+#                                    reply, the recommended one marked.
+#   question-last-after-sources      the Sources line and the source line come first and the question
+#                                    is the very last thing.
+#   no-carry-on-pause                no question about whether to continue between steps.
+#   record-not-mentioned             the record and its file are never offered, named or described.
+#   resume-file-on-request           a resume file is offered only when the user asks to stop and
+#                                    come back later.
+#   format-not-named                 no file name or file format is named to the user.
+#   user-story-shape                 each ticket has a specific role, a capability and a real outcome.
+#   given-when-then-criteria         each acceptance criterion is Given, When, Then, 2 to 8 a ticket.
+#   api-then-ui-pair                 a feature needing both is an API story then a UI story that
+#                                    depends on it.
+#   permission-confirmed-first       the permission key is confirmed through the choice prompt before
+#                                    any ticket is drafted, with a positive and a negative criterion.
+#   no-story-without-value           a piece with no user value is refused in one line with a choice
+#                                    to leave it out or name the user pain.
+
+scenarios:
+  - id: ac-68
+    title: Step 1 and step 3 choices on a host with a choice prompt
+    acceptance: AC-68
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: with choice prompt
+    user:
+      - "Customers want a savings calendar that shows what they will put aside each week."
+      - "I don't really know how we'd measure it."
+      - "We also want to send reminders by text message."
+    expect:
+      - choices-in-choice-prompt
+      - no-choice-table-in-reply
+      - labelled-as-suggestion
+      - recommendation-plus-choices
+      - one-question-at-a-time
+
+  - id: ac-68b
+    title: Step 4 decision on a host with a choice prompt
+    acceptance: AC-68
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: with choice prompt
+    user:
+      - "Customers want a savings calendar that shows what they will put aside each week."
+      - "[the run is at step 4 with one open choice: weekly or monthly view first]"
+    expect:
+      - choices-in-choice-prompt
+      - no-choice-table-in-reply
+      - recommendation-plus-choices
+
+  - id: ac-69
+    title: The same choices on a host with no choice prompt
+    acceptance: AC-69
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: no choice prompt
+    user:
+      - "Customers want a savings calendar that shows what they will put aside each week."
+      - "I don't really know how we'd measure it."
+    expect:
+      - choice-list-only-without-prompt
+      - question-last-after-sources
+      - labelled-as-suggestion
+
+  - id: ac-70
+    title: A playback with sources ends with the question last
+    acceptance: AC-70
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: with choice prompt
+    user:
+      - "Customers want a savings calendar that shows what they will put aside each week."
+      - "[the run reaches step 3 and plays the idea back with sources]"
+    expect:
+      - single-sources-line
+      - question-last-after-sources
+      - choices-in-choice-prompt
+
+  - id: ac-71
+    title: Steps 1 and 2 finish and step 3 starts without a pause
+    acceptance: AC-71
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: with choice prompt
+    user:
+      - "Customers want a savings calendar so they can see what they will put aside each week. Success is fewer calls asking about planned savings."
+    expect:
+      - one-line-status
+      - no-carry-on-pause
+      - record-not-mentioned
+      - format-not-named
+
+  - id: ac-72
+    title: The user asks to stop and come back later
+    acceptance: AC-72
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: with choice prompt
+    user:
+      - "Customers want a savings calendar that shows what they will put aside each week."
+      - "I need to stop, can I come back to this later?"
+    expect:
+      - resume-file-on-request
+      - format-not-named
+      - nothing-invented
+
+  - id: ac-73
+    title: A gated feature that needs screen and system work
+    acceptance: AC-73
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: with choice prompt
+    user:
+      - "Members should see their planned savings on a calendar, and only members allowed to see savings can open it."
+      - "[the run reaches step 5 with the decisions settled]"
+    expect:
+      - permission-confirmed-first
+      - api-then-ui-pair
+      - user-story-shape
+      - given-when-then-criteria
+      - nothing-posted-without-approval
+
+  - id: ac-74
+    title: A ticket with no user value is refused
+    acceptance: AC-74
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    host: with choice prompt
+    user:
+      - "Members should see their planned savings on a calendar."
+      - "Also add a ticket to rename the table."
+    expect:
+      - no-story-without-value
+      - choices-in-choice-prompt

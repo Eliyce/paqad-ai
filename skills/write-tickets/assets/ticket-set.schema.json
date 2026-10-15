@@ -67,12 +67,14 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 80 },
         "body_markdown": { "type": "string" },
         "done_when": {
+          "description": "The acceptance criteria: 2 to 8 Given/When/Then statements, one string each, lines joined by two trailing spaces and a newline.",
           "type": "array",
           "minItems": 2,
           "maxItems": 8,
           "items": { "type": "string", "minLength": 1 }
         },
         "depends_on": {
+          "description": "The refs (E1-T1) or tracker keys this ticket depends on; empty when it depends on none.",
           "type": "array",
           "items": { "type": "string" }
         },

@@ -27,9 +27,9 @@ repository allows (`references/evidence-levels.md`), and carry the level into ea
 1. Read and snapshot (EDT-1). Read each ticket in full: summary, description, type, parent, labels,
    links, status, assignee, sprint and size field. Keep a snapshot with its last-updated time in the
    record so a later conflict check has a baseline.
-2. Diagnose with evidence (EDT-2). Say what is wrong in plain words: a missing "done when",
-   untestable outcomes, jargon, no "not included", a contradiction with the documents, too big for
-   one ticket, a missing parent or dependency. Each finding names its evidence. Check prose with
+2. Diagnose with evidence (EDT-2). Say what is wrong in plain words: missing acceptance criteria
+   (done when), untestable outcomes, jargon, no "not included", a contradiction with the
+   documents, too big for one ticket, a missing parent or dependency. Each finding names its evidence. Check prose with
    `scripts/check_prose.py --ticket-set <draft.json>` and the deny-list in
    `references/plain-language.md`; follow `references/writing-rules.md` for the fixes. A
    contradiction that rests on a document's status line names it as what the docs say; a missing or
@@ -45,6 +45,8 @@ repository allows (`references/evidence-levels.md`), and carry the level into ea
    assignee, priority, sprint and size change only if the user asks for that exact change. Build the
    set with `scripts/diff_ticket.py --snapshot <snapshot.json> --proposed <proposed.json>`. On a
    split, the new tickets sit under the same epic, the original is kept and linked, not deleted.
+   Each new ticket follows the user story rules that write-tickets uses: a specific role, a
+   capability in plain words, a real outcome and Given/When/Then acceptance criteria.
 5. Guard rich content (EDT-7). When the current description holds images, panels, mentions or
    merged-cell tables, do not replace it with plain text. `diff_ticket.py` emits an
    `append_section` or `append_comment` op instead and flags which; see `references/rich-content.md`.

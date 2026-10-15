@@ -17,8 +17,8 @@ People can point the plugin at one or more tickets that already exist in the tra
 
 1. The user names one or more tickets. This skill can be started directly.
 2. For each ticket, the plugin reads every field (summary, description, type, parent, labels, links, status, assignee, sprint, size) and saves a snapshot with the last-updated time.
-3. It names the problems in plain words, each with evidence: no "done when", untestable outcomes, jargon, no "not included", a contradiction with the project documents, too big, a missing parent or dependency.
-4. It proposes a before and after per changed field. For a ticket that is too big, it proposes new tickets under the same epic, linked to the original, which is kept.
+3. It names the problems in plain words, each with evidence: no acceptance criteria ("done when"), untestable outcomes, jargon, no "not included", a contradiction with the project documents, too big, a missing parent or dependency.
+4. It proposes a before and after per changed field. For a ticket that is too big, it proposes new tickets under the same epic, linked to the original, which is kept. Each new ticket is a user story like a drafted one: a specific person, a capability in plain words, a real outcome and Given, When, Then acceptance criteria.
 5. The user says "apply it" for that exact proposal.
 6. Just before writing, the plugin re-reads the ticket. If someone changed it since the snapshot, it stops, shows what changed and asks.
 7. It applies the change, reads each ticket back, and reports the links and any difference.

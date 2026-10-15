@@ -20,35 +20,41 @@ when you enter it, for example "Step 5 of 6: checking the tickets."
 Check the drafted set three ways, then report readiness.
 
 1. Prose check. If you have a tool that runs scripts, run `scripts/check_prose.py --ticket-set
-   <ticket-set.json>`. It flags em and en dashes (TKT-1), code words in the title, goal,
-   what-they-need and done-when (TKT-2), and jargon from the shared `plain-language.md` deny-list
+   <ticket-set.json>`. It flags em and en dashes (TKT-1), code words in the title, goal, the story
+   lines (As a, I want, So that) and the acceptance criteria (TKT-2; a confirmed permission key in
+   inline code is allowed), and jargon from the shared `plain-language.md` deny-list
    (TKT-3), each with a line and a suggested fix. It skips quotes, code blocks and URLs, so quoted
    evidence is never rewritten. Fix the findings and run it again until it is clean.
 2. Structure check. Run `scripts/check_ticket_set.py --ticket-set <ticket-set.json>`. It validates
    the set against the schema, recomputes the digest, and fails on a stale digest, an epic with no
-   tickets, a ticket with no epic or in two epics, a "done when" outside 2 to 8, duplicate titles,
+   tickets, a ticket with no epic or in two epics, acceptance criteria (done_when) outside 2 to 8,
+   duplicate titles,
    a dependency pointing nowhere, or a dependency loop.
 3. Duplicate search. Search the tracker for issues similar to each epic and ticket, by key phrases.
-   Show the matches to the user before anything is posted, and let the user decide whether a ticket
-   is new, a duplicate, or should extend an existing issue (AC-9). This search only reads.
+   Show the matches to the user before anything is posted, and let the user decide through the
+   host's choice prompt whether a ticket is new, a duplicate, or should extend an existing issue
+   (AC-9). This search only reads.
 4. Judgment checks. Apply `references/review-checklist.md`: does each ticket serve its epic's goal,
    would a developer know when it is done, is anything in "what exists today" contradicted by the
-   docs, is the split sensible, and are there similar issues already in the tracker.
+   docs, is the split sensible, are there similar issues already in the tracker, and is each ticket
+   a real user story by the rules in `references/user-stories.md`.
 
 ## If the checks cannot run
 
 When no tool can run the scripts, do the same checks by hand:
 
-- Prose, by hand: read every title, goal, "what they need" and "done when" for em or en dashes,
+- Prose, by hand: read every title, goal, story line and acceptance criterion for em or en dashes,
   for code words (paths, function or class names, camelCase or snake_case, backtick code, web
   request verbs, database terms, library names), and for any deny-list jargon in `plain-language.md`.
-  Ignore quoted text, code blocks and URLs. Propose a fix for each and re-read until clean.
+  Ignore quoted text, code blocks and URLs; a confirmed permission key in inline code is allowed.
+  Propose a fix for each and re-read until clean.
 - Structure, by hand: every epic has at least one ticket; every ticket has exactly one epic; every
-  "done when" has 2 to 8 statements; no two titles match; every dependency points to a ticket in
+  ticket has 2 to 8 Given/When/Then acceptance criteria; no two titles match; every dependency points to a ticket in
   the set or a real issue; and there is no dependency loop.
 - Duplicate search, by hand: search the tracker for similar issues by key phrases and show the
   matches before posting.
-- Judgment, by hand: work through `references/review-checklist.md`.
+- Judgment, by hand: work through `references/review-checklist.md`, including the story shape
+  (As a, I want, So that) from `references/user-stories.md`.
 
 Reaching the same findings by hand gives the same readiness result as the scripts.
 

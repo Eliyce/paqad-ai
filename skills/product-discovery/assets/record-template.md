@@ -1,9 +1,10 @@
 # Discovery record template
 
 The record is one JSON object per run, the plugin's only memory. Create it once from this template
-and write it to a file where the host can create files. Every write names the revision it expects;
-a write against an older revision is refused. The record never holds credentials, connector tokens
-or personal data the run does not need.
+and write it to a file where the host can create files, silently: it is never offered or named to
+the user; it is given as a resume file only when the user asks to stop and come back later. Every
+write names the revision it expects; a write against an older revision is refused. The record
+never holds credentials, connector tokens or personal data the run does not need.
 
 Each block below shows its fields. A block is empty until the step that owns it fills it.
 

@@ -16,7 +16,7 @@ Before tickets are posted, and before an existing ticket is changed, their text 
 | Step | What happens |
 |---|---|
 | 1 | A ticket set is drafted (step 5) or a refined ticket is proposed |
-| 2 | Every title, body and "done when" statement is scanned |
+| 2 | Every title, body and acceptance criterion (the "done when" items) is scanned |
 | 3 | Each finding names where it is, what is wrong and a fix |
 | 4 | Fixes are applied and the check runs again until it is clean |
 
@@ -25,7 +25,8 @@ Before tickets are posted, and before an existing ticket is changed, their text 
 | Rule | Detail |
 |---|---|
 | No long dashes anywhere | Em and en dashes are flagged across the whole text (TKT-1) |
-| No code words in key fields | Checked in the title, sections headed "goal" or "what they need", and each "done when" statement (TKT-2) |
+| No code words in key fields | Checked in the title, sections headed "goal" or "what they need", every user story line (As a, I want, So that) wherever it sits in the body, and each acceptance criterion (TKT-2). A story line under one of those headings is reported once, not twice |
+| Confirmed permission key allowed | A permission key the user confirmed, written in inline code as can verb noun (for example can view savings), is the one code span allowed in those fields; any other code span on the same line is still flagged (TKT-2) |
 | No jargon anywhere | Terms from the shared deny-list are flagged with their plain replacement (TKT-3) |
 | Evidence is never rewritten | Quoted lines, code blocks, inline code and links are skipped for dashes and jargon |
 | Clean means ready | The check passes only with zero findings |
@@ -51,5 +52,7 @@ Before tickets are posted, and before an existing ticket is changed, their text 
 |---|---|
 | Finding | One rule break, with its location and a suggested fix |
 | Code word | A file path, identifier, function call, backtick code, web request verb, database term or library name |
+| Story line | A line that starts with a bold As a, I want or So that |
+| Permission key | The confirmed can verb noun name of who may use a capability |
 
-Sources: shared/scripts/check_prose.py
+Sources: shared/scripts/check_prose.py, shared/references/writing-rules.md, shared/references/user-stories.md

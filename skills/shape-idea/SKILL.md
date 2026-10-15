@@ -28,14 +28,16 @@ a conflict kindly, and `references/expert-lenses.md` for the lenses.
    not built, and keeps the label on any line the code suggests, as in "What the documents prove"
    in `references/paqad-docs-map.md`. It may rest on docs-and-code or code-only evidence, each kept
    at its level, and carries the one source line for the run's evidence level
-   (`references/evidence-levels.md`).
+   (`references/evidence-levels.md`). End the playback with the sources line, then the closing
+   question last, through the choice prompt.
 2. Look through the expert lenses (`references/expert-lenses.md`): customer value and experience,
    business and cost, operations and support, data and privacy, security and access, and rollout
    and change for existing users. Raise only what matters for this idea, in business terms, each
    with a recommendation. A privacy or security risk, such as sending customer personal data out
    of the product, is named here plainly with what you would do about it.
-3. Offer options as a short choice, trade-offs as time, cost, risk and effect on users, with the
-   recommended one marked and one short clause of why.
+3. Offer options as a choice through the host's choice prompt, each with its trade-off in a few
+   words (time, cost, risk, effect on users), the recommended one marked with one short clause of
+   why.
 4. Offer a smaller first release or an experiment with a success condition when the idea is large
    or uncertain, naming what result would justify going further.
 5. If the idea already exists as a documented capability, or the today block holds a line the code
@@ -50,7 +52,10 @@ a conflict kindly, and `references/expert-lenses.md` for the lenses.
 This skill carries no script. Shape the idea by hand with this checklist:
 
 - Playback leads with the goal, then today, then options and trade-offs, then a smaller first
-  step where useful, then a recommendation.
+  step where useful, then a recommendation. It ends with the sources line, then the closing
+  question last.
+- Options and the way forward on a challenge are offered through the choice prompt (a short list
+  in the reply only when the host has none), the recommended one marked.
 - Each of the six lenses was considered; the ones that matter for this idea are raised in
   business terms with a recommendation, the rest left out.
 - A real risk, conflict or duplicate is named with its evidence and a way forward.

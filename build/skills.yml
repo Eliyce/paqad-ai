@@ -79,11 +79,13 @@ skills:
       - references/voice.md
       - references/plain-language.md
       - references/writing-rules.md
+      - references/user-stories.md
   - name: check-tickets
     publish: paqad-check-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
+      - references/user-stories.md
       - scripts/canonical.py
       - scripts/check_prose.py
   - name: post-tickets

@@ -4,7 +4,7 @@
 
 | Path | Owned content |
 |---|---|
-| `shared/references/consulting.md` | Sections CON-1 to CON-9, with the CON-8 outcome table |
+| `shared/references/consulting.md` | Sections CON-1 to CON-9, with the CON-8 outcome table. CON-1, CON-3 and CON-6 point to the choice prompt rule in `references/voice.md` (TALK-8) |
 
 Not owned here: `skills/shape-idea/references/expert-lenses.md` and `challenge-guide.md` (idea-journey), which expand on CON-3 and CON-4 inside the shaping step; the `assumptions` and `outcome` record blocks (discovery-record).
 
@@ -44,4 +44,4 @@ None.
 | `tests/scripts/test_record.py` | `AssumptionsTest.test_assumptions_block_stored` (the record side of CON-1, AC-29) |
 | `tests/scripts/test_build.py` | `UndeclaredImportTest.test_undeclared_shared_import_fails_build` uses `references/consulting.md` as the undeclared import |
 
-Eval scenarios (declarative, not yet run in CI): `s1.yml` `ac-25` (`labelled-as-suggestion`, `recommendation-plus-choices`), `ac-26` (`already-exists-flagged`, `no-tickets-unless-asked`), `ac-27` (`privacy-risk-raised`), `ac-28` (`smaller-first-step-offered`), `ac-29` (`default-labelled-as-assumption`), `ac-4` (`one-question-at-a-time`).
+Eval scenarios (declarative, not yet run in CI): `s1.yml` `ac-25` (`labelled-as-suggestion`, `recommendation-plus-choices`), `ac-26` (`already-exists-flagged`, `no-tickets-unless-asked`), `ac-27` (`privacy-risk-raised`), `ac-28` (`smaller-first-step-offered`), `ac-29` (`default-labelled-as-assumption`), `ac-4` (`one-question-at-a-time`). `business-feedback.yml` `ac-68` (choices, challenge and suggested measures in the choice prompt). `tests/scripts/test_conversation_feedback.py` `ChoicePromptTest.test_consulting_con1_names_the_choice_prompt`.

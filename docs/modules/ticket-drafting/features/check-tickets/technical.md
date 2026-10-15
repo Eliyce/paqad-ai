@@ -7,7 +7,7 @@ Owned paths (module `ticket-drafting`, feature `check-tickets`):
 | Path | Role |
 |---|---|
 | `skills/check-tickets/SKILL.md` | Step skill instructions; by-hand fallback |
-| `skills/check-tickets/references/review-checklist.md` | Five judgment checks (REQUIREMENTS 8.5) |
+| `skills/check-tickets/references/review-checklist.md` | Six judgment checks (REQUIREMENTS 8.5), the sixth judging each ticket as a user story against `references/user-stories.md` (TKT-6) |
 | `skills/check-tickets/scripts/check_ticket_set.py` | Structure, shape and digest validator |
 
 The prose checker `check_prose.py` is owned by module `tracker-checks` and only invoked here. The skill is a step skill and is not started directly.
@@ -72,7 +72,7 @@ From `check_ticket_set.py`:
 
 | Kind | Dependency |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/plain-language.md`, `scripts/canonical.py`, `scripts/check_prose.py` |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/plain-language.md`, `references/user-stories.md`, `scripts/canonical.py`, `scripts/check_prose.py` |
 | Other modules | `tracker-checks` (prose check), `discovery-record` (canonical digest, `readiness` block), `conversation-standards` (voice, deny-list) |
 | Host capabilities | Running Python scripts where available; tracker connector search action (read-only) for the duplicate search |
 
@@ -87,5 +87,6 @@ From `check_ticket_set.py`:
 |---|---|
 | `tests/scripts/test_tickets.py` `CheckTicketSetTest`: `test_valid_set_passes`, `test_stale_digest`, `test_empty_epic`, `test_ticket_under_two_epics`, `test_done_when_out_of_range`, `test_duplicate_titles`, `test_dangling_dependency`, `test_dependency_cycle`, `test_shape_error_short_circuits` | Every structure failure mode |
 | `tests/scripts/test_tickets.py` `CheckProseTest`: `test_em_dash_and_function_name_blocked_with_fixes`, `test_fixed_set_passes`, `test_quoted_code_and_url_content_not_rewritten`, `test_jargon_flagged_with_plain_replacement`, `test_single_document_scan` | AC-8 and TKT-3 |
+| `tests/scripts/test_user_stories.py` `StoryProseTest`, `StoryStructureTest` | AC-75: a story set passes both checks; a confirmed permission key passes; code in a criterion or on a story line is flagged once at its line; nine criteria fail |
 | `tests/scripts/test_authoring.py` `ChecklistFallbackTest.test_each_script_bearing_skill_has_fallback` | PLG-6 checklist fallback present |
 | `tests/evals/scenarios/s1.yml` `ac-9` | Duplicate shown before posting |

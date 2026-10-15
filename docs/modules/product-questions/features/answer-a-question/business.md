@@ -21,7 +21,7 @@ A business user asks what the product does today ("can customers pause a subscri
 | 4 | It finds the related areas and reads only the documents the question needs, in the fixed reading order, stopping once the point is answered. |
 | 5 | It checks whether each section it relies on is real content or an unfilled template. For an area the question needs that the documents do not cover, it checks that area's code automatically when the code is reachable. |
 | 6 | It replies: the answer first, as a table for lists or one or two sentences for a yes/no or single fact, then one Sources line and one short source line for the evidence level. An overview question gets a table of areas, each with its plain name and one line on what it does; an area with no notes says it is not documented, plus what the code suggests from the names alone when the code is reachable. In code-only mode every row is built from the code by names. |
-| 7 | Optionally, one short line on what the answer means and an offer to shape a change (see Turn an answer into an idea). |
+| 7 | Optionally, one short line on what the answer means and an offer to shape a change (see Turn an answer into an idea). Any closing offer or question comes after the Sources line and the source line, last, through the choice prompt when the host has one (TALK-13). |
 
 ## Business Rules
 

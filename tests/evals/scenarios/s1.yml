@@ -127,12 +127,12 @@ scenarios:
       - one-question-at-a-time
 
   - id: ac-15
-    title: Resume from a downloaded record
+    title: Resume from a resume file
     acceptance: AC-15
     entry_skill: product-discovery
     fixture: none
     user:
-      - "Here is the record from earlier, please continue."
+      - "Here is the resume file from earlier, please continue."
       - "[attached record.json at step 3]"
     expect:
       - resumes-at-recorded-step

@@ -7,9 +7,14 @@ can run; this file is the rule the check is built from, so the drafting follows 
 
 - **No dashes used as dashes.** No em dash (U+2014) and no en dash (U+2013) anywhere in ticket
   text. Use an ASCII hyphen, or rewrite the sentence.
-- **No code words in the title, goal, "what they need" or "done when".** No file paths, function
-  or class names, camelCase or snake_case identifiers, backtick code, web request verbs, database
-  terms, or library names. The plain names of modules from the project registry are allowed.
+- **No code words in the title, goal, the user story or the acceptance criteria.** The user story
+  is the As a, I want and So that lines ("what they need" on an older ticket); the acceptance
+  criteria are the "done when" items. No file paths, function or class names, camelCase or
+  snake_case identifiers, backtick code, web request verbs, database terms, or library names. The
+  plain names of modules from the project registry are allowed.
+- **One allowed code span.** A permission key confirmed with the user, written in inline code as
+  can verb noun (for example `can view savings`), is the one code span allowed in acceptance
+  criteria; the prose check accepts it.
 - **No jargon from the deny-list.** The shared `plain-language.md` lists each jargon term and its
   plain replacement. Use the plain word. The match is on whole words and ignores case.
 - **Short sentences.** Keep sentences short. A sentence above about 30 words is a warning to
@@ -26,6 +31,7 @@ names and paths inside quotes or on the Sources line so they are read as evidenc
 
 ## Where the rules apply hardest
 
-The title, goal, "what they need and why" and "done when" sections carry the heaviest plain-words
-duty, because a developer and a tester read them directly. The "what exists today" and "sources"
-sections may carry a quoted path or term as evidence, kept inside quotes or on the Sources line.
+The title, goal, the user story (As a, I want, So that, or "what they need and why" on an older
+ticket) and the acceptance criteria ("done when") carry the heaviest plain-words duty, because a
+developer and a tester read them directly. The "what exists today" and "sources" sections may carry
+a quoted path or term as evidence, kept inside quotes or on the Sources line.

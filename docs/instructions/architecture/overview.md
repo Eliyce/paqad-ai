@@ -49,7 +49,7 @@ network.
 | Path | Role |
 |---|---|
 | `skills/<name>/` | One skill: `SKILL.md` plus optional `references/`, `assets/`, `scripts/` |
-| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, docs map, evidence levels, template markers, repository choice and readiness check, Jira and GitHub profiles) |
+| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, user stories, docs map, evidence levels, template markers, repository choice and readiness check, Jira and GitHub profiles) |
 | `shared/scripts/` | Python modules held once and copied into skills at build time (record, digests, prose and read-back checks, readiness check, related-module ranking, placeholder detection) |
 | `build/skills.yml` | Single source of truth: plugin metadata and each skill's declared shared imports |
 | `build/build.py` | Assembles `dist/` and generates every manifest |

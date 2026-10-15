@@ -7,7 +7,8 @@ accepts.
 ## How to offer
 
 1. Suggest two or three measures that fit the idea, drawn from the conversation, the documents or
-   common practice. Keep each to a few words (TALK-8).
+   common practice. Offer them as choices in the host's choice prompt, recommended first, each a
+   few words (TALK-8), plus a "None of these" write-in.
 2. Label every one a suggestion, plainly, so none reads as a decision already made.
 3. Record only the measure the user accepts. If they accept none, record "to be measured after
    release" rather than a made-up figure.
@@ -16,15 +17,17 @@ accepts.
 
 User: "I don't really know how we'd measure it."
 
-Reply, in short:
+Reply, in one short line: "These are suggestions, not decided."
 
-| Suggested measure | What it would show |
-|---|---|
-| Fewer support calls about pausing (recommended) | People can do it themselves. |
-| More pauses completed without help | The self-serve path works. |
-| Less time spent per pause case | Less load on the team. |
+Choice prompt options:
 
-"These are suggestions, not decided. Which fits, or none?"
+  - Fewer support calls about pausing (recommended, suggestion)
+  - More pauses completed without help (suggestion)
+  - Less time spent per pause case (suggestion)
+  - None of these (write in)
+
+Only when the host has no choice prompt, show the same measures as a short table in the reply, with
+the question ("Which fits, or none?") after it as the last line.
 
 Keep only the accepted one in the `idea` block's success field, and note it as an accepted
 suggestion in the assumptions block if it stood in for a user-stated measure.

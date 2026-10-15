@@ -40,6 +40,11 @@ install for them stays "packaged, not verified" (CI-19), same as S1.
 
 Not yet built: S2 (ChatGPT and Codex parity) and S3 (CI, evals in CI, release channels).
 
+v3.2 applies the business-user test feedback: every choice goes through the host's choice prompt,
+a closing question comes last after the sources, the journey never pauses to ask whether to carry
+on, the record is kept silently with a resume file only on request, and tickets are user stories
+with Given/When/Then acceptance criteria.
+
 The product spec is `REQUIREMENTS.md`.
 
 ## The skills
@@ -53,7 +58,8 @@ Published name shown first, source folder in parentheses.
 - `/paqad` (entry; source `front-door`) - the front door: routes an ask, discover, refine-ticket,
   size-work or plan-sprint intent to the matching entry skill behind the scenes.
 - `paqad-discover` (entry; source `product-discovery`) - coordinates the idea journey: step order,
-  the record, resume, going back, side questions, the consulting stance, and plain status at every step.
+  the record (kept silently), resume on request, going back, side questions, the consulting stance,
+  and plain status at every step.
 - `paqad-ask` (entry; source `ask-project`) - answers a business question from the target repository
   at the best evidence level (project docs, docs and code, or code only), with sources and a source
   line, and can hand the answer into the idea journey.
@@ -73,7 +79,7 @@ Published name shown first, source folder in parentheses.
 - `paqad-decide-together` (source `decide-together`) - step 4: settles the open choices one at a time
   and records each decision.
 - `paqad-write-tickets` (source `write-tickets`) - step 5 drafting: produces the canonical ticket set
-  and a readable preview.
+  of user stories with Given/When/Then acceptance criteria, and a readable preview.
 - `paqad-check-tickets` (source `check-tickets`) - step 5 checking: checks the tickets for gaps,
   duplicates, jargon and untestable outcomes, and searches the tracker for duplicates.
 - `paqad-post-tickets` (source `post-tickets`) - step 6: final preview, approval, create in order,
