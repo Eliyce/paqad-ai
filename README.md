@@ -44,33 +44,40 @@ The product spec is `REQUIREMENTS.md`.
 
 ## The skills
 
-Thirteen skills, built from one source. Five are entry points a user can invoke directly; the
-rest run as the `product-discovery` journey directs them.
+Fourteen skills, built from one source. Six are entry points a user can invoke directly; the
+rest run as the `paqad-discover` journey directs them. Each skill's source folder keeps its
+unprefixed name and the user-visible name is the `paqad-` published name applied at build time
+(approach B); start from the `/paqad` front door and it routes you to the right entry skill.
+Published name shown first, source folder in parentheses.
 
-- `product-discovery` (entry) - coordinates the idea journey: step order, the record, resume,
-  going back, side questions, the consulting stance, and plain status at every step.
-- `ask-project` (entry) - answers a business question from the target repository at the best
-  evidence level (project docs, docs and code, or code only), with sources and a source line, and
-  can hand the answer into the idea journey.
-- `refine-ticket` (entry) - refines an existing ticket field by field, applying each change
-  only on approval.
-- `size-work` (entry) - gives advisory size suggestions for a piece of work, backed by
-  comparables.
-- `plan-sprint` (entry) - proposes a sprint plan and assigns the work on approval.
-- `get-connected` - step 0: confirms the repository is reachable, detects its evidence level, the
-  tracker is writable, and reads the tracker project's setup.
-- `understand-idea` - step 1: one question at a time until the goal, who benefits, success and
-  constraints are clear.
-- `ground-in-project` - step 2: reads the project's documents in order, finds related areas,
-  and reports coverage and template sections.
-- `shape-idea` - step 3: plays the idea back, looks through the expert lenses, and offers
-  options, a smaller first step and a recommendation.
-- `decide-together` - step 4: settles the open choices one at a time and records each decision.
-- `write-tickets` - step 5 drafting: produces the canonical ticket set and a readable preview.
-- `check-tickets` - step 5 checking: checks the tickets for gaps, duplicates, jargon and
-  untestable outcomes, and searches the tracker for duplicates.
-- `post-tickets` - step 6: final preview, approval, create in order, record receipts,
-  reconcile, read back and report.
+- `/paqad` (entry; source `front-door`) - the front door: routes an ask, discover, refine-ticket,
+  size-work or plan-sprint intent to the matching entry skill behind the scenes.
+- `paqad-discover` (entry; source `product-discovery`) - coordinates the idea journey: step order,
+  the record, resume, going back, side questions, the consulting stance, and plain status at every step.
+- `paqad-ask` (entry; source `ask-project`) - answers a business question from the target repository
+  at the best evidence level (project docs, docs and code, or code only), with sources and a source
+  line, and can hand the answer into the idea journey.
+- `paqad-refine-ticket` (entry; source `refine-ticket`) - refines an existing ticket field by field,
+  applying each change only on approval.
+- `paqad-size-work` (entry; source `size-work`) - gives advisory size suggestions for a piece of
+  work, backed by comparables.
+- `paqad-plan-sprint` (entry; source `plan-sprint`) - proposes a sprint plan and assigns the work on approval.
+- `paqad-get-connected` (source `get-connected`) - step 0: confirms the repository is reachable,
+  detects its evidence level, the tracker is writable, and reads the tracker project's setup.
+- `paqad-understand-idea` (source `understand-idea`) - step 1: one question at a time until the goal,
+  who benefits, success and constraints are clear.
+- `paqad-ground-in-project` (source `ground-in-project`) - step 2: reads the project's documents in
+  order, finds related areas, and reports coverage and template sections.
+- `paqad-shape-idea` (source `shape-idea`) - step 3: plays the idea back, looks through the expert
+  lenses, and offers options, a smaller first step and a recommendation.
+- `paqad-decide-together` (source `decide-together`) - step 4: settles the open choices one at a time
+  and records each decision.
+- `paqad-write-tickets` (source `write-tickets`) - step 5 drafting: produces the canonical ticket set
+  and a readable preview.
+- `paqad-check-tickets` (source `check-tickets`) - step 5 checking: checks the tickets for gaps,
+  duplicates, jargon and untestable outcomes, and searches the tracker for duplicates.
+- `paqad-post-tickets` (source `post-tickets`) - step 6: final preview, approval, create in order,
+  record receipts, reconcile, read back and report.
 
 ## Layout at a glance
 
@@ -115,6 +122,7 @@ python3 -m unittest discover -s tests/scripts
 The plugin is packaged for claude.ai, ChatGPT, and Codex, but S1 claims no automated host
 verdict. The cross-host unknowns (U-1..U-17) are recorded MANUALLY in
 `hosts/{claude,chatgpt,codex}.md`: install the plugin on each host, exercise the real skills
-(ask a question with `ask-project`; start an idea with `product-discovery`), run the listed
+(ask a question with `paqad-ask`, or start from the `/paqad` front door and start an idea with
+`paqad-discover`), run the listed
 checks, and fill in each verdict (every verdict starts as `pending`). "Packaged" is not
 "verified"; host verification is complete only once those harnesses are filled in.

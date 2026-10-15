@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-06T05:51:06.804Z",
+  "generated_at": "2026-10-15T09:35:51.793Z",
   "capabilities": {
     "rule-scripts": {
-      "digest": "db46f0bcaef6f9f9611aec4e5873c1970715231ef4925d43d6f4360bab3df0f7",
+      "digest": "c2af86a4e1eb70a8ee1da5766cc07b54e375b9e9cd1c853027cef7d9bb494c31",
       "policy_version": 1,
       "record_version": 1
     }

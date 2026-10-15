@@ -20,6 +20,7 @@ homepage: "https://paqad.dev/product-discovery"
 
 skills:
   - name: product-discovery
+    publish: paqad-discover
     imports:
       - references/voice.md
       - references/consulting.md
@@ -27,6 +28,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
   - name: ask-project
+    publish: paqad-ask
     imports:
       - references/voice.md
       - references/consulting.md
@@ -38,6 +40,7 @@ skills:
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: get-connected
+    publish: paqad-get-connected
     imports:
       - references/voice.md
       - references/connect-repository.md
@@ -46,9 +49,11 @@ skills:
       - references/tracker-profiles-github.md
       - scripts/check_onboarded.py
   - name: understand-idea
+    publish: paqad-understand-idea
     imports:
       - references/voice.md
   - name: ground-in-project
+    publish: paqad-ground-in-project
     imports:
       - references/voice.md
       - references/paqad-docs-map.md
@@ -59,25 +64,30 @@ skills:
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: shape-idea
+    publish: paqad-shape-idea
     imports:
       - references/voice.md
       - references/paqad-docs-map.md
       - references/evidence-levels.md
   - name: decide-together
+    publish: paqad-decide-together
     imports:
       - references/voice.md
   - name: write-tickets
+    publish: paqad-write-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
       - references/writing-rules.md
   - name: check-tickets
+    publish: paqad-check-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
       - scripts/canonical.py
       - scripts/check_prose.py
   - name: post-tickets
+    publish: paqad-post-tickets
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -85,6 +95,7 @@ skills:
       - scripts/canonical.py
       - scripts/check_readback.py
   - name: refine-ticket
+    publish: paqad-refine-ticket
     imports:
       - references/voice.md
       - references/writing-rules.md
@@ -99,6 +110,7 @@ skills:
       - scripts/check_prose.py
       - scripts/check_readback.py
   - name: size-work
+    publish: paqad-size-work
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -109,6 +121,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
   - name: plan-sprint
+    publish: paqad-plan-sprint
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -116,3 +129,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
       - scripts/check_readback.py
+  - name: front-door
+    publish: paqad
+    imports:
+      - references/voice.md

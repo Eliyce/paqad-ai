@@ -38,14 +38,20 @@ if SHARED_SCRIPTS not in sys.path:
 import check_onboarded  # noqa: E402
 
 # The entry skills a user may start directly (PLG-8/CI-11); every other skill is a step skill.
-# S1b adds the three existing-work skills as entry skills (FR-13), bringing the set to five.
+# S1b adds the three existing-work skills as entry skills (FR-13); the front door (published as
+# paqad) is the sixth entry skill, so the set is six (FR-7). Source folders keep their unprefixed
+# names, so the front door appears here as "front-door".
 ENTRY_SKILLS = {
     "product-discovery",
     "ask-project",
     "refine-ticket",
     "size-work",
     "plan-sprint",
+    "front-door",
 }
+# The front door is an entry skill everywhere, but it ships no scripts and so carries no "If the
+# checks cannot run" capability fallback; it is exempt from that assertion alone (AC-10/INV-6).
+CAPABILITY_FALLBACK_SKILLS = ENTRY_SKILLS - {"front-door"}
 # A step skill's description states it runs only when the journey directs it.
 STEP_PHRASE = "journey directs it"
 # The script-bearing skills that must carry a checklist fallback (PLG-6). S1b adds refine-ticket,
@@ -363,7 +369,7 @@ class CapabilityFallbackTest(unittest.TestCase):
     shipped skill branches on a host or vendor name under skills/."""
 
     def test_every_entry_skill_has_capability_fallback(self):
-        for skill in sorted(ENTRY_SKILLS):
+        for skill in sorted(CAPABILITY_FALLBACK_SKILLS):
             text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
             self.assertIn(
                 "If the checks cannot run",

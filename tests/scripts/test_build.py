@@ -107,6 +107,15 @@ class BuildOutputTest(unittest.TestCase):
         self.assertIn("skills", ext)
         self.assertIn("display_name", ext)
 
+    def test_openai_skills_list_equals_published_names(self):
+        # AC-5: the OpenAI manifest skills list equals the published names and contains "paqad".
+        openai = read_json(self._manifest_paths()["openai"])
+        skills = openai["extensions"]["com.openai"]["skills"]
+        config = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
+        expected = [build.published_name(skill) for skill in config["skills"]]
+        self.assertEqual(skills, expected)
+        self.assertIn("paqad", skills)
+
     def test_voice_copied_into_each_skill(self):
         skills_root = os.path.join(self.plugin_dir, "skills")
         for skill_name in sorted(os.listdir(skills_root)):
@@ -118,7 +127,7 @@ class BuildOutputTest(unittest.TestCase):
 
     def test_github_profile_copied_into_declaring_skills(self):
         skills_root = os.path.join(self.plugin_dir, "skills")
-        for skill_name in ("get-connected", "post-tickets"):
+        for skill_name in ("paqad-get-connected", "paqad-post-tickets"):
             profile = os.path.join(
                 skills_root, skill_name, "references", "tracker-profiles-github.md"
             )
@@ -354,9 +363,9 @@ class SharedRepositoryFilesTest(unittest.TestCase):
 
     CONNECT = ("references", "connect-repository.md")
     CHECK = ("scripts", "check_onboarded.py")
-    CONNECT_SKILLS = ("ask-project", "get-connected", "ground-in-project", "refine-ticket",
-                      "size-work")
-    CHECK_SKILLS = ("ask-project", "get-connected", "ground-in-project")
+    CONNECT_SKILLS = ("paqad-ask", "paqad-get-connected", "paqad-ground-in-project",
+                      "paqad-refine-ticket", "paqad-size-work")
+    CHECK_SKILLS = ("paqad-ask", "paqad-get-connected", "paqad-ground-in-project")
 
     @classmethod
     def setUpClass(cls):
@@ -387,7 +396,9 @@ class SharedRepositoryFilesTest(unittest.TestCase):
 
     def test_check_onboarded_in_the_three_declaring_skills(self):
         self.assert_shipped_to(self.CHECK, self.CHECK_SKILLS)
-        self.assertFalse(os.path.exists(os.path.join(self.skills_root, "plan-sprint", *self.CHECK)))
+        self.assertFalse(
+            os.path.exists(os.path.join(self.skills_root, "paqad-plan-sprint", *self.CHECK))
+        )
 
     def test_undeclared_connect_repository_fails_the_build(self):
         tmp = tempfile.mkdtemp()

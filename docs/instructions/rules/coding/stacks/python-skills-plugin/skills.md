@@ -6,7 +6,7 @@
 - Use only `name`, `description`, `license`, `compatibility` and `metadata` as frontmatter keys. <!-- @rule RL-c740 -->
 - Write `description` in the third person, starting with a verb such as "Suggests" or "Answers". <!-- @rule RL-f543 -->
 - Include "Use it when" in an entry skill description and "journey directs it" in a step skill description. <!-- @rule RL-74e9 -->
-- Let only `product-discovery`, `ask-project`, `refine-ticket`, `size-work` and `plan-sprint` invite direct use. <!-- @rule RL-04db -->
+- Let only the six entry skills invite direct use: published `paqad-discover`, `paqad-ask`, `paqad-refine-ticket`, `paqad-size-work`, `paqad-plan-sprint` and the `paqad` front door (source folders `product-discovery`, `ask-project`, `refine-ticket`, `size-work`, `plan-sprint` and `front-door`; the `paqad-` name is applied at build time, approach B). <!-- @rule RL-04db -->
 - Keep the `SKILL.md` body at 150 lines or fewer. <!-- @rule RL-e019 -->
 - Open every `SKILL.md` body with the "How to talk" block that points to `references/voice.md`. <!-- @rule RL-f924 -->
 - Put only `SKILL.md`, `references/`, `scripts/` and `assets/` in a skill folder. <!-- @rule RL-48e7 -->

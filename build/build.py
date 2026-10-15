@@ -20,6 +20,7 @@ The dist/ tree is skills-only. This build never emits agents/, hooks/, commands/
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -106,11 +107,19 @@ def _parse_skills_list(lines, i, n):
                 raise BuildError(
                     "skills.yml line {0}: expected '- name: <skill>'".format(i + 1)
                 )
-            current = {"name": _unquote(value), "imports": []}
+            current = {"name": _unquote(value), "publish": None, "imports": []}
             skills.append(current)
             i += 1
             continue
         if indent == 4 and stripped == "imports:":
+            i += 1
+            continue
+        if indent == 4 and stripped.startswith("publish:"):
+            if current is None:
+                raise BuildError(
+                    "skills.yml line {0}: publish before any skill".format(i + 1)
+                )
+            current["publish"] = _unquote(stripped[len("publish:"):])
             i += 1
             continue
         if indent == 6 and stripped.startswith("- "):
@@ -149,6 +158,31 @@ def parse_skills_yml(text):
         config[key] = _unquote(value)
         i += 1
     return config
+
+
+def published_name(skill):
+    """Return the skill's published name (the publish field, or the source name when absent)."""
+    return skill.get("publish") or skill["name"]
+
+
+def rewrite_skill_md(text, name_map):
+    """Rewrite source skill names to their published names across a SKILL.md's whole text.
+
+    One left-to-right re.sub over the text. The alternation lists every source name ordered
+    longest-first so a shorter name can never match inside a longer one, and each occurrence is
+    guarded by a non-word-and-non-hyphen lookbehind and lookahead so an embedded name is left
+    alone. Because the inserted published name is preceded by its own 'paqad-' the single pass
+    cannot re-process its output, so the plugin name 'paqad-product-discovery' can never be
+    corrupted into 'paqad-paqad-discover'. This one pass fixes the front-matter 'name:' line and
+    every sibling reference in the body together.
+    """
+    if not name_map:
+        return text
+    sources = sorted(name_map, key=len, reverse=True)
+    pattern = re.compile(
+        r"(?<![\w-])(?:" + "|".join(re.escape(s) for s in sources) + r")(?![\w-])"
+    )
+    return pattern.sub(lambda m: name_map[m.group(0)], text)
 
 
 def load_config(skills_yml_path):
@@ -225,7 +259,7 @@ def build_manifests(config):
     description = config["description"]
     license_id = config["license"]
     display_name = config["display_name"]
-    skill_names = [skill["name"] for skill in config["skills"]]
+    skill_names = [published_name(skill) for skill in config["skills"]]
 
     marketplace = {
         "name": name,
@@ -300,6 +334,10 @@ def build(source_root, dist_root):
 
     plugin_dir = plugin_dir_path(dist_root, name)
 
+    # The source-folder -> published-name map, built once from the one source of truth, so the
+    # SKILL.md rewrite renames the front-matter name: and every sibling reference consistently.
+    name_map = {skill["name"]: published_name(skill) for skill in config["skills"]}
+
     # Clean the dist tree so removed inputs never linger; stays deterministic.
     if os.path.isdir(dist_root):
         shutil.rmtree(dist_root)
@@ -326,8 +364,18 @@ def build(source_root, dist_root):
                 )
             )
 
-        dst_skill = os.path.join(plugin_dir, "skills", skill_name)
+        dst_skill = os.path.join(plugin_dir, "skills", published_name(skill))
         copy_tree(src_skill, dst_skill)
+
+        # Rewrite the copied SKILL.md so its front-matter name: equals the published folder name
+        # (PLG-3) and every sibling reference reads the published name. SKILL.md text only; the
+        # manifest JSON is generated separately and is never rewritten.
+        dst_skill_md = os.path.join(dst_skill, "SKILL.md")
+        with open(dst_skill_md, "r", encoding="utf-8") as handle:
+            dst_skill_md_text = handle.read()
+        rewritten = rewrite_skill_md(dst_skill_md_text, name_map)
+        with open(dst_skill_md, "w", encoding="utf-8") as handle:
+            handle.write(rewritten)
 
         for shared_rel in declared:
             if shared_rel not in shared_files:

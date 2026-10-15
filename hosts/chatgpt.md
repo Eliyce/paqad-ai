@@ -19,8 +19,10 @@ below starts as the token `pending` and a person fills it in after installing.
    ask the user to upload the `docs/` folder.
 6. Note: Plus and Pro users can install plugins but not workspace skills. The v1 audience is
    workspace plans.
-7. Exercise it: ask a question with `ask-project`, and start an idea with `product-discovery`,
-   to confirm the real skills load and run on this host before recording verdicts below.
+7. Exercise it: ask a question with `paqad-ask`, and start from the `/paqad` front door or start
+   an idea with `paqad-discover`, to confirm the real skills load and run on this host before
+   recording verdicts below. (These are the published `paqad-` names; the source folders are
+   `ask-project`, `front-door` and `product-discovery`.)
 
 ## Unknowns that apply to ChatGPT web
 
