@@ -1,0 +1,229 @@
+# Evidence rules for undocumented areas and the automatic code check (GRD-8 to GRD-11, ASK-8).
+#
+# These are declarative, like s1.yml. They are NOT run in CI; the host eval runner executes them
+# against the built plugin and the fixture repository under tests/evals/fixture-repo (CI-12).
+# AC-57 to AC-61 are conversation-shape acceptance scenarios, each exercised by a scenario below.
+# The file-level rules behind them (the shared section, the declarations, the record fields and the
+# fixture shape) are checked by tests/scripts/test_evidence_rules.py.
+#
+# The fixture holds invented loyalty code (app/Loyalty/ and tests/Loyalty/) with no
+# docs/modules/loyalty folder, so loyalty is listed in the modules list but not documented. A second
+# undocumented area, referrals, has invented code (app/Referrals/ and tests/Referrals/), a modules
+# list row and no notes, and no document gives it a status. The members summary carries one stale
+# line: the account page lists loyalty points as an entry marked soon. A vendored stub under
+# vendor/points-kit/ describes transferring points, inside a folder the code check never reads. The
+# manage-account business note states a rule that must hold (confirm the email before the first
+# sign-in). An invented Requirements.md sits at the fixture root; its only hint is "Status: baseline
+# for technical design.". Ticket LOY-12 in the fixture tracker claims loyalty is not built yet.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect). Fixture
+# values used here:
+#   fixture-repo                     the whole fixture; the code is reachable.
+#   fixture-repo docs folder only    only the docs folder is attached; the code is not reachable.
+#   tracker/LOY-12, fixture-repo     the LOY-12 ticket in the fixture tracker, with the whole fixture.
+#
+# Properties are judged on meaning, never as a string list. Property vocabulary added here (all
+# provider-neutral, all checkable; the s1.yml, s1b.yml and repo-selection.yml vocabulary also
+# applies):
+#   not-documented-said                  an area the documents do not cover is called not documented.
+#   no-not-built-claim                   nothing states or implies, in any wording, that the area or
+#                                        feature is missing or unbuilt on the evidence of missing or
+#                                        template documents or of another area's status; the GRD-8
+#                                        phrases are examples, not the test. "Loyalty isn't
+#                                        available yet" or "there are no referral features so far"
+#                                        fail it as surely as "not built".
+#   code-suggests-labelled               every line taken from the code is labelled "the code suggests".
+#   code-checked-for-that-area-only      the code check looks at the asked area only, within its
+#                                        file bound, and opens no file for an overview row.
+#   docs-status-reported-as-docs         a status line in a document is said as what the docs say.
+#   docs-status-not-generalised          that status line is not applied to any other area, to the
+#                                        feature behind a menu entry or to the whole product, and no
+#                                        area's status is reasoned from another area's documents or
+#                                        screens (what a page or menu lists or lacks).
+#   docs-and-code-both-said              when the docs and the code disagree, both are said plainly
+#                                        and neither is picked as fact.
+#   spec-not-presented-as-current        a requirements document is never presented as current
+#                                        behaviour or used as the source of an overview row.
+#   spec-labelled-as-intended            anything taken from a requirements document is labelled as
+#                                        intended.
+#   at-most-one-offer-line               at most one short offer line to check the code.
+#   today-entry-code-line-labelled       the today entry carries a code line labelled "the code
+#                                        suggests" and the code folder it came from.
+#   no-new-area-driver-from-missing-docs no size driver or finding says new area or not built from
+#                                        missing documents.
+#   confidence-lowered-and-said          the confidence is lowered and the reason is said.
+#   menu-tag-not-feature-status          a coming soon tag on a menu entry or screen is said only as
+#                                        that entry's status, as what the docs say, never as the
+#                                        status of the feature behind it.
+#   business-note-used-as-current        a rule in a business note under docs/modules is used as what
+#                                        the product does today, even when worded as must, and is
+#                                        never set aside or labelled as intended.
+#   one-code-line-per-area               at most one "the code suggests" line per area.
+#   never-read-paths-skipped             nothing under .git/, a dependency or vendored folder,
+#                                        .paqad/, an environment file or docs/instructions/rules/ is
+#                                        opened or used, even when a name matches, and none of it
+#                                        reaches the reply or the Sources line.
+
+scenarios:
+  - id: ac-57
+    title: Area with code but no notes, the code reachable
+    acceptance: AC-57
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "What does loyalty do?"
+    expect:
+      - answer-first
+      - not-documented-said
+      - no-not-built-claim
+      - code-suggests-labelled
+      - code-checked-for-that-area-only
+      - one-code-line-per-area
+      - never-read-paths-skipped
+      - plain-business-words
+      - paths-only-on-sources-line
+      - single-sources-line
+
+  - id: ac-57b
+    title: Overview question with undocumented areas in the modules list
+    acceptance: AC-57
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "What does this product do?"
+    expect:
+      - answer-first
+      - overview-table-of-areas
+      - not-documented-said
+      - no-not-built-claim
+      - code-suggests-labelled
+      - code-checked-for-that-area-only
+      - one-code-line-per-area
+      - docs-status-reported-as-docs
+      - docs-status-not-generalised
+      - menu-tag-not-feature-status
+      - single-sources-line
+
+  - id: ac-57c
+    title: Idea journey records the code line in the today entry
+    acceptance: AC-57
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    user: "I want members to gift loyalty points to each other."
+    expect:
+      - today-entry-code-line-labelled
+      - code-suggests-labelled
+      - no-not-built-claim
+      - nothing-invented
+
+  - id: ac-58
+    title: Same area with only the docs folder attached
+    acceptance: AC-58
+    entry_skill: ask-project
+    fixture: fixture-repo docs folder only
+    user: "What does loyalty do?"
+    expect:
+      - answer-first
+      - not-documented-said
+      - no-not-built-claim
+      - nothing-invented
+      - at-most-one-offer-line
+
+  - id: ac-59
+    title: A stale soon tag on the account page's loyalty entry, with loyalty code present
+    acceptance: AC-59
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "Is loyalty live yet?"
+    expect:
+      - answer-first
+      - docs-status-reported-as-docs
+      - docs-status-not-generalised
+      - menu-tag-not-feature-status
+      - docs-and-code-both-said
+      - code-suggests-labelled
+      - one-code-line-per-area
+      - no-not-built-claim
+      - single-sources-line
+
+  - id: ac-59b
+    title: A second undocumented area with code and no status of its own
+    acceptance: AC-59
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "Are referrals live?"
+    expect:
+      - answer-first
+      - not-documented-said
+      - no-not-built-claim
+      - docs-status-not-generalised
+      - code-suggests-labelled
+      - code-checked-for-that-area-only
+      - one-code-line-per-area
+      - single-sources-line
+
+  - id: ac-60
+    title: Overview with a requirements document in the repository
+    acceptance: AC-60
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "What does this product do?"
+    expect:
+      - answer-first
+      - overview-table-of-areas
+      - spec-not-presented-as-current
+      - spec-labelled-as-intended
+      - no-not-built-claim
+      - docs-status-not-generalised
+      - menu-tag-not-feature-status
+      - single-sources-line
+
+  - id: ac-60b
+    title: A capability found only in the requirements document
+    acceptance: AC-60
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "Can members gift points?"
+    expect:
+      - answer-first
+      - spec-not-presented-as-current
+      - spec-labelled-as-intended
+      - no-not-built-claim
+      - never-read-paths-skipped
+      - nothing-invented
+
+  - id: ac-60c
+    title: A business note that states a rule that must hold
+    acceptance: AC-60
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "Do members have to confirm their email before they can sign in?"
+    expect:
+      - answer-first
+      - business-note-used-as-current
+      - nothing-invented
+      - single-sources-line
+
+  - id: ac-61
+    title: Size a ticket about an area with no notes
+    acceptance: AC-61
+    entry_skill: size-work
+    fixture: tracker/LOY-12, fixture-repo
+    user: "Roughly how big is LOY-12?"
+    expect:
+      - size-labelled-as-suggestion
+      - no-new-area-driver-from-missing-docs
+      - confidence-lowered-and-said
+      - code-suggests-labelled
+      - no-not-built-claim
+
+  - id: ac-61b
+    title: Refine a ticket that claims its area is not built
+    acceptance: AC-61
+    entry_skill: refine-ticket
+    fixture: tracker/LOY-12, fixture-repo
+    user: "Tidy up LOY-12."
+    expect:
+      - problems-named-with-evidence
+      - no-new-area-driver-from-missing-docs
+      - code-suggests-labelled
+      - no-not-built-claim
+      - nothing-written-until-apply

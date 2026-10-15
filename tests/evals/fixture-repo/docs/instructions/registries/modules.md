@@ -8,6 +8,7 @@ documents to read.
 |---|---|---|---|
 | returns | Returns and refunds | domain | request-return, inspect-return |
 | loyalty | Loyalty points | domain | earn-points |
+| referrals | Referrals | domain | invite-friend |
 | subscriptions | Subscriptions | domain | manage-subscription |
 | orders | Orders | domain | send-to-sap |
 | members | Member accounts | domain | manage-account |

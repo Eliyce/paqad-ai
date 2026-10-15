@@ -17,12 +17,13 @@ Runs when the product-discovery journey directs it; not started directly.
 
 ## What it does
 
-1. Confirm the documents are reachable and onboarded. Run `scripts/check_onboarded.py`. It passes
-   only when both `docs/instructions/registries/modules.md` and at least one
-   `docs/modules/<module>/index/summary.md` exist. If it fails, stop with its exact message: "This
-   repository isn't set up for this yet. Ask your engineering team to onboard it with paqad, then
-   come back." For how to make the documents readable by capability, follow
-   `references/connect-repository.md`.
+1. Choose the repository and confirm it is onboarded. Choose and reach it by capability as in
+   `references/connect-repository.md`, then run `scripts/check_onboarded.py` on it. Ready: carry on.
+   Partly ready: carry on, say its message once and name the areas without a summary as not
+   documented. Not set up: stop with its exact message, "This repository isn't set up for this yet.
+   Ask your engineering team to onboard it with paqad, then come back.", then offer any repositories
+   marked ready or partly ready, and draft nothing. Store the choice in `setup.repository` and its
+   state in `setup.repository_state`.
 2. Confirm the tracker can be written to and read its setup. Follow `references/connect-tracker.md`:
    check the connector offers a create action for the target project and that the user can create
    issues there (PUB-7). Read the project's issue types, required fields, link types, and the size
@@ -46,9 +47,12 @@ checking for a create action.
 
 When `check_onboarded.py` cannot run on this host, do the onboarded check by hand:
 
-- Confirm `docs/instructions/registries/modules.md` exists.
-- Confirm at least one `docs/modules/<module>/index/summary.md` exists.
-- If either is missing, stop with the exact onboarding message above.
+- List the `docs/modules` folders and read each one's `index/summary.md`. Treat an empty or
+  whitespace-only summary as missing.
+- Look for `docs/instructions/registries/modules.md`, the modules list; empty counts as missing.
+- Ready: the modules list plus at least one summary. Partly ready: a summary but no modules list;
+  carry on as above and say the exact sentence in `references/connect-repository.md` once.
+  Not set up: no summary; stop with the exact onboarding message above.
 
 Then do the tracker checks by hand (PUB-1 and PUB-7):
 
@@ -59,6 +63,7 @@ Then do the tracker checks by hand (PUB-1 and PUB-7):
 
 ## Output
 
-The `setup` block: tracker kind, project key, epic and story types, issue types, required fields,
-link types, size and sprint field ids, whether the user can create issues, and the run label (the
-run id in lowercase).
+The `setup` block: the chosen repository (`setup.repository`) and its state
+(`setup.repository_state`, ready or partly-ready), tracker kind, project key, epic and story types,
+issue types, required fields, link types, size and sprint field ids, whether the user can create
+issues, and the run label (the run id in lowercase).

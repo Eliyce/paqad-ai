@@ -59,11 +59,11 @@ None as structured codes. Text reasons from `set`: refused overwrite ("already h
 
 | Kind | Dependency |
 |---|---|
-| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py` |
+| Shared imports (`build/skills.yml`) | `references/voice.md`, `references/tracker-profiles-jira.md`, `references/paqad-docs-map.md`, `references/connect-repository.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py` |
 | Python imports | `canonical` (`load`, `text`) |
-| Modules | [discovery-record](../../../discovery-record/index/summary.md), [tracker-checks](../../../tracker-checks/index/summary.md) (Jira profile), [conversation-standards](../../../conversation-standards/index/summary.md) |
+| Modules | [discovery-record](../../../discovery-record/index/summary.md), [project-grounding](../../../project-grounding/index/summary.md) (how to choose and reach the repository, only when area documents are read; missing documents still only lower confidence and are never a "new area" or "not built yet" driver; "What the documents prove" in `paqad-docs-map.md`, GRD-8 to GRD-11: when whether the area exists drives the size and the code is reachable, that area's code is checked, at most 5 files, and at most one driver per area labelled "the code suggests", or says no code was found under its name with confidence still lowered; the checklist fallback does the same by hand), [tracker-checks](../../../tracker-checks/index/summary.md) (Jira profile), [conversation-standards](../../../conversation-standards/index/summary.md) |
 | Hand-off | Points users to `refine-ticket` for splits (EST-4) |
-| Host capabilities | Tracker connector to search finished tickets, read the size field, add a comment and write the field; file creation for the record |
+| Host capabilities | Tracker connector to search finished tickets, read the size field, add a comment and write the field; file creation for the record; reading the code when reachable for the GRD-11 check |
 
 ## Configuration
 
@@ -80,4 +80,4 @@ None as structured codes. Text reasons from `set`: refused overwrite ("already h
 - `SetGuardTest`: `test_refuses_overwrite_of_populated_field_without_replace` (AC-37), `test_allows_overwrite_with_replace`, `test_allows_write_on_empty_field`
 - `CliExitTest`: `test_set_on_populated_field_exits_one`, `test_set_with_replace_exits_zero`
 
-Also: `tests/scripts/test_record.py` `SizeAndPlanModeTest.test_size_mode_requires_sizing`; `tests/scripts/test_check_record.py` `ModeAwareCheckTest.test_size_and_plan_modes_gate_their_block`; `tests/scripts/test_authoring.py` entry-skill and checklist-fallback checks. Eval: `tests/evals/scenarios/s1b.yml#ac-35` (fixture `tracker/SUB-70`).
+Also: `tests/scripts/test_record.py` `SizeAndPlanModeTest.test_size_mode_requires_sizing`; `tests/scripts/test_check_record.py` `ModeAwareCheckTest.test_size_and_plan_modes_gate_their_block`; `tests/scripts/test_authoring.py` entry-skill and checklist-fallback checks. `tests/scripts/test_evidence_rules.py` `SkillPointerTest` and `DocsMapBuildTest` (the skill declares and points to "What the documents prove", its checklist bullet is the one shared text, the docs map is shipped into it). Eval: `tests/evals/scenarios/s1b.yml#ac-35` (fixture `tracker/SUB-70`); `tests/evals/scenarios/evidence-rules.yml#ac-61` (fixture `tracker/LOY-12` with the whole fixture: no new area driver from missing notes, confidence lowered and said, code drivers labelled).

@@ -18,7 +18,8 @@ team still owns the number.
 ## What it does
 
 Suggest a size from finished work. The full method is in `references/sizing-guide.md`; Jira fields and
-tool-name variants are in `references/tracker-profiles-jira.md`.
+tool-name variants are in `references/tracker-profiles-jira.md`. Only when you read area documents,
+get them as in `references/connect-repository.md`; missing documents still only lower confidence.
 
 1. Find the team scale (EST-1). At first use, find how the project sizes work: story points and which
    field holds them, T-shirt sizes, or nothing. Ask once if it cannot be found, and remember it in
@@ -29,8 +30,13 @@ tool-name variants are in `references/tracker-profiles-jira.md`.
 3. Suggest with drivers and confidence (EST-3). Give a size or a range, the drivers behind it (for
    example "touches two areas", "new rules for refunds", "the docs on this area are a blank
    template"), and a confidence of low, medium or high. Missing or template documentation lowers the
-   confidence and says so. Run `scripts/compare_sizes.py suggest --target <target.json> --pool
-   <finished.json> --scale <scale.json> [--area-docs <docs.md>]` to build this.
+   confidence and says so, but is never a driver such as "new area" or "not built yet". When whether
+   the area already exists drives the size and the code is reachable, check that area's code
+   (GRD-11) and label that driver "the code suggests"; when the look finds nothing under the area's
+   name, the driver says no code was found under its name and the confidence stays lowered. Follow
+   "What the documents prove" in `references/paqad-docs-map.md`.
+   Run `scripts/compare_sizes.py suggest --target <target.json> --pool <finished.json> --scale
+   <scale.json> [--area-docs <docs.md>]` to build this.
 4. Recommend a split when it is big (EST-4). If the suggestion is above what the team usually finishes
    in a sprint, or confidence is low because of size, recommend how to split it and point the user to
    `refine-ticket`.
@@ -54,6 +60,11 @@ When no tool can run the scripts, size by hand with this checklist:
   link and its recorded size.
 - Give a size or range, list the drivers behind it, and set a confidence of low, medium or high.
 - Lower the confidence and state the reason when the area's documents are template text or missing.
+- Do "What the documents prove" in `references/paqad-docs-map.md` by hand: say an area the
+  documents do not cover is not documented; never say or imply it is not built; report a document's
+  status line as what the docs say, for the exact thing it names only; never use a requirements
+  document as current behaviour; when the code is reachable, look at that area's names, open at
+  most 5 files, and say at most one line per area, labelled "the code suggests".
 - Recommend a split when the size is above a sprint's worth or confidence is low because of size.
 - Label the result "suggested size"; never show a date or a commitment, and never write a size as
   fact.

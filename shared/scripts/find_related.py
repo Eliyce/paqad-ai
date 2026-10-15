@@ -10,10 +10,11 @@ produce the same list.
 Standard library only. No network. Read-only: it writes nothing.
 
 CLI:
-  find_related.py --registry <modules.md> --query "<idea or question>"
+  find_related.py (--registry <modules.md> | --modules-dir <docs/modules>) --query "<text>"
 
 stdout: a JSON list of {"module", "plain_name", "score", "matched_terms"}. Exit 0 on success,
-1 when the registry is missing or unreadable.
+1 when the registry is missing or unreadable, or when the modules folder is missing or holds no
+module summary, 2 on a usage error.
 """
 
 import argparse
@@ -22,7 +23,12 @@ import re
 import sys
 from pathlib import Path
 
+import check_onboarded
+
 MIN_TERM = 3
+HEADING_PREFIX = "# "
+NO_SUMMARIES = "no module summaries were found in {0}"
+NOT_A_FOLDER = "modules folder not found: {0}"
 
 
 def tokens(value):
@@ -100,17 +106,52 @@ def rank(rows, query):
     return ranked
 
 
+def plain_name_from(area, text):
+    for line in text.splitlines():
+        if line.startswith(HEADING_PREFIX):
+            return line[len(HEADING_PREFIX):].strip()
+    return area
+
+
+def rows_from_modules_dir(modules_dir):
+    rows = []
+    for area, text in check_onboarded.area_summaries(modules_dir):
+        if not text:
+            continue
+        rows.append({
+            "module": area,
+            "plain_name": plain_name_from(area, text),
+            "layer": "",
+            "features": "",
+            "terms": set(tokens(area)) | set(tokens(text)),
+        })
+    return rows
+
+
+def load_rows(args):
+    if args.registry is not None:
+        return parse_registry(args.registry.read_text(encoding="utf-8"))
+    if not args.modules_dir.is_dir():
+        raise NotADirectoryError(NOT_A_FOLDER.format(args.modules_dir))
+    return rows_from_modules_dir(args.modules_dir)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Rank onboarded modules against a query.")
-    parser.add_argument("--registry", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--registry", type=Path)
+    source.add_argument("--modules-dir", type=Path)
     parser.add_argument("--query", required=True)
     args = parser.parse_args(argv)
     try:
-        markdown = args.registry.read_text(encoding="utf-8")
+        rows = load_rows(args)
     except OSError as error:
         print(json.dumps({"ok": False, "error": str(error)}), file=sys.stderr)
         return 1
-    rows = parse_registry(markdown)
+    if args.modules_dir is not None and not rows:
+        print(json.dumps({"ok": False, "error": NO_SUMMARIES.format(args.modules_dir)}),
+              file=sys.stderr)
+        return 1
     print(json.dumps(rank(rows, args.query), ensure_ascii=False))
     return 0
 

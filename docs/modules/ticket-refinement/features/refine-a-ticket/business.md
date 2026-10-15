@@ -29,6 +29,7 @@ People can point the plugin at one or more tickets that already exist in the tra
 |---|---|
 | Read first | Every ticket is read in full and snapshotted before any proposal. |
 | Diagnose with evidence | Each finding names where it comes from. |
+| What the documents prove | Missing or template project notes are never a finding that a feature is missing, in any wording; the area is not documented. A contradiction that rests on a status line in a document is said as what the docs say, for the exact thing that line names only. When whether the area exists matters to a finding and the plugin can reach the code, it checks that area's code and labels the finding "the code suggests", at most one such line per area (GRD-8, GRD-9, GRD-11). |
 | Keep the intent | The ticket is improved, never turned into something else. A bigger or different piece of work is sent to the idea journey instead. |
 | Limited fields | Only summary, description, labels, parent, links, and new child tickets on a split. Status, assignee, priority, sprint and size change only if the user asks for that exact change. |
 | Explicit approval | Only "apply it" for the exact proposal shown. "Looks good" is not approval. Any edit to the proposal voids it. |
@@ -67,4 +68,4 @@ People can point the plugin at one or more tickets that already exist in the tra
 | Split | Breaking one large ticket into new linked tickets under the same epic. |
 | Conflict | Someone changed the ticket in the tracker after the snapshot was taken. |
 
-Sources: skills/refine-ticket/SKILL.md, skills/refine-ticket/references/refine-procedure.md, skills/refine-ticket/references/rich-content.md, REQUIREMENTS.md section 4C.
+Sources: skills/refine-ticket/SKILL.md, skills/refine-ticket/references/refine-procedure.md, skills/refine-ticket/references/rich-content.md, shared/references/paqad-docs-map.md, REQUIREMENTS.md section 4C.

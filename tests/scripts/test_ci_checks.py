@@ -132,6 +132,16 @@ class ScenarioCoverageCheckTest(unittest.TestCase):
         self.assertTrue(section13, "no section-13 ACs parsed")
         self.assertEqual(section13 - (covered | conv | script), set())
 
+    def test_repo_selection_acceptance_is_accounted_for(self):
+        conv, script = check_scenarios.parse_declarations(self.scenarios_dir)
+        only_repo_selection = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, only_repo_selection, ignore_errors=True)
+        shutil.copy(os.path.join(self.scenarios_dir, "repo-selection.yml"), only_repo_selection)
+        covered = check_scenarios.scenario_covered(only_repo_selection)
+        self.assertEqual(covered, set(range(49, 56)))
+        self.assertLessEqual(set(range(49, 56)), conv)
+        self.assertIn(56, script)
+
     def test_fails_when_a_required_scenario_is_removed(self):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)

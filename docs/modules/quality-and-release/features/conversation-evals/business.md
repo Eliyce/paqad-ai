@@ -25,12 +25,12 @@ Much of what makes the plugin good cannot be proven by a unit test: whether repl
 
 | Rule | Detail |
 |---|---|
-| Properties, not wording | For example answer-first, no-narration, single sources line, template section flagged, nothing posted without approval |
-| One scenario per conversation-shape acceptance scenario | 25 for the idea journey and questions, 4 for refining, sizing and sprint planning |
+| Properties, not wording | For example answer-first, no-narration, single sources line, template section flagged, nothing posted without approval, an area with no notes called not documented and never said or implied to be missing, in any wording |
+| One scenario per conversation-shape acceptance scenario | 25 for the idea journey and questions, 4 for refining, sizing and sprint planning, 8 for choosing the project and working with a partly set up project, 11 for areas with no notes, status lines in the notes, requirements documents, business notes that state rules and the automatic code check |
 | Script-proven scenarios are not duplicated | Those live in the unit tests |
 | Fiction only | The fixture project and tracker are invented |
 
-The fixture project holds five modules (returns, subscriptions, orders, members, data export) plus a sixth registry entry (loyalty) with no module folder, including documents that mix real and template sections. The fixture tracker holds tickets shaped for specific scenarios (a vague ticket, one with an image and a panel, one that should be split, sized finished tickets, an unready candidate) and a sprint board with three past sprints.
+The fixture project holds five modules (returns, subscriptions, orders, members, data export) plus two more registry entries (loyalty and referrals) with no module folder, including documents that mix real and template sections. Loyalty and referrals both have invented code but no notes, and no document gives referrals a status. The members notes carry one out of date line saying the account page lists loyalty points as an entry marked soon, and one account rule worded as something that must hold. An invented requirements document sits at the top of the project; its only hint is that it is a baseline for technical design. A bundled outside code package describes transferring points, inside a folder the code check never reads. The fixture tracker holds tickets shaped for specific scenarios (a vague ticket, one with an image and a panel, one that should be split, sized finished tickets, an unready candidate, one that wrongly says loyalty is not built yet) and a sprint board with three past sprints.
 
 ## Triggers and Side Effects
 

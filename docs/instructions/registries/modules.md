@@ -21,7 +21,7 @@ is a human-readable mirror; regenerate it after every map change. Each module's 
 | Slug | Name | Features | Confidence | Docs |
 |---|---|---|---|---|
 | discovery-record | Discovery Record | record-lifecycle, approval-digests, step-readiness-check | medium | [summary](../../modules/discovery-record/index/summary.md) |
-| project-grounding | Project Grounding | find-related-areas, detect-template-text | medium | [summary](../../modules/project-grounding/index/summary.md) |
+| project-grounding | Project Grounding | get-the-documents, find-related-areas, detect-template-text | medium | [summary](../../modules/project-grounding/index/summary.md) |
 | conversation-standards | Conversation Standards | voice, consulting-stance, plain-language, writing-rules | medium | [summary](../../modules/conversation-standards/index/summary.md) |
 | tracker-checks | Tracker Write Checks | prose-check, read-back-check, jira-profile | medium | [summary](../../modules/tracker-checks/index/summary.md) |
 

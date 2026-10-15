@@ -168,6 +168,18 @@
       "size": 8,
       "sprint": null,
       "last_updated": "2026-09-18T12:00:00Z"
+    },
+    {
+      "key": "LOY-12",
+      "summary": "Let members gift points",
+      "description": "Loyalty is not built yet, so this is a brand new area. Members should be able to gift points to another member.",
+      "labels": ["loyalty"],
+      "parent": null,
+      "links": [],
+      "status": "To Do",
+      "size": null,
+      "sprint": null,
+      "last_updated": "2026-09-28T10:00:00Z"
     }
   ]
 }

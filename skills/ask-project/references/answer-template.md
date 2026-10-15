@@ -32,11 +32,19 @@ Keep paths and any technical names on the Sources line only, never in the answer
 Use the user's word. The first time a term appears, show the project's term in brackets:
 "members (called accounts in the project docs)". After that, use the user's word alone.
 
-## Honesty about gaps (ASK-3, GRD-4)
+## Honesty about gaps (ASK-3, GRD-4, GRD-8, GRD-11)
 
 Where the relevant section is template text, missing or contradictory, say what the documents
 cannot confirm and make no guess, for example: "The project's notes on who can do this are still a
 blank template, so I can't confirm it from the docs." Offer to shape an idea if that would help.
+
+A missing note is never called or implied to be not built, in any wording. For an area the
+documents do not cover, say it is not documented and, when the code was checked, add at most one
+labelled line, for example:
+
+"Loyalty points are not documented. The code suggests members can earn and redeem points."
+
+The rules are in "What the documents prove" in `paqad-docs-map.md`.
 
 ## Example
 

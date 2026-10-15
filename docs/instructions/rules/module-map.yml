@@ -124,7 +124,7 @@ modules:
     summary: Improves existing tickets field by field and writes only an approved change set, guarding against conflicting edits and lost rich content.
     sources:
       - skills/refine-ticket
-    depends_on: [discovery-record, tracker-checks, conversation-standards]
+    depends_on: [discovery-record, project-grounding, tracker-checks, conversation-standards]
     features:
       - slug: refine-a-ticket
         name: Refine an existing ticket
@@ -137,7 +137,7 @@ modules:
     summary: Suggests a size from comparable finished work, labelled as advice, and writes it only on request.
     sources:
       - skills/size-work
-    depends_on: [discovery-record, tracker-checks, conversation-standards]
+    depends_on: [discovery-record, project-grounding, tracker-checks, conversation-standards]
     features:
       - slug: suggest-a-size
         name: Suggest a size
@@ -184,14 +184,19 @@ modules:
     name: Project Grounding
     layer: shared-foundation
     confidence: medium
-    summary: Reads an onboarded project's documents in order, finds related areas, and tells real content from template text.
+    summary: Chooses and checks the project to read, reads its documents in order, finds related areas, and tells real content from template text.
     sources:
+      - shared/scripts/check_onboarded.py
       - shared/scripts/find_related.py
       - shared/scripts/detect_placeholder.py
+      - shared/references/connect-repository.md
       - shared/references/paqad-docs-map.md
       - shared/references/template-markers.md
     depends_on: []
     features:
+      - slug: get-the-documents
+        name: Get the project documents
+        sources: [shared/references/connect-repository.md, shared/scripts/check_onboarded.py]
       - slug: find-related-areas
         name: Find related areas
         sources: [shared/scripts/find_related.py, shared/references/paqad-docs-map.md]

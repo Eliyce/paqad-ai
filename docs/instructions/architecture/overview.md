@@ -29,15 +29,17 @@ User message
 ```
 
 Every path reads the target project's onboarded `docs/` and, where needed, the tracker, through
-the host's own connectors. Nothing in this repository talks to a network.
+the host's own connectors. Which repository to read is settled once by one shared rule
+(`shared/references/connect-repository.md`, GRD-3) and its state checked by one shared script
+(`shared/scripts/check_onboarded.py`, GRD-1). Nothing in this repository talks to a network.
 
 ## Source layout
 
 | Path | Role |
 |---|---|
 | `skills/<name>/` | One skill: `SKILL.md` plus optional `references/`, `assets/`, `scripts/` |
-| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, docs map, template markers, Jira profile) |
-| `shared/scripts/` | Python modules held once and copied into skills at build time (record, digests, prose and read-back checks, related-module ranking, placeholder detection) |
+| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, docs map, template markers, repository choice and onboarded check, Jira and GitHub profiles) |
+| `shared/scripts/` | Python modules held once and copied into skills at build time (record, digests, prose and read-back checks, onboarded check, related-module ranking, placeholder detection) |
 | `build/skills.yml` | Single source of truth: plugin metadata and each skill's declared shared imports |
 | `build/build.py` | Assembles `dist/` and generates every manifest |
 | `hosts/*.md` | Human install notes and manual verdict harness per host; not shipped |

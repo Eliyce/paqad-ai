@@ -31,6 +31,7 @@ When someone asks "how big is this?", the plugin suggests a size for the ticket 
 | No invented numbers | With fewer than two comparable tickets, no size is suggested and the plugin says so. |
 | Disagreement means a range | When comparable tickets have different sizes, a range is given and confidence drops one level. |
 | Template docs lower confidence | If the documents for the area are blank template text, confidence drops one level and the reason is stated (AC-36). |
+| Missing notes are not a new area | Missing or template notes lower confidence but are never a reason, in any wording, that says or suggests the area is new or not built yet, such as "new area" or "not built yet". When whether the area already exists drives the size and the plugin can reach the code, it checks that area's code and labels that reason "the code suggests"; when nothing is found under the area's name, it says so and confidence stays lowered (GRD-8, GRD-11, AC-61). |
 | High confidence needs agreement | High confidence requires at least three comparable tickets that all have the same size. |
 | Explicit write only | The size field is written only on an explicit "set it" (EST-6). |
 | No silent overwrite | If the size field already has a value, the write is refused unless the user asks to replace it (AC-37). |
@@ -63,4 +64,4 @@ When someone asks "how big is this?", the plugin suggests a size for the ticket 
 | Confidence | Low, medium or high: how much the suggestion can be trusted |
 | Scale | How the team sizes work: points, T-shirt sizes, or none |
 
-Sources: skills/size-work/SKILL.md, skills/size-work/references/sizing-guide.md, skills/size-work/scripts/compare_sizes.py, REQUIREMENTS.md section 4D.
+Sources: skills/size-work/SKILL.md, skills/size-work/references/sizing-guide.md, skills/size-work/scripts/compare_sizes.py, shared/references/paqad-docs-map.md, REQUIREMENTS.md section 4D.

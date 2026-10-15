@@ -347,5 +347,61 @@ class UndeclaredImportTest(unittest.TestCase):
         self.assertIn("references/consulting.md", str(ctx.exception))
 
 
+
+class SharedRepositoryFilesTest(unittest.TestCase):
+    """AC-24 (PLG-9, PLG-10): the shared repository rule and onboarded check reach exactly their
+    declaring skills, byte-identical to the shared source, and an undeclared mention fails."""
+
+    CONNECT = ("references", "connect-repository.md")
+    CHECK = ("scripts", "check_onboarded.py")
+    CONNECT_SKILLS = ("ask-project", "get-connected", "ground-in-project", "refine-ticket",
+                      "size-work")
+    CHECK_SKILLS = ("ask-project", "get-connected", "ground-in-project")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        cls.dist = os.path.join(cls.tmp, "dist")
+        build.build(REPO_ROOT, cls.dist)
+        cls.skills_root = os.path.join(cls.dist, "plugins", PLUGIN_NAME, "skills")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def read_bytes(self, path):
+        with open(path, "rb") as handle:
+            return handle.read()
+
+    def assert_shipped_to(self, parts, skills):
+        source = self.read_bytes(os.path.join(REPO_ROOT, "shared", *parts))
+        for skill in sorted(os.listdir(self.skills_root)):
+            built = os.path.join(self.skills_root, skill, *parts)
+            if skill in skills:
+                self.assertEqual(self.read_bytes(built), source, "{0} copy differs".format(skill))
+            else:
+                self.assertFalse(os.path.exists(built), "{0} ships {1}".format(skill, parts[-1]))
+
+    def test_connect_repository_in_the_five_declaring_skills(self):
+        self.assert_shipped_to(self.CONNECT, self.CONNECT_SKILLS)
+
+    def test_check_onboarded_in_the_three_declaring_skills(self):
+        self.assert_shipped_to(self.CHECK, self.CHECK_SKILLS)
+        self.assertFalse(os.path.exists(os.path.join(self.skills_root, "plan-sprint", *self.CHECK)))
+
+    def test_undeclared_connect_repository_fails_the_build(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        source = os.path.join(tmp, "source")
+        for sub in ("skills", "shared", "build"):
+            shutil.copytree(os.path.join(REPO_ROOT, sub), os.path.join(source, sub))
+        skill_md = os.path.join(source, "skills", "plan-sprint", "SKILL.md")
+        with open(skill_md, "a", encoding="utf-8") as handle:
+            handle.write("\nGet documents as in references/connect-repository.md.\n")
+        with self.assertRaises(build.BuildError) as ctx:
+            build.build(source, os.path.join(tmp, "dist"))
+        self.assertIn("references/connect-repository.md", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
