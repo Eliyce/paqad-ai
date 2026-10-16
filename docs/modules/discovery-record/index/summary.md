@@ -33,7 +33,8 @@ Keeps the run's only memory: one revisioned JSON record per run, with staleness 
 - REC-1: one record per run with fixed blocks and `run.mode` for refine, size and plan.
 - REC-3: each step's exit condition is checked against the record.
 - REC-4: expected-revision writes; going back stales dependents by a fixed map and keeps the rest.
-- REC-5: resume from a downloaded record (AC-15).
+- REC-2: the record is written silently, never offered or named (TALK-15).
+- REC-5: resume from a resume file offered only when the user asks to stop and come back later (AC-15, AC-72).
 - REC-6: no credentials, tokens or unneeded personal data (instruction only).
 - REC-7: content digests for ticket set, change set and sprint plan; approvals bound to them.
 - PUB-2, EDT-5, SPR-6: the approvals that REC-7 binds.

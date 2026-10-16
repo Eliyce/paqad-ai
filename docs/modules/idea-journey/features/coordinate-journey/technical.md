@@ -60,7 +60,8 @@ Shared scripts called by this skill (full contract under discovery-record):
 | Approval | `approval` is set to `null` on every update |
 | Advance | Refused when a required block is missing, stale, or the step is already 6 |
 | Side question | No record write and no advance |
-| Resume | Read the record first, confirm `run.step`, continue; `check_record.py` shows what still needs redoing |
+| Step change | One-line status, then the next step's work in the same reply; no carry-on question and no mention of the record or its file (TALK-12, TALK-14, TALK-15) |
+| Resume | The record is offered as a resume file only when the user asks to stop and come back later, its format not named (REC-5). On resume, read it first, confirm `run.step` in one line, continue; `check_record.py` shows what still needs redoing |
 
 Note: `journey.md` lists `ticket_set_ref -> posted` only; `record.py` also stales `readiness` on a `ticket_set_ref` change (documented in `record.py` as deliberate over-invalidation, INV-11).
 
@@ -81,7 +82,7 @@ Note: `journey.md` lists `ticket_set_ref -> posted` only; `record.py` also stale
 |---|---|
 | Shared imports (`build/skills.yml`) | `references/voice.md`, `references/consulting.md`, `scripts/canonical.py`, `scripts/record.py`, `scripts/check_record.py` |
 | Modules | discovery-record, conversation-standards, project-grounding (via step skills), ticket-drafting, ticket-posting |
-| Host capabilities | Creating a file for the record and offering it for download (REC-2, REC-5); running Python 3.9 (optional, checklist fallback otherwise) |
+| Host capabilities | Creating a file for the record in the working folder, silently (REC-2), handed over as a resume file only on request (REC-5); a choice prompt for every choice, with a short list in the reply as the fallback (TALK-8); running Python 3.9 (optional, checklist fallback otherwise) |
 
 ## Configuration
 
@@ -94,4 +95,6 @@ None. The step map and invalidation map are fixed in `journey.md` and `record.py
 | Unit | `tests/scripts/test_record.py`: `InitTest`, `ExpectedRevisionTest`, `GoBackTest` (AC-7), `InvalidationMapTest`, `AdvanceTest`, `UndocumentedBlockTest`, `BuildModeUnchangedTest` |
 | Unit | `tests/scripts/test_check_record.py`: `ResumeSignalTest` (AC-15), `GuardTest`, `SyncGuardTest`, `CliTest` |
 | Authoring | `tests/scripts/test_authoring.py`: `TriggerHygieneTest` (AC-19), `ChecklistFallbackTest` (AC-16), `VoiceBlockTest` (AC-13) |
-| Eval scenarios (`s1.yml`) | `ac-3`, `ac-15`, `ac-24`, `ac-48`; journey-wide `ac-2`, `ac-9`, `ac-10`, `ac-47` enter through `product-discovery` but exercise other modules |
+| Unit | `tests/scripts/test_conversation_feedback.py`: `ChoicePromptTest`, `QuestionLastTest`, `SilentRecordTest`, `KeepMovingTest` |
+| Eval scenarios (`business-feedback.yml`) | `ac-68`, `ac-68b`, `ac-69`, `ac-70`, `ac-71`, `ac-72` |
+| Eval scenarios (`s1.yml`) | `ac-3`, `ac-15` (resume from a resume file), `ac-24`, `ac-48`; journey-wide `ac-2`, `ac-9`, `ac-10`, `ac-47` enter through `product-discovery` but exercise other modules |

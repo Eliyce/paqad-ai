@@ -42,11 +42,14 @@ The nudge is informational and never a per-answer sales line.
 
 - Show it only when the user asks why an answer is thin, or at most once per conversation after a
   weaker answer. Never on every answer.
-- Word it by level: in code-only mode, offer to install paqad; in docs-and-code mode, offer to
-  finish setup for the named areas.
-- It links to an information page only, never to a purchase. The link carries only a static campaign
-  tag (for example `src=discovery-plugin`) and no per-user, per-repository or per-answer identifier.
-  The tag is disclosed in the README and in the privacy policy.
+- Word it as information, not an offer to buy or install. In code-only mode, say that setting up
+  paqad project docs would give fuller answers, and where to read more. In docs-and-code mode, say
+  which named areas lack project docs and offer to help finish their setup.
+- It links to an information page only, never to a purchase. The link is exactly
+  `https://paqad.ai/?src=discovery-plugin`. Use only this link: never another link, and never build
+  or change one. It carries only the static campaign tag `src=discovery-plugin` and no per-user,
+  per-repository or per-answer identifier. The tag is disclosed in the README and in the privacy
+  policy.
 - It never promotes a subscription or an upgrade plan and never compares paqad with another product.
 
 ## The code-only area finder

@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-10-06T05:19:38.398Z
-rule_files_hash: sha256-775db7845b84f65804988c4ad5f053cc1e30ed4ee7e32bf47a9e376ac4adda52
+generated_at: 2026-10-15T09:35:51.792Z
+rule_files_hash: sha256-2221c01ab2e4068d82cb23cc634e7b9e74a4233faf65a9a9b4faf5310c88d177
 rules:
   - id: RL-95d9
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -2323,8 +2323,8 @@ rules:
     scripts: []
   - id: RL-04db
     source: docs/instructions/rules/coding/stacks/python-skills-plugin/skills.md
-    text: Let only `product-discovery`, `ask-project`, `refine-ticket`, `size-work` and `plan-sprint` invite direct use.
-    text_hash: 0170f7cc3460c117dff0bad80016e565cd476f8efd02c42ce933206c23a916dc
+    text: "Let only the six entry skills invite direct use: published `paqad-discover`, `paqad-ask`, `paqad-refine-ticket`, `paqad-size-work`, `paqad-plan-sprint` and the `paqad` front door (source folders `product-discovery`, `ask-project`, `refine-ticket`, `size-work`, `plan-sprint` and `front-door`; the `paqad-` name is applied at build time, approach B)."
+    text_hash: 34ff93fb1e873fd355a58c2f37035a0ff6fcff296ac78d1d9bb1115d970c834e
     verifiability:
       kind: heuristic
     enforced_by: []

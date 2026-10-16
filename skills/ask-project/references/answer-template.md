@@ -26,6 +26,8 @@ Sources: docs/modules/billing/features/subscriptions/business.md
 ```
 
 Keep paths and any technical names on the Sources line only, never in the answer body (TALK-6).
+Any closing offer or question (ASK-5) comes after the Sources line and the source line, never above
+them, and is asked through the choice prompt when the host has one.
 
 ## Term on first use (GRD-6)
 

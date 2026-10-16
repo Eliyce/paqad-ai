@@ -3,7 +3,7 @@
 Grounded questions for the four gaps in the `idea` block: goal, who benefits, success and
 constraints. Ask only about a gap the first message and the documents left open, one at a time
 (CON-2). Each question carries a recommendation and two or three short choices, with the
-recommended one marked (CON-1, TALK-8). Adapt the wording to the user's own words and the project's
+recommended one marked, asked through the host's choice prompt (CON-1, TALK-8). Adapt the wording to the user's own words and the project's
 documents; never read the list out.
 
 ## Goal (who gets what value)

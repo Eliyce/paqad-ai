@@ -215,6 +215,7 @@ modules:
       - shared/references/consulting.md
       - shared/references/plain-language.md
       - shared/references/writing-rules.md
+      - shared/references/user-stories.md
     depends_on: []
     features:
       - slug: voice
@@ -228,7 +229,7 @@ modules:
         sources: [shared/references/plain-language.md]
       - slug: writing-rules
         name: Ticket writing rules
-        sources: [shared/references/writing-rules.md]
+        sources: [shared/references/writing-rules.md, shared/references/user-stories.md]
 
   - slug: tracker-checks
     name: Tracker Write Checks

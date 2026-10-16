@@ -128,6 +128,12 @@ def declared_imports():
     return {skill["name"]: list(skill["imports"]) for skill in config["skills"]}
 
 
+def published_name_map():
+    """Source skill folder name -> published (dist) folder name, from the one build source."""
+    config = build.parse_skills_yml(read_text(BUILD_DIR, "skills.yml"))
+    return {skill["name"]: build.published_name(skill) for skill in config["skills"]}
+
+
 def table_rows(text):
     return [line for line in text.splitlines() if TABLE_ROW.match(line)]
 
@@ -236,11 +242,13 @@ class DocsMapBuildTest(unittest.TestCase):
 
     def test_shipped_to_exactly_the_declarers(self):
         source = self.read_bytes(os.path.join(SHARED_ROOT, *DOCS_MAP.split("/")))
+        name_map = published_name_map()
+        published_declarers = {name_map[name] for name in DECLARERS}
         skills = sorted(os.listdir(self.skills_root))
-        self.assertTrue(DECLARERS <= set(skills))
+        self.assertTrue(published_declarers <= set(skills))
         for skill in skills:
             built = os.path.join(self.skills_root, skill, *DOCS_MAP.split("/"))
-            if skill in DECLARERS:
+            if skill in published_declarers:
                 self.assertEqual(self.read_bytes(built), source, skill)
                 self.assertIn(SECTION, self.read_bytes(built).decode("utf-8"), skill)
             else:
@@ -250,7 +258,7 @@ class DocsMapBuildTest(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         source = os.path.join(tmp, "source")
-        for sub in ("skills", "shared", "build"):
+        for sub in ("skills", "shared", "build", "publish", "docs"):
             shutil.copytree(os.path.join(REPO_ROOT, sub), os.path.join(source, sub))
         with open(os.path.join(source, "skills", "plan-sprint", "SKILL.md"), "a",
                   encoding="utf-8") as handle:

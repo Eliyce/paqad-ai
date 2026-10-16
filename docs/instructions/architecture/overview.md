@@ -5,27 +5,35 @@ describes what is built today and how the parts fit.
 
 ## Shape: one plugin, many skills
 
-The plugin is a bundle of 13 focused skills. Five are entry points a user can start directly;
-eight are journey steps that run only when the `product-discovery` coordinator directs them
+The plugin is a bundle of 14 focused skills. Six are entry points a user can start directly;
+the rest are journey steps that run only when the `paqad-discover` coordinator directs them
 (PLG-8). Each skill owns one responsibility and carries its own references, assets and scripts.
+
+Users see and trigger skills by their published `paqad-` names; each source folder keeps its
+unprefixed name and the `paqad-` name is applied at build time (approach B, REQUIREMENTS PN-1).
+The sixth entry point is the `paqad` front door (source folder `front-door`), a thin router that
+sends a user's intent to the matching entry skill. The diagram below shows published names, with
+the source folder in parentheses.
 
 ```
 User message
    |
-   +-- question ----------------> ask-project ----------(hand-over)---+
-   |                                                                  v
-   +-- idea / problem ----------> product-discovery (coordinator) ----+
-   |                                 step 0 get-connected
-   |                                 step 1 understand-idea
-   |                                 step 2 ground-in-project
-   |                                 step 3 shape-idea
-   |                                 step 4 decide-together
-   |                                 step 5 write-tickets -> check-tickets
-   |                                 step 6 post-tickets
+   +-- /paqad front door -------> routes to the matching entry skill below
    |
-   +-- "make ABC-142 ready" ----> refine-ticket
-   +-- "how big is this?" ------> size-work
-   +-- "what fits the sprint?" -> plan-sprint
+   +-- question ----------------> paqad-ask (ask-project) --------(hand-over)---+
+   |                                                                            v
+   +-- idea / problem ----------> paqad-discover (product-discovery) -----------+
+   |                                 step 0 paqad-get-connected (get-connected)
+   |                                 step 1 paqad-understand-idea (understand-idea)
+   |                                 step 2 paqad-ground-in-project (ground-in-project)
+   |                                 step 3 paqad-shape-idea (shape-idea)
+   |                                 step 4 paqad-decide-together (decide-together)
+   |                                 step 5 paqad-write-tickets -> paqad-check-tickets
+   |                                 step 6 paqad-post-tickets
+   |
+   +-- "make ABC-142 ready" ----> paqad-refine-ticket (refine-ticket)
+   +-- "how big is this?" ------> paqad-size-work (size-work)
+   +-- "what fits the sprint?" -> paqad-plan-sprint (plan-sprint)
 ```
 
 Every path reads the target repository at the best evidence level it can reach (from project docs,
@@ -41,7 +49,7 @@ network.
 | Path | Role |
 |---|---|
 | `skills/<name>/` | One skill: `SKILL.md` plus optional `references/`, `assets/`, `scripts/` |
-| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, docs map, evidence levels, template markers, repository choice and readiness check, Jira and GitHub profiles) |
+| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, user stories, docs map, evidence levels, template markers, repository choice and readiness check, Jira and GitHub profiles) |
 | `shared/scripts/` | Python modules held once and copied into skills at build time (record, digests, prose and read-back checks, readiness check, related-module ranking, placeholder detection) |
 | `build/skills.yml` | Single source of truth: plugin metadata and each skill's declared shared imports |
 | `build/build.py` | Assembles `dist/` and generates every manifest |

@@ -17,7 +17,9 @@ python3 build/build.py [--source <repo-root>] [--dist <output-dir>]
 
 Reads `build/skills.yml`, copies each skill plus its declared shared imports into
 `dist/plugins/<name>/skills/<skill>/`, and generates the manifests (see the generate-manifests
-feature). The dist tree is wiped at the start of a run so removed inputs never linger. The build
+feature). It also emits the per-host branches under `dist/hosts/<host>/`; the Claude branch
+additionally gets `README.md`, `LICENSE` and `PRIVACY.md` at its root and `README.md` and
+`LICENSE` in `plugins/<name>/`, copied from `publish/claude/` and `docs/privacy-policy.md`. The dist tree is wiped at the start of a run so removed inputs never linger. The build
 is deterministic: two runs produce byte-identical output (CI-8).
 
 ### Output
@@ -25,4 +27,5 @@ is deterministic: two runs produce byte-identical output (CI-8).
 Writes the `dist/` tree. Prints `build ok: <dist>` to stdout on success and exits 0. On a build
 error it prints `build failed: <message>` to stderr and exits 1. Failure cases include an
 undeclared shared import (PLG-10), a missing skill folder or `SKILL.md`, and a malformed
-`skills.yml`.
+`skills.yml`, a missing or non-https listing scalar, empty keywords, and a missing publish
+source file.

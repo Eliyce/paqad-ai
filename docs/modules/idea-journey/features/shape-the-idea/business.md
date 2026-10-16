@@ -15,9 +15,9 @@ Step 3 of the idea journey ("Shape it"). The plugin plays the idea back starting
 | Step | What happens |
 |---|---|
 | 1 | One-line status: "Step 3 of 6: shaping the idea." |
-| 2 | Playback in this order: goal, what exists today (including unknowns), options with trade-offs, smaller first step where useful, recommendation. |
+| 2 | Playback in this order: goal, what exists today (including unknowns), options with trade-offs, smaller first step where useful, recommendation, then the sources line, then the closing question last (TALK-13). |
 | 3 | Only the lenses that matter for this idea are raised, each with a recommendation. |
-| 4 | Conflicts, duplicates or risks are named with evidence and a way forward. |
+| 4 | Conflicts, duplicates or risks are named with evidence and a way forward. The options and the way forward are offered through the host's choice prompt, the recommended one first and marked, each with its trade-off in a few words. |
 | 5 | The user accepts the shaping; only then is it recorded. |
 
 | Expert lens | Typical question |
@@ -40,7 +40,7 @@ Step 3 of the idea journey ("Shape it"). The plugin plays the idea back starting
 | Already exists | Said with its source; the "already exists" outcome is recommended and nothing more is drafted unless asked (CON-8, AC-26). This also applies when the today notes hold a line the code suggests that shows it exists; that line keeps its label "the code suggests". |
 | Not documented does not mean not built | An area the today notes do not document is called not documented in the playback, and nothing says or suggests it is missing, in any wording; every line from the code keeps the label "the code suggests" (GRD-8, GRD-11). |
 | Privacy risk | Named plainly here with a recommendation, for example exporting customer personal data (AC-27). |
-| Challenge kindly | Evidence plus a recommended way forward; an informed choice is respected and revisited only for new evidence (CON-3). |
+| Challenge kindly | Evidence plus a recommended way forward, offered through the choice prompt; an informed choice is respected and revisited only for new evidence (CON-3). |
 | Suggestions labelled | Nothing enters the record until accepted (CON-6). |
 
 ## Triggers and Side Effects

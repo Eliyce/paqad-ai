@@ -15,8 +15,8 @@ Step 1 of the idea journey ("Your idea"). The plugin works out what the idea rea
 | Step | What happens |
 |---|---|
 | 1 | The plugin reads the first message and the documents. If goal, who benefits and success are already clear, it does not ask them again (AC-3). |
-| 2 | For each gap, it asks one question with a recommendation and two or three short choices, the recommended one marked. |
-| 3 | If the user cannot say what success looks like, it offers two or three suggested measures, each labelled a suggestion, and keeps only the one accepted (AC-25). |
+| 2 | For each gap, it asks one question with a recommendation and two or three short choices through the host's choice prompt, the recommended one first and marked (a short list in the reply only when the host has none). |
+| 3 | If the user cannot say what success looks like, it offers two or three suggested measures through the choice prompt, each labelled a suggestion, and keeps only the one accepted (AC-25). |
 | 4 | "I don't know" is accepted: a sensible default is offered and recorded as an assumption. |
 | 5 | Where the user's word differs from the project's, the pair is noted so later steps show both. |
 
@@ -26,7 +26,7 @@ Step 1 of the idea journey ("Your idea"). The plugin works out what the idea rea
 |---|---|
 | Extract before asking | Ask only about the material gap (CON-2). |
 | One at a time | One question per turn, never a batch (AC-4). |
-| Bring a recommendation | Every question has a recommendation and two or three choices (CON-1, TALK-8). |
+| Bring a recommendation | Every question has a recommendation and two or three choices, asked through the choice prompt (CON-1, TALK-8). |
 | Suggest, never invent | Suggested measures are labelled; none is recorded unless accepted (CON-6). |
 | No made-up numbers | Never invent a target number, date or percentage; if no measure is accepted, record "to be measured after release" (TKT-5). |
 | Keep the user's words | Note user-term and project-term pairs for the glossary (GRD-6). |

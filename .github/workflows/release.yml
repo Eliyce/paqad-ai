@@ -86,34 +86,50 @@ jobs:
       #
       # Neither directory has a publish API: the ChatGPT directory needs a person to upload the zip
       # (O11, O23) and the Claude directory is published by a reviewer from the public repo (C10). So
-      # these steps produce an artifact and push the public repo; the final submission stays manual.
+      # these steps produce an artifact and push the public repo; the final submission stays manual
+      # (hosts/chatgpt.md and hosts/claude.md, Directory submission). The ChatGPT upload is the
+      # dedicated native zip: build/package_chatgpt.py packs only the plugin root of
+      # dist/hosts/chatgpt-directory under one top-level folder. A zip of the whole dist folder is
+      # the wrong shape for the portal (several plugin roots, rejected as plugin_root_ambiguous).
 
-      # Build the directory submission zip and keep it as a workflow artifact for the manual upload.
-      - name: CI-16 build the directory submission zip
+      # Build the ChatGPT directory submission zip and run the pre-submission check, which fails
+      # the release on any error (necessary, not sufficient: the portal may enforce more).
+      - name: CI-16 build and check the ChatGPT directory submission zip
         if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
         run: |
-          VERSION="v${{ steps.version.outputs.value }}"
-          (cd dist && zip -r "../paqad-product-discovery-directory-$VERSION.zip" .)
+          ZIP="paqad-product-discovery-chatgpt-v${{ steps.version.outputs.value }}.zip"
+          python build/package_chatgpt.py --dist dist --out "$ZIP"
+          python build/check_chatgpt_submission.py --zip "$ZIP"
 
-      - name: CI-16 upload the directory submission zip artifact
+      - name: CI-16 upload the ChatGPT directory submission zip artifact
         if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: directory-submission-zip
-          path: paqad-product-discovery-directory-v${{ steps.version.outputs.value }}.zip
+          name: chatgpt-directory-submission-zip
+          path: paqad-product-discovery-chatgpt-v${{ steps.version.outputs.value }}.zip
 
-      # Push dist/ to the PUBLIC distribution repo the public directories read. Separate repo and
-      # separate token from the private push above, and off unless explicitly enabled.
-      - name: CI-16 push dist to the public distribution repo
+      # Push the Claude branch to the PUBLIC distribution repo the Claude directory reads
+      # (Eliyce/paqad-product-discovery-plugin). Its root is the content of dist/hosts/claude: the
+      # marketplace, README.md, LICENSE, PRIVACY.md and plugins/paqad-product-discovery. Only that
+      # built branch is pushed; source, tests, docs and the other branches stay private. Separate
+      # repo and separate token from the private push above, and off unless explicitly enabled.
+      # Every top-level entry except .git is cleared first, so removed files never linger.
+      - name: CI-16 push dist/hosts/claude to the public distribution repo
         if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' && vars.PUBLIC_DISTRIBUTION_REPO != '' }}
         env:
           PUBLIC_DISTRIBUTION_TOKEN: ${{ secrets.PUBLIC_DISTRIBUTION_TOKEN }}
         run: |
           VERSION="v${{ steps.version.outputs.value }}"
           git clone "https://x-access-token:$PUBLIC_DISTRIBUTION_TOKEN@github.com/${{ vars.PUBLIC_DISTRIBUTION_REPO }}.git" public-distribution
-          rm -rf public-distribution/dist
-          cp -r dist public-distribution/dist
+          find public-distribution -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R dist/hosts/claude/. public-distribution/
           cd public-distribution
-          git add dist
-          git -c user.name="paqad release" -c user.email="release@paqad.invalid" commit -m "public release $VERSION"
-          git push origin HEAD
+          # Always publish to main (privacyPolicyUrl points at blob/main), also on a brand-new
+          # empty repo. Re-runs of the same version are safe: commit only when something changed,
+          # and tag only when the tag does not exist yet.
+          git checkout -B main
+          git add -A
+          git diff --cached --quiet || git -c user.name="paqad release" -c user.email="release@paqad.invalid" commit -m "public release $VERSION"
+          git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null || git tag "$VERSION"
+          git push origin HEAD:main
+          git push origin "refs/tags/$VERSION"

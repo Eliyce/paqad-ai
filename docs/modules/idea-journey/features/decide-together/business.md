@@ -2,7 +2,7 @@
 
 ## Overview
 
-Step 4 of the idea journey ("Decide"). The plugin settles the choices left open after shaping, one at a time. Each choice comes with a recommendation and two or three options. Every decision is recorded with who decided and why. When the user does not know, a sensible default is offered and recorded as an assumption, never as a decision. It runs only when the journey directs it.
+Step 4 of the idea journey ("Decide"). The plugin settles the choices left open after shaping, one at a time. Each choice comes with a recommendation and two or three options, asked through the host's choice prompt. Every decision is recorded with who decided and why. When the user does not know, a sensible default is offered and recorded as an assumption, never as a decision. It runs only when the journey directs it.
 
 ## User Roles
 
@@ -16,7 +16,7 @@ Step 4 of the idea journey ("Decide"). The plugin settles the choices left open 
 | Step | What happens |
 |---|---|
 | 1 | One-line status: "Step 4 of 6: deciding the open choices." |
-| 2 | The plugin takes the first open choice, with a recommendation and two or three short options. |
+| 2 | The plugin takes the first open choice, with a recommendation and two or three short options in the choice prompt (a short list in the reply only when the host has none). |
 | 3 | The user picks; the decision is recorded with an id, the question, the choice, who decided and why. |
 | 4 | If the user says "I don't know", a default is offered and recorded as an assumption. |
 | 5 | Repeat until no open choice is left. |
@@ -26,7 +26,7 @@ Step 4 of the idea journey ("Decide"). The plugin settles the choices left open 
 | Rule | Detail |
 |---|---|
 | One at a time | Choices are never batched. |
-| Bring a recommendation | Each choice has a recommendation and two or three options, recommended one marked, one clause of why (CON-1, TALK-8). |
+| Bring a recommendation | Each choice has a recommendation and two or three options in the choice prompt, recommended one first and marked, one clause of why (CON-1, TALK-8). The chosen outcome is also confirmed through the choice prompt. |
 | Decision only on choice | A recommendation is not a decision until the user accepts it. |
 | Assumptions kept apart | A default is labelled an assumption and stored separately; it reaches tickets as an open question or stated assumption, never a commitment (TKT-5, AC-29). |
 | Settled stays settled | Revisited only for new evidence (CON-3). |

@@ -15,7 +15,7 @@ re-baseline.
 
 Say what is wrong in plain business words, and give evidence for each finding. Common findings:
 
-- No "done when", or outcomes that cannot be tested.
+- No acceptance criteria (done when), or outcomes that cannot be tested.
 - Jargon or code words where business words belong (use `plain-language.md`).
 - No "not included", so the edges are unclear.
 - A contradiction with the project's documents.
@@ -46,7 +46,8 @@ not applied.
 
 Splitting (EDT-8): when a ticket is too big, propose the split as new tickets under the same epic,
 with the original kept and linked, never deleted. New tickets follow the posting rules in section 9
-of REQUIREMENTS.md.
+of REQUIREMENTS.md and the user story rules that write-tickets uses: a specific role, a capability
+in plain words, a real outcome and Given/When/Then acceptance criteria.
 
 ## 5. Guard rich content (EDT-7)
 

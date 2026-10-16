@@ -9,9 +9,10 @@ readiness.
 1. **Does each ticket serve its epic's goal?** Every ticket should move its epic's one-sentence
    goal forward. A ticket that does not belong under any epic's goal is in the wrong place or is
    not needed.
-2. **Would a developer know when it is done?** Each "done when" statement should be checkable by a
-   tester without asking the author. Vague outcomes ("works well", "is improved") are not
-   checkable; rewrite them into something observable.
+2. **Would a developer know when it is done?** Every acceptance criterion is Given / When / Then,
+   observable from the role's view, and checkable by a tester without asking the author. Vague
+   outcomes ("works well", "is improved") are not checkable; rewrite them into something
+   observable.
 3. **Is anything in "what exists today" contradicted by the docs?** Compare each ticket's "what
    exists today" against the today block and the project documents. A claim the docs contradict,
    or that rests on a template section the docs could not confirm, is flagged rather than kept.
@@ -21,6 +22,12 @@ readiness.
 5. **Are there similar issues already in the tracker?** Search by key phrases and show the matches
    to the user before posting. The user decides whether a ticket is new, a duplicate, or should
    extend an existing issue. This search only reads the tracker.
+6. **Is each ticket a real user story?** Judge it by `references/user-stories.md`: a specific role
+   (not developer, platform or system), an I want that is a capability and not how it is built, a
+   So that that is a real outcome, and a target of API or UI. A UI ticket that needs an API ticket
+   depends on it. A gated capability carries a positive and a negative permission criterion with a
+   confirmed key. No criterion names another ticket ref. Lines inside each block except the last
+   end with two trailing spaces.
 
 ## Reporting
 

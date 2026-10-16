@@ -22,7 +22,8 @@ Settle the choices left open by the shaping, one at a time, and record each as i
 
 1. Take the open choices one at a time. Do not batch them into a wall of questions.
 2. Bring something to every choice: a recommendation and two or three realistic options, kept
-   short, with the recommended one marked and one short clause of why. Use what the user and the
+   short and asked through the host's choice prompt, with the recommended one marked and one short
+   clause of why. Use what the user and the
    documents already say before asking; ask only about the real gap.
 3. When the user decides, record the decision: an id, the question, the choice, who decided, and
    why. Keep the user's own words for the reason where they are clear.
@@ -33,7 +34,8 @@ Settle the choices left open by the shaping, one at a time, and record each as i
    the user already made with the facts in front of them.
 6. Name the direction. Step 4 also settles the `outcome` block: the chosen direction (build,
    experiment, already exists, process change, defer or stop), the reason and the next action.
-   You confirm it with the user as the deciding closes; the product-discovery skill writes it to
+   You confirm it with the user through the choice prompt as the deciding closes; the
+   product-discovery skill writes it to
    the record through its record script, alongside the decisions block that this step produces.
 
 ## If the checks cannot run
@@ -41,7 +43,8 @@ Settle the choices left open by the shaping, one at a time, and record each as i
 This skill carries no script. Decide and record by hand with this checklist:
 
 - Each open choice was taken one at a time, not as a batch.
-- Every choice was offered with a recommendation and two or three short options.
+- Every choice was offered through the choice prompt (or a short list when the host has none)
+  with a recommendation and two or three short options.
 - Each decision is recorded with its id, question, choice, who decided, and why.
 - An "I don't know" produced a labelled assumption in the assumptions block, never a silent
   decision, with its id, question, default and why.

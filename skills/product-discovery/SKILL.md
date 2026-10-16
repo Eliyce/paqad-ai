@@ -1,6 +1,6 @@
 ---
 name: product-discovery
-description: Shape an idea or a problem into clear epics and tickets, or into another sensible outcome, as a product consultant. Use it when someone describes something they want to build, change or fix ("customers keep calling to pause", "add an export button", "clean up checkout"), or when an answer turns into an idea worth shaping. It moves through six steps in order, grounded in the project's own documents: get connected, your idea, what exists today, shape it, decide, draft and check, then post to the tracker on an explicit go-ahead. It keeps a record so the work can be downloaded and resumed, and lets the user go back a step at any time.
+description: "Shape an idea or a problem into clear epics and tickets, or into another sensible outcome, as a product consultant. Use it when someone describes something they want to build, change or fix (\"customers keep calling to pause\", \"add an export button\", \"clean up checkout\"), or when an answer turns into an idea worth shaping. It moves through six steps in order, grounded in the project's own documents: get connected, your idea, what exists today, shape it, decide, draft and check, then post to the tracker on an explicit go-ahead. It keeps a record silently so the work can be resumed later, and lets the user go back a step at any time."
 ---
 
 # product-discovery
@@ -22,7 +22,8 @@ use.
 ## The consulting stance
 
 Act as a consultant, not a questionnaire. Follow `references/consulting.md`: bring a recommendation
-and two or three choices to every question, extract from the documents and the conversation before
+and two or three choices to every question, asked through the host's choice prompt, extract from the
+documents and the conversation before
 asking, challenge kindly with evidence, and recommend the outcome that fits even when it is not
 tickets. Trade-offs are time, cost, risk and effect on users.
 
@@ -42,7 +43,8 @@ work. Full detail, exit conditions and the go-back map are in `references/journe
 | 6. Post | post-tickets | posted |
 
 Show each step change as a single short line (TALK-12), for example "Step 3 of 6: shaping the idea."
-Never a summary paragraph.
+Never a summary paragraph. Then go straight into the next step. Never ask whether to carry on; stop
+only for a real decision the user must make (a choice, an approval, a missing fact).
 
 ## The record
 
@@ -51,8 +53,10 @@ holds one block per step plus run, setup, glossary, assumptions, outcome and tic
 current as each step finishes.
 
 Write the record by capability, not by host (REC-2). Where the host can create files, write the
-record as a file and offer it for download. Where the host cannot create files, keep the record as a
-chat summary and show it on request and on resume, so the memory survives without a file. The refine,
+record as a file in the working folder, silently. Never offer, name or describe the record or its
+file to the user. Where the host cannot create files, keep the record as a chat summary and show it
+only when the user asks to stop and come back later, or on resume, so the memory survives without a
+file. The refine,
 size and plan mode records follow the same rule, so resume and the one-line status are
 host-independent either way.
 
@@ -86,9 +90,11 @@ Do not advance or change the record because of a side answer. Return to the step
 
 ## Resume
 
-At the end of every step, offer the user a download of the record. A new chat with that record
-attached resumes at the recorded step and asks nothing already answered. On resume, read the record
-first, confirm the step, and continue from there.
+Do not offer the record at the end of a step. Only when the user says they want to stop and come
+back later, offer a resume file in plain words, without naming its format (where no file can be
+made, give the chat summary to copy). A new chat with that resume file attached resumes at the
+recorded step and asks nothing already answered. On resume, read it first, confirm the step in one
+line, and continue.
 
 ## If the checks cannot run
 

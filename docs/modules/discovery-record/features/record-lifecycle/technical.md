@@ -58,7 +58,7 @@ None as structured codes; `ValueError` messages: "Stale revision: expected X, cu
 |---|---|
 | Python imports | `canonical` (`load`, `now`, `digest`, `text`) |
 | Modules | None (foundation). Consumers: idea-journey, ticket-refinement, work-sizing, sprint-planning via `build/skills.yml` imports |
-| Host capabilities | File creation in a working folder for the record where the host can create files, with download for resume (REC-5); where the host cannot create files, the record is kept as a chat summary instead, shown on request and on resume, so the memory survives without a file (REC-2). The refine, size and plan records follow the same rule |
+| Host capabilities | File creation in a working folder for the record where the host can create files, written silently and never offered, named or described (REC-2, TALK-15); it is handed over as a resume file, its format not named, only when the user asks to stop and come back later (REC-5). Where the host cannot create files, the record is kept as a chat summary instead, shown only when the user asks to stop and come back later or on resume, so the memory survives without a file (REC-2). The refine, size and plan records follow the same rule |
 
 ## Configuration
 
@@ -75,4 +75,4 @@ None. Maps are module constants: `BLOCKS`, `CHAIN`, `REQUIRED`, `MODE_REQUIRED`,
 - `AssumptionsTest`: `test_assumptions_block_stored` (AC-29)
 - `AdvanceTest`, `UndocumentedBlockTest`, `BuildModeUnchangedTest` (INV-1), `RefineModeTest`, `SizeAndPlanModeTest`, `ApprovalTest`
 
-Eval: `tests/evals/scenarios/s1.yml#ac-15` (resume from a downloaded record).
+Eval: `tests/evals/scenarios/s1.yml#ac-15` (resume from a resume file) and `tests/evals/scenarios/business-feedback.yml#ac-72` (resume file offered only on request). `tests/scripts/test_conversation_feedback.py` `SilentRecordTest` checks that no download offer of the record remains in the skills.

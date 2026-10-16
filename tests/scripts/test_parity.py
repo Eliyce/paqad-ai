@@ -46,8 +46,8 @@ class ParityHarnessTest(unittest.TestCase):
         self.assertEqual(self._check(), [], "parity should hold on the real built dist")
 
     def test_fails_when_a_host_branch_is_missing_a_skill(self):
-        # Remove ask-project from the chatgpt branch only: a journey divergence.
-        shutil.rmtree(os.path.join(self._branch_skills("chatgpt"), "ask-project"))
+        # Remove paqad-ask from the chatgpt branch only: a journey divergence.
+        shutil.rmtree(os.path.join(self._branch_skills("chatgpt"), "paqad-ask"))
         findings = self._check()
         self.assertTrue(findings, "a missing skill must produce a finding")
         self.assertTrue(
@@ -59,7 +59,7 @@ class ParityHarnessTest(unittest.TestCase):
         # Corrupt the codex branch's shipped ticket-set schema so it differs from the others.
         schema = os.path.join(
             self._branch_skills("codex"),
-            "write-tickets",
+            "paqad-write-tickets",
             "assets",
             "ticket-set.schema.json",
         )

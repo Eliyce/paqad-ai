@@ -167,6 +167,15 @@ def branch_skills_root(dist_root, host, plugin_name):
     return os.path.join(dist_root, "hosts", host, "plugins", plugin_name, "skills")
 
 
+def _unquote_scalar(value):
+    """Return a one-line frontmatter value without its YAML quotes (double or single)."""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return json.loads(value)
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    return value
+
+
 def _skill_description(skill_md_text):
     """Return the frontmatter description of a SKILL.md (one logical line)."""
     lines = skill_md_text.splitlines()
@@ -176,7 +185,7 @@ def _skill_description(skill_md_text):
         if line.strip() == "---":
             break
         if line.startswith("description:"):
-            return line.partition(":")[2].strip()
+            return _unquote_scalar(line.partition(":")[2].strip())
     return ""
 
 
@@ -237,15 +246,15 @@ def collect_branch_profile(skills_root):
     return {
         "skills": frozenset(skills),
         "entry_skills": frozenset(entry_skills),
-        "step_graph": _step_graph(read_skill_file("product-discovery", "SKILL.md")),
+        "step_graph": _step_graph(read_skill_file("paqad-discover", "SKILL.md")),
         "answer_shape": _answer_shape(
-            read_skill_file("ask-project", "references", "answer-template.md")
+            read_skill_file("paqad-ask", "references", "answer-template.md")
         ),
         "record_blocks": _record_blocks(
-            read_skill_file("product-discovery", "assets", "record-template.md")
+            read_skill_file("paqad-discover", "assets", "record-template.md")
         ),
         "ticket_schema": read_skill_file(
-            "write-tickets", "assets", "ticket-set.schema.json"
+            "paqad-write-tickets", "assets", "ticket-set.schema.json"
         ),
     }
 

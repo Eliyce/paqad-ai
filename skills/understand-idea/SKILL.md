@@ -24,11 +24,12 @@ Runs when the product-discovery journey directs it; not started directly.
    who benefits, what success looks like, and the constraints. Use `references/question-bank.md`
    for grounded questions per gap.
 3. Ask as a consultant (CON-1). Each question carries one recommendation and two or three realistic
-   choices, kept short (TALK-8), with the recommended one marked. "I don't know" is always
+   choices, kept short (TALK-8) and asked through the host's choice prompt with the recommended one
+   marked; a list in the reply only when the host has no choice prompt. "I don't know" is always
    accepted: offer a sensible default, say it is an assumption, and note it so it can be recorded.
 4. When the user cannot state what success looks like, follow `references/success-prompts.md`: offer
-   two or three suggested measures, each labelled a suggestion, and keep only the one the user
-   accepts (AC-25, CON-6).
+   two or three suggested measures through the choice prompt, each labelled a suggestion, and keep
+   only the one the user accepts (AC-25, CON-6).
 5. Keep the user's own words. Where the project uses a different name for the same thing, note the
    pair for the glossary so later steps show both (GRD-6).
 
@@ -41,7 +42,8 @@ This skill carries no script. Its method is the checklist:
 - Confirm what success looks like: a measure the user accepts, or a suggested measure they chose,
   or an explicit "to be measured after release".
 - Confirm the constraints: anything that limits the idea (time, cost, rules, systems to respect).
-- For each gap, ask one grounded question with a recommendation and two or three choices. Record an
+- For each gap, ask one grounded question with a recommendation and two or three choices, through
+  the choice prompt (a short list only when the host has none). Record an
   accepted default as an assumption, labelled as one. Do not invent a success number.
 
 ## Output

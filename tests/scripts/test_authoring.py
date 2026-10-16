@@ -38,14 +38,20 @@ if SHARED_SCRIPTS not in sys.path:
 import check_onboarded  # noqa: E402
 
 # The entry skills a user may start directly (PLG-8/CI-11); every other skill is a step skill.
-# S1b adds the three existing-work skills as entry skills (FR-13), bringing the set to five.
+# S1b adds the three existing-work skills as entry skills (FR-13); the front door (published as
+# paqad) is the sixth entry skill, so the set is six (FR-7). Source folders keep their unprefixed
+# names, so the front door appears here as "front-door".
 ENTRY_SKILLS = {
     "product-discovery",
     "ask-project",
     "refine-ticket",
     "size-work",
     "plan-sprint",
+    "front-door",
 }
+# The front door is an entry skill everywhere, but it ships no scripts and so carries no "If the
+# checks cannot run" capability fallback; it is exempt from that assertion alone (AC-10/INV-6).
+CAPABILITY_FALLBACK_SKILLS = ENTRY_SKILLS - {"front-door"}
 # A step skill's description states it runs only when the journey directs it.
 STEP_PHRASE = "journey directs it"
 # The script-bearing skills that must carry a checklist fallback (PLG-6). S1b adds refine-ticket,
@@ -66,6 +72,7 @@ VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai", re.IGNOREC
 # Built with chr() so this source file itself stays ASCII and does not trip its own CI-5 check.
 EM_DASH = chr(0x2014)
 EN_DASH = chr(0x2013)
+IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg")
 
 # Onboarding template markers from REQUIREMENTS.md section 7 (GRD-4), both generations.
 TEMPLATE_MARKERS = (
@@ -112,6 +119,15 @@ def skill_dirs():
     )
 
 
+def unquote_scalar(value):
+    """Return a one-line frontmatter value without its YAML quotes (double or single)."""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return json.loads(value)
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    return value
+
+
 def split_frontmatter(text):
     """Return (frontmatter_dict, body_text). Raises AssertionError on a malformed header."""
     lines = text.splitlines()
@@ -121,7 +137,7 @@ def split_frontmatter(text):
     while i < len(lines) and lines[i].strip() != "---":
         key, sep, value = lines[i].partition(":")
         if sep:
-            fm[key.strip()] = value.strip()
+            fm[key.strip()] = unquote_scalar(value.strip())
         i += 1
     assert i < len(lines), "SKILL.md frontmatter is not closed with ---"
     body = "\n".join(lines[i + 1:])
@@ -235,12 +251,15 @@ class HousePromptTest(unittest.TestCase):
             os.path.join(REPO_ROOT, "tests"),
             os.path.join(REPO_ROOT, ".github"),
             os.path.join(REPO_ROOT, ".changeset"),
+            os.path.join(REPO_ROOT, "publish"),
         ]
         offenders = []
         for root in roots:
             if not os.path.isdir(root):
                 continue
             for path in iter_source_files(root):
+                if path.endswith(IMAGE_SUFFIXES):
+                    continue
                 text = read_text(path)
                 if EM_DASH in text or EN_DASH in text:
                     offenders.append(os.path.relpath(path, REPO_ROOT))
@@ -363,7 +382,7 @@ class CapabilityFallbackTest(unittest.TestCase):
     shipped skill branches on a host or vendor name under skills/."""
 
     def test_every_entry_skill_has_capability_fallback(self):
-        for skill in sorted(ENTRY_SKILLS):
+        for skill in sorted(CAPABILITY_FALLBACK_SKILLS):
             text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
             self.assertIn(
                 "If the checks cannot run",

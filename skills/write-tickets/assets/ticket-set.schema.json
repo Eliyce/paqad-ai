@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://paqad.dev/schemas/ticket-set.schema.json",
+  "$id": "https://paqad.ai/schemas/ticket-set.schema.json",
   "title": "Canonical ticket set",
   "description": "The single source for what gets posted (REQUIREMENTS section 8.3). The stdlib has no JSON-Schema validator, so check_ticket_set.py hand-validates these rules; this document fixes the shape and is the reference for authors and reviewers.",
   "type": "object",
@@ -67,12 +67,14 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 80 },
         "body_markdown": { "type": "string" },
         "done_when": {
+          "description": "The acceptance criteria: 2 to 8 Given/When/Then statements, one string each, lines joined by two trailing spaces and a newline.",
           "type": "array",
           "minItems": 2,
           "maxItems": 8,
           "items": { "type": "string", "minLength": 1 }
         },
         "depends_on": {
+          "description": "The refs (E1-T1) or tracker keys this ticket depends on; empty when it depends on none.",
           "type": "array",
           "items": { "type": "string" }
         },

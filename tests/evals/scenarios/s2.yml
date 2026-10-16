@@ -46,11 +46,12 @@ manual_hosts:
   - codex
 
 entry_skills:
-  - product-discovery
-  - ask-project
-  - refine-ticket
-  - size-work
-  - plan-sprint
+  - paqad-discover
+  - paqad-ask
+  - paqad-refine-ticket
+  - paqad-size-work
+  - paqad-plan-sprint
+  - paqad
 
 parity_dimensions:
   - same-journey
@@ -75,7 +76,7 @@ scenarios:
   - id: ac-20-parity-build
     title: Same idea shaped into the same ticket set on every host
     acceptance: AC-20
-    entry_skill: product-discovery
+    entry_skill: paqad-discover
     fixture: subscriptions/features/manage-subscription
     capability_set: full
     user: "Customers keep calling to pause their plan. I want them to pause it themselves on the account page, and I want the tickets in the tracker."
@@ -87,7 +88,7 @@ scenarios:
   - id: ac-20-parity-answer
     title: Same question answered with the same structure on every host
     acceptance: AC-20
-    entry_skill: ask-project
+    entry_skill: paqad-ask
     fixture: subscriptions/features/manage-subscription
     capability_set: full
     user: "Can customers pause a subscription today?"
@@ -98,7 +99,7 @@ scenarios:
   - id: ac-20-capability-stripped
     title: One journey on a capability-stripped host still reaches the same structure
     acceptance: AC-20
-    entry_skill: product-discovery
+    entry_skill: paqad-discover
     fixture: subscriptions/features/manage-subscription
     capability_set: stripped
     requirements:

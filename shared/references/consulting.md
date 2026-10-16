@@ -7,7 +7,8 @@ to every step of the idea journey and to answering questions. The talking rules 
 
 ## CON-1. Bring something to every turn
 
-Every question comes with a recommendation and two or three realistic choices, kept short. Why it
+Every question comes with a recommendation and two or three realistic choices, kept short and asked
+through the host's choice prompt (see `references/voice.md`, Choices in the choice prompt). Why it
 matters is one short clause at most, and only when it is not obvious. "I don't know" is always
 accepted: offer a sensible default, say plainly that it is an assumption, and record it as one.
 
@@ -19,8 +20,9 @@ the material gap, one question at a time.
 ## CON-3. Challenge kindly
 
 When an idea conflicts with what the product does, duplicates an existing feature, or carries a
-clear risk, say so plainly with the evidence, then recommend a way forward. Respect an informed
-choice once made; revisit it only for new evidence.
+clear risk, say so plainly with the evidence, then recommend a way forward. Offer the way forward
+as a choice through the choice prompt. Respect an informed choice once made; revisit it only for
+new evidence.
 
 ## CON-4. Look through expert lenses
 
@@ -42,7 +44,8 @@ the riskiest assumption, with what result would justify going further.
 ## CON-6. Suggest, never invent
 
 You may suggest success measures, scope cuts or rules drawn from the conversation, common practice
-or the documents. Every suggestion is labelled a suggestion and enters the record or a ticket only
+or the documents. Offer suggestions as choices in the choice prompt. Every suggestion is labelled a
+suggestion and enters the record or a ticket only
 after the user accepts it. Only the accepted suggestion is recorded.
 
 ## CON-7. Research on the user's behalf

@@ -9,17 +9,45 @@
 # This file uses a deliberately small, flat YAML shape (scalars, one list of skills, and a short
 # imports list per skill) so build.py can parse it with a tiny standard-library-only reader and
 # avoid any third-party dependency.
+#
+# The listing scalars (author, author_email, repository, homepage, documentation_url, support_url,
+# privacy_policy_url, keywords) are required. They fill the directory listing fields that only the
+# Claude branch manifests carry. Quote every URL. keywords is one comma-separated scalar because
+# the reader has no top-level lists; build.py splits it.
+#
+# The ChatGPT directory scalars (short_description, long_description, category, default_prompts,
+# capabilities) are required too. They fill extensions.com.openai.interface in the native package
+# under dist/hosts/chatgpt-directory, together with display_name (displayName, at most 30
+# characters), author (developerName, at most 80), homepage, support_url and privacy_policy_url.
+# short_description is one line of at most 30 characters, long_description one line of at most
+# 4000, and category one of the directory categories listed in build.py (CHATGPT_CATEGORIES).
+# default_prompts and capabilities are each one scalar with the entries separated by a pipe (|),
+# not a comma, because prompts contain commas and the reader has no top-level lists:
+# default_prompts holds 1 to 3 unique prompts of at most 128 characters with no '@', and
+# capabilities holds 1 to 20 entries of at most 120 characters. build.py checks every limit.
 
 name: paqad-product-discovery
-version: 0.0.0
-description: "Shape product ideas into well-formed tickets, grounded in the project's own documentation."
+version: 3.2.0
+description: "Ask what a product does, shape ideas into user-story tickets, refine tickets, size work and plan sprints, grounded in the repository's docs and code."
 license: MIT
 display_name: "Paqad Product Discovery"
-author: "Paqad"
-homepage: "https://paqad.dev/product-discovery"
+author: "Eliyce"
+author_email: "haider@eliyce.com"
+repository: "https://github.com/Eliyce/paqad-product-discovery-plugin"
+homepage: "https://github.com/Eliyce/paqad-product-discovery-plugin#readme"
+documentation_url: "https://github.com/Eliyce/paqad-product-discovery-plugin#readme"
+support_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/issues"
+privacy_policy_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/blob/main/PRIVACY.md"
+keywords: "product-discovery, product-management, user-stories, tickets, jira, backlog, sprint-planning"
+short_description: "Ideas to ready tickets"
+long_description: "Paqad Product Discovery helps product owners, business analysts and delivery leads understand a product and plan work on it without reading code. Ask what the product does today and get a plain answer with its sources, shape a rough idea into clear user-story epics and tickets, refine an existing ticket without losing its intent, get a size suggestion based on comparable finished work, and propose a sprint plan. Answers come from the repository's own documents and code. Limitations: it only reads and never changes code; it needs the repository documents or code through a connected source or uploaded files; it posts tickets to a tracker only through the tracker connector and only after you approve them."
+category: "Productivity"
+default_prompts: "What does the checkout do today? | Turn this idea into tickets: let shoppers save a basket for later | Plan the next sprint"
+capabilities: "Answers questions about what the product does today, with sources | Shapes a rough idea into user-story epics and tickets | Refines an existing ticket without losing its intent | Suggests a size for work from comparable finished work | Proposes a sprint plan for the team to review | Posts approved tickets through your tracker connector"
 
 skills:
   - name: product-discovery
+    publish: paqad-discover
     imports:
       - references/voice.md
       - references/consulting.md
@@ -27,6 +55,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
   - name: ask-project
+    publish: paqad-ask
     imports:
       - references/voice.md
       - references/consulting.md
@@ -38,6 +67,7 @@ skills:
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: get-connected
+    publish: paqad-get-connected
     imports:
       - references/voice.md
       - references/connect-repository.md
@@ -46,9 +76,11 @@ skills:
       - references/tracker-profiles-github.md
       - scripts/check_onboarded.py
   - name: understand-idea
+    publish: paqad-understand-idea
     imports:
       - references/voice.md
   - name: ground-in-project
+    publish: paqad-ground-in-project
     imports:
       - references/voice.md
       - references/paqad-docs-map.md
@@ -59,25 +91,32 @@ skills:
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: shape-idea
+    publish: paqad-shape-idea
     imports:
       - references/voice.md
       - references/paqad-docs-map.md
       - references/evidence-levels.md
   - name: decide-together
+    publish: paqad-decide-together
     imports:
       - references/voice.md
   - name: write-tickets
+    publish: paqad-write-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
       - references/writing-rules.md
+      - references/user-stories.md
   - name: check-tickets
+    publish: paqad-check-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
+      - references/user-stories.md
       - scripts/canonical.py
       - scripts/check_prose.py
   - name: post-tickets
+    publish: paqad-post-tickets
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -85,6 +124,7 @@ skills:
       - scripts/canonical.py
       - scripts/check_readback.py
   - name: refine-ticket
+    publish: paqad-refine-ticket
     imports:
       - references/voice.md
       - references/writing-rules.md
@@ -99,6 +139,7 @@ skills:
       - scripts/check_prose.py
       - scripts/check_readback.py
   - name: size-work
+    publish: paqad-size-work
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -109,6 +150,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
   - name: plan-sprint
+    publish: paqad-plan-sprint
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -116,3 +158,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
       - scripts/check_readback.py
+  - name: front-door
+    publish: paqad
+    imports:
+      - references/voice.md

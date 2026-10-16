@@ -12,7 +12,7 @@ Check here before writing a new helper or reference. Shared material lives once 
 | `canonical.py` | Canonical JSON digests, loading JSON, timestamps, the JSON result and issue shapes every script prints, and the one external/tracker-ref check (`is_external_ref`) both check-tickets and post-tickets call | `digest`, `load`, `now`, `text`, `issue`, `result`, `is_external_ref` | product-discovery, check-tickets, post-tickets, refine-ticket, size-work, plan-sprint |
 | `record.py` | Creating and changing the discovery record with revision checks, staleness and digest-bound approvals | `new_record`, `validate`, `apply_update`, `apply_advance`, `apply_approve`, `required_for`, `block_digest`, `mint_run_id`, `read`, `write` | product-discovery, refine-ticket, size-work, plan-sprint |
 | `check_record.py` | Asking whether a step's required blocks are present and fresh | `check` | product-discovery, refine-ticket, size-work, plan-sprint |
-| `check_prose.py` | Linting ticket prose (dashes, code words, jargon deny-list) | `lint_ticket_set`, `lint_item`, `scan`, `load_denylist` | check-tickets, refine-ticket |
+| `check_prose.py` | Linting ticket prose (dashes, code words on scoped fields and user story lines with a confirmed permission key allowed, jargon deny-list) | `lint_ticket_set`, `lint_item`, `scan`, `code_scoped_lines`, `load_denylist` | check-tickets, refine-ticket |
 | `check_readback.py` | Comparing what the tracker holds to what was approved, after normalisation | `compare`, `expected_items`, `norm_text`, `norm_title`, `norm_ref` | post-tickets, refine-ticket, plan-sprint |
 | `check_onboarded.py` | The one GRD-1 readiness check (ready, partly ready, not set up; read by the instructions as the project-docs, docs-and-code and code-only levels) and the one reader of area summaries; never re-read `docs/modules/*/index/summary.md` elsewhere | `onboarded_state`, `area_summaries`, `is_onboarded`, `result_payload`; constants `STOP_MESSAGE`, `PARTLY_MESSAGE` | get-connected, ask-project, ground-in-project (and `find_related.py`, which imports it) |
 | `find_related.py` | Ranking the project's modules against free text, from the registry or (no registry) from the area folders and summaries | `rank`, `parse_registry`, `rows_from_modules_dir`, `tokens`, `term_matches` | ask-project, ground-in-project |
@@ -22,11 +22,12 @@ Check here before writing a new helper or reference. Shared material lives once 
 
 | File | Holds | Imported by |
 |---|---|---|
-| `voice.md` | Section 3A reply rules (TALK-*) | all 13 skills |
+| `voice.md` | Section 3A reply rules (TALK-1 to TALK-15, including choices in the host's choice prompt, question last, keep moving and the silent record) | all 13 skills |
 | `tracker-profiles-jira.md` | Jira fields, issue types, link types, sprint and size fields | get-connected, post-tickets, refine-ticket, size-work, plan-sprint |
 | `tracker-profiles-github.md` | GitHub Issues as an export-only tracker: actions availability, model mapping, export and labels | get-connected, post-tickets |
 | `plain-language.md` | Plain-word substitutions and jargon deny-list | write-tickets, check-tickets, refine-ticket |
-| `writing-rules.md` | Ticket writing rules (section 8.4) | write-tickets, refine-ticket |
+| `writing-rules.md` | Ticket writing rules (section 8.4), including the one allowed code span (a confirmed permission key) | write-tickets, refine-ticket |
+| `user-stories.md` | The single source for the user-story ticket shape (section 8.2, TKT-6): intake, line breaks, role / I want / So that, Given/When/Then criteria, permissions, the silent self-audit, API then UI, refusal | write-tickets, check-tickets |
 | `consulting.md` | Consultant stance (section 4A) | product-discovery, ask-project |
 | `evidence-levels.md` | The single source for generic mode (GRD-12 to GRD-16): the three evidence levels (`project-docs`, `docs-and-code`, `code-only`) and their detection, the one source line per level, the informational upgrade nudge rules, and the code-only area finder | ask-project, ground-in-project, shape-idea, refine-ticket, size-work, get-connected |
 | `paqad-docs-map.md` | Where things live when paqad docs are present, the reading order with code as the baseline (GRD-2) and what the documents prove (GRD-8 to GRD-11) | ask-project, ground-in-project, shape-idea, refine-ticket, size-work |

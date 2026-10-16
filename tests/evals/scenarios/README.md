@@ -51,6 +51,15 @@ loyalty's tag over or reasons from what the account page lists fails docs-status
 (`fixture-repo docs folder only`). Properties are judged on meaning, never as a string list. The
 file-level rules are checked by `test_evidence_rules.py`.
 
+`business-feedback.yml` holds the scenarios from the v3.2 business-user test (V-29): every choice
+through the host's choice prompt, a short list in the reply only when the host has none, the
+question last after the sources, no pause to ask whether to carry on, the record kept silently with
+a resume file only when the user asks to stop and come back later, and tickets as user stories with
+Given/When/Then acceptance criteria, an API story then a UI story, a confirmed permission key and
+the refusal of a piece with no user value. Each maps to a conversation-shape acceptance scenario in
+REQUIREMENTS.md section 13 (AC-68 to AC-74). AC-75 is script-proven by `test_user_stories.py` and
+carries no scenario. Its extra `host` field names whether the host has a choice prompt.
+
 The conversation scenarios are declarative. They are authored now but are NOT run in CI until S3,
 when the host eval runner executes them against the built plugin, the fixture repository under
 `tests/evals/fixture-repo/`, and a fake tracker (CI-12, CI-13). Each scenario checks properties, not

@@ -26,6 +26,7 @@ When an answer shows a real problem or opportunity, the plugin adds one short li
 |---|---|
 | Only when it matters | The consultant line is added only when the answer reveals a real problem or opportunity; otherwise nothing is added (ASK-5, CON-9, TALK-2). |
 | One line | The note and the offer stay to one short line. |
+| Offer last | The offer comes after the Sources line and the source line, never above them, through the choice prompt when the host has one (TALK-13). |
 | Offer, not push | The user decides; nothing starts without a yes. |
 | Nothing asked twice | The answer and sources seed the idea and today steps (ASK-6). The project chosen for the question holds for the rest of the conversation, so the journey does not ask which project again (GRD-3). |
 | Template gaps too | When a needed section is template text, the plugin may offer to shape an idea instead of guessing (AC-22). |
